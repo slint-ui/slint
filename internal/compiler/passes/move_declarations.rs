@@ -6,7 +6,7 @@
 #![allow(clippy::mutable_key_type)] // ByAddress<ElementRc> keys rely on Rc identity semantics
 
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::ElementType;
+use crate::langtype::{ElementType, BuiltinElement};
 use crate::object_tree::*;
 use by_address::ByAddress;
 use core::cell::RefCell;
@@ -261,12 +261,27 @@ fn simplify_optimized_items(items: &[ElementRc]) {
             let base = core::mem::take(&mut elem.borrow_mut().base_type);
             if let ElementType::Builtin(c) = base {
                 // This assume that all properties of builtin items are fine with the default value
+
+                // For animation elements, get the actual type of from/to properties
+                let target_type = get_animation_target_type(&elem, &c);
+
                 elem.borrow_mut().property_declarations.extend(c.properties.iter().map(
                     |(k, v)| {
+                        let prop_type = if let Some(ref target) = target_type {
+                            // For from/to properties, use the target type instead of Animatable
+                            if (k == "from" || k == "to") && v.ty == crate::langtype::Type::Animatable {
+                                target.clone()
+                            } else {
+                                v.ty.clone()
+                            }
+                        } else {
+                            v.ty.clone()
+                        };
+
                         (
                             k.clone(),
                             PropertyDeclaration {
-                                property_type: v.ty.clone(),
+                                property_type: prop_type,
                                 ..Default::default()
                             },
                         )
@@ -277,4 +292,16 @@ fn simplify_optimized_items(items: &[ElementRc]) {
             }
         })
     }
+}
+
+fn get_animation_target_type(elem: &ElementRc, builtin: &BuiltinElement) -> Option<crate::langtype::Type> {
+    // Only check for animation elements
+    if builtin.name != "TweenAnimation" {
+        return None;
+    }
+
+    let elem_borrow = elem.borrow();
+    elem_borrow.bindings.get("target").and_then(|target_binding| {
+        target_binding.try_borrow().ok().map(|expr| expr.ty())
+    })
 }
