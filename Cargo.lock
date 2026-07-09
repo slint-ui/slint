@@ -5971,6 +5971,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "inertia-scroll-probe"
+version = "1.18.0"
+dependencies = [
+ "android_logger",
+ "log",
+ "slint",
+ "slint-build",
+]
+
+[[package]]
 name = "inotify"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

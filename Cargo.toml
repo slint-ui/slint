@@ -17,6 +17,7 @@ members = [
   'examples/imagefilter/rust',
   'examples/maps',
   'examples/memory',
+  'examples/inertia-scroll-probe',
   'examples/native-gestures',
   'examples/opengl_underlay',
   'examples/opengl_texture',

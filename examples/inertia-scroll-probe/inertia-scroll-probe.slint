@@ -1,0 +1,85 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component MainWindow inherits Window {
+    title: "Inertia Scroll Probe";
+    width: 320px;
+    height: 480px;
+
+    in-out property <length> viewport-y <=> flick.viewport-y;
+    in property <string> gesture-name;
+    in property <int> frame;
+    in property <int> time-ms;
+    in property <float> velocity-px-s;
+    in property <string> phase;
+
+    flick := Flickable {
+        width: parent.width;
+        height: parent.height;
+        viewport-width: parent.width;
+        viewport-height: 4000px;
+
+        for row in 80: Rectangle {
+            y: row * 50px;
+            width: parent.width;
+            height: 50px;
+            background: row.mod(2) == 0 ? #f6f8fb : #d8e3ec;
+
+            Rectangle {
+                x: 0px;
+                width: 4px;
+                height: parent.height;
+                background: row.mod(5) == 0 ? #f59e0b : #3b82f6;
+            }
+
+            Text {
+                x: 14px;
+                height: parent.height;
+                vertical-alignment: center;
+                text: "scroll probe row";
+                color: #1f2933;
+                font-size: 18px;
+            }
+        }
+    }
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: 112px;
+        background: #111827dd;
+
+        Text {
+            x: 12px;
+            y: 8px;
+            text: root.gesture-name;
+            color: white;
+            font-size: 18px;
+        }
+
+        Text {
+            x: 12px;
+            y: 34px;
+            text: "phase=" + root.phase + " frame=" + root.frame;
+            color: #d1d5db;
+            font-size: 15px;
+        }
+
+        Text {
+            x: 12px;
+            y: 58px;
+            text: "t=" + root.time-ms + "ms y=" + (-root.viewport-y / 1px) + "px";
+            color: #d1d5db;
+            font-size: 15px;
+        }
+
+        Text {
+            x: 12px;
+            y: 82px;
+            text: "v=" + root.velocity-px-s + "px/s";
+            color: #d1d5db;
+            font-size: 15px;
+        }
+    }
+}
