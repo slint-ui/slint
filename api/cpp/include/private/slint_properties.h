@@ -2,8 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #pragma once
-#include <string_view>
+#include <functional>
 #include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 namespace slint::cbindgen_private {
 struct PropertyAnimation;
@@ -19,6 +23,16 @@ struct ChangeTracker
 namespace slint::private_api {
 
 using cbindgen_private::StateInfo;
+
+/// `kind` tags for `slint_property_set_binding_with_kind` /
+/// `slint_property_binding_kind_user_data`, identifying the C++ object
+/// behind a binding's `user_data` so it can be recovered safely later.
+/// A `Property<T>::TwoWayBinding` (holds the two-way class' shared common
+/// property).
+constexpr uint8_t cpp_two_way_binding_kind = 1;
+/// A `Property<T>::StructMemberBindings` (the wrapper binding of a struct
+/// property whose fields participate in two-way binding classes).
+constexpr uint8_t cpp_struct_member_bindings_kind = 2;
 
 inline void slint_property_set_animated_binding_helper(
         const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, int *),
@@ -142,14 +156,14 @@ struct Property
             std::swap(handle, const_cast<Property<T> *>(p2)->inner);
         }
         auto common_property = std::make_shared<Property<T>>(handle, std::move(value));
-        cbindgen_private::slint_property_set_binding(
+        cbindgen_private::slint_property_set_binding_with_kind(
                 &p1->inner, TwoWayBinding::call_fn, new TwoWayBinding { common_property },
                 TwoWayBinding::del_fn, TwoWayBinding::intercept_fn,
-                TwoWayBinding::intercept_binding_fn);
-        cbindgen_private::slint_property_set_binding(
+                TwoWayBinding::intercept_binding_fn, cpp_two_way_binding_kind);
+        cbindgen_private::slint_property_set_binding_with_kind(
                 &p2->inner, TwoWayBinding::call_fn, new TwoWayBinding { common_property },
                 TwoWayBinding::del_fn, TwoWayBinding::intercept_fn,
-                TwoWayBinding::intercept_binding_fn);
+                TwoWayBinding::intercept_binding_fn, cpp_two_way_binding_kind);
     }
 
     template<typename T2, typename M1, typename M2>
@@ -218,10 +232,10 @@ struct Property
             return true;
         };
 
-        cbindgen_private::slint_property_set_binding(
+        cbindgen_private::slint_property_set_binding_with_kind(
                 &prop1->inner, TwoWayBinding::call_fn, new TwoWayBinding { common_property },
                 TwoWayBinding::del_fn, TwoWayBinding::intercept_fn,
-                TwoWayBinding::intercept_binding_fn);
+                TwoWayBinding::intercept_binding_fn, cpp_two_way_binding_kind);
 
         cbindgen_private::slint_property_set_binding(
                 &prop2->inner, call_fn, new TwoWayBindingWithMap { common_property, map1, map2 },
@@ -255,9 +269,350 @@ struct Property
                     return true;
                 },
                 [](void *, void *) -> bool {
-                    // Cannot rebind a property already two-way bound to a model.
-                    std::abort();
+                    // A new binding replaces the model binding (this happens
+                    // when a driver projection is installed on a two-way
+                    // class' common property that is bound to a model row;
+                    // same behavior as the Rust TwoWayBindingModel).
+                    return false;
                 });
+    }
+
+    /// The binding wrapper installed on a struct property that has two-way
+    /// bindings onto its *fields*. Mirrors the Rust `StructMemberBindings`
+    /// (see internal/core/properties/two_way_binding.rs): each mapped field
+    /// is synchronized with a shared narrow common property of the field's
+    /// type; the struct's own value-producing binding lives in the
+    /// `DriverSlot` and both produces the unmapped fields and drives the
+    /// commons via projections.
+    struct StructMemberBindings
+    {
+        struct DriverSlot
+        {
+            /// The struct property's own binding (an owned Rust
+            /// `BindingHolder`), if any.
+            void *holder = nullptr;
+            /// Seed value for evaluating the binding outside of the struct
+            /// property's own storage.
+            T cache {};
+            /// Number of nested `evaluate_holder` frames; while non-zero,
+            /// holders are parked in `pending_drops` instead of deleted (a
+            /// projection evaluates the binding without the struct
+            /// property's lock, so a write-back could otherwise free the
+            /// binding while it is executing).
+            int evaluation_depth = 0;
+            std::vector<void *> pending_drops;
+
+            void dispose(void *binding)
+            {
+                if (evaluation_depth > 0) {
+                    pending_drops.push_back(binding);
+                } else {
+                    cbindgen_private::slint_property_delete_binding(binding);
+                }
+            }
+            void clear()
+            {
+                if (auto *binding = std::exchange(holder, static_cast<void *>(nullptr))) {
+                    dispose(binding);
+                }
+            }
+            /// Evaluate the current holder into `value`, keeping it alive
+            /// until the evaluation returns even if it is cleared or
+            /// replaced while executing. Returns false when the slot is
+            /// empty.
+            bool evaluate_holder(T *value)
+            {
+                auto *binding = holder;
+                if (!binding) {
+                    return false;
+                }
+                evaluation_depth++;
+                cbindgen_private::slint_property_evaluate_binding(binding, value);
+                if (--evaluation_depth == 0) {
+                    while (!pending_drops.empty()) {
+                        auto *pending = pending_drops.back();
+                        pending_drops.pop_back();
+                        cbindgen_private::slint_property_delete_binding(pending);
+                    }
+                }
+                return true;
+            }
+            ~DriverSlot()
+            {
+                clear();
+                while (!pending_drops.empty()) {
+                    auto *pending = pending_drops.back();
+                    pending_drops.pop_back();
+                    cbindgen_private::slint_property_delete_binding(pending);
+                }
+            }
+        };
+
+        std::shared_ptr<DriverSlot> slot = std::make_shared<DriverSlot>();
+
+        struct Mapping
+        {
+            /// Field path within the struct (e.g. "field" or "outer.inner"),
+            /// used to find and replace the mapping on re-links.
+            std::string key;
+            /// `value.<key> = common.get()`
+            std::function<void(T &)> apply_from_common;
+            /// `common.set(get_field(value))`
+            std::function<void(const T &)> push_to_common;
+            /// Installs a driver projection for this mapping's field onto
+            /// the common.
+            std::function<void(const std::shared_ptr<DriverSlot> &)> install_projection;
+            /// The narrow common property (a shared_ptr<Property<T2>>),
+            /// type-erased for the field-keyed reuse lookup.
+            std::shared_ptr<void> common;
+        };
+        std::vector<Mapping> mappings;
+    };
+
+    /// Make sure the property wears a `StructMemberBindings` wrapper, moving
+    /// a pre-existing binding into the wrapper's driver slot.
+    static StructMemberBindings *ensure_struct_member_bindings(const Property<T> *prop)
+    {
+        if (void *user_data = cbindgen_private::slint_property_binding_kind_user_data(
+                    &prop->inner, cpp_struct_member_bindings_kind)) {
+            return reinterpret_cast<StructMemberBindings *>(user_data);
+        }
+        auto *wrapper = new StructMemberBindings();
+        wrapper->slot->cache = prop->value;
+        if (void *old = cbindgen_private::slint_property_detach_binding(&prop->inner)) {
+            wrapper->slot->holder = old;
+        }
+        cbindgen_private::slint_property_set_binding_with_kind(
+                &prop->inner,
+                [](void *user_data, void *value) {
+                    auto *self = reinterpret_cast<StructMemberBindings *>(user_data);
+                    T &v = *reinterpret_cast<T *>(value);
+                    if (self->slot->evaluate_holder(&v)) {
+                        self->slot->cache = v;
+                    }
+                    for (auto &mapping : self->mappings) {
+                        mapping.apply_from_common(v);
+                    }
+                },
+                wrapper,
+                [](void *user_data) {
+                    delete reinterpret_cast<StructMemberBindings *>(user_data);
+                },
+                [](void *user_data, const void *value) -> bool {
+                    // Setting a value drops the binding (as on an unwrapped
+                    // property) and pushes the mapped fields into their
+                    // classes; the unmapped fields are stored by set().
+                    auto *self = reinterpret_cast<StructMemberBindings *>(user_data);
+                    self->slot->clear();
+                    const T &v = *reinterpret_cast<const T *>(value);
+                    for (auto &mapping : self->mappings) {
+                        mapping.push_to_common(v);
+                    }
+                    return true;
+                },
+                [](void *user_data, void *new_binding) -> bool {
+                    // A new binding becomes the driver of the mapped fields'
+                    // classes: install the projections (which also marks the
+                    // commons' dependents dirty).
+                    auto *self = reinterpret_cast<StructMemberBindings *>(user_data);
+                    if (auto *old = std::exchange(self->slot->holder, new_binding)) {
+                        self->slot->dispose(old);
+                    }
+                    for (auto &mapping : self->mappings) {
+                        mapping.install_projection(self->slot);
+                    }
+                    return true;
+                },
+                cpp_struct_member_bindings_kind);
+        return wrapper;
+    }
+
+    /// The (type-erased) narrow common property the given field of this
+    /// struct property is synchronized with, if any.
+    static std::shared_ptr<void> struct_member_common(const Property<T> *prop,
+                                                      std::string_view field_key)
+    {
+        if (void *user_data = cbindgen_private::slint_property_binding_kind_user_data(
+                    &prop->inner, cpp_struct_member_bindings_kind)) {
+            auto *wrapper = reinterpret_cast<StructMemberBindings *>(user_data);
+            for (auto &mapping : wrapper->mappings) {
+                if (mapping.key == field_key) {
+                    return mapping.common;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    /// Add (or replace, keyed by `field_key`) a mapping synchronizing
+    /// `field_key` of this struct property with `common`.
+    template<typename T2, typename GetField, typename SetField>
+    static void add_struct_member_mapping(const Property<T> *prop, std::string_view field_key,
+                                          std::shared_ptr<Property<T2>> common, GetField get_field,
+                                          SetField set_field)
+    {
+        auto *wrapper = ensure_struct_member_bindings(prop);
+        typename StructMemberBindings::Mapping mapping {
+            std::string(field_key),
+            [common, set_field](T &value) { set_field(value, common->get()); },
+            [common, get_field](const T &value) { common->set(get_field(value)); },
+            [common, get_field](const std::shared_ptr<typename StructMemberBindings::DriverSlot>
+                                        &slot) {
+                // The driver projection: evaluates the struct's binding and
+                // extracts the mapped field, so the binding drives the class
+                // (last installed binding on the common wins).
+                struct Projection
+                {
+                    std::shared_ptr<typename StructMemberBindings::DriverSlot> slot;
+                    GetField get_field;
+                };
+                cbindgen_private::slint_property_set_binding(
+                        &common->inner,
+                        [](void *user_data, void *value) {
+                            auto *self = reinterpret_cast<Projection *>(user_data);
+                            T struct_value = self->slot->cache;
+                            if (!self->slot->evaluate_holder(&struct_value)) {
+                                // the driver was dropped: keep the common's
+                                // current value
+                                return;
+                            }
+                            *reinterpret_cast<T2 *>(value) = self->get_field(struct_value);
+                            self->slot->cache = std::move(struct_value);
+                        },
+                        new Projection { slot, get_field },
+                        [](void *user_data) { delete reinterpret_cast<Projection *>(user_data); },
+                        nullptr, nullptr);
+            },
+            common,
+        };
+        // A pre-existing binding must also drive this field's class.
+        if (wrapper->slot->holder) {
+            mapping.install_projection(wrapper->slot);
+        }
+        bool replaced = false;
+        for (auto &existing : wrapper->mappings) {
+            if (existing.key == mapping.key) {
+                existing = std::move(mapping);
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) {
+            wrapper->mappings.push_back(std::move(mapping));
+        }
+        // The wrapper must re-evaluate to pick up the new mapping's common
+        // (and register the dependency on it).
+        cbindgen_private::slint_property_mark_binding_and_dependencies_dirty(&prop->inner);
+    }
+
+    /// Link `field_key` of the struct property `struct_prop` two-way with
+    /// the property `member_prop`, such that they always have the same
+    /// value. This is the runtime counterpart of `member <=> strct.field`;
+    /// `struct_prop` is the right-hand side and its current field value
+    /// wins. Mirrors the Rust `Property::link_two_way_to_member`.
+    template<typename T2, typename GetField, typename SetField>
+    static void link_two_way_to_member(const Property<T> *struct_prop,
+                                       const Property<T2> *member_prop, std::string_view field_key,
+                                       GetField get_field, SetField set_field)
+    {
+        std::shared_ptr<Property<T2>> common;
+        bool member_was_linked = false;
+        if (void *user_data = cbindgen_private::slint_property_binding_kind_user_data(
+                    &member_prop->inner, cpp_two_way_binding_kind)) {
+            common = reinterpret_cast<typename Property<T2>::TwoWayBinding *>(user_data)
+                             ->common_property;
+            member_was_linked = true;
+        }
+        if (auto struct_common_erased = struct_member_common(struct_prop, field_key)) {
+            auto struct_common = std::static_pointer_cast<Property<T2>>(struct_common_erased);
+            if (common && common != struct_common) {
+                // both sides are already in (distinct) classes: unify them
+                Property<T2>::link_two_way(common.get(), struct_common.get());
+            }
+            common = struct_common;
+        }
+        if (!common) {
+            // seed a new class with the struct's genuine field value (the
+            // right-hand side of `<=>` wins)
+            common = std::make_shared<Property<T2>>(get_field(struct_prop->get()));
+        } else if ((reinterpret_cast<uintptr_t>(common->inner._0) & 0b10) == 0) {
+            // push the struct's field value into a reused class, unless the
+            // class is driven by a binding (the binding stays authoritative)
+            common->set(get_field(struct_prop->get()));
+        }
+
+        add_struct_member_mapping(struct_prop, field_key, common, get_field, set_field);
+
+        if (!member_was_linked) {
+            // a pre-existing regular binding on the member is dropped by
+            // set_binding (the struct's value wins; bindings install after
+            // the links in generated code)
+            cbindgen_private::slint_property_set_binding_with_kind(
+                    &member_prop->inner, Property<T2>::TwoWayBinding::call_fn,
+                    new typename Property<T2>::TwoWayBinding { common },
+                    Property<T2>::TwoWayBinding::del_fn, Property<T2>::TwoWayBinding::intercept_fn,
+                    Property<T2>::TwoWayBinding::intercept_binding_fn, cpp_two_way_binding_kind);
+        }
+    }
+
+    /// Link `field_key_a` of the struct property `prop_a` two-way with
+    /// `field_key_b` of the struct property `prop_b` (both fields have the
+    /// same type `T2`). This is the runtime counterpart of a whole-struct
+    /// `<=>` that the compiler decomposed into per-field links; `prop_b` is
+    /// the right-hand side and its current field value wins.
+    template<typename T2, typename TB, typename GetFieldA, typename SetFieldA, typename GetFieldB,
+             typename SetFieldB>
+    static void link_two_way_members(const Property<T> *prop_a, std::string_view field_key_a,
+                                     GetFieldA get_field_a, SetFieldA set_field_a,
+                                     const Property<TB> *prop_b, std::string_view field_key_b,
+                                     GetFieldB get_field_b, SetFieldB set_field_b)
+    {
+        auto common_a = std::static_pointer_cast<Property<T2>>(
+                Property<T>::struct_member_common(prop_a, field_key_a));
+        auto common_b = std::static_pointer_cast<Property<T2>>(
+                Property<TB>::struct_member_common(prop_b, field_key_b));
+        std::shared_ptr<Property<T2>> common;
+        if (common_a && common_b) {
+            if (common_a != common_b) {
+                Property<T2>::link_two_way(common_a.get(), common_b.get());
+            }
+            common = common_b;
+        } else if (common_a) {
+            common = common_a;
+        } else if (common_b) {
+            common = common_b;
+        }
+        if (!common) {
+            common = std::make_shared<Property<T2>>(get_field_b(prop_b->get()));
+        } else if ((reinterpret_cast<uintptr_t>(common->inner._0) & 0b10) == 0) {
+            common->set(get_field_b(prop_b->get()));
+        }
+        // prop_b's mapping is installed last, so a binding on prop_b wins
+        // the driver election over one on prop_a.
+        Property<T>::add_struct_member_mapping(prop_a, field_key_a, common, get_field_a,
+                                               set_field_a);
+        Property<TB>::add_struct_member_mapping(prop_b, field_key_b, common, get_field_b,
+                                                set_field_b);
+    }
+
+    /// Link `field_key` of the struct property `struct_prop` two-way with a
+    /// value stored in a model row. This is the runtime counterpart of a
+    /// whole-row `strct <=> model-data` that the compiler decomposed into
+    /// per-field links; the model is authoritative (the row binding is
+    /// installed on the class' common property and drives it).
+    template<typename T2, typename GetField, typename SetField, typename Getter, typename Setter>
+    static void link_two_way_member_to_model_data(const Property<T> *struct_prop,
+                                                  std::string_view field_key, GetField get_field,
+                                                  SetField set_field, Getter getter, Setter setter)
+    {
+        auto common = std::static_pointer_cast<Property<T2>>(
+                struct_member_common(struct_prop, field_key));
+        if (!common) {
+            common = std::make_shared<Property<T2>>(get_field(struct_prop->get()));
+        }
+        add_struct_member_mapping(struct_prop, field_key, common, get_field, set_field);
+        Property<T2>::link_two_way_to_model_data(common.get(), std::move(getter),
+                                                 std::move(setter));
     }
 
     /// Internal (private) constructor used by link_two_way

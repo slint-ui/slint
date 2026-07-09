@@ -55,6 +55,43 @@ pub unsafe extern "C" fn slint_property_set_changed(
     }
 }
 
+struct CFunctionBinding<T> {
+    binding_function: extern "C" fn(*mut c_void, *mut T),
+    user_data: *mut c_void,
+    drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    intercept_set:
+        Option<extern "C" fn(user_data: *mut c_void, pointer_to_value: *const T) -> bool>,
+    intercept_set_binding:
+        Option<extern "C" fn(user_data: *mut c_void, new_binding: *mut c_void) -> bool>,
+}
+
+impl<T> Drop for CFunctionBinding<T> {
+    fn drop(&mut self) {
+        if let Some(x) = self.drop_user_data {
+            x(self.user_data)
+        }
+    }
+}
+
+unsafe impl<T> BindingCallable<T> for CFunctionBinding<T> {
+    fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
+        (self.binding_function)(self.user_data, value as *mut T);
+        BindingResult::KeepBinding
+    }
+    fn intercept_set(self: Pin<&Self>, value: &T) -> bool {
+        match self.intercept_set {
+            None => false,
+            Some(intercept_set) => intercept_set(self.user_data, value as *const T),
+        }
+    }
+    unsafe fn intercept_set_binding(self: Pin<&Self>, new_binding: *mut BindingHolder) -> bool {
+        match self.intercept_set_binding {
+            None => false,
+            Some(intercept_set_b) => intercept_set_b(self.user_data, new_binding.cast()),
+        }
+    }
+}
+
 fn make_c_function_binding(
     binding: extern "C" fn(*mut c_void, *mut c_void),
     user_data: *mut c_void,
@@ -65,44 +102,7 @@ fn make_c_function_binding(
     intercept_set_binding: Option<
         extern "C" fn(user_data: *mut c_void, new_binding: *mut c_void) -> bool,
     >,
-) -> impl BindingCallable<c_void> {
-    struct CFunctionBinding<T> {
-        binding_function: extern "C" fn(*mut c_void, *mut T),
-        user_data: *mut c_void,
-        drop_user_data: Option<extern "C" fn(*mut c_void)>,
-        intercept_set:
-            Option<extern "C" fn(user_data: *mut c_void, pointer_to_value: *const T) -> bool>,
-        intercept_set_binding:
-            Option<extern "C" fn(user_data: *mut c_void, new_binding: *mut c_void) -> bool>,
-    }
-
-    impl<T> Drop for CFunctionBinding<T> {
-        fn drop(&mut self) {
-            if let Some(x) = self.drop_user_data {
-                x(self.user_data)
-            }
-        }
-    }
-
-    unsafe impl<T> BindingCallable<T> for CFunctionBinding<T> {
-        fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
-            (self.binding_function)(self.user_data, value as *mut T);
-            BindingResult::KeepBinding
-        }
-        fn intercept_set(self: Pin<&Self>, value: &T) -> bool {
-            match self.intercept_set {
-                None => false,
-                Some(intercept_set) => intercept_set(self.user_data, value as *const T),
-            }
-        }
-        unsafe fn intercept_set_binding(self: Pin<&Self>, new_binding: *mut BindingHolder) -> bool {
-            match self.intercept_set_binding {
-                None => false,
-                Some(intercept_set_b) => intercept_set_b(self.user_data, new_binding.cast()),
-            }
-        }
-    }
-
+) -> CFunctionBinding<c_void> {
     CFunctionBinding {
         binding_function: binding,
         user_data,
@@ -152,6 +152,108 @@ pub unsafe extern "C" fn slint_property_set_binding_internal(
     binding: *mut c_void,
 ) {
     handle.0.set_binding_impl(binding.cast());
+}
+
+/// Same as [`slint_property_set_binding`], but additionally tags the created
+/// binding with a non-zero `kind` that identifies the C++-side object behind
+/// `user_data`, so that C++ code can later recover it with
+/// [`slint_property_binding_kind_user_data`]. Used for the C++ two-way
+/// binding objects (kind 1: `TwoWayBinding`, holding the class' common
+/// property; kind 2: `StructMemberBindings`, the struct member wrapper).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_property_set_binding_with_kind(
+    handle: &PropertyHandleOpaque,
+    binding: extern "C" fn(user_data: *mut c_void, pointer_to_value: *mut c_void),
+    user_data: *mut c_void,
+    drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    intercept_set: Option<
+        extern "C" fn(user_data: *mut c_void, pointer_to_value: *const c_void) -> bool,
+    >,
+    intercept_set_binding: Option<
+        extern "C" fn(user_data: *mut c_void, new_binding: *mut c_void) -> bool,
+    >,
+    kind: u8,
+) {
+    let binding = make_c_function_binding(
+        binding,
+        user_data,
+        drop_user_data,
+        intercept_set,
+        intercept_set_binding,
+    );
+    let holder = alloc_binding_holder(binding);
+    // Safety: the holder was just allocated and is exclusively owned here
+    unsafe { (*holder).cpp_binding_kind = kind };
+    handle.0.set_binding_impl(holder);
+}
+
+/// If the property's current binding was created by
+/// [`slint_property_set_binding_with_kind`] with the given non-zero `kind`,
+/// return its `user_data`; a null pointer otherwise.
+///
+/// The caller may downcast the returned pointer to the C++ type associated
+/// with `kind` (and the property's value type): a given kind is only ever
+/// registered by the C++ code paths owning that type.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_property_binding_kind_user_data(
+    handle: &PropertyHandleOpaque,
+    kind: u8,
+) -> *mut c_void {
+    let Some(holder) = PropertyHandle::pointer_to_binding(handle.0.handle.get()) else {
+        return core::ptr::null_mut();
+    };
+    // Safety: the handle points to a binding holder
+    unsafe {
+        if kind != 0 && (*holder).cpp_binding_kind == kind {
+            // Safety: a non-zero cpp_binding_kind is only set by
+            // slint_property_set_binding_with_kind, whose holders are always
+            // BindingHolder<CFunctionBinding<c_void>>
+            (*(holder as *const BindingHolder<CFunctionBinding<c_void>>)).binding.user_data
+        } else {
+            core::ptr::null_mut()
+        }
+    }
+}
+
+/// Detach the property's current binding and return it. The caller takes
+/// ownership of the returned binding (a `BindingHolder`, to be released
+/// with [`slint_property_delete_binding`] or re-installed with
+/// [`slint_property_set_binding_internal`]); the property keeps its
+/// dependents. Stale dependency registrations of the binding are dropped
+/// (they are re-created when the binding is next evaluated).
+///
+/// Returns null when the property has no binding.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_property_detach_binding(
+    handle: &PropertyHandleOpaque,
+) -> *mut c_void {
+    match handle.0.detach_binding() {
+        Some(holder) => {
+            // Safety: the holder is detached and exclusively owned
+            unsafe { *(*holder).dep_nodes.get() = Default::default() };
+            holder.cast()
+        }
+        None => core::ptr::null_mut(),
+    }
+}
+
+/// Mark the property's own binding dirty (so it re-evaluates on the next
+/// read) as well as the property's dependents. Used by the C++ struct
+/// member wrapper when a new field mapping is added to it.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_property_mark_binding_and_dependencies_dirty(
+    handle: &PropertyHandleOpaque,
+) {
+    if let Some(holder) = PropertyHandle::pointer_to_binding(handle.0.handle.get()) {
+        // Safety: the handle points to a binding holder
+        unsafe { (*holder).dirty.set(true) };
+    }
+    if !handle.0.is_constant() {
+        handle.0.mark_dirty(
+            #[cfg(slint_debug_property)]
+            "",
+        );
+    }
 }
 
 /// Delete a binding. The pointer must be a pointer to a binding (so a BindingHolder)
@@ -569,6 +671,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         dirty: Cell::new(false),
         is_two_way_binding: false,
         is_struct_member_bindings: false,
+        cpp_binding_kind: 0,
         pinned: PhantomPinned,
         binding: inner,
         #[cfg(slint_debug_property)]

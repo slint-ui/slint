@@ -635,13 +635,17 @@ fn lower_field_access_chain(
 }
 
 /// Emit a `link_two_way_to_model_data` call wiring `p1` to a row of the
-/// model described by `info`, optionally through a struct `field_access`.
+/// model described by `info`, optionally through a struct `field_access` —
+/// or, for a compiler-decomposed cell link (`twb.field_access1` non-empty),
+/// a `link_two_way_member_to_model_data` call wiring the field of `p1` at
+/// `field_access1` to the row field at `field_access`.
 fn generate_model_two_way_binding(
     ctx: &EvaluationContext,
     info: &llr::ResolvedModelTwoWayBinding,
     p1: &str,
-    field_access: &[SmolStr],
+    twb: &llr::TwoWayBinding,
 ) -> String {
+    let field_access = &twb.field_access;
     let body_sc = &ctx.compilation_unit.sub_components[info.body_sub_component];
     let data_prop_name = field_name(&body_sc.properties[info.data_prop].name);
     let index_prop_name = field_name(&body_sc.properties[info.index_prop].name);
@@ -676,15 +680,16 @@ fn generate_model_two_way_binding(
     // Capture a weak pointer instead of a raw `self` so the getter and
     // setter stay safe when the repeater instance is destroyed while a
     // forwarded binding on a shared common property still references it.
-    format!(
-        "slint::private_api::Property<{cpp_ty}>::link_two_way_to_model_data(&{p1}, \
-         [weak = self->self_weak]() -> std::optional<{cpp_ty}> {{ \
+    let getter = format!(
+        "[weak = self->self_weak]() -> std::optional<{cpp_ty}> {{ \
             auto rc = weak.lock(); \
             if (!rc) return std::nullopt; \
             auto self = reinterpret_cast<const {self_type}*>((*rc).borrow().instance); \
             {body_setup}return {getter_expr}; \
-         }}, \
-         [weak = self->self_weak](const {cpp_ty} &value) {{ \
+         }}"
+    );
+    let setter = format!(
+        "[weak = self->self_weak](const {cpp_ty} &value) {{ \
             auto rc = weak.lock(); \
             if (!rc) return; \
             auto self = reinterpret_cast<const {self_type}*>((*rc).borrow().instance); \
@@ -695,8 +700,24 @@ fn generate_model_two_way_binding(
                 (*parent_opt)->repeater_{repeater_index}.model_set_row_data(\
                     static_cast<size_t>({body}->{index_prop_name}.get()), data); \
             }} \
-         }});"
-    )
+         }}"
+    );
+
+    if twb.field_access1.is_empty() {
+        format!(
+            "slint::private_api::Property<{cpp_ty}>::link_two_way_to_model_data(&{p1}, {getter}, {setter});"
+        )
+    } else {
+        let prop1_ty = ctx.relative_property_ty(&twb.prop1, 0);
+        let struct_cpp_ty = prop1_ty.cpp_type().unwrap();
+        let (access1, _) = lower_field_access_chain("x".into(), prop1_ty, &twb.field_access1);
+        let field_key1 = twb.field_access1.join(".");
+        format!(
+            "slint::private_api::Property<{struct_cpp_ty}>::link_two_way_member_to_model_data<{cpp_ty}>(&{p1}, \"{field_key1}\", \
+             [](const auto &x){{ return {access1}; }}, [](auto &x, const auto &v){{ {access1} = v; }}, \
+             {getter}, {setter});"
+        )
+    }
 }
 
 fn handle_property_init(
@@ -794,7 +815,7 @@ pub fn generate(
         embed_resource(er, resource_id, &mut file.resources);
     }
 
-    let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config, false);
+    let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config, true);
 
     #[cfg(feature = "bundle-translations")]
     if let Some(translations) = &llr.translations {
@@ -2357,23 +2378,56 @@ fn generate_sub_component(
     for twb in &component.two_way_bindings {
         let p1 = access_local_member(&twb.prop1, &ctx);
         if let Some(info) = twb.resolve_model(&ctx) {
-            init.push(generate_model_two_way_binding(&ctx, &info, &p1, &twb.field_access));
-        } else if twb.field_access.is_empty() {
-            let ty = ctx.relative_property_ty(&twb.prop1, 0).cpp_type().unwrap();
-            init.push(
-                access_member(&twb.prop2, &ctx).then(|p2| {
-                    format!("slint::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2})",)
-                }) + ";",
-            );
+            init.push(generate_model_two_way_binding(&ctx, &info, &p1, twb));
         } else {
-            let prop2_ty = ctx.property_ty(&twb.prop2);
-            let cpp_ty = prop2_ty.cpp_type().unwrap();
-            let (access, _) = lower_field_access_chain("x".into(), prop2_ty, &twb.field_access);
-            init.push(
-                access_member(&twb.prop2, &ctx).then(|p2|
-                    format!("slint::private_api::Property<{cpp_ty}>::link_two_way_with_map(&{p2}, &{p1}, [](const auto &x){{ return {access}; }}, [](auto &x, const auto &v){{ {access} = v; }})")
-                ) + ";",
-            );
+            match (twb.field_access.is_empty(), twb.field_access1.is_empty()) {
+                (true, true) => {
+                    let ty = ctx.relative_property_ty(&twb.prop1, 0).cpp_type().unwrap();
+                    init.push(
+                        access_member(&twb.prop2, &ctx).then(|p2| {
+                            format!(
+                                "slint::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2})",
+                            )
+                        }) + ";",
+                    );
+                }
+                (false, true) => {
+                    // `prop1 <=> prop2.field_access`: prop2 is the struct
+                    let prop2_ty = ctx.property_ty(&twb.prop2);
+                    let cpp_ty = prop2_ty.cpp_type().unwrap();
+                    let (access, _) =
+                        lower_field_access_chain("x".into(), prop2_ty, &twb.field_access);
+                    let field_key = twb.field_access.join(".");
+                    init.push(
+                        access_member(&twb.prop2, &ctx).then(|p2|
+                            format!("slint::private_api::Property<{cpp_ty}>::link_two_way_to_member(&{p2}, &{p1}, \"{field_key}\", [](const auto &x){{ return {access}; }}, [](auto &x, const auto &v){{ {access} = v; }})")
+                        ) + ";",
+                    );
+                }
+                (false, false) => {
+                    // a compiler-decomposed cell link:
+                    // `prop1.field_access1 <=> prop2.field_access`
+                    let prop1_ty = ctx.relative_property_ty(&twb.prop1, 0);
+                    let prop2_ty = ctx.property_ty(&twb.prop2);
+                    let ty_a = prop1_ty.cpp_type().unwrap();
+                    let ty_b = prop2_ty.cpp_type().unwrap();
+                    let (access1, cell_ty) =
+                        lower_field_access_chain("x".into(), prop1_ty, &twb.field_access1);
+                    let (access2, _) =
+                        lower_field_access_chain("x".into(), prop2_ty, &twb.field_access);
+                    let cell_cpp_ty = cell_ty.cpp_type().unwrap();
+                    let field_key1 = twb.field_access1.join(".");
+                    let field_key2 = twb.field_access.join(".");
+                    init.push(
+                        access_member(&twb.prop2, &ctx).then(|p2|
+                            format!("slint::private_api::Property<{ty_a}>::link_two_way_members<{cell_cpp_ty}, {ty_b}>(&{p1}, \"{field_key1}\", [](const auto &x){{ return {access1}; }}, [](auto &x, const auto &v){{ {access1} = v; }}, &{p2}, \"{field_key2}\", [](const auto &x){{ return {access2}; }}, [](auto &x, const auto &v){{ {access2} = v; }})")
+                        ) + ";",
+                    );
+                }
+                (true, false) => {
+                    unreachable!("decomposed two-way links always have a path on both sides")
+                }
+            }
         }
     }
 

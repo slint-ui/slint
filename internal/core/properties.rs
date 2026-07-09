@@ -457,6 +457,10 @@ struct BindingHolder<B = ()> {
     is_two_way_binding: bool,
     /// Specify that B is a `StructMemberBindings<T>`
     is_struct_member_bindings: bool,
+    /// Identifies C++-side two-way binding objects (see
+    /// `slint_property_set_binding_with_kind` in `ffi.rs`); 0 for everything
+    /// else.
+    cpp_binding_kind: u8,
     pinned: PhantomPinned,
     #[cfg(slint_debug_property)]
     pub debug_name: alloc::string::String,
@@ -547,6 +551,7 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
         dirty: Cell::new(true), // starts dirty so it evaluates the property when used
         is_two_way_binding: B::IS_TWO_WAY_BINDING,
         is_struct_member_bindings: B::IS_STRUCT_MEMBER_BINDINGS,
+        cpp_binding_kind: 0,
         pinned: PhantomPinned,
         #[cfg(slint_debug_property)]
         debug_name: Default::default(),
@@ -1255,6 +1260,7 @@ impl<const NEEDS_SET_DIRTY: bool> Default for PropertyTracker<NEEDS_SET_DIRTY, (
             dirty: Cell::new(true), // starts dirty so it evaluates the property when used
             is_two_way_binding: false,
             is_struct_member_bindings: false,
+            cpp_binding_kind: 0,
             pinned: PhantomPinned,
             binding: (),
             #[cfg(slint_debug_property)]
@@ -1381,6 +1387,7 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
             dirty: Cell::new(true), // starts dirty so it evaluates the property when used
             is_two_way_binding: false,
             is_struct_member_bindings: false,
+            cpp_binding_kind: 0,
             pinned: PhantomPinned,
             binding: handler,
             #[cfg(slint_debug_property)]
