@@ -360,6 +360,7 @@ fn lower_sub_component(
                     args: function.args.clone(),
                     // will be replaced later
                     code: super::Expression::CodeBlock(Vec::new()).into(),
+                    use_count: Default::default(),
                 });
                 index.into()
             } else if let Type::Callback(callback) = &x.property_type {
@@ -948,6 +949,7 @@ fn lower_global(
                 args: function.args.clone(),
                 // will be replaced later
                 code: super::Expression::CodeBlock(Vec::new()).into(),
+                use_count: Default::default(),
             });
             state.global_properties.insert(
                 nr.clone(),

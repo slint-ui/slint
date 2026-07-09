@@ -332,6 +332,9 @@ pub struct Function {
     pub ret_ty: Type,
     pub args: Vec<Type>,
     pub code: MutExpression,
+    /// The number of times this function is called.
+    /// Only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass.
+    pub use_count: Cell<usize>,
 }
 
 #[derive(Debug, Clone)]
