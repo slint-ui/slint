@@ -43,7 +43,7 @@ fn start_sampler(app: &MainWindow) {
     let frame = Rc::new(Cell::new(0_u32));
     let previous_y = Rc::new(Cell::new(0.0_f32));
     let start_time = Instant::now();
-    let emit_trace = std::env::var("SLINT_INERTIA_TRACE").is_ok();
+    let emit_trace = cfg!(target_os = "android") || std::env::var("SLINT_INERTIA_TRACE").is_ok();
 
     if emit_trace {
         emit_trace_line("source,gesture,frame,time_ms,y_px,velocity_px_s,phase");
@@ -143,7 +143,9 @@ fn emit_trace_line(line: &str) {
 #[cfg(target_os = "android")]
 fn init_android_logging() {
     android_logger::init_once(
-        android_logger::Config::default().with_max_level(log::LevelFilter::Info),
+        android_logger::Config::default()
+            .with_tag("inertia-scroll-probe")
+            .with_max_level(log::LevelFilter::Info),
     );
 }
 
