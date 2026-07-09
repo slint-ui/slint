@@ -36,7 +36,22 @@ export component TestCase inherits Window {
 ```rust
 use slint::{LogicalPosition, platform::{PointerEventButton, WindowEvent}};
 
-fn drag(instance: &TestCase, samples: &[(u64, f32)]) -> Vec<f32> {
+#[derive(Clone, Copy)]
+struct TraceSample {
+    frame: usize,
+    time_ms: u64,
+    y_px: f32,
+    velocity_px_s: f32,
+    phase: &'static str,
+}
+
+struct TraceMetrics {
+    total_distance: f32,
+    duration_to_rest_ms: u64,
+    max_velocity: f32,
+}
+
+fn drag(instance: &TestCase, samples: &[(u64, f32)]) -> Vec<TraceSample> {
     let window = instance.window();
     let x = 160.0;
     let start_y = samples[0].1;
@@ -62,28 +77,130 @@ fn drag(instance: &TestCase, samples: &[(u64, f32)]) -> Vec<f32> {
     });
 
     let mut trace = Vec::new();
-    trace.push(instance.get_offset_y());
-    for _ in 0..90 {
+    let mut previous_y = instance.get_offset_y();
+    trace.push(TraceSample {
+        frame: 0,
+        time_ms: 0,
+        y_px: previous_y,
+        velocity_px_s: 0.0,
+        phase: "released",
+    });
+    for frame in 1..=90 {
         slint_testing::mock_elapsed_time(16);
-        trace.push(instance.get_offset_y());
+        let y_px = instance.get_offset_y();
+        let velocity_px_s = (y_px - previous_y) * 1000.0 / 16.0;
+        previous_y = y_px;
+        trace.push(TraceSample {
+            frame,
+            time_ms: frame as u64 * 16,
+            y_px,
+            velocity_px_s,
+            phase: if velocity_px_s.abs() < 0.01 { "stopped" } else { "inertia" },
+        });
     }
     trace
+}
+
+fn metrics(trace: &[TraceSample]) -> TraceMetrics {
+    let first_y = trace.first().unwrap().y_px;
+    let last_y = trace.last().unwrap().y_px;
+    let max_velocity = trace
+        .iter()
+        .map(|sample| sample.velocity_px_s.abs())
+        .fold(0.0, f32::max);
+    let duration_to_rest_ms = trace
+        .iter()
+        .rev()
+        .find(|sample| sample.velocity_px_s.abs() > 0.01)
+        .map(|sample| sample.time_ms)
+        .unwrap_or(0);
+
+    TraceMetrics {
+        total_distance: last_y - first_y,
+        duration_to_rest_ms,
+        max_velocity,
+    }
+}
+
+fn assert_monotonic(name: &str, trace: &[TraceSample]) {
+    for pair in trace.windows(2) {
+        assert!(
+            pair[1].y_px + 0.001 >= pair[0].y_px,
+            "{name}: y moved backwards at frame {}: {} -> {}",
+            pair[1].frame,
+            pair[0].y_px,
+            pair[1].y_px
+        );
+    }
+}
+
+fn assert_metrics(
+    name: &str,
+    trace: &[TraceSample],
+    distance_range: std::ops::RangeInclusive<f32>,
+    duration_range: std::ops::RangeInclusive<u64>,
+    velocity_range: std::ops::RangeInclusive<f32>,
+) {
+    assert_monotonic(name, trace);
+    let m = metrics(trace);
+    assert!(
+        distance_range.contains(&m.total_distance),
+        "{name}: total distance {} outside {:?}",
+        m.total_distance,
+        distance_range
+    );
+    assert!(
+        duration_range.contains(&m.duration_to_rest_ms),
+        "{name}: duration {} outside {:?}",
+        m.duration_to_rest_ms,
+        duration_range
+    );
+    assert!(
+        velocity_range.contains(&m.max_velocity),
+        "{name}: max velocity {} outside {:?}",
+        m.max_velocity,
+        velocity_range
+    );
+}
+
+fn maybe_emit_trace(name: &str, trace: &[TraceSample]) {
+    let Ok(request) = std::env::var("SLINT_INERTIA_TRACE") else {
+        return;
+    };
+    if request != "1" && !request.split(',').any(|entry| entry == name) {
+        return;
+    }
+    println!("source,gesture,frame,time_ms,y_px,velocity_px_s,phase");
+    for sample in trace {
+        println!(
+            "slint,{},{},{},{:.3},{:.3},{}",
+            name,
+            sample.frame,
+            sample.time_ms,
+            sample.y_px,
+            sample.velocity_px_s,
+            sample.phase
+        );
+    }
 }
 
 let slow_drag = TestCase::new().unwrap();
 let slow_trace = drag(&slow_drag, &[(0, 360.0), (250, 330.0), (250, 300.0), (250, 270.0)]);
 assert_eq!(slow_trace.len(), 91);
-assert!(slow_trace.last().unwrap() >= slow_trace.first().unwrap());
+maybe_emit_trace("slow-drag", &slow_trace);
+assert_metrics("slow-drag", &slow_trace, 3.0..=4.5, 48..=80, 90.0..=120.0);
 
 let medium_flick = TestCase::new().unwrap();
 let medium_trace = drag(&medium_flick, &[(0, 360.0), (16, 320.0), (16, 280.0), (16, 240.0)]);
 assert_eq!(medium_trace.len(), 91);
-assert!(medium_trace.last().unwrap() > medium_trace.first().unwrap());
+maybe_emit_trace("medium-flick", &medium_trace);
+assert_metrics("medium-flick", &medium_trace, 1540.0..=1585.0, 1232..=1296, 2400.0..=2550.0);
 
 let fast_flick = TestCase::new().unwrap();
 let fast_trace = drag(&fast_flick, &[(0, 380.0), (16, 300.0), (16, 220.0), (16, 140.0)]);
 assert_eq!(fast_trace.len(), 91);
-assert!(fast_trace.last().unwrap() > medium_trace.last().unwrap());
+maybe_emit_trace("fast-flick", &fast_trace);
+assert_metrics("fast-flick", &fast_trace, 3260.0..=3300.0, 752..=816, 4900.0..=5100.0);
 ```
 
 */
