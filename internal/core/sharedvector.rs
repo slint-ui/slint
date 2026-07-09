@@ -254,9 +254,7 @@ impl<T: Clone> SharedVector<T> {
             let data = data_ptr(self.inner);
             core::ptr::drop_in_place(data.add(row));
             let size = (*self.inner.as_ptr()).header.size;
-            for i in row..(size - 1) {
-                core::ptr::copy(data.add(i + 1), data.add(i), 1);
-            }
+            core::ptr::copy(data.add(row + 1), data.add(row), size - 1 - row);
             (*self.inner.as_ptr()).header.size = size - 1;
         }
     }
@@ -271,9 +269,7 @@ impl<T: Clone> SharedVector<T> {
         unsafe {
             let data = data_ptr(self.inner);
             let size = (*self.inner.as_ptr()).header.size;
-            for i in (row..size).rev() {
-                core::ptr::copy(data.add(i), data.add(i + 1), 1);
-            }
+            core::ptr::copy(data.add(row), data.add(row + 1), size - row);
             core::ptr::write(data.add(row), value);
             (*self.inner.as_ptr()).header.size = size + 1;
         }
