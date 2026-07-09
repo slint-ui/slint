@@ -390,7 +390,7 @@ pub fn generate_py_module(
         }
     }
 
-    let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
+    let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config, false);
 
     let globals = llr.globals.iter().filter(|glob| glob.exported && glob.must_generate());
 

@@ -243,6 +243,10 @@ pub struct TwoWayBinding {
     pub is_model: Option<PropertyIdx>,
     /// Field path applied to `prop2`, when `prop2` is a struct.
     pub field_access: Vec<SmolStr>,
+    /// Field path applied to `prop1`. Non-empty only for links the compiler
+    /// decomposed because their two-way class contains both whole-struct
+    /// and struct-field links (see [`crate::llr::two_way_cuts`]).
+    pub field_access1: Vec<SmolStr>,
 }
 
 /// Resolved view of a model two-way binding, used by code generators to

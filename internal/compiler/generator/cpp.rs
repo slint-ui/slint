@@ -794,7 +794,7 @@ pub fn generate(
         embed_resource(er, resource_id, &mut file.resources);
     }
 
-    let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
+    let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config, false);
 
     #[cfg(feature = "bundle-translations")]
     if let Some(translations) = &llr.translations {

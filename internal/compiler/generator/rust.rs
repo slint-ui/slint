@@ -205,7 +205,7 @@ pub fn generate(
     let (structs_and_enums_ids, inner_module) =
         generate_types(&doc.used_types.borrow().structs_and_enums);
 
-    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
+    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config, true);
 
     if llr.public_components.is_empty() {
         return Ok(Default::default());
@@ -776,13 +776,17 @@ fn lower_field_access_chain(root_ty: &Type, field_access: &[SmolStr]) -> (TokenS
 }
 
 /// Emit a `link_two_way_to_model_data` call wiring `p1` to a row of the
-/// model described by `info`, optionally through a struct `field_access`.
+/// model described by `info`, optionally through a struct `field_access` —
+/// or, for a compiler-decomposed cell link (`twb.field_access1` non-empty),
+/// a `link_two_way_member_to_model_data` call wiring the field of `p1` at
+/// `field_access1` to the row field at `field_access`.
 fn generate_model_two_way_binding(
     ctx: &EvaluationContext,
     info: &llr::ResolvedModelTwoWayBinding,
     p1: &TokenStream,
-    field_access: &[SmolStr],
+    twb: &llr::TwoWayBinding,
 ) -> TokenStream {
+    let field_access = &twb.field_access;
     let body_sc = &ctx.compilation_unit.sub_components[info.body_sub_component];
     let parent_sc = &ctx.compilation_unit.sub_components[info.parent_sub_component];
     let body_id = self::inner_component_id(body_sc);
@@ -807,15 +811,26 @@ fn generate_model_two_way_binding(
 
     // The leaf field type may differ from the property type (e.g. struct
     // field `f32` vs property `LogicalLength`); apply the usual conversions.
+    // Cell links (`field_access1` non-empty) connect two struct fields of
+    // the same type, so no conversion applies there.
     let (access_model, getter_value) = if field_access.is_empty() {
         (quote!(let data = value.clone();), quote!(#data_f.apply_pin(x.as_pin_ref()).get()))
     } else {
         let (access, ty) = lower_field_access_chain(info.data_prop_ty, field_access);
-        let to_struct_value = primitive_value_from_property_value(&ty, quote!(value.clone()));
-        let to_property_value = set_primitive_property_value(
-            &ty,
-            quote!(#data_f.apply_pin(x.as_pin_ref()).get() #access .clone()),
-        );
+        let (to_struct_value, to_property_value) = if twb.field_access1.is_empty() {
+            (
+                primitive_value_from_property_value(&ty, quote!(value.clone())),
+                set_primitive_property_value(
+                    &ty,
+                    quote!(#data_f.apply_pin(x.as_pin_ref()).get() #access .clone()),
+                ),
+            )
+        } else {
+            (
+                quote!(value.clone()),
+                quote!(#data_f.apply_pin(x.as_pin_ref()).get() #access .clone()),
+            )
+        };
         (
             quote! {
                 let mut data = #data_f.apply_pin(x.as_pin_ref()).get();
@@ -825,18 +840,29 @@ fn generate_model_two_way_binding(
         )
     };
 
-    quote! { sp::Property::link_two_way_to_model_data(#p1, #item_tree_weak,
-        |item_tree_weak| item_tree_weak.upgrade().map(|x| #getter_value),
-        |item_tree_weak, value| {
-            if let Some(x) = item_tree_weak.upgrade() {
-                if let Some(parent) = x.parent.upgrade() {
-                    let index = #index_f.apply_pin(x.as_pin_ref()).get();
-                    #access_model
-                    #repeater.apply_pin(parent.as_pin_ref()).model_set_row_data(index as usize, data);
-                }
+    let getter = quote!(|item_tree_weak| item_tree_weak.upgrade().map(|x| #getter_value));
+    let setter = quote!(|item_tree_weak, value| {
+        if let Some(x) = item_tree_weak.upgrade() {
+            if let Some(parent) = x.parent.upgrade() {
+                let index = #index_f.apply_pin(x.as_pin_ref()).get();
+                #access_model
+                #repeater.apply_pin(parent.as_pin_ref()).model_set_row_data(index as usize, data);
             }
         }
-    )}
+    });
+
+    if twb.field_access1.is_empty() {
+        quote! { sp::Property::link_two_way_to_model_data(#p1, #item_tree_weak, #getter, #setter) }
+    } else {
+        let prop1_ref = llr::MemberReference::from(twb.prop1.clone());
+        let (access1, _) =
+            lower_field_access_chain(ctx.property_ty(&prop1_ref), &twb.field_access1);
+        let field_key1 = twb.field_access1.join(".");
+        quote! { sp::Property::link_two_way_member_to_model_data(#p1, #field_key1,
+            |s| s #access1 .clone(), |s, v| s #access1 = (*v).clone(),
+            #item_tree_weak, #getter, #setter
+        )}
+    }
 }
 
 fn handle_property_init(
@@ -1468,20 +1494,48 @@ fn generate_sub_component(
     for twb in &component.two_way_bindings {
         let p1 = access_local_member(&twb.prop1, &ctx);
         let r = if let Some(info) = twb.resolve_model(&ctx) {
-            generate_model_two_way_binding(&ctx, &info, &p1, &twb.field_access)
+            generate_model_two_way_binding(&ctx, &info, &p1, twb)
         } else {
             let p2 = access_member(&twb.prop2, &ctx);
             p2.then(|p2| {
-                if twb.field_access.is_empty() {
-                    quote!(sp::Property::link_two_way(#p1, #p2))
-                } else {
-                    let (access, ty) =
-                        lower_field_access_chain(ctx.property_ty(&twb.prop2), &twb.field_access);
-                    let to_property_value =
-                        set_primitive_property_value(&ty, quote!(s #access .clone()));
-                    let to_struct_value =
-                        primitive_value_from_property_value(&ty, quote!((*v).clone()));
-                    quote!(sp::Property::link_two_way_with_map(#p2, #p1, |s| #to_property_value, |s, v| s #access = #to_struct_value))
+                match (twb.field_access.is_empty(), twb.field_access1.is_empty()) {
+                    (true, true) => quote!(sp::Property::link_two_way(#p1, #p2)),
+                    (false, true) => {
+                        // `prop1 <=> prop2.field_access`: prop2 is the struct
+                        let (access, ty) = lower_field_access_chain(
+                            ctx.property_ty(&twb.prop2),
+                            &twb.field_access,
+                        );
+                        let field_key = twb.field_access.join(".");
+                        let to_property_value =
+                            set_primitive_property_value(&ty, quote!(s #access .clone()));
+                        let to_struct_value =
+                            primitive_value_from_property_value(&ty, quote!((*v).clone()));
+                        quote!(sp::Property::link_two_way_to_member(#p2, #p1, #field_key, |s| #to_property_value, |s, v| s #access = #to_struct_value))
+                    }
+                    (false, false) => {
+                        // a compiler-decomposed cell link:
+                        // `prop1.field_access1 <=> prop2.field_access`
+                        // (both cells have the same type, no conversions)
+                        let prop1_ref = llr::MemberReference::from(twb.prop1.clone());
+                        let (access1, _) = lower_field_access_chain(
+                            ctx.property_ty(&prop1_ref),
+                            &twb.field_access1,
+                        );
+                        let (access2, _) = lower_field_access_chain(
+                            ctx.property_ty(&twb.prop2),
+                            &twb.field_access,
+                        );
+                        let field_key1 = twb.field_access1.join(".");
+                        let field_key2 = twb.field_access.join(".");
+                        quote!(sp::Property::link_two_way_members(
+                            #p1, #field_key1, |s| s #access1 .clone(), |s, v| s #access1 = (*v).clone(),
+                            #p2, #field_key2, |s| s #access2 .clone(), |s, v| s #access2 = (*v).clone()
+                        ))
+                    }
+                    (true, false) => {
+                        unreachable!("decomposed two-way links always have a path on both sides")
+                    }
                 }
             })
         };

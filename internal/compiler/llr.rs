@@ -12,6 +12,7 @@ pub mod lower_expression;
 pub mod lower_layout_expression;
 pub mod lower_to_item_tree;
 pub mod pretty_print;
+pub mod two_way_cuts;
 
 /// The optimization passes over the LLR
 pub mod optim_passes {

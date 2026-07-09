@@ -18,8 +18,12 @@ use typed_index_collections::TiVec;
 pub fn lower_to_item_tree(
     document: &crate::object_tree::Document,
     compiler_config: &CompilerConfiguration,
+    decompose_struct_two_way_links: bool,
 ) -> CompilationUnit {
     let mut state = LoweringState::default();
+    if decompose_struct_two_way_links {
+        state.member_cuts = Some(super::two_way_cuts::MemberCuts::analyze(document));
+    }
 
     #[cfg(feature = "bundle-translations")]
     {
@@ -198,6 +202,10 @@ pub struct LoweringState {
     global_properties: HashMap<NamedReference, MemberReference>,
     sub_components: TiVec<SubComponentIdx, LoweredSubComponent>,
     sub_component_mapping: HashMap<ByAddress<Rc<Component>>, SubComponentIdx>,
+    /// `Some` when whole-struct two-way links whose class also contains
+    /// struct-field links are decomposed into per-field links (only done
+    /// for backends whose runtime supports the decomposed form).
+    member_cuts: Option<super::two_way_cuts::MemberCuts>,
     #[cfg(feature = "bundle-translations")]
     pub translation_builder: Option<crate::translations::TranslationsBuilder>,
 }
@@ -481,29 +489,78 @@ fn lower_sub_component(
         }
 
         for tw in &binding.two_way_bindings {
-            sub_component.two_way_bindings.push(match tw {
+            match tw {
                 crate::expression_tree::TwoWayBinding::Property { property, field_access } => {
-                    TwoWayBinding {
-                        prop1: prop.local(),
-                        prop2: ctx.map_property_reference(property),
-                        field_access: field_access.clone(),
-                        is_model: None,
+                    let prop2 = ctx.map_property_reference(property);
+                    // Decompose the link into per-field cell links when its
+                    // two-way class mixes whole-struct and struct-field
+                    // links (see `two_way_cuts`).
+                    let cells = ctx
+                        .state
+                        .member_cuts
+                        .as_ref()
+                        .and_then(|cuts| cuts.decomposed_cells(&nr));
+                    match cells {
+                        None => sub_component.two_way_bindings.push(TwoWayBinding {
+                            prop1: prop.local(),
+                            prop2,
+                            field_access: field_access.clone(),
+                            field_access1: Vec::new(),
+                            is_model: None,
+                        }),
+                        Some(cells) => {
+                            for cell in cells {
+                                let mut cell_field_access = field_access.clone();
+                                cell_field_access.extend(cell.iter().cloned());
+                                sub_component.two_way_bindings.push(TwoWayBinding {
+                                    prop1: prop.local(),
+                                    prop2: prop2.clone(),
+                                    field_access: cell_field_access,
+                                    field_access1: cell,
+                                    is_model: None,
+                                });
+                            }
+                        }
                     }
                 }
                 crate::expression_tree::TwoWayBinding::ModelData {
                     repeated_element,
                     field_access,
-                } => TwoWayBinding {
-                    prop1: prop.local(),
-                    prop2: super::lower_expression::repeater_special_property(
+                } => {
+                    let prop2 = super::lower_expression::repeater_special_property(
                         repeated_element,
                         component,
                         PropertyIdx::REPEATER_DATA,
-                    ),
-                    field_access: field_access.clone(),
-                    is_model: Some(PropertyIdx::REPEATER_INDEX),
-                },
-            });
+                    );
+                    let cells = ctx
+                        .state
+                        .member_cuts
+                        .as_ref()
+                        .and_then(|cuts| cuts.decomposed_cells(&nr));
+                    match cells {
+                        None => sub_component.two_way_bindings.push(TwoWayBinding {
+                            prop1: prop.local(),
+                            prop2,
+                            field_access: field_access.clone(),
+                            field_access1: Vec::new(),
+                            is_model: Some(PropertyIdx::REPEATER_INDEX),
+                        }),
+                        Some(cells) => {
+                            for cell in cells {
+                                let mut cell_field_access = field_access.clone();
+                                cell_field_access.extend(cell.iter().cloned());
+                                sub_component.two_way_bindings.push(TwoWayBinding {
+                                    prop1: prop.local(),
+                                    prop2: prop2.clone(),
+                                    field_access: cell_field_access,
+                                    field_access1: cell,
+                                    is_model: Some(PropertyIdx::REPEATER_INDEX),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
         }
         if !matches!(binding.expression, tree_Expression::Invalid) {
             let expression =
