@@ -325,21 +325,78 @@ struct DriverSlot<T> {
     /// Seed value used to evaluate the real binding outside of the struct
     /// property's own storage (projections have no access to the property).
     cache: RefCell<T>,
+    /// Number of nested [`Self::evaluate_holder`] frames on the stack.
+    /// While non-zero, holders are not dropped but parked in
+    /// `pending_drops`: a projection evaluates the real binding *without*
+    /// holding the struct property's lock, so the binding may — via a
+    /// write-back to its own struct property — trigger `clear` while it is
+    /// still executing.
+    evaluation_depth: Cell<usize>,
+    /// Holders whose destruction was deferred by `evaluation_depth`.
+    pending_drops: RefCell<Vec<*mut BindingHolder>>,
 }
 
 impl<T> DriverSlot<T> {
-    /// Drop the real binding, if any. Projections evaluate to a no-op and
-    /// remove themselves once the slot is empty.
+    fn new(cache: T) -> Self {
+        Self {
+            holder: Cell::new(None),
+            cache: RefCell::new(cache),
+            evaluation_depth: Cell::new(0),
+            pending_drops: RefCell::new(Vec::new()),
+        }
+    }
+
+    /// Drop the real binding, if any (deferred while it is being
+    /// evaluated). Projections evaluate to a no-op and remove themselves
+    /// once the slot is empty.
     fn clear(&self) {
         if let Some(holder) = self.holder.take() {
+            self.dispose(holder);
+        }
+    }
+
+    /// Drop `holder`, deferring the destruction while an evaluation through
+    /// this slot is on the stack (the holder may be the one executing).
+    fn dispose(&self, holder: *mut BindingHolder) {
+        if self.evaluation_depth.get() > 0 {
+            self.pending_drops.borrow_mut().push(holder);
+        } else {
+            // Safety: the slot owns the holder and nothing is executing it
             unsafe { ((*holder).vtable.drop)(holder) }
         }
+    }
+
+    /// Evaluate the slot's current holder into `value` (a pointer to the
+    /// holder's value type `T`), keeping the holder alive until the
+    /// evaluation returns even if it is cleared or replaced while executing.
+    ///
+    /// Returns `None` when the slot is empty.
+    fn evaluate_holder(&self, value: *mut c_void) -> Option<BindingResult> {
+        let holder = self.holder.get()?;
+        self.evaluation_depth.set(self.evaluation_depth.get() + 1);
+        scopeguard::defer! {
+            self.evaluation_depth.set(self.evaluation_depth.get() - 1);
+            if self.evaluation_depth.get() == 0 {
+                for holder in self.pending_drops.borrow_mut().drain(..) {
+                    // Safety: parked by `dispose`, no longer executing
+                    unsafe { ((*holder).vtable.drop)(holder) }
+                }
+            }
+        }
+        // Safety: `holder` is a BindingHolder producing a `T`; it stays
+        // alive for the duration of this call thanks to the deferral above
+        Some(unsafe { ((*holder).vtable.evaluate)(holder, value) })
     }
 }
 
 impl<T> Drop for DriverSlot<T> {
     fn drop(&mut self) {
+        debug_assert_eq!(self.evaluation_depth.get(), 0);
         self.clear();
+        for holder in self.pending_drops.borrow_mut().drain(..) {
+            // Safety: parked by `dispose`, no longer executing
+            unsafe { ((*holder).vtable.drop)(holder) }
+        }
     }
 }
 
@@ -364,18 +421,13 @@ unsafe impl<
 > BindingCallable<T2> for DriverProjection<T, T2, GetField>
 {
     fn evaluate(self: Pin<&Self>, value: &mut T2) -> BindingResult {
-        let Some(real_binding) = self.slot.holder.get() else {
+        let mut struct_value = self.slot.cache.borrow().clone();
+        let Some(result) =
+            self.slot.evaluate_holder((&mut struct_value as *mut T).cast::<c_void>())
+        else {
             // The driver was dropped (e.g. a value was set on the struct
             // property); keep the common's current value and clean up.
             return BindingResult::RemoveBinding;
-        };
-        let mut struct_value = self.slot.cache.borrow().clone();
-        // Safety: `real_binding` is a BindingHolder producing a `T`
-        let result = unsafe {
-            ((*real_binding).vtable.evaluate)(
-                real_binding,
-                (&mut struct_value as *mut T).cast::<c_void>(),
-            )
         };
         *value = (self.get_field)(&struct_value);
         self.slot.cache.replace(struct_value);
@@ -426,13 +478,9 @@ struct StructMemberBindings<T> {
 // Safety: IS_STRUCT_MEMBER_BINDINGS is true and Self is StructMemberBindings
 unsafe impl<T: PartialEq + Clone + 'static> BindingCallable<T> for StructMemberBindings<T> {
     fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
-        if let Some(real_binding) = self.slot.holder.get() {
-            // Safety: `real_binding` is a BindingHolder producing a `T`;
-            // dependencies register on the holder currently being evaluated
-            // (this wrapper's), as with any wrapped binding.
-            let result = unsafe {
-                ((*real_binding).vtable.evaluate)(real_binding, (value as *mut T).cast::<c_void>())
-            };
+        // Dependencies register on the holder currently being evaluated
+        // (this wrapper's), as with any wrapped binding.
+        if let Some(result) = self.slot.evaluate_holder((value as *mut T).cast::<c_void>()) {
             self.slot.cache.replace(value.clone());
             if result == BindingResult::RemoveBinding {
                 self.slot.clear();
@@ -468,7 +516,7 @@ unsafe impl<T: PartialEq + Clone + 'static> BindingCallable<T> for StructMemberB
             *(*new_binding).dep_nodes.get() = Default::default();
         }
         if let Some(old) = self.slot.holder.replace(Some(new_binding)) {
-            unsafe { ((*old).vtable.drop)(old) }
+            self.slot.dispose(old);
         }
         // The new binding must drive the classes of all mapped fields.
         // Installing the projections also marks the commons' dependents
@@ -519,14 +567,20 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         field_key: &'static str,
     ) -> Option<Pin<Rc<Property<T2>>>> {
         self.with_struct_member_bindings(|wrapper| {
-            wrapper
-                .mappings
-                .borrow()
-                .iter()
-                .find(|mapping| mapping.key == field_key)
-                .and_then(|mapping| mapping.common.clone().downcast::<Property<T2>>().ok())
-                // Safety: the Rc was created pinned (`Rc::pin`) and never unpinned
-                .map(|rc| unsafe { Pin::new_unchecked(rc) })
+            wrapper.mappings.borrow().iter().find(|mapping| mapping.key == field_key).and_then(
+                |mapping| {
+                    let common = mapping.common.clone().downcast::<Property<T2>>();
+                    debug_assert!(
+                        common.is_ok(),
+                        "two-way binding common for field '{field_key}' created with a \
+                         different type: the code generator must use the property \
+                         representation of the field type for every link"
+                    );
+                    // Safety: the Rc was created pinned (`Rc::pin`) and
+                    // never unpinned
+                    common.ok().map(|rc| unsafe { Pin::new_unchecked(rc) })
+                },
+            )
         })
         .flatten()
     }
@@ -538,10 +592,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         if self.with_struct_member_bindings(|_| ()).is_some() {
             return;
         }
-        let slot = Rc::new(DriverSlot {
-            holder: Cell::new(None),
-            cache: RefCell::new(self.get_internal()),
-        });
+        let slot = Rc::new(DriverSlot::new(self.get_internal()));
         if let Some(old) = self.handle.detach_binding() {
             debug_assert!(
                 unsafe { !(*old).is_two_way_binding },
@@ -1493,6 +1544,45 @@ mod struct_member_tests {
         outer.as_ref().set(Outer { inner: S1 { s1: "over".into(), i1: 6 }, z: 11 });
         assert_eq!(deep_scalar.as_ref().get(), "over");
         assert_eq!(z_scalar.as_ref().get(), 11);
+    }
+
+    /// A holder cleared or replaced while it is being evaluated (e.g. a
+    /// binding that writes back to its own struct property, evaluated from
+    /// a projection that does not hold the struct property's lock) must not
+    /// be dropped until the evaluation returns.
+    #[test]
+    fn driver_slot_defers_drop_of_executing_holder() {
+        struct DropFlag(Rc<Cell<bool>>);
+        impl Drop for DropFlag {
+            fn drop(&mut self) {
+                self.0.set(true);
+            }
+        }
+
+        let dropped = Rc::new(Cell::new(false));
+        let slot = Rc::new(DriverSlot::<i32>::new(0));
+        let holder = alloc_binding_holder::<i32, _>({
+            let slot = slot.clone();
+            let flag = DropFlag(dropped.clone());
+            move |value: &mut i32| {
+                // Clear the slot while this closure is executing: the drop
+                // of the holder (and with it this closure's environment)
+                // must be deferred until the evaluation returned.
+                slot.clear();
+                assert!(!flag.0.get(), "holder dropped while its evaluate() was still running");
+                *value = 42;
+                BindingResult::KeepBinding
+            }
+        });
+        slot.holder.set(Some(holder));
+
+        let mut out = 0i32;
+        let result = slot.evaluate_holder((&mut out as *mut i32).cast::<c_void>());
+        assert_eq!(result, Some(BindingResult::KeepBinding));
+        assert_eq!(out, 42);
+        // the deferred drop ran once the evaluation returned
+        assert!(dropped.get());
+        assert!(slot.holder.get().is_none());
     }
 
     /// Linking a member that is itself already part of a scalar two-way

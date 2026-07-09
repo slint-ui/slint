@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for two-way bindings onto a struct field of type `length`.
+//
+// A `length` struct field is stored as a plain coordinate (`Coord`/`f32` in
+// Rust), while a `length` *property* is a `Property<LogicalLength>`. When a
+// member link (`m <=> s.f`) and a whole-struct link that the compiler
+// decomposes into per-field links (`data <=> root.s` in a conditional
+// component, decomposed because `s.f` is also member-linked) meet on the
+// same field, both must agree on the representation of the shared class,
+// or the two links end up in different classes and writes to one never
+// reach the other.
+
+struct LengthStruct {
+    f: length,
+    g: int,
+}
+
+component Page {
+    in-out property <LengthStruct> data;
+    in-out property <length> page-f <=> data.f;
+}
+
+export component TestCase {
+    in-out property <LengthStruct> s: { f: 10px, g: 1 };
+    in-out property <length> m <=> s.f;
+
+    if true : Page {
+        data <=> root.s;
+    }
+
+    out property <bool> test: m == 10px && s.f == 10px && s.g == 1;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+instance.set_m(42.0);
+assert_eq!(instance.get_s().f, 42.0);
+assert_eq!(instance.get_m(), 42.0);
+assert_eq!(instance.get_s().g, 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+instance.set_m(42.);
+assert_eq(instance.get_s().f, 42.);
+assert_eq(instance.get_m(), 42.);
+assert_eq(instance.get_s().g, 1);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+
+instance.m = 42;
+assert.equal(instance.s.f, 42);
+assert.equal(instance.m, 42);
+assert.equal(instance.s.g, 1);
+```
+
+*/

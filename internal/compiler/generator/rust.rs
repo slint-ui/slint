@@ -811,26 +811,17 @@ fn generate_model_two_way_binding(
 
     // The leaf field type may differ from the property type (e.g. struct
     // field `f32` vs property `LogicalLength`); apply the usual conversions.
-    // Cell links (`field_access1` non-empty) connect two struct fields of
-    // the same type, so no conversion applies there.
+    // Cell links (`field_access1` non-empty) use the property representation
+    // for their shared common too, so the same conversions apply.
     let (access_model, getter_value) = if field_access.is_empty() {
         (quote!(let data = value.clone();), quote!(#data_f.apply_pin(x.as_pin_ref()).get()))
     } else {
         let (access, ty) = lower_field_access_chain(info.data_prop_ty, field_access);
-        let (to_struct_value, to_property_value) = if twb.field_access1.is_empty() {
-            (
-                primitive_value_from_property_value(&ty, quote!(value.clone())),
-                set_primitive_property_value(
-                    &ty,
-                    quote!(#data_f.apply_pin(x.as_pin_ref()).get() #access .clone()),
-                ),
-            )
-        } else {
-            (
-                quote!(value.clone()),
-                quote!(#data_f.apply_pin(x.as_pin_ref()).get() #access .clone()),
-            )
-        };
+        let to_struct_value = primitive_value_from_property_value(&ty, quote!(value.clone()));
+        let to_property_value = set_primitive_property_value(
+            &ty,
+            quote!(#data_f.apply_pin(x.as_pin_ref()).get() #access .clone()),
+        );
         (
             quote! {
                 let mut data = #data_f.apply_pin(x.as_pin_ref()).get();
@@ -855,11 +846,13 @@ fn generate_model_two_way_binding(
         quote! { sp::Property::link_two_way_to_model_data(#p1, #item_tree_weak, #getter, #setter) }
     } else {
         let prop1_ref = llr::MemberReference::from(twb.prop1.clone());
-        let (access1, _) =
+        let (access1, ty1) =
             lower_field_access_chain(ctx.property_ty(&prop1_ref), &twb.field_access1);
         let field_key1 = twb.field_access1.join(".");
+        let get1 = set_primitive_property_value(&ty1, quote!(s #access1 .clone()));
+        let set1 = primitive_value_from_property_value(&ty1, quote!((*v).clone()));
         quote! { sp::Property::link_two_way_member_to_model_data(#p1, #field_key1,
-            |s| s #access1 .clone(), |s, v| s #access1 = (*v).clone(),
+            |s| #get1, |s, v| s #access1 = #set1,
             #item_tree_weak, #getter, #setter
         )}
     }
@@ -1515,22 +1508,30 @@ fn generate_sub_component(
                     }
                     (false, false) => {
                         // a compiler-decomposed cell link:
-                        // `prop1.field_access1 <=> prop2.field_access`
-                        // (both cells have the same type, no conversions)
+                        // `prop1.field_access1 <=> prop2.field_access`.
+                        // Both cells have the same type; the shared common
+                        // uses the *property* representation of that type
+                        // (e.g. LogicalLength for a `length` field stored as
+                        // Coord), so it is the same `Property<T2>` type a
+                        // member link to the same field would create.
                         let prop1_ref = llr::MemberReference::from(twb.prop1.clone());
-                        let (access1, _) = lower_field_access_chain(
+                        let (access1, ty1) = lower_field_access_chain(
                             ctx.property_ty(&prop1_ref),
                             &twb.field_access1,
                         );
-                        let (access2, _) = lower_field_access_chain(
+                        let (access2, ty2) = lower_field_access_chain(
                             ctx.property_ty(&twb.prop2),
                             &twb.field_access,
                         );
                         let field_key1 = twb.field_access1.join(".");
                         let field_key2 = twb.field_access.join(".");
+                        let get1 = set_primitive_property_value(&ty1, quote!(s #access1 .clone()));
+                        let set1 = primitive_value_from_property_value(&ty1, quote!((*v).clone()));
+                        let get2 = set_primitive_property_value(&ty2, quote!(s #access2 .clone()));
+                        let set2 = primitive_value_from_property_value(&ty2, quote!((*v).clone()));
                         quote!(sp::Property::link_two_way_members(
-                            #p1, #field_key1, |s| s #access1 .clone(), |s, v| s #access1 = (*v).clone(),
-                            #p2, #field_key2, |s| s #access2 .clone(), |s, v| s #access2 = (*v).clone()
+                            #p1, #field_key1, |s| #get1, |s, v| s #access1 = #set1,
+                            #p2, #field_key2, |s| #get2, |s, v| s #access2 = #set2
                         ))
                     }
                     (true, false) => {
