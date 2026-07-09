@@ -544,7 +544,13 @@ pub(super) fn compute_flexbox_layout_info(
         Orientation::Vertical => (cross_axis_size_override, None),
         Orientation::Horizontal => (None, cross_axis_size_override),
     };
-    let fld = flexbox_layout_data(layout, ctx, width_override, height_override);
+    // Subtract padding so height-for-width cells are measured at the content
+    // width they are actually laid out at, not the padded outer width.
+    let width_override = width_override
+        .map(|e| subtract_padding(e.clone(), &layout.geometry, Orientation::Horizontal));
+    let height_override = height_override
+        .map(|e| subtract_padding(e.clone(), &layout.geometry, Orientation::Vertical));
+    let fld = flexbox_layout_data(layout, ctx, width_override.as_ref(), height_override.as_ref());
 
     match layout.axis_relation(orientation) {
         crate::layout::FlexboxAxisRelation::MainAxis => {

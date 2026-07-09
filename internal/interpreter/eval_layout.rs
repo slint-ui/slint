@@ -517,6 +517,18 @@ pub(crate) fn compute_flexbox_layout_info(
         Orientation::Vertical => (cross_axis_size, None),
         Orientation::Horizontal => (None, cross_axis_size),
     };
+    // Subtract padding so height-for-width cells are measured at the content
+    // width they are actually laid out at, not the padded outer width.
+    let width_override = width_override.map(|w| {
+        let (pad_h, _) =
+            padding_and_spacing(&flexbox_layout.geometry, Orientation::Horizontal, &expr_eval);
+        w - pad_h.begin - pad_h.end
+    });
+    let height_override = height_override.map(|h| {
+        let (pad_v, _) =
+            padding_and_spacing(&flexbox_layout.geometry, Orientation::Vertical, &expr_eval);
+        h - pad_v.begin - pad_v.end
+    });
     let (cells_h, cells_v, _repeated_indices) = flexbox_layout_data(
         flexbox_layout,
         component,
