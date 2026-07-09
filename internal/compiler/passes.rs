@@ -38,6 +38,7 @@ mod lower_menus;
 mod lower_platform;
 mod lower_popups;
 mod lower_property_to_element;
+mod lower_animations;
 mod lower_radiogroup;
 mod lower_repeated_rows;
 mod lower_shadows;
@@ -137,6 +138,7 @@ pub async fn run_passes(
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
+        lower_animations::lower_animations(component, &global_type_registry, diag);
         lower_timers::lower_timers(component, diag);
     });
 

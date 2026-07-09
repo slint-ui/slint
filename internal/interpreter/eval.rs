@@ -2231,7 +2231,8 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         | Type::InferredCallback
         | Type::Callback { .. }
         | Type::Function { .. }
-        | Type::ElementReference => panic!("not valid property type"),
+        | Type::ElementReference
+        | Type::Animatable => panic!("not valid property type"),
         Type::Float32 => matches!(value, Value::Number(_)),
         Type::Int32 => matches!(value, Value::Number(_)),
         Type::String => matches!(value, Value::String(_)),
@@ -2601,7 +2602,8 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::InferredProperty
         | Type::InferredCallback
         | Type::ElementReference
-        | Type::Function { .. } => {
+        | Type::Function { .. }
+        | Type::Animatable => {
             panic!("There can't be such property")
         }
         Type::StyledText => Value::StyledText(Default::default()),

@@ -1520,6 +1520,8 @@ impl Expression {
             || target_type == Type::Void
             || target_type == Type::Invalid
             || ty == Type::Invalid
+            // this is handled later
+            || target_type == Type::Animatable
         {
             self
         } else if ty.can_convert(&target_type) {
