@@ -1108,6 +1108,61 @@ fn public_api(
     quote!(#(#property_and_callback_accessors)*)
 }
 
+/// Maximum number of statements in a generated `init`-like function body.
+/// rustc's per-function-body work scales super-linearly, so bigger bodies are
+/// split into chunk functions. Measured on a large project, the build time
+/// stops improving below 128 statements per chunk.
+const INIT_CHUNK_SIZE: usize = 128;
+
+/// When `stmts` is bigger than [`INIT_CHUNK_SIZE`], move the statements into
+/// `{prefix}_chunk_{i}` functions (added to `chunk_fns`) and return the calls
+/// to them. Each statement must only use the names bound by `params` and
+/// `prologue` (`quote!` is not hygienic, so the exact names matter).
+///
+/// When `fallible` is set the chunks return `Result` and are called with `?`,
+/// so `init`'s statements can use the `?` operator (e.g. for font registration).
+fn emit_in_chunks(
+    prefix: &str,
+    stmts: Vec<TokenStream>,
+    params: &TokenStream,
+    args: &TokenStream,
+    prologue: &TokenStream,
+    fallible: bool,
+    chunk_fns: &mut Vec<TokenStream>,
+) -> Vec<TokenStream> {
+    if stmts.len() <= INIT_CHUNK_SIZE {
+        return stmts;
+    }
+    let (ret, ok, question) = if fallible {
+        (
+            quote!(-> ::core::result::Result<(), slint::PlatformError>),
+            quote!(::core::result::Result::Ok(())),
+            quote!(?),
+        )
+    } else {
+        (quote!(), quote!(), quote!())
+    };
+    stmts
+        .chunks(INIT_CHUNK_SIZE)
+        .enumerate()
+        .map(|(i, chunk)| {
+            let name = format_ident!("{prefix}_chunk_{i}");
+            // inline(never) stops the MIR inliner from re-merging the chunks
+            // into one huge function.
+            chunk_fns.push(quote!(
+                #[inline(never)]
+                fn #name(#params) #ret {
+                    #![allow(unused)]
+                    #prologue
+                    #(#chunk)*
+                    #ok
+                }
+            ));
+            quote!(Self::#name(#args)#question;)
+        })
+        .collect()
+}
+
 /// Generate the rust code for the given component.
 fn generate_sub_component(
     component_idx: llr::SubComponentIdx,
@@ -1623,6 +1678,26 @@ fn generate_sub_component(
         )
     });
 
+    let mut chunk_fns = Vec::new();
+    let init = emit_in_chunks(
+        "init",
+        init,
+        &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>, tree_index: u32, tree_index_of_first_child: u32),
+        &quote!(self_rc.clone(), tree_index, tree_index_of_first_child),
+        &quote!(let _self = self_rc.as_pin_ref();),
+        true,
+        &mut chunk_fns,
+    );
+    let user_init_code = emit_in_chunks(
+        "user_init",
+        user_init_code,
+        &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>),
+        &quote!(self_rc.clone()),
+        &quote!(let _self = self_rc.as_pin_ref();),
+        false,
+        &mut chunk_fns,
+    );
+
     let pin_macro = if pinned_drop { quote!(#[pin_drop]) } else { quote!(#[pin]) };
 
     quote!(
@@ -1681,6 +1756,8 @@ fn generate_sub_component(
                 let _self = self_rc.as_pin_ref();
                 #(#user_init_code)*
             }
+
+            #(#chunk_fns)*
 
             fn visit_dynamic_children(
                 self: ::core::pin::Pin<&Self>,
@@ -1938,6 +2015,17 @@ fn generate_global(
         }
     }));
 
+    let mut chunk_fns = Vec::new();
+    let init = emit_in_chunks(
+        "init",
+        init,
+        &quote!(self_rc: ::core::pin::Pin<sp::Rc<Self>>),
+        &quote!(self_rc.clone()),
+        &quote!(let _self = self_rc.as_ref();),
+        false,
+        &mut chunk_fns,
+    );
+
     let pub_token = if compiler_config.library_name.is_some() && !global.is_builtin {
         global_exports.push(quote! (#inner_component_id));
         quote!(pub)
@@ -2011,6 +2099,8 @@ fn generate_global(
                     let _self = self_rc.as_ref();
                     #(#init)*
                 }
+
+                #(#chunk_fns)*
 
                 #(#declared_functions)*
             }
