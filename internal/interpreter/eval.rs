@@ -1570,7 +1570,7 @@ fn call_builtin_function(
             };
             let index = match eval_expression(&arguments[1], local_context) {
                 Value::Number(i) => i,
-                _ => panic!("Second argument not an integer: {:?}", arguments[0]),
+                _ => panic!("Second argument not an integer: {:?}", arguments[1]),
             };
 
             let value = eval_expression(&arguments[2], local_context);
