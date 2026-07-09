@@ -236,6 +236,10 @@ export default defineConfig({
                                                   label: "Library Modules",
                                                   slug: "guide/experimental/library-modules",
                                               },
+                                              {
+                                                  label: "Match Elements",
+                                                  slug: "guide/experimental/match-elements",
+                                              },
                                           ],
                                       },
                                   ]

@@ -1,0 +1,147 @@
+---
+title: Match Elements
+description: Experimental match elements for conditional element rendering.
+---
+
+A `match` element conditionally renders elements from a set of cases based on the value of an expression.
+It is a more readable alternative to a chain of `if` elements when you need to select between several mutually exclusive states.
+
+> **Note**: `match` is experimental and subject to change.
+> Tracking issue: [slint-ui/slint#1307](https://github.com/slint-ui/slint/issues/1307).
+
+## Syntax
+
+```slint no-test
+match <match-value> {
+    <case-value>: ElementType { /* ... */ }
+    <case-value>: ElementType { /* ... */ }
+    *: ElementType { /* ... */ }   // optional wildcard
+}
+```
+
+Each `<case-value>` is a literal that is compared against the `<match_value>`. If a wildcard case `*` is present, it renders when none of the explicit cases match.
+
+## Examples
+
+### Matching on an integer
+
+```slint no-test
+export component StatusIndicator {
+    in property <int> status: 0;
+
+    match status {
+        0: Rectangle { background: green; }
+        1: Rectangle { background: yellow; }
+        2: Rectangle { background: red; }
+        *: Rectangle { background: gray; }
+    }
+}
+```
+
+### Matching on a boolean
+
+```slint no-test
+export component Toggle {
+    in-out property <bool> checked: false;
+
+    match checked {
+        true:  Rectangle { background: blue; }
+        false: Rectangle { background: lightgray; }
+    }
+}
+```
+
+### Matching on an enum
+
+```slint no-test
+enum Mode { View, Edit, Preview }
+
+export component Editor {
+    in-out property <Mode> mode: Mode.View;
+
+    match mode {
+        Mode.View:    Text { text: "Viewing"; }
+        Mode.Edit:    TextInput { }
+        Mode.Preview: Rectangle { background: black; }
+    }
+}
+```
+
+### Matching on a string
+
+```slint no-test
+export component Greeting {
+    in property <string> lang: "en";
+
+    match lang {
+        "en": Text { text: "Hello"; }
+        "sp": Text { text: "Hola"; }
+        "fr": Text { text: "Bonjour"; }
+        *:    Text { text: "Hi"; }
+    }
+}
+```
+
+## Wildcard case
+
+The `*` case acts as a catch-all that renders when no explicit case matches the expression.
+It must appear as the last case, and there must be at least one explicit case before it.
+
+```slint no-test
+match answer {
+    42: Text { text: "Correct!"; }
+    *:  Text { text: "Incorrect"; }
+}
+```
+
+## Empty element
+
+Any case that evaluates to the empty element `{ }` will be skipped and not rendered. Any case can evaluate to the empty element, including the wildcard case.
+
+```slint no-test
+match show {
+    true: Text { text: "Hi"; }
+    false: { }
+}
+```
+
+```slint no-test
+match toggle {
+    0: Rectangle { background: white; }
+    1: Rectangle { background: black; }
+    *: { }
+}
+```
+
+## Current limitations
+
+The match element feature is in its early stages. The following restrictions apply:
+
+- Cases must be literal values. Computed expressions, property references, destructured values, and function calls are not allowed as case values. Only plain literals (integers, floats, booleans, strings, enum variants, colors, lengths) are accepted.
+
+  ```slint no-test
+  // Property reference as a case value
+  match value {
+      some-property: Rectangle { }   // error
+  }
+
+  // String concatenation as a case value
+  match greeting {
+      "hello " + "world": Text { }   // error
+  }
+
+  // Function call as a case value
+  match count {
+      func(5): Rectangle { }   // error
+  }
+  ```
+
+- Float comparisons produce a warning. Comparing floating-point values for exact equality is not reliable. The compiler emits a warning for each float case value.
+
+- `@children` cannot appear inside a match case. Placing the `@children` placeholder inside any case element is an error.
+
+- `match` cannot appear in global components or interfaces. Only regular components support match elements.
+
+- No exhaustiveness checking. Match elements do not verify that all possible values are covered. A missing case simply renders nothing.
+
+- No duplicate case detection. No warning will be produced if the same value appears in two different cases, and both components will render.
