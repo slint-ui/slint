@@ -133,6 +133,26 @@ pub fn count_property_use(root: &CompilationUnit) {
             timer.running.borrow().visit_property_references(ctx, &mut visit_property);
             timer.triggered.borrow().visit_property_references(ctx, &mut visit_property);
         }
+        // 12. animations
+        for anim in &sc.animation_objects {
+            if anim.target.is_some() {
+                anim.target.as_ref().unwrap().borrow().visit_property_references(ctx, &mut visit_property);
+            }
+            anim.running.borrow().visit_property_references(ctx, &mut visit_property);
+            if anim.from.is_some() {
+                anim.from.as_ref().unwrap().borrow().visit_property_references(ctx, &mut visit_property);
+            }
+            if anim.to.is_some() {
+                anim.to.as_ref().unwrap().borrow().visit_property_references(ctx, &mut visit_property);
+            }
+            if anim.duration.is_some() {
+                anim.duration.as_ref().unwrap().borrow().visit_property_references(ctx, &mut visit_property);
+            }
+            if anim.easing.is_some() {
+                anim.easing.as_ref().unwrap().borrow().visit_property_references(ctx, &mut visit_property);
+            }
+
+        }
     });
 
     for (idx, g) in root.globals.iter_enumerated() {

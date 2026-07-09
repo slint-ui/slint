@@ -48,11 +48,10 @@ pub fn lower_animations(
         component,
         &None,
         &mut |elem, parent_element: &Option<ElementRc>| {
-            let elem_borrowed = elem.borrow();
             let anim_type = get_anim_type(&elem.borrow().base_type);
 
             if anim_type.is_some() {
-                validate_animation_properties(&elem_borrowed.bindings.clone(), type_register, diag);
+                validate_animation_properties(&elem.borrow().bindings, type_register, diag);
                 lower_animation(elem, anim_type.unwrap(), parent_element.as_ref(), diag);
             }
             Some(elem.clone())
@@ -147,7 +146,7 @@ fn lower_animation(
     }
 
     let target = if animation_element.borrow().is_binding_set("target", true) {
-        animation_element.borrow().bindings.get("target").map(|_| NamedReference::new(animation_element, SmolStr::new_static("target")))
+        Some(NamedReference::new(animation_element, SmolStr::new_static("target")))
     } else if anim_type == AnimationType::Tween {
         diag.push_error(
             "TweenAnimation must have a binding set for its 'target' property".into(),
@@ -157,18 +156,21 @@ fn lower_animation(
     } else {
         None
     };
+
     let from = if animation_element.borrow().is_binding_set("from", true) {
-        animation_element.borrow().bindings.get("from").map(|_| NamedReference::new(animation_element, SmolStr::new_static("from")))
+        Some(NamedReference::new(animation_element, SmolStr::new_static("from")))
     } else {
         None
     };
+
     let to = if animation_element.borrow().is_binding_set("to", true) {
-        animation_element.borrow().bindings.get("to").map(|_| NamedReference::new(animation_element, SmolStr::new_static("to")))
+        Some(NamedReference::new(animation_element, SmolStr::new_static("to")))
     } else {
         None
     };
+
     let duration = if animation_element.borrow().is_binding_set("duration", true) {
-        animation_element.borrow().bindings.get("duration").map(|_| NamedReference::new(animation_element, SmolStr::new_static("duration")))
+        Some(NamedReference::new(animation_element, SmolStr::new_static("duration")))
     } else if anim_type == AnimationType::Tween {
         diag.push_error(
             "TweenAnimation must have a binding set for its 'duration' property".into(),
@@ -180,7 +182,7 @@ fn lower_animation(
     };
 
     let easing = if animation_element.borrow().is_binding_set("easing", true) {
-        animation_element.borrow().bindings.get("easing").map(|_| NamedReference::new(animation_element, SmolStr::new_static("easing")))
+        Some(NamedReference::new(animation_element, SmolStr::new_static("easing")))
     } else if anim_type == AnimationType::Tween {
         diag.push_error(
             "TweenAnimation must have a binding set for its 'easing' property".into(),
@@ -223,4 +225,16 @@ fn lower_animation(
         children: Vec::new(),
         element: Rc::downgrade(animation_element),
     });
+
+    let update_animations = Expression::FunctionCall {
+        function: BuiltinFunction::UpdateAnimations.into(),
+        arguments: Vec::new(),
+        source_location: None,
+    };
+    let change_callbacks = &mut animation_element.borrow_mut().change_callbacks;
+    change_callbacks
+        .entry("running".into())
+        .or_default()
+        .borrow_mut()
+        .push(update_animations);
 }

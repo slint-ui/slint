@@ -5217,6 +5217,11 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }
         }
+        // start and stop animations are lowered to simple assignment of running
+        BuiltinFunction::StartAnimation => unreachable!(),
+        BuiltinFunction::StopAnimation => unreachable!(),
+        BuiltinFunction::UpdateAnimations => unreachable!(),
+        BuiltinFunction::RestartAnimation => unreachable!(),
         BuiltinFunction::OpenUrl => {
             let url = a.next().unwrap();
             let window = access_window_field(ctx);

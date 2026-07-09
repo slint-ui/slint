@@ -163,6 +163,24 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
         fixup_reference(&mut t.running, renames);
         fixup_reference(&mut t.triggered, renames);
     });
+    component.animations.borrow_mut().iter_mut().for_each(|a| {
+        if let Some(ref mut target) = a.target {
+            fixup_reference(target, renames);
+        }
+        fixup_reference(&mut a.running, renames);
+        if let Some(ref mut from) = a.from {
+            fixup_reference(from, renames);
+        }
+        if let Some(ref mut to) = a.to {
+            fixup_reference(to, renames);
+        }
+        if let Some(ref mut duration) = a.duration {
+            fixup_reference(duration, renames);
+        }
+        if let Some(ref mut easing) = a.easing {
+            fixup_reference(easing, renames);
+        }
+    });
     component.menu_item_tree.borrow_mut().iter_mut().for_each(|c| {
         visit_all_named_references(c, &mut |nr| fixup_reference(nr, renames));
     });

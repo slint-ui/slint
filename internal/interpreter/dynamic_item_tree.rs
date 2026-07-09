@@ -2971,6 +2971,10 @@ pub fn update_timers(instance: InstanceRef) {
     }
 }
 
+pub fn update_animations(_instance: InstanceRef) {
+    // TODO: Implement animation updates
+}
+
 pub fn restart_timer(element: ElementWeak, instance: InstanceRef) {
     let timers = instance.description.original.timers.borrow();
     if let Some((_, offset)) = timers

@@ -217,6 +217,12 @@ fn inline_element(
         Timer { element: Rc::downgrade(inlined_element), ..t.clone() }
     }));
 
+    root_component.animations.borrow_mut().extend(inlined_component.animations.borrow().iter().map(|a| {
+        let inlined_element = mapping.get(&element_key(a.element.upgrade().unwrap())).unwrap();
+
+        Animation { element: Rc::downgrade(inlined_element), ..a.clone() }
+    }));
+
     let mut moved_into_popup = HashSet::new();
     if let Some(children) = move_children_into_popup {
         let child_insertion_point = inlined_component.child_insertion_point.borrow();
@@ -358,6 +364,24 @@ fn inline_element(
         fixup_reference(&mut t.interval, &mapping);
         fixup_reference(&mut t.running, &mapping);
         fixup_reference(&mut t.triggered, &mapping);
+    }
+    for a in root_component.animations.borrow_mut().iter_mut() {
+        if let Some(ref mut target) = a.target {
+            fixup_reference(target, &mapping);
+        }
+        fixup_reference(&mut a.running, &mapping);
+        if let Some(ref mut from) = a.from {
+            fixup_reference(from, &mapping);
+        }
+        if let Some(ref mut to) = a.to {
+            fixup_reference(to, &mapping);
+        }
+        if let Some(ref mut duration) = a.duration {
+            fixup_reference(duration, &mapping);
+        }
+        if let Some(ref mut easing) = a.easing {
+            fixup_reference(easing, &mapping);
+        }
     }
     // If some element were moved into PopupWindow, we need to report error if they are used outside of the popup window.
     if !moved_into_popup.is_empty() {
@@ -517,6 +541,24 @@ fn duplicate_sub_component(
         fixup_reference(&mut t.triggered, mapping);
         if let Some(e) = mapping.get(&element_key(t.element.upgrade().unwrap())) {
             t.element = Rc::downgrade(e);
+        }
+    }
+    for a in new_component.animations.borrow_mut().iter_mut() {
+        if let Some(ref mut target) = a.target {
+            fixup_reference(target, &mapping);
+        }
+        fixup_reference(&mut a.running, &mapping);
+        if let Some(ref mut from) = a.from {
+            fixup_reference(from, &mapping);
+        }
+        if let Some(ref mut to) = a.to {
+            fixup_reference(to, &mapping);
+        }
+        if let Some(ref mut duration) = a.duration {
+            fixup_reference(duration, &mapping);
+        }
+        if let Some(ref mut easing) = a.easing {
+            fixup_reference(easing, &mapping);
         }
     }
     *new_component.menu_item_tree.borrow_mut() = component_to_duplicate
