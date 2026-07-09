@@ -1775,13 +1775,19 @@ fn call_builtin_function(
             }
             let component = local_context.component_instance;
             if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                if let Some(err) = component
-                    .window_adapter()
-                    .renderer()
-                    .register_font_from_path(&std::path::PathBuf::from(s.as_str()))
-                    .err()
-                {
-                    corelib::debug_log!("Error loading custom font {}: {}", s.as_str(), err);
+                // If the window adapter can't be created, log and skip the registration
+                // instead of panicking: the same error resurfaces when the window is
+                // actually used.
+                let result = component.try_window_adapter().map_err(|e| e.to_string()).and_then(
+                    |window_adapter| {
+                        window_adapter
+                            .renderer()
+                            .register_font_from_path(&std::path::PathBuf::from(s.as_str()))
+                            .map_err(|e| format!("Cannot load custom font {}: {e}", s.as_str()))
+                    },
+                );
+                if let Err(err) = result {
+                    corelib::debug_log!("{err}");
                 }
                 Value::Void
             } else {

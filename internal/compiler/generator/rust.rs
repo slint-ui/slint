@@ -1399,7 +1399,7 @@ fn generate_sub_component(
         init.push(quote!(#sub_component_id::init(
             sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
             #global_access.clone(), #global_index, #global_children
-        );));
+        )?;));
         user_init_code.push(quote!(#sub_component_id::user_init(
             sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
         );));
@@ -1653,7 +1653,9 @@ fn generate_sub_component(
         impl #inner_component_id {
             fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
                     globals : sp::Rc<SharedGlobals>,
-                    tree_index: u32, tree_index_of_first_child: u32) {
+                    tree_index: u32, tree_index_of_first_child: u32)
+                -> ::core::result::Result<(), slint::PlatformError>
+            {
                 #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
                 let _ = _self.self_weak.set(sp::VRcMapped::downgrade(&self_rc));
@@ -1661,6 +1663,7 @@ fn generate_sub_component(
                 _self.tree_index.set(tree_index);
                 _self.tree_index_of_first_child.set(tree_index_of_first_child);
                 #(#init)*
+                ::core::result::Result::Ok(())
             }
 
             fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
@@ -2240,7 +2243,7 @@ fn generate_item_tree(
                 let globals = #globals;
                 #set_and_init_globals
                 sp::register_item_tree(&self_dyn_rc, #register_window_adapter_arg);
-                Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1);
+                Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1)?;
                 ::core::result::Result::Ok(self_rc)
             }
 
@@ -4021,29 +4024,31 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::RegisterCustomFontByPath => {
             if let [Expression::StringLiteral(path)] = arguments {
-                let window_adapter_tokens = access_window_adapter_field(ctx);
+                let global_access = &ctx.generator_state.global_access;
                 let path = path.as_str();
-                quote!(#window_adapter_tokens.renderer().register_font_from_path(&std::path::PathBuf::from(#path)).unwrap())
+                // The `?` requires the enclosing generated function to return `Result`: font
+                // registration is only emitted in `init()`, which does.
+                quote!(#global_access.window_adapter_ref()?.renderer().register_font_from_path(&std::path::PathBuf::from(#path)).unwrap())
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByPath {arguments:?}")
             }
         }
         BuiltinFunction::RegisterCustomFontByMemory => {
             if let [Expression::NumberLiteral(resource_id)] = &arguments {
+                let global_access = &ctx.generator_state.global_access;
                 let resource_id: usize = *resource_id as _;
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                let window_adapter_tokens = access_window_adapter_field(ctx);
-                quote!(#window_adapter_tokens.renderer().register_font_from_memory(#symbol.into()).unwrap())
+                quote!(#global_access.window_adapter_ref()?.renderer().register_font_from_memory(#symbol.into()).unwrap())
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByMemory {arguments:?}")
             }
         }
         BuiltinFunction::RegisterBitmapFont => {
             if let [Expression::NumberLiteral(resource_id)] = &arguments {
+                let global_access = &ctx.generator_state.global_access;
                 let resource_id: usize = *resource_id as _;
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                let window_adapter_tokens = access_window_adapter_field(ctx);
-                quote!(#window_adapter_tokens.renderer().register_bitmap_font(&#symbol))
+                quote!(#global_access.window_adapter_ref()?.renderer().register_bitmap_font(&#symbol))
             } else {
                 panic!("internal error: invalid args to RegisterBitmapFont must be a number")
             }
