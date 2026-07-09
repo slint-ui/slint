@@ -15,7 +15,6 @@ use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDecla
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
-use i_slint_core::api::LogicalPosition;
 use i_slint_core::component_factory::ComponentFactory;
 use i_slint_core::input::Keys;
 use i_slint_core::item_tree::{
@@ -2788,7 +2787,6 @@ pub fn show_popup(
     element: ElementRc,
     instance: InstanceRef,
     popup: &object_tree::PopupWindow,
-    pos_getter: impl Fn(InstanceRef<'_, '_>) -> LogicalPosition + 'static,
     close_policy: PopupClosePolicy,
     parent_comp: ErasedItemTreeBoxWeak,
     parent_window_adapter: WindowAdapterRc,
@@ -2834,13 +2832,6 @@ pub fn show_popup(
         Some(&WindowOptions::UseExistingWindow(popup_window_adapter)),
         globals,
     );
-    let inst_for_position = inst.clone();
-    let access_position = Box::new(move || {
-        generativity::make_guard!(guard);
-        let compo_box = inst_for_position.unerase(guard);
-        let instance_ref = compo_box.borrow_instance();
-        pos_getter(instance_ref)
-    });
     close_popup(element.clone(), instance, parent_window_adapter.clone());
     let window_kind = if popup.is_tooltip { WindowKind::ToolTip } else { WindowKind::Popup };
     // Keep the parent's `is-open` property in sync: `show_popup` invokes this with `true` now and with
@@ -2868,7 +2859,6 @@ pub fn show_popup(
         };
     let popup_id = WindowInner::from_pub(parent_window_adapter.window()).show_popup(
         &vtable::VRc::into_dyn(inst.clone()),
-        access_position,
         close_policy,
         parent_item,
         window_kind,

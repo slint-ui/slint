@@ -244,6 +244,12 @@ pub async fn lower_menus(
                 process_context_menu(elem, &useful_menu_component, diag);
             }
         });
+
+        // `PopupMenuImpl` is a `Window`; its native `x`/`y` fields hold the popup position (set via
+        // `set_popup_position`), so its item geometry must be decoupled from them the same way
+        // `lower_popups` does for lowered `PopupWindow`s.
+        super::lower_popups::detach_window_geometry_from_position(&popup_menu_impl.root_element);
+
         doc.popup_menu_impl = popup_menu_impl.into();
     }
 }

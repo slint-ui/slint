@@ -355,6 +355,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
 }
 
 /// lookup reserved property injected in every item
+/// Returns a valid PropertyLookupResult if the property with name `name` is reserved
 pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResult<'_> {
     thread_local! {
         static RESERVED_PROPERTIES: HashMap<&'static str, (Type, PropertyVisibility, Option<BuiltinFunction>)>

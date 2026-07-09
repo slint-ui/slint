@@ -484,7 +484,9 @@ fn duplicate_sub_component(
         exported_global_names: component_to_duplicate.exported_global_names.clone(),
         used: component_to_duplicate.used.clone(),
         private_properties: Default::default(),
-        inherits_popup_window: core::cell::Cell::new(false),
+        inherits_popup_window: core::cell::Cell::new(
+            component_to_duplicate.inherits_popup_window.get(),
+        ),
         from_library: core::cell::Cell::new(false),
     };
 
