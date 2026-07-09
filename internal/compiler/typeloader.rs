@@ -362,6 +362,9 @@ impl Snapshotter {
             let timers = RefCell::new(
                 component.timers.borrow().iter().map(|p| self.snapshot_timer(p)).collect(),
             );
+            let animations = RefCell::new(
+                component.animations.borrow().iter().map(|p| self.snapshot_animation(p)).collect(),
+            );
             let root_constraints = RefCell::new(
                 self.snapshot_layout_constraints(&component.root_constraints.borrow()),
             );
@@ -386,6 +389,7 @@ impl Snapshotter {
                 parent_element: RefCell::new(parent_element),
                 popup_windows,
                 timers,
+                animations,
                 menu_item_tree,
                 private_properties: RefCell::new(component.private_properties.borrow().clone()),
                 root_constraints,
@@ -694,6 +698,21 @@ impl Snapshotter {
             running: timer.running.snapshot(self),
             triggered: timer.triggered.snapshot(self),
             element: timer.element.clone(),
+        }
+    }
+
+    fn snapshot_animation(&mut self, animation: &object_tree::Animation) -> object_tree::Animation {
+        object_tree::Animation {
+            animation_type: animation.animation_type.clone(),
+            target: if animation.target.is_some() { Some(animation.target.as_ref().unwrap().snapshot(self)) } else { None },
+            running: animation.running.snapshot(self),
+            from: if animation.from.is_some() { Some(animation.from.as_ref().unwrap().snapshot(self)) } else { None },
+            to: if animation.to.is_some() { Some(animation.to.as_ref().unwrap().snapshot(self)) } else { None },
+            duration: if animation.duration.is_some() { Some(animation.duration.as_ref().unwrap().snapshot(self)) } else { None },
+            easing: if animation.easing.is_some() { Some(animation.easing.as_ref().unwrap().snapshot(self)) } else { None },
+            // TODO implement children
+            children: animation.children.clone(),
+            element: animation.element.clone(),
         }
     }
 

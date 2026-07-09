@@ -6,6 +6,7 @@
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::BindingExpression;
 use crate::langtype::ElementType;
+use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
 use smol_str::SmolStr;
@@ -19,8 +20,6 @@ pub fn lower_animations(
     type_register: &Rc<RefCell<TypeRegister>>,
     diag: &mut BuildDiagnostics,
 ) {
-    eprintln!("lowering animations");
-
     // TODO replace <animation>.start/end with <animation>.running = true/false
 
     // Walk all elements and validate animation components
@@ -29,15 +28,28 @@ pub fn lower_animations(
         &None,
         &mut |elem, parent_element: &Option<ElementRc>| {
             let elem_borrowed = elem.borrow();
-            let is_animation = matches!(&elem.borrow().base_type, ElementType::Builtin(base_type) if base_type.name == "TweenAnimation");
+            let anim_type = get_anim_type(&elem.borrow().base_type);
 
-            if is_animation {
+            if anim_type.is_some() {
                 validate_animation_properties(&elem_borrowed.bindings.clone(), type_register, diag);
-                lower_animation(elem, parent_element.as_ref(), diag);
+                lower_animation(elem, anim_type.unwrap(), parent_element.as_ref(), diag);
             }
             Some(elem.clone())
         },
     )
+}
+
+fn get_anim_type(anim_base_type: &ElementType) -> Option<AnimationType> {
+    match anim_base_type {
+        ElementType::Builtin(base) => {
+            if base.name == "TweenAnimation" {
+                Some(AnimationType::Tween)
+            } else {
+                None
+            }
+        },
+        _ => None
+    }
 }
 
 /// Validate that from/to properties match the target property in animation components
@@ -58,16 +70,14 @@ fn validate_animation_properties(
             // Validate that target type is animatable
             let type_register_ref = type_register.borrow();
             let elem_type = type_register_ref.property_animation_type_for_property(target_type.clone());
-            let property_animation = match elem_type {
-                ElementType::Builtin(p) => Some(p), // returns the PropertyAnimation object
+            // this simply checks if it can be animated
+            match elem_type {
+                ElementType::Builtin(_) => (), // returns the PropertyAnimation object
                 _ => {
                     let msg = format!("target type {:?} isn't animatable", target_type);
                     diag.push_error(msg, &target_expr.span);
-                    None
                 }
             };
-
-            // now the property animation type can be passed forwards when this is lowered
 
 
             // Validate from property matches target type
@@ -97,8 +107,99 @@ fn validate_animation_properties(
 
 fn lower_animation(
     animation_element: &ElementRc,
+    anim_type: AnimationType,
     parent_element: Option<&ElementRc>,
     diag: &mut BuildDiagnostics
 ) {
+    let parent_component = animation_element.borrow().enclosing_component.upgrade().unwrap();
+    let Some(parent_element) = parent_element else {
+        diag.push_error("A component cannot inherit from Animation".into(), &*animation_element.borrow());
+        return;
+    };
 
+    if Rc::ptr_eq(&parent_component.root_element, animation_element) {
+        diag.push_error(
+            "Animation cannot be directly repeated or conditional".into(),
+            &*animation_element.borrow(),
+        );
+        return;
+    }
+
+    let target = if animation_element.borrow().is_binding_set("target", true) {
+        animation_element.borrow().bindings.get("target").map(|_| NamedReference::new(animation_element, SmolStr::new_static("target")))
+    } else if anim_type == AnimationType::Tween {
+        diag.push_error(
+            "TweenAnimation must have a binding set for its 'target' property".into(),
+            &*animation_element.borrow(),
+        );
+        return;
+    } else {
+        None
+    };
+    let from = if animation_element.borrow().is_binding_set("from", true) {
+        animation_element.borrow().bindings.get("from").map(|_| NamedReference::new(animation_element, SmolStr::new_static("from")))
+    } else {
+        None
+    };
+    let to = if animation_element.borrow().is_binding_set("to", true) {
+        animation_element.borrow().bindings.get("to").map(|_| NamedReference::new(animation_element, SmolStr::new_static("to")))
+    } else {
+        None
+    };
+    let duration = if animation_element.borrow().is_binding_set("duration", true) {
+        animation_element.borrow().bindings.get("duration").map(|_| NamedReference::new(animation_element, SmolStr::new_static("duration")))
+    } else if anim_type == AnimationType::Tween {
+        diag.push_error(
+            "TweenAnimation must have a binding set for its 'duration' property".into(),
+            &*animation_element.borrow(),
+        );
+        return;
+    } else {
+        None
+    };
+
+    let easing = if animation_element.borrow().is_binding_set("easing", true) {
+        animation_element.borrow().bindings.get("easing").map(|_| NamedReference::new(animation_element, SmolStr::new_static("easing")))
+    } else if anim_type == AnimationType::Tween {
+        diag.push_error(
+            "TweenAnimation must have a binding set for its 'easing' property".into(),
+            &*animation_element.borrow(),
+        );
+        return;
+    } else {
+        None
+    };
+
+    // Remove the animation_element from its parent
+    let mut parent_element_borrowed = parent_element.borrow_mut();
+    let index = parent_element_borrowed
+        .children
+        .iter()
+        .position(|child| Rc::ptr_eq(child, animation_element))
+        .expect("Animation must be a child of its parent");
+    let removed = parent_element_borrowed.children.remove(index);
+    parent_component.optimized_elements.borrow_mut().push(removed);
+    drop(parent_element_borrowed);
+    if let Some(parent_cip) = &mut *parent_component.child_insertion_point.borrow_mut()
+        && Rc::ptr_eq(&parent_cip.parent, parent_element)
+        && parent_cip.insertion_index > index
+    {
+        parent_cip.insertion_index -= 1;
+    }
+
+    let running = NamedReference::new(animation_element, SmolStr::new_static("running"));
+    running.mark_as_set();
+
+    parent_component.animations.borrow_mut().push(Animation {
+        animation_type: anim_type,
+        target,
+        running,
+        from,
+        to,
+        duration,
+        easing,
+        // TODO implement children (only necessary for future animation types)
+        children: Vec::new(),
+        element: Rc::downgrade(animation_element),
+    });
 }

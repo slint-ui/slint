@@ -390,6 +390,25 @@ pub struct Timer {
     pub element: ElementWeak,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum AnimationType {
+    Tween,
+    // Other types will be implemented here
+}
+
+#[derive(Debug, Clone)]
+pub struct Animation {
+    pub animation_type: AnimationType,
+    pub target: Option<NamedReference>,
+    pub running: NamedReference,
+    pub from: Option<NamedReference>,
+    pub to: Option<NamedReference>,
+    pub duration: Option<NamedReference>,
+    pub easing: Option<NamedReference>,
+    pub children: Vec<Animation>,
+    pub element: ElementWeak,
+}
+
 #[derive(Clone, Debug)]
 pub struct ChildrenInsertionPoint {
     pub parent: ElementRc,
@@ -475,6 +494,7 @@ pub struct Component {
 
     pub popup_windows: RefCell<Vec<PopupWindow>>,
     pub timers: RefCell<Vec<Timer>>,
+    pub animations: RefCell<Vec<Animation>>,
     pub menu_item_tree: RefCell<Vec<Rc<Component>>>,
 
     /// This component actually inherits PopupWindow (although that has been changed to a Window by the lower_popups pass)
