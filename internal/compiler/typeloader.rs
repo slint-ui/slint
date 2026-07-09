@@ -973,7 +973,7 @@ impl TypeLoader {
             diag.push_diagnostic_with_span(
                 format!(
                     "Style {} is not known. Use one of the builtin styles [{}] or make sure your custom style is found in the include directories",
-                    &style,
+                    style,
                     known_styles.join(", ")
                 ),
                 Default::default(),
