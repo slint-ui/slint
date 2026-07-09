@@ -496,7 +496,7 @@ mod visitor {
         state: &VisitorState,
         visitor: &mut (impl Visitor + ?Sized),
     ) {
-        visit_expression(code, scope, state, visitor);
+        visit_expression(code.get_mut(), scope, state, visitor);
     }
 
     pub fn visit_expression(
@@ -589,6 +589,79 @@ mod visitor {
                 visitor.visit_callback_idx(c, scope, state);
             }
             LocalMemberIndex::Native { .. } => {}
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// Compile `source`, lower it to the LLR (which runs the optimization passes
+    /// including [`remove_unused`]), and return every declared property name
+    /// across all sub-components. The names are prefixed by the element path, so
+    /// callers match with `contains`.
+    fn lowered_property_names(source: &str) -> std::collections::HashSet<String> {
+        let mut config =
+            crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        config.style = Some("fluent".into());
+        let mut diags = crate::diagnostics::BuildDiagnostics::default();
+        let doc_node =
+            crate::parser::parse(source.into(), Some(std::path::Path::new("t.slint")), &mut diags);
+        let (doc, diag, _) =
+            spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config.clone()));
+        assert!(!diag.has_errors(), "compile error: {:#?}", diag.to_string_vec());
+        let unit = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &config);
+        unit.sub_components
+            .iter()
+            .flat_map(|sc| sc.properties.iter().map(|p| p.name.to_string()))
+            .collect()
+    }
+
+    /// The property values below all depend on the `ext` input so they are not
+    /// constant-folded away by the object-tree passes, and therefore actually
+    /// exercise the LLR optimization passes.
+    const SOURCE: &str = r#"
+export component Foo inherits Window {
+    in property <int> ext: 1;
+
+    // KEPT: exposed in the public API.
+    out property <int> kept_public: ext + 1;
+
+    // REMOVED: read only from one other binding, so it is inlined into it and
+    // the reader is itself unused.
+    property <int> gone_inlined: ext * 2;
+    property <int> gone_reader: gone_inlined + 3;
+
+    // REMOVED: only read from a timer's interval, which is inlined.
+    property <duration> gone_timer: ext * 1ms;
+
+    // KEPT: read from a function that is actually called. Function bodies are
+    // not inlined into, so the property cannot be removed.
+    property <int> kept_from_function: ext * 5;
+    pure function f() -> int { kept_from_function }
+    out property <int> function_reader: f();
+
+    // KEPT: has a change callback.
+    property <int> kept_with_change_callback: ext * 7;
+    changed kept_with_change_callback => {}
+
+    Timer { interval: gone_timer; running: true; triggered => {} }
+}
+"#;
+
+    #[test]
+    fn unused_properties_are_removed_and_used_ones_kept() {
+        let names = lowered_property_names(SOURCE);
+        for gone in ["gone-inlined", "gone-reader", "gone-timer"] {
+            assert!(
+                !names.iter().any(|n| n.contains(gone)),
+                "property {gone} should have been removed, got {names:?}"
+            );
+        }
+        for kept in ["kept-public", "kept-from-function", "kept-with-change-callback"] {
+            assert!(
+                names.iter().any(|n| n.contains(kept)),
+                "property {kept} should have been kept, got {names:?}"
+            );
         }
     }
 }

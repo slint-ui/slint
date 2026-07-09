@@ -1818,10 +1818,10 @@ fn generate_functions(functions: &[llr::Function], ctx: &EvaluationContext) -> V
         .map(|f| {
             let mut ctx2 = ctx.clone();
             ctx2.argument_types = &f.args;
-            let tokens_for_expression = compile_expression(&f.code, &ctx2);
+            let tokens_for_expression = compile_expression(&f.code.borrow(), &ctx2);
             let as_ = if f.ret_ty == Type::Void {
                 Some(quote!(;))
-            } else if f.code.ty(&ctx2) == Type::Invalid {
+            } else if f.code.borrow().ty(&ctx2) == Type::Invalid {
                 // Don't cast if the Rust code is the never type, as with return statements inside a block, the
                 // type of the return expression is `()` instead of `!`.
                 None
