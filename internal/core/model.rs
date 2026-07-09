@@ -144,6 +144,54 @@ pub trait Model {
         );
     }
 
+    /// Add a new row to the model.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call [`ModelNotify::row_added`] on its
+    /// internal [`ModelNotify`].
+    fn push_row(&self, _data: Self::Data) {
+        #[cfg(feature = "std")]
+        crate::debug_log!(
+            "Model::push_row called on a model of type {} which does not re-implement this method. \
+            This happens when trying to modify a read-only model",
+            core::any::type_name::<Self>()
+        );
+    }
+
+    /// Remove a row from the model at the specified index.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call [`ModelNotify::row_removed`] on its
+    /// internal [`ModelNotify`].
+    fn remove_row(&self, _row: isize) {
+        #[cfg(feature = "std")]
+        crate::debug_log!(
+            "Model::remove_row called on a model of type {} which does not re-implement this method. \
+            This happens when trying to modify a read-only model",
+            core::any::type_name::<Self>()
+        );
+    }
+
+    /// Insert a new row at the specified index and move the next rows by 1 step to the right.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call [`ModelNotify::row_added`] on its
+    /// internal [`ModelNotify`].
+    fn insert_row(&self, _row: isize, _data: Self::Data) {
+        #[cfg(feature = "std")]
+        crate::debug_log!(
+            "Model::insert_row called on a model of type {} which does not re-implement this method. \
+            This happens when trying to modify a read-only model",
+            core::any::type_name::<Self>()
+        );
+    }
+
     /// The implementation should return a reference to its [`ModelNotify`] field.
     ///
     /// You can return `&()` if you your `Model` is constant and does not have a ModelNotify field.
@@ -482,6 +530,22 @@ impl<T: Clone + 'static> Model for VecModel<T> {
         }
     }
 
+    fn push_row(&self, data: Self::Data) {
+        self.push(data);
+    }
+
+    fn remove_row(&self, row: isize) {
+        if row >= 0 && row < self.row_count() as isize {
+            self.remove(row as usize);
+        }
+    }
+
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        if row >= 0 && row <= self.row_count() as isize {
+            self.insert(row as usize, data);
+        }
+    }
+
     fn model_tracker(&self) -> &dyn ModelTracker {
         &self.notify
     }
@@ -533,6 +597,25 @@ impl<T: Clone + 'static> Model for SharedVectorModel<T> {
     fn set_row_data(&self, row: usize, data: Self::Data) {
         self.array.borrow_mut().make_mut_slice()[row] = data;
         self.notify.row_changed(row);
+    }
+
+    fn push_row(&self, data: Self::Data) {
+        self.array.borrow_mut().push(data);
+        self.notify.row_added(self.array.borrow().len() - 1, 1);
+    }
+
+    fn remove_row(&self, row: isize) {
+        if row >= 0 {
+            self.array.borrow_mut().remove(row as usize);
+            self.notify.row_removed(row as usize, 1);
+        }
+    }
+
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        if row >= 0 {
+            self.array.borrow_mut().insert(row as usize, data);
+            self.notify.row_added(row as usize, 1);
+        }
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
@@ -817,6 +900,24 @@ impl<T> Model for ModelRc<T> {
     fn set_row_data(&self, row: usize, data: Self::Data) {
         if let Some(model) = self.0.as_ref() {
             model.set_row_data(row, data);
+        }
+    }
+
+    fn push_row(&self, data: Self::Data) {
+        if let Some(model) = self.0.as_ref() {
+            model.push_row(data);
+        }
+    }
+
+    fn remove_row(&self, row: isize) {
+        if let Some(model) = self.0.as_ref() {
+            model.remove_row(row);
+        }
+    }
+
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        if let Some(model) = self.0.as_ref() {
+            model.insert_row(row, data);
         }
     }
 

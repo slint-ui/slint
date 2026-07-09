@@ -45,6 +45,21 @@ class Model[T](native.PyModelBase, Iterable[T]):
         Re-implement this method in a sub-class to provide the data."""
         return cast(T, super().row_data(row))
 
+    def append(self, value: T) -> None:
+        """Add a new row to the model with the provided value.
+        Re-implement this method in a sub-class to handle the change."""
+        super().append(value)
+
+    def remove_row(self, row: int) -> None:
+        """Remove the row at the given index.
+        Re-implement this method in a sub-class to handle the change."""
+        super().remove_row(row)
+
+    def insert_row(self, row: int, value: T) -> None:
+        """Insert a new row at the given index.
+        Re-implement this method in a sub-class to handle the change."""
+        super().insert_row(row, value)
+
     def notify_row_changed(self, row: int) -> None:
         """Call this method from a sub-class to notify the views that a row has changed."""
         super().notify_row_changed(row)
@@ -91,6 +106,18 @@ class ListModel[T](Model[T]):
     def set_row_data(self, row: int, value: T) -> None:
         self.list[row] = value
         super().notify_row_changed(row)
+
+    def remove_row(self, row: int) -> None:
+        if row < 0 or row >= len(self.list):
+            return
+        del self.list[row]
+        super().notify_row_removed(row, 1)
+
+    def insert_row(self, row: int, value: T) -> None:
+        # Validate index range to follow behavior from other languages implementations.
+        if row < 0 or row > len(self.list):
+            return
+        self.insert(row, value)
 
     def __delitem__(self, key: int | slice) -> None:
         if isinstance(key, slice):

@@ -4223,8 +4223,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 .map(|e| format!("{ty} ( {expr} )", expr = compile_expression(e, ctx), ty = ty));
             match output {
                 llr::ArrayOutput::Model => format!(
-                    "std::make_shared<slint::private_api::ArrayModel<{count},{ty}>>({val})",
-                    count = values.len(),
+                    "std::make_shared<slint::VectorModel<{ty}>>(std::vector<{ty}>{{ {val} }})",
                     ty = ty,
                     val = val.join(", ")
                 ),
@@ -4773,6 +4772,22 @@ fn compile_builtin_function_call(
         BuiltinFunction::ArrayLength => {
             format!("slint::private_api::model_length({})", a.next().unwrap())
         }
+        BuiltinFunction::ArrayPush => {
+            let model = a.next().unwrap();
+            let value = a.next().unwrap();
+            format!("slint::private_api::model_push({model}, {value})")
+        }
+        BuiltinFunction::ArrayRemove => {
+            let model = a.next().unwrap();
+            let index = a.next().unwrap();
+            format!("slint::private_api::model_remove({model}, {index})")
+        }
+        BuiltinFunction::ArrayInsert => {
+            let model = a.next().unwrap();
+            let index = a.next().unwrap();
+            let value = a.next().unwrap();
+            format!("slint::private_api::model_insert({model}, {index}, {value})")
+        }
         BuiltinFunction::Rgb => {
             format!("slint::Color::from_argb_uint8(std::clamp(static_cast<float>({a}) * 255., 0., 255.), std::clamp(static_cast<int>({r}), 0, 255), std::clamp(static_cast<int>({g}), 0, 255), std::clamp(static_cast<int>({b}), 0, 255))",
                 r = a.next().unwrap(),
@@ -4920,7 +4935,7 @@ fn compile_builtin_function_call(
             )
         }
         BuiltinFunction::DateNow => {
-            "[] { int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_date_now(&d, &m, &y); return std::make_shared<slint::private_api::ArrayModel<3,int32_t>>(d, m, y); }()".into()
+            "[] { int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_date_now(&d, &m, &y); return std::make_shared<slint::VectorModel<int32_t>>(std::vector<int32_t>{ d, m, y }); }()".into()
         }
         BuiltinFunction::ValidDate => {
             format!(
@@ -4930,7 +4945,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ParseDate => {
             format!(
-                "[](const auto &a, const auto &b) {{ int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_parse_date(&a, &b, &d, &m, &y); return std::make_shared<slint::private_api::ArrayModel<3,int32_t>>(d, m, y); }}({}, {})",
+                "[](const auto &a, const auto &b) {{ int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_parse_date(&a, &b, &d, &m, &y); return std::make_shared<slint::VectorModel<int32_t>>(std::vector<int32_t>{{ d, m, y }}); }}({}, {})",
                 a.next().unwrap(), a.next().unwrap()
             )
         }

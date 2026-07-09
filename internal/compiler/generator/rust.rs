@@ -4186,7 +4186,35 @@ fn compile_builtin_function_call(
                 x.row_count() as i32
             }})
         }
-
+        BuiltinFunction::ArrayPush => {
+            let model = a.next().unwrap();
+            let value = a.next().unwrap();
+            quote!({
+                let model = &#model;
+                let value = #value;
+                model.push_row(value);
+            })
+        }
+        BuiltinFunction::ArrayRemove => {
+            let model = a.next().unwrap();
+            let index = a.next().unwrap();
+            quote!({
+                let model = &#model;
+                let index = #index;
+                model.remove_row(index as isize);
+            })
+        }
+        BuiltinFunction::ArrayInsert => {
+            let model = a.next().unwrap();
+            let index = a.next().unwrap();
+            let value = a.next().unwrap();
+            quote!({
+                let model = &#model;
+                let index = #index;
+                let value = #value;
+                model.insert_row(index as isize, value);
+            })
+        }
         BuiltinFunction::Rgb => {
             let (r, g, b, a) =
                 (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());

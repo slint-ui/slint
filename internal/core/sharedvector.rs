@@ -243,6 +243,42 @@ impl<T: Clone> SharedVector<T> {
         }
     }
 
+    /// Removes element at the given index from the array.
+    /// If the array was shared, this will make a copy of the array.
+    pub fn remove(&mut self, row: usize) {
+        if row >= self.len() {
+            return;
+        }
+        self.detach(self.len());
+        unsafe {
+            let data = data_ptr(self.inner);
+            core::ptr::drop_in_place(data.add(row));
+            let size = (*self.inner.as_ptr()).header.size;
+            for i in row..(size - 1) {
+                core::ptr::copy(data.add(i + 1), data.add(i), 1);
+            }
+            (*self.inner.as_ptr()).header.size = size - 1;
+        }
+    }
+
+    /// Inserts element at the given index in the array.
+    /// If the array was shared, this will make a copy of the array.
+    pub fn insert(&mut self, row: usize, value: T) {
+        if row > self.len() {
+            return;
+        }
+        self.detach(capacity_for_grow(self.capacity(), self.len() + 1, core::mem::size_of::<T>()));
+        unsafe {
+            let data = data_ptr(self.inner);
+            let size = (*self.inner.as_ptr()).header.size;
+            for i in (row..size).rev() {
+                core::ptr::copy(data.add(i), data.add(i + 1), 1);
+            }
+            core::ptr::write(data.add(row), value);
+            (*self.inner.as_ptr()).header.size = size + 1;
+        }
+    }
+
     /// Removes last element from the array and returns it.
     /// If the array was shared, this will make a copy of the array.
     pub fn pop(&mut self) -> Option<T> {
@@ -613,6 +649,32 @@ fn push_test() {
     x.push(5);
     x.push(6);
     assert_eq!(x.as_slice(), &[1, 2, 3, 4, 5, 6]);
+    assert_eq!(y.as_slice(), &[1, 2, 3]);
+}
+
+#[test]
+fn remove_test() {
+    let mut x: SharedVector<i32> = SharedVector::from([1, 2, 3, 4, 5, 6]);
+    let y = x.clone();
+    x.remove(0);
+    x.remove(1);
+    x.remove(3);
+    x.remove(4);
+    x.push(42);
+    x.remove(2);
+    assert_eq!(x.as_slice(), &[2, 4, 42]);
+    assert_eq!(y.as_slice(), &[1, 2, 3, 4, 5, 6]);
+}
+
+#[test]
+fn insert_test() {
+    let mut x: SharedVector<i32> = SharedVector::from([1, 2, 3]);
+    let y = x.clone();
+    x.insert(0, 42);
+    assert_eq!(x.as_slice(), &[42, 1, 2, 3]);
+    x.insert(2, 24);
+    x.insert(6, 84);
+    assert_eq!(x.as_slice(), &[42, 1, 24, 2, 3]);
     assert_eq!(y.as_slice(), &[1, 2, 3]);
 }
 
