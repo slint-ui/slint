@@ -334,7 +334,8 @@ struct BindingVTable {
 ///
 /// # Safety
 ///
-/// IS_TWO_WAY_BINDING cannot be true if Self is not a TwoWayBinding
+/// IS_TWO_WAY_BINDING cannot be true if Self is not a TwoWayBinding.
+/// IS_STRUCT_MEMBER_BINDINGS cannot be true if Self is not a StructMemberBindings.
 unsafe trait BindingCallable<T> {
     /// This function is called by the property to evaluate the binding and produce a new value. The
     /// previous property value is provided in the value parameter.
@@ -362,6 +363,11 @@ unsafe trait BindingCallable<T> {
 
     /// Set to true if and only if Self is a TwoWayBinding<T>
     const IS_TWO_WAY_BINDING: bool = false;
+
+    /// Set to true if and only if Self is a StructMemberBindings<T>
+    /// (the wrapper binding installed on a struct property whose fields are
+    /// linked into two-way binding classes, see `two_way_binding.rs`)
+    const IS_STRUCT_MEMBER_BINDINGS: bool = false;
 }
 
 unsafe impl<T, F: Fn(&mut T) -> BindingResult> BindingCallable<T> for F {
@@ -449,6 +455,8 @@ struct BindingHolder<B = ()> {
     dirty: Cell<bool>,
     /// Specify that B is a `TwoWayBinding<T>`
     is_two_way_binding: bool,
+    /// Specify that B is a `StructMemberBindings<T>`
+    is_struct_member_bindings: bool,
     pinned: PhantomPinned,
     #[cfg(slint_debug_property)]
     pub debug_name: alloc::string::String,
@@ -538,6 +546,7 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
         vtable: <B as HasBindingVTable<T>>::VT,
         dirty: Cell::new(true), // starts dirty so it evaluates the property when used
         is_two_way_binding: B::IS_TWO_WAY_BINDING,
+        is_struct_member_bindings: B::IS_STRUCT_MEMBER_BINDINGS,
         pinned: PhantomPinned,
         #[cfg(slint_debug_property)]
         debug_name: Default::default(),
@@ -1245,6 +1254,7 @@ impl<const NEEDS_SET_DIRTY: bool> Default for PropertyTracker<NEEDS_SET_DIRTY, (
             vtable: VT,
             dirty: Cell::new(true), // starts dirty so it evaluates the property when used
             is_two_way_binding: false,
+            is_struct_member_bindings: false,
             pinned: PhantomPinned,
             binding: (),
             #[cfg(slint_debug_property)]
@@ -1370,6 +1380,7 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
             vtable: <DirtyHandler as HasBindingVTable>::VT,
             dirty: Cell::new(true), // starts dirty so it evaluates the property when used
             is_two_way_binding: false,
+            is_struct_member_bindings: false,
             pinned: PhantomPinned,
             binding: handler,
             #[cfg(slint_debug_property)]

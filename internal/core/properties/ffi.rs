@@ -568,6 +568,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         vtable: VT,
         dirty: Cell::new(false),
         is_two_way_binding: false,
+        is_struct_member_bindings: false,
         pinned: PhantomPinned,
         binding: inner,
         #[cfg(slint_debug_property)]
