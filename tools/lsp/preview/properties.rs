@@ -338,7 +338,7 @@ fn insert_property_definitions(
                     TwoWayBinding::Property { property, field_access, .. } => {
                         (binding_value(&property.element(), property.name(), count), field_access)
                     }
-                    TwoWayBinding::ModelData { repeated_element, field_access } => (
+                    TwoWayBinding::ModelData { repeated_element, field_access, .. } => (
                         Expression::RepeaterModelReference { element: repeated_element.clone() },
                         field_access,
                     ),

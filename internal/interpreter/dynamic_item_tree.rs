@@ -1852,13 +1852,29 @@ pub fn instantiate(
                                     && let Some(struct_ptr) =
                                         value_struct_property_ptr(property, instance_ref)
                                 {
-                                    let (get_field, set_field) =
-                                        value_field_path_boxed_accessors(field_access);
-                                    let field_key = field_access.join(".");
-                                    // Safety: struct_ptr points to a live pinned Property<Value>
-                                    prop_rtti.link_two_way_to_member(
-                                        item, struct_ptr, &field_key, get_field, set_field,
-                                    );
+                                    if matches!(&property_type, Type::LogicalLength) {
+                                        // Native item properties store `length`
+                                        // as Property<LogicalLength>, while the
+                                        // class common for a length field uses
+                                        // the plain f32 representation (like
+                                        // custom properties and decomposed
+                                        // cells do): attach through a
+                                        // converting link.
+                                        link_native_length_member(
+                                            item,
+                                            prop_rtti.offset(),
+                                            struct_ptr,
+                                            field_access,
+                                        );
+                                    } else {
+                                        let (get_field, set_field) =
+                                            value_field_path_boxed_accessors(field_access);
+                                        let field_key = field_access.join(".");
+                                        // Safety: struct_ptr points to a live pinned Property<Value>
+                                        prop_rtti.link_two_way_to_member(
+                                            item, struct_ptr, &field_key, get_field, set_field,
+                                        );
+                                    }
                                 } else {
                                     // whole struct/array link, or a natively
                                     // stored struct side: wide-common
@@ -2185,6 +2201,7 @@ fn with_typed_cell_accessors<R>(
         Type::Duration => dispatch!(i64),
         Type::Image => dispatch!(i_slint_core::graphics::Image),
         Type::Bool => dispatch!(bool),
+        Type::ComponentFactory => dispatch!(ComponentFactory),
         Type::Easing => dispatch!(i_slint_core::animations::EasingCurve),
         Type::Enumeration(e) => {
             macro_rules! match_enum_type {
@@ -2221,6 +2238,45 @@ trait TypedCellLink<R> {
         T2: Clone + PartialEq + Default + 'static,
         Value: TryInto<T2>,
         T2: TryInto<Value>;
+}
+
+/// Link a native item property of type `length` (stored as
+/// `Property<LogicalLength>`) two-way to the field at `field_access` of the
+/// struct property behind `struct_ptr` (a `Property<Value>`). The class'
+/// common property uses the plain `f32` representation that custom `length`
+/// properties and decomposed cells use, so all links to the same field
+/// share one class; the native member is attached through a converting
+/// forwarding binding.
+fn link_native_length_member(
+    item: Pin<ItemRef>,
+    property_offset: usize,
+    struct_ptr: *const c_void,
+    field_access: &[SmolStr],
+) {
+    use i_slint_core::lengths::LogicalLength;
+    let (get_field, set_field) = value_field_path_accessors(field_access);
+    // Safety: the compiler resolved this property as a `length` property of
+    // the native item, whose storage is a Property<LogicalLength> at the
+    // rtti offset; struct_ptr points to a live pinned Property<Value>
+    unsafe {
+        let member =
+            Pin::new_unchecked(&*(item.as_ptr().add(property_offset)
+                as *const Property<LogicalLength>));
+        let struct_prop = Pin::new_unchecked(&*(struct_ptr as *const Property<Value>));
+        Property::link_two_way_to_member_mapped(
+            struct_prop,
+            member,
+            field_access.join(".").as_str(),
+            move |value: &Value| {
+                get_field(value).try_into().unwrap_or_default()
+            },
+            move |value: &mut Value, field: &f32| {
+                set_field(value, &Value::Number(*field as f64))
+            },
+            |repr: &f32| LogicalLength::new(*repr),
+            |repr: &mut f32, length: &LogicalLength| *repr = length.get(),
+        );
+    }
 }
 
 /// Establish a compiler-decomposed two-way cell link

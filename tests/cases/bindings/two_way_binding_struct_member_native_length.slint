@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for two-way bindings from a *native item property* of
+// type `length` onto a struct field, mixed with a custom property linked to
+// the same field.
+//
+// In the interpreter, native item properties store lengths as
+// `Property<LogicalLength>` while custom `length` properties (and struct
+// fields) use plain `f32`. Both links must still end up in one two-way
+// class: the class common uses the field representation and the native
+// member is attached through a converting link.
+
+struct LenStruct {
+    x: length,
+    g: int,
+}
+
+export component TestCase {
+    in-out property <LenStruct> s: { x: 10px, g: 1 };
+    in-out property <length> m <=> s.x;
+
+    r := Rectangle {
+        border-width <=> s.x;
+    }
+
+    out property <length> observed-border-width: r.border-width;
+    out property <bool> test: m == 10px && s.x == 10px && observed-border-width == 10px && s.g == 1;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+instance.set_m(42.0);
+assert_eq!(instance.get_s().x, 42.0);
+assert_eq!(instance.get_observed_border_width(), 42.0);
+assert_eq!(instance.get_s().g, 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+instance.set_m(42.);
+assert_eq(instance.get_s().x, 42.);
+assert_eq(instance.get_observed_border_width(), 42.);
+assert_eq(instance.get_s().g, 1);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+
+instance.m = 42;
+assert.equal(instance.s.x, 42);
+assert.equal(instance.observed_border_width, 42);
+assert.equal(instance.s.g, 1);
+```
+
+*/

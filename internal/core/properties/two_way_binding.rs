@@ -717,35 +717,12 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         let field_key = field_key.into();
         let member_common = member_prop.check_common_property();
         let member_was_linked = member_common.is_some();
-        let struct_common = struct_prop.struct_member_common::<T2>(&field_key);
-
-        let common = match (member_common, struct_common) {
-            (Some(member_common), Some(struct_common)) => {
-                if !core::ptr::eq(&*member_common, &*struct_common) {
-                    // Both sides are already in (distinct) classes: unify
-                    // them by linking the two commons like ordinary scalar
-                    // properties.
-                    Property::link_two_way(member_common.as_ref(), struct_common.as_ref());
-                }
-                struct_common
-            }
-            (Some(common), None) | (None, Some(common)) => common,
-            (None, None) => {
-                // Seed a new class with the struct's genuine field value,
-                // read before the mapping for this link is installed: the
-                // right-hand side of `<=>` wins, as with `link_two_way`.
-                Rc::pin(Property::new(get_field(&struct_prop.get_untracked())))
-            }
-        };
-
-        // Push the struct's field value into a reused class, unless the
-        // class is driven by a binding — the binding stays authoritative
-        // (and a push would drop it, e.g. sever a model-row binding).
-        if !common.has_binding() {
-            common.as_ref().set(get_field(&struct_prop.get_untracked()));
-        }
-
-        struct_prop.add_struct_member_mapping(field_key, common.clone(), get_field, set_field);
+        let common = struct_prop.struct_member_class_common(
+            member_common,
+            field_key.clone(),
+            get_field,
+            set_field,
+        );
 
         if !member_was_linked {
             #[cfg(slint_debug_property)]
@@ -767,7 +744,11 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                         if preserve_member_binding {
                             // Re-attach the member's binding: the fresh
                             // TwoWayBinding intercepts and forwards it onto
-                            // the common, where it drives the class.
+                            // the common, where it drives the class. Make
+                            // sure it re-evaluates there and drops stale
+                            // registrations from evaluations on the member.
+                            (*old).dirty.set(true);
+                            *(*old).dep_nodes.get() = Default::default();
                             member_prop.handle.set_binding_impl(old);
                         } else {
                             // The member's own binding is dropped: the
@@ -785,6 +766,88 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                 }
             }
         }
+    }
+
+    /// Resolve (or create) the narrow common property of the two-way class
+    /// that `field_key` of this struct property belongs to, and install the
+    /// field's mapping: the shared first half of the `link_two_way_*member*`
+    /// functions. `member_common` is the class common already found on the
+    /// other side of the link, if any.
+    fn struct_member_class_common<T2: PartialEq + Clone + 'static>(
+        self: Pin<&Self>,
+        member_common: Option<Pin<Rc<Property<T2>>>>,
+        field_key: crate::SharedString,
+        get_field: impl Fn(&T) -> T2 + Clone + 'static,
+        set_field: impl Fn(&mut T, &T2) + Clone + 'static,
+    ) -> Pin<Rc<Property<T2>>> {
+        let struct_common = self.struct_member_common::<T2>(&field_key);
+
+        let common = match (member_common, struct_common) {
+            (Some(member_common), Some(struct_common)) => {
+                if !core::ptr::eq(&*member_common, &*struct_common) {
+                    // Both sides are already in (distinct) classes: unify
+                    // them by linking the two commons like ordinary scalar
+                    // properties.
+                    Property::link_two_way(member_common.as_ref(), struct_common.as_ref());
+                }
+                struct_common
+            }
+            (Some(common), None) | (None, Some(common)) => common,
+            (None, None) => {
+                // Seed a new class with the struct's genuine field value,
+                // read before the mapping for this link is installed: the
+                // right-hand side of `<=>` wins, as with `link_two_way`.
+                Rc::pin(Property::new(get_field(&self.get_untracked())))
+            }
+        };
+
+        // Push the struct's field value into a reused class, unless the
+        // class is driven by a binding — the binding stays authoritative
+        // (and a push would drop it, e.g. sever a model-row binding).
+        if !common.has_binding() {
+            common.as_ref().set(get_field(&self.get_untracked()));
+        }
+
+        self.add_struct_member_mapping(field_key, common.clone(), get_field, set_field);
+        common
+    }
+
+    /// Like [`Self::link_two_way_to_member`], for a member property whose
+    /// *storage* type `TM` differs from the representation `T2` that struct
+    /// fields of the same `.slint` type use (e.g. native item properties
+    /// store `length` as `LogicalLength` while struct fields store it as
+    /// plain `f32`). The class' common property uses the field
+    /// representation `T2` — so it is shared with the commons other links
+    /// to the same field create — and the member is attached through a
+    /// converting forwarding binding (`map_to_member`/`map_from_member`
+    /// convert between the two representations). A pre-existing regular
+    /// binding on the member is forwarded onto the common, like with
+    /// `preserve_member_binding` = true.
+    pub fn link_two_way_to_member_mapped<
+        T2: PartialEq + Clone + 'static,
+        TM: PartialEq + Clone + 'static,
+    >(
+        struct_prop: Pin<&Self>,
+        member_prop: Pin<&Property<TM>>,
+        field_key: impl Into<crate::SharedString>,
+        get_field: impl Fn(&T) -> T2 + Clone + 'static,
+        set_field: impl Fn(&mut T, &T2) + Clone + 'static,
+        map_to_member: impl Fn(&T2) -> TM + Clone + 'static,
+        map_from_member: impl Fn(&mut T2, &TM) + Clone + 'static,
+    ) {
+        let common = struct_prop.struct_member_class_common(
+            None,
+            field_key.into(),
+            get_field,
+            set_field,
+        );
+        Property::link_two_way_with_map_to_common_property(
+            common,
+            member_prop,
+            map_to_member,
+            map_from_member,
+            true,
+        );
     }
 
     /// Link `field_key_a` of the struct property `prop_a` two-way with
