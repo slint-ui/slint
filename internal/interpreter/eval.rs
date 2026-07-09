@@ -321,6 +321,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs = eval_expression(lhs, local_context);
+            // && and || short circuit like in the generated code, or else side
+            // effects in the rhs would run in the interpreter only
+            match (op, &lhs) {
+                ('&', Value::Bool(false)) => return Value::Bool(false),
+                ('|', Value::Bool(true)) => return Value::Bool(true),
+                _ => {}
+            }
             let rhs = eval_expression(rhs, local_context);
 
             match (op, lhs, rhs) {
