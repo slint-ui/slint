@@ -188,7 +188,7 @@ pub struct SystemTrayIcon {
     pub title: Property<SharedString>,
     pub visible: Property<bool>,
     pub color_scheme: Property<ColorScheme>,
-    pub activated: Callback<VoidArg>,
+    pub clicked: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
     data: SystemTrayIconDataBox,
 }

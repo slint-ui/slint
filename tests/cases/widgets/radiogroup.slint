@@ -1,0 +1,184 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioGroup } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in-out property <int> selected-count: 0;
+    in-out property <string> last-selected;
+    in-out property <int> red-toggled-count: 0;
+    in-out property <int> green-toggled-count: 0;
+    out property <string> current-value: group.current-value;
+    out property <bool> has-focus <=> group.has-focus;
+    out property <bool> test: current-value == "" && selected-count == 0;
+
+    HorizontalLayout {
+        alignment: start;
+        group := RadioGroup {
+            title: "Colors";
+            red-btn := RadioButton {
+                text: "Red";
+                toggled => { root.red-toggled-count += 1; }
+            }
+            green-btn := RadioButton {
+                text: "Green";
+                toggled => { root.green-toggled-count += 1; }
+            }
+            blue-btn := RadioButton { text: "Blue"; enabled: false; }
+            selected(value) => {
+                root.selected-count += 1;
+                root.last-selected = value;
+            }
+        }
+    }
+
+    public function set-red() { red-btn.checked = true; }
+    public function set-green() { green-btn.checked = true; }
+    public function unset-red() { red-btn.checked = false; }
+    public function set-blue() { blue-btn.checked = true; }
+
+    out property <bool> red-checked: red-btn.checked;
+    out property <bool> green-checked: green-btn.checked;
+    out property <bool> blue-checked: blue-btn.checked;
+}
+
+/*
+
+```rust
+use slint::platform::Key;
+use slint::platform::PointerEventButton;
+use slint::SharedString;
+use slint_testing::{AccessibleRole, Orientation};
+
+let instance = TestCase::new().unwrap();
+
+// Nothing is selected initially.
+assert!(instance.get_test());
+assert_eq!(instance.get_selected_count(), 0);
+assert_eq!(instance.get_current_value(), SharedString::from(""));
+assert_eq!(instance.get_has_focus(), false);
+
+// The group exposes its accessibility properties, including orientation and the size of the set.
+let group = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Colors").next().unwrap();
+assert_eq!(group.accessible_role(), Some(AccessibleRole::RadioGroup));
+assert_eq!(group.accessible_orientation(), Some(Orientation::Vertical));
+assert_eq!(group.accessible_item_count(), Some(3));
+assert_eq!(group.accessible_enabled(), Some(true));
+// A radio group has no value of its own; the selection is conveyed by the checked button.
+assert_eq!(group.accessible_value(), None);
+
+// Each radio button exposes its role, checkable state and position in the set.
+let red = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Red").next().unwrap();
+let green = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Green").next().unwrap();
+let blue = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Blue").next().unwrap();
+assert_eq!(red.accessible_role(), Some(AccessibleRole::RadioButton));
+assert_eq!(red.accessible_checkable(), Some(true));
+assert_eq!(red.accessible_item_index(), Some(0));
+assert_eq!(green.accessible_item_index(), Some(1));
+assert_eq!(blue.accessible_item_index(), Some(2));
+assert_eq!(red.accessible_checked(), Some(false));
+assert_eq!(red.accessible_enabled(), Some(true));
+// The disabled entry is reported as disabled.
+assert_eq!(blue.accessible_enabled(), Some(false));
+
+// Tabbing into the group moves focus into it without changing the selection
+// (keyboard navigation with the arrow keys is not yet implemented).
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Tab));
+assert_eq!(instance.get_has_focus(), true);
+assert_eq!(instance.get_selected_count(), 0);
+assert_eq!(red.accessible_checked(), Some(false));
+
+// Clicking a radio button updates the selection.
+red.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_value(), SharedString::from("Red"));
+assert_eq!(instance.get_selected_count(), 1);
+assert_eq!(instance.get_last_selected(), SharedString::from("Red"));
+assert_eq!(red.accessible_checked(), Some(true));
+// `toggled` fires on the button that becomes selected.
+assert_eq!(instance.get_red_toggled_count(), 1);
+assert_eq!(instance.get_green_toggled_count(), 0);
+
+// Clicking the already-checked radio button does not update the selection again.
+red.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_selected_count(), 1);
+assert_eq!(red.accessible_checked(), Some(true));
+assert_eq!(instance.get_red_toggled_count(), 1);
+
+// Clicking another radio button updates the selection.
+green.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_value(), SharedString::from("Green"));
+assert_eq!(instance.get_selected_count(), 2);
+assert_eq!(instance.get_last_selected(), SharedString::from("Green"));
+assert_eq!(green.accessible_checked(), Some(true));
+assert_eq!(red.accessible_checked(), Some(false));
+// `toggled` fires on both the newly-selected button and the one losing the selection.
+assert_eq!(instance.get_green_toggled_count(), 1);
+assert_eq!(instance.get_red_toggled_count(), 2);
+
+// Clicking a disabled radio button does nothing.
+blue.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_selected_count(), 2);
+assert_eq!(green.accessible_checked(), Some(true));
+
+// The accessible default action selects a radio button and updates the checked state.
+red.invoke_accessible_default_action();
+assert_eq!(instance.get_selected_count(), 3);
+assert_eq!(instance.get_last_selected(), SharedString::from("Red"));
+assert_eq!(red.accessible_checked(), Some(true));
+assert_eq!(green.accessible_checked(), Some(false));
+
+// The accessible default action on the already-checked button does not update the selection again.
+red.invoke_accessible_default_action();
+assert_eq!(instance.get_selected_count(), 3);
+assert_eq!(red.accessible_checked(), Some(true));
+
+// The accessible default action does nothing on a disabled radio button.
+blue.invoke_accessible_default_action();
+assert_eq!(instance.get_selected_count(), 3);
+assert_eq!(blue.accessible_checked(), Some(false));
+
+// Programmatic `checked = true` from outside selects the button and updates
+// the group; the previously-checked button goes unchecked.
+// `invoke_accessible_default_action` doesn't tick the event loop, so the
+// `changed group-current-index` handler is still queued — flush before
+// writing so the queued sync doesn't race with the user write.
+slint_testing::mock_elapsed_time(0);
+instance.invoke_set_green();
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_current_value(), SharedString::from("Green"));
+assert_eq!(instance.get_selected_count(), 4);
+assert_eq!(instance.get_green_checked(), true);
+assert_eq!(instance.get_red_checked(), false);
+assert_eq!(green.accessible_checked(), Some(true));
+assert_eq!(red.accessible_checked(), Some(false));
+
+// Setting `checked = true` on the already-selected button is a no-op.
+instance.invoke_set_green();
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_selected_count(), 4);
+
+// Setting `checked = false` on the selected button reverts — deselect-all
+// isn't supported from outside.
+instance.invoke_set_red();
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_current_value(), SharedString::from("Red"));
+assert_eq!(instance.get_red_checked(), true);
+instance.invoke_unset_red();
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_red_checked(), true);
+assert_eq!(instance.get_current_value(), SharedString::from("Red"));
+
+// Programmatic `checked = true` on a disabled button is refused —
+// selection state and the previously-selected button are unchanged.
+instance.invoke_set_blue();
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_current_value(), SharedString::from("Red"));
+assert_eq!(instance.get_red_checked(), true);
+assert_eq!(instance.get_blue_checked(), false);
+
+```
+
+*/

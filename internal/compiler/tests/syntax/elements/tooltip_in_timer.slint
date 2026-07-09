@@ -1,12 +1,28 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { TabWidget } from "std-widgets.slint";
+
 export component Test inherits Window {
     Timer {
         interval: 200ms;
-        ToolTip {
-//      >      <error{ToolTip cannot be used inside non-item elements}
-            text: "No tooltip here";
+        Tooltip {
+//      >      <error{Tooltip cannot be added to Timer}
+            text: @markdown("No tooltip here");
+        }
+    }
+
+    TabWidget {
+        Tooltip {
+//      >      <error{Tooltip cannot be added to TabWidget}
+            text: @markdown("No tooltip here");
+        }
+    }
+
+    Path {
+        Tooltip {
+//      >      <error{Tooltip cannot be added to Path}
+            text: @markdown("No tooltip here");
         }
     }
 }

@@ -123,7 +123,7 @@ pub enum BuiltinFunction {
     StopTimer,
     RestartTimer,
     OpenUrl,
-    BringAllToFront,
+    MacosBringAllWindowsToFront,
     ParseMarkdown,
     StringToStyledText,
     /// Converts a color to a hex string wrapped in StyledText.
@@ -311,7 +311,7 @@ declare_builtin_function_types!(
     StringToStyledText: (Type::String) -> Type::StyledText,
     ColorToStyledText: (Type::Color) -> Type::StyledText
     OpenUrl: (Type::String) -> Type::Bool,
-    BringAllToFront: () -> Type::Void,
+    MacosBringAllWindowsToFront: () -> Type::Void,
 );
 
 impl Default for BuiltinFunctionTypes {
@@ -368,9 +368,14 @@ impl BuiltinFunction {
             | BuiltinFunction::Pow
             | BuiltinFunction::Exp
             | BuiltinFunction::ATan
-            | BuiltinFunction::ATan2
-            | BuiltinFunction::ToFixed
-            | BuiltinFunction::ToPrecision => true,
+            | BuiltinFunction::ATan2 => true,
+            // The result depends on the locale's decimal separator, like DecimalSeparator.
+            // The constant propagation folds the locale-independent cases and promotes
+            // their binding back to constant.
+            BuiltinFunction::ToFixed
+            | BuiltinFunction::ToPrecision
+            | BuiltinFunction::StringToFloat
+            | BuiltinFunction::StringIsFloat => false,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow
             | BuiltinFunction::ClosePopupWindow
@@ -378,9 +383,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ShowPopupMenuInternal => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
-            BuiltinFunction::StringToFloat
-            | BuiltinFunction::StringIsFloat
-            | BuiltinFunction::StringIsEmpty
+            BuiltinFunction::StringIsEmpty
             | BuiltinFunction::StringCharacterCount
             | BuiltinFunction::StringToLowercase
             | BuiltinFunction::StringToUppercase
@@ -423,7 +426,7 @@ impl BuiltinFunction {
             BuiltinFunction::StringToStyledText => true,
             BuiltinFunction::ColorToStyledText => true,
             BuiltinFunction::OpenUrl => false,
-            BuiltinFunction::BringAllToFront => false,
+            BuiltinFunction::MacosBringAllWindowsToFront => false,
         }
     }
 
@@ -511,7 +514,7 @@ impl BuiltinFunction {
             BuiltinFunction::StringToStyledText => true,
             BuiltinFunction::ColorToStyledText => true,
             BuiltinFunction::OpenUrl => false,
-            BuiltinFunction::BringAllToFront => false,
+            BuiltinFunction::MacosBringAllWindowsToFront => false,
         }
     }
 }
@@ -797,6 +800,12 @@ pub enum Expression {
     },
 
     RadialGradient {
+        /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
+        /// `None` means use the element's bbox centre.
+        center: Option<(Box<Expression>, Box<Expression>)>,
+        /// Explicit radius in the element's local coordinate space (`circle <r>`).
+        /// `None` means use the element's bbox half-diagonal.
+        radius: Option<Box<Expression>>,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -804,6 +813,9 @@ pub enum Expression {
     ConicGradient {
         /// The starting angle (rotation) of the gradient, corresponding to CSS `from <angle>`
         from_angle: Box<Expression>,
+        /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
+        /// `None` means use the element's bbox centre.
+        center: Option<(Box<Expression>, Box<Expression>)>,
         /// First expression in the tuple is a color, second expression is the stop angle
         stops: Vec<(Expression, Expression)>,
     },
@@ -1099,14 +1111,25 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { stops } => {
+            Expression::RadialGradient { center, radius, stops } => {
+                if let Some((cx, cy)) = center {
+                    visitor(cx);
+                    visitor(cy);
+                }
+                if let Some(r) = radius {
+                    visitor(r);
+                }
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
                 }
             }
-            Expression::ConicGradient { from_angle, stops } => {
+            Expression::ConicGradient { from_angle, center, stops } => {
                 visitor(from_angle);
+                if let Some((cx, cy)) = center {
+                    visitor(cx);
+                    visitor(cy);
+                }
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
@@ -1224,14 +1247,25 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { stops } => {
+            Expression::RadialGradient { center, radius, stops } => {
+                if let Some((cx, cy)) = center {
+                    visitor(cx);
+                    visitor(cy);
+                }
+                if let Some(r) = radius {
+                    visitor(r);
+                }
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
                 }
             }
-            Expression::ConicGradient { from_angle, stops } => {
+            Expression::ConicGradient { from_angle, center, stops } => {
                 visitor(from_angle);
+                if let Some((cx, cy)) = center {
+                    visitor(cx);
+                    visitor(cy);
+                }
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
@@ -1304,7 +1338,20 @@ impl Expression {
             Expression::ArrayIndex { array, index } => {
                 array.is_constant(ga) && index.is_constant(ga)
             }
-            Expression::Cast { from, .. } => from.is_constant(ga),
+            Expression::Cast { from, to } => {
+                // Converting a float to string depends on the locale's decimal separator,
+                // unless the result contains none, like for integer literals.
+                // The constant propagation folds the remaining constant cases and
+                // promotes their binding back to constant.
+                if *to == Type::String
+                    && from.ty() == Type::Float32
+                    && !matches!(&**from, Expression::NumberLiteral(n, Unit::None)
+                        if locale_independent_number_to_string(*n).is_some())
+                {
+                    return false;
+                }
+                from.is_constant(ga)
+            }
             // This is conservative: the return value is the last expression in the block, but
             // we kind of mean "pure" here too, so ensure the whole body is OK.
             Expression::CodeBlock(sub) => sub.iter().all(|s| s.is_constant(ga)),
@@ -1346,11 +1393,16 @@ impl Expression {
                 angle.is_constant(ga)
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
-            Expression::RadialGradient { stops } => {
-                stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
+            Expression::RadialGradient { center, radius, stops } => {
+                center.as_ref().is_none_or(|(cx, cy)| cx.is_constant(ga) && cy.is_constant(ga))
+                    && radius.as_ref().is_none_or(|r| r.is_constant(ga))
+                    && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
-            Expression::ConicGradient { from_angle, stops } => {
+            Expression::ConicGradient { from_angle, center, stops } => {
                 from_angle.is_constant(ga)
+                    && center
+                        .as_ref()
+                        .is_none_or(|(cx, cy)| cx.is_constant(ga) && cy.is_constant(ga))
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
             Expression::EnumerationValue(_) => true,
@@ -1541,6 +1593,10 @@ impl Expression {
                     message =
                         format!("{message}. Divide by 1{from_unit} to convert to a plain number");
                 }
+            } else if matches!(target_type, Type::StyledText) && ty.can_convert(&Type::String) {
+                message = format!(
+                    "{message}. Wrap the expression in `@markdown(\"\\{{...}}\")` to convert it explicitly"
+                );
             } else if let Some(to_unit) = target_type.default_unit()
                 && matches!(ty, Type::Int32 | Type::Float32)
             {
@@ -1706,6 +1762,13 @@ fn model_inner_type(model: &Expression) -> Type {
             _ => Type::Invalid,
         },
     }
+}
+
+/// Converts a float to a string when the result contains no decimal separator,
+/// and is therefore the same in every locale.
+pub fn locale_independent_number_to_string(n: f64) -> Option<SmolStr> {
+    let string = format_smolstr!("{}", i_slint_common::FormattedNumber(n));
+    (!string.contains('.')).then_some(string)
 }
 
 /// The right hand side of a two way binding
@@ -2042,8 +2105,18 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, ")")
         }
-        Expression::RadialGradient { stops } => {
+        Expression::RadialGradient { center, radius, stops } => {
             write!(f, "@radial-gradient(circle")?;
+            if let Some(r) = radius {
+                write!(f, " ")?;
+                pretty_print(f, r)?;
+            }
+            if let Some((cx, cy)) = center {
+                write!(f, " at ")?;
+                pretty_print(f, cx)?;
+                write!(f, " ")?;
+                pretty_print(f, cy)?;
+            }
             for (c, s) in stops {
                 write!(f, ", ")?;
                 pretty_print(f, c)?;
@@ -2052,9 +2125,15 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, ")")
         }
-        Expression::ConicGradient { from_angle, stops } => {
+        Expression::ConicGradient { from_angle, center, stops } => {
             write!(f, "@conic-gradient(from ")?;
             pretty_print(f, from_angle)?;
+            if let Some((cx, cy)) = center {
+                write!(f, " at ")?;
+                pretty_print(f, cx)?;
+                write!(f, " ")?;
+                pretty_print(f, cy)?;
+            }
             for (c, s) in stops {
                 write!(f, ", ")?;
                 pretty_print(f, c)?;

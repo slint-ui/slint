@@ -40,6 +40,11 @@ slint-viewer path/to/myfile.slint
  - `--backend <backend>`: Override the Slint rendering backend
  - `--on <callback> <handler>`: Set a callback handler, see [callback handler](#callback-handlers)
  - `--component <name>`: Load the component with the given name. If not specified, load the last exported component
+ - `--screenshot <file>`: Render the component to an image and exit.
+   The format follows the extension (e.g. `.png`, `.jpg`); use `-` to write a PNG to standard output.
+   Set `SLINT_SCALE_FACTOR` to override the default scale factor of 1.
+ - `--check`: Compile the file, print any diagnostics, and exit without opening a window.
+   Exit status is 1 on errors, 0 otherwise (warnings still print).
 
 Instead of a path to a file, one can use `-` for the standard input or the standard output.
 
@@ -79,9 +84,9 @@ the dialog if no callback was set on the button.
 ## Result code
 
 The program returns with the following error code:
- - If the command line argument parsing fails, the exit code will be *1*
+ - If the command line argument parsing or argument validation fails, the exit code will be *2*
  - If the .slint compilation fails, the compilation error will be printed to stderr and the exit code
-   will be *-1*
+   will be *-1*, except for `--check` and `--screenshot` which exit with *1*
  - If a Window is closed, the exit code will be *0*
  - If a Dialog is closed with the "Ok" or "Closed" or "Yes" button, the exit code will be *0*
  - If a Dialog is closed with the "Cancel" or "No" button, or using the close button in the window

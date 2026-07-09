@@ -522,6 +522,7 @@ impl NodeCollection {
                                     i_slint_core::items::InputType::Decimal
                                     | i_slint_core::items::InputType::Number => Role::NumberInput,
                                     i_slint_core::items::InputType::Password => Role::PasswordInput,
+                                    i_slint_core::items::InputType::Search => Role::SearchInput,
                                     i_slint_core::items::InputType::Text | _ => Role::TextInput,
                                 }
                             }
@@ -536,7 +537,7 @@ impl NodeCollection {
                     i_slint_core::items::AccessibleRole::ListItem => Role::ListBoxOption,
                     i_slint_core::items::AccessibleRole::Image => Role::Image,
                     i_slint_core::items::AccessibleRole::RadioButton => Role::RadioButton,
-                    i_slint_core::items::AccessibleRole::RadioGroup => Role::Group,
+                    i_slint_core::items::AccessibleRole::RadioGroup => Role::RadioGroup,
                     i_slint_core::items::AccessibleRole::Banner => Role::Banner,
                     i_slint_core::items::AccessibleRole::Complementary => Role::Complementary,
                     i_slint_core::items::AccessibleRole::ContentInfo => Role::ContentInfo,
@@ -627,6 +628,7 @@ impl NodeCollection {
                 | Role::MultilineTextInput
                 | Role::NumberInput
                 | Role::PasswordInput
+                | Role::SearchInput
                 | Role::Slider
                 | Role::SpinButton
                 | Role::Tab
@@ -686,13 +688,13 @@ impl NodeCollection {
         }
 
         if let Some(live) = item
-            .accessible_string_property(AccessibleStringProperty::Live)
-            .and_then(|s| s.parse::<i_slint_core::items::AccessibleLive>().ok())
+            .accessible_string_property(AccessibleStringProperty::LiveRegion)
+            .and_then(|s| s.parse::<i_slint_core::items::AccessibleLiveness>().ok())
         {
             node.set_live(match live {
-                i_slint_core::items::AccessibleLive::Off => Live::Off,
-                i_slint_core::items::AccessibleLive::Polite => Live::Polite,
-                i_slint_core::items::AccessibleLive::Assertive => Live::Assertive,
+                i_slint_core::items::AccessibleLiveness::Off => Live::Off,
+                i_slint_core::items::AccessibleLiveness::Polite => Live::Polite,
+                i_slint_core::items::AccessibleLiveness::Assertive => Live::Assertive,
                 _ => Live::Off,
             });
         }

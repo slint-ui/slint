@@ -226,6 +226,7 @@ class SlintInputView extends View {
         super.onConfigurationChanged(newConfig);
         int currentNightMode = newConfig.uiMode & Configuration.UI_MODE_NIGHT_MASK;
         SlintAndroidJavaHelper.setNightMode(currentNightMode);
+        SlintAndroidJavaHelper.setFontScale(newConfig.fontScale);
     }
 
     private InputHandle mCursorHandle;
@@ -526,6 +527,8 @@ public class SlintAndroidJavaHelper {
 
     static public native void setNightMode(int nightMode);
 
+    static public native void setFontScale(float fontScale);
+
     static public native void moveCursorHandle(int id, int pos_x, int pos_y);
 
     static public native void popupMenuAction(int id);
@@ -570,6 +573,10 @@ public class SlintAndroidJavaHelper {
     public int color_scheme() {
         int nightModeFlags = mActivity.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
         return nightModeFlags;
+    }
+
+    public float font_scale() {
+        return mActivity.getResources().getConfiguration().fontScale;
     }
 
     public int accent_color() {

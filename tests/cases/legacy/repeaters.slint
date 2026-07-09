@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Verify that two repeaters (if and for) are placed correctly in the item tree
+// and matched in the dyn_visit closure.
+// The two repeaters ended up being swapped and sub-component's repeater was
+// visited when the Text's child's repeater should have been, resulting in
+// wrong rendering order. This is tested by clicking into the left half and
+// verifying that it did not hit the sub-component's repeater.
+
+SubCompo := Rectangle {
+    property <bool> clicked: false;
+    for x in 1: Text {
+        text: "I should appear in the right half";
+        ta := TouchArea {
+            clicked => {
+                root.clicked = true;
+            }
+        }
+    }
+}
+
+TestCase := Rectangle {
+    width: 300phx;
+    height: 300phx;
+    property clicked <=> c.clicked;
+    Text {
+        if (false): TouchArea {
+        }
+    }
+    c := SubCompo {
+        x: 200px;
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+assert!(!instance.get_clicked());
+slint_testing::send_mouse_click(&instance, 20., 5.);
+assert!(!instance.get_clicked());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(!instance.get_clicked());
+slint_testing::send_mouse_click(&instance, 20., 5.);
+assert(!instance.get_clicked());
+```
+
+
+```js
+var instance = new slint.TestCase({});
+assert(!instance.clicked);
+slintlib.private_api.send_mouse_click(instance, 20., 5.);
+assert(!instance.clicked);
+```
+
+
+*/

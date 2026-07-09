@@ -45,9 +45,9 @@ gettext = ["i-slint-core/gettext-rs"]
 ## in MCU environments where the processor does not support floating point arithmetic.
 libm = ["i-slint-core/libm", "i-slint-renderer-software?/libm"]
 
-## If enabled, calls of `debug()` in `.slint` files use to the [`log::debug!()`] macro
-## of the [log](https://crates.io/crates/log) crate instead of just `println!()`.
-log = ["dep:log"]
+## If enabled, calls of `debug()` in `.slint` files use to the [`log::debug!()`](https://docs.rs/log/latest/log/macro.debug.html)
+## macro of the [log](https://crates.io/crates/log) crate instead of just `println!()`.
+log = ["i-slint-core/log"]
 
 ## Implement the `serde::Serialize` and `serde::Deserialize` for some of the base types
 ## such as `SharedString` and `SharedVector`.
@@ -108,6 +108,15 @@ live-preview = ["dep:i-slint-live-preview"]
 ##
 ## This is a developer/debug feature. It is not recommended to enable it in production builds.
 mcp = ["std", "i-slint-backend-selector/mcp"]
+
+## Enable support for controlling the application from a system testing tool.
+##
+## When this feature is enabled and the `SLINT_TEST_SERVER` environment variable is set
+## at runtime, the application connects to the system test server at the given address
+## and permits remote introspection and control of the user interface.
+##
+## This is a developer/testing feature. It is not recommended to enable it in production builds.
+system-testing = ["std", "i-slint-backend-selector/system-testing"]
 
 #! ### Backends
 
@@ -268,7 +277,7 @@ unstable-winit-031 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-bac
 ## ```
 unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 
-## Enable support for exposing [fontique](https://docs.rs/fontique/0.9.0/fontique/) related APIs.
+## Enable support for exposing [fontique](https://docs.rs/fontique/0.10.0/fontique/) related APIs.
 ##
 ## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees. This feature as well as the APIs changed or removed
 ## in future minor releases of Slint, likely to be replaced by a feature with a similar name but the fontique version suffix being bumped.
@@ -277,9 +286,9 @@ unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.17", features = ["unstable-fontique-09"] }
+## slint = { version = "~1.17", features = ["unstable-fontique-010"] }
 ## ```
-unstable-fontique-09 = ["i-slint-common/shared-fontique"]
+unstable-fontique-010 = ["i-slint-common/shared-fontique"]
 
 [dependencies]
 i-slint-core = { workspace = true }
@@ -297,8 +306,6 @@ vtable = { workspace = true }
 once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1.1", default-features = false }
 num-traits = { version = "0.2", default-features = false }
-
-log = { workspace = true, optional = true }
 
 raw-window-handle-06 = { workspace = true, optional = true }
 
@@ -345,6 +352,6 @@ features = [
   "unstable-wgpu-29",
   "unstable-winit-031",
   "unstable-libinput-09",
-  "unstable-fontique-09",
+  "unstable-fontique-010",
 ]
 rustdoc-args = ["--generate-link-to-definition"]

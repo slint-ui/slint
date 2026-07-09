@@ -71,6 +71,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::GridRepeaterCacheAccess { .. } => PROPERTY_ACCESS_COST,
         Expression::WithLayoutItemInfo { .. } => return isize::MAX,
         Expression::WithFlexboxLayoutItemInfo { .. } => return isize::MAX,
+        Expression::SolveFlexboxLayoutWithMeasure { .. } => return isize::MAX,
         Expression::WithGridInputData { .. } => return isize::MAX,
         Expression::MinMax { .. } => 10,
         Expression::EmptyComponentFactory => 10,
@@ -169,7 +170,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::StringToStyledText => ALLOC_COST,
         BuiltinFunction::ColorToStyledText => ALLOC_COST,
         BuiltinFunction::OpenUrl => isize::MAX,
-        BuiltinFunction::BringAllToFront => isize::MAX,
+        BuiltinFunction::MacosBringAllWindowsToFront => isize::MAX,
     }
 }
 

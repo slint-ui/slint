@@ -335,8 +335,13 @@ macro_rules! for_each_enums {
                 Password,
                 /// This will only accept and render number characters (0-9)
                 Number,
-                /// This will accept and render characters if it's valid part of a decimal
+                /// This will accept and render characters if it's valid part of a decimal,
+                /// using the decimal separator of the current locale
                 Decimal,
+                /// This identifies the input field as a search box. Characters are rendered normally,
+                /// but assistive technologies are informed that the field is used for searching or
+                /// filtering content.
+                Search,
             }
 
             /// Enum representing the `alignment` property of a
@@ -399,10 +404,10 @@ macro_rules! for_each_enums {
             }
 
             /// Controls the alignment of individual items along the cross axis of a layout.
-            /// Used as the `align-items` property of `HorizontalLayout`, `VerticalLayout`,
+            /// Used as the `cross-axis-alignment` property of `HorizontalLayout`, `VerticalLayout`,
             /// and `FlexboxLayout`.
             #[non_exhaustive]
-            enum LayoutAlignItems {
+            enum CrossAxisAlignment {
                 /// Items are stretched to fill the cross axis.
                 Stretch,
                 /// Items are placed at the start of the cross axis.
@@ -413,10 +418,10 @@ macro_rules! for_each_enums {
                 Center,
             }
 
-            /// Overrides the container's `align-items` for a specific flex item.
+            /// Overrides the container's `cross-axis-alignment` for a specific flex item.
             #[non_exhaustive]
             enum FlexboxLayoutAlignSelf {
-                /// Use the container's `align-items` value (default).
+                /// Use the container's `cross-axis-alignment` value (default).
                 Auto,
                 /// The item is stretched to fill the line along the cross axis.
                 Stretch,
@@ -467,7 +472,7 @@ macro_rules! for_each_enums {
             /// See [WAI-ARIA Landmark Regions](https://www.w3.org/WAI/ARIA/apg/practices/landmark-regions/)
             /// for guidance on when and how to use them.
             #[non_exhaustive]
-            enum AccessibleRole {
+            pub enum AccessibleRole {
                 /// The element isn't accessible.
                 None,
                 /// The element is a `Button` or behaves like one.
@@ -531,23 +536,26 @@ macro_rules! for_each_enums {
                 Search,
             }
 
-            /// This enum represents the different values of the `accessible-live` property.
+            /// This enum represents the different values of the `accessible-live-region` property.
             /// It indicates that an element is a live region whose content changes should be
             /// announced by assistive technologies.
             #[non_exhaustive]
-            enum AccessibleLive {
-                /// The element is not a live region.
+            pub enum AccessibleLiveness {
+                /// Use in regions that present information that is of low-importance to the user.
+                /// Assistive technologies are expected to not announce changes unless the user explicitly asks for it.
                 Off,
-                /// Updates are announced when the user is idle.
+                /// Use in regions that present new information to users.
+                /// Assistive technologies are expected to not interrupt the user to inform of changes to the live region.
                 Polite,
-                /// Updates are announced as soon as possible.
+                /// Use in regions that present information that a user should know about right away.
+                /// Assistive technologies are expected to announce to the user as soon as possible.
                 Assertive,
             }
 
             /// This enum represents the different values of the `sort-order` property.
             /// It's used to sort a `StandardTableView` by a column.
             #[non_exhaustive]
-            enum SortOrder {
+            pub enum SortOrder {
                 /// The column is unsorted.
                 Unsorted,
 
@@ -560,7 +568,7 @@ macro_rules! for_each_enums {
 
             /// Represents the orientation of an element or widget such as the `Slider`.
             // (on purpose not #[non_exhaustive])
-            enum Orientation {
+            pub enum Orientation {
                 /// Element is oriented horizontally.
                 Horizontal,
                 /// Element is oriented vertically.
@@ -615,21 +623,6 @@ macro_rules! for_each_enums {
 
                 /// Does not close the `PopupWindow` automatically when user clicks.
                 NoAutoClose,
-            }
-
-            /// This enum describes where a `ToolTip` is placed relative to the hovered element.
-            #[non_exhaustive]
-            enum ToolTipPlacement {
-                /// Place the tooltip at the current mouse pointer position.
-                Pointer,
-                /// Place the tooltip centered above the hovered element.
-                AboveElement,
-                /// Place the tooltip centered below the hovered element.
-                BelowElement,
-                /// Place the tooltip centered left of the hovered element.
-                LeftElement,
-                /// Place the tooltip centered right of the hovered element.
-                RightElement,
             }
 
             /// This enum describes the appearance of the ends of stroked paths.

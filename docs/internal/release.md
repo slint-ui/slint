@@ -32,7 +32,9 @@ Use this branch to collect fixes and run testing (apply cherry-picks here).
     git push origin origin/master:pre-release/<major.minor>
     ```
 
- 2. Change .github/workflows/schedule_nightly_snapshot.yaml to include that pre-release branch in the matrix.
+ 2. Change .github/workflows/schedule_nightly_snapshot.yaml to include that pre-release branch in the matrix
+    with `mode: full-nightly`, and switch `master` to `mode: website-only`.
+    Exactly one branch uses `mode: full-nightly`: it owns the `nightly` tag and the VS Code extension.
     This commit needs to be done in the `master` branch.
 
  3. Send a discussion in the ["Show And Tell" category](https://github.com/slint-ui/slint/discussions/categories/show-and-tell)
@@ -68,7 +70,7 @@ In the mean time, the version in the master branch can be updated
  - Check that the CI is green for the top of the branch commit
 
  - **Trigger a build of binary artifacts** (docs, demos, etc.) on https://github.com/slint-ui/slint/actions/workflows/nightly_snapshot.yaml
-    Select the right `pre-release/x.y` branch, and choose false for private and true for release.
+    Select the right `pre-release/x.y` branch, and choose `release` for the mode.
     As a result artifacts will be built and made available for download and a new VS code extension be built and uploaded to the market places (open-vsx.org and microsoft).
 
  - **Publish to crates.io** using the `./scripts/publish.sh`.
@@ -141,6 +143,9 @@ In the mean time, the version in the master branch can be updated
 * Notify Torizon guys to update the base images that contain Slint or create PR for https://github.com/commontorizon/Containerfiles
 
 * [Update tree-sitter configurations for editors](https://github.com/slint-ui/wiki/blob/309a3b0327731ba2cfb229595e0fa7209ba868c6/infrastructure/release_checklist.md?plain=1#L91)
+
+* In `.github/workflows/schedule_nightly_snapshot.yaml` (on `master`), give the `mode: full-nightly` slot back to
+  `master`: set the released branch to `mode: website-only` and `master` to `mode: full-nightly`.
 
 ## Patch Releases
 

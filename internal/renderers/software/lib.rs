@@ -604,6 +604,7 @@ impl SoftwareRenderer {
                 buffer,
                 dirty_range_cache: Vec::new(),
                 dirty_region: Default::default(),
+                scale_factor: factor,
             },
             rotation,
             #[cfg(feature = "systemfonts")]
@@ -1197,10 +1198,6 @@ impl RendererSealed for SoftwareRenderer {
         )
     }
 
-    fn default_font_size(&self) -> LogicalLength {
-        self::fonts::DEFAULT_FONT_SIZE
-    }
-
     fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
         #[cfg(feature = "systemfonts")]
@@ -1232,23 +1229,37 @@ impl RendererSealed for SoftwareRenderer {
             return Err("take_snapshot() called on window with invalid size".into());
         };
 
-        let mut target_buffer =
-            SharedPixelBuffer::<i_slint_core::graphics::Rgb8Pixel>::new(size.width, size.height);
+        // Render into a premultiplied buffer so that windows with a transparent
+        // or semi-transparent background end up with the right alpha in the
+        // snapshot. PremultipliedRgbaColor::background() is (0,0,0,0), so
+        // anything the window doesn't paint stays fully transparent.
+        let mut premul = SharedPixelBuffer::<PremultipliedRgbaColor>::new(size.width, size.height);
 
         let old_repaint_buffer_type = self.repaint_buffer_type();
         // ensure that caches are clear
         self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
-        self.render(target_buffer.make_mut_slice(), size.width as usize);
+        self.render(premul.make_mut_slice(), size.width as usize);
         self.set_repaint_buffer_type(old_repaint_buffer_type);
 
         let mut target_buffer_with_alpha =
-            SharedPixelBuffer::<Rgba8Pixel>::new(target_buffer.width(), target_buffer.height());
-        for (target_pixel, source_pixel) in target_buffer_with_alpha
-            .make_mut_slice()
-            .iter_mut()
-            .zip(target_buffer.as_slice().iter())
+            SharedPixelBuffer::<Rgba8Pixel>::new(premul.width(), premul.height());
+        for (target_pixel, source_pixel) in
+            target_buffer_with_alpha.make_mut_slice().iter_mut().zip(premul.as_slice().iter())
         {
-            *target_pixel.rgb_mut() = *source_pixel;
+            // Un-premultiply: straight RGBA is what the public API exposes (and
+            // what PNG encoders expect). Round half up to keep `255 * a / a == 255`.
+            let a = source_pixel.alpha;
+            if a == 0 {
+                *target_pixel = Rgba8Pixel::new(0, 0, 0, 0);
+            } else {
+                let unp = |c: u8| ((c as u32 * 255 + (a as u32 / 2)) / a as u32).min(255) as u8;
+                *target_pixel = Rgba8Pixel::new(
+                    unp(source_pixel.red),
+                    unp(source_pixel.green),
+                    unp(source_pixel.blue),
+                    a,
+                );
+            }
         }
         Ok(target_buffer_with_alpha)
     }
@@ -1409,7 +1420,7 @@ fn prepare_scene(
         size,
         factor,
         window,
-        PrepareScene::default(),
+        PrepareScene { scale_factor: factor, ..Default::default() },
         software_renderer.rotation.get(),
         #[cfg(feature = "systemfonts")]
         &software_renderer.text_layout_cache,
@@ -1551,9 +1562,15 @@ fn process_rectangle_impl(
     processor: &mut dyn ProcessScene,
     args: &target_pixel_buffer::DrawRectangleArgs,
     clip: &PhysicalRect,
+    scale_factor: ScaleFactor,
 ) {
     let geom = args.geometry();
     let Some(clipped) = geom.intersection(&clip.cast()) else { return };
+    let geom_w = geom.width();
+    let geom_h = geom.height();
+    let to_clipped_center = |cx: f32, cy: f32| {
+        (geom.min_x() + cx - clipped.min_x(), geom.min_y() + cy - clipped.min_y())
+    };
 
     let color = if let Brush::LinearGradient(g) = &args.background {
         let angle = g.angle() + args.rotation.angle();
@@ -1645,13 +1662,9 @@ fn process_rectangle_impl(
         }
         Color::default()
     } else if let Brush::RadialGradient(g) = &args.background {
-        // Calculate absolute center position of the original geometry
-        let absolute_center_x = geom.min_x() + geom.width() / 2.0;
-        let absolute_center_y = geom.min_y() + geom.height() / 2.0;
-
-        // Convert to coordinates relative to the clipped rectangle
-        let center_x = PhysicalLength::new((absolute_center_x - clipped.min_x()) as i16);
-        let center_y = PhysicalLength::new((absolute_center_y - clipped.min_y()) as i16);
+        let (cx, cy) = g.center_or_default_scaled(geom_w, geom_h, scale_factor.get());
+        let (center_x, center_y) = to_clipped_center(cx, cy);
+        let radius = g.radius_or_default_scaled(geom_w, geom_h, scale_factor.get());
 
         let radial_grad = RadialGradientCommand {
             stops: g
@@ -1664,11 +1677,14 @@ fn process_rectangle_impl(
                 .collect(),
             center_x,
             center_y,
+            radius,
         };
 
         processor.process_radial_gradient(clipped.cast(), radial_grad);
         Color::default()
     } else if let Brush::ConicGradient(g) = &args.background {
+        let (cx, cy) = g.center_or_default_scaled(geom_w, geom_h, scale_factor.get());
+        let (center_x, center_y) = to_clipped_center(cx, cy);
         let conic_grad = ConicGradientCommand {
             stops: g
                 .stops()
@@ -1678,6 +1694,8 @@ fn process_rectangle_impl(
                     stop
                 })
                 .collect(),
+            center_x,
+            center_y,
         };
 
         processor.process_conic_gradient(clipped.cast(), conic_grad);
@@ -1766,6 +1784,7 @@ struct RenderToBuffer<'a, TargetPixelBuffer> {
     buffer: &'a mut TargetPixelBuffer,
     dirty_range_cache: Vec<core::ops::Range<i16>>,
     dirty_region: PhysicalRegion,
+    scale_factor: ScaleFactor,
 }
 
 impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
@@ -1857,7 +1876,8 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             return;
         }
 
-        process_rectangle_impl(self, args, &clip);
+        let scale_factor = self.scale_factor;
+        process_rectangle_impl(self, args, &clip, scale_factor);
     }
 
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, rr: RoundedRectangle) {
@@ -1956,6 +1976,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
 struct PrepareScene {
     items: Vec<SceneItem>,
     vectors: SceneVectors,
+    scale_factor: ScaleFactor,
 }
 
 impl ProcessScene for PrepareScene {
@@ -2018,7 +2039,8 @@ impl ProcessScene for PrepareScene {
         args: &target_pixel_buffer::DrawRectangleArgs,
         clip: PhysicalRect,
     ) {
-        process_rectangle_impl(self, args, &clip);
+        let scale_factor = self.scale_factor;
+        process_rectangle_impl(self, args, &clip, scale_factor);
     }
 
     fn process_simple_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {

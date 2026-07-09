@@ -10,7 +10,7 @@ use crate::expression_tree::*;
 use crate::langtype::{BuiltinStruct, ElementType, StructName, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
-use smol_str::{ToSmolStr, format_smolstr};
+use smol_str::format_smolstr;
 
 type ConstPropCache = HashMap<NamedReference, Option<Expression>>;
 
@@ -21,6 +21,25 @@ pub fn const_propagation(component: &Component, global_analysis: &GlobalAnalysis
             return;
         }
         simplify_expression(expr, global_analysis, &mut cache);
+    });
+
+    // The binding analysis classifies conversions such as float to string as non-constant
+    // because their result depends on the locale's decimal separator. When the
+    // simplification folded the conversion away, the binding is constant after all:
+    // promote it back.
+    recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
+        for binding in elem.borrow().bindings.values() {
+            let Ok(mut binding) = binding.try_borrow_mut() else { continue };
+            let Some(analysis) = binding.analysis.as_ref() else { continue };
+            if analysis.is_const || matches!(binding.expression, Expression::Invalid) {
+                continue;
+            }
+            if binding.expression.is_constant(Some(global_analysis))
+                && binding.two_way_bindings.iter().all(|tw| tw.is_constant())
+            {
+                binding.analysis.as_mut().unwrap().is_const = true;
+            }
+        }
     });
 }
 
@@ -162,7 +181,7 @@ fn simplify_expression(
             } else {
                 match (&**from, to) {
                     (Expression::NumberLiteral(x, Unit::None), Type::String) => {
-                        Some(Expression::StringLiteral(x.to_smolstr()))
+                        locale_independent_number_to_string(*x).map(Expression::StringLiteral)
                     }
                     (Expression::Struct { values, .. }, Type::Struct(ty)) => {
                         Some(Expression::Struct { ty: ty.clone(), values: values.clone() })
@@ -375,6 +394,21 @@ fn try_inline_builtin_function(
         BuiltinFunction::Ceil => num(a(0)?.ceil()),
         BuiltinFunction::Floor => num(a(0)?.floor()),
         BuiltinFunction::Abs => num(a(0)?.abs()),
+        BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => {
+            let Some(Expression::StringLiteral(s)) = args.first() else { return None };
+            // Only fold when the string can't contain the decimal separator of any locale,
+            // so that parsing gives the same result regardless of the locale.
+            if !s.chars().all(|c| c.is_ascii_digit() || matches!(c, '+' | '-' | 'e' | 'E')) {
+                return None;
+            }
+            let value = s.parse::<f32>().ok();
+            Some(match b {
+                BuiltinFunction::StringToFloat => {
+                    Expression::NumberLiteral(value.unwrap_or(0.) as f64, Unit::None)
+                }
+                _ => Expression::BoolLiteral(value.is_some()),
+            })
+        }
         _ => None,
     }
 }
@@ -441,6 +475,64 @@ export component Foo {
         },
         _ => panic!("not code block: {out3_binding:?}"),
     };
+}
+
+#[test]
+fn test_locale_dependent_string_conversion() {
+    let mut compiler_config =
+        crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
+        r#"
+export component Foo {
+    out property <string> int-str: "n=" + 42;
+    out property <string> calc-str: "n=" + (6 * 7);
+    out property <string> float-str: "n=" + 4.5;
+    out property <float> int-float: "42".to-float();
+    out property <bool> int-is-float: "42".is-float();
+    out property <float> frac-float: "4,2".to-float();
+}
+"#
+        .into(),
+        Some(std::path::Path::new("HELLO")),
+        &mut test_diags,
+    );
+    let (doc, diag, _) =
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
+    assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
+
+    let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
+    let binding = |name: &str| bindings.get(name).unwrap().borrow().clone();
+    let is_const =
+        |name: &str| bindings.get(name).unwrap().borrow().analysis.as_ref().unwrap().is_const;
+
+    // Conversions whose result contains no decimal separator are folded and stay constant
+    assert!(
+        matches!(&binding("int-str").expression, Expression::StringLiteral(s) if s == "n=42"),
+        "{:?}",
+        binding("int-str").expression
+    );
+    assert!(is_const("int-str"));
+    assert!(matches!(&binding("calc-str").expression, Expression::StringLiteral(s) if s == "n=42"));
+    assert!(is_const("calc-str"));
+    assert!(
+        matches!(&binding("int-float").expression, Expression::NumberLiteral(n, _) if *n == 42.)
+    );
+    assert!(is_const("int-float"));
+    assert!(matches!(&binding("int-is-float").expression, Expression::BoolLiteral(true)));
+    assert!(is_const("int-is-float"));
+
+    // Locale-dependent conversions are not folded and their bindings are no longer constant,
+    // so that they are re-evaluated when the locale changes at runtime
+    assert!(
+        !matches!(&binding("float-str").expression, Expression::StringLiteral(_)),
+        "{:?}",
+        binding("float-str").expression
+    );
+    assert!(!is_const("float-str"));
+    assert!(matches!(&binding("frac-float").expression, Expression::FunctionCall { .. }));
+    assert!(!is_const("frac-float"));
 }
 
 #[test]

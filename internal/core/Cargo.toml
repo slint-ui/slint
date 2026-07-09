@@ -74,6 +74,10 @@ wgpu-29 = ["dep:wgpu-29"]
 unstable-wgpu-28 = ["wgpu-28"]
 unstable-wgpu-29 = ["wgpu-29"]
 
+## If enabled, calls of `debug()` in `.slint` files use to the [`log::debug!()`] macro
+## of the [log](https://crates.io/crates/log) crate instead of just `println!()`.
+log = ["dep:log"]
+
 tr = ["dep:tr"]
 
 32-bit-color = []
@@ -112,6 +116,8 @@ slab = { version = "0.4.3", default-features = false }
 static_assertions = { version = "1.1", optional = true }
 strum = { workspace = true }
 
+log = { workspace = true, optional = true }
+
 # Note: We're migrating our unicode handling over to the icu family of crates.
 # Prefer using icu crates over adding more unicode-* dependencies
 # parley uses the icu crates internally as well, so we'll share the dependency there.
@@ -120,7 +126,7 @@ unicode-linebreak = { version = "0.1.5", optional = true }
 unicode-script = { version = "0.5.7", optional = true }
 icu_normalizer = { workspace = true, optional = true }
 sys-locale = { version = "0.3.2", optional = true, features = ["js"] }
-parley = { version = "0.9.0", optional = true }
+parley = { version = "0.10.0", optional = true, features = ["complex-scripts"] }
 
 image = { workspace = true, optional = true, default-features = false }
 clru = { workspace = true, optional = true }
@@ -140,7 +146,7 @@ wgpu-29 = { workspace = true, optional = true }
 
 tr = { workspace = true, optional = true }
 
-taffy = { version = "0.9", default-features = false, features = ["flexbox", "taffy_tree", "alloc"] }
+taffy = { version = "0.10", default-features = false, features = ["flexbox", "taffy_tree", "alloc"] }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7.1", optional = true, features = ["gettext-system"] }

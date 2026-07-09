@@ -14,6 +14,7 @@ alsa
 amdgpu
 amet
 Amoled
+androideabi
 Appbar
 appicon
 appiconset
@@ -22,6 +23,7 @@ appmain
 appsink
 appview
 ARCHS
+armeabi
 armhf
 arrayvec
 assetcatalog
@@ -129,6 +131,7 @@ defconfig
 defmt
 defதோசை
 deinit
+delenv
 depfile
 deque
 devcode
@@ -136,6 +139,7 @@ devenv
 dfaure
 dgettext
 directx
+dists
 divp
 divq
 divr
@@ -226,6 +230,7 @@ framebuffers
 freetype
 frontends
 Fsvg
+fullsize
 Fullwidth
 fvar
 Fwww
@@ -360,9 +365,11 @@ machdep
 Macronix
 mainwindow
 MALLOC
+manylinux
 materialui
 matplot
 maturin
+mcp
 mcus
 MCUX
 mdbook
@@ -448,6 +455,7 @@ prediv
 Preedit
 PREMUL
 premultiplication
+premultiply
 PRIMASK
 printk
 println
@@ -459,6 +467,7 @@ protoc
 protox
 Pseudonymized
 psram
+purelib
 pyclass
 pyftsubset
 pyfunction
@@ -466,6 +475,7 @@ pymethods
 pymodule
 pyobject
 pypi
+pypiserver
 pyproject
 pystruct
 pytest
@@ -480,6 +490,7 @@ QXGA
 radiobuttontile
 Raleway
 Randriana
+rasterizer
 rasterizes
 RBUTTONUP
 rects
@@ -521,6 +532,7 @@ serde
 setattr
 SETFL
 Shaderiv
+shadowable
 sharedfontique
 sharedstring
 sharedvector
@@ -634,6 +646,7 @@ unpic
 Unpremul
 unsendable
 usbc
+userconfig
 usecases
 usize
 usvg

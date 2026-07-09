@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// BASE_THRESHOLD=3
+// ROTATION_THRESHOLD=600
+
+// Rows cover radial centers, conic centers, and radial radius.
+// Each row starts with the default case, followed by explicit top-left and bottom-right centers.
+
+export component TestCase inherits Window {
+    width:  64px;
+    height: 64px;
+
+    background: black;
+
+    GridLayout {
+        Row {
+            // Radial: default center.
+            Rectangle { background: @radial-gradient(circle, red, blue); }
+            // Radial: explicit top-left center.
+            Rectangle { background: @radial-gradient(circle at 5px 5px, red, blue); }
+            // Radial: explicit bottom-right center.
+            Rectangle { background: @radial-gradient(circle at 17px 17px, red, blue); }
+        }
+        Row {
+            // Conic: default center.
+            Rectangle { background: @conic-gradient(red 0deg, blue 180deg, red 360deg); }
+            // Conic: explicit top-left center.
+            Rectangle { background: @conic-gradient(at 5px 5px, red 0deg, blue 180deg, red 360deg); }
+            // Conic: explicit bottom-right center.
+            Rectangle { background: @conic-gradient(at 17px 17px, red 0deg, blue 180deg, red 360deg); }
+        }
+        Row {
+            // Radial with explicit radius.
+            Rectangle { background: @radial-gradient(circle 4px, red, blue); }
+            // Radial with explicit center and radius (CSS order: radius before at).
+            Rectangle { background: @radial-gradient(circle 4px at 5px 5px, red, blue); }
+            // Default for visual reference.
+            Rectangle { background: @radial-gradient(circle, red, blue); }
+        }
+    }
+}

@@ -48,7 +48,7 @@ slug: reference/global-structs-enums
     for name in structs.keys() {
         writeln!(
             file,
-            "import {0} from \"/src/content/docs/reference/generated/structs/{0}.md\"",
+            "import {0} from \"/src/content/docs/reference/generated/structs/_{0}.md\"",
             name
         )?;
     }
@@ -64,7 +64,7 @@ slug: reference/global-structs-enums
         }
         writeln!(
             file,
-            "import {0} from \"/src/content/docs/reference/generated/enums/{0}.md\"",
+            "import {0} from \"/src/content/docs/reference/generated/enums/_{0}.md\"",
             name
         )?;
     }
@@ -106,7 +106,7 @@ fn write_individual_enum_files(
     ))?;
 
     for (k, e) in enums {
-        let path = enums_dir.join(format!("{k}.md"));
+        let path = enums_dir.join(format!("_{k}.md"));
         let mut file = BufWriter::new(
             std::fs::File::create(&path).context(format!("error creating {path:?}"))?,
         );
@@ -116,7 +116,6 @@ fn write_individual_enum_files(
             r#"---
 title: {0}
 description: {0} content
-slug: reference/enums/{0}
 ---
 
 <!-- Generated with slint-doc-generator from internal/commons/enums.rs -->
@@ -348,7 +347,7 @@ fn write_individual_struct_files(
     ))?;
 
     for (s, v) in &structs {
-        let path = structs_dir.join(format!("{s}.md"));
+        let path = structs_dir.join(format!("_{s}.md"));
         let mut file = BufWriter::new(
             std::fs::File::create(&path).context(format!("error creating {path:?}"))?,
         );
@@ -358,7 +357,6 @@ fn write_individual_struct_files(
             r#"---
 title: {0}
 description: {0} content
-slug: reference/structs/{0}
 ---
 
 <!-- Generated with slint-doc-generator from internal/common/builtin_structs.rs -->
@@ -407,13 +405,12 @@ fn generate_keys_docs(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         "Failed to create folder holding individual enum doc files {enums_dir:?}"
     ))?;
 
-    let path = enums_dir.join("keys.md");
+    let path = enums_dir.join("_keys.md");
     let mut file =
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
     writeln!(file, "---")?;
     writeln!(file, "title: keys")?;
-    writeln!(file, "slug: reference/enums/keys")?;
     writeln!(file, "---")?;
     writeln!(file)?;
 

@@ -2790,8 +2790,8 @@ mod tests {
             alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
-            false,
-            false,
+            crate::window::WindowKind::Popup,
+            alloc::boxed::Box::new(|_| {}),
         );
 
         let root = ItemRc::new_root(popup_component);
@@ -2828,8 +2828,8 @@ mod tests {
             alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
-            false,
-            false,
+            crate::window::WindowKind::Popup,
+            alloc::boxed::Box::new(|_| {}),
         );
 
         let root = ItemRc::new_root(item_tree);
@@ -2929,8 +2929,8 @@ mod tests {
             alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
-            false,
-            false,
+            crate::window::WindowKind::Popup,
+            alloc::boxed::Box::new(|_| {}),
         );
 
         // Check that we have a ChildWindow popup, otherwise the popup has its own coordinate system
@@ -2974,10 +2974,6 @@ mod tests {
             _ch: char,
         ) -> LogicalSize {
             LogicalSize::new(5., 10.)
-        }
-
-        fn default_font_size(&self) -> LogicalLength {
-            LogicalLength::new(10.)
         }
 
         fn font_metrics(

@@ -1,0 +1,82 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Builtin members marked `//-shadowable` in builtins.slint can be shadowed by a local
+// declaration with a warning instead of an error, so that code written before the
+// builtin member was added keeps compiling.
+
+export component Test inherits Window {
+    // shadows the builtin bool property with a different type
+    in-out property <string> maximized: "shadowed";
+//                           >       <warning{'maximized' shadows the builtin property of the same name}
+
+    in-out property <int> minimized: 42;
+//                        >       <warning{'minimized' shadows the builtin property of the same name}
+
+    // shadows the builtin `close() -> bool` function
+    callback close(string) -> string;
+//           >   <warning{'close' shadows the builtin function of the same name}
+    close(s) => { s + "!" }
+
+    // shadows the builtin `hide()` function
+    function hide() -> string { "shadowed" }
+//           >  <warning{'hide' shadows the builtin function of the same name}
+
+    // builtin members that are not marked shadowable can still not be overridden
+    property <string> width;
+//                    >   <error{Cannot override property 'width'}
+    TouchArea {
+        callback clicked(int);
+//               >     <error{Cannot override callback 'clicked'}
+    }
+
+    // neither can reserved properties that exist on every element
+    property <int> x;
+//                 ^error{Cannot override property 'x'}
+    function focus() {}
+//           >   <error{Cannot override 'focus'}
+}
+
+// A shadowable member can still not be shadowed when a base component uses it,
+// because the shadowing declaration would hijack the base component's references.
+component UsesWindowMembers inherits Window {
+    out property <string> status: self.minimized ? "minimized" : "normal";
+    public function request-close() { if (!self.maximized) { self.close(); } }
+}
+
+export component Test2 inherits UsesWindowMembers {
+    in-out property <string> minimized;
+//                           >       <error{Cannot shadow the builtin property 'minimized' because it is used by the base component 'UsesWindowMembers'}
+    callback maximized(int) -> int;
+//           >       <error{Cannot shadow the builtin property 'maximized' because it is used by the base component 'UsesWindowMembers'}
+    in-out property <string> close: "abc";
+//                           >   <error{Cannot shadow the builtin function 'close' because it is used by the base component 'UsesWindowMembers'}
+}
+
+// Bindings and change callbacks in the base component also count as uses
+component BindsWindowMembers inherits Window {
+    maximized: true;
+    changed minimized => { }
+}
+
+export component Test3 inherits BindsWindowMembers {
+    in-out property <string> maximized;
+//                           >       <error{Cannot shadow the builtin property 'maximized' because it is used by the base component 'BindsWindowMembers'}
+    in-out property <string> minimized;
+//                           >       <error{Cannot shadow the builtin property 'minimized' because it is used by the base component 'BindsWindowMembers'}
+}
+
+// Assignments in the base component also count as uses
+component AssignsWindowMembers inherits Window {
+    public function minimize() { self.minimized = true; }
+    TouchArea {
+        clicked => { root.maximized = false; }
+    }
+}
+
+export component Test4 inherits AssignsWindowMembers {
+    in-out property <string> minimized;
+//                           >       <error{Cannot shadow the builtin property 'minimized' because it is used by the base component 'AssignsWindowMembers'}
+    in-out property <string> maximized;
+//                           >       <error{Cannot shadow the builtin property 'maximized' because it is used by the base component 'AssignsWindowMembers'}
+}

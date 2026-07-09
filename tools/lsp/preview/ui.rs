@@ -144,7 +144,7 @@ pub fn create_ui(
     api.on_show_document(move |file, line, column| {
         use lsp_types::{Position, Range};
         let pos = Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1));
-        lsp.ask_editor_to_show_document(&file, Range::new(pos, pos), false).unwrap();
+        lsp.ask_editor_to_show_document(&file, Range::new(pos, pos), false).ok();
     });
     api.on_show_document_offset_range(super::show_document_offset_range);
     api.on_show_preview_for(super::show_preview_for);
@@ -190,7 +190,7 @@ pub fn create_ui(
             "type".to_string(),
             serde_json::to_value("component_dropped").unwrap(),
         )])
-        .unwrap();
+        .ok();
         super::drop_component(data, x, y)
     });
     api.on_selected_element_resize(super::resize_selected_element);
@@ -217,7 +217,7 @@ pub fn create_ui(
                 "type".to_string(),
                 serde_json::to_value("data_json_changed").unwrap(),
             )])
-            .unwrap();
+            .ok();
         }
         set_json_preview_data(container, property_name, json_string)
     });
@@ -230,6 +230,9 @@ pub fn create_ui(
     recent_colors::setup(&api, api_weak);
     super::outline::setup(&api);
     super::undo_redo::setup(&api);
+
+    #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+    super::remote::setup(&app_window, to_lsp);
 
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());

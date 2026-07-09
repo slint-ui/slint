@@ -18,7 +18,6 @@
 /// CMake options.
 namespace slint::testing {
 
-using slint::cbindgen_private::AccessibleRole;
 using slint::cbindgen_private::LayoutKind;
 
 /// Init the testing backend.
@@ -221,7 +220,7 @@ public:
 
     /// Returns the value of the element's `accessible-role` property, if present. Use this property
     /// to locate elements by their type/role, i.e. buttons, checkboxes, etc.
-    std::optional<slint::testing::AccessibleRole> accessible_role() const
+    std::optional<slint::language::AccessibleRole> accessible_role() const
     {
         if (inner.element_index != 0)
             return std::nullopt;
@@ -379,8 +378,9 @@ public:
     }
 
     /// Returns the accessible-orientation of that element, if any.
-    std::optional<Orientation> accessible_orientation() const
+    std::optional<slint::language::Orientation> accessible_orientation() const
     {
+        using slint::language::Orientation;
         if (auto str = get_accessible_string_property(
                     cbindgen_private::AccessibleStringProperty::Orientation)) {
             if (*str == "horizontal")
@@ -391,17 +391,18 @@ public:
         return std::nullopt;
     }
 
-    /// Returns the accessible-live of that element, if any.
-    std::optional<AccessibleLive> accessible_live() const
+    /// Returns the accessible-live-region of that element, if any.
+    std::optional<slint::language::AccessibleLiveness> accessible_live_region() const
     {
+        using slint::language::AccessibleLiveness;
         if (auto str = get_accessible_string_property(
-                    cbindgen_private::AccessibleStringProperty::Live)) {
+                    cbindgen_private::AccessibleStringProperty::LiveRegion)) {
             if (*str == "off")
-                return AccessibleLive::Off;
+                return AccessibleLiveness::Off;
             if (*str == "polite")
-                return AccessibleLive::Polite;
+                return AccessibleLiveness::Polite;
             if (*str == "assertive")
-                return AccessibleLive::Assertive;
+                return AccessibleLiveness::Assertive;
         }
         return std::nullopt;
     }

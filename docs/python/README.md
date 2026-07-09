@@ -23,9 +23,9 @@ into `src/content/docs/generated/thirdparty.md` (gitignored) before the build.
 - A Rust toolchain. The `slint-python` build script generates
   `slint/language.pyi` (read by the generator for the `language` page); run
   `cargo build -p slint-python --no-default-features` once before `pnpm gen` if
-  that file is missing. A Rust toolchain and
-  [cargo-about](https://github.com/EmbarkStudios/cargo-about) (`cargo install cargo-about`)
-  are also needed for `pnpm build` / `pnpm thirdparty`.
+  that file is missing. A Rust toolchain is also needed for `pnpm build` /
+  `pnpm thirdparty`, which generate the third-party license list via
+  `cargo xtask license`.
 
 Run `pnpm install` from the repository root first.
 

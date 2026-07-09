@@ -50,7 +50,7 @@ import gameLogicInCpp from '/src/content/code/main_game_logic.cpp?raw'
 <Code code={extractLines(gameLogicInCpp, 29, 65)} lang="cpp"  />
 
 
-The code uses a <LangRefLink lang="cpp" relpath="api/classslint_1_1ComponentWeakHandle">`ComponentWeakHandle`</LangRefLink> pointer of the `main_window`. This is
+The code uses a <LangRefLink lang="cpp" relpath="api/slint/componentweakhandle/">`ComponentWeakHandle`</LangRefLink> pointer of the `main_window`. This is
 important because capturing a copy of the `main_window` itself within the callback handler would result in circular ownership.
 The `MainWindow` owns the callback handler, which itself owns a reference to the `MainWindow`, which must be weak
 instead of strong to avoid a memory leak.

@@ -11,8 +11,7 @@ pub mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
 
-pub use crate::common::SwitchableLspToPreview;
-#[cfg(feature = "preview-remote")]
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 pub mod remote;
 
 use crate::preview;
@@ -41,6 +40,9 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         }
         M::HighlightFromEditor { url, offset } => {
             preview::highlight(url, offset.into());
+        }
+        M::RemoteConnectionState { state, target, error } => {
+            preview::set_remote_connection_state(state, target, error);
         }
         M::Quit => {
             tracing::debug!("Preview: Quit requested");

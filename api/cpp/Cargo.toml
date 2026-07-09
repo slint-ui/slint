@@ -46,11 +46,13 @@ software-renderer-path = ["i-slint-renderer-software/path"]
 gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 system-testing = ["i-slint-backend-selector/system-testing"]
+mcp = ["std", "i-slint-backend-selector/mcp"]
 
 std = [
   "i-slint-core/default",
   "i-slint-core/image-default-formats",
   "i-slint-backend-selector",
+  "i-slint-backend-selector/backend-android-activity",
   "i-slint-renderer-software?/std",
   "i-slint-core/raw-window-handle-06",
   "i-slint-backend-selector/raw-window-handle-06",
@@ -74,6 +76,9 @@ raw-window-handle = { version = "0.6", optional = true }
 esp-backtrace = { version = "0.17.0", features = ["panic-handler", "println"], optional = true }
 esp-println = { version = "0.15.0", default-features = false, features = ["auto", "log-04"], optional = true }
 unicode-segmentation = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+i-slint-backend-android-activity = { workspace = true, features = ["native-activity", "aa-06"] }
 
 [build-dependencies]
 anyhow = "1.0"

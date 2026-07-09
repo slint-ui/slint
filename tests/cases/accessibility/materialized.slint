@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore innerlabel mycombo myradiogroup
+// cSpell: ignore innerlabel mycombo myradiogroup myradiobutton
 // Test the propagation of maximum and minimum size through nested grid layouts
 
 component Btn inherits Rectangle {
@@ -37,6 +37,15 @@ component ComboBox inherits Rectangle {
 component RadioGroup inherits Rectangle {
     accessible-role: radio-group;
     accessible-label: "myradiogroup";
+    accessible-orientation: Orientation.horizontal;
+    accessible-item-count: 3;
+}
+
+component RadioBtn inherits Rectangle {
+    in property <int> index;
+    accessible-role: radio-button;
+    accessible-label: "myradiobutton";
+    accessible-item-index: root.index;
 }
 
 component TestCase inherits Rectangle {
@@ -62,6 +71,8 @@ component TestCase inherits Rectangle {
         ComboBox {}
 
         rg := RadioGroup {}
+
+        rb := RadioBtn { index: 2; }
     }
 
     for t in ["abc"] : Text { x:0;y:0; text: t; accessible-description: t;  }
@@ -74,12 +85,18 @@ component TestCase inherits Rectangle {
     in-out property<string> materialized_txt_label: txt.accessible-label;
     in-out property<AccessibleRole> materialized_rg_role: rg.accessible-role;
     in-out property<string> materialized_rg_label: rg.accessible-label;
+    in-out property<Orientation> materialized_rg_orientation: rg.accessible-orientation;
+    in-out property<int> materialized_rg_item_count: rg.accessible-item-count;
+    in-out property<int> materialized_rb_item_index: rb.accessible-item-index;
+    in-out property<AccessibleRole> materialized_rb_role: rb.accessible-role;
 
     in-out property <bool> test:
         root.materialized_b1_role == AccessibleRole.button && root.materialized_b2_label == "minus"
         && root.materialized_vl_label == "" && root.materialized_vl_role == AccessibleRole.none
         && root.materialized_txt_label == "automatic text value" && root.materialized_txt_role == AccessibleRole.text
         && root.materialized_rg_role == AccessibleRole.radio-group && root.materialized_rg_label == "myradiogroup"
+        && root.materialized_rg_orientation == Orientation.horizontal && root.materialized_rg_item_count == 3
+        && root.materialized_rb_role == AccessibleRole.radio-button && root.materialized_rb_item_index == 2
         && cb.accessible-checked && !b1.accessible-checked;
 }
 
@@ -100,6 +117,7 @@ assert!(instance.get_test());
 assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "mycombo").collect::<Vec<_>>().len(), 1);
 assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "innerlabel").collect::<Vec<_>>().len(), 1);
 assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "myradiogroup").collect::<Vec<_>>().len(), 1);
+assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "myradiobutton").collect::<Vec<_>>().len(), 1);
 ```
 
 ```js

@@ -3,15 +3,11 @@
 
 // cSpell: ignore timedelta
 use pyo3::prelude::*;
-use pyo3_stub_gen::{
-    derive::gen_stub_pyclass, derive::gen_stub_pyclass_enum, derive::gen_stub_pymethods,
-};
 
 /// The TimerMode specifies what should happen after the timer fired.
 ///
 /// Used by the `Timer.start()` function.
 #[derive(Copy, Clone, PartialEq)]
-#[gen_stub_pyclass_enum]
 #[pyclass(name = "TimerMode", eq, eq_int, from_py_object)]
 pub enum PyTimerMode {
     /// A SingleShot timer is fired only once.
@@ -55,13 +51,11 @@ impl From<PyTimerMode> for i_slint_core::timers::TimerMode {
 ///
 /// Timers can only be used in the thread that runs the Slint event loop. They don't
 /// fire if used in another thread.
-#[gen_stub_pyclass]
 #[pyclass(name = "Timer", unsendable)]
 pub struct PyTimer {
     timer: i_slint_core::timers::Timer,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyTimer {
     #[new]

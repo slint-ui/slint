@@ -105,8 +105,9 @@ fn generate_language_module() {
     ts.push_str("// and internal/common/builtin_structs.rs. Do not edit.\n\n");
 
     // DataTransfer is referenced by DropEvent's `data` field; the type lives at the
-    // package top level rather than under `language`.
-    ts.push_str("import { DataTransfer } from \"../../rust-module.cjs\";\n\n");
+    // package top level rather than under `language`. Import it through the loader
+    // (binding.cjs) so it resolves whichever native binary variant was built.
+    ts.push_str("import { DataTransfer } from \"../../binding.cjs\";\n\n");
 
     ts.push_str("const _data = {\n");
     for entry in &enums {

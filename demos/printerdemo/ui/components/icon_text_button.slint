@@ -29,12 +29,12 @@ export component IconTextButton inherits Button {
         padding-left: 14px;
         padding-right: 14px;
         alignment: center;
+        cross-axis-alignment: center;
 
         img := Image {
             width: 22px;
             height: self.width;
             image-fit: contain;
-            y: (parent.height - self.height) / 2;
             colorize: button-type == ButtonType.Primary ? DemoPalette.primary-button-text-color : DemoPalette.destructive-button-text-color;
         }
 

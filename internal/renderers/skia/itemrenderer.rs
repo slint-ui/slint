@@ -98,7 +98,8 @@ impl<'a> SkiaItemRenderer<'a> {
             return None;
         }
         // CSS rule: outer corner radius after spread = max(0, r + spread).
-        let shape_radius = (shadow_options.radius.get() + spread).max(0.);
+        let shape_radius = (shadow_options.radius + PhysicalBorderRadius::new_uniform(spread))
+            .max(Default::default());
 
         let canvas_size: skia_safe::Size = (shape_w + 2. * blur, shape_h + 2. * blur).into();
 
@@ -111,10 +112,9 @@ impl<'a> SkiaItemRenderer<'a> {
 
         // The shape is centered in the canvas with `blur` padding on all sides so the Gaussian blur
         // has room to fade out into transparency.
-        let rounded_rect = skia_safe::RRect::new_rect_xy(
-            skia_safe::Rect::from_xywh(blur, blur, shape_w, shape_h),
-            shape_radius,
-            shape_radius,
+        let rounded_rect = to_skia_rrect(
+            &PhysicalRect::new(PhysicalPoint::new(blur, blur), PhysicalSize::new(shape_w, shape_h)),
+            &shape_radius,
         );
 
         let mut paint = skia_safe::Paint::default();
@@ -146,7 +146,7 @@ impl<'a> SkiaItemRenderer<'a> {
         }
         let blur = shadow_options.blur.get();
         let spread = shadow_options.spread.get();
-        let radius = shadow_options.radius.get();
+        let radius = shadow_options.radius;
         let offset_x = shadow_options.offset_x_inset;
         let offset_y = shadow_options.offset_y_inset;
 
@@ -160,10 +160,9 @@ impl<'a> SkiaItemRenderer<'a> {
             None,
         );
 
-        let geometry_rrect = skia_safe::RRect::new_rect_xy(
-            skia_safe::Rect::from_xywh(0., 0., width, height),
-            radius,
-            radius,
+        let geometry_rrect = to_skia_rrect(
+            &PhysicalRect::new(PhysicalPoint::zero(), PhysicalSize::new(width, height)),
+            &radius,
         );
 
         // Inner "hole" rrect: geometry inset by spread on each side, translated by offset.
@@ -174,8 +173,15 @@ impl<'a> SkiaItemRenderer<'a> {
             width - spread + offset_x,
             height - spread + offset_y,
         );
-        let inner_radius = (radius - spread).max(0.);
-        let inner_rrect = skia_safe::RRect::new_rect_xy(inner_rect, inner_radius, inner_radius);
+        let inner_radius =
+            (radius - PhysicalBorderRadius::new_uniform(spread)).max(Default::default());
+        let inner_rrect = to_skia_rrect(
+            &PhysicalRect::new(
+                PhysicalPoint::new(inner_rect.left, inner_rect.top),
+                PhysicalSize::new(inner_rect.width(), inner_rect.height()),
+            ),
+            &inner_radius,
+        );
 
         // Outer rect inflated well beyond the geometry so its blurred edge falls outside the clip.
         let inflate = blur + spread.abs() + offset_x.abs() + offset_y.abs() + 16.;
@@ -213,8 +219,13 @@ impl<'a> SkiaItemRenderer<'a> {
         width: PhysicalLength,
         height: PhysicalLength,
     ) -> Option<skia_safe::Paint> {
-        let (mut paint, shader) =
-            Self::brush_to_shader(self.default_paint().unwrap_or_default(), brush, width, height)?;
+        let (mut paint, shader) = Self::brush_to_shader(
+            self.default_paint().unwrap_or_default(),
+            brush,
+            width,
+            height,
+            self.scale_factor.get(),
+        )?;
         paint.set_shader(Some(shader));
 
         Some(paint)
@@ -225,6 +236,7 @@ impl<'a> SkiaItemRenderer<'a> {
         brush: Brush,
         width: PhysicalLength,
         height: PhysicalLength,
+        scale_factor: f32,
     ) -> Option<(skia_safe::Paint, skia_safe::Shader)> {
         if brush.is_transparent() {
             return None;
@@ -265,8 +277,9 @@ impl<'a> SkiaItemRenderer<'a> {
                     .stops()
                     .map(|s| (skia_safe::Color4f::from(to_skia_color(&s.color)), s.position))
                     .unzip();
+                let (cx, cy) = g.center_or_default_scaled(width.get(), height.get(), scale_factor);
                 let circle_scale =
-                    0.5 * (width.get() * width.get() + height.get() * height.get()).sqrt();
+                    g.radius_or_default_scaled(width.get(), height.get(), scale_factor);
 
                 paint.set_dither(true);
 
@@ -280,7 +293,7 @@ impl<'a> SkiaItemRenderer<'a> {
                     },
                 );
                 let mut local_matrix = skia_safe::Matrix::scale((circle_scale, circle_scale));
-                local_matrix.post_translate((width.get() / 2., height.get() / 2.));
+                local_matrix.post_translate((cx, cy));
                 skia_safe::gradient::shaders::radial_gradient(
                     (skia_safe::Point::new(0., 0.), 1.),
                     &gradient,
@@ -292,12 +305,13 @@ impl<'a> SkiaItemRenderer<'a> {
                     .stops()
                     .map(|s| (skia_safe::Color4f::from(to_skia_color(&s.color)), s.position))
                     .unzip();
+                let (cx, cy) = g.center_or_default_scaled(width.get(), height.get(), scale_factor);
 
                 paint.set_dither(true);
 
                 // Skia's sweep gradient uses 0 degrees at 3 o'clock (east)
                 // We want 0 degrees at 12 o'clock (north), so we need to rotate by -90 degrees
-                let center = skia_safe::Point::new(width.get() / 2., height.get() / 2.);
+                let center = skia_safe::Point::new(cx, cy);
                 let gradient_colors =
                     skia_safe::gradient::Colors::new(&colors, Some(&*pos), TileMode::Clamp, None);
                 let gradient = skia_safe::gradient::Gradient::new(
@@ -333,6 +347,7 @@ impl<'a> SkiaItemRenderer<'a> {
             colorize_brush,
             PhysicalLength::new(image.width() as f32),
             PhysicalLength::new(image.height() as f32),
+            self.scale_factor.get(),
         )
         .map(|(mut paint, colorize_shader)| {
             let mut surface = self.canvas.new_surface(&image_info, None)?;
@@ -765,6 +780,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 path.fill(),
                 PhysicalLength::new(viewbox_width),
                 PhysicalLength::new(viewbox_height),
+                1.0,
             ) {
                 // Apply the viewbox transformation to the shader
                 let transform = skia_safe::Matrix::scale((scale_x, scale_y));

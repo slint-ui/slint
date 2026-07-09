@@ -344,9 +344,7 @@ where
 /// Convert a f64 to a SharedString
 pub fn shared_string_from_number(n: f64) -> SharedString {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        // Number from which the increment of f32 is 1, so that we print enough precision to be able to represent all integers
-        let mut result =
-            if n < 16777216. { crate::format!("{}", n as f32) } else { crate::format!("{}", n) };
+        let mut result = crate::format!("{}", i_slint_common::FormattedNumber(n));
 
         if let Some(ctx) = ctx.get() {
             let pinned = ctx.0.as_ref().project_ref();

@@ -96,7 +96,7 @@ Pass the `--no-default-translation-context` flag to `slint-tr-extractor` if you 
 
 <Tabs syncKey="dev-language">
 <TabItem label="C++" icon="cpp">
-Set the <LangRefLink lang="cpp" relpath="cmake_reference.html#bundle-translations">`SLINT_NO_DEFAULT_TRANSLATION_CONTEXT`</LangRefLink> target property on your CMake target.
+Set the <LangRefLink lang="cpp" relpath="cmake-reference/disable-default-translation-context/">`SLINT_NO_DEFAULT_TRANSLATION_CONTEXT`</LangRefLink> target property on your CMake target.
 </TabItem>
 <TabItem label="Rust" icon="rust">
 With <LangRefLink lang="rust-slint-build" relpath="struct.compilerconfiguration#method.set_default_translation_context">`slint_build::CompilerConfiguration::set_default_translation_context(slint_build::DefaultTranslationContext::None)`</LangRefLink>
@@ -257,7 +257,7 @@ path/<lang>/LC_MESSAGES/<domain>.po
 ### Bundling
 <Tabs syncKey="dev-language">
 <TabItem label="C++" icon="cpp">
-Set the <LangRefLink lang="cpp" relpath="cmake_reference.html#bundle-translations">`SLINT_BUNDLE_TRANSLATIONS`</LangRefLink> property in CMake:
+Set the <LangRefLink lang="cpp" relpath="cmake-reference/bundle-translations/">`SLINT_BUNDLE_TRANSLATIONS`</LangRefLink> property in CMake:
 
 ```cmake
 set_property(TARGET my_application PROPERTY SLINT_BUNDLE_TRANSLATIONS "${CMAKE_CURRENT_SOURCE_DIR}/lang")
@@ -290,13 +290,13 @@ if one of the bundled language matches the selected locale, it will be used.
 
 <Tabs syncKey="dev-language">
 <TabItem label="C++" icon="cpp">
-Use the <LangRefLink lang="cpp" relpath="api/function_namespaceslint_1a18aba736373254f5be3362941f3ddbcd.html#_CPPv4N5slint26select_bundled_translationENSt11string_viewE">`slint::select_bundled_translation`</LangRefLink> function to change translations at runtime.
+Use the <LangRefLink lang="cpp" relpath="api/slint/select-bundled-translation/">`slint::select_bundled_translation`</LangRefLink> function to change translations at runtime.
 </TabItem>
 <TabItem label="Rust" icon="rust">
 Use the <LangRefLink lang="rust-slint" relpath="fn.select_bundled_translation.html">`slint::select_bundled_translation`</LangRefLink> function to change translations at runtime.
 </TabItem>
 <TabItem label="Python">
-Use the <LangRefLink lang="python" relpath="slint#init_translations">`slint.init_translations()`</LangRefLink> function to change translations at runtime.
+Use the <LangRefLink lang="python" relpath="api/functions/init_translations/">`slint.init_translations()`</LangRefLink> function to change translations at runtime.
 </TabItem>
 </Tabs>
 
@@ -305,7 +305,16 @@ Use the <LangRefLink lang="python" relpath="slint#init_translations">`slint.init
 Make sure the `gettext` feature was enabled when building slint-viewer.
 Use the `--translation-domain` and `--translation-dir` command line options to load translations for preview.
 
-## Selecting the decimal separator
+## Selecting the Decimal Separator
 
-The current used decimal separator can be read with <Link type="Platform.decimal-separator" label="decimal-separator" />. As default the dot `.` is used as decimal separator.
-When bundling the languages, the decimal separator will be determined during compile time and bundled into the software, otherwise it will be determined from the system locale
+Conversions between `float` and `string` use the locale's decimal separator,
+for example the comma (`,`) in a German locale.
+See <Link type="NumberStringConversion" label="Converting Between Numbers and Strings" /> for the conversion rules.
+
+Read the currently used separator from <Link type="Platform.decimal-separator" label="Platform.decimal-separator" />.
+It defaults to the dot (`.`).
+
+When bundling translations, the decimal separator of each language is determined at compile time
+and bundled with the application:
+selecting a translation also selects its decimal separator.
+When the `gettext` feature is enabled, the decimal separator is determined from the system locale.

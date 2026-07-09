@@ -1,0 +1,95 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    GroupBox,
+    ComboBox,
+    CheckBox,
+    HorizontalBox,
+    Switch,
+    RadioGroup,
+} from "std-widgets.slint";
+import { GallerySettings } from "../gallery_settings.slint";
+import { Page } from "page.slint";
+
+export component SelectionPage inherits Page {
+    title: @tr("Selection");
+    show-enable-read-only: true;
+    description: @tr("Widgets for choosing values: boolean toggles, mutually exclusive options, and drop-down lists. The widgets can be imported from \"std-widgets.slint\".");
+    alignment: start;
+
+    GroupBox {
+        title: @tr("CheckBox - ComboBox - Switch");
+        vertical-stretch: 0;
+
+        HorizontalBox {
+            alignment: start;
+            padding: 0px;
+
+            checkbox := CheckBox {
+                text: checkbox.checked ? @tr("(checked)") : @tr("(unchecked)");
+                checked: true;
+                enabled: GallerySettings.widgets-enabled;
+            }
+
+            ComboBox {
+                model: [@tr("Select Something"), @tr("From this"), @tr("Combobox")];
+                enabled: GallerySettings.widgets-enabled;
+            }
+
+            Switch {
+                text: @tr("Flight Mode");
+                checked: true;
+                enabled: GallerySettings.widgets-enabled;
+            }
+        }
+    }
+
+    GroupBox {
+        title: @tr("RadioGroup");
+        vertical-stretch: 0;
+
+        HorizontalBox {
+            padding: 0px;
+            spacing: 50px;
+            alignment: start;
+            cross-axis-alignment: start;
+
+            RadioGroup {
+                title: @tr("Vertical Orientation");
+                enabled: GallerySettings.widgets-enabled;
+                RadioButton {
+                    text: @tr("Portrait");
+                    checked: true;
+                }
+
+                RadioButton {
+                    text: @tr("Landscape");
+                }
+
+                RadioButton {
+                    text: @tr("Auto");
+                    enabled: false;
+                }
+            }
+
+            RadioGroup {
+                title: @tr("Horizontal Orientation");
+                enabled: GallerySettings.widgets-enabled;
+                orientation: Orientation.horizontal;
+                RadioButton {
+                    text: @tr("Start");
+                }
+
+                RadioButton {
+                    text: @tr("Center");
+                    checked: true;
+                }
+
+                RadioButton {
+                    text: @tr("End");
+                }
+            }
+        }
+    }
+}

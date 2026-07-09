@@ -34,6 +34,7 @@ on:
 env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
     SLINT_COMPILER_DENY_WARNINGS: 1
+    SLINT_BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
     files-changed:
@@ -47,6 +48,7 @@ jobs:
         material_components: ${{ inputs.full || steps.filter.outputs.material_components == 'true' }}
         internal: ${{ inputs.full || steps.filter.outputs.internal == 'true' }}
         api_cpp: ${{ inputs.full || steps.filter.outputs.api_cpp == 'true' }}
+        android_backend: ${{ inputs.full || steps.filter.outputs.android_backend == 'true' }}
         api_python: ${{ inputs.full || steps.filter.outputs.api_python == 'true' }}
         api_node: ${{ inputs.full || steps.filter.outputs.api_node == 'true' }}
         api_rs: ${{ inputs.full || steps.filter.outputs.api_rs == 'true' }}
@@ -207,6 +209,10 @@ jobs:
                   target: i686-unknown-linux-gnu
             - name: Run tests
               run: cargo test -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features
+            - name: Run tests with live-preview
+              env:
+                  SLINT_LIVE_PREVIEW: 1
+              run: cargo test -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
 
     cpp_cmake_matrix:
         needs: files-changed
@@ -437,7 +443,7 @@ jobs:
         uses: ./.github/workflows/tree_sitter.yaml
         with:
             latest: false
-            tag: "v0.26.5"
+            tag: "v0.26.9"
 
     # Test that the formater don't introduce slint compilation error
     fmt_test:
@@ -528,7 +534,7 @@ jobs:
 
     android:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_rs == 'true' || needs.files-changed.outputs.examples == 'true' }}
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_rs == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.android_backend == 'true' }}
         runs-on: ubuntu-latest
         env:
             RUSTFLAGS: -D warnings
@@ -568,6 +574,30 @@ jobs:
 
             - name: Build slint-viewer for Android
               run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --features remote
+
+    android_cpp:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.android_backend == 'true' }}
+        runs-on: ubuntu-latest
+        env:
+            CARGO_INCREMENTAL: false
+            CARGO_PROFILE_DEV_DEBUG: 0
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-linux-android
+            - uses: actions/setup-java@v5
+              with:
+                  distribution: temurin
+                  java-version: '17'
+            - uses: gradle/actions/setup-gradle@v6
+            - name: Build usecases demo APK (Gradle end-to-end)
+              working-directory: demos/usecases/cpp/android
+              env:
+                  ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_LATEST_HOME }}
+              run: gradle assembleDebug
 
     test-figma-inspector:
         needs: files-changed
@@ -711,6 +741,48 @@ jobs:
             extra_args: ${{ matrix.extra_args }}
             update: true
             save_if: false
+
+    # Cross-compiled build for 32-bit Windows, to catch Win32-specific compilation errors,
+    # e.g. packed struct alignment. Build only, no tests, default features only,
+    # and skia excluded:
+    # rust-skia has no prebuilt binaries for i686-pc-windows-msvc.
+    win32_build:
+        if: ${{ inputs.full }}
+        runs-on: ubuntu-24.04
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: i686-pc-windows-msvc
+                  key: x-win32
+            # The runner image ships versioned LLVM binaries, but cc-rs invokes the unversioned
+            # llvm-lib when archiving C code (e.g. for the ring crate); the llvm meta package
+            # provides the unversioned tool names. nasm assembles aws-lc-sys' x86 assembly
+            # (pulled in via rustls/aws-lc-rs, e.g. by the servo example and live-preview).
+            - name: Install LLVM tools and nasm
+              run: sudo apt-get update && sudo apt-get install -y llvm nasm
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cargo-xwin
+            # The splat cache is keyed by the architectures it was created for (DONE marker), so
+            # keep the cache key specific to x86 to avoid reusing a cache without the x86 libraries.
+            - name: Cache xwin Windows SDK
+              uses: actions/cache@v4
+              with:
+                  path: ~/.cache/cargo-xwin
+                  key: cargo-xwin-sdk-x86
+            - name: Build (i686-pc-windows-msvc)
+              env:
+                  # cargo-xwin defaults to splatting only x86_64 and aarch64 CRT/SDK libraries;
+                  # request the 32-bit ones instead.
+                  XWIN_ARCH: x86
+                  # aws-lc-sys' x86 C sources guard against assembly without SSE2 and only key
+                  # off __SSE2__, which clang-cl's /arch:SSE2 does not define. Enable SSE2 (the
+                  # baseline for 32-bit Windows anyway) via -msse2; cargo-xwin appends $CFLAGS to
+                  # the target's CFLAGS, so this augments rather than replaces its include flags.
+                  CFLAGS: -msse2
+                  CXXFLAGS: -msse2
+              run: cargo xwin build --target i686-pc-windows-msvc --locked --workspace --exclude doctests --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude ffmpeg --exclude gstreamer-player --exclude material-gallery --exclude test-driver-screenshots --exclude slint-doc-generator --exclude i-slint-renderer-skia
 
     qa-tree-sitter-latest:
         if: ${{ inputs.full }}

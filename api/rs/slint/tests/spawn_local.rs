@@ -86,7 +86,11 @@ fn main() {
 fn with_context() {
     use i_slint_core::SlintContext;
     let ctx = SlintContext::new(Box::new(i_slint_backend_testing::TestingBackend::new(
-        i_slint_backend_testing::TestingBackendOptions { mock_time: true, threading: true },
+        i_slint_backend_testing::TestingBackendOptions {
+            mock_time: true,
+            threading: true,
+            ..Default::default()
+        },
     )));
     let handle = ctx.spawn_local(async { String::from("Hello") }).unwrap();
     ctx.spawn_local(async move { panic!("Aborted task") }).unwrap().abort();

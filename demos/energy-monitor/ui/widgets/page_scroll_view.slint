@@ -155,6 +155,7 @@ export component PageScrollView {
 
         HorizontalLayout {
             vertical-stretch: 0;
+            cross-axis-alignment: center;
             spacing: 25px;
             padding-left: 25px;
             padding-right: 25px;
@@ -172,16 +173,12 @@ export component PageScrollView {
                 }
             }
 
-            VerticalLayout {
-                alignment: center;
+            ScrollBar {
                 horizontal-stretch: 1;
-
-                ScrollBar {
-                    maximum: i-flickable.viewport-width - i-flickable.width;
-                    page-size: i-flickable.width;
-                    value <=> i-flickable.viewport-x;
-                    enabled: selection == -1;
-                }
+                maximum: i-flickable.viewport-width - i-flickable.width;
+                page-size: i-flickable.width;
+                value <=> i-flickable.viewport-x;
+                enabled: selection == -1;
             }
 
             FloatButton {

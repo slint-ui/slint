@@ -1,19 +1,41 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// A `Tooltip` on a sibling element doesn't suppress pointer-event(move) on the
+// `TouchArea`, and the tooltip still shows on hover. Both items are placed at
+// non-trivial offsets so the routing has to translate cumulatively before the
+// hit-test resolves.
+
 export component TestCase {
-    width: 200px;
-    height: 120px;
+    width: 300px;
+    height: 200px;
 
     in-out property <int> init-count;
+    in-out property <int> move-count;
     out property <bool> touch-hover <=> ta.has-hover;
 
+    // TouchArea covers the upper-left portion of the window.
     ta := TouchArea {
-        width: parent.width;
-        height: parent.height;
+        x: 10px;
+        y: 20px;
+        width: 200px;
+        height: 140px;
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.move) {
+                root.move-count += 1;
+            }
+        }
+    }
 
-        ToolTip {
-            placement: above-element;
+    // Sibling Rectangle with the Tooltip overlaps only the bottom-right corner of
+    // the TouchArea, leaving a TouchArea-only region (top strip and left strip) where
+    // the pointer hits only the TouchArea path.
+    Rectangle {
+        x: 100px;
+        y: 80px;
+        width: 150px;
+        height: 100px;
+        Tooltip {
             Rectangle {
                 init => { root.init-count += 1; }
             }
@@ -29,21 +51,41 @@ use slint::{platform::WindowEvent, LogicalPosition};
 let instance = TestCase::new().unwrap();
 assert!(!instance.get_touch_hover());
 assert_eq!(instance.get_init_count(), 0);
+assert_eq!(instance.get_move_count(), 0);
 
-// Hover enters: TouchArea gets hover, but tooltip init has not fired yet (delay pending).
+// TouchArea spans (10,20)-(210,160). Sibling Rectangle (with Tooltip) spans
+// (100,80)-(250,180). Overlap region: (100,80)-(210,160).
+
+// Move into the overlap: pointer-event fires AND the observer is registered.
 instance.window().dispatch_event(WindowEvent::PointerMoved {
-    position: LogicalPosition::new(20.0, 20.0),
+    position: LogicalPosition::new(150.0, 100.0),
 });
 assert!(instance.get_touch_hover());
+assert_eq!(instance.get_move_count(), 1);
 assert_eq!(instance.get_init_count(), 0);
 
-// After the delay, the tooltip popup is shown and init fires.
+// Another move in the overlap.
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(170.0, 120.0),
+});
+assert_eq!(instance.get_move_count(), 2);
+
+// After the delay, the tooltip popup is shown.
 slint_testing::mock_elapsed_time(600);
 assert_eq!(instance.get_init_count(), 1);
 
-// Moving out hides the tooltip and clears hover.
+// Move into a TouchArea-only region: the cursor is still inside TouchArea
+// (so pointer-event fires) but outside the Rectangle/Tooltip — the observer
+// drops out of the new state and Exit fires on the TooltipArea.
 instance.window().dispatch_event(WindowEvent::PointerMoved {
-    position: LogicalPosition::new(250.0, 250.0),
+    position: LogicalPosition::new(50.0, 40.0),
+});
+assert!(instance.get_touch_hover());
+assert_eq!(instance.get_move_count(), 3);
+
+// Fully outside: TouchArea hover clears.
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(280.0, 30.0),
 });
 assert!(!instance.get_touch_hover());
 ```

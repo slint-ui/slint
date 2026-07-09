@@ -33,7 +33,7 @@ use i_slint_core::lengths::{
 use i_slint_core::platform::{PlatformError, WindowEvent};
 use i_slint_core::string::ToSharedString;
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
-use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
+use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner, WindowKind};
 use i_slint_core::{ImageInner, SharedString};
 
 use std::cell::RefCell;
@@ -42,7 +42,7 @@ use std::pin::Pin;
 use std::ptr::NonNull;
 use std::rc::{Rc, Weak};
 
-use crate::key_generated;
+use crate::key_generated::{self, Qt_WindowType_Popup, Qt_WindowType_ToolTip};
 use i_slint_core::renderer::Renderer;
 
 cpp! {{
@@ -706,9 +706,12 @@ fn into_qbrush(
         }
         i_slint_core::Brush::RadialGradient(g) => {
             cpp_class!(unsafe struct QRadialGradient as "QRadialGradient");
+            let (cx, cy) = g.center_or_default(width as f32, height as f32);
+            let (cx, cy) = (cx as qttypes::qreal, cy as qttypes::qreal);
+            let radius = g.radius_or_default(width as f32, height as f32) as qttypes::qreal;
             let mut qrg = cpp! {
-                unsafe [width as "qreal", height as "qreal"] -> QRadialGradient as "QRadialGradient" {
-                    QRadialGradient qrg(width / 2, height / 2, sqrt(width * width + height * height) / 2);
+                unsafe [cx as "qreal", cy as "qreal", radius as "qreal"] -> QRadialGradient as "QRadialGradient" {
+                    QRadialGradient qrg(cx, cy, radius);
                     return qrg;
                 }
             };
@@ -728,9 +731,11 @@ fn into_qbrush(
             cpp_class!(unsafe struct QConicalGradient as "QConicalGradient");
             // QConicalGradient uses angles where 0 degrees is at 3 o'clock (east)
             // We want gradient position 0 at 12 o'clock (north), so start at -90°
+            let (cx, cy) = g.center_or_default(width as f32, height as f32);
+            let (cx, cy) = (cx as qttypes::qreal, cy as qttypes::qreal);
             let mut qcg = cpp! {
-                unsafe [width as "qreal", height as "qreal"] -> QConicalGradient as "QConicalGradient" {
-                    QConicalGradient qcg(width / 2, height / 2, 90);
+                unsafe [cx as "qreal", cy as "qreal"] -> QConicalGradient as "QConicalGradient" {
+                    QConicalGradient qcg(cx, cy, 90);
                     return qcg;
                 }
             };
@@ -1013,7 +1018,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     Brush::SolidColor(box_shadow.color()),
                     Brush::default(),
                     0.,
-                    LogicalBorderRadius::new_uniform(box_shadow.border_radius().get()),
+                    box_shadow.logical_border_radius(),
                 );
 
                 drop(painter_);
@@ -2121,24 +2126,26 @@ impl QtWindow {
         let mut data = DataTransfer::default();
         let text = text.to_shared_string();
         if !text.is_empty() {
-            data.set_plaintext(text);
+            data.set_plain_text(text);
         }
         if let Some(buffer) = qimage_to_shared_pixel_buffer(image) {
             data.set_image(i_slint_core::graphics::Image::from_rgba8(buffer));
         }
-        let drop_event = DropEvent {
-            data,
-            position,
-            allow_copy,
-            allow_move,
-            allow_link,
-            proposed_action: qt_drop_action_to_slint(proposed),
-        };
+        let mut drop_event = DropEvent::default();
+        drop_event.data = data;
+        drop_event.position = position;
+        drop_event.allow_copy = allow_copy;
+        drop_event.allow_move = allow_move;
+        drop_event.allow_link = allow_link;
+        drop_event.proposed_action = qt_drop_action_to_slint(proposed);
         let mouse_event =
             if is_drop { MouseEvent::Drop(drop_event) } else { MouseEvent::DragMove(drop_event) };
         let chosen = WindowInner::from_pub(&self.window).process_mouse_input(mouse_event);
         timer_event();
-        chosen.map(slint_drag_action_to_qt).unwrap_or(key_generated::Qt_DropAction_IgnoreAction)
+        chosen
+            .and_then(|r| r.drag_action)
+            .map(slint_drag_action_to_qt)
+            .unwrap_or(key_generated::Qt_DropAction_IgnoreAction)
     }
 
     fn key_event(&self, key: i32, text: qttypes::QString, released: bool, repeat: bool) {
@@ -2461,14 +2468,23 @@ impl WindowAdapterInternal for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
-        let popup_window = QtWindow::new(self.self_weak.clone());
-        let popup_ptr = popup_window.widget_ptr();
-        let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*"] {
-            popup_ptr->setParent(widget_ptr, Qt::Popup);
+    fn create_child_window_adapter(
+        &self,
+        window_kind: WindowKind,
+    ) -> Option<Rc<dyn WindowAdapter>> {
+        let child_window = QtWindow::new(self.self_weak.clone());
+        let child_ptr = child_window.widget_ptr();
+        let parent_ptr = self.widget_ptr();
+
+        let window_kind = match window_kind {
+            WindowKind::Popup => Qt_WindowType_Popup,
+            WindowKind::ToolTip => Qt_WindowType_ToolTip,
+            WindowKind::Menu => Qt_WindowType_Popup,
+        };
+        cpp! {unsafe [parent_ptr as "QWidget*", child_ptr as "QWidget*", window_kind as "Qt::WindowType"] {
+            child_ptr->setParent(parent_ptr, window_kind);
         }};
-        Some(popup_window as _)
+        Some(child_window as _)
     }
 
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
@@ -2539,9 +2555,13 @@ impl WindowAdapterInternal for QtWindow {
             width: props.cursor_rect_size.width as _,
             height: props.cursor_rect_size.height as _,
         };
-        let cursor: i32 = props.text[..props.cursor_position].encode_utf16().count() as _;
-        let anchor: i32 =
-            props.anchor_position.map_or(cursor, |a| props.text[..a].encode_utf16().count() as _);
+        let cursor: i32 = i_slint_common::unicode_utils::byte_offset_to_utf16_offset(
+            &props.text,
+            props.cursor_position,
+        ) as _;
+        let anchor: i32 = props.anchor_position.map_or(cursor, |a| {
+            i_slint_common::unicode_utils::byte_offset_to_utf16_offset(&props.text, a) as _
+        });
         let text: qttypes::QString = props.text.as_str().into();
         cpp! {unsafe [widget_ptr as "SlintWidget*", rect as "QRectF", cursor as "int", anchor as "int", text as "QString"]  {
             widget_ptr->ime_position = rect.toRect();
@@ -2657,16 +2677,6 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         let ctx = self.slint_context().ok_or("slint platform not initialized")?;
         ctx.font_context().borrow_mut().collection.register_fonts(contents.into(), None);
         Ok(())
-    }
-
-    fn default_font_size(&self) -> LogicalLength {
-        let default_font_size = cpp!(unsafe[] -> i32 as "int" {
-            return QFontInfo(qApp->font()).pixelSize();
-        });
-        // Ideally this would return the value from another property with a binding that's updated
-        // as a FontChange event is received. This is relevant for the case of using the Qt backend
-        // with a non-native style.
-        LogicalLength::new(default_font_size as f32)
     }
 
     fn free_graphics_resources(

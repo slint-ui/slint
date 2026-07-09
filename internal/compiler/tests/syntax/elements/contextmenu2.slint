@@ -36,16 +36,16 @@ export component A  {
                 width: 45px;
 //              >   <error{Unknown property width in MenuSeparator}
                 MenuItem {}
-//              >       <error{MenuSeparator cannot have children elements}
+//              >       <error{MenuItem can only be within a Menu element}
                 Rectangle {}
 //              >        <error{MenuSeparator cannot have children elements}
             }
         }
         MenuItem {}
-//      >       <error{Unknown element 'MenuItem'}
+//      >       <error{MenuItem can only be within a Menu element}
 
         MenuSeparator {}
-//      >            <error{Unknown element 'MenuSeparator'}
+//      >            <error{MenuSeparator can only be within a Menu element}
     }
 
     TouchArea {

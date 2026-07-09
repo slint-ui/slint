@@ -177,7 +177,7 @@ pub fn open_url(url: &str, window: &crate::api::Window) -> Result<(), crate::api
 }
 
 #[cfg(target_os = "macos")]
-pub fn bring_all_to_front() {
+pub fn macos_bring_all_windows_to_front() {
     use objc2::MainThreadMarker;
     use objc2_app_kit::NSApplication;
     let Some(mtm) = MainThreadMarker::new() else { return };
@@ -185,4 +185,4 @@ pub fn bring_all_to_front() {
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn bring_all_to_front() {}
+pub fn macos_bring_all_windows_to_front() {}
