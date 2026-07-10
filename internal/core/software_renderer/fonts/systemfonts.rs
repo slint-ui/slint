@@ -1,11 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use core::cell::RefCell;
-
 use alloc::boxed::Box;
-use alloc::rc::Rc;
-use std::collections::HashMap;
 
 use crate::lengths::ScaleFactor;
 use i_slint_common::sharedfontdb::{self, fontdb};
