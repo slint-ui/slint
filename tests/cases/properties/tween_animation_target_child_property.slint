@@ -1,0 +1,79 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    width: 300px;
+    height: 300px;
+    background: white;
+
+    rect := Rectangle {
+        x: 20px;
+        y: 20px;
+        width: 60px;
+        height: 60px;
+        background: grey;
+        border-radius: 4px;
+    }
+
+    TouchArea {
+        x: 20px;
+        y: 20px;
+        width: 60px;
+        height: 60px;
+        clicked => {
+            anim.running = true;
+        }
+    }
+
+    anim := TweenAnimation {
+        target: rect.x;
+        to: 200px;
+        duration: 1000ms;
+        easing: ease-in-out;
+    }
+
+    out property <length> rect-x: rect.x;
+
+    public function start_anim() {
+        anim.start();
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_rect_x(), 20.);
+
+// Start animation
+instance.invoke_start_anim();
+slint_testing::mock_elapsed_time(1);
+
+// Halfway through animation
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_rect_x(), 110.);
+
+// Finished animation
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_rect_x(), 200.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_rect_x(), 20.);
+
+// Start animation
+instance.invoke_start_anim();
+slint_testing::mock_elapsed_time(1);
+
+// Halfway through animation
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_rect_x(), 110.);
+
+// Finished animation
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_rect_x(), 200.);
+```
+
+*/

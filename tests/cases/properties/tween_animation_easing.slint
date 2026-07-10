@@ -1,0 +1,133 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    width: 200px;
+    height: 200px;
+    background: white;
+
+    in-out property <length> linear-value: 0px;
+    in-out property <length> ease-in-value: 0px;
+    in-out property <length> ease-out-value: 0px;
+    in-out property <length> ease-in-out-value: 0px;
+
+    linear-anim := TweenAnimation {
+        target: linear-value;
+        from: 0px;
+        to: 100px;
+        duration: 1000ms;
+        easing: linear;
+    }
+
+    ease-in-anim := TweenAnimation {
+        target: ease-in-value;
+        from: 0px;
+        to: 100px;
+        duration: 1000ms;
+        easing: ease-in;
+    }
+
+    ease-out-anim := TweenAnimation {
+        target: ease-out-value;
+        from: 0px;
+        to: 100px;
+        duration: 1000ms;
+        easing: ease-out;
+    }
+
+    ease-in-out-anim := TweenAnimation {
+        target: ease-in-out-value;
+        from: 0px;
+        to: 100px;
+        duration: 1000ms;
+        easing: ease-in-out;
+    }
+
+    public function start_all() {
+        linear-anim.start();
+        ease-in-anim.start();
+        ease-out-anim.start();
+        ease-in-out-anim.start();
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+
+// Start all animations
+instance.invoke_start_all();
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_linear_value(), 0.);
+assert_eq!(instance.get_ease_in_value(), 0.);
+assert_eq!(instance.get_ease_out_value(), 0.);
+assert_eq!(instance.get_ease_in_out_value(), 0.);
+
+// Halfway through animation (500ms)
+slint_testing::mock_elapsed_time(500);
+let linear_halfway = instance.get_linear_value();
+let ease_in_halfway = instance.get_ease_in_value();
+let ease_out_halfway = instance.get_ease_out_value();
+let ease_in_out_halfway = instance.get_ease_in_out_value();
+
+// Linear should be at exactly 50
+assert_eq!(linear_halfway, 50.);
+
+// ease-in should be less than linear (slower start)
+assert!(ease_in_halfway < linear_halfway, "ease-in ({}) should be < linear ({})", ease_in_halfway, linear_halfway);
+
+// ease-out should be more than linear (faster start)
+assert!(ease_out_halfway > linear_halfway, "ease-out ({}) should be > linear ({})", ease_out_halfway, linear_halfway);
+
+// ease-in-out is symmetric, so at the exact midpoint it coincides with linear (50).
+assert_eq!(ease_in_out_halfway, linear_halfway);
+
+// Finish animations
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_linear_value(), 100.);
+assert_eq!(instance.get_ease_in_value(), 100.);
+assert_eq!(instance.get_ease_out_value(), 100.);
+assert_eq!(instance.get_ease_in_out_value(), 100.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// Start all animations
+instance.invoke_start_all();
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_linear_value(), 0.);
+assert_eq(instance.get_ease_in_value(), 0.);
+assert_eq(instance.get_ease_out_value(), 0.);
+assert_eq(instance.get_ease_in_out_value(), 0.);
+
+// Halfway through animation (500ms)
+slint_testing::mock_elapsed_time(500);
+auto linear_halfway = instance.get_linear_value();
+auto ease_in_halfway = instance.get_ease_in_value();
+auto ease_out_halfway = instance.get_ease_out_value();
+auto ease_in_out_halfway = instance.get_ease_in_out_value();
+
+// Linear should be at exactly 50
+assert_eq(linear_halfway, 50.);
+
+// ease-in should be less than linear (slower start)
+assert(ease_in_halfway < linear_halfway);
+
+// ease-out should be more than linear (faster start)
+assert(ease_out_halfway > linear_halfway);
+
+// ease-in-out is symmetric, so at the exact midpoint it coincides with linear (50).
+assert_eq(ease_in_out_halfway, linear_halfway);
+
+// Finish animations
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_linear_value(), 100.);
+assert_eq(instance.get_ease_in_value(), 100.);
+assert_eq(instance.get_ease_out_value(), 100.);
+assert_eq(instance.get_ease_in_out_value(), 100.);
+```
+
+*/
