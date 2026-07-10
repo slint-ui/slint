@@ -125,7 +125,7 @@ Rust (`rs/slint/`, `rs/macros/` for `slint!`, `rs/build/`), C++ (`cpp/`, CMake),
 
 ### Tools (`tools/`)
 
-`lsp/` (LSP server), `compiler/` (CLI), `viewer/` (hot-reload `.slint` viewer), `slintpad/` (web playground), `figma_import/`, `tr-extractor/` (i18n), `updater/` (version migration).
+`lsp/` (LSP server), `compiler/` (CLI), `viewer/` (hot-reload `.slint` viewer), `slintpad/` (web playground), `figma_import/` (Figma-to-Slint conversion), `figma-inspector/` (Figma plugin: shows Slint markup for a selected design element), `tr-extractor/` (i18n).
 
 ### Editor Support (`editors/`)
 
