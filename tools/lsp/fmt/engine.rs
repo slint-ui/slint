@@ -383,6 +383,7 @@ impl<'a> Selection<'a> {
 pub struct FormatRules {
     node_rules: HashMap<SyntaxKind, Vec<Box<dyn Fn(&Selection)>>>,
     token_rules: HashMap<SyntaxKind, Vec<Box<dyn Fn(&Selection)>>>,
+    wildcard_rules: Vec<Box<dyn Fn(&Selection)>>,
 }
 
 impl FormatRules {
@@ -395,6 +396,20 @@ impl FormatRules {
     /// document. Node rules override token rules where they conflict.
     pub fn token(&mut self, kind: SyntaxKind, rule: impl Fn(&Selection) + 'static) {
         self.token_rules.entry(kind).or_default().push(Box::new(rule));
+    }
+
+    /// Register a rule that runs for every node in the document. It runs at
+    /// [`Tier::Wildcard`]: node rules override it, but it overrides token
+    /// rules. Keep the body to a single scan of the node's children — it
+    /// runs everywhere.
+    ///
+    /// CONTRACT for the adjacent-node spacing rule: only attach `Space`
+    /// between two child *nodes* with no significant token between them.
+    /// Because Wildcard sits above Token, a wildcard `Space` next to a
+    /// punctuation token would beat the token rules' `Antispace` and
+    /// re-space every `:`/`;`/`,` in the document.
+    pub fn any_node(&mut self, rule: impl Fn(&Selection) + 'static) {
+        self.wildcard_rules.push(Box::new(rule));
     }
 }
 
@@ -427,15 +442,26 @@ pub fn annotate(
     }
 
     for node in document.descendants() {
-        let Some(node_rules) = rules.node_rules.get(&node.kind()) else { continue };
-        let selection = Selection {
+        let node_rules = rules.node_rules.get(&node.kind());
+        if node_rules.is_none() && rules.wildcard_rules.is_empty() {
+            continue;
+        }
+        let mut selection = Selection {
             items: vec![NodeOrToken::Node(node.clone())],
             context: node.clone(),
-            tier: Tier::Node,
+            tier: Tier::Wildcard,
             sink,
             source,
         };
-        for rule in node_rules {
+        for rule in &rules.wildcard_rules {
+            rule(&selection);
+        }
+        // Reusing the selection at the higher tier is safe: atoms record the
+        // tier when they are attached, and derived selections copy it
+        // eagerly, so nothing a wildcard rule produced can observe this
+        // change.
+        selection.tier = Tier::Node;
+        for rule in node_rules.into_iter().flatten() {
             rule(&selection);
         }
     }
@@ -565,7 +591,11 @@ fn route_atom(
             if input_softline_whitespace.contains('\n') {
                 Strength::Newline
             } else {
-                Strength::Nothing
+                // Advisory: without an input newline the atom says nothing
+                // at all. Pushing a tier-bearing `Nothing` instead would
+                // veto weaker-tier decisions (e.g. a wildcard `Space`) and
+                // glue the tokens together.
+                return;
             }
         }
         Atom::Antispace => {
@@ -1325,6 +1355,92 @@ mod tests {
         assert_eq!(
             format_with("component A { function f() { a = 1;b = 2; } }", &rules),
             "component A { function f() { a = 1; b = 2; } }"
+        );
+    }
+
+    /// The one wildcard rule the design calls for: a space between two
+    /// adjacent child *nodes* — pairs with a significant token between them
+    /// are none of the wildcard's business (see [`FormatRules::any_node`]).
+    fn adjacent_node_space_rules() -> FormatRules {
+        let mut rules = FormatRules::default();
+        rules.any_node(|node| {
+            let children: Vec<_> = node.children().iter().cloned().collect();
+            for pair in children.windows(2) {
+                if pair[0].as_node().is_some() && pair[1].as_node().is_some() {
+                    node.at(pair[1].clone()).prepend(Atom::Space);
+                }
+            }
+        });
+        rules
+    }
+
+    #[test]
+    fn wildcard_rules_run_on_every_node() {
+        // The two sub-elements are adjacent nodes and get a space; `Text{`
+        // is a node-token neighbor and stays glued.
+        assert_eq!(
+            format_with("component A { Text{}Image{} }", &adjacent_node_space_rules()),
+            "component A { Text{} Image{} }"
+        );
+    }
+
+    #[test]
+    fn node_tier_overrides_wildcard_tier() {
+        let mut rules = adjacent_node_space_rules();
+        rules.node(SyntaxKind::Element, |element| {
+            // Resolves to Nothing on this single-line element; it must beat
+            // the wildcard Space even though Nothing is *weaker*.
+            element.node(SyntaxKind::SubElement).prepend(element.empty_softline());
+        });
+        // The prepend fires before *every* SubElement, so the space after
+        // `{` is deleted too (hence `{Text`, not the wildcard misbehaving);
+        // between the two sub-elements the Node Nothing beats the wildcard
+        // Space.
+        assert_eq!(
+            format_with("component A { Text{}Image{} }", &rules),
+            "component A {Text{}Image{} }"
+        );
+    }
+
+    #[test]
+    fn wildcard_tier_overrides_token_tier() {
+        // The contract on `any_node` warns that a wildcard Space beats a
+        // token Antispace at the same boundary — the reason wildcard rules
+        // must never touch punctuation. Pin that ordering down: the wildcard
+        // Space between the two sub-elements meets a token-tier Antispace
+        // prepended before every identifier (which includes `Image`, the
+        // second sub-element's first token). Assert only that boundary; the
+        // Antispace's effect on the other identifiers is beside the point.
+        let mut rules = adjacent_node_space_rules();
+        rules.token(SyntaxKind::Identifier, |identifier| {
+            identifier.prepend(Atom::Antispace);
+        });
+        let (linearization, plan) = resolve_with_rules("component A { Text{}Image{} }", &rules);
+
+        let image_slot = slot_of(&linearization, "Image");
+        assert_eq!(
+            plan.instructions[2 * image_slot],
+            Instruction::ReplaceGap { slot: image_slot, whitespace: Whitespace::Space },
+            "the wildcard Space must beat the token-tier Antispace"
+        );
+    }
+
+    #[test]
+    fn input_softline_without_newline_is_advisory() {
+        let mut rules = adjacent_node_space_rules();
+        rules.node(SyntaxKind::Element, |element| {
+            element.node(SyntaxKind::SubElement).prepend(Atom::InputSoftline);
+        });
+        // No input newline: the Node-tier InputSoftline stays silent, so the
+        // Wildcard-tier Space wins (a tier-bearing Nothing would veto it).
+        assert_eq!(
+            format_with("component A { Text{}Image{} }", &rules),
+            "component A { Text{} Image{} }"
+        );
+        // With an input newline it resolves to a newline and beats the Space.
+        assert_eq!(
+            format_with("component A { Text{}\nImage{} }", &rules),
+            "component A { Text{}\nImage{} }"
         );
     }
 

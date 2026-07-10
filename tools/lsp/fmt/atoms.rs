@@ -30,7 +30,11 @@ pub enum Atom {
     /// Newline if the given input span was multiline, else nothing.
     /// Span semantics as for [`Atom::SpacedSoftline`].
     EmptySoftline(TextRange),
-    /// Newline if the input had a newline at this boundary, else nothing.
+    /// Newline if the input had a newline at this boundary; otherwise the
+    /// atom abstains entirely — unlike an [`Atom::EmptySoftline`] resolving
+    /// to nothing, it makes no tier-bearing decision that could veto
+    /// weaker-tier atoms (a lower-tier `Space` at the same boundary still
+    /// wins).
     InputSoftline,
     /// Increase the indentation level for following newlines.
     IndentStart,
