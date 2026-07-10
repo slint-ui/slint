@@ -99,9 +99,17 @@ Per gap, in one linear pass over the slots:
 
 1. Gaps inside a `Leaf` range are skipped — their trivia passes through
    verbatim.
-2. `Delete`d tokens are dropped; their two surrounding gaps *merge* (atom
-   lists concatenate and resolve as one gap — this is what makes the
-   delete-token-insert-`Literal` pattern come out right).
+2. `Delete`d tokens emit nothing (they still pass the writer once, as empty
+   content) and their gap's whitespace collapses. The two surrounding gaps
+   *merge* without any physical restructuring: the deleted token's own atoms
+   are discarded, and the next surviving gap sources its append-side atoms
+   from the last *emitted* token rather than the immediate predecessor. So the
+   trailing-comma pattern splits across two boundaries — `delete()` the comma
+   token (single-line), or append a `Literal(",")` to the last argument
+   (multiline); the injected literal must live on a surviving token, never on
+   the deleted one, since the deleted token's atoms are dropped. The
+   surrounding spacing still comes out right. (A comment inside a deleted
+   token's gap is kept verbatim rather than collapsed.)
 3. The gap is split at comments into sub-gaps, and atoms are anchored to
    sub-gaps (see "Comments split gaps" below). A comment-free gap is the
    degenerate single-sub-gap case.
@@ -214,13 +222,18 @@ enum Instruction {
     /// Emit a comment; a re-indented multiline block comment shifts its
     /// continuation lines by `column_shift`.
     EmitComment { slot: usize, trivia_index: usize, column_shift: i32 },
+    /// Emit fixed text from an `Atom::Literal` (not backed by any input token).
+    EmitLiteral { text: String },
     /// Emit the slot's significant token unchanged.
     EmitToken { slot: usize },
+    /// Emit the slot's significant token as nothing (a `Delete`d token). The
+    /// token still passes the writer once, so the write protocol holds.
+    DeleteToken { slot: usize },
 }
 ```
 
-The `Literal` atom and the `Leaf`/`Delete` markers will add instructions
-(fixed text, verbatim ranges, dropped tokens) when they are implemented.
+A `Leaf` range needs no new instruction — its interior gaps become the
+existing slot-granular `KeepGap`/`EmitToken` verbatim sequence.
 
 ### Phase 3 — render
 
@@ -265,11 +278,15 @@ pub enum Atom {
     IndentEnd,
     /// Preserve up to one input blank line before this boundary.
     AllowBlankLines,
-    /// Emit fixed text at this boundary. Together with the `Delete` marker
-    /// this replaces Topiary's `#delimiter!` mechanism (ternary `:`, animate
-    /// target commas) — though rule-tier priorities mean a node rule can
-    /// often simply override the global punctuation spacing instead.
-    Literal(&'static str),
+    /// Emit fixed text at this boundary — an append-literal right after the
+    /// left token, a prepend-literal right before the right token. It makes no
+    /// whitespace decision (the gap's whitespace resolves independently) but
+    /// engages the gap. Together with the `Delete` marker this manages a
+    /// list's trailing comma: append `Literal(",")` to the last item when the
+    /// list breaks across lines, `delete()` the comma when it collapses onto
+    /// one line. An owned `String` (not `&'static str`) so conditionally
+    /// built text can be injected.
+    Literal(String),
 }
 ```
 
@@ -326,6 +343,10 @@ rules.token(SyntaxKind::LParent,   |t| { t.append(Antispace); });
 
 // Tier 2: wildcard node rule — the universal "adjacent child nodes get a
 // separating space" fallback (`(_ (_) @append_space . (_))` in the .scm).
+// CONTRACT: a wildcard rule must only attach whitespace between two child
+// *nodes* with no significant token between them. The Wildcard tier sits
+// ABOVE Token, so a wildcard `Space` next to a punctuation token would beat
+// the global punctuation `Antispace` and re-space every `:`/`;`/`,`.
 rules.any_node(|node| { /* … */ });
 
 // Tier 3 (highest priority): per-kind node rules. The workhorse.
@@ -359,8 +380,6 @@ impl Selection<'_> {
     pub fn token_matching(&self, f: impl Fn(SyntaxKind) -> bool) -> Selection<'_>;
     pub fn keyword(&self, text: &str) -> Selection<'_>;   // Identifier with this text
     pub fn children(&self) -> Selection<'_>;              // all significant children
-    pub fn first(&self) -> Selection<'_>;
-    pub fn last(&self) -> Selection<'_>;
 
     // Escape hatches — into rowan and back:
     pub fn iter(&self) -> impl Iterator<Item = &NodeOrToken>;
@@ -394,9 +413,11 @@ Deliberate non-features:
   port of `#single_line_only!` / `#multi_line_only!`; evaluating at annotation
   time is sound because multilineness is measured on the *input*, the same
   measurement phase-2 softline resolution uses.)
-- **No sibling-anchor combinators** (`followed_by` etc.) until a rule demands
-  them; genuinely positional logic (e.g. the Document-level blank-line
-  cascades) is written as an `iter()` loop plus `at()`.
+- **No sibling-anchor combinators** (`followed_by` etc.) and **no
+  `first()`/`last()`** until a rule demands them; genuinely positional logic
+  (adjacent-child pairs, the trailing element of a list, the Document-level
+  blank-line cascades) is written as an `iter()`/`children()` loop plus
+  `at()`.
 - Derived selections and `at()` inherit `context` from their parent selection,
   so softlines attached several hops deep still measure against the rule's
   node unless the rule constructs a softline with an explicit span.
@@ -463,6 +484,13 @@ These came out of a feasibility review against the actual parser and rowan
      that resolved single-line (it would flip that context to multiline on the
      next run). In the ported ruleset `Hardline` only occurs at Document top
      level; the engine should debug-assert this constraint.
+6. **Notes for the eventual full rule port** (no engine work):
+   - The `Transition` keyword accepts `in_out` as an alias of `in-out`.
+   - The reference slint.scm's multiline-only antispace atoms are dead:
+     `Antispace` never cancels a newline, only a same-or-lower-tier `Space`.
+   - `InputSoftline` is *advisory*: at a boundary with no input newline it
+     abstains entirely rather than deciding "nothing", so a weaker-tier
+     `Space` at the same boundary still wins (matches Topiary).
 
 ## Example: the `states` construct
 

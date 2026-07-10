@@ -13,7 +13,7 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 
 /// A formatting annotation attached to the boundary before or after a token.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Atom {
     /// One space.
     Space,
@@ -42,8 +42,12 @@ pub enum Atom {
     IndentEnd,
     /// Preserve one blank line from the input at this boundary.
     AllowBlankLines,
-    // `Literal(&'static str)` from API_DESIGN.md will be added when the first
-    // rule needs it.
+    /// Emit fixed text at this boundary — an append-literal right after the
+    /// left token, a prepend-literal right before the right token. Unlike the
+    /// spacing atoms it makes no whitespace decision (the gap's whitespace is
+    /// resolved independently) but it does engage the gap. Used to inject a
+    /// trailing comma into a list that broke across lines.
+    Literal(String),
 }
 
 /// An annotation that applies to a whole item (a node's range or a single
@@ -73,7 +77,7 @@ pub enum Tier {
 }
 
 /// One atom as attached by a rule, with the tier it originates from.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct AtomInstance {
     pub atom: Atom,
     pub tier: Tier,
@@ -164,7 +168,7 @@ pub const INDENT: &str = "    ";
 /// A gap containing comments is emitted as a sequence of sub-gap
 /// instructions in trivia order: sub-gap, comment, sub-gap, comment, …,
 /// sub-gap.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
     /// Emit the gap's input trivia unchanged.
     KeepGap { slot: usize },
@@ -181,8 +185,14 @@ pub enum Instruction {
     /// each continuation line's leading whitespace by `column_shift`
     /// (clamped at zero), preserving the comment's internal alignment.
     EmitComment { slot: usize, trivia_index: usize, column_shift: i32 },
+    /// Emit fixed text produced by an [`Atom::Literal`] (not backed by any
+    /// input token).
+    EmitLiteral { text: String },
     /// Emit the slot's significant token unchanged.
     EmitToken { slot: usize },
+    /// Emit the slot's significant token as nothing (a deleted token). The
+    /// token still passes the writer once, so the write protocol holds.
+    DeleteToken { slot: usize },
 }
 
 #[cfg(test)]
@@ -197,8 +207,10 @@ mod tests {
         sink.attach_before(anchor, AtomInstance { atom: Atom::Hardline, tier: Tier::Node });
 
         let annotations = sink.finish();
-        let atoms: Vec<_> =
-            annotations.boundary.before[&anchor].iter().map(|instance| instance.atom).collect();
+        let atoms: Vec<_> = annotations.boundary.before[&anchor]
+            .iter()
+            .map(|instance| instance.atom.clone())
+            .collect();
         assert_eq!(atoms, [Atom::Antispace, Atom::Hardline]);
         assert!(annotations.boundary.after.is_empty());
         assert!(annotations.markers.is_empty());

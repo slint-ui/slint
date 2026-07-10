@@ -354,8 +354,10 @@ impl<'a> Selection<'a> {
                 NodeOrToken::Node(node) => first_significant_token(node),
             };
             let Some(anchor) = anchor else { continue };
-            self.sink
-                .attach_before(anchor.text_range().start(), AtomInstance { atom, tier: self.tier });
+            self.sink.attach_before(
+                anchor.text_range().start(),
+                AtomInstance { atom: atom.clone(), tier: self.tier },
+            );
         }
         self
     }
@@ -369,8 +371,10 @@ impl<'a> Selection<'a> {
                 NodeOrToken::Node(node) => last_significant_token(node),
             };
             let Some(anchor) = anchor else { continue };
-            self.sink
-                .attach_after(anchor.text_range().start(), AtomInstance { atom, tier: self.tier });
+            self.sink.attach_after(
+                anchor.text_range().start(),
+                AtomInstance { atom: atom.clone(), tier: self.tier },
+            );
         }
         self
     }
@@ -389,6 +393,29 @@ impl<'a> Selection<'a> {
             };
             if let Some(range) = range {
                 self.sink.mark(range, Marker::Leaf);
+            }
+        }
+        self
+    }
+
+    /// Mark each selected item for deletion: its tokens are emitted as
+    /// nothing and the whitespace around them collapses into the surrounding
+    /// gap. In practice a rule deletes a single token — a now-redundant
+    /// trailing comma when a list collapses onto one line. A delete inside a
+    /// leaf range is ignored (the leaf keeps its interior verbatim).
+    ///
+    /// A deleted token's own boundary atoms are discarded, so a rule that
+    /// deletes a comma and injects a replacement elsewhere must attach the
+    /// injected [`Atom::Literal`] to a *surviving* neighbor (e.g. append it to
+    /// the last argument), not to the deleted token.
+    pub fn delete(&self) -> &Self {
+        for item in &self.items {
+            let range = match item {
+                NodeOrToken::Token(token) => Some(token.text_range()),
+                NodeOrToken::Node(node) => significant_span(node),
+            };
+            if let Some(range) = range {
+                self.sink.mark(range, Marker::Delete);
             }
         }
         self
@@ -509,18 +536,43 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
         .iter()
         .map(|slot| containing_leaf(slot.token.text_range().start(), &leaf_ranges))
         .collect();
+    let delete_ranges = delete_ranges(&annotations.markers);
 
     let mut instructions = Vec::with_capacity(slots.len() * 2);
     let mut indentation_level: i32 = 0;
+    // The most recent token that was actually emitted. A deleted token does
+    // not become one, so its predecessor's appended atoms carry across it to
+    // the next surviving gap — the deleted token's own trivia and atoms
+    // collapse away.
+    let mut last_surviving: Option<usize> = None;
 
     for (slot_index, slot) in slots.iter().enumerate() {
-        // The gap before this token is one physical location: the previous
-        // token's appended atoms and this token's prepended atoms meet here.
-        // They are kept apart because they route to different sub-gaps when
-        // the gap contains comments.
+        let leaf = leaf_of_slot[slot_index];
+        // A delete inside a leaf is ignored: the leaf keeps its interior
+        // verbatim (precedence goes to the leaf).
+        let deleted = leaf.is_none()
+            && delete_ranges.iter().any(|range| range.contains(slot.token.text_range().start()));
+        if deleted {
+            // The token emits nothing; its gap's whitespace collapses (but
+            // any comment in it is kept — comments are never deleted).
+            if slot.has_comment() {
+                instructions.push(Instruction::KeepGap { slot: slot_index });
+            } else {
+                instructions.push(Instruction::ReplaceGap {
+                    slot: slot_index,
+                    whitespace: Whitespace::None,
+                });
+            }
+            instructions.push(Instruction::DeleteToken { slot: slot_index });
+            continue;
+        }
+
+        // The gap before this token is one physical location: the last
+        // surviving token's appended atoms and this token's prepended atoms
+        // meet here. They are kept apart because they route to different
+        // sub-gaps when the gap contains comments.
         let no_atoms: &[AtomInstance] = &[];
-        let append_atoms = slot_index
-            .checked_sub(1)
+        let append_atoms = last_surviving
             .and_then(|index| boundary_atoms.after.get(&slots[index].token.text_range().start()))
             .map_or(no_atoms, Vec::as_slice);
         let prepend_atoms = boundary_atoms
@@ -528,21 +580,31 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
             .get(&slot.token.text_range().start())
             .map_or(no_atoms, Vec::as_slice);
 
+        // Literals inject fixed text without deciding whitespace: an
+        // append-literal hugs the left token (before the gap's whitespace), a
+        // prepend-literal hugs this token (after it).
+        for text in literal_texts(append_atoms) {
+            instructions.push(Instruction::EmitLiteral { text: text.to_string() });
+        }
+
         // A gap wholly inside a leaf (both flanking tokens in the same leaf
         // range) is kept verbatim whatever the rules said. The boundary gaps
         // just before and after the leaf resolve normally, so a rule can
         // still space the leaf against its surroundings. Indentation still
         // accrues so a balanced brace pair inside a leaf keeps the counter
         // exact.
-        let leaf_internal = slot_index > 0
-            && leaf_of_slot[slot_index].is_some()
-            && leaf_of_slot[slot_index] == leaf_of_slot[slot_index - 1];
+        let leaf_internal =
+            slot_index > 0 && leaf.is_some() && leaf == leaf_of_slot[slot_index - 1];
 
         // These are the atoms that make no whitespace decision on their own.
         // (Antispace counts as a decision — an Antispace-only gap collapses
-        // to nothing; an AllowBlankLines-only gap must stay verbatim.)
+        // to nothing; an AllowBlankLines- or Literal-only gap keeps its
+        // whitespace verbatim.)
         let has_spacing_atom = append_atoms.iter().chain(prepend_atoms).any(|instance| {
-            !matches!(instance.atom, Atom::IndentStart | Atom::IndentEnd | Atom::AllowBlankLines)
+            !matches!(
+                instance.atom,
+                Atom::IndentStart | Atom::IndentEnd | Atom::AllowBlankLines | Atom::Literal(_)
+            )
         });
         if has_spacing_atom && !leaf_internal {
             resolve_gap(
@@ -561,10 +623,32 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
             indentation_level += net_indentation(append_atoms) + net_indentation(prepend_atoms);
             instructions.push(Instruction::KeepGap { slot: slot_index });
         }
+
+        for text in literal_texts(prepend_atoms) {
+            instructions.push(Instruction::EmitLiteral { text: text.to_string() });
+        }
         instructions.push(Instruction::EmitToken { slot: slot_index });
+        last_surviving = Some(slot_index);
     }
 
     FormatPlan { instructions }
+}
+
+/// The text of every [`Atom::Literal`] among `atoms`, in attachment order.
+fn literal_texts(atoms: &[AtomInstance]) -> impl Iterator<Item = &str> {
+    atoms.iter().filter_map(|instance| match &instance.atom {
+        Atom::Literal(text) => Some(text.as_str()),
+        _ => None,
+    })
+}
+
+/// The ranges marked for deletion (single tokens in practice).
+fn delete_ranges(markers: &[(TextRange, Marker)]) -> Vec<TextRange> {
+    markers
+        .iter()
+        .filter(|(_, marker)| *marker == Marker::Delete)
+        .map(|(range, _)| *range)
+        .collect()
 }
 
 /// Reduce the collected leaf markers to sorted, disjoint ranges. Leaf ranges
@@ -680,6 +764,9 @@ fn route_atom(
             sub_gaps[newline_target].allow_blank_lines = true;
             return;
         }
+        // Literals are emitted separately (they are not whitespace); they
+        // never reach the whitespace decision here.
+        Atom::Literal(_) => return,
     };
     let target = if strength == Strength::Newline { newline_target } else { space_target };
     sub_gaps[target].decisions.push((instance.tier, strength));
@@ -1108,7 +1195,7 @@ mod tests {
             i_slint_compiler::parser::TextSize::new(offset as u32)
         };
         let atoms_of = |instances: &[AtomInstance]| {
-            instances.iter().map(|instance| instance.atom).collect::<Vec<_>>()
+            instances.iter().map(|instance| instance.atom.clone()).collect::<Vec<_>>()
         };
 
         // `keyword("states")` matched the identifier, not e.g. the state `s`.
@@ -1621,6 +1708,92 @@ mod tests {
             gap_instructions(&plan, exterior_value).as_slice(),
             [Instruction::ReplaceGap { whitespace: Whitespace::Space, .. }]
         ));
+    }
+
+    // A minimal function-call ruleset that manages the argument list's
+    // trailing comma. Deliberately just this one rule so the demo shows the
+    // comma behavior without indentation from the surrounding element.
+    fn trailing_comma_rules() -> FormatRules {
+        let mut rules = FormatRules::default();
+        rules.node(SyntaxKind::FunctionCallExpression, |call| {
+            let multiline = call.is_multiline();
+            let children: Vec<NodeOrToken> = call.children().iter().cloned().collect();
+            let Some(open) = children.iter().position(|c| c.kind() == SyntaxKind::LParent) else {
+                return;
+            };
+            let Some(close) = children.iter().rposition(|c| c.kind() == SyntaxKind::RParent) else {
+                return;
+            };
+            if close <= open + 1 {
+                return; // `()` — no arguments.
+            }
+            call.at(children[open].clone()).append(Atom::IndentStart).append(call.empty_softline());
+            call.at(children[close].clone())
+                .prepend(Atom::IndentEnd)
+                .prepend(call.empty_softline());
+
+            let last = close - 1;
+            let has_trailing_comma = children[last].kind() == SyntaxKind::Comma;
+            for index in (open + 1)..close {
+                if children[index].kind() != SyntaxKind::Comma {
+                    continue;
+                }
+                call.at(children[index].clone()).prepend(Atom::Antispace);
+                if index == last {
+                    // The trailing comma is dropped when the call collapses
+                    // onto one line, kept when it stays broken.
+                    if !multiline {
+                        call.at(children[index].clone()).delete();
+                    }
+                } else {
+                    call.at(children[index].clone()).append(call.spaced_softline());
+                }
+            }
+            if multiline && !has_trailing_comma {
+                // A broken call gains the trailing comma it lacks.
+                call.at(children[last].clone()).append(Atom::Literal(String::from(",")));
+            }
+        });
+        rules
+    }
+
+    #[test]
+    fn trailing_comma_managed_across_all_four_quadrants() {
+        let rules = trailing_comma_rules();
+        let check = |input: &str, expected: &str| {
+            assert_eq!(format_with(input, &rules), expected);
+            assert_eq!(format_with(expected, &rules), expected, "not idempotent");
+        };
+        // Single-line, no trailing comma: untouched.
+        check("component A { x: test(a, b); }", "component A { x: test(a, b); }");
+        // Single-line, trailing comma present: deleted.
+        check("component A { x: test(a, b,); }", "component A { x: test(a, b); }");
+        // Broken across lines, no trailing comma: one is inserted (the
+        // `test(\n    a,\n    b,\n)` target from the design plan).
+        check("component A { x: test(a,\nb); }", "component A { x: test(\n    a,\n    b,\n); }");
+        // Broken across lines, trailing comma present: kept.
+        check("component A { x: test(a,\nb,); }", "component A { x: test(\n    a,\n    b,\n); }");
+    }
+
+    #[test]
+    fn delete_inside_a_leaf_is_ignored() {
+        // The call is leafed (kept verbatim) and its commas are also marked
+        // for deletion. The leaf wins, so the commas — including the trailing
+        // one that would otherwise be dropped single-line — survive.
+        let mut rules = FormatRules::default();
+        rules.node(SyntaxKind::FunctionCallExpression, |call| {
+            call.leaf();
+            let children: Vec<NodeOrToken> = call.children().iter().cloned().collect();
+            for child in &children {
+                if child.kind() == SyntaxKind::Comma {
+                    call.at(child.clone()).delete();
+                }
+            }
+        });
+        assert_eq!(
+            format_with("component A { x: test(a, b,); }", &rules),
+            "component A { x: test(a, b,); }"
+        );
     }
 
     #[test]

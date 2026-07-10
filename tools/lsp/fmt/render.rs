@@ -19,13 +19,13 @@ pub fn render(
     writer: &mut impl TokenWriter,
 ) -> std::io::Result<()> {
     for instruction in &plan.instructions {
-        match *instruction {
-            Instruction::KeepGap { slot } => {
+        match instruction {
+            &Instruction::KeepGap { slot } => {
                 for trivia in &linearization.slots[slot].gap_before {
                     writer.no_change(trivia.clone())?;
                 }
             }
-            Instruction::ReplaceGap { slot, whitespace } => {
+            &Instruction::ReplaceGap { slot, whitespace } => {
                 let text = whitespace_text(whitespace);
                 // Whole-gap replacement is only produced for comment-free
                 // gaps (comment gaps become sub-gap instruction sequences),
@@ -36,10 +36,10 @@ pub fn render(
                     None => {}
                 }
             }
-            Instruction::KeepSubGap { slot, trivia_index } => {
+            &Instruction::KeepSubGap { slot, trivia_index } => {
                 writer.no_change(linearization.slots[slot].gap_before[trivia_index].clone())?;
             }
-            Instruction::ReplaceSubGap { slot, trivia_index, whitespace } => {
+            &Instruction::ReplaceSubGap { slot, trivia_index, whitespace } => {
                 let text = whitespace_text(whitespace);
                 match trivia_index {
                     Some(index) => writer.with_new_content(
@@ -50,15 +50,22 @@ pub fn render(
                     None => {}
                 }
             }
-            Instruction::EmitComment { slot, trivia_index, column_shift } => {
+            &Instruction::EmitComment { slot, trivia_index, column_shift } => {
                 let token = &linearization.slots[slot].gap_before[trivia_index];
                 match shift_continuation_lines(token.text(), column_shift) {
                     Some(shifted) => writer.with_new_content(token.clone(), &shifted)?,
                     None => writer.no_change(token.clone())?,
                 }
             }
-            Instruction::EmitToken { slot } => {
+            Instruction::EmitLiteral { text } => {
+                writer.insert_content(text)?;
+            }
+            &Instruction::EmitToken { slot } => {
                 writer.no_change(linearization.slots[slot].token.clone())?;
+            }
+            &Instruction::DeleteToken { slot } => {
+                // The token still passes the writer once, as empty content.
+                writer.with_new_content(linearization.slots[slot].token.clone(), "")?;
             }
         }
     }
