@@ -217,11 +217,13 @@ fn inline_element(
         Timer { element: Rc::downgrade(inlined_element), ..t.clone() }
     }));
 
-    root_component.animations.borrow_mut().extend(inlined_component.animations.borrow().iter().map(|a| {
-        let inlined_element = mapping.get(&element_key(a.element.upgrade().unwrap())).unwrap();
+    root_component.animations.borrow_mut().extend(
+        inlined_component.animations.borrow().iter().map(|a| {
+            let inlined_element = mapping.get(&element_key(a.element.upgrade().unwrap())).unwrap();
 
-        Animation { element: Rc::downgrade(inlined_element), ..a.clone() }
-    }));
+            Animation { element: Rc::downgrade(inlined_element), ..a.clone() }
+        }),
+    );
 
     let mut moved_into_popup = HashSet::new();
     if let Some(children) = move_children_into_popup {

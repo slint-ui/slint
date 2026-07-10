@@ -6,7 +6,7 @@
 #![allow(clippy::mutable_key_type)] // ByAddress<ElementRc> keys rely on Rc identity semantics
 
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::{ElementType, BuiltinElement};
+use crate::langtype::{BuiltinElement, ElementType};
 use crate::object_tree::*;
 use by_address::ByAddress;
 use core::cell::RefCell;
@@ -276,7 +276,9 @@ fn simplify_optimized_items(items: &[ElementRc]) {
 
                         let prop_type = if let Some(ref target) = target_type {
                             // For from/to properties, use the target type instead of Animatable
-                            if (k == "from" || k == "to") && v.ty == crate::langtype::Type::Animatable {
+                            if (k == "from" || k == "to")
+                                && v.ty == crate::langtype::Type::Animatable
+                            {
                                 target.clone()
                             } else {
                                 v.ty.clone()
@@ -287,10 +289,7 @@ fn simplify_optimized_items(items: &[ElementRc]) {
 
                         Some((
                             k.clone(),
-                            PropertyDeclaration {
-                                property_type: prop_type,
-                                ..Default::default()
-                            },
+                            PropertyDeclaration { property_type: prop_type, ..Default::default() },
                         ))
                     },
                 ));
@@ -301,14 +300,18 @@ fn simplify_optimized_items(items: &[ElementRc]) {
     }
 }
 
-fn get_animation_target_type(elem: &ElementRc, builtin: &BuiltinElement) -> Option<crate::langtype::Type> {
+fn get_animation_target_type(
+    elem: &ElementRc,
+    builtin: &BuiltinElement,
+) -> Option<crate::langtype::Type> {
     // Only check for animation elements
     if builtin.name != "TweenAnimation" {
         return None;
     }
 
     let elem_borrow = elem.borrow();
-    elem_borrow.bindings.get("target").and_then(|target_binding| {
-        target_binding.try_borrow().ok().map(|expr| expr.ty())
-    })
+    elem_borrow
+        .bindings
+        .get("target")
+        .and_then(|target_binding| target_binding.try_borrow().ok().map(|expr| expr.ty()))
 }

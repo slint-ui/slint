@@ -704,12 +704,32 @@ impl Snapshotter {
     fn snapshot_animation(&mut self, animation: &object_tree::Animation) -> object_tree::Animation {
         object_tree::Animation {
             animation_type: animation.animation_type.clone(),
-            target: if animation.target.is_some() { Some(animation.target.as_ref().unwrap().snapshot(self)) } else { None },
+            target: if animation.target.is_some() {
+                Some(animation.target.as_ref().unwrap().snapshot(self))
+            } else {
+                None
+            },
             running: animation.running.snapshot(self),
-            from: if animation.from.is_some() { Some(animation.from.as_ref().unwrap().snapshot(self)) } else { None },
-            to: if animation.to.is_some() { Some(animation.to.as_ref().unwrap().snapshot(self)) } else { None },
-            duration: if animation.duration.is_some() { Some(animation.duration.as_ref().unwrap().snapshot(self)) } else { None },
-            easing: if animation.easing.is_some() { Some(animation.easing.as_ref().unwrap().snapshot(self)) } else { None },
+            from: if animation.from.is_some() {
+                Some(animation.from.as_ref().unwrap().snapshot(self))
+            } else {
+                None
+            },
+            to: if animation.to.is_some() {
+                Some(animation.to.as_ref().unwrap().snapshot(self))
+            } else {
+                None
+            },
+            duration: if animation.duration.is_some() {
+                Some(animation.duration.as_ref().unwrap().snapshot(self))
+            } else {
+                None
+            },
+            easing: if animation.easing.is_some() {
+                Some(animation.easing.as_ref().unwrap().snapshot(self))
+            } else {
+                None
+            },
             // TODO implement children
             children: animation.children.clone(),
             element: animation.element.clone(),

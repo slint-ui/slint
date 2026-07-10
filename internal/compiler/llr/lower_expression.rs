@@ -133,7 +133,9 @@ pub fn lower_expression(
         }
         tree_Expression::FunctionCall { function, arguments, .. } => match function {
             Callable::Builtin(BuiltinFunction::RestartTimer) => lower_restart_timer(arguments),
-            Callable::Builtin(BuiltinFunction::RestartAnimation) => lower_restart_animation(arguments),
+            Callable::Builtin(BuiltinFunction::RestartAnimation) => {
+                lower_restart_animation(arguments)
+            }
             Callable::Builtin(BuiltinFunction::ShowPopupWindow) => {
                 lower_show_popup_window(arguments, ctx)
             }

@@ -4,7 +4,9 @@
 //! This pass validates and lowers Animation elements (TweenAnimation, DelayAnimation, etc.)
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BindingExpression, BuiltinFunction, Callable, Expression, NamedReference};
+use crate::expression_tree::{
+    BindingExpression, BuiltinFunction, Callable, Expression, NamedReference,
+};
 use crate::langtype::ElementType;
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
@@ -23,8 +25,9 @@ pub fn lower_animations(
     visit_all_expressions(component, |e, _| {
         e.visit_recursive_mut(&mut |e| {
             if let Expression::FunctionCall { function, arguments, .. } = e
-                && let Callable::Builtin(BuiltinFunction::StartAnimation | BuiltinFunction::StopAnimation) =
-                    function
+                && let Callable::Builtin(
+                    BuiltinFunction::StartAnimation | BuiltinFunction::StopAnimation,
+                ) = function
                 && let [Expression::ElementReference(timer)] = arguments.as_slice()
             {
                 *e = Expression::SelfAssignment {
@@ -67,8 +70,8 @@ fn get_anim_type(anim_base_type: &ElementType) -> Option<AnimationType> {
             } else {
                 None
             }
-        },
-        _ => None
+        }
+        _ => None,
     }
 }
 
@@ -89,7 +92,8 @@ fn validate_animation_properties(
 
             // Validate that target type is animatable
             let type_register_ref = type_register.borrow();
-            let elem_type = type_register_ref.property_animation_type_for_property(target_type.clone());
+            let elem_type =
+                type_register_ref.property_animation_type_for_property(target_type.clone());
             // this simply checks if it can be animated
             match elem_type {
                 ElementType::Builtin(_) => (), // returns the PropertyAnimation object
@@ -99,13 +103,15 @@ fn validate_animation_properties(
                 }
             };
 
-
             // Validate from property matches target type
             if let Some(from_binding) = from_prop {
                 if let Ok(from_expr) = from_binding.try_borrow() {
                     let from_type = from_expr.ty();
                     if from_type != target_type {
-                        let msg = format!("'from' type {:?} doesn't match 'target' type {:?}", from_type, target_type);
+                        let msg = format!(
+                            "'from' type {:?} doesn't match 'target' type {:?}",
+                            from_type, target_type
+                        );
                         diag.push_error(msg, &from_expr.span);
                     }
                 }
@@ -116,7 +122,10 @@ fn validate_animation_properties(
                 if let Ok(to_expr) = to_binding.try_borrow() {
                     let to_type = to_expr.ty();
                     if to_type != target_type {
-                        let msg = format!("'to' type {:?} doesn't match 'target' type {:?}", to_type, target_type);
+                        let msg = format!(
+                            "'to' type {:?} doesn't match 'target' type {:?}",
+                            to_type, target_type
+                        );
                         diag.push_error(msg, &to_expr.span);
                     }
                 }
@@ -129,11 +138,14 @@ fn lower_animation(
     animation_element: &ElementRc,
     anim_type: AnimationType,
     parent_element: Option<&ElementRc>,
-    diag: &mut BuildDiagnostics
+    diag: &mut BuildDiagnostics,
 ) {
     let parent_component = animation_element.borrow().enclosing_component.upgrade().unwrap();
     let Some(parent_element) = parent_element else {
-        diag.push_error("A component cannot inherit from Animation".into(), &*animation_element.borrow());
+        diag.push_error(
+            "A component cannot inherit from Animation".into(),
+            &*animation_element.borrow(),
+        );
         return;
     };
 
@@ -248,9 +260,5 @@ fn lower_animation(
         source_location: None,
     };
     let change_callbacks = &mut animation_element.borrow_mut().change_callbacks;
-    change_callbacks
-        .entry("running".into())
-        .or_default()
-        .borrow_mut()
-        .push(update_animations);
+    change_callbacks.entry("running".into()).or_default().borrow_mut().push(update_animations);
 }
