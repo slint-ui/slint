@@ -240,6 +240,9 @@ fn lower_animation(
 
     let running = NamedReference::new(animation_element, SmolStr::new_static("running"));
     running.mark_as_set();
+    if let Some(target_ref) = &target {
+        target_ref.mark_as_set();
+    }
 
     parent_component.animations.borrow_mut().push(Animation {
         animation_type: anim_type,
