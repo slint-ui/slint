@@ -122,7 +122,14 @@ fn process_file(
 fn visit_node(node: SyntaxNode, file: &mut impl Write) -> std::io::Result<()> {
     if let Some(doc) = syntax_nodes::Document::new(node) {
         let mut writer = writer::FileWriter { file };
-        fmt::format_document(doc, &mut writer)
+        // Experimental: the query-based formatter prototype (see
+        // API_DESIGN.md). Only a few rules are implemented so far; everything
+        // else is left as written.
+        if std::env::var_os("SLINT_FMT_QUERY").is_some() {
+            super::rules::format_document_query(doc, &mut writer)
+        } else {
+            fmt::format_document(doc, &mut writer)
+        }
     } else {
         Err(std::io::Error::other("Not a Document"))
     }

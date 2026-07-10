@@ -47,8 +47,8 @@ attach `Atom`s *before* or *after* children. Internally every atom lands on a
 *significant-token boundary*: "before node X" means "before X's first
 significant (non-trivia) token". Atoms are stored in `prepend`/`append` maps
 keyed by the token's text offset (`text_range().start()` — unique per token in
-one immutable tree; the only zero-length token is the trailing `Eof`, which the
-renderer skips).
+one immutable tree; the only zero-length token is the trailing `Eof`, which
+passes through the renderer harmlessly).
 Markers are stored for whole items (rowan nodes or tokens), not boundaries.
 The markers are "Leaf" (the node should be emitted as-is without any
 formatting changes) and "Delete" (the item should not be emitted at all).
@@ -90,8 +90,10 @@ location: the **gap** between two adjacent significant tokens. Append-atoms of
 the left token and prepend-atoms of the right token meet in that gap and
 resolve together.
 
-Softline atoms carry a *measure span* (by default: the significant-token span
-of the node whose rule created them; overridable via `.measured(range)`).
+Softline atoms carry a *measure span* by value (usually the significant-token
+span of the node whose rule created them, as constructed by
+`Selection::spaced_softline()` / `empty_softline()`; a rule can construct
+`Atom::SpacedSoftline(range)` with any other span).
 
 Per gap, in one linear pass over the slots:
 
@@ -214,10 +216,10 @@ pub enum Atom {
     Antispace,
     /// Always a newline. See idempotency constraint below.
     Hardline,
-    /// Newline if the measure span was multiline in the input, else a space.
-    SpacedSoftline,
-    /// Newline if the measure span was multiline in the input, else nothing.
-    EmptySoftline,
+    /// Newline if the given input span was multiline, else a space.
+    SpacedSoftline(TextRange),
+    /// Newline if the given input span was multiline, else nothing.
+    EmptySoftline(TextRange),
     /// Newline iff the input had a newline at this boundary.
     InputSoftline,
     /// Push / pop one indent level (applies to newlines emitted in between).
@@ -233,8 +235,11 @@ pub enum Atom {
 }
 ```
 
-Softlines support an explicit measure-span override,
-e.g. `SpacedSoftline.measured(range)`. This replaces Topiary's `#scope_id!`
+The measured softlines carry their *measure span* by value, so the span is
+enforced exactly on the atoms that need one. `Selection::spaced_softline()` /
+`empty_softline()` construct them measured on the rule's node — the common
+case — while a rule can construct `Atom::SpacedSoftline(range)` with any
+other span directly. That explicit-span form replaces Topiary's `#scope_id!`
 measuring scopes and is required in practice: `animate x, y { … }` has no body
 node in the rowan grammar — the braces and commas are bare tokens inside
 `PropertyAnimation` — so the rule computes the target-list span itself and
@@ -277,7 +282,7 @@ let mut rules = FormatRules::new();
 // Tier 1 (lowest priority): global token rules, keyed by token SyntaxKind.
 // Replaces the .scm's bare `":" @prepend_antispace @append_space` etc.
 rules.token(SyntaxKind::Colon,     |t| { t.prepend(Antispace).append(Space); });
-rules.token(SyntaxKind::Comma,     |t| { t.prepend(Antispace).append(SpacedSoftline); });
+rules.token(SyntaxKind::Comma,     |t| { t.prepend(Antispace).append(t.spaced_softline()); });
 rules.token(SyntaxKind::Semicolon, |t| { t.prepend(Antispace); });
 rules.token(SyntaxKind::LParent,   |t| { t.append(Antispace); });
 
@@ -356,7 +361,7 @@ Deliberate non-features:
   cascades) is written as an `iter()` loop plus `at()`.
 - Derived selections and `at()` inherit `context` from their parent selection,
   so softlines attached several hops deep still measure against the rule's
-  node unless explicitly overridden with `.measured(range)`.
+  node unless the rule constructs a softline with an explicit span.
 - With `&self` methods and an interior-mutable sink, several sub-selections
   can be held at once without borrow-checker friction; the `RefCell` is
   invisible outside the engine.
@@ -434,13 +439,13 @@ rules.node(SyntaxKind::States, |states: &Selection| {
     states.keyword("states").append(Space);                // `states [`
     states.token(SyntaxKind::LBracket)
         .append(IndentStart)
-        .append(SpacedSoftline);
+        .append(states.spaced_softline());
     states.node(SyntaxKind::State)
         .prepend(AllowBlankLines)                          // user blank lines survive
-        .prepend(SpacedSoftline);
+        .prepend(states.spaced_softline());
     states.token(SyntaxKind::RBracket)
         .prepend(IndentEnd)
-        .prepend(SpacedSoftline);
+        .prepend(states.spaced_softline());
 });
 
 // Equivalent of (state_definition …):
@@ -450,16 +455,16 @@ rules.node(SyntaxKind::State, |state: &Selection| {
     state.token(SyntaxKind::LBrace)
         .prepend(Space)
         .append(IndentStart)
-        .append(SpacedSoftline);
+        .append(state.spaced_softline());
     state.node(SyntaxKind::StatePropertyChange)
         .prepend(AllowBlankLines)
-        .prepend(SpacedSoftline);
+        .prepend(state.spaced_softline());
     state.node(SyntaxKind::Transition)                     // `in { … }` / `out { … }`
         .prepend(AllowBlankLines)
-        .prepend(SpacedSoftline);
+        .prepend(state.spaced_softline());
     state.token(SyntaxKind::RBrace)
         .prepend(IndentEnd)
-        .prepend(SpacedSoftline);
+        .prepend(state.spaced_softline());
 });
 ```
 
