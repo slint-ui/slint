@@ -100,6 +100,7 @@ fn lower_timer(
         interval: NamedReference::new(timer_element, SmolStr::new_static("interval")),
         running,
         triggered: NamedReference::new(timer_element, SmolStr::new_static("triggered")),
+        repeat: NamedReference::new(timer_element, SmolStr::new_static("repeat")),
         element: Rc::downgrade(timer_element),
     });
     let update_timers = Expression::FunctionCall {
@@ -109,5 +110,6 @@ fn lower_timer(
     };
     let change_callbacks = &mut timer_element.borrow_mut().change_callbacks;
     change_callbacks.entry("running".into()).or_default().borrow_mut().push(update_timers.clone());
-    change_callbacks.entry("interval".into()).or_default().borrow_mut().push(update_timers);
+    change_callbacks.entry("interval".into()).or_default().borrow_mut().push(update_timers.clone());
+    change_callbacks.entry("repeat".into()).or_default().borrow_mut().push(update_timers);
 }

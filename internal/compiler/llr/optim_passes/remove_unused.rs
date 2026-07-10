@@ -360,6 +360,7 @@ mod visitor {
             visit_expression(t.interval.get_mut(), &scope, state, visitor);
             visit_expression(t.triggered.get_mut(), &scope, state, visitor);
             visit_expression(t.running.get_mut(), &scope, state, visitor);
+            visit_expression(t.repeat.get_mut(), &scope, state, visitor);
         }
         for (idx, init) in property_init {
             visit_member_reference(idx, &scope, state, visitor);
