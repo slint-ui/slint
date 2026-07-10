@@ -894,6 +894,16 @@ pub fn implicit_layout_info_call(
     }
 }
 
+/// The stretch factor of elements based on text or image items, which never
+/// stretch: their `layout_info` always reports stretch 0, and a layoutinfo
+/// property synthesized later can only merge it with smaller values.
+pub fn static_native_stretch(elem: &ElementRc) -> Option<Expression> {
+    elem.borrow()
+        .builtin_type()
+        .filter(|b| matches!(b.name.as_str(), "Text" | "StyledText" | "TextInput" | "Image"))
+        .map(|_| Expression::NumberLiteral(0., Unit::None))
+}
+
 /// Create a new property based on the name. (it might get a different name if that property exist)
 pub fn create_new_prop(elem: &ElementRc, tentative_name: SmolStr, ty: Type) -> NamedReference {
     let mut e = elem.borrow_mut();
