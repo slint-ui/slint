@@ -1027,6 +1027,7 @@ fn lower_global(
     GlobalComponent {
         name: global.root_element.borrow().id.clone(),
         init_values: BTreeMap::new(),
+        animations: BTreeMap::new(),
         properties,
         callbacks,
         functions,
@@ -1054,9 +1055,13 @@ fn lower_global_expressions(
 
     for (prop, binding) in &global.root_element.borrow().bindings {
         assert!(binding.borrow().two_way_bindings.is_empty());
-        assert!(binding.borrow().animation.is_none());
         let expression =
             super::lower_expression::lower_expression(&binding.borrow().expression, &mut ctx);
+        let animation = binding
+            .borrow()
+            .animation
+            .as_ref()
+            .map(|a| super::lower_expression::lower_animation(a, &mut ctx));
 
         let nr = NamedReference::new(&global.root_element, prop.clone());
         let member_index = match &ctx.state.global_properties[&nr] {
@@ -1069,12 +1074,15 @@ fn lower_global_expressions(
             MemberReference::Global { member, .. } => member.clone(),
             _ => unreachable!(),
         };
+        if let Some(Animation::Static(animation)) = animation.as_ref() {
+            lowered.animations.insert(member_index.clone(), animation.clone());
+        }
         let is_constant = binding.borrow().analysis.as_ref().is_some_and(|a| a.is_const);
         lowered.init_values.insert(
             member_index,
             BindingExpression {
                 expression: expression.into(),
-                animation: None,
+                animation,
                 is_constant,
                 is_state_info: false,
                 use_count: 0.into(),

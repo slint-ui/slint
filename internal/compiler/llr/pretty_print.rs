@@ -323,6 +323,20 @@ impl PrettyPrinter<'_> {
                 _ => unreachable!(),
             }
         }
+        for (p, animation) in &global.animations {
+            self.indent()?;
+            match p {
+                LocalMemberIndex::Property(p) => {
+                    writeln!(
+                        self.writer,
+                        "animate {} {{ {} }}",
+                        global.properties[*p].name,
+                        DisplayExpression(animation, &ctx),
+                    )?;
+                }
+                _ => unreachable!(),
+            }
+        }
 
         for (p, e) in &global.change_callbacks {
             self.indent()?;
