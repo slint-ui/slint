@@ -177,6 +177,7 @@ fn process_tabwidget(
             id: format_smolstr!("{}-tab{}", elem.borrow().id, index),
             base_type: tab_impl.clone(),
             enclosing_component: elem.borrow().enclosing_component.clone(),
+            repeated: child.borrow().repeated.clone(),
             ..Default::default()
         };
         tab.bindings.insert(
