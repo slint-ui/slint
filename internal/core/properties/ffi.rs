@@ -237,6 +237,18 @@ pub unsafe extern "C" fn slint_property_detach_binding(
     }
 }
 
+/// Drop the stale dependency registrations of a detached binding (a
+/// `BindingHolder` the caller owns) in case it was evaluated while
+/// installed elsewhere; they are re-created when the binding is next
+/// evaluated. Used by the C++ struct member wrapper when it takes
+/// ownership of a binding.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_property_reset_binding_dependencies(binding: *mut c_void) {
+    let binding = binding as *mut BindingHolder;
+    // Safety: the caller owns the holder and nothing is evaluating it
+    unsafe { *(*binding).dep_nodes.get() = Default::default() };
+}
+
 /// Mark the property's own binding dirty (so it re-evaluates on the next
 /// read) as well as the property's dependents. Used by the C++ struct
 /// member wrapper when a new field mapping is added to it.

@@ -415,6 +415,10 @@ struct Property
                     // classes: install the projections (which also marks the
                     // commons' dependents dirty).
                     auto *self = reinterpret_cast<StructMemberBindings *>(user_data);
+                    // drop stale dependency registrations in case the holder
+                    // was evaluated while installed elsewhere (mirrors the
+                    // Rust StructMemberBindings::intercept_set_binding)
+                    cbindgen_private::slint_property_reset_binding_dependencies(new_binding);
                     if (auto *old = std::exchange(self->slot->holder, new_binding)) {
                         self->slot->dispose(old);
                     }
