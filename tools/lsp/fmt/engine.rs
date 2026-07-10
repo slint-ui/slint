@@ -841,6 +841,55 @@ fn column_at(source: &str, offset: usize) -> usize {
     offset - source[..offset].rfind('\n').map_or(0, |newline_offset| newline_offset + 1)
 }
 
+/// The comment that turns off formatting for the construct that follows it.
+const IGNORE_DIRECTIVE: &str = "// slint-fmt:ignore";
+
+/// Honor `// slint-fmt:ignore` comments: each one leafs the construct that
+/// starts at the next significant token, so it is emitted verbatim. This is
+/// engine-core (not a rule) because it produces the same [`Marker::Leaf`]
+/// the leaf rules do — just triggered by a comment rather than a node kind.
+fn apply_ignore_directives(slots: &[TokenSlot], sink: &AtomSink) {
+    for slot in slots {
+        // A directive comment governs the significant token that follows it,
+        // which is this slot's own token. Eof ends no construct.
+        if slot.token.kind() == SyntaxKind::Eof {
+            continue;
+        }
+        // Trailing whitespace is part of a line-comment token but invisible
+        // to the writer, so ignore it when matching; everything else must be
+        // exact.
+        let has_directive = slot.gap_before.iter().any(|trivia| {
+            trivia.kind() == SyntaxKind::Comment && trivia.text().trim_end() == IGNORE_DIRECTIVE
+        });
+        if has_directive {
+            if let Some(range) = ignored_span(&slot.token) {
+                sink.mark(range, Marker::Leaf);
+            }
+        }
+    }
+}
+
+/// The significant span of the largest construct that begins at `token`,
+/// capped below the Document so a top-level directive ignores one item rather
+/// than the whole file. `None` when no node starts at `token` (e.g. it is a
+/// closing brace), in which case the directive has nothing to ignore.
+fn ignored_span(token: &SyntaxToken) -> Option<TextRange> {
+    let offset = token.text_range().start();
+    let mut target = None;
+    for ancestor in token.parent_ancestors() {
+        // Stop before the Document, and at the first ancestor that begins
+        // earlier than the token — every larger ancestor begins there too.
+        if ancestor.kind() == SyntaxKind::Document
+            || first_significant_token(&ancestor).map(|first| first.text_range().start())
+                != Some(offset)
+        {
+            break;
+        }
+        target = Some(ancestor);
+    }
+    target.and_then(|node| significant_span(&node))
+}
+
 /// Format `document` with the given rules, writing the result through
 /// `writer`.
 pub fn format_document_with_rules(
@@ -859,6 +908,7 @@ pub fn format_document_with_rules(
     let linearization = linearize(document);
     let sink = AtomSink::default();
     annotate(document, &linearization.slots, rules, &sink, &source);
+    apply_ignore_directives(&linearization.slots, &sink);
     let plan = resolve(&linearization.slots, &sink.finish(), &source);
     crate::fmt::render::render(&plan, &linearization, writer)
 }
@@ -1571,6 +1621,69 @@ mod tests {
             gap_instructions(&plan, exterior_value).as_slice(),
             [Instruction::ReplaceGap { whitespace: Whitespace::Space, .. }]
         ));
+    }
+
+    #[test]
+    fn ignore_directive_targets_the_following_construct() {
+        // The directive before the binding ignores the whole binding.
+        let document = parse("component A { // slint-fmt:ignore\n x   :1; }");
+        let binding = find_node(&document, SyntaxKind::Binding);
+        let target = first_significant_token(&binding).unwrap();
+        assert_eq!(ignored_span(&target), significant_span(&binding));
+    }
+
+    #[test]
+    fn ignore_directive_caps_at_a_document_child() {
+        // A top-level directive ignores only the next construct, never the
+        // whole file.
+        let source = "// slint-fmt:ignore\ncomponent A { }\ncomponent B { }";
+        let document = parse(source);
+        let target = first_significant_token(&document).unwrap();
+        let span = ignored_span(&target).unwrap();
+        assert_eq!(&source[span], "component A { }");
+    }
+
+    #[test]
+    fn ignore_directive_before_a_closing_brace_is_a_no_op() {
+        // No construct starts at `}`, so the directive has nothing to ignore.
+        let document = parse("component A { x: 1; // slint-fmt:ignore\n}");
+        let linearization = linearize(&document);
+        let rbrace =
+            &linearization.slots.iter().find(|slot| slot.token.text() == "}").unwrap().token;
+        assert_eq!(ignored_span(rbrace), None);
+    }
+
+    #[test]
+    fn ignore_directive_before_eof_marks_nothing() {
+        // A trailing directive at the end of the file governs only Eof, which
+        // ends no construct.
+        let document = parse("component A { }\n// slint-fmt:ignore\n");
+        let linearization = linearize(&document);
+        let sink = AtomSink::default();
+        apply_ignore_directives(&linearization.slots, &sink);
+        assert!(sink.finish().markers.is_empty());
+    }
+
+    #[test]
+    fn ignore_directive_marks_one_leaf() {
+        let document = parse("component A {\n// slint-fmt:ignore\nx   :1;\n}");
+        let linearization = linearize(&document);
+        let sink = AtomSink::default();
+        apply_ignore_directives(&linearization.slots, &sink);
+        let markers = sink.finish().markers;
+        assert_eq!(markers.len(), 1);
+        assert_eq!(markers[0].1, Marker::Leaf);
+    }
+
+    #[test]
+    fn ignore_directive_tolerates_trailing_whitespace() {
+        // A trailing space is part of the comment token but invisible; the
+        // directive must still fire.
+        let document = parse("component A {\n// slint-fmt:ignore  \nx   :1;\n}");
+        let linearization = linearize(&document);
+        let sink = AtomSink::default();
+        apply_ignore_directives(&linearization.slots, &sink);
+        assert_eq!(sink.finish().markers.len(), 1);
     }
 
     #[test]

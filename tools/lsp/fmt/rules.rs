@@ -470,6 +470,24 @@ component A { x: 1; }
     }
 
     #[test]
+    fn ignore_directive_keeps_the_next_binding_verbatim() {
+        // The binding flagged with the directive keeps its odd spacing; the
+        // one after it formats normally.
+        assert_formatting_query(
+            "component A {
+    // slint-fmt:ignore
+    x   :1;
+    y :2;
+}",
+            "component A {
+    // slint-fmt:ignore
+    x   :1;
+    y: 2;
+}",
+        );
+    }
+
+    #[test]
     fn rust_attr_interior_is_left_verbatim() {
         // The odd spacing around the colon inside `@rust-attr(...)` is
         // preserved (it is opaque Rust), while the struct field's colon
