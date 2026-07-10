@@ -317,88 +317,45 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
 /// State shared between a [`StructMemberBindings`] wrapper installed on a
 /// struct property and the [`DriverProjection`] bindings it installs on the
 /// narrow common properties of the two-way classes its fields belong to.
+///
+/// The struct's own value-producing binding ("real binding") is installed
+/// on a dedicated pinned [`Property<T>`]: its dirty flag memoizes the
+/// evaluation (the binding runs at most once per change of its inputs, no
+/// matter how many commons and wrappers read it) and the dependency graph
+/// (commons/wrapper → slot property → the binding's inputs) replaces
+/// manual dirty forwarding.
 struct DriverSlot<T> {
-    /// The struct property's own value-producing binding ("real binding"),
-    /// if any. Owned by this slot; evaluated by the wrapper (to produce the
-    /// whole struct) and by the projections (to drive the commons).
-    holder: Cell<Option<*mut BindingHolder>>,
-    /// Seed value used to evaluate the real binding outside of the struct
-    /// property's own storage (projections have no access to the property).
-    cache: RefCell<T>,
-    /// Number of nested [`Self::evaluate_holder`] frames on the stack.
-    /// While non-zero, holders are not dropped but parked in
-    /// `pending_drops`: a projection evaluates the real binding *without*
-    /// holding the struct property's lock, so the binding may — via a
-    /// write-back to its own struct property — trigger `clear` while it is
-    /// still executing.
-    evaluation_depth: Cell<usize>,
-    /// Holders whose destruction was deferred by `evaluation_depth`.
-    pending_drops: RefCell<Vec<*mut BindingHolder>>,
+    property: Pin<Rc<Property<T>>>,
 }
 
-impl<T> DriverSlot<T> {
-    fn new(cache: T) -> Self {
-        Self {
-            holder: Cell::new(None),
-            cache: RefCell::new(cache),
-            evaluation_depth: Cell::new(0),
-            pending_drops: RefCell::new(Vec::new()),
-        }
+impl<T: PartialEq + Clone + 'static> DriverSlot<T> {
+    fn new(seed: T) -> Self {
+        Self { property: Rc::pin(Property::new(seed)) }
     }
 
-    /// Drop the real binding, if any (deferred while it is being
-    /// evaluated). Projections evaluate to a no-op and remove themselves
-    /// once the slot is empty.
+    /// Drop the real binding, if any. Panics ("Recursion detected") when
+    /// the real binding is currently executing — that only happens when a
+    /// binding writes back to its own struct property, a state in which
+    /// every full-topology route already panicked on a locked common or
+    /// struct handle before this design; the slot property merely fails
+    /// earlier, before any mutation.
     fn clear(&self) {
-        if let Some(holder) = self.holder.take() {
-            self.dispose(holder);
-        }
+        self.property.handle.remove_binding();
     }
 
-    /// Drop `holder`, deferring the destruction while an evaluation through
-    /// this slot is on the stack (the holder may be the one executing).
-    fn dispose(&self, holder: *mut BindingHolder) {
-        if self.evaluation_depth.get() > 0 {
-            self.pending_drops.borrow_mut().push(holder);
-        } else {
-            // Safety: the slot owns the holder and nothing is executing it
-            unsafe { ((*holder).vtable.drop)(holder) }
-        }
+    fn has_holder(&self) -> bool {
+        self.property.has_binding()
     }
 
-    /// Evaluate the slot's current holder into `value` (a pointer to the
-    /// holder's value type `T`), keeping the holder alive until the
-    /// evaluation returns even if it is cleared or replaced while executing.
-    ///
-    /// Returns `None` when the slot is empty.
-    fn evaluate_holder(&self, value: *mut c_void) -> Option<BindingResult> {
-        let holder = self.holder.get()?;
-        self.evaluation_depth.set(self.evaluation_depth.get() + 1);
-        scopeguard::defer! {
-            self.evaluation_depth.set(self.evaluation_depth.get() - 1);
-            if self.evaluation_depth.get() == 0 {
-                // pop-style drain: the borrow is not held across the drop
-                // call, whose Drop code could re-enter this slot
-                while let Some(holder) = self.pending_drops.borrow_mut().pop() {
-                    // Safety: parked by `dispose`, no longer executing
-                    unsafe { ((*holder).vtable.drop)(holder) }
-                }
-            }
-        }
-        // Safety: `holder` is a BindingHolder producing a `T`; it stays
-        // alive for the duration of this call thanks to the deferral above
-        Some(unsafe { ((*holder).vtable.evaluate)(holder, value) })
-    }
-}
-
-impl<T> Drop for DriverSlot<T> {
-    fn drop(&mut self) {
-        debug_assert_eq!(self.evaluation_depth.get(), 0);
+    /// Install `holder` as the slot property's binding, dropping the
+    /// previous one (bypassing the old binding's `intercept_set_binding`).
+    fn install(&self, holder: *mut BindingHolder) {
         self.clear();
-        while let Some(holder) = self.pending_drops.borrow_mut().pop() {
-            // Safety: parked by `dispose`, no longer executing
-            unsafe { ((*holder).vtable.drop)(holder) }
-        }
+        // A stolen (second-hand) holder may have been evaluated in its old
+        // home: its dirty flag is false and its dependency registrations
+        // were wiped, so without this it would never re-evaluate here.
+        unsafe { (*holder).dirty.set(true) };
+        self.property.handle.set_binding_impl(holder);
     }
 }
 
@@ -423,26 +380,17 @@ unsafe impl<
 > BindingCallable<T2> for DriverProjection<T, T2, GetField>
 {
     fn evaluate(self: Pin<&Self>, value: &mut T2) -> BindingResult {
-        let mut struct_value = self.slot.cache.borrow().clone();
-        let Some(result) =
-            self.slot.evaluate_holder((&mut struct_value as *mut T).cast::<c_void>())
-        else {
+        if !self.slot.has_holder() {
             // The driver was dropped (e.g. a value was set on the struct
             // property); keep the common's current value and clean up.
+            // Not reading the slot property also avoids registering a
+            // spurious dependency on it.
             return BindingResult::RemoveBinding;
-        };
-        *value = (self.get_field)(&struct_value);
-        self.slot.cache.replace(struct_value);
-        if result == BindingResult::RemoveBinding {
-            self.slot.clear();
         }
+        // Reading the slot property registers this projection as its
+        // dependent and memoizes the real binding behind its dirty flag.
+        *value = (self.get_field)(&self.slot.property.as_ref().get());
         BindingResult::KeepBinding
-    }
-
-    fn mark_dirty(self: Pin<&Self>) {
-        if let Some(real_binding) = self.slot.holder.get() {
-            unsafe { ((*real_binding).vtable.mark_dirty)(real_binding, false) }
-        }
     }
 }
 
@@ -480,13 +428,11 @@ struct StructMemberBindings<T> {
 // Safety: IS_STRUCT_MEMBER_BINDINGS is true and Self is StructMemberBindings
 unsafe impl<T: PartialEq + Clone + 'static> BindingCallable<T> for StructMemberBindings<T> {
     fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
-        // Dependencies register on the holder currently being evaluated
-        // (this wrapper's), as with any wrapped binding.
-        if let Some(result) = self.slot.evaluate_holder((value as *mut T).cast::<c_void>()) {
-            self.slot.cache.replace(value.clone());
-            if result == BindingResult::RemoveBinding {
-                self.slot.clear();
-            }
+        // Only read the slot property while it carries the real binding:
+        // when binding-less its stored value is stale and would clobber the
+        // struct's own stored value (and register a spurious dependency).
+        if self.slot.has_holder() {
+            *value = self.slot.property.as_ref().get();
         }
         for mapping in self.mappings.borrow().iter() {
             (mapping.apply_from_common)(value);
@@ -513,13 +459,11 @@ unsafe impl<T: PartialEq + Clone + 'static> BindingCallable<T> for StructMemberB
                  the compiler should have decomposed this link"
             );
             // Drop stale dependency registrations in case this holder was
-            // evaluated while installed elsewhere; new registrations land on
-            // this wrapper's holder when it evaluates the binding.
+            // evaluated while installed elsewhere; new registrations land
+            // on the slot property when it evaluates the binding.
             *(*new_binding).dep_nodes.get() = Default::default();
         }
-        if let Some(old) = self.slot.holder.replace(Some(new_binding)) {
-            self.slot.dispose(old);
-        }
+        self.slot.install(new_binding);
         // The new binding must drive the classes of all mapped fields.
         // Installing the projections also marks the commons' dependents
         // dirty (including this wrapper and the struct's dependents),
@@ -528,12 +472,6 @@ unsafe impl<T: PartialEq + Clone + 'static> BindingCallable<T> for StructMemberB
             (mapping.install_projection)(&self.slot);
         }
         true
-    }
-
-    fn mark_dirty(self: Pin<&Self>) {
-        if let Some(real_binding) = self.slot.holder.get() {
-            unsafe { ((*real_binding).vtable.mark_dirty)(real_binding, false) }
-        }
     }
 
     const IS_STRUCT_MEMBER_BINDINGS: bool = true;
@@ -603,9 +541,10 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             );
             // Drop stale dependency registrations from evaluations that
             // happened while the binding was still installed directly; new
-            // registrations land on the wrapper when it evaluates the binding.
+            // registrations land on the slot property when it evaluates the
+            // binding.
             unsafe { *(*old).dep_nodes.get() = Default::default() };
-            slot.holder.set(Some(old));
+            slot.install(old);
         }
         // Safety: StructMemberBindings<T> is a BindingCallable for type T
         unsafe {
@@ -666,7 +605,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             // A pre-existing real binding must also drive this field's class
             // (it may be a new class, or the class' driver may have been
             // dropped by the value push that preceded this call).
-            if wrapper.slot.holder.get().is_some() {
+            if wrapper.slot.has_holder() {
                 (mapping.install_projection)(&wrapper.slot);
             }
             let mut mappings = wrapper.mappings.borrow_mut();
@@ -1636,43 +1575,152 @@ mod struct_member_tests {
         assert_eq!(z_scalar.as_ref().get(), 11);
     }
 
-    /// A holder cleared or replaced while it is being evaluated (e.g. a
-    /// binding that writes back to its own struct property, evaluated from
-    /// a projection that does not hold the struct property's lock) must not
-    /// be dropped until the evaluation returns.
+    /// Clearing the slot while its holder is being evaluated (a binding
+    /// that writes back to its own struct property) is a clean "Recursion
+    /// detected" panic: the lock assertion fires before any drop, so a
+    /// use-after-free is impossible by construction. (Every full-topology
+    /// route to this state also panicked under the previous deferred-drop
+    /// design — on the locked common or struct handle instead.)
     #[test]
-    fn driver_slot_defers_drop_of_executing_holder() {
-        struct DropFlag(Rc<Cell<bool>>);
-        impl Drop for DropFlag {
-            fn drop(&mut self) {
-                self.0.set(true);
-            }
-        }
-
-        let dropped = Rc::new(Cell::new(false));
+    #[should_panic(expected = "Recursion detected")]
+    fn driver_slot_clear_of_executing_holder_panics_cleanly() {
         let slot = Rc::new(DriverSlot::<i32>::new(0));
         let holder = alloc_binding_holder::<i32, _>({
             let slot = slot.clone();
-            let flag = DropFlag(dropped.clone());
             move |value: &mut i32| {
-                // Clear the slot while this closure is executing: the drop
-                // of the holder (and with it this closure's environment)
-                // must be deferred until the evaluation returned.
                 slot.clear();
-                assert!(!flag.0.get(), "holder dropped while its evaluate() was still running");
                 *value = 42;
                 BindingResult::KeepBinding
             }
         });
-        slot.holder.set(Some(holder));
+        slot.install(holder);
+        let _ = slot.property.as_ref().get();
+    }
 
-        let mut out = 0i32;
-        let result = slot.evaluate_holder((&mut out as *mut i32).cast::<c_void>());
-        assert_eq!(result, Some(BindingResult::KeepBinding));
-        assert_eq!(out, 42);
-        // the deferred drop ran once the evaluation returned
-        assert!(dropped.get());
-        assert!(slot.holder.get().is_none());
+    /// The full-topology version of the scenario above: a struct binding
+    /// that writes back to its own struct property mid-evaluation fails
+    /// with a clean panic (instead of a use-after-free) when evaluated
+    /// through a projection. Modern .slint cannot express this (purity
+    /// checking rejects assignments in bindings); it is reachable from
+    /// legacy-syntax files, impure native callbacks, and property-setting
+    /// `Model::row_data` implementations.
+    #[test]
+    #[should_panic(expected = "Recursion detected")]
+    fn writeback_to_own_struct_property_panics_cleanly() {
+        let strct = Rc::pin(Property::<S1>::default());
+        let scalar = Rc::pin(Property::<String>::default());
+        link_s1(strct.as_ref(), scalar.as_ref());
+        let fired = Rc::new(Cell::new(false));
+        strct.as_ref().set_binding({
+            let strct = strct.clone();
+            let fired = fired.clone();
+            move || {
+                if !fired.replace(true) {
+                    strct.as_ref().set(S1 { s1: "written-back".into(), i1: 1 });
+                }
+                S1 { s1: "bound".into(), i1: 2 }
+            }
+        });
+        // Read through the projection: the struct's own lock is NOT held.
+        let _ = scalar.as_ref().get();
+    }
+
+    /// The real binding is memoized by the slot property: it runs at most
+    /// once per dirty cycle, no matter how many members and wrappers read
+    /// it. (Previously every projection and the wrapper each re-ran it —
+    /// N+1 evaluations for N linked fields.)
+    #[test]
+    fn real_binding_evaluates_once_per_dirty_cycle() {
+        let counter = Rc::pin(Property::new(1));
+        let index = Rc::pin(Property::new(10));
+        let strct = Rc::pin(Property::<S1>::default());
+        let string_member = Rc::pin(Property::<String>::default());
+        let int_member = Rc::pin(Property::<i32>::default());
+
+        link_s1(strct.as_ref(), string_member.as_ref());
+        Property::link_two_way_to_member(
+            strct.as_ref(),
+            int_member.as_ref(),
+            "i1",
+            |strct_value: &S1| strct_value.i1,
+            |strct_value: &mut S1, field_value: &i32| strct_value.i1 = *field_value,
+            false,
+        );
+
+        let evaluation_count = Rc::new(Cell::new(0usize));
+        strct.as_ref().set_binding({
+            let counter = counter.clone();
+            let index = index.clone();
+            let evaluation_count = evaluation_count.clone();
+            move || {
+                evaluation_count.set(evaluation_count.get() + 1);
+                S1 {
+                    s1: alloc::format!("v{}", counter.as_ref().get()),
+                    i1: index.as_ref().get(),
+                }
+            }
+        });
+
+        // Settle: reading every member and the struct itself runs the real
+        // binding exactly once.
+        assert_eq!(string_member.as_ref().get(), "v1");
+        assert_eq!(evaluation_count.get(), 1);
+        assert_eq!(int_member.as_ref().get(), 10);
+        assert_eq!(evaluation_count.get(), 1);
+        assert_eq!(strct.as_ref().get(), S1 { s1: "v1".into(), i1: 10 });
+        assert_eq!(evaluation_count.get(), 1);
+
+        // One dirty cycle: one evaluation, regardless of the read order.
+        counter.as_ref().set(2);
+        assert_eq!(string_member.as_ref().get(), "v2");
+        assert_eq!(int_member.as_ref().get(), 10);
+        assert_eq!(strct.as_ref().get(), S1 { s1: "v2".into(), i1: 10 });
+        assert_eq!(evaluation_count.get(), 2);
+
+        // Clean re-reads never re-run the binding.
+        let _ = string_member.as_ref().get();
+        let _ = int_member.as_ref().get();
+        let _ = strct.as_ref().get();
+        assert_eq!(evaluation_count.get(), 2);
+
+        // A change of an input feeding only ONE field still costs a single
+        // evaluation for the whole cycle.
+        index.as_ref().set(11);
+        assert_eq!(string_member.as_ref().get(), "v2");
+        assert_eq!(int_member.as_ref().get(), 11);
+        assert_eq!(strct.as_ref().get(), S1 { s1: "v2".into(), i1: 11 });
+        assert_eq!(evaluation_count.get(), 3);
+    }
+
+    /// Driver revival: a value set severs the driver (its projections
+    /// self-remove on the next read), and a later set_binding must
+    /// reinstall the projections and drive the class again.
+    #[test]
+    fn driver_revival_after_set() {
+        let source = Rc::pin(Property::new(String::from("first")));
+        let strct = Rc::pin(Property::<S1>::default());
+        let scalar = Rc::pin(Property::<String>::default());
+        link_s1(strct.as_ref(), scalar.as_ref());
+        strct.as_ref().set_binding({
+            let source = source.clone();
+            move || S1 { s1: source.as_ref().get(), i1: 1 }
+        });
+        assert_eq!(scalar.as_ref().get(), "first");
+
+        strct.as_ref().set(S1 { s1: "severed".into(), i1: 2 });
+        // the projection self-removes on this read
+        assert_eq!(scalar.as_ref().get(), "severed");
+
+        let source2 = Rc::pin(Property::new(String::from("revived")));
+        strct.as_ref().set_binding({
+            let source2 = source2.clone();
+            move || S1 { s1: source2.as_ref().get(), i1: 3 }
+        });
+        assert_eq!(scalar.as_ref().get(), "revived");
+        assert_eq!(strct.as_ref().get().i1, 3);
+        source2.as_ref().set("revived-b".into());
+        assert_eq!(scalar.as_ref().get(), "revived-b");
+        assert_eq!(strct.as_ref().get().s1, "revived-b");
     }
 
     /// Linking a member that is itself already part of a scalar two-way

@@ -288,67 +288,46 @@ struct Property
     {
         struct DriverSlot
         {
-            /// The struct property's own binding (an owned Rust
-            /// `BindingHolder`), if any.
-            void *holder = nullptr;
-            /// Seed value for evaluating the binding outside of the struct
-            /// property's own storage.
-            T cache {};
-            /// Number of nested `evaluate_holder` frames; while non-zero,
-            /// holders are parked in `pending_drops` instead of deleted (a
-            /// projection evaluates the binding without the struct
-            /// property's lock, so a write-back could otherwise free the
-            /// binding while it is executing).
-            int evaluation_depth = 0;
-            std::vector<void *> pending_drops;
+            /// The struct property's own value-producing binding is
+            /// installed on this dedicated property: its dirty flag
+            /// memoizes the evaluation (the binding runs at most once per
+            /// change of its inputs, no matter how many commons and
+            /// wrappers read it) and the dependency graph (commons/wrapper
+            /// -> slot property -> the binding's inputs) replaces manual
+            /// dirty forwarding.
+            Property<T> property;
 
-            void dispose(void *binding)
+            explicit DriverSlot(const T &seed) : property(seed) { }
+
+            bool has_holder() const
             {
-                if (evaluation_depth > 0) {
-                    pending_drops.push_back(binding);
-                } else {
-                    cbindgen_private::slint_property_delete_binding(binding);
-                }
+                return (reinterpret_cast<uintptr_t>(property.inner._0) & 0b10) != 0;
             }
+            /// Drop the real binding, if any. Panics ("Recursion detected")
+            /// when the real binding is currently executing (a binding
+            /// writing back to its own struct property).
             void clear()
             {
-                if (auto *binding = std::exchange(holder, static_cast<void *>(nullptr))) {
-                    dispose(binding);
-                }
+                cbindgen_private::slint_property_remove_binding(&property.inner);
             }
-            /// Evaluate the current holder into `value`, keeping it alive
-            /// until the evaluation returns even if it is cleared or
-            /// replaced while executing. Returns false when the slot is
-            /// empty.
-            bool evaluate_holder(T *value)
-            {
-                auto *binding = holder;
-                if (!binding) {
-                    return false;
-                }
-                evaluation_depth++;
-                cbindgen_private::slint_property_evaluate_binding(binding, value);
-                if (--evaluation_depth == 0) {
-                    while (!pending_drops.empty()) {
-                        auto *pending = pending_drops.back();
-                        pending_drops.pop_back();
-                        cbindgen_private::slint_property_delete_binding(pending);
-                    }
-                }
-                return true;
-            }
-            ~DriverSlot()
+            /// Install `holder` (an owned Rust `BindingHolder`) as the slot
+            /// property's binding, dropping the previous one.
+            void install(void *holder)
             {
                 clear();
-                while (!pending_drops.empty()) {
-                    auto *pending = pending_drops.back();
-                    pending_drops.pop_back();
-                    cbindgen_private::slint_property_delete_binding(pending);
-                }
+                cbindgen_private::slint_property_set_binding_internal(&property.inner, holder);
+                // A stolen (second-hand) holder may have been evaluated in
+                // its old home with a clean dirty flag and wiped dependency
+                // registrations; without this it would never re-evaluate
+                // here.
+                cbindgen_private::slint_property_mark_binding_and_dependencies_dirty(
+                        &property.inner);
             }
         };
 
-        std::shared_ptr<DriverSlot> slot = std::make_shared<DriverSlot>();
+        std::shared_ptr<DriverSlot> slot;
+
+        explicit StructMemberBindings(const T &seed) : slot(std::make_shared<DriverSlot>(seed)) { }
 
         struct Mapping
         {
@@ -377,18 +356,20 @@ struct Property
                     &prop->inner, cpp_struct_member_bindings_kind)) {
             return reinterpret_cast<StructMemberBindings *>(user_data);
         }
-        auto *wrapper = new StructMemberBindings();
-        wrapper->slot->cache = prop->value;
+        auto *wrapper = new StructMemberBindings(prop->value);
         if (void *old = cbindgen_private::slint_property_detach_binding(&prop->inner)) {
-            wrapper->slot->holder = old;
+            wrapper->slot->install(old);
         }
         cbindgen_private::slint_property_set_binding_with_kind(
                 &prop->inner,
                 [](void *user_data, void *value) {
                     auto *self = reinterpret_cast<StructMemberBindings *>(user_data);
                     T &v = *reinterpret_cast<T *>(value);
-                    if (self->slot->evaluate_holder(&v)) {
-                        self->slot->cache = v;
+                    // Only read the slot property while it carries the real
+                    // binding: when binding-less its stored value is stale
+                    // and would clobber the struct's own stored value.
+                    if (self->slot->has_holder()) {
+                        v = self->slot->property.get();
                     }
                     for (auto &mapping : self->mappings) {
                         mapping.apply_from_common(v);
@@ -419,9 +400,7 @@ struct Property
                     // was evaluated while installed elsewhere (mirrors the
                     // Rust StructMemberBindings::intercept_set_binding)
                     cbindgen_private::slint_property_reset_binding_dependencies(new_binding);
-                    if (auto *old = std::exchange(self->slot->holder, new_binding)) {
-                        self->slot->dispose(old);
-                    }
+                    self->slot->install(new_binding);
                     for (auto &mapping : self->mappings) {
                         mapping.install_projection(self->slot);
                     }
@@ -474,14 +453,18 @@ struct Property
                         &common->inner,
                         [](void *user_data, void *value) {
                             auto *self = reinterpret_cast<Projection *>(user_data);
-                            T struct_value = self->slot->cache;
-                            if (!self->slot->evaluate_holder(&struct_value)) {
+                            if (!self->slot->has_holder()) {
                                 // the driver was dropped: keep the common's
-                                // current value
+                                // current value (a C++ binding cannot remove
+                                // itself; the projection stays installed but
+                                // inert and is replaced on the next install)
                                 return;
                             }
-                            *reinterpret_cast<T2 *>(value) = self->get_field(struct_value);
-                            self->slot->cache = std::move(struct_value);
+                            // reading the slot property registers this
+                            // projection as its dependent and memoizes the
+                            // real binding behind its dirty flag
+                            *reinterpret_cast<T2 *>(value) =
+                                    self->get_field(self->slot->property.get());
                         },
                         new Projection { slot, get_field },
                         [](void *user_data) { delete reinterpret_cast<Projection *>(user_data); },
@@ -490,7 +473,7 @@ struct Property
             common,
         };
         // A pre-existing binding must also drive this field's class.
-        if (wrapper->slot->holder) {
+        if (wrapper->slot->has_holder()) {
             mapping.install_projection(wrapper->slot);
         }
         bool replaced = false;

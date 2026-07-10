@@ -249,6 +249,17 @@ pub unsafe extern "C" fn slint_property_reset_binding_dependencies(binding: *mut
     unsafe { *(*binding).dep_nodes.get() = Default::default() };
 }
 
+/// Remove (and drop) the property's current binding, if any, without
+/// interception. Asserts ("Recursion detected") that the binding is not
+/// currently being evaluated. Used by the C++ struct member wrapper to
+/// clear its driver slot property; do NOT emulate this with
+/// [`slint_property_detach_binding`] + [`slint_property_delete_binding`],
+/// which would skip the assertion and free an executing binding.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_property_remove_binding(handle: &PropertyHandleOpaque) {
+    handle.0.remove_binding();
+}
+
 /// Mark the property's own binding dirty (so it re-evaluates on the next
 /// read) as well as the property's dependents. Used by the C++ struct
 /// member wrapper when a new field mapping is added to it.
