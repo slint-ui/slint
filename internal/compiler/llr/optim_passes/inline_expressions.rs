@@ -203,7 +203,10 @@ fn inline_simple_expressions_in_expression(
                 return None;
             }
             f.use_count.set(0);
-            Some((f.code.borrow().clone(), f.args.clone(), map))
+            // Take the body out so it isn't also inlined in place when
+            // `for_each_expression` reaches it, which would double-count uses.
+            let body = f.code.replace(Expression::CodeBlock(Vec::new()));
+            Some((body, f.args.clone(), map))
         });
         if let Some((mut body, arg_types, map)) = inline_target {
             let Expression::FunctionCall { arguments, .. } =
@@ -282,46 +285,30 @@ fn inline_simple_expressions_in_expression(
     expr.visit_mut(|e| inline_simple_expressions_in_expression(e, ctx, counter));
 }
 
-/// Whether a function body can be moved to its (single) call site.
+/// Whether a function body can be moved to its single call site.
 ///
-/// A body is unsafe to move when it:
-/// - shows or closes a popup or menu: the generated popup state (its id and
-///   window) lives in the component that declares the popup and is reached with an
-///   upward `parent_level`, so a caller in an ancestor component cannot reach it;
-/// - reads a parameter more than once: a real call binds parameters by clone
-///   (`args.N.clone()`), but the inlined body reads each argument from a local
-///   that a second read would move.
-///
-/// Everything else is fine: references inside the body are remapped to the call
-/// site's context by [`ContextMap::map_expression`], and the arguments are bound
-/// to locals in order before the body so their side effects are preserved.
+/// Unsafe when it shows or closes a popup — the popup state lives in the
+/// declaring component and is reached by an upward `parent_level`, so a caller
+/// in an ancestor component cannot reach it — or reads a parameter more than
+/// once: a real call clones each read (`args.N.clone()`), but the inlined body
+/// reads a local that a second read would move.
 fn body_is_inline_safe(exp: &Expression) -> bool {
-    fn walk(e: &Expression, param_uses: &mut Vec<usize>, has_popup: &mut bool) {
-        match e {
-            Expression::FunctionParameterReference { index } => param_uses.push(*index),
-            Expression::BuiltinFunctionCall { function, .. }
-                if matches!(
-                    function,
-                    BuiltinFunction::ShowPopupWindow
-                        | BuiltinFunction::ClosePopupWindow
-                        | BuiltinFunction::ShowPopupMenu
-                        | BuiltinFunction::ShowPopupMenuInternal
-                ) =>
-            {
-                *has_popup = true
-            }
-            _ => {}
+    let mut params = std::collections::HashSet::new();
+    let mut safe = true;
+    exp.visit_recursive(&mut |e| match e {
+        Expression::FunctionParameterReference { index } => safe &= params.insert(*index),
+        Expression::BuiltinFunctionCall { function, .. } => {
+            safe &= !matches!(
+                function,
+                BuiltinFunction::ShowPopupWindow
+                    | BuiltinFunction::ClosePopupWindow
+                    | BuiltinFunction::ShowPopupMenu
+                    | BuiltinFunction::ShowPopupMenuInternal
+            )
         }
-        e.visit(|c| walk(c, param_uses, has_popup));
-    }
-    let mut param_uses = Vec::new();
-    let mut has_popup = false;
-    walk(exp, &mut param_uses, &mut has_popup);
-    if has_popup {
-        return false;
-    }
-    param_uses.sort_unstable();
-    param_uses.windows(2).all(|w| w[0] != w[1])
+        _ => {}
+    });
+    safe
 }
 
 /// The local variable name holding argument `index` of the function inlined with `uid`.
