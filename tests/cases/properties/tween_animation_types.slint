@@ -92,7 +92,7 @@ assert_eq(instance.get_float_value(), 1.0);
 
 // Color should have changed (from white to black)
 auto color = instance.get_color_value();
-assert(color.red < 0.5 && color.green < 0.5 && color.blue < 0.5);
+assert(color.red() < 128 && color.green() < 128 && color.blue() < 128);
 ```
 
 */

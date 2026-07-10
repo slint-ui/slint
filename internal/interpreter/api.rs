@@ -11,6 +11,7 @@ use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
 use i_slint_core::items::*;
 use i_slint_core::model::{Model, ModelExt, ModelRc};
+use i_slint_core::properties::InterpolatedPropertyValue;
 use i_slint_core::styled_text::StyledText;
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
@@ -192,6 +193,18 @@ impl PartialEq for Value {
             }
             Value::DataTransfer(lhs) => {
                 matches!(other, Value::DataTransfer(rhs) if lhs == rhs)
+            }
+        }
+    }
+}
+
+impl InterpolatedPropertyValue for Value {
+    fn interpolate(&self, target_value: &Self, t: f32) -> Self {
+        match (self, target_value) {
+            (Value::Number(a), Value::Number(b)) => Value::Number(*a + (t as f64) * (*b - *a)),
+            (Value::Brush(a), Value::Brush(b)) => Value::Brush(a.interpolate(b, t)),
+            _ => {
+                if t >= 1.0 { target_value.clone() } else { self.clone() }
             }
         }
     }

@@ -623,6 +623,36 @@ fn gen_corelib(
         .context("Unable to generate bindings for slint_timer_internal.h")?
         .write_to_file(include_dir.join("slint_timer_internal.h"));
 
+    // slint_animation_internal.h:
+    let animation_config = {
+        let mut tmp = config.clone();
+        tmp.export.include = [
+            "slint_composite_animation_handle_start_int",
+            "slint_composite_animation_handle_restart_int",
+            "slint_composite_animation_handle_start_float",
+            "slint_composite_animation_handle_restart_float",
+            "slint_composite_animation_handle_start_color",
+            "slint_composite_animation_handle_restart_color",
+            "slint_composite_animation_handle_start_brush",
+            "slint_composite_animation_handle_restart_brush",
+            "slint_composite_animation_handle_stop",
+            "slint_composite_animation_handle_is_running",
+            "slint_composite_animation_handle_drop",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        tmp
+    };
+    config.export.exclude.extend(animation_config.export.include.iter().cloned());
+    cbindgen::Builder::new()
+        .with_config(animation_config)
+        .with_src(crate_dir.join("properties/properties_animations.rs"))
+        .with_after_include("namespace slint { class Color; class Brush; } namespace slint::cbindgen_private { struct PropertyAnimation; }")
+        .generate()
+        .context("Unable to generate bindings for slint_animation_internal.h")?
+        .write_to_file(include_dir.join("slint_animation_internal.h"));
+
     for (rust_types, internal_header, prelude) in [
         (
             vec![
@@ -947,6 +977,7 @@ fn gen_corelib(
         .with_include("private/slint_enums_internal.h")
         .with_include("private/slint_point.h")
         .with_include("private/slint_timer.h")
+        .with_include("private/slint_animation.h")
         .with_include("private/slint_builtin_structs_internal.h")
         .with_include("private/slint_events_internal.h")
         .with_include("private/slint_data_transfer_internal.h")

@@ -634,6 +634,360 @@ pub fn update_composite_animations() {
     });
 }
 
+#[cfg(feature = "ffi")]
+pub(crate) mod animation_object_ffi {
+    #![allow(unsafe_code)]
+
+    use super::*;
+    use core::cell::Cell;
+    use core::ffi::c_void;
+
+    struct WrapFn {
+        callback: extern "C" fn(*mut c_void),
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    }
+
+    impl Drop for WrapFn {
+        fn drop(&mut self) {
+            if let Some(x) = self.drop_user_data {
+                x(self.user_data)
+            }
+        }
+    }
+
+    impl WrapFn {
+        fn call(&self) {
+            (self.callback)(self.user_data)
+        }
+    }
+
+    struct SetValueWrapFn<T> {
+        callback: extern "C" fn(*mut c_void, *const T),
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    }
+
+    impl<T> Drop for SetValueWrapFn<T> {
+        fn drop(&mut self) {
+            if let Some(x) = self.drop_user_data {
+                x(self.user_data)
+            }
+        }
+    }
+
+    impl<T> SetValueWrapFn<T> {
+        fn call(&self, value: T) {
+            (self.callback)(self.user_data, &value as *const T)
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn composite_animation_handle_start_impl<T: InterpolatedPropertyValue + Clone + 'static>(
+        id: usize,
+        from: T,
+        to: T,
+        details: PropertyAnimation,
+        set_value: extern "C" fn(*mut c_void, *const T),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        on_finished: extern "C" fn(*mut c_void),
+        on_finished_user_data: *mut c_void,
+        on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        restart: bool,
+    ) -> usize {
+        let set_value_wrap = SetValueWrapFn {
+            callback: set_value,
+            user_data: set_value_user_data,
+            drop_user_data: set_value_drop_user_data,
+        };
+        let on_finished_wrap = WrapFn {
+            callback: on_finished,
+            user_data: on_finished_user_data,
+            drop_user_data: on_finished_drop_user_data,
+        };
+        let tween = TweenAnimation::new_with_callbacks(
+            from,
+            to,
+            details,
+            move |value| set_value_wrap.call(value),
+            move || on_finished_wrap.call(),
+        );
+        let handle = CompositeAnimationHandle::default();
+        if id != 0 {
+            handle.id.set(NonZeroUsize::new(id));
+        }
+        if restart {
+            handle.restart(Box::new(tween));
+        } else {
+            handle.start(Box::new(tween));
+        }
+        handle.id.take().map(usize::from).unwrap_or(0)
+    }
+
+    // cbindgen does not expand macros, so the 8 monomorphized start/restart functions below
+    // are written out explicitly rather than generated via macro_rules!.
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_composite_animation_handle_start_int(
+        id: usize,
+        from: i32,
+        to: i32,
+        details: &PropertyAnimation,
+        set_value: extern "C" fn(*mut c_void, *const i32),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        on_finished: extern "C" fn(*mut c_void),
+        on_finished_user_data: *mut c_void,
+        on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> usize {
+        composite_animation_handle_start_impl(
+            id,
+            from,
+            to,
+            details.clone(),
+            set_value,
+            set_value_user_data,
+            set_value_drop_user_data,
+            on_finished,
+            on_finished_user_data,
+            on_finished_drop_user_data,
+            false,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_composite_animation_handle_restart_int(
+        id: usize,
+        from: i32,
+        to: i32,
+        details: &PropertyAnimation,
+        set_value: extern "C" fn(*mut c_void, *const i32),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        on_finished: extern "C" fn(*mut c_void),
+        on_finished_user_data: *mut c_void,
+        on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> usize {
+        composite_animation_handle_start_impl(
+            id,
+            from,
+            to,
+            details.clone(),
+            set_value,
+            set_value_user_data,
+            set_value_drop_user_data,
+            on_finished,
+            on_finished_user_data,
+            on_finished_drop_user_data,
+            true,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_composite_animation_handle_start_float(
+        id: usize,
+        from: f32,
+        to: f32,
+        details: &PropertyAnimation,
+        set_value: extern "C" fn(*mut c_void, *const f32),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        on_finished: extern "C" fn(*mut c_void),
+        on_finished_user_data: *mut c_void,
+        on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> usize {
+        composite_animation_handle_start_impl(
+            id,
+            from,
+            to,
+            details.clone(),
+            set_value,
+            set_value_user_data,
+            set_value_drop_user_data,
+            on_finished,
+            on_finished_user_data,
+            on_finished_drop_user_data,
+            false,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_composite_animation_handle_restart_float(
+        id: usize,
+        from: f32,
+        to: f32,
+        details: &PropertyAnimation,
+        set_value: extern "C" fn(*mut c_void, *const f32),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        on_finished: extern "C" fn(*mut c_void),
+        on_finished_user_data: *mut c_void,
+        on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> usize {
+        composite_animation_handle_start_impl(
+            id,
+            from,
+            to,
+            details.clone(),
+            set_value,
+            set_value_user_data,
+            set_value_drop_user_data,
+            on_finished,
+            on_finished_user_data,
+            on_finished_drop_user_data,
+            true,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_composite_animation_handle_start_color(
+        id: usize,
+        from: crate::Color,
+        to: crate::Color,
+        details: &PropertyAnimation,
+        set_value: extern "C" fn(*mut c_void, *const crate::Color),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        on_finished: extern "C" fn(*mut c_void),
+        on_finished_user_data: *mut c_void,
+        on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> usize {
+        composite_animation_handle_start_impl(
+            id,
+            from,
+            to,
+            details.clone(),
+            set_value,
+            set_value_user_data,
+            set_value_drop_user_data,
+            on_finished,
+            on_finished_user_data,
+            on_finished_drop_user_data,
+            false,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_composite_animation_handle_restart_color(
+        id: usize,
+        from: crate::Color,
+        to: crate::Color,
+        details: &PropertyAnimation,
+        set_value: extern "C" fn(*mut c_void, *const crate::Color),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        on_finished: extern "C" fn(*mut c_void),
+        on_finished_user_data: *mut c_void,
+        on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> usize {
+        composite_animation_handle_start_impl(
+            id,
+            from,
+            to,
+            details.clone(),
+            set_value,
+            set_value_user_data,
+            set_value_drop_user_data,
+            on_finished,
+            on_finished_user_data,
+            on_finished_drop_user_data,
+            true,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_composite_animation_handle_start_brush(
+        id: usize,
+        from: crate::Brush,
+        to: crate::Brush,
+        details: &PropertyAnimation,
+        set_value: extern "C" fn(*mut c_void, *const crate::Brush),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        on_finished: extern "C" fn(*mut c_void),
+        on_finished_user_data: *mut c_void,
+        on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> usize {
+        composite_animation_handle_start_impl(
+            id,
+            from,
+            to,
+            details.clone(),
+            set_value,
+            set_value_user_data,
+            set_value_drop_user_data,
+            on_finished,
+            on_finished_user_data,
+            on_finished_drop_user_data,
+            false,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_composite_animation_handle_restart_brush(
+        id: usize,
+        from: crate::Brush,
+        to: crate::Brush,
+        details: &PropertyAnimation,
+        set_value: extern "C" fn(*mut c_void, *const crate::Brush),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        on_finished: extern "C" fn(*mut c_void),
+        on_finished_user_data: *mut c_void,
+        on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> usize {
+        composite_animation_handle_start_impl(
+            id,
+            from,
+            to,
+            details.clone(),
+            set_value,
+            set_value_user_data,
+            set_value_drop_user_data,
+            on_finished,
+            on_finished_user_data,
+            on_finished_drop_user_data,
+            true,
+        )
+    }
+
+    /// Stop and deregister whatever composite animation is running on this handle.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_composite_animation_handle_stop(id: usize) {
+        if id == 0 {
+            return;
+        }
+        let handle =
+            CompositeAnimationHandle { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
+        handle.stop();
+        handle.id.take();
+    }
+
+    /// Returns true if the composite animation on this handle is running.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_composite_animation_handle_is_running(id: usize) -> bool {
+        if id == 0 {
+            return false;
+        }
+        let handle =
+            CompositeAnimationHandle { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
+        let running = handle.is_running();
+        handle.id.take();
+        running
+    }
+
+    /// Drop (deregister) the composite animation handle. Called from the C++ destructor.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_composite_animation_handle_drop(id: usize) {
+        if id == 0 {
+            return;
+        }
+        let handle =
+            CompositeAnimationHandle { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
+        drop(handle);
+    }
+}
 
 #[cfg(test)]
 mod animation_architecture_tests {

@@ -1910,8 +1910,16 @@ fn call_builtin_function(
             }
         }
         BuiltinFunction::RestartAnimation => {
-            // TODO: Implement restart animation
-            Value::Void
+            if let [Expression::ElementReference(anim_element)] = arguments {
+                crate::dynamic_item_tree::restart_animation(
+                    anim_element.clone(),
+                    local_context.component_instance,
+                );
+
+                Value::Void
+            } else {
+                panic!("internal error: argument to RestartAnimation must be an element")
+            }
         }
         BuiltinFunction::OpenUrl => {
             let url: SharedString =

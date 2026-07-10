@@ -486,6 +486,7 @@ pub struct ItemTreeDescription<'id> {
         Vec<(NamedReference, Expression)>,
     )>,
     timers: Vec<FieldOffset<Instance<'id>, Timer>>,
+    animations: Vec<FieldOffset<Instance<'id>, i_slint_core::properties::CompositeAnimationHandle>>,
     /// Map of element IDs to their active popup's ID
     popup_ids: std::cell::RefCell<HashMap<SmolStr, NonZeroU32>>,
 
@@ -1374,6 +1375,14 @@ pub(crate) fn generate_item_tree<'id>(
         .iter()
         .map(|_| builder.type_builder.add_field_type::<Timer>())
         .collect();
+    let animations = component
+        .animations
+        .borrow()
+        .iter()
+        .map(|_| {
+            builder.type_builder.add_field_type::<i_slint_core::properties::CompositeAnimationHandle>()
+        })
+        .collect();
 
     // only the public exported component needs the public property list
     let public_properties = if component.parent_element().is_none() {
@@ -1423,6 +1432,7 @@ pub(crate) fn generate_item_tree<'id>(
         compiled_globals,
         change_trackers,
         timers,
+        animations,
         popup_ids: std::cell::RefCell::new(HashMap::new()),
         popup_menu_description: builder.popup_menu_description,
         #[cfg(feature = "internal-highlight")]
@@ -2129,6 +2139,7 @@ impl ErasedItemTreeBox {
                 .unwrap_or_else(|_| panic!("run_setup_code called twice?"));
         }
         update_timers(instance_ref);
+        update_animations(instance_ref);
     }
 }
 impl<'id> From<ItemTreeBox<'id>> for ErasedItemTreeBox {
@@ -2971,8 +2982,117 @@ pub fn update_timers(instance: InstanceRef) {
     }
 }
 
-pub fn update_animations(_instance: InstanceRef) {
-    // TODO: Implement animation updates
+fn build_tween(
+    instance: InstanceRef,
+    desc: &object_tree::Animation,
+) -> Box<dyn i_slint_core::properties::Animation> {
+    let target = desc.target.as_ref().expect("TweenAnimation requires a target");
+    let current =
+        || eval::load_property(instance, &target.element(), target.name()).unwrap();
+    let from = desc
+        .from
+        .as_ref()
+        .map(|f| eval::load_property(instance, &f.element(), f.name()).unwrap())
+        .unwrap_or_else(current);
+    let to = desc
+        .to
+        .as_ref()
+        .map(|t| eval::load_property(instance, &t.element(), t.name()).unwrap())
+        .unwrap_or_else(current);
+    let duration: i64 = desc
+        .duration
+        .as_ref()
+        .map(|d| eval::load_property(instance, &d.element(), d.name()).unwrap().try_into().unwrap())
+        .unwrap_or(0);
+    let easing: i_slint_core::animations::EasingCurve = desc
+        .easing
+        .as_ref()
+        .map(|e| {
+            eval::load_property(instance, &e.element(), e.name()).unwrap().try_into().unwrap()
+        })
+        .unwrap_or_default();
+    let iteration_count: f64 = desc
+        .iteration_count
+        .as_ref()
+        .map(|i| eval::load_property(instance, &i.element(), i.name()).unwrap().try_into().unwrap())
+        .unwrap_or(1.);
+    let direction = desc
+        .direction
+        .as_ref()
+        .map(|d| {
+            i_slint_core::items::AnimationDirection::try_from(
+                eval::load_property(instance, &d.element(), d.name()).unwrap(),
+            )
+            .unwrap()
+        })
+        .unwrap_or_default();
+    let details = i_slint_core::items::PropertyAnimation {
+        delay: 0,
+        duration: duration as i32,
+        iteration_count: iteration_count as f32,
+        direction,
+        easing,
+        enabled: true,
+    };
+
+    let target_ref = target.clone();
+    let self_weak_value = instance.self_weak().get().unwrap().clone();
+    let set_value = move |value: Value| {
+        if let Some(instance) = self_weak_value.upgrade() {
+            generativity::make_guard!(guard);
+            let c = instance.unerase(guard);
+            let instance_ref = c.borrow_instance();
+            eval::store_property(instance_ref, &target_ref.element(), target_ref.name(), value)
+                .unwrap();
+        }
+    };
+
+    let running_ref = desc.running.clone();
+    let self_weak_finished = instance.self_weak().get().unwrap().clone();
+    let on_finished = move || {
+        if let Some(instance) = self_weak_finished.upgrade() {
+            generativity::make_guard!(guard);
+            let c = instance.unerase(guard);
+            let instance_ref = c.borrow_instance();
+            eval::store_property(
+                instance_ref,
+                &running_ref.element(),
+                running_ref.name(),
+                Value::Bool(false),
+            )
+            .unwrap();
+        }
+    };
+
+    Box::new(i_slint_core::properties::TweenAnimation::new_with_callbacks(
+        from, to, details, set_value, on_finished,
+    ))
+}
+
+pub fn update_animations(instance: InstanceRef) {
+    let anims = instance.description.original.animations.borrow();
+    for (desc, offset) in anims.iter().zip(&instance.description.animations) {
+        let handle = offset.apply(instance.as_ref());
+        let running =
+            eval::load_property(instance, &desc.running.element(), desc.running.name()).unwrap();
+        if matches!(running, Value::Bool(true)) {
+            handle.start(build_tween(instance, desc));
+        } else {
+            handle.stop();
+        }
+    }
+}
+
+pub fn restart_animation(element: ElementWeak, instance: InstanceRef) {
+    let anims = instance.description.original.animations.borrow();
+    if let Some((desc, offset)) = anims
+        .iter()
+        .zip(&instance.description.animations)
+        .find(|(desc, _)| Weak::ptr_eq(&desc.element, &element))
+    {
+        let tween = build_tween(instance, desc);
+        offset.apply(instance.as_ref()).restart(tween);
+    }
 }
 
 pub fn restart_timer(element: ElementWeak, instance: InstanceRef) {

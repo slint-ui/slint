@@ -2547,6 +2547,99 @@ fn generate_sub_component(
         ));
     }
 
+    if !component.animation_objects.is_empty() {
+        let mut update_animations = vec!["auto self = this;".into()];
+        for (i, anim) in component.animation_objects.iter().enumerate() {
+            user_init.push("self->update_animations();".to_string());
+            let name = format_smolstr!("anim{}", i);
+
+            let member_ref = |exp: &llr::Expression| -> llr::MemberReference {
+                match exp {
+                    llr::Expression::PropertyReference(mr) => mr.clone(),
+                    _ => panic!("internal error: animation field must be a property reference"),
+                }
+            };
+            let target_ref =
+                member_ref(&anim.target.as_ref().expect("TweenAnimation requires a target").borrow());
+            let target_ty = ctx.property_ty(&target_ref).clone();
+            let cpp_ty = target_ty.cpp_type().expect("animation target must have a C++ type");
+            let target_get = access_member(&target_ref, &ctx).get_property();
+
+            let running = compile_expression(&anim.running.borrow(), &ctx);
+            let from = anim
+                .from
+                .as_ref()
+                .map(|f| compile_expression(&f.borrow(), &ctx))
+                .unwrap_or_else(|| target_get.clone());
+            let to = anim
+                .to
+                .as_ref()
+                .map(|t| compile_expression(&t.borrow(), &ctx))
+                .unwrap_or_else(|| target_get.clone());
+            let duration =
+                compile_expression(&anim.duration.as_ref().expect("duration is required").borrow(), &ctx);
+            let easing =
+                compile_expression(&anim.easing.as_ref().expect("easing is required").borrow(), &ctx);
+            let iteration_count = anim
+                .iteration_count
+                .as_ref()
+                .map(|e| compile_expression(&e.borrow(), &ctx))
+                .unwrap_or_else(|| "1.".into());
+            let direction = anim
+                .direction
+                .as_ref()
+                .map(|e| compile_expression(&e.borrow(), &ctx))
+                .unwrap_or_else(|| "slint::cbindgen_private::AnimationDirection::Normal".into());
+            let details = format!(
+                "[&]{{ slint::cbindgen_private::PropertyAnimation o{{}}; o.delay = 0; o.duration = (int)({duration}); o.iteration_count = (float)({iteration_count}); o.direction = {direction}; o.easing = {easing}; o.enabled = true; return o; }}()"
+            );
+
+            let set_stmt =
+                access_member(&target_ref, &ctx).then(|prop| format!("{prop}.set(value)"));
+            let running_ref = member_ref(&anim.running.borrow());
+            let set_running_false =
+                access_member(&running_ref, &ctx).then(|prop| format!("{prop}.set(false)"));
+
+            let call = |method: &str| -> String {
+                format!(
+                    "self->{name}.{method}<{cpp_ty}>({from}, {to}, {details}, [self]({cpp_ty} value) {{ {set_stmt}; }}, [self]() {{ {set_running_false}; }});"
+                )
+            };
+
+            update_animations.push(format!("if ({running}) {{"));
+            update_animations.push(format!("   {}", call("start")));
+            update_animations.push(format!("}} else {{ self->{name}.stop(); }}"));
+
+            target_struct.members.push((
+                field_access,
+                Declaration::Function(Function {
+                    name: format_smolstr!("restart_anim{}", i),
+                    signature: "() -> void".into(),
+                    statements: Some(vec!["auto self = this;".into(), call("restart")]),
+                    ..Default::default()
+                }),
+            ));
+
+            target_struct.members.push((
+                field_access,
+                Declaration::Var(Var {
+                    ty: "slint::private_api::CompositeAnimationHandle".into(),
+                    name,
+                    ..Default::default()
+                }),
+            ));
+        }
+        target_struct.members.push((
+            field_access,
+            Declaration::Function(Function {
+                name: "update_animations".into(),
+                signature: "() -> void".into(),
+                statements: Some(update_animations),
+                ..Default::default()
+            }),
+        ));
+    }
+
     target_struct.members.extend(
         generate_functions(component.functions.as_ref(), &ctx).map(|x| (Access::Public, x)),
     );
@@ -5220,8 +5313,14 @@ fn compile_builtin_function_call(
         // start and stop animations are lowered to simple assignment of running
         BuiltinFunction::StartAnimation => unreachable!(),
         BuiltinFunction::StopAnimation => unreachable!(),
-        BuiltinFunction::UpdateAnimations => unreachable!(),
-        BuiltinFunction::RestartAnimation => unreachable!(),
+        BuiltinFunction::UpdateAnimations => "self->update_animations()".into(),
+        BuiltinFunction::RestartAnimation => {
+            if let [llr::Expression::NumberLiteral(anim_index)] = arguments {
+                format!("self->restart_anim{}()", *anim_index as usize)
+            } else {
+                panic!("internal error: invalid args to RestartAnimation {arguments:?}")
+            }
+        }
         BuiltinFunction::OpenUrl => {
             let url = a.next().unwrap();
             let window = access_window_field(ctx);
