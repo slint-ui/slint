@@ -1,3 +1,4 @@
+<!-- cSpell: ignore millis -->
 # Animation System Internals
 
 > Note for AI coding assistants (agents):

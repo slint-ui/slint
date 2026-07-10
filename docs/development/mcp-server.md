@@ -1,3 +1,4 @@
+<!-- cSpell: ignore slotmap -->
 # Embedded MCP Server
 
 The testing backend includes an embedded [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that allows MCP-compatible clients (e.g. Claude Code) to inspect and interact with a running Slint application over HTTP. This document covers the architecture and internals for developers working on `internal/backends/testing/`.
