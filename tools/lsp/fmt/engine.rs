@@ -7,7 +7,7 @@
 //! See `API_DESIGN.md` in this directory for the overall design.
 
 use crate::fmt::atoms::{
-    Atom, AtomInstance, AtomSink, BoundaryAtoms, FormatPlan, Instruction, Tier, Whitespace,
+    Atom, AtomInstance, AtomSink, BoundaryAtoms, FormatPlan, INDENT, Instruction, Tier, Whitespace,
 };
 use crate::fmt::writer::TokenWriter;
 use i_slint_compiler::parser::{
@@ -43,7 +43,7 @@ impl TokenSlot {
     /// with two or more newlines).
     pub fn has_blank_line(&self) -> bool {
         self.gap_before.iter().any(|token| {
-            token.kind() == SyntaxKind::Whitespace && token.text().matches('\n').count() >= 2
+            token.kind() == SyntaxKind::Whitespace && whitespace_has_blank_line(token.text())
         })
     }
 
@@ -59,6 +59,43 @@ impl TokenSlot {
         debug_assert!(self.gap_before.len() <= 1);
         self.gap_before.first()
     }
+
+    /// Split the gap's trivia at its comments. The lexer's maximal munch
+    /// guarantees the shape `whitespace? (comment whitespace?)*`, so every
+    /// sub-gap is zero or one whitespace tokens.
+    pub fn split_gap(&self) -> GapStructure {
+        let mut structure = GapStructure { sub_gaps: Vec::new(), comments: Vec::new() };
+        let mut pending_whitespace = None;
+        for (index, token) in self.gap_before.iter().enumerate() {
+            match token.kind() {
+                SyntaxKind::Whitespace => {
+                    debug_assert!(pending_whitespace.is_none(), "adjacent whitespace tokens");
+                    pending_whitespace = Some(index);
+                }
+                SyntaxKind::Comment => {
+                    structure.sub_gaps.push(pending_whitespace.take());
+                    structure.comments.push(index);
+                }
+                _ => debug_assert!(false, "gap contains a non-trivia token"),
+            }
+        }
+        structure.sub_gaps.push(pending_whitespace);
+        structure
+    }
+
+    /// The text of a sub-gap's whitespace (`""` for empty sub-gaps).
+    pub fn whitespace_text(&self, whitespace_index: Option<usize>) -> &str {
+        whitespace_index.map_or("", |index| self.gap_before[index].text())
+    }
+}
+
+/// A gap's trivia, split at its comments: `sub_gaps[i]` is the `gap_before`
+/// index of the whitespace token before comment `i` (`None` when that
+/// sub-gap is empty), and the final entry is the whitespace before the right
+/// token. Invariant: `sub_gaps.len() == comments.len() + 1`.
+pub struct GapStructure {
+    pub sub_gaps: Vec<Option<usize>>,
+    pub comments: Vec<usize>,
 }
 
 /// The document as a flat list of significant tokens, each carrying its
@@ -363,9 +400,8 @@ enum Strength {
 /// Phase 2: collapse the collected atoms into concrete instructions.
 ///
 /// Gaps that no rule attached spacing to are kept verbatim — the formatter
-/// is a no-op except where rules fire. Gaps containing comments are also
-/// kept verbatim for now (the comment-aware sub-gap handling from
-/// API_DESIGN.md is not implemented yet).
+/// is a no-op except where rules fire. Gaps containing comments are split at
+/// the comments and resolved per sub-gap (see [`resolve_gap`]).
 pub fn resolve(slots: &[TokenSlot], boundary_atoms: &BoundaryAtoms, source: &str) -> FormatPlan {
     let mut instructions = Vec::with_capacity(slots.len() * 2);
     let mut indentation_level: i32 = 0;
@@ -373,38 +409,40 @@ pub fn resolve(slots: &[TokenSlot], boundary_atoms: &BoundaryAtoms, source: &str
     for (slot_index, slot) in slots.iter().enumerate() {
         // The gap before this token is one physical location: the previous
         // token's appended atoms and this token's prepended atoms meet here.
-        let mut gap_atoms: Vec<AtomInstance> = Vec::new();
-        if let Some(previous_slot) = slot_index.checked_sub(1).map(|index| &slots[index]) {
-            let previous_start = previous_slot.token.text_range().start();
-            gap_atoms
-                .extend(boundary_atoms.after.get(&previous_start).into_iter().flatten().copied());
-        }
-        let start = slot.token.text_range().start();
-        gap_atoms.extend(boundary_atoms.before.get(&start).into_iter().flatten().copied());
+        // They are kept apart because they route to different sub-gaps when
+        // the gap contains comments.
+        let no_atoms: &[AtomInstance] = &[];
+        let append_atoms = slot_index
+            .checked_sub(1)
+            .and_then(|index| boundary_atoms.after.get(&slots[index].token.text_range().start()))
+            .map_or(no_atoms, Vec::as_slice);
+        let prepend_atoms = boundary_atoms
+            .before
+            .get(&slot.token.text_range().start())
+            .map_or(no_atoms, Vec::as_slice);
 
-        // Indentation is bookkeeping, not a whitespace decision: sum it even
-        // for gaps that are kept verbatim, so that rules firing inside
-        // otherwise unformatted code still see correct levels.
-        for instance in &gap_atoms {
-            match instance.atom {
-                Atom::IndentStart => indentation_level += 1,
-                Atom::IndentEnd => indentation_level -= 1,
-                _ => {}
-            }
-        }
-
-        // Keep in sync with the `continue` arms in `resolve_gap_whitespace`:
-        // these are the atoms that make no whitespace decision on their own.
+        // These are the atoms that make no whitespace decision on their own.
         // (Antispace counts as a decision — an Antispace-only gap collapses
         // to nothing; an AllowBlankLines-only gap must stay verbatim.)
-        let has_spacing_atom = gap_atoms.iter().any(|instance| {
+        let has_spacing_atom = append_atoms.iter().chain(prepend_atoms).any(|instance| {
             !matches!(instance.atom, Atom::IndentStart | Atom::IndentEnd | Atom::AllowBlankLines)
         });
-        if slot.has_comment() || !has_spacing_atom {
-            instructions.push(Instruction::KeepGap { slot: slot_index });
+        if has_spacing_atom {
+            resolve_gap(
+                slot,
+                slot_index,
+                append_atoms,
+                prepend_atoms,
+                source,
+                &mut indentation_level,
+                &mut instructions,
+            );
         } else {
-            let whitespace = resolve_gap_whitespace(&gap_atoms, slot, source, indentation_level);
-            instructions.push(Instruction::ReplaceGap { slot: slot_index, whitespace });
+            // Indentation is bookkeeping, not a whitespace decision: sum it
+            // even for gaps that are kept verbatim, so that rules firing
+            // inside otherwise unformatted code still see correct levels.
+            indentation_level += net_indentation(append_atoms) + net_indentation(prepend_atoms);
+            instructions.push(Instruction::KeepGap { slot: slot_index });
         }
         instructions.push(Instruction::EmitToken { slot: slot_index });
     }
@@ -412,65 +450,247 @@ pub fn resolve(slots: &[TokenSlot], boundary_atoms: &BoundaryAtoms, source: &str
     FormatPlan { instructions }
 }
 
-/// Resolve one gap's atoms into a whitespace decision.
-fn resolve_gap_whitespace(
-    gap_atoms: &[AtomInstance],
-    slot: &TokenSlot,
-    source: &str,
-    indentation_level: i32,
-) -> Whitespace {
-    let measures_multiline = |measure_span: TextRange| source[measure_span].contains('\n');
+fn net_indentation(atoms: &[AtomInstance]) -> i32 {
+    atoms
+        .iter()
+        .map(|instance| match instance.atom {
+            Atom::IndentStart => 1,
+            Atom::IndentEnd => -1,
+            _ => 0,
+        })
+        .sum()
+}
 
-    // Each atom resolves to a strength on its own (softlines against their
-    // measure span, which may differ between instances). The decision is the
-    // lexicographic (tier, strength) maximum: the highest tier that
-    // contributed anything wins, and the strongest atom within it decides.
-    let mut decision: Option<(Tier, Strength)> = None;
-    let mut antispace_tier: Option<Tier> = None;
-    for instance in gap_atoms {
-        let strength = match instance.atom {
-            Atom::Space => Strength::Space,
-            Atom::Hardline => Strength::Newline,
-            Atom::SpacedSoftline(measure_span) => {
-                if measures_multiline(measure_span) { Strength::Newline } else { Strength::Space }
+fn whitespace_has_blank_line(whitespace: &str) -> bool {
+    whitespace.matches('\n').count() >= 2
+}
+
+/// The atoms routed to one sub-gap, plus their bookkeeping side effects.
+#[derive(Default)]
+struct SubGapAtoms {
+    /// Pre-resolved whitespace decisions. The merge is the lexicographic
+    /// (tier, strength) maximum: the highest tier that contributed anything
+    /// wins, and the strongest atom within it decides.
+    decisions: Vec<(Tier, Strength)>,
+    antispace_tier: Option<Tier>,
+    allow_blank_lines: bool,
+    indentation_delta: i32,
+}
+
+/// Resolve an atom to its strength and file it into the sub-gap it belongs
+/// to: whitespace decisions that resolved to a newline go to
+/// `newline_target`, everything else stays at `space_target` (for the left
+/// token's appends, newlines transfer past hanging comments while spaces
+/// stay put — R2 in API_DESIGN.md). Indentation and blank-line bookkeeping
+/// travels with the newline side.
+fn route_atom(
+    instance: &AtomInstance,
+    space_target: usize,
+    newline_target: usize,
+    input_softline_whitespace: &str,
+    source: &str,
+    sub_gaps: &mut [SubGapAtoms],
+) {
+    let strength = match instance.atom {
+        Atom::Space => Strength::Space,
+        Atom::Hardline => Strength::Newline,
+        Atom::SpacedSoftline(measure_span) => {
+            if source[measure_span].contains('\n') {
+                Strength::Newline
+            } else {
+                Strength::Space
             }
-            Atom::EmptySoftline(measure_span) => {
-                if measures_multiline(measure_span) {
-                    Strength::Newline
+        }
+        Atom::EmptySoftline(measure_span) => {
+            if source[measure_span].contains('\n') {
+                Strength::Newline
+            } else {
+                Strength::Nothing
+            }
+        }
+        Atom::InputSoftline => {
+            if input_softline_whitespace.contains('\n') {
+                Strength::Newline
+            } else {
+                Strength::Nothing
+            }
+        }
+        Atom::Antispace => {
+            let antispace_tier = &mut sub_gaps[space_target].antispace_tier;
+            *antispace_tier = (*antispace_tier).max(Some(instance.tier));
+            return;
+        }
+        Atom::IndentStart => {
+            sub_gaps[newline_target].indentation_delta += 1;
+            return;
+        }
+        Atom::IndentEnd => {
+            sub_gaps[newline_target].indentation_delta -= 1;
+            return;
+        }
+        Atom::AllowBlankLines => {
+            sub_gaps[newline_target].allow_blank_lines = true;
+            return;
+        }
+    };
+    let target = if strength == Strength::Newline { newline_target } else { space_target };
+    sub_gaps[target].decisions.push((instance.tier, strength));
+}
+
+/// Resolve one gap that at least one rule attached spacing to.
+///
+/// The gap's trivia is split at its comments into sub-gaps S0..Sn; the left
+/// token's appends route to S0 (space-level) or past the hanging comments
+/// (newlines), the right token's prepends route to Sn, and each sub-gap
+/// resolves independently. A comment-free gap is the degenerate single
+/// sub-gap case and produces the same `ReplaceGap` as before.
+///
+/// Comments never move lines: a boundary that had a newline in the input
+/// keeps it, whatever the rules say — rules only influence the indentation.
+/// A comment that starts at column 0 in the input additionally keeps
+/// indentation level 0 (compiler syntax tests rely on the columns of such
+/// comments).
+fn resolve_gap(
+    slot: &TokenSlot,
+    slot_index: usize,
+    append_atoms: &[AtomInstance],
+    prepend_atoms: &[AtomInstance],
+    source: &str,
+    indentation_level: &mut i32,
+    instructions: &mut Vec<Instruction>,
+) {
+    let structure = slot.split_gap();
+    let comment_count = structure.comments.len();
+    let expected_level_after =
+        *indentation_level + net_indentation(append_atoms) + net_indentation(prepend_atoms);
+
+    // Hanging comments: the maximal prefix with no newline before them.
+    let trailing_count = (0..comment_count)
+        .take_while(|&index| !slot.whitespace_text(structure.sub_gaps[index]).contains('\n'))
+        .count();
+
+    let mut sub_gaps: Vec<SubGapAtoms> = Vec::new();
+    sub_gaps.resize_with(comment_count + 1, SubGapAtoms::default);
+    for instance in append_atoms {
+        route_atom(
+            instance,
+            0,
+            trailing_count,
+            slot.whitespace_text(structure.sub_gaps[trailing_count]),
+            source,
+            &mut sub_gaps,
+        );
+    }
+    for instance in prepend_atoms {
+        route_atom(
+            instance,
+            comment_count,
+            comment_count,
+            slot.whitespace_text(structure.sub_gaps[comment_count]),
+            source,
+            &mut sub_gaps,
+        );
+    }
+
+    for (index, sub_gap) in sub_gaps.iter().enumerate() {
+        let whitespace_index = structure.sub_gaps[index];
+        let whitespace = slot.whitespace_text(whitespace_index);
+        *indentation_level += sub_gap.indentation_delta;
+
+        // `None` means: keep this sub-gap's input whitespace verbatim.
+        let decision: Option<Whitespace> = if comment_count > 0 && whitespace.contains('\n') {
+            // A comment-adjacent boundary with an input newline keeps it
+            // (and its blank line, capped at one). Rules only set the level.
+            let before_column_zero_comment = index < comment_count && whitespace.ends_with('\n');
+            Some(Whitespace::Newline {
+                blank_line: whitespace_has_blank_line(whitespace),
+                indentation_level: if before_column_zero_comment {
+                    0
                 } else {
+                    (*indentation_level).max(0) as u32
+                },
+            })
+        } else if sub_gap.decisions.is_empty() && sub_gap.antispace_tier.is_none() {
+            // No rule said anything about this boundary (e.g. the alignment
+            // spaces before a hanging comment): keep it as written.
+            None
+        } else {
+            let merged = sub_gap.decisions.iter().copied().max();
+            let strength = match merged {
+                // Only Antispace atoms contributed: nothing between the
+                // tokens.
+                None => Strength::Nothing,
+                // Antispace cancels a Space decision of its own or a lower
+                // tier — never a newline.
+                Some((tier, Strength::Space)) if sub_gap.antispace_tier >= Some(tier) => {
                     Strength::Nothing
                 }
-            }
-            Atom::InputSoftline => {
-                if slot.gap_newlines() > 0 { Strength::Newline } else { Strength::Nothing }
-            }
-            Atom::Antispace => {
-                antispace_tier = antispace_tier.max(Some(instance.tier));
-                continue;
-            }
-            Atom::IndentStart | Atom::IndentEnd | Atom::AllowBlankLines => continue,
+                Some((_, strength)) => strength,
+            };
+            Some(match strength {
+                Strength::Nothing => Whitespace::None,
+                Strength::Space => Whitespace::Space,
+                Strength::Newline => Whitespace::Newline {
+                    blank_line: sub_gap.allow_blank_lines && whitespace_has_blank_line(whitespace),
+                    indentation_level: (*indentation_level).max(0) as u32,
+                },
+            })
         };
-        decision = decision.max(Some((instance.tier, strength)));
+
+        match decision {
+            None => {
+                if let Some(trivia_index) = whitespace_index {
+                    instructions.push(Instruction::KeepSubGap { slot: slot_index, trivia_index });
+                }
+            }
+            Some(whitespace_decision) if comment_count == 0 => {
+                instructions.push(Instruction::ReplaceGap {
+                    slot: slot_index,
+                    whitespace: whitespace_decision,
+                });
+            }
+            Some(whitespace_decision) => {
+                instructions.push(Instruction::ReplaceSubGap {
+                    slot: slot_index,
+                    trivia_index: whitespace_index,
+                    whitespace: whitespace_decision,
+                });
+            }
+        }
+
+        // Emit the comment that follows this sub-gap. A comment placed on
+        // its own (possibly re-indented) line shifts its continuation lines
+        // along; hanging or inline comments stay as written.
+        if index < comment_count {
+            let trivia_index = structure.comments[index];
+            let column_shift = match decision {
+                Some(Whitespace::Newline { indentation_level: new_level, .. }) => {
+                    let comment_start =
+                        usize::from(slot.gap_before[trivia_index].text_range().start());
+                    new_level as i32 * INDENT.len() as i32 - column_at(source, comment_start) as i32
+                }
+                _ => 0,
+            };
+            instructions.push(Instruction::EmitComment {
+                slot: slot_index,
+                trivia_index,
+                column_shift,
+            });
+        }
     }
 
-    let strength = match decision {
-        // Only Antispace atoms contributed: nothing between the tokens.
-        None => Strength::Nothing,
-        // Antispace cancels a Space decision of its own or a lower tier —
-        // never a newline.
-        Some((tier, Strength::Space)) if antispace_tier >= Some(tier) => Strength::Nothing,
-        Some((_, strength)) => strength,
-    };
+    debug_assert_eq!(
+        *indentation_level, expected_level_after,
+        "sub-gap routing must apply every indentation delta exactly once"
+    );
+}
 
-    match strength {
-        Strength::Nothing => Whitespace::None,
-        Strength::Space => Whitespace::Space,
-        Strength::Newline => Whitespace::Newline {
-            blank_line: slot.has_blank_line()
-                && gap_atoms.iter().any(|instance| instance.atom == Atom::AllowBlankLines),
-            indentation_level: indentation_level.max(0) as u32,
-        },
-    }
+/// The column (in bytes) at which `offset` sits on its line. Bytes equal
+/// columns for the formatter's use: only the immediately preceding ASCII
+/// whitespace token can sit between the last newline and a comment (a tab
+/// counts as one column, matching the renderer's continuation-line shift).
+fn column_at(source: &str, offset: usize) -> usize {
+    offset - source[..offset].rfind('\n').map_or(0, |newline_offset| newline_offset + 1)
 }
 
 /// Format `document` with the given rules, writing the result through
@@ -540,15 +760,66 @@ mod tests {
         let document = parse("component A {\n\n    x: 1;\n}");
         let linearization = linearize(&document);
 
-        let x_slot = linearization
-            .slots
-            .iter()
-            .find(|slot| slot.token.text() == "x")
-            .expect("slot for `x`");
+        let x_slot =
+            linearization.slots.iter().find(|slot| slot.token.text() == "x").expect("slot for `x`");
         assert_eq!(x_slot.gap_newlines(), 2);
         assert!(x_slot.has_blank_line());
         assert!(!x_slot.has_comment());
         assert_eq!(x_slot.single_whitespace_token().unwrap().text(), "\n\n    ");
+    }
+
+    #[test]
+    fn split_gap_covers_all_trivia_shapes() {
+        // Each case: source, token whose gap we inspect, expected sub-gap
+        // whitespace texts (None = empty sub-gap), expected comment texts.
+        let cases: &[(&str, &str, &[Option<&str>], &[&str])] = &[
+            // Completely empty gap (document start): one empty sub-gap.
+            ("component A { }", "component", &[None], &[]),
+            // Comment-free gap: one sub-gap, no comments.
+            ("component A { }", "{", &[Some(" ")], &[]),
+            // \r\n line endings stay part of the whitespace tokens.
+            (
+                "component A { } // t\r\nexport component B { }",
+                "export",
+                &[Some(" "), Some("\r\n")],
+                &["// t"],
+            ),
+            // ws comment ws
+            (
+                "component A { } // t\nexport component B { }",
+                "export",
+                &[Some(" "), Some("\n")],
+                &["// t"],
+            ),
+            // Comment glued to both sides: empty sub-gaps.
+            ("component A {/* c */}", "}", &[None, None], &["/* c */"]),
+            // Two hanging comments with a gap between them.
+            (
+                "component A { } /* a */ /* b */\nexport component B { }",
+                "export",
+                &[Some(" "), Some(" "), Some("\n")],
+                &["/* a */", "/* b */"],
+            ),
+            // Adjacent comments: empty middle sub-gap.
+            ("component A {/* a *//* b */}", "}", &[None, None, None], &["/* a */", "/* b */"]),
+        ];
+        for (source, token_text, expected_sub_gaps, expected_comments) in cases {
+            let document = parse(source);
+            let linearization = linearize(&document);
+            let slot =
+                linearization.slots.iter().find(|slot| slot.token.text() == *token_text).unwrap();
+            let structure = slot.split_gap();
+            let sub_gap_texts: Vec<Option<&str>> = structure
+                .sub_gaps
+                .iter()
+                .map(|whitespace| whitespace.map(|index| slot.gap_before[index].text()))
+                .collect();
+            let comment_texts: Vec<&str> =
+                structure.comments.iter().map(|index| slot.gap_before[*index].text()).collect();
+            assert_eq!(sub_gap_texts, *expected_sub_gaps, "sub-gaps for {source:?}");
+            assert_eq!(comment_texts, *expected_comments, "comments for {source:?}");
+            assert_eq!(structure.sub_gaps.len(), structure.comments.len() + 1);
+        }
     }
 
     #[test]
@@ -788,6 +1059,155 @@ mod tests {
         );
     }
 
+    /// The gap instructions emitted for `slot` (everything between the
+    /// previous slot's EmitToken and this slot's EmitToken).
+    fn gap_instructions(plan: &FormatPlan, slot: usize) -> Vec<Instruction> {
+        let position_of = |wanted: Instruction| {
+            plan.instructions.iter().position(|instruction| *instruction == wanted).unwrap()
+        };
+        let end = position_of(Instruction::EmitToken { slot });
+        let start =
+            if slot == 0 { 0 } else { position_of(Instruction::EmitToken { slot: slot - 1 }) + 1 };
+        plan.instructions[start..end].to_vec()
+    }
+
+    #[test]
+    fn comment_gaps_resolve_per_sub_gap() {
+        let source = "component A { x /* a */ :/* b */1; }";
+        let (linearization, plan) = resolve_with_rules(source, &colon_and_semicolon_rules());
+
+        let colon_slot = slot_of(&linearization, ":");
+        // Before the colon: the space before the hanging comment has no
+        // atoms and is kept verbatim; the colon's Antispace deletes the
+        // space after the comment.
+        assert_eq!(
+            gap_instructions(&plan, colon_slot),
+            [
+                Instruction::KeepSubGap { slot: colon_slot, trivia_index: 0 },
+                Instruction::EmitComment { slot: colon_slot, trivia_index: 1, column_shift: 0 },
+                Instruction::ReplaceSubGap {
+                    slot: colon_slot,
+                    trivia_index: Some(2),
+                    whitespace: Whitespace::None
+                },
+            ]
+        );
+        // After the colon: the appended Space lands in the empty sub-gap
+        // before the comment (inserted), the empty sub-gap after it stays
+        // empty.
+        let one_slot = colon_slot + 1;
+        assert_eq!(
+            gap_instructions(&plan, one_slot),
+            [
+                Instruction::ReplaceSubGap {
+                    slot: one_slot,
+                    trivia_index: None,
+                    whitespace: Whitespace::Space
+                },
+                Instruction::EmitComment { slot: one_slot, trivia_index: 0, column_shift: 0 },
+            ]
+        );
+    }
+
+    #[test]
+    fn comments_never_move_off_their_line() {
+        // The colon's appended Space meets an own-line comment: the input
+        // newline wins on both sides of the comment, and the column-0
+        // comment keeps level 0.
+        let source = "component A { x:\n// c\n1; }";
+        let (linearization, plan) = resolve_with_rules(source, &colon_and_semicolon_rules());
+
+        let one_slot = slot_of(&linearization, "1");
+        let newline_level_0 = Whitespace::Newline { blank_line: false, indentation_level: 0 };
+        assert_eq!(
+            gap_instructions(&plan, one_slot),
+            [
+                Instruction::ReplaceSubGap {
+                    slot: one_slot,
+                    trivia_index: Some(0),
+                    whitespace: newline_level_0
+                },
+                Instruction::EmitComment { slot: one_slot, trivia_index: 1, column_shift: 0 },
+                Instruction::ReplaceSubGap {
+                    slot: one_slot,
+                    trivia_index: Some(2),
+                    whitespace: newline_level_0
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn newline_appends_transfer_past_hanging_comments() {
+        // A newline-strength append on `{` must land *after* the hanging
+        // comment (R2) — a space-strength atom would have stayed before it.
+        // The target sub-gap has no input newline, so the newline can only
+        // come from the routed atom.
+        let source = "component A { states [ s: { /* note */ c: 1; } ] }";
+        let mut rules = FormatRules::default();
+        rules.node(SyntaxKind::State, |state| {
+            state.token(SyntaxKind::LBrace).append(Atom::Hardline);
+        });
+        let (linearization, plan) = resolve_with_rules(source, &rules);
+
+        let content_slot = slot_of(&linearization, "c");
+        assert_eq!(
+            gap_instructions(&plan, content_slot),
+            [
+                Instruction::KeepSubGap { slot: content_slot, trivia_index: 0 },
+                Instruction::EmitComment { slot: content_slot, trivia_index: 1, column_shift: 0 },
+                Instruction::ReplaceSubGap {
+                    slot: content_slot,
+                    trivia_index: Some(2),
+                    whitespace: Whitespace::Newline { blank_line: false, indentation_level: 0 }
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn own_line_comments_reindent_unless_at_column_zero() {
+        // Same shape twice: an indented comment re-indents to the current
+        // level (with its column shift recorded), a column-0 comment stays
+        // at level 0.
+        let mut rules = colon_and_semicolon_rules();
+        rules.node(SyntaxKind::Element, |element| {
+            element.token(SyntaxKind::LBrace).append(Atom::IndentStart);
+            element.token(SyntaxKind::RBrace).prepend(Atom::IndentEnd);
+        });
+
+        let indented = "component A {\n    x:\n  // c\n    1;\n}";
+        let (linearization, plan) = resolve_with_rules(indented, &rules);
+        let one_slot = slot_of(&linearization, "1");
+        assert_eq!(
+            gap_instructions(&plan, one_slot)[..2],
+            [
+                Instruction::ReplaceSubGap {
+                    slot: one_slot,
+                    trivia_index: Some(0),
+                    whitespace: Whitespace::Newline { blank_line: false, indentation_level: 1 }
+                },
+                // From column 2 to level 1 (column 4): shift +2.
+                Instruction::EmitComment { slot: one_slot, trivia_index: 1, column_shift: 2 },
+            ]
+        );
+
+        let column_zero = "component A {\n    x:\n// c\n    1;\n}";
+        let (linearization, plan) = resolve_with_rules(column_zero, &rules);
+        let one_slot = slot_of(&linearization, "1");
+        assert_eq!(
+            gap_instructions(&plan, one_slot)[..2],
+            [
+                Instruction::ReplaceSubGap {
+                    slot: one_slot,
+                    trivia_index: Some(0),
+                    whitespace: Whitespace::Newline { blank_line: false, indentation_level: 0 }
+                },
+                Instruction::EmitComment { slot: one_slot, trivia_index: 1, column_shift: 0 },
+            ]
+        );
+    }
+
     #[test]
     fn format_with_rules_end_to_end() {
         let document = parse("component A { x   :1; }");
@@ -807,8 +1227,7 @@ mod tests {
     fn significant_tokens_skip_empty_nodes() {
         // `if (true) {}` produces empty Expression/CodeBlock nodes for the
         // missing else branch; the helpers must skip them, not panic.
-        let document =
-            parse("component A { function f() { if (true) {} } }");
+        let document = parse("component A { function f() { if (true) {} } }");
         let code_block = find_node(&document, SyntaxKind::CodeBlock);
         assert!(first_significant_token(&code_block).is_some());
         assert!(last_significant_token(&code_block).is_some());

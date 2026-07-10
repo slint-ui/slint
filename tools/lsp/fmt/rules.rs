@@ -108,20 +108,20 @@ mod tests {
 
     #[test]
     fn already_formatted_input_is_untouched() {
-        assert_formatting_query(
-            "// header\n\ncomponent A {\n    x: 1;\n}\n",
-            "// header\n\ncomponent A {\n    x: 1;\n}\n",
-        );
+        let source = "// header
+
+component A {
+    x: 1;
+}
+";
+        assert_formatting_query(source, source);
     }
 
     #[test]
     fn colon_and_semicolon_spacing_fires_file_wide() {
         // Only the punctuation gaps change; the element braces and the
         // spacing between bindings stay as written.
-        assert_formatting_query(
-            "component A { x :1 ;  y:2; }",
-            "component A { x: 1;  y: 2; }",
-        );
+        assert_formatting_query("component A { x :1 ;  y:2; }", "component A { x: 1;  y: 2; }");
     }
 
     #[test]
@@ -142,16 +142,39 @@ mod tests {
     #[test]
     fn multiline_states_normalize() {
         assert_formatting_query(
-            "component A {\n    states [ s1 when b : {c: 1;} s2 : {\n} ]\n}",
-            "component A {\n    states [\n        s1 when b: { c: 1; }\n        s2: {\n        }\n    ]\n}",
+            "component A {
+    states [ s1 when b : {c: 1;} s2 : {
+} ]
+}",
+            "component A {
+    states [
+        s1 when b: { c: 1; }
+        s2: {
+        }
+    ]
+}",
         );
     }
 
     #[test]
     fn blank_lines_between_states_cap_at_one() {
         assert_formatting_query(
-            "component A {\n    states [\n        s1: { }\n\n\n\n        s2: { }\n    ]\n}",
-            "component A {\n    states [\n        s1: { }\n\n        s2: { }\n    ]\n}",
+            "component A {
+    states [
+        s1: { }
+
+
+
+        s2: { }
+    ]
+}",
+            "component A {
+    states [
+        s1: { }
+
+        s2: { }
+    ]
+}",
         );
     }
 
@@ -161,8 +184,276 @@ mod tests {
         // A multiline empty block keeps one newline; the bracket pair's
         // IndentStart/IndentEnd cancel out in the same gap.
         assert_formatting_query(
-            "component A { states [\n] }",
-            "component A { states [\n    ] }",
+            "component A { states [
+] }",
+            "component A { states [
+    ] }",
+        );
+    }
+
+    #[test]
+    fn comment_gap_without_atoms_is_untouched() {
+        // No rule says anything about the gap around `// c`, so it stays
+        // byte-identical while the colons elsewhere are re-spaced.
+        assert_formatting_query(
+            "component A { x :1; // c
+y :2; }",
+            "component A { x: 1; // c
+y: 2; }",
+        );
+    }
+
+    #[test]
+    fn trailing_comment_stays_on_state_line() {
+        assert_formatting_query(
+            "component A {
+    states [
+        s1: { } // trail
+            s2: { }
+    ]
+}",
+            "component A {
+    states [
+        s1: { } // trail
+        s2: { }
+    ]
+}",
+        );
+    }
+
+    #[test]
+    fn own_line_comment_reindents() {
+        assert_formatting_query(
+            "component A {
+    states [
+        s1: { }
+  // note
+        s2: { }
+    ]
+}",
+            "component A {
+    states [
+        s1: { }
+        // note
+        s2: { }
+    ]
+}",
+        );
+    }
+
+    #[test]
+    fn column_zero_comment_keeps_column_zero() {
+        // The compiler's syntax tests use column-0 comments whose internal
+        // spacing points at columns on the line above; they must not be
+        // re-indented.
+        let source = "component A {
+    states [
+        s1: { }
+//  ^error{x}
+        s2: { }
+    ]
+}";
+        assert_formatting_query(source, source);
+    }
+
+    #[test]
+    fn blank_line_above_own_line_comment_survives_capped() {
+        assert_formatting_query(
+            "component A {
+    states [
+        s1: { }
+
+
+        // note
+        s2: { }
+    ]
+}",
+            "component A {
+    states [
+        s1: { }
+
+        // note
+        s2: { }
+    ]
+}",
+        );
+    }
+
+    #[test]
+    fn hanging_comment_on_lbrace() {
+        // The `{`'s newline transfers past the hanging comment; the
+        // two-space alignment before it is preserved verbatim.
+        let source = "component A {
+    states [
+        s1: {  // note
+            c: 1;
+        }
+    ]
+}";
+        assert_formatting_query(source, source);
+    }
+
+    #[test]
+    fn own_line_comment_before_rbrace_at_inner_level() {
+        // The `}`'s IndentEnd anchors after the comment: the comment sits at
+        // the body level, the brace at the state level.
+        assert_formatting_query(
+            "component A {
+    states [
+        s1: {
+            c: 1;
+          // done
+        }
+    ]
+}",
+            "component A {
+    states [
+        s1: {
+            c: 1;
+            // done
+        }
+    ]
+}",
+        );
+    }
+
+    #[test]
+    fn own_line_comment_before_rbracket_at_inner_level() {
+        assert_formatting_query(
+            "component A {
+    states [
+        s1: { }
+            // end
+    ]
+}",
+            "component A {
+    states [
+        s1: { }
+        // end
+    ]
+}",
+        );
+    }
+
+    #[test]
+    fn block_comment_before_colon_glues_right() {
+        // The colon's Antispace applies after the hanging comment — the
+        // accepted gluing behavior.
+        assert_formatting_query("component A { x /* c */ : 1; }", "component A { x /* c */: 1; }");
+    }
+
+    #[test]
+    fn multiple_own_line_comments_each_reindent() {
+        assert_formatting_query(
+            "component A {
+    states [
+        s1: { }
+    // a
+            // b
+        s2: { }
+    ]
+}",
+            "component A {
+    states [
+        s1: { }
+        // a
+        // b
+        s2: { }
+    ]
+}",
+        );
+    }
+
+    #[test]
+    fn hanging_comment_pair_kept_verbatim() {
+        let source = "component A {
+    states [
+        s1: { } /* a */ /* b */
+        s2: { }
+    ]
+}";
+        assert_formatting_query(source, source);
+    }
+
+    #[test]
+    fn file_leading_comment_untouched() {
+        let source = "// header
+component A { x: 1; }
+";
+        assert_formatting_query(source, source);
+    }
+
+    #[test]
+    fn trailing_file_comment_untouched() {
+        assert_formatting_query(
+            "component A { x :1; }
+// tail
+",
+            "component A { x: 1; }
+// tail
+",
+        );
+    }
+
+    #[test]
+    fn blank_between_own_line_comments_survives() {
+        assert_formatting_query(
+            "component A {
+    states [
+        s1: { }
+        // a
+
+
+        // b
+        s2: { }
+    ]
+}",
+            "component A {
+    states [
+        s1: { }
+        // a
+
+        // b
+        s2: { }
+    ]
+}",
+        );
+    }
+
+    #[test]
+    fn never_move_comment_off_its_line() {
+        // The colon's appended Space meets an own-line comment: the comment
+        // keeps its own line (and here its indentation) instead of being
+        // hoisted up to `x:`.
+        let source = "component A {
+    x:
+    // why
+    1;
+}";
+        assert_formatting_query(source, source);
+    }
+
+    #[test]
+    fn block_comment_continuation_lines_shift() {
+        // Re-indenting the comment from column 2 to column 8 shifts its
+        // second line by the same +6, preserving internal alignment.
+        assert_formatting_query(
+            "component A {
+    states [
+        s1: { }
+  /* long
+     note */
+        s2: { }
+    ]
+}",
+            "component A {
+    states [
+        s1: { }
+        /* long
+           note */
+        s2: { }
+    ]
+}",
         );
     }
 
@@ -172,8 +463,20 @@ mod tests {
         // indentation bookkeeping still places the states content at the
         // right depth (level 3: two elements + the states bracket).
         assert_formatting_query(
-            "component A {\n    inner := Rectangle {\n        states [ s1: { c: 1; }\n            s2: { } ]\n    }\n}",
-            "component A {\n    inner := Rectangle {\n        states [\n            s1: { c: 1; }\n            s2: { }\n        ]\n    }\n}",
+            "component A {
+    inner := Rectangle {
+        states [ s1: { c: 1; }
+            s2: { } ]
+    }
+}",
+            "component A {
+    inner := Rectangle {
+        states [
+            s1: { c: 1; }
+            s2: { }
+        ]
+    }
+}",
         );
     }
 }

@@ -141,15 +141,34 @@ pub struct FormatPlan {
     pub instructions: Vec<Instruction>,
 }
 
+/// The indentation unit: [`Whitespace::Newline`]'s `indentation_level`
+/// counts these.
+pub const INDENT: &str = "    ";
+
 /// One formatting instruction. `slot` is an index into the `Vec<TokenSlot>`
 /// produced by linearization; the renderer receives the slots alongside the
-/// plan.
+/// plan. `trivia_index` indexes into that slot's `gap_before`.
+///
+/// A gap containing comments is emitted as a sequence of sub-gap
+/// instructions in trivia order: sub-gap, comment, sub-gap, comment, …,
+/// sub-gap.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Instruction {
     /// Emit the gap's input trivia unchanged.
     KeepGap { slot: usize },
-    /// Replace the gap's input trivia with the given whitespace.
+    /// Replace the (comment-free) gap's input trivia with the given
+    /// whitespace.
     ReplaceGap { slot: usize, whitespace: Whitespace },
+    /// Emit one whitespace trivia token unchanged (e.g. the alignment spaces
+    /// before a hanging comment).
+    KeepSubGap { slot: usize, trivia_index: usize },
+    /// Replace one whitespace trivia token — or insert whitespace where the
+    /// sub-gap is empty (`trivia_index: None`).
+    ReplaceSubGap { slot: usize, trivia_index: Option<usize>, whitespace: Whitespace },
+    /// Emit a comment token. A re-indented multiline block comment shifts
+    /// each continuation line's leading whitespace by `column_shift`
+    /// (clamped at zero), preserving the comment's internal alignment.
+    EmitComment { slot: usize, trivia_index: usize, column_shift: i32 },
     /// Emit the slot's significant token unchanged.
     EmitToken { slot: usize },
 }

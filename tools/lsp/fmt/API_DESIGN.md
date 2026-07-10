@@ -141,15 +141,20 @@ A gap containing comments is split into sub-gaps S0..Sn around them, and
 atoms never merge across a comment. (This mirrors Topiary, where leaf atoms
 in the linear atom stream are inherent boundaries.) Anchoring rules:
 
-- **R1**: every comment-adjacent sub-gap gets engine-default atoms
-  `InputSoftline + AllowBlankLines` at the lowest tier — comments follow the
-  input's line placement, and blank lines *above* a leading comment survive.
-- **R2**: *trailing* comments (no input newline before them) hang on to their
-  line: newline-strength append atoms of the left token transfer past the
-  trailing comment(s); space-strength atoms (`Space`/`Antispace`) stay at
-  their original boundary. So `{ // note` keeps the comment hanging and the
-  `{`'s softline-newline lands after it. (The strength restriction prevents
-  `foo( /* c */ x)` from transferring the `(`'s Antispace and gluing `*/x`.)
+- **R1**: a comment-adjacent boundary whose input whitespace contains a
+  newline always resolves to a newline, with an input blank line preserved
+  (capped at one) — no rule atom needed. Comment-adjacent boundaries with
+  neither a newline nor routed atoms are kept **verbatim** (this is what
+  preserves alignment spaces before hanging comments).
+- **R2**: atoms route by their *resolved* strength. Newline-strength append
+  atoms of the left token transfer past the *trailing* comments (those with
+  no input newline before them); everything else (`Space`, `Antispace`, and
+  atoms that resolved to nothing) stays at the left boundary. So `{ // note`
+  keeps the comment hanging and the `{`'s softline-newline lands after it,
+  while `foo( /* c */ x)` keeps the `(`'s Antispace before the comment.
+  Appends' `InputSoftline` resolves against the whitespace just after the
+  trailing comments; prepends' against the last sub-gap. Indentation and
+  `AllowBlankLines` bookkeeping travels with the newline side.
 - **R3**: prepend atoms of the right token anchor at the *last* sub-gap. A
   useful consequence: a comment before `}` sits before the `}`'s `IndentEnd`
   anchor, so own-line comments there automatically render at the *inner*
@@ -157,47 +162,80 @@ in the linear atom stream are inherent boundaries.) Anchoring rules:
 
 Decided comment behaviors (with their trade-offs):
 
+- **Comments never move lines**: rules re-indent comments but never pull one
+  onto another line or push one off it — a boundary that had a newline in
+  the input keeps it, whatever the rules say (this is R1's unconditional
+  newline; it also means a rule's `Space` is dropped at such a boundary).
 - Horizontal whitespace before a hanging comment is preserved **verbatim**
   (protects user-aligned comment columns; matches the current formatter).
 - Own-line comments are **re-indented to the current indent level** (matches
-  Topiary; diverges from the current formatter, corpus diffs accepted).
+  Topiary; diverges from the current formatter, corpus diffs accepted) —
+  **except comments starting at column 0**, which keep indentation level 0:
+  the compiler's syntax tests use column-0 comments like `//   ^error{…}`
+  whose internal spacing points at columns on the line above. At document
+  start, an empty leading sub-gap counts as column 0.
+- A re-indented multiline block comment shifts each continuation line's
+  leading whitespace by the same column delta (clamped at zero), preserving
+  the comment's internal alignment.
 - `foo( /* c */ x)` rendering as `(/* c */ x` (Antispace in the first
   sub-gap) is accepted for now — matches the Topiary reference; revisit
   after the corpus run.
 - `{ // note` keeps the comment hanging (matches the current formatter;
   Topiary would move it to the next line).
+- Engagement is per gap: the sub-gap machinery (including R1's defaults)
+  only runs when at least one rule attached a spacing atom to the gap;
+  otherwise the whole gap — comments included — stays verbatim. `AllowBlankLines`
+  is sub-gap-local: it protects the boundary it routes to, and
+  comment-adjacent boundaries protect themselves.
 
 #### Output: `FormatPlan`
+
+Instructions reference the linearization (which travels alongside the plan)
+by index instead of carrying tokens: `slot` indexes the token slots,
+`trivia_index` a slot's `gap_before`. A gap containing comments expands into
+a sub-gap instruction sequence in trivia order: S0, C1, S1, …, Cn, Sn.
 
 ```rust
 struct FormatPlan { instructions: Vec<Instruction> }
 
-enum Ws { None, Space, Newline { blank: bool, indent_level: u32 } }
+enum Whitespace { None, Space, Newline { blank_line: bool, indentation_level: u32 } }
 
 enum Instruction {
-    Whitespace(Ws),                    // gap content (replaces the gap's trivia)
-    Comment { token: SyntaxToken, indent_level: u32 }, // re-indented if own-line/multiline
-    Literal(&'static str),
-    Token(SyntaxToken),                // emit verbatim
-    DeletedToken(SyntaxToken),         // emit nothing (kept for writer bookkeeping)
-    Verbatim { slots: Range<usize> },  // a Leaf range, trivia included
+    /// Emit the whole gap's trivia unchanged (no rule fired here).
+    KeepGap { slot: usize },
+    /// Replace the (comment-free) gap's trivia with the given whitespace.
+    ReplaceGap { slot: usize, whitespace: Whitespace },
+    /// Emit one whitespace trivia token unchanged (e.g. the alignment
+    /// spaces before a hanging comment).
+    KeepSubGap { slot: usize, trivia_index: usize },
+    /// Replace one whitespace trivia token — or insert whitespace where the
+    /// sub-gap is empty.
+    ReplaceSubGap { slot: usize, trivia_index: Option<usize>, whitespace: Whitespace },
+    /// Emit a comment; a re-indented multiline block comment shifts its
+    /// continuation lines by `column_shift`.
+    EmitComment { slot: usize, trivia_index: usize, column_shift: i32 },
+    /// Emit the slot's significant token unchanged.
+    EmitToken { slot: usize },
 }
 ```
+
+The `Literal` atom and the `Leaf`/`Delete` markers will add instructions
+(fixed text, verbatim ranges, dropped tokens) when they are implemented.
 
 ### Phase 3 — render
 
 Realize the `FormatPlan` through the existing `TokenWriter` trait
-(`tools/lsp/fmt/writer.rs`). Deliberately almost nothing happens here: `Ws`
-decisions become strings (the indent unit and any future width/style config
-live here), and the writer protocol is honored — every original token, trivia
-included, passes through the writer exactly once:
+(`tools/lsp/fmt/writer.rs`). Deliberately almost nothing happens here:
+`Whitespace` decisions become strings (the indent unit lives here), and the
+writer protocol is honored — every original token, trivia included, passes
+through the writer exactly once:
 
-- `Token`: `no_change`; `DeletedToken`: `with_new_content("")`
-- `Whitespace(ws)`: `with_new_content` on the gap's whitespace trivia tokens
-  (possibly `""`), or `insert_before` where the input had no trivia token
-- `Comment`: `no_change`, or `with_new_content` when the comment or its
-  continuation lines need re-indenting
-- `Verbatim`: every token of the range, trivia included, via `no_change`
+- `EmitToken`, `KeepSubGap`: `no_change`
+- `KeepGap`: `no_change` per trivia token of the gap
+- `ReplaceGap`, `ReplaceSubGap`: `with_new_content` on the whitespace token
+  (possibly `""`), or `insert_content` where the input had none
+- `EmitComment`: `no_change`, or `with_new_content` when continuation lines
+  shift
 
 Keeping `TokenWriter` preserves both existing sinks unchanged: the CLI tool
 (`fmt/tool.rs`, including `.rs`/`.md` embedded-source handling and the
