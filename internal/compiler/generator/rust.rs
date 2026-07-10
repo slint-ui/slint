@@ -3431,11 +3431,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             repeater_indices,
             measure_cells,
             default_cells,
+            cells_variables,
         } => generate_solve_flexbox_layout_with_measure(
             data,
             repeater_indices,
             measure_cells,
             default_cells,
+            cells_variables.as_ref(),
             ctx,
         ),
 
@@ -5376,6 +5378,7 @@ fn generate_solve_flexbox_layout_with_measure(
     repeater_indices: &Expression,
     measure_cells: &[Either<(Expression, Expression), llr::LayoutRepeatedElement>],
     default_cells: &[Either<(Expression, Expression), llr::LayoutRepeatedElement>],
+    cells_variables: Option<&(SmolStr, SmolStr)>,
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let data = compile_expression(data, ctx);
@@ -5384,52 +5387,127 @@ fn generate_solve_flexbox_layout_with_measure(
     let known_h_ident = ident("measure_known_h");
 
     // Height-for-width / width-for-height: recompute the perpendicular info at
-    // the dimension taffy assigned.
-    let mut v_arms = Vec::new();
-    let mut h_arms = Vec::new();
-    for (i, item) in measure_cells.iter().enumerate() {
-        if let Either::Left((h_info, v_info)) = item {
-            let idx = proc_macro2::Literal::usize_unsuffixed(i);
-            let v = compile_expression(v_info, ctx);
-            let h = compile_expression(h_info, ctx);
-            v_arms.push(quote!(#idx => ({ #v }).preferred_bounded(),));
-            h_arms.push(quote!(#idx => ({ #h }).preferred_bounded(),));
+    // the dimension taffy assigned. Without a repeater the cell index is known at
+    // compile time, so match on it (O(1) dispatch). With a repeater the count is
+    // only known at runtime: walk the elements, advancing `cursor` by 1 per static
+    // cell and by the repeater's instance count per repeater, until `index`'s range
+    // is found.
+    let (v_body, h_body) = if cells_variables.is_none() {
+        let mut v_arms = Vec::new();
+        let mut h_arms = Vec::new();
+        for (i, item) in measure_cells.iter().enumerate() {
+            if let Either::Left((h_info, v_info)) = item {
+                let idx = proc_macro2::Literal::usize_unsuffixed(i);
+                let v = compile_expression(v_info, ctx);
+                let h = compile_expression(h_info, ctx);
+                v_arms.push(quote!(#idx => return (w, ({ #v }).preferred_bounded()),));
+                h_arms.push(quote!(#idx => return (({ #h }).preferred_bounded(), h),));
+            }
         }
-        // Repeater cells (the `Right` case) are not emitted; they fall through
-        // to the preferred default below.
-    }
+        (quote!(match index { #(#v_arms)* _ => {} }), quote!(match index { #(#h_arms)* _ => {} }))
+    } else {
+        let mut v_steps = Vec::new();
+        let mut h_steps = Vec::new();
+        for item in measure_cells {
+            match item {
+                Either::Left((h_info, v_info)) => {
+                    let v = compile_expression(v_info, ctx);
+                    let h = compile_expression(h_info, ctx);
+                    v_steps.push(quote!(
+                        if index == cursor { return (w, ({ #v }).preferred_bounded()); }
+                        cursor += 1;
+                    ));
+                    h_steps.push(quote!(
+                        if index == cursor { return (({ #h }).preferred_bounded(), h); }
+                        cursor += 1;
+                    ));
+                }
+                Either::Right(repeater) => {
+                    let repeater_id =
+                        format_ident!("repeater{}", usize::from(repeater.repeater_index));
+                    v_steps.push(quote!(
+                        {
+                            let len = _self.#repeater_id.len();
+                            if index >= cursor && index < cursor + len {
+                                if let Some(sub_comp) = _self.#repeater_id.instance_at(index - cursor) {
+                                    return (w, sub_comp
+                                        .as_pin_ref()
+                                        .flexbox_layout_item_info_at_cross_width(w)
+                                        .constraint
+                                        .preferred_bounded());
+                                }
+                                return (w, h);
+                            }
+                            cursor += len;
+                        }
+                    ));
+                    // No width-for-height accessor on a repeated instance: keep its default.
+                    h_steps.push(quote!(cursor += _self.#repeater_id.len();));
+                }
+            }
+        }
+        // The final `cursor += …` is a dead write; `let _ = cursor;` consumes it
+        // to avoid an `unused_assignments` warning in the generated code.
+        (
+            quote!(let mut cursor = 0usize; #(#v_steps)* let _ = cursor;),
+            quote!(let mut cursor = 0usize; #(#h_steps)* let _ = cursor;),
+        )
+    };
 
-    // Preferred (default-constraint) size per cell, returned when taffy asks
-    // for a dimension without a known cross-axis size (mirrors the plain
-    // `solve_flexbox_layout` measure).
-    let mut def_w = Vec::new();
-    let mut def_h = Vec::new();
-    for item in default_cells {
-        if let Either::Left((h_info, v_info)) = item {
-            let h = compile_expression(h_info, ctx);
-            let v = compile_expression(v_info, ctx);
-            def_w.push(quote!(({ #h }).preferred_bounded(),));
-            def_h.push(quote!(({ #v }).preferred_bounded(),));
+    // Preferred size per cell, returned when taffy asks for a dimension without
+    // a known cross-axis size (mirrors the plain `solve_flexbox_layout` measure).
+    // With a repeater, read the flat cell arrays; otherwise inline the constants.
+    let (defaults_decl, default_w, default_h) = match cells_variables {
+        Some((cells_h, cells_v)) => {
+            let cells_h = ident(cells_h);
+            let cells_v = ident(cells_v);
+            (
+                quote!(
+                    let pref_h_cells = #cells_h.as_slice();
+                    let pref_v_cells = #cells_v.as_slice();
+                ),
+                quote!(pref_h_cells.get(index).map_or(0f32, |c| c.constraint.preferred_bounded())),
+                quote!(pref_v_cells.get(index).map_or(0f32, |c| c.constraint.preferred_bounded())),
+            )
         }
-    }
+        None => {
+            let mut def_w = Vec::new();
+            let mut def_h = Vec::new();
+            for item in default_cells {
+                if let Either::Left((h_info, v_info)) = item {
+                    let h = compile_expression(h_info, ctx);
+                    let v = compile_expression(v_info, ctx);
+                    def_w.push(quote!(({ #h }).preferred_bounded(),));
+                    def_h.push(quote!(({ #v }).preferred_bounded(),));
+                }
+            }
+            (
+                quote!(
+                    let pref_w: &[f32] = &[#(#def_w)*];
+                    let pref_h: &[f32] = &[#(#def_h)*];
+                ),
+                quote!(pref_w.get(index).copied().unwrap_or(0f32)),
+                quote!(pref_h.get(index).copied().unwrap_or(0f32)),
+            )
+        }
+    };
 
     quote! { {
-        let pref_w: &[f32] = &[#(#def_w)*];
-        let pref_h: &[f32] = &[#(#def_h)*];
+        #defaults_decl
         let mut measure = |index: usize, known_w: Option<f32>, known_h: Option<f32>| -> (f32, f32) {
-            let w = known_w.unwrap_or_else(|| pref_w.get(index).copied().unwrap_or(0f32));
-            let h = known_h.unwrap_or_else(|| pref_h.get(index).copied().unwrap_or(0f32));
+            let w = known_w.unwrap_or_else(|| #default_w);
+            let h = known_h.unwrap_or_else(|| #default_h);
             if known_w.is_some() && known_h.is_none() {
                 let #known_w_ident = w;
                 let _ = #known_w_ident;
-                let nh = match index { #(#v_arms)* _ => h };
-                return (w, nh);
+                #v_body
+                return (w, h);
             }
             if known_h.is_some() && known_w.is_none() {
                 let #known_h_ident = h;
                 let _ = #known_h_ident;
-                let nw = match index { #(#h_arms)* _ => w };
-                return (nw, h);
+                #h_body
+                return (w, h);
             }
             (w, h)
         };

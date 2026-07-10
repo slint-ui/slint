@@ -4564,61 +4564,134 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             repeater_indices,
             measure_cells,
             default_cells,
+            cells_variables,
         } => {
             let data = compile_expression(data, ctx);
             let repeater_indices = compile_expression(repeater_indices, ctx);
             // cbindgen does not expose `LayoutInfo::preferred_bounded()`, so
             // inline it: preferred_bounded = max(min(preferred, max), min).
-            let mut v_cases = String::new();
-            let mut h_cases = String::new();
-            for (i, item) in measure_cells.iter().enumerate() {
-                if let Either::Left((h_info, v_info)) = item {
-                    let v = compile_expression(v_info, ctx);
-                    let h = compile_expression(h_info, ctx);
-                    v_cases.push_str(&format!(
-                        "case {i}: {{ auto li = {v}; nh = std::max(std::min(li.preferred, li.max), li.min); break; }}\n"
-                    ));
-                    h_cases.push_str(&format!(
-                        "case {i}: {{ auto li = {h}; nw = std::max(std::min(li.preferred, li.max), li.min); break; }}\n"
-                    ));
+            const BOUNDED: &str = "std::max(std::min(li.preferred, li.max), li.min)";
+            // Without a repeater the cell index is known at compile time, so switch
+            // on it (O(1) dispatch). With a repeater the count is only known at
+            // runtime: walk the elements, advancing `cursor` by 1 per static cell
+            // and by the repeater's instance count per repeater, until `index`'s
+            // range is found.
+            let (v_body, h_body) = if cells_variables.is_none() {
+                let mut v_cases = String::new();
+                let mut h_cases = String::new();
+                for (i, item) in measure_cells.iter().enumerate() {
+                    if let Either::Left((h_info, v_info)) = item {
+                        let v = compile_expression(v_info, ctx);
+                        let h = compile_expression(h_info, ctx);
+                        v_cases.push_str(&format!(
+                            "case {i}: {{ auto li = {v}; return {{ w, {BOUNDED} }}; }}\n"
+                        ));
+                        h_cases.push_str(&format!(
+                            "case {i}: {{ auto li = {h}; return {{ {BOUNDED}, h }}; }}\n"
+                        ));
+                    }
                 }
-            }
-            // Preferred (default-constraint) size per cell, returned when taffy
-            // asks for a dimension without a known cross-axis size.
-            let mut pref_w = String::new();
-            let mut pref_h = String::new();
-            for item in default_cells {
-                if let Either::Left((h_info, v_info)) = item {
-                    let h = compile_expression(h_info, ctx);
-                    let v = compile_expression(v_info, ctx);
-                    pref_w.push_str(&format!(
-                        "[&]{{ auto li = {h}; return std::max(std::min(li.preferred, li.max), li.min); }}(),\n"
-                    ));
-                    pref_h.push_str(&format!(
-                        "[&]{{ auto li = {v}; return std::max(std::min(li.preferred, li.max), li.min); }}(),\n"
-                    ));
+                (
+                    format!("switch (index) {{\n{v_cases}default: break;\n}}\n"),
+                    format!("switch (index) {{\n{h_cases}default: break;\n}}\n"),
+                )
+            } else {
+                let mut v_steps = String::new();
+                let mut h_steps = String::new();
+                for item in measure_cells {
+                    match item {
+                        Either::Left((h_info, v_info)) => {
+                            let v = compile_expression(v_info, ctx);
+                            let h = compile_expression(h_info, ctx);
+                            v_steps.push_str(&format!(
+                                "if (index == cursor) {{ auto li = {v}; return {{ w, {BOUNDED} }}; }}\n\
+                                 cursor += 1;\n"
+                            ));
+                            h_steps.push_str(&format!(
+                                "if (index == cursor) {{ auto li = {h}; return {{ {BOUNDED}, h }}; }}\n\
+                                 cursor += 1;\n"
+                            ));
+                        }
+                        Either::Right(repeater) => {
+                            let i = usize::from(repeater.repeater_index);
+                            v_steps.push_str(&format!(
+                                "{{ auto len = self->repeater_{i}.len(); \
+                                 if (index >= cursor && index < cursor + len) {{ \
+                                     if (auto *sub_comp = self->repeater_{i}.typed_instance_at(index - cursor)) {{ \
+                                         auto li = sub_comp->flexbox_layout_item_info_at_cross_width(w).constraint; \
+                                         return {{ w, {BOUNDED} }}; }} \
+                                     return {{ w, h }}; }} \
+                                 cursor += len; }}\n"
+                            ));
+                            // No width-for-height accessor on a repeated instance: keep its default.
+                            h_steps.push_str(&format!("cursor += self->repeater_{i}.len();\n"));
+                        }
+                    }
                 }
-            }
+                (
+                    format!("[[maybe_unused]] uintptr_t cursor = 0;\n{v_steps}"),
+                    format!("[[maybe_unused]] uintptr_t cursor = 0;\n{h_steps}"),
+                )
+            };
+            // Preferred size per cell, returned when taffy asks for a dimension
+            // without a known cross-axis size. With a repeater the cell count is
+            // only known at runtime, so read the flat cell arrays the enclosing
+            // `WithFlexboxLayoutItemInfo` built; otherwise inline the constants.
+            let (defaults_decl, default_w, default_h) = match cells_variables {
+                Some((cells_h, cells_v)) => {
+                    let (cells_h, cells_v) = (ident(cells_h), ident(cells_v));
+                    (
+                        String::new(),
+                        format!(
+                            "index < {cells_h}.len ? [&]{{ auto li = {cells_h}.ptr[index].constraint; return {BOUNDED}; }}() : 0.0f"
+                        ),
+                        format!(
+                            "index < {cells_v}.len ? [&]{{ auto li = {cells_v}.ptr[index].constraint; return {BOUNDED}; }}() : 0.0f"
+                        ),
+                    )
+                }
+                None => {
+                    let mut pref_w = String::new();
+                    let mut pref_h = String::new();
+                    for item in default_cells {
+                        if let Either::Left((h_info, v_info)) = item {
+                            let h = compile_expression(h_info, ctx);
+                            let v = compile_expression(v_info, ctx);
+                            pref_w.push_str(&format!(
+                                "[&]{{ auto li = {h}; return {BOUNDED}; }}(),\n"
+                            ));
+                            pref_h.push_str(&format!(
+                                "[&]{{ auto li = {v}; return {BOUNDED}; }}(),\n"
+                            ));
+                        }
+                    }
+                    (
+                        format!(
+                            "const float pref_w[] = {{ {pref_w} }};\n\
+                             const float pref_h[] = {{ {pref_h} }};\n\
+                             const size_t cell_count = sizeof(pref_w) / sizeof(float);\n"
+                        ),
+                        "index < cell_count ? pref_w[index] : 0.0f".to_owned(),
+                        "index < cell_count ? pref_h[index] : 0.0f".to_owned(),
+                    )
+                }
+            };
             format!(
                 "slint::private_api::solve_flexbox_layout_with_measure({data}, {repeater_indices}, \
                  [&](uintptr_t index, std::optional<float> known_w, std::optional<float> known_h) \
                  -> std::pair<float, float> {{\n\
-                    const float pref_w[] = {{ {pref_w} }};\n\
-                    const float pref_h[] = {{ {pref_h} }};\n\
-                    const size_t cell_count = sizeof(pref_w) / sizeof(float);\n\
-                    float w = known_w.value_or(index < cell_count ? pref_w[index] : 0.0f);\n\
-                    float h = known_h.value_or(index < cell_count ? pref_h[index] : 0.0f);\n\
+                    {defaults_decl}\
+                    float w = known_w.value_or({default_w});\n\
+                    float h = known_h.value_or({default_h});\n\
                     if (known_w.has_value() && !known_h.has_value()) {{\n\
                         [[maybe_unused]] float measure_known_w = w;\n\
-                        float nh = h;\n\
-                        switch (index) {{\n{v_cases}default: break;\n}}\n\
-                        return {{ w, nh }};\n\
+                        {v_body}\
+                        return {{ w, h }};\n\
                     }}\n\
                     if (known_h.has_value() && !known_w.has_value()) {{\n\
                         [[maybe_unused]] float measure_known_h = h;\n\
-                        float nw = w;\n\
-                        switch (index) {{\n{h_cases}default: break;\n}}\n\
-                        return {{ nw, h }};\n\
+                        {h_body}\
+                        return {{ w, h }};\n\
                     }}\n\
                     return {{ w, h }};\n\
                  }})"

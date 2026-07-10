@@ -261,15 +261,23 @@ pub enum Expression {
     /// `(h_info, v_info)` at the default constraint (matching `data`'s cells);
     /// it provides the preferred size returned when taffy asks for a dimension
     /// without a known cross-axis size (mirroring the plain `solve_flexbox_layout`
-    /// measure). Repeater cells (the `Right` case) are not routed through the
-    /// callback yet.
+    /// measure). A repeater cell (the `Right` case) is measured by calling
+    /// `flexbox_layout_item_info_at_cross_width` on the instance taffy asks for.
     SolveFlexboxLayoutWithMeasure {
         /// The `FlexboxLayoutData` (built inline with the cell arrays, so its
         /// temporaries live for the duration of the solve call).
         data: Box<Expression>,
         repeater_indices: Box<Expression>,
         measure_cells: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
+        /// Only used when `cells_variables` is `None`; empty otherwise.
         default_cells: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
+        /// Names of the flat `(cells_h, cells_v)` locals set up by the enclosing
+        /// `WithFlexboxLayoutItemInfo`. `Some` exactly when the layout has a
+        /// repeater: a repeater expands to a runtime number of cells, so the
+        /// callback maps taffy's flat cell index to an element with a runtime
+        /// cursor, and takes per-cell defaults from these arrays instead of the
+        /// per-element `default_cells`.
+        cells_variables: Option<(SmolStr, SmolStr)>,
     },
     /// Will call the sub_expression, with the cells variable set to the
     /// array of GridLayoutInputData from the elements
@@ -589,6 +597,7 @@ macro_rules! visit_impl {
                 repeater_indices,
                 measure_cells,
                 default_cells,
+                cells_variables: _,
             } => {
                 $visitor(data);
                 $visitor(repeater_indices);
