@@ -28,11 +28,11 @@ pub fn lower_animations(
                 && let Callable::Builtin(
                     BuiltinFunction::StartAnimation | BuiltinFunction::StopAnimation,
                 ) = function
-                && let [Expression::ElementReference(timer)] = arguments.as_slice()
+                && let [Expression::ElementReference(animation)] = arguments.as_slice()
             {
                 *e = Expression::SelfAssignment {
                     lhs: Box::new(Expression::PropertyReference(NamedReference::new(
-                        &timer.upgrade().unwrap(),
+                        &animation.upgrade().unwrap(),
                         SmolStr::new_static("running"),
                     ))),
                     rhs: Box::new(Expression::BoolLiteral(matches!(
