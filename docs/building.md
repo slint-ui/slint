@@ -117,9 +117,6 @@ cargo build
 cargo test
 ```
 
-**Important:** Note that `cargo test` does not work without first calling `cargo build` because the
-the required dynamic library won't be found.
-
 ### Workspace layout
 
 The repository is split into several Cargo workspaces that all share the same

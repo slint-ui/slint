@@ -218,12 +218,15 @@ Platform (winit/qt/linuxkms)
 
 ### Screenshot Tests
 
+`test-driver-screenshots` lives in the separate `tests/` Cargo workspace, so these need
+`--manifest-path tests/Cargo.toml` when run from the repository root:
+
 ```sh
 # Run screenshot comparison tests
-cargo test -p test-driver-screenshots
+cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots
 
 # Generate new reference screenshots (run when intentionally changing rendering)
-SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots
+SLINT_CREATE_SCREENSHOTS=1 cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots
 ```
 
 ### Testing Backend
@@ -242,8 +245,8 @@ The testing backend (`internal/backends/testing/`) provides:
 ### Visual Verification
 
 ```sh
-# Run gallery to visually inspect rendering
-cargo run -p gallery
+# Run gallery to visually inspect rendering (in the separate examples/ workspace)
+cargo run --manifest-path examples/Cargo.toml -p gallery
 
 # View specific .slint file with hot reload
 cargo run --bin slint-viewer -- path/to/file.slint
