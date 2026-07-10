@@ -520,7 +520,7 @@ import slint
 
 class App(slint.loader.recipe.Recipe):
     @slint.callback(global_name="Logic")
-    def to_upper_case(&self, value: str) -> str:
+    def to_upper_case(self, value: str) -> str:
         return value.upper()
 
 # ...

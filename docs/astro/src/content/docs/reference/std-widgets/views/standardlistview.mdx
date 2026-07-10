@@ -33,12 +33,12 @@ Like ListView, but with a default delegate, and a `model` property.
 Same as <Link type="ListView" />, and in addition:
 
 ### current-item
-<SlintProperty typeName="int" propName="current-item" default="-1" propertyVisibility="in-out">
+<SlintProperty typeName="int" propName="current-item" defaultValue="-1" propertyVisibility="in-out">
 The index of the currently active item. -1 mean none is selected, which is the default
 </SlintProperty>
 
 ### model
-<SlintProperty typeName="struct" structName="StandardListViewItem" propName="model" default="[]">
+<SlintProperty typeName="struct" structName="StandardListViewItem" propName="model" defaultValue="[]">
 The model.
 
 ```slint 'model: [{ text: "Blue" }, { text: "Red" }, { text: "Green" }];'
