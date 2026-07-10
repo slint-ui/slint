@@ -146,8 +146,12 @@ including how to rebuild `slint-python` after making changes.
 
 ## Screenshot tests
 
-This is used to test renderer backends. At the moment it supports the `SoftwareRenderer`. Each `.slint` file in `tests/screenshots/cases` will be loaded
-rendered and the results will be compared to the reference images in `tests/screenshots/references`.
+This is used to test renderer backends. It supports the `SoftwareRenderer` (with and without
+embedded assets) and the Skia renderer, selected via the `software`, `software-embed-assets`,
+and `skia` Cargo features (all enabled by default). Each `.slint` file in
+`tests/screenshots/cases` will be loaded, rendered with each enabled renderer, and the results
+will be compared to the reference images in the matching `tests/screenshots/references/<renderer>`
+sub-directory.
 
 To generate references images for all test files in `tests/screenshots/cases` run:
 
