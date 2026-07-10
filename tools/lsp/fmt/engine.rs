@@ -222,8 +222,10 @@ impl<'a> Selection<'a> {
             .flat_map(|node| node.children_with_tokens())
             .filter_map(NodeOrToken::into_token)
             // "Trivia is never selectable" is enforced here, structurally,
-            // not by each caller's kind filter.
-            .filter(|token| !is_trivia(token.kind()))
+            // not by each caller's kind filter. Eof is excluded too: it is
+            // the synthetic terminator after the trailing file trivia, so
+            // atoms anchored to it would resolve past the last real gap.
+            .filter(is_significant)
     }
 
     /// The direct child nodes of the selected nodes with the given kind.
@@ -241,13 +243,64 @@ impl<'a> Selection<'a> {
 
     /// The direct child tokens of the selected nodes with the given kind.
     pub fn token(&self, kind: SyntaxKind) -> Selection<'a> {
-        debug_assert!(!is_trivia(kind), "rules must not select trivia");
+        debug_assert!(
+            !is_trivia(kind) && kind != SyntaxKind::Eof,
+            "rules must not select trivia or Eof"
+        );
+        self.token_matching(|child_kind| child_kind == kind)
+    }
+
+    /// The direct child tokens of the selected nodes whose kind matches the
+    /// predicate. For matching a set of kinds, e.g. the operator of a
+    /// `BinaryExpression`, where [`Selection::token`] would need one call per
+    /// kind.
+    pub fn token_matching(&self, predicate: impl Fn(SyntaxKind) -> bool) -> Selection<'a> {
         self.derived(
             self.child_tokens()
-                .filter(|token| token.kind() == kind)
+                .filter(|token| predicate(token.kind()))
                 .map(NodeOrToken::Token)
                 .collect(),
         )
+    }
+
+    /// All significant direct children (nodes and tokens) of the selected
+    /// nodes, in source order. Token-less nodes (the parser produces e.g.
+    /// empty `Expression` nodes) are skipped, so pairwise iteration never
+    /// sees an item without a boundary to attach atoms to.
+    pub fn children(&self) -> Selection<'a> {
+        self.derived(
+            self.items
+                .iter()
+                .filter_map(NodeOrToken::as_node)
+                .flat_map(|node| node.children_with_tokens())
+                .filter(|child| match child {
+                    NodeOrToken::Token(token) => is_significant(token),
+                    NodeOrToken::Node(node) => first_significant_token(node).is_some(),
+                })
+                .collect(),
+        )
+    }
+
+    /// The selected items, for plain-Rust processing (pairwise windows,
+    /// position-dependent logic, rowan navigation). [`Selection::at`]
+    /// re-enters the selection API from whatever the iteration found.
+    pub fn iter(&self) -> impl Iterator<Item = &NodeOrToken> + '_ {
+        self.items.iter()
+    }
+
+    /// A selection of one arbitrary node or token, inheriting this
+    /// selection's rule context (measure span for softlines), tier, and
+    /// sink. This is the escape hatch back from plain rowan navigation.
+    pub fn at(&self, item: impl Into<NodeOrToken>) -> Selection<'a> {
+        let item = item.into();
+        // Linear token navigation (`next_token`) is exactly how a rule can
+        // run into trivia or the trailing Eof, so the escape hatch checks
+        // for both.
+        debug_assert!(
+            item.as_token().is_none_or(is_significant),
+            "rules must not select trivia or Eof"
+        );
+        self.derived(vec![item])
     }
 
     /// The direct child `Identifier` tokens with the given text.
@@ -1208,19 +1261,92 @@ mod tests {
         );
     }
 
-    #[test]
-    fn format_with_rules_end_to_end() {
-        let document = parse("component A { x   :1; }");
+    fn format_with(source: &str, rules: &FormatRules) -> String {
+        let document = parse(source);
         let mut output = Vec::new();
         format_document_with_rules(
             &document,
-            &colon_and_semicolon_rules(),
+            rules,
             &mut crate::fmt::writer::FileWriter { file: &mut output },
         )
         .unwrap();
+        String::from_utf8(output).unwrap()
+    }
+
+    #[test]
+    fn format_with_rules_end_to_end() {
         // The colon is re-spaced (including a space *inserted* where the
         // input had no whitespace token); everything else is untouched.
-        assert_eq!(String::from_utf8(output).unwrap(), "component A { x: 1; }");
+        assert_eq!(
+            format_with("component A { x   :1; }", &colon_and_semicolon_rules()),
+            "component A { x: 1; }"
+        );
+    }
+
+    #[test]
+    fn token_matching_selects_a_kind_set() {
+        // One rule spaces every arithmetic operator of a BinaryExpression;
+        // `token_matching` replaces four separate `token(kind)` calls.
+        let mut rules = FormatRules::default();
+        rules.node(SyntaxKind::BinaryExpression, |binary| {
+            binary
+                .token_matching(|kind| {
+                    matches!(
+                        kind,
+                        SyntaxKind::Plus | SyntaxKind::Minus | SyntaxKind::Star | SyntaxKind::Div
+                    )
+                })
+                .prepend(Atom::Space)
+                .append(Atom::Space);
+        });
+        assert_eq!(
+            format_with("component A { x: 1+2 *3- 4; }", &rules),
+            "component A { x: 1 + 2 * 3 - 4; }"
+        );
+    }
+
+    #[test]
+    fn children_iter_and_at_express_pairwise_rules() {
+        // Statement boundaries in a code block: the direct children are
+        // `{ Expression ; Expression ; }`, and the boundary of interest is
+        // "a `;` directly followed by the next statement node" — inherently
+        // positional, so the rule iterates the children in plain Rust and
+        // re-enters the selection API with `at` on the right-hand item.
+        let mut rules = FormatRules::default();
+        rules.node(SyntaxKind::CodeBlock, |block| {
+            let children: Vec<_> = block.children().iter().cloned().collect();
+            for pair in children.windows(2) {
+                if pair[0].kind() == SyntaxKind::Semicolon && pair[1].as_node().is_some() {
+                    block.at(pair[1].clone()).prepend(block.spaced_softline());
+                }
+            }
+        });
+        // Single-line block: the softline resolves to a space.
+        assert_eq!(
+            format_with("component A { function f() { a = 1;b = 2; } }", &rules),
+            "component A { function f() { a = 1; b = 2; } }"
+        );
+    }
+
+    #[test]
+    fn children_skips_trivia_and_token_less_nodes() {
+        // `if (true) {}` without an `else` gets a fake, token-less
+        // else-Expression as a direct child of the ConditionalExpression;
+        // `children()` must skip it (and the comment trivia), leaving only
+        // the `if` keyword, the condition, and the body.
+        let document = parse("component A { function f() { if /* c */ (true) {} } }");
+        let conditional = find_node(&document, SyntaxKind::ConditionalExpression);
+        assert_eq!(conditional.children().count(), 3, "condition, body, fake else");
+        let sink = AtomSink::default();
+        let selection = Selection {
+            items: vec![NodeOrToken::Node(conditional)],
+            context: document.clone(),
+            tier: Tier::Node,
+            sink: &sink,
+            source: "",
+        };
+        let kinds: Vec<SyntaxKind> = selection.children().iter().map(NodeOrToken::kind).collect();
+        assert_eq!(kinds, [SyntaxKind::Identifier, SyntaxKind::Expression, SyntaxKind::Expression]);
     }
 
     #[test]
