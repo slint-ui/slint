@@ -41,7 +41,7 @@ cmake --build .
 
 ### Node.js Build
 ```sh
-cd api/node && pnpm install
+cd api/node && pnpm install && pnpm build
 ```
 
 ## Testing
@@ -73,8 +73,8 @@ Only drop the filter for a final full-suite run before committing.
 
 ### Writing Slint Test Cases
 
-The `test` property in `tests/cases/*.slint` must be declared `out property<bool> test: ...;`.
-Without `out`, the compiler treats it as private and the driver passes the test vacuously.
+The `test` property in `tests/cases/*.slint` must be declared `out` or `in-out`
+(e.g. `out property<bool> test: ...;`), otherwise the driver passes the test vacuously.
 
 ### Syntax Tests (Compiler Errors)
 ```sh

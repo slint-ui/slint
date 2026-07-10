@@ -441,10 +441,10 @@ if let Some(ty) = register.lookup("MyType") {
 
 ```sh
 # Run type system tests
-cargo test -p slint-compiler langtype
-cargo test -p slint-compiler lookup
-cargo test -p slint-compiler typeregister
+cargo test -p i-slint-compiler langtype
+cargo test -p i-slint-compiler lookup
+cargo test -p i-slint-compiler typeregister
 
 # Run all compiler tests
-cargo test -p slint-compiler
+cargo test -p i-slint-compiler
 ```
