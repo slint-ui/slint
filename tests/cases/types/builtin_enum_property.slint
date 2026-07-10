@@ -4,7 +4,7 @@
 // A builtin enum exposed as a public property must convert to and from the interpreter Value,
 // for enums in different namespaces and for multi-word values.
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     in-out property <ColorScheme> scheme: dark;
     in-out property <Orientation> orientation: horizontal;
     in-out property <MouseCursor> cursor: no-drop;

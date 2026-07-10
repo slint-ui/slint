@@ -13,7 +13,7 @@ struct Bar  {
     foos: [Foo],
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     in-out property <[Bar]> bars: [];
 
     // make sure the generated code compiles (that we generate .clone() properly)

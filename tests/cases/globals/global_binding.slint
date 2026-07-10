@@ -8,7 +8,7 @@ global Glob  {
 
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     callback set_a(int);
     set_a(a) => { Glob.a_alias = a; }
     in-out property <int> value1: Glob.b;

@@ -10,7 +10,7 @@ global MyGlobal  {
 export { MyGlobal }
 export { MyGlobal as GlobalAlias }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     in-out property <bool> test_global_prop_value: MyGlobal.hello == 100;
 }
 
