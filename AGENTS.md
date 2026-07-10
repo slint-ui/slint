@@ -187,5 +187,5 @@ Load the relevant file under `docs/development/` when working in the listed area
 - `text-layout.md` — `internal/core/textlayout/`, text rendering: shaping, line breaking, styled text.
 - `window-backend-integration.md` — `internal/core/window.rs`, `internal/backends/`: WindowAdapter, Platform, WindowEvent, popups.
 - `lsp-architecture.md` — `tools/lsp/`, IDE tooling: completion, hover, semantic tokens, live preview.
-- `mcp-server.md` — `internal/backends/testing/mcp_server.rs`, `introspection.rs`: shared introspection layer, handle/arena, HTTP transport, adding tools.
+- `mcp-server.md` — `internal/backends/testing/mcp_server.rs`, `introspection/`: shared introspection layer, handle/arena, HTTP transport, adding tools.
 - `ffi-language-bindings.md` — `api/`, internal FFI: cbindgen, FFI patterns, adding cross-language APIs.
