@@ -64,7 +64,10 @@ cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter --
 
 You can add an argument to test only for particular tests.
 
-If the last component in the file includes a `bool` property named `test`, the test will verify that its value is `true`.
+If the last component in the file includes a public `bool` property named `test` (declared
+`out` or `in-out`), the test will verify that its value is `true`. A `private` (the default)
+or `in` property is invisible to the driver, so the test passes vacuously without actually
+checking anything.
 
 example:
 
