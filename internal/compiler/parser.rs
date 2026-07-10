@@ -810,23 +810,21 @@ impl SyntaxToken {
         // For example, if we have an expression like  `if (true) {}`  the
         // ConditionalExpression has an empty Expression/CodeBlock  for the else part,
         // and next_token doesn't go into that.
-        // So re-implement
+        // So re-implement: walk to the next element in document order,
+        // skipping over token-less nodes.
 
-        let token = self
-            .token
-            .next_sibling_or_token()
-            .and_then(|e| match e {
-                rowan::NodeOrToken::Node(n) => n.first_token(),
-                rowan::NodeOrToken::Token(t) => Some(t),
-            })
-            .or_else(|| {
-                self.token.parent_ancestors().find_map(|it| it.next_sibling_or_token()).and_then(
-                    |e| match e {
-                        rowan::NodeOrToken::Node(n) => n.first_token(),
-                        rowan::NodeOrToken::Token(t) => Some(t),
-                    },
-                )
-            })?;
+        let mut ancestors = self.token.parent_ancestors();
+        let mut next = self.token.next_sibling_or_token();
+        let token = loop {
+            match next {
+                Some(rowan::NodeOrToken::Token(token)) => break token,
+                Some(rowan::NodeOrToken::Node(node)) => match node.first_token() {
+                    Some(token) => break token,
+                    None => next = node.next_sibling_or_token(),
+                },
+                None => next = ancestors.next()?.next_sibling_or_token(),
+            }
+        };
         Some(SyntaxToken { token, source_file: self.source_file.clone() })
     }
     pub fn prev_token(&self) -> Option<SyntaxToken> {
