@@ -1245,12 +1245,206 @@ impl GridLayout {
     }
 }
 
+/// Solve box layouts with a single non-repeated cell and constant alignment at
+/// compile time: closed-form bindings replace the layout-cache property, the
+/// runtime solver, and the layout info computation.
+///
+/// Runs after the default_geometry pass so that every cell's layout info
+/// property exists.
+pub fn optimize_single_cell_layouts(component: &Rc<Component>) {
+    recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
+        // Collect first: the rewrite modifies the bindings.
+        let solves = elem
+            .borrow()
+            .bindings
+            .iter()
+            .filter_map(|(name, b)| match &b.borrow().expression {
+                Expression::SolveBoxLayout(l, o) if *o == l.orientation && l.elems.len() == 1 => {
+                    Some((name.clone(), l.clone()))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        for (cache_name, layout) in solves {
+            optimize_single_cell_layout(elem, &cache_name, &layout);
+        }
+    });
+}
+
+fn optimize_single_cell_layout(
+    layout_element: &ElementRc,
+    cache_name: &SmolStr,
+    layout: &BoxLayout,
+) {
+    let Some(single_cell) = single_cell_box_layout(layout) else { return };
+    let orientation = layout.orientation;
+    let cell = &layout.elems[0].element;
+    let (pos, size) = match orientation {
+        Orientation::Horizontal => ("x", "width"),
+        Orientation::Vertical => ("y", "height"),
+    };
+    let replace = |prop: &str, expr: Expression| {
+        let elem = cell.borrow();
+        let binding = elem.bindings.get(prop).expect("the layout has set the cell's geometry");
+        debug_assert!(matches!(binding.borrow().expression, Expression::LayoutCacheAccess { .. }));
+        binding.borrow_mut().expression = expr;
+    };
+    let pads = layout.geometry.padding.begin_end(orientation);
+    let available = || size_minus_padding(layout_element, size, pads);
+    let mut pos_expr = pads.0.map_or(Expression::NumberLiteral(0., Unit::Px), |nr| {
+        Expression::PropertyReference(nr.clone())
+    });
+    if single_cell.pos_factor != 0. {
+        // Read the size through the cell's property so the size expression
+        // isn't duplicated.
+        let cell_size =
+            Expression::PropertyReference(NamedReference::new(cell, SmolStr::new_static(size)));
+        let leftover = min_max(
+            MinMaxOp::Max,
+            Expression::NumberLiteral(0., Unit::Px),
+            bin('-', available(), cell_size),
+        );
+        let factor = Expression::NumberLiteral(single_cell.pos_factor, Unit::None);
+        pos_expr = bin('+', pos_expr, bin('*', leftover, factor));
+    }
+    replace(pos, pos_expr);
+    if let Some((min_expr, max_expr, pref_expr)) = &single_cell.size {
+        let mut size_expr = available();
+        if let Some(pref) = pref_expr {
+            size_expr = min_max(MinMaxOp::Min, size_expr, pref.clone());
+        }
+        // Clamp like the runtime solver: the minimum wins over the maximum.
+        size_expr = min_max(
+            MinMaxOp::Max,
+            min_max(MinMaxOp::Min, size_expr, max_expr.clone()),
+            min_expr.clone(),
+        );
+        replace(size, size_expr);
+    }
+    layout_element.borrow_mut().bindings.remove(cache_name);
+    layout_element.borrow_mut().property_declarations.remove(cache_name);
+}
+
+/// Compile-time solution for a box layout with a single non-repeated cell and
+/// constant alignment: `size = clamp(min(available, preferred), min, max)`
+/// (no preferred term when stretching), `pos = padding + pos_factor * leftover`.
+struct SingleCellBoxLayout {
+    /// Fraction of the leftover space placed before the cell:
+    /// 0 for stretch/start/space-between, ½ for center/space-around/space-evenly, 1 for end.
+    pos_factor: f64,
+    /// The `(min, max, preferred)` expressions clamping the size; the preferred
+    /// term is `None` when stretching. The whole option is `None` when the size
+    /// is fixed by an explicit binding that stays in place.
+    size: Option<(Expression, Expression, Option<Expression>)>,
+}
+
+fn single_cell_box_layout(layout: &BoxLayout) -> Option<SingleCellBoxLayout> {
+    let orientation = layout.orientation;
+    let [item] = layout.elems.as_slice() else { return None };
+    if item.element.borrow().repeated.is_some() {
+        return None;
+    }
+    // Cells with a cross-axis-parametrized layout info need the runtime cells machinery.
+    if orientation == Orientation::Horizontal
+        && item.element.borrow().inherited_layout_info_h_with_constraint().is_some()
+    {
+        return None;
+    }
+    // The alignment must be a compile-time constant. A state-dependent
+    // alignment was already rewritten into a condition by the lower_states pass.
+    let alignment = match &layout.geometry.alignment {
+        None => None,
+        Some(nr) => {
+            let elem = nr.element();
+            let elem = elem.borrow();
+            let analysis = elem.property_analysis.borrow();
+            if analysis.get(nr.name()).is_some_and(|a| a.is_set || a.is_set_externally) {
+                return None;
+            }
+            let binding = elem.bindings.get(nr.name())?;
+            let binding = binding.borrow();
+            if !binding.two_way_bindings.is_empty() {
+                return None;
+            }
+            let Expression::EnumerationValue(ev) = binding.expression.ignore_debug_hooks() else {
+                return None;
+            };
+            Some(ev.enumeration.values[ev.value].clone())
+        }
+    };
+    let (stretch, pos_factor) = match alignment.as_deref() {
+        None | Some("stretch") => (true, 0.),
+        Some("start" | "space-between") => (false, 0.),
+        Some("center" | "space-around" | "space-evenly") => (false, 0.5),
+        Some("end") => (false, 1.),
+        _ => return None,
+    };
+    let c = item.constraints.for_orientation(orientation);
+    // Percent constraints scale with the available size; leave them to the solver.
+    if [c.min, c.max, c.preferred].into_iter().flatten().any(|nr| nr.ty() == Type::Percent) {
+        return None;
+    }
+    if c.fixed {
+        return Some(SingleCellBoxLayout { pos_factor, size: None });
+    }
+    let implicit = cell_implicit_info(&item.element, orientation);
+    let side = |explicit: &Option<NamedReference>, name: &str| {
+        explicit
+            .clone()
+            .map(Expression::PropertyReference)
+            .or_else(|| implicit.as_ref().and_then(|info| implicit_info_field(info, name)))
+    };
+    let pref = if stretch { None } else { Some(side(c.preferred, "preferred")?) };
+    Some(SingleCellBoxLayout {
+        pos_factor,
+        size: Some((side(c.min, "min")?, side(c.max, "max")?, pref)),
+    })
+}
+
 fn bin(op: char, lhs: Expression, rhs: Expression) -> Expression {
     Expression::BinaryExpression { lhs: Box::new(lhs), rhs: Box::new(rhs), op }
 }
 
 fn min_max(op: MinMaxOp, lhs: Expression, rhs: Expression) -> Expression {
     crate::builtin_macros::min_max_expression(lhs, rhs, op)
+}
+
+fn size_minus_padding(
+    layout_element: &ElementRc,
+    size_prop: &'static str,
+    (begin_padding, end_padding): (Option<&NamedReference>, Option<&NamedReference>),
+) -> Expression {
+    let mut e = Expression::PropertyReference(NamedReference::new(
+        layout_element,
+        SmolStr::new_static(size_prop),
+    ));
+    for p in [begin_padding, end_padding].into_iter().flatten() {
+        e = bin('-', e, Expression::PropertyReference(p.clone()));
+    }
+    e
+}
+
+/// The implicit layout info of a layout cell, resolved like `get_layout_info`
+/// in the LLR lowering: the element's own layoutinfo property when it has one,
+/// otherwise [`implicit_layout_info_call`].
+fn cell_implicit_info(elem: &ElementRc, orientation: Orientation) -> Option<Expression> {
+    let own_info = elem.borrow().layout_info_prop(orientation).cloned();
+    match own_info {
+        Some(nr) => Some(Expression::PropertyReference(nr)),
+        None => implicit_layout_info_call(elem, orientation, BuiltinFilter::All, None),
+    }
+}
+
+/// A cheap expression for one field of a [`cell_implicit_info`] result.
+/// `None` when the info needs a runtime call.
+fn implicit_info_field(info: &Expression, name: &str) -> Option<Expression> {
+    match info {
+        Expression::Struct { values, .. } => values.get(name).cloned(),
+        base @ Expression::PropertyReference(_) => {
+            Some(Expression::StructFieldAccess { base: Box::new(base.clone()), name: name.into() })
+        }
+        _ => None,
+    }
 }
 
 /// Clamp a cross-axis stretch size to the cell's explicit min/max constraints,
@@ -1325,27 +1519,9 @@ fn lower_box_layout(
     };
     // Default stretch bindings, only used when there is no `cross-axis-alignment`.
     let stretch_bindings = layout_cache_ortho_prop.is_none().then(|| {
-        let (begin_padding, end_padding) = match orientation {
-            Orientation::Horizontal => {
-                (&layout.geometry.padding.top, &layout.geometry.padding.bottom)
-            }
-            Orientation::Vertical => {
-                (&layout.geometry.padding.left, &layout.geometry.padding.right)
-            }
-        };
-        let pad_expr = begin_padding.clone().map(Expression::PropertyReference);
-        let mut size_expr = Expression::PropertyReference(NamedReference::new(
-            layout_element,
-            SmolStr::new_static(ortho),
-        ));
-        for p in [begin_padding, end_padding].into_iter().flatten() {
-            size_expr = Expression::BinaryExpression {
-                lhs: Box::new(std::mem::take(&mut size_expr)),
-                rhs: Box::new(Expression::PropertyReference(p.clone())),
-                op: '-',
-            };
-        }
-        (pad_expr, size_expr)
+        let pads = layout.geometry.padding.begin_end(orientation.orthogonal());
+        let pad_expr = pads.0.map(|nr| Expression::PropertyReference(nr.clone()));
+        (pad_expr, size_minus_padding(layout_element, ortho, pads))
     });
 
     for layout_child in &layout_children {
