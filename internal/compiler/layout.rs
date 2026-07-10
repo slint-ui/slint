@@ -200,6 +200,16 @@ pub struct LayoutConstraints {
     pub fixed_height: bool,
 }
 
+/// The [`LayoutConstraints`] fields along one orientation.
+pub struct OrientationConstraints<'a> {
+    pub min: &'a Option<NamedReference>,
+    pub max: &'a Option<NamedReference>,
+    pub preferred: &'a Option<NamedReference>,
+    pub stretch: &'a Option<NamedReference>,
+    /// The size is set by an explicit `width`/`height` binding.
+    pub fixed: bool,
+}
+
 impl LayoutConstraints {
     /// Build the constraints for the given element.
     ///
@@ -287,36 +297,48 @@ impl LayoutConstraints {
         }
     }
 
+    pub fn for_orientation(&self, orientation: Orientation) -> OrientationConstraints<'_> {
+        match orientation {
+            Orientation::Horizontal => OrientationConstraints {
+                min: &self.min_width,
+                max: &self.max_width,
+                preferred: &self.preferred_width,
+                stretch: &self.horizontal_stretch,
+                fixed: self.fixed_width,
+            },
+            Orientation::Vertical => OrientationConstraints {
+                min: &self.min_height,
+                max: &self.max_height,
+                preferred: &self.preferred_height,
+                stretch: &self.vertical_stretch,
+                fixed: self.fixed_height,
+            },
+        }
+    }
+
     // Iterate over the constraint with a reference to a property, and the corresponding member in the i_slint_core::layout::LayoutInfo struct
     pub fn for_each_restrictions(
         &self,
         orientation: Orientation,
     ) -> impl Iterator<Item = (&NamedReference, &'static str)> {
-        let (min, max, preferred, stretch) = match orientation {
-            Orientation::Horizontal => {
-                (&self.min_width, &self.max_width, &self.preferred_width, &self.horizontal_stretch)
-            }
-            Orientation::Vertical => {
-                (&self.min_height, &self.max_height, &self.preferred_height, &self.vertical_stretch)
-            }
-        };
+        let c = self.for_orientation(orientation);
         std::iter::empty()
-            .chain(min.as_ref().map(|x| {
+            .chain(c.min.as_ref().map(|x| {
                 if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
                     (x, "min")
                 } else {
                     (x, "min_percent")
                 }
             }))
-            .chain(max.as_ref().map(|x| {
+            .chain(c.max.as_ref().map(|x| {
                 if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
                     (x, "max")
                 } else {
                     (x, "max_percent")
                 }
             }))
-            .chain(preferred.as_ref().map(|x| (x, "preferred")))
-            .chain(stretch.as_ref().map(|x| (x, "stretch")))
+            .chain(c.preferred.as_ref().map(|x| (x, "preferred")))
+            .chain(c.stretch.as_ref().map(|x| (x, "stretch")))
     }
 
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {

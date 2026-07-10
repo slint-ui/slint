@@ -1245,6 +1245,46 @@ impl GridLayout {
     }
 }
 
+fn bin(op: char, lhs: Expression, rhs: Expression) -> Expression {
+    Expression::BinaryExpression { lhs: Box::new(lhs), rhs: Box::new(rhs), op }
+}
+
+fn min_max(op: MinMaxOp, lhs: Expression, rhs: Expression) -> Expression {
+    crate::builtin_macros::min_max_expression(lhs, rhs, op)
+}
+
+/// Clamp a cross-axis stretch size to the cell's explicit min/max constraints,
+/// like the runtime solver: percent constraints scale with the available size,
+/// and the minimum wins over the maximum.
+///
+/// Implicit constraints are not consulted: an element's layout info may depend
+/// on its own geometry (a percent spacing, for example), and reading it from
+/// the geometry binding would create a binding loop.
+fn clamp_cross_stretch_size(
+    available: &Expression,
+    c: &LayoutConstraints,
+    ortho: Orientation,
+) -> Expression {
+    let c = c.for_orientation(ortho);
+    let side = |explicit: &Option<NamedReference>| match explicit {
+        Some(nr) if nr.ty() == Type::Percent => Some(bin(
+            '/',
+            bin('*', available.clone(), Expression::PropertyReference(nr.clone())),
+            Expression::NumberLiteral(100., Unit::None),
+        )),
+        Some(nr) => Some(Expression::PropertyReference(nr.clone())),
+        None => None,
+    };
+    let mut size_expr = available.clone();
+    if let Some(max_expr) = side(c.max) {
+        size_expr = min_max(MinMaxOp::Min, size_expr, max_expr);
+    }
+    if let Some(min_expr) = side(c.min) {
+        size_expr = min_max(MinMaxOp::Max, size_expr, min_expr);
+    }
+    size_expr
+}
+
 fn lower_box_layout(
     layout_element: &ElementRc,
     diag: &mut BuildDiagnostics,
@@ -1356,10 +1396,15 @@ fn lower_box_layout(
                     .insert(pad.into(), RefCell::new(pad_expr.clone().into()));
             }
             if !fixed_ortho {
+                let clamped = clamp_cross_stretch_size(
+                    size_expr,
+                    &item.item.constraints,
+                    orientation.orthogonal(),
+                );
                 actual_elem
                     .borrow_mut()
                     .bindings
-                    .insert(ortho.into(), RefCell::new(size_expr.clone().into()));
+                    .insert(ortho.into(), RefCell::new(clamped.into()));
             }
         }
         layout.elems.push(item.item);
