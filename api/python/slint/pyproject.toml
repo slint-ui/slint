@@ -3,12 +3,14 @@
 
 # cSpell: ignore cibuildwheel
 [build-system]
-requires = ["maturin>=1,<2"]
+# maturin 1.14.1 (PR #3226) encodes the abi3 floor (python3.11) as the link
+# lib name, which breaks the iOS cross-link (only libpython3.13 is shipped).
+requires = ["maturin>=1,<1.14.1"]
 build-backend = "maturin"
 
 [project]
 name = "slint"
-version = "1.17.0b2"
+version = "1.18.0b2"
 requires-python = ">= 3.12"
 authors = [{ name = "Slint Team", email = "info@slint.dev" }]
 classifiers = [
@@ -43,7 +45,7 @@ Tracker = "https://github.com/slint-ui/slint/issues"
 # `slint-dev` ships the development binary (system-testing and MCP support); it
 # is loaded only when SLINT_TEST_SERVER or SLINT_MCP_PORT is set. Its version is
 # pinned to match slint and is kept in sync by upgrade_version.yaml.
-dev = ["pytest", "numpy>=2.3.2", "pillow>=11.3.0", "aiohttp>=3.12.15", "slint-dev==1.17.0b2"]
+dev = ["pytest", "numpy>=2.3.2", "pillow>=11.3.0", "aiohttp>=3.12.15", "slint-dev==1.18.0b2"]
 
 [dependency-groups]
 dev = ["pytest>=8.3.4", "ruff>=0.9.6", "pillow>=11.3.0", "numpy>=2.3.2", "aiohttp>=3.12.15"]

@@ -9,11 +9,12 @@ use crate::layout::Orientation;
 use crate::lookup::LookupCtx;
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};
+use crate::symbol_counters::SymbolCounters;
 use crate::typeregister;
 use core::cell::RefCell;
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::Cell;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::rc::{Rc, Weak};
 
 // FIXME remove the pub
@@ -46,6 +47,7 @@ pub enum BuiltinFunction {
     Exp,
     ToFixed,
     ToPrecision,
+    ToStringUnlocalized,
     SetFocusItem,
     ClearFocusItem,
     ShowPopupWindow,
@@ -73,6 +75,8 @@ pub enum BuiltinFunction {
     StringCharacterCount,
     StringToLowercase,
     StringToUppercase,
+    StringStartsWith,
+    StringEndsWith,
     KeysToString,
     ColorRgbaStruct,
     ColorHsvaStruct,
@@ -84,6 +88,9 @@ pub enum BuiltinFunction {
     ColorWithAlpha,
     ImageSize,
     ArrayLength,
+    ArrayPush,
+    ArrayRemove,
+    ArrayInsert,
     Rgb,
     Hsv,
     Oklch,
@@ -160,6 +167,9 @@ pub enum BuiltinMacroFunction {
     Oklch,
     /// transform `debug(a, b, c)` into debug `a + " " + b + " " + c`
     Debug,
+    ArrayPush,
+    ArrayRemove,
+    ArrayInsert,
 }
 
 macro_rules! declare_builtin_function_types {
@@ -213,6 +223,7 @@ declare_builtin_function_types!(
     Exp: (Type::Float32) -> Type::Float32,
     ToFixed: (Type::Float32, Type::Int32) -> Type::String,
     ToPrecision: (Type::Float32, Type::Int32) -> Type::String,
+    ToStringUnlocalized: (Type::Float32) -> Type::String,
     SetFocusItem: (Type::ElementReference) -> Type::Void,
     ClearFocusItem: (Type::ElementReference) -> Type::Void,
     ShowPopupWindow: (Type::ElementReference) -> Type::Void,
@@ -227,6 +238,8 @@ declare_builtin_function_types!(
     StringCharacterCount: (Type::String) -> Type::Int32,
     StringToLowercase: (Type::String) -> Type::String,
     StringToUppercase: (Type::String) -> Type::String,
+    StringStartsWith: (Type::String, Type::String) -> Type::Bool,
+    StringEndsWith: (Type::String, Type::String) -> Type::Bool,
     KeysToString: (Type::Keys) -> Type::String,
     ImplicitLayoutInfo(..): (Type::ElementReference, Type::Float32) -> typeregister::layout_info_type().into(),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
@@ -273,6 +286,10 @@ declare_builtin_function_types!(
         name: crate::langtype::BuiltinStruct::Size.into(),
     })),
     ArrayLength: (Type::Model) -> Type::Int32,
+    // Using Type::InferredProperty as there is currently no valid type for the data argument.
+    ArrayPush: (Type::Model, Type::InferredProperty) -> Type::Void,
+    ArrayRemove: (Type::Model, Type::Int32) -> Type::Void,
+    ArrayInsert: (Type::Model, Type::Int32, Type::InferredProperty) -> Type::Void,
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
     Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
     Oklch: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
@@ -368,7 +385,8 @@ impl BuiltinFunction {
             | BuiltinFunction::Pow
             | BuiltinFunction::Exp
             | BuiltinFunction::ATan
-            | BuiltinFunction::ATan2 => true,
+            | BuiltinFunction::ATan2
+            | BuiltinFunction::ToStringUnlocalized => true,
             // The result depends on the locale's decimal separator, like DecimalSeparator.
             // The constant propagation folds the locale-independent cases and promotes
             // their binding back to constant.
@@ -387,6 +405,8 @@ impl BuiltinFunction {
             | BuiltinFunction::StringCharacterCount
             | BuiltinFunction::StringToLowercase
             | BuiltinFunction::StringToUppercase
+            | BuiltinFunction::StringStartsWith
+            | BuiltinFunction::StringEndsWith
             | BuiltinFunction::KeysToString => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
@@ -405,6 +425,9 @@ impl BuiltinFunction {
             #[cfg(target_arch = "wasm32")]
             BuiltinFunction::ImageSize => false,
             BuiltinFunction::ArrayLength => true,
+            BuiltinFunction::ArrayPush
+            | BuiltinFunction::ArrayRemove
+            | BuiltinFunction::ArrayInsert => false,
             BuiltinFunction::Rgb => true,
             BuiltinFunction::Hsv => true,
             BuiltinFunction::Oklch => true,
@@ -468,7 +491,8 @@ impl BuiltinFunction {
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2
             | BuiltinFunction::ToFixed
-            | BuiltinFunction::ToPrecision => true,
+            | BuiltinFunction::ToPrecision
+            | BuiltinFunction::ToStringUnlocalized => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow
             | BuiltinFunction::ClosePopupWindow
@@ -482,6 +506,8 @@ impl BuiltinFunction {
             | BuiltinFunction::StringCharacterCount
             | BuiltinFunction::StringToLowercase
             | BuiltinFunction::StringToUppercase
+            | BuiltinFunction::StringStartsWith
+            | BuiltinFunction::StringEndsWith
             | BuiltinFunction::KeysToString => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
@@ -493,6 +519,9 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorWithAlpha => true,
             BuiltinFunction::ImageSize => true,
             BuiltinFunction::ArrayLength => true,
+            BuiltinFunction::ArrayPush
+            | BuiltinFunction::ArrayRemove
+            | BuiltinFunction::ArrayInsert => false,
             BuiltinFunction::Rgb => true,
             BuiltinFunction::Hsv => true,
             BuiltinFunction::Oklch => true,
@@ -559,14 +588,24 @@ pub fn operator_class(op: char) -> OperatorClass {
 }
 
 macro_rules! declare_units {
-    ($( $(#[$m:meta])* $ident:ident = $string:literal -> $ty:ident $(* $factor:expr)? ,)*) => {
-        /// The units that can be used after numbers in the language
+    // A unit written without a conversion is already its type's canonical unit.
+    (@normalize $value:ident, $ident:ident) => { ($value, Unit::$ident) };
+    // Otherwise scale by the factor and switch to the named canonical unit.
+    (@normalize $value:ident, $ident:ident, $canon:ident, $factor:expr) => {
+        ($value * ($factor as f64), Unit::$canon)
+    };
+    ($( $(#[$m:meta])* $ident:ident = $string:literal $(-> $canon:ident * $factor:expr)? ,)*) => {
+        /// A unit as written after a number in the source (`px`, `cm`, `grad`, ...).
+        ///
+        /// These are all the units a user can type. A literal is normalized to the
+        /// canonical [`Unit`] of its type the moment it enters the expression tree, so
+        /// only the parser and tooling ever handle a `WrittenUnit`.
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, strum::EnumIter)]
-        pub enum Unit {
+        pub enum WrittenUnit {
             $($(#[$m])* $ident,)*
         }
 
-        impl std::fmt::Display for Unit {
+        impl std::fmt::Display for WrittenUnit {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
                     $(Self::$ident => write!(f, $string), )*
@@ -574,7 +613,7 @@ macro_rules! declare_units {
             }
         }
 
-        impl std::str::FromStr for Unit {
+        impl std::str::FromStr for WrittenUnit {
             type Err = ();
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s {
@@ -584,69 +623,110 @@ macro_rules! declare_units {
             }
         }
 
-        impl Unit {
-            pub fn ty(self) -> Type {
+        impl WrittenUnit {
+            /// Scale `value`, written in this surface unit, to the value and canonical
+            /// [`Unit`] a `NumberLiteral` stores. The scale and the unit come out
+            /// together so they can't drift apart.
+            pub fn normalize(self, value: f64) -> (f64, Unit) {
                 match self {
-                    $(Self::$ident => Type::$ty, )*
+                    $(Self::$ident => declare_units!(@normalize value, $ident $(, $canon, $factor)?), )*
                 }
             }
-
-            pub fn normalize(self, x: f64) -> f64 {
-                match self {
-                    $(Self::$ident => x $(* $factor as f64)?, )*
-                }
-            }
-
         }
     };
 }
 
 declare_units! {
     /// No unit was given
-    None = "" -> Float32,
+    None = "",
     /// Percent value
-    Percent = "%" -> Percent,
+    Percent = "%",
 
     // Lengths or Coord
 
     /// Physical pixels
-    Phx = "phx" -> PhysicalLength,
+    Phx = "phx",
     /// Logical pixels
-    Px = "px" -> LogicalLength,
+    Px = "px",
     /// Centimeters
-    Cm = "cm" -> LogicalLength * 37.8,
+    Cm = "cm" -> Px * 37.8,
     /// Millimeters
-    Mm = "mm" -> LogicalLength * 3.78,
+    Mm = "mm" -> Px * 3.78,
     /// inches
-    In = "in" -> LogicalLength * 96,
+    In = "in" -> Px * 96,
     /// Points
-    Pt = "pt" -> LogicalLength * 96./72.,
+    Pt = "pt" -> Px * 96./72.,
     /// Logical pixels multiplied with the window's default-font-size
-    Rem = "rem" -> Rem,
+    Rem = "rem",
 
     // durations
 
     /// Seconds
-    S = "s" -> Duration * 1000,
+    S = "s" -> Ms * 1000,
     /// Milliseconds
-    Ms = "ms" -> Duration,
+    Ms = "ms",
 
     // angles
 
     /// Degree
-    Deg = "deg" -> Angle,
+    Deg = "deg",
     /// Gradians
-    Grad = "grad" -> Angle * 360./180.,
+    Grad = "grad" -> Deg * 360./180.,
     /// Turns
-    Turn = "turn" -> Angle * 360.,
+    Turn = "turn" -> Deg * 360.,
     /// Radians
-    Rad = "rad" -> Angle * 360./std::f32::consts::TAU,
+    Rad = "rad" -> Deg * 360./std::f32::consts::TAU,
 }
 
-#[allow(clippy::derivable_impls)] // more readable this way
-impl Default for Unit {
-    fn default() -> Self {
-        Self::None
+/// The unit a [`Expression::NumberLiteral`] carries: always the canonical unit of
+/// its type, so the stored value is already scaled and needs no further
+/// conversion. The units a user can type (`cm`, `pt`, `grad`, ...) are
+/// [`WrittenUnit`] and are normalized to one of these on the way in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub enum Unit {
+    /// Dimension-less (`float`, `int`)
+    #[default]
+    None,
+    /// Percent
+    Percent,
+    /// Physical pixels
+    Phx,
+    /// Logical pixels
+    Px,
+    /// Logical pixels multiplied with the window's default-font-size
+    Rem,
+    /// Milliseconds
+    Ms,
+    /// Degrees
+    Deg,
+}
+
+impl Unit {
+    pub fn ty(self) -> Type {
+        match self {
+            Unit::None => Type::Float32,
+            Unit::Percent => Type::Percent,
+            Unit::Px => Type::LogicalLength,
+            Unit::Phx => Type::PhysicalLength,
+            Unit::Rem => Type::Rem,
+            Unit::Ms => Type::Duration,
+            Unit::Deg => Type::Angle,
+        }
+    }
+}
+
+impl std::fmt::Display for Unit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Unit::None => "",
+            Unit::Percent => "%",
+            Unit::Px => "px",
+            Unit::Phx => "phx",
+            Unit::Rem => "rem",
+            Unit::Ms => "ms",
+            Unit::Deg => "deg",
+        };
+        write!(f, "{s}")
     }
 }
 
@@ -784,7 +864,7 @@ pub enum Expression {
     },
     Struct {
         ty: Rc<Struct>,
-        values: HashMap<SmolStr, Expression>,
+        values: BTreeMap<SmolStr, Expression>,
     },
 
     PathData(Path),
@@ -1433,6 +1513,7 @@ impl Expression {
         target_type: Type,
         node: &dyn Spanned,
         diag: &mut BuildDiagnostics,
+        symbol_counters: &SymbolCounters,
     ) -> Expression {
         let ty = self.ty();
         if ty == target_type
@@ -1466,23 +1547,20 @@ impl Expression {
                     if left.fields != right.fields =>
                 {
                     if let Expression::Struct { mut values, .. } = self {
-                        let mut new_values = HashMap::new();
+                        let mut new_values = BTreeMap::new();
                         for (key, ty) in &right.fields {
                             let (key, expression) = values.remove_entry(key).map_or_else(
                                 || (key.clone(), Expression::default_value_for_type(ty)),
-                                |(k, e)| (k, e.maybe_convert_to(ty.clone(), node, diag)),
+                                |(k, e)| {
+                                    (k, e.maybe_convert_to(ty.clone(), node, diag, symbol_counters))
+                                },
                             );
                             new_values.insert(key, expression);
                         }
                         return Expression::Struct { values: new_values, ty: right.clone() };
                     }
-                    static COUNT: std::sync::atomic::AtomicUsize =
-                        std::sync::atomic::AtomicUsize::new(0);
-                    let var_name = format_smolstr!(
-                        "tmpobj_conv_{}",
-                        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-                    );
-                    let mut new_values = HashMap::new();
+                    let var_name = symbol_counters.generate_name("tmpobj_conv_");
+                    let mut new_values = BTreeMap::new();
                     for (key, ty) in &right.fields {
                         let expression = if left.fields.contains_key(key) {
                             Expression::StructFieldAccess {
@@ -1492,7 +1570,12 @@ impl Expression {
                                 }),
                                 name: key.clone(),
                             }
-                            .maybe_convert_to(ty.clone(), node, diag)
+                            .maybe_convert_to(
+                                ty.clone(),
+                                node,
+                                diag,
+                                symbol_counters,
+                            )
                         } else {
                             Expression::default_value_for_type(ty)
                         };
@@ -1560,7 +1643,9 @@ impl Expression {
                 (Expression::Array { values, .. }, Type::Array(target_type)) => Expression::Array {
                     values: values
                         .into_iter()
-                        .map(|e| e.maybe_convert_to((*target_type).clone(), node, diag))
+                        .map(|e| {
+                            e.maybe_convert_to((*target_type).clone(), node, diag, symbol_counters)
+                        })
                         .take_while(|e| !matches!(e, Expression::Invalid))
                         .collect(),
                     element_ty: (*target_type).clone(),
@@ -1572,10 +1657,13 @@ impl Expression {
         {
             // Also special case struct literal in case they contain array literal
             let mut fields = struct_type.fields.clone();
-            let mut new_values = HashMap::new();
+            let mut new_values = BTreeMap::new();
             for (f, v) in values {
                 if let Some(t) = fields.remove(f) {
-                    new_values.insert(f.clone(), v.clone().maybe_convert_to(t, node, diag));
+                    new_values.insert(
+                        f.clone(),
+                        v.clone().maybe_convert_to(t, node, diag, symbol_counters),
+                    );
                 } else {
                     diag.push_error(format!("Cannot convert {ty} to {target_type}"), node);
                     return self;
@@ -1977,14 +2065,59 @@ pub enum EasingCurve {
     // Custom(Box<dyn Fn(f32)->f32>),
 }
 
-// The compiler generates ResourceReference::AbsolutePath for all references like @image-url("foo.png")
-// and the resource lowering path may change this to EmbeddedData if configured.
+// The compiler resolves every `@image-url("foo.png")` into a `Path`, `Url`, or
+// `DataUri` reference; the resource lowering pass may then replace it with
+// `EmbeddedData`/`EmbeddedTexture` if configured.
 #[derive(Clone, Debug)]
 pub enum ImageReference {
     None,
-    AbsolutePath(SmolStr),
-    EmbeddedData { resource_id: crate::embedded_resources::EmbeddedResourcesIdx, extension: String },
-    EmbeddedTexture { resource_id: crate::embedded_resources::EmbeddedResourcesIdx },
+    /// An absolute path to a local image file on disk.
+    Path(SmolStr),
+    /// A non-`data:` URL, e.g. `builtin:/`, `http(s):`, or `user://`.
+    Url(url::Url),
+    /// An inline `data:` URI carrying the image content.
+    DataUri(SmolStr),
+    EmbeddedData {
+        resource_id: crate::embedded_resources::EmbeddedResourcesIdx,
+        extension: String,
+    },
+    EmbeddedTexture {
+        resource_id: crate::embedded_resources::EmbeddedResourcesIdx,
+    },
+}
+
+impl ImageReference {
+    /// Classify a resolved `@image-url` string (an absolute path, a URL, or a
+    /// `data:` URI) into the matching reference kind.
+    pub fn from_resolved(reference: SmolStr) -> Self {
+        if reference.starts_with("data:") {
+            return Self::DataUri(reference);
+        }
+        // A single-character scheme is a Windows drive letter (`c:\...`), i.e. a
+        // path rather than a URL.
+        match url::Url::parse(&reference) {
+            Ok(url) if url.scheme().len() > 1 => Self::Url(url),
+            _ => Self::Path(reference),
+        }
+    }
+
+    /// Classify a URL returned by the resource mapper. It is already a URL, so
+    /// the only distinction is a `data:` URI (kept as a string, see
+    /// [`Self::DataUri`]) from any other URL.
+    pub fn from_mapped_url(url: url::Url) -> Self {
+        if url.scheme() == "data" { Self::DataUri(url.as_str().into()) } else { Self::Url(url) }
+    }
+
+    /// The image source loaded at run-time for a non-embedded reference: the
+    /// path, the URL, or the `data:` URI, as the string handed to
+    /// `Image::load_from_path`. `None` for embedded references.
+    pub fn source(&self) -> Option<&str> {
+        match self {
+            Self::Path(source) | Self::DataUri(source) => Some(source),
+            Self::Url(url) => Some(url.as_str()),
+            Self::None | Self::EmbeddedData { .. } | Self::EmbeddedTexture { .. } => None,
+        }
+    }
 }
 
 /// Print the expression as a .slint code (not necessarily valid .slint)

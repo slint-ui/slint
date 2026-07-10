@@ -200,9 +200,21 @@ pub struct LoweringState {
     sub_component_mapping: HashMap<ByAddress<Rc<Component>>, SubComponentIdx>,
     #[cfg(feature = "bundle-translations")]
     pub translation_builder: Option<crate::translations::TranslationsBuilder>,
+    /// Counter for the unique `struct_assignment{n}` local variable names. Local
+    /// to one lowering (a fresh `LoweringState` is created per backend), so the
+    /// numbering is deterministic regardless of how many backends run.
+    struct_assignment_count: usize,
 }
 
 impl LoweringState {
+    /// Return a fresh unique name for a temporary used when lowering an
+    /// assignment to a struct field.
+    pub fn unique_struct_assignment_name(&mut self) -> SmolStr {
+        let n = self.struct_assignment_count;
+        self.struct_assignment_count += 1;
+        format_smolstr!("struct_assignment{n}")
+    }
+
     pub fn map_property_reference(&self, from: &NamedReference) -> MemberReference {
         if let Some(x) = self.global_properties.get(from) {
             return x.clone();
@@ -285,6 +297,7 @@ fn lower_sub_component(
         animations: Default::default(),
         two_way_bindings: Default::default(),
         const_properties: Default::default(),
+        pre_init_code: Default::default(),
         init_code: Default::default(),
         geometries: Default::default(),
         // just initialize to dummy expression right now and it will be set later
@@ -293,6 +306,7 @@ fn lower_sub_component(
         child_of_layout: component.root_element.borrow().child_of_layout,
         grid_layout_input_for_repeated: None,
         flexbox_layout_item_info_for_repeated: None,
+        layout_info_v_constrained_for_repeated: None,
         is_repeated_row: component
             .root_element
             .borrow()
@@ -591,10 +605,18 @@ fn lower_sub_component(
         sub_component.const_properties.push(x.local());
     });
 
+    sub_component.pre_init_code = component
+        .init_code
+        .borrow()
+        .font_registration_code
+        .iter()
+        .map(|e| super::lower_expression::lower_expression(e, &mut ctx).into())
+        .collect();
+
     sub_component.init_code = component
         .init_code
         .borrow()
-        .iter()
+        .iter_without_font_registration()
         .map(|e| super::lower_expression::lower_expression(e, &mut ctx).into())
         .collect();
 
@@ -606,22 +628,41 @@ fn lower_sub_component(
         None,
     )
     .into();
+    // Measure the root's height for its preferred width, not an unbounded one, so a
+    // height-for-width Image doesn't report infinite height (mirrors the interpreter).
+    let v_cross_constraint = component
+        .root_element
+        .borrow()
+        .layout_info_v_with_constraint
+        .is_some()
+        .then(|| {
+            super::lower_layout_expression::default_cross_axis_constraint(&component.root_element)
+        })
+        .flatten();
     sub_component.layout_info_v = super::lower_layout_expression::get_layout_info(
         &component.root_element,
         &mut ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Vertical,
-        None,
+        v_cross_constraint,
     )
     .into();
-    // For repeated elements in a FlexboxLayout, generate code to read flex properties
-    if sub_component.child_of_layout {
+    if component.root_element.borrow().child_of_flexbox {
         let root_elem = &component.root_element;
         let has_flex_binding =
             ["flex-grow", "flex-shrink", "flex-basis", "flex-align-self", "flex-order"]
                 .iter()
                 .any(|name| crate::layout::binding_reference(root_elem, name).is_some());
-        if has_flex_binding {
+        let v_constrained =
+            super::lower_layout_expression::get_layout_info_v_constrained_for_repeated(
+                &mut ctx,
+                root_elem,
+                &component.root_constraints.borrow(),
+            );
+        // Generate the flex item-info accessor when the element sets flex
+        // properties, or when it needs the constrained-vertical fix (a
+        // height-for-width instance in a column flex).
+        if has_flex_binding || v_constrained.is_some() {
             sub_component.flexbox_layout_item_info_for_repeated = Some(
                 super::lower_layout_expression::get_flexbox_layout_item_info_for_repeated(
                     &mut ctx, root_elem,
@@ -629,6 +670,7 @@ fn lower_sub_component(
                 .into(),
             );
         }
+        sub_component.layout_info_v_constrained_for_repeated = v_constrained.map(Into::into);
     }
 
     if let Some(grid_layout_cell) = component.root_element.borrow().grid_layout_cell.as_ref() {

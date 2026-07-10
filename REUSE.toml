@@ -50,8 +50,9 @@ path = [
   "Cargo.lock",
   "flake.nix",
   "flake.lock",
-  "examples/bevy/Cargo.lock",
-  "examples/servo/Cargo.lock",
+  "examples/Cargo.lock",
+  "demos/Cargo.lock",
+  "tests/Cargo.lock",
   "REUSE.toml",
   "biome.json",
   "knip.json",
@@ -160,11 +161,9 @@ path = [
   "ui-libraries/material/docs/src/config.yaml",
   "ui-libraries/material/examples/gallery/ui/themes/**.json",
 
-  ".claude-plugin/*.json",
-  ".cursor-plugin/*.json",
-  "skills/.claude-plugin/*.json",
-  "skills/.cursor-plugin/*.json",
-  "skills/**/*.md",
+  "ai-plugins/.claude-plugin/*.json",
+  "ai-plugins/.cursor-plugin/*.json",
+  "ai-plugins/**/*.md",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -196,6 +195,8 @@ path = [
   "tools/figma-inspector/**.html",
   "tools/figma-inspector/**.css",
   "tools/viewer/TestFlight/WhatToTest.en-US.txt",
+  "tools/viewer/android/fastlane/metadata/android/**.txt",
+  "tools/viewer/android/fastlane/metadata/android/**.png",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"

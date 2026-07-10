@@ -95,15 +95,6 @@ macro_rules! for_each_builtin_structs {
                 /// The cursor position in the `DropArea`'s local coordinates.
                 position: LogicalPosition,
 
-                /// Mirrors `DragArea.allow-copy`: true if the source allows the drop to copy the data.
-                allow_copy: bool,
-
-                /// Mirrors `DragArea.allow-move`: true if the source allows the drop to move the data.
-                allow_move: bool,
-
-                /// Mirrors `DragArea.allow-link`: true if the source allows the drop to link to the data.
-                allow_link: bool,
-
                 /// The action negotiated from current modifier state, clamped to the allowed set;
                 /// when no modifier is pressed, the first allowed of move, copy, link.
                 /// Updated on every `DragMove`. The target's `can-drop` callback can return this

@@ -302,6 +302,33 @@ TEST_CASE("SharedVector")
     REQUIRE(vec6 == vec2);
 }
 
+TEST_CASE("Slice comparison")
+{
+    using namespace slint;
+    using slint::cbindgen_private::Slice;
+
+    int a[] = { 1, 2, 3 };
+    int b[] = { 1, 2, 3 };
+    int c[] = { 1, 2, 4 };
+
+    // Compute the results outside of REQUIRE: Catch2's expression decomposition would
+    // call the comparison operators from its own namespace where ADL can't find them.
+    const bool equal_same = Slice<int> { a, 3 } == Slice<int> { b, 3 };
+    const bool notequal_same = Slice<int> { a, 3 } != Slice<int> { b, 3 };
+    REQUIRE(equal_same);
+    REQUIRE_FALSE(notequal_same);
+
+    const bool equal_diff = Slice<int> { a, 3 } == Slice<int> { c, 3 };
+    const bool notequal_diff = Slice<int> { a, 3 } != Slice<int> { c, 3 };
+    REQUIRE_FALSE(equal_diff);
+    REQUIRE(notequal_diff);
+
+    const bool equal_len = Slice<int> { a, 2 } == Slice<int> { a, 3 };
+    const bool notequal_len = Slice<int> { a, 2 } != Slice<int> { a, 3 };
+    REQUIRE_FALSE(equal_len);
+    REQUIRE(notequal_len);
+}
+
 TEST_CASE("StyledText")
 {
     auto empty_arguments = std::array<slint::StyledText, 0> {};

@@ -182,7 +182,7 @@ jobs:
               with:
                   toolchain: ${{ matrix.rust_version }}
             - name: Run tests
-              run: cargo test --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
+              run: cargo test --verbose --manifest-path tests/Cargo.toml -p test-driver-cpp --features slint-cpp/backend-qt
 
     cpp_test_driver_32bit:
         needs: files-changed
@@ -208,11 +208,11 @@ jobs:
               with:
                   target: i686-unknown-linux-gnu
             - name: Run tests
-              run: cargo test -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features
+              run: cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features
             - name: Run tests with live-preview
               env:
                   SLINT_LIVE_PREVIEW: 1
-              run: cargo test -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
+              run: cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
 
     cpp_cmake_matrix:
         needs: files-changed
@@ -371,6 +371,7 @@ jobs:
             RUSTFLAGS: --cfg slint_int_coord -D warnings
             CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
@@ -383,22 +384,22 @@ jobs:
                   buildtargets: esp32
                   ldproxy: false
             - name: Check pico-st7789
-              run: cargo check --target=thumbv6m-none-eabi -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --release
+              run: cargo check --target=thumbv6m-none-eabi --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --release
             - name: Check mcu-embassy
               run: cargo check --bin ui_mcu --target=thumbv8m.main-none-eabihf --no-default-features --features="mcu-embassy/mcu" --release
               working-directory: examples/mcu-embassy
             - name: Check all boards
               if: ${{ needs.files-changed.outputs.examples_mcu == 'true' }}
               run: |
-                  cargo check --target=thumbv8m.main-none-eabihf -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-st7789 --release
-                  cargo check --target=thumbv8m.main-none-eabihf -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-touch-lcd-2-8 --release
-                  cargo check --target=thumbv7em-none-eabihf -p printerdemo_mcu --no-default-features --features=mcu-board-support/stm32h735g --release
-                  cargo check --target=thumbv8m.main-none-eabihf -p printerdemo_mcu --no-default-features --features=mcu-board-support/stm32u5g9j-dk2 --release
-                  cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box-3 --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml --release
-                  cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-lcd-ev-board --config examples/mcu-board-support/esp32_s3_lcd_ev_board/cargo-config.toml --release
-                  cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esope-sld-c-w-s3 --config examples/mcu-board-support/esope_sld_c_w_s3/cargo-config.toml --release
-                  cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/waveshare-esp32-s3-touch-amoled-1-8 --config examples/mcu-board-support/waveshare_esp32_s3_touch_amoled_1_8/cargo-config.toml --release
-                  cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/m5stack-cores3 --config examples/mcu-board-support/m5stack_cores3/cargo-config.toml --release
+                  cargo check --target=thumbv8m.main-none-eabihf --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-st7789 --release
+                  cargo check --target=thumbv8m.main-none-eabihf --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-touch-lcd-2-8 --release
+                  cargo check --target=thumbv7em-none-eabihf --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/stm32h735g --release
+                  cargo check --target=thumbv8m.main-none-eabihf --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/stm32u5g9j-dk2 --release
+                  cargo +esp check --manifest-path demos/Cargo.toml -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box-3 --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml --release
+                  cargo +esp check --manifest-path demos/Cargo.toml -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-lcd-ev-board --config examples/mcu-board-support/esp32_s3_lcd_ev_board/cargo-config.toml --release
+                  cargo +esp check --manifest-path demos/Cargo.toml -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esope-sld-c-w-s3 --config examples/mcu-board-support/esope_sld_c_w_s3/cargo-config.toml --release
+                  cargo +esp check --manifest-path demos/Cargo.toml -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/waveshare-esp32-s3-touch-amoled-1-8 --config examples/mcu-board-support/waveshare_esp32_s3_touch_amoled_1_8/cargo-config.toml --release
+                  cargo +esp check --manifest-path demos/Cargo.toml -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/m5stack-cores3 --config examples/mcu-board-support/m5stack_cores3/cargo-config.toml --release
 
     ffi_32bit_build:
         needs: files-changed
@@ -467,7 +468,7 @@ jobs:
             - name: Show the diff
               run: git diff
             - name: Run the intepreter test to make sure that the test are passing after format
-              run: cargo test -p test-driver-interpreter
+              run: cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter
             - name: "Commit changes"
               run: |
                   git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
@@ -538,6 +539,10 @@ jobs:
         runs-on: ubuntu-latest
         env:
             RUSTFLAGS: -D warnings
+            # cargo-apk does not honor the repository's relative `build.target-dir`
+            # (.cargo/config.toml), so point it at an absolute path that matches
+            # where cargo actually writes the artifacts.
+            CARGO_TARGET_DIR: ${{ github.workspace }}/target
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
@@ -561,16 +566,16 @@ jobs:
                   target: aarch64-linux-android
 
             - name: Build todo demo
-              run: cargo apk build -p todo --target aarch64-linux-android --lib
+              run: cargo apk build --manifest-path examples/Cargo.toml -p todo --target aarch64-linux-android --lib
 
             - name: Build energy-monitor example
-              run: cargo apk build -p energy-monitor --target aarch64-linux-android --lib
+              run: cargo apk build --manifest-path demos/Cargo.toml -p energy-monitor --target aarch64-linux-android --lib
 
             - name: Build printerdemo example
-              run: cargo apk build -p printerdemo --target aarch64-linux-android --lib
+              run: cargo apk build --manifest-path demos/Cargo.toml -p printerdemo --target aarch64-linux-android --lib
 
             - name: Build usecases demo
-              run: cargo apk build -p usecases --target aarch64-linux-android --lib
+              run: cargo apk build --manifest-path demos/Cargo.toml -p usecases --target aarch64-linux-android --lib
 
             - name: Build slint-viewer for Android
               run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --features remote
@@ -795,10 +800,10 @@ jobs:
         strategy:
             matrix:
                 include:
-                    - sdk_url: https://nextcloud.slint.dev/s/SCXYDmEmr45pkak/download/poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
+                    - sdk_url: https://nextcloud.slint.dev/s/DRCzxmr8nRrnkcT/download/poky-glibc-x86_64-core-image-weston-sdk-cortexa57-qemuarm64-toolchain-6.0.1.sh
                       env_setup: environment-setup-cortexa57-poky-linux
                       target: aarch64-unknown-linux-gnu
-                    - sdk_url: https://nextcloud.slint.dev/s/BTL5NtLACjgS7Pf/download/poky-glibc-x86_64-core-image-weston-cortexa15t2hf-neon-qemuarm-toolchain-4.0.9.sh
+                    - sdk_url: https://nextcloud.slint.dev/s/SN5REo4B8zyYYoL/download/poky-glibc-x86_64-core-image-weston-sdk-cortexa15t2hf-neon-qemuarm-toolchain-6.0.1.sh
                       env_setup: environment-setup-cortexa15t2hf-neon-poky-linux-gnueabi
                       target: armv7-unknown-linux-gnueabihf
         runs-on: ubuntu-22.04
@@ -819,12 +824,26 @@ jobs:
               with:
                   toolchain: stable
                   target: ${{ matrix.target }}
+            - name: Install a libclang new enough for bindgen
+              # The runner's system libclang (15) cannot parse the SDK's GCC 15.2
+              # libstdc++ headers (<format>, <ranges>) that skia-bindings' bindgen
+              # pulls in, so install a newer libclang from apt.llvm.org. The SDK
+              # itself ships clang-22 but no libclang.so, so it can't be reused here.
+              run: |
+                  wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+                  chmod +x /tmp/llvm.sh
+                  sudo /tmp/llvm.sh 20
+                  sudo apt-get install --assume-yes libclang-20-dev
+                  rm -f /tmp/llvm.sh
             - name: C++ Build
               run: |
                   . ${{ runner.workspace }}/yocto-sdk/${{ matrix.env_setup }}
                   # Only needed for 32-bit arm builds where soft-fp/hard-fp affects header file lookup, hence the need to drag in these flags. See also commit
                   # f5c3908b7ec5131b7b19ff642b5975660c7484f8
                   export BINDGEN_EXTRA_CLANG_ARGS=$OECORE_TUNE_CCARGS
+                  # bindgen must parse the SDK's GCC 15.2 libstdc++ headers, which the
+                  # runner's system libclang is too old for; use the one installed above.
+                  export LIBCLANG_PATH=/usr/lib/llvm-20/lib
                   mkdir ${{ runner.workspace }}/cppbuild
                   cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON -DSLINT_FEATURE_INTERPRETER=ON
                   cmake --build ${{ runner.workspace }}/cppbuild
@@ -843,7 +862,7 @@ jobs:
                       target: thumbv7em-none-eabihf
                       extra-cmake-args: -DSHIELD=rk055hdmipi4ma0
             fail-fast: false
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-24.04
         steps:
           - uses: actions/checkout@v6
             with:
@@ -863,7 +882,7 @@ jobs:
             with:
                 app-path: slint
                 manifest-file-name: demos/zephyr-common/west.yaml
-                sdk-version: 0.16.8
+                sdk-version: 1.0.1
           - name: Export the Zephyr CMake package
             run: west zephyr-export
           - name: Build for ${{matrix.board}}
@@ -882,7 +901,7 @@ jobs:
                   toolchain: stable
                   target: x86_64-unknown-uefi
             - name: Check
-              run: cargo check --target=x86_64-unknown-uefi -p uefi-demo
+              run: cargo check --target=x86_64-unknown-uefi --manifest-path examples/uefi-demo/Cargo.toml
 
     ios:
         if: ${{ inputs.full }}
@@ -1019,6 +1038,9 @@ jobs:
     android_wgpu:
         if: ${{ inputs.full }}
         runs-on: ubuntu-latest
+        env:
+            # cargo-apk does not honor the repository's relative `build.target-dir`.
+            CARGO_TARGET_DIR: ${{ github.workspace }}/target
         steps:
             - uses: actions/checkout@v6
             - name: Install Android API level 30
@@ -1032,7 +1054,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
             - name: Build wgpu_texture demo
-              run: cargo apk build -p wgpu_texture --target aarch64-linux-android --lib
+              run: cargo apk build --manifest-path examples/Cargo.toml -p wgpu_texture --target aarch64-linux-android --lib
 
     miri:
         if: ${{ inputs.full }}
@@ -1050,5 +1072,5 @@ jobs:
               run: cargo miri test -p vtable -p const-field-offset -p i-slint-common
             - name: Run Miri on i-slint-core
               env:
-                  MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-tree-borrows
+                  MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-tree-borrows -Zmiri-symbolic-alignment-check
               run: cargo miri test -p i-slint-core --lib --features ffi,rtti

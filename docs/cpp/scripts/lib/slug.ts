@@ -6,11 +6,15 @@
 /** Starlight collects pages under `src/content/docs`; the generated API lives under `api/`. */
 export const API_ROOT = "api";
 
-/** A filesystem/url-safe fragment, lowercased, with `::` and other separators collapsed to `-`. */
+/**
+ * A filesystem/url-safe fragment: lowercased, punctuation collapsed to `-`.
+ * Underscores are kept (like {@link memberAnchorBase}) so the slug mirrors the
+ * C++ identifier, e.g. `update_all_translations` not `update-all-translations`.
+ */
 function slugify(text: string): string {
     return text
         .replace(/::/g, "-")
-        .replace(/[^a-zA-Z0-9]+/g, "-")
+        .replace(/[^a-zA-Z0-9_]+/g, "-")
         .replace(/-+/g, "-")
         .replace(/^-|-$/g, "")
         .toLowerCase();

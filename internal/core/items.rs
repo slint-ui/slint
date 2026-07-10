@@ -95,7 +95,7 @@ macro_rules! declare_item_vtable {
         #[unsafe(no_mangle)]
         pub extern "C" fn $getter() -> *const ItemVTable {
             use vtable::HasStaticVTable;
-            <$item_ty>::static_vtable()
+            <$item_ty>::STATIC_VTABLE
         }
     };
 }
@@ -2018,7 +2018,7 @@ impl Item for TooltipArea {
     ) -> InputEventFilterResult {
         // Track hover in the filter stage so enter/leave transitions are reliable,
         // independent of later input handling.
-        if matches!(event, MouseEvent::DragMove(..) | MouseEvent::Drop(..)) {
+        if matches!(event, MouseEvent::DragMove { .. } | MouseEvent::Drop { .. }) {
             self.set_hover_state(false, self_rc);
             return InputEventFilterResult::ForwardAndIgnore;
         }

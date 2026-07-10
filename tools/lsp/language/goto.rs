@@ -201,7 +201,7 @@ fn test_goto_definition_multi_files() {
         open_urls: Default::default(),
         to_preview: crate::common::LspToPreviews::with_one(common::DummyLspToPreview::default()),
         pending_recompile: Default::default(),
-        preview_to_lsp_sender: tokio::sync::mpsc::unbounded_channel().0,
+        host_language_rename_dont_ask_again: Default::default(),
     };
     let (extra_files, diag) = spin_on::spin_on(crate::language::load_document_impl(
         &mut ctx,

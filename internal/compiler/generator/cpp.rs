@@ -6,6 +6,7 @@
 
 // cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals compl consteval constinit glyphset glyphsets reflexpr
 
+use super::accessor_names::{self, AccessorKind};
 use crate::fileaccess;
 use std::collections::HashSet;
 use std::fmt::Write;
@@ -924,12 +925,26 @@ pub fn generate(
         ));
     }
 
+    // The globals are not initialized in the constructor: a global's init may evaluate a
+    // binding (e.g. `Palette.color-scheme`) that resolves the root through `root_weak` and the
+    // root component's `globals` pointer. Those are only set after the SharedGlobals member has
+    // been constructed, so the init is deferred to `init_globals()`, called from the root
+    // component's `create()` once `globals` and `root_weak` are in place.
     globals_struct.members.push((
         Access::Public,
         Declaration::Function(Function {
             name: globals_struct.name.clone(),
             is_constructor_or_destructor: true,
             signature: "()".into(),
+            statements: Some(vec![]),
+            ..Default::default()
+        }),
+    ));
+    globals_struct.members.push((
+        Access::Public,
+        Declaration::Function(Function {
+            name: "init_globals".into(),
+            signature: "() -> void".into(),
             statements: Some(init_global),
             ..Default::default()
         }),
@@ -1099,7 +1114,7 @@ fn embed_resource(
                 ..Default::default()
             }));
         }
-        #[cfg(feature = "software-renderer")]
+        #[cfg(feature = "renderer-software")]
         crate::embedded_resources::EmbeddedResourcesKind::TextureData(
             crate::embedded_resources::Texture {
                 data,
@@ -1158,7 +1173,7 @@ fn embed_resource(
                 ..Default::default()
             }))
         }
-        #[cfg(feature = "software-renderer")]
+        #[cfg(feature = "renderer-software")]
         crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(
             crate::embedded_resources::BitmapFont {
                 family_name,
@@ -2039,6 +2054,9 @@ fn generate_item_tree(
 
         create_code.push("self->globals = &self->m_globals;".into());
         create_code.push("self->m_globals.root_weak = self->self_weak;".into());
+        // Now that `globals` and `root_weak` are set, the globals can be initialized: their
+        // init may resolve the root window adapter through these (see `init_globals`).
+        create_code.push("self->m_globals.init_globals();".into());
     }
 
     let global_access =
@@ -2279,6 +2297,13 @@ fn generate_sub_component(
     let mut subtrees_ranges_cases = Vec::new();
     let mut subtrees_components_cases = Vec::new();
     let mut ensure_instantiated_stmts: Vec<String> = Vec::new();
+
+    // The pre-init code (custom font registration) runs before the property initialization.
+    init.extend(component.pre_init_code.iter().map(|e| {
+        let mut expr_str = compile_expression(&e.borrow(), &ctx);
+        expr_str.push(';');
+        expr_str
+    }));
 
     for sub in &component.sub_components {
         let sub_field = field_name(&sub.name);
@@ -2866,9 +2891,25 @@ fn generate_flexbox_layout_item_info_decl(
 
     let body = if let Some(expr) = &root_sc.flexbox_layout_item_info_for_repeated {
         let compiled = compile_expression(&expr.borrow(), ctx);
+        // Break the height-for-width recursion for a repeated instance in a
+        // column FlexboxLayout: use the constrained vertical info (measured at
+        // its preferred width via layoutinfo-v-with-constraint) instead of
+        // reading self.width through the parent flex cache.
+        let v_constrained = root_sc
+            .layout_info_v_constrained_for_repeated
+            .as_ref()
+            .map(|e| {
+                let v = compile_expression(&e.borrow(), ctx);
+                format!(
+                    "if (o == slint::cbindgen_private::Orientation::Vertical && !child_index.has_value()) {{ \
+                         info.constraint = {v}; return info; }} "
+                )
+            })
+            .unwrap_or_default();
         format!(
             "[[maybe_unused]] auto self = this; \
              auto info = {compiled}; \
+             {v_constrained}\
              info.constraint = layout_item_info(o, child_index).constraint; \
              return info;"
         )
@@ -2942,12 +2983,13 @@ fn generate_grid_layout_input_decl(
                 }
                 llr::RowChildTemplateInfo::Repeated { repeater_index } => {
                     let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
+                    // Let the inner cell report its own col/row/colspan/rowspan.
                     write!(
                         fill_code,
                         "this->{inner_rep_id}.track_instance_changes();\n\
-                         {inner_rep_id}.for_each([&]([[maybe_unused]] const auto &) {{\n\
+                         {inner_rep_id}.for_each([&](const auto &sub_comp) {{\n\
                              if (write_idx < result.size()) {{\n\
-                                 result[write_idx] = slint::cbindgen_private::GridLayoutInputData {{ (write_idx == 0) && new_row, {auto_val:.1}f, {auto_val:.1}f, 1.0f, 1.0f }};\n\
+                                 sub_comp->grid_layout_input_for_repeated((write_idx == 0) && new_row, result.subspan(write_idx, 1));\n\
                              }}\n\
                              ++write_idx;\n\
                          }});\n"
@@ -3325,8 +3367,6 @@ fn generate_public_api_for_properties(
     ctx: &EvaluationContext,
 ) {
     for p in public_properties {
-        let prop_ident = concatenate_ident(&p.name);
-
         let access = access_member(&p.prop, ctx).unwrap();
 
         if let Type::Callback(callback) = &p.ty {
@@ -3344,7 +3384,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format_smolstr!("invoke_{prop_ident}"),
+                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Invoker),
                     signature: format!(
                         "({}) const -> {}",
                         param_types
@@ -3370,7 +3410,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format_smolstr!("on_{}", concatenate_ident(&p.name)),
+                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Handler),
                     template_parameters: Some(format!(
                         "std::invocable<{}> Functor",
                         param_types.join(", "),
@@ -3395,7 +3435,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format_smolstr!("invoke_{}", concatenate_ident(&p.name)),
+                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Invoker),
                     signature: format!(
                         "({}) const -> {ret}",
                         param_types
@@ -3418,7 +3458,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format_smolstr!("get_{}", &prop_ident),
+                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Getter),
                     signature: format!("() const -> {}", &cpp_property_type),
                     statements: Some(prop_getter),
                     ..Default::default()
@@ -3434,7 +3474,7 @@ fn generate_public_api_for_properties(
                 declarations.push((
                     Access::Public,
                     Declaration::Function(Function {
-                        name: format_smolstr!("set_{}", &prop_ident),
+                        name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Setter),
                         signature: format!("(const {} &value) const -> void", &cpp_property_type),
                         statements: Some(prop_setter),
                         ..Default::default()
@@ -3444,7 +3484,7 @@ fn generate_public_api_for_properties(
                 declarations.push((
                     Access::Private,
                     Declaration::Function(Function {
-                        name: format_smolstr!("set_{}", &prop_ident),
+                        name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Setter),
                         signature: format!(
                             "(const {cpp_property_type} &) const = SLINT_DELETED_FUNCTION(\"property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter\")", p.name
                         ),
@@ -3456,14 +3496,12 @@ fn generate_public_api_for_properties(
     }
 
     for (name, ty) in private_properties {
-        let prop_ident = concatenate_ident(name);
-
         if let Type::Function(function) = &ty {
             let param_types = function.args.iter().map(|t| t.cpp_type().unwrap()).join(", ");
             declarations.push((
                 Access::Private,
                 Declaration::Function(Function {
-                    name: format_smolstr!("invoke_{prop_ident}"),
+                    name: accessor_names::cpp_accessor_name(name, AccessorKind::Invoker),
                     signature: format!(
                         "({param_types}) const = SLINT_DELETED_FUNCTION(\"the function '{name}' is declared as private. Declare it as 'public'\")",
                     ),
@@ -3474,7 +3512,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Private,
                 Declaration::Function(Function {
-                    name: format_smolstr!("get_{prop_ident}"),
+                    name: accessor_names::cpp_accessor_name(name, AccessorKind::Getter),
                     signature: format!(
                         "() const = SLINT_DELETED_FUNCTION(\"the property '{name}' is declared as private. Declare it as 'in', 'out', or 'in-out' to make it public\")",
                     ),
@@ -3484,7 +3522,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Private,
                 Declaration::Function(Function {
-                    name: format_smolstr!("set_{}", &prop_ident),
+                    name: accessor_names::cpp_accessor_name(name, AccessorKind::Setter),
                     signature: format!(
                         "(const auto &) const = SLINT_DELETED_FUNCTION(\"property '{name}' is declared as private. Declare it as 'in' or 'in-out' to make it public\")",
                     ),
@@ -3804,9 +3842,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
     match expr {
         Expression::StringLiteral(s) => shared_string_literal(s),
         Expression::NumberLiteral(num) => {
-            if !num.is_finite() {
-                // just print something
-                "0.0".to_string()
+            if num.is_nan() {
+                "std::numeric_limits<double>::quiet_NaN()".to_string()
+            } else if num.is_infinite() {
+                if *num > 0. {
+                    "std::numeric_limits<double>::infinity()".to_string()
+                } else {
+                    "-std::numeric_limits<double>::infinity()".to_string()
+                }
             } else if num.abs() > 1_000_000_000. {
                 // If the numbers are too big, decimal notation will give too many digit
                 format!("{num:+e}")
@@ -3900,7 +3943,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let f = compile_expression(from, ctx);
             match (from.ty(ctx), to) {
                 (Type::Float32, Type::Int32) => {
-                    format!("static_cast<int>({f})")
+                    format!("slint::private_api::saturating_float_to_int({f})")
                 }
                 (from, Type::String) if from.as_unit_product().is_some() => {
                     format!("slint::SharedString::from_number({f})")
@@ -4131,10 +4174,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::ImageReference { resource_ref, nine_slice } => {
             let image = match resource_ref {
                 crate::expression_tree::ImageReference::None => r#"slint::Image()"#.to_string(),
-                crate::expression_tree::ImageReference::AbsolutePath(path) => format!(
+                resource_ref @ (crate::expression_tree::ImageReference::Path(_)
+                | crate::expression_tree::ImageReference::Url(_)) => format!(
                     r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#,
-                    escape_string(path.as_str())
+                    escape_string(resource_ref.source().unwrap())
                 ),
+                crate::expression_tree::ImageReference::DataUri(_) => {
+                    unreachable!("data: URIs are embedded before code generation")
+                }
                 crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                     let symbol = format!("slint_embedded_resource_{resource_id}");
                     format!(
@@ -4176,8 +4223,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 .map(|e| format!("{ty} ( {expr} )", expr = compile_expression(e, ctx), ty = ty));
             match output {
                 llr::ArrayOutput::Model => format!(
-                    "std::make_shared<slint::private_api::ArrayModel<{count},{ty}>>({val})",
-                    count = values.len(),
+                    "std::make_shared<slint::VectorModel<{ty}>>(std::vector<{ty}>{{ {val} }})",
                     ty = ty,
                     val = val.join(", ")
                 ),
@@ -4229,23 +4275,9 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => format!(
             "slint::cbindgen_private::EasingCurve(slint::cbindgen_private::EasingCurve::Tag::CubicBezier, {a}, {b}, {c}, {d})"
         ),
-        Expression::EasingCurve(EasingCurve::EaseInElastic) => {
-            "slint::cbindgen_private::EasingCurve::Tag::EaseInElastic".into()
-        }
-        Expression::EasingCurve(EasingCurve::EaseOutElastic) => {
-            "slint::cbindgen_private::EasingCurve::Tag::EaseOutElastic".into()
-        }
-        Expression::EasingCurve(EasingCurve::EaseInOutElastic) => {
-            "slint::cbindgen_private::EasingCurve::Tag::EaseInOutElastic".into()
-        }
-        Expression::EasingCurve(EasingCurve::EaseInBounce) => {
-            "slint::cbindgen_private::EasingCurve::Tag::EaseInBounce".into()
-        }
-        Expression::EasingCurve(EasingCurve::EaseOutBounce) => {
-            "slint::cbindgen_private::EasingCurve::Tag::EaseOutElastic".into()
-        }
-        Expression::EasingCurve(EasingCurve::EaseInOutBounce) => {
-            "slint::cbindgen_private::EasingCurve::Tag::EaseInOutElastic".into()
+        // The other curves have no parameters and their C++ Tag matches the variant name.
+        Expression::EasingCurve(e) => {
+            format!("slint::cbindgen_private::EasingCurve::Tag::{e:?}")
         }
         Expression::LinearGradient { angle, stops } => {
             let angle = compile_expression(angle, ctx);
@@ -4648,6 +4680,11 @@ fn compile_builtin_function_call(
                 a.next().unwrap(), a.next().unwrap(),
             )
         }
+        BuiltinFunction::ToStringUnlocalized => {
+            format!("[](double n) {{ slint::SharedString out; slint::cbindgen_private::slint_shared_string_from_number_unlocalized(&out, n); return out; }}({})",
+                a.next().unwrap(),
+            )
+        }
         BuiltinFunction::SetFocusItem => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);
@@ -4696,6 +4733,12 @@ fn compile_builtin_function_call(
         BuiltinFunction::StringToUppercase => {
             format!("{}.to_uppercase()", a.next().unwrap())
         }
+        BuiltinFunction::StringStartsWith => {
+            format!("{}.starts_with({})", a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::StringEndsWith => {
+            format!("{}.ends_with({})", a.next().unwrap(), a.next().unwrap())
+        }
         BuiltinFunction::KeysToString => {
             format!("{}.to_string()", a.next().unwrap())
         }
@@ -4728,6 +4771,22 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ArrayLength => {
             format!("slint::private_api::model_length({})", a.next().unwrap())
+        }
+        BuiltinFunction::ArrayPush => {
+            let model = a.next().unwrap();
+            let value = a.next().unwrap();
+            format!("slint::private_api::model_push({model}, {value})")
+        }
+        BuiltinFunction::ArrayRemove => {
+            let model = a.next().unwrap();
+            let index = a.next().unwrap();
+            format!("slint::private_api::model_remove({model}, {index})")
+        }
+        BuiltinFunction::ArrayInsert => {
+            let model = a.next().unwrap();
+            let index = a.next().unwrap();
+            let value = a.next().unwrap();
+            format!("slint::private_api::model_insert({model}, {index}, {value})")
         }
         BuiltinFunction::Rgb => {
             format!("slint::Color::from_argb_uint8(std::clamp(static_cast<float>({a}) * 255., 0., 255.), std::clamp(static_cast<int>({r}), 0, 255), std::clamp(static_cast<int>({g}), 0, 255), std::clamp(static_cast<int>({b}), 0, 255))",
@@ -4876,7 +4935,7 @@ fn compile_builtin_function_call(
             )
         }
         BuiltinFunction::DateNow => {
-            "[] { int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_date_now(&d, &m, &y); return std::make_shared<slint::private_api::ArrayModel<3,int32_t>>(d, m, y); }()".into()
+            "[] { int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_date_now(&d, &m, &y); return std::make_shared<slint::VectorModel<int32_t>>(std::vector<int32_t>{ d, m, y }); }()".into()
         }
         BuiltinFunction::ValidDate => {
             format!(
@@ -4886,7 +4945,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ParseDate => {
             format!(
-                "[](const auto &a, const auto &b) {{ int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_parse_date(&a, &b, &d, &m, &y); return std::make_shared<slint::private_api::ArrayModel<3,int32_t>>(d, m, y); }}({}, {})",
+                "[](const auto &a, const auto &b) {{ int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_parse_date(&a, &b, &d, &m, &y); return std::make_shared<slint::VectorModel<int32_t>>(std::vector<int32_t>{{ d, m, y }}); }}({}, {})",
                 a.next().unwrap(), a.next().unwrap()
             )
         }
@@ -5278,6 +5337,9 @@ fn generate_with_layout_item_info(
                     repeater_idx,
                     "max_total",
                     |repeater_id, static_count, inner_ensure, rs_init| {
+                        // for_each only visits instantiated slots; pad the cells up to len()
+                        // afterwards so the cell count matches the repeater length recorded in
+                        // the repeater_indices array (not-yet-instantiated rows get placeholders).
                         format!(
                             "{{
                                 size_t max_total = {static_count};
@@ -5285,11 +5347,13 @@ fn generate_with_layout_item_info(
                                     {inner_ensure}
                                 }});
                                 {rs_init}
+                                auto start_offset = cells_vector.size();
                                 self->{repeater_id}.for_each([&](const auto &sub_comp) {{
                                     for (size_t child_idx = 0; child_idx < max_total; ++child_idx) {{
                                         cells_vector.push_back(sub_comp->layout_item_info({o}, child_idx));
                                     }}
                                 }});
+                                cells_vector.resize(start_offset + self->{repeater_id}.len() * max_total);
                             }}",
                             o = to_cpp_orientation(orientation),
                         )
@@ -5300,16 +5364,24 @@ fn generate_with_layout_item_info(
                         } else if step == 1 && is_column_repeater {
                             // Column-repeater: each sub-component IS a cell; nullopt returns its own layout_info
                             format!(
-                                "{rs_init}self->{repeater_id}.for_each([&](const auto &sub_comp){{ cells_vector.push_back(sub_comp->layout_item_info({o}, std::nullopt)); }});",
+                                "{rs_init}{{
+                                    auto start_offset = cells_vector.size();
+                                    self->{repeater_id}.for_each([&](const auto &sub_comp){{ cells_vector.push_back(sub_comp->layout_item_info({o}, std::nullopt)); }});
+                                    cells_vector.resize(start_offset + self->{repeater_id}.len());
+                                }}",
                                 o = to_cpp_orientation(orientation),
                             )
                         } else {
                             format!(
-                                "{rs_init}self->{repeater_id}.for_each([&](const auto &sub_comp){{
-                                    for (size_t child_idx = 0; child_idx < {step}; ++child_idx) {{
-                                        cells_vector.push_back(sub_comp->layout_item_info({o}, child_idx));
-                                    }}
-                                }});",
+                                "{rs_init}{{
+                                    auto start_offset = cells_vector.size();
+                                    self->{repeater_id}.for_each([&](const auto &sub_comp){{
+                                        for (size_t child_idx = 0; child_idx < {step}; ++child_idx) {{
+                                            cells_vector.push_back(sub_comp->layout_item_info({o}, child_idx));
+                                        }}
+                                    }});
+                                    cells_vector.resize(start_offset + self->{repeater_id}.len() * {step});
+                                }}",
                                 o = to_cpp_orientation(orientation),
                             )
                         }
@@ -5388,11 +5460,19 @@ fn generate_with_flexbox_layout_item_info(
                     .unwrap();
                 }
                 repeater_idx += 1;
+                // for_each only visits instantiated slots; pad the cells up to len() afterwards so
+                // the cell count matches the repeater length recorded in the repeater_indices array
+                // (not-yet-instantiated rows get placeholders).
                 write!(
                     push_code,
-                    "self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{ \
+                    "{{ \
+                     auto start_offset = cells_vector_h.size(); \
+                     self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{ \
                      cells_vector_h.push_back(sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Horizontal, std::nullopt)); \
-                     cells_vector_v.push_back(sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt)); }});"
+                     cells_vector_v.push_back(sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt)); }}); \
+                     auto repeater_len = self->repeater_{repeater_index}.len(); \
+                     cells_vector_h.resize(start_offset + repeater_len); \
+                     cells_vector_v.resize(start_offset + repeater_len); }}"
                 )
                 .unwrap();
             }

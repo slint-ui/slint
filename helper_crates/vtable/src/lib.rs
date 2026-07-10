@@ -113,8 +113,9 @@ pub unsafe trait HasStaticVTable<VT>
 where
     VT: ?Sized + VTableMeta,
 {
-    /// Safety: must be a valid VTable for Self
-    fn static_vtable() -> &'static VT::VTable;
+    /// Safety: must point to the single static VTable for Self. Downcasts
+    /// compare vtables by address, so it must not be a promoted temporary.
+    const STATIC_VTABLE: &'static VT::VTable;
 }
 
 #[derive(Copy, Clone)]
@@ -248,7 +249,7 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
     pub fn new<X: HasStaticVTable<T>>(value: &'a X) -> Self {
         Self {
             inner: Inner {
-                vtable: NonNull::from(X::static_vtable()).cast(),
+                vtable: NonNull::from(X::STATIC_VTABLE).cast(),
                 ptr: NonNull::from(value).cast(),
             },
             phantom: PhantomData,
@@ -261,7 +262,7 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
         unsafe {
             Pin::new_unchecked(Self {
                 inner: Inner {
-                    vtable: NonNull::from(X::static_vtable()).cast(),
+                    vtable: NonNull::from(X::STATIC_VTABLE).cast(),
                     ptr: NonNull::from(value.get_ref()).cast(),
                 },
                 phantom: PhantomData,
@@ -283,7 +284,7 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
 
     /// Return a reference of the given type if the type is matching.
     pub fn downcast<X: HasStaticVTable<T>>(&self) -> Option<&X> {
-        if self.inner.vtable == NonNull::from(X::static_vtable()).cast() {
+        if self.inner.vtable == NonNull::from(X::STATIC_VTABLE).cast() {
             // Safety: We just checked that the vtable fits
             unsafe { Some(self.inner.ptr.cast().as_ref()) }
         } else {
@@ -294,7 +295,7 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
     /// Return a reference of the given type if the type is matching
     pub fn downcast_pin<X: HasStaticVTable<T>>(this: Pin<Self>) -> Option<Pin<&'a X>> {
         let inner = unsafe { Pin::into_inner_unchecked(this).inner };
-        if inner.vtable == NonNull::from(X::static_vtable()).cast() {
+        if inner.vtable == NonNull::from(X::STATIC_VTABLE).cast() {
             // Safety: We just checked that the vtable fits
             unsafe { Some(Pin::new_unchecked(inner.ptr.cast().as_ref())) }
         } else {
@@ -338,7 +339,7 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
     pub fn new<X: HasStaticVTable<T>>(value: &'a mut X) -> Self {
         Self {
             inner: Inner {
-                vtable: NonNull::from(X::static_vtable()).cast(),
+                vtable: NonNull::from(X::STATIC_VTABLE).cast(),
                 ptr: NonNull::from(value).cast(),
             },
             phantom: PhantomData,
@@ -376,7 +377,7 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
 
     /// Return a reference of the given type if the type is matching.
     pub fn downcast<X: HasStaticVTable<T>>(&mut self) -> Option<&mut X> {
-        if self.inner.vtable == NonNull::from(X::static_vtable()).cast() {
+        if self.inner.vtable == NonNull::from(X::STATIC_VTABLE).cast() {
             // Safety: We just checked that the vtable fits
             unsafe { Some(self.inner.ptr.cast().as_mut()) }
         } else {
@@ -506,8 +507,8 @@ impl<Base, T: ?Sized + VTableMeta, Flag> VOffset<Base, T, Flag> {
     /// Create an new VOffset from a [`FieldOffset`] where the target type implement the
     /// [`HasStaticVTable`] trait.
     #[inline]
-    pub fn new<X: HasStaticVTable<T>>(o: FieldOffset<Base, X, Flag>) -> Self {
-        Self { vtable: X::static_vtable(), offset: o.get_byte_offset(), phantom: PhantomData }
+    pub const fn new<X: HasStaticVTable<T>>(o: FieldOffset<Base, X, Flag>) -> Self {
+        Self { vtable: X::STATIC_VTABLE, offset: o.get_byte_offset(), phantom: PhantomData }
     }
 
     /// Create a new VOffset from raw data

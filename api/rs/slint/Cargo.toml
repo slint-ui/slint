@@ -20,7 +20,15 @@ path = "lib.rs"
 
 [features]
 
-default = ["std", "backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-2"]
+default = [
+  "std",
+  "backend-default",
+  "renderer-femtovg",
+  "renderer-software",
+  "accessibility",
+  "compat-1-2",
+  "system-tray",
+]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 1.2
@@ -74,6 +82,12 @@ unsafe-single-threaded = ["i-slint-core/unsafe-single-threaded"]
 ## Enabling this feature will try to expose the tree of UI elements to OS provided accessibility
 ## APIs to support screen readers and other assistive technologies.
 accessibility = ["i-slint-backend-selector/accessibility"]
+
+## Enable the `SystemTrayIcon` element. On Linux/BSD this pulls in
+## [`ksni`](https://crates.io/crates/ksni). It is on by default; to drop the
+## tray dependency, disable default features and re-enable the ones you need
+## without `system-tray` (keep the mandatory `compat-1-2`).
+system-tray = ["i-slint-core/system-tray"]
 
 ## Enable integration with [raw-window-handle](raw_window_handle_06) version 0.6. This provides a
 ## [`Window::window_handle()`] function that returns a struct that implements
@@ -223,7 +237,7 @@ backend-android-activity-05 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.17", features = ["unstable-wgpu-28"] }
+## slint = { version = "~1.18", features = ["unstable-wgpu-28"] }
 ## ```
 unstable-wgpu-28 = [
   "i-slint-core/unstable-wgpu-28",
@@ -242,7 +256,7 @@ unstable-wgpu-28 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.17", features = ["unstable-wgpu-29"] }
+## slint = { version = "~1.18", features = ["unstable-wgpu-29"] }
 ## ```
 unstable-wgpu-29 = [
   "i-slint-core/unstable-wgpu-29",
@@ -259,7 +273,7 @@ unstable-wgpu-29 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.17", features = ["unstable-winit-031"] }
+## slint = { version = "~1.18", features = ["unstable-winit-031"] }
 ## ```
 unstable-winit-031 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-backend-selector/unstable-winit-031"]
 
@@ -273,11 +287,11 @@ unstable-winit-031 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-bac
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.17", features = ["unstable-libinput-09"] }
+## slint = { version = "~1.18", features = ["unstable-libinput-09"] }
 ## ```
 unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 
-## Enable support for exposing [fontique](https://docs.rs/fontique/0.10.0/fontique/) related APIs.
+## Enable support for exposing [fontique](https://docs.rs/fontique/0.11.0/fontique/) related APIs.
 ##
 ## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees. This feature as well as the APIs changed or removed
 ## in future minor releases of Slint, likely to be replaced by a feature with a similar name but the fontique version suffix being bumped.
@@ -286,9 +300,9 @@ unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.17", features = ["unstable-fontique-010"] }
+## slint = { version = "~1.18", features = ["unstable-fontique-011"] }
 ## ```
-unstable-fontique-010 = ["i-slint-common/shared-fontique"]
+unstable-fontique-011 = ["i-slint-common/shared-fontique"]
 
 [dependencies]
 i-slint-core = { workspace = true }
@@ -352,6 +366,6 @@ features = [
   "unstable-wgpu-29",
   "unstable-winit-031",
   "unstable-libinput-09",
-  "unstable-fontique-010",
+  "unstable-fontique-011",
 ]
 rustdoc-args = ["--generate-link-to-definition"]

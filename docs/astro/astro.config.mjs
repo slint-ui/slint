@@ -66,11 +66,11 @@ export default defineConfig({
                                 collapsed: true,
                                 items: [
                                     "guide/tooling/vscode",
+                                    "guide/tooling/manual-setup",
                                     {
                                         label: "Other Editors",
                                         collapsed: true,
                                         items: [
-                                            "guide/tooling/manual-setup",
                                             "guide/tooling/kate",
                                             "guide/tooling/qt-creator",
                                             "guide/tooling/helix",
@@ -81,7 +81,9 @@ export default defineConfig({
                                         ],
                                     },
                                     "guide/tooling/live-preview",
+                                    "guide/tooling/slint-viewer",
                                     "guide/tooling/figma-inspector",
+                                    "guide/tooling/ai-coding-assistants",
                                 ],
                             },
                             {
@@ -219,10 +221,6 @@ export default defineConfig({
                                                   slug: "guide/experimental/overview",
                                               },
                                               {
-                                                  label: "AI Coding Assistants",
-                                                  slug: "guide/experimental/ai-coding-assistants",
-                                              },
-                                              {
                                                   label: "FlexboxLayout",
                                                   slug: "guide/experimental/flexboxlayout",
                                               },
@@ -237,6 +235,10 @@ export default defineConfig({
                                               {
                                                   label: "Library Modules",
                                                   slug: "guide/experimental/library-modules",
+                                              },
+                                              {
+                                                  label: "Match Elements",
+                                                  slug: "guide/experimental/match-elements",
                                               },
                                           ],
                                       },

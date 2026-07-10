@@ -79,9 +79,6 @@
 (function_call
   name: (_) @local.reference)
 
-(changed_function_call
-  name: (_) @local.reference)
-
 (index_op
   index: (_) @local.reference)
 
@@ -120,4 +117,4 @@
   (#set! reference.kind "type"))
 
 (unary_expression
-  left: (_) @local.reference)
+  expr: (_) @local.reference)
