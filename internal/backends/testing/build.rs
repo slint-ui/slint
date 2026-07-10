@@ -1,7 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore rsplit Sfixed
 fn main() {
+    cfg_aliases::cfg_aliases! {
+        supports_headless: { any(feature = "renderer-software", feature = "renderer-skia") },
+        // Skia's software rasterizer is not built on Android.
+        skia_headless: { all(feature = "renderer-skia", not(target_os = "android")) },
+    }
+
     #[cfg(any(feature = "system-testing", feature = "mcp"))]
     {
         use prost::Message;
@@ -31,7 +38,7 @@ fn main() {
 
 /// Generate JSON schemas for proto Request* messages, used by the MCP server
 /// to build tool definitions from the proto source of truth.
-#[cfg(any(feature = "system-testing", feature = "mcp"))]
+#[cfg(feature = "mcp")]
 fn generate_mcp_schemas(fds: &prost_types::FileDescriptorSet, out_dir: &std::path::Path) {
     use std::fmt::Write;
 
@@ -109,7 +116,7 @@ fn generate_mcp_schemas(fds: &prost_types::FileDescriptorSet, out_dir: &std::pat
     std::fs::write(out_dir.join("mcp_schemas.rs"), code).expect("failed to write mcp_schemas.rs");
 }
 
-#[cfg(any(feature = "system-testing", feature = "mcp"))]
+#[cfg(feature = "mcp")]
 fn message_to_json_schema(
     msg: &prost_types::DescriptorProto,
     messages: &std::collections::HashMap<String, &prost_types::DescriptorProto>,
@@ -188,7 +195,7 @@ fn message_to_json_schema(
     format!(r#"{{"type": "object", "properties": {{{props}}}}}"#)
 }
 
-#[cfg(any(feature = "system-testing", feature = "mcp"))]
+#[cfg(feature = "mcp")]
 fn snake_to_camel(s: &str) -> String {
     let mut result = String::new();
     let mut capitalize_next = false;

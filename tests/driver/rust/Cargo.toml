@@ -5,7 +5,8 @@
 name = "test-driver-rust"
 description = "Driver for the rust-based tests in Slint"
 authors.workspace = true
-edition.workspace = true
+# Keep an older edition to ensure the generated code is compatible with users that don't use the latest edition
+edition = "2021"
 homepage.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -21,7 +22,9 @@ name = "test-driver-rust"
 default = ["backend-qt"]
 
 build-time = ["i-slint-compiler", "spin_on"]
+deterministic-output = ["build-time"]
 backend-qt = ["slint/backend-qt"]
+live-preview = ["slint/live-preview"]
 
 [dependencies]
 slint = { workspace = true, features = ["std", "compat-1-2"] }

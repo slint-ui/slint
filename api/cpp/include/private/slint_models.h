@@ -6,6 +6,7 @@
 #include "private/slint_item_tree.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -48,12 +49,34 @@ long int model_length(const std::shared_ptr<M> &model)
     }
 }
 
+template<typename M, typename ModelData>
+void model_push(const std::shared_ptr<M> &model, const ModelData &value)
+{
+    if (model) {
+        model->push_row(value);
+    }
+}
+
+template<typename M>
+void model_remove(const std::shared_ptr<M> &model, std::ptrdiff_t index)
+{
+    if (model) {
+        model->remove_row(index);
+    }
+}
+
+template<typename M, typename ModelData>
+void model_insert(const std::shared_ptr<M> &model, std::ptrdiff_t index, const ModelData &value)
+{
+    if (model) {
+        model->insert_row(index, value);
+    }
+}
+
 } // namespace private_api
 
-/// \rst
-/// A Model is providing Data for Slint |Models|_ or |ListView|_ elements of the
-/// :code:`.slint` language
-/// \endrst
+/// A Model is providing Data for Slint Models or ListView elements of the
+/// `.slint` language
 ///
 /// This is typically used in a `std::shared_ptr<slint::Model>`.
 /// Model is an abstract class and you can derive from it to provide your own data model,
@@ -94,6 +117,46 @@ public:
     {
 #ifndef SLINT_FEATURE_FREESTANDING
         std::cerr << "Model::set_row_data was called on a read-only model" << std::endl;
+#endif
+    };
+
+    /// Adds a new row with the given \a data at the end of the model.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call `notify_row_added`
+    virtual void push_row(const ModelData &)
+    {
+#ifndef SLINT_FEATURE_FREESTANDING
+        std::cerr << "Model::push_row was called on a read-only model" << std::endl;
+#endif
+    };
+
+    /// Removes the row at the given \a index from the model.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call `notify_row_removed`
+    virtual void remove_row(std::ptrdiff_t)
+    {
+#ifndef SLINT_FEATURE_FREESTANDING
+        std::cerr << "Model::remove_row was called on a read-only model" << std::endl;
+#endif
+    };
+
+    /// Inserts a new row with the given \a data at the given \a index, shifting the
+    /// following rows by one.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call `notify_row_added`
+    virtual void insert_row(std::ptrdiff_t, const ModelData &)
+    {
+#ifndef SLINT_FEATURE_FREESTANDING
+        std::cerr << "Model::insert_row was called on a read-only model" << std::endl;
 #endif
     };
 
@@ -212,44 +275,6 @@ private:
 };
 
 namespace private_api {
-/// A Model backed by a std::array of constant size
-/// \private
-template<int Count, typename ModelData>
-class ArrayModel : public Model<ModelData>
-{
-    std::array<ModelData, Count> data;
-
-public:
-    /// Constructs a new ArrayModel by forwarding \a to the std::array constructor.
-    template<typename... A>
-    ArrayModel(A &&...a) : data { std::forward<A>(a)... }
-    {
-    }
-    size_t row_count() const override { return Count; }
-    std::optional<ModelData> row_data(size_t i) const override
-    {
-        if (i >= row_count())
-            return {};
-        return data[i];
-    }
-    void set_row_data(size_t i, const ModelData &value) override
-    {
-        if (i < row_count()) {
-            data[i] = value;
-            this->notify_row_changed(i);
-        }
-    }
-};
-
-// Specialize for the empty array. We can't have a Model<void>, but `int` will work for our purpose
-template<>
-class ArrayModel<0, void> : public Model<int>
-{
-public:
-    size_t row_count() const override { return 0; }
-    std::optional<int> row_data(size_t) const override { return {}; }
-};
-
 /// Model to be used when we just want to repeat without data.
 struct UIntModel : Model<int>
 {
@@ -291,6 +316,22 @@ public:
         if (i < row_count()) {
             data[i] = value;
             this->notify_row_changed(i);
+        }
+    }
+
+    void push_row(const ModelData &value) override { push_back(value); }
+
+    void remove_row(std::ptrdiff_t index) override
+    {
+        if (index >= 0 && index < static_cast<std::ptrdiff_t>(data.size())) {
+            erase(static_cast<size_t>(index));
+        }
+    }
+
+    void insert_row(std::ptrdiff_t index, const ModelData &value) override
+    {
+        if (index >= 0 && index <= static_cast<std::ptrdiff_t>(data.size())) {
+            insert(static_cast<size_t>(index), value);
         }
     }
 
@@ -1036,13 +1077,19 @@ class Repeater
                     }(),
             .init =
                     [](void *ud, uintptr_t instance_idx) {
-                        (*static_cast<Ctx *>(ud)->inner->data[instance_idx].ptr)->init();
+                        auto &c = static_cast<Ctx *>(ud)->inner->data[instance_idx];
+                        (*c.ptr)->init();
+                        (*c.ptr)->ensure_instantiated();
                     },
         };
     }
 
     private_api::Property<std::shared_ptr<Model<ModelData>>> model;
     mutable std::shared_ptr<RepeaterInner> inner;
+    /// Toggled by ensure_updated when instances are added or removed.
+    /// Layout code tracks this instead of is_dirty so it re-evaluates
+    /// only after the update pass materializes the change.
+    mutable private_api::Property<bool> instance_generation { false };
 
     vtable::VRef<private_api::ItemTreeVTable> item_at(int i) const
     {
@@ -1072,11 +1119,14 @@ public:
         }
     }
 
+    /// Instantiate or remove items to match the model, and recurse into children.
+    /// Returns true if any instance was created, removed, or changed.
     template<typename Parent>
-    void ensure_updated(const Parent *parent) const
+    bool ensure_updated(const Parent *parent) const
     {
         refresh_model();
 
+        bool changed = false;
         if (inner && inner->is_dirty.get()) {
             inner->is_dirty.set(false);
             if (auto m = model.get()) {
@@ -1086,15 +1136,16 @@ public:
             } else {
                 inner->data.clear();
             }
-        } else {
-            // just do a get() on the model to register dependencies so that, for example, the
-            // layout property tracker becomes dirty.
-            model.get();
+            instance_generation.mark_dirty();
+            changed = true;
         }
+        return recurse_ensure_instantiated() || changed;
     }
 
+    /// Same as ensure_updated but for a ListView.
+    /// Returns true if any instance was created or any child changed.
     template<typename Parent>
-    void ensure_updated_listview(const Parent *parent,
+    bool ensure_updated_listview(const Parent *parent,
                                  const private_api::Property<float> *viewport_width,
                                  const private_api::Property<float> *viewport_height,
                                  const private_api::Property<float> *viewport_y,
@@ -1103,27 +1154,70 @@ public:
         refresh_model();
 
         if (!inner)
-            return;
+            return false;
 
-        // Query is_dirty to track model changes
-        inner->is_dirty.get();
         inner->is_dirty.set(false);
 
         const auto m = model.get();
         if (!m)
-            return;
+            return false;
 
         VTableContext<Parent> ctx { inner.get(), parent };
         auto ops = make_ops(ctx);
-        cbindgen_private::slint_repeater_ensure_updated_listview(
+        bool changed = cbindgen_private::slint_repeater_ensure_updated_listview(
                 &ops, &inner->layout_state, m->row_count(), viewport_width, viewport_height,
                 viewport_y, listview_width, listview_height);
+        if (changed)
+            instance_generation.mark_dirty();
+        return recurse_ensure_instantiated() || changed;
     }
 
+    /// Returns true if the repeater's model or data has changed since the
+    /// last ensure_updated call.
+    bool is_dirty() const { return model.is_dirty() || (inner && inner->is_dirty.get()); }
+
+    /// Register the model and dirty flag as dependencies of the current
+    /// tracking scope (e.g. the redraw tracker) so it is notified when the
+    /// model or its data changes.
+    void track_model_changes() const
+    {
+        model.register_as_dependency();
+        if (inner)
+            inner->is_dirty.register_as_dependency();
+    }
+
+    /// Register the instance generation as a dependency of the current
+    /// tracking scope. Layout code uses this to re-evaluate only after
+    /// ensure_updated materializes instance changes.
+    void track_instance_changes() const { instance_generation.register_as_dependency(); }
+
+    /// Register the ListView viewport properties as dependencies so that
+    /// scrolling triggers a redraw.  Model dependencies are registered by
+    /// visit(), so this only covers the viewport geometry.
+    void track_changes_listview(const private_api::Property<float> *viewport_width,
+                                const private_api::Property<float> *viewport_height,
+                                const private_api::Property<float> *viewport_y,
+                                [[maybe_unused]] float listview_width,
+                                const private_api::Property<float> *listview_height) const
+    {
+        viewport_width->register_as_dependency();
+        viewport_height->register_as_dependency();
+        viewport_y->register_as_dependency();
+        listview_height->register_as_dependency();
+    }
+
+    /// Call the visitor for the root of each instance.
+    /// Also registers model dependencies so the current tracking scope
+    /// (e.g. the redraw tracker) is notified when the model changes.
     uint64_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
     {
+        track_model_changes();
+        if (!inner)
+            return std::numeric_limits<uint64_t>::max();
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
             auto index = order == TraversalOrder::BackToFront ? i : inner->data.size() - 1 - i;
+            if (!inner->data[index].ptr)
+                continue;
             auto ref = item_at(index);
             if (ref.vtable->visit_children_item(ref, -1, order, visitor)
                 != std::numeric_limits<uint64_t>::max()) {
@@ -1135,16 +1229,22 @@ public:
 
     vtable::VWeak<private_api::ItemTreeVTable> instance_at(std::size_t i) const
     {
+        if (!inner)
+            return {};
         const auto offset = inner->layout_state.offset;
         if (i < offset || i - offset >= inner->data.size()) {
             return {};
         }
         const auto &x = inner->data.at(i - offset);
+        if (!x.ptr)
+            return {};
         return vtable::VWeak<private_api::ItemTreeVTable> { x.ptr->into_dyn() };
     }
 
     private_api::IndexRange index_range() const
     {
+        if (!inner)
+            return private_api::IndexRange { 0, 0 };
         const auto offset = inner->layout_state.offset;
         return private_api::IndexRange { offset, offset + inner->data.size() };
     }
@@ -1181,9 +1281,25 @@ public:
     {
         if (inner) {
             for (auto &&x : inner->data) {
-                f(*x.ptr);
+                if (x.ptr)
+                    f(*x.ptr);
             }
         }
+    }
+
+    bool recurse_ensure_instantiated() const
+    {
+        if (!inner)
+            return false;
+        bool changed = false;
+        for (auto &x : inner->data) {
+            if (x.ptr) {
+                vtable::VRef<private_api::ItemTreeVTable> ref { &C::static_vtable,
+                                                                const_cast<C *>(&(**x.ptr)) };
+                changed |= ref.vtable->ensure_instantiated(ref);
+            }
+        }
+        return changed;
     }
 };
 
@@ -1191,6 +1307,7 @@ template<typename C>
 class Conditional
 {
     private_api::Property<bool> model;
+    mutable private_api::Property<bool> instance_generation { false };
     mutable std::optional<ComponentHandle<C>> instance;
 
 public:
@@ -1200,19 +1317,42 @@ public:
         model.set_binding(std::forward<F>(binding));
     }
 
+    /// Create or destroy the conditional instance, and recurse into children.
+    /// Returns true if the instance was created, removed, or any child changed.
     template<typename Parent>
-    void ensure_updated(const Parent *parent) const
+    bool ensure_updated(const Parent *parent) const
     {
+        bool changed;
         if (!model.get()) {
+            changed = instance.has_value();
             instance = std::nullopt;
         } else if (!instance) {
             instance = C::create(parent);
             (*instance)->init();
+            changed = true;
+        } else {
+            changed = false;
         }
+        if (changed)
+            instance_generation.mark_dirty();
+        return recurse_ensure_instantiated() || changed;
     }
 
+    /// Register the condition as a dependency of the current tracking scope
+    /// (e.g. the redraw tracker) so it is notified when the condition changes.
+    void track_model_changes() const { model.register_as_dependency(); }
+
+    /// Register the instance generation as a dependency of the current
+    /// tracking scope. Layout code uses this to re-evaluate only after
+    /// ensure_updated materializes instance changes.
+    void track_instance_changes() const { instance_generation.register_as_dependency(); }
+
+    /// Call the visitor for the root of each instance.
+    /// Also registers model dependencies so the current tracking scope
+    /// (e.g. the redraw tracker) is notified when the condition changes.
     uint64_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
     {
+        track_model_changes();
         if (instance) {
             vtable::VRef<private_api::ItemTreeVTable> ref { &C::static_vtable,
                                                             const_cast<C *>(&(**instance)) };
@@ -1241,6 +1381,16 @@ public:
         if (instance) {
             f(*instance);
         }
+    }
+
+    bool recurse_ensure_instantiated() const
+    {
+        if (instance) {
+            vtable::VRef<private_api::ItemTreeVTable> ref { &C::static_vtable,
+                                                            const_cast<C *>(&(**instance)) };
+            return ref.vtable->ensure_instantiated(ref);
+        }
+        return false;
     }
 };
 

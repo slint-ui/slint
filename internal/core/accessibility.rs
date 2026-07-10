@@ -30,6 +30,8 @@ pub enum AccessibleStringProperty {
     ItemSelectable,
     ItemSelected,
     Label,
+    LiveRegion,
+    Orientation,
     PlaceholderText,
     ReadOnly,
     Value,

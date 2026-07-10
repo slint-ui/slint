@@ -6,7 +6,8 @@
 // cspell:ignore accesskit borderless corelib nesw webgl winit winsys xlib
 
 use core::cell::{Cell, RefCell};
-use core::pin::Pin;
+#[cfg(target_os = "macos")]
+use std::cell::OnceCell;
 use std::rc::Rc;
 use std::rc::Weak;
 use std::sync::Arc;
@@ -16,6 +17,7 @@ use euclid::approxeq::ApproxEq;
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
+use i_slint_core::renderer::DrawOutcome;
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
@@ -25,6 +27,7 @@ use winit::platform::windows::WindowExtWindows;
 #[cfg(muda)]
 use crate::muda::MudaType;
 use crate::renderer::WinitCompatibleRenderer;
+use crate::winit_compat::WindowSurfaceSizeExt;
 
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
@@ -36,7 +39,6 @@ use corelib::items::{ItemRc, ItemRef};
 #[cfg(any(enable_accesskit, muda))]
 use crate::SlintEvent;
 use crate::{EventResult, SharedBackendData};
-use corelib::Property;
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
 use corelib::lengths::LogicalLength;
@@ -44,7 +46,6 @@ use corelib::platform::{PlatformError, WindowEvent};
 use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::{Coord, graphics::*};
 use i_slint_core::{self as corelib};
-use std::cell::OnceCell;
 #[cfg(any(enable_accesskit, muda))]
 use winit::event_loop::EventLoopProxy;
 use winit::window::{WindowAttributes, WindowButtons};
@@ -164,6 +165,7 @@ fn window_is_resizable(
 enum WinitWindowOrNone {
     HasWindow {
         window: Arc<winit::window::Window>,
+        frame_throttle: Box<dyn crate::frame_throttle::FrameThrottle>,
         #[cfg(enable_accesskit)]
         accesskit_adapter: RefCell<crate::accesskit::AccessKitAdapter>,
         #[cfg(muda)]
@@ -172,6 +174,10 @@ enum WinitWindowOrNone {
         context_menu_muda_adapter: RefCell<Option<crate::muda::MudaAdapter>>,
         #[cfg(target_os = "ios")]
         keyboard_curve_sampler: super::ios::KeyboardCurveSampler,
+        #[cfg(target_os = "ios")]
+        _color_scheme_observer: Option<super::ios::TraitChangeObserver>,
+        #[cfg(target_os = "ios")]
+        _font_size_observer: Option<super::ios::TraitChangeObserver>,
     },
     None(RefCell<WindowAttributes>),
 }
@@ -314,8 +320,6 @@ pub struct WinitWindowAdapter {
     window: corelib::api::Window,
     pub(crate) self_weak: Weak<Self>,
     pending_redraw: Cell<bool>,
-    color_scheme: OnceCell<Pin<Box<Property<ColorScheme>>>>,
-    accent_color: OnceCell<Pin<Box<Property<Color>>>>,
     constraints: Cell<corelib::window::LayoutConstraints>,
     /// Indicates if the window is shown, from the perspective of the API user.
     shown: Cell<WindowVisibility>,
@@ -351,9 +355,6 @@ pub struct WinitWindowAdapter {
     winit_window_or_none: RefCell<WinitWindowOrNone>,
     window_existence_wakers: RefCell<Vec<core::task::Waker>>,
 
-    #[cfg(not(use_winit_theme))]
-    xdg_settings_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
-
     #[cfg(target_os = "macos")]
     macos_color_observer: OnceCell<
         objc2::rc::Retained<objc2::runtime::ProtocolObject<dyn objc2::runtime::NSObjectProtocol>>,
@@ -371,8 +372,6 @@ pub struct WinitWindowAdapter {
     /// Winit's window_icon API has no way of checking if the window icon is
     /// the same as a previously set one, so keep track of that here.
     window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
-
-    frame_throttle: Box<dyn crate::frame_throttle::FrameThrottle>,
 }
 
 impl WinitWindowAdapter {
@@ -389,8 +388,6 @@ impl WinitWindowAdapter {
             window: corelib::api::Window::new(self_weak.clone() as _),
             self_weak: self_weak.clone(),
             pending_redraw: Default::default(),
-            color_scheme: Default::default(),
-            accent_color: Default::default(),
             constraints: Default::default(),
             shown: Default::default(),
             window_level: Default::default(),
@@ -409,8 +406,6 @@ impl WinitWindowAdapter {
             #[cfg(any(enable_accesskit, muda))]
             event_loop_proxy: proxy,
             window_event_filter: Cell::new(None),
-            #[cfg(not(use_winit_theme))]
-            xdg_settings_watcher: Default::default(),
             #[cfg(target_os = "macos")]
             macos_color_observer: OnceCell::new(),
             #[cfg(muda)]
@@ -420,10 +415,6 @@ impl WinitWindowAdapter {
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
             window_icon_cache_key: Default::default(),
-            frame_throttle: crate::frame_throttle::create_frame_throttle(
-                self_weak.clone(),
-                shared_backend_data.is_wayland,
-            ),
         });
 
         self_rc.shared_backend_data.register_inactive_window((self_rc.clone()) as _);
@@ -484,6 +475,33 @@ impl WinitWindowAdapter {
 
         let winit_window = self.renderer.resume(active_event_loop, window_attributes)?;
 
+        // Push the host shell's color scheme and accent color to the SlintContext.
+        // With `xdg_desktop_settings` the backend-wide portal watcher (spawned in
+        // `Backend::bind_context`) is responsible for that; we only echo the
+        // current scheme to this fresh winit window so its CSDs render correctly.
+        // Otherwise winit exposes the system Light/Dark setting directly on the
+        // new window, and the OS-specific query yields the accent color.
+        cfg_if::cfg_if! {
+            if #[cfg(xdg_desktop_settings)] {
+                let scheme = WindowInner::from_pub(self.window()).context().color_scheme(None);
+                winit_window.set_theme(match scheme {
+                    ColorScheme::Dark => Some(winit::window::Theme::Dark),
+                    ColorScheme::Light => Some(winit::window::Theme::Light),
+                    ColorScheme::Unknown => None,
+                    _ => None,
+                });
+            } else {
+                let initial_scheme = winit_window.theme().map_or(ColorScheme::Unknown, |theme| match theme {
+                    winit::window::Theme::Dark => ColorScheme::Dark,
+                    winit::window::Theme::Light => ColorScheme::Light,
+                });
+                self.set_color_scheme(initial_scheme);
+                #[cfg(target_os = "macos")]
+                self.setup_macos_color_observer();
+                self.set_accent_color(Self::query_system_accent_color());
+            }
+        }
+
         let scale_factor =
             overriding_scale_factor.unwrap_or_else(|| winit_window.scale_factor() as f32);
         self.window().try_dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor })?;
@@ -503,8 +521,26 @@ impl WinitWindowAdapter {
             (view, self.self_weak.clone())
         };
 
+        // winit doesn't surface iOS appearance, so query the view's trait
+        // collection directly; the matching live observers are installed below as
+        // part of the `HasWindow` variant so their lifetime is tied to the window.
+        #[cfg(target_os = "ios")]
+        {
+            self.set_color_scheme(crate::ios::current_color_scheme(&content_view));
+            self.set_platform_default_font_size(crate::ios::current_default_font_size(
+                &content_view,
+            ));
+        }
+
+        let frame_throttle = crate::frame_throttle::create_frame_throttle(
+            self.self_weak.clone(),
+            &winit_window,
+            self.shared_backend_data.is_wayland,
+        );
+
         *self.winit_window_or_none.borrow_mut() = WinitWindowOrNone::HasWindow {
             window: winit_window.clone(),
+            frame_throttle,
             #[cfg(enable_accesskit)]
             accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
                 self.self_weak.clone(),
@@ -531,6 +567,16 @@ impl WinitWindowAdapter {
                         );
                     }
                 },
+            ),
+            #[cfg(target_os = "ios")]
+            _color_scheme_observer: crate::ios::install_color_scheme_observer(
+                &content_view,
+                self.self_weak.clone(),
+            ),
+            #[cfg(target_os = "ios")]
+            _font_size_observer: crate::ios::install_font_size_observer(
+                &content_view,
+                self.self_weak.clone(),
             ),
         };
 
@@ -656,12 +702,16 @@ impl WinitWindowAdapter {
             // Note: On displays with a scale factor != 1, we get a scale factor change
             // event and a resize event, so all is good.
             if self.pending_resize_event_after_show.take() {
-                self.resize_event(winit_window.inner_size())?;
+                self.resize_event(winit_window.surface_size())?;
             }
         }
 
         let renderer = self.renderer();
-        renderer.render(self.window())?;
+        if !matches!(renderer.render(self.window())?, DrawOutcome::Success) {
+            // Frame was skipped (e.g. surface occluded). pending_redraw was already
+            // cleared above, so re-arm it so we try again.
+            self.request_redraw();
+        }
 
         Ok(())
     }
@@ -805,16 +855,27 @@ impl WinitWindowAdapter {
     }
 
     pub fn set_accent_color(&self, color: Color) {
-        self.accent_color
-            .get_or_init(|| Box::pin(Property::new(Color::default())))
-            .as_ref()
-            .set(color);
+        WindowInner::from_pub(self.window()).context().set_accent_color(color);
     }
 
     fn query_system_accent_color() -> Color {
         cfg_if::cfg_if! {
             if #[cfg(target_os = "windows")] {
-                use windows::Win32::Graphics::Gdi::{GetSysColor, COLOR_HIGHLIGHT};
+                use windows::Win32::Graphics::{
+                    Dwm::DwmGetColorizationColor,
+                    Gdi::{GetSysColor, COLOR_HIGHLIGHT},
+                };
+
+                let mut argb = 0u32;
+                let mut _opaque_blend = windows::core::BOOL::default();
+                if unsafe { DwmGetColorizationColor(&mut argb, &mut _opaque_blend) }.is_ok() {
+                    let a = ((argb >> 24) & 0xFF) as u8;
+                    let r = ((argb >> 16) & 0xFF) as u8;
+                    let g = ((argb >> 8) & 0xFF) as u8;
+                    let b = (argb & 0xFF) as u8;
+                    return Color::from_argb_u8(a, r, g, b);
+                }
+
                 let colorref = unsafe { GetSysColor(COLOR_HIGHLIGHT) };
                 let r = (colorref & 0xFF) as u8;
                 let g = ((colorref >> 8) & 0xFF) as u8;
@@ -846,10 +907,7 @@ impl WinitWindowAdapter {
     }
 
     pub fn set_color_scheme(&self, scheme: ColorScheme) {
-        self.color_scheme
-            .get_or_init(|| Box::pin(Property::new(ColorScheme::Unknown)))
-            .as_ref()
-            .set(scheme);
+        WindowInner::from_pub(self.window()).context().set_color_scheme(scheme);
 
         // Update the menubar theme
         #[cfg(target_os = "windows")]
@@ -865,7 +923,7 @@ impl WinitWindowAdapter {
         }
 
         // Inform winit about the selected color theme, so that the window decoration is drawn correctly.
-        #[cfg(not(use_winit_theme))]
+        #[cfg(xdg_desktop_settings)]
         if let Some(winit_window) = self.winit_window() {
             winit_window.set_theme(match scheme {
                 ColorScheme::Unknown => None,
@@ -874,6 +932,11 @@ impl WinitWindowAdapter {
                 _ => None,
             });
         }
+    }
+
+    #[cfg(target_os = "ios")]
+    pub fn set_platform_default_font_size(&self, size: i_slint_core::lengths::LogicalLength) {
+        WindowInner::from_pub(self.window()).context().set_platform_default_font_size(Some(size));
     }
 
     pub fn window_state_event(&self) {
@@ -933,20 +996,6 @@ impl WinitWindowAdapter {
             WinitWindowOrNone::HasWindow { accesskit_adapter, .. } => callback(accesskit_adapter),
             WinitWindowOrNone::None(..) => {}
         }
-    }
-
-    #[cfg(not(use_winit_theme))]
-    fn spawn_xdg_settings_watcher(&self) -> Option<i_slint_core::future::JoinHandle<()>> {
-        let window_inner = WindowInner::from_pub(self.window());
-        let self_weak = self.self_weak.clone();
-        window_inner
-            .context()
-            .spawn_local(async move {
-                if let Err(err) = crate::xdg_color_scheme::watch(self_weak).await {
-                    i_slint_core::debug_log!("Error watching for xdg color schemes: {}", err);
-                }
-            })
-            .ok()
     }
 
     /// Register an observer for macOS system color changes so that
@@ -1074,17 +1123,24 @@ impl WinitWindowAdapter {
                 self.resize_window(size.into())?;
             };
 
+            // Pre-render the first frame before mapping the window to avoid a flash of
+            // uninitialized VRAM on X11 (no background_pixmap). Skipped on Wayland, where
+            // rendering before the initial configure makes the compositor mis-size the window.
+            if matches!(visibility, WindowVisibility::ShownFirstTime)
+                && !self.shared_backend_data.is_wayland
+            {
+                let _ = self.draw();
+            }
+
             winit_window.set_visible(true);
 
-            // Make sure the dark color scheme property is up-to-date, as it may have been queried earlier when
-            // the window wasn't mapped yet.
-            if let Some(color_scheme_prop) = self.color_scheme.get()
-                && let Some(theme) = winit_window.theme()
-            {
-                color_scheme_prop.as_ref().set(match theme {
+            // Refresh the SlintContext color-scheme now that the window is mapped: on some platforms
+            // `winit_window.theme()` only reports a real value once the window is shown.
+            if let Some(theme) = winit_window.theme() {
+                self.set_color_scheme(match theme {
                     winit::window::Theme::Dark => ColorScheme::Dark,
                     winit::window::Theme::Light => ColorScheme::Light,
-                })
+                });
             }
 
             // In wasm a request_redraw() issued before show() results in a draw() even when the window
@@ -1094,6 +1150,12 @@ impl WinitWindowAdapter {
             if self.pending_redraw.get() {
                 self.draw()?;
             };
+
+            // On iOS making an already-created window visible doesn't generate a fresh
+            // RedrawRequested. winit's one initial RedrawRequested is delivered while the window is
+            // created (during `resumed`), so a window first shown later misses it and stays blank.
+            #[cfg(ios_and_friends)]
+            self.request_redraw();
 
             Ok(())
         } else {
@@ -1218,8 +1280,11 @@ impl WindowAdapter for WinitWindowAdapter {
     }
 
     fn request_redraw(&self) {
-        if !self.pending_redraw.replace(true) {
-            self.frame_throttle.request_throttled_redraw();
+        if !self.pending_redraw.replace(true)
+            && let WinitWindowOrNone::HasWindow { window, frame_throttle, .. } =
+                &*self.winit_window_or_none.borrow()
+        {
+            frame_throttle.request_throttled_redraw(window);
         }
     }
 
@@ -1285,7 +1350,7 @@ impl WindowAdapter for WinitWindowAdapter {
             // size we've been assigned to from the windowing system. Weston/Wayland don't like it
             // when we create a surface that's bigger than the screen due to constraints (#532).
             if winit_window_or_none.fullscreen().is_none() {
-                // TODO: don't ignore error, propgate to caller
+                // TODO: don't ignore error, propagate to caller
                 let immediately_resized = self
                     .resize_window(winit::dpi::LogicalSize::new(width, height).into())
                     .unwrap_or_default();
@@ -1370,7 +1435,7 @@ impl WindowAdapter for WinitWindowAdapter {
             if is_preferred_sized_canvas(&canvas) {
                 let pref = new_constraints.preferred;
                 if pref.width > 0 as Coord || pref.height > 0 as Coord {
-                    // TODO: don't ignore error, propgate to caller
+                    // TODO: don't ignore error, propagate to caller
                     self.resize_window(logical_size_to_winit(pref).into()).ok();
                 };
             }
@@ -1441,6 +1506,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 corelib::items::InputType::Text
                 | corelib::items::InputType::Number
                 | corelib::items::InputType::Decimal
+                | corelib::items::InputType::Search
                 | _ => winit::window::ImePurpose::Normal,
             });
             winit_window.set_ime_cursor_area(
@@ -1470,44 +1536,6 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             }
             _ => {}
         };
-    }
-
-    fn color_scheme(&self) -> ColorScheme {
-        self.color_scheme
-            .get_or_init(|| {
-                Box::pin(Property::new({
-                    cfg_if::cfg_if! {
-                        if #[cfg(use_winit_theme)] {
-                            self.winit_window_or_none
-                                .borrow()
-                                .as_window()
-                                .and_then(|window| window.theme())
-                                .map_or(ColorScheme::Unknown, |theme| match theme {
-                                    winit::window::Theme::Dark => ColorScheme::Dark,
-                                    winit::window::Theme::Light => ColorScheme::Light,
-                                })
-                        } else {
-                            if let Some(old_watch) = self.xdg_settings_watcher.replace(self.spawn_xdg_settings_watcher()) {
-                                old_watch.abort()
-                            }
-                            ColorScheme::Unknown
-                        }
-                    }
-                }))
-            })
-            .as_ref()
-            .get()
-    }
-
-    fn accent_color(&self) -> Color {
-        self.accent_color
-            .get_or_init(|| {
-                #[cfg(target_os = "macos")]
-                self.setup_macos_color_observer();
-                Box::pin(Property::new(Self::query_system_accent_color()))
-            })
-            .as_ref()
-            .get()
     }
 
     #[cfg(muda)]
@@ -1578,7 +1606,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     fn unregister_item_tree(
         &self,
         component: ItemTreeRef,
-        _: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
+        _: &mut dyn Iterator<Item = core::pin::Pin<ItemRef<'_>>>,
     ) {
         let Some(accesskit_adapter_cell) = self.accesskit_adapter() else { return };
         if let Ok(mut a) = accesskit_adapter_cell.try_borrow_mut() {
@@ -1647,11 +1675,6 @@ impl Drop for WinitWindowAdapter {
             self.winit_window_or_none.borrow().as_window().map(|winit_window| winit_window.id()),
         );
 
-        #[cfg(not(use_winit_theme))]
-        if let Some(xdg_watch_future) = self.xdg_settings_watcher.take() {
-            xdg_watch_future.abort();
-        }
-
         #[cfg(target_os = "macos")]
         if let Some(observer) = self.macos_color_observer.get() {
             unsafe {
@@ -1670,18 +1693,14 @@ fn adjust_window_size_to_satisfy_constraints(
     max_size: Option<winit::dpi::LogicalSize<f64>>,
 ) {
     let sf = adapter.window().scale_factor() as f64;
-    let Some(current_size) = adapter
+    let current_size = adapter
         .pending_requested_size
         .get()
-        .or_else(|| {
+        .unwrap_or_else(|| {
             let existing_adapter_size = adapter.size.get();
-            (existing_adapter_size.width != 0 && existing_adapter_size.height != 0)
-                .then(|| physical_size_to_winit(existing_adapter_size).into())
+            physical_size_to_winit(existing_adapter_size).into()
         })
-        .map(|s| s.to_logical::<f64>(sf))
-    else {
-        return;
-    };
+        .to_logical::<f64>(sf);
 
     let mut window_size = current_size;
     if let Some(min_size) = min_size {
@@ -1697,7 +1716,7 @@ fn adjust_window_size_to_satisfy_constraints(
     }
 
     if window_size != current_size {
-        // TODO: don't ignore error, propgate to caller
+        // TODO: don't ignore error, propagate to caller
         adapter.resize_window(window_size.into()).ok();
     }
 }

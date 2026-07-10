@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore nesw
+// cSpell: ignore nesw windowitem
 
 /*!
 This module contains the builtin items, either in this file or in sub-modules.
@@ -21,6 +21,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(missing_docs)] // because documenting each property of items is redundant
 
 use crate::api::LogicalPosition;
+use crate::data_transfer::DataTransfer;
 use crate::graphics::{Brush, Color, FontRequest, Image};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
@@ -44,7 +45,9 @@ use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::num::NonZeroU32;
 use core::pin::Pin;
+use core::time::Duration;
 use i_slint_core_macros::*;
+pub use system_tray::SystemTrayIcon;
 use vtable::*;
 
 mod component_container;
@@ -63,6 +66,7 @@ pub use drag_n_drop::*;
 mod path;
 #[cfg(feature = "path")]
 pub use path::*;
+pub mod system_tray;
 
 /// Alias for `&mut dyn ItemRenderer`. Required so cbindgen generates the ItemVTable
 /// despite the presence of trait object
@@ -71,6 +75,7 @@ type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
 /// Workarounds for cbindgen
 pub type VoidArg = ();
 pub type KeyEventArg = (KeyEvent,);
+pub type DragActionArg = (DragAction,);
 type FocusReasonArg = (FocusReason,);
 type PointerEventArg = (PointerEvent,);
 type PointerScrollEventArg = (PointerScrollEvent,);
@@ -90,7 +95,7 @@ macro_rules! declare_item_vtable {
         #[unsafe(no_mangle)]
         pub extern "C" fn $getter() -> *const ItemVTable {
             use vtable::HasStaticVTable;
-            <$item_ty>::static_vtable()
+            <$item_ty>::STATIC_VTABLE
         }
     };
 }
@@ -1223,6 +1228,8 @@ pub struct PropertyAnimation {
     pub direction: AnimationDirection,
     #[rtti_field]
     pub easing: crate::animations::EasingCurve,
+    #[rtti_field]
+    pub enabled: bool,
 }
 
 impl Default for PropertyAnimation {
@@ -1235,6 +1242,7 @@ impl Default for PropertyAnimation {
             iteration_count: 1.,
             direction: Default::default(),
             easing: Default::default(),
+            enabled: true,
         }
     }
 }
@@ -1255,6 +1263,8 @@ pub struct WindowItem {
     pub resize_border_width: Property<LogicalLength>,
     pub always_on_top: Property<bool>,
     pub full_screen: Property<bool>,
+    pub minimized: Property<bool>,
+    pub maximized: Property<bool>,
     pub icon: Property<crate::graphics::Image>,
     pub default_font_family: Property<SharedString>,
     pub default_font_size: Property<LogicalLength>,
@@ -1394,7 +1404,18 @@ impl WindowItem {
         let first_item = ItemRc::new_root(item_tree);
         let window_item = next_window_item(&first_item).unwrap();
         Self::resolve_font_property(&window_item, Self::font_size)
-            .unwrap_or_else(|| first_item.window_adapter().unwrap().renderer().default_font_size())
+            .or_else(|| Self::platform_default_font_size(&first_item))
+            .unwrap_or(crate::textlayout::DEFAULT_FONT_SIZE)
+    }
+
+    /// Returns the default font size reported by the platform (e.g. iOS Dynamic Type),
+    /// or `None` when the backend doesn't report one. Used as fallback when no
+    /// `default-font-size` is set in the .slint code, before the renderer's built-in
+    /// default applies.
+    fn platform_default_font_size(item: &ItemRc) -> Option<LogicalLength> {
+        item.window_adapter().and_then(|adapter| {
+            WindowInner::from_pub(adapter.window()).context().platform_default_font_size()
+        })
     }
 
     fn resolve_font_property<T>(
@@ -1460,6 +1481,7 @@ impl WindowItem {
                         &window_item_rc,
                         crate::items::WindowItem::font_size,
                     )
+                    .or_else(|| Self::platform_default_font_size(self_rc))
                 } else {
                     Some(local_font_size)
                 }
@@ -1469,9 +1491,41 @@ impl WindowItem {
         }
     }
 
-    pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+    pub fn close(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) -> bool {
+        if !is_root_window_item(window_adapter, self_rc) {
+            return false;
+        }
+        let inner = WindowInner::from_pub(window_adapter.window());
+        if inner.request_close()
+            && let Err(err) = inner.hide()
+        {
+            crate::debug_log!("Slint: Failed to hide window after close request: {err}");
+        }
+        true
+    }
+
+    pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+        if !is_root_window_item(window_adapter, self_rc) {
+            return;
+        }
         let _ = WindowInner::from_pub(window_adapter.window()).hide();
     }
+}
+
+/// A `WindowItem` is considered the adapter's root window only when it is at index 0 of
+/// the component item tree currently bound to the adapter.
+fn is_root_window_item(window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) -> bool {
+    if !self_rc.is_root() {
+        return false;
+    }
+
+    WindowInner::from_pub(window_adapter.window())
+        .try_component()
+        .is_some_and(|component| VRc::ptr_eq(&component, self_rc.item_tree()))
 }
 
 impl ItemConsts for WindowItem {
@@ -1481,15 +1535,31 @@ impl ItemConsts for WindowItem {
 
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_windowitem_close(
+    window_item: Pin<&WindowItem>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+) -> bool {
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let item_rc = ItemRc::new(self_component.clone(), self_index);
+        window_item.close(window_adapter, &item_rc)
+    }
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_windowitem_hide(
     window_item: Pin<&WindowItem>,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    _self_index: u32,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
 ) {
     unsafe {
         let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        window_item.hide(window_adapter);
+        let item_rc = ItemRc::new(self_component.clone(), self_index);
+        window_item.hide(window_adapter, &item_rc);
     }
 }
 
@@ -1510,7 +1580,7 @@ pub struct ContextMenu {
     pub popup_id: Cell<Option<NonZeroU32>>,
     pub enabled: Property<bool>,
     #[cfg(target_os = "android")]
-    long_press_timer: Cell<Option<crate::timers::Timer>>,
+    long_press_timer: crate::timers::Timer,
 }
 
 impl Item for ContextMenu {
@@ -1555,10 +1625,9 @@ impl Item for ContextMenu {
             }
             #[cfg(target_os = "android")]
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
-                let timer = crate::timers::Timer::default();
                 let self_weak = _self_rc.downgrade();
                 let position = *position;
-                timer.start(
+                self.long_press_timer.start(
                     crate::timers::TimerMode::SingleShot,
                     WindowInner::from_pub(_window_adapter.window())
                         .context()
@@ -1570,14 +1639,11 @@ impl Item for ContextMenu {
                         self_.show.call(&(LogicalPosition::from_euclid(position),));
                     },
                 );
-                self.long_press_timer.set(Some(timer));
                 InputEventResult::GrabMouse
             }
             #[cfg(target_os = "android")]
             MouseEvent::Released { .. } | MouseEvent::Exit => {
-                if let Some(timer) = self.long_press_timer.take() {
-                    timer.stop();
-                }
+                self.long_press_timer.stop();
                 InputEventResult::EventIgnored
             }
             #[cfg(target_os = "android")]
@@ -1604,9 +1670,20 @@ impl Item for ContextMenu {
         if !self.enabled() {
             return KeyEventResult::EventIgnored;
         }
-        if event.event_type == KeyEventType::KeyPressed
-            && event.key_event.text.starts_with(crate::input::key_codes::Menu)
-        {
+
+        fn is_menu_key(event: &InternalKeyEvent) -> bool {
+            #[allow(unused_mut)]
+            let mut is_menu_key = event.key_event.text.contains(crate::input::key_codes::Menu);
+            #[cfg(target_os = "windows")]
+            {
+                // Windows maps Shift + F10 to open the context menu
+                is_menu_key |= event.key_event.text.contains(crate::input::key_codes::F10)
+                    && event.key_event.modifiers.shift;
+            }
+            is_menu_key
+        }
+
+        if is_menu_key(event) {
             self.show.call(&(Default::default(),));
             KeyEventResult::EventAccepted
         } else {
@@ -1707,13 +1784,29 @@ pub unsafe extern "C" fn slint_contextmenu_is_open(
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct BoxShadow {
-    pub border_radius: Property<LogicalLength>,
+    pub border_top_left_radius: Property<LogicalLength>,
+    pub border_top_right_radius: Property<LogicalLength>,
+    pub border_bottom_left_radius: Property<LogicalLength>,
+    pub border_bottom_right_radius: Property<LogicalLength>,
     // Shadow specific properties
     pub offset_x: Property<LogicalLength>,
     pub offset_y: Property<LogicalLength>,
     pub color: Property<Color>,
     pub blur: Property<LogicalLength>,
+    pub spread: Property<LogicalLength>,
+    pub inset: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
+}
+
+impl BoxShadow {
+    pub fn logical_border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
+        LogicalBorderRadius::from_lengths(
+            self.border_top_left_radius(),
+            self.border_top_right_radius(),
+            self.border_bottom_right_radius(),
+            self.border_bottom_left_radius(),
+        )
+    }
 }
 
 impl Item for BoxShadow {
@@ -1794,9 +1887,15 @@ impl Item for BoxShadow {
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
-        geometry
-            .outer_rect(euclid::SideOffsets2D::from_length_all_same(self.blur()))
-            .translate(LogicalVector::from_lengths(self.offset_x(), self.offset_y()))
+        if self.inset() {
+            // Inset shadow paints inside the geometry; never extends outside.
+            geometry
+        } else {
+            let pad = self.blur() + LogicalLength::new(self.spread().get().max(0 as crate::Coord));
+            geometry
+                .outer_rect(euclid::SideOffsets2D::from_length_all_same(pad))
+                .translate(LogicalVector::from_lengths(self.offset_x(), self.offset_y()))
+        }
     }
 
     fn clips_children(self: core::pin::Pin<&Self>) -> bool {
@@ -1850,8 +1949,12 @@ declare_item_vtable! {
     fn slint_get_MenuItemVTable() -> MenuItemVTable for MenuItem
 }
 
+declare_item_vtable! {
+    fn slint_get_SystemTrayIconVTable() -> SystemTrayIconVTable for SystemTrayIcon
+}
+
 macro_rules! declare_enums {
-    ($( $(#[$enum_doc:meta])* enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
+    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
         $(
             #[derive(Copy, Clone, Debug, PartialEq, Eq, strum::EnumString, strum::Display, Hash)]
             #[repr(u32)]
@@ -1873,17 +1976,198 @@ macro_rules! declare_enums {
 
 i_slint_common::for_each_enums!(declare_enums);
 
+/// Internal transparent hover tracker synthesized by tooltip lowering.
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
+pub struct TooltipArea {
+    pub has_hover: Property<bool>,
+    pub mouse_x: Property<LogicalLength>,
+    pub mouse_y: Property<LogicalLength>,
+    pub text: Property<crate::styled_text::StyledText>,
+    pub delay: Property<i64>,
+    pub offset: Property<LogicalLength>,
+    pub show: Callback<VoidArg>,
+    pub hide: Callback<VoidArg>,
+    pub cached_rendering_data: CachedRenderingData,
+    popup_visible: Cell<bool>,
+    timer: crate::timers::Timer,
+}
+
+impl Item for TooltipArea {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
+    fn layout_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _cross_axis_constraint: Coord,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> LayoutInfo {
+        LayoutInfo::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        event: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventFilterResult {
+        // Track hover in the filter stage so enter/leave transitions are reliable,
+        // independent of later input handling.
+        if matches!(event, MouseEvent::DragMove { .. } | MouseEvent::Drop { .. }) {
+            self.set_hover_state(false, self_rc);
+            return InputEventFilterResult::ForwardAndIgnore;
+        }
+
+        if let Some(pos) = event.position() {
+            Self::FIELD_OFFSETS.mouse_x().apply_pin(self).set(pos.x_length());
+            Self::FIELD_OFFSETS.mouse_y().apply_pin(self).set(pos.y_length());
+        }
+
+        let next_hover = !matches!(event, MouseEvent::Exit);
+        self.set_hover_state(next_hover, self_rc);
+
+        if next_hover && !self.popup_visible.get() && matches!(event, MouseEvent::Moved { .. }) {
+            self.schedule_show(self_rc);
+        }
+
+        // Observe without claiming: siblings still receive the event; the routing tracks
+        // this item on its observers side-list and delivers Exit when the pointer leaves.
+        InputEventFilterResult::ForwardAndObserve
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        event: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventResult {
+        if matches!(event, MouseEvent::Exit) {
+            self.set_hover_state(false, _self_rc);
+        }
+        InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        _backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
+        RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect(
+        self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
+}
+
+impl TooltipArea {
+    fn schedule_show(self: Pin<&Self>, self_rc: &ItemRc) {
+        let delay_ms = self.delay().max(0) as u64;
+        if delay_ms == 0 {
+            if self.has_hover() {
+                self.show.call(&());
+                self.popup_visible.set(true);
+            }
+            return;
+        }
+
+        let self_weak = self_rc.downgrade();
+        self.timer.start(
+            crate::timers::TimerMode::SingleShot,
+            Duration::from_millis(delay_ms),
+            move || {
+                let Some(self_rc) = self_weak.upgrade() else { return };
+                let Some(tooltip_area) = self_rc.downcast::<TooltipArea>() else { return };
+                let tooltip_area = tooltip_area.as_pin_ref();
+                if tooltip_area.has_hover() {
+                    tooltip_area.show.call(&());
+                    tooltip_area.popup_visible.set(true);
+                }
+            },
+        );
+    }
+
+    fn hide_now(self: Pin<&Self>) {
+        self.timer.stop();
+        if self.popup_visible.replace(false) {
+            self.hide.call(&());
+        }
+    }
+
+    fn set_hover_state(self: Pin<&Self>, new_hover: bool, self_rc: &ItemRc) {
+        let old_hover = self.has_hover();
+        if old_hover == new_hover {
+            return;
+        }
+
+        Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(new_hover);
+        if new_hover {
+            self.schedule_show(self_rc);
+        } else {
+            self.hide_now();
+        }
+    }
+}
+
+impl ItemConsts for TooltipArea {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        TooltipArea,
+        CachedRenderingData,
+    > = TooltipArea::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
+declare_item_vtable! {
+    fn slint_get_TooltipAreaVTable() -> TooltipAreaVTable for TooltipArea
+}
+
 macro_rules! declare_builtin_structs {
     ($(
         $(#[$struct_attr:meta])*
-        struct $Name:ident {
-            @name = $inner_name:expr,
-            export {
-                $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
-            }
-            private {
-                $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-            }
+        $vis:vis struct $Name:ident {
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
         }
     )*) => {
         $(
@@ -1892,12 +2176,8 @@ macro_rules! declare_builtin_structs {
             $(#[$struct_attr])*
             pub struct $Name {
                 $(
-                    $(#[$pub_attr])*
-                    pub $pub_field : $pub_type,
-                )*
-                $(
-                    $(#[$pri_attr])*
-                    pub $pri_field : $pri_type,
+                    $(#[$field_attr])*
+                    pub $field : $field_type,
                 )*
             }
         )*

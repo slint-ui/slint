@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore AFAICT ARGN endwhile GENEX REALPATH
 # Set up machinery to handle SLINT_EMBED_RESOURCES target property
 set(DEFAULT_SLINT_EMBED_RESOURCES as-absolute-path CACHE STRING
     "The default resource embedding option to pass to the Slint compiler")
@@ -16,11 +17,13 @@ function(SLINT_TARGET_SOURCES target)
 
     get_target_property(enabled_features Slint::Slint SLINT_ENABLED_FEATURES)
     if ("EXPERIMENTAL" IN_LIST enabled_features)
-        set(SLINT_COMPILER_ENV ${CMAKE_COMMAND} -E env)
-        set(SLINT_COMPILER_ENV ${SLINT_COMPILER_ENV} SLINT_ENABLE_EXPERIMENTAL_FEATURES=1)
-        if ("SYSTEM_TESTING" IN_LIST enabled_features)
-            set(SLINT_COMPILER_ENV ${SLINT_COMPILER_ENV} SLINT_EMIT_DEBUG_INFO=1)
-        endif()
+        list(APPEND SLINT_COMPILER_ENV_VARS SLINT_ENABLE_EXPERIMENTAL_FEATURES=1)
+    endif()
+    if ("SYSTEM_TESTING" IN_LIST enabled_features)
+        list(APPEND SLINT_COMPILER_ENV_VARS SLINT_EMIT_DEBUG_INFO=1)
+    endif()
+    if (SLINT_COMPILER_ENV_VARS)
+        set(SLINT_COMPILER_ENV ${CMAKE_COMMAND} -E env ${SLINT_COMPILER_ENV_VARS})
     endif()
 
     if (DEFINED SLINT_TARGET_SOURCES_NAMESPACE)

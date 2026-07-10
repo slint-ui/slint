@@ -20,27 +20,49 @@ js_config: &js_config
  - 'pnpm-lock.yaml'
 
 slint:
- - 'api/**'
+ - 'api/rs/**'
  - 'cmake/**'
  - 'demos/**'
- - 'docker/**'
- - 'docs/**'
- - 'editors/**'
  - 'helper_crates/**'
  - 'internal/**'
- - 'logo/**'
- - 'scripts/**'
  - 'tests/**'
  - 'tools/compiler/**'
- - 'tools/docsnapper/**'
  - 'tools/figma_import/**'
  - 'tools/lsp/**'
- - 'tools/slintpad/**'
  - 'tools/tr-extractor/**'
- - 'tools/updater/**'
  - 'tools/viewer/**'
  - 'xtask/**'
- - *files_in_root
+ - 'Cargo.toml'
+ - '.cargo/**'
+ - *ci_config
+
+# Qt backend and widget definitions — gates the Qt test step in build_and_test
+qt:
+ - 'internal/backends/qt/**'
+ - 'internal/compiler/widgets/qt/**'
+ - 'tests/cases/widgets/**'
+
+# Docs build needs most Rust code because it also checks for doc warnings
+docs_build:
+ - 'docs/**'
+ - 'api/**'
+ - 'internal/**'
+ - 'helper_crates/**'
+ - 'tools/lsp/**'
+ - 'tests/doctests/**'
+ # The doctests compile the slint snippets in the skill files
+ - 'skills/**'
+ - *js_config
+ - *ci_config
+
+# Tree-sitter grammar
+# Needs to be re-tested if the Tree-Sitter grammr or any Slint files in the corpus change
+tree_sitter:
+ - 'editors/tree-sitter-slint/**'
+ - 'editors/zed/languages/slint/*.scm'
+ - 'tests/cases/**/*.slint'
+ - 'examples/**/*.slint'
+ - 'demos/**/*.slint'
  - *ci_config
 
 figma_inspector:
@@ -54,11 +76,6 @@ material_components:
  - *js_config
  - *ci_config
 
-safety_docs:
- - 'docs/safety/**'
- - 'docs/common/**'
- - *js_config
- - *ci_config
 
 internal: &internal
  # The API specific tests don't depends on renderer or backend, but they do depend on the Qt widgets and the testing backend
@@ -73,23 +90,26 @@ internal: &internal
 api_cpp:
  - 'api/cpp/**'
  - 'tools/compiler/**'
- - *ci_config
+ - 'internal/compiler/generator/cpp*'
  # The renderers are not part of the `internal` group, but are exposed in the C++ API
  - 'internal/renderers/{skia,software}/**'
 
+android_backend:
+ - 'internal/backends/android-activity/**'
+
 api_python:
  - 'api/python/**'
- - *ci_config
+ - '.github/workflows/python_test_reusable.yaml'
 
 api_node:
  - 'api/node/**'
  - *js_config
- - *ci_config
+ - '.github/workflows/node_test_reusable.yaml'
 
 api_rs:
  - 'api/rs/**'
  - 'Cargo.toml'
- - *ci_config
+ - 'internal/compiler/generator/rust*'
 
 tests:
  - 'tests/**'
@@ -118,22 +138,23 @@ slintpad:
  - 'tools/lsp/**'
  - 'api/rs/**'
  - 'docs/common/src/utils/slint.tmLanguage.json'
-
-updater_test:
- - *internal
- - 'tests/cases/**'
- - 'tools/updater/**'
+ - *js_config
 
 servo_example:
  - 'examples/servo/**'
- - *ci_config
+ - '.github/workflows/servo_example.yaml'
 
 bevy_examples:
  - 'examples/bevy/**'
+ - '.github/workflows/bevy_examples.yaml'
+
+slint_sc:
+ - 'internal/compiler/**'
+ - 'api/slint-sc/**'
+ - 'tools/compiler/**'
  - *ci_config
 
 rust_files:
  - '**/*.rs'
  - '**/Cargo.toml'
- - 'Cargo.lock'
- - *ci_config
+ - '.clippy.toml'

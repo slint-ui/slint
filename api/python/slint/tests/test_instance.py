@@ -3,7 +3,7 @@
 
 import pytest
 from slint import slint as native
-from slint.slint import Image, Color, Brush
+from slint.slint import Image, Color, Brush, StyledText
 import os
 from pathlib import Path
 
@@ -32,6 +32,7 @@ def test_property_access() -> None:
             in property <image> imgprop;
             in property <brush> brushprop: Colors.rgb(255, 0, 255);
             in property <color> colprop: Colors.rgb(0, 255, 0);
+            in property <styled-text> styledprop: @markdown("Hello **Python**");
             in property <[string]> modelprop;
             in property <MyStruct> structprop: {
                 title: "builtin",
@@ -125,6 +126,23 @@ def test_property_access() -> None:
     instance.set_property("colprop", Color("rgb(128, 128, 128)"))
     brushval = instance.get_property("colprop")
     assert str(brushval.color) == "argb(255, 128, 128, 128)"
+
+    styledval = instance.get_property("styledprop")
+    assert isinstance(styledval, StyledText)
+    assert styledval == StyledText.from_markdown("Hello **Python**")
+
+    plain_text = StyledText.from_plain_text("Plain Python")
+    instance.set_property("styledprop", plain_text)
+    assert instance.get_property("styledprop") == plain_text
+
+    markdown_text = StyledText.from_markdown("Hello *again*")
+    instance.set_property("styledprop", markdown_text)
+    assert instance.get_property("styledprop") == markdown_text
+
+    assert StyledText.from_plain_text("same") == StyledText.from_markdown("same")
+
+    with pytest.raises(ValueError, match="Markdown headings are not supported"):
+        StyledText.from_markdown("# heading")
 
     with pytest.raises(ValueError, match="no such property"):
         instance.set_global_property("nonexistent", "theglobalprop", 42)

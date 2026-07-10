@@ -1,7 +1,7 @@
 ;; Copyright © Luke. D Jones <luke@ljones.dev>
 ;; SPDX-License-Identifier: MIT
 
-(comment) @comment @spell
+[(line_comment) (block_comment)] @comment @spell
 
 ; Different types:
 (string_value) @string @spell
@@ -133,23 +133,20 @@
 (property
   name: (simple_identifier) @property)
 
-(binding_alias
-  name: (simple_identifier) @property)
-
-(binding
-  name: (simple_identifier) @property)
-
-(struct_block
-  (simple_identifier) @variable.member)
-
-(anon_struct_block
-  (simple_identifier) @variable.member)
-
 (property_assignment
   property: (simple_identifier) @property)
 
-(states_definition
-  name: (simple_identifier) @variable)
+(binding_alias
+  name: (simple_identifier) @property)
+
+(struct_field_definition
+  name: (simple_identifier) @variable.member)
+
+(anon_struct_assignment
+  member: (simple_identifier) @variable.member)
+
+(property_assignment
+  property: (simple_identifier) @property)
 
 (callback
   name: (simple_identifier) @variable)
@@ -169,8 +166,9 @@
     (expression
       (simple_identifier) @property))
 
-(states_definition
-  name: (simple_identifier) @constant)
+(state_definition
+  name: (simple_identifier) @constant
+  "when" @keyword)
 
 ; Attributes:
 [
@@ -189,7 +187,14 @@
 ; Keywords:
 (animate_option_identifier) @keyword
 
-(export) @keyword
+(export_statement
+  "export" @keyword)
+
+(exported_definition
+  "export" @keyword)
+
+(export_type
+  "as" @keyword)
 
 (if_statement
   "if" @keyword.conditional)
@@ -233,7 +238,7 @@
 (global_definition
   "global" @keyword)
 
-(imperative_block
+(return_statement
   "return" @keyword.return)
 
 (import_statement
@@ -249,10 +254,7 @@
   "property" @keyword)
 
 (states_definition
-  [
-    "states"
-    "when"
-  ] @keyword)
+  "states" @keyword)
 
 (struct_definition
   "struct" @keyword)

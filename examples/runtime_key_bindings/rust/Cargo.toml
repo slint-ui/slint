@@ -1,0 +1,21 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "runtime_key_bindings"
+version = "1.18.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition.workspace = true
+build = "build.rs"
+publish = false
+license = "MIT"
+
+[[bin]]
+path = "main.rs"
+name = "runtime_key_bindings"
+
+[dependencies]
+slint = { path = "../../../api/rs/slint" }
+
+[build-dependencies]
+slint-build = { path = "../../../api/rs/build" }

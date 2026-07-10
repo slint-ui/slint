@@ -4,7 +4,7 @@
 /*! module for the C++ code generator
 */
 
-// cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals
+// cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals enumty fundecl pycompo pyenum structty
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -306,7 +306,7 @@ impl PyStructOrEnum {
 
 #[derive(Serialize, Deserialize)]
 pub struct PyModule {
-    version: SmolStr,
+    pub(crate) version: SmolStr,
     globals: Vec<PyComponent>,
     components: Vec<PyComponent>,
     structs_and_enums: Vec<PyStructOrEnum>,
@@ -315,7 +315,11 @@ pub struct PyModule {
 impl Default for PyModule {
     fn default() -> Self {
         Self {
-            version: SmolStr::new_static("1.0"),
+            // Bump whenever the meaning of any annotation produced by
+            // `python_type_name` changes (e.g. Type::Int32 → "int" in 2.0).
+            // A previously-generated wrapper that carries an older version
+            // is treated as incompatible by `changed_version`.
+            version: SmolStr::new_static("2.1"),
             globals: Default::default(),
             components: Default::default(),
             structs_and_enums: Default::default(),
@@ -653,8 +657,8 @@ fn python_type_name(ty: &Type) -> SmolStr {
         Type::Void => SmolStr::new_static("None"),
         Type::String => SmolStr::new_static("str"),
         Type::Color => SmolStr::new_static("slint.Color"),
+        Type::Int32 => SmolStr::new_static("int"),
         Type::Float32
-        | Type::Int32
         | Type::Duration
         | Type::Angle
         | Type::PhysicalLength
@@ -665,23 +669,25 @@ fn python_type_name(ty: &Type) -> SmolStr {
         Type::Image => SmolStr::new_static("slint.Image"),
         Type::Bool => SmolStr::new_static("bool"),
         Type::Brush => SmolStr::new_static("slint.Brush"),
+        Type::StyledText => SmolStr::new_static("slint.StyledText"),
         Type::Array(elem_type) => format_smolstr!("slint.Model[{}]", python_type_name(elem_type)),
         Type::Struct(s) => match &s.name {
             StructName::User { name, .. } => ident(name),
-            StructName::BuiltinPrivate(_) => SmolStr::new_static("None"),
-            StructName::BuiltinPublic(
-                crate::langtype::BuiltinPublicStruct::Color
-                | crate::langtype::BuiltinPublicStruct::LogicalPosition
-                | crate::langtype::BuiltinPublicStruct::LogicalSize,
-            )
-            | StructName::None => {
+            StructName::Builtin(crate::langtype::BuiltinStruct::LogicalPosition) => {
+                SmolStr::new_static("slint.LogicalPosition")
+            }
+            StructName::Builtin(crate::langtype::BuiltinStruct::LogicalSize) => {
+                SmolStr::new_static("slint.LogicalSize")
+            }
+            StructName::Builtin(crate::langtype::BuiltinStruct::Color) | StructName::None => {
                 let tuple_types = s.fields.values().map(python_type_name).collect::<Vec<_>>();
                 format_smolstr!("typing.Tuple[{}]", tuple_types.join(", "))
             }
-            StructName::BuiltinPublic(builtin_public_struct) => {
-                let name: &'static str = builtin_public_struct.into();
+            StructName::Builtin(builtin_struct) if builtin_struct.is_public() => {
+                let name: &'static str = builtin_struct.into();
                 format_smolstr!("slint.language.{}", name)
             }
+            StructName::Builtin(_) => SmolStr::new_static("None"),
         },
         Type::Enumeration(enumeration) => {
             if enumeration.node.is_some() {
@@ -698,6 +704,7 @@ fn python_type_name(ty: &Type) -> SmolStr {
             )
         }
         Type::Keys => SmolStr::new_static("slint.Keys"),
+        Type::DataTransfer => SmolStr::new_static("slint.DataTransfer"),
         ty => unimplemented!("implemented type conversion {:#?}", ty),
     }
 }

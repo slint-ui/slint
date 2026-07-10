@@ -1,10 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore HRESULT
 use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::partial_renderer::DirtyRegion;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::DrawOutcome;
 use std::cell::RefCell;
 use std::sync::Arc;
 use windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0;
@@ -188,7 +190,7 @@ impl SwapChain {
                 protected: skia_safe::gpu::Protected::No,
             };
             let backend_texture =
-                skia_safe::gpu::BackendRenderTarget::new_d3d((width, height), &texture_info);
+                skia_safe::gpu::backend_render_targets::make_d3d((width, height), &texture_info);
 
             skia_safe::gpu::surfaces::wrap_backend_render_target(
                 gr_context,
@@ -378,8 +380,9 @@ impl super::Surface for D3DSurface {
             protected_context: skia_safe::gpu::Protected::No,
         };
 
-        let gr_context = unsafe { skia_safe::gpu::DirectContext::new_d3d(&backend_context, None) }
-            .ok_or_else(|| format!("unable to create Skia D3D DirectContext"))?;
+        let gr_context =
+            unsafe { skia_safe::gpu::direct_contexts::make_d3d(&backend_context, None) }
+                .ok_or_else(|| format!("unable to create Skia D3D DirectContext"))?;
 
         let window_handle = window_handle
             .window_handle()
@@ -418,13 +421,14 @@ impl super::Surface for D3DSurface {
             u8,
         ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         self.swap_chain.borrow_mut().render_and_present(
             |surface, gr_context, buffer_age| {
                 callback(surface.canvas(), Some(gr_context), buffer_age);
             },
             pre_present_callback,
-        )
+        )?;
+        Ok(DrawOutcome::Success)
     }
 
     fn bits_per_pixel(&self) -> Result<u8, i_slint_core::platform::PlatformError> {

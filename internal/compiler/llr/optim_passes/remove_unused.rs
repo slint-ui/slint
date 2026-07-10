@@ -83,6 +83,7 @@ pub fn remove_unused(root: &mut CompilationUnit) {
     }
     for (idx, g) in root.globals.iter_mut_enumerated() {
         g.init_values.retain(|x, _| mappings.glob_mappings[idx].keep(x));
+        g.animations.retain(|x, _| mappings.glob_mappings[idx].keep(x));
     }
 
     impl visitor::Visitor for &RemoveUnusedMappings {
@@ -263,7 +264,13 @@ mod visitor {
     }
 
     pub fn visit_public_component(
-        PublicComponent { public_properties, private_properties: _, item_tree, name:_ }: &mut PublicComponent,
+        PublicComponent {
+            public_properties,
+            private_properties: _,
+            item_tree,
+            name: _,
+            top_level_type: _,
+        }: &mut PublicComponent,
         state: &VisitorState,
         visitor: &mut (impl Visitor + ?Sized),
     ) {
@@ -292,6 +299,7 @@ mod visitor {
             animations,
             two_way_bindings,
             const_properties,
+            pre_init_code,
             init_code,
             geometries,
             layout_info_h,
@@ -299,6 +307,7 @@ mod visitor {
             child_of_layout: _,
             grid_layout_input_for_repeated,
             flexbox_layout_item_info_for_repeated,
+            layout_info_v_constrained_for_repeated,
             is_repeated_row: _,
             grid_layout_children,
             accessible_prop,
@@ -370,14 +379,14 @@ mod visitor {
             })
             .collect();
 
-        for (a, b, _) in two_way_bindings {
-            visit_member_reference(a, &scope, state, visitor);
-            visit_member_reference(b, &scope, state, visitor);
+        for twb in two_way_bindings {
+            visit_local_member_reference(&mut twb.prop1, &scope, state, visitor);
+            visit_member_reference(&mut twb.prop2, &scope, state, visitor);
         }
         for c in const_properties {
             visit_local_member_reference(c, &scope, state, visitor);
         }
-        for i in init_code {
+        for i in pre_init_code.iter_mut().chain(init_code) {
             visit_expression(i.get_mut(), &scope, state, visitor);
         }
         for g in geometries.iter_mut().flatten() {
@@ -389,6 +398,9 @@ mod visitor {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
         if let Some(e) = flexbox_layout_item_info_for_repeated {
+            visit_expression(e.get_mut(), &scope, state, visitor);
+        }
+        if let Some(e) = layout_info_v_constrained_for_repeated {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
         for child in grid_layout_children {
@@ -417,6 +429,7 @@ mod visitor {
             callbacks: _,
             functions,
             init_values,
+            animations,
             change_callbacks,
             const_properties: _,
             public_properties,
@@ -440,6 +453,15 @@ mod visitor {
             .map(|(mut k, mut v)| {
                 visit_member_index(&mut k, &scope, state, visitor);
                 visit_binding_expression(&mut v, &scope, state, visitor);
+                (k, v)
+            })
+            .collect();
+
+        *animations = std::mem::take(animations)
+            .into_iter()
+            .map(|(mut k, mut v)| {
+                visit_member_index(&mut k, &scope, state, visitor);
+                visit_expression(&mut v, &scope, state, visitor);
                 (k, v)
             })
             .collect();

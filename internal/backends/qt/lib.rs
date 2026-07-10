@@ -19,6 +19,16 @@ use std::rc::Rc;
 use std::sync::{Arc, atomic::AtomicUsize};
 
 #[cfg(not(no_qt))]
+thread_local! {
+    /// Set once by [`Backend::bind_context`]; read from rust!() callbacks fired by the
+    /// Qt event filter installed on `qApp` so palette/theme/font changes can push the new
+    /// values onto the process-wide [`i_slint_core::SlintContext`] without going through
+    /// any specific [`qt_window::QtWindow`].
+    static QT_CONTEXT: std::cell::OnceCell<i_slint_core::SlintContextWeak> =
+        const { std::cell::OnceCell::new() };
+}
+
+#[cfg(not(no_qt))]
 mod qt_accessible;
 #[cfg(not(no_qt))]
 mod qt_widgets;
@@ -165,6 +175,21 @@ impl Backend {
 }
 
 impl i_slint_core::platform::Platform for Backend {
+    #[cfg(not(no_qt))]
+    fn bind_context(&self, ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
+        QT_CONTEXT.with(|cell| {
+            let _ = cell.set(ctx);
+        });
+        // Read the host shell's current values once and push them to the context, then
+        // install an `qApp`-level event filter that re-pushes whenever Qt reports a
+        // theme/palette/font change. The previous design did the read in `QtWindow::new` and
+        // the change-tracking in each window's `changeEvent`, which is wasteful when
+        // there are multiple windows and outright broken when there are zero windows.
+        update_palette_state();
+        update_font_state();
+        install_app_state_observer();
+    }
+
     fn create_window_adapter(
         &self,
     ) -> Result<Rc<dyn i_slint_core::window::WindowAdapter>, PlatformError> {
@@ -172,7 +197,7 @@ impl i_slint_core::platform::Platform for Backend {
         return Err("Qt platform requested but Slint is compiled without Qt support".into());
         #[cfg(not(no_qt))]
         {
-            Ok(qt_window::QtWindow::new())
+            Ok(qt_window::QtWindow::new(std::rc::Weak::<qt_window::QtWindow>::new()))
         }
     }
 
@@ -196,7 +221,7 @@ impl i_slint_core::platform::Platform for Backend {
 
     fn process_events(
         &self,
-        _timeout: core::time::Duration,
+        _timeout: Option<core::time::Duration>,
         _: i_slint_core::InternalToken,
     ) -> Result<core::ops::ControlFlow<()>, PlatformError> {
         #[cfg(not(no_qt))]
@@ -204,7 +229,7 @@ impl i_slint_core::platform::Platform for Backend {
             // Schedule any timers with Qt that were set up before this event loop start.
             crate::qt_window::timer_event();
             use cpp::cpp;
-            let timeout_ms: i32 = _timeout.as_millis() as _;
+            let timeout_ms: i32 = _timeout.map_or(-1, |d| d.as_millis() as i32);
             let loop_was_quit = cpp! {unsafe [timeout_ms as "int"] -> bool as "bool" {
                 ensure_initialized(true);
                 qApp->processEvents(QEventLoop::AllEvents, timeout_ms);
@@ -368,6 +393,85 @@ impl i_slint_core::platform::Platform for Backend {
             Err(i_slint_core::platform::PlatformError::Other("Failed to open URL".into()))
         }
     }
+}
+
+#[cfg(not(no_qt))]
+fn update_palette_state() {
+    use cpp::cpp;
+    let dark = cpp! {unsafe [] -> bool as "bool" {
+        return qApp->palette().color(QPalette::Window).valueF() < 0.5;
+    }};
+    let argb = cpp! {unsafe [] -> u32 as "QRgb" {
+        #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+            return qApp->palette().color(QPalette::Accent).rgba();
+        #else
+            return qApp->palette().color(QPalette::Highlight).rgba();
+        #endif
+    }};
+    let scheme = if dark {
+        i_slint_core::items::ColorScheme::Dark
+    } else {
+        i_slint_core::items::ColorScheme::Light
+    };
+    let accent = i_slint_core::graphics::Color::from_argb_encoded(argb);
+    QT_CONTEXT.with(|cell| {
+        if let Some(ctx) = cell.get().and_then(|w| w.upgrade()) {
+            ctx.set_color_scheme(scheme);
+            ctx.set_accent_color(accent);
+        }
+    });
+}
+
+#[cfg(not(no_qt))]
+fn update_font_state() {
+    use cpp::cpp;
+    let default_font_size = cpp! {unsafe [] -> i32 as "int" {
+        return QFontInfo(qApp->font()).pixelSize();
+    }};
+    QT_CONTEXT.with(|cell| {
+        if let Some(ctx) = cell.get().and_then(|w| w.upgrade()) {
+            ctx.set_platform_default_font_size(Some(i_slint_core::lengths::LogicalLength::new(
+                default_font_size as f32,
+            )));
+        }
+    });
+}
+
+#[cfg(not(no_qt))]
+fn install_app_state_observer() {
+    use cpp::cpp;
+    cpp! {{
+        #include <QtCore/QEvent>
+        #include <QtCore/QObject>
+        #include <QtGui/QFontInfo>
+        #include <QtWidgets/QApplication>
+
+        struct SlintAppStateObserver : QObject {
+            using QObject::QObject;
+            bool eventFilter(QObject *watched, QEvent *event) override {
+                if (watched == qApp) {
+                    if (event->type() == QEvent::ApplicationPaletteChange
+                        || event->type() == QEvent::ThemeChange) {
+                        rust!(Slint_qt_palette_changed [] {
+                            crate::update_palette_state();
+                        });
+                    } else if (event->type() == QEvent::ApplicationFontChange) {
+                        rust!(Slint_qt_font_changed [] {
+                            crate::update_font_state();
+                        });
+                    }
+                }
+                return false;
+            }
+        };
+    }};
+    cpp! {unsafe [] {
+        ensure_initialized(true);
+        // Parented to qApp so it lives as long as the application and is cleaned up
+        // automatically on exit. installEventFilter doesn't take ownership.
+        auto *observer = new SlintAppStateObserver(qApp);
+        qApp->installEventFilter(observer);
+    }};
 }
 
 /// This helper trait can be used to obtain access to a pointer to a QtWidget for a given

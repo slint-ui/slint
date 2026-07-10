@@ -4,13 +4,13 @@
 use crate::common::{self, Result};
 use crate::util;
 use i_slint_compiler::diagnostics::Spanned;
-use i_slint_compiler::expression_tree::{Expression, Unit};
+use i_slint_compiler::expression_tree::{Expression, TwoWayBinding, Unit};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
-use i_slint_preview_protocol::SourceFileVersion;
+use i_slint_live_preview::protocol::SourceFileVersion;
 use lsp_types::Url;
 use smol_str::{SmolStr, ToSmolStr};
 
@@ -99,7 +99,7 @@ const HIGH_PRIORITY: u32 = 100;
 const DEFAULT_PRIORITY: u32 = 1000;
 
 // This returns defined reserved properties such as x, y, width, height,
-// accessiblity properties or layout properties
+// accessibility properties or layout properties
 fn get_reserved_properties<'a>(
     group: &'a str,
     group_priority: u32,
@@ -330,9 +330,17 @@ fn insert_property_definitions(
                 return e;
             }
             for twb in &binding.borrow().two_way_bindings {
-                let mut e = binding_value(&twb.property.element(), twb.property.name(), count);
+                let (mut e, field_access) = match twb {
+                    TwoWayBinding::Property { property, field_access } => {
+                        (binding_value(&property.element(), property.name(), count), field_access)
+                    }
+                    TwoWayBinding::ModelData { repeated_element, field_access } => (
+                        Expression::RepeaterModelReference { element: repeated_element.clone() },
+                        field_access,
+                    ),
+                };
                 if !matches!(e, Expression::Invalid) {
-                    for f in &twb.field_access {
+                    for f in field_access {
                         e = Expression::StructFieldAccess { base: e.into(), name: f.clone() }
                     }
                     return e;
@@ -870,7 +878,7 @@ pub fn remove_binding(
                 prop_decl.BindingExpression().ok_or("property declaration has no binding")?;
             let colon = ancestor
                 .child_token(SyntaxKind::Colon)
-                .ok_or("property peclaration has no colon")?;
+                .ok_or("property declaration has no colon")?;
             let start = colon.text_range().start();
             if let Some(semi_colon) = binding.child_token(SyntaxKind::Semicolon) {
                 let end = semi_colon.text_range().start();

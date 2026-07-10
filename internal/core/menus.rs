@@ -32,6 +32,8 @@ pub struct MenuVTable {
     sub_menu: extern "C" fn(VRef<MenuVTable>, Option<&MenuEntry>, &mut SharedVector<MenuEntry>),
     /// Handler when the menu entry is activated
     activate: extern "C" fn(VRef<MenuVTable>, &MenuEntry),
+    /// Handler to return whether the menu is visible or not
+    visible: extern "C" fn(VRef<MenuVTable>) -> bool,
     /// drop_in_place handler
     drop_in_place: extern "C" fn(VRefMut<MenuVTable>) -> Layout,
     /// dealloc handler
@@ -50,34 +52,45 @@ pub struct MenuFromItemTree {
     next_id: Cell<usize>,
     tracker: Pin<Box<PropertyTracker>>,
     condition: Option<Pin<Box<Property<bool>>>>,
+    visible: Option<Pin<Box<Property<bool>>>>,
 }
 
 impl MenuFromItemTree {
     pub fn new(item_tree: ItemTreeRc) -> Self {
-        Self {
-            item_tree,
-            item_cache: Default::default(),
-            root: Default::default(),
-            tracker: Box::pin(PropertyTracker::default()),
-            next_id: 0.into(),
-            condition: None,
-        }
+        Self::new_internal(item_tree, None, None)
     }
 
-    pub fn new_with_condition(
+    pub fn new_with_condition_and_visible(
         item_tree: ItemTreeRc,
         condition: impl Fn() -> bool + 'static,
+        visible: impl Fn() -> bool + 'static,
     ) -> Self {
-        let cond_prop = Box::pin(Property::new_named(true, "MenuFromItemTree::condition"));
-        cond_prop.as_ref().set_binding(condition);
+        fn make_prop(
+            f: impl Fn() -> bool + 'static,
+            name: &'static str,
+        ) -> Option<Pin<Box<Property<bool>>>> {
+            let prop = Box::pin(Property::new_named(true, name));
+            prop.as_ref().set_binding(f);
+            Some(prop)
+        }
+        let condition = make_prop(condition, "MenuFromItemTree::condition");
+        let visible = make_prop(visible, "MenuFromItemTree::visible");
+        Self::new_internal(item_tree, condition, visible)
+    }
 
+    fn new_internal(
+        item_tree: ItemTreeRc,
+        condition: Option<Pin<Box<Property<bool>>>>,
+        visible: Option<Pin<Box<Property<bool>>>>,
+    ) -> Self {
         Self {
             item_tree,
             item_cache: Default::default(),
             root: Default::default(),
             tracker: Box::pin(PropertyTracker::default()),
             next_id: 0.into(),
-            condition: Some(cond_prop),
+            condition,
+            visible,
         }
     }
 
@@ -90,6 +103,7 @@ impl MenuFromItemTree {
                 self.root.replace(SharedVector::default());
                 return;
             }
+            crate::item_tree::ensure_item_tree_instantiated(&self.item_tree);
             self.root.replace(
                 self.update_shadow_tree_recursive(&ItemRc::new_root(self.item_tree.clone())),
             );
@@ -179,6 +193,10 @@ impl Menu for MenuFromItemTree {
 
             menu_item.activated.call(&());
         }
+    }
+
+    fn visible(&self) -> bool {
+        self.visible.as_ref().is_none_or(|v| v.as_ref().get())
     }
 }
 
@@ -303,16 +321,33 @@ pub mod ffi {
         menu_tree: &ItemTreeRc,
         result: *mut vtable::VRc<MenuVTable>,
         condition: Option<extern "C" fn(menu_tree: &ItemTreeRc) -> bool>,
+        visible: Option<extern "C" fn(menu_tree: &ItemTreeRc) -> bool>,
     ) {
-        let menu = match condition {
-            Some(condition) => {
+        let menu = match (condition, visible) {
+            (None, None) => MenuFromItemTree::new(menu_tree.clone()),
+            (condition, visible) => {
                 let menu_weak = ItemTreeRc::downgrade(menu_tree);
-                MenuFromItemTree::new_with_condition(menu_tree.clone(), move || {
-                    let Some(menu_rc) = menu_weak.upgrade() else { return false };
-                    condition(&menu_rc)
-                })
+                let condition = move || {
+                    menu_weak
+                        .upgrade()
+                        .map(|menu_rc| condition.map(|x| x(&menu_rc)).unwrap_or(true))
+                        .unwrap_or(false)
+                };
+
+                let menu_weak = ItemTreeRc::downgrade(menu_tree);
+                let visible = move || {
+                    menu_weak
+                        .upgrade()
+                        .map(|menu_rc| visible.map(|x| x(&menu_rc)).unwrap_or(true))
+                        .unwrap_or(false)
+                };
+
+                MenuFromItemTree::new_with_condition_and_visible(
+                    menu_tree.clone(),
+                    condition,
+                    visible,
+                )
             }
-            None => MenuFromItemTree::new(menu_tree.clone()),
         };
 
         let vrc = vtable::VRc::into_dyn(vtable::VRc::new(menu));

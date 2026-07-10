@@ -9,7 +9,7 @@ use smol::channel::{Receiver, Sender};
 
 use slint::ComponentHandle;
 
-use slint::wgpu_28::wgpu;
+use slint::wgpu_29::wgpu;
 
 use crate::{MyApp, WebviewLogic, webview::rendering_context::ServoRenderingAdapter};
 
@@ -96,7 +96,7 @@ impl SlintServoAdapter {
         self.waker_sender.clone()
     }
 
-    pub fn waker_reciver(&self) -> Receiver<()> {
+    pub fn waker_receiver(&self) -> Receiver<()> {
         self.waker_receiver.clone()
     }
 

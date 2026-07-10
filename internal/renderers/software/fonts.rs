@@ -1,14 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore pixelfont vectorfont
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
 use super::{Fixed, PhysicalLength, PhysicalSize};
-use i_slint_core::Coord;
 use i_slint_core::graphics::{BitmapFont, FontRequest};
-use i_slint_core::lengths::{LogicalLength, ScaleFactor};
+use i_slint_core::lengths::ScaleFactor;
 use i_slint_core::textlayout::TextLayout;
 
 i_slint_core::thread_local! {
@@ -38,7 +38,7 @@ impl RenderableGlyph {
     }
 }
 
-// Subset of `RenderableGlyph`, specfically for VectorFonts.
+// Subset of `RenderableGlyph`, specifically for VectorFonts.
 #[cfg(feature = "systemfonts")]
 #[derive(Clone)]
 pub struct RenderableVectorGlyph {
@@ -68,7 +68,7 @@ pub trait GlyphRenderer {
     fn scale_delta(&self) -> Fixed<u16, 8>;
 }
 
-pub(super) const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12 as Coord);
+pub(super) use i_slint_core::textlayout::DEFAULT_FONT_SIZE;
 
 mod pixelfont;
 #[cfg(feature = "systemfonts")]

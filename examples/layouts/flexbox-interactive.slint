@@ -75,12 +75,12 @@ export component MainWindow inherits Window {
         FlexboxLayoutAlignContent.space-around,
         FlexboxLayoutAlignContent.space-evenly
     ];
-    property <[string]> align_items_options: ["Stretch", "Start", "End", "Center"];
-    property <[LayoutAlignItems]> align_items_values: [
-        LayoutAlignItems.stretch,
-        LayoutAlignItems.start,
-        LayoutAlignItems.end,
-        LayoutAlignItems.center
+    property <[string]> cross_axis_alignment_options: ["Stretch", "Start", "End", "Center"];
+    property <[CrossAxisAlignment]> cross_axis_alignment_values: [
+        CrossAxisAlignment.stretch,
+        CrossAxisAlignment.start,
+        CrossAxisAlignment.end,
+        CrossAxisAlignment.center
     ];
     property <[string]> flex_wrap_options: ["Wrap", "NoWrap", "WrapReverse"];
     property <[FlexboxLayoutWrap]> flex_wrap_values: [FlexboxLayoutWrap.wrap, FlexboxLayoutWrap.no-wrap, FlexboxLayoutWrap.wrap-reverse];
@@ -135,12 +135,12 @@ export component MainWindow inherits Window {
             }
 
             Text {
-                text: "Align Items:";
+                text: "Cross Axis Alignment:";
                 vertical-alignment: center;
             }
 
-            align_items_combo := ComboBox {
-                model: align_items_options;
+            cross_axis_alignment_combo := ComboBox {
+                model: cross_axis_alignment_options;
                 current-index: 0;
             }
         }
@@ -155,7 +155,7 @@ export component MainWindow inherits Window {
                 flex-direction: direction_values[direction_combo.current-index];
                 alignment: alignment_values[alignment_combo.current-index];
                 align-content: align_content_values[align_content_combo.current-index];
-                align-items: align_items_values[align_items_combo.current-index];
+                cross-axis-alignment: cross_axis_alignment_values[cross_axis_alignment_combo.current-index];
                 flex-wrap: flex_wrap_values[flex_wrap_combo.current-index];
                 padding: 10phx;
                 spacing: 10phx;
@@ -224,7 +224,7 @@ export component MainWindow inherits Window {
                     width: 80phx;
                     height: 40phx;
                 }
-                // flex-align-self: orange item overrides the container's align-items
+                // flex-align-self: orange item overrides the container's cross-axis-alignment
                 FlexCell {
                     cell_text: "S self:end";
                     flex-align-self: end;

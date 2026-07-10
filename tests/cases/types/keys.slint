@@ -135,7 +135,7 @@ slint_testing::send_key_combo(&instance, [Key::Escape]);
 slint_testing::send_key_combo(&instance, [Key::Control, Key::Escape]);
 slint_testing::send_key_combo(&instance, [Key::Control, Key::Alt, Key::Shift, Key::Escape]);
 assert_eq!(instance.get_matches(), 0);
-// matches with correct modifers
+// matches with correct modifiers
 slint_testing::send_key_combo(&instance, [Key::Control, Key::Shift, Key::Escape]);
 assert_eq!(instance.get_matches(), 1);
 

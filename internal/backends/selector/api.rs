@@ -116,24 +116,6 @@ impl BackendSelector {
     /// Adds the requirement to the selector that the backend must render using [WGPU](http://wgpu.rs).
     /// Use this when you integrate other WGPU-based renderers with a Slint UI.
     ///
-    /// *Note*: This function is behind the [`unstable-wgpu-27` feature flag](slint:rust:slint/docs/cargo_features/#backends)
-    ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
-    ///
-    /// See also the [`slint::wgpu_27`](slint:rust:slint/wgpu_27) module.
-    #[cfg(feature = "unstable-wgpu-27")]
-    #[must_use]
-    pub fn require_wgpu_27(
-        mut self,
-        configuration: i_slint_core::graphics::wgpu_27::api::WGPUConfiguration,
-    ) -> Self {
-        self.requested_graphics_api = Some(RequestedGraphicsAPI::WGPU27(configuration));
-        self
-    }
-
-    #[i_slint_core_macros::slint_doc]
-    /// Adds the requirement to the selector that the backend must render using [WGPU](http://wgpu.rs).
-    /// Use this when you integrate other WGPU-based renderers with a Slint UI.
-    ///
     /// *Note*: This function is behind the [`unstable-wgpu-28` feature flag](slint:rust:slint/docs/cargo_features/#backends)
     ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
     ///
@@ -145,6 +127,24 @@ impl BackendSelector {
         configuration: i_slint_core::graphics::wgpu_28::api::WGPUConfiguration,
     ) -> Self {
         self.requested_graphics_api = Some(RequestedGraphicsAPI::WGPU28(configuration));
+        self
+    }
+
+    #[i_slint_core_macros::slint_doc]
+    /// Adds the requirement to the selector that the backend must render using [WGPU](http://wgpu.rs).
+    /// Use this when you integrate other WGPU-based renderers with a Slint UI.
+    ///
+    /// *Note*: This function is behind the [`unstable-wgpu-29` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
+    ///
+    /// See also the [`slint::wgpu_29`](slint:rust:slint/wgpu_29) module.
+    #[cfg(feature = "unstable-wgpu-29")]
+    #[must_use]
+    pub fn require_wgpu_29(
+        mut self,
+        configuration: i_slint_core::graphics::wgpu_29::api::WGPUConfiguration,
+    ) -> Self {
+        self.requested_graphics_api = Some(RequestedGraphicsAPI::WGPU29(configuration));
         self
     }
 
@@ -304,6 +304,36 @@ impl BackendSelector {
             }
         };
 
+        // Fail fast when wgpu rendering was required but no GPU-backed adapter
+        // is available for the requested backends. Otherwise the winit/linuxkms
+        // backends silently fall through to a non-wgpu renderer (e.g. the
+        // standalone software renderer), and the failure surfaces much later
+        // as an Unsupported error from set_rendering_notifier.
+        #[cfg(feature = "unstable-wgpu-28")]
+        if matches!(self.requested_graphics_api, Some(RequestedGraphicsAPI::WGPU28(_)))
+            && !i_slint_core::graphics::wgpu_28::any_wgpu28_adapters_with_gpu(
+                self.requested_graphics_api.clone(),
+            )
+        {
+            return Err(
+                "WGPU 28.x rendering was required but no GPU-backed WGPU adapter is available \
+                 for the requested backends. Set SLINT_WGPU_CPU=1 to allow CPU adapters."
+                    .into(),
+            );
+        }
+        #[cfg(feature = "unstable-wgpu-29")]
+        if matches!(self.requested_graphics_api, Some(RequestedGraphicsAPI::WGPU29(_)))
+            && !i_slint_core::graphics::wgpu_29::any_wgpu29_adapters_with_gpu(
+                self.requested_graphics_api.clone(),
+            )
+        {
+            return Err(
+                "WGPU 29.x rendering was required but no GPU-backed WGPU adapter is available \
+                 for the requested backends. Set SLINT_WGPU_CPU=1 to allow CPU adapters."
+                    .into(),
+            );
+        }
+
         let backend: Box<dyn i_slint_core::platform::Platform> = match backend_name {
             #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))]
             "linuxkms" => {
@@ -383,7 +413,15 @@ impl BackendSelector {
             }
         };
 
-        i_slint_core::platform::set_platform(backend).map_err(PlatformError::SetPlatformError)
+        let result =
+            i_slint_core::platform::set_platform(backend).map_err(PlatformError::SetPlatformError);
+
+        #[cfg(any(feature = "system-testing", feature = "mcp"))]
+        if result.is_ok() {
+            super::init_testing_backends();
+        }
+
+        result
     }
 
     #[cfg(target_os = "android")]
@@ -398,11 +436,14 @@ impl BackendSelector {
             return Err(format!("Only the Skia renderer is supported on Android").into());
         }
 
-        if cfg!(feature = "backend-android-activity") {
+        #[cfg(feature = "backend-android-activity")]
+        {
             i_slint_backend_android_activity::set_requested_graphics_api(
                 self.requested_graphics_api.clone(),
             )
-        } else {
+        }
+        #[cfg(not(feature = "backend-android-activity"))]
+        {
             Err(format!(
                 "The BackendSelector is only supported with the backend-android-activity backend"
             )

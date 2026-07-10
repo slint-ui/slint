@@ -1,4 +1,4 @@
-<!-- cSpell: ignore xkbcommon fontconfig vcpkg DCMAKE RUSTDOCFLAGS cppdocs frontends -->
+<!-- cSpell: ignore xkbcommon fontconfig vcpkg DCMAKE RUSTDOCFLAGS cppdocs pyslint TYPESENSE winget xcbcommon -->
 # Slint Build Guide
 
 This page explains how to build and test Slint.
@@ -15,7 +15,9 @@ Once this is done, you should have the `rustc` compiler and the `cargo` build sy
 
 ### Dependencies
 
-- **FFMPEG**
+- **(optional) FFmpeg** (only needed for the `ffmpeg` example)
+
+- **(optional) GStreamer** (only needed for the `gstreamer-player` example)
 
 - **Skia** (binaries limited to few platforms):
 
@@ -40,7 +42,8 @@ For Linux a few additional packages beyond the usual build essentials are needed
 - xkbcommon (`libxkbcommon-dev` on debian based distributions)
 - fontconfig library (`libfontconfig-dev` on debian based distributions)
 - (optional) Qt will be used when `qmake` is found in `PATH`
-- FFMPEG library `clang` `libavcodec-dev` `libavformat-dev` `libavutil-dev` `libavfilter-dev` `libavdevice-dev` `libasound2-dev` `pkg-config`
+- (optional) FFmpeg library `clang` `libavcodec-dev` `libavformat-dev` `libavutil-dev` `libavfilter-dev` `libavdevice-dev` `libasound2-dev` `pkg-config`
+- (optional) GStreamer libraries `libgstreamer1.0-dev` `libgstreamer-plugins-base1.0-dev` `gstreamer1.0-plugins-base` `gstreamer1.0-plugins-good` `gstreamer1.0-plugins-bad` `gstreamer1.0-plugins-ugly` `gstreamer1.0-libav` `libgstrtspserver-1.0-dev` `libges-1.0-dev`
 - openssl (`libssl-dev` on debian based distributions)
 
 `xcb` and `xcbcommon` aren't needed if you are only using `backend-winit-wayland` without `backend-winit-x11`.
@@ -49,7 +52,8 @@ For Linux a few additional packages beyond the usual build essentials are needed
 
 - Make sure the "Xcode Command Line Tools" are installed: `xcode-select --install`
 - (optional) Qt will be used when `qmake` is found in `PATH`
-- FFMPEG `brew install pkg-config ffmpeg`
+- (optional) FFmpeg `brew install pkg-config ffmpeg`
+- (optional) GStreamer `brew install pkg-config gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad`
 
 ### Windows
 
@@ -58,7 +62,7 @@ For Linux a few additional packages beyond the usual build essentials are needed
 - See [System Link](#symlinks-in-the-repository-windows)
 - Make sure the MSVC Build Tools are installed: `winget install Microsoft.VisualStudio.2022.BuildTools`
 - (optional) make sure Qt is installed and `qmake` is in the `Path`
-- FFMPEG
+- (optional) FFmpeg
 
   - Option 1:
 
@@ -68,8 +72,13 @@ For Linux a few additional packages beyond the usual build essentials are needed
     - Make sure `%VCPKG_ROOT%\installed\x64-windows\bin` is in your path
 
   - Option 2:
-    - Download FFMPEG 4.4 shared and extract (<https://github.com/BtbN/FFmpeg-Builds/releases/tag/latest>)
-    - Add FFMPEG to path: `*\ffmpeg\bin` `*\ffmpeg\include\libavutil` `*\ffmpeg\lib`
+    - Download FFmpeg 4.4 shared and extract (<https://github.com/BtbN/FFmpeg-Builds/releases/tag/latest>)
+    - Add FFmpeg to path: `*\ffmpeg\bin` `*\ffmpeg\include\libavutil` `*\ffmpeg\lib`
+
+- (optional) GStreamer
+
+  - Install the GStreamer runtime and development packages from <https://gstreamer.freedesktop.org/data/pkg/windows/>
+  - Make sure the GStreamer `bin` directory is in your `Path`
 
 ### C++ API (optional)
 
@@ -111,32 +120,48 @@ cargo test
 **Important:** Note that `cargo test` does not work without first calling `cargo build` because the
 the required dynamic library won't be found.
 
-### Building workspace
+### Workspace layout
 
-To build all examples install the entire workplace to executables
-(excluding [UEFI-demo](https://github.com/slint-ui/slint/tree/master/examples/uefi-demo) - different target)
+The repository is split into several Cargo workspaces that all share the same
+`target/` directory (configured in `.cargo/config.toml`):
+
+- the root workspace contains the library and tool crates,
+- `examples/`, `demos/` and `tests/` each contain their respective crates,
+- `ui-libraries/material/` contains the material library and its gallery.
+
+Keeping the examples, demos and tests out of the root workspace keeps
+rust-analyzer fast when working on the libraries; the shared `target/` directory
+means the common library crates are only built once across all the workspaces.
+Select a non-root workspace with `--manifest-path <dir>/Cargo.toml`.
+
+To build all examples (excluding the
+[UEFI-demo](https://github.com/slint-ui/slint/tree/master/examples/uefi-demo) and
+the MCU examples, which target different platforms):
 
 ```sh
-cargo build --workspace --exclude uefi-demo --release
+cargo build --manifest-path examples/Cargo.toml --workspace --release \
+    --exclude uefi-demo --exclude mcu-board-support --exclude mcu-embassy
 ```
 
 ### C++ Tests
 
-The C++ tests are contained in the `test-driver-cpp` crate. It requires the Slint C++ library to be built,
-which isn't done by default. Build it explicitly before running the tests:
+The C++ tests are contained in the `test-driver-cpp` crate of the `tests/`
+workspace. It requires the Slint C++ library to be built, which isn't done by
+default. Build it explicitly before running the tests:
 
 ```sh
 cargo build --lib -p slint-cpp
-cargo test -p test-driver-cpp
+cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp
 ```
 
 ### Node.js Tests
 
-The Node.js tests are contained in the `test-driver-nodejs` crate. The node integration will be run
-automatically when running the tests:
+The Node.js tests are contained in the `test-driver-nodejs` crate of the
+`tests/` workspace. The node integration will be run automatically when running
+the tests:
 
 ```sh
-cargo build -p test-driver-nodejs
+cargo build --manifest-path tests/Cargo.toml -p test-driver-nodejs
 ```
 
 ### More Info About Tests
@@ -191,7 +216,7 @@ This includes for example the Raspberry Pi OS. Using the following steps you can
 pi:
 
 ```sh
-cross build --target armv7-unknown-linux-gnueabihf --workspace --exclude slint-node --exclude pyslint --release
+cross build --target armv7-unknown-linux-gnueabihf --manifest-path demos/Cargo.toml -p printerdemo --release
 scp target/armv7-unknown-linux-gnueabihf/release/printerdemo pi@raspberrypi.local:.
 ```
 
@@ -245,21 +270,29 @@ Note: `--html-in-header` arguments passed to rustdoc via `RUSTDOCFLAGS` are used
 **Prerequisites**:
 
 - [Doxygen](https://www.doxygen.nl/download.html)
+- [pnpm](https://pnpm.io/) (run `pnpm install` from the repository root first)
 
-Run the following command to generate the documentation using sphinx/exhale/breathe/doxygen/myst_parser in the `target/cppdocs` sub-folder:
+The C++ docs are an Astro/Starlight site in `docs/cpp`. Building it generates
+the cbindgen headers that Doxygen reads (`cargo xtask generate_cppdocs_headers`,
+which needs a Rust toolchain), runs Doxygen to produce XML, converts it to
+Markdown, and builds the static site:
 
 ```sh
-cargo xtask cppdocs
+pnpm -C docs/cpp run build
 ```
+
+The static site is written to `docs/cpp/dist`. See `docs/cpp/README.md` for
+more, including the `pnpm -C docs/cpp dev` workflow.
 
 ### Node.js API docs
 
-Run the following commands from the `/api/node` sub-folder to generate the docs using [typedoc](https://typedoc.org/) in the `/api/node/docs` sub-folder:
+Run the following commands from the `/docs/nodejs` sub-folder to generate the docs.
 
 ```sh
-npm install
-npm run docs
+pnpm install
+pnpm build
 ```
+
 
 ### Building search database
 

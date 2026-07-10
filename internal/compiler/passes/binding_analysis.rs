@@ -382,9 +382,11 @@ fn analyze_binding(
 
     let b = binding.borrow();
     for twb in &b.two_way_bindings {
-        if twb.property != current.prop {
+        if let Some(p) = twb.property()
+            && p != &current.prop
+        {
             depends_on_external |= process_property(
-                &current.relative(&twb.property.clone().into()),
+                &current.relative(&p.clone().into()),
                 ReadType::PropertyRead,
                 context,
                 reverse_aliases,
@@ -414,7 +416,7 @@ fn analyze_binding(
     });
 
     let mut is_const = b.expression.is_constant(Some(context.global_analysis))
-        && b.two_way_bindings.iter().all(|n| n.property.is_constant());
+        && b.two_way_bindings.iter().all(|n| n.is_constant());
 
     if is_const && matches!(b.expression, Expression::Invalid) {
         // check the base
@@ -535,7 +537,8 @@ fn recurse_expression(
         Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => {
             vis(&layout_cache_prop.clone().into(), P)
         }
-        Expression::SolveBoxLayout(l, o) | Expression::ComputeBoxLayoutInfo(l, o) => {
+        Expression::SolveBoxLayout(l, o)
+        | Expression::ComputeBoxLayoutInfo { layout: l, orientation: o, .. } => {
             // we should only visit the layout geometry for the orientation
             if matches!(expr, Expression::SolveBoxLayout(..))
                 && let Some(nr) = l.geometry.rect.size_reference(*o)
@@ -544,7 +547,7 @@ fn recurse_expression(
             }
             visit_layout_items_dependencies(l.elems.iter(), *o, vis);
 
-            // The orthogonal solve depends on `align-items`.
+            // The orthogonal solve depends on `cross-axis-alignment`.
             if matches!(expr, Expression::SolveBoxLayout(..))
                 && *o != l.orientation
                 && let Some(nr) = l.cross_alignment.as_ref()
@@ -557,7 +560,7 @@ fn recurse_expression(
             g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
         }
         Expression::SolveFlexboxLayout(layout)
-        | Expression::ComputeFlexboxLayoutInfo(layout, _) => {
+        | Expression::ComputeFlexboxLayoutInfo { layout, .. } => {
             if let Some(nr) = layout.direction.as_ref() {
                 vis(&nr.clone().into(), P);
             }
@@ -616,27 +619,34 @@ fn recurse_expression(
                         );
                     }
                 }
-            } else if let Expression::ComputeFlexboxLayoutInfo(_, orientation) = expr {
+            } else if let Expression::ComputeFlexboxLayoutInfo { orientation, .. } = expr {
+                let orientation = *orientation;
                 use crate::layout::FlexboxAxisRelation;
-                match layout.axis_relation(*orientation) {
+                match layout.axis_relation(orientation) {
                     FlexboxAxisRelation::MainAxis => {
                         // Main axis: only visit same-axis item dependencies
                         visit_layout_items_dependencies(
                             layout.elems.iter().map(|fi| &fi.item),
-                            *orientation,
+                            orientation,
                             vis,
                         );
                     }
                     FlexboxAxisRelation::CrossAxis => {
-                        // Cross axis: depends on the perpendicular (main-axis) dimension
-                        // for accurate wrapping.
-                        if *orientation == Orientation::Vertical
+                        // Cross axis: depends on the perpendicular (main-axis)
+                        // dimension for accurate wrapping. Skip that edge
+                        // when the element has a parametrized layout-info
+                        // function — callers that would otherwise cycle go
+                        // through it instead, so the bare binding's read of
+                        // `self.{w,h}` is a fallback only.
+                        if orientation == Orientation::Vertical
                             && let Some(nr) = layout.geometry.rect.width_reference.as_ref()
+                            && nr.element().borrow().layout_info_v_with_constraint.is_none()
                         {
                             vis(&nr.clone().into(), P);
                         }
-                        if *orientation == Orientation::Horizontal
+                        if orientation == Orientation::Horizontal
                             && let Some(nr) = layout.geometry.rect.height_reference.as_ref()
+                            && nr.element().borrow().layout_info_h_with_constraint.is_none()
                         {
                             vis(&nr.clone().into(), P);
                         }
@@ -679,7 +689,12 @@ fn recurse_expression(
             });
         }
         Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation }
-        | Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, orientation } => {
+        | Expression::ComputeGridLayoutInfo {
+            layout_organized_data_prop,
+            layout,
+            orientation,
+            ..
+        } => {
             // we should only visit the layout geometry for the orientation
             if matches!(expr, Expression::SolveGridLayout { .. })
                 && let Some(nr) = layout.geometry.rect.size_reference(*orientation)
@@ -803,17 +818,18 @@ fn visit_layout_items_dependencies<'a>(
 
 /// Visit cross-axis `layoutinfo-<cross>` dependencies for child elements that
 /// have a compiled `layoutinfo-<cross>` binding (i.e. an inlined component
-/// root, or a nested layout).
+/// root, or a nested layout) and no parametrized variant that bypasses it.
 ///
 /// Pure builtins (`Image`, `Text`, `Rectangle`, …) do not set `layout_info_prop`
 /// — their cross-axis size is computed through the item VTable, which accepts a
-/// `cross_axis_constraint` argument, so they never read `self.width` at
+/// `cross_axis_constraint` argument, so they never read `self.{w,h}` at
 /// runtime and the parent's `SolveFlexboxLayout` has no real dependency on
 /// them. Elements that *do* set `layout_info_prop` run an ordinary property
-/// binding that may transitively depend on the cross-axis dimension (e.g. an
-/// inner word-wrapping `Text` or aspect-ratio `Image`). Declaring that edge
-/// lets `binding_analysis` detect cycles through component boundaries instead
-/// of letting them surface as a runtime recursion panic.
+/// binding that may transitively depend on the cross-axis dimension.
+/// `implicit_layout_info_call` dispatches via the parametrized
+/// `layoutinfo-{v,h}-with-constraint` function when the child carries one, so
+/// the property dependency only exists at runtime for cells without that
+/// function — mirror that here.
 fn visit_layout_items_layoutinfo_cross_axis_dependencies<'a>(
     items: impl Iterator<Item = &'a LayoutItem>,
     cross_axis: Orientation,
@@ -821,6 +837,18 @@ fn visit_layout_items_layoutinfo_cross_axis_dependencies<'a>(
 ) {
     for it in items {
         let element = it.element.clone();
+        // Parent dispatches via the parametrized function, not the property.
+        let bypassed = match cross_axis {
+            Orientation::Vertical => {
+                element.borrow().inherited_layout_info_v_with_constraint().is_some()
+            }
+            Orientation::Horizontal => {
+                element.borrow().inherited_layout_info_h_with_constraint().is_some()
+            }
+        };
+        if bypassed {
+            continue;
+        }
         if let Some(nr) = element.borrow().layout_info_prop(cross_axis) {
             vis(&nr.clone().into(), ReadType::PropertyRead);
         } else if let ElementType::Component(base) = &element.borrow().base_type
@@ -830,7 +858,57 @@ fn visit_layout_items_layoutinfo_cross_axis_dependencies<'a>(
                 &PropertyPath { elements: vec![ByAddress(element.clone())], prop: nr.clone() },
                 ReadType::PropertyRead,
             );
+        } else {
+            visit_cell_cross_axis_implicit_dependency(cross_axis, &element, vis);
         }
+    }
+}
+
+/// Cross-axis variant of [`visit_implicit_layout_info_dependencies`]: only
+/// declare deps that actually exist on the cross-axis path. Image/Text and
+/// other h-for-w builtins receive the cross-axis size via the item VTable's
+/// `cross_axis_constraint`, so they don't read `self.{w,h}` here. For other
+/// items (user components, plain builtins), the native `ImplicitLayoutInfo`
+/// reads `preferred-{w,h}` — declare it when the user has bound it to read
+/// the opposite-axis dim on the same element. That catches cycles like
+/// `preferred-height: self.width` at compile time instead of panicking at
+/// runtime.
+fn visit_cell_cross_axis_implicit_dependency(
+    cross_axis: Orientation,
+    item: &ElementRc,
+    vis: &mut impl FnMut(&PropertyPath, ReadType),
+) {
+    let base_type = item.borrow().base_type.to_smolstr();
+    if matches!(base_type.as_str(), "Image" | "ClippedImage" | "Text" | "TextInput" | "StyledText")
+    {
+        return;
+    }
+    let (prop, opposite_dim) = match cross_axis {
+        Orientation::Horizontal => ("preferred-width", "height"),
+        Orientation::Vertical => ("preferred-height", "width"),
+    };
+    if !item.borrow().is_binding_set(prop, false) {
+        return;
+    }
+    let reads_opposite = item
+        .borrow()
+        .bindings
+        .get(prop)
+        .map(|b| {
+            let mut seen = false;
+            b.borrow().expression.visit_recursive(&mut |sub| {
+                if let Expression::PropertyReference(nr) = sub
+                    && nr.name() == opposite_dim
+                    && Rc::ptr_eq(&nr.element(), item)
+                {
+                    seen = true;
+                }
+            });
+            seen
+        })
+        .unwrap_or(false);
+    if reads_opposite {
+        vis(&NamedReference::new(item, SmolStr::new_static(prop)).into(), ReadType::NativeRead);
     }
 }
 
@@ -1010,17 +1088,11 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
 
                 let nr = NamedReference::new(e, name.clone());
                 for a in &binding.borrow().two_way_bindings {
-                    if a.property != nr
-                        && !a
-                            .property
-                            .element()
-                            .borrow()
-                            .enclosing_component
-                            .upgrade()
-                            .unwrap()
-                            .is_global()
+                    if let Some(a) = a.property()
+                        && a != &nr
+                        && !a.element().borrow().enclosing_component.upgrade().unwrap().is_global()
                     {
-                        reverse_aliases.entry(a.property.clone()).or_default().push(nr.clone())
+                        reverse_aliases.entry(a.clone()).or_default().push(nr.clone())
                     }
                 }
             }
@@ -1034,13 +1106,13 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
 
     fn check_alias(e: &ElementRc, name: &SmolStr, binding: &BindingExpression) {
         // Note: since the analysis hasn't been run, any property access will result in a non constant binding. this is slightly non-optimal
-        let is_binding_constant = binding.is_constant(None)
-            && binding.two_way_bindings.iter().all(|n| n.property.is_constant());
+        let is_binding_constant =
+            binding.is_constant(None) && binding.two_way_bindings.iter().all(|n| n.is_constant());
         if is_binding_constant && !NamedReference::new(e, name.clone()).is_externally_modified() {
-            for alias in &binding.two_way_bindings {
+            for alias in binding.two_way_bindings.iter().filter_map(|x| x.property()) {
                 crate::namedreference::mark_property_set_derived_in_base(
-                    alias.property.element(),
-                    alias.property.name(),
+                    alias.element(),
+                    alias.name(),
                 );
             }
             return;
@@ -1050,8 +1122,8 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
     }
 
     fn propagate_alias(binding: &BindingExpression) {
-        for alias in &binding.two_way_bindings {
-            mark_alias(&alias.property);
+        for alias in binding.two_way_bindings.iter().filter_map(|x| x.property()) {
+            mark_alias(alias);
         }
     }
 

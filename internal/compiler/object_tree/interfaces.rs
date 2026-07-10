@@ -42,7 +42,7 @@ impl UsesStatement {
         self.node.DeclaredIdentifier()
     }
 
-    /// Lookup the interface component for this uses statement. Emits an error if the iterface could not be found, or
+    /// Lookup the interface component for this uses statement. Emits an error if the interface could not be found, or
     /// was not actually an interface.
     fn lookup_interface(
         &self,
@@ -143,6 +143,9 @@ pub(super) fn get_implemented_interface(
         node.parent().filter(|p| p.kind() == SyntaxKind::Component)?.into();
 
     let implements_specifier = parent.ImplementsSpecifier()?;
+
+    #[cfg(feature = "slint-sc")]
+    diag.slint_sc_error("'implements' is", &implements_specifier);
 
     if !diag.enable_experimental && !tr.expose_internal_types {
         diag.push_error("'implements' is an experimental feature".into(), &implements_specifier);
@@ -253,9 +256,43 @@ fn apply_interface_property_declaration(
     interface_name: &SmolStr,
     diag: &mut BuildDiagnostics,
 ) {
+    if matches!(prop_decl.property_type, Type::Invalid) {
+        // The interface's own declaration is invalid (e.g. an unknown property type). A diagnostic
+        // was already emitted when the interface was parsed, so there is nothing meaningful to apply
+        // or conflict-check here.
+        return;
+    }
+
     let lookup_result = e.lookup_property(unresolved_prop_name);
 
+    fn find_conflicting_node(
+        e: &mut Element,
+        unresolved_prop_name: &SmolStr,
+    ) -> Option<parser::SyntaxNode> {
+        e.property_declarations.get(unresolved_prop_name).and_then(|decl| decl.node.clone())
+    }
+
     if lookup_result.property_type != Type::Invalid {
+        if lookup_result.is_local_to_component {
+            let property_type_name = match prop_decl.property_type {
+                Type::Callback { .. } => "callback",
+                Type::Function { .. } => "function",
+                _ => "property",
+            };
+
+            let local_property_node = find_conflicting_node(e, unresolved_prop_name)
+                .expect("Expected local property to have a syntax node");
+
+            diag.push_error(
+                format!(
+                    "Conflict with '{}' which declares a {} with the same name",
+                    interface_name, property_type_name
+                ),
+                &local_property_node,
+            );
+            return;
+        }
+
         match property_matches_interface(&lookup_result, prop_decl) {
             Ok(()) => {
                 // The property already exists and matches the interface declaration, so we don't need to do anything.
@@ -264,11 +301,7 @@ fn apply_interface_property_declaration(
             Err(error) => {
                 // Attempt to find a node for the existing property for better diagnostics. If the property is not local
                 // to the component, we fall back to pointing at the implements specifier below.
-                if let Some(local_property_node) = e
-                    .property_declarations
-                    .get(unresolved_prop_name)
-                    .and_then(|decl| decl.node.clone())
-                {
+                if let Some(local_property_node) = find_conflicting_node(e, unresolved_prop_name) {
                     diag.push_error(
                         format!("Conflict with '{}' which {}", interface_name, error),
                         &local_property_node,
@@ -321,7 +354,9 @@ pub(super) fn apply_default_property_values(
         })
         .filter(|(property_name, _)| {
             // Only apply the default binding if there isn't already a binding set on the element.
-            !e.borrow().is_binding_set(property_name, true)
+            // `need_explicit: false` includes two-way bindings from a `uses { ... }` alias on
+            // a base component — overriding those with an interface default would sever the alias.
+            !e.borrow().is_binding_set(property_name, false)
         })
         .collect();
 
@@ -468,6 +503,9 @@ pub(super) fn apply_uses_statement(
         return;
     };
 
+    #[cfg(feature = "slint-sc")]
+    diag.slint_sc_error("'uses' is", &uses_specifier);
+
     if !diag.enable_experimental && !tr.expose_internal_types {
         diag.push_error("'uses' is an experimental feature".into(), &uses_specifier);
         return;
@@ -514,7 +552,7 @@ pub(super) fn apply_uses_statement(
                 continue;
             }
 
-            let exisitng_binding = match &prop_decl.property_type {
+            let existing_binding = match &prop_decl.property_type {
                 Type::Function(func) => {
                     apply_uses_statement_function_binding(e, &child, name, func)
                 }
@@ -527,7 +565,7 @@ pub(super) fn apply_uses_statement(
                 ),
             };
 
-            if let Some(existing_binding) = exisitng_binding {
+            if let Some(existing_binding) = existing_binding {
                 let message = format!(
                     "Cannot override binding for '{}' from interface '{}'",
                     name, uses_statement.interface_name
@@ -606,7 +644,7 @@ fn filter_conflicting_uses_statements(
             seen_interfaces.push(interface_name.clone());
 
             let mut valid = true;
-            for (prop_name, _) in vus.interface.borrow().property_declarations.iter() {
+            for prop_name in vus.interface.borrow().property_declarations.keys() {
                 if let Some(existing_interface) = seen_interface_api.get(prop_name) {
                     diag.push_error(
                         format!(

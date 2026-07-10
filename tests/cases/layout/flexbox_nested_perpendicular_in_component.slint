@@ -1,0 +1,61 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Nested perpendicular FlexboxLayouts, where the inner column-direction
+// flex is wrapped inside a component. The synthesis pass must propagate
+// `layoutinfo-h-with-constraint` through the component boundary so the
+// outer row flex's query for the cell's `layoutinfo-h` does not cycle
+// via `self.height`.
+
+component InnerColumn {
+    FlexboxLayout {
+        flex-direction: column;
+        spacing: 5px;
+        r1 := Rectangle { width: 80px; height: 30px; background: green; }
+        r2 := Rectangle { width: 80px; height: 30px; background: blue; }
+    }
+    out property <length> r1_y: r1.y;
+    out property <length> r2_y: r2.y;
+    out property <length> r1_height: r1.height;
+    out property <length> r2_height: r2.height;
+    out property <length> r1_width: r1.width;
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+
+    FlexboxLayout {
+        flex-direction: row;
+        spacing: 10px;
+        icon := Rectangle { width: 50px; height: 50px; background: red; flex-shrink: 0; }
+        col := InnerColumn { }
+    }
+
+    // The two inner rectangles keep their fixed sizes and stack vertically
+    // (r2 below r1 by at least r1.height), and the column is placed to the
+    // right of the 50px icon cell. A wrong cross-axis dispatch (the bug this
+    // guards against) would collapse or mis-stack the inner column.
+    out property <bool> test_sizes: col.r1_height == 30px && col.r2_height == 30px && col.r1_width == 80px;
+    out property <bool> test_stack: col.r2_y >= col.r1_y + col.r1_height;
+    out property <bool> test_pos: col.x >= icon.x + icon.width;
+
+    out property <bool> test: test_sizes && test_stack && test_pos;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

@@ -8,17 +8,27 @@ UIs are written in `.slint` markup and connected to Rust, C++, JavaScript, or Py
 ## Build Commands
 
 ### Rust (Primary)
+
+The repository is split into separate workspaces that share one `target/`
+directory (configured in `.cargo/config.toml`): the root workspace holds the
+library and tool crates, while `examples/`, `demos/`, `tests/` and
+`ui-libraries/material/` are each their own workspace. Keeping examples/demos/
+tests out of the root workspace keeps rust-analyzer fast; the shared `target/`
+means the common library crates are only built once across all of them. Select
+a non-root workspace with `--manifest-path <dir>/Cargo.toml`.
+
 ```sh
-cargo build                                    # Build the workspace
+cargo build                                    # Build the root (library/tool) workspace
 cargo build --release                          # Release build (use whenever measuring performance)
-cargo test                                     # Run tests
-cargo build --workspace --exclude uefi-demo    # Build all examples
+cargo test                                     # Run the root workspace tests
+cargo build --manifest-path examples/Cargo.toml --workspace \
+    --exclude mcu-board-support --exclude mcu-embassy --exclude uefi-demo   # Build the examples
 ```
 
 ### Running Examples
 ```sh
-cargo run -p gallery                 # Run the gallery example
-cargo run --bin slint-viewer -- path/to/file.slint  # View a .slint file
+cargo run --manifest-path examples/Cargo.toml -p gallery   # Run the gallery example
+cargo run --bin slint-viewer -- path/to/file.slint         # View a .slint file (root workspace)
 ```
 
 ### C++ Build
@@ -39,12 +49,14 @@ cd api/node && pnpm install
 Don't run `cargo build` before `cargo test` — `cargo test` compiles what it needs.
 
 ### Test Drivers
+The integration tests live in the `tests/` workspace, so pass
+`--manifest-path tests/Cargo.toml`:
 ```sh
-cargo test -p test-driver-interpreter         # Fastest: interpreter-based
-cargo test -p test-driver-rust                # Rust API (slow to compile without SLINT_TEST_FILTER)
-cargo test -p test-driver-cpp                 # C++ (build slint-cpp first for the dynamic library)
-cargo test -p test-driver-nodejs              # Node.js
-cargo test -p doctests                        # Documentation snippets
+cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter   # Fastest: interpreter-based
+cargo test --manifest-path tests/Cargo.toml -p test-driver-rust          # Rust API (slow to compile without SLINT_TEST_FILTER)
+cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp           # C++ (build slint-cpp first for the dynamic library)
+cargo test --manifest-path tests/Cargo.toml -p test-driver-nodejs        # Node.js
+cargo test --manifest-path tests/Cargo.toml -p doctests                  # Documentation snippets
 ```
 
 ### Filtering .slint Test Cases
@@ -71,8 +83,8 @@ SLINT_SYNTAX_TEST_UPDATE=1 cargo test -p i-slint-compiler --test syntax_tests  #
 
 ### Screenshot Tests
 ```sh
-cargo test -p test-driver-screenshots                    # Compare against references
-SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots  # Generate references
+cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots                    # Compare against references
+SLINT_CREATE_SCREENSHOTS=1 cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots  # Generate references
 ```
 
 ## Architecture
@@ -122,8 +134,22 @@ Rust (`rs/slint/`, `rs/macros/` for `slint!`, `rs/build/`), C++ (`cpp/`, CMake),
 
 - Internal crates (`internal/`) are not semver-stable - they use exact version pinning
 - FFI modules are gated with `#[cfg(feature = "ffi")]`
-- C++ headers generated via `cargo xtask cbindgen`
+- C++ headers generated automatically during the build via `cbindgen` (invoked by `slint-cpp/build.rs`).
 - Extensive Cargo features control renderers (`renderer-femtovg`, `renderer-skia`, `renderer-software`) and backends (`backend-winit`, `backend-qt`)
+
+## Language Design Principles
+
+### CSS Alignment
+
+Slint's `.slint` language intentionally stays close to CSS syntax for visual properties. When adding or extending language features, prefer CSS-compatible syntax and naming so that web developers find familiar patterns and the learning curve stays low.
+
+Examples already in place:
+- **Color literals** follow CSS syntax (`#rrggbb`, `#rgb`, named colors, `rgb()`, `rgba()`, `hsl()`, `hsla()`).
+- **Gradient syntax** mirrors CSS: `@linear-gradient(angle, color stop, ...)`, `@radial-gradient(...)`.
+- **FlexboxLayout** implements the CSS flexbox model (via the `taffy` crate); property names map closely to their CSS counterparts.
+- **Filter/shadow properties** (`drop-shadow`, `box-shadow`, `blur`) follow CSS conventions.
+
+When this principle applies: any time you design syntax for a new visual or layout property, check how CSS spells it first. Deviate only when Slint's type system or consistency with existing Slint naming requires it, and document the divergence.
 
 ## Version Control (Git)
 
@@ -137,8 +163,8 @@ Rust (`rs/slint/`, `rs/macros/` for `slint!`, `rs/build/`), C++ (`cpp/`, CMake),
 
 ### Comments and Docs
 
-- Follow `docs/astro/writing-style-guide.md` when writing *new* comments, doc comments, commit messages, or markdown.
-- But don't reformat existing prose to match the style.
+- **Always follow the [Writing Style Guide](docs/internal/writing-style-guide.md) for all new comments, doc comments, commit messages, and markdown.** It applies to code comments (internal and public API) as much as to prose. This is a requirement, not a suggestion.
+- But don't reformat existing prose just to match the style.
 
 ## Platform Prerequisites
 

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore rrect
+// cSpell: ignore rrect skpath
 
 use std::pin::Pin;
 
@@ -11,7 +11,8 @@ use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, ItemRendererFeatures, RenderImage, RenderText,
+    CachedRenderingData, ItemCache, ItemRenderer, ItemRendererFeatures, LayerRenderer, RenderImage,
+    RenderText,
 };
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
@@ -39,7 +40,7 @@ pub struct SkiaItemRenderer<'a> {
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     image_cache: &'a ItemCache<Option<skia_safe::Image>>,
-    layer_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)>>,
+    layer_cache: &'a ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
     path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     text_layout_cache: &'a sharedparley::TextLayoutCache,
     box_shadow_cache: &'a mut SkiaBoxShadowCache,
@@ -51,7 +52,7 @@ impl<'a> SkiaItemRenderer<'a> {
         window: &'a i_slint_core::api::Window,
         surface: Option<&'a dyn crate::Surface>,
         image_cache: &'a ItemCache<Option<skia_safe::Image>>,
-        layer_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)>>,
+        layer_cache: &'a ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
         path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
         text_layout_cache: &'a sharedparley::TextLayoutCache,
         box_shadow_cache: &'a mut SkiaBoxShadowCache,
@@ -84,14 +85,147 @@ impl<'a> SkiaItemRenderer<'a> {
         }
     }
 
+    fn render_drop_shadow_image(
+        canvas: &skia_safe::Canvas,
+        shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+    ) -> Option<skia_safe::Image> {
+        let blur = shadow_options.blur.get();
+        let spread = shadow_options.spread.get();
+
+        let shape_w = (shadow_options.width.get() + 2. * spread).max(0.);
+        let shape_h = (shadow_options.height.get() + 2. * spread).max(0.);
+        if shape_w <= 0. || shape_h <= 0. {
+            return None;
+        }
+        // CSS rule: outer corner radius after spread = max(0, r + spread).
+        let shape_radius = (shadow_options.radius + PhysicalBorderRadius::new_uniform(spread))
+            .max(Default::default());
+
+        let canvas_size: skia_safe::Size = (shape_w + 2. * blur, shape_h + 2. * blur).into();
+
+        let image_info = skia_safe::ImageInfo::new(
+            canvas_size.to_ceil(),
+            skia_safe::ColorType::RGBA8888,
+            skia_safe::AlphaType::Premul,
+            None,
+        );
+
+        // The shape is centered in the canvas with `blur` padding on all sides so the Gaussian blur
+        // has room to fade out into transparency.
+        let rounded_rect = to_skia_rrect(
+            &PhysicalRect::new(PhysicalPoint::new(blur, blur), PhysicalSize::new(shape_w, shape_h)),
+            &shape_radius,
+        );
+
+        let mut paint = skia_safe::Paint::default();
+        paint.set_color(to_skia_color(&shadow_options.color));
+        paint.set_anti_alias(true);
+        if blur > 0. {
+            paint.set_mask_filter(skia_safe::MaskFilter::blur(
+                skia_safe::BlurStyle::Normal,
+                blur / 2.,
+                None,
+            ));
+        }
+
+        let mut surface = canvas.new_surface(&image_info, None)?;
+        let surface_canvas = surface.canvas();
+        surface_canvas.clear(skia_safe::Color::TRANSPARENT);
+        surface_canvas.draw_rrect(rounded_rect, &paint);
+        Some(surface.image_snapshot())
+    }
+
+    fn render_inset_shadow_image(
+        canvas: &skia_safe::Canvas,
+        shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+    ) -> Option<skia_safe::Image> {
+        let width = shadow_options.width.get();
+        let height = shadow_options.height.get();
+        if width < 1. || height < 1. {
+            return None;
+        }
+        let blur = shadow_options.blur.get();
+        let spread = shadow_options.spread.get();
+        let radius = shadow_options.radius;
+        let offset_x = shadow_options.offset_x_inset;
+        let offset_y = shadow_options.offset_y_inset;
+
+        // Image is sized to the rectangle's geometry; the geometry rrect serves as the clip so the
+        // outer blurred edge stays hidden.
+        let canvas_size = skia_safe::ISize::new(width.ceil() as i32, height.ceil() as i32);
+        let image_info = skia_safe::ImageInfo::new(
+            canvas_size,
+            skia_safe::ColorType::RGBA8888,
+            skia_safe::AlphaType::Premul,
+            None,
+        );
+
+        let geometry_rrect = to_skia_rrect(
+            &PhysicalRect::new(PhysicalPoint::zero(), PhysicalSize::new(width, height)),
+            &radius,
+        );
+
+        // Inner "hole" rrect: geometry inset by spread on each side, translated by offset.
+        // CSS: inner radius = max(0, radius - spread).
+        let inner_rect = skia_safe::Rect::new(
+            spread + offset_x,
+            spread + offset_y,
+            width - spread + offset_x,
+            height - spread + offset_y,
+        );
+        let inner_radius =
+            (radius - PhysicalBorderRadius::new_uniform(spread)).max(Default::default());
+        let inner_rrect = to_skia_rrect(
+            &PhysicalRect::new(
+                PhysicalPoint::new(inner_rect.left, inner_rect.top),
+                PhysicalSize::new(inner_rect.width(), inner_rect.height()),
+            ),
+            &inner_radius,
+        );
+
+        // Outer rect inflated well beyond the geometry so its blurred edge falls outside the clip.
+        let inflate = blur + spread.abs() + offset_x.abs() + offset_y.abs() + 16.;
+        let outer_rect =
+            skia_safe::Rect::new(-inflate, -inflate, width + inflate, height + inflate);
+
+        let mut path_builder = skia_safe::PathBuilder::new();
+        path_builder.set_fill_type(skia_safe::PathFillType::EvenOdd);
+        path_builder.add_rect(outer_rect, None, None);
+        path_builder.add_rrect(inner_rrect, None, None);
+        let path = path_builder.detach();
+
+        let mut paint = skia_safe::Paint::default();
+        paint.set_color(to_skia_color(&shadow_options.color));
+        paint.set_anti_alias(true);
+        if blur > 0. {
+            paint.set_mask_filter(skia_safe::MaskFilter::blur(
+                skia_safe::BlurStyle::Normal,
+                blur / 2.,
+                None,
+            ));
+        }
+
+        let mut surface = canvas.new_surface(&image_info, None)?;
+        let surface_canvas = surface.canvas();
+        surface_canvas.clear(skia_safe::Color::TRANSPARENT);
+        surface_canvas.clip_rrect(geometry_rrect, None, true);
+        surface_canvas.draw_path(&path, &paint);
+        Some(surface.image_snapshot())
+    }
+
     fn brush_to_paint(
         &self,
         brush: Brush,
         width: PhysicalLength,
         height: PhysicalLength,
     ) -> Option<skia_safe::Paint> {
-        let (mut paint, shader) =
-            Self::brush_to_shader(self.default_paint().unwrap_or_default(), brush, width, height)?;
+        let (mut paint, shader) = Self::brush_to_shader(
+            self.default_paint().unwrap_or_default(),
+            brush,
+            width,
+            height,
+            self.scale_factor.get(),
+        )?;
         paint.set_shader(Some(shader));
 
         Some(paint)
@@ -102,6 +236,7 @@ impl<'a> SkiaItemRenderer<'a> {
         brush: Brush,
         width: PhysicalLength,
         height: PhysicalLength,
+        scale_factor: f32,
     ) -> Option<(skia_safe::Paint, skia_safe::Shader)> {
         if brush.is_transparent() {
             return None;
@@ -115,57 +250,79 @@ impl<'a> SkiaItemRenderer<'a> {
                     g.angle(),
                     [width.get(), height.get()].into(),
                 );
-                let (colors, pos): (Vec<_>, Vec<_>) =
-                    g.stops().map(|s| (to_skia_color(&s.color), s.position)).unzip();
+                let (colors, pos): (Vec<skia_safe::Color4f>, Vec<_>) = g
+                    .stops()
+                    .map(|s| (skia_safe::Color4f::from(to_skia_color(&s.color)), s.position))
+                    .unzip();
 
                 paint.set_dither(true);
 
-                skia_safe::gradient_shader::linear(
+                let gradient_colors =
+                    skia_safe::gradient::Colors::new(&colors, Some(&*pos), TileMode::Clamp, None);
+                let gradient = skia_safe::gradient::Gradient::new(
+                    gradient_colors,
+                    skia_safe::gradient::Interpolation {
+                        in_premul: skia_safe::gradient::interpolation::InPremul::Yes,
+                        ..Default::default()
+                    },
+                );
+                skia_safe::gradient::shaders::linear_gradient(
                     (skia_safe::Point::new(start.x, start.y), skia_safe::Point::new(end.x, end.y)),
-                    skia_safe::gradient_shader::GradientShaderColors::Colors(&colors),
-                    Some(&*pos),
-                    TileMode::Clamp,
-                    skia_safe::gradient_shader::Flags::INTERPOLATE_COLORS_IN_PREMUL,
-                    &skia_safe::Matrix::new_identity(),
+                    &gradient,
+                    None,
                 )
             }
             Brush::RadialGradient(g) => {
-                let (colors, pos): (Vec<_>, Vec<_>) =
-                    g.stops().map(|s| (to_skia_color(&s.color), s.position)).unzip();
+                let (colors, pos): (Vec<skia_safe::Color4f>, Vec<_>) = g
+                    .stops()
+                    .map(|s| (skia_safe::Color4f::from(to_skia_color(&s.color)), s.position))
+                    .unzip();
+                let (cx, cy) = g.center_or_default_scaled(width.get(), height.get(), scale_factor);
                 let circle_scale =
-                    0.5 * (width.get() * width.get() + height.get() * height.get()).sqrt();
+                    g.radius_or_default_scaled(width.get(), height.get(), scale_factor);
 
                 paint.set_dither(true);
 
-                skia_safe::gradient_shader::radial(
-                    skia_safe::Point::new(0., 0.),
-                    1.,
-                    skia_safe::gradient_shader::GradientShaderColors::Colors(&colors),
-                    Some(&*pos),
-                    TileMode::Clamp,
-                    skia_safe::gradient_shader::Flags::INTERPOLATE_COLORS_IN_PREMUL,
-                    skia_safe::Matrix::scale((circle_scale, circle_scale))
-                        .post_translate((width.get() / 2., height.get() / 2.))
-                        as &skia_safe::Matrix,
+                let gradient_colors =
+                    skia_safe::gradient::Colors::new(&colors, Some(&*pos), TileMode::Clamp, None);
+                let gradient = skia_safe::gradient::Gradient::new(
+                    gradient_colors,
+                    skia_safe::gradient::Interpolation {
+                        in_premul: skia_safe::gradient::interpolation::InPremul::Yes,
+                        ..Default::default()
+                    },
+                );
+                let mut local_matrix = skia_safe::Matrix::scale((circle_scale, circle_scale));
+                local_matrix.post_translate((cx, cy));
+                skia_safe::gradient::shaders::radial_gradient(
+                    (skia_safe::Point::new(0., 0.), 1.),
+                    &gradient,
+                    &local_matrix,
                 )
             }
             Brush::ConicGradient(g) => {
-                let (colors, pos): (Vec<_>, Vec<_>) =
-                    g.stops().map(|s| (to_skia_color(&s.color), s.position)).unzip();
+                let (colors, pos): (Vec<skia_safe::Color4f>, Vec<_>) = g
+                    .stops()
+                    .map(|s| (skia_safe::Color4f::from(to_skia_color(&s.color)), s.position))
+                    .unzip();
+                let (cx, cy) = g.center_or_default_scaled(width.get(), height.get(), scale_factor);
 
                 paint.set_dither(true);
 
                 // Skia's sweep gradient uses 0 degrees at 3 o'clock (east)
                 // We want 0 degrees at 12 o'clock (north), so we need to rotate by -90 degrees
-                let center = skia_safe::Point::new(width.get() / 2., height.get() / 2.);
-                skia_safe::gradient_shader::sweep(
+                let center = skia_safe::Point::new(cx, cy);
+                let gradient_colors =
+                    skia_safe::gradient::Colors::new(&colors, Some(&*pos), TileMode::Clamp, None);
+                let gradient = skia_safe::gradient::Gradient::new(
+                    gradient_colors,
+                    skia_safe::gradient::Interpolation::default(),
+                );
+                skia_safe::gradient::shaders::sweep_gradient(
                     center,
-                    skia_safe::gradient_shader::GradientShaderColors::Colors(&colors),
-                    Some(&*pos),
-                    TileMode::Clamp,
-                    None, // Use None for full 360° sweep
-                    None,
-                    Some(&skia_safe::Matrix::rotate_deg_pivot(-90.0, center)),
+                    (0.0, 360.0),
+                    &gradient,
+                    &skia_safe::Matrix::rotate_deg_pivot(-90.0, center),
                 )
             }
             _ => None,
@@ -190,6 +347,7 @@ impl<'a> SkiaItemRenderer<'a> {
             colorize_brush,
             PhysicalLength::new(image.width() as f32),
             PhysicalLength::new(image.height() as f32),
+            self.scale_factor.get(),
         )
         .map(|(mut paint, colorize_shader)| {
             let mut surface = self.canvas.new_surface(&image_info, None)?;
@@ -332,18 +490,9 @@ impl<'a> SkiaItemRenderer<'a> {
     }
 
     fn render_and_blend_layer(&mut self, item_rc: &ItemRc) -> RenderingResult {
-        let window_adapter = self.window().window_adapter();
-        let current_clip = self.get_current_clip();
-        if let Some((layer_offset, layer_image)) = self.render_layer(item_rc, &|| {
-            // We don't need to include the size of the "layer" item itself, since it has no content.
-            // But intersect with the union of the clip with the geometry to make sure we don't
-            // render insanely large surface.
-            i_slint_core::properties::evaluate_no_tracking(|| {
-                i_slint_core::item_rendering::item_children_bounding_rect(item_rc, &window_adapter)
-                    .intersection(&current_clip.union(&item_rc.geometry()))
-                    .unwrap_or_default()
-            })
-        }) {
+        if let Some((layer_offset, layer_image)) =
+            i_slint_core::item_rendering::render_layer(self, item_rc)
+        {
             self.canvas.translate(skia_safe::Vector::from((layer_offset.x, layer_offset.y)));
             let _saved_canvas = self.pixel_align_origin_auto_restore();
             self.canvas.draw_image_with_sampling_options(
@@ -354,49 +503,6 @@ impl<'a> SkiaItemRenderer<'a> {
             );
         }
         RenderingResult::ContinueRenderingWithoutChildren
-    }
-
-    fn render_layer(
-        &mut self,
-        item_rc: &ItemRc,
-        layer_bounding_rect_fn: &dyn Fn() -> LogicalRect,
-    ) -> Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)> {
-        self.layer_cache.get_or_update_cache_entry(item_rc, || {
-            let bounding_rect = layer_bounding_rect_fn();
-            let physical_origin = bounding_rect.origin * self.scale_factor;
-            let layer_size = bounding_rect.size * self.scale_factor;
-
-            let image_info = skia_safe::ImageInfo::new(
-                to_skia_size(&layer_size).to_ceil(),
-                skia_safe::ColorType::RGBA8888,
-                skia_safe::AlphaType::Premul,
-                None,
-            );
-            let mut surface = self.canvas.new_surface(&image_info, None)?;
-            let canvas = surface.canvas();
-            canvas.clear(skia_safe::Color::TRANSPARENT);
-
-            let mut sub_renderer = SkiaItemRenderer::new(
-                canvas,
-                self.window,
-                self.surface,
-                self.image_cache,
-                self.layer_cache,
-                self.path_cache,
-                self.text_layout_cache,
-                self.box_shadow_cache,
-            );
-            sub_renderer.translate(-bounding_rect.origin.to_vector());
-
-            i_slint_core::item_rendering::render_item_children(
-                &mut sub_renderer,
-                item_rc.item_tree(),
-                item_rc.index() as isize,
-                &WindowInner::from_pub(self.window).window_adapter(),
-            );
-
-            Some((physical_origin.to_vector(), surface.image_snapshot()))
-        })
     }
 
     // Same as pixel_align_origin_auto_restore() but can be used across function calls where
@@ -476,6 +582,12 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             return;
         }
 
+        // Save the original element bounds for gradient positioning. The CSS model positions
+        // gradients relative to the border box (full element), but adjust_rect_and_border_for_inner_drawing
+        // shrinks geometry before we create the paint, which would shift the gradient center inward.
+        let original_width = geometry.width_length();
+        let original_height = geometry.height_length();
+
         let border_color = rect.border_color();
         let opaque_border = border_color.is_opaque();
         let mut border_width = if border_color.is_transparent() {
@@ -515,11 +627,9 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             (background_rect, border_rect)
         };
 
-        if let Some(mut fill_paint) = self.brush_to_paint(
-            rect.background(),
-            geometry.width_length(),
-            geometry.height_length(),
-        ) {
+        if let Some(mut fill_paint) =
+            self.brush_to_paint(rect.background(), original_width, original_height)
+        {
             fill_paint.set_style(skia_safe::PaintStyle::Fill);
             if !background_rect.is_rect() {
                 fill_paint.set_anti_alias(true);
@@ -529,7 +639,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
 
         if border_width.get() > 0.0
             && let Some(mut border_paint) =
-                self.brush_to_paint(border_color, geometry.width_length(), geometry.height_length())
+                self.brush_to_paint(border_color, original_width, original_height)
         {
             border_paint.set_style(skia_safe::PaintStyle::Stroke);
             border_paint.set_stroke_width(border_width.get());
@@ -604,29 +714,29 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 let (logical_offset, path_events): (crate::euclid::Vector2D<f32, LogicalPx>, _) =
                     path.fitted_path_events(item_rc)?;
 
-                let mut skpath = skia_safe::Path::new();
+                let mut builder = skia_safe::PathBuilder::new();
 
                 for x in path_events.iter() {
                     match x {
                         lyon_path::Event::Begin { at } => {
-                            skpath.move_to(to_skia_point(
+                            builder.move_to(to_skia_point(
                                 LogicalPoint::from_untyped(at) * self.scale_factor,
                             ));
                         }
                         lyon_path::Event::Line { from: _, to } => {
-                            skpath.line_to(to_skia_point(
+                            builder.line_to(to_skia_point(
                                 LogicalPoint::from_untyped(to) * self.scale_factor,
                             ));
                         }
                         lyon_path::Event::Quadratic { from: _, ctrl, to } => {
-                            skpath.quad_to(
+                            builder.quad_to(
                                 to_skia_point(LogicalPoint::from_untyped(ctrl) * self.scale_factor),
                                 to_skia_point(LogicalPoint::from_untyped(to) * self.scale_factor),
                             );
                         }
 
                         lyon_path::Event::Cubic { from: _, ctrl1, ctrl2, to } => {
-                            skpath.cubic_to(
+                            builder.cubic_to(
                                 to_skia_point(
                                     LogicalPoint::from_untyped(ctrl1) * self.scale_factor,
                                 ),
@@ -638,13 +748,13 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                         }
                         lyon_path::Event::End { last: _, first: _, close } => {
                             if close {
-                                skpath.close();
+                                builder.close();
                             }
                         }
                     }
                 }
 
-                (logical_offset * self.scale_factor, skpath).into()
+                (logical_offset * self.scale_factor, builder.detach()).into()
             }) {
                 Some(offset_and_path) => offset_and_path,
                 None => return,
@@ -670,6 +780,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 path.fill(),
                 PhysicalLength::new(viewbox_width),
                 PhysicalLength::new(viewbox_height),
+                1.0,
             ) {
                 // Apply the viewbox transformation to the shader
                 let transform = skia_safe::Matrix::scale((scale_x, scale_y));
@@ -715,8 +826,16 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
     ) {
         let offset = LogicalPoint::from_lengths(box_shadow.offset_x(), box_shadow.offset_y())
             * self.scale_factor;
+        let inset = box_shadow.inset();
+        let spread = box_shadow.spread() * self.scale_factor;
 
-        if offset.x == 0. && offset.y == 0. && box_shadow.blur() == LogicalLength::zero() {
+        // Drop shadow with no offset / blur / spread is invisible.
+        if !inset
+            && offset.x == 0.
+            && offset.y == 0.
+            && box_shadow.blur() == LogicalLength::zero()
+            && spread == PhysicalLength::zero()
+        {
             return;
         }
 
@@ -726,44 +845,11 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             box_shadow,
             self.scale_factor,
             |shadow_options| {
-                let shadow_size: skia_safe::Size = (
-                    shadow_options.width.get() + shadow_options.blur.get() * 2.,
-                    shadow_options.height.get() + shadow_options.blur.get() * 2.,
-                )
-                    .into();
-
-                let image_info = skia_safe::ImageInfo::new(
-                    shadow_size.to_ceil(),
-                    skia_safe::ColorType::RGBA8888,
-                    skia_safe::AlphaType::Premul,
-                    None,
-                );
-
-                let rounded_rect = skia_safe::RRect::new_rect_xy(
-                    skia_safe::Rect::from_xywh(
-                        shadow_options.blur.get(),
-                        shadow_options.blur.get(),
-                        shadow_options.width.get(),
-                        shadow_options.height.get(),
-                    ),
-                    shadow_options.radius.get(),
-                    shadow_options.radius.get(),
-                );
-
-                let mut paint = skia_safe::Paint::default();
-                paint.set_color(to_skia_color(&shadow_options.color));
-                paint.set_anti_alias(true);
-                paint.set_mask_filter(skia_safe::MaskFilter::blur(
-                    skia_safe::BlurStyle::Normal,
-                    shadow_options.blur.get() / 2.,
-                    None,
-                ));
-
-                let mut surface = self.canvas.new_surface(&image_info, None)?;
-                let canvas = surface.canvas();
-                canvas.clear(skia_safe::Color::TRANSPARENT);
-                canvas.draw_rrect(rounded_rect, &paint);
-                Some(surface.image_snapshot())
+                if shadow_options.inset {
+                    Self::render_inset_shadow_image(self.canvas, shadow_options)
+                } else {
+                    Self::render_drop_shadow_image(self.canvas, shadow_options)
+                }
             },
         );
 
@@ -772,12 +858,22 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             None => return,
         };
 
-        let blur = box_shadow.blur() * self.scale_factor;
-        self.canvas.draw_image(
-            cached_shadow_image,
-            to_skia_point(offset - PhysicalPoint::from_lengths(blur, blur).to_vector()),
-            self.default_paint().as_ref(),
-        );
+        if inset {
+            // Inset image is sized exactly to the geometry; blit at origin.
+            self.canvas.draw_image(
+                cached_shadow_image,
+                skia_safe::Point::new(0., 0.),
+                self.default_paint().as_ref(),
+            );
+        } else {
+            let blur = box_shadow.blur() * self.scale_factor;
+            let pad = blur.get() + spread.get().max(0.);
+            self.canvas.draw_image(
+                cached_shadow_image,
+                to_skia_point(offset - PhysicalPoint::new(pad, pad).to_vector()),
+                self.default_paint().as_ref(),
+            );
+        }
     }
 
     fn combine_clip(
@@ -955,6 +1051,60 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             self.image_cache.release(self_rc);
             RenderingResult::ContinueRenderingChildren
         }
+    }
+}
+
+impl<'a> LayerRenderer<'a> for SkiaItemRenderer<'a> {
+    type LayerTarget = skia_safe::Surface;
+    type Image = skia_safe::Image;
+
+    fn layer_cache(&self) -> &'a ItemCache<Option<(PhysicalPoint, Self::Image)>> {
+        self.layer_cache
+    }
+
+    fn create_layer_target(
+        &mut self,
+        _item_rc: &ItemRc,
+        physical_size: euclid::Size2D<f32, PhysicalPx>,
+    ) -> Option<Self::LayerTarget> {
+        let image_info = skia_safe::ImageInfo::new(
+            to_skia_size(&physical_size).to_ceil(),
+            skia_safe::ColorType::RGBA8888,
+            skia_safe::AlphaType::Premul,
+            None,
+        );
+        self.canvas.new_surface(&image_info, None)
+    }
+
+    fn render_into_layer(
+        &mut self,
+        mut surface: Self::LayerTarget,
+        item_rc: &ItemRc,
+        bounding_rect: LogicalRect,
+    ) -> Self::Image {
+        let canvas = surface.canvas();
+        canvas.clear(skia_safe::Color::TRANSPARENT);
+
+        let mut sub_renderer = SkiaItemRenderer::new(
+            canvas,
+            self.window,
+            self.surface,
+            self.image_cache,
+            self.layer_cache,
+            self.path_cache,
+            self.text_layout_cache,
+            self.box_shadow_cache,
+        );
+        sub_renderer.translate(-bounding_rect.origin.to_vector());
+
+        i_slint_core::item_rendering::render_item_children(
+            &mut sub_renderer,
+            item_rc.item_tree(),
+            item_rc.index() as isize,
+            &WindowInner::from_pub(self.window).window_adapter(),
+        );
+
+        surface.image_snapshot()
     }
 }
 

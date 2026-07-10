@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore theproperty underscoresanddashespreserved xreadonly
 use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::PathData;
@@ -135,6 +136,8 @@ pub enum Value {
     ArrayOfU16(SharedVector<u16>) = 14,
     /// Correspond to the `keys` type in .slint
     Keys(Keys) = 15,
+    /// Correspond to the `data-transfer` type in .slint
+    DataTransfer(DataTransfer) = 16,
 }
 
 impl Value {
@@ -187,6 +190,9 @@ impl PartialEq for Value {
             Value::Keys(lhs) => {
                 matches!(other, Value::Keys(rhs) if lhs == rhs)
             }
+            Value::DataTransfer(lhs) => {
+                matches!(other, Value::DataTransfer(rhs) if lhs == rhs)
+            }
         }
     }
 }
@@ -216,6 +222,7 @@ impl std::fmt::Debug for Value {
                 write!(f, "Value::ArrayOfU16({data:?})")
             }
             Value::Keys(ks) => write!(f, "Value::Keys({ks:?})"),
+            Value::DataTransfer(cd) => write!(f, "Value::DataTransfer({cd:?})"),
         }
     }
 }
@@ -261,6 +268,7 @@ declare_value_conversion!(ComponentFactory => [ComponentFactory] );
 declare_value_conversion!(StyledText => [StyledText] );
 declare_value_conversion!(ArrayOfU16 => [SharedVector<u16>] );
 declare_value_conversion!(Keys => [Keys]);
+declare_value_conversion!(DataTransfer => [DataTransfer]);
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {
@@ -292,19 +300,15 @@ macro_rules! declare_value_struct_conversion {
     };
     ($(
         $(#[$struct_attr:meta])*
-        struct $Name:ident {
-            @name = $inner_name:expr,
-            export {
-                $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
-            }
-            private { $($pri:tt)* }
+        $vis:vis struct $Name:ident {
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
         }
     )*) => {
         $(
             impl From<$Name> for Value {
                 fn from(item: $Name) -> Self {
                     let mut struct_ = Struct::default();
-                    $(struct_.set_field(stringify!($pub_field).into(), item.$pub_field.into());)*
+                    $(struct_.set_field(stringify!($field).into(), item.$field.into());)*
                     Value::Struct(struct_)
                 }
             }
@@ -317,7 +321,7 @@ macro_rules! declare_value_struct_conversion {
                             type Ty = $Name;
                             #[allow(unused)]
                             let mut res: Ty = Ty::default();
-                            $(res.$pub_field = x.get_field(stringify!($pub_field)).ok_or(())?.clone().try_into().map_err(|_|())?;)*
+                            $(res.$field = x.get_field(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_|())?;)*
                             Ok(res)
                         }
                         _ => Err(()),
@@ -331,6 +335,7 @@ macro_rules! declare_value_struct_conversion {
 declare_value_struct_conversion!(struct i_slint_core::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
 declare_value_struct_conversion!(struct i_slint_core::graphics::Point { x, y, ..Default::default()});
 declare_value_struct_conversion!(struct i_slint_core::api::LogicalPosition { x, y });
+declare_value_struct_conversion!(struct i_slint_core::api::LogicalSize { width, height });
 declare_value_struct_conversion!(struct i_slint_core::properties::StateInfo { current_state, previous_state, change_time });
 
 i_slint_common::for_each_builtin_structs!(declare_value_struct_conversion);
@@ -340,7 +345,7 @@ i_slint_common::for_each_builtin_structs!(declare_value_struct_conversion);
 /// The `enum` must derive `Display` and `FromStr`
 /// (can be done with `strum_macros::EnumString`, `strum_macros::Display` derive macro)
 macro_rules! declare_value_enum_conversion {
-    ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => { $(
+    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $($body:tt)* })*) => { $(
         impl From<i_slint_core::items::$Name> for Value {
             fn from(v: i_slint_core::items::$Name) -> Self {
                 Value::EnumerationValue(stringify!($Name).to_owned(), v.to_string())
@@ -844,6 +849,12 @@ impl Compiler {
         Self::default()
     }
 
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn set_embed_resources(&mut self, embed_resources: i_slint_compiler::EmbedResourcesKind) {
+        self.config.embed_resources = embed_resources;
+    }
+
     /// Allow access to the underlying `CompilerConfiguration`
     ///
     /// This is an internal function without and ABI or API stability guarantees.
@@ -960,6 +971,8 @@ impl Compiler {
                     components: HashMap::new(),
                     diagnostics: diagnostics.into_iter().collect(),
                     #[cfg(feature = "internal")]
+                    watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
+                    #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
                     #[cfg(feature = "internal")]
                     named_exports: Vec::new(),
@@ -997,6 +1010,8 @@ impl Compiler {
 pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
     pub(crate) diagnostics: Vec<Diagnostic>,
+    #[cfg(feature = "internal")]
+    pub(crate) watch_paths: Vec<PathBuf>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
     /// For `export { Foo as Bar }` this vec contains tuples of (`Foo`, `Bar`)
@@ -1056,6 +1071,13 @@ impl CompilationResult {
     /// This is an internal function without API stability guarantees.
     #[doc(hidden)]
     #[cfg(feature = "internal")]
+    pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[PathBuf] {
+        &self.watch_paths
+    }
+
+    /// This is an internal function without API stability guarantees.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
     pub fn structs_and_enums(
         &self,
         _: i_slint_core::InternalToken,
@@ -1088,24 +1110,19 @@ pub struct ComponentDefinition {
 }
 
 impl ComponentDefinition {
-    /// Set a `debug(...)` handler
-    #[doc(hidden)]
-    #[cfg(feature = "internal")]
-    pub fn set_debug_handler(
-        &self,
-        handler: impl Fn(Option<&i_slint_compiler::diagnostics::SourceLocation>, &str) + 'static,
-        _: i_slint_core::InternalToken,
-    ) {
-        let handler = Rc::new(handler);
-
-        generativity::make_guard!(guard);
-        self.inner.unerase(guard).recursively_set_debug_handler(handler);
-    }
     /// Creates a new instance of the component and returns a shared handle to it.
     pub fn create(&self) -> Result<ComponentInstance, PlatformError> {
         let instance = self.create_with_options(Default::default())?;
-        // Make sure the window adapter is created so call to `window()` do not panic later.
-        instance.inner.window_adapter_ref()?;
+        // SystemTrayIcon-rooted components don't have a real WindowAdapter.
+        // Skip the eager window creation and tree instantiation for them.
+        if !instance.is_system_tray_rooted() {
+            // Make sure the window adapter is created so call to `window()` do not panic later.
+            instance.inner.window_adapter_ref()?;
+            // Eagerly instantiate repeaters and conditionals so that layout
+            // bindings can see all instances without calling ensure_updated.
+            i_slint_core::window::WindowInner::from_pub(instance.window())
+                .ensure_tree_instantiated();
+        }
         Ok(instance)
     }
 
@@ -1300,6 +1317,16 @@ impl ComponentDefinition {
         self.inner.unerase(guard).id()
     }
 
+    /// True if instances of this component expose a `slint::Window`-shaped API
+    /// (i.e. calling [`ComponentInstance::window`] is meaningful). False for
+    /// non-windowed roots such as `SystemTrayIcon`, where `window()` would panic.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn is_window(&self) -> bool {
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        !self.inner.unerase(guard).original.inherits_system_tray_icon()
+    }
+
     /// This gives access to the tree of Elements.
     #[cfg(feature = "internal")]
     #[doc(hidden)]
@@ -1368,6 +1395,11 @@ impl ComponentInstance {
     pub fn definition(&self) -> ComponentDefinition {
         generativity::make_guard!(guard);
         ComponentDefinition { inner: self.inner.unerase(guard).description().into() }
+    }
+
+    fn is_system_tray_rooted(&self) -> bool {
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).description().original.inherits_system_tray_icon()
     }
 
     /// Return the value for a public property of this component.
@@ -1689,10 +1721,25 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn show(&self) -> Result<(), PlatformError> {
+        if self.is_system_tray_rooted() {
+            // Mirror what the Rust/C++ generators emit for tray-rooted public
+            // components: toggle the `visible` property; the change-tracker on
+            // the SystemTrayIcon native item dispatches to the platform handle.
+            self.set_property("visible", Value::Bool(true)).expect(
+                "setting `visible` on a SystemTrayIcon-rooted component should always succeed",
+            );
+            return Ok(());
+        }
         self.inner.window_adapter_ref()?.window().show()
     }
 
     fn hide(&self) -> Result<(), PlatformError> {
+        if self.is_system_tray_rooted() {
+            self.set_property("visible", Value::Bool(false)).expect(
+                "setting `visible` on a SystemTrayIcon-rooted component should always succeed",
+            );
+            return Ok(());
+        }
         self.inner.window_adapter_ref()?.window().hide()
     }
 
@@ -1781,60 +1828,6 @@ pub fn run_event_loop() -> Result<(), PlatformError> {
 pub fn spawn_local<F: Future + 'static>(fut: F) -> Result<JoinHandle<F::Output>, EventLoopError> {
     i_slint_backend_selector::with_global_context(|ctx| ctx.spawn_local(fut))
         .map_err(|_| EventLoopError::NoEventLoopProvider)?
-}
-
-/// This module contains a few functions used by the tests
-#[doc(hidden)]
-pub mod testing {
-    use super::ComponentHandle;
-    use i_slint_core::window::WindowInner;
-
-    /// Wrapper around [`i_slint_core::tests::slint_send_mouse_click`]
-    pub fn send_mouse_click(comp: &super::ComponentInstance, x: f32, y: f32) {
-        i_slint_core::tests::slint_send_mouse_click(
-            x,
-            y,
-            &WindowInner::from_pub(comp.window()).window_adapter(),
-        );
-    }
-
-    /// Wrapper around [`i_slint_core::tests::slint_send_keyboard_char`]
-    pub fn send_keyboard_char(
-        comp: &super::ComponentInstance,
-        string: i_slint_core::SharedString,
-        pressed: bool,
-    ) {
-        i_slint_core::tests::slint_send_keyboard_char(
-            &string,
-            pressed,
-            &WindowInner::from_pub(comp.window()).window_adapter(),
-        );
-    }
-    /// Wrapper around [`i_slint_core::tests::send_keyboard_string_sequence`]
-    pub fn send_keyboard_string_sequence(
-        comp: &super::ComponentInstance,
-        string: i_slint_core::SharedString,
-    ) {
-        i_slint_core::tests::send_keyboard_string_sequence(
-            &string,
-            &WindowInner::from_pub(comp.window()).window_adapter(),
-        );
-    }
-
-    /// Simulate pressing a combination of keys together, then releasing them in reverse order.
-    ///
-    /// Each entry in `keys` is a key text (a single character or a special-key unicode codepoint).
-    /// All keys are pressed in order, then released in reverse
-    // Emulates the same behavior as `i_slint_backend_testing::send_key_combo_with_text`.
-    pub fn send_key_combo(comp: &super::ComponentInstance, keys: &[i_slint_core::SharedString]) {
-        let window_adapter = &WindowInner::from_pub(comp.window()).window_adapter();
-        for key in keys {
-            i_slint_core::tests::slint_send_keyboard_key_text(key, true, window_adapter);
-        }
-        for key in keys.iter().rev() {
-            i_slint_core::tests::slint_send_keyboard_key_text(key, false, window_adapter);
-        }
-    }
 }
 
 #[test]
@@ -2364,8 +2357,3 @@ export component Foo2 inherits Window  {
         }
     }
 }
-
-#[cfg(feature = "ffi")]
-#[allow(missing_docs)]
-#[path = "ffi.rs"]
-pub(crate) mod ffi;

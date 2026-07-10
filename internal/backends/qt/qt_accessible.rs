@@ -214,6 +214,7 @@ impl SlintAccessibleItemData {
                 item_rc.accessible_string_property(AccessibleStringProperty::Expandable);
                 item_rc.accessible_string_property(AccessibleStringProperty::Expanded);
                 item_rc.accessible_string_property(AccessibleStringProperty::ReadOnly);
+                item_rc.accessible_string_property(AccessibleStringProperty::Orientation);
             }
         });
     }
@@ -336,6 +337,15 @@ cpp! {{
                     i_slint_core::items::AccessibleRole::Groupbox => QAccessible_Role_Grouping,
                     i_slint_core::items::AccessibleRole::Image => QAccessible_Role_Graphic,
                     i_slint_core::items::AccessibleRole::RadioButton => QAccessible_Role_RadioButton,
+                    i_slint_core::items::AccessibleRole::RadioGroup => QAccessible_Role_Grouping,
+                    i_slint_core::items::AccessibleRole::Banner => QAccessible_Role_Section,
+                    i_slint_core::items::AccessibleRole::Complementary => QAccessible_Role_ComplementaryContent,
+                    i_slint_core::items::AccessibleRole::ContentInfo => QAccessible_Role_Footer,
+                    i_slint_core::items::AccessibleRole::Form => QAccessible_Role_Form,
+                    i_slint_core::items::AccessibleRole::Main => QAccessible_Role_Grouping,
+                    i_slint_core::items::AccessibleRole::Navigation => QAccessible_Role_Grouping,
+                    i_slint_core::items::AccessibleRole::Region => QAccessible_Role_Section,
+                    i_slint_core::items::AccessibleRole::Search => QAccessible_Role_Grouping,
                     _ => QAccessible_Role_NoRole,
                 }
             });
@@ -357,6 +367,23 @@ cpp! {{
                 -> *mut c_void as "void*" {
             let root_item = Box::new(ItemRc::new_root(WindowInner::from_pub(&rustWindow.window).component()).downgrade());
             Box::into_raw(root_item) as _
+        });
+    }
+
+    // Returns the orientation of the item as a Qt::Orientation value
+    // (Qt::Horizontal=1, Qt::Vertical=2), or 0 if the property is not set.
+    int item_qt_orientation(void *data) {
+        return rust!(item_qt_orientation_
+            [data: &SlintAccessibleItemData as "void*"]
+                -> i32 as "int" {
+            data.item.upgrade()
+                .and_then(|i| i.accessible_string_property(AccessibleStringProperty::Orientation))
+                .and_then(|s| s.parse::<i_slint_core::items::Orientation>().ok())
+                .map(|o| match o {
+                    i_slint_core::items::Orientation::Horizontal => 1,
+                    i_slint_core::items::Orientation::Vertical => 2,
+                })
+                .unwrap_or(0)
         });
     }
 
@@ -562,7 +589,11 @@ cpp! {{
     // Slint_accessible_item:
     // ------------------------------------------------------------------------------
 
-    class Slint_accessible_item : public Slint_accessible, public QAccessibleValueInterface, public QAccessibleActionInterface {
+    class Slint_accessible_item : public Slint_accessible, public QAccessibleValueInterface, public QAccessibleActionInterface
+#if QT_VERSION >= QT_VERSION_CHECK(6, 11, 0)
+        , public QAccessibleAttributesInterface
+#endif
+    {
     public:
         Slint_accessible_item(void *item, QObject *obj, QAccessible::Role role, QAccessibleInterface *parent) :
             Slint_accessible(role, parent), m_object(obj)
@@ -655,8 +686,34 @@ cpp! {{
             } else if (t == QAccessible::ActionInterface) {
                 return static_cast<QAccessibleActionInterface*>(this);
             }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 11, 0)
+            else if (t == QAccessible::AttributesInterface) {
+                return static_cast<QAccessibleAttributesInterface*>(this);
+            }
+#endif
             return QAccessibleInterface::interface_cast(t);
         }
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 11, 0)
+        // QAccessibleAttributesInterface
+        QList<QAccessible::Attribute> attributeKeys() const override {
+            QList<QAccessible::Attribute> keys;
+            if (item_qt_orientation(m_data) != 0) {
+                keys << QAccessible::Attribute::Orientation;
+            }
+            return keys;
+        }
+
+        QVariant attributeValue(QAccessible::Attribute key) const override {
+            if (key == QAccessible::Attribute::Orientation) {
+                int o = item_qt_orientation(m_data);
+                if (o != 0) {
+                    return QVariant::fromValue(static_cast<Qt::Orientation>(o));
+                }
+            }
+            return QVariant();
+        }
+#endif
 
         // AccessibleValueInterface:
         QVariant currentValue() const override {

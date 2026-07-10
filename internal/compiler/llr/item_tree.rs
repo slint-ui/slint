@@ -20,7 +20,7 @@ pub struct CallbackIdx(usize);
 pub struct SubComponentIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct GlobalIdx(usize);
-#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SubComponentInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ItemInstanceIdx(usize);
@@ -127,6 +127,8 @@ pub struct GlobalComponent {
     pub functions: TiVec<FunctionIdx, Function>,
     /// One entry per property
     pub init_values: BTreeMap<LocalMemberIndex, BindingExpression>,
+    /// The animation for properties which are animated
+    pub animations: BTreeMap<LocalMemberIndex, Expression>,
     // maps property to its changed callback
     pub change_callbacks: BTreeMap<PropertyIdx, MutExpression>,
     pub const_properties: TiVec<PropertyIdx, bool>,
@@ -221,7 +223,7 @@ impl From<LocalMemberReference> for MemberReference {
 }
 
 /// A reference to something within an ItemTree
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct LocalMemberReference {
     pub sub_component_path: Vec<SubComponentInstanceIdx>,
     pub reference: LocalMemberIndex,
@@ -230,6 +232,69 @@ pub struct LocalMemberReference {
 impl<T: Into<LocalMemberIndex>> From<T> for LocalMemberReference {
     fn from(reference: T) -> Self {
         Self { sub_component_path: Vec::new(), reference: reference.into() }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TwoWayBinding {
+    pub prop1: LocalMemberReference,
+    pub prop2: MemberReference,
+    /// `Some` when the binding targets a model row. `prop2` is then the
+    /// `model_data` property of the enclosing `for`'s body sub-component,
+    /// and this index is the `model_index` property in the same sub-component.
+    pub is_model: Option<PropertyIdx>,
+    /// Field path applied to `prop2`, when `prop2` is a struct.
+    pub field_access: Vec<SmolStr>,
+}
+
+/// Resolved view of a model two-way binding, used by code generators to
+/// avoid re-deriving the parent walk and the data/index/repeater references.
+pub struct ResolvedModelTwoWayBinding<'a> {
+    /// Number of `parent` hops up to the body sub-component.
+    pub parent_level: usize,
+    pub body_sub_component: SubComponentIdx,
+    pub data_prop: PropertyIdx,
+    /// Type of `data_prop`, i.e. the starting type of [`TwoWayBinding::field_access`].
+    pub data_prop_ty: &'a Type,
+    pub index_prop: PropertyIdx,
+    pub parent_sub_component: SubComponentIdx,
+    pub repeater_index: RepeatedElementIdx,
+}
+
+impl TwoWayBinding {
+    /// Resolve the parent walk and the data/index/repeater references of a
+    /// model two-way binding. Returns `None` for regular property bindings.
+    pub fn resolve_model<'a, T>(
+        &self,
+        ctx: &EvaluationContext<'a, T>,
+    ) -> Option<ResolvedModelTwoWayBinding<'a>> {
+        let index_prop = self.is_model?;
+        let MemberReference::Relative { parent_level, local_reference } = &self.prop2 else {
+            unreachable!("model two-way binding's prop2 is always a Relative reference")
+        };
+        debug_assert!(local_reference.sub_component_path.is_empty());
+        let LocalMemberIndex::Property(data_prop) = local_reference.reference else {
+            unreachable!("model two-way binding's prop2 always references a property")
+        };
+        let super::EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else {
+            unreachable!("model two-way binding cannot be in a global")
+        };
+        for _ in 0..*parent_level {
+            let x = par.expect("parent_level should be valid");
+            par = x.parent;
+            sc = x.sub_component;
+        }
+        let par = par.expect("repeated item_tree must have a parent");
+        let data_prop_ty = &ctx.compilation_unit.sub_components[sc].properties[data_prop].ty;
+        Some(ResolvedModelTwoWayBinding {
+            parent_level: *parent_level,
+            body_sub_component: sc,
+            data_prop,
+            data_prop_ty,
+            index_prop,
+            parent_sub_component: par.sub_component,
+            repeater_index: par.repeater_index.expect("repeated parent has a repeater_index"),
+        })
     }
 }
 
@@ -254,6 +319,11 @@ pub struct Callback {
 
     /// Same as for Property::use_count
     pub use_count: Cell<usize>,
+
+    /// Whether this callback needs a change tracker `Property<()>` so that
+    /// setting a new handler from native code triggers re-evaluation of
+    /// property bindings that invoke this callback.
+    pub needs_tracker: bool,
 }
 
 #[derive(Debug)]
@@ -397,10 +467,13 @@ pub struct SubComponent {
     pub property_init: Vec<(MemberReference, BindingExpression)>,
     pub change_callbacks: Vec<(MemberReference, MutExpression)>,
     /// The animation for properties which are animated
-    pub animations: HashMap<LocalMemberReference, Expression>,
+    pub animations: BTreeMap<LocalMemberReference, Expression>,
     /// The two way bindings that map the first property to the second wih optional field access
-    pub two_way_bindings: Vec<(MemberReference, MemberReference, Vec<SmolStr>)>,
+    pub two_way_bindings: Vec<TwoWayBinding>,
     pub const_properties: Vec<LocalMemberReference>,
+    /// Code run at the start of the constructor, before the property initialization.
+    /// Custom font registration uses this, so fonts are ready before a property needs them.
+    pub pre_init_code: Vec<MutExpression>,
     /// Code that is run in the sub component constructor, after property initializations
     pub init_code: Vec<MutExpression>,
 
@@ -414,6 +487,12 @@ pub struct SubComponent {
     /// Expression that builds a FlexboxLayoutItemInfo for a repeated element in a FlexboxLayout.
     /// Contains property references to flex-grow, flex-shrink, flex-basis, align-self, order.
     pub flexbox_layout_item_info_for_repeated: Option<MutExpression>,
+    /// Vertical `LayoutInfo` for a repeated element, computed with a width
+    /// constraint (its preferred width) so a height-for-width instance in a
+    /// column FlexboxLayout doesn't read `self.width` and recurse through the
+    /// parent flex cache. `Some` only when the element carries a
+    /// `layoutinfo-v-with-constraint`. See `flexbox_layout_item_info`.
+    pub layout_info_v_constrained_for_repeated: Option<MutExpression>,
     /// True when this is a repeated Row in a GridLayout, meaning layout_item_info
     /// needs to be able to return layout info for individual children
     pub is_repeated_row: bool,
@@ -438,6 +517,7 @@ pub struct SubComponent {
 pub struct PopupWindow {
     pub item_tree: ItemTree,
     pub position: MutExpression,
+    pub is_tooltip: bool,
 }
 
 #[derive(Debug)]
@@ -498,12 +578,22 @@ pub struct ItemTree {
     pub tree: TreeNode,
 }
 
+/// What top-level role an exported component plays. Drives whether the
+/// generated public API is `slint::Window`-shaped (a `ComponentHandle` impl
+/// with `show`/`hide`/`run`/`window`) or something else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TopLevelComponentType {
+    Window,
+    SystemTrayIcon,
+}
+
 #[derive(Debug)]
 pub struct PublicComponent {
     pub public_properties: PublicProperties,
     pub private_properties: PrivateProperties,
     pub item_tree: ItemTree,
     pub name: SmolStr,
+    pub top_level_type: TopLevelComponentType,
 }
 
 #[derive(Debug)]
@@ -521,6 +611,11 @@ pub struct CompilationUnit {
 }
 
 impl CompilationUnit {
+    pub fn needs_window_adapter(&self) -> bool {
+        self.public_components.iter().any(|p| p.top_level_type == TopLevelComponentType::Window)
+            || self.popup_menu.is_some()
+    }
+
     pub fn for_each_sub_components<'a>(
         &'a self,
         visitor: &mut dyn FnMut(&'a SubComponent, &EvaluationContext<'_>),
@@ -570,6 +665,9 @@ impl CompilationUnit {
         visitor: &mut dyn FnMut(&'a super::MutExpression, &EvaluationContext<'_>),
     ) {
         self.for_each_sub_components(&mut |sc, ctx| {
+            for e in &sc.pre_init_code {
+                visitor(e, ctx);
+            }
             for e in &sc.init_code {
                 visitor(e, ctx);
             }
@@ -582,6 +680,9 @@ impl CompilationUnit {
                 visitor(e, ctx);
             }
             if let Some(e) = &sc.flexbox_layout_item_info_for_repeated {
+                visitor(e, ctx);
+            }
+            if let Some(e) = &sc.layout_info_v_constrained_for_repeated {
                 visitor(e, ctx);
             }
             for e in sc.accessible_prop.values() {

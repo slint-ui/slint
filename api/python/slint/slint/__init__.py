@@ -7,7 +7,7 @@ r"""
 
 import os
 import sys
-from . import slint as native
+from ._native import native
 from . import language
 
 import types
@@ -17,7 +17,6 @@ import typing
 from typing import Any
 import pathlib
 from .models import ListModel, Model
-from .slint import Image, Color, Brush, Keys, Timer, TimerMode
 from .loop import SlintEventLoop
 from pathlib import Path
 from collections.abc import Coroutine
@@ -25,6 +24,17 @@ import asyncio
 import gettext
 import gzip
 import base64
+
+Image = native.Image
+Color = native.Color
+Brush = native.Brush
+Keys = native.Keys
+DataTransfer = native.DataTransfer
+LogicalPosition = native.LogicalPosition
+LogicalSize = native.LogicalSize
+StyledText = native.StyledText
+Timer = native.Timer
+TimerMode = native.TimerMode
 
 
 Struct = native.PyStruct
@@ -629,6 +639,10 @@ __all__ = [
     "Color",
     "Brush",
     "Keys",
+    "DataTransfer",
+    "LogicalPosition",
+    "LogicalSize",
+    "StyledText",
     "Model",
     "ListModel",
     "Timer",

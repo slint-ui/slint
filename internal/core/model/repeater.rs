@@ -10,7 +10,7 @@
 //! update algorithm can be shared between Rust and C++ (via FFI).
 
 use super::model_peer::{ModelChangeListener, ModelChangeListenerContainer};
-use super::{Model, ModelRc};
+use super::{Model, ModelExt, ModelRc};
 use crate::item_tree::{ItemTreeVTable, TraversalOrder};
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
@@ -128,8 +128,8 @@ trait RepeaterInstanceOps {
     /// Replace the range `position..position+remove` with `add` new empty/dirty slots.
     fn splice(&mut self, position: usize, remove: usize, add: usize);
 
-    /// If dirty, ensure the instance is created and updated for `row`.
-    /// Returns `true` if freshly created (needs init later).
+    /// If dirty, ensure the instance is created, initialized, and updated
+    /// for `row`. Returns `true` if freshly created.
     fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool;
 
     /// Height of the instance, or `None` if not yet created.
@@ -141,32 +141,23 @@ trait RepeaterInstanceOps {
 }
 
 /// Update all instances in the repeater, creating any that are missing.
-/// Returns indices of newly created instances (that need `init()` called).
-fn update_all_instances(
-    ops: &mut impl RepeaterInstanceOps,
-    offset: usize,
-    count: usize,
-) -> Vec<usize> {
+fn update_all_instances(ops: &mut impl RepeaterInstanceOps, offset: usize, count: usize) {
     let cur = ops.len();
     if count > cur {
         ops.splice(cur, 0, count - cur);
     } else if count < cur {
         ops.splice(count, cur - count, 0);
     }
-    let mut indices_to_init = Vec::new();
     for i in 0..count {
-        if ops.ensure_updated(i, i + offset) {
-            indices_to_init.push(i);
-        }
+        ops.ensure_updated(i, i + offset);
     }
-    indices_to_init
 }
 
 /// Update only the instances visible in the ListView viewport.
 ///
 /// This is the core virtualization algorithm: it estimates which model rows
 /// are visible, instantiates/updates those, lays them out, and cleans up
-/// off-screen instances. Returns indices of newly created instances.
+/// off-screen instances. Returns whether any instance was created.
 fn update_visible_instances(
     ops: &mut impl RepeaterInstanceOps,
     state: &mut RepeaterLayoutState,
@@ -176,7 +167,7 @@ fn update_visible_instances(
     viewport_y: Pin<&Property<LogicalLength>>,
     listview_width: LogicalLength,
     listview_height: LogicalLength,
-) -> Vec<usize> {
+) -> bool {
     let zero = LogicalLength::default();
     let mut vp_width = listview_width.get();
     let listview_height = listview_height.get();
@@ -186,7 +177,7 @@ fn update_visible_instances(
         viewport_height.set(zero);
         viewport_y.set(zero);
         viewport_width.set(listview_width);
-        return Vec::new();
+        return false;
     }
 
     let mut vp_y = viewport_y.get().get();
@@ -194,7 +185,7 @@ fn update_visible_instances(
         vp_y = vp_y.min(0 as Coord);
     }
 
-    let mut indices_to_init = Vec::new();
+    let mut changed = false;
 
     // Estimate element height from cached value or by measuring existing instances.
     let element_height = if state.cached_item_height > 0 as Coord {
@@ -215,9 +206,7 @@ fn update_visible_instances(
             // No items exist yet. Create one to measure.
             state.offset = state.offset.min(row_count - 1);
             ops.splice(0, ops.len(), 1);
-            if ops.ensure_updated(0, state.offset) {
-                indices_to_init.push(0);
-            }
+            changed |= ops.ensure_updated(0, state.offset);
             ops.height(0).unwrap_or(0 as Coord)
         }
     };
@@ -242,9 +231,7 @@ fn update_visible_instances(
         let mut it_y = first_item_y + vp_y;
         let mut new_off = state.offset;
         for i in 0..ops.len() {
-            if ops.ensure_updated(i, new_off) {
-                indices_to_init.push(i);
-            }
+            changed |= ops.ensure_updated(i, new_off);
             let h = ops.height(i).unwrap_or(0 as Coord);
             if it_y + h > 0 as Coord || new_off + 1 >= row_count {
                 break;
@@ -270,15 +257,11 @@ fn update_visible_instances(
         while new_offset > 0 && new_offset_y > 0 as Coord {
             new_offset -= 1;
             ops.splice(0, 0, 1);
-            ops.ensure_updated(0, new_offset);
+            changed |= ops.ensure_updated(0, new_offset);
             new_offset_y -= ops.height(0).unwrap_or(0 as Coord);
             prepend_count += 1;
         }
         if prepend_count > 0 {
-            for x in &mut indices_to_init {
-                *x += prepend_count;
-            }
-            indices_to_init.extend(0..prepend_count);
             state.offset = new_offset;
         }
         debug_assert!(new_offset >= state.offset && new_offset <= state.offset + ops.len());
@@ -291,9 +274,7 @@ fn update_visible_instances(
             if idx >= row_count {
                 break;
             }
-            if ops.ensure_updated(i, idx) {
-                indices_to_init.push(i);
-            }
+            changed |= ops.ensure_updated(i, idx);
             vp_width = vp_width.max(ops.listview_layout(i, &mut y));
             idx += 1;
             if y >= listview_height {
@@ -305,8 +286,7 @@ fn update_visible_instances(
         while y < listview_height && idx < row_count {
             let i = ops.len();
             ops.splice(i, 0, 1);
-            ops.ensure_updated(i, idx);
-            indices_to_init.push(i);
+            changed |= ops.ensure_updated(i, idx);
             vp_width = vp_width.max(ops.listview_layout(i, &mut y));
             idx += 1;
         }
@@ -323,20 +303,11 @@ fn update_visible_instances(
         if new_offset != state.offset {
             let remove_count = new_offset - state.offset;
             ops.splice(0, remove_count, 0);
-            indices_to_init.retain_mut(|i| {
-                if *i < remove_count {
-                    false
-                } else {
-                    *i -= remove_count;
-                    true
-                }
-            });
             state.offset = new_offset;
         }
         let keep = idx - new_offset;
         if ops.len() > keep {
             ops.splice(keep, ops.len() - keep, 0);
-            indices_to_init.retain(|x| *x < keep);
         }
 
         if ops.len() == 0 {
@@ -348,66 +319,78 @@ fn update_visible_instances(
         state.anchor_y = state.cached_item_height * state.offset as Coord;
         viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
         viewport_width.set(LogicalLength::new(vp_width));
-        // If an animation is ongoing we should not interrupt it
-        if !viewport_y.has_binding() {
-            let new_viewport_y = -state.anchor_y + new_offset_y;
-            if new_viewport_y != viewport_y.get().get() {
-                viewport_y.set(LogicalLength::new(new_viewport_y));
-            }
-            state.previous_viewport_y = new_viewport_y;
-        } else {
-            state.previous_viewport_y = viewport_y.get().0;
+        let new_viewport_y = -state.anchor_y + new_offset_y;
+        // Important: Use get_internal here, the viewport_y may have a binding on it (especially
+        // a physical animation).
+        // We must not yet trigger a re-evaluation of that binding, as we have already updated the
+        // viewport_width and viewport_height, but the viewport_y is not yet consistent.
+        // So the physics animations limit value may be inconsistent.
+        if new_viewport_y != viewport_y.get_internal().get() {
+            // If a physics animation is ongoing (e.g. due to a flick), we should not interrupt it.
+            // The physics animation implements intercept_set, and is therefore not interrupted by
+            // a call to set() - so it's okay to just use a normal set here.
+            viewport_y.set(LogicalLength::new(new_viewport_y));
         }
+        state.previous_viewport_y = new_viewport_y;
+
         break;
     }
 
-    indices_to_init
+    changed
 }
 
 /// Adapter implementing [`RepeaterInstanceOps`] for the native Rust repeater.
 struct RustRepeaterOps<'a, C: RepeatedItemTree> {
-    instances: &'a mut Vec<(RepeatedInstanceState, Option<ItemTreeRc<C>>)>,
+    inner: &'a RefCell<RepeaterInner<C>>,
     init: &'a dyn Fn() -> ItemTreeRc<C>,
     model: &'a ModelRc<C::Data>,
 }
 
 impl<C: RepeatedItemTree> RepeaterInstanceOps for RustRepeaterOps<'_, C> {
     fn len(&self) -> usize {
-        self.instances.len()
+        self.inner.borrow().instances.len()
     }
 
     fn splice(&mut self, position: usize, remove: usize, add: usize) {
-        self.instances.splice(
+        self.inner.borrow_mut().instances.splice(
             position..position + remove,
             core::iter::repeat_with(|| (RepeatedInstanceState::Dirty, None)).take(add),
         );
     }
 
     fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
-        let c = &mut self.instances[instance_idx];
-        if c.0 == RepeatedInstanceState::Dirty {
+        let (created, instance) = {
+            let mut inner = self.inner.borrow_mut();
+            let c = &mut inner.instances[instance_idx];
+            if c.0 != RepeatedInstanceState::Dirty {
+                return false;
+            }
             let created = c.1.is_none();
             if created {
                 c.1 = Some((self.init)());
             }
             c.1.as_ref().unwrap().update(row, self.model.row_data(row).unwrap_or_default());
             c.0 = RepeatedInstanceState::Clean;
-            created
-        } else {
-            false
+            (created, c.1.as_ref().unwrap().clone())
+        };
+        if created {
+            crate::properties::evaluate_no_tracking(|| instance.init());
         }
+        crate::item_tree::ensure_item_tree_instantiated(&vtable::VRc::into_dyn(instance));
+        created
     }
 
     fn height(&self, instance_idx: usize) -> Option<Coord> {
-        self.instances[instance_idx]
+        self.inner.borrow().instances[instance_idx]
             .1
             .as_ref()
             .map(|x| x.as_pin_ref().item_geometry(0).height_length().get())
     }
 
     fn listview_layout(&self, instance_idx: usize, y: &mut Coord) -> Coord {
+        let inner = self.inner.borrow();
         let mut y_len = LogicalLength::new(*y);
-        let w = self.instances[instance_idx]
+        let w = inner.instances[instance_idx]
             .1
             .as_ref()
             .unwrap()
@@ -428,6 +411,12 @@ pub struct RepeaterTracker<T: RepeatedItemTree> {
     #[pin]
     /// Set to true when the model becomes dirty.
     is_dirty: Property<bool>,
+    #[pin]
+    /// Marked dirty by `ensure_updated` when instances are added or
+    /// removed.  Layout and visit code register this as a dependency so
+    /// they re-evaluate only after the update pass materializes the
+    /// change, not when the model first becomes dirty.
+    instance_generation: Property<()>,
     /// Only used for the list view to track if the scrollbar has changed and item needs to be laid out again.
     #[pin]
     listview_geometry_tracker: crate::properties::PropertyTracker,
@@ -526,6 +515,10 @@ impl<C: RepeatedItemTree> Default for RepeaterTracker<C> {
             inner: Default::default(),
             model: Property::new_named(ModelRc::default(), "i_slint_core::Repeater::model"),
             is_dirty: Property::new_named(false, "i_slint_core::Repeater::is_dirty"),
+            instance_generation: Property::new_named(
+                (),
+                "i_slint_core::Repeater::instance_generation",
+            ),
             listview_geometry_tracker: Default::default(),
         }
     }
@@ -543,6 +536,22 @@ impl<C: RepeatedItemTree> Default for Repeater<C> {
 impl<C: RepeatedItemTree + 'static> Repeater<C> {
     fn data(self: Pin<&Self>) -> Pin<&RepeaterTracker<C>> {
         self.project_ref().0.get()
+    }
+
+    /// Register the model and dirty flag as dependencies of the current
+    /// tracking scope (e.g. the redraw tracker) so it is notified when the
+    /// model or its data changes.
+    pub fn track_model_changes(self: Pin<&Self>) {
+        self.data().project_ref().model.register_as_dependency();
+        self.data().project_ref().is_dirty.register_as_dependency();
+    }
+
+    /// Register the instance generation as a dependency of the current
+    /// tracking scope. This is for layout and visit code that should
+    /// re-evaluate only after `ensure_updated` has materialized instance
+    /// changes, not when the model first becomes dirty.
+    pub fn track_instance_changes(self: Pin<&Self>) {
+        self.data().project_ref().instance_generation.register_as_dependency();
     }
 
     fn model(self: Pin<&Self>) -> ModelRc<C::Data> {
@@ -564,34 +573,58 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     }
 
     /// Call this function to make sure that the model is updated.
-    /// The init function is the function to create a ItemTree
-    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ItemTreeRc<C>) {
+    /// The init function is the function to create a ItemTree.
+    /// Returns `true` if instances were actually created or removed.
+    /// Also recurses into child instances to ensure they are instantiated.
+    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ItemTreeRc<C>) -> bool {
         let model = self.model();
-        if !self.data().project_ref().is_dirty.get() {
-            return;
-        }
-        let count = model.row_count();
-        let mut inner = self.0.inner.borrow_mut();
-        let offset = inner.layout_state.offset;
-        let mut ops =
-            RustRepeaterOps { instances: &mut inner.instances, init: &init, model: &model };
-        self.data().is_dirty.set(false);
-        let indices_to_init = update_all_instances(&mut ops, offset, count);
-
-        drop(inner);
-        self.init_instances(indices_to_init);
+        let changed = if self.data().project_ref().is_dirty.get() {
+            let count = model.row_count();
+            let offset = self.0.inner.borrow().layout_state.offset;
+            let mut ops = RustRepeaterOps { inner: &self.0.inner, init: &init, model: &model };
+            self.data().is_dirty.set(false);
+            update_all_instances(&mut ops, offset, count);
+            self.data().instance_generation.mark_dirty();
+            true
+        } else {
+            false
+        };
+        self.ensure_children_instantiated() || changed
     }
 
-    fn init_instances(&self, indices: Vec<usize>) {
-        let inner = self.0.inner.borrow();
-        for index in indices {
-            if let Some((_, Some(comp))) = inner.instances.get(index) {
-                comp.init();
-            }
+    /// Recurse into child instances to ensure they are instantiated.
+    fn ensure_children_instantiated(&self) -> bool {
+        let mut changed = false;
+        for instance in self.instances_vec() {
+            changed |=
+                crate::item_tree::ensure_item_tree_instantiated(&vtable::VRc::into_dyn(instance));
         }
+        changed
     }
 
-    /// Same as `Self::ensure_updated` but for a ListView
+    /// Register the ListView viewport properties as dependencies so that
+    /// scrolling triggers a redraw.  Model dependencies are registered by
+    /// [`Self::visit`], so this only covers the viewport geometry.
+    pub fn track_changes_listview(
+        self: Pin<&Self>,
+        viewport_width: Pin<&Property<LogicalLength>>,
+        viewport_height: Pin<&Property<LogicalLength>>,
+        viewport_y: Pin<&Property<LogicalLength>>,
+        listview_width: LogicalLength,
+        listview_height: Pin<&Property<LogicalLength>>,
+    ) {
+        viewport_width.register_as_dependency();
+        viewport_height.register_as_dependency();
+        viewport_y.register_as_dependency();
+        // listview_width is passed as a value, not a property, so it cannot
+        // be registered as a dependency. Kept in the signature for symmetry
+        // with ensure_updated_listview.
+        let _ = listview_width;
+        listview_height.register_as_dependency();
+    }
+
+    /// Same as `Self::ensure_updated` but for a ListView.
+    /// Returns `true` if any instances were created or any child changed.
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
@@ -600,22 +633,18 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         viewport_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
-    ) {
-        // Query is_dirty to track model changes
-        let _ = self.data().project_ref().is_dirty.get();
+    ) -> bool {
         self.data().project_ref().is_dirty.set(false);
 
         let model = self.model();
         let row_count = model.row_count();
 
         let data = self.data();
-        let mut inner = data.inner.borrow_mut();
-
-        let RepeaterInner { ref mut instances, ref mut layout_state } = *inner;
-        let mut ops = RustRepeaterOps { instances, init: &init, model: &model };
-        let indices_to_init = update_visible_instances(
+        let mut layout_state = data.inner.borrow().layout_state.clone();
+        let mut ops = RustRepeaterOps { inner: &data.inner, init: &init, model: &model };
+        let changed = update_visible_instances(
             &mut ops,
-            layout_state,
+            &mut layout_state,
             row_count,
             viewport_width,
             viewport_height,
@@ -623,9 +652,12 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             listview_width,
             listview_height.get(),
         );
+        data.inner.borrow_mut().layout_state = layout_state;
 
-        drop(inner);
-        self.init_instances(indices_to_init);
+        if changed {
+            self.data().instance_generation.mark_dirty();
+        }
+        self.ensure_children_instantiated() || changed
     }
 
     /// Sets the data directly in the model
@@ -634,17 +666,26 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         model.set_row_data(row, data);
     }
 
+    /// Read a row from the model, registering a dependency on it when
+    /// called from a binding evaluation.
+    pub fn model_row_data(self: Pin<&Self>, row: usize) -> Option<C::Data> {
+        self.model().row_data_tracked(row)
+    }
+
     /// Set the model binding
     pub fn set_model_binding(&self, binding: impl Fn() -> ModelRc<C::Data> + 'static) {
         self.0.model.set_binding(binding);
     }
 
-    /// Call the visitor for the root of each instance
+    /// Call the visitor for the root of each instance.
+    /// Also registers model dependencies so the current tracking scope
+    /// (e.g. the redraw tracker) is notified when the model changes.
     pub fn visit(
-        &self,
+        self: Pin<&Self>,
         order: TraversalOrder,
         mut visitor: crate::item_tree::ItemVisitorRefMut,
     ) -> crate::item_tree::VisitChildrenResult {
+        self.track_model_changes();
         // We can't keep self.inner borrowed because the event might modify the model
         let count = self.0.inner.borrow().instances.len() as u32;
         for i in 0..count {
@@ -680,10 +721,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     /// The index should be within [`Self::range()`]
     pub fn instance_at(&self, index: usize) -> Option<ItemTreeRc<C>> {
         let inner = self.0.inner.borrow();
-        inner
-            .instances
-            .get(index.checked_sub(inner.layout_state.offset)?)
-            .map(|c| c.1.clone().expect("That was updated before!"))
+        inner.instances.get(index.checked_sub(inner.layout_state.offset)?).and_then(|c| c.1.clone())
     }
 
     /// Return true if the Repeater as empty
@@ -701,6 +739,8 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
 pub struct Conditional<C: RepeatedItemTree> {
     #[pin]
     model: Property<bool>,
+    #[pin]
+    instance_generation: Property<()>,
     instance: RefCell<Option<ItemTreeRc<C>>>,
 }
 
@@ -708,23 +748,54 @@ impl<C: RepeatedItemTree> Default for Conditional<C> {
     fn default() -> Self {
         Self {
             model: Property::new_named(false, "i_slint_core::Conditional::model"),
+            instance_generation: Property::new_named(
+                (),
+                "i_slint_core::Conditional::instance_generation",
+            ),
             instance: RefCell::new(None),
         }
     }
 }
 
 impl<C: RepeatedItemTree + 'static> Conditional<C> {
+    /// Register the condition as a dependency of the current tracking scope
+    /// (e.g. the redraw tracker) so it is notified when the condition changes.
+    pub fn track_model_changes(self: Pin<&Self>) {
+        self.project_ref().model.register_as_dependency();
+    }
+
+    /// Register the instance generation as a dependency of the current
+    /// tracking scope. Layout code uses this to re-evaluate only after
+    /// `ensure_updated` materializes instance changes.
+    pub fn track_instance_changes(self: Pin<&Self>) {
+        self.project_ref().instance_generation.register_as_dependency();
+    }
+
     /// Call this function to make sure that the model is updated.
-    /// The init function is the function to create a ItemTree
-    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ItemTreeRc<C>) {
+    /// The init function is the function to create a ItemTree.
+    /// Returns `true` if the instance was created or removed, or any child changed.
+    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ItemTreeRc<C>) -> bool {
         let model = self.project_ref().model.get();
 
-        if !model {
-            drop(self.instance.replace(None));
+        let changed = if !model {
+            self.instance.take().is_some()
         } else if self.instance.borrow().is_none() {
             let i = init();
             self.instance.replace(Some(i.clone()));
             i.init();
+            true
+        } else {
+            false
+        };
+        if changed {
+            self.instance_generation.mark_dirty();
+        }
+        if let Some(instance) = self.instance.borrow().as_ref() {
+            crate::item_tree::ensure_item_tree_instantiated(&vtable::VRc::into_dyn(
+                instance.clone(),
+            )) || changed
+        } else {
+            changed
         }
     }
 
@@ -733,12 +804,15 @@ impl<C: RepeatedItemTree + 'static> Conditional<C> {
         self.model.set_binding(binding);
     }
 
-    /// Call the visitor for the root of each instance
+    /// Call the visitor for the root of each instance.
+    /// Also registers model dependencies so the current tracking scope
+    /// (e.g. the redraw tracker) is notified when the condition changes.
     pub fn visit(
-        &self,
+        self: Pin<&Self>,
         order: TraversalOrder,
         mut visitor: crate::item_tree::ItemVisitorRefMut,
     ) -> crate::item_tree::VisitChildrenResult {
+        self.track_model_changes();
         // We can't keep self.inner borrowed because the event might modify the model
         let instance = self.instance.borrow().clone();
         if let Some(c) = instance
@@ -818,14 +892,6 @@ mod ffi {
         pub init: unsafe extern "C" fn(user_data: *mut core::ffi::c_void, instance_idx: usize),
     }
 
-    impl RepeaterInstanceOpsVTable {
-        fn init_instances(&self, indices: Vec<usize>) {
-            for idx in indices {
-                unsafe { (self.init)(self.user_data, idx) };
-            }
-        }
-    }
-
     impl RepeaterInstanceOps for RepeaterInstanceOpsVTable {
         fn len(&self) -> usize {
             unsafe { (self.len)(self.user_data) }
@@ -834,7 +900,11 @@ mod ffi {
             unsafe { (self.splice)(self.user_data, position, remove, add) }
         }
         fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
-            unsafe { (self.ensure_updated)(self.user_data, instance_idx, row) }
+            let created = unsafe { (self.ensure_updated)(self.user_data, instance_idx, row) };
+            if created {
+                unsafe { (self.init)(self.user_data, instance_idx) };
+            }
+            created
         }
         fn height(&self, instance_idx: usize) -> Option<Coord> {
             let h = unsafe { (self.height)(self.user_data, instance_idx) };
@@ -852,8 +922,7 @@ mod ffi {
         offset: usize,
         count: usize,
     ) {
-        let indices_to_init = update_all_instances(ops, offset, count);
-        ops.init_instances(indices_to_init);
+        update_all_instances(ops, offset, count);
     }
 
     #[unsafe(no_mangle)]
@@ -866,8 +935,8 @@ mod ffi {
         viewport_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
-    ) {
-        let indices_to_init = update_visible_instances(
+    ) -> bool {
+        update_visible_instances(
             ops,
             state,
             row_count,
@@ -876,7 +945,6 @@ mod ffi {
             viewport_y,
             listview_width,
             listview_height,
-        );
-        ops.init_instances(indices_to_init);
+        )
     }
 }

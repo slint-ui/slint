@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore intfield Structalias
 use std::collections::{BTreeMap, BTreeSet};
 
 use smol_str::SmolStr;
@@ -21,6 +22,14 @@ impl PyModule {
 
     pub fn changed_structs_or_enums(&self, other: &Self) -> Option<PyStructsOrEnumsDifference> {
         PyStructsOrEnumsDifference::compare(&self.structs_and_enums, &other.structs_and_enums)
+    }
+
+    /// If `self` and `other` were produced by different generator versions,
+    /// return the (old, new) version pair. Such a mismatch is always treated
+    /// as incompatible — the consumer should regenerate the wrapper rather
+    /// than try to interpret the older descriptor.
+    pub fn changed_version(&self, other: &Self) -> Option<(SmolStr, SmolStr)> {
+        (self.version != other.version).then(|| (self.version.clone(), other.version.clone()))
     }
 }
 

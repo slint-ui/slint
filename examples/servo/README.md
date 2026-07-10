@@ -1,8 +1,10 @@
+<img src="https://github.com/user-attachments/assets/bcc2b6d9-b4f3-49a4-9653-8676eba4c2f0" width="100" align="right" />
+
 # Slint Servo Example
 
 > Disclaimer: Servo is still experimental and not ready for production use.
 
-Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Component for Slint to render websites using hardware rendring on Linux, MacOS, Windows and Android.
+Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Component for Slint to render websites using hardware rendering on Linux, MacOS, Windows and Android.
 
 ![Preview](https://github.com/user-attachments/assets/a7259d9c-2d3a-4f7c-9f48-8fb852f6c5be)
 
@@ -15,7 +17,7 @@ Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Componen
 - Copy `webview.slint` from [src](https://github.com/slint-ui/slint/tree/master/examples/servo/src) and paste it in your project.
 - Use `Webview` to your `.slint` file.
 
-    ```slint
+    ```slint no-test
     import { Webview } from "webview.slint";
 
     export component MyApp inherits Window {
@@ -58,9 +60,9 @@ Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Componen
                 if !matches!(state, slint::RenderingState::RenderingSetup) || initialized.get() {
                     return;
                 }
-                let slint::GraphicsAPI::WGPU28 { device, queue, .. } = graphics_api else {
+                let slint::GraphicsAPI::WGPU29 { device, queue, .. } = graphics_api else {
                     panic!(
-                        "Slint did not select a wgpu-28 renderer; \
+                        "Slint did not select a wgpu-29 renderer; \
                         enable a wgpu-capable renderer feature"
                     );
                 };
@@ -73,18 +75,18 @@ Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Componen
     }
 
     fn setup_slint_with_wgpu() {
-        use slint::wgpu_28::{WGPUConfiguration, WGPUSettings};
+        use slint::wgpu_29::{WGPUConfiguration, WGPUSettings};
 
         #[allow(unused_mut)]
         let mut wgpu_settings = WGPUSettings::default();
 
         #[cfg(target_os = "windows")]
         {
-            wgpu_settings.backends = slint::wgpu_28::wgpu::Backends::DX12;
+            wgpu_settings.backends = slint::wgpu_29::wgpu::Backends::DX12;
         }
 
         slint::BackendSelector::new()
-            .require_wgpu_28(WGPUConfiguration::Automatic(wgpu_settings))
+            .require_wgpu_29(WGPUConfiguration::Automatic(wgpu_settings))
             .select()
             .unwrap();
     }
@@ -108,7 +110,7 @@ To build on Windows, you will need Visual Studio installed. Cargo requires the `
 - Install [Android Studio](https://developer.android.com/studio).
 - Install [Android Command Line Tools](https://developer.android.com/studio#command-tools).
 
-### Install platofrm-tools
+### Install platform-tools
 
 ```bash
 ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"

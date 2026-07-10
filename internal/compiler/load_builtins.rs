@@ -12,8 +12,8 @@ use std::rc::Rc;
 
 use crate::expression_tree::Expression;
 use crate::langtype::{
-    BuiltinElement, BuiltinPrivateStruct, BuiltinPropertyDefault, BuiltinPropertyInfo,
-    DefaultSizeBinding, ElementType, Function, NativeClass, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, BuiltinStruct, DefaultSizeBinding,
+    ElementType, Function, NativeClass, Type,
 };
 use crate::object_tree::{self, *};
 use crate::parser::{SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
@@ -22,7 +22,10 @@ use crate::typeregister::TypeRegister;
 /// Parse the contents of builtins.slint and fill the builtin type registry
 /// `register` is the register to fill with the builtin types.
 /// At this point, it really should already contain the basic Types (string, int, ...)
-pub(crate) fn load_builtins(register: &mut TypeRegister) {
+pub(crate) fn load_builtins(
+    register: &mut TypeRegister,
+    symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
+) {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
     let node = crate::parser::parse(include_str!("builtins.slint").into(), None, &mut diag);
     if !diag.is_empty() {
@@ -93,36 +96,41 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                         }
                     }
 
+                    info.docs = docs::doc_comment(&p);
+                    info.shadowable = has_shadowable_annotation(&p);
+
                     if let Some(e) = p.BindingExpression() {
+                        assert!(!info.shadowable, "shadowable property {id}::{prop_name} can't have a default value as it would end up on the shadowing declaration");
                         let ty = info.ty.clone();
-                        info.default_value = BuiltinPropertyDefault::Expr(compiled(e, register, ty));
+                        info.default_value =
+                            BuiltinPropertyDefault::Expr(compiled(e, register, ty, symbol_counters));
                     }
 
                     (prop_name, info)
                 })
                 .chain(e.CallbackDeclaration().map(|s| {
-                    (
-                        identifier_text(&s.DeclaredIdentifier()).unwrap(),
-                        BuiltinPropertyInfo::new(Type::Callback(Rc::new(Function{
-                            args: s
-                                .CallbackDeclarationParameter()
-                                .map(|a| {
-                                    object_tree::type_from_node(a.Type(), *diag.borrow_mut(), register)
-                                })
-                                .collect(),
-                            return_type: s.ReturnType().map(|a| {
-                                object_tree::type_from_node(
-                                    a.Type(),
-                                    *diag.borrow_mut(),
-                                    register,
-                                )
-                            }).unwrap_or(Type::Void),
-                            arg_names: s
-                                .CallbackDeclarationParameter()
-                                .map(|a| a.DeclaredIdentifier().and_then(|x| identifier_text(&x)).unwrap_or_default())
-                                .collect()
-                        }))),
-                    )
+                    let mut info = BuiltinPropertyInfo::new(Type::Callback(Rc::new(Function{
+                        args: s
+                            .CallbackDeclarationParameter()
+                            .map(|a| {
+                                object_tree::type_from_node(a.Type(), *diag.borrow_mut(), register)
+                            })
+                            .collect(),
+                        return_type: s.ReturnType().map(|a| {
+                            object_tree::type_from_node(
+                                a.Type(),
+                                *diag.borrow_mut(),
+                                register,
+                            )
+                        }).unwrap_or(Type::Void),
+                        arg_names: s
+                            .CallbackDeclarationParameter()
+                            .map(|a| a.DeclaredIdentifier().and_then(|x| identifier_text(&x)).unwrap_or_default())
+                            .collect()
+                    })));
+                    info.docs = docs::doc_comment(&s);
+                    info.shadowable = has_shadowable_annotation(&s);
+                    (identifier_text(&s.DeclaredIdentifier()).unwrap(), info)
                 }))
         );
         n.deprecated_aliases = e
@@ -141,7 +149,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             })
             .collect();
         n.builtin_struct = parse_annotation("builtin_struct", &e)
-            .map(|x| x.unwrap().parse::<BuiltinPrivateStruct>().unwrap());
+            .map(|x| x.unwrap().parse::<BuiltinStruct>().unwrap());
         enum Base {
             None,
             Global,
@@ -173,12 +181,12 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                 args.push(object_tree::type_from_node(a.Type(), *diag.borrow_mut(), register));
                 arg_names.push(identifier_text(&a.DeclaredIdentifier()).unwrap_or_default());
             }
-            (
-                name,
-                BuiltinPropertyInfo::new(Type::Function(
-                    Function { return_type, args, arg_names }.into(),
-                )),
-            )
+            let mut info = BuiltinPropertyInfo::new(Type::Function(
+                Function { return_type, args, arg_names }.into(),
+            ));
+            info.docs = docs::doc_comment(&f);
+            info.shadowable = has_shadowable_annotation(&f);
+            (name, info)
         }));
 
         let mut builtin = BuiltinElement::new(Rc::new(n));
@@ -189,11 +197,27 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
         }
         properties
             .extend(builtin.native_class.properties.iter().map(|(k, v)| (k.clone(), v.clone())));
+        let entries = docs::element_doc_entries(&c, &e, &mut diag.borrow_mut());
+        let parent_builtin = match &base {
+            Base::NativeParent(p) => Some(p.as_ref()),
+            _ => None,
+        };
+        // Assemble docs as [description, inherited parent body, own body].
+        // docs[0] is always the description so children can skip it
+        // with `parent.docs[1..]`.
+        builtin.docs = docs::assemble(entries, parent_builtin);
+
+        builtin.slint_sc = matches!(
+            builtin.docs.first(),
+            Some(crate::doc_comments::ElementDocEntry::Text(desc)) if has_sc_marker(desc)
+        ) || matches!(&base, Base::NativeParent(p) if p.slint_sc);
 
         builtin.disallow_global_types_as_child_elements =
             parse_annotation("disallow_global_types_as_child_elements", &e).is_some();
         builtin.is_non_item_type = parse_annotation("is_non_item_type", &e).is_some();
         builtin.is_internal = parse_annotation("is_internal", &e).is_some();
+        builtin.can_be_declared_without_children_slot =
+            parse_annotation("can_be_declared_without_children_slot", &e).is_some();
         builtin.accepts_focus = parse_annotation("accepts_focus", &e).is_some();
         builtin.default_size_binding = parse_annotation("default_size_binding", &e)
             .map(|size_type| match size_type.as_deref() {
@@ -254,12 +278,14 @@ fn compiled(
     node: syntax_nodes::BindingExpression,
     type_register: &TypeRegister,
     ty: Type,
+    symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
 ) -> Expression {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
-    let mut ctx = crate::lookup::LookupCtx::empty_context(type_register, &mut diag);
+    let mut ctx =
+        crate::lookup::LookupCtx::empty_context(type_register, &mut diag, symbol_counters.clone());
     ctx.property_type = ty.clone();
     let e = Expression::from_binding_expression_node(node.clone().into(), &mut ctx)
-        .maybe_convert_to(ty, &node, &mut diag);
+        .maybe_convert_to(ty, &node, ctx.diag, &ctx.symbol_counters);
     if diag.has_errors() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]
@@ -267,6 +293,26 @@ fn compiled(
         panic!("Error parsing the builtin elements: {vec:?}");
     }
     e
+}
+
+/// Check for a `//-shadowable` annotation in the comments immediately before a
+/// member declaration. Marks members that a component may shadow with a local
+/// declaration of the same name.
+fn has_shadowable_annotation(node: &SyntaxNode) -> bool {
+    let mut cursor = node.node.prev_sibling_or_token();
+    while let Some(cur) = cursor {
+        match cur.kind() {
+            SyntaxKind::Whitespace => {}
+            SyntaxKind::Comment => {
+                if cur.as_token().unwrap().text().trim_end() == "//-shadowable" {
+                    return true;
+                }
+            }
+            _ => return false,
+        }
+        cursor = cur.prev_sibling_or_token();
+    }
+    false
 }
 
 /// Find out if there are comments that starts with `//-key` and returns `None`
@@ -292,3 +338,18 @@ fn parse_annotation(key: &str, node: &SyntaxNode) -> Option<Option<SmolStr>> {
     }
     None
 }
+
+/// Check for standalone `\sc` marker in a doc string, ensuring it is not
+/// followed by an alphanumeric or underscore character (avoids matching
+/// `\score`, `\scale`, etc.).
+fn has_sc_marker(doc: &str) -> bool {
+    doc.match_indices("\\sc").any(|(start, _)| {
+        let end = start + 3;
+        match doc.as_bytes().get(end).copied() {
+            None => true,
+            Some(b) => !b.is_ascii_alphanumeric() && b != b'_',
+        }
+    })
+}
+
+use crate::doc_comments as docs;

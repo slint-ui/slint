@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore Barramundi despawn
 use bevy::prelude::*;
 use slint::{Model, SharedString};
 
@@ -103,11 +104,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Slint initializes first with wgpu — on linuxkms it creates its own wgpu instance
     // with DRM surface support. The wgpu resources are then passed to Bevy via the
     // rendering notifier callback.
-    let mut wgpu_settings = slint::wgpu_27::WGPUSettings::default();
-    wgpu_settings.device_required_limits = slint::wgpu_27::wgpu::Limits::default()
-        .using_resolution(slint::wgpu_27::wgpu::Limits::downlevel_defaults());
+    let mut wgpu_settings = slint::wgpu_29::WGPUSettings::default();
+    wgpu_settings.device_required_limits = slint::wgpu_29::wgpu::Limits::default()
+        .using_resolution(slint::wgpu_29::wgpu::Limits::downlevel_defaults());
     slint::BackendSelector::new()
-        .require_wgpu_27(slint::wgpu_27::WGPUConfiguration::Automatic(wgpu_settings))
+        .require_wgpu_29(slint::wgpu_29::WGPUConfiguration::Automatic(wgpu_settings))
         .select()?;
     let app_window = AppWindow::new().unwrap();
 
@@ -115,7 +116,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bevy_channels: Rc<
         RefCell<
             Option<(
-                smol::channel::Receiver<slint::wgpu_27::wgpu::Texture>,
+                smol::channel::Receiver<slint::wgpu_29::wgpu::Texture>,
                 smol::channel::Sender<slint_bevy_adapter::ControlMessage>,
             )>,
         >,
@@ -132,7 +133,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         match state {
             slint::RenderingState::RenderingSetup => {
                 // Extract wgpu resources from Slint and initialize Bevy
-                let slint::GraphicsAPI::WGPU27 { instance, device, queue, .. } = graphics_api
+                let slint::GraphicsAPI::WGPU29 { instance, device, queue, .. } = graphics_api
                 else {
                     return;
                 };
@@ -178,7 +179,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 };
 
                 let Ok(new_texture) = new_texture_receiver.try_recv() else { return };
-                if let Some(old_texture) = app.get_texture().to_wgpu_27_texture() {
+                if let Some(old_texture) = app.get_texture().to_wgpu_29_texture() {
                     let control_message_sender = control_message_sender.clone();
                     slint::spawn_local(async move {
                         control_message_sender
@@ -290,7 +291,7 @@ fn reload_model_from_channel(
 ) -> impl FnMut(
     Commands,
     Res<AssetServer>,
-    Query<Entity, With<SceneRoot>>,
+    Query<Entity, With<WorldAssetRoot>>,
     ResMut<CameraPos>,
     Res<ModelBasePath>,
 ) {
@@ -301,7 +302,7 @@ fn reload_model_from_channel(
         for loaded_bundle in loaded_bundles.iter() {
             commands.entity(loaded_bundle).despawn();
         }
-        commands.spawn(SceneRoot(asset_server.load(
+        commands.spawn(WorldAssetRoot(asset_server.load(
             GltfAssetLabel::Scene(0).from_asset(format!("{}{}", base_path.0, new_model.path)),
         )));
         camera.0 = new_model.center;

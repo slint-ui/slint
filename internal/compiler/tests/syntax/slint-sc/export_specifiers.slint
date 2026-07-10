@@ -1,0 +1,10 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Export specifier lists are rejected in Slint SC mode.
+
+component Foo inherits Window { }
+//        > <error{Component declarations are not supported in Slint SC}
+
+export { Foo }
+//       >  <error{Export specifiers are not supported in Slint SC}

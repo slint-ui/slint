@@ -57,8 +57,8 @@ export component Clock {
     callback current-item-changed(index: int);
 
     property <length> radius: max(root.width, root.height) / 2;
-    property <length> picker-ditameter: 48px;
-    property <length> center: root.radius - root.picker-ditameter / 2;
+    property <length> picker-diameter: 48px;
+    property <length> center: root.radius - root.picker-diameter / 2;
     property <length> outer-padding: 2px;
     property <length> inner-padding: 32px;
     property <length> radius-outer: root.center - root.outer-padding;
@@ -90,8 +90,8 @@ export component Clock {
         }
 
         LineTo {
-            x: (root.current-x + root.picker-ditameter / 2) / 1px;
-            y: (root.current-y + root.picker-ditameter / 2) / 1px;
+            x: (root.current-x + root.picker-diameter / 2) / 1px;
+            y: (root.current-y + root.picker-diameter / 2) / 1px;
         }
     }
 
@@ -105,9 +105,9 @@ export component Clock {
     if root.current-item < root.model.length: Rectangle {
         x: root.current-x;
         y: root.current-y;
-        width: root.picker-ditameter;
-        height: root.picker-ditameter;
-        border-radius: root.picker-ditameter / 2;
+        width: root.picker-diameter;
+        height: root.picker-diameter;
+        border-radius: root.picker-diameter / 2;
         background: root.style.foreground;
 
         if root.current-item < 0: Rectangle {
@@ -121,8 +121,8 @@ export component Clock {
     for val[index] in root.model: TimeSelector {
         x: get-index-x(val);
         y: get-index-y(val);
-        width: root.picker-ditameter;
-        height: root.picker-ditameter;
+        width: root.picker-diameter;
+        height: root.picker-diameter;
         value: val;
         selected: index == root.current-item;
         style: root.style.time-selector-style;
@@ -354,7 +354,7 @@ export component TimePickerBase {
 
     property <bool> minutes-selected;
     property <bool> am-selected: true;
-    property <[int]> twelf-hour-model: [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    property <[int]> twelfth-hour-model: [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
     property <[int]> use-24-hour-format-model: [
         12,
         1,
@@ -561,6 +561,6 @@ export component TimePickerBase {
         if root.use-24-hour-format {
             return root.use-24-hour-format-model;
         }
-        root.twelf-hour-model;
+        root.twelfth-hour-model;
     }
 }

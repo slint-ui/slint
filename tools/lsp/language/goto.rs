@@ -199,8 +199,9 @@ fn test_goto_definition_multi_files() {
         init_param: Default::default(),
         to_show: None,
         open_urls: Default::default(),
-        to_preview: std::rc::Rc::new(common::DummyLspToPreview::default()),
+        to_preview: crate::common::LspToPreviews::with_one(common::DummyLspToPreview::default()),
         pending_recompile: Default::default(),
+        host_language_rename_dont_ask_again: Default::default(),
     };
     let (extra_files, diag) = spin_on::spin_on(crate::language::load_document_impl(
         &mut ctx,

@@ -1,0 +1,125 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview: no bundled translations
+//ignore: cpp-live-preview
+
+// Check that the correct decimal separator is used when specifying a locale
+
+// Include this keyword to bundle the translations
+//bundle-translations
+
+export component TestCase {
+    in property <float> value;
+    in property <string> value_string;
+    in-out property <string> the-decimal-separator: Platform.decimal-separator;
+    in-out property <string> float_as_string: value;
+
+    in-out property <float> string_as_float: value_string.to-float();
+    in-out property <bool> is_float: value_string.is-float();
+
+    in-out property <string> float_as_string_unlocalized: value.to-string-unlocalized();
+
+    // \{ cannot be in a slint macro, so we add it here, because we wanna execute the Test with
+    // compiled source (otherwise bundling translations is not possible)
+    out property <string> same_or_diff: "\{the-decimal-separator}";
+
+    // Conversions of constant expressions must use the same locale-dependent rules as
+    // conversions of runtime values, and update when the locale changes
+    out property <string> const_float_as_string: 1.5;
+    out property <string> const_int_as_string: 42;
+    out property <string> const_to_fixed: 1.5.to-fixed(2);
+    out property <bool> const_is_float: "1,5".is-float();
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_the_decimal_separator(), "."); // We didn't set any decimal separator yet
+assert_eq!(instance.get_const_float_as_string(), "1.5");
+assert_eq!(instance.get_const_int_as_string(), "42");
+assert_eq!(instance.get_const_to_fixed(), "1.50");
+assert_eq!(instance.get_const_is_float(), false);
+
+assert!(slint::select_bundled_translation("fr").is_ok());
+assert_eq!(instance.get_the_decimal_separator(), ",");
+instance.set_value(-5.5);
+assert_eq!(instance.get_float_as_string(), "-5,5");
+assert_eq!(instance.get_float_as_string_unlocalized(), "-5.5");
+assert_eq!(instance.get_const_float_as_string(), "1,5");
+assert_eq!(instance.get_const_int_as_string(), "42");
+assert_eq!(instance.get_const_to_fixed(), "1,50");
+assert_eq!(instance.get_const_is_float(), true);
+
+instance.set_value_string("5.5".into());
+assert_eq!(instance.get_is_float(), false);
+
+instance.set_value_string("3,2".into());
+assert_eq!(instance.get_is_float(), true);
+assert_eq!(instance.get_string_as_float(), 3.2);
+
+assert!(slint::select_bundled_translation("en").is_ok());
+assert_eq!(instance.get_the_decimal_separator(), ".");
+instance.set_value(7.123);
+assert_eq!(instance.get_float_as_string(), "7.123");
+assert_eq!(instance.get_float_as_string_unlocalized(), "7.123");
+assert_eq!(instance.get_const_float_as_string(), "1.5");
+assert_eq!(instance.get_const_to_fixed(), "1.50");
+assert_eq!(instance.get_const_is_float(), false);
+
+instance.set_value_string("5,5".into());
+assert_eq!(instance.get_is_float(), false);
+assert_eq!(instance.get_string_as_float(), 0.0);
+
+instance.set_value_string("3.2".into());
+assert_eq!(instance.get_is_float(), true);
+assert_eq!(instance.get_string_as_float(), 3.2);
+
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_the_decimal_separator(), ".");
+assert_eq(instance.get_const_float_as_string(), "1.5");
+assert_eq(instance.get_const_int_as_string(), "42");
+assert_eq(instance.get_const_to_fixed(), "1.50");
+assert_eq(instance.get_const_is_float(), false);
+
+assert(slint::select_bundled_translation("fr"));
+assert_eq(instance.get_the_decimal_separator(), ",");
+instance.set_value(-5.5);
+assert_eq(instance.get_float_as_string(), "-5,5");
+assert_eq(instance.get_float_as_string_unlocalized(), "-5.5");
+assert_eq(instance.get_const_float_as_string(), "1,5");
+assert_eq(instance.get_const_int_as_string(), "42");
+assert_eq(instance.get_const_to_fixed(), "1,50");
+assert_eq(instance.get_const_is_float(), true);
+
+instance.set_value_string("5.5");
+assert_eq(instance.get_is_float(), false);
+
+instance.set_value_string("3,2");
+assert_eq(instance.get_is_float(), true);
+assert_eq(instance.get_string_as_float(), 3.2);
+
+assert(slint::select_bundled_translation("en"));
+assert_eq(instance.get_the_decimal_separator(), ".");
+instance.set_value(7.123);
+assert_eq(instance.get_float_as_string(), "7.123");
+assert_eq(instance.get_float_as_string_unlocalized(), "7.123");
+assert_eq(instance.get_const_float_as_string(), "1.5");
+assert_eq(instance.get_const_to_fixed(), "1.50");
+assert_eq(instance.get_const_is_float(), false);
+
+instance.set_value_string("5,5");
+assert_eq(instance.get_is_float(), false);
+assert_eq(instance.get_string_as_float(), 0.0);
+
+instance.set_value_string("3.2");
+assert_eq(instance.get_is_float(), true);
+assert_eq(instance.get_string_as_float(), 3.2);
+```
+*/

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore textitem
 /*!
 This module contains the builtin text related items.
 
@@ -11,7 +12,7 @@ use super::{
     EventResult, FontMetrics, InputType, Item, ItemConsts, ItemRc, ItemRef, KeyEventArg,
     KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult, StringArg,
     TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment, TextWrap,
-    VoidArg, WindowItem,
+    VoidArg,
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
@@ -26,6 +27,7 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
+use crate::string::string_to_float;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
 use alloc::{rc::Rc, string::String};
@@ -306,7 +308,7 @@ impl Item for StyledTextItem {
                 position,
                 button: PointerEventButton::Left,
                 click_count: _,
-                is_touch: _,
+                touch_finger_id: _,
             } => {
                 if let Some(link) = find_link(position) {
                     *cursor = super::MouseCursor::Pointer;
@@ -769,10 +771,34 @@ pub struct TextInput {
     pressed: Cell<u8>,
     undo_items: Cell<SharedVector<UndoItem>>,
     redo_items: Cell<SharedVector<UndoItem>>,
+    /// Mirror of `text` as of the last internal edit. Used by the change handler installed
+    /// in `init` to tell internal edits apart from external assignments to the public `text`
+    /// property, so that only the latter realign the cursor/anchor offsets and undo stack.
+    internal_text: Cell<SharedString>,
+    /// Runs `align_to_text` whenever `text` is assigned externally (see issues #331 and #9024).
+    text_change_tracker: crate::properties::ChangeTracker,
 }
 
 impl Item for TextInput {
-    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+    fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+        // Seed the mirror so the change handler doesn't treat the initial text as external.
+        self.internal_text.set(self.text());
+        self.text_change_tracker.init_delayed(
+            self_rc.downgrade(),
+            |self_weak| {
+                self_weak
+                    .upgrade()
+                    .and_then(|rc| rc.downcast::<TextInput>())
+                    .map(|text_input| text_input.as_pin_ref().text())
+                    .unwrap_or_default()
+            },
+            |self_weak, new_text| {
+                let Some(self_rc) = self_weak.upgrade() else { return };
+                let Some(text_input) = self_rc.downcast::<TextInput>() else { return };
+                text_input.as_pin_ref().align_to_text(new_text, &self_rc);
+            },
+        );
+    }
 
     fn deinit(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
         if self.has_focus() {
@@ -861,7 +887,7 @@ impl Item for TextInput {
                     self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 }
 
-                #[cfg(not(target_os = "android"))]
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
 
                 match click_count % 3 {
@@ -880,13 +906,13 @@ impl Item for TextInput {
                 return InputEventResult::GrabMouse;
             }
             MouseEvent::Pressed { button: PointerEventButton::Middle, .. } => {
-                #[cfg(not(target_os = "android"))]
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 self.as_ref().pressed.set(0);
                 self.copy_clipboard(window_adapter, Clipboard::SelectionClipboard);
-                #[cfg(target_os = "android")]
+                #[cfg(any(target_os = "android", target_os = "ios"))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
             MouseEvent::Released { position, button: PointerEventButton::Middle, .. } => {
@@ -954,7 +980,7 @@ impl Item for TextInput {
         }
         match event.event_type {
             KeyEventType::KeyPressed => {
-                // invoke first key_pressed callback to give the developer/designer the possibility to implement a custom behaviour
+                // invoke first key_pressed callback to give the developer/designer the possibility to implement a custom behavior
                 if Self::FIELD_OFFSETS
                     .key_pressed()
                     .apply_pin(self)
@@ -964,71 +990,41 @@ impl Item for TextInput {
                     return KeyEventResult::EventAccepted;
                 }
 
-                match event.text_shortcut() {
-                    Some(text_shortcut) if !self.read_only() => match text_shortcut {
-                        TextShortcut::Move(direction) => {
-                            TextInput::move_cursor(
-                                self,
-                                direction,
-                                event.key_event.modifiers.into(),
-                                TextChangeNotify::TriggerCallbacks,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                        TextShortcut::DeleteForward => {
-                            TextInput::select_and_delete(
-                                self,
-                                TextCursorDirection::Forward,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                        TextShortcut::DeleteBackward => {
-                            // Special case: backspace breaks the grapheme and selects the previous character
-                            TextInput::select_and_delete(
-                                self,
-                                TextCursorDirection::PreviousCharacter,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                        TextShortcut::DeleteWordForward => {
-                            TextInput::select_and_delete(
-                                self,
-                                TextCursorDirection::ForwardByWord,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                        TextShortcut::DeleteWordBackward => {
-                            TextInput::select_and_delete(
-                                self,
-                                TextCursorDirection::BackwardByWord,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                        TextShortcut::DeleteToStartOfLine => {
-                            TextInput::select_and_delete(
-                                self,
-                                TextCursorDirection::StartOfLine,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                    },
-                    Some(_) => {
+                let delete_direction = match event.text_shortcut() {
+                    Some(TextShortcut::Move(direction)) => {
+                        TextInput::move_cursor(
+                            self,
+                            direction,
+                            event.key_event.modifiers.into(),
+                            TextChangeNotify::TriggerCallbacks,
+                            window_adapter,
+                            self_rc,
+                        );
+                        return KeyEventResult::EventAccepted;
+                    }
+                    // Special case: backspace breaks the grapheme and selects the previous character
+                    Some(TextShortcut::DeleteBackward) => {
+                        Some(TextCursorDirection::PreviousCharacter)
+                    }
+                    Some(TextShortcut::DeleteForward) => Some(TextCursorDirection::Forward),
+                    Some(TextShortcut::DeleteWordForward) => {
+                        Some(TextCursorDirection::ForwardByWord)
+                    }
+                    Some(TextShortcut::DeleteWordBackward) => {
+                        Some(TextCursorDirection::BackwardByWord)
+                    }
+                    Some(TextShortcut::DeleteToStartOfLine) => {
+                        Some(TextCursorDirection::StartOfLine)
+                    }
+                    None => None,
+                };
+                if let Some(direction) = delete_direction {
+                    if self.read_only() {
                         return KeyEventResult::EventIgnored;
                     }
-                    None => (),
-                };
+                    TextInput::select_and_delete(self, direction, window_adapter, self_rc);
+                    return KeyEventResult::EventAccepted;
+                }
 
                 if let Some(keycode) = event.key_event.text.chars().next()
                     && keycode == key_codes::Return
@@ -1112,7 +1108,7 @@ impl Item for TextInput {
                     kind: UndoItemKind::TextInsert,
                 });
 
-                self.as_ref().text.set(text.into());
+                self.as_ref().set_text_internal(text.into());
                 let new_cursor_pos = (insert_pos + event.key_event.text.len()) as i32;
                 self.as_ref().anchor_position_byte_offset.set(new_cursor_pos);
                 self.set_cursor_position(
@@ -1229,7 +1225,7 @@ impl Item for TextInput {
                             let mut text = String::from(self.text());
                             let cursor_position = self.cursor_position(&text);
                             text.insert_str(cursor_position, &preedit_text);
-                            self.text.set(text.into());
+                            self.set_text_internal(text.into());
                             let new_pos = (cursor_position + preedit_text.len()) as i32;
                             self.anchor_position_byte_offset.set(new_pos);
                             self.set_cursor_position(
@@ -1340,10 +1336,10 @@ impl core::convert::TryFrom<char> for TextCursorDirection {
             key_codes::DownArrow => Self::NextLine,
             key_codes::PageUp => Self::PageUp,
             key_codes::PageDown => Self::PageDown,
-            // On macos this scrolls to the top or the bottom of the page
-            #[cfg(not(target_os = "macos"))]
+            // On macOS and iOS this scrolls to the top or the bottom of the page
+            #[cfg(not(target_vendor = "apple"))]
             key_codes::Home => Self::StartOfLine,
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(target_vendor = "apple"))]
             key_codes::End => Self::EndOfLine,
             _ => return Err(()),
         })
@@ -1376,20 +1372,21 @@ fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
     if unsafe_byte_offset <= 0 {
         return 0;
     }
-    let byte_offset_candidate = unsafe_byte_offset as usize;
+    text.ceil_char_boundary(unsafe_byte_offset as usize)
+}
 
-    if byte_offset_candidate >= text.len() {
-        return text.len();
+/// Like [`safe_byte_offset`], but additionally snaps the result up to a grapheme cluster
+/// boundary. Used when realigning the cursor/anchor to text that was replaced externally, so
+/// they never land inside a multi-codepoint grapheme (e.g. an emoji with a skin-tone modifier
+/// or a base character followed by a combining mark), matching how cursor movement treats a
+/// grapheme cluster as indivisible.
+fn safe_grapheme_boundary_offset(unsafe_byte_offset: i32, text: &str) -> usize {
+    let offset = safe_byte_offset(unsafe_byte_offset, text);
+    let mut grapheme_cursor = unicode_segmentation::GraphemeCursor::new(offset, text.len(), true);
+    match grapheme_cursor.is_boundary(text, 0) {
+        Ok(true) => offset,
+        _ => grapheme_cursor.next_boundary(text, 0).ok().flatten().unwrap_or(text.len()),
     }
-
-    if text.is_char_boundary(byte_offset_candidate) {
-        return byte_offset_candidate;
-    }
-
-    // Use std::floor_char_boundary once stabilized.
-    text.char_indices()
-        .find_map(|(offset, _)| if offset >= byte_offset_candidate { Some(offset) } else { None })
-        .unwrap_or(text.len())
 }
 
 /// This struct holds the fields needed for rendering a TextInput item after applying any
@@ -1472,6 +1469,17 @@ impl TextInputVisualRepresentation {
             byte_offset
         }
     }
+}
+
+/// Whether the text cursor is drawn in the selection color (Apple and Android platforms) rather
+/// than in the text color.
+fn cursor_uses_selection_color() -> bool {
+    matches!(
+        crate::detect_operating_system(),
+        crate::items::OperatingSystemType::Android
+            | crate::items::OperatingSystemType::Ios
+            | crate::items::OperatingSystemType::Macos
+    )
 }
 
 impl TextInput {
@@ -1636,6 +1644,48 @@ impl TextInput {
         new_cursor_pos != last_cursor_pos
     }
 
+    /// Set `text` from an internal edit, keeping the `internal_text` mirror in sync so the
+    /// change handler doesn't mistake this edit for an external assignment.
+    fn set_text_internal(self: Pin<&Self>, text: SharedString) {
+        self.internal_text.set(text.clone());
+        self.text.set(text);
+    }
+
+    /// Called by the change handler when the public `text` property changes. If the new text
+    /// differs from our `internal_text` mirror, the change came from outside (the application
+    /// assigned `text` directly), so realign all derived state to the new text: clamp the
+    /// cursor and anchor offsets to valid boundaries (issue #331) and clear the undo/redo
+    /// stacks, whose positions refer to the now-replaced text (issue #9024).
+    fn align_to_text(self: Pin<&Self>, new_text: &SharedString, self_rc: &ItemRc) {
+        let previous_text = self.internal_text.replace(new_text.clone());
+        if previous_text == *new_text {
+            // Produced by an internal edit: `set_text_internal` already kept the mirror in sync,
+            // so the offsets and undo stack are consistent with `new_text`. Nothing to realign.
+            return;
+        }
+
+        self.undo_items.set(Default::default());
+        self.redo_items.set(Default::default());
+
+        let old_cursor = self.cursor_position_byte_offset();
+        let clamped_cursor = safe_grapheme_boundary_offset(old_cursor, new_text) as i32;
+        let clamped_anchor =
+            safe_grapheme_boundary_offset(self.anchor_position_byte_offset(), new_text) as i32;
+        self.anchor_position_byte_offset.set(clamped_anchor);
+
+        if let Some(window_adapter) = self_rc.window_adapter() {
+            self.set_cursor_position(
+                clamped_cursor,
+                true,
+                TextChangeNotify::TriggerCallbacks,
+                &window_adapter,
+                self_rc,
+            );
+        } else {
+            self.cursor_position_byte_offset.set(clamped_cursor);
+        }
+    }
+
     pub fn set_cursor_position(
         self: Pin<&Self>,
         new_position: i32,
@@ -1715,7 +1765,7 @@ impl TextInput {
         };
 
         let text = [text.split_at(anchor).0, text.split_at(cursor).1].concat();
-        self.text.set(text.into());
+        self.set_text_internal(text.into());
         self.anchor_position_byte_offset.set(anchor as i32);
 
         self.add_undo_item(UndoItem {
@@ -1845,7 +1895,7 @@ impl TextInput {
         });
 
         let cursor_pos = cursor_pos + text_to_insert.len();
-        self.text.set(text.into());
+        self.set_text_internal(text.into());
         self.anchor_position_byte_offset.set(cursor_pos as i32);
         self.set_cursor_position(
             cursor_pos as i32,
@@ -1987,17 +2037,6 @@ impl TextInput {
         }
     }
 
-    pub fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        WindowItem::resolved_font_request(
-            self_rc,
-            self.font_family(),
-            self.font_weight(),
-            self.font_size(),
-            self.letter_spacing(),
-            self.font_italic(),
-        )
-    }
-
     /// Returns a [`TextInputVisualRepresentation`] struct that contains all the fields necessary for rendering the text input,
     /// after making adjustments such as applying a substitution of characters for password input fields, or making sure
     /// that the selection start is always less or equal than the selection end.
@@ -2028,7 +2067,7 @@ impl TextInput {
             let (selection_anchor_pos, selection_cursor_pos) = self.selection_anchor_and_cursor();
             let selection_range = selection_anchor_pos..selection_cursor_pos;
             let cursor_position = self.cursor_position(&text);
-            let cursor_visible = self.cursor_visible() && self.enabled() && !self.read_only();
+            let cursor_visible = self.cursor_visible() && self.enabled();
             let cursor_position = if cursor_visible && selection_range.is_empty() {
                 Some(cursor_position)
             } else {
@@ -2039,13 +2078,14 @@ impl TextInput {
 
         let text_color = self.color();
 
-        let cursor_color = if cfg!(any(target_os = "android", target_vendor = "apple")) {
+        let cursor_color = if cursor_uses_selection_color() {
             if cursor_position.is_some() {
                 self.selection_background_color().with_alpha(1.)
             } else {
                 Default::default()
             }
         } else {
+            // Other platforms draw the cursor in the text color.
             text_color.color()
         };
 
@@ -2139,7 +2179,7 @@ impl TextInput {
         self.undo_items.set(items);
     }
 
-    fn undo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+    pub fn undo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         let mut items = self.undo_items.take();
         let Some(last) = items.pop() else {
             return;
@@ -2150,7 +2190,7 @@ impl TextInput {
                 let text: String = self.text().into();
                 let text = [text.split_at(last.pos).0, text.split_at(last.pos + last.text.len()).1]
                     .concat();
-                self.text.set(text.into());
+                self.set_text_internal(text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2164,7 +2204,7 @@ impl TextInput {
             UndoItemKind::TextRemove => {
                 let mut text: String = self.text().into();
                 text.insert_str(last.pos, &last.text);
-                self.text.set(text.into());
+                self.set_text_internal(text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2184,7 +2224,7 @@ impl TextInput {
         Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
     }
 
-    fn redo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+    pub fn redo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         let mut items = self.redo_items.take();
         let Some(last) = items.pop() else {
             return;
@@ -2194,7 +2234,7 @@ impl TextInput {
             UndoItemKind::TextInsert => {
                 let mut text: String = self.text().into();
                 text.insert_str(last.pos, &last.text);
-                self.text.set(text.into());
+                self.set_text_internal(text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2209,7 +2249,7 @@ impl TextInput {
                 let text: String = self.text().into();
                 let text = [text.split_at(last.pos).0, text.split_at(last.pos + last.text.len()).1]
                     .concat();
-                self.text.set(text.into());
+                self.set_text_internal(text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2241,17 +2281,35 @@ impl TextInput {
 
     fn accept_text_input(self: Pin<&Self>, text_to_insert: &str) -> bool {
         let input_type = self.input_type();
-        if input_type == InputType::Number && !text_to_insert.chars().all(|ch| ch.is_ascii_digit())
-        {
-            return false;
-        } else if input_type == InputType::Decimal {
-            let (a, c) = self.selection_anchor_and_cursor();
-            let text = self.text();
-            let text = [&text[..a], text_to_insert, &text[c..]].concat();
-            if text.as_str() != "." && text.as_str() != "-" && text.parse::<f64>().is_err() {
-                return false;
+
+        match input_type {
+            InputType::Number => return text_to_insert.chars().all(|ch| ch.is_ascii_digit()),
+            InputType::Decimal => {
+                let (a, c) = self.selection_anchor_and_cursor();
+                let current = self.text();
+                let candidate = [&current[..a], text_to_insert, &current[c..]].concat();
+
+                // Allow localized ".", "-", "-." because otherwise the cannot start entering
+                if candidate.len() <= 2
+                    && crate::context::GLOBAL_CONTEXT.with(|ctx| {
+                        let sep =
+                            ctx.get().map(|ctx| ctx.locale_decimal_separator()).unwrap_or('.');
+                        let mut it = candidate.chars();
+                        match (it.next(), it.next()) {
+                            (Some('-'), None) => true,
+                            (Some('-'), Some(c2)) => c2 == sep,
+                            (Some(c1), None) => c1 == sep,
+                            _ => false,
+                        }
+                    })
+                {
+                    return true;
+                }
+                return string_to_float(&candidate).is_some();
             }
+            InputType::Password | InputType::Text | InputType::Search => (),
         }
+
         true
     }
 }
@@ -2386,6 +2444,36 @@ pub unsafe extern "C" fn slint_textinput_paste(
         let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
         let self_rc = ItemRc::new(self_component.clone(), self_index);
         text_input.paste(window_adapter, &self_rc);
+    }
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_textinput_undo(
+    text_input: Pin<&TextInput>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+) {
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        text_input.undo(window_adapter, &self_rc);
+    }
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_textinput_redo(
+    text_input: Pin<&TextInput>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+) {
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        text_input.redo(window_adapter, &self_rc);
     }
 }
 

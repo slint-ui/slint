@@ -34,15 +34,20 @@ pub trait Platform {
         Err(PlatformError::NoEventLoopProvider)
     }
 
-    /// Spins an event loop for a specified period of time.
+    /// Processes pending events and waits for new ones up to the given timeout.
     ///
     /// This function is similar to `run_event_loop()` with two differences:
-    /// * The function is expected to return after the provided timeout, but
-    ///   allow for subsequent invocations to resume the previous loop. The
-    ///   function can return earlier if the loop was terminated otherwise,
-    ///   for example by `quit_event_loop()` or a last-window-closed mechanism.
-    /// * If the timeout is zero, the implementation should merely peek and
-    ///   process any pending events, but then return immediately.
+    /// * It processes any pending events,
+    ///   then blocks waiting for new events for up to `timeout`.
+    ///   It may return earlier than the timeout if events were received,
+    ///   if the loop was terminated via `quit_event_loop()`,
+    ///   or through a last-window-closed mechanism.
+    ///   Callers shouldn't assume the full timeout has elapsed when the function returns.
+    /// * If the timeout is `None`, the implementation should wait
+    ///   indefinitely for events.
+    /// * If the timeout is `Some(Duration::ZERO)`,
+    ///   the implementation should merely peek and process any pending events,
+    ///   then return immediately.
     ///
     /// When the function returns `ControlFlow::Continue`, it is assumed that
     /// the loop remains intact and that in the future the caller should call
@@ -54,11 +59,19 @@ pub trait Platform {
     #[doc(hidden)]
     fn process_events(
         &self,
-        _timeout: core::time::Duration,
+        _timeout: Option<core::time::Duration>,
         _: crate::InternalToken,
     ) -> Result<core::ops::ControlFlow<()>, PlatformError> {
         Err(PlatformError::NoEventLoopProvider)
     }
+
+    /// Called once by `set_platform` immediately after the [`crate::SlintContext`]
+    /// has been constructed, to give the platform a weak handle to its own context.
+    /// Platforms can stash the handle and later use it to spawn futures or write
+    /// process-wide state without going through a window adapter. The default impl
+    /// drops the handle.
+    #[doc(hidden)]
+    fn bind_context(&self, _ctx: crate::SlintContextWeak, _: crate::InternalToken) {}
 
     #[doc(hidden)]
     #[deprecated(
@@ -137,7 +150,7 @@ pub trait Platform {
     /// should direct the output to some developer visible terminal. The default implementation
     /// uses stderr if available, or `console.log` when targeting wasm.
     fn debug_log(&self, _arguments: core::fmt::Arguments) {
-        crate::tests::default_debug_log(_arguments);
+        crate::debug_log::default_log_message(_arguments);
     }
 
     /// Opens the given URL in an external browser.
@@ -158,7 +171,7 @@ pub trait Platform {
 /// The clip board, used in [`Platform::clipboard_text`] and [Platform::set_clipboard_text`]
 #[repr(u8)]
 #[non_exhaustive]
-#[derive(PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub enum Clipboard {
     /// This is the default clipboard used for text action for Ctrl+V,  Ctrl+C.
     /// Corresponds to the secondary clipboard on X11.
@@ -236,8 +249,7 @@ impl core::fmt::Display for SetPlatformError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for SetPlatformError {}
+impl core::error::Error for SetPlatformError {}
 
 /// Set the Slint platform abstraction.
 ///
@@ -261,6 +273,8 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
             .set(crate::SlintContext::new(platform))
             .map_err(|_| SetPlatformError::AlreadySet)
             .unwrap();
+        let ctx = instance.get().unwrap();
+        ctx.platform().bind_context(ctx.downgrade(), crate::InternalToken);
         // Ensure a sane starting point for the animation tick.
         update_timers_and_animations();
         Ok(())
@@ -434,9 +448,9 @@ impl Platform for DummyBackend {
     }
 }
 
-let start_time = i_slint_core::tests::slint_get_mocked_time();
+let start_time = i_slint_backend_testing::get_mocked_time();
 i_slint_core::platform::set_platform(Box::new(DummyBackend{}));
-let time_after_platform_init = i_slint_core::tests::slint_get_mocked_time();
+let time_after_platform_init = i_slint_backend_testing::get_mocked_time();
 assert_ne!(time_after_platform_init, start_time);
 assert_eq!(time_after_platform_init, 100);
 ```

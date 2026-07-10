@@ -82,7 +82,7 @@ fn test_load_file() {
 /// Tries to read the destination file first, and only writes the new content if
 /// the file didn't exist or the file content differs from the content to write.
 /// This avoids unnecessary mtime modification of the file, which caused build
-/// systems like Ninja to rebuild other things even though the outpuf of
+/// systems like Ninja to rebuild other things even though the output of
 /// slint-compiler didn't change.
 pub fn write_file_if_changed(path: &std::path::Path, content: &[u8]) -> std::io::Result<()> {
     if fs::read(path).is_ok_and(|existing| existing == content) {

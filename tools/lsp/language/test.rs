@@ -5,13 +5,16 @@
 
 use lsp_types::{Diagnostic, Url};
 
+use i_slint_live_preview::file_watcher::FileChangeKind;
+
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::rc::Rc;
 
-use crate::common;
-use crate::language::convert_diagnostics;
-use crate::language::load_document_impl;
+use crate::{
+    common,
+    common::LspToPreviews,
+    language::{convert_diagnostics, load_document_impl},
+};
 
 use super::Context;
 
@@ -31,8 +34,9 @@ pub fn mock_context() -> Context {
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: None,
         open_urls: HashSet::new(),
-        to_preview: Rc::new(common::DummyLspToPreview::default()),
+        to_preview: LspToPreviews::with_one(common::DummyLspToPreview::default()),
         pending_recompile: Default::default(),
+        host_language_rename_dont_ask_again: Default::default(),
     }
 }
 
@@ -74,8 +78,9 @@ pub fn loaded_document_cache_with_file_name(
         init_param: Default::default(),
         to_show: None,
         open_urls: Default::default(),
-        to_preview: std::rc::Rc::new(common::DummyLspToPreview::default()),
+        to_preview: LspToPreviews::with_one(common::DummyLspToPreview::default()),
         pending_recompile: Default::default(),
+        host_language_rename_dont_ask_again: Default::default(),
     };
     let (extra_files, diag) =
         spin_on::spin_on(load_document_impl(&mut ctx, content, url.clone(), Some(42)));
@@ -294,13 +299,15 @@ fn preview_file_recompiled_when_dependency_changes() {
     // Update context with:
     // - main.slint set as the preview file (to_show)
     // - main.slint NOT in open_urls (simulating it was closed in the editor)
-    ctx.to_show =
-        Some(i_slint_preview_protocol::PreviewComponent { url: main_url.clone(), component: None });
+    ctx.to_show = Some(i_slint_live_preview::protocol::PreviewComponent {
+        url: main_url.clone(),
+        component: None,
+    });
 
     spin_on::spin_on(crate::language::trigger_file_watcher(
         &mut ctx,
         dep_url.clone(),
-        lsp_types::FileChangeType::CHANGED,
+        FileChangeKind::Changed,
     ))
     .unwrap();
 
@@ -363,7 +370,7 @@ mod missing_imports {
         spin_on::spin_on(crate::language::trigger_file_watcher(
             &mut ctx,
             dep_url,
-            lsp_types::FileChangeType::CREATED,
+            FileChangeKind::Created,
         ))
         .unwrap();
 
@@ -371,5 +378,16 @@ mod missing_imports {
             ctx.pending_recompile.contains(&main_url),
             "main.slint should be scheduled for recompilation when dep.slint is created outside the editor"
         );
+    }
+
+    #[test]
+    fn watch_set_tracks_missing_imports() {
+        let (ctx, dir, main_url) = load_document_with_missing_import();
+
+        let dep_url = Url::from_file_path(dir.join("dep.slint")).unwrap();
+        let watch_urls = ctx.document_cache.all_urls_to_watch();
+
+        assert!(watch_urls.contains(&main_url), "main.slint should stay in the watch set");
+        assert!(watch_urls.contains(&dep_url), "missing imports should stay in the watch set");
     }
 }

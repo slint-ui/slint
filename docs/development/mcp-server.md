@@ -26,7 +26,7 @@ The MCP server shares a common introspection layer with the system-testing (prot
 
 The MCP server is controlled by two layers:
 
-1. **Cargo feature `mcp`** — Compiles the MCP server code. Defined in `internal/backends/testing/Cargo.toml` and forwarded through `internal/backends/selector/Cargo.toml`. Not currently exposed through the public `slint` crate.
+1. **Cargo feature `mcp`** — Compiles the MCP server code. Defined in `internal/backends/testing/Cargo.toml`, forwarded through `internal/backends/selector/Cargo.toml`, and exposed as the public `slint/mcp` feature.
 
 2. **Environment variable `SLINT_MCP_PORT`** — Controls whether the server actually starts at runtime. If not set, `mcp_server::init()` returns immediately with no overhead.
 
@@ -36,7 +36,7 @@ See the [README](../../internal/backends/testing/README.md#enabling-the-mcp-serv
 
 ## Initialization Flow
 
-Initialization is triggered from the backend selector (`internal/backends/selector/lib.rs`) after the platform is successfully created:
+Initialization is triggered from the backend selector (`internal/backends/selector/api.rs`) after the platform is successfully created:
 
 1. `mcp_server::init()` checks `SLINT_MCP_PORT`. If absent, returns early.
 2. Calls `introspection::ensure_window_tracking()` to install a window-shown hook that registers windows with the shared `IntrospectionState`.
@@ -59,6 +59,8 @@ The central data structure, stored as a thread-local `Rc<IntrospectionState>`:
 Both transports use `generational_arena::Index` internally. The proto `Handle` type (`{index, generation}`) is the wire format — `index_to_handle()` and `handle_to_index()` convert between them.
 
 Handles are generational: if an element is evicted and its arena slot reused, stale handles are detected because the generation won't match.
+
+Window handles and element handles share the same `{index, generation}` shape, so clients (especially LLM agents) easily confuse them. To disambiguate, `tool_definitions()` gives the `windowHandle` and `elementHandle` parameters distinct `description`s, and the `initialize` instructions spell out that the two kinds are not interchangeable and where each one comes from.
 
 ### FIFO Eviction
 
@@ -130,4 +132,4 @@ The MCP transport uses the `serde_json`-based serialization, while the system-te
 | `internal/backends/testing/systest.rs` | System-testing TCP/protobuf transport (shares introspection layer) |
 | `internal/backends/testing/slint_systest.proto` | Protobuf definitions (source of truth for data types) |
 | `internal/backends/testing/build.rs` | Proto compilation pipeline |
-| `internal/backends/selector/lib.rs` | Backend initialization, MCP server startup hook |
+| `internal/backends/selector/api.rs` | Backend initialization, MCP server startup hook |

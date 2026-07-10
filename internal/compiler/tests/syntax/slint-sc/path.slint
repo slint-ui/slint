@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Path element is rejected in Slint SC mode.
+
+export component Test inherits Window {
+    Path {
+//  >   <error{The builtin element 'Path' is not supported in Slint SC}
+        width: 100px;
+//      >   <error{Bindings are not supported in Slint SC}
+//             >   <^error{Number literals are not supported in Slint SC}
+        height: 100px;
+//      >    <error{Bindings are not supported in Slint SC}
+//              >   <^error{Number literals are not supported in Slint SC}
+    }
+}

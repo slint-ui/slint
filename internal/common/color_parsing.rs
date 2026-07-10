@@ -61,6 +61,7 @@ static NAMED_COLORS: std::sync::OnceLock<HashMap<&'static str, u32>> = std::sync
 pub fn named_colors() -> &'static HashMap<&'static str, u32> {
     // Colors from https://drafts.csswg.org/css-color/#named-colors plus "transparent"
     NAMED_COLORS.get_or_init(|| {
+        // cspell:disable - CSS named-color keywords (string literals), not prose.
         HashMap::from([
             ("aliceblue", parse_color_literal("#F0F8FF").unwrap()),
             ("antiquewhite", parse_color_literal("#FAEBD7").unwrap()),
@@ -212,5 +213,6 @@ pub fn named_colors() -> &'static HashMap<&'static str, u32> {
             ("yellow", parse_color_literal("#FFFF00").unwrap()),
             ("yellowgreen", parse_color_literal("#9ACD32").unwrap()),
         ])
+        // cspell:enable
     })
 }

@@ -85,6 +85,7 @@ impl Document {
         reexports: Exports,
         diag: &mut BuildDiagnostics,
         parent_registry: &Rc<RefCell<TypeRegister>>,
+        ignore_missing_font_files: bool,
     ) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::Document);
 
@@ -92,10 +93,40 @@ impl Document {
         let mut inner_components = Vec::new();
         let mut inner_types = Vec::new();
 
+        #[cfg(feature = "slint-sc")]
+        for import in &imports {
+            if matches!(
+                import.import_kind,
+                ImportKind::ImportList(_) | ImportKind::ModuleReexport(_)
+            ) {
+                diag.slint_sc_error("Imports are", &import.import_uri_token);
+            }
+        }
+
+        #[cfg(feature = "slint-sc")]
+        let mut sc_exported_count: u32 = 0;
+
         let mut process_component =
             |n: syntax_nodes::Component,
              diag: &mut BuildDiagnostics,
-             local_registry: &mut TypeRegister| {
+             local_registry: &mut TypeRegister,
+             #[cfg(feature = "slint-sc")] sc_exported_count: &mut u32,
+             #[cfg(feature = "slint-sc")] is_exported: bool| {
+                // Globals already get their own "Globals are not supported" message
+                #[cfg(feature = "slint-sc")]
+                if n.child_text(SyntaxKind::Identifier).as_deref() != Some("global") {
+                    if !is_exported {
+                        diag.slint_sc_error("Component declarations are", &n.DeclaredIdentifier());
+                    } else {
+                        *sc_exported_count += 1;
+                        if *sc_exported_count > 1 {
+                            diag.slint_sc_error(
+                                "Multiple exported components per file are",
+                                &n.DeclaredIdentifier(),
+                            );
+                        }
+                    }
+                }
                 let compo = Component::from_node(n, diag, local_registry);
                 if !local_registry.add(compo.clone()) {
                     diag.push_warning(format!("Component '{}' is replacing a previously defined component with the same name", compo.id), &compo.node.clone().unwrap().DeclaredIdentifier());
@@ -106,6 +137,8 @@ impl Document {
                               diag: &mut BuildDiagnostics,
                               local_registry: &mut TypeRegister,
                               inner_types: &mut Vec<Type>| {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Struct declarations are", &n.DeclaredIdentifier());
             let ty = type_struct_from_node(
                 n.ObjectType(),
                 diag,
@@ -127,6 +160,8 @@ impl Document {
                             diag: &mut BuildDiagnostics,
                             local_registry: &mut TypeRegister,
                             inner_types: &mut Vec<Type>| {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Enum declarations are", &n.DeclaredIdentifier());
             let Some(name) = parser::identifier_text(&n.DeclaredIdentifier()) else {
                 assert!(diag.has_errors());
                 return;
@@ -170,7 +205,17 @@ impl Document {
 
         for n in node.children() {
             match n.kind() {
-                SyntaxKind::Component => process_component(n.into(), diag, &mut local_registry),
+                SyntaxKind::Component => {
+                    process_component(
+                        n.into(),
+                        diag,
+                        &mut local_registry,
+                        #[cfg(feature = "slint-sc")]
+                        &mut sc_exported_count,
+                        #[cfg(feature = "slint-sc")]
+                        false,
+                    );
+                }
                 SyntaxKind::StructDeclaration => {
                     process_struct(n.into(), diag, &mut local_registry, &mut inner_types)
                 }
@@ -180,9 +225,15 @@ impl Document {
                 SyntaxKind::ExportsList => {
                     for n in n.children() {
                         match n.kind() {
-                            SyntaxKind::Component => {
-                                process_component(n.into(), diag, &mut local_registry)
-                            }
+                            SyntaxKind::Component => process_component(
+                                n.into(),
+                                diag,
+                                &mut local_registry,
+                                #[cfg(feature = "slint-sc")]
+                                &mut sc_exported_count,
+                                #[cfg(feature = "slint-sc")]
+                                true,
+                            ),
                             SyntaxKind::StructDeclaration => process_struct(
                                 n.into(),
                                 diag,
@@ -206,10 +257,7 @@ impl Document {
             .iter()
             .filter(|import| matches!(import.import_kind, ImportKind::FileImport))
             .filter_map(|import| {
-                if import.file.ends_with(".ttc")
-                    || import.file.ends_with(".ttf")
-                    || import.file.ends_with(".otf")
-                {
+                if crate::pathutils::is_font_file(&import.file) {
                     let token_path = import.import_uri_token.source_file.path();
                     let import_file_path = PathBuf::from(import.file.clone());
                     let import_file_path = crate::pathutils::join(token_path, &import_file_path)
@@ -217,7 +265,10 @@ impl Document {
 
                     // Assume remote urls are valid, we need to load them at run-time (which we currently don't). For
                     // local paths we should try to verify the existence and let the developer know ASAP.
-                    if crate::pathutils::is_url(&import_file_path)
+                    // When the resource URL mapper is set (e.g. remote viewer), fonts are
+                    // delivered out-of-band; skip the local existence check.
+                    if ignore_missing_font_files
+                        || crate::pathutils::is_url(&import_file_path)
                         || crate::fileaccess::load_file(std::path::Path::new(&import_file_path))
                             .is_some()
                     {
@@ -324,6 +375,11 @@ pub struct PopupWindow {
     pub y: NamedReference,
     pub close_policy: EnumerationValue,
     pub parent_element: ElementRc,
+    pub is_tooltip: bool,
+    /// A reference to a synthesized property on the *parent* component that the runtime keeps in sync
+    /// with the popup's visibility (`true` while shown, `false` once closed). This is `Some` only when
+    /// the parent reads the PopupWindow's `is-open` property; see the `lower_popups` pass.
+    pub is_open: Option<NamedReference>,
 }
 
 #[derive(Debug, Clone)]
@@ -351,7 +407,7 @@ pub struct UsedSubTypes {
     /// All the sub components use by this components and its children,
     /// and the amount of time it is used
     pub sub_components: Vec<Rc<Component>>,
-    /// All types, structs, enums, that orignates from an
+    /// All types, structs, enums, that originates from an
     /// external library
     pub library_types_imports: Vec<(SmolStr, LibraryInfo)>,
     /// All global components that originates from an
@@ -375,9 +431,12 @@ pub struct InitCode {
 
 impl InitCode {
     pub fn iter(&self) -> impl Iterator<Item = &Expression> {
-        self.font_registration_code
+        self.font_registration_code.iter().chain(self.iter_without_font_registration())
+    }
+    /// The init code without the font registration, which has to run before the property init.
+    pub fn iter_without_font_registration(&self) -> impl Iterator<Item = &Expression> {
+        self.focus_setting_code
             .iter()
-            .chain(self.focus_setting_code.iter())
             .chain(self.constructor_code.iter())
             .chain(self.inlined_init_code.values())
     }
@@ -451,7 +510,11 @@ impl Component {
                 node.Element(),
                 "root".into(),
                 match node.child_text(SyntaxKind::Identifier) {
-                    Some(t) if t == "global" => ElementType::Global,
+                    Some(t) if t == "global" => {
+                        #[cfg(feature = "slint-sc")]
+                        diag.slint_sc_error("Globals are", &node.DeclaredIdentifier());
+                        ElementType::Global
+                    }
                     Some(t) if t == "interface" => {
                         if !diag.enable_experimental && !tr.expose_internal_types {
                             diag.push_error("'interface' is an experimental feature".into(), &node);
@@ -496,6 +559,17 @@ impl Component {
     /// This is an interface introduced with the "interface" keyword
     pub fn is_interface(&self) -> bool {
         matches!(&self.root_element.borrow().base_type, ElementType::Interface)
+    }
+
+    /// True if this component's root resolves to the `SystemTrayIcon` native
+    /// class. Uses `native_class()` rather than `builtin_type()` so the check
+    /// still matches once the root has been resolved to `Native(SystemTrayIcon)`
+    /// after `resolve_native_classes`.
+    pub fn inherits_system_tray_icon(&self) -> bool {
+        self.root_element
+            .borrow()
+            .native_class()
+            .is_some_and(|n| n.class_name.as_str() == "SystemTrayIcon")
     }
 
     /// Returns the names of aliases to global singletons, exactly as
@@ -576,6 +650,9 @@ pub struct PropertyDeclaration {
     pub visibility: PropertyVisibility,
     /// For function or callback: whether it is declared as `pure` (None for private function for which this has to be deduced)
     pub pure: Option<bool>,
+    /// Whether the declaration shadows a builtin element member of the same name
+    /// (diagnosed by the check_builtin_shadowing pass)
+    pub shadows_builtin: bool,
 }
 
 impl PropertyDeclaration {
@@ -806,8 +883,21 @@ pub struct Element {
 
     /// true when this item's geometry is handled by a layout
     pub child_of_layout: bool,
+    /// true when this item is a direct cell of a `FlexboxLayout`. Narrower
+    /// than `child_of_layout`: only flexbox cells need the per-repeater
+    /// `flexbox_layout_item_info` accessor.
+    pub child_of_flexbox: bool,
     /// The property pointing to the layout info. `(horizontal, vertical)`
     pub layout_info_prop: Option<(NamedReference, NamedReference)>,
+    /// `pure function layoutinfo-v-with-constraint(width: length) -> LayoutInfo`
+    /// synthesized for elements whose vertical layout info depends on
+    /// their width — lets the parent supply the width and avoid the
+    /// recursion that would happen via the descendants' width property.
+    pub layout_info_v_with_constraint: Option<NamedReference>,
+    /// Mirror of `layout_info_v_with_constraint` for the horizontal axis.
+    /// Synthesized on flex elements whose horizontal layout info would
+    /// otherwise read their own height (column-direction or unknown).
+    pub layout_info_h_with_constraint: Option<NamedReference>,
     /// Whether we have `preferred-{width,height}: 100%`
     pub default_fill_parent: (bool, bool),
 
@@ -823,6 +913,9 @@ pub struct Element {
     /// true if this Element may have a popup as child meaning it cannot be optimized
     /// because the popup references it.
     pub has_popup_child: bool,
+
+    /// True for compiler-generated tooltip `PopupWindow` instances (see `lower_tooltips`).
+    pub is_tooltip: bool,
 
     /// This is the component-local index of this item in the item tree array.
     /// It is generated after the last pass and before the generators run.
@@ -1066,7 +1159,25 @@ impl Element {
                     );
                     ElementType::Error
                 }
-                Ok(ty) => ty,
+                Ok(ty) => {
+                    #[cfg(feature = "slint-sc")]
+                    match &ty {
+                        ElementType::Builtin(b) if !b.slint_sc => {
+                            diag.slint_sc_error(
+                                &format!("The builtin element '{}' is", b.name),
+                                &base_node,
+                            );
+                        }
+                        ElementType::Component(_) => {
+                            diag.slint_sc_error(
+                                "Inheriting from user-defined components is",
+                                &base_node,
+                            );
+                        }
+                        _ => {}
+                    }
+                    ty
+                }
                 Err(err) => {
                     diag.push_error(err, &base_node);
                     ElementType::Error
@@ -1100,6 +1211,12 @@ impl Element {
                     error_on(&cb, "an 'init' callback")
                 }
             });
+            node.MatchElement().for_each(|n| error_on(&n, "match statements"));
+
+            if parent_type == ElementType::Interface {
+                node.Binding().for_each(|n| error_on(&n, "bindings"));
+                node.TwoWayBinding().for_each(|n| error_on(&n, "two-way bindings"));
+            }
 
             parent_type
         } else if parent_type != ElementType::Error {
@@ -1109,6 +1226,7 @@ impl Element {
         } else {
             tr.empty_type()
         };
+        let is_interface = base_type == ElementType::Interface;
         // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
         let qualified_id = (!id.is_empty()).then(|| id.clone());
         if let ElementType::Component(c) = &base_type {
@@ -1147,6 +1265,8 @@ impl Element {
         )> = Vec::new();
 
         for prop_decl in node.PropertyDeclaration() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Property declarations are", &prop_decl);
             let prop_type = prop_decl
                 .Type()
                 .map(|type_node| type_from_node(type_node, diag, tr))
@@ -1158,9 +1278,15 @@ impl Element {
             let PropertyLookupResult {
                 resolved_name: prop_name,
                 property_type: maybe_existing_prop_type,
+                is_shadowable,
                 ..
             } = r.lookup_property(&unresolved_prop_name);
+            let shadows_builtin = maybe_existing_prop_type != Type::Invalid && is_shadowable;
             match maybe_existing_prop_type {
+                Type::Invalid => {} // Ok to proceed with a new declaration
+                // The declaration shadows a shadowable builtin member;
+                // the check_builtin_shadowing pass emits the diagnostic
+                _ if shadows_builtin => {}
                 Type::Callback { .. } => {
                     diag.push_error(
                         format!("Cannot declare property '{prop_name}' when a callback with the same name exists"),
@@ -1175,7 +1301,6 @@ impl Element {
                     );
                     continue;
                 }
-                Type::Invalid => {} // Ok to proceed with a new declaration
                 _ => {
                     diag.push_error(
                         format!("Cannot override property '{unresolved_prop_name}'"),
@@ -1217,33 +1342,52 @@ impl Element {
                 }
             });
 
-            if base_type == ElementType::Interface && visibility == PropertyVisibility::Private {
-                diag.push_error(
-                    "'private' properties are inaccessible in an interface".into(),
-                    &prop_decl,
-                );
+            if is_interface {
+                if let Some(binding_expression) = &prop_decl.BindingExpression() {
+                    diag.push_error(
+                        "Interface properties cannot have default values".into(),
+                        binding_expression,
+                    )
+                }
+                if let Some(two_way) = &prop_decl.TwoWayBinding() {
+                    diag.push_error(
+                        "Interface properties cannot have default bindings".into(),
+                        two_way,
+                    )
+                }
+                if visibility == PropertyVisibility::Private {
+                    diag.push_error(
+                        "'private' properties are inaccessible in an interface".into(),
+                        &prop_decl,
+                    );
+                }
             }
 
+            // Use the name as declared, not the resolved name: when the declaration
+            // shadows a builtin member, the resolved name may be a native alias.
             r.property_declarations.insert(
-                prop_name.clone().into(),
+                unresolved_prop_name.clone(),
                 PropertyDeclaration {
                     property_type: prop_type,
                     node: Some(prop_decl.clone().into()),
                     visibility,
+                    shadows_builtin,
                     ..Default::default()
                 },
             );
 
             if let Some(csn) = prop_decl.BindingExpression() {
                 property_bindings.push((
-                    prop_name.clone().into(),
+                    unresolved_prop_name.clone(),
                     csn,
                     prop_decl.DeclaredIdentifier(),
                 ));
             }
 
             if let Some(csn) = prop_decl.TwoWayBinding() {
-                two_way_bindings.push((prop_name.into(), csn, prop_decl.DeclaredIdentifier()));
+                #[cfg(feature = "slint-sc")]
+                diag.slint_sc_error("Two-way bindings are", &csn);
+                two_way_bindings.push((unresolved_prop_name, csn, prop_decl.DeclaredIdentifier()));
             }
         }
 
@@ -1287,6 +1431,8 @@ impl Element {
         apply_default_type_properties(&mut r);
 
         for sig_decl in node.CallbackDeclaration() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Callback declarations are", &sig_decl);
             let name =
                 unwrap_or_continue!(parser::identifier_text(&sig_decl.DeclaredIdentifier()); diag);
 
@@ -1297,9 +1443,13 @@ impl Element {
             let PropertyLookupResult {
                 resolved_name: existing_name,
                 property_type: maybe_existing_prop_type,
+                is_shadowable,
                 ..
             } = r.lookup_property(&name);
-            if !matches!(maybe_existing_prop_type, Type::Invalid) {
+            // When the declaration shadows a shadowable builtin member, proceed;
+            // the check_builtin_shadowing pass emits the diagnostic
+            let shadows_builtin = !matches!(maybe_existing_prop_type, Type::Invalid);
+            if shadows_builtin && !is_shadowable {
                 if matches!(maybe_existing_prop_type, Type::Callback { .. }) {
                     if r.property_declarations.contains_key(&name) {
                         diag.push_error(
@@ -1334,6 +1484,7 @@ impl Element {
                         node: Some(sig_decl.into()),
                         visibility: PropertyVisibility::InOut,
                         pure,
+                        shadows_builtin,
                         ..Default::default()
                     },
                 );
@@ -1367,6 +1518,7 @@ impl Element {
                     node: Some(sig_decl.into()),
                     visibility: PropertyVisibility::InOut,
                     pure,
+                    shadows_builtin,
                     ..Default::default()
                 },
             );
@@ -1375,15 +1527,21 @@ impl Element {
         interfaces::apply_callbacks(&mut r, &implemented_interface, diag);
 
         for func in node.Function() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Function declarations are", &func);
             let name =
                 unwrap_or_continue!(parser::identifier_text(&func.DeclaredIdentifier()); diag);
 
             let PropertyLookupResult {
                 resolved_name: existing_name,
                 property_type: maybe_existing_prop_type,
+                is_shadowable,
                 ..
             } = r.lookup_property(&name);
-            if !matches!(maybe_existing_prop_type, Type::Invalid) {
+            // When the declaration shadows a shadowable builtin member, proceed;
+            // the check_builtin_shadowing pass emits the diagnostic
+            let shadows_builtin = !matches!(maybe_existing_prop_type, Type::Invalid);
+            if shadows_builtin && !is_shadowable {
                 if matches!(maybe_existing_prop_type, Type::Callback { .. } | Type::Function { .. })
                 {
                     diag.push_error(
@@ -1437,7 +1595,7 @@ impl Element {
                 }
             }
 
-            if base_type == ElementType::Interface && visibility != PropertyVisibility::Public {
+            if is_interface && visibility != PropertyVisibility::Public {
                 diag.push_error(
                     "Function declarations in an interface must be public".into(),
                     &func,
@@ -1449,6 +1607,7 @@ impl Element {
                 node: Some(func.clone().into()),
                 visibility,
                 pure,
+                shadows_builtin,
                 ..Default::default()
             };
 
@@ -1483,6 +1642,8 @@ impl Element {
         }
 
         for con_node in node.CallbackConnection() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Callback handlers are", &con_node);
             let unresolved_name = unwrap_or_continue!(parser::identifier_text(&con_node); diag);
             let PropertyLookupResult { resolved_name, property_type, .. } =
                 r.lookup_property(&unresolved_name);
@@ -1514,14 +1675,40 @@ impl Element {
                 Entry::Vacant(e) => {
                     e.insert(BindingExpression::new_uncompiled(con_node.clone().into()).into());
                 }
-                Entry::Occupied(_) => diag.push_error(
-                    "Duplicated callback".into(),
-                    &con_node.child_token(SyntaxKind::Identifier).unwrap(),
-                ),
+                Entry::Occupied(mut e) => {
+                    // A global may implement a callback declared in another global: the
+                    // callback is declared as a two-way alias (`callback foo <=> Other.foo;`)
+                    // and also given a handler (`foo => { ... }`). The alias node stays on
+                    // the declaration, and the handler takes the binding expression slot.
+                    let is_global_alias = r.base_type == ElementType::Global
+                        && matches!(
+                            &e.get().borrow().expression,
+                            Expression::Uncompiled(node) if node.kind() == SyntaxKind::TwoWayBinding
+                        );
+                    if is_global_alias {
+                        // Keep the handler as the binding and point its span at the handler
+                        // name, so a duplicate-implementation error refers to the
+                        // implementation rather than the alias. The alias is recovered from
+                        // the declaration node, so dropping it from the binding is fine.
+                        let mut handler =
+                            BindingExpression::new_uncompiled(con_node.clone().into());
+                        if let Some(name) = con_node.child_token(SyntaxKind::Identifier) {
+                            handler.span = Some(name.to_source_location());
+                        }
+                        e.insert(handler.into());
+                    } else {
+                        diag.push_error(
+                            "Duplicated callback".into(),
+                            &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                        );
+                    }
+                }
             }
         }
 
         for anim in node.PropertyAnimation() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Animations are", &anim);
             if let Some(star) = anim.child_token(SyntaxKind::Star) {
                 diag.push_error(
                     "catch-all property is only allowed within transitions".into(),
@@ -1589,6 +1776,8 @@ impl Element {
         }
 
         for ch in node.PropertyChangedCallback() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Change callbacks are", &ch);
             let Some(prop) = parser::identifier_text(&ch.DeclaredIdentifier()) else { continue };
             let lookup_result = r.lookup_property(&prop);
             if !lookup_result.is_valid() {
@@ -1681,7 +1870,26 @@ impl Element {
                     )
                 }
                 r.borrow_mut().children.push(rep);
+            } else if se.kind() == SyntaxKind::MatchElement {
+                let mut sub_child_insertion_point = None;
+                let rep = Element::from_match_node(
+                    se.into(),
+                    r.borrow().base_type.clone(),
+                    &mut sub_child_insertion_point,
+                    is_legacy_syntax,
+                    diag,
+                    tr,
+                );
+                if let Some(ChildrenInsertionPoint { node: se, .. }) = sub_child_insertion_point {
+                    diag.push_error(
+                        "The @children placeholder cannot appear in a match element".into(),
+                        &se,
+                    )
+                }
+                r.borrow_mut().children.extend(rep);
             } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
+                #[cfg(feature = "slint-sc")]
+                diag.slint_sc_error("The @children placeholder is", &se);
                 if children_placeholder.is_some() {
                     diag.push_error(
                         "The @children placeholder can only appear once in an element".into(),
@@ -1708,6 +1916,10 @@ impl Element {
             }
         }
 
+        #[cfg(feature = "slint-sc")]
+        for s_node in node.States() {
+            diag.slint_sc_error("States are", &s_node);
+        }
         for state in node.States().flat_map(|s| s.State()) {
             let s = State {
                 id: parser::identifier_text(&state.DeclaredIdentifier()).unwrap_or_default(),
@@ -1737,6 +1949,8 @@ impl Element {
         }
 
         for ts in node.Transitions() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Transitions are", &ts);
             if !is_legacy_syntax {
                 diag.push_error("'transitions' block are no longer supported. Use 'in {...}' and 'out {...}' directly in the state definition".into(), &ts);
             }
@@ -1804,6 +2018,8 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
+        #[cfg(feature = "slint-sc")]
+        diag.slint_sc_error("Repeated elements (for-in) are", &node);
         let e = Element::from_sub_element_node(
             node.SubElement(),
             parent.borrow().base_type.clone(),
@@ -1812,7 +2028,23 @@ impl Element {
             diag,
             tr,
         );
-        let is_listview = if parent.borrow().base_type.to_string() == "ListView" {
+        let parent_is_listview = {
+            let parent = parent.borrow();
+            parent.base_type.to_string() == "ListView"
+                // Custom "ListView" is OK, but it must have these properties
+                && [
+                    "viewport-y",
+                    "viewport-height",
+                    "viewport-width",
+                    "visible-height",
+                    "visible-width",
+                ]
+                .iter()
+                .all(|p| parent.lookup_property(p).property_type == Type::LogicalLength)
+        };
+        let is_listview = if parent_is_listview
+            && let Some(geometry_props) = e.borrow().geometry_props.as_ref()
+        {
             let lvi = ListViewInfo {
                 viewport_y: NamedReference::new(parent, SmolStr::new_static("viewport-y")),
                 viewport_height: NamedReference::new(
@@ -1826,7 +2058,7 @@ impl Element {
             // these properties are set by the ListView layouting code
             lvi.viewport_height.mark_as_set();
             lvi.viewport_width.mark_as_set();
-            e.borrow().geometry_props.as_ref().unwrap().y.mark_as_set();
+            geometry_props.y.mark_as_set();
             Some(lvi)
         } else {
             None
@@ -1856,6 +2088,8 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
+        #[cfg(feature = "slint-sc")]
+        diag.slint_sc_error("Conditional elements (if) are", &node);
         let rei = RepeatedElementInfo {
             model: Expression::Uncompiled(node.Expression().into()),
             model_data_id: SmolStr::default(),
@@ -1873,6 +2107,86 @@ impl Element {
         );
         e.borrow_mut().repeated = Some(rei);
         e
+    }
+
+    fn from_match_node(
+        node: syntax_nodes::MatchElement,
+        parent_type: ElementType,
+        component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
+        is_in_legacy_component: bool,
+        diag: &mut BuildDiagnostics,
+        tr: &TypeRegister,
+    ) -> Vec<ElementRc> {
+        if !diag.enable_experimental {
+            diag.push_error("match statements are an experimental feature".into(), &node);
+        }
+        let mut cases: Vec<ElementRc> = Vec::new();
+        let expr = node.Expression();
+        for case in node.MatchCase() {
+            let Some(sub_element) = case.SubElement() else {
+                continue;
+            };
+            let rei = RepeatedElementInfo {
+                model: Expression::BinaryExpression {
+                    lhs: (Box::new(Expression::Uncompiled(expr.clone().into()))),
+                    rhs: Box::new(Expression::Uncompiled(case.Expression().into())),
+                    op: '=',
+                },
+                model_data_id: SmolStr::default(),
+                index_id: SmolStr::default(),
+                is_conditional_element: true,
+                is_listview: None,
+            };
+            let e: Rc<RefCell<Element>> = Element::from_sub_element_node(
+                sub_element,
+                parent_type.clone(),
+                component_child_insertion_point,
+                is_in_legacy_component,
+                diag,
+                tr,
+            );
+            e.borrow_mut().repeated = Some(rei);
+            cases.push(e);
+        }
+        if let Some(wildcard) = node.WildcardMatchCase()
+            && let Some(sub_element) = wildcard.SubElement()
+        {
+            let case_exprs: Vec<_> = node.MatchCase().collect();
+            let mut condition = Expression::BinaryExpression {
+                lhs: Box::new(Expression::Uncompiled(expr.clone().into())),
+                rhs: Box::new(Expression::Uncompiled(case_exprs[0].Expression().into())),
+                op: '!',
+            };
+            for case in &case_exprs[1..] {
+                condition = Expression::BinaryExpression {
+                    lhs: Box::new(condition),
+                    rhs: Box::new(Expression::BinaryExpression {
+                        lhs: Box::new(Expression::Uncompiled(expr.clone().into())),
+                        rhs: Box::new(Expression::Uncompiled(case.Expression().into())),
+                        op: '!',
+                    }),
+                    op: '&',
+                };
+            }
+            let rei = RepeatedElementInfo {
+                model: condition,
+                model_data_id: SmolStr::default(),
+                index_id: SmolStr::default(),
+                is_conditional_element: true,
+                is_listview: None,
+            };
+            let e = Element::from_sub_element_node(
+                sub_element,
+                parent_type.clone(),
+                component_child_insertion_point,
+                is_in_legacy_component,
+                diag,
+                tr,
+            );
+            e.borrow_mut().repeated = Some(rei);
+            cases.push(e);
+        }
+        cases
     }
 
     /// Return the type of a property in this element or its base, along with the final name, in case
@@ -1893,6 +2207,7 @@ impl Element {
                 declared_pure: p.pure,
                 is_local_to_component: true,
                 is_in_direct_base: false,
+                is_shadowable: false,
                 builtin_function: None,
             },
         )
@@ -1905,6 +2220,8 @@ impl Element {
         diag: &mut BuildDiagnostics,
     ) {
         for (name_token, b) in bindings {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Bindings are", &name_token);
             let unresolved_name = crate::parser::normalize_identifier(name_token.text());
             let lookup_result = self.lookup_property(&unresolved_name);
             if !lookup_result.property_type.is_property_type() {
@@ -1972,6 +2289,39 @@ impl Element {
         }
     }
 
+    /// Return the alias node of a `callback foo <=> ...;` declaration, if `name` is one.
+    ///
+    /// This lives on the callback declaration itself, which is where the alias of a
+    /// global callback that also has a handler ends up (the handler takes the binding
+    /// expression slot).
+    pub fn callback_alias_declaration_node(
+        &self,
+        name: &str,
+    ) -> Option<syntax_nodes::TwoWayBinding> {
+        self.property_declarations
+            .get(name)
+            .and_then(|d| d.node.clone())
+            .and_then(syntax_nodes::CallbackDeclaration::new)
+            .and_then(|cb| cb.TwoWayBinding())
+    }
+
+    /// Return the two-way-binding syntax node of a `<=>` alias for the given property, if any.
+    ///
+    /// Usually the alias is the binding's own (uncompiled) expression. But a global
+    /// callback may both alias another global's callback (`callback foo <=> Other.foo;`)
+    /// and provide a handler (`foo => { ... }`): the handler then occupies the binding
+    /// expression slot, so the alias node lives on the callback declaration instead.
+    pub fn two_way_binding_node(&self, name: &str) -> Option<syntax_nodes::TwoWayBinding> {
+        if let Some(binding) = self.bindings.get(name)
+            && let Ok(b) = binding.try_borrow()
+            && let Expression::Uncompiled(node) = b.expression.ignore_debug_hooks()
+            && let Some(twb) = syntax_nodes::TwoWayBinding::new(node.clone())
+        {
+            return Some(twb);
+        }
+        self.callback_alias_declaration_node(name)
+    }
+
     pub fn native_class(&self) -> Option<Rc<NativeClass>> {
         let mut base_type = self.base_type.clone();
         loop {
@@ -2006,6 +2356,80 @@ impl Element {
         })
     }
 
+    /// Whether this element is a *builtin* whose vertical layout info
+    /// depends on its width. Returns `false` for user components — even
+    /// ones whose own bindings derive height from width (e.g.
+    /// `component Foo { height: self.width; }`); those don't carry the
+    /// information needed to detect the dependency here. The synthesis
+    /// pass catches user components by other means (descendant
+    /// height-for-width + `layoutinfo-v-with-constraint` propagation).
+    pub fn is_builtin_height_for_width(&self) -> bool {
+        let Some(builtin) = self.builtin_type() else { return false };
+        match builtin.name.as_str() {
+            // Conservatively treat any wrap binding (including a literal
+            // `no-wrap`) as height-for-width.
+            "Text" | "TextInput" => self.is_binding_set("wrap", false),
+            // An Image is height-for-width only while its height comes from its
+            // width; with an explicit height it is fixed, so it is not.
+            "Image" | "ClippedImage" => !self.is_binding_set("height", true),
+            // Markdown text always wraps to fill the given width.
+            "StyledText" => true,
+            _ => false,
+        }
+    }
+
+    /// Returns the `layoutinfo-v-with-constraint` NamedReference reachable
+    /// from `self`, looking through the base-type chain. The NR points to
+    /// the element actually carrying the binding.
+    pub fn inherited_layout_info_v_with_constraint(&self) -> Option<NamedReference> {
+        if let Some(nr) = &self.layout_info_v_with_constraint {
+            return Some(nr.clone());
+        }
+        let mut base = self.base_type.clone();
+        while let ElementType::Component(base_comp) = base {
+            let root = base_comp.root_element.borrow();
+            if let Some(nr) = &root.layout_info_v_with_constraint {
+                return Some(nr.clone());
+            }
+            base = root.base_type.clone();
+        }
+        None
+    }
+
+    /// Whether [`Self::inherited_layout_info_v_with_constraint`] would return
+    /// `Some`, without cloning the `NamedReference`.
+    pub fn has_inherited_layout_info_v_with_constraint(&self) -> bool {
+        if self.layout_info_v_with_constraint.is_some() {
+            return true;
+        }
+        let mut base = self.base_type.clone();
+        while let ElementType::Component(base_comp) = base {
+            let root = base_comp.root_element.borrow();
+            if root.layout_info_v_with_constraint.is_some() {
+                return true;
+            }
+            base = root.base_type.clone();
+        }
+        false
+    }
+
+    /// Mirror of [`Self::inherited_layout_info_v_with_constraint`] for the
+    /// horizontal axis.
+    pub fn inherited_layout_info_h_with_constraint(&self) -> Option<NamedReference> {
+        if let Some(nr) = &self.layout_info_h_with_constraint {
+            return Some(nr.clone());
+        }
+        let mut base = self.base_type.clone();
+        while let ElementType::Component(base_comp) = base {
+            let root = base_comp.root_element.borrow();
+            if let Some(nr) = &root.layout_info_h_with_constraint {
+                return Some(nr.clone());
+            }
+            base = root.base_type.clone();
+        }
+        None
+    }
+
     /// Returns the element's name as specified in the markup, not normalized.
     pub fn original_name(&self) -> SmolStr {
         self.debug
@@ -2029,6 +2453,17 @@ impl Element {
         } else {
             false
         }
+    }
+
+    /// Returns true if the property is set by a binding or an assignment expression
+    pub fn is_property_set(self: &Element, property_name: &str) -> bool {
+        self.bindings.contains_key(property_name)
+            || self
+                .property_analysis
+                .borrow()
+                .get(property_name)
+                .is_some_and(|a| a.is_set || a.is_linked)
+            || matches!(&self.base_type, ElementType::Component(base) if base.root_element.borrow().is_property_set(property_name))
     }
 
     /// Set the property `property_name` of this Element only if it was not set.
@@ -2111,7 +2546,7 @@ fn css_property_suggestion(property_name: &str, base_type: &ElementType) -> Opti
 }
 
 /// Apply default property values defined in `builtins.slint` to the element.
-fn apply_default_type_properties(element: &mut Element) {
+pub(crate) fn apply_default_type_properties(element: &mut Element) {
     // Apply default property values on top:
     if let ElementType::Builtin(builtin_base) = &element.base_type {
         for (prop, info) in &builtin_base.properties {
@@ -2137,6 +2572,9 @@ pub fn type_from_node(
 
         let prop_type = tr.lookup_qualified(&qualified_type.members);
 
+        #[cfg(feature = "slint-sc")]
+        diag.slint_sc_error(&format!("The type '{qualified_type}' is"), &qualified_type_node);
+
         if prop_type == Type::Invalid && tr.lookup_element(&qualified_type.to_smolstr()).is_err() {
             diag.push_error(format!("Unknown type '{qualified_type}'"), &qualified_type_node);
         } else if !prop_type.is_property_type() {
@@ -2147,8 +2585,12 @@ pub fn type_from_node(
         }
         prop_type
     } else if let Some(object_node) = node.ObjectType() {
+        #[cfg(feature = "slint-sc")]
+        diag.slint_sc_error("Inline struct types are", &object_node);
         type_struct_from_node(object_node, diag, tr, None)
     } else if let Some(array_node) = node.ArrayType() {
+        #[cfg(feature = "slint-sc")]
+        diag.slint_sc_error("Array types are", &array_node);
         Type::Array(Rc::new(type_from_node(array_node.Type(), diag, tr)))
     } else {
         assert!(diag.has_errors());
@@ -2430,12 +2872,28 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
         .for_each(|c| recurse_elem_including_sub_components_no_borrow(c, state, vis));
 }
 
-/// This visit the binding attached to this element, but does not recurse in children elements
-/// Also does not recurse within the expressions.
+/// Visit the model expression of `elem`, if `elem` is the body of a `for`.
 ///
-/// This code will temporarily move the bindings or states member so it can call the visitor without
-/// maintaining a borrow on the RefCell.
-pub fn visit_element_expressions(
+/// The expression is temporarily moved out of `repeated.model` so the visitor
+/// can mutate it without holding a borrow on `elem`.
+pub fn visit_repeater_model_expression(
+    elem: &ElementRc,
+    mut vis: impl FnMut(&mut Expression, Option<&str>, &dyn Fn() -> Type),
+) {
+    let repeated = elem
+        .borrow_mut()
+        .repeated
+        .as_mut()
+        .map(|r| (std::mem::take(&mut r.model), r.is_conditional_element));
+    if let Some((mut model, is_cond)) = repeated {
+        vis(&mut model, None, &|| if is_cond { Type::Bool } else { Type::Model });
+        elem.borrow_mut().repeated.as_mut().unwrap().model = model;
+    }
+}
+
+/// Like [`visit_element_expressions`] but skips the repeater model
+/// expression. Use [`visit_repeater_model_expression`] separately for that.
+pub fn visit_element_expressions_excluding_repeater_model(
     elem: &ElementRc,
     mut vis: impl FnMut(&mut Expression, Option<&str>, &dyn Fn() -> Type),
 ) {
@@ -2447,6 +2905,17 @@ pub fn visit_element_expressions(
             vis(&mut expr.borrow_mut(), Some(name.as_str()), &|| {
                 elem.borrow().lookup_property(name).property_type
             });
+
+            for twb in &mut expr.borrow_mut().two_way_bindings {
+                if let expression_tree::TwoWayBinding::ModelData { repeated_element, .. } = twb {
+                    let mut e =
+                        Expression::RepeaterModelReference { element: repeated_element.clone() };
+                    vis(&mut e, None, &|| Type::Invalid);
+                    if let Expression::RepeaterModelReference { element } = e {
+                        *repeated_element = element;
+                    }
+                }
+            }
 
             match &mut expr.borrow_mut().animation {
                 Some(PropertyAnimation::Static(e)) => visit_element_expressions_simple(e, vis),
@@ -2461,15 +2930,6 @@ pub fn visit_element_expressions(
         }
     }
 
-    let repeated = elem
-        .borrow_mut()
-        .repeated
-        .as_mut()
-        .map(|r| (std::mem::take(&mut r.model), r.is_conditional_element));
-    if let Some((mut model, is_cond)) = repeated {
-        vis(&mut model, None, &|| if is_cond { Type::Bool } else { Type::Model });
-        elem.borrow_mut().repeated.as_mut().unwrap().model = model;
-    }
     visit_element_expressions_simple(elem, &mut vis);
 
     for expr in elem.borrow().change_callbacks.values() {
@@ -2507,6 +2967,14 @@ pub fn visit_element_expressions(
     }
 }
 
+pub fn visit_element_expressions(
+    elem: &ElementRc,
+    mut vis: impl FnMut(&mut Expression, Option<&str>, &dyn Fn() -> Type),
+) {
+    visit_repeater_model_expression(elem, &mut vis);
+    visit_element_expressions_excluding_repeater_model(elem, &mut vis);
+}
+
 pub fn visit_named_references_in_expression(
     expr: &mut Expression,
     vis: &mut impl FnMut(&mut NamedReference),
@@ -2521,8 +2989,8 @@ pub fn visit_named_references_in_expression(
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::OrganizeGridLayout(l) => l.visit_named_references(vis),
-        Expression::ComputeBoxLayoutInfo(l, _) => l.visit_named_references(vis),
-        Expression::ComputeFlexboxLayoutInfo(l, _) => l.visit_named_references(vis),
+        Expression::ComputeBoxLayoutInfo { layout, .. } => layout.visit_named_references(vis),
+        Expression::ComputeFlexboxLayoutInfo { layout, .. } => layout.visit_named_references(vis),
         Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, .. } => {
             vis(layout_organized_data_prop);
             layout.visit_named_references(vis);
@@ -2585,6 +3053,16 @@ pub fn visit_all_named_references_in_element(
     let mut layout_info_prop = std::mem::take(&mut elem.borrow_mut().layout_info_prop);
     layout_info_prop.as_mut().map(|(h, b)| (vis(h), vis(b)));
     elem.borrow_mut().layout_info_prop = layout_info_prop;
+    let mut constrained_v = std::mem::take(&mut elem.borrow_mut().layout_info_v_with_constraint);
+    if let Some(nr) = constrained_v.as_mut() {
+        vis(nr);
+    }
+    elem.borrow_mut().layout_info_v_with_constraint = constrained_v;
+    let mut constrained_h = std::mem::take(&mut elem.borrow_mut().layout_info_h_with_constraint);
+    if let Some(nr) = constrained_h.as_mut() {
+        vis(nr);
+    }
+    elem.borrow_mut().layout_info_h_with_constraint = constrained_h;
     let mut debug = std::mem::take(&mut elem.borrow_mut().debug);
     for d in debug.iter_mut() {
         if let Some(l) = d.layout.as_mut() {
@@ -2608,8 +3086,10 @@ pub fn visit_all_named_references_in_element(
 
     // visit two way bindings
     for expr in elem.borrow().bindings.values() {
-        for nr in &mut expr.borrow_mut().two_way_bindings {
-            vis(&mut nr.property);
+        for twb in &mut expr.borrow_mut().two_way_bindings {
+            if let expression_tree::TwoWayBinding::Property { property, .. } = twb {
+                vis(property);
+            }
         }
     }
 
@@ -2644,6 +3124,9 @@ pub fn visit_all_named_references(
                 compo.popup_windows.borrow_mut().iter_mut().for_each(|p| {
                     vis(&mut p.x);
                     vis(&mut p.y);
+                    if let Some(is_open) = &mut p.is_open {
+                        vis(is_open);
+                    }
                 });
                 compo.timers.borrow_mut().iter_mut().for_each(|t| {
                     vis(&mut t.interval);
@@ -2820,6 +3303,8 @@ impl Exports {
                 .filter(|exports| exports.ExportModule().is_none())
                 .flat_map(|exports| exports.ExportSpecifier())
                 .filter_map(|export_specifier| {
+                    #[cfg(feature = "slint-sc")]
+                    diag.slint_sc_error("Export specifiers are", &export_specifier);
                     let (internal_name, exported_name) =
                         ExportedName::from_export_specifier(&export_specifier);
                     Some((
@@ -2937,7 +3422,7 @@ impl Exports {
                     diag.push_warning(
                         format!(
                             "'{}' is already exported in this file; it will not be re-exported",
-                            &*export.0
+                            *export.0
                         ),
                         &export.0.name_ident,
                     );
@@ -3038,12 +3523,14 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
             old_root,
             Orientation::Horizontal,
             crate::layout::BuiltinFilter::All,
+            None,
         )
         .unwrap();
         let expr_v = crate::layout::implicit_layout_info_call(
             old_root,
             Orientation::Vertical,
             crate::layout::BuiltinFilter::All,
+            None,
         )
         .unwrap();
         let expr_v =

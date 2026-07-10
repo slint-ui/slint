@@ -3,19 +3,136 @@
 
 use i_slint_core::api::PhysicalSize;
 use i_slint_core::graphics::euclid::{Point2D, Size2D};
+use i_slint_core::item_rendering::HasFont;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::{Renderer, RendererSealed};
 use i_slint_core::textlayout::sharedparley;
-use i_slint_core::window::{InputMethodRequest, WindowAdapter, WindowAdapterInternal, WindowInner};
+use i_slint_core::window::{
+    InputMethodRequest, WindowAdapter, WindowAdapterInternal, WindowInner, WindowKind,
+};
 
 use i_slint_core::SharedString;
-use i_slint_core::items::TextWrap;
+use i_slint_core::api::LogicalPosition;
+use i_slint_core::input::MouseEvent;
+use i_slint_core::items::{AllowedDragActions, DragAction, DropEvent, TextWrap};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::sync::Mutex;
+
+std::thread_local! {
+    /// Live windows targeted by [`ensure_all_tracked_trees_instantiated`].
+    static ALL_TESTING_WINDOWS: RefCell<Vec<Weak<TestingWindow>>> =
+        const { RefCell::new(Vec::new()) }
+}
+
+/// Run the `ensure_instantiated` repeater instantiation pass on every live
+/// testing window.
+fn ensure_all_tracked_trees_instantiated() {
+    let live: Vec<Rc<TestingWindow>> = ALL_TESTING_WINDOWS.with(|list| {
+        let mut list = list.borrow_mut();
+        list.retain(|w| w.upgrade().is_some());
+        list.iter().filter_map(|w| w.upgrade()).collect()
+    });
+    for tw in live {
+        WindowInner::from_pub(&tw.window).ensure_tree_instantiated();
+    }
+}
+
+/// Advance the mocked time by the given number of milliseconds, updating
+/// animations, firing timers, running change handlers, and instantiating
+/// pending repeaters and conditionals on every live testing window.
+pub fn mock_elapsed_time(time_in_ms: u64) {
+    let tick = i_slint_core::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+        let mut tick = driver.current_tick();
+        tick += core::time::Duration::from_millis(time_in_ms);
+        driver.update_animations(tick);
+        tick
+    });
+    i_slint_core::timers::TimerList::maybe_activate_timers(tick);
+    i_slint_core::properties::ChangeTracker::run_change_handlers();
+    ensure_all_tracked_trees_instantiated();
+}
+
+/// Return the current mocked time in milliseconds.
+pub fn get_mocked_time() -> u64 {
+    i_slint_core::animations::CURRENT_ANIMATION_DRIVER
+        .with(|driver| driver.current_tick())
+        .as_millis()
+}
+
+#[cfg(any(feature = "internal", feature = "ffi"))]
+/// Simulate a click at (`x`, `y`) and release after 50 ms of mock time.
+pub fn send_mouse_click(x: f32, y: f32, window_adapter: &i_slint_core::window::WindowAdapterRc) {
+    use i_slint_core::api::LogicalPosition;
+    use i_slint_core::items::PointerEventButton;
+    use i_slint_core::platform::WindowEvent;
+
+    let position = LogicalPosition::new(x, y);
+    let button = PointerEventButton::Left;
+
+    window_adapter.window().dispatch_event(WindowEvent::PointerMoved { position });
+    window_adapter.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+    mock_elapsed_time(50);
+    window_adapter.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+}
+
+#[cfg(any(feature = "internal", feature = "ffi"))]
+/// Dispatch a single key press or release event.
+pub fn send_keyboard_key_text(
+    text: &i_slint_core::SharedString,
+    pressed: bool,
+    window_adapter: &i_slint_core::window::WindowAdapterRc,
+) {
+    use i_slint_core::platform::WindowEvent;
+    window_adapter.window().dispatch_event(if pressed {
+        WindowEvent::KeyPressed { text: text.clone() }
+    } else {
+        WindowEvent::KeyReleased { text: text.clone() }
+    })
+}
+
+#[cfg(feature = "ffi")]
+/// Dispatch each character in the string as a separate key event.
+pub fn send_keyboard_char(
+    string: &i_slint_core::SharedString,
+    pressed: bool,
+    window_adapter: &i_slint_core::window::WindowAdapterRc,
+) {
+    for ch in string.chars() {
+        send_keyboard_key_text(&ch.into(), pressed, window_adapter);
+    }
+}
+
+#[cfg(any(feature = "internal", feature = "ffi"))]
+/// Simulate typing a string, with automatic Shift handling for uppercase letters.
+pub fn send_keyboard_string_sequence(
+    sequence: &i_slint_core::SharedString,
+    window_adapter: &i_slint_core::window::WindowAdapterRc,
+) {
+    use i_slint_core::input::key_codes::Key;
+    use i_slint_core::platform::WindowEvent;
+
+    for ch in sequence.chars() {
+        if ch.is_ascii_uppercase() {
+            window_adapter
+                .window()
+                .dispatch_event(WindowEvent::KeyPressed { text: Key::Shift.into() });
+        }
+
+        let text: i_slint_core::SharedString = ch.into();
+        window_adapter.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+        window_adapter.window().dispatch_event(WindowEvent::KeyReleased { text });
+
+        if ch.is_ascii_uppercase() {
+            window_adapter
+                .window()
+                .dispatch_event(WindowEvent::KeyReleased { text: Key::Shift.into() });
+        }
+    }
+}
 
 const FIXED_TEST_FONT: &str = "FixedTestFont";
 
@@ -27,14 +144,23 @@ fn is_fixed_test_font(family: &Option<SharedString>) -> bool {
 pub struct TestingBackendOptions {
     pub mock_time: bool,
     pub threading: bool,
+    /// When set, windows embed a real rasterizer so headless rendering
+    /// (e.g. `Window::take_snapshot`) works. Recognized names: `software`,
+    /// `skia`; an empty string or `default` picks the best available.
+    /// When `None`, the backend keeps its mock renderer with fixed font
+    /// metrics.
+    #[cfg(supports_headless)]
+    pub renderer_name: Option<SharedString>,
 }
 
 pub struct TestingBackend {
     clipboard: Mutex<Option<String>>,
     queue: Option<Queue>,
     mock_time: bool,
-    #[allow(dead_code)]
     pub open_url: Rc<RefCell<Option<SharedString>>>,
+    pub debug_logs: Rc<RefCell<Vec<String>>>,
+    #[cfg(supports_headless)]
+    renderer_name: Option<SharedString>,
 }
 
 impl TestingBackend {
@@ -44,6 +170,9 @@ impl TestingBackend {
             queue: options.threading.then(|| Queue(Default::default(), std::thread::current())),
             mock_time: options.mock_time,
             open_url: Default::default(),
+            debug_logs: Default::default(),
+            #[cfg(supports_headless)]
+            renderer_name: options.renderer_name,
         }
     }
 }
@@ -52,14 +181,27 @@ impl i_slint_core::platform::Platform for TestingBackend {
     fn create_window_adapter(
         &self,
     ) -> Result<Rc<dyn WindowAdapter>, i_slint_core::platform::PlatformError> {
-        Ok(Rc::new_cyclic(|self_weak| TestingWindow {
+        #[cfg(supports_headless)]
+        let renderer =
+            self.renderer_name.as_ref().map(|name| create_headless_renderer(name)).transpose()?;
+        let window = Rc::new_cyclic(|self_weak| TestingWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
             size: Default::default(),
             ime_requests: Default::default(),
             mouse_cursor: Default::default(),
             all_item_trees: Default::default(),
             open_url: self.open_url.clone(),
-        }))
+            debug_logs: self.debug_logs.clone(),
+            native_popup: Cell::new(false),
+            simulate_native_drag: Cell::new(false),
+            native_drag: Default::default(),
+            #[cfg(supports_headless)]
+            renderer_name: self.renderer_name.clone(),
+            #[cfg(supports_headless)]
+            renderer,
+        });
+        ALL_TESTING_WINDOWS.with(|list| list.borrow_mut().push(Rc::downgrade(&window)));
+        Ok(window)
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
@@ -120,6 +262,11 @@ impl i_slint_core::platform::Platform for TestingBackend {
         *self.open_url.borrow_mut() = Some(url.into());
         Ok(())
     }
+
+    fn debug_log(&self, arguments: core::fmt::Arguments) {
+        self.debug_logs.borrow_mut().push(arguments.to_string());
+        i_slint_core::debug_log::default_log_message(arguments);
+    }
 }
 
 #[derive(Default)]
@@ -144,9 +291,27 @@ pub struct TestingWindow {
     mouse_cursor: Cell<i_slint_core::items::MouseCursor>,
     all_item_trees: CheckAllItemTreesUnregistered,
     pub open_url: Rc<RefCell<Option<SharedString>>>,
+    pub debug_logs: Rc<RefCell<Vec<String>>>,
+    native_popup: Cell<bool>,
+    simulate_native_drag: Cell<bool>,
+    /// Payload and allowed actions recorded by `start_drag` while simulating a native drag,
+    /// so the receive-side helpers can build the drop they deliver to a target window.
+    native_drag: RefCell<Option<(i_slint_core::data_transfer::DataTransfer, AllowedDragActions)>>,
+    /// Remembered for child popups, so they pick the same rasterizer.
+    #[cfg(supports_headless)]
+    renderer_name: Option<SharedString>,
+    /// Rasterizer returned by `WindowAdapter::renderer` when headless
+    /// rendering was requested, so every `RendererSealed` call routes through
+    /// it. `None` keeps the mock renderer with its fixed test font metrics.
+    #[cfg(supports_headless)]
+    renderer: Option<Box<dyn Renderer>>,
 }
 
 impl TestingWindow {
+    pub fn use_native_popup(&self, native: bool) {
+        self.native_popup.set(native);
+    }
+
     #[allow(dead_code)] // Used by various tests
     pub fn mouse_cursor(&self) -> i_slint_core::items::MouseCursor {
         self.mouse_cursor.get()
@@ -156,11 +321,79 @@ impl TestingWindow {
     pub fn open_url(&self) -> Option<SharedString> {
         self.open_url.borrow().clone()
     }
+
+    /// Drain and return all debug_log messages captured since the last call.
+    pub fn take_debug_log(&self) -> Vec<String> {
+        self.debug_logs.borrow_mut().drain(..).collect()
+    }
+
+    /// Enable simulating native (OS-level) drag-and-drop. Once enabled, `start_drag` takes the
+    /// drag over as a real backend does (instead of declining it and using the in-window
+    /// fallback), recording the payload so [`Self::simulate_native_drag_move`] and
+    /// [`Self::simulate_native_drop`] can drive the receive side.
+    pub fn set_simulate_native_drag(&self, enabled: bool) {
+        self.simulate_native_drag.set(enabled);
+    }
+
+    /// Move the in-flight simulated native drag over `target` at `position`, as a backend does
+    /// when the OS drags across a window. Returns the action the target's `DropArea` proposes.
+    pub fn simulate_native_drag_move(
+        &self,
+        target: &i_slint_core::api::Window,
+        position: LogicalPosition,
+    ) -> DragAction {
+        self.deliver_native_drag(target, position, false)
+    }
+
+    /// Drop the in-flight simulated native drag onto `target` at `position`, then report
+    /// completion back to this source window, as a backend does when the OS drag ends. Returns
+    /// the final negotiated action.
+    pub fn simulate_native_drop(
+        &self,
+        target: &i_slint_core::api::Window,
+        position: LogicalPosition,
+    ) -> DragAction {
+        let action = self.deliver_native_drag(target, position, true);
+        WindowInner::from_pub(&self.window).report_drag_finished(action);
+        action
+    }
+
+    fn deliver_native_drag(
+        &self,
+        target: &i_slint_core::api::Window,
+        position: LogicalPosition,
+        drop: bool,
+    ) -> DragAction {
+        let (data, allowed) =
+            self.native_drag.borrow().clone().expect("no simulated native drag in flight");
+        let mut event = DropEvent::default();
+        event.data = data;
+        event.position = position;
+        event.proposed_action =
+            i_slint_core::items::compute_proposed_action(Default::default(), allowed);
+        let event = if drop {
+            MouseEvent::Drop { event, allowed }
+        } else {
+            MouseEvent::DragMove { event, allowed }
+        };
+        WindowInner::from_pub(target)
+            .process_mouse_input(event)
+            .and_then(|r| r.drag_action)
+            .unwrap_or(DragAction::None)
+    }
 }
 
 impl WindowAdapterInternal for TestingWindow {
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
         self.ime_requests.borrow_mut().push(request)
+    }
+
+    fn start_drag(&self, request: &i_slint_core::window::DragRequest) -> bool {
+        if !self.simulate_native_drag.get() {
+            return false;
+        }
+        *self.native_drag.borrow_mut() = Some((request.data().clone(), request.allowed_actions()));
+        true
     }
 
     fn set_mouse_cursor(&self, cursor: i_slint_core::items::MouseCursor) {
@@ -184,6 +417,37 @@ impl WindowAdapterInternal for TestingWindow {
     ) {
         self.all_item_trees.0.borrow_mut().remove(&item_tree.as_ptr());
     }
+
+    fn create_child_window_adapter(&self, _kind: WindowKind) -> Option<Rc<dyn WindowAdapter>> {
+        if self.native_popup.get() {
+            #[cfg(supports_headless)]
+            let renderer = self
+                .renderer_name
+                .as_ref()
+                .map(|name| create_headless_renderer(name))
+                .transpose()
+                .ok()?;
+            let window = Rc::new_cyclic(|self_weak| TestingWindow {
+                window: i_slint_core::api::Window::new(self_weak.clone() as _),
+                size: Default::default(),
+                ime_requests: Default::default(),
+                mouse_cursor: Default::default(),
+                all_item_trees: Default::default(),
+                open_url: self.open_url.clone(),
+                debug_logs: self.debug_logs.clone(),
+                native_popup: self.native_popup.clone(),
+                simulate_native_drag: self.simulate_native_drag.clone(),
+                native_drag: Default::default(),
+                #[cfg(supports_headless)]
+                renderer_name: self.renderer_name.clone(),
+                #[cfg(supports_headless)]
+                renderer,
+            });
+            Some(window)
+        } else {
+            None
+        }
+    }
 }
 
 impl WindowAdapter for TestingWindow {
@@ -203,6 +467,10 @@ impl WindowAdapter for TestingWindow {
     }
 
     fn renderer(&self) -> &dyn Renderer {
+        #[cfg(supports_headless)]
+        if let Some(renderer) = &self.renderer {
+            return &**renderer;
+        }
         self
     }
 
@@ -346,7 +614,7 @@ impl RendererSealed for TestingWindow {
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
         let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        ctx.font_context().borrow_mut().collection.register_fonts(data.to_vec().into(), None);
+        ctx.font_context().borrow_mut().register_static_font(data);
         Ok(())
     }
 
@@ -361,10 +629,6 @@ impl RendererSealed for TestingWindow {
         Ok(())
     }
 
-    fn default_font_size(&self) -> LogicalLength {
-        sharedparley::DEFAULT_FONT_SIZE
-    }
-
     fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>) {
         // No-op since TestingWindow is also the WindowAdapter
     }
@@ -375,6 +639,42 @@ impl RendererSealed for TestingWindow {
 
     fn supports_transformations(&self) -> bool {
         true
+    }
+}
+
+/// Pick the rasterizer for the headless backend.
+/// `""` / `"default"` picks Skia software when compiled in, else the
+/// built-in software renderer.
+#[cfg(supports_headless)]
+fn create_headless_renderer(name: &str) -> Result<Box<dyn Renderer>, PlatformError> {
+    match name {
+        #[cfg(skia_headless)]
+        "" | "default" | "skia" | "skia-software" => {
+            std::thread_local! {
+                /// Shared across all windows so they reuse Skia resources.
+                static SHARED_CONTEXT: i_slint_renderer_skia::SkiaSharedContext =
+                    Default::default();
+            }
+            SHARED_CONTEXT.with(|context| {
+                Ok(Box::new(i_slint_renderer_skia::SkiaRenderer::default_software(context)) as _)
+            })
+        }
+        #[cfg(all(feature = "renderer-software", not(skia_headless)))]
+        "" | "default" => Ok(Box::new(i_slint_renderer_software::SoftwareRenderer::new())),
+        #[cfg(feature = "renderer-software")]
+        "sw" | "software" => Ok(Box::new(i_slint_renderer_software::SoftwareRenderer::new())),
+        other => {
+            let available: &[&str] = &[
+                #[cfg(feature = "renderer-software")]
+                "software",
+                #[cfg(skia_headless)]
+                "skia",
+            ];
+            Err(PlatformError::Other(format!(
+                "Unknown headless renderer {other:?} (available: {})",
+                available.join(", ")
+            )))
+        }
     }
 }
 

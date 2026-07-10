@@ -9,10 +9,9 @@
 //! elements property of the Path element. That way the generators have to deal
 //! with path embedding only as part of the property assignment.
 
-use crate::EmbedResourcesKind;
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
-use crate::langtype::{BuiltinPrivateStruct, Struct, Type};
+use crate::langtype::{BuiltinStruct, Struct, Type};
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::cell::RefCell;
@@ -21,7 +20,6 @@ use std::rc::Rc;
 pub fn compile_paths(
     component: &Rc<Component>,
     tr: &crate::typeregister::TypeRegister,
-    _embed_resources: EmbedResourcesKind,
     diag: &mut BuildDiagnostics,
 ) {
     let path_type = tr.lookup_element("Path").unwrap();
@@ -63,20 +61,10 @@ pub fn compile_paths(
                         }
                     }
                 }
-                expr if expr.ty() == Type::String => {
-                    #[cfg(feature = "software-renderer")]
-                    if _embed_resources == EmbedResourcesKind::EmbedTextures {
-                        diag.push_warning(
-                            "Bindings to the Path element's commands are not supported with the software renderer".into(),
-                            &*elem_.borrow(),
-                        )
-                    }
-
-                    Expression::PathData(crate::expression_tree::Path::Commands(Box::new(
-                        commands_expr.expression,
-                    )))
-                    .into()
-                }
+                expr if expr.ty() == Type::String => Expression::PathData(
+                    crate::expression_tree::Path::Commands(Box::new(commands_expr.expression)),
+                )
+                .into(),
                 _ => {
                     diag.push_error(
                         "The commands property only accepts strings".into(),
@@ -165,7 +153,7 @@ fn compile_path_from_string_literal(
             (SmolStr::new_static("y"), Type::Float32),
         ])
         .collect(),
-        name: BuiltinPrivateStruct::Point.into(),
+        name: BuiltinStruct::Point.into(),
     });
 
     let mut points = Vec::new();

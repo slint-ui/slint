@@ -15,9 +15,11 @@ use std::rc::{Rc, Weak};
 
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BindingExpression, Expression};
-use crate::langtype::{BuiltinPrivateStruct, ElementType, StructName};
+use crate::langtype::{BuiltinStruct, ElementType, StructName};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Document, ElementRc};
+
+pub mod accessor_names;
 
 #[cfg(feature = "cpp")]
 pub mod cpp;
@@ -27,6 +29,8 @@ pub mod cpp_live_preview;
 pub mod rust;
 #[cfg(feature = "rust")]
 pub mod rust_live_preview;
+#[cfg(feature = "slint-sc")]
+pub mod slint_sc;
 
 #[cfg(feature = "python")]
 pub mod python;
@@ -37,6 +41,10 @@ pub enum OutputFormat {
     Cpp(cpp::Config),
     #[cfg(feature = "rust")]
     Rust,
+    /// Safety-critical subset of Slint.  Generates minimal Rust code
+    /// targeting the `slint-sc` runtime crate.
+    #[cfg(feature = "slint-sc")]
+    SlintSc,
     Interpreter,
     Llr,
     #[cfg(feature = "python")]
@@ -67,6 +75,8 @@ impl std::str::FromStr for OutputFormat {
             "cpp" => Ok(Self::Cpp(cpp::Config::default())),
             #[cfg(feature = "rust")]
             "rust" => Ok(Self::Rust),
+            #[cfg(feature = "slint-sc")]
+            "slint-sc" | "rust-sc" => Ok(Self::SlintSc),
             "llr" => Ok(Self::Llr),
             #[cfg(feature = "python")]
             "python" => Ok(Self::Python),
@@ -94,6 +104,11 @@ pub fn generate(
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {
             let output = rust::generate(doc, compiler_config)?;
+            write!(destination, "{output}")?;
+        }
+        #[cfg(feature = "slint-sc")]
+        OutputFormat::SlintSc => {
+            let output = slint_sc::generate(doc, compiler_config)?;
             write!(destination, "{output}")?;
         }
         OutputFormat::Interpreter => {
@@ -430,7 +445,7 @@ pub fn for_each_const_properties(
                     .iter()
                     .filter(|(_, x)| {
                         x.property_type.is_property_type() &&
-                            !matches!( &x.property_type, crate::langtype::Type::Struct(s) if matches!(s.name, StructName::BuiltinPrivate(BuiltinPrivateStruct::StateInfo)))
+                            !matches!( &x.property_type, crate::langtype::Type::Struct(s) if matches!(s.name, StructName::Builtin(BuiltinStruct::StateInfo)))
                     })
                     .map(|(k, _)| k.clone()),
             );

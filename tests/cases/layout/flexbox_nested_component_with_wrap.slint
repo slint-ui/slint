@@ -1,0 +1,76 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Two-level nesting: a FlexboxLayout containing an Outer component,
+// which in turn contains an Inner component, which contains a
+// word-wrapping Text. The synthesized layoutinfo-v-with-constraint
+// must chain through both component boundaries — Outer's function
+// must call Inner's, which evaluates the inner VerticalLayout body with the
+// width parameter.
+
+component Inner inherits Rectangle {
+    background: #ccc;
+    VerticalLayout {
+        padding: 3px;
+        t := Text {
+            text: "Innermost text that should word-wrap when narrow";
+            wrap: word-wrap;
+        }
+    }
+    out property <length> text_h: t.height;
+}
+
+component Outer inherits Rectangle {
+    background: #e0e0e0;
+    VerticalLayout {
+        padding: 5px;
+        inner := Inner { }
+        Rectangle {
+            height: 20px;
+            background: #999;
+        }
+    }
+    out property <length> text_h: inner.text_h;
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 250px;
+
+    FlexboxLayout {
+        spacing: 10px;
+
+        r := Rectangle {
+            width: 50px;
+            height: 50px;
+            background: red;
+            flex-shrink: 0;
+        }
+        o := Outer {
+            flex-shrink: 1;
+        }
+    }
+
+    // Single-line reference Text in the same font, so the check doesn't
+    // depend on the renderer's font metrics.
+    ref := Text {
+        text: "Reference";
+    }
+
+    // The innermost wrapping Text must wrap to several lines (height well
+    // above a single line), proving the width constraint propagates through
+    // both component boundaries down to the Text.
+    out property <bool> test_r: r.x == 0px && r.width == 50px;
+    out property <bool> test_o: o.width > 0px && o.text_h > ref.height * 1.5;
+
+    out property <bool> test: test_r && test_o;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+*/

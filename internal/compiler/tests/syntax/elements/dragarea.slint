@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test {
+    // No allowed action and no data: warns about both.
+    DragArea { }
+//  >       <warning{This 'DragArea' permits no drag action and will never start a drag; set 'allow-copy', 'allow-move', or 'allow-link' to true}
+//  >       <^warning{This 'DragArea' has no 'data' set and will never start a drag; add a binding for the 'data' property}
+
+    // Allowed action but no data: warns about the data only.
+    DragArea {
+//  >       <warning{This 'DragArea' has no 'data' set and will never start a drag; add a binding for the 'data' property}
+        allow-move: true;
+    }
+
+    // Allowed action and data set: fine.
+    DragArea {
+        allow-copy: my-flag;
+        property <bool> my-flag: true;
+        data <=> my-data;
+    }
+    in property <data-transfer> my-data;
+}

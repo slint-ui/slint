@@ -1,12 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore alala gyoyo
 global G := {
 //       ><warning{':=' to declare a global is deprecated. Remove the ':='}
     property <int> alala <=> alala;
 //                       >        <error{Property cannot alias to itself}
     property <string> yoyo <=> alala;
-//                         >        <error{The property does not have the same type as the bound property}
+//                         >        <error{The property 'yoyo' does not have the same type as the bound expression: string != int}
 }
 
 export X := Rectangle {
@@ -27,7 +28,7 @@ export X := Rectangle {
         width <=> parent.width;
         height <=> x;
         background <=> root.x;
-//      >                    <error{The property does not have the same type as the bound property}
+//      >                    <error{The property 'background' does not have the same type as the bound expression: brush != length}
         y <=> y;
 //      >      <error{Property cannot alias to itself}
     }

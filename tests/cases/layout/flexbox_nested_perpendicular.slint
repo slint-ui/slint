@@ -1,0 +1,62 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test nested FlexboxLayouts in perpendicular directions (row containing column).
+// This used to cause a binding loop because the inner flex's cross-axis layout
+// info depended on the outer flex's solved dimensions.
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+
+    FlexboxLayout {
+        flex-direction: row;
+        spacing: 10px;
+
+        Rectangle {
+            width: 50px;
+            height: 50px;
+            background: red;
+            flex-shrink: 0;
+        }
+
+        FlexboxLayout {
+            flex-direction: column;
+            spacing: 5px;
+
+            r1 := Rectangle {
+                width: 80px;
+                height: 30px;
+                background: green;
+            }
+            r2 := Rectangle {
+                width: 80px;
+                height: 30px;
+                background: blue;
+            }
+        }
+    }
+
+    // r1 and r2 stacked vertically inside the column flex
+    out property <bool> test_r1: r1.height == 30px;
+    out property <bool> test_r2: r2.y > r1.y && r2.height == 30px;
+
+    out property <bool> test: test_r1 && test_r2;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

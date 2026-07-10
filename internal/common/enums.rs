@@ -7,11 +7,15 @@
 
 /// Call a macro with every enum exposed in the .slint language
 ///
+/// Each enum is declared with `pub enum` if it should be re-exported in a public
+/// language-binding module (e.g. `slint::language` in the Rust crate), or plain `enum`
+/// to stay private. Consumers can dispatch on `$vis:vis`.
+///
 /// ## Example
 /// ```rust
 /// macro_rules! print_enums {
-///     ($( $(#[$enum_doc:meta])* enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
-///         $(println!("{} => [{}]", stringify!($Name), stringify!($($Value),*));)*
+///     ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
+///         $(println!("{} ({}) => [{}]", stringify!($Name), stringify!($vis), stringify!($($Value),*));)*
 ///     }
 /// }
 /// i_slint_common::for_each_enums!(print_enums);
@@ -163,7 +167,7 @@ macro_rules! for_each_enums {
 
             /// The enum reports what happened to the `PointerEventButton` in the event
             #[non_exhaustive]
-            enum PointerEventKind {
+            pub enum PointerEventKind {
                 /// The action was cancelled.
                 Cancel,
                 /// The button was pressed.
@@ -177,7 +181,7 @@ macro_rules! for_each_enums {
             /// This enum describes the different types of buttons for a pointer event,
             /// typically on a mouse or a pencil.
             #[non_exhaustive]
-            enum PointerEventButton {
+            pub enum PointerEventButton {
                 /// A button that is none of left, right, middle, back or forward. For example,
                 /// this is used for the task button on a mouse with many buttons.
                 Other,
@@ -331,8 +335,13 @@ macro_rules! for_each_enums {
                 Password,
                 /// This will only accept and render number characters (0-9)
                 Number,
-                /// This will accept and render characters if it's valid part of a decimal
+                /// This will accept and render characters if it's valid part of a decimal,
+                /// using the decimal separator of the current locale
                 Decimal,
+                /// This identifies the input field as a search box. Characters are rendered normally,
+                /// but assistive technologies are informed that the field is used for searching or
+                /// filtering content.
+                Search,
             }
 
             /// Enum representing the `alignment` property of a
@@ -395,10 +404,10 @@ macro_rules! for_each_enums {
             }
 
             /// Controls the alignment of individual items along the cross axis of a layout.
-            /// Used as the `align-items` property of `HorizontalLayout`, `VerticalLayout`,
+            /// Used as the `cross-axis-alignment` property of `HorizontalLayout`, `VerticalLayout`,
             /// and `FlexboxLayout`.
             #[non_exhaustive]
-            enum LayoutAlignItems {
+            enum CrossAxisAlignment {
                 /// Items are stretched to fill the cross axis.
                 Stretch,
                 /// Items are placed at the start of the cross axis.
@@ -409,10 +418,10 @@ macro_rules! for_each_enums {
                 Center,
             }
 
-            /// Overrides the container's `align-items` for a specific flex item.
+            /// Overrides the container's `cross-axis-alignment` for a specific flex item.
             #[non_exhaustive]
             enum FlexboxLayoutAlignSelf {
-                /// Use the container's `align-items` value (default).
+                /// Use the container's `cross-axis-alignment` value (default).
                 Auto,
                 /// The item is stretched to fill the line along the cross axis.
                 Stretch,
@@ -455,8 +464,15 @@ macro_rules! for_each_enums {
 
             /// This enum represents the different values for the `accessible-role` property, used to describe the
             /// role of an element in the context of assistive technology such as screen readers.
+            ///
+            /// In addition to widget roles, this enum includes *landmark* roles (`banner`, `complementary`,
+            /// `content-info`, `form`, `main`, `navigation`, `region`, `search`).
+            /// Landmarks identify large content areas that screen reader users can jump between,
+            /// giving the application a navigable structure similar to headings in a document.
+            /// See [WAI-ARIA Landmark Regions](https://www.w3.org/WAI/ARIA/apg/practices/landmark-regions/)
+            /// for guidance on when and how to use them.
             #[non_exhaustive]
-            enum AccessibleRole {
+            pub enum AccessibleRole {
                 /// The element isn't accessible.
                 None,
                 /// The element is a `Button` or behaves like one.
@@ -498,12 +514,48 @@ macro_rules! for_each_enums {
                 ListItem,
                 /// The element is a `RadioButton` or behaves like one.
                 RadioButton,
+                /// The element is a container grouping related `RadioButton`s.
+                RadioGroup,
+                // Landmark roles
+                /// Landmark: the header area of the application, typically containing a logo, title, or global navigation.
+                Banner,
+                /// Landmark: a supporting section that complements the main content, such as a sidebar.
+                Complementary,
+                /// Landmark: information about the application or its content, typically at the bottom (e.g. status bar, copyright).
+                ContentInfo,
+                /// Landmark: a region containing input fields and controls for submitting information.
+                Form,
+                /// Landmark: the primary content of the application. Each view should have exactly one `main` landmark.
+                Main,
+                /// Landmark: a group of links or controls used for navigating the application.
+                Navigation,
+                /// Landmark: a generic section significant enough to be listed in a summary.
+                /// Use a more specific landmark if one applies.
+                Region,
+                /// Landmark: a region containing controls for searching or filtering content.
+                Search,
+            }
+
+            /// This enum represents the different values of the `accessible-live-region` property.
+            /// It indicates that an element is a live region whose content changes should be
+            /// announced by assistive technologies.
+            #[non_exhaustive]
+            pub enum AccessibleLiveness {
+                /// Use in regions that present information that is of low-importance to the user.
+                /// Assistive technologies are expected to not announce changes unless the user explicitly asks for it.
+                Off,
+                /// Use in regions that present new information to users.
+                /// Assistive technologies are expected to not interrupt the user to inform of changes to the live region.
+                Polite,
+                /// Use in regions that present information that a user should know about right away.
+                /// Assistive technologies are expected to announce to the user as soon as possible.
+                Assertive,
             }
 
             /// This enum represents the different values of the `sort-order` property.
             /// It's used to sort a `StandardTableView` by a column.
             #[non_exhaustive]
-            enum SortOrder {
+            pub enum SortOrder {
                 /// The column is unsorted.
                 Unsorted,
 
@@ -516,7 +568,7 @@ macro_rules! for_each_enums {
 
             /// Represents the orientation of an element or widget such as the `Slider`.
             // (on purpose not #[non_exhaustive])
-            enum Orientation {
+            pub enum Orientation {
                 /// Element is oriented horizontally.
                 Horizontal,
                 /// Element is oriented vertically.
@@ -526,7 +578,7 @@ macro_rules! for_each_enums {
             /// This enum indicates the color scheme used by the widget style. Use this to explicitly switch
             /// between dark and light schemes, or choose Unknown to fall back to the system default.
             #[non_exhaustive]
-            enum ColorScheme {
+            pub enum ColorScheme {
                 /// The scheme is not known and a system wide setting configures this. This could mean that
                 /// the widgets are shown in a dark or light scheme, but it could also be a custom color scheme.
                 Unknown,
@@ -593,6 +645,27 @@ macro_rules! for_each_enums {
                 Round,
                 /// The stroke joins with a beveled (flattened) corner.
                 Bevel,
+            }
+
+            /// This enum describes the action negotiated between the source of a drag (`DragArea`)
+            /// and its target (`DropArea`) during a drag-and-drop operation. The source declares
+            /// which actions it permits, the target picks one in its `can-drop` callback, and the
+            /// chosen action is reported back to the source via `drag-finished` so that, for
+            /// example, a `move` source can remove the original data. The same enum is used for
+            /// drags that come from another application or window once native drag-and-drop is
+            /// in play.
+            #[non_exhaustive]
+            pub enum DragAction {
+                /// No action: the drag is rejected, no drop will be delivered.
+                None,
+                /// The data is copied to the target; the source retains it.
+                Copy,
+                /// The data is moved to the target; the source should remove it once the
+                /// operation completes.
+                Move,
+                /// A link to the source data is created at the target; neither side gives
+                /// up ownership.
+                Link,
             }
 
             /// This enum describes the detected operating system types.

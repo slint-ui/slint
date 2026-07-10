@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore imum
+// cSpell: ignore imum noarg strarg
 
 use smol_str::{SmolStr, StrExt, ToSmolStr};
 use std::cell::RefCell;
@@ -10,8 +10,8 @@ use std::rc::Rc;
 
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
-    BuiltinElement, BuiltinPrivateStruct, BuiltinPropertyDefault, BuiltinPropertyInfo,
-    BuiltinPublicStruct, ElementType, Enumeration, Function, PropertyLookupResult, Struct, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, BuiltinStruct, ElementType,
+    Enumeration, Function, PropertyLookupResult, Struct, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -57,7 +57,7 @@ pub const RESERVED_FLEXBOXLAYOUT_PROPERTIES: &[(&str, Type)] = &[
 ];
 
 macro_rules! declare_enums {
-    ($( $(#[$enum_doc:meta])* enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
+    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
         #[allow(non_snake_case)]
         pub struct BuiltinEnums {
             $(pub $Name : Rc<Enumeration>),*
@@ -114,7 +114,7 @@ impl BuiltinTypes {
                         .map(|s| (SmolStr::new_static(s), Type::Float32)),
                 )
                 .collect(),
-            name: BuiltinPrivateStruct::LayoutInfo.into(),
+            name: BuiltinStruct::LayoutInfo.into(),
         });
         let enums = BuiltinEnums::new();
         let flex_align_self_type = Type::Enumeration(enums.FlexboxLayoutAlignSelf.clone());
@@ -126,7 +126,7 @@ impl BuiltinTypes {
                     (SmolStr::new_static("y"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: BuiltinPublicStruct::LogicalPosition.into(),
+                name: BuiltinStruct::LogicalPosition.into(),
             }),
             logical_size_type: Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -134,7 +134,7 @@ impl BuiltinTypes {
                     (SmolStr::new_static("height"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: BuiltinPublicStruct::LogicalSize.into(),
+                name: BuiltinStruct::LogicalSize.into(),
             }),
             font_metrics_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -144,7 +144,7 @@ impl BuiltinTypes {
                     (SmolStr::new_static("cap-height"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: BuiltinPrivateStruct::FontMetrics.into(),
+                name: BuiltinStruct::FontMetrics.into(),
             })),
             noarg_callback_type: Type::Callback(Rc::new(Function {
                 return_type: Type::Void,
@@ -164,11 +164,11 @@ impl BuiltinTypes {
                     (SmolStr::new_static("change-time"), Type::Duration),
                 ])
                 .collect(),
-                name: BuiltinPrivateStruct::StateInfo.into(),
+                name: BuiltinStruct::StateInfo.into(),
             }),
             path_element_type: Type::Struct(Rc::new(Struct {
                 fields: Default::default(),
-                name: BuiltinPrivateStruct::PathElement.into(),
+                name: BuiltinStruct::PathElement.into(),
             })),
             layout_item_info_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([(
@@ -176,7 +176,7 @@ impl BuiltinTypes {
                     layout_info_type.clone().into(),
                 )])
                 .collect(),
-                name: BuiltinPrivateStruct::LayoutItemInfo.into(),
+                name: BuiltinStruct::LayoutItemInfo.into(),
             })),
             flexbox_layout_item_info_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -188,7 +188,7 @@ impl BuiltinTypes {
                     ("flex-order".into(), Type::Int32),
                 ])
                 .collect(),
-                name: BuiltinPrivateStruct::FlexboxLayoutItemInfo.into(),
+                name: BuiltinStruct::FlexboxLayoutItemInfo.into(),
             })),
             gridlayout_input_data_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -198,7 +198,7 @@ impl BuiltinTypes {
                     ("colspan".into(), Type::Int32),
                 ])
                 .collect(),
-                name: BuiltinPrivateStruct::GridLayoutInputData.into(),
+                name: BuiltinStruct::GridLayoutInputData.into(),
             })),
         }
     }
@@ -219,7 +219,16 @@ pub const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
     ("drop-shadow-offset-x", Type::LogicalLength),
     ("drop-shadow-offset-y", Type::LogicalLength),
     ("drop-shadow-blur", Type::LogicalLength),
+    ("drop-shadow-spread", Type::LogicalLength),
     ("drop-shadow-color", Type::Color),
+];
+
+pub const RESERVED_INNER_SHADOW_PROPERTIES: &[(&str, Type)] = &[
+    ("inner-shadow-offset-x", Type::LogicalLength),
+    ("inner-shadow-offset-y", Type::LogicalLength),
+    ("inner-shadow-blur", Type::LogicalLength),
+    ("inner-shadow-spread", Type::LogicalLength),
+    ("inner-shadow-color", Type::Color),
 ];
 
 pub const RESERVED_TRANSFORM_PROPERTIES: &[(&str, Type)] = &[
@@ -282,6 +291,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(RESERVED_LAYOUT_PROPERTIES.iter())
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
+        .chain(RESERVED_INNER_SHADOW_PROPERTIES.iter())
         .chain(RESERVED_TRANSFORM_PROPERTIES.iter())
         .chain(DEPRECATED_ROTATION_ORIGIN_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input))
@@ -330,6 +340,16 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
                 Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleRole.clone())),
                 PropertyVisibility::Constexpr,
             ),
+            (
+                "accessible-orientation",
+                Type::Enumeration(BUILTIN.with(|e| e.enums.Orientation.clone())),
+                PropertyVisibility::Input,
+            ),
+            (
+                "accessible-live-region",
+                Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleLiveness.clone())),
+                PropertyVisibility::Input,
+            ),
         ]))
         .chain(std::iter::once(("init", noarg_callback_type(), PropertyVisibility::Private)))
 }
@@ -348,6 +368,7 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
             resolved_name: name,
             is_local_to_component: false,
             is_in_direct_base: false,
+            is_shadowable: false,
             property_visibility: visibility,
             declared_pure: None,
             builtin_function,
@@ -366,6 +387,7 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
                         resolved_name: format!("{pre}-{suf}").into(),
                         is_local_to_component: false,
                         is_in_direct_base: false,
+                        is_shadowable: false,
                         property_visibility: crate::object_tree::PropertyVisibility::InOut,
                         declared_pure: None,
                         builtin_function: None,
@@ -443,7 +465,7 @@ impl TypeRegister {
         self.types.insert(name, t).is_none()
     }
 
-    fn builtin_internal() -> Self {
+    fn builtin_internal(symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>) -> Self {
         let mut register = TypeRegister::default();
 
         register.insert_type(Type::Float32);
@@ -464,6 +486,7 @@ impl TypeRegister {
         register.insert_type(Type::Rem);
         register.insert_type(Type::StyledText);
         register.insert_type(Type::Keys);
+        register.insert_type(Type::DataTransfer);
         register.types.insert("Point".into(), logical_point_type().into());
         register.types.insert("Size".into(), logical_size_type().into());
 
@@ -480,14 +503,8 @@ impl TypeRegister {
         macro_rules! register_builtin_structs {
             ($(
                 $(#[$attr:meta])*
-                struct $Name:ident {
-                    @name = $inner_name:expr,
-                    export {
-                        $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ident, )*
-                    }
-                    private {
-                        $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-                    }
+                $vis:vis struct $Name:ident {
+                    $( $(#[$field_attr:meta])* $field:ident : $field_type:ident, )*
                 }
             )*) => { $(
                 register.insert_type_with_name(Type::Struct(builtin_structs::$Name()), SmolStr::new(stringify!($Name)));
@@ -495,24 +512,35 @@ impl TypeRegister {
         }
         i_slint_common::for_each_builtin_structs!(register_builtin_structs);
 
-        crate::load_builtins::load_builtins(&mut register);
+        crate::load_builtins::load_builtins(&mut register, symbol_counters);
 
-        for e in register.elements.values() {
-            if let ElementType::Builtin(b) = e {
-                for accepted_child_type_name in b.additional_accepted_child_types.keys() {
-                    register
-                        .context_restricted_types
-                        .entry(accepted_child_type_name.clone())
-                        .or_default()
-                        .insert(b.native_class.class_name.clone());
-                }
-                if b.additional_accept_self {
-                    register
-                        .context_restricted_types
-                        .entry(b.native_class.class_name.clone())
-                        .or_default()
-                        .insert(b.native_class.class_name.clone());
-                }
+        // Walk every builtin reachable from an exported one and register each
+        // accepted child as context-restricted to its parent, so internal types
+        // like `MenuItem` report "can only be within Menu" instead of "Unknown".
+        let mut visited: HashSet<SmolStr> = HashSet::new();
+        let mut to_visit: Vec<Rc<BuiltinElement>> = register
+            .elements
+            .values()
+            .filter_map(|e| match e {
+                ElementType::Builtin(b) => Some(b.clone()),
+                _ => None,
+            })
+            .collect();
+        while let Some(b) = to_visit.pop() {
+            let parent = b.native_class.class_name.clone();
+            if !visited.insert(parent.clone()) {
+                continue;
+            }
+            for (child_name, child_type) in &b.additional_accepted_child_types {
+                register
+                    .context_restricted_types
+                    .entry(child_name.clone())
+                    .or_default()
+                    .insert(parent.clone());
+                to_visit.push(child_type.clone());
+            }
+            if b.additional_accept_self {
+                register.context_restricted_types.entry(parent.clone()).or_default().insert(parent);
             }
         }
 
@@ -541,22 +569,26 @@ impl TypeRegister {
         match &mut register.elements.get_mut("Timer").unwrap() {
             ElementType::Builtin(b) => {
                 let timer = Rc::get_mut(b).unwrap();
-                timer
-                    .properties
-                    .insert("start".into(), BuiltinPropertyInfo::from(BuiltinFunction::StartTimer));
-                timer
-                    .properties
-                    .insert("stop".into(), BuiltinPropertyInfo::from(BuiltinFunction::StopTimer));
-                timer.properties.insert(
-                    "restart".into(),
-                    BuiltinPropertyInfo::from(BuiltinFunction::RestartTimer),
-                );
+                // `start` / `stop` / `restart` are declared as stub
+                // functions in `builtins.slint` so their doc comments get
+                // picked up, then replaced here with the real builtin
+                // implementations. Carry the docs over onto the
+                // replacements.
+                for (name, func) in [
+                    ("start", BuiltinFunction::StartTimer),
+                    ("stop", BuiltinFunction::StopTimer),
+                    ("restart", BuiltinFunction::RestartTimer),
+                ] {
+                    let existing_docs = timer.properties.get(name).and_then(|p| p.docs.clone());
+                    let mut info = BuiltinPropertyInfo::from(func);
+                    info.docs = existing_docs;
+                    timer.properties.insert(name.into(), info);
+                }
             }
             _ => unreachable!(),
         }
 
         let font_metrics_prop = crate::langtype::BuiltinPropertyInfo {
-            ty: font_metrics_type(),
             property_visibility: PropertyVisibility::Output,
             default_value: BuiltinPropertyDefault::WithElement(|elem| {
                 crate::expression_tree::Expression::FunctionCall {
@@ -567,15 +599,32 @@ impl TypeRegister {
                     source_location: None,
                 }
             }),
+            ..crate::langtype::BuiltinPropertyInfo::new(font_metrics_type())
         };
 
         match &mut register.elements.get_mut("TextInput").unwrap() {
             ElementType::Builtin(b) => {
                 let text_input = Rc::get_mut(b).unwrap();
-                text_input.properties.insert(
-                    "set-selection-offsets".into(),
-                    BuiltinPropertyInfo::from(BuiltinFunction::SetSelectionOffsets),
-                );
+                // Replace the stub function with the real builtin
+                // implementation, carrying over docs and arg names.
+                let existing = text_input.properties.get("set-selection-offsets");
+                let existing_docs = existing.and_then(|p| p.docs.clone());
+                let arg_names = existing.and_then(|p| {
+                    if let Type::Function(f) = &p.ty { Some(f.arg_names.clone()) } else { None }
+                });
+                let mut info = BuiltinPropertyInfo::from(BuiltinFunction::SetSelectionOffsets);
+                info.docs = existing_docs;
+                if let (Some(names), Type::Function(f)) = (arg_names, &info.ty) {
+                    let mut func = (**f).clone();
+                    // The BuiltinFunction type includes an implicit ElementReference
+                    // first arg; skip it to match the public-facing arg names.
+                    func.arg_names =
+                        std::iter::repeat_n(SmolStr::default(), func.args.len() - names.len())
+                            .chain(names)
+                            .collect();
+                    info.ty = Type::Function(Rc::new(func));
+                }
+                text_input.properties.insert("set-selection-offsets".into(), info);
                 text_input.properties.insert("font-metrics".into(), font_metrics_prop.clone());
             }
 
@@ -615,37 +664,26 @@ impl TypeRegister {
 
     #[doc(hidden)]
     /// All builtins incl. experimental ones! Do not use in production code!
-    pub fn builtin_experimental() -> Rc<RefCell<Self>> {
-        let register = Self::builtin_internal();
+    pub fn builtin_experimental(
+        symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
+    ) -> Rc<RefCell<Self>> {
+        let register = Self::builtin_internal(symbol_counters);
         Rc::new(RefCell::new(register))
     }
 
-    pub fn builtin() -> Rc<RefCell<Self>> {
-        let mut register = Self::builtin_internal();
+    pub fn builtin(
+        symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
+    ) -> Rc<RefCell<Self>> {
+        let mut register = Self::builtin_internal(symbol_counters);
 
         register.elements.remove("ComponentContainer").unwrap();
         register.types.remove("component-factory").unwrap();
-
-        register.elements.remove("DragArea").unwrap();
-        register.elements.remove("DropArea").unwrap();
-        register.types.remove("DropEvent").unwrap(); // Also removed in xtask/src/slintdocs.rs
 
         register.elements.remove("FlexboxLayout").unwrap();
         register.types.remove("FlexboxLayoutDirection").unwrap();
         register.types.remove("FlexboxLayoutAlignContent").unwrap();
         register.types.remove("FlexboxLayoutWrap").unwrap();
         register.types.remove("FlexboxLayoutAlignSelf").unwrap();
-
-        match register.elements.get_mut("Window").unwrap() {
-            ElementType::Builtin(b) => {
-                Rc::get_mut(b)
-                    .expect("Should not be shared at this point")
-                    .properties
-                    .remove("hide")
-                    .unwrap();
-            }
-            _ => unreachable!(),
-        }
 
         Rc::new(RefCell::new(register))
     }
@@ -795,6 +833,7 @@ pub mod builtin_structs {
         ($pub_type:ident, Image) => { Type::Image };
         ($pub_type:ident, Coord) => { Type::LogicalLength };
         ($pub_type:ident, Keys) => { Type::Keys };
+        ($pub_type:ident, DataTransfer) => { Type::DataTransfer };
         ($pub_type:ident, LogicalPosition) => { Type::Struct(logical_point_type()) };
         ($pub_type:ident, LogicalSize) => { Type::Struct(logical_size_type()) };
         // builtin structs
@@ -811,14 +850,8 @@ pub mod builtin_structs {
     macro_rules! declare_builtin_structs {
         ($(
             $(#[$attr:meta])*
-            struct $Name:ident {
-                @name = $inner_name:expr,
-                export {
-                    $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ident, )*
-                }
-                private {
-                    $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-                }
+            $vis:vis struct $Name:ident {
+                $( $(#[$field_attr:meta])* $field:ident : $field_type:ident, )*
             }
         )*) => {
             pub struct BuiltinStructs {
@@ -833,9 +866,9 @@ pub mod builtin_structs {
                     #[allow(non_snake_case)]
                     let $Name = Rc::new(Struct{
                         fields: BTreeMap::from([
-                            $((stringify!($pub_field).replace_smolstr("_", "-"), map_type!($pub_type, $pub_type))),*
+                            $((stringify!($field).replace_smolstr("_", "-"), map_type!($field_type, $field_type))),*
                         ]),
-                        name: $inner_name.into(),
+                        name: BuiltinStruct::$Name.into(),
                     });
                     )*
 

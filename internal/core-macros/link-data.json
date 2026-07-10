@@ -29,6 +29,24 @@
     "color": {
         "href": "reference/primitive-types/#color"
     },
+    "DragAndDrop": {
+        "href": "guide/development/drag-and-drop/"
+    },
+    "data_transfer": {
+        "href": "reference/primitive-types/#data-transfer"
+    },
+    "DragAction": {
+        "href": "reference/global-structs-enums/#dragaction"
+    },
+    "DragArea": {
+        "href": "reference/drag-and-drop/dragarea/"
+    },
+    "DropArea": {
+        "href": "reference/drag-and-drop/droparea/"
+    },
+    "DropEvent": {
+        "href": "reference/global-structs-enums/#dropevent"
+    },
     "ComponentLibraries": {
         "href": "guide/language/coding/file/#component-libraries"
     },
@@ -120,7 +138,7 @@
         "href": "guide/backends-and-renderers/backend_linuxkms/"
     },
     "MenuBar": {
-        "href": "reference/window/menubar/"
+        "href": "reference/window/window/#menubar"
     },
     "Menu": {
         "href": "reference/window/contextmenuarea/#menu"
@@ -130,6 +148,9 @@
     },
     "Models": {
         "href": "guide/language/coding/repetition-and-data-models/#models"
+    },
+    "MathRef": {
+        "href": "reference/global-functions/math/"
     },
     "NumericTypes": {
         "href": "reference/primitive-types/#numeric-types"
@@ -174,7 +195,10 @@
         "href": "reference/std-widgets/views/scrollview/"
     },
     "StyledText": {
-        "href": "reference/elements/styled-text/"
+        "href": "reference/elements/styledtext/"
+    },
+    "SystemTrayIcon": {
+        "href": "reference/window/systemtrayicon/"
     },
     "styled_text": {
         "href": "reference/primitive-types/#styled-text"
@@ -209,11 +233,17 @@
     "TextInput": {
         "href": "reference/keyboard-input/textinput/"
     },
+    "TouchArea": {
+        "href": "reference/gestures/toucharea/"
+    },
     "Timer": {
         "href": "reference/timer/"
     },
     "Types": {
         "href": "reference/primitive-types/"
+    },
+    "NumberStringConversion": {
+        "href": "reference/primitive-types/#converting-between-numbers-and-strings"
     },
     "VerticalBox": {
         "href": "reference/std-widgets/layouts/verticalbox/"
@@ -226,6 +256,12 @@
     },
     "QtBackend": {
         "href": "guide/backends-and-renderers/backend_qt/"
+    },
+    "Platform": {
+        "href": "reference/platform/"
+    },
+    "Platform.decimal-separator": {
+        "href": "reference/platform/#decimal-separator"
     },
     "Window": {
         "href": "reference/window/window/"
@@ -257,6 +293,9 @@
     "quickstart": {
         "href": "tutorial/quickstart/"
     },
+    "getting_started": {
+        "href": "tutorial/getting_started/"
+    },
     "modules": {
         "href": "guide/language/coding/file/#modules"
     },
@@ -286,6 +325,9 @@
     },
     "SlintLSP": {
         "href": "guide/tooling/manual-setup/#slint-lsp"
+    },
+    "SlintViewer": {
+        "href": "guide/tooling/slint-viewer/"
     },
     "KateSyntaxHighlighting": {
         "href": "guide/tooling/kate/#syntax-highlighting"

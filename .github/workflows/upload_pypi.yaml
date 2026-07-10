@@ -16,6 +16,10 @@ jobs:
     build_binaries:
         env:
             MACOSX_DEPLOYMENT_TARGET: "11.0"
+            # Use fat LTO for the published Python wheels: smaller size and better runtime perf.
+            # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+            CARGO_PROFILE_RELEASE_LTO: "fat"
+            CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
         strategy:
             matrix:
                 platform:
@@ -47,20 +51,6 @@ jobs:
               with:
                 python-version: '3.12'
             - uses: ./.github/actions/setup-rust
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: taplo-cli
-            - name: Prepare feature config for binaries
-              working-directory: api/python/slint
-              shell: bash
-              run: |
-                cat Cargo.toml | taplo format --option column_width=100000 --stdin-filepath=Cargo.toml - | \
-                  perl -p -e 's,^\s*default\s*=.*,,' | \
-                  perl -p -e 's,# binaries:\s?,,' > Cargo.toml.new
-                cat Cargo.toml.new | taplo format --stdin-filepath=Cargo.toml - > Cargo.toml
-                rm Cargo.toml.new
-                taplo get -f Cargo.toml features.default
-
             - name: Build a binary wheel
               uses: PyO3/maturin-action@v1
               with:
@@ -73,6 +63,25 @@ jobs:
               with:
                 name: python-package-distributions-${{ matrix.platform.runner }}-${{ strategy.job-index }}
                 path: api/python/slint/wheelhouse/*.whl
+                if-no-files-found: error
+            # The opt-in slint-dev wheel ships the same crate built with the
+            # system-testing and mcp features (see api/python/slint-dev). It is
+            # published alongside slint so `slint[dev]` resolves the matching
+            # version. Note: PyPI trusted publishing must also be configured for
+            # the slint-dev project, not just slint.
+            - name: Build the development binary wheel (slint-dev)
+              uses: PyO3/maturin-action@v1
+              with:
+                  working-directory: api/python/slint-dev
+                  target: ${{ matrix.platform.target }}
+                  args: --release --out wheelhouse --find-interpreter
+                  container: ${{ matrix.platform.container }}
+            - name: Store the development distribution packages
+              uses: actions/upload-artifact@v7
+              with:
+                name: python-package-distributions-dev-${{ matrix.platform.runner }}-${{ strategy.job-index }}
+                path: api/python/slint-dev/wheelhouse/*.whl
+                if-no-files-found: error
 
     ios_binaries:
         runs-on: macos-14
@@ -81,22 +90,8 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: "aarch64-apple-ios aarch64-apple-ios-sim"
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: taplo-cli
-            - name: Prepare feature config for binaries
-              working-directory: api/python/slint
-              shell: bash
-              run: |
-                cat Cargo.toml | taplo format --option column_width=100000 --stdin-filepath=Cargo.toml - | \
-                  perl -p -e 's,^\s*default\s*=.*,,' | \
-                  perl -p -e 's,# binaries:\s?,,' > Cargo.toml.new
-                cat Cargo.toml.new | taplo format --stdin-filepath=Cargo.toml - > Cargo.toml
-                rm Cargo.toml.new
-                taplo get -f Cargo.toml features.default
-
             - name: Build iOS wheels
-              uses: pypa/cibuildwheel@v3.4.1
+              uses: pypa/cibuildwheel@v4.0.0
               with:
                   package-dir: api/python/slint
                   output-dir: wheelhouse
@@ -109,25 +104,13 @@ jobs:
               with:
                 name: python-package-distributions-ios
                 path: wheelhouse/*.whl
+                if-no-files-found: error
 
     build_source_package:
         name: Build source package
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: taplo-cli
-            - name: Prepare feature config for binaries
-              working-directory: api/python/slint
-              shell: bash
-              run: |
-                cat Cargo.toml | taplo format --option column_width=100000 --stdin-filepath=Cargo.toml - | \
-                  perl -p -e 's,^\s*default\s*=.*,,' | \
-                  perl -p -e 's,# binaries:\s?,,' > Cargo.toml.new
-                cat Cargo.toml.new | taplo format --stdin-filepath=Cargo.toml - > Cargo.toml
-                rm Cargo.toml.new
-                taplo get -f Cargo.toml features.default
             - name: Build source package
               uses: PyO3/maturin-action@v1
               with:
@@ -138,12 +121,47 @@ jobs:
               with:
                 name: python-package-distributions-source
                 path: api/python/slint/dist/*.tar.gz
+                if-no-files-found: error
+
+    e2e_test:
+        name: End-to-end test against a local package index
+        # Gate that always runs (also for Test PyPI runs): publish the real,
+        # already-built distributions to a throwaway local package index,
+        # install them as a consumer would (lean and slint[dev]) and verify the
+        # distribution, including the slint-dev loading behavior. Blocks the
+        # publish jobs on failure.
+        needs: [build_binaries, ios_binaries, build_source_package]
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v6
+            - uses: actions/setup-python@v6
+              with:
+                python-version: '3.12'
+            - name: Install uv
+              uses: astral-sh/setup-uv@v7
+            # The consumer scenarios import slint with a real (winit/X11)
+            # backend, which needs a display and the system libxkbcommon-x11
+            # (dlopened at runtime, so not bundled into the manylinux wheel).
+            - name: Setup headless display
+              uses: pyvista/setup-headless-display-action@v4
+            - name: Install libxkbcommon-x11
+              run: sudo apt-get update && sudo apt-get install -y libxkbcommon-x11-0
+            - uses: actions/download-artifact@v8
+              with:
+                pattern: python-package-distributions-*
+                path: dist
+                merge-multiple: true
+            - name: Run the end-to-end distribution test
+              env:
+                SLINT_E2E_WHEEL_DIR: ${{ github.workspace }}/dist
+                SLINT_E2E_REQUIRE_SDIST: "1"
+              run: python3 api/python/slint/tests/registry/e2e.py
 
     publish-to-test-pypi:
         if: ${{ github.event.inputs.release != 'true' }}
         name: >-
             Publish Python 🐍 distribution 📦 to Test PyPI
-        needs: [build_binaries, ios_binaries, build_source_package]
+        needs: [build_binaries, ios_binaries, build_source_package, e2e_test]
         runs-on: ubuntu-latest
         environment:
             name: testpypi
@@ -165,7 +183,7 @@ jobs:
       if: ${{ github.event.inputs.release == 'true' }}
       name: >-
           Publish Python 🐍 distribution 📦 to PyPI
-      needs: [build_binaries, ios_binaries, build_source_package]
+      needs: [build_binaries, ios_binaries, build_source_package, e2e_test]
       runs-on: ubuntu-latest
       environment:
           name: pypi

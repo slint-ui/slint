@@ -4,43 +4,51 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import mermaid from "astro-mermaid";
-import starlightLinksValidator from "starlight-links-validator";
-import rehypeExternalLinks from "rehype-external-links";
+import {
+    SLINT_STARLIGHT_TRAILING_SLASH,
+    slintStarlightLinksValidatorPlugin,
+} from "@slint/common-files/src/utils/starlight-site-defaults";
+import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
+import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
+import {
+    SAFETY_DOCS_BASE_URL,
+    SAFETY_DOCS_BASE_PATH,
+} from "./src/safety-site-config.mjs";
+import rehypeSlsIds from "./src/rehype-sls-ids.mjs";
+
+const _safetyOrigin = String(SAFETY_DOCS_BASE_URL).replace(/\/+$/, "");
+const _safetyAtRoot = SAFETY_DOCS_BASE_PATH === "/";
+const _safetySite = _safetyAtRoot
+    ? _safetyOrigin
+    : `${_safetyOrigin}${SAFETY_DOCS_BASE_PATH.replace(/\/*$/, "/")}`;
+const _safetyBase = _safetyAtRoot
+    ? undefined
+    : SAFETY_DOCS_BASE_PATH.replace(/\/*$/, "/");
 
 // https://astro.build/config
 export default defineConfig({
-    trailingSlash: "always",
+    site: _safetySite,
+    ...(_safetyBase ? { base: _safetyBase } : {}),
+    trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
     markdown: {
-        rehypePlugins: [
-            [
-                rehypeExternalLinks,
-                {
-                    content: {
-                        type: "text",
-                        value: " ↗",
-                    },
-                    properties: {
-                        target: "_blank",
-                    },
-                    rel: ["noopener"],
-                },
-            ],
-        ],
+        rehypePlugins: [rehypeExternalLinksSlint, rehypeSlsIds],
     },
     integrations: [
         mermaid(),
         starlight({
             title: "Slint SC Safety Manual",
+            customCss: [
+                "@slint/common-files/src/styles/starlight-slint-custom.css",
+                "@slint/common-files/src/styles/starlight-slint-theme.css",
+                "./src/styles/sls-ids.css",
+            ],
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/Header.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
-            plugins: [
-                starlightLinksValidator({
-                    errorOnLocalLinks: false,
-                }),
-            ],
+            plugins: [slintStarlightLinksValidatorPlugin({ errorOnRelativeLinks: false })],
+            social: slintStarlightSocial,
             sidebar: [
                 { label: "Slint SC Safety Manual", slug: "index" },
                 { label: "Safety Policy", slug: "safety-policy" },
@@ -90,6 +98,23 @@ export default defineConfig({
                     ],
                 },
                 { label: "Using Slint SC", slug: "using-slint-sc" },
+                {
+                    label: "Reference",
+                    items: [
+                        { label: "Overview", slug: "reference" },
+                        {
+                            label: "Elements",
+                            items: [
+                                {
+                                    autogenerate: {
+                                        directory:
+                                            "reference/generated/elements",
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
                 { label: "Development Process", slug: "development-process" },
                 { label: "Development Phases", slug: "development-phases" },
                 {
@@ -114,6 +139,32 @@ export default defineConfig({
                         {
                             label: "Validation",
                             slug: "qualification-plan/validation",
+                        },
+                    ],
+                },
+                {
+                    label: "Language Specification",
+                    items: [
+                        { label: "Introduction", slug: "language" },
+                        {
+                            label: "Source Files",
+                            slug: "language/source-files",
+                        },
+                        {
+                            label: "Lexical Structure",
+                            slug: "language/lexical-structure",
+                        },
+                        {
+                            label: "File Structure",
+                            slug: "language/file-structure",
+                        },
+                        // {
+                        //     label: "Imports",
+                        //     slug: "language/imports",
+                        // },
+                        {
+                            label: "Exports",
+                            slug: "language/exports",
                         },
                     ],
                 },

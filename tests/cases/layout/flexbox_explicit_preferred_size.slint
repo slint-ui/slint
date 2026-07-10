@@ -1,0 +1,78 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An explicit preferred size on a perpendicular flex must win over the "wrap
+// only when needed" clamp -- the same in both layout paths. The interpreter
+// applies constraints after the clamp, so it already honors it; LLR bakes the
+// constraint in before the clamp, so the clamp must not override an explicit
+// preferred.
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 500px;
+
+    // Column flex in a HorizontalLayout: its main axis is the parent's cross
+    // axis, and preferred-height (60px) is set explicitly. Without room the
+    // clamp would report min(available, unwrapped) = 130px instead.
+    Rectangle {
+        x: 0; y: 0; width: 400px; height: 300px;
+        HorizontalLayout {
+            alignment: start;
+            cross-axis-alignment: start;
+            colFlex := FlexboxLayout {
+                flex-direction: column;
+                preferred-height: 60px;
+                spacing: 5px;
+                Rectangle { width: 50px; height: 40px; }
+                Rectangle { width: 50px; height: 40px; }
+                Rectangle { width: 50px; height: 40px; }
+            }
+            Rectangle { min-width: 100px; }
+        }
+    }
+
+    // Rotated: row flex in a VerticalLayout with an explicit preferred-width.
+    Rectangle {
+        x: 0; y: 300px; width: 400px; height: 200px;
+        VerticalLayout {
+            alignment: start;
+            cross-axis-alignment: start;
+            rowFlex := FlexboxLayout {
+                flex-direction: row;
+                preferred-width: 60px;
+                spacing: 5px;
+                Rectangle { width: 40px; height: 50px; }
+                Rectangle { width: 40px; height: 50px; }
+                Rectangle { width: 40px; height: 50px; }
+            }
+            Rectangle { min-height: 30px; }
+        }
+    }
+
+    out property <bool> col_honors_preferred: colFlex.height == 60px;
+    out property <bool> row_honors_preferred: rowFlex.width == 60px;
+    out property <bool> test: col_honors_preferred && row_honors_preferred;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_col_honors_preferred());
+assert(handle->get_row_honors_preferred());
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_col_honors_preferred(), "explicit preferred-height must win");
+assert!(instance.get_row_honors_preferred(), "explicit preferred-width must win");
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.col_honors_preferred);
+assert(instance.row_honors_preferred);
+assert(instance.test);
+```
+*/

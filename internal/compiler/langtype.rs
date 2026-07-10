@@ -55,6 +55,9 @@ pub enum Type {
     Struct(Rc<Struct>),
     Enumeration(Rc<Enumeration>),
     Keys,
+    /// `data-transfer` - a special type that handles reading a value from the system with
+    /// some set of available MIME types.
+    DataTransfer,
 
     /// A type made up of the product of several "unit" types.
     /// The first parameter is the unit, and the second parameter is the power.
@@ -112,6 +115,7 @@ impl core::cmp::PartialEq for Type {
             Type::LayoutCache => matches!(other, Type::LayoutCache),
             Type::ArrayOfU16 => matches!(other, Type::ArrayOfU16),
             Type::StyledText => matches!(other, Type::StyledText),
+            Type::DataTransfer => matches!(other, Type::DataTransfer),
         }
     }
 }
@@ -169,6 +173,7 @@ impl Display for Type {
             Type::Brush => write!(f, "brush"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
             Type::Keys => write!(f, "keys"),
+            Type::DataTransfer => write!(f, "data-transfer"),
             Type::UnitProduct(vec) => {
                 const POWERS: &[char] = &['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
                 let mut x = vec.iter().map(|(unit, power)| {
@@ -220,6 +225,7 @@ impl Type {
                 | Self::Easing
                 | Self::Enumeration(_)
                 | Self::Keys
+                | Self::DataTransfer
                 | Self::ElementReference
                 | Self::Struct { .. }
                 | Self::Array(_)
@@ -325,6 +331,7 @@ impl Type {
             Type::Struct { .. } => None,
             Type::Enumeration(_) => None,
             Type::Keys => None,
+            Type::DataTransfer => None,
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
             Type::LayoutCache => None,
@@ -375,6 +382,15 @@ pub struct BuiltinPropertyInfo {
     /// When != None, this is the initial value that we will have to set if no other binding were specified
     pub default_value: BuiltinPropertyDefault,
     pub property_visibility: PropertyVisibility,
+    /// Raw `///` doc comment from builtins.slint, if any.
+    pub docs: Option<String>,
+    /// True when a component may declare a member of the same name, shadowing this one
+    /// (`//-shadowable` annotation in builtins.slint).
+    /// Members added to a builtin element after its initial release should be marked
+    /// shadowable so that older code that already declares the name keeps compiling —
+    /// unless a compiler pass accesses the member by name, in which case shadowing
+    /// would generate wrong code and the member must not be marked.
+    pub shadowable: bool,
 }
 
 impl BuiltinPropertyInfo {
@@ -383,6 +399,8 @@ impl BuiltinPropertyInfo {
             ty,
             default_value: BuiltinPropertyDefault::None,
             property_visibility: PropertyVisibility::InOut,
+            docs: None,
+            shadowable: false,
         }
     }
 
@@ -397,6 +415,8 @@ impl From<BuiltinFunction> for BuiltinPropertyInfo {
             ty: Type::Function(function.ty()),
             default_value: BuiltinPropertyDefault::BuiltinFunction(function),
             property_visibility: PropertyVisibility::Public,
+            docs: None,
+            shadowable: false,
         }
     }
 }
@@ -459,6 +479,7 @@ impl ElementType {
                         declared_pure: None,
                         is_local_to_component: false,
                         is_in_direct_base: false,
+                        is_shadowable: p.shadowable,
                         builtin_function: match &p.default_value {
                             BuiltinPropertyDefault::BuiltinFunction(f) => Some(f.clone()),
                             _ => None,
@@ -481,6 +502,7 @@ impl ElementType {
                     declared_pure: None,
                     is_local_to_component: false,
                     is_in_direct_base: false,
+                    is_shadowable: false,
                     builtin_function: None,
                 }
             }
@@ -528,6 +550,10 @@ impl ElementType {
                     None => {
                         let base_type = component.root_element.borrow().base_type.clone();
                         if base_type == tr.empty_type() {
+                            let element = tr.lookup_element(name)?;
+                            if matches!(&element, ElementType::Builtin(b) if b.can_be_declared_without_children_slot) {
+                                return Ok(element);
+                            }
                             return Err(format!("'{}' cannot have children. Only components with @children can have children", component.id));
                         }
                         base_type
@@ -536,6 +562,12 @@ impl ElementType {
                 base_type.lookup_type_for_child_element(name, tr)
             }
             Self::Builtin(builtin) => {
+                let looked_up = tr.lookup_element(name);
+                if let Ok(ElementType::Builtin(b)) = &looked_up
+                    && b.can_be_declared_without_children_slot
+                {
+                    return Ok(ElementType::Builtin(b.clone()));
+                }
                 if builtin.disallow_global_types_as_child_elements {
                     if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
                         return Ok(child_type.clone().into());
@@ -550,6 +582,8 @@ impl ElementType {
                     valid_children.sort();
 
                     let err = if valid_children.is_empty() {
+                        // No whitelist to suggest from; prefer "Unknown element" for typos.
+                        looked_up?;
                         format!("{} cannot have children elements", builtin.native_class.class_name,)
                     } else {
                         format!(
@@ -561,7 +595,7 @@ impl ElementType {
                     };
                     return Err(err);
                 }
-                let err = match tr.lookup_element(name) {
+                let err = match looked_up {
                     Err(e) => e,
                     Ok(t) => {
                         if !tr.expose_internal_types
@@ -647,39 +681,86 @@ impl Display for ElementType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, strum::EnumString, strum::IntoStaticStr)]
-pub enum BuiltinPrivateStruct {
-    PathMoveTo,
-    PathLineTo,
-    PathArcTo,
-    PathCubicTo,
-    PathQuadraticTo,
-    PathClose,
-    Size,
-    StateInfo,
-    Point,
-    PropertyAnimation,
-    GridLayoutData,
-    GridLayoutInputData,
-    BoxLayoutData,
-    BoxLayoutOrthoData,
-    FlexboxLayoutData,
-    LayoutItemInfo,
-    FlexboxLayoutItemInfo,
-    Padding,
-    LayoutInfo,
-    FontMetrics,
-    PathElement,
-    PointerEvent,
-    PointerScrollEvent,
-    DropEvent,
-    TableColumn,
-    MenuEntry,
-    Edges,
-    InternalKeyEvent,
-}
+macro_rules! define_builtin_struct_enum {
+    ($(
+        $(#[$attr:meta])*
+        $vis:vis struct $Name:ident {
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
+        }
+    )*) => {
+        #[derive(Debug, Clone, PartialEq, strum::EnumString, strum::IntoStaticStr)]
+        pub enum BuiltinStruct {
+            // Generated from for_each_builtin_structs
+            $($Name,)*
 
-impl BuiltinPrivateStruct {
+            // Public structs not in the macro (registered in typeregister.rs)
+            Color,
+            LogicalPosition,
+            LogicalSize,
+
+            // Path element types, set via `//-builtin_struct:` annotations
+            // in builtins.slint and read through NativeClass.builtin_struct
+            PathMoveTo,
+            PathLineTo,
+            PathArcTo,
+            PathCubicTo,
+            PathQuadraticTo,
+            PathClose,
+            PathElement,
+
+            // Compiler-internal structs (no slint_name, not exposed to .slint)
+
+            // Internal coordinate struct for compiled SVG path data (x/y as Float32,
+            // unlike LogicalPosition which uses LogicalLength)
+            Point,
+            // Return type of ArraySize (width/height as Int32,
+            // unlike LogicalSize which uses LogicalLength)
+            Size,
+            StateInfo,
+            PropertyAnimation,
+            GridLayoutData,
+            GridLayoutInputData,
+            BoxLayoutData,
+            BoxLayoutOrthoData,
+            FlexboxLayoutData,
+            LayoutItemInfo,
+            FlexboxLayoutItemInfo,
+            Padding,
+            LayoutInfo,
+        }
+
+        impl BuiltinStruct {
+            pub fn is_public(&self) -> bool {
+                match self {
+                    // Macro-defined structs: derived from the `pub` visibility keyword
+                    $(Self::$Name => stringify!($vis) == "pub",)*
+                    // Non-macro public structs
+                    Self::Color | Self::LogicalPosition | Self::LogicalSize => true,
+                    _ => false,
+                }
+            }
+
+            /// The name of this struct in the Slint language, or None if it is
+            /// purely internal and not visible in .slint files.
+            pub fn slint_name(&self) -> Option<SmolStr> {
+                match self {
+                    // Macro-defined structs all have a slint name matching their Rust name
+                    $(Self::$Name => {
+                        Some(SmolStr::new_static(stringify!($Name)))
+                    })*
+                    // Non-macro structs with custom slint names
+                    Self::Color => Some(SmolStr::new_static("color")),
+                    Self::LogicalPosition => Some(SmolStr::new_static("Point")),
+                    Self::LogicalSize => Some(SmolStr::new_static("Size")),
+                    _ => None,
+                }
+            }
+        }
+    };
+}
+i_slint_common::for_each_builtin_structs!(define_builtin_struct_enum);
+
+impl BuiltinStruct {
     pub fn is_layout_data(&self) -> bool {
         matches!(
             self,
@@ -690,63 +771,6 @@ impl BuiltinPrivateStruct {
                 | Self::FlexboxLayoutData
         )
     }
-    pub fn slint_name(&self) -> Option<SmolStr> {
-        match self {
-            // These are public types in the Slint language
-            Self::Point
-            | Self::FontMetrics
-            | Self::TableColumn
-            | Self::MenuEntry
-            | Self::PointerEvent
-            | Self::InternalKeyEvent
-            | Self::PointerScrollEvent
-            | Self::Edges => {
-                let name: &'static str = self.into();
-                Some(SmolStr::new_static(name))
-            }
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, strum::IntoStaticStr)]
-pub enum BuiltinPublicStruct {
-    Color,
-    LogicalPosition,
-    LogicalSize,
-    StandardListViewItem,
-    Keys,
-    KeyEvent,
-    KeyboardModifiers,
-}
-
-impl BuiltinPublicStruct {
-    pub fn slint_name(&self) -> Option<SmolStr> {
-        match self {
-            Self::Color => Some(SmolStr::new_static("color")),
-            Self::LogicalPosition => Some(SmolStr::new_static("Point")),
-            Self::LogicalSize => Some(SmolStr::new_static("Size")),
-            Self::StandardListViewItem => Some(SmolStr::new_static("StandardListViewItem")),
-            Self::Keys => Some(SmolStr::new_static("Keys")),
-            Self::KeyEvent => Some(SmolStr::new_static("KeyEvent")),
-            Self::KeyboardModifiers => Some(SmolStr::new_static("KeyboardModifiers")),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, derive_more::From)]
-pub enum BuiltinStruct {
-    Private(BuiltinPrivateStruct),
-    Public(BuiltinPublicStruct),
-}
-
-impl BuiltinStruct {
-    pub fn slint_name(&self) -> Option<SmolStr> {
-        match self {
-            Self::Private(native_private_type) => native_private_type.slint_name(),
-            Self::Public(native_public_type) => native_public_type.slint_name(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -754,11 +778,11 @@ pub struct NativeClass {
     pub parent: Option<Rc<NativeClass>>,
     pub class_name: SmolStr,
     pub cpp_vtable_getter: String,
-    pub properties: HashMap<SmolStr, BuiltinPropertyInfo>,
+    pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
     pub deprecated_aliases: HashMap<SmolStr, SmolStr>,
     /// Type override if class_name is not equal to the name to be used in the
     /// target language API.
-    pub builtin_struct: Option<BuiltinPrivateStruct>,
+    pub builtin_struct: Option<BuiltinStruct>,
 }
 
 impl NativeClass {
@@ -837,6 +861,15 @@ pub struct BuiltinElement {
     pub default_size_binding: DefaultSizeBinding,
     /// When true this is an internal type not shown in the auto-completion
     pub is_internal: bool,
+    /// Documentation sections from builtins.slint, preserving source order.
+    /// `Text` entries come from `///` (element-level) and `//!` (section) comments;
+    /// `Member` entries reference a property, callback, or function by name.
+    pub docs: Vec<crate::doc_comments::ElementDocEntry>,
+    /// When true this builtin can be declared as a child even if the parent element
+    /// does not expose an explicit @children insertion slot.
+    pub can_be_declared_without_children_slot: bool,
+    /// When true this element is part of the Slint SC (safety-critical) subset.
+    pub slint_sc: bool,
 }
 
 impl BuiltinElement {
@@ -855,6 +888,9 @@ pub struct PropertyLookupResult<'a> {
     pub is_local_to_component: bool,
     /// True if the property in the direct base of the component (for protected visibility purposes)
     pub is_in_direct_base: bool,
+    /// True if a local declaration may shadow this member. Only builtin element
+    /// members marked `//-shadowable` in builtins.slint are shadowable.
+    pub is_shadowable: bool,
 
     /// If the property is a builtin function
     pub builtin_function: Option<BuiltinFunction>,
@@ -883,6 +919,7 @@ impl<'a> PropertyLookupResult<'a> {
             declared_pure: None,
             is_local_to_component: false,
             is_in_direct_base: false,
+            is_shadowable: false,
             builtin_function: None,
         }
     }
@@ -906,8 +943,7 @@ pub enum StructName {
         /// When declared in .slint, this is the node of the declaration.
         node: syntax_nodes::ObjectType,
     },
-    BuiltinPublic(BuiltinPublicStruct),
-    BuiltinPrivate(BuiltinPrivateStruct),
+    Builtin(BuiltinStruct),
 }
 
 impl PartialEq for StructName {
@@ -917,8 +953,7 @@ impl PartialEq for StructName {
                 Self::User { name: l_user_name, node: _ },
                 Self::User { name: r_user_name, node: _ },
             ) => l_user_name == r_user_name,
-            (Self::BuiltinPublic(l0), Self::BuiltinPublic(r0)) => l0 == r0,
-            (Self::BuiltinPrivate(l0), Self::BuiltinPrivate(r0)) => l0 == r0,
+            (Self::Builtin(l0), Self::Builtin(r0)) => l0 == r0,
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
     }
@@ -929,8 +964,7 @@ impl StructName {
         match self {
             StructName::None => None,
             StructName::User { name, .. } => Some(name.clone()),
-            StructName::BuiltinPublic(builtin_public) => builtin_public.slint_name(),
-            StructName::BuiltinPrivate(builtin_private) => builtin_private.slint_name(),
+            StructName::Builtin(builtin) => builtin.slint_name(),
         }
     }
 
@@ -950,15 +984,9 @@ impl StructName {
     }
 }
 
-impl From<BuiltinPrivateStruct> for StructName {
-    fn from(value: BuiltinPrivateStruct) -> Self {
-        Self::BuiltinPrivate(value)
-    }
-}
-
-impl From<BuiltinPublicStruct> for StructName {
-    fn from(value: BuiltinPublicStruct) -> Self {
-        Self::BuiltinPublic(value)
+impl From<BuiltinStruct> for StructName {
+    fn from(value: BuiltinStruct) -> Self {
+        Self::Builtin(value)
     }
 }
 
@@ -1039,7 +1067,7 @@ pub struct Keys {
 }
 
 impl std::fmt::Display for Keys {
-    // Make sure to keep this in sync with the implemenation in core/input.rs
+    // Make sure to keep this in sync with the implementation in core/input.rs
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.key.is_empty() {
             write!(f, "")

@@ -20,7 +20,7 @@ use i_slint_core::api::EventLoopError;
 use serde_json::Value;
 use std::rc::Rc;
 
-use crate::introspection::{self, IntrospectionState, proto};
+use crate::introspection::{self, IntrospectionState, dispatch, proto};
 use introspection::{handle_to_index, index_to_handle};
 
 // ============================================================================
@@ -50,7 +50,7 @@ const TOOLS: &[ToolDef] = &[
     },
     ToolDef {
         name: "get_window_properties",
-        description: "Get a window's physical size (pixels), position, fullscreen/maximized/minimized state, and rootElementHandle — the entry point for element tree traversal.",
+        description: "Get a window's physical size (pixels), position, scale factor, fullscreen/maximized/minimized state, and rootElementHandle — the entry point for element tree traversal.",
         request_type: "RequestWindowProperties",
         optional_fields: &[],
     },
@@ -114,7 +114,54 @@ const TOOLS: &[ToolDef] = &[
         request_type: "RequestDispatchKeyEvent",
         optional_fields: &["eventType"],
     },
+    ToolDef {
+        name: "start_event_recording",
+        description: "Clear the event log and begin recording window/input events. Call this before the interaction you want to observe, then call stop_event_recording when done.",
+        request_type: "RequestStartEventRecording",
+        optional_fields: &[],
+    },
+    ToolDef {
+        name: "stop_event_recording",
+        description: "Stop recording and return all events collected since the last start_event_recording call. The response includes an events array, droppedCount (events evicted when the 1024-entry cap was reached), and unknownEventCount (non-zero indicates a Slint bug: an event variant has no proto mapping). Use to verify that Slint received and processed pointer, key, resize, scale, close, and active-state events.",
+        request_type: "RequestStopEventRecording",
+        optional_fields: &[],
+    },
 ];
+
+/// Human-readable description for a handle-typed input field. Window and element
+/// handles are structurally identical (`{index, generation}` objects), so without
+/// these descriptions their input schemas would be byte-for-byte identical and
+/// agents routinely confuse the two. The text spells out where each kind of
+/// handle comes from and that they are not interchangeable.
+fn handle_field_description(field_name: &str) -> Option<&'static str> {
+    match field_name {
+        "windowHandle" => Some(
+            "A window handle (NOT an element handle). Obtain it from list_windows. \
+             Window and element handles look identical but are not interchangeable: \
+             passing an element handle here is incorrect.",
+        ),
+        "elementHandle" => Some(
+            "An element handle (NOT a window handle). Obtain it from get_element_tree, \
+             find_elements_by_id, query_element_descendants, or a window's rootElementHandle \
+             (from get_window_properties). Window and element handles look identical but are \
+             not interchangeable: passing a window handle here is incorrect.",
+        ),
+        _ => None,
+    }
+}
+
+/// Annotate handle-typed properties of an input schema with a `description` so
+/// `windowHandle` and `elementHandle` read differently to the client.
+fn annotate_handle_fields(schema: &mut Value) {
+    let Some(props) = schema.get_mut("properties").and_then(|p| p.as_object_mut()) else {
+        return;
+    };
+    for (name, prop) in props.iter_mut() {
+        if let (Some(desc), Some(obj)) = (handle_field_description(name), prop.as_object_mut()) {
+            obj.insert("description".to_string(), Value::String(desc.to_string()));
+        }
+    }
+}
 
 fn tool_definitions() -> Value {
     let tools: Vec<Value> = TOOLS
@@ -124,6 +171,8 @@ fn tool_definitions() -> Value {
                 mcp_schemas::proto_input_schema(def.request_type).unwrap_or_else(|| {
                     panic!("no proto schema for {}", def.request_type);
                 });
+
+            annotate_handle_fields(&mut schema);
 
             // Add "required" array: all fields except those listed as optional
             if let Some(all_fields) = mcp_schemas::proto_field_names(def.request_type) {
@@ -174,9 +223,7 @@ async fn handle_tool_call(
 ) -> Result<ToolResult, String> {
     match name {
         "list_windows" => {
-            let response = proto::WindowListResponse {
-                window_handles: state.window_handles().into_iter().map(index_to_handle).collect(),
-            };
+            let response = dispatch::list_windows(state);
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
@@ -186,7 +233,7 @@ async fn handle_tool_call(
             let window_index = handle_to_index(
                 p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?,
             )?;
-            let response = state.window_properties(window_index)?;
+            let response = dispatch::window_properties(state, window_index)?;
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
@@ -196,13 +243,7 @@ async fn handle_tool_call(
             let window_index = handle_to_index(
                 p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?,
             )?;
-            let elements = state.find_elements_by_id(window_index, &p.elements_id)?;
-            let response = proto::ElementsResponse {
-                element_handles: elements
-                    .into_iter()
-                    .map(|e| index_to_handle(state.element_to_handle(e)))
-                    .collect(),
-            };
+            let response = dispatch::find_elements_by_id(state, window_index, &p.elements_id)?;
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
@@ -212,8 +253,7 @@ async fn handle_tool_call(
             let element_index = handle_to_index(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
-            let element = state.element("get_element_properties", element_index)?;
-            let response = introspection::element_properties(&element);
+            let response = dispatch::element_properties(state, element_index)?;
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
@@ -223,15 +263,12 @@ async fn handle_tool_call(
             let element_index = handle_to_index(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
-            let element = state.element("query_element_descendants", element_index)?;
-            let results =
-                introspection::query_element_descendants(element, p.query_stack, p.find_all)?;
-            let response = proto::ElementQueryResponse {
-                element_handles: results
-                    .into_iter()
-                    .map(|e| index_to_handle(state.element_to_handle(e)))
-                    .collect(),
-            };
+            let response = dispatch::query_element_descendants(
+                state,
+                element_index,
+                p.query_stack,
+                p.find_all,
+            )?;
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
@@ -291,7 +328,7 @@ async fn handle_tool_call(
             let window_index = handle_to_index(
                 p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?,
             )?;
-            let response = state.take_snapshot_response(window_index, "image/png")?;
+            let response = dispatch::take_snapshot(state, window_index, "image/png")?;
             let png_data = response.window_contents_as_encoded_image;
             Ok(ToolResult::Image {
                 meta: serde_json::json!({ "sizeBytes": png_data.len() }),
@@ -303,16 +340,11 @@ async fn handle_tool_call(
             let element_index = handle_to_index(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
-            let element = state.element("click_element", element_index)?;
             let button = proto::PointerEventButton::try_from(p.button)
                 .map_err(|_| format!("invalid button value: {}", p.button))?;
-            let button = introspection::convert_pointer_event_button(button);
             let action = proto::ClickAction::try_from(p.action)
                 .map_err(|_| format!("invalid action value: {}", p.action))?;
-            match action {
-                proto::ClickAction::SingleClick => element.single_click(button).await,
-                proto::ClickAction::DoubleClick => element.double_click(button).await,
-            }
+            dispatch::click(state, element_index, action, button).await?;
             let response = proto::ElementClickResponse {};
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
@@ -323,13 +355,10 @@ async fn handle_tool_call(
             let element_index = handle_to_index(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
-            let element = state.element("drag_element", element_index)?;
-            let target_pos = p.target.ok_or_else(|| "missing target position".to_string())?;
-            let target = i_slint_core::api::LogicalPosition::new(target_pos.x, target_pos.y);
+            let target = p.target.ok_or_else(|| "missing target position".to_string())?;
             let button = proto::PointerEventButton::try_from(p.button)
                 .map_err(|_| format!("invalid button value: {}", p.button))?;
-            let button = introspection::convert_pointer_event_button(button);
-            element.drag(target, button).await;
+            dispatch::drag(state, element_index, target, button).await?;
             let response = proto::ElementDragResponse {};
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
@@ -340,10 +369,9 @@ async fn handle_tool_call(
             let element_index = handle_to_index(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
-            let element = state.element("invoke_accessibility_action", element_index)?;
             let action = proto::ElementAccessibilityAction::try_from(p.action)
                 .map_err(|_| format!("invalid action value: {}", p.action))?;
-            introspection::invoke_element_accessibility_action(&element, action);
+            dispatch::invoke_accessibility_action(state, element_index, action)?;
             let response = proto::InvokeElementAccessibilityActionResponse {};
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
@@ -354,8 +382,7 @@ async fn handle_tool_call(
             let element_index = handle_to_index(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
-            let element = state.element("set_element_value", element_index)?;
-            element.set_accessible_value(p.value);
+            dispatch::set_accessible_value(state, element_index, p.value)?;
             let response = proto::SetElementAccessibleValueResponse {};
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
@@ -384,6 +411,18 @@ async fn handle_tool_call(
                 state.dispatch_window_event(window_index, event)?;
             }
             let response = proto::DispatchKeyEventResponse {};
+            Ok(ToolResult::Json(
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
+            ))
+        }
+        "start_event_recording" => {
+            let response = dispatch::start_event_recording(state);
+            Ok(ToolResult::Json(
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
+            ))
+        }
+        "stop_event_recording" => {
+            let response = dispatch::stop_event_recording(state);
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
@@ -454,7 +493,8 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "5. get_element_properties → full details on a specific element\n",
                     "6. take_screenshot → visual snapshot (returned as inline image)\n",
                     "7. Interact: click_element, drag_element, set_element_value, invoke_accessibility_action, dispatch_key_event\n",
-                    "8. take_screenshot again to verify the effect\n\n",
+                    "8. start_event_recording → then interact → stop_event_recording to verify the runtime received and processed expected input/window events\n",
+                    "9. take_screenshot again to verify the visual effect\n\n",
 
                     "# Handle format\n\n",
                     "All handles are JSON objects with string-valued fields: {\"index\": \"0\", \"generation\": \"0\"}. ",
@@ -462,13 +502,21 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "Zero-valued fields may be omitted by the serializer, so {} means {\"index\": \"0\", \"generation\": \"0\"}. ",
                     "When sending handles back, you may omit zero fields or include them — both work.\n\n",
 
+                    "IMPORTANT: window handles and element handles are SEPARATE, NON-INTERCHANGEABLE kinds, ",
+                    "even though they share this {index, generation} shape. ",
+                    "Window handles come from list_windows (use them for windowHandle parameters). ",
+                    "Element handles come from get_element_tree, find_elements_by_id, query_element_descendants, ",
+                    "or a window's rootElementHandle (use them for elementHandle parameters). ",
+                    "Do not reuse a window handle as an element handle or vice versa — they are not interchangeable.\n\n",
+
                     "# Enum values\n\n",
                     "Enum fields accept PascalCase strings:\n",
-                    "- AccessibleRole: Unknown, Button, Checkbox, Combobox, List, Slider, Spinbox, Tab, TabList, Text, Table, Tree, ProgressIndicator, TextInput, Switch, ListItem, TabPanel, Groupbox, Image, RadioButton\n",
-                    "- PointerEventButton: Left, Right, Middle\n",
+                    "- AccessibleRole: Unknown, Button, Checkbox, Combobox, List, Slider, Spinbox, Tab, TabList, Text, Table, Tree, ProgressIndicator, TextInput, Switch, ListItem, TabPanel, Groupbox, Image, RadioButton, RadioGroup, Banner, Complementary, ContentInfo, Form, Main, Navigation, Region, Search\n",
+                    "- PointerEventButton: Left, Right, Middle, Back, Forward, Other\n",
                     "- ClickAction: SingleClick, DoubleClick\n",
                     "- ElementAccessibilityAction: Default_, Increment, Decrement, Expand\n",
                     "- KeyEventType: PressAndRelease, Press, Release\n",
+                    "- RecordedEventResult: Unspecified, Accepted, Rejected, Ignored (Unspecified appears only on malformed data)\n",
                     "- LayoutKind: NotALayout, HorizontalLayout, VerticalLayout, GridLayout, FlexboxLayout\n",
                     "Omitted enum fields default to the first value (e.g. Left, SingleClick, PressAndRelease).\n\n",
 
@@ -823,6 +871,10 @@ async fn run_server(state: Rc<IntrospectionState>, port: u16) {
 // Initialization
 // ============================================================================
 
+thread_local! {
+    static INIT_INSTALLED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 pub fn init() -> Result<(), EventLoopError> {
     let Ok(port_str) = std::env::var("SLINT_MCP_PORT") else {
         return Ok(());
@@ -835,39 +887,60 @@ pub fn init() -> Result<(), EventLoopError> {
         }
     };
 
+    if INIT_INSTALLED.with(|installed| installed.get()) {
+        return Ok(());
+    }
+
     introspection::ensure_window_tracking()?;
     let state = introspection::shared_state();
 
+    // The JoinHandle is kept alive inside the OnceCell so the server task is not dropped.
     let server_started =
         Rc::new(std::cell::OnceCell::<i_slint_core::future::JoinHandle<()>>::new());
     let server_started_clone = server_started.clone();
     let state_clone = state.clone();
 
+    // Mark as installed before registering the hook so re-entrant calls to init() are rejected.
+    INIT_INSTALLED.with(|installed| installed.set(true));
+
     let previous_hook = i_slint_core::context::set_window_shown_hook(None)
         .map_err(|_| EventLoopError::NoEventLoopProvider)?;
     let previous_hook = std::cell::RefCell::new(previous_hook);
 
-    i_slint_core::context::set_window_shown_hook(Some(Box::new(move |adapter| {
+    if i_slint_core::context::set_window_shown_hook(Some(Box::new(move |adapter| {
         if let Some(prev) = previous_hook.borrow_mut().as_mut() {
             prev(adapter);
         }
 
+        // OnceCell ensures we only spawn once even if the hook fires multiple times.
+        if server_started_clone.get().is_some() {
+            return;
+        }
+
         let state = state_clone.clone();
-        server_started_clone.get_or_init(|| {
-            i_slint_core::with_global_context(
-                || panic!("uninitialized platform"),
-                |context| {
-                    context
-                        .spawn_local(async move {
-                            run_server(state, port).await;
-                        })
-                        .unwrap()
-                },
-            )
-            .unwrap()
-        });
+        let spawn_result = i_slint_core::with_global_context(
+            || panic!("uninitialized platform"),
+            |context| context.spawn_local(async move { run_server(state, port).await }),
+        );
+        match spawn_result {
+            Ok(Ok(join_handle)) => {
+                let _ = server_started_clone.set(join_handle);
+            }
+            // spawn_local fails when no event-loop proxy is available yet. The hook
+            // will fire again on the next window-show, so this is non-fatal.
+            Ok(Err(e)) => {
+                i_slint_core::debug_log!("MCP server failed to start: {e:?}");
+            }
+            Err(e) => {
+                i_slint_core::debug_log!("MCP server failed to start: {e:?}");
+            }
+        }
     })))
-    .map_err(|_| EventLoopError::NoEventLoopProvider)?;
+    .is_err()
+    {
+        INIT_INSTALLED.with(|installed| installed.set(false));
+        return Err(EventLoopError::NoEventLoopProvider);
+    }
 
     Ok(())
 }
@@ -1045,10 +1118,34 @@ mod tests {
     }
 
     #[test]
+    fn test_handle_field_schemas_are_distinct() {
+        // The window and element handle schemas would otherwise be byte-identical
+        // {index, generation} objects. Verify the disambiguating descriptions are
+        // present and differ, so clients can tell the two kinds apart.
+        let defs = tool_definitions();
+        let tools = defs["tools"].as_array().unwrap();
+        let find = |name: &str| tools.iter().find(|t| t["name"] == name).unwrap().clone();
+
+        let window_tool = find("get_window_properties");
+        let window_desc = window_tool["inputSchema"]["properties"]["windowHandle"]["description"]
+            .as_str()
+            .expect("windowHandle should have a description");
+        let element_tool = find("get_element_properties");
+        let element_desc =
+            element_tool["inputSchema"]["properties"]["elementHandle"]["description"]
+                .as_str()
+                .expect("elementHandle should have a description");
+
+        assert!(window_desc.contains("window handle"));
+        assert!(element_desc.contains("element handle"));
+        assert_ne!(window_desc, element_desc);
+    }
+
+    #[test]
     fn test_tool_definitions_structure() {
         let defs = tool_definitions();
         let tools = defs["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 12);
+        assert_eq!(tools.len(), TOOLS.len());
         for tool in tools {
             assert!(tool.get("name").and_then(|v| v.as_str()).is_some());
             assert!(tool.get("description").and_then(|v| v.as_str()).is_some());

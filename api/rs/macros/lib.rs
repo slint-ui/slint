@@ -15,6 +15,8 @@ use proc_macro::{Spacing, TokenStream, TokenTree};
 use quote::quote;
 use std::path::PathBuf;
 
+mod expansion_cache;
+
 /// Returns true if the two token are touching. For example the two token `foo`and `-` are touching if
 /// it was written like so in the source code: `foo-` but not when written like so `foo -`
 ///
@@ -324,6 +326,17 @@ fn extract_compiler_config(
     remaining_stream
 }
 
+/// The external files whose changes should invalidate this expansion: the loaded
+/// files that are absolute and not the `Cargo.toml`. This is the set that both the
+/// `include_bytes!` recompile markers and the output cache key off of.
+fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
+    diag.all_loaded_files
+        .iter()
+        .filter(|path| path.is_absolute() && !path.ends_with("Cargo.toml"))
+        .cloned()
+        .collect()
+}
+
 /// This macro allows you to use the Slint design markup language inline in Rust code. Within the braces of the macro
 /// you can use place Slint code and the named exported components will be available for instantiation.
 ///
@@ -336,8 +349,23 @@ fn extract_compiler_config(
 ///
 /// ### Limitations
 ///
-/// Within `.slint` files, you can interpolate string literals using `\{...}` syntax.
-/// This is not possible in this macro as this wouldn't parse as a Rust string.
+/// Because this macro receives its input through Rust's tokenizer, a few constructs that are
+/// valid in standalone `.slint` files cannot be used here:
+///
+/// - **String interpolation with `\{...}`**: Rust parses the macro body as Rust string literals
+///   first, and `\{...}` is not a valid Rust string escape.
+///
+/// - **Color literals that begin with `#0b`** (for example `#0bf707`): Rust's
+///   lexer sees the `0b` as the start of a numeric literal with a
+///   binary prefix, then rejects the remaining hex digits as invalid digits for that base.
+///
+/// - **Color literals matching `#<digits>e<non-digit-hex>…`** (for example `#10ea4c`):
+///   Rust's lexer tries to read the payload as a float with scientific notation (`10e…`), and
+///   rejects the non-digit characters that follow the `e`.
+///
+/// In all three cases the workarounds are to either rewrite the literal in a form Rust can
+/// tokenize (e.g. `rgb(11, 247, 7)` in place of `#0bf707`), or to move the Slint code into a
+/// `.slint` file and compile it via [`slint-build`](https://crates.io/crates/slint-build).
 #[proc_macro]
 pub fn slint(stream: TokenStream) -> TokenStream {
     let token_iter = stream.into_iter();
@@ -354,15 +382,32 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         tokens.first()?.span?.local_file()
     }
 
-    let source_file = if let Some(path) = local_file(&tokens) {
-        diagnostics::SourceFileInner::from_path_only(path)
+    let source_path: PathBuf = if let Some(path) = local_file(&tokens) {
+        path
     } else if let Some(cargo_manifest) = std::env::var_os("CARGO_MANIFEST_DIR") {
         let mut path: std::path::PathBuf = cargo_manifest.into();
         path.push("Cargo.toml");
-        diagnostics::SourceFileInner::from_path_only(path)
+        path
     } else {
-        diagnostics::SourceFileInner::from_path_only(Default::default())
+        Default::default()
     };
+
+    compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
+
+    // Consult the output cache before doing any (expensive) compilation. The key
+    // is computed from the macro body plus everything else that influences the
+    // generated output; a hit just re-parses the cached output string. Only
+    // active under rust-analyzer (see expansion_cache docs).
+    let cache_key = expansion_cache::enabled()
+        .then(|| expansion_cache::key_material(&tokens, &compiler_config, &source_path));
+    if let Some(key) = &cache_key
+        && let Some(output) = expansion_cache::lookup(key)
+        && let Ok(stream) = output.parse::<TokenStream>()
+    {
+        return stream;
+    }
+
+    let source_file = diagnostics::SourceFileInner::from_path_only(source_path);
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse_tokens(tokens.clone(), source_file, &mut diag);
     if diag.has_errors() {
@@ -370,7 +415,6 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     }
 
     //println!("{syntax_node:#?}");
-    compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
     //println!("{tree:#?}");
@@ -378,15 +422,23 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         return diag.report_macro_diagnostic(&tokens);
     }
 
-    if std::env::var("RUST_ANALYZER_INTERNALS_DO_NOT_USE").is_ok() {
+    if expansion_cache::is_rust_analyzer() {
         // When running on rust-analyzer, only generate the API (using the live preview) to make rust-analyzer faster and use less memory
         // (This uses an unstable env variable, but it is just an optimization)
-        return generator::rust_live_preview::generate(&root_component, &loader.compiler_config)
-            .unwrap_or_else(|e| {
-                let e_str = e.to_string();
-                quote!(compile_error!(#e_str))
-            })
-            .into();
+        let generated =
+            generator::rust_live_preview::generate(&root_component, &loader.compiler_config)
+                .unwrap_or_else(|e| {
+                    let e_str = e.to_string();
+                    quote!(compile_error!(#e_str))
+                });
+        // Populate the cache so the next identical expansion is a cheap re-parse.
+        // The live-preview output is a pure function of the compiled component and
+        // config (no diagnostic/span tokens), so it is safe to cache regardless of
+        // warnings — which this path discards anyway.
+        if let Some(key) = cache_key {
+            expansion_cache::store(key, generated.to_string(), &loaded_files(&diag));
+        }
+        return generated.into();
     }
 
     let mut result = generator::rust::generate(&root_component, &loader.compiler_config)
@@ -396,10 +448,9 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         });
 
     // Make sure to recompile if any of the external files changes
-    let reload = diag
-        .all_loaded_files
+    let loaded = loaded_files(&diag);
+    let reload = loaded
         .iter()
-        .filter(|path| path.is_absolute() && !path.ends_with("Cargo.toml"))
         .filter_map(|p| p.to_str())
         .map(|p| quote! {const _ : &'static [u8] = ::core::include_bytes!(#p);});
 
@@ -408,7 +459,13 @@ pub fn slint(stream: TokenStream) -> TokenStream {
 
     let mut result = TokenStream::from(result);
     if !diag.is_empty() {
+        // Output carries span-bearing diagnostic tokens tied to this call site, so
+        // it must not be cached.
         result.extend(diag.report_macro_diagnostic(&tokens));
+    } else if let Some(key) = cache_key {
+        // Clean expansion: cache the full output (including the reload markers) so
+        // the next identical expansion is a cheap re-parse.
+        expansion_cache::store(key, result.to_string(), &loaded);
     }
     result
 }

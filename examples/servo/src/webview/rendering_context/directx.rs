@@ -1,12 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore comptr NTHANDLE
 use euclid::default::Size2D;
 use glow::HasContext;
 use std::cell::RefCell;
 use winit::dpi::PhysicalSize;
 
-use slint::wgpu_28::wgpu::{
+use slint::wgpu_29::wgpu::{
     Device, Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     hal, wgc::api::Dx12,
 };

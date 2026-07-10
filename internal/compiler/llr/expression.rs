@@ -173,6 +173,12 @@ pub enum Expression {
     },
 
     RadialGradient {
+        /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
+        /// `None` means use the element's bbox centre.
+        center: Option<(Box<Expression>, Box<Expression>)>,
+        /// Explicit radius in the element's local coordinate space (`circle <radius>`).
+        /// `None` means use the element's bbox half-diagonal.
+        radius: Option<Box<Expression>>,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -180,6 +186,9 @@ pub enum Expression {
     ConicGradient {
         /// The starting angle (rotation) of the gradient, corresponding to CSS `from <angle>`
         from_angle: Box<Expression>,
+        /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
+        /// `None` means use the element's bbox centre.
+        center: Option<(Box<Expression>, Box<Expression>)>,
         /// First expression in the tuple is a color, second expression is the stop position (normalized angle 0-1)
         stops: Vec<(Expression, Expression)>,
     },
@@ -232,6 +241,27 @@ pub enum Expression {
         elements: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
         sub_expression: Box<Expression>,
     },
+    /// Calls `solve_flexbox_layout_with_measure` with a generated measure
+    /// callback so the cross-axis size of height-for-width cells is recomputed
+    /// at the width/height taffy actually assigns (rather than the cell's
+    /// preferred size). `data` is the `FlexboxLayoutData`. For each static cell,
+    /// `measure_cells[i]` is `(h_info_given_known_h, v_info_given_known_w)`,
+    /// each a `LayoutInfo`-typed expression that reads
+    /// `ReadLocalVariable("measure_known_w" / "measure_known_h")` (a `Float32`)
+    /// as its cross-axis constraint. `default_cells[i]` is the cell's
+    /// `(h_info, v_info)` at the default constraint (matching `data`'s cells);
+    /// it provides the preferred size returned when taffy asks for a dimension
+    /// without a known cross-axis size (mirroring the plain `solve_flexbox_layout`
+    /// measure). Repeater cells (the `Right` case) are not routed through the
+    /// callback yet.
+    SolveFlexboxLayoutWithMeasure {
+        /// The `FlexboxLayoutData` (built inline with the cell arrays, so its
+        /// temporaries live for the duration of the solve call).
+        data: Box<Expression>,
+        repeater_indices: Box<Expression>,
+        measure_cells: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
+        default_cells: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
+    },
     /// Will call the sub_expression, with the cells variable set to the
     /// array of GridLayoutInputData from the elements
     WithGridInputData {
@@ -254,6 +284,8 @@ pub enum Expression {
     },
 
     EmptyComponentFactory,
+
+    EmptyDataTransfer,
 
     /// A reference to bundled translated string
     TranslationReference {
@@ -319,8 +351,12 @@ impl Expression {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
             Type::Keys => Expression::KeysLiteral(Keys::default()),
+            Type::DataTransfer => Expression::EmptyDataTransfer,
             Type::ComponentFactory => Expression::EmptyComponentFactory,
-            Type::StyledText => return None,
+            Type::StyledText => Expression::BuiltinFunctionCall {
+                function: BuiltinFunction::StringToStyledText,
+                arguments: vec![Expression::StringLiteral(SmolStr::default())],
+            },
         })
     }
 
@@ -380,9 +416,11 @@ impl Expression {
             Self::GridRepeaterCacheAccess { .. } => Type::LogicalLength,
             Self::WithLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::WithFlexboxLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
+            Self::SolveFlexboxLayoutWithMeasure { .. } => Type::LayoutCache,
             Self::WithGridInputData { sub_expression, .. } => sub_expression.ty(ctx),
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
+            Self::EmptyDataTransfer => Type::DataTransfer,
             Self::TranslationReference { .. } => Type::String,
         }
     }
@@ -445,14 +483,25 @@ macro_rules! visit_impl {
                     $visitor(b);
                 }
             }
-            Expression::RadialGradient { stops } => {
+            Expression::RadialGradient { center, radius, stops } => {
+                if let Some((cx, cy)) = center {
+                    $visitor(cx);
+                    $visitor(cy);
+                }
+                if let Some(r) = radius {
+                    $visitor(r);
+                }
                 for (a, b) in stops {
                     $visitor(a);
                     $visitor(b);
                 }
             }
-            Expression::ConicGradient { from_angle, stops } => {
+            Expression::ConicGradient { from_angle, center, stops } => {
                 $visitor(from_angle);
+                if let Some((cx, cy)) = center {
+                    $visitor(cx);
+                    $visitor(cy);
+                }
                 for (a, b) in stops {
                     $visitor(a);
                     $visitor(b);
@@ -488,6 +537,23 @@ macro_rules! visit_impl {
                     $visitor(v);
                 });
             }
+            Expression::SolveFlexboxLayoutWithMeasure {
+                data,
+                repeater_indices,
+                measure_cells,
+                default_cells,
+            } => {
+                $visitor(data);
+                $visitor(repeater_indices);
+                measure_cells.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
+                    $visitor(h);
+                    $visitor(v);
+                });
+                default_cells.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
+                    $visitor(h);
+                    $visitor(v);
+                });
+            }
             Expression::WithGridInputData { elements, sub_expression, .. } => {
                 $visitor(sub_expression);
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
@@ -497,6 +563,7 @@ macro_rules! visit_impl {
                 $visitor(rhs);
             }
             Expression::EmptyComponentFactory => {}
+            Expression::EmptyDataTransfer => {}
             Expression::TranslationReference { format_args, plural, string_index: _ } => {
                 $visitor(format_args);
                 if let Some(plural) = plural {
@@ -709,14 +776,15 @@ impl<'a, T> EvaluationContext<'a, T> {
             r: &'_ LocalMemberIndex,
             map: ContextMap,
         ) -> PropertyInfoResult<'a> {
-            let binding = g.init_values.get(r).map(|b| (b, map));
+            let binding = g.init_values.get(r).map(|b| (b, map.clone()));
+            let animation = g.animations.get(r).map(|a| (a, map));
             match r {
                 LocalMemberIndex::Property(index) => {
                     let property_decl = &g.properties[*index];
                     PropertyInfoResult {
                         analysis: Some(&g.prop_analysis[*index]),
                         binding,
-                        animation: None,
+                        animation,
                         ty: property_decl.ty.clone(),
                         use_count: Some(&property_decl.use_count),
                     }
@@ -856,7 +924,7 @@ pub(crate) struct PropertyInfoResult<'a> {
 }
 
 /// Maps between two evaluation context.
-/// This allows to go from the current subcomponent's context, to the context
+/// This allows to go from the current subcomponents context, to the context
 /// relative to the binding we want to inline
 #[derive(Debug, Clone)]
 pub(crate) enum ContextMap {

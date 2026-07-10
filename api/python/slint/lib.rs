@@ -1,10 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore ngettext npgettext pgettext unraisable
 use std::cell::{Cell, RefCell};
 
-use pyo3_stub_gen::{define_stub_info_gatherer, derive::gen_stub_pyfunction};
-
+mod data_transfer;
+mod geometry;
 mod image;
 mod interpreter;
 mod language;
@@ -18,6 +19,7 @@ mod brush;
 mod errors;
 mod keys;
 mod models;
+mod styled_text;
 mod timer;
 mod value;
 use i_slint_core::translations::Translator;
@@ -45,7 +47,6 @@ thread_local! {
     static EVENT_LOOP_EXCEPTION: RefCell<Option<PyErr>> = RefCell::new(None)
 }
 
-#[gen_stub_pyfunction]
 #[pyfunction]
 fn run_event_loop(py: Python<'_>) -> Result<(), PyErr> {
     EVENT_LOOP_EXCEPTION.replace(None);
@@ -57,19 +58,16 @@ fn run_event_loop(py: Python<'_>) -> Result<(), PyErr> {
     EVENT_LOOP_EXCEPTION.take().map_or(Ok(()), |err| Err(err))
 }
 
-#[gen_stub_pyfunction]
 #[pyfunction]
 fn quit_event_loop() -> Result<(), errors::PyEventLoopError> {
     slint_interpreter::quit_event_loop().map_err(|e| e.into())
 }
 
-#[gen_stub_pyfunction]
 #[pyfunction]
 fn set_xdg_app_id(app_id: String) -> Result<(), errors::PyPlatformError> {
     slint_interpreter::set_xdg_app_id(app_id).map_err(|e| e.into())
 }
 
-#[gen_stub_pyfunction]
 #[pyfunction]
 fn invoke_from_event_loop(callable: Py<PyAny>) -> Result<(), errors::PyEventLoopError> {
     slint_interpreter::invoke_from_event_loop(move || {
@@ -82,7 +80,6 @@ fn invoke_from_event_loop(callable: Py<PyAny>) -> Result<(), errors::PyEventLoop
     .map_err(|e| e.into())
 }
 
-#[gen_stub_pyfunction]
 #[pyfunction]
 fn init_translations(_py: Python<'_>, translations: Bound<PyAny>) -> PyResult<()> {
     i_slint_backend_selector::with_global_context(|ctx| {
@@ -94,6 +91,24 @@ fn init_translations(_py: Python<'_>, translations: Bound<PyAny>) -> PyResult<()
     })
     .map_err(|e| errors::PyPlatformError(e))?;
     Ok(())
+}
+
+/// Returns the list of optional capabilities that were compiled into the loaded
+/// native binary. This is how Python can tell whether the "dev" binary (with
+/// system-testing and MCP support) was loaded, or just the default lean one.
+#[pyfunction]
+fn build_features() -> Vec<String> {
+    let mut features = Vec::new();
+    if cfg!(feature = "backend-testing") {
+        features.push("backend-testing".to_string());
+    }
+    if cfg!(feature = "system-testing") {
+        features.push("system-testing".to_string());
+    }
+    if cfg!(feature = "mcp") {
+        features.push("mcp".to_string());
+    }
+    features
 }
 
 struct PyGettextTranslator(
@@ -162,8 +177,25 @@ impl Translator for PyGettextTranslator {
 
 use pyo3::prelude::*;
 
+// The native extension is exposed under two names so that the lean release wheel
+// (`slint`) and the optional dev wheel (`slint-dev`) can ship binary-compatible
+// binaries side by side. The default build registers the module as `slint`
+// (imported as `slint.slint`); the dev build, compiled with the `dev-dist`
+// feature, registers it as the top-level `slint_dev_native` module. Both expose
+// the exact same surface via `register_module`.
+#[cfg(not(feature = "dev-dist"))]
 #[pymodule]
 fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    register_module(m)
+}
+
+#[cfg(feature = "dev-dist")]
+#[pymodule]
+fn slint_dev_native(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    register_module(m)
+}
+
+fn register_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     i_slint_backend_selector::with_platform(|_b| {
         // Nothing to do, just make sure a backend was created
         Ok(())
@@ -182,7 +214,11 @@ fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<timer::PyTimer>()?;
     m.add_class::<brush::PyColor>()?;
     m.add_class::<brush::PyBrush>()?;
+    m.add_class::<geometry::PyLogicalPosition>()?;
+    m.add_class::<geometry::PyLogicalSize>()?;
     m.add_class::<keys::PyKeys>()?;
+    m.add_class::<data_transfer::PyDataTransfer>()?;
+    m.add_class::<styled_text::PyStyledText>()?;
     m.add_class::<models::PyModelBase>()?;
     m.add_class::<value::PyStruct>()?;
     m.add_class::<async_adapter::AsyncAdapter>()?;
@@ -192,10 +228,9 @@ fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(set_xdg_app_id, m)?)?;
     m.add_function(wrap_pyfunction!(invoke_from_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(init_translations, m)?)?;
+    m.add_function(wrap_pyfunction!(build_features, m)?)?;
 
     language::register_all(m.py(), m)?;
 
     Ok(())
 }
-
-define_stub_info_gatherer!(stub_info);

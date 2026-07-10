@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore copypasta's
 use copypasta::ClipboardProvider;
 
-/// The Default, and the selection clippoard
+/// The Default, and the selection clipboard
 pub type ClipboardPair = (Box<dyn ClipboardProvider>, Box<dyn ClipboardProvider>);
 
 pub fn select_clipboard(
@@ -71,6 +72,9 @@ pub fn create_clipboard(
             }
             #[cfg(not(feature = "x11"))]
             (Box::new(SilentClipboardContext), Box::new(SilentClipboardContext))
+        } else if #[cfg(target_os = "ios")] {
+            // iOS exposes a single general pasteboard; the selection clipboard is a no-op.
+            (Box::new(crate::ios::UiPasteboardClipboard), Box::new(SilentClipboardContext))
         } else {
             (
                 copypasta::ClipboardContext::new().map_or(

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore keystate Keysym RDONLY RDWR
 //! This module contains the code to receive input events from libinput
 
 use std::cell::RefCell;
@@ -123,7 +124,7 @@ pub struct LibInputHandler<'a> {
     /// identifier is available, so we replay the last known position.
     /// Fixed-capacity to avoid heap allocation — touchscreens rarely report
     /// more than 5 simultaneous contacts.
-    last_touch_positions: [(u64, Option<LogicalPosition>); 5],
+    last_touch_positions: [(i32, Option<LogicalPosition>); 5],
     window: &'a RefCell<Option<Rc<FullscreenWindowAdapter>>>,
     keystate: Option<xkb::State>,
     libinput_event_hook: &'a Option<Box<dyn Fn(&::input::Event) -> bool>>,
@@ -162,8 +163,8 @@ impl<'a> LibInputHandler<'a> {
 }
 
 fn set_touch_pos(
-    positions: &mut [(u64, Option<LogicalPosition>); 5],
-    slot: u64,
+    positions: &mut [(i32, Option<LogicalPosition>); 5],
+    slot: i32,
     pos: LogicalPosition,
 ) {
     if let Some(entry) = positions.iter_mut().find(|(s, _)| *s == slot) {
@@ -174,8 +175,8 @@ fn set_touch_pos(
 }
 
 fn take_touch_pos(
-    positions: &mut [(u64, Option<LogicalPosition>); 5],
-    slot: u64,
+    positions: &mut [(i32, Option<LogicalPosition>); 5],
+    slot: i32,
 ) -> LogicalPosition {
     positions
         .iter_mut()
@@ -274,7 +275,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             touch_down_event.x_transformed(screen_size.width as u32) as _,
                             touch_down_event.y_transformed(screen_size.height as u32) as _,
                         );
-                        let slot = touch_down_event.slot().unwrap_or(0) as u64;
+                        let slot = touch_down_event.slot().unwrap_or(0) as i32;
                         set_touch_pos(&mut self.last_touch_positions, slot, pos);
                         WindowInner::from_pub(window).process_touch_input(
                             slot,
@@ -283,7 +284,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                         );
                     }
                     input::event::TouchEvent::Up(touch_up_event) => {
-                        let slot = touch_up_event.slot().unwrap_or(0) as u64;
+                        let slot = touch_up_event.slot().unwrap_or(0) as i32;
                         let pos = take_touch_pos(&mut self.last_touch_positions, slot);
                         WindowInner::from_pub(window).process_touch_input(
                             slot,
@@ -296,7 +297,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             touch_motion_event.x_transformed(screen_size.width as u32) as _,
                             touch_motion_event.y_transformed(screen_size.height as u32) as _,
                         );
-                        let slot = touch_motion_event.slot().unwrap_or(0) as u64;
+                        let slot = touch_motion_event.slot().unwrap_or(0) as i32;
                         set_touch_pos(&mut self.last_touch_positions, slot, pos);
                         WindowInner::from_pub(window).process_touch_input(
                             slot,
@@ -305,7 +306,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                         );
                     }
                     input::event::TouchEvent::Cancel(touch_cancel_event) => {
-                        let slot = touch_cancel_event.slot().unwrap_or(0) as u64;
+                        let slot = touch_cancel_event.slot().unwrap_or(0) as i32;
                         let pos = take_touch_pos(&mut self.last_touch_positions, slot);
                         WindowInner::from_pub(window).process_touch_input(
                             slot,

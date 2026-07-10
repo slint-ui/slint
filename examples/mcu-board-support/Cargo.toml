@@ -1,9 +1,10 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
+# cSpell: ignore framebuf sitronix xspi
 [package]
 name = "mcu-board-support"
-version = "1.17.0"
+version = "1.18.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition.workspace = true
 license = "MIT"
@@ -97,7 +98,7 @@ stm32h735g = [
 esp32-s3-box-3 = [
   "slint/unsafe-single-threaded",
   "esp-hal/esp32s3",
-  "esp-hal/unstable",             # required for PSRAM support
+  "esp-hal/unstable",               # required for PSRAM support
   "esp-hal/psram",
   "dep:static_cell",
   "embedded-hal",
@@ -109,6 +110,7 @@ esp32-s3-box-3 = [
   "embedded-graphics-core",
   "slint/libm",
   "gt911",
+  "esp-bootloader-esp-idf/esp32s3",
 ]
 esp32-s3-lcd-ev-board = [
   "slint/unsafe-single-threaded",
@@ -220,9 +222,9 @@ stm32u5g9j-dk2 = [
 ]
 
 [dependencies]
-slint = { version = "=1.17.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
+slint = { version = "=1.18.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
 i-slint-core = { workspace = true }
-i-slint-core-macros = { version = "=1.17.0", path = "../../internal/core-macros" }
+i-slint-core-macros = { version = "=1.18.0", path = "../../internal/core-macros" }
 i-slint-renderer-software = { workspace = true, optional = true }
 
 derive_more = { workspace = true }

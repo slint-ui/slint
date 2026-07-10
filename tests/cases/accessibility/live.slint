@@ -1,0 +1,98 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+
+// Test the accessible-live-region property.
+
+export component TestCase inherits Window {
+    width: 300phx;
+    height: 300phx;
+
+    in-out property <AccessibleLiveness> status-live: AccessibleLiveness.polite;
+
+    VerticalLayout {
+        Rectangle {
+            accessible-role: text;
+            accessible-label: "off-region";
+            accessible-live-region: AccessibleLiveness.off;
+        }
+        Rectangle {
+            accessible-role: text;
+            accessible-label: "polite-region";
+            accessible-live-region: AccessibleLiveness.polite;
+        }
+        Rectangle {
+            accessible-role: text;
+            accessible-label: "assertive-region";
+            accessible-live-region: AccessibleLiveness.assertive;
+        }
+        Rectangle {
+            accessible-role: text;
+            accessible-label: "dynamic-region";
+            accessible-live-region: root.status-live;
+        }
+        Rectangle {
+            accessible-role: text;
+            accessible-label: "no-live";
+        }
+    }
+}
+
+
+/*
+
+```rust
+use slint::language::AccessibleLiveness;
+
+let instance = TestCase::new().unwrap();
+
+let off = slint_testing::ElementHandle::find_by_accessible_label(&instance, "off-region").next().unwrap();
+assert_eq!(off.accessible_live_region(), Some(AccessibleLiveness::Off));
+
+let polite = slint_testing::ElementHandle::find_by_accessible_label(&instance, "polite-region").next().unwrap();
+assert_eq!(polite.accessible_live_region(), Some(AccessibleLiveness::Polite));
+
+let assertive = slint_testing::ElementHandle::find_by_accessible_label(&instance, "assertive-region").next().unwrap();
+assert_eq!(assertive.accessible_live_region(), Some(AccessibleLiveness::Assertive));
+
+let d = slint_testing::ElementHandle::find_by_accessible_label(&instance, "dynamic-region").next().unwrap();
+assert_eq!(d.accessible_live_region(), Some(AccessibleLiveness::Polite));
+instance.set_status_live(AccessibleLiveness::Assertive);
+assert_eq!(d.accessible_live_region(), Some(AccessibleLiveness::Assertive));
+
+let none = slint_testing::ElementHandle::find_by_accessible_label(&instance, "no-live").next().unwrap();
+// Element has no accessible-live-region binding, so the property is not exposed.
+assert!(none.accessible_live_region().is_none());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+auto off = slint::testing::ElementHandle::find_by_accessible_label(handle, "off-region");
+assert_eq(off.size(), 1);
+assert(off[0].accessible_live_region().has_value());
+assert(*off[0].accessible_live_region() == slint::language::AccessibleLiveness::Off);
+
+auto polite = slint::testing::ElementHandle::find_by_accessible_label(handle, "polite-region");
+assert_eq(polite.size(), 1);
+assert(*polite[0].accessible_live_region() == slint::language::AccessibleLiveness::Polite);
+
+auto assertive = slint::testing::ElementHandle::find_by_accessible_label(handle, "assertive-region");
+assert_eq(assertive.size(), 1);
+assert(*assertive[0].accessible_live_region() == slint::language::AccessibleLiveness::Assertive);
+
+auto d = slint::testing::ElementHandle::find_by_accessible_label(handle, "dynamic-region");
+assert_eq(d.size(), 1);
+assert(*d[0].accessible_live_region() == slint::language::AccessibleLiveness::Polite);
+instance.set_status_live(slint::language::AccessibleLiveness::Assertive);
+assert(*d[0].accessible_live_region() == slint::language::AccessibleLiveness::Assertive);
+
+auto none = slint::testing::ElementHandle::find_by_accessible_label(handle, "no-live");
+assert_eq(none.size(), 1);
+assert(!none[0].accessible_live_region().has_value());
+```
+
+*/

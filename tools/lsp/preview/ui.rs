@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore BBBX Sometype structurize
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
@@ -8,13 +9,14 @@ use std::{collections::HashMap, iter::once, rc::Rc};
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::{expression_tree, langtype};
 
+use i_slint_core::DataTransfer;
 use itertools::Itertools;
 use slint::{Model, ModelRc, SharedString, ToSharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
 use crate::common::{self, ComponentInformation};
-use crate::preview::{self, SelectionNotification, preview_data, properties};
+use crate::preview::{self, DragItem, SelectionNotification, preview_data, properties};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -28,13 +30,82 @@ pub mod search_model;
 
 slint::include_modules!();
 
+/// Abstraction over the different window types (PreviewUi vs EditorUi).
+/// Only used for the few operations that need component-level access
+/// (window(), show(), run()). Most code should use the Api global directly.
+pub enum AppWindow {
+    Preview(PreviewUi),
+    Editor(EditorUi),
+}
+
+impl AppWindow {
+    pub fn window(&self) -> &slint::Window {
+        match self {
+            AppWindow::Preview(ui) => ui.window(),
+            AppWindow::Editor(ui) => ui.window(),
+        }
+    }
+
+    pub fn show(&self) -> Result<(), PlatformError> {
+        match self {
+            AppWindow::Preview(ui) => ui.show(),
+            AppWindow::Editor(ui) => ui.show(),
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn run(&self) -> Result<(), PlatformError> {
+        match self {
+            AppWindow::Preview(ui) => ui.run(),
+            AppWindow::Editor(ui) => ui.run(),
+        }
+    }
+
+    pub fn clone_strong(&self) -> Self {
+        match self {
+            AppWindow::Preview(ui) => AppWindow::Preview(ui.clone_strong()),
+            AppWindow::Editor(ui) => AppWindow::Editor(ui.clone_strong()),
+        }
+    }
+
+    pub fn api(&self) -> Api<'_> {
+        match self {
+            AppWindow::Preview(ui) => ui.global::<Api>(),
+            AppWindow::Editor(ui) => ui.global::<Api>(),
+        }
+    }
+
+    // Convenience accessor. Because Api implements Global for both EditorUi and PreviewUi
+    // we need to fully-qualify the as_weak call, which is annoying.
+    pub fn api_weak(&self) -> slint::Weak<Api<'static>> {
+        match self {
+            AppWindow::Preview(ui) => {
+                let api = ui.global::<Api>();
+                <Api as slint::Global<'_, PreviewUi>>::as_weak(&api)
+            }
+            AppWindow::Editor(ui) => {
+                let api = ui.global::<Api>();
+                <Api as slint::Global<'_, EditorUi>>::as_weak(&api)
+            }
+        }
+    }
+}
+
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
 pub fn create_ui(
     to_lsp: &Rc<dyn common::PreviewToLsp>,
     style: &str,
-) -> Result<PreviewUi, PlatformError> {
-    let ui = PreviewUi::new()?;
+    use_editor_ui: bool,
+) -> Result<AppWindow, PlatformError> {
+    let app_window = if use_editor_ui {
+        AppWindow::Editor(EditorUi::new()?)
+    } else {
+        AppWindow::Preview(PreviewUi::new()?)
+    };
+
+    let api = app_window.api();
+    let api_weak = app_window.api_weak();
 
     // styles:
     let known_styles = once(&"native")
@@ -61,10 +132,10 @@ pub fn create_ui(
         model
     });
 
-    let api = ui.global::<Api>();
-
-    api.set_current_style(style.clone().into());
+    let current_style_index =
+        known_styles.iter().position(|&s| s == style.as_str()).unwrap_or(0) as i32;
     api.set_known_styles(style_model.into());
+    api.set_current_style_index(current_style_index);
 
     api.on_add_new_component(super::add_new_component);
     api.on_rename_component(super::rename_component);
@@ -75,7 +146,7 @@ pub fn create_ui(
     api.on_show_document(move |file, line, column| {
         use lsp_types::{Position, Range};
         let pos = Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1));
-        lsp.ask_editor_to_show_document(&file, Range::new(pos, pos), false).unwrap();
+        lsp.ask_editor_to_show_document(&file, Range::new(pos, pos), false).ok();
     });
     api.on_show_document_offset_range(super::show_document_offset_range);
     api.on_show_preview_for(super::show_preview_for);
@@ -100,13 +171,29 @@ pub fn create_ui(
     api.on_highlight_positions(super::element_selection::highlight_positions);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
-    api.on_drop(move |component_index: i32, x: f32, y: f32| {
+    api.on_new_component_data(|index: i32| -> DataTransfer {
+        let Ok(index) = index.try_into() else {
+            return Default::default();
+        };
+        let mut transfer = DataTransfer::default();
+        transfer.set_user_data(Rc::new(DragItem::NewComponent { index }));
+        transfer
+    });
+    api.on_move_element_instance_data(|uri: SharedString, offset: i32| -> DataTransfer {
+        let Ok(offset) = offset.try_into() else {
+            return Default::default();
+        };
+        let mut transfer = DataTransfer::default();
+        transfer.set_user_data(Rc::new(DragItem::MoveElementInstance { uri, offset }));
+        transfer
+    });
+    api.on_drop(move |data: DataTransfer, x: f32, y: f32| {
         lsp.send_telemetry(&mut [(
             "type".to_string(),
             serde_json::to_value("component_dropped").unwrap(),
         )])
-        .unwrap();
-        super::drop_component(component_index, x, y)
+        .ok();
+        super::drop_component(data, x, y)
     });
     api.on_selected_element_resize(super::resize_selected_element);
     api.on_selected_element_can_move_to(super::can_move_selected_element);
@@ -132,19 +219,22 @@ pub fn create_ui(
                 "type".to_string(),
                 serde_json::to_value("data_json_changed").unwrap(),
             )])
-            .unwrap();
+            .ok();
         }
         set_json_preview_data(container, property_name, json_string)
     });
 
     api.on_string_to_code(string_to_code);
 
-    brushes::setup(&ui);
-    log_messages::setup(&ui);
-    palette::setup(&ui);
-    recent_colors::setup(&ui);
-    super::outline::setup(&ui);
-    super::undo_redo::setup(&ui);
+    brushes::setup(&api);
+    log_messages::setup(&api);
+    palette::setup(&api);
+    recent_colors::setup(&api, api_weak);
+    super::outline::setup(&api);
+    super::undo_redo::setup(&api);
+
+    #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+    super::remote::setup(&app_window, to_lsp);
 
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());
@@ -157,7 +247,7 @@ pub fn create_ui(
         api.set_control_key_name("command".into());
     }
 
-    Ok(ui)
+    Ok(app_window)
 }
 
 fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, SharedString) {
@@ -171,12 +261,11 @@ fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, Shar
     (url.to_string().into(), file_name.into())
 }
 
-pub fn ui_set_uses_widgets(ui: &PreviewUi, uses_widgets: bool) {
-    let api = ui.global::<Api>();
+pub fn ui_set_uses_widgets(api: &Api<'_>, uses_widgets: bool) {
     api.set_uses_widgets(uses_widgets);
 }
 
-pub fn set_diagnostics(ui: &PreviewUi, diagnostics: &[slint_interpreter::Diagnostic]) {
+pub fn set_diagnostics(api: &Api<'_>, diagnostics: &[slint_interpreter::Diagnostic]) {
     let summary = diagnostics
         .iter()
         .inspect(|d| {
@@ -192,7 +281,7 @@ pub fn set_diagnostics(ui: &PreviewUi, diagnostics: &[slint_interpreter::Diagnos
                 _ => LogMessageLevel::Debug,
             };
 
-            log_messages::append_log_message(ui, level, location, d.message());
+            log_messages::append_log_message(api, level, location, d.message());
         })
         .fold(DiagnosticSummary::NothingDetected, |acc, d| {
             match (acc, d.level()) {
@@ -207,12 +296,11 @@ pub fn set_diagnostics(ui: &PreviewUi, diagnostics: &[slint_interpreter::Diagnos
             }
         });
 
-    let api = ui.global::<Api>();
     api.set_diagnostic_summary(summary);
 }
 
 pub fn ui_set_known_components(
-    ui: &PreviewUi,
+    api: &Api<'_>,
     known_components: &[crate::common::ComponentInformation],
     current_component_index: usize,
 ) {
@@ -327,7 +415,6 @@ pub fn ui_set_known_components(
             yes
         },
     ));
-    let api = ui.global::<Api>();
 
     let old_search_text = api
         .get_known_components()
@@ -381,7 +468,7 @@ fn string_to_code(
     }
 }
 
-fn unit_model(units: &[expression_tree::Unit]) -> ModelRc<SharedString> {
+fn unit_model(units: &[expression_tree::WrittenUnit]) -> ModelRc<SharedString> {
     Rc::new(VecModel::from(
         units.iter().map(|u| u.to_string().into()).collect::<Vec<SharedString>>(),
     ))
@@ -533,7 +620,7 @@ fn map_value_and_type(
             ..Default::default()
         });
     }
-    use i_slint_compiler::expression_tree::Unit;
+    use i_slint_compiler::expression_tree::WrittenUnit;
     use langtype::Type;
 
     match ty {
@@ -564,11 +651,11 @@ fn map_value_and_type(
         Type::Duration => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Ms),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), WrittenUnit::Ms),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                visual_items: unit_model(&[Unit::S, Unit::Ms]),
+                visual_items: unit_model(&[WrittenUnit::S, WrittenUnit::Ms]),
                 value_int: 1,
                 code: get_code(value),
                 default_selection: 1,
@@ -579,18 +666,18 @@ fn map_value_and_type(
         Type::PhysicalLength => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Phx),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), WrittenUnit::Phx),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 visual_items: unit_model(&[
-                    Unit::Px,
-                    Unit::Cm,
-                    Unit::Mm,
-                    Unit::In,
-                    Unit::Pt,
-                    Unit::Phx,
-                    Unit::Rem,
+                    WrittenUnit::Px,
+                    WrittenUnit::Cm,
+                    WrittenUnit::Mm,
+                    WrittenUnit::In,
+                    WrittenUnit::Pt,
+                    WrittenUnit::Phx,
+                    WrittenUnit::Rem,
                 ]),
                 value_int: 5,
                 code: get_code(value),
@@ -602,18 +689,18 @@ fn map_value_and_type(
         Type::LogicalLength => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Px),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), WrittenUnit::Px),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 visual_items: unit_model(&[
-                    Unit::Px,
-                    Unit::Cm,
-                    Unit::Mm,
-                    Unit::In,
-                    Unit::Pt,
-                    Unit::Phx,
-                    Unit::Rem,
+                    WrittenUnit::Px,
+                    WrittenUnit::Cm,
+                    WrittenUnit::Mm,
+                    WrittenUnit::In,
+                    WrittenUnit::Pt,
+                    WrittenUnit::Phx,
+                    WrittenUnit::Rem,
                 ]),
                 value_int: 0,
                 code: get_code(value),
@@ -625,18 +712,18 @@ fn map_value_and_type(
         Type::Rem => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Rem),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), WrittenUnit::Rem),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 visual_items: unit_model(&[
-                    Unit::Px,
-                    Unit::Cm,
-                    Unit::Mm,
-                    Unit::In,
-                    Unit::Pt,
-                    Unit::Phx,
-                    Unit::Rem,
+                    WrittenUnit::Px,
+                    WrittenUnit::Cm,
+                    WrittenUnit::Mm,
+                    WrittenUnit::In,
+                    WrittenUnit::Pt,
+                    WrittenUnit::Phx,
+                    WrittenUnit::Rem,
                 ]),
                 value_int: 6,
                 code: get_code(value),
@@ -648,11 +735,16 @@ fn map_value_and_type(
         Type::Angle => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Deg),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), WrittenUnit::Deg),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                visual_items: unit_model(&[Unit::Deg, Unit::Grad, Unit::Turn, Unit::Rad]),
+                visual_items: unit_model(&[
+                    WrittenUnit::Deg,
+                    WrittenUnit::Grad,
+                    WrittenUnit::Turn,
+                    WrittenUnit::Rad,
+                ]),
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
@@ -663,11 +755,15 @@ fn map_value_and_type(
         Type::Percent => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Percent),
+                display_string: slint::format!(
+                    "{}{}",
+                    get_value::<f32>(value),
+                    WrittenUnit::Percent
+                ),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                visual_items: unit_model(&[Unit::Percent]),
+                visual_items: unit_model(&[WrittenUnit::Percent]),
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
@@ -966,7 +1062,7 @@ fn map_preview_data_property(
 }
 
 pub fn ui_set_preview_data(
-    ui: &PreviewUi,
+    api: &Api<'_>,
     preview_data: preview_data::PreviewDataMap,
     previewed_component: Option<String>,
 ) {
@@ -1009,8 +1105,6 @@ pub fn ui_set_preview_data(
             result.push(c);
         }
     }
-
-    let api = ui.global::<Api>();
 
     api.set_preview_data(Rc::new(VecModel::from(result)).into());
 }
@@ -1374,21 +1468,20 @@ fn update_properties(
 }
 
 pub fn ui_set_properties(
-    ui: &PreviewUi,
+    api: &Api<'_>,
+    window: &slint::Window,
     document_cache: &common::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
 ) -> PropertyDeclarations {
-    let win = i_slint_core::window::WindowInner::from_pub(ui.window()).window_adapter();
+    let win = i_slint_core::window::WindowInner::from_pub(window).window_adapter();
     let Some((next_element, declarations, next_model)) =
         property_view::map_properties_to_ui(document_cache, properties, &win)
     else {
-        let api = ui.global::<Api>();
         api.set_properties(ModelRc::default());
         api.set_current_element(ElementInformation::default());
         return Default::default();
     };
 
-    let api = ui.global::<Api>();
     let current_model = api.get_properties();
 
     let element = api.get_current_element();
@@ -2141,7 +2234,7 @@ export component Tester {{
     }
 
     #[test]
-    fn test_table_row_to_stuct() {
+    fn test_table_row_to_struct() {
         fn bool_pv(value: bool, accessor_path: &str) -> PropertyValue {
             PropertyValue {
                 accessor_path: SharedString::from(accessor_path),

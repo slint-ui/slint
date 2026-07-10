@@ -1,0 +1,173 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioButtonBase } from "radiobutton-base.slint";
+
+export component RadioGroupBase {
+    in property <bool> enabled: true;
+    in-out property <int> current-index: -1;
+    out property <string> current-value;
+
+    callback selected(string);
+
+    public function select(index: int, label: string) {
+        if root.enabled && index != root.current-index {
+            root.current-index = index;
+            root.current-value = label;
+            root.selected(label);
+        }
+    }
+}
+
+// Shared wiring between a `RadioGroup`'s `RadioButton` child and its parent
+// group. Each style's `RadioButtonImpl` inherits this and adds only the visual
+// layer.
+export component RadioButtonImplBase {
+    in property <string> text;
+    in property <bool> enabled: true;
+    in property <bool> group-enabled: true;
+    in property <int> item-index;
+    // Mirror of the parent `RadioGroup`'s `current-index`, set by the
+    // lowering pass. Only ever read here.
+    in property <int> group-current-index: -1;
+    // Default binding keeps `checked` synchronously reactive to the group
+    // selection. The user can override this with `checked: cond` or
+    // `checked <=> m.checked`, but doing so replaces the binding and means
+    // the override owns reactivity from then on — see the docs.
+    in-out property <bool> checked: root.group-current-index == root.item-index;
+    // Pure view of the group's selection — independent from `checked`, so the
+    // `changed` handler below fires only on real selection transitions and
+    // not on the brief revert loops in `changed checked`.
+    private property <bool> selected: root.group-current-index == root.item-index;
+
+    callback toggled;
+    callback group-select;
+    callback focus-change(bool);
+
+    out property <bool> has-focus <=> base.has-focus;
+    out property <bool> pressed <=> base.pressed;
+    out property <bool> has-hover <=> base.has-hover;
+
+    // Fires on every selection transition: when this button becomes the
+    // selection and when another button takes it over.
+    changed selected => {
+        root.toggled();
+    }
+
+    // Catch declarative initial state — `RadioButton { checked: true; }`
+    // replaces the default binding, so pull the group's view in from `init`
+    // and push the selection to the group if the user pre-selected.
+    init => {
+        if root.checked && root.group-current-index != root.item-index {
+            root.group-select();
+        }
+    }
+
+    // When the default binding has been replaced (e.g. by `checked <=> m.checked`),
+    // the binding no longer tracks the group selection. This handler bridges
+    // the group state back into `checked` so the user's bound partner stays
+    // in sync. With the default binding still active, this fires too but is
+    // a no-op because the binding already updated `checked` synchronously.
+    changed group-current-index => {
+        if root.checked != (root.group-current-index == root.item-index) {
+            root.checked = root.group-current-index == root.item-index;
+        }
+    }
+
+    // Push: the user wrote `checked = true` from outside (e.g. through a
+    // two-way binding to a model). Forward the intent to the group.
+    // `checked = false` on the currently-selected button reverts to keep
+    // the invariant — deselecting all from outside isn't supported.
+    // Disabled buttons can't claim selection.
+    changed checked => {
+        if root.checked && root.group-current-index != root.item-index {
+            if root.enabled && root.group-enabled {
+                root.group-select();
+            } else {
+                root.checked = false;
+            }
+        } else if !root.checked && root.group-current-index == root.item-index {
+            root.checked = true;
+        }
+    }
+
+    base := RadioButtonBase {
+        label <=> root.text;
+        checked <=> root.checked;
+        enabled: root.enabled && root.group-enabled;
+        item-index <=> root.item-index;
+        selected => {
+            root.group-select();
+        }
+        focus-change(g) => {
+            root.focus-change(g);
+        }
+    }
+    @children
+}
+
+// Shared container for a styled `RadioGroup`. Each style's `RadioGroupImpl`
+// inherits this and only sets the title-text appearance via `title-color`,
+// `title-font-size`, and `title-font-weight`. The buttons themselves flow
+// through the `@children` slot into an internal GridLayout; the lowering
+// pass sets each button's `row` and `col` from its `item-index` and the
+// group's `orientation`, so vertical and horizontal layouts come out of
+// the same GridLayout.
+export component RadioGroupImplBase {
+    in property <string> title;
+    in property <bool> enabled: true;
+    in property <Orientation> orientation: Orientation.vertical;
+    in property <int> item-count;
+
+    in property <brush> title-color;
+    // Sensible defaults for styles that don't customize the title typography
+    // (e.g. qt, which inherits the system font).
+    in property <length> title-font-size: 13px;
+    in property <int> title-font-weight: 400;
+
+    in-out property <int> current-index <=> sel.current-index;
+    out property <string> current-value: sel.current-value;
+    out property <bool> has-focus: focus-depth > 0;
+
+    callback selected <=> sel.selected;
+
+    public function select(index: int, label: string) {
+        sel.select(index, label);
+    }
+
+    public function on-focus-change(gained: bool) {
+        if gained {
+            focus-depth += 1;
+        } else {
+            focus-depth = max(0, focus-depth - 1);
+        }
+    }
+
+    private property <int> focus-depth: 0;
+
+    sel := RadioGroupBase {
+        enabled <=> root.enabled;
+    }
+
+    accessible-role: radio-group;
+    accessible-label: root.title;
+    accessible-enabled: root.enabled;
+    accessible-orientation: root.orientation;
+    accessible-item-count: root.item-count;
+
+    VerticalLayout {
+        spacing: 8px;
+
+        if root.title != "": Text {
+            color: root.title-color;
+            font-size: root.title-font-size;
+            font-weight: root.title-font-weight;
+            text: root.title;
+        }
+
+        GridLayout {
+            spacing: 8px;
+            @children
+        }
+    }
+}

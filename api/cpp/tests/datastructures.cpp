@@ -302,13 +302,336 @@ TEST_CASE("SharedVector")
     REQUIRE(vec6 == vec2);
 }
 
+TEST_CASE("Slice comparison")
+{
+    using namespace slint;
+    using slint::cbindgen_private::Slice;
+
+    int a[] = { 1, 2, 3 };
+    int b[] = { 1, 2, 3 };
+    int c[] = { 1, 2, 4 };
+
+    // Compute the results outside of REQUIRE: Catch2's expression decomposition would
+    // call the comparison operators from its own namespace where ADL can't find them.
+    const bool equal_same = Slice<int> { a, 3 } == Slice<int> { b, 3 };
+    const bool notequal_same = Slice<int> { a, 3 } != Slice<int> { b, 3 };
+    REQUIRE(equal_same);
+    REQUIRE_FALSE(notequal_same);
+
+    const bool equal_diff = Slice<int> { a, 3 } == Slice<int> { c, 3 };
+    const bool notequal_diff = Slice<int> { a, 3 } != Slice<int> { c, 3 };
+    REQUIRE_FALSE(equal_diff);
+    REQUIRE(notequal_diff);
+
+    const bool equal_len = Slice<int> { a, 2 } == Slice<int> { a, 3 };
+    const bool notequal_len = Slice<int> { a, 2 } != Slice<int> { a, 3 };
+    REQUIRE_FALSE(equal_len);
+    REQUIRE(notequal_len);
+}
+
 TEST_CASE("StyledText")
 {
-    auto empty_arguments = std::array<slint::private_api::StyledText, 0> {};
+    auto empty_arguments = std::array<slint::StyledText, 0> {};
     auto text = slint::private_api::parse_markdown(
             "Hello *world*", slint::private_api::make_slice(std::span(empty_arguments)));
-    auto text_argument = std::array<slint::private_api::StyledText, 1> { text };
+    auto text_argument = std::array<slint::StyledText, 1> { text };
     // \u{e541} is MARKDOWN_INTERPOLATION_PLACEHOLDER defined in internal/common/styled_text.rs
     auto text2 = slint::private_api::parse_markdown(
             u8"Text: \uE541", slint::private_api::make_slice(std::span(text_argument)));
+}
+
+TEST_CASE("StyledText public API")
+{
+    using slint::SharedString;
+    using slint::StyledText;
+
+    SECTION("from_plain_text")
+    {
+        auto text = StyledText::from_plain_text("Hello world");
+        auto text2 = StyledText::from_plain_text("Hello world");
+        REQUIRE(text == text2);
+
+        auto empty = StyledText::from_plain_text("");
+        REQUIRE(!(text == empty));
+    }
+
+    SECTION("from_markdown success")
+    {
+        auto result = StyledText::from_markdown("Hello *world*!");
+        REQUIRE(result.has_value());
+
+        auto result2 = StyledText::from_markdown("Hello *world*!");
+        REQUIRE(result2.has_value());
+        REQUIRE(*result == *result2);
+    }
+
+    SECTION("from_markdown error")
+    {
+        auto result = StyledText::from_markdown("# heading");
+        REQUIRE(!result.has_value());
+    }
+
+    SECTION("from_plain_text vs from_markdown")
+    {
+        auto plain = StyledText::from_plain_text("plain text");
+        auto md = StyledText::from_markdown("plain text");
+        REQUIRE(md.has_value());
+        REQUIRE(plain == *md);
+    }
+
+    SECTION("copy and assign")
+    {
+        auto original = StyledText::from_plain_text("test");
+        StyledText copy(original);
+        REQUIRE(copy == original);
+
+        StyledText assigned;
+        assigned = original;
+        REQUIRE(assigned == original);
+    }
+}
+
+TEST_CASE("DataTransfer")
+{
+    using slint::DataTransfer;
+
+    SECTION("Default construction")
+    {
+        DataTransfer a;
+        DataTransfer b;
+        REQUIRE(a == b);
+        REQUIRE(a.is_empty());
+    }
+
+    SECTION("Copy construction")
+    {
+        DataTransfer a;
+        DataTransfer b(a);
+        REQUIRE(a == b);
+    }
+
+    SECTION("Copy assignment")
+    {
+        DataTransfer a;
+        DataTransfer b;
+        b = a;
+        REQUIRE(a == b);
+    }
+
+    SECTION("Self copy assignment")
+    {
+        DataTransfer a;
+        DataTransfer &ref = a;
+        a = ref;
+        REQUIRE(a == DataTransfer {});
+    }
+
+    SECTION("Move construction")
+    {
+        DataTransfer a;
+        DataTransfer b(std::move(a));
+        REQUIRE(b == DataTransfer {});
+    }
+
+    SECTION("Move assignment")
+    {
+        DataTransfer a;
+        DataTransfer b;
+        b = std::move(a);
+        REQUIRE(b == DataTransfer {});
+    }
+
+    SECTION("Plain text")
+    {
+        DataTransfer a;
+        REQUIRE(!a.has_plain_text());
+        REQUIRE(!a.plain_text().has_value());
+
+        a.set_plain_text(slint::SharedString("hello"));
+        REQUIRE(a.has_plain_text());
+        REQUIRE(!a.is_empty());
+        REQUIRE(a.plain_text() == slint::SharedString("hello"));
+
+        // Overwrite.
+        a.set_plain_text(slint::SharedString("world"));
+        REQUIRE(a.plain_text() == slint::SharedString("world"));
+
+        // Clones share data, modifying one diverges them.
+        DataTransfer b(a);
+        REQUIRE(a == b);
+        b.set_plain_text(slint::SharedString("other"));
+        REQUIRE(a != b);
+        REQUIRE(a.plain_text() == slint::SharedString("world"));
+        REQUIRE(b.plain_text() == slint::SharedString("other"));
+    }
+
+    SECTION("Plain text conversion constructor")
+    {
+        DataTransfer a { slint::SharedString("hi") };
+        REQUIRE(a.has_plain_text());
+        REQUIRE(!a.has_image());
+        REQUIRE(a.plain_text() == slint::SharedString("hi"));
+    }
+
+    SECTION("Image")
+    {
+        DataTransfer a;
+        REQUIRE(!a.has_image());
+        REQUIRE(!a.image().has_value());
+
+        slint::Image img(slint::SharedPixelBuffer<slint::Rgb8Pixel>(2, 1));
+        a.set_image(img);
+        REQUIRE(a.has_image());
+        auto fetched = a.image();
+        REQUIRE(fetched.has_value());
+        REQUIRE(fetched->size().width == 2);
+        REQUIRE(fetched->size().height == 1);
+    }
+
+    SECTION("Image conversion constructor")
+    {
+        slint::Image img(slint::SharedPixelBuffer<slint::Rgb8Pixel>(3, 4));
+        DataTransfer a { img };
+        REQUIRE(a.has_image());
+        REQUIRE(!a.has_plain_text());
+    }
+
+    SECTION("set_plain_text with empty string clears")
+    {
+        DataTransfer a;
+        a.set_plain_text(slint::SharedString("hello"));
+        REQUIRE(a.has_plain_text());
+        a.set_plain_text(slint::SharedString(""));
+        REQUIRE(!a.has_plain_text());
+        REQUIRE(!a.plain_text().has_value());
+        REQUIRE(a.is_empty());
+    }
+
+    SECTION("set_image with default image clears")
+    {
+        DataTransfer a;
+        a.set_image(slint::Image(slint::SharedPixelBuffer<slint::Rgb8Pixel>(2, 2)));
+        REQUIRE(a.has_image());
+        a.set_image(slint::Image());
+        REQUIRE(!a.has_image());
+        REQUIRE(!a.image().has_value());
+        REQUIRE(a.is_empty());
+    }
+
+    SECTION("Plain text and image coexist")
+    {
+        DataTransfer a;
+        a.set_plain_text(slint::SharedString("text"));
+        a.set_image(slint::Image(slint::SharedPixelBuffer<slint::Rgb8Pixel>(1, 1)));
+        REQUIRE(a.has_plain_text());
+        REQUIRE(a.has_image());
+    }
+
+    SECTION("User data round-trip")
+    {
+        DataTransfer a;
+        REQUIRE(!a.has_user_data());
+        REQUIRE(!a.user_data().has_value());
+
+        auto value = std::make_shared<int>(42);
+        std::weak_ptr<int> observer = value;
+        REQUIRE(observer.use_count() == 1);
+
+        a.set_user_data(value);
+        REQUIRE(a.has_user_data());
+        REQUIRE(observer.use_count() == 2); // a + the local `value`
+
+        std::any fetched = a.user_data();
+        REQUIRE(fetched.has_value());
+        auto *fetched_ptr = std::any_cast<std::shared_ptr<int>>(&fetched);
+        REQUIRE(fetched_ptr != nullptr);
+        REQUIRE(**fetched_ptr == 42);
+        REQUIRE(observer.use_count() == 3); // a + value + fetched
+    }
+
+    SECTION("User data type mismatch")
+    {
+        DataTransfer a;
+        a.set_user_data(std::make_shared<int>(7));
+        REQUIRE(a.has_user_data());
+        std::any v = a.user_data();
+        REQUIRE(std::any_cast<std::shared_ptr<double>>(&v) == nullptr);
+        REQUIRE(std::any_cast<std::shared_ptr<int>>(&v) != nullptr);
+    }
+
+    SECTION("User data survives clone")
+    {
+        DataTransfer a;
+        auto value = std::make_shared<int>(99);
+        std::weak_ptr<int> observer = value;
+        a.set_user_data(value);
+        value.reset(); // only `a` and (later) any retrieved shared_ptr keep the value alive
+        REQUIRE(observer.use_count() == 1);
+
+        DataTransfer b(a);
+        REQUIRE(b.has_user_data());
+        REQUIRE(observer.use_count() == 1); // clone of `a` shares the same C++ shared_ptr
+
+        std::any from_a_any = a.user_data();
+        std::any from_b_any = b.user_data();
+        auto *from_a = std::any_cast<std::shared_ptr<int>>(&from_a_any);
+        auto *from_b = std::any_cast<std::shared_ptr<int>>(&from_b_any);
+        REQUIRE((from_a && from_b));
+        REQUIRE(**from_a == 99);
+        REQUIRE(**from_b == 99);
+        REQUIRE(from_a->get() == from_b->get());
+        REQUIRE(observer.use_count() == 3); // a + b + from_a (== from_b)
+    }
+
+    SECTION("Replacing user data drops the old value")
+    {
+        DataTransfer a;
+        auto first = std::make_shared<int>(1);
+        std::weak_ptr<int> first_observer = first;
+        a.set_user_data(first);
+        first.reset();
+        REQUIRE(first_observer.use_count() == 1);
+
+        a.set_user_data(std::make_shared<int>(2));
+        REQUIRE(first_observer.expired());
+        std::any v = a.user_data();
+        REQUIRE(**std::any_cast<std::shared_ptr<int>>(&v) == 2);
+    }
+
+    SECTION("Clearing user data drops the value")
+    {
+        DataTransfer a;
+        auto value = std::make_shared<int>(5);
+        std::weak_ptr<int> observer = value;
+        a.set_user_data(value);
+        value.reset();
+        REQUIRE(observer.use_count() == 1);
+
+        a.clear_user_data();
+        REQUIRE(!a.has_user_data());
+        REQUIRE(observer.expired());
+    }
+
+    SECTION("User data, plain text, and image coexist")
+    {
+        DataTransfer a;
+        a.set_plain_text(slint::SharedString("text"));
+        a.set_image(slint::Image(slint::SharedPixelBuffer<slint::Rgb8Pixel>(1, 1)));
+        a.set_user_data(std::make_shared<int>(123));
+        REQUIRE(a.has_plain_text());
+        REQUIRE(a.has_image());
+        REQUIRE(a.has_user_data());
+        std::any v = a.user_data();
+        REQUIRE(**std::any_cast<std::shared_ptr<int>>(&v) == 123);
+    }
+
+    SECTION("User data with non-pointer value type")
+    {
+        DataTransfer a;
+        a.set_user_data(42);
+        REQUIRE(a.has_user_data());
+        std::any v = a.user_data();
+        REQUIRE(std::any_cast<int>(&v) != nullptr);
+        REQUIRE(*std::any_cast<int>(&v) == 42);
+    }
 }

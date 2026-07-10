@@ -1,0 +1,66 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+# cSpell:ignore S3GWAKQTX6
+name: Slint Viewer
+options:
+  bundleIdPrefix: dev.slint
+settings:
+  ENABLE_USER_SCRIPT_SANDBOXING: NO
+  ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  # Defaults for local builds; CI overrides these via xcodebuild to inject the
+  # Slint version and a monotonic, git-derived build number (commit count).
+  MARKETING_VERSION: "1.18.0"
+  CURRENT_PROJECT_VERSION: "1"
+targets:
+  slint-viewer:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.6"
+    scheme: {}
+    settings:
+      base:
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: S3GWAKQTX6
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Slint Viewer
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        ITSAppUsesNonExemptEncryption: false
+        # Must be a dictionary (an empty one yields the default launch screen);
+        # iPad multitasking requires a valid UILaunchScreen.
+        UILaunchScreen: {}
+        NSLocalNetworkUsageDescription: "We need to talk to editors on the local network."
+        NSBonjourServices:
+          - "_slint-preview._tcp"
+        UISupportedInterfaceOrientations:
+          [
+            UIInterfaceOrientationPortrait,
+            UIInterfaceOrientationPortraitUpsideDown,
+            UIInterfaceOrientationLandscapeLeft,
+            UIInterfaceOrientationLandscapeRight,
+          ]
+    sources:
+      # Generated at build time by the pre-build scripts below, so they may be
+      # absent when the project is generated.
+      - path: Assets.xcassets
+        optional: true
+      # Third-party license attribution, shown in the system Settings app.
+      - path: Settings.bundle
+        optional: true
+    preBuildScripts:
+      - name: Generate app icon
+        script: |
+          ../../scripts/render_ios_app_icon.bash
+        outputFiles:
+          - $(SRCROOT)/Assets.xcassets/AppIcon.appiconset/icon-1024.png
+      - name: Generate Settings bundle
+        script: |
+          ../../scripts/generate_ios_settings_bundle.bash
+        outputFiles:
+          - $(SRCROOT)/Settings.bundle/Root.plist
+    postCompileScripts:
+      - script: |
+          ../../scripts/build_for_ios_with_cargo.bash slint-viewer --features remote
+        outputFileLists: $TARGET_BUILD_DIR/$EXECUTABLE_PATH

@@ -8,7 +8,6 @@ use i_slint_core::api::{ComponentHandle, LogicalPosition};
 use i_slint_core::item_tree::{ItemTreeRc, ItemWeak, ParentItemTraversalMode};
 use i_slint_core::items::{ItemRc, Opacity, PointerEventButton};
 use i_slint_core::platform::WindowEvent;
-use i_slint_core::tests::slint_mock_elapsed_time;
 use i_slint_core::window::WindowInner;
 use std::rc::Rc;
 use std::time::Duration;
@@ -21,6 +20,43 @@ const DRAG_STEP_DELAY_MS: u64 = 16;
 /// simulation. Chosen to be below the 8 px `DISTANCE_THRESHOLD` (see `flickable.rs`)
 /// so that every intermediate position is reported to the element.
 const DRAG_STEP_SIZE: f32 = 5.0;
+
+/// Synthesizes a drag from `start` to `end` against `window`: an initial
+/// `PointerMoved`+`PointerPressed`, interpolated `PointerMoved`s sized below the 8 px drag
+/// threshold (with `mock_elapsed_time` between each), and a final `PointerReleased`.
+///
+/// Exposed at module scope so that callers that don't have an `ElementHandle` (e.g. tests
+/// that drive raw window coordinates) can drive the same gesture as
+/// [`ElementHandle::mock_drag`].
+pub(crate) fn mock_drag_window(
+    window: &i_slint_core::api::Window,
+    start: LogicalPosition,
+    end: LogicalPosition,
+    button: PointerEventButton,
+) {
+    window.dispatch_event(WindowEvent::PointerMoved { position: start });
+    window.dispatch_event(WindowEvent::PointerPressed { position: start, button });
+
+    let dx = end.x - start.x;
+    let dy = end.y - start.y;
+    let distance = (dx * dx + dy * dy).sqrt();
+
+    if distance > f32::EPSILON {
+        let steps = ((distance / DRAG_STEP_SIZE).ceil() as usize).max(2);
+
+        for i in 1..steps {
+            let t = i as f32 / steps as f32;
+            let pos = LogicalPosition::new(start.x + dx * t, start.y + dy * t);
+            crate::testing_backend::mock_elapsed_time(DRAG_STEP_DELAY_MS);
+            window.dispatch_event(WindowEvent::PointerMoved { position: pos });
+        }
+
+        crate::testing_backend::mock_elapsed_time(DRAG_STEP_DELAY_MS);
+        window.dispatch_event(WindowEvent::PointerMoved { position: end });
+    }
+
+    window.dispatch_event(WindowEvent::PointerReleased { position: end, button });
+}
 
 fn warn_missing_debug_info() {
     i_slint_core::debug_log!(
@@ -784,6 +820,28 @@ impl ElementHandle {
             .and_then(|item| item.parse().ok())
     }
 
+    /// Returns the value of the `accessible-orientation` property, if present.
+    pub fn accessible_orientation(&self) -> Option<crate::Orientation> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Orientation))
+            .and_then(|s| s.parse().ok())
+    }
+
+    /// Returns the value of the `accessible-live-region` property, if present.
+    pub fn accessible_live_region(&self) -> Option<crate::AccessibleLiveness> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::LiveRegion))
+            .and_then(|s| s.parse().ok())
+    }
+
     /// Returns the size of the element in logical pixels. This corresponds to the value of the `width` and
     /// `height` properties in Slint code. Returns a zero size if the element is not valid.
     pub fn size(&self) -> i_slint_core::api::LogicalSize {
@@ -904,13 +962,13 @@ impl ElementHandle {
     /// Simulates a single click (or touch tap) on the element at its center point with the
     /// specified button.
     ///
-    /// Compared to [Self::single_click()], this function uses slint_mock_elapsed_time instead
+    /// Compared to [Self::single_click()], this function uses mock time instead
     /// of an actual timer, so that it can be used in our internal tests that do not have an event
     /// loop.
     pub fn mock_single_click(&self, button: PointerEventButton) {
         self.pointer_pressed(button);
 
-        slint_mock_elapsed_time(50);
+        crate::testing_backend::mock_elapsed_time(50);
 
         self.pointer_released(button);
     }
@@ -992,37 +1050,13 @@ impl ElementHandle {
 
     /// Simulates a drag gesture from the element's center to the given target position.
     ///
-    /// Compared to [Self::drag()], this function uses slint_mock_elapsed_time instead
+    /// Compared to [Self::drag()], this function uses mock time instead
     /// of an actual timer, so that it can be used in internal tests without an event loop.
     pub fn mock_drag(&self, target: LogicalPosition, button: PointerEventButton) {
         let Some(window_adapter) = self.window_adapter() else {
             return;
         };
-        let window = window_adapter.window();
-        let start = self.absolute_center();
-
-        window.dispatch_event(WindowEvent::PointerMoved { position: start });
-        window.dispatch_event(WindowEvent::PointerPressed { position: start, button });
-
-        let dx = target.x - start.x;
-        let dy = target.y - start.y;
-        let distance = (dx * dx + dy * dy).sqrt();
-
-        if distance > f32::EPSILON {
-            let steps = ((distance / DRAG_STEP_SIZE).ceil() as usize).max(2);
-
-            for i in 1..steps {
-                let t = i as f32 / steps as f32;
-                let pos = LogicalPosition::new(start.x + dx * t, start.y + dy * t);
-                slint_mock_elapsed_time(DRAG_STEP_DELAY_MS);
-                window.dispatch_event(WindowEvent::PointerMoved { position: pos });
-            }
-
-            slint_mock_elapsed_time(DRAG_STEP_DELAY_MS);
-            window.dispatch_event(WindowEvent::PointerMoved { position: target });
-        }
-
-        window.dispatch_event(WindowEvent::PointerReleased { position: target, button });
+        mock_drag_window(window_adapter.window(), self.absolute_center(), target, button);
     }
 
     fn absolute_center(&self) -> LogicalPosition {

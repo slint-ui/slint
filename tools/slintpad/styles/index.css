@@ -44,21 +44,32 @@ body {
     justify-content: center;
     align-items: center;
     background: var(--color_blue);
+    color: var(--color_white);
+    font-family: system-ui, -apple-system, Helvetica, Arial, sans-serif;
 }
 
-.loader-image {
-    width: 100px;
-    animation: pulse 1s linear infinite;
+.loader-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: min(360px, 60vw);
 }
 
-@keyframes pulse {
-    0% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(0.8);
-    }
-    100% {
-        transform: scale(1);
-    }
+.loader-logo {
+    width: 96px;
+    height: 96px;
+    margin-bottom: 8px;
+}
+
+.loader-message {
+    font-size: 13px;
+    opacity: 0.85;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.loader-progress {
+    width: 100%;
+    height: 6px;
 }

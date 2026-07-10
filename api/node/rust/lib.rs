@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 mod interpreter;
+mod weak_ref;
 use std::path::PathBuf;
 
 pub use interpreter::*;
@@ -9,20 +10,45 @@ pub use interpreter::*;
 mod types;
 pub use types::*;
 
+mod uv_event_loop;
+pub use uv_event_loop::*;
+
 use napi::Env;
 use napi::bindgen_prelude::*;
+
+/// Set a non-enumerable property on a JS object.
+///
+/// Properties set this way don't appear in `console.log`, `Object.keys`,
+/// or `for…in` loops, keeping internal bookkeeping hidden from users.
+pub(crate) fn set_hidden_property<'a, V: napi::JsValue<'a>>(
+    obj: &mut Object<'_>,
+    key: &str,
+    value: &V,
+) -> napi::Result<()> {
+    let prop = napi::Property::new()
+        .with_utf8_name(key)?
+        .with_property_attributes(
+            napi::PropertyAttributes::Writable | napi::PropertyAttributes::Configurable,
+        )
+        .with_value(value);
+    JsObjectValue::define_properties(obj, &[prop])
+}
 
 #[macro_use]
 extern crate napi_derive;
 
 #[napi]
-pub fn mock_elapsed_time(ms: f64) {
-    i_slint_core::tests::slint_mock_elapsed_time(ms as _);
+pub fn mock_elapsed_time(_ms: f64) {
+    #[cfg(feature = "testing")]
+    i_slint_backend_testing::mock_elapsed_time(_ms as u64);
 }
 
 #[napi]
 pub fn get_mocked_time() -> f64 {
-    i_slint_core::tests::slint_get_mocked_time() as f64
+    #[cfg(feature = "testing")]
+    return i_slint_backend_testing::get_mocked_time() as f64;
+    #[cfg(not(feature = "testing"))]
+    return 0.0;
 }
 
 #[napi]
@@ -31,16 +57,22 @@ pub enum ProcessEventsResult {
     Exited,
 }
 
-#[napi]
-pub fn process_events() -> napi::Result<ProcessEventsResult> {
+fn process_events_with_timeout(
+    timeout: Option<std::time::Duration>,
+) -> napi::Result<ProcessEventsResult> {
     i_slint_backend_selector::with_platform(|b| {
-        b.process_events(std::time::Duration::ZERO, i_slint_core::InternalToken)
+        b.process_events(timeout, i_slint_core::InternalToken)
     })
     .map_err(|e| napi::Error::from_reason(e.to_string()))
     .map(|result| match result {
-        core::ops::ControlFlow::Continue(()) => ProcessEventsResult::Continue,
         core::ops::ControlFlow::Break(()) => ProcessEventsResult::Exited,
+        core::ops::ControlFlow::Continue(()) => ProcessEventsResult::Continue,
     })
+}
+
+#[napi]
+pub fn process_events() -> napi::Result<ProcessEventsResult> {
+    process_events_with_timeout(Some(std::time::Duration::ZERO))
 }
 
 #[napi]
@@ -51,16 +83,24 @@ pub fn invoke_from_event_loop(env: &Env, callback: DynFunction<'_>) -> napi::Res
     })
     .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
-    let stored_fn = StoredFunction::new(&callback)?;
+    let func_ref = callback.create_ref()?;
     let env = *env;
-    let wrapper = send_wrapper::SendWrapper::new((stored_fn, env));
+    let wrapper = send_wrapper::SendWrapper::new((func_ref, env));
     i_slint_core::api::invoke_from_event_loop(move || {
-        let (stored_fn, env) = wrapper.take();
-        if stored_fn.call(&env, vec![]).is_err() {
+        let (func_ref, env) = wrapper.take();
+        if func_ref.borrow_back(&env).and_then(|f| f.call(DynArgs(vec![]))).is_err() {
             eprintln!("Node.js: JavaScript invoke_from_event_loop threw an exception");
         }
     })
     .map_err(|e| napi::Error::from_reason(e.to_string()))
+}
+
+#[napi]
+pub fn quit_event_loop() -> napi::Result<()> {
+    // Don't call core's quit_event_loop — that permanently terminates the winit event loop.
+    // Set a flag so process_slint_events returns Exited on the next iteration.
+    uv_event_loop::request_quit();
+    Ok(())
 }
 
 #[napi]
@@ -80,6 +120,24 @@ pub fn set_quit_on_last_window_closed(quit_on_last_window_closed: bool) -> napi:
 pub fn init_testing() {
     #[cfg(feature = "testing")]
     i_slint_backend_testing::init_integration_test_with_mock_time();
+}
+
+/// Returns the list of optional capabilities that were compiled into the loaded
+/// native binary. This is how JavaScript can tell whether the "dev" binary
+/// (with system-testing and MCP support) was loaded, or just the default one.
+#[napi]
+pub fn build_features() -> Vec<String> {
+    let mut features = Vec::new();
+    if cfg!(feature = "testing") {
+        features.push("testing".to_string());
+    }
+    if cfg!(feature = "system-testing") {
+        features.push("system-testing".to_string());
+    }
+    if cfg!(feature = "mcp") {
+        features.push("mcp".to_string());
+    }
+    features
 }
 
 #[napi]

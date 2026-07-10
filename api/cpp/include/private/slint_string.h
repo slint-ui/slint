@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #pragma once
+#include <optional>
 #include <string_view>
 #include <span>
 #include "private/slint_string_internal.h"
@@ -225,11 +226,44 @@ private:
 
 namespace private_api {
 
-/// Styled text that has been parsed and seperated into paragraphs
+template<typename T>
+inline cbindgen_private::Slice<T> make_slice(const T *ptr, size_t len)
+{
+    return cbindgen_private::Slice<T> {
+        // Rust uses a NonNull, so even empty slices shouldn't use nullptr
+        .ptr = ptr ? const_cast<T *>(ptr) : reinterpret_cast<T *>(sizeof(T)),
+        .len = len,
+    };
+}
+
+template<typename T, size_t Extent>
+inline cbindgen_private::Slice<std::remove_const_t<T>> make_slice(std::span<T, Extent> span)
+{
+    return make_slice(span.data(), span.size());
+}
+
+inline cbindgen_private::Slice<uint8_t> string_to_slice(std::string_view str)
+{
+    return make_slice(reinterpret_cast<const uint8_t *>(str.data()), str.size());
+}
+
+inline std::string_view slice_to_string_view(cbindgen_private::Slice<uint8_t> str)
+{
+    return std::string_view(reinterpret_cast<const char *>(str.ptr), str.len);
+}
+
+}
+
+/// Styled text that has been parsed and separated into paragraphs.
+///
+/// Use `StyledText::from_markdown()` to parse a markdown string, or
+/// `StyledText::from_plain_text()` to wrap plain text without formatting.
+///
+/// Assign the result to a `styled-text` property in a Slint component to display it.
 struct StyledText
 {
 public:
-    /// Creates an default styled text.
+    /// Creates a default (empty) styled text.
     StyledText() { cbindgen_private::slint_styled_text_new(this); }
     /// Destroys this StyledText.
     ~StyledText() { cbindgen_private::slint_styled_text_drop(this); }
@@ -258,35 +292,32 @@ public:
         return cbindgen_private::slint_styled_text_eq(&a, &b);
     }
 
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
+    /// Creates styled text from plain text without applying markdown parsing.
+    static StyledText from_plain_text(std::string_view text)
+    {
+        StyledText result;
+        cbindgen_private::slint_styled_text_from_plain_text(private_api::string_to_slice(text),
+                                                            &result);
+        return result;
+    }
+
+    /// Parses markdown into styled text.
+    ///
+    /// Returns `std::nullopt` if the markdown contains unsupported syntax.
+    static std::optional<StyledText> from_markdown(std::string_view markdown)
+    {
+        StyledText result;
+        if (cbindgen_private::slint_styled_text_from_markdown(
+                    private_api::string_to_slice(markdown), &result)) {
+            return result;
+        }
+        return std::nullopt;
+    }
+#endif
+
 private:
     void *inner;
 };
 
-template<typename T>
-inline cbindgen_private::Slice<T> make_slice(const T *ptr, size_t len)
-{
-    return cbindgen_private::Slice<T> {
-        // Rust uses a NonNull, so even empty slices shouldn't use nullptr
-        .ptr = ptr ? const_cast<T *>(ptr) : reinterpret_cast<T *>(sizeof(T)),
-        .len = len,
-    };
-}
-
-template<typename T, size_t Extent>
-inline cbindgen_private::Slice<std::remove_const_t<T>> make_slice(std::span<T, Extent> span)
-{
-    return make_slice(span.data(), span.size());
-}
-
-inline cbindgen_private::Slice<uint8_t> string_to_slice(std::string_view str)
-{
-    return make_slice(reinterpret_cast<const uint8_t *>(str.data()), str.size());
-}
-
-inline std::string_view slice_to_string_view(cbindgen_private::Slice<uint8_t> str)
-{
-    return std::string_view(reinterpret_cast<const char *>(str.ptr), str.len);
-}
-
-}
 }

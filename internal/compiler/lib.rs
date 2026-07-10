@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore inlines namedreference pathutils
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -19,6 +20,7 @@ use std::rc::Rc;
 pub mod builtin_macros;
 pub mod data_uri;
 pub mod diagnostics;
+pub mod doc_comments;
 pub mod embedded_resources;
 pub mod expression_tree;
 pub mod fileaccess;
@@ -34,6 +36,7 @@ pub mod namedreference;
 pub mod object_tree;
 pub mod parser;
 pub mod pathutils;
+pub mod symbol_counters;
 #[cfg(feature = "bundle-translations")]
 pub mod translations;
 pub mod typeloader;
@@ -49,14 +52,23 @@ use std::path::Path;
 pub enum EmbedResourcesKind {
     /// Embeds nothing (only useful for interpreter)
     Nothing,
-    /// Only embed builtin resources
+    /// Only embed builtin resources (such as widget assets shipped with Slint).
+    ///
+    /// User resources are loaded from their absolute path at run-time.
     OnlyBuiltinResources,
-    /// Do not embed resources, but list them in the Document as if they were embedded
+    /// Don't embed resources, but list them in the Document as if they were embedded.
+    ///
+    /// Used by tools such as the LSP that need to know about all resources without embedding them.
     ListAllResources,
-    /// Embed all images resources (the content of their files)
+    /// Embed the content of all image resources in the binary as-is (a compressed PNG stays
+    /// compressed), to be decoded at run-time.
     EmbedAllResources,
-    #[cfg(feature = "software-renderer")]
-    /// Embed raw texture (process images and fonts)
+    #[cfg(feature = "renderer-software")]
+    /// Pre-process images and fonts at compile time and embed them as uncompressed pixel data,
+    /// ready to be drawn by the software renderer without any decoding at run-time.
+    ///
+    /// Useful for MCUs with no file system and little RAM.
+    /// Only the Slint software renderer can use these resources; Skia and FemtoVG can't.
     EmbedTextures,
 }
 
@@ -108,7 +120,8 @@ pub enum ComponentSelection {
 /// Unfortunately AsyncFn is not dyn-compatible yet.
 pub type OpenImportCallback =
     Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>;
-pub type ResourceUrlMapper = Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>;
+pub type ResourceUrlMapper =
+    Rc<dyn Fn(&url::Url) -> Pin<Box<dyn Future<Output = Option<url::Url>>>>>;
 
 /// CompilationConfiguration allows configuring different aspects of the compiler.
 #[derive(Clone)]
@@ -117,7 +130,7 @@ pub struct CompilerConfiguration {
     /// to retain references to the resources on the file system.
     pub embed_resources: EmbedResourcesKind,
     /// Whether to use SDF when pre-rendering fonts.
-    #[cfg(all(feature = "software-renderer", feature = "sdf-fonts"))]
+    #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
     pub use_sdf_fonts: bool,
     /// The compiler will look in these paths for components used in the file to compile.
     pub include_paths: Vec<std::path::PathBuf>,
@@ -183,6 +196,12 @@ pub struct CompilerConfiguration {
 
     /// Specify the Rust module to place the generated code in.
     pub rust_module: Option<String>,
+
+    /// Set automatically when the output format is `SlintSc`.
+    /// The compiler rejects all features not supported by the
+    /// safety-critical subset.
+    #[cfg(feature = "slint-sc")]
+    pub(crate) slint_sc: bool,
 }
 
 impl CompilerConfiguration {
@@ -190,11 +209,11 @@ impl CompilerConfiguration {
         let embed_resources = if std::env::var_os("SLINT_EMBED_TEXTURES").is_some()
             || std::env::var_os("DEP_MCU_BOARD_SUPPORT_MCU_EMBED_TEXTURES").is_some()
         {
-            #[cfg(not(feature = "software-renderer"))]
+            #[cfg(not(feature = "renderer-software"))]
             panic!(
-                "the software-renderer feature must be enabled in i-slint-compiler when embedding textures"
+                "the renderer-software feature must be enabled in i-slint-compiler when embedding textures"
             );
-            #[cfg(feature = "software-renderer")]
+            #[cfg(feature = "renderer-software")]
             EmbedResourcesKind::EmbedTextures
         } else if let Ok(var) = std::env::var("SLINT_EMBED_RESOURCES") {
             let var = var.parse::<bool>().unwrap_or_else(|_|{
@@ -232,6 +251,9 @@ impl CompilerConfiguration {
 
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
+        #[cfg(feature = "slint-sc")]
+        let slint_sc = matches!(output_format, OutputFormat::SlintSc);
+
         let cpp_namespace = match output_format {
             #[cfg(feature = "cpp")]
             OutputFormat::Cpp(config) => match config.namespace {
@@ -262,7 +284,7 @@ impl CompilerConfiguration {
             debug_info,
             debug_hooks: None,
             components_to_generate: ComponentSelection::ExportedWindows,
-            #[cfg(all(feature = "software-renderer", feature = "sdf-fonts"))]
+            #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
             use_sdf_fonts: false,
             #[cfg(feature = "bundle-translations")]
             translation_path_bundle: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
@@ -270,6 +292,8 @@ impl CompilerConfiguration {
                 .map(|x| x.into()),
             library_name: None,
             rust_module: None,
+            #[cfg(feature = "slint-sc")]
+            slint_sc,
         }
     }
 }
@@ -281,7 +305,7 @@ fn prepare_for_compile(
     diagnostics: &mut diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
 ) -> typeloader::TypeLoader {
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     if compiler_config.embed_resources == EmbedResourcesKind::EmbedTextures {
         // HACK: disable accessibility when compiling for the software renderer
         // accessibility is not supported with backend that support software renderer anyway
@@ -289,6 +313,10 @@ fn prepare_for_compile(
     }
 
     diagnostics.enable_experimental = compiler_config.enable_experimental;
+    #[cfg(feature = "slint-sc")]
+    {
+        diagnostics.slint_sc = compiler_config.slint_sc;
+    }
 
     typeloader::TypeLoader::new(compiler_config, diagnostics)
 }
@@ -307,12 +335,14 @@ pub async fn compile_syntax_node(
     let (foreign_imports, reexports) =
         loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
 
+    let ignore_missing_font_files = loader.compiler_config.resource_url_mapper.is_some();
     let mut doc = crate::object_tree::Document::from_node(
         doc_node,
         foreign_imports,
         reexports,
         &mut diagnostics,
         &type_registry,
+        ignore_missing_font_files,
     );
 
     if !diagnostics.has_errors() {

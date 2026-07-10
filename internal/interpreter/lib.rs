@@ -83,13 +83,14 @@ mod dynamic_item_tree;
 mod dynamic_type;
 mod eval;
 mod eval_layout;
+#[cfg(feature = "ffi")]
+#[doc(hidden)]
+pub mod ffi;
 mod global_component;
 #[cfg(feature = "internal-highlight")]
 pub mod highlight;
 #[cfg(feature = "internal-json")]
 pub mod json;
-#[cfg(feature = "internal-live-preview")]
-pub mod live_preview;
 mod value_model;
 
 #[doc(inline)]

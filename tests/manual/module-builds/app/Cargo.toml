@@ -3,7 +3,7 @@
 
 [package]
 name = "bapp"
-version = "1.17.0"
+version = "1.18.0"
 edition.workspace = true
 authors = ["Slint Developers <info@slint.dev>"]
 publish = false
@@ -13,8 +13,11 @@ license = "MIT"
 slint = { path = "../../../../api/rs/slint" }
 blogica = { path = "../blogica" }
 blogicb = { path = "../blogicb" }
-rand = "0.9"
+rand = "0.10"
 random_word = { version = "0.5.2", features = ["en"] }
 
 [build-dependencies]
 slint-build = { path = "../../../../api/rs/build", features = ["experimental-module-builds"] }
+
+[dev-dependencies]
+i-slint-backend-testing = { path = "../../../../internal/backends/testing" }

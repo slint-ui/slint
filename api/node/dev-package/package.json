@@ -1,0 +1,24 @@
+{
+  "name": "slint-ui-dev",
+  "version": "1.18.0",
+  "main": "index.cjs",
+  "exports": {
+    ".": "./index.cjs",
+    "./loader": "./rust-module-dev.cjs",
+    "./package.json": "./package.json"
+  },
+  "homepage": "https://github.com/slint-ui/slint",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/slint-ui/slint"
+  },
+  "keywords": [
+    "Slint",
+    "development",
+    "testing",
+    "mcp"
+  ],
+  "description": "Development binaries for slint-ui, enabling system-testing and MCP support. Install alongside slint-ui in development environments.",
+  "optionalDependencies": {}
+}

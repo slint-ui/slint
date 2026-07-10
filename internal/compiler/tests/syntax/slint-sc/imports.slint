@@ -1,0 +1,10 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Imports are rejected in Slint SC mode.
+
+import { Button } from "std-widgets.slint";
+//                     >                 <error{Imports are not supported in Slint SC}
+
+export component Test inherits Window {
+}

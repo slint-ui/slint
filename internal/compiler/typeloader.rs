@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore importident incdir splitn
 use smol_str::{SmolStr, ToSmolStr};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -8,7 +9,7 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 
-use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::diagnostics::{BuildDiagnostics, Diagnostic, Spanned};
 use crate::expression_tree::Callable;
 use crate::object_tree::{self, Document, ExportedName, Exports};
 use crate::parser::{NodeOrToken, SyntaxKind, SyntaxToken, syntax_nodes};
@@ -212,6 +213,9 @@ impl Snapshotter {
             global_type_registry: self.snapshot_type_register(&type_loader.global_type_registry),
             compiler_config: type_loader.compiler_config.clone(),
             resolved_style: type_loader.resolved_style.clone(),
+            revision: type_loader.revision,
+            // Share the counters so names generated after the snapshot stay unique.
+            symbol_counters: type_loader.symbol_counters.clone(),
         })
     }
 
@@ -541,6 +545,7 @@ impl Snapshotter {
                     is_alias: v.is_alias.as_ref().map(|a| a.snapshot(self)),
                     visibility: v.visibility,
                     pure: v.pure,
+                    shadows_builtin: v.shadows_builtin,
                 };
                 (k.clone(), decl)
             })
@@ -551,6 +556,7 @@ impl Snapshotter {
 
         target_element.change_callbacks = elem.change_callbacks.clone();
         target_element.child_of_layout = elem.child_of_layout;
+        target_element.child_of_flexbox = elem.child_of_flexbox;
         target_element.default_fill_parent = elem.default_fill_parent;
         target_element.has_popup_child = elem.has_popup_child;
         target_element.inline_depth = elem.inline_depth;
@@ -600,9 +606,20 @@ impl Snapshotter {
             two_way_bindings: binding_expression
                 .two_way_bindings
                 .iter()
-                .map(|twb| crate::expression_tree::TwoWayBinding {
-                    property: twb.property.snapshot(self),
-                    field_access: twb.field_access.clone(),
+                .map(|twb| match twb {
+                    crate::expression_tree::TwoWayBinding::Property { property, field_access } => {
+                        crate::expression_tree::TwoWayBinding::Property {
+                            property: property.snapshot(self),
+                            field_access: field_access.clone(),
+                        }
+                    }
+                    crate::expression_tree::TwoWayBinding::ModelData {
+                        repeated_element,
+                        field_access,
+                    } => crate::expression_tree::TwoWayBinding::ModelData {
+                        repeated_element: repeated_element.clone(),
+                        field_access: field_access.clone(),
+                    },
                 })
                 .collect(),
         }
@@ -666,6 +683,8 @@ impl Snapshotter {
             y: popup_window.y.snapshot(self),
             close_policy: popup_window.close_policy.clone(),
             parent_element: self.use_element(&popup_window.parent_element),
+            is_tooltip: popup_window.is_tooltip,
+            is_open: popup_window.is_open.as_ref().map(|is_open| is_open.snapshot(self)),
         }
     }
 
@@ -833,14 +852,21 @@ impl Snapshotter {
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
                     .collect(),
             },
-            Expression::RadialGradient { stops } => Expression::RadialGradient {
+            Expression::RadialGradient { center, radius, stops } => Expression::RadialGradient {
+                center: center.as_ref().map(|(cx, cy)| {
+                    (Box::new(self.snapshot_expression(cx)), Box::new(self.snapshot_expression(cy)))
+                }),
+                radius: radius.as_ref().map(|r| Box::new(self.snapshot_expression(r))),
                 stops: stops
                     .iter()
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
                     .collect(),
             },
-            Expression::ConicGradient { from_angle, stops } => Expression::ConicGradient {
+            Expression::ConicGradient { from_angle, center, stops } => Expression::ConicGradient {
                 from_angle: Box::new(self.snapshot_expression(from_angle)),
+                center: center.as_ref().map(|(cx, cy)| {
+                    (Box::new(self.snapshot_expression(cx)), Box::new(self.snapshot_expression(cy)))
+                }),
                 stops: stops
                     .iter()
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
@@ -898,7 +924,14 @@ pub struct TypeLoader {
     /// The style that was specified in the compiler configuration, but resolved. So "native" for example is resolved to the concrete
     /// style.
     pub resolved_style: String,
+    /// The revision in the TypeLoader marks changes to the TypeLoader.
+    /// Any changes should increase the revision number via [Self::bump_revision]
+    revision: u64,
     all_documents: LoadedDocuments,
+    /// Counters for the deterministic unique symbol names generated by the
+    /// passes. Shared across all documents of the compilation so the names stay
+    /// unique even after inlining merges components from different documents.
+    pub symbol_counters: Rc<crate::symbol_counters::SymbolCounters>,
 }
 
 struct BorrowedTypeLoader<'a> {
@@ -914,15 +947,20 @@ impl TypeLoader {
             style = get_native_style(&mut diag.all_loaded_files);
         }
 
+        // Created up front so the builtin default-value expressions and the
+        // document expressions share one set of counters and never clash.
+        let symbol_counters = crate::symbol_counters::SymbolCounters::shared();
         let myself = Self {
             global_type_registry: if compiler_config.enable_experimental {
-                crate::typeregister::TypeRegister::builtin_experimental()
+                crate::typeregister::TypeRegister::builtin_experimental(&symbol_counters)
             } else {
-                crate::typeregister::TypeRegister::builtin()
+                crate::typeregister::TypeRegister::builtin(&symbol_counters)
             },
             compiler_config,
             resolved_style: style.clone(),
+            revision: 0,
             all_documents: Default::default(),
+            symbol_counters,
         };
 
         let mut known_styles = fileaccess::styles();
@@ -935,7 +973,7 @@ impl TypeLoader {
             diag.push_diagnostic_with_span(
                 format!(
                     "Style {} is not known. Use one of the builtin styles [{}] or make sure your custom style is found in the include directories",
-                    &style,
+                    style,
                     known_styles.join(", ")
                 ),
                 Default::default(),
@@ -946,6 +984,14 @@ impl TypeLoader {
         myself
     }
 
+    fn bump_revision(&mut self) {
+        self.revision = self.revision.wrapping_add(1);
+    }
+
+    pub fn revision(&self) -> u64 {
+        self.revision
+    }
+
     /// Drop a document from the TypeLoader and invalidate all of its dependencies.
     /// Returns the list of all (transitive) dependencies.
     ///
@@ -954,6 +1000,7 @@ impl TypeLoader {
     pub fn drop_document(&mut self, path: &Path) -> Result<HashSet<PathBuf>, std::io::Error> {
         let dependencies = self.invalidate_document(path);
         self.all_documents.docs.remove(path);
+        self.bump_revision();
 
         if self.all_documents.currently_loading.contains_key(path) {
             Err(std::io::Error::new(ErrorKind::InvalidInput, format!("{path:?} is still loading")))
@@ -1001,6 +1048,7 @@ impl TypeLoader {
             extra_deps.extend(self.invalidate_document(dep));
         }
         extra_deps.extend(deps);
+        self.bump_revision();
         extra_deps
     }
 
@@ -1239,7 +1287,7 @@ impl TypeLoader {
         }
     }
 
-    /// Returns whether the file was succesfully loaded.
+    /// Returns whether the file was successfully loaded.
     /// If not, the path that was attempted to be loaded is returned (if any).
     #[allow(clippy::await_holding_refcell_ref)] // false positive: explicit drop() before await
     async fn ensure_document_loaded<'a: 'b, 'b>(
@@ -1484,12 +1532,27 @@ impl TypeLoader {
         } else {
             None
         };
-        state
-            .tl
-            .all_documents
-            .docs
-            .insert(path.clone(), (LoadedDocument::Document(doc), parse_errors));
+        Self::register_document(state, doc, path.clone(), parse_errors);
         (path, raw_type_loader)
+    }
+
+    fn register_document(
+        state: &mut BorrowedTypeLoader<'_>,
+        doc: Document,
+        path: PathBuf,
+        parse_errors: Vec<Diagnostic>,
+    ) {
+        for dep in &doc.imports {
+            state
+                .tl
+                .all_documents
+                .dependencies
+                .entry(Path::new(&dep.file).into())
+                .or_default()
+                .insert(path.clone());
+        }
+        state.tl.all_documents.docs.insert(path, (LoadedDocument::Document(doc), parse_errors));
+        state.tl.bump_revision();
     }
 
     async fn load_file_impl<'a>(
@@ -1514,16 +1577,7 @@ impl TypeLoader {
         if !state.diag.has_errors() {
             crate::passes::run_import_passes(&doc, state.tl, state.diag);
         }
-        for dep in &doc.imports {
-            state
-                .tl
-                .all_documents
-                .dependencies
-                .entry(Path::new(&dep.file).into())
-                .or_default()
-                .insert(path.clone());
-        }
-        state.tl.all_documents.docs.insert(path, (LoadedDocument::Document(doc), parse_errors));
+        Self::register_document(state, doc, path, parse_errors);
     }
 
     async fn load_doc_no_pass<'a>(
@@ -1545,6 +1599,8 @@ impl TypeLoader {
         )
         .await;
 
+        let ignore_missing_font_files =
+            state.borrow().tl.compiler_config.resource_url_mapper.is_some();
         if state.borrow().diag.has_errors() {
             // If there was error (esp parse error) we don't want to report further error in this document.
             // because they might be nonsense (TODO: we should check that the parse error were really in this document).
@@ -1560,6 +1616,7 @@ impl TypeLoader {
                 reexports,
                 &mut ignore_diag,
                 &dependency_registry,
+                ignore_missing_font_files,
             );
             return (path.to_owned(), doc);
         }
@@ -1571,6 +1628,7 @@ impl TypeLoader {
             reexports,
             state.diag,
             &dependency_registry,
+            ignore_missing_font_files,
         );
         (path.to_owned(), doc)
     }
@@ -1655,6 +1713,7 @@ impl TypeLoader {
             .chain(
                 (file_to_import == "std-widgets.slint"
                     || (file_to_import == "style-base.slint" && referencing_file.is_none())
+                    || (file_to_import == "std-widgets-impl.slint" && referencing_file.is_none())
                     || referencing_file.is_some_and(|x| x.starts_with("builtin:/")))
                 .then(|| format!("builtin:/{}", self.resolved_style).into()),
             )
@@ -1729,6 +1788,39 @@ impl TypeLoader {
     /// Return an iterator over all the loaded file path
     pub fn all_files(&self) -> impl Iterator<Item = &PathBuf> {
         self.all_documents.docs.keys()
+    }
+
+    /// Returns all file paths whose on-disk changes can affect the current document graph.
+    ///
+    /// This includes loaded documents and unresolved import targets that are kept in the
+    /// dependency graph so newly created files can invalidate their dependents.
+    pub fn all_files_to_watch(&self) -> HashSet<PathBuf> {
+        // Note: This only works if the full set of passes have run (e.g. in load_root_file, but not
+        // in load_file).
+        //
+        // TODO: the LSP will only run the import passes, which do not yet
+        // detect embedded file resources, so we won't know about them until we
+        // run the full pass pipeline (e.g. in the editor binary).
+        fn resource_paths(document: &LoadedDocument) -> Vec<PathBuf> {
+            match document {
+                LoadedDocument::Document(document) => document
+                    .embedded_file_resources
+                    .borrow()
+                    .iter()
+                    .flat_map(|resource| resource.path.as_ref().map(|path| PathBuf::from(&**path)))
+                    .collect(),
+                LoadedDocument::Invalidated(_document) => vec![],
+            }
+        }
+
+        self.all_documents
+            .docs
+            .iter()
+            .flat_map(|(path, (document, _diagnostics))| {
+                std::iter::once(path.clone()).chain(resource_paths(document))
+            })
+            .chain(self.all_documents.dependencies.keys().cloned())
+            .collect()
     }
 
     /// Returns an iterator over all the loaded documents
@@ -2026,6 +2118,119 @@ component Foo { XX {} }
 }
 
 #[test]
+fn test_load_file_watches_missing_imports() {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.embed_resources = crate::EmbedResourcesKind::ListAllResources;
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let main_path = Path::new("/tmp/main.slint");
+
+    spin_on::spin_on(
+        loader.load_file(
+            main_path,
+            main_path,
+            r#"
+/* ... */
+import { XX } from "missing/dependency.slint";
+component Foo { XX {} }
+"#
+            .into(),
+            false,
+            &mut build_diagnostics,
+        ),
+    );
+
+    assert!(build_diagnostics.has_errors());
+
+    let watch_files = loader.all_files_to_watch();
+    assert!(watch_files.contains(&PathBuf::from("/tmp/main.slint")));
+    assert!(watch_files.contains(&PathBuf::from("/tmp/missing/dependency.slint")));
+}
+
+#[test]
+fn test_load_root_file_tracks_missing_imports() {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.embed_resources = crate::EmbedResourcesKind::ListAllResources;
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let main_path = std::env::temp_dir().join("main.slint");
+    let missing_path = main_path.with_file_name("missing.slint");
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    spin_on::spin_on(
+        loader.load_root_file(
+            &main_path,
+            &main_path,
+            r#"
+import { Missing } from "missing.slint";
+export component Main inherits Window {
+    Missing { }
+}
+"#
+            .into(),
+            false,
+            &mut build_diagnostics,
+        ),
+    );
+
+    assert!(build_diagnostics.has_errors());
+    assert!(
+        loader.all_files_to_watch().contains(&main_path),
+        "watch paths: {:?}",
+        loader.all_files_to_watch()
+    );
+    assert!(
+        loader.all_files_to_watch().contains(&missing_path),
+        "watch paths: {:?}",
+        loader.all_files_to_watch()
+    );
+}
+
+#[test]
+fn test_load_root_file_tracks_missing_resources() {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.embed_resources = crate::EmbedResourcesKind::ListAllResources;
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let main_path = std::env::temp_dir().join("main.slint");
+    let resource_path = main_path.with_file_name("icon.svg");
+
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    spin_on::spin_on(
+        loader.load_root_file(
+            &main_path,
+            &main_path,
+            r#"
+export component Main inherits Window {
+    Image {
+        source: @image-url("icon.svg");
+    }
+}
+"#
+            .into(),
+            false,
+            &mut build_diagnostics,
+        ),
+    );
+
+    // The image is not embedded, so it doesn't cause an error
+    assert!(!build_diagnostics.has_errors());
+    assert!(
+        loader.all_files_to_watch().contains(&main_path),
+        "watch paths: {:?}",
+        loader.all_files_to_watch()
+    );
+    assert!(
+        loader.all_files_to_watch().contains(&resource_path),
+        "watch paths: {:?}",
+        loader.all_files_to_watch()
+    );
+}
+
+#[test]
 fn test_manual_import() {
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
@@ -2245,10 +2450,42 @@ fn test_snapshotting() {
     assert_eq!(root_element.borrow().base_type.to_string(), "Rectangle");
 
     let copy = snapshot(&type_loader).unwrap();
+    assert_eq!(copy.revision(), type_loader.revision());
 
     let doc = copy.get_document(&path).unwrap();
     let c = doc.inner_components.first().unwrap();
     assert_eq!(c.id, "Foobar");
     let root_element = c.root_element.clone();
     assert_eq!(root_element.borrow().base_type.to_string(), "Rectangle");
+}
+
+#[test]
+fn test_watch_paths_revision_bumps_on_mutations() {
+    let mut type_loader = TypeLoader::new(
+        crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter),
+        &mut BuildDiagnostics::default(),
+    );
+
+    assert_eq!(type_loader.revision(), 0);
+
+    let path = PathBuf::from("/tmp/test-revision.slint");
+    let mut diag = BuildDiagnostics::default();
+    spin_on::spin_on(type_loader.load_file(
+        &path,
+        &path,
+        "export component Foobar inherits Rectangle { }".to_string(),
+        false,
+        &mut diag,
+    ));
+    assert!(!diag.has_errors());
+    let after_load = type_loader.revision();
+    assert_ne!(after_load, 0);
+
+    type_loader.invalidate_document(&path);
+    let after_invalidate = type_loader.revision();
+    assert_ne!(after_invalidate, after_load);
+
+    type_loader.drop_document(&path).unwrap();
+    let after_drop = type_loader.revision();
+    assert_ne!(after_drop, after_invalidate);
 }

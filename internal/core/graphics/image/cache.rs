@@ -5,7 +5,9 @@
 This module contains image and caching related types for the run-time library.
 */
 
-use super::{CachedPath, Image, ImageCacheKey, ImageInner, SharedImageBuffer, SharedPixelBuffer};
+#[cfg(not(target_arch = "wasm32"))]
+use super::CachedPath;
+use super::{Image, ImageCacheKey, ImageInner, SharedImageBuffer};
 use crate::{SharedString, slice::Slice};
 
 struct ImageWeightInBytes;
@@ -28,7 +30,7 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(..) => 0, // Assume storage in GPU memory
             ImageInner::NineSlice(nine) => self.weight(_key, &nine.0),
-            #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+            #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
             ImageInner::WGPUTexture(..) => 0, // The texture is imported from the application and will never reside in our cache.
         }
     }
@@ -72,19 +74,18 @@ impl ImageCache {
         }))
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn load_image_from_path(&mut self, _path: &SharedString) -> Option<Image> {
+        None
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn load_image_from_path(&mut self, path: &SharedString) -> Option<Image> {
         if path.is_empty() {
             return None;
         }
         let cache_key = ImageCacheKey::Path(CachedPath::new(path.as_str()));
-        #[cfg(target_arch = "wasm32")]
-        return self.lookup_image_in_cache_or_create(cache_key, |_| {
-            return Some(ImageInner::HTMLImage(vtable::VRc::new(
-                super::htmlimage::HTMLImage::new(&path),
-            )));
-        });
-        #[cfg(not(target_arch = "wasm32"))]
-        return self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
+        self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
             if cfg!(feature = "svg") && (path.ends_with(".svg") || path.ends_with(".svgz")) {
                 return Some(ImageInner::Svg(vtable::VRc::new(
                     super::svg::load_from_path(path, cache_key).map_or_else(
@@ -105,11 +106,24 @@ impl ImageCache {
                 |image| {
                     Some(ImageInner::EmbeddedImage {
                         cache_key,
-                        buffer: dynamic_image_to_shared_image_buffer(image),
+                        buffer: super::dynamic_image_to_shared_image_buffer(image),
                     })
                 },
             )
-        });
+        })
+    }
+
+    /// Load an image by handing its URL to an `<img>` element for the browser to
+    /// fetch. This is a web-only slintpad mechanism, not general network loading.
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn load_as_html_image(&mut self, url: &str) -> Option<Image> {
+        if url.is_empty() {
+            return None;
+        }
+        let cache_key = ImageCacheKey::URL(url.into());
+        self.lookup_image_in_cache_or_create(cache_key, |_| {
+            Some(ImageInner::HTMLImage(vtable::VRc::new(super::htmlimage::HTMLImage::new(url))))
+        })
     }
 
     pub(crate) fn load_image_from_embedded_data(
@@ -119,65 +133,8 @@ impl ImageCache {
     ) -> Option<Image> {
         let cache_key = ImageCacheKey::from_embedded_image_data(data.as_slice());
         self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
-            #[cfg(feature = "svg")]
-            if format.as_slice() == b"svg" || format.as_slice() == b"svgz" {
-                return Some(ImageInner::Svg(vtable::VRc::new(
-                    super::svg::load_from_data(data.as_slice(), cache_key).map_or_else(
-                        |svg_err| {
-                            crate::debug_log!("Error loading SVG: {}", svg_err);
-                            None
-                        },
-                        Some,
-                    )?,
-                )));
-            }
-
-            let format = std::str::from_utf8(format.as_slice())
-                .ok()
-                .and_then(image::ImageFormat::from_extension);
-            let maybe_image = if let Some(format) = format {
-                image::load_from_memory_with_format(data.as_slice(), format)
-            } else {
-                image::load_from_memory(data.as_slice())
-            };
-
-            match maybe_image {
-                Ok(image) => Some(ImageInner::EmbeddedImage {
-                    cache_key,
-                    buffer: dynamic_image_to_shared_image_buffer(image),
-                }),
-                Err(decode_err) => {
-                    crate::debug_log!("Error decoding embedded image: {}", decode_err);
-                    None
-                }
-            }
+            ImageInner::load_from_data_with_cache_key(cache_key, data, format)
         })
-    }
-}
-
-fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> SharedImageBuffer {
-    use rgb::AsPixels;
-
-    if dynamic_image.color().has_alpha() {
-        let rgba8image = dynamic_image.to_rgba8();
-        // Prefer pre-multiplied alpha so that smooth-scaling won't bleed the alpha when blending
-        // in the renderers.
-        SharedImageBuffer::RGBA8Premultiplied(SharedPixelBuffer {
-            width: rgba8image.width(),
-            height: rgba8image.height(),
-            data: rgba8image
-                .as_pixels()
-                .iter()
-                .map(|pixel| Image::rgba_to_premultiplied_rgba(*pixel))
-                .collect(),
-        })
-    } else {
-        let rgb8image = dynamic_image.to_rgb8();
-        SharedImageBuffer::RGB8(SharedPixelBuffer::clone_from_slice(
-            rgb8image.as_raw(),
-            rgb8image.width(),
-            rgb8image.height(),
-        ))
     }
 }
 

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore androidwindowadapter javahelper
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(not(target_os = "android"), allow(rustdoc::broken_intra_doc_links))]
@@ -153,6 +154,29 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
             )
         } else {
             None
+        }
+    }
+
+    fn bind_context(&self, ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
+        let ctx = ctx.upgrade().expect("bind_context called while the SlintContext is still alive");
+        let color_scheme = match self
+            .window
+            .java_helper
+            .color_scheme()
+            .unwrap_or_else(|e| javahelper::print_jni_error(&self.app, e))
+        {
+            0x10 => i_slint_core::items::ColorScheme::Light, // UI_MODE_NIGHT_NO
+            0x20 => i_slint_core::items::ColorScheme::Dark,  // UI_MODE_NIGHT_YES
+            _ => i_slint_core::items::ColorScheme::Unknown,
+        };
+        ctx.set_color_scheme(color_scheme);
+        if let Ok(accent) = self.window.java_helper.accent_color() {
+            ctx.set_accent_color(accent);
+        }
+        if let Ok(scale) = self.window.java_helper.font_scale()
+            && let Some(size) = javahelper::font_scale_to_logical_length(scale)
+        {
+            ctx.set_platform_default_font_size(Some(size));
         }
     }
 

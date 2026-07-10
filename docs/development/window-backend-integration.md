@@ -175,9 +175,9 @@ pub enum WindowEvent {
     PointerExited,
 
     // Touch events
-    TouchPressed { touch_id: i32, position: LogicalPosition },
-    TouchReleased { touch_id: i32, position: LogicalPosition },
-    TouchMoved { touch_id: i32, position: LogicalPosition },
+    TouchPressed { touch_finger_id: i32, position: LogicalPosition },
+    TouchReleased { touch_finger_id: i32, position: LogicalPosition },
+    TouchMoved { touch_finger_id: i32, position: LogicalPosition },
 
     // Keyboard events
     KeyPressed { text: SharedString },
@@ -329,7 +329,7 @@ Cross-platform backend using the winit library:
 
 ```rust
 pub trait WinitCompatibleRenderer {
-    fn render(&self, window: &Window) -> Result<(), PlatformError>;
+    fn render(&self, window: &Window) -> Result<DrawOutcome, PlatformError>;
     fn as_core_renderer(&self) -> &dyn Renderer;
     fn suspend(&self) -> Result<(), PlatformError>;
     fn resume(&self, ...) -> Result<Arc<winit::window::Window>, PlatformError>;

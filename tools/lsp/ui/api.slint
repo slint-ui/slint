@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore dataonly
 /// Basic information on a known component
 export struct ComponentItem {
     name: string,
@@ -26,6 +27,38 @@ export enum DiagnosticSummary {
     NothingDetected,
     Warnings,
     Errors,
+}
+
+/// One device discovered as a possible remote-preview target.
+export struct RemoteViewerInfo {
+    /// User-facing name, e.g. "Simon's iPhone".
+    name: string,
+    /// mDNS `instance.service-type.`; the model's unique key.
+    fullname: string,
+    /// Sanitized mDNS `.local` hostname.
+    host: string,
+    port: int,
+    /// All resolved addresses, tried in order.
+    addresses: [string],
+    /// Whether the viewer speaks our protocol version.
+    compatible: bool,
+    /// If incompatible, a short reason to show to the user.
+    incompatible-reason: string,
+    /// Monotonic seconds-since-process-start at the last mDNS ServiceResolved.
+    /// The prune timer drops entries older than 60 s.
+    last-seen-secs: int,
+}
+
+export enum RemoteConnectionState {
+    Disconnected,
+    Connecting,
+    Connected,
+    Failed,
+}
+
+export enum PreviewMode {
+    Local,
+    Remote,
 }
 
 /// What kind of layout we are working with
@@ -129,7 +162,7 @@ export struct GradientStop {
 
 /// Data about the property value for use in "simple" mode
 export struct PropertyValue {
-    display-string: string, // ALLWAYS, its a string description of what is there
+    display-string: string, // ALWAYS, its a string description of what is there
     value-bool: bool, // boolean
     is-translatable: bool, // string
     kind: PropertyValueKind, // Defines what to display this as
@@ -285,10 +318,13 @@ export global Api {
     // ## Style:
     // All the known styles
     in property <[string]> known-styles;
-    // The current style
-    in-out property <string> current-style;
+    // The index of the current style within `known-styles`
+    in-out property <int> current-style-index;
     // control, but command on macOS
     in-out property <string> control-key-name: "control";
+
+    // Start an interactive window drag (implemented by the editor host on macOS).
+    callback request-window-drag();
 
     // ## Log Output
     in-out property <[LogMessage]> log-output;
@@ -301,6 +337,9 @@ export global Api {
     in-out property <DropMark> drop-mark;
     // The actual preview
     in-out property <component-factory> preview-area;
+
+    pure callback new-component-data(index: int) -> data-transfer;
+    pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;
 
     // set to true to resize
     in property <bool> resize-to-preferred-size: false;
@@ -467,10 +506,10 @@ export global Api {
 
     // ## Outline
     in-out property <[OutlineTreeNode]> outline;
-    callback outline-select-element(uri: string, offset: int);
+    callback outline-select-element(uri: string, offset: int, notify_editor: bool);
     // Data is either a "file:offset" for an element to move, or just a component index.
-    callback outline-drop(data: string, uri: string, offset: int, location: DropLocation);
-    callback outline-can-drop(data: string, uri: string, offset: int, location: DropLocation) -> bool;
+    callback outline-drop(data: data-transfer, uri: string, offset: int, location: DropLocation);
+    callback outline-can-drop(data: data-transfer, uri: string, offset: int, location: DropLocation) -> bool;
 
     // ## preview data
 
@@ -493,8 +532,8 @@ export global Api {
     callback add-new-component();
 
     // Add an existing component
-    pure callback can-drop(component-index: int, x: length, y: length, on-drop-area: bool) -> bool;
-    callback drop(component-index: int, x: length, y: length);
+    pure callback can-drop(data: data-transfer, x: length, y: length, on-drop-area: bool) -> bool;
+    callback drop(data: data-transfer, x: length, y: length);
 
     callback rename-component(old-name: string, defined-at: string, new-name: string);
 
@@ -580,6 +619,18 @@ export global Api {
     in-out property <bool> undo-enabled: false;
     in-out property <bool> redo-enabled: false;
 
+    // ## Remote preview
+    in-out property <PreviewMode> preview-mode: PreviewMode.Local;
+    in-out property <[RemoteViewerInfo]> remote-discovered-viewers;
+    in-out property <RemoteConnectionState> remote-connection-state;
+    in-out property <string> remote-connection-error;
+    in-out property <string> remote-connection-target;
+    callback remote-start-discovery();
+    callback remote-stop-discovery();
+    callback remote-connect(addresses: [string], port: int);
+    callback remote-connect-manual(host-port: string);
+    callback remote-disconnect();
+
     // ## SlintPad related APIs
     in-out property <bool> runs-in-slintpad;
     in-out property <[{title: string, url: string}]> demos: [
@@ -592,10 +643,10 @@ export global Api {
         { url: "examples/todo/ui/todo.slint", title: "Todo Demo" },
         { url: "examples/iot-dashboard/main.slint", title: "IOT Dashboard" },
         { url: "examples/fancy-switches/demo.slint", title: "Fancy Switches" },
-        { url: "examples/dial/dial.slint", title: "Fanncy Dial" },
+        { url: "examples/dial/dial.slint", title: "Fancy Dial" },
         { url: "examples/orbit-animation/demo.slint", title: "Fancy Animations" },
         { url: "examples/repeater/demo.slint", title: "Fancy Repeater" },
-        { url: "examples/sprite-sheet/demo.slint", title: "Spritesheet Demo" },
+        { url: "examples/sprite-sheet/demo.slint", title: "Sprite sheet Demo" },
     ];
     callback new-file();
     callback share-permalink-to-clipboard();

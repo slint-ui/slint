@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore blits DEXT Parameteriv
 use ash::vk;
 use glow::HasContext;
 
@@ -8,7 +9,7 @@ use crate::gl_bindings as gl;
 
 use gl::Gles2 as Gl;
 
-use slint::wgpu_28::wgpu::{self, hal};
+use slint::wgpu_29::wgpu::{self, hal};
 
 #[derive(thiserror::Error, Debug)]
 pub enum VulkanTextureError {
@@ -225,11 +226,10 @@ impl super::GPURenderingContext {
             )
         };
 
-        let _ =
-            device.bind_surface_to_context(&mut context, surface).map_err(|(err, mut surface)| {
-                let _ = device.destroy_surface(&mut context, &mut surface);
-                err
-            });
+        device.bind_surface_to_context(&mut context, surface).map_err(|(err, mut surface)| {
+            let _ = device.destroy_surface(&mut context, &mut surface);
+            VulkanTextureError::Surfman(err)
+        })?;
 
         Ok(texture)
     }

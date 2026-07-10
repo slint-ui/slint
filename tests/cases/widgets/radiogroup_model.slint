@@ -1,0 +1,84 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioGroup } from "std-widgets.slint";
+
+struct Item {
+    name: string,
+    checked: bool,
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in-out property <[Item]> model: [
+        { name: "A", checked: false },
+        { name: "B", checked: true },
+        { name: "C", checked: false },
+    ];
+    out property <string> current-value: group.current-value;
+
+    HorizontalLayout {
+        alignment: start;
+        group := RadioGroup {
+            for m in root.model: RadioButton {
+                text: m.name;
+                checked <=> m.checked;
+            }
+        }
+    }
+
+    public function set-checked(idx: int, value: bool) {
+        root.model[idx].checked = value;
+    }
+    public function get-checked(idx: int) -> bool {
+        return root.model[idx].checked;
+    }
+
+    // The init pass on RadioButtonImplBase picks up the declarative
+    // `checked: true` on item B and pushes it through to the group.
+    out property <bool> test: current-value == "B" && !root.model[0].checked
+        && root.model[1].checked && !root.model[2].checked;
+}
+
+/*
+```rust
+use slint::SharedString;
+use slint::platform::PointerEventButton;
+
+let instance = TestCase::new().unwrap();
+
+// The model's initial `checked: true` on item B drives the group state.
+assert!(instance.get_test());
+assert_eq!(instance.get_current_value(), SharedString::from("B"));
+assert_eq!(instance.invoke_get_checked(0), false);
+assert_eq!(instance.invoke_get_checked(1), true);
+assert_eq!(instance.invoke_get_checked(2), false);
+
+// Clicking A updates the model: A → true, B → false.
+let a = slint_testing::ElementHandle::find_by_accessible_label(&instance, "A").next().unwrap();
+a.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_value(), SharedString::from("A"));
+assert_eq!(instance.invoke_get_checked(0), true);
+assert_eq!(instance.invoke_get_checked(1), false);
+assert_eq!(instance.invoke_get_checked(2), false);
+
+// Writing the model from outside drives the group too: setting C selects C
+// and clears A. The propagation goes through a `changed` handler, so flush
+// the event loop before inspecting the result.
+instance.invoke_set_checked(2, true);
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_current_value(), SharedString::from("C"));
+assert_eq!(instance.invoke_get_checked(0), false);
+assert_eq!(instance.invoke_get_checked(1), false);
+assert_eq!(instance.invoke_get_checked(2), true);
+
+// Setting `checked = false` on the currently-selected entry reverts —
+// deselect-all from outside isn't supported.
+instance.invoke_set_checked(2, false);
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_current_value(), SharedString::from("C"));
+assert_eq!(instance.invoke_get_checked(2), true);
+```
+*/

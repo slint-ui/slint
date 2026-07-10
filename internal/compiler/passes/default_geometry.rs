@@ -19,10 +19,15 @@ use crate::expression_tree::{
 use crate::langtype::{BuiltinElement, DefaultSizeBinding, Type};
 use crate::layout::{BuiltinFilter, LayoutConstraints, Orientation, implicit_layout_info_call};
 use crate::object_tree::{Component, ElementRc};
+use crate::symbol_counters::SymbolCounters;
 use smol_str::{SmolStr, format_smolstr};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
-pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+pub fn default_geometry(
+    root_component: &Rc<Component>,
+    diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
+) {
     crate::object_tree::recurse_elem_including_sub_components(
         root_component,
         &None,
@@ -35,10 +40,10 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
             // whether the width, or height, is filling the parent
             let (mut w100, mut h100) = (false, false);
 
-            w100 |= fix_percent_size(elem, parent, "width", diag);
-            h100 |= fix_percent_size(elem, parent, "height", diag);
+            w100 |= fix_percent_size(elem, parent, "width", diag, symbol_counters);
+            h100 |= fix_percent_size(elem, parent, "height", diag, symbol_counters);
 
-            gen_layout_info_prop(elem, diag);
+            gen_layout_info_prop(elem, diag, symbol_counters);
 
             let builtin_type = match elem.borrow().builtin_type() {
                 Some(b) => b,
@@ -160,7 +165,11 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
 }
 
 /// Generate a layout_info_prop based on the children layouts
-fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
+fn gen_layout_info_prop(
+    elem: &ElementRc,
+    diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
+) {
     if elem.borrow().layout_info_prop.is_some() || elem.borrow().is_flickable_viewport {
         return;
     }
@@ -173,7 +182,7 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
             !c.borrow().bindings.contains_key("x") && !c.borrow().bindings.contains_key("y")
         })
         .filter_map(|c| {
-            gen_layout_info_prop(c, diag);
+            gen_layout_info_prop(c, diag, symbol_counters);
             c.borrow()
                 .layout_info_prop
                 .clone()
@@ -189,7 +198,7 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
                         return None;
                     }
                     let explicit_constraints =
-                        LayoutConstraints::new(c, diag, DiagnosticLevel::Error);
+                        LayoutConstraints::new(c, Some((&mut *diag, DiagnosticLevel::Error)));
 
                     let compute = |orientation| {
                         if explicit_constraints.has_explicit_restrictions(orientation) {
@@ -199,6 +208,7 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
                                 c,
                                 orientation,
                                 BuiltinFilter::SkipNonImplicit,
+                                None,
                             )
                         }
                     };
@@ -224,16 +234,34 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
     );
     elem.borrow_mut().layout_info_prop = Some((li_h.clone(), li_v.clone()));
     let mut expr_h =
-        implicit_layout_info_call(elem, Orientation::Horizontal, BuiltinFilter::All).unwrap();
+        implicit_layout_info_call(elem, Orientation::Horizontal, BuiltinFilter::All, None).unwrap();
     let mut expr_v =
-        implicit_layout_info_call(elem, Orientation::Vertical, BuiltinFilter::All).unwrap();
+        implicit_layout_info_call(elem, Orientation::Vertical, BuiltinFilter::All, None).unwrap();
 
-    let explicit_constraints = LayoutConstraints::new(elem, diag, DiagnosticLevel::Warning);
+    // The redundant-size-constraint diagnostic of a component root is reported by the lower_layouts
+    // pass, so only report here for non-root elements.
+    let is_root = elem
+        .borrow()
+        .enclosing_component
+        .upgrade()
+        .is_some_and(|c| Rc::ptr_eq(elem, &c.root_element));
+    let explicit_constraints =
+        LayoutConstraints::new(elem, (!is_root).then_some((&mut *diag, DiagnosticLevel::Warning)));
     if !explicit_constraints.fixed_width {
-        merge_explicit_constraints(&mut expr_h, &explicit_constraints, Orientation::Horizontal);
+        merge_explicit_constraints(
+            &mut expr_h,
+            &explicit_constraints,
+            Orientation::Horizontal,
+            symbol_counters,
+        );
     }
     if !explicit_constraints.fixed_height {
-        merge_explicit_constraints(&mut expr_v, &explicit_constraints, Orientation::Vertical);
+        merge_explicit_constraints(
+            &mut expr_v,
+            &explicit_constraints,
+            Orientation::Vertical,
+            symbol_counters,
+        );
     }
 
     for child_info in child_infos {
@@ -263,13 +291,10 @@ fn merge_explicit_constraints(
     expr: &mut Expression,
     constraints: &LayoutConstraints,
     orientation: Orientation,
+    symbol_counters: &SymbolCounters,
 ) {
     if constraints.has_explicit_restrictions(orientation) {
-        static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        let unique_name = format_smolstr!(
-            "layout_info_{}",
-            COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-        );
+        let unique_name = symbol_counters.generate_name("layout_info_");
         let ty = expr.ty();
         let store = Expression::StoreLocalVariable {
             name: unique_name.clone(),
@@ -292,7 +317,7 @@ fn merge_explicit_constraints(
                     },
                 )
             })
-            .collect::<HashMap<_, _>>();
+            .collect::<BTreeMap<_, _>>();
 
         for (nr, s) in constraints.for_each_restrictions(orientation) {
             let e = nr
@@ -312,7 +337,7 @@ fn merge_explicit_constraints(
 }
 
 fn explicit_layout_info(e: &ElementRc, orientation: Orientation) -> Expression {
-    let mut values = HashMap::new();
+    let mut values = BTreeMap::new();
     let (size, orient) = match orientation {
         Orientation::Horizontal => ("width", "horizontal"),
         Orientation::Vertical => ("height", "vertical"),
@@ -338,6 +363,7 @@ fn fix_percent_size(
     parent: &Option<ElementRc>,
     property: &'static str,
     diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
 ) -> bool {
     let elem = elem.borrow();
     let binding = match elem.bindings.get(property) {
@@ -367,6 +393,7 @@ fn fix_percent_size(
                 Type::Float32,
                 &b.span,
                 diag,
+                symbol_counters,
             )),
             rhs: Box::new(Expression::PropertyReference(NamedReference::new(
                 &parent,

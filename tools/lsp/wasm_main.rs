@@ -11,11 +11,16 @@ mod language;
 mod preview;
 pub mod util;
 
-use common::{DocumentCache, LspToPreview, Result};
-use i_slint_preview_protocol::{LspToPreviewMessage, VersionedUrl};
+use common::LspToPreviews;
+use common::{DocumentCache, Result};
+use i_slint_live_preview::{
+    file_watcher::FileChangeKind,
+    protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl},
+};
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
 use lsp_types::Url;
+
 use std::cell::RefCell;
 use std::future::Future;
 use std::io::ErrorKind;
@@ -251,10 +256,10 @@ pub fn create(
     let mut compiler_config = crate::common::document_cache::CompilerConfiguration::default();
 
     #[cfg(not(feature = "preview-engine"))]
-    let to_preview: Rc<dyn LspToPreview> = Rc::new(common::DummyLspToPreview::default());
+    let to_preview = LspToPreviews::with_one(common::DummyLspToPreview::default());
     #[cfg(feature = "preview-engine")]
-    let to_preview: Rc<dyn LspToPreview> =
-        Rc::new(preview::connector::WasmLspToPreview::new(server_notifier.clone()));
+    let to_preview =
+        LspToPreviews::with_one(preview::connector::WasmLspToPreview::new(server_notifier.clone()));
 
     let to_preview_clone = to_preview.clone();
     compiler_config.open_import_callback = Some(Rc::new(move |path| {
@@ -268,7 +273,7 @@ pub fn create(
             if let Ok(contents) = &contents {
                 to_preview.send(&LspToPreviewMessage::SetContents {
                     url: VersionedUrl::new(url, None),
-                    contents: contents.clone(),
+                    contents: contents.clone().into(),
                 });
             }
             Some(contents.map(|c| (None, c)))
@@ -289,6 +294,7 @@ pub fn create(
             open_urls: Default::default(),
             to_preview,
             pending_recompile: Default::default(),
+            host_language_rename_dont_ask_again: Default::default(),
         }),
         rh: Rc::new(rh),
     })
@@ -320,17 +326,21 @@ fn forward_workspace_edit(
 
 #[wasm_bindgen]
 impl SlintServer {
-    #[cfg(all(feature = "preview-engine", feature = "preview-external"))]
+    #[cfg(all(
+        feature = "preview-engine",
+        feature = "preview-external",
+        feature = "preview-remote"
+    ))]
     #[wasm_bindgen]
     pub async fn process_preview_to_lsp_message(
         &self,
         value: JsValue,
     ) -> std::result::Result<(), JsValue> {
-        use i_slint_preview_protocol::PreviewToLspMessage as M;
+        use PreviewToLspMessage as M;
 
         let ctx = self.ctx.lock().await;
 
-        let Ok(message) = serde_wasm_bindgen::from_value::<M>(value) else {
+        let Ok(message) = serde_wasm_bindgen::from_value(value) else {
             return Err(JsValue::from("Failed to convert value to PreviewToLspMessage"));
         };
 
@@ -352,8 +362,10 @@ impl SlintServer {
                     .await
                 });
             }
-            M::PreviewTypeChanged { is_external: _ } => {
-                // Nothing to do!
+            M::PreviewTypeChanged { target } => {
+                ctx.to_preview
+                    .set_local_target(target)
+                    .map_err(|err| js_sys::Error::new(&format!("{err}")))?;
             }
             M::RequestState { .. } => {
                 crate::language::send_state_to_preview(&ctx);
@@ -372,6 +384,12 @@ impl SlintServer {
                     .send_notification::<lsp_types::notification::TelemetryEvent>(
                         lsp_types::OneOf::Left(object),
                     );
+            }
+            M::DebugMessage { location, message } => {
+                log(&common::preview_log_message_to_string(&location, &message));
+            }
+            M::ConnectRemote { .. } | M::DisconnectRemote | M::Pong => {
+                tracing::debug!("Ignoring remote-preview control message in WASM LSP");
             }
         }
         Ok(())
@@ -394,6 +412,12 @@ impl SlintServer {
         let mut ctx = self.ctx.lock().await;
         let url: Url = serde_wasm_bindgen::from_value(url)?;
         let typ: lsp_types::FileChangeType = serde_wasm_bindgen::from_value(typ)?;
+        let typ = match typ {
+            lsp_types::FileChangeType::CREATED => FileChangeKind::Created,
+            lsp_types::FileChangeType::CHANGED => FileChangeKind::Changed,
+            lsp_types::FileChangeType::DELETED => FileChangeKind::Deleted,
+            _ => return Err(JsError::new("Unknown FileChangeType")),
+        };
         language::trigger_file_watcher(&mut ctx, url, typ)
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;

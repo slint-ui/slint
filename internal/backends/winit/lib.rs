@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore binfmt dlsym GETNONCLIENTMETRICS NONCLIENTMETRICSW testui
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![warn(missing_docs)]
@@ -26,6 +27,7 @@ use winit::event_loop::ActiveEventLoop;
 #[cfg(not(target_arch = "wasm32"))]
 mod clipboard;
 mod drag_resize_window;
+mod winit_compat;
 mod winitwindowadapter;
 use winitwindowadapter::*;
 pub(crate) mod event_loop;
@@ -63,10 +65,11 @@ mod renderer {
     use std::sync::Arc;
 
     use i_slint_core::platform::PlatformError;
+    use i_slint_core::renderer::DrawOutcome;
     use winit::event_loop::ActiveEventLoop;
 
     pub trait WinitCompatibleRenderer: std::any::Any {
-        fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError>;
+        fn render(&self, window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError>;
 
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
         // Got WindowEvent::Occluded
@@ -95,8 +98,8 @@ mod renderer {
 mod accesskit;
 #[cfg(muda)]
 mod muda;
-#[cfg(not(use_winit_theme))]
-mod xdg_color_scheme;
+#[cfg(xdg_desktop_settings)]
+mod xdg_desktop_settings;
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod wasm_input_helper;
@@ -311,7 +314,7 @@ impl BackendBuilder {
     /// Configures this builder to enable or disable the default menu bar.
     /// By default, the menu bar is provided by Slint. Set this to false
     /// if you're providing your own menu bar.
-    /// Note that an application provided menu bar will be overriden by a `MenuBar`
+    /// Note that an application provided menu bar will be overridden by a `MenuBar`
     /// declared in Slint code.
     #[must_use]
     #[cfg(all(muda, target_os = "macos"))]
@@ -384,6 +387,8 @@ impl BackendBuilder {
             #[cfg(target_family = "wasm")]
             spawn_event_loop: self.spawn_event_loop,
             custom_application_handler: self.custom_application_handler.into(),
+            #[cfg(xdg_desktop_settings)]
+            xdg_watcher: RefCell::new(None),
         })
     }
 }
@@ -407,6 +412,9 @@ pub(crate) struct SharedBackendData {
     /// event loop or is from a stale event.
     event_loop_generation: Arc<AtomicUsize>,
     is_wayland: bool,
+    /// Desktop settings read from the XDG portal (cursor blink, appearance query).
+    #[cfg(xdg_desktop_settings)]
+    desktop_settings: xdg_desktop_settings::DesktopSettings,
     #[cfg(target_os = "ios")]
     #[allow(unused)]
     keyboard_notifications: ios::KeyboardNotifications,
@@ -494,6 +502,8 @@ impl SharedBackendData {
             event_loop_proxy,
             event_loop_generation: Default::default(),
             is_wayland,
+            #[cfg(xdg_desktop_settings)]
+            desktop_settings: xdg_desktop_settings::DesktopSettings::new(),
             #[cfg(target_os = "ios")]
             keyboard_notifications,
         })
@@ -564,6 +574,12 @@ impl SharedBackendData {
         &self,
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> Result<(), PlatformError> {
+        // Wait for the appearance query so windows aren't shown with default colors;
+        // the next `about_to_wait` retries once it clears.
+        #[cfg(xdg_desktop_settings)]
+        if self.desktop_settings.is_appearance_pending() {
+            return Ok(());
+        }
         let mut inactive_windows = self.inactive_windows.take();
         let mut result = Ok(());
         while let Some(window_weak) = inactive_windows.pop() {
@@ -595,6 +611,10 @@ pub struct Backend {
     event_loop_state: RefCell<Option<crate::event_loop::EventLoopState>>,
     shared_data: Rc<SharedBackendData>,
     custom_application_handler: RefCell<Option<Box<dyn crate::CustomApplicationHandler>>>,
+    /// Backend-wide XDG desktop portal watcher. Spawned in `bind_context`
+    /// and aborted on backend drop.
+    #[cfg(xdg_desktop_settings)]
+    xdg_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
 
     /// This hook is called before a Window is created.
     ///
@@ -660,7 +680,86 @@ impl Backend {
     }
 }
 
+#[allow(unused)]
+const DEFAULT_CURSOR_FLASH_CYCLE: core::time::Duration = core::time::Duration::from_millis(1000);
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+fn prefers_non_blinking_text_insertion_indicator() -> Option<bool> {
+    use core::ffi::{c_char, c_void};
+
+    #[link(name = "Accessibility", kind = "framework")]
+    unsafe extern "C" {}
+
+    unsafe extern "C" {
+        fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
+    }
+
+    type AxPrefersNonBlinkingTextInsertionIndicator =
+        unsafe extern "C" fn() -> objc2::runtime::Bool;
+
+    // AXPrefersNonBlinkingTextInsertionIndicator is available starting with macOS 15 and iOS 18.
+    // Look it up dynamically so older systems don't fail to load because of a strong symbol
+    // reference. On older systems dlsym returns null, so the accessibility setting is
+    // unavailable and we keep the existing cursor blink behavior.
+    let symbol = unsafe {
+        dlsym((-2isize) as *mut c_void, c"AXPrefersNonBlinkingTextInsertionIndicator".as_ptr())
+    };
+    if symbol.is_null() {
+        return None;
+    }
+
+    let function: AxPrefersNonBlinkingTextInsertionIndicator =
+        unsafe { core::mem::transmute(symbol) };
+    Some(unsafe { function() }.as_bool())
+}
+
+#[cfg(xdg_desktop_settings)]
+impl Drop for Backend {
+    fn drop(&mut self) {
+        if let Some(handle) = self.xdg_watcher.borrow_mut().take() {
+            handle.abort();
+        }
+    }
+}
+
 impl i_slint_core::platform::Platform for Backend {
+    fn bind_context(&self, _ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
+        #[cfg(xdg_desktop_settings)]
+        {
+            *self.xdg_watcher.borrow_mut() =
+                crate::xdg_desktop_settings::spawn(&self.shared_data, &_ctx);
+        }
+        #[cfg(target_os = "windows")]
+        if let Some(ctx) = _ctx.upgrade() {
+            use windows::Win32::UI::HiDpi::SystemParametersInfoForDpi;
+            use windows::Win32::UI::WindowsAndMessaging::{
+                NONCLIENTMETRICSW, SPI_GETNONCLIENTMETRICS,
+            };
+            let mut metrics = NONCLIENTMETRICSW {
+                cbSize: core::mem::size_of::<NONCLIENTMETRICSW>() as u32,
+                ..NONCLIENTMETRICSW::default()
+            };
+            let ok = unsafe {
+                SystemParametersInfoForDpi(
+                    SPI_GETNONCLIENTMETRICS.0,
+                    metrics.cbSize,
+                    Some(&mut metrics as *mut _ as *mut core::ffi::c_void),
+                    0,
+                    96,
+                )
+            }
+            .is_ok();
+            // `lfMessageFont.lfHeight` is in pixels at 96 DPI = Slint logical pixels;
+            // negative means em height, positive means cell height — magnitude is fine here.
+            let height = metrics.lfMessageFont.lfHeight.unsigned_abs();
+            if ok && height > 0 {
+                ctx.set_platform_default_font_size(Some(
+                    i_slint_core::lengths::LogicalLength::new(height as f32),
+                ));
+            }
+        }
+    }
+
     fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
         let mut attrs = WinitWindowAdapter::window_attributes()?;
 
@@ -714,13 +813,13 @@ impl i_slint_core::platform::Platform for Backend {
     #[cfg(all(not(target_arch = "wasm32"), not(ios_and_friends)))]
     fn process_events(
         &self,
-        timeout: core::time::Duration,
+        timeout: Option<core::time::Duration>,
         _: i_slint_core::InternalToken,
     ) -> Result<core::ops::ControlFlow<()>, PlatformError> {
         let loop_state = self.event_loop_state.borrow_mut().take().unwrap_or_else(|| {
             EventLoopState::new(self.shared_data.clone(), self.custom_application_handler.take())
         });
-        let (new_state, status) = loop_state.pump_events(Some(timeout))?;
+        let (new_state, status) = loop_state.pump_events(timeout)?;
         *self.event_loop_state.borrow_mut() = Some(new_state);
         match status {
             winit::platform::pump_events::PumpStatus::Continue => {
@@ -797,6 +896,53 @@ impl i_slint_core::platform::Platform for Backend {
     fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
         let mut pair = self.shared_data.clipboard.borrow_mut();
         clipboard::select_clipboard(&mut pair, clipboard).and_then(|c| c.get_contents().ok())
+    }
+
+    #[cfg(target_os = "windows")]
+    fn cursor_flash_cycle(&self) -> core::time::Duration {
+        use windows::Win32::UI::WindowsAndMessaging::GetCaretBlinkTime;
+        let ms = unsafe { GetCaretBlinkTime() };
+        if ms == u32::MAX {
+            // INFINITE — blinking disabled
+            core::time::Duration::ZERO
+        } else if ms == 0 {
+            DEFAULT_CURSOR_FLASH_CYCLE
+        } else {
+            // Win32 returns the half-cycle duration
+            core::time::Duration::from_millis(ms as u64 * 2)
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn cursor_flash_cycle(&self) -> core::time::Duration {
+        if prefers_non_blinking_text_insertion_indicator() == Some(true) {
+            return core::time::Duration::ZERO;
+        }
+
+        let defaults = objc2_foundation::NSUserDefaults::standardUserDefaults();
+        let key = objc2_foundation::NSString::from_str("NSTextInsertionPointBlinkPeriod");
+        let period = defaults.integerForKey(&key);
+        if period < 0 {
+            core::time::Duration::ZERO
+        } else if period == 0 {
+            DEFAULT_CURSOR_FLASH_CYCLE
+        } else {
+            core::time::Duration::from_millis(period as u64)
+        }
+    }
+
+    #[cfg(target_os = "ios")]
+    fn cursor_flash_cycle(&self) -> core::time::Duration {
+        if prefers_non_blinking_text_insertion_indicator() == Some(true) {
+            core::time::Duration::ZERO
+        } else {
+            DEFAULT_CURSOR_FLASH_CYCLE
+        }
+    }
+
+    #[cfg(xdg_desktop_settings)]
+    fn cursor_flash_cycle(&self) -> core::time::Duration {
+        self.shared_data.desktop_settings.cursor_flash_cycle()
     }
 
     fn open_url(&self, url: &str) -> Result<(), i_slint_core::platform::PlatformError> {
@@ -962,10 +1108,10 @@ fn create_renderer(
         #[cfg(feature = "renderer-femtovg-wgpu")]
         (Some("femtovg-wgpu"), maybe_graphics_api) => {
             if let Some(_api) = maybe_graphics_api {
-                #[cfg(feature = "unstable-wgpu-28")]
-                if !matches!(_api, RequestedGraphicsAPI::WGPU28(..)) {
+                #[cfg(feature = "unstable-wgpu-29")]
+                if !matches!(_api, RequestedGraphicsAPI::WGPU29(..)) {
                     return Err(
-                        "The FemtoVG WGPU renderer only supports the WGPU28 graphics API selection"
+                        "The FemtoVG WGPU renderer only supports the WGPU29 graphics API selection"
                             .into(),
                     );
                 }
@@ -988,31 +1134,35 @@ fn create_renderer(
         }
         #[cfg(all(
             enable_skia_renderer,
-            any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28")
+            any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29")
         ))]
         (Some("skia-wgpu"), maybe_graphics_api) => {
             if let Some(selected_renderer) = maybe_graphics_api.map_or_else(
                 || {
-                    #[cfg(feature = "unstable-wgpu-28")]
-                    return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
-                        shared_data,
-                    ));
-                    #[cfg(all(feature = "unstable-wgpu-27", not(feature = "unstable-wgpu-28")))]
-                    return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended(
-                        shared_data,
-                    ));
+                    #[cfg(feature = "unstable-wgpu-29")]
+                    {
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
+                            shared_data,
+                        ));
+                    }
+                    #[cfg(all(feature = "unstable-wgpu-28", not(feature = "unstable-wgpu-29")))]
+                    {
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
+                            shared_data,
+                        ));
+                    }
                     #[allow(unreachable_code)]
                     None
                 },
-                |api| {
-                    #[cfg(feature = "unstable-wgpu-27")]
-                    if matches!(api, RequestedGraphicsAPI::WGPU27(..)) {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended(
+                |_api| {
+                    #[cfg(feature = "unstable-wgpu-29")]
+                    if matches!(_api, RequestedGraphicsAPI::WGPU29(..)) {
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
                             shared_data,
                         ));
                     }
                     #[cfg(feature = "unstable-wgpu-28")]
-                    if matches!(api, RequestedGraphicsAPI::WGPU28(..)) {
+                    if matches!(_api, RequestedGraphicsAPI::WGPU28(..)) {
                         return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
                             shared_data,
                         ));
@@ -1049,16 +1199,22 @@ fn create_renderer(
             cfg_if::cfg_if! {
                 if #[cfg(enable_skia_renderer)] {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(shared_data)
-                } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
-                    renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
                 } else {
-                    return Err("unstable-wgpu-28 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
+                    Err("unstable-wgpu-28 was enabled but no renderer was selected. Please select renderer-skia*".into())
                 }
             }
         }
-        #[cfg(all(enable_skia_renderer, feature = "unstable-wgpu-27"))]
-        (None, Some(RequestedGraphicsAPI::WGPU27(..))) => {
-            renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended(shared_data)
+        #[cfg(feature = "unstable-wgpu-29")]
+        (None, Some(RequestedGraphicsAPI::WGPU29(..))) => {
+            cfg_if::cfg_if! {
+                if #[cfg(enable_skia_renderer)] {
+                    renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(shared_data)
+                } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
+                    renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
+                } else {
+                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
+                }
+            }
         }
         (None, Some(_requested_graphics_api)) => {
             cfg_if::cfg_if! {

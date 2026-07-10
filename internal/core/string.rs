@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell:ignore xaaaa
+
 //! module for the SharedString and related things
 
 #![allow(unsafe_code)]
@@ -73,6 +75,17 @@ impl SharedString {
         unsafe {
             core::str::from_utf8_unchecked(core::slice::from_raw_parts(self.as_ptr(), self.len()))
         }
+    }
+
+    /// Replace in this string characters equal to `from` with the character `to` `count` times
+    pub(crate) fn replace_characters(&mut self, from: char, to: char, count: usize) {
+        let mut from_buffer = [0u8; 4];
+        let mut to_buffer = [0u8; 4];
+        self.inner.replace_range(
+            from.encode_utf8(&mut from_buffer).as_bytes(),
+            to.encode_utf8(&mut to_buffer).as_bytes(),
+            count,
+        );
     }
 
     /// Append a string to this string
@@ -153,8 +166,23 @@ impl<'de> serde::Deserialize<'de> for SharedString {
     where
         D: serde::Deserializer<'de>,
     {
-        let string: &str = serde::Deserialize::deserialize(deserializer)?;
-        Ok(SharedString::from(string))
+        struct SharedStringVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for SharedStringVisitor {
+            type Value = SharedString;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a borrowed or owned string")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(SharedString::from(v))
+            }
+        }
+        deserializer.deserialize_str(SharedStringVisitor)
     }
 }
 
@@ -328,15 +356,42 @@ where
     }
 }
 
-/// Convert a f62 to a SharedString
+/// Convert a f64 to a SharedString but unlocalized with "." as decimal separator
+#[inline]
+pub fn shared_string_from_number_unlocalized(n: f64) -> SharedString {
+    crate::format!("{}", i_slint_common::FormattedNumber(n))
+}
+
+/// Convert a f64 to a SharedString
 pub fn shared_string_from_number(n: f64) -> SharedString {
-    // Number from which the increment of f32 is 1, so that we print enough precision to be able to represent all integers
-    if n < 16777216. { crate::format!("{}", n as f32) } else { crate::format!("{}", n) }
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let mut result = shared_string_from_number_unlocalized(n);
+
+        if let Some(ctx) = ctx.get() {
+            let pinned = ctx.0.as_ref().project_ref();
+            let decimal_separator = pinned.locale_decimal_separator.get();
+            if decimal_separator != i_slint_common::DEFAULT_DECIMAL_SEPARATOR {
+                result.replace_characters('.', decimal_separator, 1);
+            }
+        }
+        result
+    })
 }
 
 /// Convert a f64 to a SharedString with a fixed number of digits after the decimal point
 pub fn shared_string_from_number_fixed(n: f64, digits: usize) -> SharedString {
-    crate::format!("{number:.digits$}", number = n, digits = digits)
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let mut result = crate::format!("{number:.digits$}", number = n, digits = digits);
+
+        if let Some(ctx) = ctx.get() {
+            let pinned = ctx.0.as_ref().project_ref();
+            let decimal_separator = pinned.locale_decimal_separator.get();
+            if decimal_separator != i_slint_common::DEFAULT_DECIMAL_SEPARATOR {
+                result.replace_characters('.', decimal_separator, 1);
+            }
+        }
+        result
+    })
 }
 
 /// Convert a f64 to a SharedString following a similar logic as JavaScript's Number.toPrecision()
@@ -352,6 +407,43 @@ pub fn shared_string_from_number_precision(n: f64, precision: usize) -> SharedSt
         )
     } else {
         shared_string_from_number_fixed(n, precision.saturating_add_signed(-(exponent + 1)))
+    }
+}
+
+/// Convert a string to a float
+pub fn string_to_float(string: &str) -> Option<f32> {
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let sep = ctx.get().map(|ctx| ctx.locale_decimal_separator()).unwrap_or('.');
+
+        if sep == '.' {
+            string.parse::<f32>().ok()
+        } else {
+            if string.contains('.') {
+                return None;
+            }
+            // Normalize locale separator to '.' because f64::parse only accepts '.'
+            string.replace(sep, ".").parse::<f32>().ok()
+        }
+    })
+}
+
+#[test]
+fn test_string_to_float() {
+    const TEST: &[(&str, Option<f32>)] = &[
+        ("-", None),
+        (".", None),
+        ("-.", None),
+        ("-.5", Some(-0.5)),
+        ("--", None),
+        ("..", None),
+        ("5.5.", None),
+        ("231.435", Some(231.435)),
+        ("-0.007", Some(-0.007)),
+        ("10e6", Some(10e6)),
+    ];
+
+    for (test_string, result) in TEST {
+        assert_eq!(string_to_float(test_string), *result);
     }
 }
 
@@ -418,6 +510,14 @@ fn to_shared_string() {
     assert_eq!(five, i.to_shared_string());
 }
 
+#[test]
+fn test_replace_characters() {
+    let mut value = SharedString::from("5.1");
+    value.replace_characters('.', ',', 1);
+
+    assert_eq!(value, "5,1".to_shared_string());
+}
+
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     use super::*;
@@ -461,6 +561,17 @@ pub(crate) mod ffi {
             let str = core::str::from_utf8(core::slice::from_raw_parts(bytes, len)).unwrap();
             core::ptr::write(out, SharedString::from(str));
         }
+    }
+
+    /// Create a string from a number but unlocalized.
+    /// The resulting structure must be passed to slint_shared_string_drop
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_shared_string_from_number_unlocalized(
+        out: *mut SharedString,
+        n: f64,
+    ) {
+        let str = shared_string_from_number_unlocalized(n);
+        unsafe { core::ptr::write(out, str) };
     }
 
     /// Create a string from a number.
@@ -691,6 +802,15 @@ fn test_serialize_deserialize_sharedstring() {
     let v = SharedString::from("data");
     let serialized = serde_json::to_string(&v).unwrap();
     let deserialized: SharedString = serde_json::from_str(&serialized).unwrap();
+    assert_eq!(v, deserialized);
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn test_serialize_deserialize_sharedstring_from_reader() {
+    let v = SharedString::from("data");
+    let serialized = serde_json::to_string(&v).unwrap();
+    let deserialized: SharedString = serde_json::from_reader(serialized.as_bytes()).unwrap();
     assert_eq!(v, deserialized);
 }
 

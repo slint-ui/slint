@@ -13,6 +13,9 @@ use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
+/// Number of slots a cell occupies in a box layout cache: position and size.
+pub const BOX_LAYOUT_CACHE_ENTRIES_PER_CELL: usize = 2;
+
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum Orientation {
     Horizontal,
@@ -198,11 +201,15 @@ pub struct LayoutConstraints {
 }
 
 impl LayoutConstraints {
-    /// Build the constraints for the given element
+    /// Build the constraints for the given element.
     ///
-    /// Report diagnostics when both constraints and fixed size are set
-    /// (one can set the level to warning to keep compatibility to old version of Slint)
-    pub fn new(element: &ElementRc, diag: &mut BuildDiagnostics, level: DiagnosticLevel) -> Self {
+    /// When `diag` is `Some`, a redundant size constraint (e.g. both `width` and `min-width`) is
+    /// reported at the given level; pass `None` to compute the constraints without reporting (e.g.
+    /// when another pass owns that diagnostic).
+    pub fn new(
+        element: &ElementRc,
+        mut diag: Option<(&mut BuildDiagnostics, DiagnosticLevel)>,
+    ) -> Self {
         let mut constraints = Self {
             min_width: binding_reference(element, "min-width"),
             max_width: binding_reference(element, "max-width"),
@@ -226,7 +233,8 @@ impl LayoutConstraints {
                         &other_prop.element(),
                         other_prop.name(),
                         |old, enclosing2, d2| {
-                            if Weak::ptr_eq(enclosing1, enclosing2)
+                            if let Some((diag, level)) = &mut diag
+                                && Weak::ptr_eq(enclosing1, enclosing2)
                                 && old.priority.saturating_add(d2)
                                     <= binding.priority.saturating_add(depth)
                             {
@@ -236,7 +244,7 @@ impl LayoutConstraints {
                                         other_prop.name()
                                     ),
                                     binding.to_source_location(),
-                                    level,
+                                    *level,
                                 );
                             }
                         },
@@ -615,7 +623,7 @@ pub struct BoxLayout {
     pub orientation: Orientation,
     pub elems: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,
-    /// The `align-items` property, if set.
+    /// The `cross-axis-alignment` property, if set.
     pub cross_alignment: Option<NamedReference>,
 }
 
@@ -638,11 +646,34 @@ pub struct FlexboxLayout {
     pub geometry: LayoutGeometry,
     pub direction: Option<NamedReference>,
     pub align_content: Option<NamedReference>,
-    pub align_items: Option<NamedReference>,
+    pub cross_axis_alignment: Option<NamedReference>,
     pub flex_wrap: Option<NamedReference>,
 }
 
 impl FlexboxLayout {
+    /// If `elem` is a (lowered, inline) FlexboxLayout, return its layout
+    /// description. The struct is embedded in the synthesized
+    /// `layoutinfo-{h,v}` / `layout-cache` bindings on the element.
+    pub fn from_element(elem: &ElementRc) -> Option<FlexboxLayout> {
+        use crate::expression_tree::Expression;
+        // The `layoutinfo-{h,v}` property's binding (on this element or its
+        // base component's root) holds a `ComputeFlexboxLayoutInfo` with the
+        // layout when the element is a FlexboxLayout.
+        let nr = {
+            let eb = elem.borrow();
+            eb.layout_info_prop(Orientation::Vertical)
+                .or_else(|| eb.layout_info_prop(Orientation::Horizontal))
+                .cloned()
+        }?;
+        let target = nr.element();
+        let target = target.borrow();
+        let binding = target.bindings.get(nr.name())?;
+        match binding.borrow().expression.ignore_debug_hooks() {
+            Expression::ComputeFlexboxLayoutInfo { layout, .. } => Some(layout.clone()),
+            _ => None,
+        }
+    }
+
     /// Try to determine the flex direction at compile time from a constant binding.
     /// Returns None if the direction is set at runtime.
     fn compile_time_direction(&self) -> Option<FlexboxLayoutDirection> {
@@ -712,7 +743,7 @@ impl FlexboxLayout {
         if let Some(e) = self.align_content.as_mut() {
             visitor(&mut *e)
         }
-        if let Some(e) = self.align_items.as_mut() {
+        if let Some(e) = self.cross_axis_alignment.as_mut() {
             visitor(&mut *e)
         }
         if let Some(e) = self.flex_wrap.as_mut() {
@@ -732,18 +763,9 @@ pub enum BuiltinFilter {
 }
 
 /// Get the implicit layout info of a particular element.
+/// When `constraint` is `Some`, it's passed as the `cross_axis_constraint`
+/// parameter to `Item::layout_info` for height-for-width support.
 pub fn implicit_layout_info_call(
-    elem: &ElementRc,
-    orientation: Orientation,
-    filter: BuiltinFilter,
-) -> Option<Expression> {
-    implicit_layout_info_call_with_constraint(elem, orientation, filter, None)
-}
-
-/// Like `implicit_layout_info_call`, but with an optional cross-axis constraint.
-/// When `constraint` is Some, it's passed as the cross_axis_constraint parameter
-/// to Item::layout_info for height-for-width support.
-pub fn implicit_layout_info_call_with_constraint(
     elem: &ElementRc,
     orientation: Orientation,
     filter: BuiltinFilter,
@@ -753,6 +775,30 @@ pub fn implicit_layout_info_call_with_constraint(
     loop {
         return match &elem_it.clone().borrow().base_type {
             ElementType::Component(base_comp) => {
+                // Flexbox supplies a cross-axis constraint to break its
+                // h/v cache cycle; call the base component's parametrized
+                // layout-info function when present.
+                let parametrized_nr = constraint.as_ref().and_then(|_| match orientation {
+                    Orientation::Vertical => {
+                        base_comp.root_element.borrow().layout_info_v_with_constraint.clone()
+                    }
+                    Orientation::Horizontal => {
+                        base_comp.root_element.borrow().layout_info_h_with_constraint.clone()
+                    }
+                });
+                if let Some(nr) = parametrized_nr
+                    && let Some(c) = &constraint
+                {
+                    debug_assert!(Rc::ptr_eq(&nr.element(), &base_comp.root_element));
+                    return Some(Expression::FunctionCall {
+                        function: crate::expression_tree::Callable::Function(NamedReference::new(
+                            elem,
+                            nr.name().clone(),
+                        )),
+                        arguments: vec![c.clone()],
+                        source_location: None,
+                    });
+                }
                 match base_comp.root_element.borrow().layout_info_prop(orientation) {
                     Some(nr) => {
                         // We cannot take nr as is because it is relative to the elem's component. We therefore need to

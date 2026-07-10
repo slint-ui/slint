@@ -32,6 +32,9 @@ The Slint LSP (Language Server Protocol) server provides IDE features for `.slin
 | `tools/lsp/language/semantic_tokens.rs` | Syntax highlighting |
 | `tools/lsp/language/signature_help.rs` | Function/callback signatures |
 | `tools/lsp/common/document_cache.rs` | Document caching and compilation |
+| `tools/lsp/common/rename_component.rs` | Rename of components, structs, enums, properties, callbacks, functions |
+| `tools/lsp/common/host_language_search.rs` | Cross-language rename: walks workspace files to replace matching Rust/C++ accessor identifiers |
+| `internal/compiler/generator/accessor_names.rs` | Shared name mapping for Rust/C++ property/callback/function accessors (used by both codegen and the LSP scanner) |
 | `tools/lsp/preview.rs` | Live preview engine |
 | `tools/lsp/fmt/` | Code formatter |
 
@@ -304,6 +307,22 @@ pub fn goto_definition(
 - Import paths → Imported file
 - Qualified names → Resolved definition
 
+## Rename
+
+Rename support lives in `tools/lsp/common/rename_component.rs` and is
+dispatched from the `textDocument/rename` handler in `language.rs`. It
+handles components, structs, enums, internal/export names, properties,
+callbacks, and functions through a single `DeclarationNode::rename`
+entry point that returns a `WorkspaceEdit` covering the `.slint`
+sources.
+
+### Cross-language rename
+
+Renaming a public property, callback, or function can also search and replace
+its generated Rust/C++ accessors in workspace files.
+See `tools/lsp/common/rename_component.rs` for the rename flow and
+`tools/lsp/common/host_language_search.rs` for the workspace search.
+
 ## Live Preview
 
 ### Preview State
@@ -352,7 +371,7 @@ pub enum LspToPreviewMessage {
 
 // Preview to LSP
 pub enum PreviewToLspMessage {
-    RequestState { unused: bool },
+    RequestState { paths: Vec<String> },
     UpdateElement { ... },
     SendWorkspaceEdit { ... },
     ShowDocument { ... },

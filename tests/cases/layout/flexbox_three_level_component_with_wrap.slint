@@ -1,0 +1,67 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Three levels of `inherits`: the synthesized
+// `layoutinfo-v-with-constraint` must be reachable from a use-site
+// whose base_type is a Component that itself inherits from a
+// Component that contains the height-for-width descendant. Exercises the
+// full base-type-chain walk in
+// `Element::inherited_layout_info_v_with_constraint`.
+
+component Inner inherits Rectangle {
+    background: #e0e0e0;
+    VerticalLayout {
+        padding: 5px;
+        t := Text {
+            text: "Text that should word-wrap when the card is narrow enough";
+            wrap: word-wrap;
+            horizontal-alignment: left;
+        }
+    }
+    out property <length> text_h: t.height;
+}
+
+component Mid inherits Inner { }
+
+component Outer inherits Mid { }
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+
+    FlexboxLayout {
+        spacing: 10px;
+
+        r := Rectangle {
+            width: 50px;
+            height: 50px;
+            background: red;
+            flex-shrink: 0;
+        }
+        c := Outer {
+            flex-shrink: 1;
+        }
+    }
+
+    // Single-line reference Text in the same font, so the check doesn't
+    // depend on the renderer's font metrics.
+    ref := Text {
+        text: "Reference";
+    }
+
+    // The wrapping Text reached through three levels of `inherits` must
+    // wrap to several lines (height well above a single line).
+    out property <bool> test_r: r.x == 0px && r.width == 50px;
+    out property <bool> test_c: c.width > 0px && c.text_h > ref.height * 1.5;
+
+    out property <bool> test: test_r && test_c;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+*/

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore javac
 //! Android backend.
 //!
 //! **Note:** This module is only available on Android with the "backend-android-activity-06" feature
@@ -117,7 +118,7 @@ pub fn init(app: android_activity::AndroidApp) -> Result<(), SetPlatformError> {
     unreachable!();
     #[cfg(target_os = "android")]
     {
-        crate::platform::set_platform(Box::new(
+        crate::platform::set_platform(alloc::boxed::Box::new(
             i_slint_backend_android_activity::AndroidPlatform::new(app),
         ))
     }
@@ -154,7 +155,7 @@ pub fn init_with_event_listener(
     unreachable!();
     #[cfg(target_os = "android")]
     {
-        crate::platform::set_platform(Box::new(
+        crate::platform::set_platform(alloc::boxed::Box::new(
             i_slint_backend_android_activity::AndroidPlatform::new_with_event_listener(
                 app, listener,
             ),

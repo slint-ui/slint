@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// cSpell:ignore Adressliste
-
 import { DemoPalette } from "../common.slint";
 import { PushButton, ShadowBox } from "../components/components.slint";
 
@@ -84,7 +82,6 @@ component NarrowPrintQueueElement {
 
     callback cancel-job();
 
-    width: 152px;
     height: layout.height + 16px;
 
     ShadowBox { }
@@ -108,7 +105,6 @@ component NarrowPrintQueueElement {
         }
 
         Text {
-            width: 130px;
             text: root.queue-item.title;
             overflow: elide;
             color: DemoPalette.text-foreground-color;

@@ -35,7 +35,9 @@ pub mod api;
 pub mod callbacks;
 pub mod component_factory;
 pub mod context;
+pub mod data_transfer;
 pub mod date_time;
+pub mod debug_log;
 pub mod future;
 pub mod graphics;
 pub mod input;
@@ -57,7 +59,6 @@ pub mod sharedvector;
 pub mod slice;
 pub mod string;
 pub mod styled_text;
-pub mod tests;
 pub mod textlayout;
 pub mod timers;
 pub mod translations;
@@ -94,7 +95,10 @@ pub use graphics::PathData;
 #[doc(inline)]
 pub use graphics::BorderRadius;
 
-pub use context::{SlintContext, with_global_context};
+#[doc(inline)]
+pub use data_transfer::DataTransfer;
+
+pub use context::{SlintContext, SlintContextWeak, with_global_context};
 
 #[cfg(not(slint_int_coord))]
 pub type Coord = f32;
@@ -141,26 +145,31 @@ pub fn detect_operating_system() -> OperatingSystemType {
         return os_override;
     }
 
-    let mut user_agent =
-        web_sys::window().and_then(|w| w.navigator().user_agent().ok()).unwrap_or_default();
-    user_agent.make_ascii_lowercase();
-    let mut platform =
-        web_sys::window().and_then(|w| w.navigator().platform().ok()).unwrap_or_default();
-    platform.make_ascii_lowercase();
+    // Querying the navigator involves a round-trip to JavaScript and some string processing, so
+    // cache the result: it cannot change for the lifetime of the page.
+    static DETECTED: std::sync::LazyLock<OperatingSystemType> = std::sync::LazyLock::new(|| {
+        let mut user_agent =
+            web_sys::window().and_then(|w| w.navigator().user_agent().ok()).unwrap_or_default();
+        user_agent.make_ascii_lowercase();
+        let mut platform =
+            web_sys::window().and_then(|w| w.navigator().platform().ok()).unwrap_or_default();
+        platform.make_ascii_lowercase();
 
-    if user_agent.contains("ipad") || user_agent.contains("iphone") {
-        OperatingSystemType::Ios
-    } else if user_agent.contains("android") {
-        OperatingSystemType::Android
-    } else if platform.starts_with("mac") {
-        OperatingSystemType::Macos
-    } else if platform.starts_with("win") {
-        OperatingSystemType::Windows
-    } else if platform.starts_with("linux") {
-        OperatingSystemType::Linux
-    } else {
-        OperatingSystemType::Other
-    }
+        if user_agent.contains("ipad") || user_agent.contains("iphone") {
+            OperatingSystemType::Ios
+        } else if user_agent.contains("android") {
+            OperatingSystemType::Android
+        } else if platform.starts_with("mac") {
+            OperatingSystemType::Macos
+        } else if platform.starts_with("win") {
+            OperatingSystemType::Windows
+        } else if platform.starts_with("linux") {
+            OperatingSystemType::Linux
+        } else {
+            OperatingSystemType::Other
+        }
+    });
+    *DETECTED
 }
 
 /// Returns true if the current platform is an Apple platform (macOS, iOS, iPadOS)
@@ -171,3 +180,14 @@ pub fn is_apple_platform() -> bool {
 pub fn open_url(url: &str, window: &crate::api::Window) -> Result<(), crate::api::PlatformError> {
     crate::window::WindowInner::from_pub(window).context().platform().open_url(url)
 }
+
+#[cfg(target_os = "macos")]
+pub fn macos_bring_all_windows_to_front() {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::NSApplication;
+    let Some(mtm) = MainThreadMarker::new() else { return };
+    NSApplication::sharedApplication(mtm).arrangeInFront(None);
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn macos_bring_all_windows_to_front() {}

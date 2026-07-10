@@ -74,7 +74,7 @@ pub trait GraphicsBackend {
     type WindowSurface: WindowSurface<Self::Renderer>;
 
     fn new_suspended() -> Self;
-    fn begin_surface_rendering(&self) -> Result<Self::WindowSurface, ...>;
+    fn begin_surface_rendering(&self) -> Result<BeginRendering<Self::WindowSurface>, ...>;
     fn submit_commands(&self, commands: ...);
     fn present_surface(&self, surface: Self::WindowSurface) -> Result<(), ...>;
     fn resize(&self, width: NonZeroU32, height: NonZeroU32) -> Result<(), ...>;
@@ -128,7 +128,7 @@ For winit-based applications, renderers implement:
 
 ```rust
 pub trait WinitCompatibleRenderer: std::any::Any {
-    fn render(&self, window: &Window) -> Result<(), PlatformError>;
+    fn render(&self, window: &Window) -> Result<DrawOutcome, PlatformError>;
     fn as_core_renderer(&self) -> &dyn Renderer;
     fn suspend(&self) -> Result<(), PlatformError>;
     fn resume(&self, event_loop: &ActiveEventLoop,

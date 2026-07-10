@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore cntfrq cntvct conpointer inited mpointer
 #![no_main]
 #![no_std]
 #![cfg(target_os = "uefi")]
@@ -50,7 +51,7 @@ fn timer_freq() -> u64 {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
         let start = timer_tick();
-        uefi::boot::stall(1000);
+        uefi::boot::stall(Duration::from_millis(1));
         let end = timer_tick();
         (end - start) * 1000
     }

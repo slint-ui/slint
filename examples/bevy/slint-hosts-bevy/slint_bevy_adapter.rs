@@ -7,7 +7,7 @@
 //! bevy [`App`] in a thread separate from the main thread and supply textures of the rendered
 //! scenes via channels.
 
-use slint::wgpu_27::wgpu;
+use slint::wgpu_29::wgpu;
 
 use bevy::{
     camera::RenderTarget,
@@ -15,8 +15,7 @@ use bevy::{
     render::{
         RenderApp, RenderPlugin,
         extract_resource::{ExtractResource, ExtractResourcePlugin},
-        render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
-        renderer::{RenderContext, WgpuWrapper},
+        renderer::{RenderGraph, RenderGraphSystems, WgpuWrapper},
         settings::RenderCreation,
     },
 };
@@ -33,7 +32,7 @@ pub enum ControlMessage {
 /// textures of the rendered scenes via channels.
 ///
 /// This function expects Slint to already be initialized with a wgpu-based renderer. The wgpu
-/// `instance`, `device`, and `queue` are obtained from Slint's `GraphicsAPI::WGPU27` in the
+/// `instance`, `device`, and `queue` are obtained from Slint's `GraphicsAPI::WGPU29` in the
 /// rendering notifier callback and passed here.
 ///
 /// Use the `bevy_app_pre_default_plugins_callback` callback to add any plugins to the app before the default plugins.
@@ -201,40 +200,24 @@ struct SlintRenderToTexturePlugin(smol::channel::Sender<wgpu::Texture>);
 impl Plugin for SlintRenderToTexturePlugin {
     fn build(&self, app: &mut App) {
         let render_app = app.sub_app_mut(RenderApp);
-
-        let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
-        graph.add_node(SlintSwapChain, SlintSwapChainDriver);
-        graph.add_node_edge(bevy::render::graph::CameraDriverLabel, SlintSwapChain);
-
         render_app.insert_resource(FrontBufferReturnSender(self.0.clone()));
+        // Run after camera rendering and submission so the back buffer holds the freshly
+        // rendered frame before we hand it to the Slint UI.
+        render_app
+            .add_systems(RenderGraph, slint_swap_chain_driver.in_set(RenderGraphSystems::Finish));
     }
 }
 
 #[derive(Clone, Resource, ExtractResource, Deref, DerefMut)]
 struct BackBuffer(pub Option<wgpu::Texture>);
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, RenderLabel)]
-struct SlintSwapChain;
-
-#[derive(Default)]
-struct SlintSwapChainDriver;
-
-impl render_graph::Node for SlintSwapChainDriver {
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let front_buffer_sender = world.get_resource::<FrontBufferReturnSender>().unwrap();
-        let back_buffer = world.get_resource::<BackBuffer>().unwrap();
-
-        if let Some(bb) = &back_buffer.0 {
-            // silently ignore errors when the sender is closed. Reporting an error would just result in bevy panicing,
-            // while a closed channel is indicating a shutdown condition.
-            front_buffer_sender.0.send_blocking(bb.clone()).ok();
-        }
-
-        Ok(())
+fn slint_swap_chain_driver(
+    front_buffer_sender: Res<FrontBufferReturnSender>,
+    back_buffer: Res<BackBuffer>,
+) {
+    if let Some(bb) = &back_buffer.0 {
+        // silently ignore errors when the sender is closed. Reporting an error would just result in bevy panicking,
+        // while a closed channel is indicating a shutdown condition.
+        front_buffer_sender.0.send_blocking(bb.clone()).ok();
     }
 }

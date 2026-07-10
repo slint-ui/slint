@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Globals are rejected in Slint SC mode.
+
+global MyGlobal {
+//     >      <error{Globals are not supported in Slint SC}
+    in-out property <int> value: 42;
+//  >                              <error{Property declarations are not supported in Slint SC}
+//                   > <^error{The type 'int' is not supported in Slint SC}
+//                               ><^^error{Number literals are not supported in Slint SC}
+}
+
+export component Test inherits Window {
+}

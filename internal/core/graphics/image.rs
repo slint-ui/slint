@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore EPOC htmlimage
 /*!
 This module contains image decoding and caching related types for the run-time library.
 */
@@ -295,7 +296,7 @@ pub struct CachedPath {
     last_modified: u32,
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 impl CachedPath {
     fn new<P: AsRef<std::path::Path>>(path: P) -> Self {
         let path_str = path.as_ref().to_string_lossy().as_ref().into();
@@ -345,7 +346,7 @@ impl ImageCacheKey {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(..) => return None,
             ImageInner::NineSlice(nine) => vtable::VRc::borrow(nine).cache_key(),
-            #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+            #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
             ImageInner::WGPUTexture(..) => return None,
         };
         if matches!(key, ImageCacheKey::Invalid) { None } else { Some(key) }
@@ -377,28 +378,29 @@ impl OpaqueImage for NineSliceImage {
 }
 
 /// Represents a `wgpu::Texture` for each version of WGPU we support.
-#[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+/// Represents a `wgpu::Texture` for each version of WGPU we support.
+#[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
 #[derive(Clone, Debug)]
 pub enum WGPUTexture {
-    /// A texture for WGPU version 27.
-    #[cfg(feature = "unstable-wgpu-27")]
-    WGPU27Texture(wgpu_27::Texture),
     /// A texture for WGPU version 28.
     #[cfg(feature = "unstable-wgpu-28")]
     WGPU28Texture(wgpu_28::Texture),
+    /// A texture for WGPU version 29.
+    #[cfg(feature = "unstable-wgpu-29")]
+    WGPU29Texture(wgpu_29::Texture),
 }
 
-#[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+#[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
 impl OpaqueImage for WGPUTexture {
     fn size(&self) -> IntSize {
         match self {
-            #[cfg(feature = "unstable-wgpu-27")]
-            Self::WGPU27Texture(texture) => {
+            #[cfg(feature = "unstable-wgpu-28")]
+            Self::WGPU28Texture(texture) => {
                 let size = texture.size();
                 (size.width, size.height).into()
             }
-            #[cfg(feature = "unstable-wgpu-28")]
-            Self::WGPU28Texture(texture) => {
+            #[cfg(feature = "unstable-wgpu-29")]
+            Self::WGPU29Texture(texture) => {
                 let size = texture.size();
                 (size.width, size.height).into()
             }
@@ -433,7 +435,7 @@ pub enum ImageInner {
     #[cfg(not(target_arch = "wasm32"))]
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
     NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
-    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+    #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
     WGPUTexture(WGPUTexture) = 8,
 }
 
@@ -552,9 +554,83 @@ impl ImageInner {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { size, .. }) => *size,
             ImageInner::NineSlice(nine) => nine.0.size(),
-            #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+            #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
             ImageInner::WGPUTexture(texture) => texture.size(),
         }
+    }
+
+    /// Internal helper to abstract over either loading from a file or parsing internal data.
+    ///
+    /// This can create an `ImageInner` with a dangling cache key reference if used incorrectly,
+    /// which could lead to bad behavior. This constructor should be called from within
+    /// `ImageCache::lookup_image_in_cache_or_create`, or `ImageCacheKey::Invalid` should be
+    /// supplied.
+    #[cfg(feature = "image-decoders")]
+    pub(crate) fn load_from_data_with_cache_key(
+        cache_key: ImageCacheKey,
+        data: Slice<'_, u8>,
+        format: Slice<'_, u8>,
+    ) -> Option<Self> {
+        #[cfg(feature = "svg")]
+        if format.as_slice() == b"svg" || format.as_slice() == b"svgz" {
+            return Some(ImageInner::Svg(vtable::VRc::new(
+                svg::load_from_data(data.as_slice(), cache_key).map_or_else(
+                    |svg_err| {
+                        crate::debug_log!("Error loading SVG: {}", svg_err);
+                        None
+                    },
+                    Some,
+                )?,
+            )));
+        }
+
+        let format = std::str::from_utf8(format.as_slice())
+            .ok()
+            .and_then(image::ImageFormat::from_extension);
+        let maybe_image = if let Some(format) = format {
+            image::load_from_memory_with_format(data.as_slice(), format)
+        } else {
+            image::load_from_memory(data.as_slice())
+        };
+
+        match maybe_image {
+            Ok(image) => Some(ImageInner::EmbeddedImage {
+                cache_key,
+                buffer: dynamic_image_to_shared_image_buffer(image),
+            }),
+            Err(decode_err) => {
+                crate::debug_log!("Error decoding embedded image: {}", decode_err);
+                None
+            }
+        }
+    }
+}
+
+/// Convert `image::DynamicImage` to `SharedImageBuffer`
+#[cfg(feature = "image-decoders")]
+fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> SharedImageBuffer {
+    use rgb::AsPixels;
+
+    if dynamic_image.color().has_alpha() {
+        let rgba8image = dynamic_image.to_rgba8();
+        // Prefer pre-multiplied alpha so that smooth-scaling won't bleed the alpha when blending
+        // in the renderers.
+        SharedImageBuffer::RGBA8Premultiplied(SharedPixelBuffer {
+            width: rgba8image.width(),
+            height: rgba8image.height(),
+            data: rgba8image
+                .as_pixels()
+                .iter()
+                .map(|pixel| Image::rgba_to_premultiplied_rgba(*pixel))
+                .collect(),
+        })
+    } else {
+        let rgb8image = dynamic_image.to_rgb8();
+        SharedImageBuffer::RGB8(SharedPixelBuffer::clone_from_slice(
+            rgb8image.as_raw(),
+            rgb8image.width(),
+            rgb8image.height(),
+        ))
     }
 }
 
@@ -820,19 +896,6 @@ impl Image {
         }
     }
 
-    /// Returns the [WGPU](http://wgpu.rs) 27.x texture that this image wraps; returns None if the image does not
-    /// hold such a previously wrapped texture.
-    ///
-    /// *Note*: This function is behind a feature flag and may be removed or changed in future minor releases,
-    ///         as new major WGPU releases become available.
-    #[cfg(feature = "unstable-wgpu-27")]
-    pub fn to_wgpu_27_texture(&self) -> Option<wgpu_27::Texture> {
-        match &self.0 {
-            ImageInner::WGPUTexture(WGPUTexture::WGPU27Texture(texture)) => Some(texture.clone()),
-            _ => None,
-        }
-    }
-
     /// Returns the [WGPU](http://wgpu.rs) 28.x texture that this image wraps; returns None if the image does not
     /// hold such a previously wrapped texture.
     ///
@@ -842,6 +905,19 @@ impl Image {
     pub fn to_wgpu_28_texture(&self) -> Option<wgpu_28::Texture> {
         match &self.0 {
             ImageInner::WGPUTexture(WGPUTexture::WGPU28Texture(texture)) => Some(texture.clone()),
+            _ => None,
+        }
+    }
+
+    /// Returns the [WGPU](http://wgpu.rs) 29.x texture that this image wraps; returns None if the image does not
+    /// hold such a previously wrapped texture.
+    ///
+    /// *Note*: This function is behind a feature flag and may be removed or changed in future minor releases,
+    ///         as new major WGPU releases become available.
+    #[cfg(feature = "unstable-wgpu-29")]
+    pub fn to_wgpu_29_texture(&self) -> Option<wgpu_29::Texture> {
+        match &self.0 {
+            ImageInner::WGPUTexture(WGPUTexture::WGPU29Texture(texture)) => Some(texture.clone()),
             _ => None,
         }
     }
@@ -940,6 +1016,23 @@ impl Image {
     }
 }
 
+#[cfg(feature = "image-decoders")]
+/// Load an Image from a path to a file containing an image.
+///
+/// Supported formats are SVG, PNG and JPEG.
+/// Enable support for additional formats supported by the [`image` crate](https://crates.io/crates/image) (
+/// AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP)
+/// by enabling the `image-default-formats` cargo feature.
+pub fn load_image_from_dynamic_data(bytes: &[u8], format: &str) -> Result<Image, LoadImageError> {
+    ImageInner::load_from_data_with_cache_key(
+        ImageCacheKey::Invalid,
+        bytes.into(),
+        format.as_bytes().into(),
+    )
+    .map(Image)
+    .ok_or(Default::default())
+}
+
 /// This enum describes the origin to use when rendering a borrowed OpenGL texture.
 /// Use this with [`BorrowedOpenGLTextureBuilder::origin`].
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
@@ -1010,6 +1103,18 @@ impl BorrowedOpenGLTextureBuilder {
     }
 }
 
+/// Load an image by handing a URL to an HTML `<img>` element for the browser
+/// to fetch. This is a web-only mechanism used by slintpad to display image
+/// references that are URLs rather than file-system paths; it is not general
+/// network image loading.
+/// This is called by the interpreter and the generated code.
+#[cfg(all(target_arch = "wasm32", feature = "image-decoders"))]
+pub fn load_as_html_image(url: &str) -> Result<Image, LoadImageError> {
+    self::cache::IMAGE_CACHE.with(|global_cache| {
+        global_cache.borrow_mut().load_as_html_image(url).ok_or(LoadImageError(()))
+    })
+}
+
 /// Load an image from an image embedded in the binary.
 /// This is called by the generated code.
 #[cfg(feature = "image-decoders")]
@@ -1037,6 +1142,8 @@ fn test_image_size_from_buffer_without_backend() {
 
 #[cfg(feature = "svg")]
 #[test]
+// memchr's manually aligned SIMD loads are a false positive under -Zmiri-symbolic-alignment-check
+#[cfg_attr(miri, ignore)]
 fn test_image_size_from_svg() {
     let simple_svg = r#"<svg width="320" height="200" xmlns="http://www.w3.org/2000/svg"></svg>"#;
     let image = Image::load_from_svg_data(simple_svg.as_bytes()).unwrap();
@@ -1046,6 +1153,8 @@ fn test_image_size_from_svg() {
 
 #[cfg(feature = "svg")]
 #[test]
+// memchr's manually aligned SIMD loads are a false positive under -Zmiri-symbolic-alignment-check
+#[cfg_attr(miri, ignore)]
 fn test_image_invalid_svg() {
     let invalid_svg = r#"AaBbCcDd"#;
     let result = Image::load_from_svg_data(invalid_svg.as_bytes());

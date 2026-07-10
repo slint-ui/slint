@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in-out property <Point> p: { x: 1px, y: 2px };
+    in-out property <Size> s: { width: 3px, height: 4px };
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let p: slint::LogicalPosition = instance.get_p();
+assert_eq!(p.x, 1.);
+assert_eq!(p.y, 2.);
+let s: slint::LogicalSize = instance.get_s();
+assert_eq!(s.width, 3.);
+assert_eq!(s.height, 4.);
+
+instance.set_p(slint::LogicalPosition::new(10., 20.));
+assert_eq!(instance.get_p(), slint::LogicalPosition::new(10., 20.));
+instance.set_s(slint::LogicalSize::new(30., 40.));
+assert_eq!(instance.get_s(), slint::LogicalSize::new(30., 40.));
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint::LogicalPosition p = instance.get_p();
+assert_eq(p.x, 1);
+assert_eq(p.y, 2);
+slint::LogicalSize s = instance.get_s();
+assert_eq(s.width, 3);
+assert_eq(s.height, 4);
+
+instance.set_p(slint::LogicalPosition({10, 20}));
+assert_eq(instance.get_p().x, 10);
+assert_eq(instance.get_p().y, 20);
+instance.set_s(slint::LogicalSize({30, 40}));
+assert_eq(instance.get_s().width, 30);
+assert_eq(instance.get_s().height, 40);
+```
+
+```pyi
+class TestCase(slint.Component):
+    p: slint.LogicalPosition
+    s: slint.LogicalSize
+```
+*/

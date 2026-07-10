@@ -1,0 +1,33 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import manifest from "../api-manifest.json";
+
+interface Props {
+    to: string;
+    plain?: boolean;
+}
+
+const { to, plain = false } = Astro.props;
+const target = (manifest as Record<string, string>)[to];
+
+if (!target) {
+    throw new Error(
+        `Unresolved API cross-reference: "${to}". ` +
+            "No such symbol in api-manifest.json.",
+    );
+}
+
+// Absolute targets (e.g. docs.python.org for standard-library types) open in a new tab
+// and keep their URL; site-root-relative targets (e.g. "/api/classes/color/")
+// get the configured base so links work under a subpath like
+// /master/docs/python/.
+const external = /^https?:\/\//.test(target);
+const href = external
+    ? target
+    : import.meta.env.BASE_URL.replace(/\/$/, "") + target;
+const attrs = external ? { href, target: "_blank", rel: "noopener" } : { href };
+const label = to.split(".").pop();
+---
+
+{plain ? <a {...attrs}>{label}</a> : <a {...attrs}><code>{label}</code></a>}

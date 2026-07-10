@@ -1,25 +1,25 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell:ignore Eisu Endcall Hankaku Headsethook Henkan Muhenkan Numpad Pictsymbols Sysrq teriary Thumbl Thumbr Zenkaku
+
 use super::*;
 use crate::javahelper::{JavaHelper, print_jni_error};
 use android_activity::input::{
     ButtonState, InputEvent, KeyAction, Keycode, MotionAction, MotionEvent,
 };
 use android_activity::{InputStatus, MainEvent, PollEvent};
+use i_slint_core::SharedString;
 use i_slint_core::api::{
     LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, PlatformError, Window,
 };
-use i_slint_core::graphics::Color;
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventResult, KeyEventType, TouchPhase};
-use i_slint_core::items::ColorScheme;
 use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::{
     Key, PointerEventButton, WindowAdapter, WindowEvent, WindowProperties,
 };
 use i_slint_core::timers::{Timer, TimerMode};
 use i_slint_core::window::{InputMethodRequest, WindowInner};
-use i_slint_core::{Property, SharedString};
 use i_slint_renderer_skia::{SkiaRenderer, SkiaSharedContext};
 use std::cell::Cell;
 use std::rc::Rc;
@@ -38,7 +38,6 @@ pub struct AndroidWindowAdapter {
     pub(crate) event_queue: EventQueue,
     pub(crate) pending_redraw: Cell<bool>,
     pub(super) java_helper: JavaHelper,
-    pub(crate) color_scheme: core::pin::Pin<Box<Property<ColorScheme>>>,
     pub(crate) fullscreen: Cell<bool>,
     /// The offset at which the Slint view is drawn in the native window (account for status bar)
     pub offset: Cell<PhysicalPosition>,
@@ -164,14 +163,6 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
         });
     }
 
-    fn color_scheme(&self) -> ColorScheme {
-        self.color_scheme.as_ref().get()
-    }
-
-    fn accent_color(&self) -> Color {
-        self.java_helper.accent_color().unwrap_or_else(|e| print_jni_error(&self.app, e))
-    }
-
     fn safe_area_inset(&self) -> PhysicalEdges {
         if self.fullscreen.get() {
             Default::default()
@@ -184,27 +175,18 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
 impl AndroidWindowAdapter {
     pub fn new(app: AndroidApp) -> Rc<Self> {
         let java_helper = JavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
-        let color_scheme = Box::pin(Property::new(
-            match java_helper.color_scheme().unwrap_or_else(|e| print_jni_error(&app, e)) {
-                0x10 => ColorScheme::Light,  // UI_MODE_NIGHT_NO(0x10)
-                0x20 => ColorScheme::Dark,   // UI_MODE_NIGHT_YES(0x20)
-                0x0 => ColorScheme::Unknown, // UI_MODE_NIGHT_UNDEFINED
-                _ => ColorScheme::Unknown,
-            },
-        ));
         Rc::<Self>::new_cyclic(|w| Self {
             app,
             window: Window::new(w.clone()),
-            #[cfg(not(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28")))]
+            #[cfg(not(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29")))]
             renderer: SkiaRenderer::default(&SkiaSharedContext::default()),
-            #[cfg(feature = "unstable-wgpu-28")]
+            #[cfg(all(feature = "unstable-wgpu-28", not(feature = "unstable-wgpu-29")))]
             renderer: SkiaRenderer::default_wgpu_28(&SkiaSharedContext::default()),
-            #[cfg(all(feature = "unstable-wgpu-27", not(feature = "unstable-wgpu-28")))]
-            renderer: SkiaRenderer::default_wgpu_27(&SkiaSharedContext::default()),
+            #[cfg(feature = "unstable-wgpu-29")]
+            renderer: SkiaRenderer::default_wgpu_29(&SkiaSharedContext::default()),
             requested_graphics_api: RefCell::new(None),
             event_queue: Default::default(),
             pending_redraw: Default::default(),
-            color_scheme,
             java_helper,
             fullscreen: Cell::new(false),
             offset: Default::default(),
@@ -263,7 +245,7 @@ impl AndroidWindowAdapter {
                 self.window.try_dispatch_event(WindowEvent::WindowActiveChanged(true))?;
             }
             PollEvent::Main(MainEvent::LostFocus) => {
-                self.window.try_dispatch_event(WindowEvent::WindowActiveChanged(true))?;
+                self.window.try_dispatch_event(WindowEvent::WindowActiveChanged(false))?;
             }
             PollEvent::Main(MainEvent::ConfigChanged { .. }) => {
                 let scale_factor =
@@ -296,18 +278,31 @@ impl AndroidWindowAdapter {
             WindowEvent::KeyPressed { text } => WindowInner::from_pub(&self.window)
                 .process_key_input(InternalKeyEvent {
                     event_type: KeyEventType::KeyPressed,
-                    key_event: KeyEvent { text, ..Default::default() },
+                    key_event: {
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = text;
+                        key_event
+                    },
                     ..Default::default()
                 }),
             WindowEvent::KeyPressRepeated { text } => WindowInner::from_pub(&self.window)
                 .process_key_input(InternalKeyEvent {
                     event_type: KeyEventType::KeyPressed,
-                    key_event: KeyEvent { text, repeat: true, ..Default::default() },
+                    key_event: {
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = text;
+                        key_event.repeat = true;
+                        key_event
+                    },
                     ..Default::default()
                 }),
             WindowEvent::KeyReleased { text } => WindowInner::from_pub(&self.window)
                 .process_key_input(InternalKeyEvent {
-                    key_event: KeyEvent { text, ..Default::default() },
+                    key_event: {
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = text;
+                        key_event
+                    },
                     event_type: KeyEventType::KeyReleased,
                     ..Default::default()
                 }),
@@ -372,7 +367,7 @@ impl AndroidWindowAdapter {
                             self.long_press.replace(Some(LongPressDetection { position, _timer }));
                             if let Some(p) = motion_event.pointers().next() {
                                 WindowInner::from_pub(&self.window).process_touch_input(
-                                    p.pointer_id() as u64,
+                                    p.pointer_id(),
                                     touch_pos(&p),
                                     TouchPhase::Started,
                                 );
@@ -383,7 +378,7 @@ impl AndroidWindowAdapter {
                             self.long_press.take();
                             if let Some(p) = motion_event.pointers().next() {
                                 WindowInner::from_pub(&self.window).process_touch_input(
-                                    p.pointer_id() as u64,
+                                    p.pointer_id(),
                                     touch_pos(&p),
                                     TouchPhase::Ended,
                                 );
@@ -406,7 +401,7 @@ impl AndroidWindowAdapter {
                             let runtime_window = WindowInner::from_pub(&self.window);
                             for p in motion_event.pointers() {
                                 runtime_window.process_touch_input(
-                                    p.pointer_id() as u64,
+                                    p.pointer_id(),
                                     touch_pos(&p),
                                     TouchPhase::Moved,
                                 );
@@ -419,7 +414,7 @@ impl AndroidWindowAdapter {
                             let idx = motion_event.pointer_index();
                             if let Some(p) = motion_event.pointers().nth(idx) {
                                 WindowInner::from_pub(&self.window).process_touch_input(
-                                    p.pointer_id() as u64,
+                                    p.pointer_id(),
                                     touch_pos(&p),
                                     TouchPhase::Started,
                                 );
@@ -430,7 +425,7 @@ impl AndroidWindowAdapter {
                             let idx = motion_event.pointer_index();
                             if let Some(p) = motion_event.pointers().nth(idx) {
                                 WindowInner::from_pub(&self.window).process_touch_input(
-                                    p.pointer_id() as u64,
+                                    p.pointer_id(),
                                     touch_pos(&p),
                                     TouchPhase::Ended,
                                 );
@@ -448,7 +443,7 @@ impl AndroidWindowAdapter {
                             let runtime_window = WindowInner::from_pub(&self.window);
                             for p in motion_event.pointers() {
                                 runtime_window.process_touch_input(
-                                    p.pointer_id() as u64,
+                                    p.pointer_id(),
                                     touch_pos(&p),
                                     TouchPhase::Cancelled,
                                 );
@@ -469,6 +464,13 @@ impl AndroidWindowAdapter {
                     let event = if let Some(r) = state.compose_region {
                         let adjust =
                             |pos| if pos > r.start { pos - r.start + r.end } else { pos } as i32;
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = i_slint_core::format!(
+                            "{}{}",
+                            &state.text[..r.start],
+                            &state.text[r.end..]
+                        );
+
                         InternalKeyEvent {
                             event_type: KeyEventType::UpdateComposition,
                             preedit_text: state.text[r.start..r.end].into(),
@@ -476,26 +478,18 @@ impl AndroidWindowAdapter {
                             replacement_range: Some(i32::MIN..i32::MAX),
                             cursor_position: Some(adjust(state.selection.end)),
                             anchor_position: Some(adjust(state.selection.start)),
-                            key_event: KeyEvent {
-                                text: i_slint_core::format!(
-                                    "{}{}",
-                                    &state.text[..r.start],
-                                    &state.text[r.end..]
-                                ),
-                                ..Default::default()
-                            },
+                            key_event,
                             ..Default::default()
                         }
                     } else {
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = state.text.as_str().into();
                         InternalKeyEvent {
                             event_type: KeyEventType::CommitComposition,
                             replacement_range: Some(i32::MIN..i32::MAX),
                             cursor_position: Some(state.selection.end as _),
                             anchor_position: Some(state.selection.start as _),
-                            key_event: KeyEvent {
-                                text: state.text.as_str().into(),
-                                ..Default::default()
-                            },
+                            key_event,
                             ..Default::default()
                         }
                     };
@@ -532,7 +526,7 @@ impl AndroidWindowAdapter {
     pub fn do_render(&self) -> Result<(), PlatformError> {
         if let Some(win) = self.app.native_window() {
             let o = self.offset.get();
-            self.renderer.render_transformed_with_post_callback(
+            let _ = self.renderer.render_transformed_with_post_callback(
                 0.,
                 (o.x as f32, o.y as f32),
                 PhysicalSize { width: win.width() as _, height: win.height() as _ },

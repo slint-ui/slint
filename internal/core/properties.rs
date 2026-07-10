@@ -13,13 +13,15 @@
 #![allow(unsafe_code)]
 #![warn(missing_docs)]
 
-/// A singled linked list whose nodes are pinned
+/// A singly linked list whose nodes are pinned in raw allocations.
+/// Nodes are also referenced through external raw pointers in the
+/// dependency tracking system.
 mod single_linked_list_pin {
     #![allow(unsafe_code)]
-    use alloc::boxed::Box;
     use core::pin::Pin;
+    use core::ptr::NonNull;
 
-    type NodePtr<T> = Option<Pin<Box<SingleLinkedListPinNode<T>>>>;
+    type NodePtr<T> = Option<NonNull<SingleLinkedListPinNode<T>>>;
     struct SingleLinkedListPinNode<T> {
         next: NodePtr<T>,
         value: T,
@@ -34,19 +36,37 @@ mod single_linked_list_pin {
 
     impl<T> Drop for SingleLinkedListPinHead<T> {
         fn drop(&mut self) {
-            // Use a loop instead of relying on the Drop of NodePtr to avoid recursion
-            while let Some(mut x) = core::mem::take(&mut self.0) {
-                // Safety: we don't touch the `x.value` which is the one protected by the Pin
-                self.0 = core::mem::take(unsafe { &mut Pin::get_unchecked_mut(x.as_mut()).next });
+            // Iterative drop to avoid stack overflow on long lists.
+            let mut cur = self.0.take();
+            while let Some(node) = cur {
+                // Safety: we own this node.
+                // drop_in_place keeps the value at its pinned address.
+                unsafe {
+                    cur = (*node.as_ptr()).next;
+                    core::ptr::drop_in_place(&raw mut (*node.as_ptr()).value);
+                    alloc::alloc::dealloc(
+                        node.as_ptr().cast(),
+                        core::alloc::Layout::new::<SingleLinkedListPinNode<T>>(),
+                    );
+                }
             }
         }
     }
 
     impl<T> SingleLinkedListPinHead<T> {
         pub fn push_front(&mut self, value: T) -> Pin<&T> {
-            self.0 = Some(Box::pin(SingleLinkedListPinNode { next: self.0.take(), value }));
-            // Safety: we can project from SingleLinkedListPinNode
-            unsafe { Pin::new_unchecked(&self.0.as_ref().unwrap().value) }
+            let node = SingleLinkedListPinNode { next: self.0.take(), value };
+            // Safety: raw allocation, written once and never moved
+            let ptr = unsafe {
+                let layout = core::alloc::Layout::new::<SingleLinkedListPinNode<T>>();
+                let mem = alloc::alloc::alloc(layout) as *mut SingleLinkedListPinNode<T>;
+                assert!(!mem.is_null(), "allocation failed");
+                core::ptr::write(mem, node);
+                NonNull::new_unchecked(mem)
+            };
+            self.0 = Some(ptr);
+            // Safety: the value is pinned because we never move it out of the allocation
+            unsafe { Pin::new_unchecked(&(*ptr.as_ptr()).value) }
         }
 
         #[allow(unused)]
@@ -56,9 +76,10 @@ mod single_linked_list_pin {
             impl<'a, T> Iterator for I<'a, T> {
                 type Item = Pin<&'a T>;
                 fn next(&mut self) -> Option<Self::Item> {
-                    if let Some(x) = &self.0 {
-                        let r = unsafe { Pin::new_unchecked(&x.value) };
-                        self.0 = &x.next;
+                    if let Some(node) = self.0 {
+                        // Safety: node is a valid allocation we own
+                        let r = unsafe { Pin::new_unchecked(&(*node.as_ptr()).value) };
+                        self.0 = unsafe { &(*node.as_ptr()).next };
                         Some(r)
                     } else {
                         None
@@ -157,6 +178,7 @@ pub(crate) mod dependency_tracker {
         pub unsafe fn drop(_self: *mut Self) {
             unsafe {
                 if let Some(next) = (*_self).0.get().as_ref() {
+                    #[cfg(not(miri))]
                     debug_assert_eq!(_self as *const _, next.prev.get() as *const _);
                     next.debug_assert_valid();
                     next.prev.set(core::ptr::null());
@@ -227,6 +249,9 @@ pub(crate) mod dependency_tracker {
 
         /// Assert that the invariant of `next` and `prev` are met.
         pub fn debug_assert_valid(&self) {
+            // Under Miri with Tree Borrows, reading through prev/next creates
+            // foreign accesses that conflict with active protectors.
+            #[cfg(not(miri))]
             unsafe {
                 debug_assert!(
                     self.prev.get().is_null() || core::ptr::eq((*self.prev.get()).get(), self)
@@ -273,12 +298,18 @@ type DependencyNode = dependency_tracker::DependencyNode<*const BindingHolder>;
 
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell, UnsafeCell};
+use core::ffi::c_void;
 use core::marker::PhantomPinned;
 use core::pin::Pin;
 
 /// if a DependencyListHead points to that value, it is because the property is actually
 /// constant and cannot have dependencies
 static CONSTANT_PROPERTY_SENTINEL: u32 = 0;
+
+#[inline(always)]
+fn const_sentinel() -> *mut () {
+    (&CONSTANT_PROPERTY_SENTINEL) as *const u32 as *mut ()
+}
 
 /// The return value of a binding
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -292,9 +323,9 @@ enum BindingResult {
 
 struct BindingVTable {
     drop: unsafe fn(_self: *mut BindingHolder),
-    evaluate: unsafe fn(_self: *const BindingHolder, value: *mut ()) -> BindingResult,
+    evaluate: unsafe fn(_self: *const BindingHolder, value: *mut c_void) -> BindingResult,
     mark_dirty: unsafe fn(_self: *const BindingHolder, was_dirty: bool),
-    intercept_set: unsafe fn(_self: *const BindingHolder, value: *const ()) -> bool,
+    intercept_set: unsafe fn(_self: *const BindingHolder, value: *const c_void) -> bool,
     intercept_set_binding:
         unsafe fn(_self: *const BindingHolder, new_binding: *mut BindingHolder) -> bool,
 }
@@ -339,67 +370,80 @@ unsafe impl<T, F: Fn(&mut T) -> BindingResult> BindingCallable<T> for F {
     }
 }
 
-#[cfg(feature = "std")]
-use std::thread_local;
-#[cfg(feature = "std")]
-scoped_tls_hkt::scoped_thread_local!(static CURRENT_BINDING : for<'a> Option<Pin<&'a BindingHolder>>);
-
-#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-mod unsafe_single_threaded {
+/// Stores a raw pointer to the binding currently being evaluated.
+mod current_binding_storage {
     use super::BindingHolder;
     use core::cell::Cell;
-    use core::pin::Pin;
-    use core::ptr::null;
-    pub(super) struct FakeThreadStorage(Cell<*const BindingHolder>);
-    impl FakeThreadStorage {
-        pub const fn new() -> Self {
-            Self(Cell::new(null()))
-        }
-        pub fn set<T>(&self, value: Option<Pin<&BindingHolder>>, f: impl FnOnce() -> T) -> T {
-            let old = self.0.replace(value.map_or(null(), |v| v.get_ref() as *const BindingHolder));
-            let res = f();
-            let new = self.0.replace(old);
-            assert_eq!(new, value.map_or(null(), |v| v.get_ref() as *const BindingHolder));
-            res
-        }
-        pub fn is_set(&self) -> bool {
-            !self.0.get().is_null()
-        }
-        pub fn with<T>(&self, f: impl FnOnce(Option<Pin<&BindingHolder>>) -> T) -> T {
-            let local = unsafe { self.0.get().as_ref().map(|x| Pin::new_unchecked(x)) };
-            let res = f(local);
-            assert_eq!(self.0.get(), local.map_or(null(), |v| v.get_ref() as *const BindingHolder));
-            res
-        }
+
+    #[cfg(feature = "std")]
+    std::thread_local! {
+        static CURRENT_BINDING: Cell<*const BindingHolder> = const { Cell::new(core::ptr::null()) };
     }
-    // Safety: the unsafe_single_threaded feature means we will only be called from a single thread
-    unsafe impl Send for FakeThreadStorage {}
-    unsafe impl Sync for FakeThreadStorage {}
-}
-#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-static CURRENT_BINDING: unsafe_single_threaded::FakeThreadStorage =
-    unsafe_single_threaded::FakeThreadStorage::new();
 
-/// Evaluate a function, but do not register any property dependencies if that function
-/// get the value of properties
+    #[cfg(feature = "std")]
+    pub(super) fn set<T>(value: Option<*const BindingHolder>, f: impl FnOnce() -> T) -> T {
+        CURRENT_BINDING.with(|cell| {
+            let old = cell.replace(value.unwrap_or(core::ptr::null()));
+            let res = f();
+            cell.set(old);
+            res
+        })
+    }
+
+    #[cfg(feature = "std")]
+    pub(super) fn with<T>(f: impl FnOnce(Option<*const BindingHolder>) -> T) -> T {
+        CURRENT_BINDING.with(|cell| {
+            let ptr = cell.get();
+            f(if ptr.is_null() { None } else { Some(ptr) })
+        })
+    }
+
+    #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
+    static CURRENT_BINDING: ScopedRawPtr = ScopedRawPtr(Cell::new(core::ptr::null()));
+
+    #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
+    struct ScopedRawPtr(Cell<*const BindingHolder>);
+    // Safety: the unsafe_single_threaded feature means only one thread accesses this
+    #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
+    unsafe impl Send for ScopedRawPtr {}
+    #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
+    unsafe impl Sync for ScopedRawPtr {}
+
+    #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
+    pub(super) fn set<T>(value: Option<*const BindingHolder>, f: impl FnOnce() -> T) -> T {
+        let old = CURRENT_BINDING.0.replace(value.unwrap_or(core::ptr::null()));
+        let res = f();
+        CURRENT_BINDING.0.set(old);
+        res
+    }
+
+    #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
+    pub(super) fn with<T>(f: impl FnOnce(Option<*const BindingHolder>) -> T) -> T {
+        let ptr = CURRENT_BINDING.0.get();
+        f(if ptr.is_null() { None } else { Some(ptr) })
+    }
+}
+
+/// Evaluate a function without registering any property dependencies.
 pub fn evaluate_no_tracking<T>(f: impl FnOnce() -> T) -> T {
-    CURRENT_BINDING.set(None, f)
+    current_binding_storage::set(None, f)
 }
 
-/// Return true if there is currently a binding being evaluated so that access to
-/// properties register dependencies to that binding.
+/// Returns true if a binding is currently being evaluated
+/// so that property accesses register dependencies.
 pub fn is_currently_tracking() -> bool {
-    CURRENT_BINDING.is_set() && CURRENT_BINDING.with(|x| x.is_some())
+    current_binding_storage::with(|x| x.is_some())
 }
 
 /// This structure erase the `B` type with a vtable.
 #[repr(C)]
 struct BindingHolder<B = ()> {
-    /// Access to the list of bindings which depend on this binding
-    dependencies: Cell<usize>,
-    /// The binding own the nodes used in the dependencies lists of the properties
-    /// From which we depend.
-    dep_nodes: Cell<single_linked_list_pin::SingleLinkedListPinHead<DependencyNode>>,
+    /// Head of the list of bindings that depend on this binding.
+    dependencies: Cell<*mut ()>,
+    /// Nodes that link this binding into the dependency lists of
+    /// the properties it reads.
+    /// UnsafeCell allows in-place mutation without moving the allocation.
+    dep_nodes: UnsafeCell<single_linked_list_pin::SingleLinkedListPinHead<DependencyNode>>,
     vtable: &'static BindingVTable,
     /// The binding is dirty and need to be re_evaluated
     dirty: Cell<bool>,
@@ -413,16 +457,19 @@ struct BindingHolder<B = ()> {
 }
 
 impl BindingHolder {
+    /// Registers this binding as a dependency of the given property.
     fn register_self_as_dependency(
-        self: Pin<&Self>,
+        self_ptr: *const BindingHolder,
         property_that_will_notify: *mut DependencyListHead,
         #[cfg(slint_debug_property)] _other_debug_name: &str,
     ) {
-        let node = DependencyNode::new(self.get_ref() as *const _);
-        let mut dep_nodes = self.dep_nodes.take();
-        let node = dep_nodes.push_front(node);
-        unsafe { DependencyListHead::append(&*property_that_will_notify, node) }
-        self.dep_nodes.set(dep_nodes);
+        let node = DependencyNode::new(self_ptr);
+        // Safety: self_ptr is valid and pinned
+        unsafe {
+            let dep_nodes = &mut *(*self_ptr).dep_nodes.get();
+            let node = dep_nodes.push_front(node);
+            DependencyListHead::append(&*property_that_will_notify, node);
+        }
     }
 }
 
@@ -438,7 +485,7 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
     /// and value must be a pointer to T
     unsafe fn evaluate<T, B: BindingCallable<T>>(
         _self: *const BindingHolder,
-        value: *mut (),
+        value: *mut c_void,
     ) -> BindingResult {
         unsafe {
             Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding))
@@ -454,7 +501,7 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
     /// Safety: _self must be a pointer to a `BindingHolder<B>`
     unsafe fn intercept_set<T, B: BindingCallable<T>>(
         _self: *const BindingHolder,
-        value: *const (),
+        value: *const c_void,
     ) -> bool {
         unsafe {
             Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding))
@@ -486,7 +533,7 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
     }
 
     let holder: BindingHolder<B> = BindingHolder {
-        dependencies: Cell::new(0),
+        dependencies: Cell::new(core::ptr::null_mut()),
         dep_nodes: Default::default(),
         vtable: <B as HasBindingVTable<T>>::VT,
         dirty: Cell::new(true), // starts dirty so it evaluates the property when used
@@ -502,13 +549,11 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
 #[repr(transparent)]
 #[derive(Default)]
 struct PropertyHandle {
-    /// The handle can either be a pointer to a binding, or a pointer to the list of dependent properties.
-    /// The two least significant bit of the pointer are flags, as the pointer will be aligned.
-    /// The least significant bit (`0b01`) tells that the binding is borrowed. So no two references to the
-    /// binding exist at the same time.
-    /// The second to last bit (`0b10`) tells that the pointer points to a binding. Otherwise, it is the head
-    /// node of the linked list of dependent bindings.
-    handle: Cell<usize>,
+    /// Either a pointer to a binding or the head of the dependent-properties list.
+    /// The two least significant bits are flags (the pointer is always aligned).
+    /// Bit 0 (`0b01`): the binding is borrowed.
+    /// Bit 1 (`0b10`): the value is a pointer to a binding.
+    handle: Cell<*mut ()>,
 }
 
 const BINDING_BORROWED: usize = 0b01;
@@ -521,7 +566,7 @@ impl core::fmt::Debug for PropertyHandle {
         write!(
             f,
             "PropertyHandle {{ handle: 0x{:x}, locked: {}, binding: {} }}",
-            handle & !0b11,
+            handle.addr() & !0b11,
             self.lock_flag(),
             PropertyHandle::is_pointer_to_binding(handle)
         )
@@ -532,28 +577,28 @@ impl PropertyHandle {
     /// The lock flag specifies that we can get a reference to the Cell or unsafe cell
     #[inline]
     fn lock_flag(&self) -> bool {
-        self.handle.get() & BINDING_BORROWED == BINDING_BORROWED
+        self.handle.get().addr() & BINDING_BORROWED != 0
     }
     /// Sets the lock_flag.
     /// Safety: the lock flag must not be unset if there exist references to what's inside the cell
     unsafe fn set_lock_flag(&self, set: bool) {
         self.handle.set(if set {
-            self.handle.get() | BINDING_BORROWED
+            self.handle.get().map_addr(|a| a | BINDING_BORROWED)
         } else {
-            self.handle.get() & !BINDING_BORROWED
+            self.handle.get().map_addr(|a| a & !BINDING_BORROWED)
         })
     }
 
     #[inline]
-    fn is_pointer_to_binding(handle: usize) -> bool {
-        handle & BINDING_POINTER_TO_BINDING == BINDING_POINTER_TO_BINDING
+    fn is_pointer_to_binding(handle: *mut ()) -> bool {
+        handle.addr() & BINDING_POINTER_TO_BINDING != 0
     }
 
     /// Get the pointer **without locking** if the handle points to a pointer otherwise None
     #[inline]
-    fn pointer_to_binding(handle: usize) -> Option<*mut BindingHolder> {
+    fn pointer_to_binding(handle: *mut ()) -> Option<*mut BindingHolder> {
         if Self::is_pointer_to_binding(handle) {
-            Some((handle & BINDING_POINTER_MASK) as *mut BindingHolder)
+            Some(handle.map_addr(|a| a & BINDING_POINTER_MASK) as *mut BindingHolder)
         } else {
             None
         }
@@ -562,8 +607,8 @@ impl PropertyHandle {
     /// The handle is not borrowed to any other binding
     /// and the handle does not point to another binding
     #[inline]
-    fn has_no_binding_or_lock(handle: usize) -> bool {
-        (handle as usize) & (BINDING_BORROWED | BINDING_POINTER_TO_BINDING) == 0
+    fn has_no_binding_or_lock(handle: *mut ()) -> bool {
+        handle.addr() & (BINDING_BORROWED | BINDING_POINTER_TO_BINDING) == 0
     }
 
     /// Access the value.
@@ -599,7 +644,7 @@ impl PropertyHandle {
     fn detach_binding(&self) -> Option<*mut BindingHolder> {
         let binding = Self::pointer_to_binding(self.handle.get())?;
         unsafe {
-            let const_sentinel = (&CONSTANT_PROPERTY_SENTINEL) as *const u32 as usize;
+            let const_sentinel = const_sentinel();
             if (*binding).dependencies.get() == const_sentinel {
                 self.handle.set(const_sentinel);
             } else {
@@ -608,7 +653,7 @@ impl PropertyHandle {
                     self.handle.as_ptr() as *mut DependencyListHead,
                 );
             }
-            (*binding).dependencies.set(0);
+            (*binding).dependencies.set(core::ptr::null_mut());
         }
         Some(binding)
     }
@@ -652,9 +697,9 @@ impl PropertyHandle {
         }
 
         self.remove_binding();
-        debug_assert!(Self::has_no_binding_or_lock(binding as usize));
+        debug_assert!(Self::has_no_binding_or_lock(binding as *mut ()));
         debug_assert!(Self::has_no_binding_or_lock(self.handle.get()));
-        let const_sentinel = (&CONSTANT_PROPERTY_SENTINEL) as *const u32 as usize;
+        let const_sentinel = const_sentinel();
         let is_constant = self.handle.get() == const_sentinel;
         unsafe {
             if is_constant {
@@ -666,7 +711,7 @@ impl PropertyHandle {
                 );
             }
         }
-        self.handle.set((binding as usize) | BINDING_POINTER_TO_BINDING);
+        self.handle.set((binding as *mut ()).map_addr(|a| a | BINDING_POINTER_TO_BINDING));
         if !is_constant {
             self.mark_dirty(
                 #[cfg(slint_debug_property)]
@@ -687,26 +732,23 @@ impl PropertyHandle {
     // `value` is the content of the unsafe cell and will be only dereferenced if the
     // handle is not locked. (Upholding the requirements of UnsafeCell)
     unsafe fn update<T>(&self, value: *mut T) {
+        let binding_ptr = Self::pointer_to_binding(self.handle.get());
+
         let remove = self.access(|binding| {
             if let Some(binding) = binding
                 && binding.dirty.get()
             {
-                unsafe fn evaluate_as_current_binding(
-                    value: *mut (),
-                    binding: Pin<&BindingHolder>,
-                ) -> BindingResult {
-                    CURRENT_BINDING.set(Some(binding), || unsafe {
-                        (binding.vtable.evaluate)(
-                            binding.get_ref() as *const BindingHolder,
-                            value as *mut (),
-                        )
-                    })
-                }
+                // Safety: binding is Some so binding_ptr is too
+                let binding_ptr = unsafe { binding_ptr.unwrap_unchecked() };
 
                 // clear all the nodes so that we can start from scratch
-                binding.dep_nodes.set(Default::default());
-                let r = unsafe { evaluate_as_current_binding(value as *mut (), binding.as_ref()) };
-                binding.dirty.set(false);
+                unsafe { *(*binding_ptr).dep_nodes.get() = Default::default() };
+                let r = unsafe {
+                    current_binding_storage::set(Some(binding_ptr), || {
+                        ((*binding_ptr).vtable.evaluate)(binding_ptr, value as *mut c_void)
+                    })
+                };
+                unsafe { (*binding_ptr).dirty.set(false) };
                 if r == BindingResult::RemoveBinding {
                     return true;
                 }
@@ -723,23 +765,19 @@ impl PropertyHandle {
         self: Pin<&Self>,
         #[cfg(slint_debug_property)] debug_name: &str,
     ) {
-        if CURRENT_BINDING.is_set() {
-            CURRENT_BINDING.with(|cur_binding| {
-                if let Some(cur_binding) = cur_binding {
-                    let dependencies = self.dependencies();
-                    if !core::ptr::eq(
-                        unsafe { *(dependencies as *mut *const u32) },
-                        (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
-                    ) {
-                        cur_binding.register_self_as_dependency(
-                            dependencies,
-                            #[cfg(slint_debug_property)]
-                            debug_name,
-                        );
-                    }
+        current_binding_storage::with(|cur_binding| {
+            if let Some(cur_binding) = cur_binding {
+                let dependencies = self.dependencies();
+                if unsafe { *(dependencies as *mut *mut ()) } != const_sentinel() {
+                    BindingHolder::register_self_as_dependency(
+                        cur_binding,
+                        dependencies,
+                        #[cfg(slint_debug_property)]
+                        debug_name,
+                    );
                 }
-            });
-        }
+            }
+        });
     }
 
     fn mark_dirty(&self, #[cfg(slint_debug_property)] debug_name: &str) {
@@ -748,10 +786,7 @@ impl PropertyHandle {
         unsafe {
             let dependencies = self.dependencies();
             assert!(
-                !core::ptr::eq(
-                    *(dependencies as *mut *const u32),
-                    (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
-                ),
+                *(dependencies as *mut *mut ()) != const_sentinel(),
                 "Constant property being changed {debug_name}"
             );
             mark_dependencies_dirty(dependencies)
@@ -761,24 +796,18 @@ impl PropertyHandle {
     fn set_constant(&self) {
         unsafe {
             let dependencies = self.dependencies();
-            if !core::ptr::eq(
-                *(dependencies as *mut *const u32),
-                (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
-            ) {
+            let const_sentinel = const_sentinel();
+            if *(dependencies as *mut *mut ()) != const_sentinel {
                 DependencyListHead::drop(dependencies);
-                *(dependencies as *mut *const u32) = (&CONSTANT_PROPERTY_SENTINEL) as *const u32
+                *(dependencies as *mut *mut ()) = const_sentinel;
             }
         }
     }
 
     fn is_constant(&self) -> bool {
         let dependencies = self.dependencies();
-        core::ptr::eq(
-            // Safety: dependencies is a valid pointer to a DependencyListHead which is a Cell<usize> internally
-            // and usize can be casted to a pointer
-            unsafe { *(dependencies as *mut *const u32) },
-            (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
-        )
+        // Safety: dependencies is a valid pointer to a DependencyListHead (Cell<*mut ()> internally)
+        unsafe { *(dependencies as *mut *mut ()) == const_sentinel() }
     }
 }
 
@@ -786,7 +815,7 @@ impl Drop for PropertyHandle {
     fn drop(&mut self) {
         self.remove_binding();
         debug_assert!(Self::has_no_binding_or_lock(self.handle.get()));
-        if !core::ptr::eq(self.handle.get() as *const u32, &CONSTANT_PROPERTY_SENTINEL) {
+        if self.handle.get() != const_sentinel() {
             unsafe {
                 DependencyListHead::drop(self.handle.as_ptr() as *mut _);
             }
@@ -797,20 +826,14 @@ impl Drop for PropertyHandle {
 /// Safety: the dependency list must be valid and consistent
 unsafe fn mark_dependencies_dirty(dependencies: *mut DependencyListHead) {
     unsafe {
-        debug_assert!(!core::ptr::eq(
-            *(dependencies as *mut *const u32),
-            (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
-        ));
+        debug_assert!(*(dependencies as *mut *mut ()) != const_sentinel());
         DependencyListHead::for_each(&*dependencies, |binding| {
             let binding: &BindingHolder = &**binding;
             let was_dirty = binding.dirty.replace(true);
             (binding.vtable.mark_dirty)(binding as *const BindingHolder, was_dirty);
 
             assert!(
-                !core::ptr::eq(
-                    *(binding.dependencies.as_ptr() as *mut *const u32),
-                    (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
-                ),
+                binding.dependencies.get() != const_sentinel(),
                 "Const property marked as dirty"
             );
 
@@ -948,6 +971,24 @@ impl<T: Clone> Property<T> {
         self.get_internal()
     }
 
+    /// Register this property as a dependency of the current tracking scope
+    /// without evaluating any binding.
+    /// Use this when you only need the tracking scope to be notified on
+    /// future changes, not the current value.
+    ///
+    /// Unlike [`Self::get`], this doesn't evaluate a dirty binding,
+    /// so the caller won't be notified about a pending evaluation that
+    /// hasn't run yet.
+    /// Only use this when the property has no binding or when its binding
+    /// is known to be already evaluated.
+    pub fn register_as_dependency(self: Pin<&Self>) {
+        let handle = unsafe { Pin::new_unchecked(&self.handle) };
+        handle.register_as_dependency_to_current_binding(
+            #[cfg(slint_debug_property)]
+            self.debug_name.borrow().as_str(),
+        );
+    }
+
     /// Get the cached value without registering any dependencies or executing any binding
     pub fn get_internal(&self) -> T {
         self.handle.access(|_| {
@@ -968,7 +1009,10 @@ impl<T: Clone> Property<T> {
         let previous_binding_intercepted = self.handle.access(|b| {
             b.is_some_and(|b| unsafe {
                 // Safety: b is a BindingHolder<T>
-                (b.vtable.intercept_set)(&*b as *const BindingHolder, &t as *const T as *const ())
+                (b.vtable.intercept_set)(
+                    &*b as *const BindingHolder,
+                    (&t as *const T).cast::<c_void>(),
+                )
             })
         });
         if !previous_binding_intercepted {
@@ -1196,7 +1240,7 @@ impl<const NEEDS_SET_DIRTY: bool> Default for PropertyTracker<NEEDS_SET_DIRTY, (
         };
 
         let holder = BindingHolder {
-            dependencies: Cell::new(0),
+            dependencies: Cell::new(core::ptr::null_mut()),
             dep_nodes: Default::default(),
             vtable: VT,
             dirty: Cell::new(true), // starts dirty so it evaluates the property when used
@@ -1229,29 +1273,23 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
         self.holder.debug_name = debug_name;
     }
 
-    /// Register this property tracker as a dependency to the current binding/property tracker being evaluated
+    /// Registers this property tracker as a dependency to the current binding being evaluated.
     pub fn register_as_dependency_to_current_binding(self: Pin<&Self>) {
-        let dep_nodes = self.holder.dep_nodes.take();
-        if !NEEDS_SET_DIRTY && dep_nodes.is_empty() {
-            // No need to register dependency if we have no dependency ourselves (we can never become dirty)
+        // Safety: only reading dep_nodes, not moving it
+        if !NEEDS_SET_DIRTY && unsafe { (*self.holder.dep_nodes.get()).is_empty() } {
             return;
         }
-        self.holder.dep_nodes.set(dep_nodes);
-        if CURRENT_BINDING.is_set() {
-            CURRENT_BINDING.with(|cur_binding| {
-                if let Some(cur_binding) = cur_binding {
-                    debug_assert!(!core::ptr::eq(
-                        self.holder.dependencies.get() as *const u32,
-                        (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
-                    ));
-                    cur_binding.register_self_as_dependency(
-                        self.holder.dependencies.as_ptr() as *mut DependencyListHead,
-                        #[cfg(slint_debug_property)]
-                        &self.holder.debug_name,
-                    );
-                }
-            });
-        }
+        current_binding_storage::with(|cur_binding| {
+            if let Some(cur_binding) = cur_binding {
+                debug_assert!(self.holder.dependencies.get() != const_sentinel());
+                BindingHolder::register_self_as_dependency(
+                    cur_binding,
+                    self.holder.dependencies.as_ptr() as *mut DependencyListHead,
+                    #[cfg(slint_debug_property)]
+                    &self.holder.debug_name,
+                );
+            }
+        });
     }
 
     /// Any of the properties accessed during the last evaluation of the closure called
@@ -1274,15 +1312,10 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
     /// any changes to accessed properties will not propagate to the other tracker.
     pub fn evaluate_as_dependency_root<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
         // clear all the nodes so that we can start from scratch
-        self.holder.dep_nodes.set(Default::default());
+        unsafe { *self.holder.dep_nodes.get() = Default::default() };
 
-        // Safety: it is safe to project the holder as we don't implement drop or unpin
-        let pinned_holder = unsafe {
-            self.map_unchecked(|s| {
-                core::mem::transmute::<&BindingHolder<DirtyHandler>, &BindingHolder<()>>(&s.holder)
-            })
-        };
-        let r = CURRENT_BINDING.set(Some(pinned_holder), f);
+        let holder_ptr = &raw const self.holder as *const BindingHolder;
+        let r = current_binding_storage::set(Some(holder_ptr), f);
         self.holder.dirty.set(false);
         r
     }
@@ -1332,7 +1365,7 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
         }
 
         let holder = BindingHolder {
-            dependencies: Cell::new(0),
+            dependencies: Cell::new(core::ptr::null_mut()),
             dep_nodes: Default::default(),
             vtable: <DirtyHandler as HasBindingVTable>::VT,
             dirty: Cell::new(true), // starts dirty so it evaluates the property when used
@@ -1356,13 +1389,22 @@ impl<DirtyHandler> PropertyTracker<true, DirtyHandler> {
 
 #[test]
 fn test_property_handler_binding() {
-    assert_eq!(PropertyHandle::has_no_binding_or_lock(BINDING_BORROWED), false);
-    assert_eq!(PropertyHandle::has_no_binding_or_lock(BINDING_POINTER_TO_BINDING), false);
+    use core::ptr::without_provenance_mut;
     assert_eq!(
-        PropertyHandle::has_no_binding_or_lock(BINDING_BORROWED | BINDING_POINTER_TO_BINDING),
+        PropertyHandle::has_no_binding_or_lock(without_provenance_mut(BINDING_BORROWED)),
         false
     );
-    assert_eq!(PropertyHandle::has_no_binding_or_lock(0), true);
+    assert_eq!(
+        PropertyHandle::has_no_binding_or_lock(without_provenance_mut(BINDING_POINTER_TO_BINDING)),
+        false
+    );
+    assert_eq!(
+        PropertyHandle::has_no_binding_or_lock(without_provenance_mut(
+            BINDING_BORROWED | BINDING_POINTER_TO_BINDING
+        )),
+        false
+    );
+    assert_eq!(PropertyHandle::has_no_binding_or_lock(core::ptr::null_mut()), true);
 }
 
 #[test]

@@ -5,8 +5,8 @@
 import * as slint from "slint-ui";
 
 const ui = slint.loadFile("../ui/demo.slint");
-const window = new ui.AppWindow();
-const api = window.Api;
+const appWindow = new ui.AppWindow();
+const api = appWindow.Api;
 const date = api.current_date;
 const time = api.current_time;
 
@@ -22,5 +22,5 @@ const timer = setInterval(() => {
     api.current_time = time;
 }, 1000);
 
-await window.run();
+await appWindow.run();
 clearInterval(timer);

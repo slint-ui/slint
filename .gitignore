@@ -1,8 +1,7 @@
-# The servo example requires a lock file as servo only builds with pinned dependencies.
-!examples/servo/Cargo.lock
 tsconfig.tsbuildinfo
 /target
 node_modules
+.pnpm-store
 /tools/figma_import/target
 /tools/figma_import/figma_output
 *.code-workspace
@@ -11,10 +10,7 @@ node_modules
 /_deps
 .DS_Store
 Pipfile.lock
-/docs/astro/src/content/collections/enums/
-/docs/astro/src/content/collections/structs/
 /playwright-report
-global-structs-enums.mdx
 
 # Ignore all package-lock.json files
 **/package-lock.json
@@ -24,6 +20,9 @@ global-structs-enums.mdx
 # MISE local files:
 /.mise.local.toml
 /.mise/tasks/local/
+
+# Helix local config
+.helix
 
 .claude
 
@@ -36,3 +35,8 @@ uv.lock
 .python-version
 
 MODULE.bazel.lock
+
+# Ignore Xcode projects created by xcodegen
+*.xcodeproj
+*.xcworkspace
+Info.plist

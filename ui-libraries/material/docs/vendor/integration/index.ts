@@ -34,6 +34,7 @@ export default ({
                 )) as Config;
                 const { SITE, I18N, METADATA, APP_BLOG, UI, ANALYTICS } =
                     configBuilder(rawJsonConfig);
+                SITE.base = process.env.MATERIAL_DOCS_BASE_PATH || SITE.base;
 
                 updateConfig({
                     site: SITE.site,
@@ -74,7 +75,7 @@ export default ({
                         `Astrowind \`${_themeConfig}\` has been loaded.`,
                     );
                 } else {
-                    buildLogger.info(`Astrowind config has been loaded.`);
+                    buildLogger.info("Astrowind config has been loaded.");
                 }
             },
             "astro:config:done": ({ config }) => {

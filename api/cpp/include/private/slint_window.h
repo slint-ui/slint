@@ -79,10 +79,7 @@ auto optional_and_then(const std::optional<T> &o, F &&f) -> decltype(f(*o))
 template<typename T>
 T optional_or_default(const std::optional<T> &o)
 {
-    if (o) {
-        return *o;
-    }
-    return {};
+    return o.value_or(T {});
 }
 
 class WindowAdapterRc
@@ -118,16 +115,6 @@ public:
         slint_windowrc_set_const_scale_factor(&inner, value);
     }
 
-    cbindgen_private::ColorScheme color_scheme() const
-    {
-        return slint_windowrc_color_scheme(&inner);
-    }
-    Color accent_color() const
-    {
-        Color col;
-        slint_windowrc_accent_color(&inner, &col);
-        return col;
-    }
     bool supports_native_menu_bar() const
     {
         return slint_windowrc_supports_native_menu_bar(&inner);
@@ -160,16 +147,47 @@ public:
         slint_windowrc_set_component(&inner, &item_tree_rc);
     }
 
-    template<typename Component, typename Parent, typename PosGetter>
+    template<typename Component, typename Parent, typename PosGetter, typename IsOpenSetter>
     uint32_t show_popup(const Parent *parent_component, PosGetter pos,
                         cbindgen_private::PopupClosePolicy close_policy,
-                        cbindgen_private::ItemRc parent_item) const
+                        cbindgen_private::ItemRc parent_item,
+                        cbindgen_private::WindowKind window_kind, IsOpenSetter is_open_setter) const
     {
-        auto popup = Component::create(parent_component);
-        auto p = pos(popup);
+        using SharedGlobals = decltype(parent_component->globals);
+        SharedGlobals _own_globals = nullptr;
+        if (auto _popup_adapter = create_child_window_adapter(window_kind)) {
+            _own_globals = parent_component->globals->clone_with_window_adapter(*_popup_adapter);
+        }
+        if (!_own_globals) {
+            _own_globals = parent_component->globals;
+        }
+
+        auto popup = Component::create(parent_component, _own_globals);
         auto popup_dyn = popup.into_dyn();
-        auto id = cbindgen_private::slint_windowrc_show_popup(&inner, &popup_dyn, p, close_policy,
-                                                              &parent_item, false);
+
+        struct PopupPositionData
+        {
+            PosGetter pos;
+            decltype(popup) popup_component;
+        };
+
+        auto position_data = new PopupPositionData { std::move(pos), popup };
+        // Keeps the parent component's `PopupWindow::is-open` property in sync: invoked with `true`
+        // when the popup is shown and with `false` from every close path.
+        auto is_open_data = new IsOpenSetter(std::move(is_open_setter));
+        auto id = cbindgen_private::slint_windowrc_show_popup(
+                &inner, &popup_dyn,
+                [](void *user_data, LogicalPosition *pos) {
+                    auto data = reinterpret_cast<PopupPositionData *>(user_data);
+                    *pos = data->pos(data->popup_component);
+                },
+                [](void *user_data) { delete reinterpret_cast<PopupPositionData *>(user_data); },
+                position_data, close_policy, &parent_item, window_kind,
+                [](void *user_data, bool is_open) {
+                    (*reinterpret_cast<IsOpenSetter *>(user_data))(is_open);
+                },
+                [](void *user_data) { delete reinterpret_cast<IsOpenSetter *>(user_data); },
+                is_open_data);
         popup->user_init();
         return id;
     }
@@ -179,6 +197,22 @@ public:
         if (popup_id > 0) {
             cbindgen_private::slint_windowrc_close_popup(&inner, popup_id);
         }
+    }
+
+    /// Try to create a window adapter for a popup window.
+    /// Returns std::nullopt if the backend renders popups as child windows.
+    std::optional<WindowAdapterRc>
+    create_child_window_adapter(cbindgen_private::WindowKind window_kind) const
+    {
+        cbindgen_private::WindowAdapterRcOpaque raw_result;
+        if (cbindgen_private::slint_windowrc_create_child_window_adapter(&inner, window_kind,
+                                                                         &raw_result)) {
+            std::optional<WindowAdapterRc> result;
+            result.emplace(raw_result); // clone: refcount = 2
+            cbindgen_private::slint_windowrc_drop(&raw_result); // drop original: refcount = 1
+            return result;
+        }
+        return std::nullopt;
     }
 
     template<typename Component, typename SharedGlobals, typename InitFn>
@@ -197,9 +231,17 @@ public:
         auto popup = Component::create(globals);
         init(&*popup);
         auto popup_dyn = popup.into_dyn();
+        auto position_data = new LogicalPosition(pos);
         auto id = cbindgen_private::slint_windowrc_show_popup(
-                &inner, &popup_dyn, pos, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
-                &context_menu_rc, true);
+                &inner, &popup_dyn,
+                [](void *user_data, LogicalPosition *pos) {
+                    *pos = *reinterpret_cast<LogicalPosition *>(user_data);
+                },
+                [](void *user_data) { delete reinterpret_cast<LogicalPosition *>(user_data); },
+                position_data, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
+                &context_menu_rc, cbindgen_private::WindowKind::Menu,
+                // Menus do not expose `is-open`, so the setter is a no-op.
+                [](void *, bool) {}, [](void *) {}, nullptr);
         popup->user_init();
         return id;
     }
@@ -487,7 +529,7 @@ public:
         private_api::assert_main_thread();
         return cbindgen_private::slint_windowrc_is_minimized(&inner.handle());
     }
-    /// Minimize or unminimze the window.
+    /// Minimize or unminimize the window.
     void set_minimized(bool minimized)
     {
         private_api::assert_main_thread();
@@ -541,7 +583,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Pressed({ pos.x, pos.y }, button, 0, false));
+                slint::cbindgen_private::MouseEvent::Pressed({ pos.x, pos.y }, button, 0, 0));
     }
     /// Dispatches a pointer or mouse release event to the scene.
     ///
@@ -554,7 +596,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Released({ pos.x, pos.y }, button, 0, false));
+                slint::cbindgen_private::MouseEvent::Released({ pos.x, pos.y }, button, 0, 0));
     }
     /// Dispatches a pointer exit event to the scene.
     ///
@@ -578,7 +620,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Moved({ pos.x, pos.y }, false));
+                slint::cbindgen_private::MouseEvent::Moved({ pos.x, pos.y }, 0));
     }
 
     /// Dispatches a scroll (or wheel) event to the scene.

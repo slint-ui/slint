@@ -39,8 +39,8 @@
 //!     // Let Slint create the wgpu instance so that backend-specific
 //!     // requirements (e.g. DRM display extensions on linuxkms) are honored.
 //!     slint::BackendSelector::new()
-//!         .require_wgpu_28(slint::wgpu_28::WGPUConfiguration::Automatic(
-//!             slint::wgpu_28::WGPUSettings::default(),
+//!         .require_wgpu_29(slint::wgpu_29::WGPUConfiguration::Automatic(
+//!             slint::wgpu_29::WGPUSettings::default(),
 //!         ))
 //!         .select()
 //!         .unwrap();
@@ -54,7 +54,7 @@
 //!         if !matches!(state, slint::RenderingState::RenderingSetup) || initialized.get() {
 //!             return;
 //!         }
-//!         let slint::GraphicsAPI::WGPU28 { device, queue, .. } = graphics_api else {
+//!         let slint::GraphicsAPI::WGPU29 { device, queue, .. } = graphics_api else {
 //!             return;
 //!         };
 //!         let app = app_weak.upgrade().unwrap();

@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A popup nested in a conditional (or repeated) element must still get its layout constraints, so
+// that it is laid out at the right size and can be interacted with.
+
+export global Properties {
+    in-out property <int> inner-clicks: 0;
+    in-out property <length> popup-width: -1px;
+    in-out property <length> popup-height: -1px;
+}
+
+export component TestCase {
+    in property <bool> show-popup-area: true;
+
+    width: 200px;
+    height: 200px;
+
+    if show-popup-area: TouchArea {
+        clicked => {
+            popup.show();
+        }
+        popup := PopupWindow {
+            x: 0px;
+            y: 0px;
+            width: 100px;
+            height: 100px;
+            close-policy: PopupClosePolicy.no-auto-close;
+            init => {
+                Properties.popup-width = self.width;
+                Properties.popup-height = self.height;
+            }
+            TouchArea {
+                clicked => {
+                    Properties.inner-clicks += 1;
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::WindowEvent;
+use slint::platform::PointerEventButton;
+use slint::LogicalPosition;
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+window.set_size(slint::PhysicalSize::new(200, 200));
+
+let click = |x: f32, y: f32| {
+    let position = LogicalPosition::new(x, y);
+    window.dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+    window.dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+    window.dispatch_event(WindowEvent::PointerMoved { position });
+    slint_testing::mock_elapsed_time(100);
+};
+
+assert_eq!(instance.global::<Properties<'_>>().get_inner_clicks(), 0);
+
+// Click outside the (not yet shown) popup area to open the popup via the conditional TouchArea.
+click(150., 150.);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_width(), 100.);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), 100.);
+assert_eq!(instance.global::<Properties<'_>>().get_inner_clicks(), 0);
+
+// The popup covers (0,0)-(100,100). Clicking inside only reaches its TouchArea if it was laid out.
+click(50., 50.);
+assert_eq!(instance.global::<Properties<'_>>().get_inner_clicks(), 1);
+```
+*/

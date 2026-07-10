@@ -1,13 +1,17 @@
 {
     "root": true,
-    "extends": ["../../../biome.json"],
+    "extends": [
+        "../../../biome.json",
+        "../../../docs/common/biome-starlight-shared.json"
+    ],
     "formatter": {
         "includes": [
             "**",
             "!**/archive/**",
             "!**/.astro",
             "!**/dist",
-            "!**/codemirror.js"
+            "!**/codemirror.js",
+            "!**/playwright-report/**"
         ],
         "enabled": true,
         "formatWithErrors": false,
@@ -22,10 +26,11 @@
             "!**/archive/**",
             "!**/.astro",
             "!**/dist",
-            "!**/codemirror.js"
+            "!**/codemirror.js",
+            "!**/playwright-report/**"
         ],
         "rules": {
-            "recommended": false,
+            "preset": "none",
             "complexity": {
                 "noBannedTypes": "warn",
                 "noUselessConstructor": "error",

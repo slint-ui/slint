@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "style-base.slint";
+
+export component ToolTipImpl inherits Rectangle {
+    in property <styled-text> text;
+
+    background: Palette.alternate-background;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: Palette.border;
+
+    VerticalLayout {
+        padding-left: 9px;
+        padding-right: 9px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+
+        StyledText {
+            text: root.text;
+            default-color: Palette.foreground;
+        }
+    }
+
+    @children
+}

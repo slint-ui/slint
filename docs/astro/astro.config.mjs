@@ -2,10 +2,16 @@
 // SPDX-License-Identifier: MIT
 // @ts-check
 import { defineConfig } from "astro/config";
+import sitemap from "@astrojs/sitemap";
 import starlight from "@astrojs/starlight";
-import starlightLinksValidator from "starlight-links-validator";
-import rehypeExternalLinks from "rehype-external-links";
 import starlightSidebarTopics from "starlight-sidebar-topics";
+import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
+import {
+    SLINT_STARLIGHT_TRAILING_SLASH,
+    slintStarlightLinksValidatorPlugin,
+    slintStarlightMarkdownRehypeExternalLinksOnly,
+} from "@slint/common-files/src/utils/starlight-site-defaults";
+import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 import {
     BASE_PATH,
     BASE_URL,
@@ -17,39 +23,34 @@ import {
 
 const experimentalDocs = process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES === "1";
 
+// Starlight prepends the base path to every sidebar link that is not a full
+// URL (http/https). Strip BASE_PATH so the re-added prefix produces the
+// intended absolute path (e.g. "/docs/../cpp/" -> "../cpp/" -> Starlight
+// adds base -> "/docs/../cpp/" which the browser resolves to "/cpp/").
+const sidebarHref = (/** @type {string} */ url) =>
+    url.startsWith(BASE_PATH) ? url.slice(BASE_PATH.length) : url;
+
 // https://astro.build/config
 export default defineConfig({
     site: `${BASE_URL}${BASE_PATH}`,
     base: BASE_PATH,
-    trailingSlash: "always",
-    markdown: {
-        rehypePlugins: [
-            [
-                rehypeExternalLinks,
-                {
-                    content: {
-                        type: "text",
-                        value: " ↗",
-                    },
-                    properties: {
-                        target: "_blank",
-                    },
-                    rel: ["noopener"],
-                },
-            ],
-        ],
-    },
+    trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
+    markdown: slintStarlightMarkdownRehypeExternalLinksOnly(),
     integrations: [
+        sitemap(),
         starlight({
             title: "Slint Docs",
             logo: {
                 src: "./src/assets/slint-logo-small-light.svg",
             },
-            customCss: ["./src/styles/custom.css", "./src/styles/theme.css"],
+            customCss: [
+                "@slint/common-files/src/styles/starlight-slint-custom.css",
+                "@slint/common-files/src/styles/starlight-slint-theme.css",
+            ],
 
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",
-                Header: "./src/components/Header.astro",
+                Header: "@slint/common-files/src/components/HeaderSlintDocs.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
             plugins: [
@@ -65,11 +66,11 @@ export default defineConfig({
                                 collapsed: true,
                                 items: [
                                     "guide/tooling/vscode",
+                                    "guide/tooling/manual-setup",
                                     {
                                         label: "Other Editors",
                                         collapsed: true,
                                         items: [
-                                            "guide/tooling/manual-setup",
                                             "guide/tooling/kate",
                                             "guide/tooling/qt-creator",
                                             "guide/tooling/helix",
@@ -79,7 +80,10 @@ export default defineConfig({
                                             "guide/tooling/zed",
                                         ],
                                     },
+                                    "guide/tooling/live-preview",
+                                    "guide/tooling/slint-viewer",
                                     "guide/tooling/figma-inspector",
+                                    "guide/tooling/ai-coding-assistants",
                                 ],
                             },
                             {
@@ -166,6 +170,10 @@ export default defineConfig({
                                         label: "Custom Controls",
                                         slug: "guide/development/custom-controls",
                                     },
+                                    {
+                                        label: "Drag and Drop",
+                                        slug: "guide/development/drag-and-drop",
+                                    },
                                     "guide/development/best-practices",
                                     "guide/development/third-party-libraries",
                                 ],
@@ -213,16 +221,8 @@ export default defineConfig({
                                                   slug: "guide/experimental/overview",
                                               },
                                               {
-                                                  label: "AI Coding Assistants",
-                                                  slug: "guide/experimental/ai-coding-assistants",
-                                              },
-                                              {
                                                   label: "FlexboxLayout",
                                                   slug: "guide/experimental/flexboxlayout",
-                                              },
-                                              {
-                                                  label: "Drag and Drop",
-                                                  slug: "guide/experimental/drag-and-drop",
                                               },
                                               {
                                                   label: "Interface",
@@ -233,12 +233,12 @@ export default defineConfig({
                                                   slug: "guide/experimental/component-container",
                                               },
                                               {
-                                                  label: "Window.hide()",
-                                                  slug: "guide/experimental/window-hide",
-                                              },
-                                              {
                                                   label: "Library Modules",
                                                   slug: "guide/experimental/library-modules",
+                                              },
+                                              {
+                                                  label: "Match Elements",
+                                                  slug: "guide/experimental/match-elements",
                                               },
                                           ],
                                       },
@@ -283,15 +283,36 @@ export default defineConfig({
                                 items: [
                                     {
                                         label: "Basic Elements",
-                                        autogenerate: {
-                                            directory: "reference/elements",
-                                        },
+                                        items: [
+                                            {
+                                                autogenerate: {
+                                                    directory:
+                                                        "reference/generated/elements",
+                                                },
+                                            },
+                                        ],
                                     },
                                     {
                                         label: "Gestures",
-                                        autogenerate: {
-                                            directory: "reference/gestures",
-                                        },
+                                        items: [
+                                            {
+                                                autogenerate: {
+                                                    directory:
+                                                        "reference/generated/gestures",
+                                                },
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        label: "Drag and Drop",
+                                        items: [
+                                            {
+                                                autogenerate: {
+                                                    directory:
+                                                        "reference/generated/drag-and-drop",
+                                                },
+                                            },
+                                        ],
                                     },
                                     {
                                         label: "Keyboard Input",
@@ -334,7 +355,7 @@ export default defineConfig({
                                                 slug: "reference/layouts/verticallayout",
                                             },
                                             // FlexboxLayout is experimental. When it ships, drop
-                                            // `draft: true` from flexboxlayout.mdx and uncomment:
+                                            // `draft: true` from flexbox-layout.mdx and uncomment:
                                             // {
                                             //     label: "FlexboxLayout",
                                             //     slug: "reference/layouts/flexboxlayout",
@@ -343,9 +364,14 @@ export default defineConfig({
                                     },
                                     {
                                         label: "Window",
-                                        autogenerate: {
-                                            directory: "reference/window",
-                                        },
+                                        items: [
+                                            {
+                                                autogenerate: {
+                                                    directory:
+                                                        "reference/generated/window",
+                                                },
+                                            },
+                                        ],
                                     },
                                 ],
                             },
@@ -373,7 +399,7 @@ export default defineConfig({
                                     },
                                     {
                                         label: "Platform Namespace",
-                                        slug: "reference/global-namespaces/platform",
+                                        slug: "reference/platform",
                                     },
                                     {
                                         label: "FontWeight Namespace",
@@ -389,38 +415,58 @@ export default defineConfig({
                                     "reference/std-widgets/style",
                                     {
                                         label: "Globals",
-                                        autogenerate: {
-                                            directory:
-                                                "reference/std-widgets/globals",
-                                        },
+                                        items: [
+                                            {
+                                                autogenerate: {
+                                                    directory:
+                                                        "reference/std-widgets/globals",
+                                                },
+                                            },
+                                        ],
                                     },
                                     {
                                         label: "Basic Widgets",
-                                        autogenerate: {
-                                            directory:
-                                                "reference/std-widgets/basic-widgets",
-                                        },
+                                        items: [
+                                            {
+                                                autogenerate: {
+                                                    directory:
+                                                        "reference/std-widgets/basic-widgets",
+                                                },
+                                            },
+                                        ],
                                     },
                                     {
                                         label: "Views",
-                                        autogenerate: {
-                                            directory:
-                                                "reference/std-widgets/views",
-                                        },
+                                        items: [
+                                            {
+                                                autogenerate: {
+                                                    directory:
+                                                        "reference/std-widgets/views",
+                                                },
+                                            },
+                                        ],
                                     },
                                     {
                                         label: "Widget Layouts",
-                                        autogenerate: {
-                                            directory:
-                                                "reference/std-widgets/layouts",
-                                        },
+                                        items: [
+                                            {
+                                                autogenerate: {
+                                                    directory:
+                                                        "reference/std-widgets/layouts",
+                                                },
+                                            },
+                                        ],
                                     },
                                     {
                                         label: "Misc",
-                                        autogenerate: {
-                                            directory:
-                                                "reference/std-widgets/misc",
-                                        },
+                                        items: [
+                                            {
+                                                autogenerate: {
+                                                    directory:
+                                                        "reference/std-widgets/misc",
+                                                },
+                                            },
+                                        ],
                                     },
                                 ],
                             },
@@ -481,12 +527,12 @@ export default defineConfig({
                         items: [
                             {
                                 label: "C++ ↗",
-                                link: `${CPP_BASE_URL}`,
+                                link: sidebarHref(CPP_BASE_URL),
                                 attrs: { target: "_blank" },
                             },
                             {
                                 label: "Rust ↗",
-                                link: `${RUST_SLINT_CRATE_URL}`,
+                                link: sidebarHref(RUST_SLINT_CRATE_URL),
                                 attrs: { target: "_blank" },
                             },
                             {
@@ -495,7 +541,7 @@ export default defineConfig({
                                     text: "beta",
                                     variant: "caution",
                                 },
-                                link: `${NODEJS_BASE_URL}`,
+                                link: sidebarHref(NODEJS_BASE_URL),
                                 attrs: { target: "_blank" },
                             },
                             {
@@ -504,87 +550,19 @@ export default defineConfig({
                                     text: "beta",
                                     variant: "caution",
                                 },
-                                link: `${PYTHON_BASE_URL}`,
+                                link: sidebarHref(PYTHON_BASE_URL),
                                 attrs: { target: "_blank" },
                             },
                         ],
                     },
                 ]),
-                starlightLinksValidator({
-                    errorOnLocalLinks: false,
-                }),
+                slintStarlightLinksValidatorPlugin(),
             ],
-            social: [
-                {
-                    icon: "github",
-                    label: "GitHub",
-                    href: "https://github.com/slint-ui/slint",
-                },
-                { icon: "x.com", label: "X", href: "https://x.com/slint_ui" },
-                {
-                    icon: "linkedin",
-                    label: "Linkedin",
-                    href: "https://www.linkedin.com/company/slint-ui",
-                },
-                {
-                    icon: "mastodon",
-                    label: "Mastodon",
-                    href: "https://fosstodon.org/@slint",
-                },
-            ],
+            social: slintStarlightSocial,
             favicon: "favicon.svg",
-            head: [
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/svg+xml",
-                        href: `${BASE_PATH}/favicon.svg`,
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/png",
-                        sizes: "32x32",
-                        href: `${BASE_PATH}/favicon-32x32.png`,
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/png",
-                        sizes: "16x16",
-                        href: `${BASE_PATH}/favicon-16x16.png`,
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/x-icon",
-                        href: `${BASE_PATH}/favicon.ico`,
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "mask-icon",
-                        href: `${BASE_PATH}/favicon.svg`,
-                        color: "#8D46E7",
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "apple-touch-icon",
-                        sizes: "180x180",
-                        href: `${BASE_PATH}/apple-touch-icon.png`,
-                    },
-                },
-            ],
+            head: slintStarlightFaviconHead(
+                (filename) => `${BASE_PATH}/${filename}`,
+            ),
         }),
     ],
 });

@@ -7,11 +7,11 @@ use smol::channel;
 use url::Url;
 use winit::dpi::PhysicalSize;
 
-use euclid::Size2D;
+use euclid::Scale;
 
 use slint::{ComponentHandle, SharedString, language::ColorScheme};
 
-use servo::{DevicePixel, Servo, ServoBuilder, Theme, WebViewBuilder};
+use servo::{Servo, ServoBuilder, Theme, WebViewBuilder};
 
 use crate::{
     MyApp, Palette, WebviewLogic,
@@ -63,8 +63,8 @@ impl WebView {
     pub fn new(
         app: MyApp,
         initial_url: SharedString,
-        device: slint::wgpu_28::wgpu::Device,
-        queue: slint::wgpu_28::wgpu::Queue,
+        device: slint::wgpu_29::wgpu::Device,
+        queue: slint::wgpu_29::wgpu::Queue,
     ) {
         let (waker_sender, waker_receiver) = channel::unbounded::<()>();
 
@@ -101,11 +101,11 @@ impl WebView {
         app: &MyApp,
         adapter: Rc<SlintServoAdapter>,
     ) -> Rc<Box<dyn ServoRenderingAdapter>> {
-        let width = app.global::<WebviewLogic>().get_viewport_width();
-        let height = app.global::<WebviewLogic>().get_viewport_height();
+        let scale_factor = app.window().scale_factor();
+        let width = app.global::<WebviewLogic>().get_viewport_width() * scale_factor;
+        let height = app.global::<WebviewLogic>().get_viewport_height() * scale_factor;
 
-        let size: Size2D<f32, DevicePixel> = Size2D::new(width, height);
-        let physical_size = PhysicalSize::new(size.width as u32, size.height as u32);
+        let physical_size = PhysicalSize::new(width as u32, height as u32);
 
         let rendering_adapter = super::rendering_context::try_create_gpu_context(
             adapter.wgpu_device(),
@@ -177,6 +177,9 @@ impl WebView {
 
         webview.notify_theme_change(theme);
 
+        let scale_factor = app.window().scale_factor();
+        webview.set_hidpi_scale_factor(Scale::new(scale_factor));
+
         adapter.set_inner(servo, webview, rendering_adapter);
     }
 
@@ -203,7 +206,7 @@ impl WebView {
                         None => break,
                     };
 
-                    let _ = state.waker_reciver().recv().await;
+                    let _ = state.waker_receiver().recv().await;
                     state.servo().spin_event_loop();
                 }
             }
