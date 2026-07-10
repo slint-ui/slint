@@ -261,8 +261,9 @@ pub enum Expression {
     /// `(h_info, v_info)` at the default constraint (matching `data`'s cells);
     /// it provides the preferred size returned when taffy asks for a dimension
     /// without a known cross-axis size (mirroring the plain `solve_flexbox_layout`
-    /// measure). A repeater cell (the `Right` case) is measured by calling
-    /// `flexbox_layout_item_info_at_cross_width` on the instance taffy asks for.
+    /// measure). A repeater cell (the `Right` case) is measured by calling the
+    /// matching cross-axis accessor (`flexbox_layout_item_info_at_cross_width` or
+    /// `_at_cross_height`) on the instance taffy asks for.
     SolveFlexboxLayoutWithMeasure {
         /// The `FlexboxLayoutData` (built inline with the cell arrays, so its
         /// temporaries live for the duration of the solve call).
