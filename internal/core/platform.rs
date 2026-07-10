@@ -295,7 +295,7 @@ pub fn update_timers_and_animations() {
     // so processing those first lets a start/stop take effect on the same frame — a
     // newly-started tween applies its `from` value immediately, and a stopped one freezes
     // without advancing one extra frame.
-    crate::animations::update_composite_animations();
+    crate::animations::update_animation_objects();
 }
 
 /// Returns the duration before the next timer is expected to be activated. This is the

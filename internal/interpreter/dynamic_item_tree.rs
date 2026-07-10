@@ -486,7 +486,7 @@ pub struct ItemTreeDescription<'id> {
         Vec<(NamedReference, Expression)>,
     )>,
     timers: Vec<FieldOffset<Instance<'id>, Timer>>,
-    animations: Vec<FieldOffset<Instance<'id>, i_slint_core::properties::CompositeAnimationHandle>>,
+    animations: Vec<FieldOffset<Instance<'id>, i_slint_core::properties::AnimationHandle>>,
     /// Map of element IDs to their active popup's ID
     popup_ids: std::cell::RefCell<HashMap<SmolStr, NonZeroU32>>,
 
@@ -1380,7 +1380,7 @@ pub(crate) fn generate_item_tree<'id>(
         .borrow()
         .iter()
         .map(|_| {
-            builder.type_builder.add_field_type::<i_slint_core::properties::CompositeAnimationHandle>()
+            builder.type_builder.add_field_type::<i_slint_core::properties::AnimationHandle>()
         })
         .collect();
 

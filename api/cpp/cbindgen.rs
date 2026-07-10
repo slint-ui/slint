@@ -627,17 +627,17 @@ fn gen_corelib(
     let animation_config = {
         let mut tmp = config.clone();
         tmp.export.include = [
-            "slint_composite_animation_handle_start_int",
-            "slint_composite_animation_handle_restart_int",
-            "slint_composite_animation_handle_start_float",
-            "slint_composite_animation_handle_restart_float",
-            "slint_composite_animation_handle_start_color",
-            "slint_composite_animation_handle_restart_color",
-            "slint_composite_animation_handle_start_brush",
-            "slint_composite_animation_handle_restart_brush",
-            "slint_composite_animation_handle_stop",
-            "slint_composite_animation_handle_is_running",
-            "slint_composite_animation_handle_drop",
+            "slint_animation_handle_start_int",
+            "slint_animation_handle_restart_int",
+            "slint_animation_handle_start_float",
+            "slint_animation_handle_restart_float",
+            "slint_animation_handle_start_color",
+            "slint_animation_handle_restart_color",
+            "slint_animation_handle_start_brush",
+            "slint_animation_handle_restart_brush",
+            "slint_animation_handle_stop",
+            "slint_animation_handle_is_running",
+            "slint_animation_handle_drop",
         ]
         .iter()
         .map(|s| s.to_string())

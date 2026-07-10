@@ -2623,7 +2623,7 @@ fn generate_sub_component(
             target_struct.members.push((
                 field_access,
                 Declaration::Var(Var {
-                    ty: "slint::private_api::CompositeAnimationHandle".into(),
+                    ty: "slint::private_api::AnimationHandle".into(),
                     name,
                     ..Default::default()
                 }),

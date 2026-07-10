@@ -1826,7 +1826,7 @@ fn generate_sub_component(
             #(#repeated_element_components,)*
             #(#change_tracker_names : sp::ChangeTracker,)*
             #(#timer_names : sp::Timer,)*
-            #(#anim_names : sp::CompositeAnimationHandle,)*
+            #(#anim_names : sp::AnimationHandle,)*
             self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,
             #(parent : #parent_component_type,)*
             globals: sp::OnceCell<sp::Rc<SharedGlobals>>,

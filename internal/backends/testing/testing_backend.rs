@@ -56,7 +56,7 @@ pub fn mock_elapsed_time(time_in_ms: u64) {
     // Advance object-based animations (TweenAnimation and other composites) after change
     // handlers, mirroring `platform::update_timers_and_animations()` so that starting or
     // stopping via the `running` property takes effect on the same frame.
-    i_slint_core::animations::update_composite_animations();
+    i_slint_core::animations::update_animation_objects();
     ensure_all_tracked_trees_instantiated();
 }
 

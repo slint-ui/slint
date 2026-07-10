@@ -15,7 +15,7 @@ use euclid::Length;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
-crate::thread_local!(static CURRENT_COMPOSITE_ANIMATIONS: RefCell<slab::Slab<Box<dyn Animation>>> = RefCell::default());
+crate::thread_local!(static CURRENT_ANIMATIONS: RefCell<slab::Slab<Box<dyn Animation>>> = RefCell::default());
 
 /// Base trait for all animation objects
 pub trait Animation {
@@ -112,10 +112,10 @@ impl<S: physics_simulation::Simulation> Animation for PropertyPhysicsAnimationDa
 /// A tween animation that interpolates a value from one state to another.
 ///
 /// This is the "data" half of the tween's handle+data pattern: codegen holds a
-/// [`CompositeAnimationHandle`] field and, on each frame where the Slint `running`
+/// [`AnimationHandle`] field and, on each frame where the Slint `running`
 /// property is true, builds a fresh `TweenAnimation` (via
 /// [`new_with_callbacks`](Self::new_with_callbacks)) and hands it to
-/// [`CompositeAnimationHandle::start`]/[`restart`](CompositeAnimationHandle::restart).
+/// [`AnimationHandle::start`]/[`restart`](AnimationHandle::restart).
 /// `set_value`/`on_finished` are only populated on that path; the other two use sites
 /// ([`AnimatedBindingCallable`] and `Property::set_animated_value`) call
 /// `compute_interpolated_value()` directly and leave them `None`.
@@ -306,10 +306,6 @@ impl<T: InterpolatedPropertyValue + Clone> Animation for TweenAnimation<T> {
         !finished
     }
 }
-
-// TODO remove
-#[cfg(feature = "ffi")]
-pub(super) type PropertyValueAnimationData<T> = TweenAnimation<T>;
 
 /// Delays before starting the next animation
 pub struct DelayAnimation {
@@ -524,19 +520,19 @@ impl Animation for ParallelAnimation {
     }
 }
 
-/// Handle to a composite animation (Sequential/Parallel/Delay).
+/// Handle to a registered animation object (e.g. `TweenAnimation`).
 /// Analogous to `crate::timers::Timer`, this is a lightweight id-holding handle
 /// that the codegen can store as a component field.
 #[derive(Default)]
-pub struct CompositeAnimationHandle {
+pub struct AnimationHandle {
     id: core::cell::Cell<Option<NonZeroUsize>>,
     _phantom: core::marker::PhantomData<*mut ()>,
 }
 
-impl CompositeAnimationHandle {
-    /// Register a new composite animation in the global registry.
+impl AnimationHandle {
+    /// Register a new animation object in the global registry.
     pub fn register(animation: Box<dyn Animation>) -> Self {
-        let id = CURRENT_COMPOSITE_ANIMATIONS.with(|anims| {
+        let id = CURRENT_ANIMATIONS.with(|anims| {
             let mut anims = anims.borrow_mut();
             NonZeroUsize::new(anims.insert(animation) + 1).expect("slab index too large")
         });
@@ -572,10 +568,10 @@ impl CompositeAnimationHandle {
         self.clear();
     }
 
-    /// Check if the composite animation is running.
+    /// Check if the animation is running.
     pub fn is_running(&self) -> bool {
         if let Some(id) = self.id.get() {
-            CURRENT_COMPOSITE_ANIMATIONS.with(|anims| {
+            CURRENT_ANIMATIONS.with(|anims| {
                 anims.borrow().get(id.get() - 1).map(|a| a.is_running()).unwrap_or(false)
             })
         } else {
@@ -586,7 +582,7 @@ impl CompositeAnimationHandle {
     /// Remove any previously registered animation and register `animation` in its place.
     pub fn replace(&self, animation: Box<dyn Animation>) {
         self.clear();
-        let id = CURRENT_COMPOSITE_ANIMATIONS.with(|anims| {
+        let id = CURRENT_ANIMATIONS.with(|anims| {
             let mut anims = anims.borrow_mut();
             NonZeroUsize::new(anims.insert(animation) + 1).expect("slab index too large")
         });
@@ -596,27 +592,27 @@ impl CompositeAnimationHandle {
     /// Deregister the animation, if any. Leaves the handle empty.
     pub fn clear(&self) {
         if let Some(id) = self.id.take() {
-            CURRENT_COMPOSITE_ANIMATIONS.with(|anims| {
+            CURRENT_ANIMATIONS.with(|anims| {
                 let _ = anims.borrow_mut().try_remove(id.get() - 1);
             });
         }
     }
 }
 
-impl Drop for CompositeAnimationHandle {
+impl Drop for AnimationHandle {
     fn drop(&mut self) {
         if let Some(id) = self.id.get() {
-            CURRENT_COMPOSITE_ANIMATIONS.with(|anims| {
+            CURRENT_ANIMATIONS.with(|anims| {
                 let _ = anims.borrow_mut().try_remove(id.get() - 1);
             });
         }
     }
 }
 
-/// Update all active composite animations by one tick.
+/// Update all active animation objects by one tick.
 /// This should be called once per frame, similar to `crate::timers::TimerList::maybe_activate_timers`.
-pub fn update_composite_animations() {
-    CURRENT_COMPOSITE_ANIMATIONS.with(|anims| {
+pub fn update_animation_objects() {
+    CURRENT_ANIMATIONS.with(|anims| {
         let mut finished_ids = Vec::new();
         {
             let mut anims_mut = anims.borrow_mut();
@@ -683,7 +679,7 @@ pub(crate) mod animation_object_ffi {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn composite_animation_handle_start_impl<T: InterpolatedPropertyValue + Clone + 'static>(
+    fn animation_handle_start_impl<T: InterpolatedPropertyValue + Clone + 'static>(
         id: usize,
         from: T,
         to: T,
@@ -713,7 +709,7 @@ pub(crate) mod animation_object_ffi {
             move |value| set_value_wrap.call(value),
             move || on_finished_wrap.call(),
         );
-        let handle = CompositeAnimationHandle::default();
+        let handle = AnimationHandle::default();
         if id != 0 {
             handle.id.set(NonZeroUsize::new(id));
         }
@@ -729,7 +725,7 @@ pub(crate) mod animation_object_ffi {
     // are written out explicitly rather than generated via macro_rules!.
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_composite_animation_handle_start_int(
+    pub extern "C" fn slint_animation_handle_start_int(
         id: usize,
         from: i32,
         to: i32,
@@ -741,7 +737,7 @@ pub(crate) mod animation_object_ffi {
         on_finished_user_data: *mut c_void,
         on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) -> usize {
-        composite_animation_handle_start_impl(
+        animation_handle_start_impl(
             id,
             from,
             to,
@@ -757,7 +753,7 @@ pub(crate) mod animation_object_ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_composite_animation_handle_restart_int(
+    pub extern "C" fn slint_animation_handle_restart_int(
         id: usize,
         from: i32,
         to: i32,
@@ -769,7 +765,7 @@ pub(crate) mod animation_object_ffi {
         on_finished_user_data: *mut c_void,
         on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) -> usize {
-        composite_animation_handle_start_impl(
+        animation_handle_start_impl(
             id,
             from,
             to,
@@ -785,7 +781,7 @@ pub(crate) mod animation_object_ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_composite_animation_handle_start_float(
+    pub extern "C" fn slint_animation_handle_start_float(
         id: usize,
         from: f32,
         to: f32,
@@ -797,7 +793,7 @@ pub(crate) mod animation_object_ffi {
         on_finished_user_data: *mut c_void,
         on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) -> usize {
-        composite_animation_handle_start_impl(
+        animation_handle_start_impl(
             id,
             from,
             to,
@@ -813,7 +809,7 @@ pub(crate) mod animation_object_ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_composite_animation_handle_restart_float(
+    pub extern "C" fn slint_animation_handle_restart_float(
         id: usize,
         from: f32,
         to: f32,
@@ -825,7 +821,7 @@ pub(crate) mod animation_object_ffi {
         on_finished_user_data: *mut c_void,
         on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) -> usize {
-        composite_animation_handle_start_impl(
+        animation_handle_start_impl(
             id,
             from,
             to,
@@ -841,7 +837,7 @@ pub(crate) mod animation_object_ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_composite_animation_handle_start_color(
+    pub extern "C" fn slint_animation_handle_start_color(
         id: usize,
         from: crate::Color,
         to: crate::Color,
@@ -853,7 +849,7 @@ pub(crate) mod animation_object_ffi {
         on_finished_user_data: *mut c_void,
         on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) -> usize {
-        composite_animation_handle_start_impl(
+        animation_handle_start_impl(
             id,
             from,
             to,
@@ -869,7 +865,7 @@ pub(crate) mod animation_object_ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_composite_animation_handle_restart_color(
+    pub extern "C" fn slint_animation_handle_restart_color(
         id: usize,
         from: crate::Color,
         to: crate::Color,
@@ -881,7 +877,7 @@ pub(crate) mod animation_object_ffi {
         on_finished_user_data: *mut c_void,
         on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) -> usize {
-        composite_animation_handle_start_impl(
+        animation_handle_start_impl(
             id,
             from,
             to,
@@ -897,7 +893,7 @@ pub(crate) mod animation_object_ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_composite_animation_handle_start_brush(
+    pub extern "C" fn slint_animation_handle_start_brush(
         id: usize,
         from: crate::Brush,
         to: crate::Brush,
@@ -909,7 +905,7 @@ pub(crate) mod animation_object_ffi {
         on_finished_user_data: *mut c_void,
         on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) -> usize {
-        composite_animation_handle_start_impl(
+        animation_handle_start_impl(
             id,
             from,
             to,
@@ -925,7 +921,7 @@ pub(crate) mod animation_object_ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_composite_animation_handle_restart_brush(
+    pub extern "C" fn slint_animation_handle_restart_brush(
         id: usize,
         from: crate::Brush,
         to: crate::Brush,
@@ -937,7 +933,7 @@ pub(crate) mod animation_object_ffi {
         on_finished_user_data: *mut c_void,
         on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) -> usize {
-        composite_animation_handle_start_impl(
+        animation_handle_start_impl(
             id,
             from,
             to,
@@ -952,39 +948,39 @@ pub(crate) mod animation_object_ffi {
         )
     }
 
-    /// Stop and deregister whatever composite animation is running on this handle.
+    /// Stop and deregister whatever animation is running on this handle.
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_composite_animation_handle_stop(id: usize) {
+    pub extern "C" fn slint_animation_handle_stop(id: usize) {
         if id == 0 {
             return;
         }
         let handle =
-            CompositeAnimationHandle { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
+            AnimationHandle { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
         handle.stop();
         handle.id.take();
     }
 
-    /// Returns true if the composite animation on this handle is running.
+    /// Returns true if the animation on this handle is running.
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_composite_animation_handle_is_running(id: usize) -> bool {
+    pub extern "C" fn slint_animation_handle_is_running(id: usize) -> bool {
         if id == 0 {
             return false;
         }
         let handle =
-            CompositeAnimationHandle { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
+            AnimationHandle { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
         let running = handle.is_running();
         handle.id.take();
         running
     }
 
-    /// Drop (deregister) the composite animation handle. Called from the C++ destructor.
+    /// Drop (deregister) the animation handle. Called from the C++ destructor.
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_composite_animation_handle_drop(id: usize) {
+    pub extern "C" fn slint_animation_handle_drop(id: usize) {
         if id == 0 {
             return;
         }
         let handle =
-            CompositeAnimationHandle { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
+            AnimationHandle { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
         drop(handle);
     }
 }
@@ -1054,8 +1050,8 @@ mod animation_architecture_tests {
     }
 
     #[test]
-    fn test_composite_handle_start_restart_tween() {
-        // Mirrors how codegen drives a tween: a CompositeAnimationHandle field (the
+    fn test_animation_handle_start_restart_tween() {
+        // Mirrors how codegen drives a tween: an AnimationHandle field (the
         // "handle") and, per frame, a freshly-built TweenAnimation (the "data") handed
         // to start()/restart().
         let observed = Rc::new(RefCell::new(Vec::new()));
@@ -1064,7 +1060,7 @@ mod animation_architecture_tests {
         let finished_clone = finished.clone();
 
         let start_time = crate::animations::current_tick();
-        let handle = CompositeAnimationHandle::default();
+        let handle = AnimationHandle::default();
 
         let tween = TweenAnimation::new_with_callbacks(
             0i32,
@@ -1079,7 +1075,7 @@ mod animation_architecture_tests {
         // point is_running() reports true.
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.update_animations(start_time));
-        crate::animations::update_composite_animations();
+        crate::animations::update_animation_objects();
         assert!(handle.is_running());
 
         // A second start() while already running is a no-op: codegen relies on this to
@@ -1095,7 +1091,7 @@ mod animation_architecture_tests {
 
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.update_animations(start_time + core::time::Duration::from_millis(100)));
-        crate::animations::update_composite_animations();
+        crate::animations::update_animation_objects();
         assert_eq!(*observed.borrow().last().unwrap(), 50);
 
         // restart() forces a fresh tween in, even though the handle is still running.
@@ -1113,7 +1109,7 @@ mod animation_architecture_tests {
         let start_time = crate::animations::current_tick();
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.update_animations(start_time + core::time::Duration::from_millis(200)));
-        crate::animations::update_composite_animations();
+        crate::animations::update_animation_objects();
         assert_eq!(*observed.borrow().last().unwrap(), 100);
         assert!(finished.get());
         assert!(!handle.is_running());

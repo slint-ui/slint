@@ -12,7 +12,7 @@ pub(crate) mod physics_simulation;
 
 pub mod tween {
     //! Re-export the tween handle+data types from properties_animations
-    pub use crate::properties::{CompositeAnimationHandle, TweenAnimation};
+    pub use crate::properties::{AnimationHandle, TweenAnimation};
 }
 
 mod cubic_bezier {
@@ -416,8 +416,8 @@ fn easing_test() {
 }
 */
 
-/// Update the global animation time to the current time
-pub use crate::properties::update_composite_animations;
+/// Advance all currently-running animation objects (e.g. `TweenAnimation`) by one tick.
+pub use crate::properties::update_animation_objects;
 
 /// Advances all currently-registered legacy property animations by one tick.
 pub fn update_animations() {

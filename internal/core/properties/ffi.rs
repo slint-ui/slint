@@ -210,7 +210,7 @@ fn c_set_animated_value<T: InterpolatedPropertyValue + Clone>(
     to: T,
     animation_data: &PropertyAnimation,
 ) {
-    let d = RefCell::new(properties_animations::PropertyValueAnimationData::new(
+    let d = RefCell::new(properties_animations::TweenAnimation::new(
         from,
         to,
         animation_data.clone(),
@@ -303,7 +303,7 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
                     .map_addr(|a| a | 0b10),
             ),
         };
-        let animation_data = RefCell::new(properties_animations::PropertyValueAnimationData::new(
+        let animation_data = RefCell::new(properties_animations::TweenAnimation::new(
             T::default(),
             T::default(),
             PropertyAnimation::default(),
