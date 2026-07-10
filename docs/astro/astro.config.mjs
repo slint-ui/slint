@@ -183,6 +183,7 @@ export default defineConfig({
                                 collapsed: true,
                                 items: [
                                     "guide/platforms/desktop",
+                                    "guide/platforms/macos-packaging",
                                     "guide/platforms/embedded",
                                     {
                                         label: "Mobile",
