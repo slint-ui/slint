@@ -1287,6 +1287,15 @@ public:
         }
     }
 
+    /// The typed instance at position `i` (`0..len()`), or nullptr if not instantiated.
+    const C *typed_instance_at(std::size_t i) const
+    {
+        if (!inner || i >= inner->data.size())
+            return nullptr;
+        const auto &x = inner->data[i];
+        return x.ptr ? &(**x.ptr) : nullptr;
+    }
+
     bool recurse_ensure_instantiated() const
     {
         if (!inner)
@@ -1381,6 +1390,12 @@ public:
         if (instance) {
             f(*instance);
         }
+    }
+
+    /// The typed instance at position `i` (`0..len()`), or nullptr if not instantiated.
+    const C *typed_instance_at(std::size_t i) const
+    {
+        return (i == 0 && instance) ? &(**instance) : nullptr;
     }
 
     bool recurse_ensure_instantiated() const

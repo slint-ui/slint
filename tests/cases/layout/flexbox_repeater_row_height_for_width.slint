@@ -1,0 +1,183 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A height-for-width cell in a *row* FlexboxLayout only learns its width during
+// the solve (the main axis distributes it), so it must be re-measured through
+// the measure callback. Cover both a repeated cell and a static cell sharing a
+// flexbox with a repeater — the presence of a repeater must not disable the
+// callback for anyone.
+
+component Card inherits Rectangle {
+    in property <string> label;
+    VerticalLayout {
+        Text { text: root.label; wrap: word-wrap; }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 1400px;
+    height: 500px;
+
+    property <string> long: "A really long card text that will almost certainly need to wrap onto two or more lines when the flex space is tight";
+    property <[int]> empty-model: [];
+
+    // Single-line reference, so the assertions stay font-independent
+    // (the nodejs backend has no test fonts).
+    refLine := Text { x: -3000px; text: "Short"; wrap: no-wrap; }
+    out property <length> line-height: refLine.height;
+
+    // Each flexbox wraps: the card takes line 1, the 150px-wide anchor is
+    // pushed to line 2, so `anchor.y` == the solved height of the card.
+
+    // A: repeated height-for-width card.
+    FlexboxLayout {
+        x: 0; y: 0; width: 150px; height: 400px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 0px; spacing: 0px;
+        align-content: start;
+        cross-axis-alignment: start;
+        for s in [long]: Card { label: s; flex-shrink: 0; flex-basis: 150px; }
+        aAnchor := Rectangle { width: 150px; height: 5px; }
+    }
+
+    // B: static reference, no repeater in the flexbox.
+    FlexboxLayout {
+        x: 200px; y: 0; width: 150px; height: 400px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 0px; spacing: 0px;
+        align-content: start;
+        cross-axis-alignment: start;
+        Card { label: long; flex-shrink: 0; flex-basis: 150px; }
+        bAnchor := Rectangle { width: 150px; height: 5px; }
+    }
+
+    // C: static height-for-width card sharing a flexbox with a (non-h4w)
+    // repeater declared after it.
+    FlexboxLayout {
+        x: 400px; y: 0; width: 150px; height: 400px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 0px; spacing: 0px;
+        align-content: start;
+        cross-axis-alignment: start;
+        Card { label: long; flex-shrink: 0; flex-basis: 150px; }
+        cAnchor := Rectangle { width: 150px; height: 5px; }
+        for x in [1]: Rectangle { width: 0px; height: 0px; }
+    }
+
+    // D: repeater declared *before* the static card, so the card's flat cell
+    // index is offset by the repeater's instance count.
+    FlexboxLayout {
+        x: 600px; y: 0; width: 150px; height: 400px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 0px; spacing: 0px;
+        align-content: start;
+        cross-axis-alignment: start;
+        for x in [1, 2]: Rectangle { width: 0px; height: 0px; }
+        Card { label: long; flex-shrink: 0; flex-basis: 150px; }
+        dAnchor := Rectangle { width: 150px; height: 5px; }
+    }
+
+    // E: two repeated h4w cards. Each fills a line and wraps, so the second is
+    // measured at `index - cursor == 1` and the anchor lands at twice the card
+    // height — this exercises the multi-instance walk.
+    FlexboxLayout {
+        x: 800px; y: 0; width: 150px; height: 400px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 0px; spacing: 0px;
+        align-content: start;
+        cross-axis-alignment: start;
+        for s in [long, long]: Card { label: s; flex-shrink: 0; flex-basis: 150px; }
+        eAnchor := Rectangle { width: 150px; height: 5px; }
+    }
+
+    // F: `if`-conditional h4w card, lowered as a repeater with one instance
+    // (covers Conditional::typed_instance_at).
+    FlexboxLayout {
+        x: 1000px; y: 0; width: 150px; height: 400px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 0px; spacing: 0px;
+        align-content: start;
+        cross-axis-alignment: start;
+        if true: Card { label: long; flex-shrink: 0; flex-basis: 150px; }
+        fAnchor := Rectangle { width: 150px; height: 5px; }
+    }
+
+    // G: an empty repeater before a static h4w card: `cursor += 0` must not
+    // shift the card's flat cell index.
+    FlexboxLayout {
+        x: 1200px; y: 0; width: 150px; height: 400px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 0px; spacing: 0px;
+        align-content: start;
+        cross-axis-alignment: start;
+        for x in empty-model: Rectangle { width: 0px; height: 0px; }
+        Card { label: long; flex-shrink: 0; flex-basis: 150px; }
+        gAnchor := Rectangle { width: 150px; height: 5px; }
+    }
+
+    out property <length> repeated-h: aAnchor.y;
+    out property <length> static-h: bAnchor.y;
+    out property <length> mixed-h: cAnchor.y;
+    out property <length> offset-h: dAnchor.y;
+    out property <length> multi-h: eAnchor.y;
+    out property <length> cond-h: fAnchor.y;
+    out property <length> empty-h: gAnchor.y;
+
+    // The reference card really did wrap (more than two lines), otherwise the
+    // equalities below would hold trivially.
+    out property <bool> wrapped: static-h > 2 * line-height;
+
+    out property <bool> repeated-ok: abs(repeated-h - static-h) < 1px;
+    out property <bool> mixed-ok: abs(mixed-h - static-h) < 1px;
+    out property <bool> offset-ok: abs(offset-h - static-h) < 1px;
+    // Two wrapped cards stacked, so the anchor is at twice the single height.
+    out property <bool> multi-ok: abs(multi-h - 2 * static-h) < 1px;
+    out property <bool> cond-ok: abs(cond-h - static-h) < 1px;
+    out property <bool> empty-ok: abs(empty-h - static-h) < 1px;
+
+    out property <bool> test: wrapped && repeated-ok && mixed-ok && offset-ok
+        && multi-ok && cond-ok && empty-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_wrapped(), "reference card did not wrap");
+assert!(instance.get_repeated_ok(), "repeated h4w row cell not re-measured");
+assert!(instance.get_mixed_ok(), "static h4w row cell not re-measured next to a repeater");
+assert!(instance.get_offset_ok(), "static h4w row cell after a repeater not re-measured");
+assert!(instance.get_multi_ok(), "second repeated h4w instance not re-measured");
+assert!(instance.get_cond_ok(), "conditional h4w cell not re-measured");
+assert!(instance.get_empty_ok(), "empty repeater shifted the static h4w cell index");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_wrapped());
+assert(instance.get_repeated_ok());
+assert(instance.get_mixed_ok());
+assert(instance.get_offset_ok());
+assert(instance.get_multi_ok());
+assert(instance.get_cond_ok());
+assert(instance.get_empty_ok());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.wrapped);
+assert(instance.repeated_ok);
+assert(instance.mixed_ok);
+assert(instance.offset_ok);
+assert(instance.multi_ok);
+assert(instance.cond_ok);
+assert(instance.empty_ok);
+```
+*/
