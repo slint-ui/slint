@@ -1323,12 +1323,25 @@ fn optimize_single_cell_layout(
     }
     layout_element.borrow_mut().bindings.remove(cache_name);
     layout_element.borrow_mut().property_declarations.remove(cache_name);
+    for o in [Orientation::Horizontal, Orientation::Vertical] {
+        let Some(nr) = layout_element.borrow().layout_info_prop(o).cloned() else { continue };
+        let Some(info) =
+            single_cell_layout_info_binding(layout, &layout.elems[0], o, single_cell.stretch)
+        else {
+            continue;
+        };
+        if let Some(binding) = nr.element().borrow().bindings.get(nr.name()) {
+            binding.borrow_mut().expression = info;
+        }
+    }
 }
 
 /// Compile-time solution for a box layout with a single non-repeated cell and
 /// constant alignment: `size = clamp(min(available, preferred), min, max)`
 /// (no preferred term when stretching), `pos = padding + pos_factor * leftover`.
 struct SingleCellBoxLayout {
+    /// Whether the (constant) alignment is the default stretch.
+    stretch: bool,
     /// Fraction of the leftover space placed before the cell:
     /// 0 for stretch/start/space-between, ½ for center/space-around/space-evenly, 1 for end.
     pos_factor: f64,
@@ -1385,7 +1398,7 @@ fn single_cell_box_layout(layout: &BoxLayout) -> Option<SingleCellBoxLayout> {
         return None;
     }
     if c.fixed {
-        return Some(SingleCellBoxLayout { pos_factor, size: None });
+        return Some(SingleCellBoxLayout { stretch, pos_factor, size: None });
     }
     let implicit = cell_implicit_info(&item.element, orientation);
     let side = |explicit: &Option<NamedReference>, name: &str| {
@@ -1396,6 +1409,7 @@ fn single_cell_box_layout(layout: &BoxLayout) -> Option<SingleCellBoxLayout> {
     };
     let pref = if stretch { None } else { Some(side(c.preferred, "preferred")?) };
     Some(SingleCellBoxLayout {
+        stretch,
         pos_factor,
         size: Some((side(c.min, "min")?, side(c.max, "max")?, pref)),
     })
@@ -1422,6 +1436,151 @@ fn size_minus_padding(
         e = bin('-', e, Expression::PropertyReference(p.clone()));
     }
     e
+}
+
+/// Closed-form `layoutinfo-{h,v}` binding for a single-cell box layout: what
+/// `box_layout_info` / `box_layout_info_ortho` compute at runtime. `None` when
+/// a needed side of the cell's implicit layout info requires a runtime call.
+fn single_cell_layout_info_binding(
+    layout: &BoxLayout,
+    item: &LayoutItem,
+    o: Orientation,
+    stretch: bool,
+) -> Option<Expression> {
+    let c = item.constraints.for_orientation(o);
+    let size_prop = match o {
+        Orientation::Horizontal => "width",
+        Orientation::Vertical => "height",
+    };
+    let info_ty = crate::typeregister::layout_info_type();
+    // Literal fields for built-ins with static info; otherwise a local holding
+    // the cell's layout info property, stored only when a field is read.
+    enum Implicit {
+        Literal(std::collections::BTreeMap<SmolStr, Expression>),
+        Prop(Expression),
+        Expensive,
+    }
+    let implicit = match cell_implicit_info(&item.element, o) {
+        Some(Expression::Struct { values, .. }) => Implicit::Literal(values),
+        Some(base @ Expression::PropertyReference(_)) => Implicit::Prop(base),
+        _ => Implicit::Expensive,
+    };
+    let mut implicit_used = false;
+    let mut implicit_field = |name: &str| match &implicit {
+        Implicit::Literal(values) => values.get(name).cloned(),
+        Implicit::Prop(_) => {
+            implicit_used = true;
+            Some(Expression::StructFieldAccess {
+                base: Box::new(Expression::ReadLocalVariable {
+                    name: "cell_layout_info".into(),
+                    ty: info_ty.clone().into(),
+                }),
+                name: name.into(),
+            })
+        }
+        Implicit::Expensive => None,
+    };
+    // Percent constraints don't restrict the reported layout info.
+    let explicit = |nr: &Option<NamedReference>| {
+        nr.clone().filter(|nr| nr.ty() != Type::Percent).map(Expression::PropertyReference)
+    };
+    let (cell_min, cell_max, cell_pref) = if c.fixed {
+        let sz =
+            Expression::ReadLocalVariable { name: "cell_size".into(), ty: Type::LogicalLength };
+        (sz.clone(), sz.clone(), sz)
+    } else {
+        (
+            explicit(c.min).or_else(|| implicit_field("min"))?,
+            explicit(c.max).or_else(|| implicit_field("max"))?,
+            explicit(c.preferred).or_else(|| implicit_field("preferred"))?,
+        )
+    };
+    let cell_stretch = c
+        .stretch
+        .clone()
+        .map(Expression::PropertyReference)
+        .or_else(|| implicit_field("stretch"))
+        .or_else(|| static_native_stretch(&item.element))?;
+
+    let mut prelude = Vec::new();
+    if implicit_used && let Implicit::Prop(base) = implicit {
+        prelude.push(Expression::StoreLocalVariable {
+            name: "cell_layout_info".into(),
+            value: Box::new(base),
+        });
+    }
+    if c.fixed {
+        prelude.push(Expression::StoreLocalVariable {
+            name: "cell_size".into(),
+            value: Box::new(Expression::PropertyReference(NamedReference::new(
+                &item.element,
+                SmolStr::new_static(size_prop),
+            ))),
+        });
+    }
+    let (pad_begin, pad_end) = layout.geometry.padding.begin_end(o);
+    let pad_sum = [pad_begin, pad_end]
+        .into_iter()
+        .flatten()
+        .map(|nr| Expression::PropertyReference(nr.clone()))
+        .reduce(|lhs, rhs| bin('+', lhs, rhs));
+    if let Some(pad_sum) = pad_sum.clone() {
+        prelude.push(Expression::StoreLocalVariable {
+            name: "layout_padding".into(),
+            value: Box::new(pad_sum),
+        });
+    }
+    let plus_pads = |e: Expression| {
+        if pad_sum.is_none() {
+            e
+        } else {
+            let pads = Expression::ReadLocalVariable {
+                name: "layout_padding".into(),
+                ty: Type::LogicalLength,
+            };
+            bin('+', e, pads)
+        }
+    };
+    let (min, max, preferred) = if o == layout.orientation {
+        let min = plus_pads(cell_min.clone());
+        let max = if stretch {
+            min_max(MinMaxOp::Max, plus_pads(cell_max.clone()), min.clone())
+        } else {
+            Expression::NumberLiteral(f32::MAX as f64, Unit::Px)
+        };
+        let pref = plus_pads(min_max(
+            MinMaxOp::Max,
+            min_max(MinMaxOp::Min, cell_pref, cell_max),
+            cell_min,
+        ));
+        (min, max, pref)
+    } else {
+        let bounded_max = min_max(MinMaxOp::Max, cell_max, cell_min.clone());
+        let pref = plus_pads(min_max(
+            MinMaxOp::Max,
+            min_max(MinMaxOp::Min, cell_pref, bounded_max.clone()),
+            cell_min.clone(),
+        ));
+        (plus_pads(cell_min), plus_pads(bounded_max), pref)
+    };
+    let values = [
+        ("min", min),
+        ("max", max),
+        ("min_percent", Expression::NumberLiteral(0., Unit::None)),
+        ("max_percent", Expression::NumberLiteral(100., Unit::None)),
+        ("preferred", preferred),
+        ("stretch", cell_stretch),
+    ]
+    .into_iter()
+    .map(|(name, e)| (SmolStr::new_static(name), e))
+    .collect();
+    let info = Expression::Struct { ty: info_ty, values };
+    Some(if prelude.is_empty() {
+        info
+    } else {
+        prelude.push(info);
+        Expression::CodeBlock(prelude)
+    })
 }
 
 /// The implicit layout info of a layout cell, resolved like `get_layout_info`
@@ -1491,8 +1650,6 @@ fn lower_box_layout(
         cross_alignment: binding_reference(layout_element, "cross-axis-alignment"),
     };
 
-    let layout_cache_prop =
-        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::LayoutCache);
     let layout_cache_ortho_prop = layout.cross_alignment.is_some().then(|| {
         create_new_prop(
             layout_element,
@@ -1517,6 +1674,9 @@ fn lower_box_layout(
         Orientation::Horizontal => ("x", "width", "y", "height"),
         Orientation::Vertical => ("y", "height", "x", "width"),
     };
+
+    let layout_cache_prop =
+        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::LayoutCache);
     // Default stretch bindings, only used when there is no `cross-axis-alignment`.
     let stretch_bindings = layout_cache_ortho_prop.is_none().then(|| {
         let pads = layout.geometry.padding.begin_end(orientation.orthogonal());

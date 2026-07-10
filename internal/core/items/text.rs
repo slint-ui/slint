@@ -635,6 +635,8 @@ impl SimpleText {
     }
 }
 
+// The compiler's single-cell box layout lowering relies on text and image
+// items keeping the default stretch of 0 in their layout info.
 fn text_layout_info(
     text: Pin<&dyn RenderText>,
     self_rc: &ItemRc,
