@@ -384,6 +384,12 @@ fn inline_element(
         if let Some(ref mut easing) = a.easing {
             fixup_reference(easing, &mapping);
         }
+        if let Some(ref mut iteration_count) = a.iteration_count {
+            fixup_reference(iteration_count, &mapping);
+        }
+        if let Some(ref mut direction) = a.direction {
+            fixup_reference(direction, &mapping);
+        }
     }
     // If some element were moved into PopupWindow, we need to report error if they are used outside of the popup window.
     if !moved_into_popup.is_empty() {
@@ -561,6 +567,12 @@ fn duplicate_sub_component(
         }
         if let Some(ref mut easing) = a.easing {
             fixup_reference(easing, &mapping);
+        }
+        if let Some(ref mut iteration_count) = a.iteration_count {
+            fixup_reference(iteration_count, &mapping);
+        }
+        if let Some(ref mut direction) = a.direction {
+            fixup_reference(direction, &mapping);
         }
     }
     *new_component.menu_item_tree.borrow_mut() = component_to_duplicate

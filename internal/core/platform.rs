@@ -290,6 +290,12 @@ pub fn update_timers_and_animations() {
     crate::animations::update_animations();
     crate::timers::TimerList::maybe_activate_timers(crate::animations::Instant::now());
     crate::properties::ChangeTracker::run_change_handlers();
+    // Tick object-based animations (TweenAnimation and other composites) *after* change
+    // handlers: setting an animation's `running` property flips it via a change handler,
+    // so processing those first lets a start/stop take effect on the same frame — a
+    // newly-started tween applies its `from` value immediately, and a stopped one freezes
+    // without advancing one extra frame.
+    crate::animations::update_composite_animations();
 }
 
 /// Returns the duration before the next timer is expected to be activated. This is the

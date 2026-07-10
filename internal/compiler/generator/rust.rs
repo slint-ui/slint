@@ -1700,9 +1700,15 @@ fn generate_sub_component(
     let anim_names =
         component.animation_objects.iter().enumerate().map(|(idx, _)| format_ident!("anim{idx}"));
     let update_animations = (!component.animation_objects.is_empty()).then(|| {
+        let mut restart_fns = Vec::new();
         let upda = component.animation_objects.iter().enumerate().map(|(idx, anim)| {
             let ident = format_ident!("anim{idx}");
+            let restart_ident = format_ident!("restart_anim{idx}");
             let running = compile_expression(&anim.running.borrow(), &ctx);
+            let running_ref = match &*anim.running.borrow() {
+                llr::Expression::PropertyReference(mr) => mr.clone(),
+                _ => panic!("internal error: animation running must be a property reference"),
+            };
             let target_ref = match &*anim.target.as_ref()
                 .expect("TweenAnimation requires a target").borrow()
             {
@@ -1720,20 +1726,77 @@ fn generate_sub_component(
             let to = anim.to.as_ref().map(|t| get_property(&t.borrow()));
             let duration = get_property(&anim.duration.as_ref().unwrap().borrow());
             let easing = get_property(&anim.easing.as_ref().unwrap().borrow());
-            access_member(&target_ref, &ctx).then(|prop| {
-                let from_arg = from.as_ref().map(|f| quote!(Some(#f))).unwrap_or_else(|| quote!(None));
-                let to_arg = to.as_ref().map(|t| quote!(Some(#t))).unwrap_or_else(|| quote!(None));
+            let iteration_count = anim.iteration_count.as_ref().map(|i| get_property(&i.borrow())).unwrap_or_else(|| quote!(1.0));
+            let direction = anim.direction.as_ref().map(|d| get_property(&d.borrow())).unwrap_or_else(|| quote!(sp::items::AnimationDirection::Normal));
+
+            // Resolved a second time on purpose (once here, once below for the restart
+            // function): each copy is spliced into its own `move` closure, so it must be
+            // re-evaluated fresh against that closure's own `_self` (rebound each frame via
+            // `self_weak.upgrade()`) rather than reuse a resolution whose `prop`/`x`, for
+            // parent-hop targets (`MemberAccess::Option`/`OptionFn`), only lives for this
+            // immediate call.
+            let set_stmt = access_member(&target_ref, &ctx).then(|prop| quote!(#prop.set(value)));
+            // Resolved the same way as `set_stmt`: spliced into the `on_finished` closure so
+            // the runtime can reflect natural completion back into the Slint `running`
+            // property (fixing `running` never returning to false once a tween ends).
+            let set_running_false =
+                access_member(&running_ref, &ctx).then(|prop| quote!(#prop.set(false)));
+
+            // Builds a fresh `sp::TweenAnimation` (the "data") from the target's current
+            // value and the animation's current property values, then hands it to
+            // `#call` (`start` or `restart`) on the `#ident` handle field (the "handle").
+            let build_and_drive = |call: TokenStream| access_member(&target_ref, &ctx).then(|prop| {
+                let from_arg = from.as_ref().map(|f| quote!(#f)).unwrap_or_else(|| quote!(#prop.get()));
+                let to_arg = to.as_ref().map(|t| quote!(#t)).unwrap_or_else(|| quote!(#prop.get()));
                 quote!(
-                    if #running {
-                        self.#ident.start(
-                            #prop, #from_arg, #to_arg,
-                            sp::PropertyAnimation { duration: #duration as i32, easing: #easing, ..::core::default::Default::default() },
-                        );
-                    } else {
-                        self.#ident.stop(#prop);
-                    }
+                    let self_weak = self.self_weak.get().unwrap().clone();
+                    let self_weak_finished = self.self_weak.get().unwrap().clone();
+                    let tween = sp::TweenAnimation::new_with_callbacks(
+                        #from_arg,
+                        #to_arg,
+                        sp::PropertyAnimation {
+                            duration: #duration as i32,
+                            easing: #easing,
+                            iteration_count: #iteration_count,
+                            direction: #direction,
+                            ..::core::default::Default::default()
+                        },
+                        move |value| {
+                            if let Some(self_rc) = self_weak.upgrade() {
+                                let _self = self_rc.as_pin_ref();
+                                #set_stmt
+                            }
+                        },
+                        move || {
+                            if let Some(self_rc) = self_weak_finished.upgrade() {
+                                let _self = self_rc.as_pin_ref();
+                                #set_running_false
+                            }
+                        },
+                    );
+                    self.#ident.#call(sp::Box::new(tween));
                 )
-            })
+            });
+
+            let start_call = quote!(start);
+            let restart_call = quote!(restart);
+            let start_body = build_and_drive(start_call);
+            let restart_body = build_and_drive(restart_call);
+
+            restart_fns.push(quote!(
+                fn #restart_ident(self: ::core::pin::Pin<&Self>) {
+                    let _self = self;
+                    #restart_body
+                }
+            ));
+
+            quote!(
+                if #running {
+                    #start_body
+                } else {
+                    self.#ident.stop();
+                }
+            )
         });
         user_init_code.push(quote!(_self.update_animations();));
         quote!(
@@ -1741,6 +1804,7 @@ fn generate_sub_component(
                 let _self = self;
                 #(#upda)*
             }
+            #(#restart_fns)*
         )
     });
 
@@ -1762,7 +1826,7 @@ fn generate_sub_component(
             #(#repeated_element_components,)*
             #(#change_tracker_names : sp::ChangeTracker,)*
             #(#timer_names : sp::Timer,)*
-            #(#anim_names : sp::TweenAnimation,)*
+            #(#anim_names : sp::CompositeAnimationHandle,)*
             self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,
             #(parent : #parent_component_type,)*
             globals: sp::OnceCell<sp::Rc<SharedGlobals>>,
@@ -4693,10 +4757,8 @@ fn compile_builtin_function_call(
         BuiltinFunction::StopAnimation => unreachable!(),
         BuiltinFunction::RestartAnimation => {
             if let [Expression::NumberLiteral(anim_index)] = arguments {
-                let ident = format_ident!("anim{}", *anim_index as usize);
-                // For animations, we need the property reference + animation parameters from codegen context
-                // The actual restart call is done in update_animations()
-                quote!(_self.#ident.restart(Default::default(), Default::default(), Default::default(), Default::default()))
+                let ident = format_ident!("restart_anim{}", *anim_index as usize);
+                quote!(_self.#ident())
             } else {
                 panic!("internal error: invalid args to RestartAnimation {arguments:?}")
             }

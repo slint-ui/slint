@@ -221,6 +221,18 @@ fn lower_animation(
         None
     };
 
+    let iteration_count = if animation_element.borrow().is_binding_set("iteration-count", true) {
+        Some(NamedReference::new(animation_element, SmolStr::new_static("iteration-count")))
+    } else {
+        None
+    };
+
+    let direction = if animation_element.borrow().is_binding_set("direction", true) {
+        Some(NamedReference::new(animation_element, SmolStr::new_static("direction")))
+    } else {
+        None
+    };
+
     // Remove the animation_element from its parent
     let mut parent_element_borrowed = parent_element.borrow_mut();
     let index = parent_element_borrowed
@@ -252,6 +264,8 @@ fn lower_animation(
         to,
         duration,
         easing,
+        iteration_count,
+        direction,
         // TODO implement children (only necessary for future animation types)
         children: Vec::new(),
         element: Rc::downgrade(animation_element),

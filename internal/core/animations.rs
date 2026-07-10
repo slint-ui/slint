@@ -9,7 +9,11 @@ use core::cell::Cell;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 pub(crate) mod physics_simulation;
-pub mod tween;
+
+pub mod tween {
+    //! Re-export the tween handle+data types from properties_animations
+    pub use crate::properties::{CompositeAnimationHandle, TweenAnimation};
+}
 
 mod cubic_bezier {
     //! This is a copy from lyon_algorithms::geom::cubic_bezier implementation
@@ -413,6 +417,9 @@ fn easing_test() {
 */
 
 /// Update the global animation time to the current time
+pub use crate::properties::update_composite_animations;
+
+/// Advances all currently-registered legacy property animations by one tick.
 pub fn update_animations() {
     CURRENT_ANIMATION_DRIVER.with(|driver| {
         #[allow(unused_mut)]

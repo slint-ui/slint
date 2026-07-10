@@ -216,7 +216,7 @@ pub mod re_exports {
     pub use i_slint_core::translations::{
         set_bundled_languages, translate_from_bundle, translate_from_bundle_with_plural,
     };
-    pub use i_slint_core::tween::TweenAnimation;
+    pub use i_slint_core::tween::{CompositeAnimationHandle, TweenAnimation};
     pub use i_slint_core::window::{
         InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, WindowKind, accent_color,
         context_for_root,

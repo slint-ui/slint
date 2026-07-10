@@ -545,6 +545,8 @@ pub struct AnimationObject {
     pub to: Option<MutExpression>,
     pub duration: Option<MutExpression>,
     pub easing: Option<MutExpression>,
+    pub iteration_count: Option<MutExpression>,
+    pub direction: Option<MutExpression>,
     // TODO implement
     // pub children: Vec<AnimationObject>,
 }

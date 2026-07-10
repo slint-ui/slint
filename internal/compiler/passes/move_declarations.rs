@@ -180,6 +180,12 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
         if let Some(ref mut easing) = a.easing {
             fixup_reference(easing, renames);
         }
+        if let Some(ref mut iteration_count) = a.iteration_count {
+            fixup_reference(iteration_count, renames);
+        }
+        if let Some(ref mut direction) = a.direction {
+            fixup_reference(direction, renames);
+        }
     });
     component.menu_item_tree.borrow_mut().iter_mut().for_each(|c| {
         visit_all_named_references(c, &mut |nr| fixup_reference(nr, renames));

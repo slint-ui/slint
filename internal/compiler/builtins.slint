@@ -2760,6 +2760,9 @@ component Animation {
     /// `true` while the animation is running.
     in property <bool> running: false;
 
+    /// Number of times to repeat the animation. Negative values mean infinite.
+    in property <float> iteration_count: 1.0;
+
     /// Start the animation. No-op if already running.
     function start() {
     }
@@ -2781,6 +2784,9 @@ export component TweenAnimation inherits Animation {
     in property <easing> easing;
     /// Duration of the animation
     in property <duration> duration;
+    /// The direction of the animation (normal, reverse, alternate, alternate-reverse)
+    in property <AnimationDirection> direction: normal;
+    //-is_non_item_type
 }
 
 /// ```slint playground imageAlt="dialog example" width="200" height="100"

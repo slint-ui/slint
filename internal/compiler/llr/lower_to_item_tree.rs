@@ -978,6 +978,24 @@ fn lower_animation(
             ),
             None => None,
         },
+        iteration_count: match &animation.iteration_count {
+            Some(_) => Some(
+                super::Expression::PropertyReference(
+                    ctx.map_property_reference(&animation.iteration_count.as_ref().unwrap()),
+                )
+                .into(),
+            ),
+            None => None,
+        },
+        direction: match &animation.direction {
+            Some(_) => Some(
+                super::Expression::PropertyReference(
+                    ctx.map_property_reference(&animation.direction.as_ref().unwrap()),
+                )
+                .into(),
+            ),
+            None => None,
+        },
     }
 }
 

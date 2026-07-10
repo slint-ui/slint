@@ -171,6 +171,20 @@ pub fn count_property_use(root: &CompilationUnit) {
                     .borrow()
                     .visit_property_references(ctx, &mut visit_property);
             }
+            if anim.iteration_count.is_some() {
+                anim.iteration_count
+                    .as_ref()
+                    .unwrap()
+                    .borrow()
+                    .visit_property_references(ctx, &mut visit_property);
+            }
+            if anim.direction.is_some() {
+                anim.direction
+                    .as_ref()
+                    .unwrap()
+                    .borrow()
+                    .visit_property_references(ctx, &mut visit_property);
+            }
         }
     });
 

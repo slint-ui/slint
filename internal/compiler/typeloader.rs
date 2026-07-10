@@ -730,6 +730,16 @@ impl Snapshotter {
             } else {
                 None
             },
+            iteration_count: if animation.iteration_count.is_some() {
+                Some(animation.iteration_count.as_ref().unwrap().snapshot(self))
+            } else {
+                None
+            },
+            direction: if animation.direction.is_some() {
+                Some(animation.direction.as_ref().unwrap().snapshot(self))
+            } else {
+                None
+            },
             // TODO implement children
             children: animation.children.clone(),
             element: animation.element.clone(),

@@ -405,6 +405,8 @@ pub struct Animation {
     pub to: Option<NamedReference>,
     pub duration: Option<NamedReference>,
     pub easing: Option<NamedReference>,
+    pub iteration_count: Option<NamedReference>,
+    pub direction: Option<NamedReference>,
     pub children: Vec<Animation>,
     pub element: ElementWeak,
 }
