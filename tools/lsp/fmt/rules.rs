@@ -26,6 +26,18 @@ pub fn make_rules() -> FormatRules {
         semicolon.prepend(Antispace);
     });
 
+    // Spans of foreign syntax the global rules must not touch: the arbitrary
+    // Rust tokens inside `@rust-attr(...)` and the expressions interpolated
+    // into a string template (the lexer splits a template into StringLiteral
+    // tokens with real expression tokens between them, so a stray colon or
+    // comma there would otherwise be re-spaced).
+    rules.node(SyntaxKind::AtRustAttr, |attr| {
+        attr.leaf();
+    });
+    rules.node(SyntaxKind::StringTemplate, |template| {
+        template.leaf();
+    });
+
     // Elements contribute only indentation bookkeeping for now: rules firing
     // inside an element need correct levels even while the element's own
     // spacing is left untouched.
@@ -454,6 +466,29 @@ component A { x: 1; }
         s2: { }
     ]
 }",
+        );
+    }
+
+    #[test]
+    fn rust_attr_interior_is_left_verbatim() {
+        // The odd spacing around the colon inside `@rust-attr(...)` is
+        // preserved (it is opaque Rust), while the struct field's colon
+        // outside the attribute is respaced.
+        assert_formatting_query(
+            "@rust-attr(a : b)
+struct S { foo :int }",
+            "@rust-attr(a : b)
+struct S { foo: int }",
+        );
+    }
+
+    #[test]
+    fn string_template_interpolation_is_left_verbatim() {
+        // The colon of the ternary interpolated into the template stays
+        // verbatim; the binding's own colon is respaced.
+        assert_formatting_query(
+            "component A { x :\"a\\{ c ? d : e }f\"; }",
+            "component A { x: \"a\\{ c ? d : e }f\"; }",
         );
     }
 

@@ -7,7 +7,8 @@
 //! See `API_DESIGN.md` in this directory for the overall design.
 
 use crate::fmt::atoms::{
-    Atom, AtomInstance, AtomSink, BoundaryAtoms, FormatPlan, INDENT, Instruction, Tier, Whitespace,
+    Annotations, Atom, AtomInstance, AtomSink, FormatPlan, INDENT, Instruction, Marker, Tier,
+    Whitespace,
 };
 use crate::fmt::writer::TokenWriter;
 use i_slint_compiler::parser::{
@@ -373,6 +374,25 @@ impl<'a> Selection<'a> {
         }
         self
     }
+
+    /// Mark each selected item as a leaf: its interior is emitted verbatim
+    /// and no rule can touch the gaps between its tokens. Use this to shield
+    /// spans of foreign syntax whose tokens the global rules would otherwise
+    /// mangle — the arbitrary Rust inside `@rust-attr(...)`, or the
+    /// expressions interpolated into a string template. Token-less nodes have
+    /// nothing to protect and are skipped.
+    pub fn leaf(&self) -> &Self {
+        for item in &self.items {
+            let range = match item {
+                NodeOrToken::Token(token) => Some(token.text_range()),
+                NodeOrToken::Node(node) => significant_span(node),
+            };
+            if let Some(range) = range {
+                self.sink.mark(range, Marker::Leaf);
+            }
+        }
+        self
+    }
 }
 
 /// The rules of a formatting style, keyed by what they match.
@@ -481,7 +501,15 @@ enum Strength {
 /// Gaps that no rule attached spacing to are kept verbatim — the formatter
 /// is a no-op except where rules fire. Gaps containing comments are split at
 /// the comments and resolved per sub-gap (see [`resolve_gap`]).
-pub fn resolve(slots: &[TokenSlot], boundary_atoms: &BoundaryAtoms, source: &str) -> FormatPlan {
+pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> FormatPlan {
+    let boundary_atoms = &annotations.boundary;
+    let leaf_ranges = normalize_leaf_ranges(&annotations.markers);
+    // Which leaf range (if any) each slot's token sits inside.
+    let leaf_of_slot: Vec<Option<usize>> = slots
+        .iter()
+        .map(|slot| containing_leaf(slot.token.text_range().start(), &leaf_ranges))
+        .collect();
+
     let mut instructions = Vec::with_capacity(slots.len() * 2);
     let mut indentation_level: i32 = 0;
 
@@ -500,13 +528,23 @@ pub fn resolve(slots: &[TokenSlot], boundary_atoms: &BoundaryAtoms, source: &str
             .get(&slot.token.text_range().start())
             .map_or(no_atoms, Vec::as_slice);
 
+        // A gap wholly inside a leaf (both flanking tokens in the same leaf
+        // range) is kept verbatim whatever the rules said. The boundary gaps
+        // just before and after the leaf resolve normally, so a rule can
+        // still space the leaf against its surroundings. Indentation still
+        // accrues so a balanced brace pair inside a leaf keeps the counter
+        // exact.
+        let leaf_internal = slot_index > 0
+            && leaf_of_slot[slot_index].is_some()
+            && leaf_of_slot[slot_index] == leaf_of_slot[slot_index - 1];
+
         // These are the atoms that make no whitespace decision on their own.
         // (Antispace counts as a decision — an Antispace-only gap collapses
         // to nothing; an AllowBlankLines-only gap must stay verbatim.)
         let has_spacing_atom = append_atoms.iter().chain(prepend_atoms).any(|instance| {
             !matches!(instance.atom, Atom::IndentStart | Atom::IndentEnd | Atom::AllowBlankLines)
         });
-        if has_spacing_atom {
+        if has_spacing_atom && !leaf_internal {
             resolve_gap(
                 slot,
                 slot_index,
@@ -527,6 +565,33 @@ pub fn resolve(slots: &[TokenSlot], boundary_atoms: &BoundaryAtoms, source: &str
     }
 
     FormatPlan { instructions }
+}
+
+/// Reduce the collected leaf markers to sorted, disjoint ranges. Leaf ranges
+/// are significant spans, which nest or are disjoint but never partially
+/// overlap; sorting by start ascending then end descending and keeping a
+/// range only when it extends past every kept range so far therefore yields
+/// the outermost spans, deduplicated. Kept ends increase strictly, so the
+/// last kept range is the running maximum — comparing against it suffices.
+fn normalize_leaf_ranges(markers: &[(TextRange, Marker)]) -> Vec<TextRange> {
+    let mut ranges: Vec<TextRange> = markers
+        .iter()
+        .filter(|(_, marker)| *marker == Marker::Leaf)
+        .map(|(range, _)| *range)
+        .collect();
+    ranges.sort_by_key(|range| (range.start(), std::cmp::Reverse(range.end())));
+    let mut disjoint: Vec<TextRange> = Vec::new();
+    for range in ranges {
+        if disjoint.last().is_none_or(|last| range.end() > last.end()) {
+            disjoint.push(range);
+        }
+    }
+    disjoint
+}
+
+/// The index of the sorted, disjoint leaf range that contains `offset`, if any.
+fn containing_leaf(offset: TextSize, leaf_ranges: &[TextRange]) -> Option<usize> {
+    leaf_ranges.iter().position(|range| range.contains(offset))
 }
 
 fn net_indentation(atoms: &[AtomInstance]) -> i32 {
@@ -986,7 +1051,7 @@ mod tests {
 
         let sink = AtomSink::default();
         annotate(&document, &linearization.slots, &rules, &sink, source);
-        let boundary_atoms = sink.finish();
+        let boundary_atoms = sink.finish().boundary;
 
         let token_start = |text: &str| {
             let offset = source.find(text).unwrap();
@@ -1442,6 +1507,70 @@ mod tests {
             format_with("component A { Text{}\nImage{} }", &rules),
             "component A { Text{}\nImage{} }"
         );
+    }
+
+    /// Element indentation + a multiline-aware States block, plus the global
+    /// colon rule — the setup the leaf test formats around.
+    fn states_indent_rules() -> FormatRules {
+        let mut rules = colon_and_semicolon_rules();
+        rules.node(SyntaxKind::Element, |element| {
+            element.token(SyntaxKind::LBrace).append(Atom::IndentStart);
+            element.token(SyntaxKind::RBrace).prepend(Atom::IndentEnd);
+        });
+        rules.node(SyntaxKind::States, |states| {
+            states
+                .token(SyntaxKind::LBracket)
+                .append(Atom::IndentStart)
+                .append(states.spaced_softline());
+            states.node(SyntaxKind::State).prepend(states.spaced_softline());
+            states
+                .token(SyntaxKind::RBracket)
+                .prepend(Atom::IndentEnd)
+                .prepend(states.spaced_softline());
+        });
+        rules
+    }
+
+    #[test]
+    fn leaf_keeps_interior_verbatim_while_surroundings_format() {
+        // Leaf the whole State: the colons inside (`s1 :`, `x :1`) stay
+        // exactly as written even though the global colon rule fires on
+        // them, while the binding *outside* the leaf (`b :2`) is respaced
+        // and the block's indentation is untouched.
+        let mut rules = states_indent_rules();
+        rules.node(SyntaxKind::State, |state| {
+            state.leaf();
+        });
+        let source = "component A {
+    b :2;
+    states [
+        s1 :{ x :1; }
+    ]
+}";
+        assert_eq!(
+            format_with(source, &rules),
+            "component A {
+    b: 2;
+    states [
+        s1 :{ x :1; }
+    ]
+}"
+        );
+
+        // The `:1` gap (after the interior colon) is kept verbatim — a
+        // KeepGap, not the space-inserting ReplaceGap the colon rule
+        // produces at the `b :2` colon outside the leaf.
+        let (linearization, plan) = resolve_with_rules(source, &rules);
+        let interior_value = slot_of(&linearization, "1");
+        assert!(matches!(
+            gap_instructions(&plan, interior_value).as_slice(),
+            [Instruction::KeepGap { .. }]
+        ));
+        let exterior_value = slot_of(&linearization, "2");
+        assert!(matches!(
+            gap_instructions(&plan, exterior_value).as_slice(),
+            [Instruction::ReplaceGap { whitespace: Whitespace::Space, .. }]
+        ));
     }
 
     #[test]

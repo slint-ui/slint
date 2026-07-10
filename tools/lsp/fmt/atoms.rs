@@ -48,9 +48,6 @@ pub enum Atom {
 
 /// An annotation that applies to a whole item (a node's range or a single
 /// token) rather than to a boundary. See "Markers" in API_DESIGN.md.
-///
-/// Not yet exercised by the prototype ruleset.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Marker {
     /// Emit every token in the item's range verbatim; suppress all boundary
@@ -84,21 +81,27 @@ pub struct AtomInstance {
 
 /// Collects the annotations produced by the rules during the annotate phase.
 ///
-/// Atoms are keyed by the text offset of the significant token whose boundary
-/// they attach to; offsets are unique within one syntax tree. `BTreeMap`
-/// keeps debug output deterministic. The interior mutability lets a rule hold
-/// several `Selection`s at once while all of them attach atoms; it stays
-/// confined to the annotate phase, after which [`AtomSink::into_maps`] hands
-/// plain maps to the resolver.
-///
-/// Item markers ([`Marker`]) will be collected here as `(TextRange, Marker)`
-/// entries once the first rule uses them.
+/// The interior mutability lets a rule hold several `Selection`s at once
+/// while all of them attach atoms or markers; it stays confined to the
+/// annotate phase, after which [`AtomSink::finish`] hands the plain
+/// [`Annotations`] to the resolver.
 #[derive(Default)]
-pub struct AtomSink(RefCell<BoundaryAtoms>);
+pub struct AtomSink(RefCell<Annotations>);
+
+/// Everything the rules produce during the annotate phase: boundary atoms and
+/// item markers.
+#[derive(Default)]
+pub struct Annotations {
+    pub boundary: BoundaryAtoms,
+    /// Item markers in the order the rules produced them (unsorted, possibly
+    /// overlapping across rule passes; the resolver normalizes them).
+    pub markers: Vec<(TextRange, Marker)>,
+}
 
 /// The collected atoms, keyed by token offset: `before` holds atoms
 /// prepended to the token starting at the key, `after` holds atoms appended
-/// to it.
+/// to it. Offsets are unique within one syntax tree; `BTreeMap` keeps debug
+/// output deterministic.
 #[derive(Default)]
 pub struct BoundaryAtoms {
     pub before: BTreeMap<TextSize, Vec<AtomInstance>>,
@@ -108,16 +111,21 @@ pub struct BoundaryAtoms {
 impl AtomSink {
     /// Attach an atom to the boundary before the token starting at `anchor`.
     pub fn attach_before(&self, anchor: TextSize, instance: AtomInstance) {
-        self.0.borrow_mut().before.entry(anchor).or_default().push(instance);
+        self.0.borrow_mut().boundary.before.entry(anchor).or_default().push(instance);
     }
 
     /// Attach an atom to the boundary after the token starting at `anchor`.
     pub fn attach_after(&self, anchor: TextSize, instance: AtomInstance) {
-        self.0.borrow_mut().after.entry(anchor).or_default().push(instance);
+        self.0.borrow_mut().boundary.after.entry(anchor).or_default().push(instance);
+    }
+
+    /// Mark a whole item range (see [`Marker`]).
+    pub fn mark(&self, range: TextRange, marker: Marker) {
+        self.0.borrow_mut().markers.push((range, marker));
     }
 
     /// Consume the sink at the end of the annotate phase.
-    pub fn finish(self) -> BoundaryAtoms {
+    pub fn finish(self) -> Annotations {
         self.0.into_inner()
     }
 }
@@ -188,10 +196,11 @@ mod tests {
         sink.attach_before(anchor, AtomInstance { atom: Atom::Antispace, tier: Tier::Token });
         sink.attach_before(anchor, AtomInstance { atom: Atom::Hardline, tier: Tier::Node });
 
-        let boundary_atoms = sink.finish();
+        let annotations = sink.finish();
         let atoms: Vec<_> =
-            boundary_atoms.before[&anchor].iter().map(|instance| instance.atom).collect();
+            annotations.boundary.before[&anchor].iter().map(|instance| instance.atom).collect();
         assert_eq!(atoms, [Atom::Antispace, Atom::Hardline]);
-        assert!(boundary_atoms.after.is_empty());
+        assert!(annotations.boundary.after.is_empty());
+        assert!(annotations.markers.is_empty());
     }
 }
