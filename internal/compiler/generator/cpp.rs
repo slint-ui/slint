@@ -2950,10 +2950,25 @@ fn generate_flexbox_layout_item_info_decl(
                 )
             })
             .unwrap_or_default();
+        // Mirror of `v_constrained` for the other axis: a width-for-height
+        // instance (e.g. a wrapping column FlexboxLayout) must not read
+        // self.height. Use the unbounded constrained horizontal info.
+        let h_constrained = root_sc
+            .layout_info_h_constrained_for_repeated
+            .as_ref()
+            .map(|e| {
+                let h = compile_expression(&e.borrow(), ctx);
+                format!(
+                    "if (o == slint::cbindgen_private::Orientation::Horizontal && !child_index.has_value()) {{ \
+                         info.constraint = {h}; return info; }} "
+                )
+            })
+            .unwrap_or_default();
         format!(
             "[[maybe_unused]] auto self = this; \
              auto info = {compiled}; \
              {v_constrained}\
+             {h_constrained}\
              info.constraint = layout_item_info(o, child_index).constraint; \
              return info;"
         )
@@ -2991,6 +3006,26 @@ fn generate_flexbox_layout_item_info_decl(
             .to_owned(),
     };
 
+    // Mirror of `at_cross_width_body`: a FlexboxLayout calls this with the
+    // height it assigned so a width-for-height instance resolves to the width
+    // it really needs. The expression reads the `flex_cross_height` parameter.
+    let at_cross_height_body = match (
+        &for_repeated_compiled,
+        root_sc.layout_info_h_at_cross_height_for_repeated.as_ref(),
+    ) {
+        (Some(compiled), Some(e)) => {
+            let h = compile_expression(&e.borrow(), ctx);
+            format!(
+                "[[maybe_unused]] auto self = this; \
+                 auto info = {compiled}; \
+                 info.constraint = {h}; \
+                 return info;"
+            )
+        }
+        _ => "return flexbox_layout_item_info(slint::cbindgen_private::Orientation::Horizontal, std::nullopt);"
+            .to_owned(),
+    };
+
     vec![
         Declaration::Function(Function {
             name: "flexbox_layout_item_info".into(),
@@ -3004,6 +3039,14 @@ fn generate_flexbox_layout_item_info_decl(
                 "([[maybe_unused]] float flex_cross_width) const -> slint::cbindgen_private::FlexboxLayoutItemInfo"
                     .to_owned(),
             statements: Some(vec![at_cross_width_body]),
+            ..Function::default()
+        }),
+        Declaration::Function(Function {
+            name: "flexbox_layout_item_info_at_cross_height".into(),
+            signature:
+                "([[maybe_unused]] float flex_cross_height) const -> slint::cbindgen_private::FlexboxLayoutItemInfo"
+                    .to_owned(),
+            statements: Some(vec![at_cross_height_body]),
             ..Function::default()
         }),
     ]
@@ -4623,8 +4666,15 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                                      return {{ w, h }}; }} \
                                  cursor += len; }}\n"
                             ));
-                            // No width-for-height accessor on a repeated instance: keep its default.
-                            h_steps.push_str(&format!("cursor += self->repeater_{i}.len();\n"));
+                            h_steps.push_str(&format!(
+                                "{{ auto len = self->repeater_{i}.len(); \
+                                 if (index >= cursor && index < cursor + len) {{ \
+                                     if (auto *sub_comp = self->repeater_{i}.typed_instance_at(index - cursor)) {{ \
+                                         auto li = sub_comp->flexbox_layout_item_info_at_cross_height(h).constraint; \
+                                         return {{ {BOUNDED}, h }}; }} \
+                                     return {{ w, h }}; }} \
+                                 cursor += len; }}\n"
+                            ));
                         }
                     }
                 }

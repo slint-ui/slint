@@ -82,6 +82,12 @@ pub fn count_property_use(root: &CompilationUnit) {
         if let Some(e) = &sc.layout_info_v_at_cross_width_for_repeated {
             e.borrow().visit_property_references(ctx, &mut visit_property);
         }
+        if let Some(e) = &sc.layout_info_h_constrained_for_repeated {
+            e.borrow().visit_property_references(ctx, &mut visit_property);
+        }
+        if let Some(e) = &sc.layout_info_h_at_cross_height_for_repeated {
+            e.borrow().visit_property_references(ctx, &mut visit_property);
+        }
         for child in &sc.grid_layout_children {
             child.layout_info_h.borrow().visit_property_references(ctx, &mut visit_property);
             child.layout_info_v.borrow().visit_property_references(ctx, &mut visit_property);

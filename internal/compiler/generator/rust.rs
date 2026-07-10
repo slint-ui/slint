@@ -2790,6 +2790,37 @@ fn generate_repeated_component(
                                 self.layout_item_info(sp::Orientation::Vertical, sp::None).constraint;
                         }
                     });
+                // Mirror of `v_constrained` for the other axis: a width-for-height
+                // instance (e.g. a wrapping column FlexboxLayout) must not read
+                // self.height. Use the unbounded constrained horizontal info.
+                let h_constrained =
+                    root_sc.layout_info_h_constrained_for_repeated.as_ref().map(|e| {
+                        let h_info = compile_expression(&e.borrow(), &ctx);
+                        quote! {
+                            if matches!(o, sp::Orientation::Horizontal) && child_index.is_none() {
+                                info.constraint = #h_info;
+                                return info;
+                            }
+                        }
+                    });
+                // A FlexboxLayout calls this with the height it assigned, so a
+                // width-for-height instance resolves to the same width as an
+                // equivalent static cell (instead of the unbounded, unwrapped one
+                // that `flexbox_layout_item_info` returns). The expression reads
+                // the `flex_cross_height` local (matches FLEX_CROSS_HEIGHT_LOCAL).
+                let at_cross_height_body = root_sc
+                    .layout_info_h_at_cross_height_for_repeated
+                    .as_ref()
+                    .map(|e| {
+                        let h_info = compile_expression(&e.borrow(), &ctx);
+                        quote! { info.constraint = #h_info; }
+                    })
+                    .unwrap_or_else(|| {
+                        quote! {
+                            info.constraint =
+                                self.layout_item_info(sp::Orientation::Horizontal, sp::None).constraint;
+                        }
+                    });
                 quote! {
                     fn flexbox_layout_item_info(
                         self: ::core::pin::Pin<&Self>,
@@ -2800,6 +2831,7 @@ fn generate_repeated_component(
                         let _self = self.as_ref();
                         let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
                         #v_constrained
+                        #h_constrained
                         info.constraint = self.layout_item_info(o, child_index).constraint;
                         info
                     }
@@ -2812,6 +2844,17 @@ fn generate_repeated_component(
                         let _self = self.as_ref();
                         let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
                         #at_cross_width_body
+                        info
+                    }
+                    #[allow(unused_variables)]
+                    fn flexbox_layout_item_info_at_cross_height(
+                        self: ::core::pin::Pin<&Self>,
+                        flex_cross_height: f32,
+                    ) -> sp::FlexboxLayoutItemInfo {
+                        #[allow(unused)]
+                        let _self = self.as_ref();
+                        let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
+                        #at_cross_height_body
                         info
                     }
                 }
@@ -5441,8 +5484,22 @@ fn generate_solve_flexbox_layout_with_measure(
                             cursor += len;
                         }
                     ));
-                    // No width-for-height accessor on a repeated instance: keep its default.
-                    h_steps.push(quote!(cursor += _self.#repeater_id.len();));
+                    h_steps.push(quote!(
+                        {
+                            let len = _self.#repeater_id.len();
+                            if index >= cursor && index < cursor + len {
+                                if let Some(sub_comp) = _self.#repeater_id.instance_at(index - cursor) {
+                                    return (sub_comp
+                                        .as_pin_ref()
+                                        .flexbox_layout_item_info_at_cross_height(h)
+                                        .constraint
+                                        .preferred_bounded(), h);
+                                }
+                                return (w, h);
+                            }
+                            cursor += len;
+                        }
+                    ));
                 }
             }
         }

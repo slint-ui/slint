@@ -502,6 +502,18 @@ pub struct SubComponent {
     /// which a column FlexboxLayout calls with its real container width so a
     /// repeated cell wraps to the same height as an equivalent static cell.
     pub layout_info_v_at_cross_width_for_repeated: Option<MutExpression>,
+    /// Horizontal counterpart of `layout_info_v_constrained_for_repeated`:
+    /// computed with an unbounded height constraint so a width-for-height
+    /// instance (e.g. a wrapping column FlexboxLayout) doesn't read
+    /// `self.height` and recurse through the parent flex cache. `Some` only
+    /// when the element carries a `layoutinfo-h-with-constraint`.
+    pub layout_info_h_constrained_for_repeated: Option<MutExpression>,
+    /// Same as `layout_info_h_constrained_for_repeated`, but measured at the
+    /// height passed in the `flex_cross_height` local. Drives the generated
+    /// `flexbox_layout_item_info_at_cross_height` method, which a FlexboxLayout
+    /// calls with the height it assigned so a repeated cell resolves to the
+    /// same width as an equivalent static cell.
+    pub layout_info_h_at_cross_height_for_repeated: Option<MutExpression>,
     /// True when this is a repeated Row in a GridLayout, meaning layout_item_info
     /// needs to be able to return layout info for individual children
     pub is_repeated_row: bool,
@@ -695,6 +707,12 @@ impl CompilationUnit {
                 visitor(e, ctx);
             }
             if let Some(e) = &sc.layout_info_v_at_cross_width_for_repeated {
+                visitor(e, ctx);
+            }
+            if let Some(e) = &sc.layout_info_h_constrained_for_repeated {
+                visitor(e, ctx);
+            }
+            if let Some(e) = &sc.layout_info_h_at_cross_height_for_repeated {
                 visitor(e, ctx);
             }
             for e in sc.accessible_prop.values() {
