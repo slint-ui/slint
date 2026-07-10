@@ -631,6 +631,7 @@ mod tests {
     const SOURCE: &str = r#"
 export component Foo inherits Window {
     in property <int> ext: 1;
+    in property <int> ext2: 2;
 
     // KEPT: exposed in the public API.
     out property <int> kept_public: ext + 1;
@@ -639,6 +640,16 @@ export component Foo inherits Window {
     // the reader is itself unused.
     property <int> gone_inlined: ext * 2;
     property <int> gone_reader: gone_inlined + 3;
+
+    // REMOVED: cheap enough to inline into each of its two (unused) readers.
+    property <int> gone_shared: ext * 3;
+    property <int> gone_shared_a: gone_shared + 1;
+    property <int> gone_shared_b: gone_shared + 2;
+
+    // KEPT: binding too expensive to inline, and read from two places.
+    property <int> kept_expensive: ext * ext2 + ext2 * ext + ext * ext2;
+    out property <int> exp_a: kept_expensive + 1;
+    out property <int> exp_b: kept_expensive + 2;
 
     // REMOVED: only read from a timer's interval, which is inlined.
     property <duration> gone_timer: ext * 1ms;
@@ -649,10 +660,11 @@ export component Foo inherits Window {
     pure function called_once() -> int { gone_single_call }
     out property <int> single_reader: called_once();
 
-    // KEPT: read from a function that is called from more than one place. Such a
-    // function is not inlined, so the property it reads stays.
-    property <int> kept_multi_call: ext * 6;
-    pure function called_twice() -> int { kept_multi_call }
+    // REMOVED: read only from a function's body. The function itself is not
+    // inlined (it is called from two places), but the property is inlined into
+    // the body, so it becomes unused.
+    property <int> gone_multi_call: ext * 6;
+    pure function called_twice() -> int { gone_multi_call }
     out property <int> reader_a: called_twice();
     out property <int> reader_b: called_twice();
 
@@ -660,20 +672,34 @@ export component Foo inherits Window {
     property <int> kept_with_change_callback: ext * 7;
     changed kept_with_change_callback => {}
 
-    Timer { interval: gone_timer; running: true; triggered => {} }
+    // REMOVED: read only from a callback handler, which is inlined into like a
+    // binding.
+    property <int> gone_callback: ext * 8;
+    callback do_it(int);
+    do_it(v) => { debug(gone_callback + v); }
+
+    Timer { interval: gone_timer; running: true; triggered => { do_it(1); } }
 }
 "#;
 
     #[test]
     fn unused_properties_are_removed_and_used_ones_kept() {
         let names = lowered_property_names(SOURCE);
-        for gone in ["gone-inlined", "gone-reader", "gone-timer", "gone-single-call"] {
+        for gone in [
+            "gone-inlined",
+            "gone-reader",
+            "gone-shared",
+            "gone-timer",
+            "gone-single-call",
+            "gone-multi-call",
+            "gone-callback",
+        ] {
             assert!(
                 !names.iter().any(|n| n.contains(gone)),
                 "property {gone} should have been removed, got {names:?}"
             );
         }
-        for kept in ["kept-public", "kept-multi-call", "kept-with-change-callback"] {
+        for kept in ["kept-public", "kept-expensive", "kept-with-change-callback"] {
             assert!(
                 names.iter().any(|n| n.contains(kept)),
                 "property {kept} should have been kept, got {names:?}"

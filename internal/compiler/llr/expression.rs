@@ -845,7 +845,12 @@ impl<'a, T> EvaluationContext<'a, T> {
                     }
                     EvaluationScope::SubComponent(mut sc, mut parent) => {
                         for _ in 0..*parent_level {
-                            let p = parent.unwrap();
+                            // The parent chain is severed for function bodies (see
+                            // `for_each_expression`); the reference is then not
+                            // resolvable, like `function_info` also reports.
+                            let Some(p) = parent else {
+                                return PropertyInfoResult::default();
+                            };
                             sc = p.sub_component;
                             parent = p.parent;
                         }

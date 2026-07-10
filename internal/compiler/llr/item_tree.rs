@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::{EvaluationContext, Expression, ParentScope};
+use super::{EvaluationContext, EvaluationScope, Expression, ParentScope};
 use crate::langtype::{NativeClass, Type};
 use derive_more::{From, Into};
 use smol_str::SmolStr;
@@ -709,12 +709,15 @@ impl CompilationUnit {
                 visitor(&t.running, ctx);
                 visitor(&t.triggered, ctx);
             }
-            // Function bodies and popup positions are intentionally not visited:
-            // a function is called from several contexts and a popup position is
-            // evaluated in a nested one, so mutating their expressions here (which
-            // the inlining pass does) would corrupt the parent levels of their
-            // property references. They keep their properties alive through
-            // count_property_use, which only reads them.
+            if let EvaluationScope::SubComponent(idx, _) = ctx.current_scope {
+                // A parent-less context, matching how `count_property_use` counts
+                // function bodies, so both passes rewrite the same references.
+                let fn_ctx = EvaluationContext::new_sub_component(self, idx, (), None);
+                visit_function_bodies(&sc.functions, &fn_ctx, visitor);
+            }
+            // Popup positions are intentionally not visited: they are evaluated in a
+            // nested context, so inlining into them would corrupt the parent levels
+            // of their property references.
         });
         for (idx, g) in self.globals.iter_enumerated() {
             let ctx = EvaluationContext::new_global(self, idx, ());
@@ -724,6 +727,27 @@ impl CompilationUnit {
             for e in g.change_callbacks.values() {
                 visitor(e, &ctx)
             }
+            visit_function_bodies(&g.functions, &ctx, visitor);
+        }
+    }
+}
+
+/// Visit the body of each reachable function in `ctx` (which must have no parents,
+/// see [`CompilationUnit::for_each_expression`]) with `argument_types` set.
+///
+/// Only functions with a non-zero use count: `count_property_use` visits exactly
+/// those bodies, so visiting an unreachable one would inline references it never
+/// counted and underflow the use counts.
+fn visit_function_bodies<'a>(
+    functions: &'a TiVec<FunctionIdx, Function>,
+    ctx: &EvaluationContext<'a>,
+    visitor: &mut dyn FnMut(&'a super::MutExpression, &EvaluationContext<'_>),
+) {
+    for f in functions {
+        if f.use_count.get() > 0 {
+            let mut fn_ctx = ctx.clone();
+            fn_ctx.argument_types = &f.args;
+            visitor(&f.code, &fn_ctx);
         }
     }
 }
