@@ -1416,7 +1416,7 @@ impl WindowInner {
                 );
                 // Reveal offscreen item when it gains focus
                 if result == crate::input::FocusEventResult::FocusAccepted {
-                    item.try_scroll_into_visible();
+                    item.try_scroll_into_visible(true);
                 }
 
                 result
@@ -2208,7 +2208,7 @@ impl WindowInner {
         window_item.virtual_keyboard_position.set(origin);
         window_item.virtual_keyboard_size.set(size);
         if let Some(focus_item) = self.focus_item.borrow().upgrade() {
-            focus_item.try_scroll_into_visible();
+            focus_item.try_scroll_into_visible(false);
         }
     }
 

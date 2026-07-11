@@ -6,6 +6,8 @@ export component TestCase inherits Window {
     preferred-height: 500px;
     no-frame: false;
 
+    in property <bool> animate-scroll: false;
+
     f := Flickable {
         x: 10px;
         y: 10px;
@@ -13,6 +15,16 @@ export component TestCase inherits Window {
         height: parent.height - 20px;
         viewport_width: 2100px;
         viewport_height: 2100px;
+
+        animate viewport-x {
+            duration: root.animate-scroll ? 100ms : 0ms;
+            easing: linear;
+        }
+
+        animate viewport-y {
+            duration: root.animate-scroll ? 100ms : 0ms;
+            easing: linear;
+        }
 
         VerticalLayout {
             padding: 0;
@@ -73,6 +85,31 @@ instance.window().dispatch_event(WindowEvent::PointerScrolled { position: Logica
 assert_eq!(instance.get_offset_x(), 0.);
 assert_eq!(instance.get_offset_y(), 0.);
 instance.invoke_set_focus();
+assert_eq!(instance.get_offset_x(), 20.);
+assert_eq!(instance.get_offset_y(), 20.);
+
+// Focus-driven scrolling should honor viewport animations
+instance.invoke_remove_focus();
+instance.window().dispatch_event(WindowEvent::PointerScrolled {
+    position: LogicalPosition::new(25.0, 25.0),
+    delta_x: 20.0,
+    delta_y: 20.0,
+});
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 0.);
+
+instance.set_animate_scroll(true);
+instance.invoke_set_focus();
+
+// The animation should begin at the current viewport position.
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 0.);
+
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.get_offset_x(), 10.);
+assert_eq!(instance.get_offset_y(), 10.);
+
+slint_testing::mock_elapsed_time(50);
 assert_eq!(instance.get_offset_x(), 20.);
 assert_eq!(instance.get_offset_y(), 20.);
 
