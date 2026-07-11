@@ -81,7 +81,7 @@ The inspector currently has 2 functions.  One is to inspect individual Figma obj
 2. **Use variables**
     ```slint no-test
     // Use the tokens:
-    MyComponent := Rectangle {
+    export component MyComponent inherits Rectangle {
         background: Colors.current.background.primary; // Access via .current for mode switching
         height: Spacing.medium; // Access directly if single-mode or not mode-dependent
     }

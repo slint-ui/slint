@@ -125,6 +125,16 @@ Slint uses [Corrosion](https://github.com/corrosion-rs/corrosion) to build Slint
 
 Furthermore, you can set the `SLINT_LIBRARY_CARGO_FLAGS` cache variable to specify additional flags for the Slint runtime during the build.
 
+### Widget Style
+
+The style of the standard widgets is selected at compile time with the `SLINT_STYLE` cache variable:
+
+```sh
+cmake -DSLINT_STYLE=material /path/to/source
+```
+
+The supported values are `fluent`, `material`, `cupertino`, `cosmic`, and `qt` (the Qt style requires the Qt backend). Setting it to `native` selects the style that best matches the target platform. When `SLINT_STYLE` is left empty, the default is `fluent`. See the <SlintRef type="StyleWidgets" label="widget style documentation" code={false} /> for details on the available styles.
+
 ### Platform Backends
 
 In Slint, a backend is the module that encapsulates the interaction with the operating system,
