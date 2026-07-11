@@ -1,19 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+import { ComboBoxInterface } from "./std-widget-interfaces.slint";
 
-export component ComboBoxBase {
-    in property <[string]> model;
-    in property <bool> enabled <=> i-focus-scope.enabled;
-    out property <bool> has-focus: (i-focus-scope.has-focus || popup-has-focus) && root.enabled;
+export component ComboBoxBase implements ComboBoxInterface {
+    enabled <=> i-focus-scope.enabled;
+    has-focus: (i-focus-scope.has-focus || popup-has-focus) && root.enabled;
+
     out property <bool> pressed <=> i-touch-area.pressed;
     out property <bool> has-hover: i-touch-area.has-hover;
-    in-out property <int> current-index: 0;
-    in-out property <string> current-value: root.model[root.current-index];
 
     // Set from the ComboBox when the popup has the focus
     in-out property <bool> popup-has-focus;
 
-    callback selected(current-value: string);
     callback show-popup();
     callback close-popup();
 

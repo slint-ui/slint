@@ -5,6 +5,8 @@ import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
 import { ScrollBar } from "scrollview.slint";
 import { FocusBorder } from "components.slint";
 
+import { TextEditInterface } from "../common/std-widget-interfaces.slint";
+
 // FIXME: After auto-hiding of scrollbars is implemented, use TextEditBase
 component ScrollView {
     in property <bool> enabled: true;
@@ -59,27 +61,22 @@ component ScrollView {
     }
 }
 
-export component TextEdit {
-    in property <TextWrap> wrap <=> text-input.wrap;
-    in property <TextHorizontalAlignment> horizontal-alignment <=> text-input.horizontal-alignment;
-    in property <bool> read-only <=> text-input.read-only;
-    in property <length> font-size <=> text-input.font-size;
-    in property <string> font-family <=> text-input.font-family;
-    in property <bool> font-italic <=> text-input.font-italic;
-    in property <bool> enabled <=> text-input.enabled;
-    out property <length> visible-width <=> scroll-view.visible-width;
-    out property <length> visible-height <=> scroll-view.visible-height;
-    out property <bool> has-focus: text-input.has-focus;
-    in-out property <string> text <=> text-input.text;
-    in-out property <length> viewport-x <=> scroll-view.viewport-x;
-    in-out property <length> viewport-y <=> scroll-view.viewport-y;
-    in-out property <length> viewport-width <=> scroll-view.viewport-width;
-    in-out property <length> viewport-height <=> scroll-view.viewport-height;
-    in property <string> placeholder-text;
-
-    callback edited(text: string);
-    callback key-pressed(event: KeyEvent) -> EventResult;
-    callback key-released(event: KeyEvent) -> EventResult;
+export component TextEdit implements TextEditInterface {
+    wrap <=> text-input.wrap;
+    horizontal-alignment <=> text-input.horizontal-alignment;
+    read-only <=> text-input.read-only;
+    font-size <=> text-input.font-size;
+    font-family <=> text-input.font-family;
+    font-italic <=> text-input.font-italic;
+    enabled <=> text-input.enabled;
+    visible-width <=> scroll-view.visible-width;
+    visible-height <=> scroll-view.visible-height;
+    has-focus: text-input.has-focus;
+    text <=> text-input.text;
+    viewport-x <=> scroll-view.viewport-x;
+    viewport-y <=> scroll-view.viewport-y;
+    viewport-width <=> scroll-view.viewport-width;
+    viewport-height <=> scroll-view.viewport-height;
 
     accessible-role: AccessibleRole.text-input;
     accessible-enabled: root.enabled;
