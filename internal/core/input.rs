@@ -120,6 +120,12 @@ impl MouseEvent {
         }
     }
 
+    /// Whether the event originates from a touch screen rather than a mouse.
+    pub fn is_from_touch(&self) -> bool {
+        // touch events carry the finger id + 1, events from a mouse carry 0
+        self.touch_finger_id() != 0
+    }
+
     /// The position of the cursor for this event, if any
     pub fn position(&self) -> Option<LogicalPoint> {
         match self {
