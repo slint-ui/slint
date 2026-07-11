@@ -41,7 +41,7 @@ For external contributions, the reviewer must merge the PR.
 
 We have a set of tests that are executed as part of this phase.
 These tests can be run locally using the "cargo test" command.
-They are described in more detail here: [Tests](./qualification-plan/test-cases/).
+They are described in more detail here: [Tests](../qualification-plan/test-cases/).
 
 
 

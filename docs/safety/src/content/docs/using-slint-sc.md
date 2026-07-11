@@ -201,7 +201,7 @@ The Slint SC Compiler should not generate or allow unbounded recursion.
 
 **Impact**: The generated code may not be deterministic and may not be suitable for use in a safety-critical system.
 
-**Mitigation**: The generated code should not use unbounded recursion. Instead, it should use a custom allocator that is specific to the generated code.
+**Mitigation**: The generated code should not use unbounded recursion. Instead, any recursion must be bounded by a statically known limit.
 
 ### CON_NO_UNSAFE_CODE
 
@@ -211,5 +211,5 @@ The Slint SC Compiler should not generate or allow unsafe code.
 
 **Impact**: The generated code may not be deterministic and may not be suitable for use in a safety-critical system.
 
-**Mitigation**: The generated code should not use unsafe code. Instead, it should use a custom allocator that is specific to the generated code.
+**Mitigation**: The generated code should not use unsafe code. Instead, it must only use safe language constructs.
 
