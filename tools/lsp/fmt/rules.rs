@@ -58,12 +58,13 @@ pub fn make_rules() -> FormatRules {
     rules.token(SyntaxKind::Semicolon, |semicolon| {
         semicolon.prepend(Antispace);
     });
-    // A comma hugs the token before it and, after it, breaks with its
-    // container: a space inline, a newline once the container spans lines.
-    // The softline measures the comma's parent node, so one rule handles
-    // every list — arguments, arrays, structs, enums, callback parameters.
+    // A comma hugs the token before it and keeps a newline after it only
+    // where the input had one. A container-wide break is driven by each
+    // body's own per-item rule (which measures the right node); a plain
+    // measure of the comma's parent would misfire on declarations whose
+    // parameter list shares a node with a multiline body.
     rules.token(SyntaxKind::Comma, |comma| {
-        comma.prepend(Antispace).append(comma.spaced_softline());
+        comma.prepend(Antispace).append(InputSoftline);
     });
     rules.token(SyntaxKind::LParent, |paren| {
         paren.append(Antispace);
