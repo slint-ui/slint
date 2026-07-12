@@ -550,6 +550,45 @@ impl WrappedInstance {
         WrappedDefinition(self.0.definition())
     }
 
+    /// Simulates a mouse click at the given logical position (testing builds only).
+    #[cfg(feature = "testing")]
+    #[wasm_bindgen(js_name = "sendMouseClick")]
+    pub fn send_mouse_click(&self, x: f64, y: f64) {
+        let window_adapter =
+            i_slint_core::window::WindowInner::from_pub(self.0.window()).window_adapter();
+        i_slint_backend_testing::testing_backend::send_mouse_click(
+            x as f32,
+            y as f32,
+            &window_adapter,
+        );
+    }
+
+    /// Types the given string as individual key press/release events (testing builds only).
+    #[cfg(feature = "testing")]
+    #[wasm_bindgen(js_name = "sendKeyboardStringSequence")]
+    pub fn send_keyboard_string_sequence(&self, sequence: String) {
+        let window_adapter =
+            i_slint_core::window::WindowInner::from_pub(self.0.window()).window_adapter();
+        i_slint_backend_testing::testing_backend::send_keyboard_string_sequence(
+            &sequence.into(),
+            &window_adapter,
+        );
+    }
+
+    /// Presses all the given keys, then releases them in reverse order (testing builds only).
+    #[cfg(feature = "testing")]
+    #[wasm_bindgen(js_name = "sendKeyCombo")]
+    pub fn send_key_combo(&self, keys: Vec<String>) {
+        use i_slint_core::platform::WindowEvent;
+        let window = self.0.window();
+        for key in &keys {
+            window.dispatch_event(WindowEvent::KeyPressed { text: key.into() });
+        }
+        for key in keys.iter().rev() {
+            window.dispatch_event(WindowEvent::KeyReleased { text: key.into() });
+        }
+    }
+
     /// Gets a property value by name.
     #[wasm_bindgen(js_name = "getProperty")]
     pub fn get_property(&self, name: &str) -> Result<JsValue, JsValue> {
@@ -763,6 +802,36 @@ thread_local!(
     static NEXT_CANVAS_ID: Rc<RefCell<Option<String>>> = Default::default();
 );
 
+/// With the `testing` feature, the module installs the deterministic testing
+/// backend (mocked time, synthetic input, no canvas) instead of the winit web
+/// backend. This build flavor exists for the browser test driver
+/// (tests/driver/browser); the regular published wasm module never enables it.
+#[cfg(feature = "testing")]
+#[wasm_bindgen(start)]
+pub fn init() -> Result<(), JsValue> {
+    #[cfg(feature = "console_error_panic_hook")]
+    console_error_panic_hook::set_once();
+    i_slint_backend_testing::init_no_event_loop();
+    Ok(())
+}
+
+/// Advance the mocked animation/timer time (testing builds; no-op otherwise).
+#[wasm_bindgen(js_name = "mockElapsedTime")]
+pub fn mock_elapsed_time(_ms: f64) {
+    #[cfg(feature = "testing")]
+    i_slint_backend_testing::mock_elapsed_time(_ms as u64);
+}
+
+/// Returns the current mocked time in milliseconds (testing builds; 0 otherwise).
+#[wasm_bindgen(js_name = "getMockedTime")]
+pub fn get_mocked_time() -> f64 {
+    #[cfg(feature = "testing")]
+    return i_slint_backend_testing::get_mocked_time() as f64;
+    #[cfg(not(feature = "testing"))]
+    return 0.0;
+}
+
+#[cfg(not(feature = "testing"))]
 #[wasm_bindgen(start)]
 pub fn init() -> Result<(), JsValue> {
     #[cfg(feature = "console_error_panic_hook")]

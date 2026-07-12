@@ -80,6 +80,7 @@ smol_str = { workspace = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 slint-interpreter = { workspace = true, default-features = false, features = ["backend-winit", "renderer-femtovg"] }
 i-slint-backend-winit = { workspace = true }
+i-slint-backend-testing = { workspace = true, optional = true, features = ["internal"] }
 vtable = { workspace = true }
 console_error_panic_hook = { version = "0.1.6", optional = true }
 js-sys = "0.3.44"
