@@ -170,14 +170,13 @@ pub const INDENT: &str = "    ";
 /// sub-gap.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
-    /// Emit the gap's input trivia unchanged.
+    /// Emit the gap's input trivia unchanged. Produced for gaps inside a
+    /// [`Marker::Leaf`] range (whose interior is emitted verbatim) and for the
+    /// comment-bearing gap before a deleted token (the comment is preserved).
     KeepGap { slot: usize },
     /// Replace the (comment-free) gap's input trivia with the given
     /// whitespace.
     ReplaceGap { slot: usize, whitespace: Whitespace },
-    /// Emit one whitespace trivia token unchanged (e.g. the alignment spaces
-    /// before a hanging comment).
-    KeepSubGap { slot: usize, trivia_index: usize },
     /// Replace one whitespace trivia token — or insert whitespace where the
     /// sub-gap is empty (`trivia_index: None`).
     ReplaceSubGap { slot: usize, trivia_index: Option<usize>, whitespace: Whitespace },

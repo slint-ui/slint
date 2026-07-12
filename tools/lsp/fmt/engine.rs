@@ -525,9 +525,13 @@ enum Strength {
 
 /// Phase 2: collapse the collected atoms into concrete instructions.
 ///
-/// Gaps that no rule attached spacing to are kept verbatim — the formatter
-/// is a no-op except where rules fire. Gaps containing comments are split at
+/// Every gap is resolved: a rule's atoms decide the whitespace where they
+/// fire, and elsewhere the default applies (a single space between tokens,
+/// nothing at the document edges). The exceptions are gaps inside a [`leaf`]
+/// range, which pass through verbatim. Gaps containing comments are split at
 /// the comments and resolved per sub-gap (see [`resolve_gap`]).
+///
+/// [`leaf`]: Selection::leaf
 pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> FormatPlan {
     let boundary_atoms = &annotations.boundary;
     let leaf_ranges = normalize_leaf_ranges(&annotations.markers);
@@ -608,34 +612,33 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
             }
         }
 
-        // These are the atoms that make no whitespace decision on their own.
-        // (Antispace counts as a decision — an Antispace-only gap collapses
-        // to nothing; an AllowBlankLines- or Literal-only gap keeps its
-        // whitespace verbatim.)
-        let has_spacing_atom = append_atoms.iter().chain(prepend_atoms).any(|instance| {
-            !matches!(
-                instance.atom,
-                Atom::IndentStart | Atom::IndentEnd | Atom::AllowBlankLines | Atom::Literal(_)
-            )
-        });
         #[cfg(debug_assertions)]
         let gap_instructions_start = instructions.len();
-        if has_spacing_atom && !leaf_internal {
+        if leaf_internal {
+            // A leaf emits its interior verbatim. Indentation still accrues so
+            // a balanced brace pair inside it keeps the running level exact.
+            indentation_level += net_indentation(append_atoms) + net_indentation(prepend_atoms);
+            instructions.push(Instruction::KeepGap { slot: slot_index });
+        } else {
+            // The default when no rule decides the boundary: a single space
+            // between two tokens, nothing at the document edges (before the
+            // first token, or before the terminating Eof) where there is no
+            // adjacency to space.
+            let default = if last_surviving.is_none() || slot.token.kind() == SyntaxKind::Eof {
+                Strength::Nothing
+            } else {
+                Strength::Space
+            };
             resolve_gap(
                 slot,
                 slot_index,
                 append_atoms,
                 prepend_atoms,
+                default,
                 source,
                 &mut indentation_level,
                 &mut instructions,
             );
-        } else {
-            // Indentation is bookkeeping, not a whitespace decision: sum it
-            // even for gaps that are kept verbatim, so that rules firing
-            // inside otherwise unformatted code still see correct levels.
-            indentation_level += net_indentation(append_atoms) + net_indentation(prepend_atoms);
-            instructions.push(Instruction::KeepGap { slot: slot_index });
         }
 
         // Record the softline spans and any Hardline-driven newline in this
@@ -837,13 +840,14 @@ fn route_atom(
     sub_gaps[target].decisions.push((instance.tier, strength));
 }
 
-/// Resolve one gap that at least one rule attached spacing to.
+/// Resolve one gap into whitespace instructions.
 ///
 /// The gap's trivia is split at its comments into sub-gaps S0..Sn; the left
 /// token's appends route to S0 (space-level) or past the hanging comments
 /// (newlines), the right token's prepends route to Sn, and each sub-gap
 /// resolves independently. A comment-free gap is the degenerate single
-/// sub-gap case and produces the same `ReplaceGap` as before.
+/// sub-gap case and produces a single `ReplaceGap`. A sub-gap that no rule
+/// touched resolves to `default`.
 ///
 /// Comments never move lines: a boundary that had a newline in the input
 /// keeps it, whatever the rules say — rules only influence the indentation.
@@ -855,6 +859,7 @@ fn resolve_gap(
     slot_index: usize,
     append_atoms: &[AtomInstance],
     prepend_atoms: &[AtomInstance],
+    default: Strength,
     source: &str,
     indentation_level: &mut i32,
     instructions: &mut Vec<Instruction>,
@@ -897,65 +902,54 @@ fn resolve_gap(
         let whitespace = slot.whitespace_text(whitespace_index);
         *indentation_level += sub_gap.indentation_delta;
 
-        // `None` means: keep this sub-gap's input whitespace verbatim.
-        let decision: Option<Whitespace> = if comment_count > 0 && whitespace.contains('\n') {
+        let decision: Whitespace = if comment_count > 0 && whitespace.contains('\n') {
             // A comment-adjacent boundary with an input newline keeps it
             // (and its blank line, capped at one). Rules only set the level.
             let before_column_zero_comment = index < comment_count && whitespace.ends_with('\n');
-            Some(Whitespace::Newline {
+            Whitespace::Newline {
                 blank_line: whitespace_has_blank_line(whitespace),
                 indentation_level: if before_column_zero_comment {
                     0
                 } else {
                     (*indentation_level).max(0) as u32
                 },
-            })
-        } else if sub_gap.decisions.is_empty() && sub_gap.antispace_tier.is_none() {
-            // No rule said anything about this boundary (e.g. the alignment
-            // spaces before a hanging comment): keep it as written.
-            None
+            }
         } else {
-            let merged = sub_gap.decisions.iter().copied().max();
-            let strength = match merged {
-                // Only Antispace atoms contributed: nothing between the
-                // tokens.
-                None => Strength::Nothing,
-                // Antispace cancels a Space decision of its own or a lower
-                // tier — never a newline.
-                Some((tier, Strength::Space)) if sub_gap.antispace_tier >= Some(tier) => {
-                    Strength::Nothing
+            let strength = if sub_gap.decisions.is_empty() && sub_gap.antispace_tier.is_none() {
+                // No rule decided this boundary: apply the default.
+                default
+            } else {
+                let merged = sub_gap.decisions.iter().copied().max();
+                match merged {
+                    // Only Antispace atoms contributed: nothing between the
+                    // tokens.
+                    None => Strength::Nothing,
+                    // Antispace cancels a Space decision of its own or a lower
+                    // tier — never a newline.
+                    Some((tier, Strength::Space)) if sub_gap.antispace_tier >= Some(tier) => {
+                        Strength::Nothing
+                    }
+                    Some((_, strength)) => strength,
                 }
-                Some((_, strength)) => strength,
             };
-            Some(match strength {
+            match strength {
                 Strength::Nothing => Whitespace::None,
                 Strength::Space => Whitespace::Space,
                 Strength::Newline => Whitespace::Newline {
                     blank_line: sub_gap.allow_blank_lines && whitespace_has_blank_line(whitespace),
                     indentation_level: (*indentation_level).max(0) as u32,
                 },
-            })
+            }
         };
 
-        match decision {
-            None => {
-                if let Some(trivia_index) = whitespace_index {
-                    instructions.push(Instruction::KeepSubGap { slot: slot_index, trivia_index });
-                }
-            }
-            Some(whitespace_decision) if comment_count == 0 => {
-                instructions.push(Instruction::ReplaceGap {
-                    slot: slot_index,
-                    whitespace: whitespace_decision,
-                });
-            }
-            Some(whitespace_decision) => {
-                instructions.push(Instruction::ReplaceSubGap {
-                    slot: slot_index,
-                    trivia_index: whitespace_index,
-                    whitespace: whitespace_decision,
-                });
-            }
+        if comment_count == 0 {
+            instructions.push(Instruction::ReplaceGap { slot: slot_index, whitespace: decision });
+        } else {
+            instructions.push(Instruction::ReplaceSubGap {
+                slot: slot_index,
+                trivia_index: whitespace_index,
+                whitespace: decision,
+            });
         }
 
         // Emit the comment that follows this sub-gap. A comment placed on
@@ -964,7 +958,7 @@ fn resolve_gap(
         if index < comment_count {
             let trivia_index = structure.comments[index];
             let column_shift = match decision {
-                Some(Whitespace::Newline { indentation_level: new_level, .. }) => {
+                Whitespace::Newline { indentation_level: new_level, .. } => {
                     let comment_start =
                         usize::from(slot.gap_before[trivia_index].text_range().start());
                     new_level as i32 * INDENT.len() as i32 - column_at(source, comment_start) as i32
@@ -1340,15 +1334,22 @@ mod tests {
             plan.instructions[2 * (colon_slot + 1)],
             Instruction::ReplaceGap { slot: colon_slot + 1, whitespace: Whitespace::Space }
         );
-        // Gaps without rule atoms are kept verbatim.
+        // A gap with no rule atoms takes the default: nothing before the first
+        // token...
         let component_slot = slot_of(&linearization, "component");
         assert_eq!(
             plan.instructions[2 * component_slot],
-            Instruction::KeepGap { slot: component_slot }
+            Instruction::ReplaceGap { slot: component_slot, whitespace: Whitespace::None }
         );
         assert_eq!(
             plan.instructions[2 * component_slot + 1],
             Instruction::EmitToken { slot: component_slot }
+        );
+        // ...and a single space between two tokens (here `component` and `A`).
+        let name_slot = slot_of(&linearization, "A");
+        assert_eq!(
+            plan.instructions[2 * name_slot],
+            Instruction::ReplaceGap { slot: name_slot, whitespace: Whitespace::Space }
         );
     }
 
@@ -1375,10 +1376,11 @@ mod tests {
     }
 
     #[test]
-    fn indentation_is_tracked_across_kept_gaps() {
+    fn indentation_is_tracked_across_default_gaps() {
         // Only the states brackets produce newlines here; the Element rule
         // contributes indentation bookkeeping so those newlines land at the
-        // right depth even though the element's own gaps are kept verbatim.
+        // right depth even though the element's own gaps only take the default
+        // spacing.
         let source = "component A { states [\n s: { x: 1; }\n] }";
         let mut rules = FormatRules::default();
         rules.node(SyntaxKind::Element, |element| {
@@ -1436,13 +1438,17 @@ mod tests {
         let (linearization, plan) = resolve_with_rules(source, &colon_and_semicolon_rules());
 
         let colon_slot = slot_of(&linearization, ":");
-        // Before the colon: the space before the hanging comment has no
-        // atoms and is kept verbatim; the colon's Antispace deletes the
-        // space after the comment.
+        // Before the colon: the sub-gap before the hanging comment has no
+        // atoms, so it takes the default single space; the colon's Antispace
+        // deletes the space after the comment.
         assert_eq!(
             gap_instructions(&plan, colon_slot),
             [
-                Instruction::KeepSubGap { slot: colon_slot, trivia_index: 0 },
+                Instruction::ReplaceSubGap {
+                    slot: colon_slot,
+                    trivia_index: Some(0),
+                    whitespace: Whitespace::Space
+                },
                 Instruction::EmitComment { slot: colon_slot, trivia_index: 1, column_shift: 0 },
                 Instruction::ReplaceSubGap {
                     slot: colon_slot,
@@ -1452,8 +1458,8 @@ mod tests {
             ]
         );
         // After the colon: the appended Space lands in the empty sub-gap
-        // before the comment (inserted), the empty sub-gap after it stays
-        // empty.
+        // before the comment (inserted); the sub-gap after it has no atoms
+        // and takes the default space.
         let one_slot = colon_slot + 1;
         assert_eq!(
             gap_instructions(&plan, one_slot),
@@ -1464,6 +1470,11 @@ mod tests {
                     whitespace: Whitespace::Space
                 },
                 Instruction::EmitComment { slot: one_slot, trivia_index: 0, column_shift: 0 },
+                Instruction::ReplaceSubGap {
+                    slot: one_slot,
+                    trivia_index: None,
+                    whitespace: Whitespace::Space
+                },
             ]
         );
     }
@@ -1513,7 +1524,11 @@ mod tests {
         assert_eq!(
             gap_instructions(&plan, content_slot),
             [
-                Instruction::KeepSubGap { slot: content_slot, trivia_index: 0 },
+                Instruction::ReplaceSubGap {
+                    slot: content_slot,
+                    trivia_index: Some(0),
+                    whitespace: Whitespace::Space
+                },
                 Instruction::EmitComment { slot: content_slot, trivia_index: 1, column_shift: 0 },
                 Instruction::ReplaceSubGap {
                     slot: content_slot,
@@ -1582,7 +1597,8 @@ mod tests {
     #[test]
     fn format_with_rules_end_to_end() {
         // The colon is re-spaced (including a space *inserted* where the
-        // input had no whitespace token); everything else is untouched.
+        // input had no whitespace token); the other boundaries were already a
+        // single space, which the default reproduces.
         assert_eq!(
             format_with("component A { x   :1; }", &colon_and_semicolon_rules()),
             "component A { x: 1; }"
@@ -1605,9 +1621,11 @@ mod tests {
                 .prepend(Atom::Space)
                 .append(Atom::Space);
         });
+        // No colon/semicolon rule here, so `x :` and `;` take the default
+        // single space; the operator spacing is the rule under test.
         assert_eq!(
             format_with("component A { x: 1+2 *3- 4; }", &rules),
-            "component A { x: 1 + 2 * 3 - 4; }"
+            "component A { x : 1 + 2 * 3 - 4 ; }"
         );
     }
 
@@ -1627,10 +1645,11 @@ mod tests {
                 }
             }
         });
-        // Single-line block: the softline resolves to a space.
+        // Single-line block: the softline resolves to a space. Everything
+        // else takes the default single space (no other rule fires).
         assert_eq!(
             format_with("component A { function f() { a = 1;b = 2; } }", &rules),
-            "component A { function f() { a = 1; b = 2; } }"
+            "component A { function f ( ) { a = 1 ; b = 2 ; } }"
         );
     }
 
@@ -1652,11 +1671,11 @@ mod tests {
 
     #[test]
     fn wildcard_rules_run_on_every_node() {
-        // The two sub-elements are adjacent nodes and get a space; `Text{`
-        // is a node-token neighbor and stays glued.
+        // The wildcard rule spaces the two adjacent sub-element nodes; the
+        // remaining boundaries take the default single space.
         assert_eq!(
             format_with("component A { Text{}Image{} }", &adjacent_node_space_rules()),
-            "component A { Text{} Image{} }"
+            "component A { Text { } Image { } }"
         );
     }
 
@@ -1668,13 +1687,13 @@ mod tests {
             // the wildcard Space even though Nothing is *weaker*.
             element.node(SyntaxKind::SubElement).prepend(element.empty_softline());
         });
-        // The prepend fires before *every* SubElement, so the space after
-        // `{` is deleted too (hence `{Text`, not the wildcard misbehaving);
-        // between the two sub-elements the Node Nothing beats the wildcard
-        // Space.
+        // The prepend fires before *every* SubElement, so the boundary before
+        // Text and before Image is Nothing (hence `{Text` and `}Image`, the
+        // Node tier beating the wildcard Space). The braces inside each
+        // sub-element take the default space.
         assert_eq!(
             format_with("component A { Text{}Image{} }", &rules),
-            "component A {Text{}Image{} }"
+            "component A {Text { }Image { } }"
         );
     }
 
@@ -1711,12 +1730,12 @@ mod tests {
         // Wildcard-tier Space wins (a tier-bearing Nothing would veto it).
         assert_eq!(
             format_with("component A { Text{}Image{} }", &rules),
-            "component A { Text{} Image{} }"
+            "component A { Text { } Image { } }"
         );
         // With an input newline it resolves to a newline and beats the Space.
         assert_eq!(
             format_with("component A { Text{}\nImage{} }", &rules),
-            "component A { Text{}\nImage{} }"
+            "component A { Text { }\nImage { } }"
         );
     }
 
@@ -1746,8 +1765,8 @@ mod tests {
     fn leaf_keeps_interior_verbatim_while_surroundings_format() {
         // Leaf the whole State: the colons inside (`s1 :`, `x :1`) stay
         // exactly as written even though the global colon rule fires on
-        // them, while the binding *outside* the leaf (`b :2`) is respaced
-        // and the block's indentation is untouched.
+        // them, while the binding *outside* the leaf (`b :2`) is respaced and
+        // the states block still normalizes around it.
         let mut rules = states_indent_rules();
         rules.node(SyntaxKind::State, |state| {
             state.leaf();
@@ -1758,17 +1777,17 @@ mod tests {
         s1 :{ x :1; }
     ]
 }";
+        // The element's own gaps take the default single space (no rule
+        // breaks its children onto lines), while the states block normalizes
+        // and the leafed State stays verbatim.
         assert_eq!(
             format_with(source, &rules),
-            "component A {
-    b: 2;
-    states [
+            "component A { b: 2; states [
         s1 :{ x :1; }
-    ]
-}"
+    ] }"
         );
 
-        // The `:1` gap (after the interior colon) is kept verbatim — a
+        // The `:1` gap (after the interior colon) is emitted verbatim — a
         // KeepGap, not the space-inserting ReplaceGap the colon rule
         // produces at the `b :2` colon outside the leaf.
         let (linearization, plan) = resolve_with_rules(source, &rules);
@@ -1838,15 +1857,20 @@ mod tests {
             assert_eq!(format_with(input, &rules), expected);
             assert_eq!(format_with(expected, &rules), expected, "not idempotent");
         };
-        // Single-line, no trailing comma: untouched.
-        check("component A { x: test(a, b); }", "component A { x: test(a, b); }");
+        // (Only the FunctionCallExpression rule fires; the boundaries around
+        // it — `x :`, `test (`, `) ;` — take the default single space.)
+        // Single-line, no trailing comma: arg list untouched.
+        check("component A { x: test(a, b); }", "component A { x : test (a, b) ; }");
         // Single-line, trailing comma present: deleted.
-        check("component A { x: test(a, b,); }", "component A { x: test(a, b); }");
+        check("component A { x: test(a, b,); }", "component A { x : test (a, b) ; }");
         // Broken across lines, no trailing comma: one is inserted (the
         // `test(\n    a,\n    b,\n)` target from the design plan).
-        check("component A { x: test(a,\nb); }", "component A { x: test(\n    a,\n    b,\n); }");
+        check("component A { x: test(a,\nb); }", "component A { x : test (\n    a,\n    b,\n) ; }");
         // Broken across lines, trailing comma present: kept.
-        check("component A { x: test(a,\nb,); }", "component A { x: test(\n    a,\n    b,\n); }");
+        check(
+            "component A { x: test(a,\nb,); }",
+            "component A { x : test (\n    a,\n    b,\n) ; }",
+        );
     }
 
     #[test]
@@ -1860,9 +1884,12 @@ mod tests {
             call.leaf();
             call.token(SyntaxKind::Comma).append(Atom::Literal(String::from("!")));
         });
+        // The call is leafed, so its interior (including the comma boundary
+        // the rule targets) is verbatim; only the surrounding boundaries take
+        // the default space.
         assert_eq!(
             format_with("component A { x: test(a, b); }", &leafed),
-            "component A { x: test(a, b); }"
+            "component A { x : test(a, b) ; }"
         );
 
         // Without the leaf the very same literal rule does fire — proving the
@@ -1873,13 +1900,13 @@ mod tests {
         });
         assert_eq!(
             format_with("component A { x: test(a, b); }", &plain),
-            "component A { x: test(a,! b); }"
+            "component A { x : test ( a ,! b ) ; }"
         );
         // And an ignore directive, which leafs via the engine core, suppresses
-        // it too.
+        // it too (the whole binding stays verbatim).
         assert_eq!(
             format_with("component A {\n    // slint-fmt:ignore\n    x: test(a, b);\n}", &plain),
-            "component A {\n    // slint-fmt:ignore\n    x: test(a, b);\n}"
+            "component A {\n// slint-fmt:ignore\nx: test(a, b); }"
         );
     }
 
@@ -1916,7 +1943,7 @@ mod tests {
         });
         assert_eq!(
             format_with("component A { x: test(a, b,); }", &rules),
-            "component A { x: test(a, b,); }"
+            "component A { x : test(a, b,) ; }"
         );
     }
 

@@ -121,7 +121,13 @@ Per gap, in one linear pass over the slots:
    decision; within that tier the strongest atom wins; duplicates collapse.
    `Antispace` cancels `Space`-strength results of its own or lower tiers —
    it never cancels a newline. (Tier-first means a node rule's `Space` can
-   deliberately override a global rule's resolved newline.)
+   deliberately override a global rule's resolved newline.) A boundary no
+   atom decided takes the **default**: a single space between two tokens, and
+   nothing at the document edges (before the first token and before the
+   terminating Eof, where there is no adjacency to space). The formatter
+   therefore reformats every gap — there is no keep-the-input fallback — so
+   running it over a file shows exactly what the ruleset does and does not yet
+   cover.
 6. Blank-line upgrade: if the decision is `Newline`, an `AllowBlankLines`
    atom is present, and the input sub-gap had a blank line, upgrade to one
    blank line (this caps preserved blank lines at one).
@@ -151,9 +157,9 @@ in the linear atom stream are inherent boundaries.) Anchoring rules:
 
 - **R1**: a comment-adjacent boundary whose input whitespace contains a
   newline always resolves to a newline, with an input blank line preserved
-  (capped at one) — no rule atom needed. Comment-adjacent boundaries with
-  neither a newline nor routed atoms are kept **verbatim** (this is what
-  preserves alignment spaces before hanging comments).
+  (capped at one) — no rule atom needed. A comment-adjacent boundary with no
+  newline and no routed atoms takes the default (a single space), like any
+  other boundary.
 - **R2**: atoms route by their *resolved* strength. Newline-strength append
   atoms of the left token transfer past the *trailing* comments (those with
   no input newline before them); everything else (`Space`, `Antispace`, and
@@ -174,8 +180,8 @@ Decided comment behaviors (with their trade-offs):
   onto another line or push one off it — a boundary that had a newline in
   the input keeps it, whatever the rules say (this is R1's unconditional
   newline; it also means a rule's `Space` is dropped at such a boundary).
-- Horizontal whitespace before a hanging comment is preserved **verbatim**
-  (protects user-aligned comment columns; matches the current formatter).
+- Horizontal whitespace before a hanging comment takes the default single
+  space, like any other undecided boundary (a rule can still widen it).
 - Own-line comments are **re-indented to the current indent level** (matches
   Topiary; diverges from the current formatter, corpus diffs accepted) —
   **except comments starting at column 0**, which keep indentation level 0:
@@ -190,11 +196,8 @@ Decided comment behaviors (with their trade-offs):
   after the corpus run.
 - `{ // note` keeps the comment hanging (matches the current formatter;
   Topiary would move it to the next line).
-- Engagement is per gap: the sub-gap machinery (including R1's defaults)
-  only runs when at least one rule attached a spacing atom to the gap;
-  otherwise the whole gap — comments included — stays verbatim. `AllowBlankLines`
-  is sub-gap-local: it protects the boundary it routes to, and
-  comment-adjacent boundaries protect themselves.
+- `AllowBlankLines` is sub-gap-local: it protects the boundary it routes to,
+  and comment-adjacent boundaries protect themselves.
 
 #### Output: `FormatPlan`
 
@@ -209,13 +212,12 @@ struct FormatPlan { instructions: Vec<Instruction> }
 enum Whitespace { None, Space, Newline { blank_line: bool, indentation_level: u32 } }
 
 enum Instruction {
-    /// Emit the whole gap's trivia unchanged (no rule fired here).
+    /// Emit the whole gap's trivia unchanged. Produced for gaps inside a
+    /// `Leaf` range (interior emitted verbatim) and for the comment-bearing
+    /// gap before a deleted token (the comment is preserved).
     KeepGap { slot: usize },
     /// Replace the (comment-free) gap's trivia with the given whitespace.
     ReplaceGap { slot: usize, whitespace: Whitespace },
-    /// Emit one whitespace trivia token unchanged (e.g. the alignment
-    /// spaces before a hanging comment).
-    KeepSubGap { slot: usize, trivia_index: usize },
     /// Replace one whitespace trivia token — or insert whitespace where the
     /// sub-gap is empty.
     ReplaceSubGap { slot: usize, trivia_index: Option<usize>, whitespace: Whitespace },
@@ -243,12 +245,13 @@ Realize the `FormatPlan` through the existing `TokenWriter` trait
 writer protocol is honored — every original token, trivia included, passes
 through the writer exactly once:
 
-- `EmitToken`, `KeepSubGap`: `no_change`
-- `KeepGap`: `no_change` per trivia token of the gap
+- `EmitToken`: `no_change`
+- `KeepGap`: `no_change` per trivia token of the gap (leaf interiors only)
 - `ReplaceGap`, `ReplaceSubGap`: `with_new_content` on the whitespace token
   (possibly `""`), or `insert_content` where the input had none
 - `EmitComment`: `no_change`, or `with_new_content` when continuation lines
   shift
+- `EmitLiteral`: `insert_content`; `DeleteToken`: `with_new_content("")`
 
 Keeping `TokenWriter` preserves both existing sinks unchanged: the CLI tool
 (`fmt/tool.rs`, including `.rs`/`.md` embedded-source handling and the

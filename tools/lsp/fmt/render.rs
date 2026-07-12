@@ -36,9 +36,6 @@ pub fn render(
                     None => {}
                 }
             }
-            &Instruction::KeepSubGap { slot, trivia_index } => {
-                writer.no_change(linearization.slots[slot].gap_before[trivia_index].clone())?;
-            }
             &Instruction::ReplaceSubGap { slot, trivia_index, whitespace } => {
                 let text = whitespace_text(whitespace);
                 match trivia_index {

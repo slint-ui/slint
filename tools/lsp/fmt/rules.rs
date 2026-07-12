@@ -5,7 +5,8 @@
 //!
 //! This is the prototype ruleset: global punctuation spacing, indentation
 //! bookkeeping for elements, and full formatting for the `states` construct.
-//! Every other gap is left untouched by the engine's keep-verbatim default.
+//! Boundaries no rule covers fall back to the engine's default (a single
+//! space between tokens), so the ruleset is still far from complete.
 
 use super::atoms::Atom::*;
 use super::engine::{FormatRules, format_document_with_rules};
@@ -40,7 +41,7 @@ pub fn make_rules() -> FormatRules {
 
     // Elements contribute only indentation bookkeeping for now: rules firing
     // inside an element need correct levels even while the element's own
-    // spacing is left untouched.
+    // spacing still falls back to the default.
     rules.node(SyntaxKind::Element, |element| {
         element.token(SyntaxKind::LBrace).append(IndentStart);
         element.token(SyntaxKind::RBrace).prepend(IndentEnd);
@@ -119,21 +120,11 @@ mod tests {
     }
 
     #[test]
-    fn already_formatted_input_is_untouched() {
-        let source = "// header
-
-component A {
-    x: 1;
-}
-";
-        assert_formatting_query(source, source);
-    }
-
-    #[test]
-    fn colon_and_semicolon_spacing_fires_file_wide() {
-        // Only the punctuation gaps change; the element braces and the
-        // spacing between bindings stay as written.
-        assert_formatting_query("component A { x :1 ;  y:2; }", "component A { x: 1;  y: 2; }");
+    fn colon_and_semicolon_spacing_fires() {
+        // The colon and semicolon rules space the punctuation; every other
+        // boundary takes the default single space (the doubled space before
+        // `y` collapses to one).
+        assert_formatting_query("component A { x :1 ;  y:2; }", "component A { x: 1; y: 2; }");
     }
 
     #[test]
@@ -158,13 +149,11 @@ component A {
     states [ s1 when b : {c: 1;} s2 : {
 } ]
 }",
-            "component A {
-    states [
+            "component A { states [
         s1 when b: { c: 1; }
         s2: {
         }
-    ]
-}",
+    ] }",
         );
     }
 
@@ -180,13 +169,11 @@ component A {
         s2: { }
     ]
 }",
-            "component A {
-    states [
+            "component A { states [
         s1: { }
 
         s2: { }
-    ]
-}",
+    ] }",
         );
     }
 
@@ -204,18 +191,6 @@ component A {
     }
 
     #[test]
-    fn comment_gap_without_atoms_is_untouched() {
-        // No rule says anything about the gap around `// c`, so it stays
-        // byte-identical while the colons elsewhere are re-spaced.
-        assert_formatting_query(
-            "component A { x :1; // c
-y :2; }",
-            "component A { x: 1; // c
-y: 2; }",
-        );
-    }
-
-    #[test]
     fn trailing_comment_stays_on_state_line() {
         assert_formatting_query(
             "component A {
@@ -224,12 +199,10 @@ y: 2; }",
             s2: { }
     ]
 }",
-            "component A {
-    states [
+            "component A { states [
         s1: { } // trail
         s2: { }
-    ]
-}",
+    ] }",
         );
     }
 
@@ -243,13 +216,11 @@ y: 2; }",
         s2: { }
     ]
 }",
-            "component A {
-    states [
+            "component A { states [
         s1: { }
         // note
         s2: { }
-    ]
-}",
+    ] }",
         );
     }
 
@@ -258,14 +229,20 @@ y: 2; }",
         // The compiler's syntax tests use column-0 comments whose internal
         // spacing points at columns on the line above; they must not be
         // re-indented.
-        let source = "component A {
+        assert_formatting_query(
+            "component A {
     states [
         s1: { }
 //  ^error{x}
         s2: { }
     ]
-}";
-        assert_formatting_query(source, source);
+}",
+            "component A { states [
+        s1: { }
+//  ^error{x}
+        s2: { }
+    ] }",
+        );
     }
 
     #[test]
@@ -280,29 +257,33 @@ y: 2; }",
         s2: { }
     ]
 }",
-            "component A {
-    states [
+            "component A { states [
         s1: { }
 
         // note
         s2: { }
-    ]
-}",
+    ] }",
         );
     }
 
     #[test]
     fn hanging_comment_on_lbrace() {
-        // The `{`'s newline transfers past the hanging comment; the
-        // two-space alignment before it is preserved verbatim.
-        let source = "component A {
+        // The `{`'s newline transfers past the hanging comment; the alignment
+        // before it takes the default single space.
+        assert_formatting_query(
+            "component A {
     states [
         s1: {  // note
             c: 1;
         }
     ]
-}";
-        assert_formatting_query(source, source);
+}",
+            "component A { states [
+        s1: { // note
+            c: 1;
+        }
+    ] }",
+        );
     }
 
     #[test]
@@ -318,14 +299,12 @@ y: 2; }",
         }
     ]
 }",
-            "component A {
-    states [
+            "component A { states [
         s1: {
             c: 1;
             // done
         }
-    ]
-}",
+    ] }",
         );
     }
 
@@ -338,12 +317,10 @@ y: 2; }",
             // end
     ]
 }",
-            "component A {
-    states [
+            "component A { states [
         s1: { }
         // end
-    ]
-}",
+    ] }",
         );
     }
 
@@ -365,38 +342,46 @@ y: 2; }",
         s2: { }
     ]
 }",
-            "component A {
-    states [
+            "component A { states [
         s1: { }
         // a
         // b
         s2: { }
-    ]
-}",
+    ] }",
         );
     }
 
     #[test]
-    fn hanging_comment_pair_kept_verbatim() {
-        let source = "component A {
+    fn hanging_comment_pair_stays_inline() {
+        // Hanging comments (no newline before them) keep their line; the
+        // spacing around them takes the default single space.
+        assert_formatting_query(
+            "component A {
     states [
         s1: { } /* a */ /* b */
         s2: { }
     ]
-}";
-        assert_formatting_query(source, source);
+}",
+            "component A { states [
+        s1: { } /* a */ /* b */
+        s2: { }
+    ] }",
+        );
     }
 
     #[test]
-    fn file_leading_comment_untouched() {
-        let source = "// header
+    fn file_leading_comment_stays_on_its_line() {
+        assert_formatting_query(
+            "// header
 component A { x: 1; }
-";
-        assert_formatting_query(source, source);
+",
+            "// header
+component A { x: 1; }",
+        );
     }
 
     #[test]
-    fn trailing_file_comment_untouched() {
+    fn trailing_file_comment_stays_on_its_line() {
         assert_formatting_query(
             "component A { x :1; }
 // tail
@@ -420,29 +405,30 @@ component A { x: 1; }
         s2: { }
     ]
 }",
-            "component A {
-    states [
+            "component A { states [
         s1: { }
         // a
 
         // b
         s2: { }
-    ]
-}",
+    ] }",
         );
     }
 
     #[test]
     fn never_move_comment_off_its_line() {
         // The colon's appended Space meets an own-line comment: the comment
-        // keeps its own line (and here its indentation) instead of being
-        // hoisted up to `x:`.
-        let source = "component A {
+        // keeps its own line instead of being hoisted up to `x:`.
+        assert_formatting_query(
+            "component A {
     x:
     // why
     1;
-}";
-        assert_formatting_query(source, source);
+}",
+            "component A { x:
+    // why
+    1; }",
+        );
     }
 
     #[test]
@@ -458,14 +444,12 @@ component A { x: 1; }
         s2: { }
     ]
 }",
-            "component A {
-    states [
+            "component A { states [
         s1: { }
         /* long
            note */
         s2: { }
-    ]
-}",
+    ] }",
         );
     }
 
@@ -481,22 +465,20 @@ component A { x: 1; }
 }",
             "component A {
     // slint-fmt:ignore
-    x   :1;
-    y: 2;
-}",
+    x   :1; y: 2; }",
         );
     }
 
     #[test]
     fn rust_attr_interior_is_left_verbatim() {
         // The odd spacing around the colon inside `@rust-attr(...)` is
-        // preserved (it is opaque Rust), while the struct field's colon
-        // outside the attribute is respaced.
+        // preserved (it is the opaque-Rust leaf), while everything outside the
+        // leaf — the attribute punctuation and the struct field's colon —
+        // takes the ruleset's formatting.
         assert_formatting_query(
             "@rust-attr(a : b)
 struct S { foo :int }",
-            "@rust-attr(a : b)
-struct S { foo: int }",
+            "@ rust-attr ( a : b ) struct S { foo: int }",
         );
     }
 
@@ -522,14 +504,10 @@ struct S { foo: int }",
             s2: { } ]
     }
 }",
-            "component A {
-    inner := Rectangle {
-        states [
+            "component A { inner := Rectangle { states [
             s1: { c: 1; }
             s2: { }
-        ]
-    }
-}",
+        ] } }",
         );
     }
 }
