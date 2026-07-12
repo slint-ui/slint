@@ -36,7 +36,7 @@ See the [README](../../internal/backends/testing/README.md#enabling-the-mcp-serv
 
 ## Initialization Flow
 
-Initialization is triggered from the backend selector (`internal/backends/selector/api.rs`) after the platform is successfully created, and from the bindings that install a platform with `set_platform()` and thus bypass the selector:
+Initialization is triggered from the backend selector (`internal/backends/selector/api.rs`) after the platform is successfully created:
 
 1. `mcp_server::init()` checks `SLINT_MCP_PORT`. If absent, returns early.
 2. Calls `introspection::ensure_window_tracking()` to install a window-shown hook that registers windows with the shared `IntrospectionState`.
