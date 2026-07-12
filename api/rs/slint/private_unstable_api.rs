@@ -13,31 +13,15 @@ use re_exports::*;
 // Helper functions called from generated code to reduce code bloat from
 // extra copies of the original functions for each call site due to
 // the impl Fn() they are taking.
+//
+// The functions generic over `StrongItemTreeRef` serve global components;
+// regular components use the `*_erased` functions from `re_exports`, which
+// are not monomorphized per component.
 
 pub trait StrongItemTreeRef: Sized {
     type Weak: Clone + 'static;
     fn to_weak(&self) -> Self::Weak;
     fn from_weak(weak: &Self::Weak) -> Option<Self>;
-}
-
-impl<C: 'static> StrongItemTreeRef for VRc<ItemTreeVTable, C> {
-    type Weak = VWeak<ItemTreeVTable, C>;
-    fn to_weak(&self) -> Self::Weak {
-        VRc::downgrade(self)
-    }
-    fn from_weak(weak: &Self::Weak) -> Option<Self> {
-        weak.upgrade()
-    }
-}
-
-impl<C: 'static> StrongItemTreeRef for VRcMapped<ItemTreeVTable, C> {
-    type Weak = VWeakMapped<ItemTreeVTable, C>;
-    fn to_weak(&self) -> Self::Weak {
-        VRcMapped::downgrade(self)
-    }
-    fn from_weak(weak: &Self::Weak) -> Option<Self> {
-        weak.upgrade()
-    }
 }
 
 impl<C: 'static> StrongItemTreeRef for Pin<Rc<C>> {
@@ -206,7 +190,9 @@ pub mod re_exports {
     pub use i_slint_core::model::*;
     pub use i_slint_core::open_url;
     pub use i_slint_core::properties::{
-        ChangeTracker, Property, PropertyTracker, StateInfo, set_state_binding,
+        ChangeTracker, Property, PropertyTracker, StateInfo, change_tracker_init_erased,
+        set_animated_property_binding_erased, set_callback_handler_erased,
+        set_property_binding_erased, set_property_state_binding_erased, set_state_binding,
     };
     pub use i_slint_core::slice::Slice;
     pub use i_slint_core::string::shared_string_from_number;

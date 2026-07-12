@@ -900,10 +900,28 @@ fn handle_property_init(
     let rust_property = access_member(prop, ctx).unwrap();
     let prop_type = ctx.property_ty(prop);
 
-    let init_self_pin_ref = if ctx.current_global().is_some() {
-        quote!(let _self = self_rc.as_ref();)
-    } else {
-        quote!(let _self = self_rc.as_pin_ref();)
+    // Components use the type-erased helpers, so the binding machinery is
+    // instantiated once per property type instead of per (property type,
+    // component). Globals are behind a plain Rc without a type-erased weak
+    // form and keep the helpers that are generic over the component.
+    let erased = ctx.current_global().is_none();
+    // A closure evaluating `body` on the component, in the form expected by
+    // the selected helper. Optionally takes extra arguments.
+    let self_closure = |args: TokenStream, body: TokenStream| {
+        if erased {
+            quote!(move |_self #args| #body)
+        } else {
+            quote!(move |self_rc #args| { let _self = self_rc.as_ref(); #body })
+        }
+    };
+    let helper = |name: &str| {
+        if erased {
+            let name = format_ident!("{name}_erased");
+            quote!(sp::#name)
+        } else {
+            let name = format_ident!("{name}");
+            quote!(slint::private_unstable_api::#name)
+        }
     };
 
     if let Type::Callback(callback) = &prop_type {
@@ -912,14 +930,11 @@ fn handle_property_init(
         let tokens_for_expression =
             compile_expression(&binding_expression.expression.borrow(), &ctx2);
         let as_ = if matches!(callback.return_type, Type::Void) { quote!(;) } else { quote!(as _) };
+        let set_callback_handler = helper("set_callback_handler");
+        let handler = self_closure(quote!(, args), quote!({ (#tokens_for_expression) #as_ }));
         init.push(quote!({
             #[allow(unreachable_code, unused)]
-            slint::private_unstable_api::set_callback_handler(#rust_property, &self_rc, {
-                move |self_rc, args| {
-                    #init_self_pin_ref
-                    (#tokens_for_expression) #as_
-                }
-            });
+            #set_callback_handler(#rust_property, &self_rc, { #handler });
         }));
     } else {
         let tokens_for_expression =
@@ -927,62 +942,61 @@ fn handle_property_init(
 
         let tokens_for_expression = set_primitive_property_value(prop_type, tokens_for_expression);
 
+        // Cast to the property type unless the Rust code is the never type, as with return
+        // statements inside a block the type of the return expression is `()` instead of `!`.
+        let maybe_cast = if binding_expression.expression.borrow().ty(ctx) == Type::Invalid {
+            None
+        } else {
+            Some(quote!(as _))
+        };
+        // The erased helpers take functions with an extra unused `&()` argument, so that
+        // erasing them does not change their arity. The global (non-erased) helpers don't.
+        let unit_arg = if erased { quote!(, _: &()) } else { quote!() };
         init.push(match binding_expression.kind {
             llr::BindingKind::Constant => {
                 let t = rust_property_type(prop_type).unwrap_or(quote!(_));
                 quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
             }
             llr::BindingKind::State => {
-                let maybe_cast = if binding_expression.expression.borrow().ty(ctx) == Type::Invalid {
-                    None
-                } else {
-                    Some(quote!(as _))
-                };
-                let binding_tokens = quote!(move |self_rc| {
-                    #init_self_pin_ref
-                    (#tokens_for_expression) #maybe_cast
-                });
+                let binding_tokens =
+                    self_closure(unit_arg.clone(), quote!((#tokens_for_expression) #maybe_cast));
+                let set_property_state_binding = helper("set_property_state_binding");
                 quote! { {
-                    slint::private_unstable_api::set_property_state_binding(#rust_property, &self_rc, #binding_tokens);
+                    #set_property_state_binding(#rust_property, &self_rc, #binding_tokens);
                 } }
             }
             llr::BindingKind::Normal => {
-                let maybe_cast = if binding_expression.expression.borrow().ty(ctx) == Type::Invalid {
-                    None
-                } else {
-                    Some(quote!(as _))
-                };
-                let binding_tokens = quote!(move |self_rc| {
-                    #init_self_pin_ref
-                    (#tokens_for_expression) #maybe_cast
-                });
+                let binding_tokens =
+                    self_closure(unit_arg.clone(), quote!((#tokens_for_expression) #maybe_cast));
                 match &binding_expression.animation {
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);
+                        let set_animated_property_binding = helper("set_animated_property_binding");
+                        let details = self_closure(unit_arg.clone(), quote!((#anim, None)));
                         quote! { {
-                            #init_self_pin_ref
-                            slint::private_unstable_api::set_animated_property_binding(
-                                #rust_property, &self_rc, #binding_tokens, move |self_rc| {
-                                    #init_self_pin_ref
-                                    (#anim, None)
-                                });
+                            #set_animated_property_binding(
+                                #rust_property, &self_rc, #binding_tokens, #details);
                         } }
                     }
                     Some(llr::Animation::Transition(animation)) => {
                         let animation = compile_expression(animation, ctx);
-                        quote! {
-                            slint::private_unstable_api::set_animated_property_binding(
-                                #rust_property, &self_rc, #binding_tokens, move |self_rc| {
-                                    #init_self_pin_ref
-                                    let (animation, change_time) = #animation;
-                                    (animation, Some(change_time))
-                                }
-                            );
-                        }
+                        let set_animated_property_binding = helper("set_animated_property_binding");
+                        let details = self_closure(
+                            unit_arg.clone(),
+                            quote!({
+                                let (animation, change_time) = #animation;
+                                (animation, Some(change_time))
+                            }),
+                        );
+                        quote! { {
+                            #set_animated_property_binding(
+                                #rust_property, &self_rc, #binding_tokens, #details);
+                        } }
                     }
                     None => {
+                        let set_property_binding = helper("set_property_binding");
                         quote! { {
-                            slint::private_unstable_api::set_property_binding(#rust_property, &self_rc, #binding_tokens);
+                            #set_property_binding(#rust_property, &self_rc, #binding_tokens);
                         } }
                     }
                 }
@@ -1673,20 +1687,12 @@ fn generate_sub_component(
         let prop = compile_expression(&Expression::PropertyReference(p.clone()), &ctx);
         let change_tracker = format_ident!("change_tracker{idx}");
         quote! {
-            let self_weak = sp::VRcMapped::downgrade(&self_rc);
             #[allow(dead_code, unused)]
-            _self.#change_tracker.init(
-                self_weak,
-                move |self_weak| {
-                    let self_rc = self_weak.upgrade().unwrap();
-                    let _self = self_rc.as_pin_ref();
-                    #prop
-                },
-                move |self_weak, _| {
-                    let self_rc = self_weak.upgrade().unwrap();
-                    let _self = self_rc.as_pin_ref();
-                    #code;
-                }
+            sp::change_tracker_init_erased(
+                &_self.#change_tracker,
+                &self_rc,
+                move |_self, _: &()| #prop,
+                move |_self, _| { #code; }
             );
         }
     }));
