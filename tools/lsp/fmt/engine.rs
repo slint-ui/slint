@@ -546,6 +546,15 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
     // collapse away.
     let mut last_surviving: Option<usize> = None;
 
+    // Debug-only idempotency guard, checked after the loop: a `Hardline` that
+    // produces a newline strictly inside a softline span which resolved
+    // single-line would flip that span to multiline on the next run, breaking
+    // `format(format(x)) == format(x)`.
+    #[cfg(debug_assertions)]
+    let mut single_line_softline_spans: Vec<TextRange> = Vec::new();
+    #[cfg(debug_assertions)]
+    let mut hardline_newline_positions: Vec<TextSize> = Vec::new();
+
     for (slot_index, slot) in slots.iter().enumerate() {
         let leaf = leaf_of_slot[slot_index];
         // A delete inside a leaf is ignored: the leaf keeps its interior
@@ -609,6 +618,8 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
                 Atom::IndentStart | Atom::IndentEnd | Atom::AllowBlankLines | Atom::Literal(_)
             )
         });
+        #[cfg(debug_assertions)]
+        let gap_instructions_start = instructions.len();
         if has_spacing_atom && !leaf_internal {
             resolve_gap(
                 slot,
@@ -627,6 +638,36 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
             instructions.push(Instruction::KeepGap { slot: slot_index });
         }
 
+        // Record the softline spans and any Hardline-driven newline in this
+        // gap for the idempotency guard. Leaf-internal gaps are exempt: their
+        // atoms were suppressed above, so nothing was emitted.
+        #[cfg(debug_assertions)]
+        if !leaf_internal {
+            for instance in append_atoms.iter().chain(prepend_atoms) {
+                if let Atom::SpacedSoftline(span) | Atom::EmptySoftline(span) = instance.atom {
+                    if !source[span].contains('\n') {
+                        single_line_softline_spans.push(span);
+                    }
+                }
+            }
+            let produced_newline =
+                instructions[gap_instructions_start..].iter().any(|instruction| {
+                    matches!(
+                        instruction,
+                        Instruction::ReplaceGap { whitespace: Whitespace::Newline { .. }, .. }
+                            | Instruction::ReplaceSubGap {
+                                whitespace: Whitespace::Newline { .. },
+                                ..
+                            }
+                    )
+                });
+            let has_hardline =
+                append_atoms.iter().chain(prepend_atoms).any(|it| it.atom == Atom::Hardline);
+            if has_hardline && produced_newline {
+                hardline_newline_positions.push(slot.token.text_range().start());
+            }
+        }
+
         if !leaf_internal {
             for text in literal_texts(prepend_atoms) {
                 instructions.push(Instruction::EmitLiteral { text: text.to_string() });
@@ -634,6 +675,25 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
         }
         instructions.push(Instruction::EmitToken { slot: slot_index });
         last_surviving = Some(slot_index);
+    }
+
+    // Idempotency guard (see the accumulators above).
+    #[cfg(debug_assertions)]
+    for &position in &hardline_newline_positions {
+        if let Some(span) = single_line_softline_spans
+            .iter()
+            .find(|span| span.start() < position && position < span.end())
+        {
+            panic!(
+                "formatter idempotency violation: a Hardline produced a newline at offset {} \
+                 strictly inside the softline-measured span {:?} ({:?}), which resolved \
+                 single-line — the span would become multiline on the next run. Use Hardline \
+                 only where no softline measures it (e.g. at Document top level).",
+                u32::from(position),
+                span,
+                &source[*span],
+            );
+        }
     }
 
     FormatPlan { instructions }
@@ -1821,6 +1881,22 @@ mod tests {
             format_with("component A {\n    // slint-fmt:ignore\n    x: test(a, b);\n}", &plain),
             "component A {\n    // slint-fmt:ignore\n    x: test(a, b);\n}"
         );
+    }
+
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "idempotency violation")]
+    fn hardline_inside_a_single_line_softline_span_is_caught() {
+        // The call is single-line, so `empty_softline()` measures its span as
+        // single-line — yet a Hardline forces a newline strictly inside that
+        // span. On the next run the span would be multiline, so the debug
+        // guard must reject this ruleset.
+        let mut rules = FormatRules::default();
+        rules.node(SyntaxKind::FunctionCallExpression, |call| {
+            call.token(SyntaxKind::LParent).append(call.empty_softline());
+            call.token(SyntaxKind::Comma).append(Atom::Hardline);
+        });
+        format_with("component A { x: test(a, b); }", &rules);
     }
 
     #[test]
