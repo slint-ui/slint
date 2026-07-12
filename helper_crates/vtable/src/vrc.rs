@@ -427,6 +427,44 @@ impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> VRcMapped<VTab
     }
 }
 
+impl<VTable: VTableMetaDropInPlace + 'static, MappedType> VRcMapped<VTable, MappedType> {
+    /// A [`Dyn`] weak reference to the mapped object, keeping only a raw pointer to it.
+    /// Private: it is only ever paired with a matching function inside [`ErasedWeakFn`],
+    /// so the pointer is never handed to a function expecting a different type.
+    fn downgrade_dyn(this: &Self) -> VWeakMapped<VTable, Dyn> {
+        VWeakMapped {
+            parent_weak: VRc::downgrade(&this.parent_strong),
+            // Cast through raw pointers so the pointer keeps its provenance over all of
+            // `MappedType`, without forming an intermediate reference.
+            object: this.object as *const Dyn,
+        }
+    }
+
+    /// Bundle a weak reference to this object with `f`, so that `f` can later be run on the
+    /// object (while it is still alive) through the returned [`ErasedWeakFn`], without that
+    /// handle being generic over `MappedType`. Pass `Arg = ()` for a function that takes no
+    /// meaningful argument.
+    pub fn downgrade_erased_fn<Arg: ?Sized, Ret>(
+        this: &Self,
+        f: fn(core::pin::Pin<&MappedType>, &Arg) -> Ret,
+    ) -> ErasedWeakFn<VTable, Ret, Arg> {
+        ErasedWeakFn {
+            weak: Self::downgrade_dyn(this),
+            // SAFETY: `weak` yields a pointer to this `MappedType`, and `Pin<&MappedType>`
+            // (repr(transparent) over `&MappedType`, a thin pointer for the sized
+            // `MappedType`) is ABI-compatible with `*const ()` as a function parameter; the
+            // `&Arg` parameter is unchanged. So calling the transmuted pointer with that
+            // pointer is defined.
+            call: unsafe {
+                core::mem::transmute::<
+                    fn(core::pin::Pin<&MappedType>, &Arg) -> Ret,
+                    fn(*const (), &Arg) -> Ret,
+                >(f)
+            },
+        }
+    }
+}
+
 impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> Deref
     for VRcMapped<VTable, MappedType>
 {
@@ -461,6 +499,31 @@ impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> Clone
 {
     fn clone(&self) -> Self {
         Self { parent_weak: self.parent_weak.clone(), object: self.object }
+    }
+}
+
+/// Runs a stored function on a mapped object as long as that object is still alive.
+///
+/// Create one from a [`VRcMapped`] and a function with [`VRcMapped::downgrade_erased_fn`],
+/// then call [`Self::upgrade_and_call`] whenever you want to run the function on the object,
+/// passing the argument it expects (`&()` if it takes none). Once every strong reference to
+/// the object is gone, `upgrade_and_call` returns `None` and the function is not run.
+///
+/// The type is only parameterized by the argument and return types, not by the type of the
+/// mapped object, so code that stores an `ErasedWeakFn` is compiled once no matter how many
+/// mapped types it is used with.
+pub struct ErasedWeakFn<VTable: VTableMetaDropInPlace + 'static, Ret, Arg: ?Sized = ()> {
+    weak: VWeakMapped<VTable, Dyn>,
+    call: fn(*const (), &Arg) -> Ret,
+}
+
+impl<VTable: VTableMetaDropInPlace + 'static, Ret, Arg: ?Sized> ErasedWeakFn<VTable, Ret, Arg> {
+    /// Run the stored function on the object with `arg`, or return `None` if the object has
+    /// been dropped.
+    pub fn upgrade_and_call(&self, arg: &Arg) -> Option<Ret> {
+        let strong = self.weak.upgrade()?;
+        // `strong` keeps the object alive and pinned for the duration of the call.
+        Some((self.call)(strong.object as *const (), arg))
     }
 }
 

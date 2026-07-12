@@ -6,6 +6,9 @@ All notable changes to this crate will be documented in this file.
 
  - Replaced the `static_vtable` function with `STATIC_VTABLE` associated
    const.
+ - Added `ErasedWeakFn`, a weak reference to a mapped object bundled with a
+   function taking that object and an `&Arg`, neither generic over the mapped
+   type, created with `VRcMapped::downgrade_erased_fn`.
 
 ## [0.4.0]
 
