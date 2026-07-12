@@ -235,6 +235,36 @@ impl Model for WasmJsModel {
         let _ = func.call2(&self.js_impl, &JsValue::from_f64(row as f64), &value_to_js(&data));
     }
 
+    fn push_row(&self, data: Self::Data) {
+        let Ok(func) = js_sys::Reflect::get(&self.js_impl, &"pushRow".into()) else {
+            return;
+        };
+        let Some(func) = func.dyn_ref::<js_sys::Function>() else {
+            return;
+        };
+        let _ = func.call1(&self.js_impl, &value_to_js(&data));
+    }
+
+    fn remove_row(&self, row: isize) {
+        let Ok(func) = js_sys::Reflect::get(&self.js_impl, &"removeRow".into()) else {
+            return;
+        };
+        let Some(func) = func.dyn_ref::<js_sys::Function>() else {
+            return;
+        };
+        let _ = func.call1(&self.js_impl, &JsValue::from_f64(row as f64));
+    }
+
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        let Ok(func) = js_sys::Reflect::get(&self.js_impl, &"insertRow".into()) else {
+            return;
+        };
+        let Some(func) = func.dyn_ref::<js_sys::Function>() else {
+            return;
+        };
+        let _ = func.call2(&self.js_impl, &JsValue::from_f64(row as f64), &value_to_js(&data));
+    }
+
     fn model_tracker(&self) -> &dyn ModelTracker {
         &*self.notify
     }
