@@ -7415,6 +7415,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "slint-js"
+version = "1.18.0"
+dependencies = [
+ "async-io",
+ "console_error_panic_hook",
+ "css-color-parser2",
+ "i-slint-backend-selector",
+ "i-slint-backend-testing",
+ "i-slint-backend-winit",
+ "i-slint-common",
+ "i-slint-compiler",
+ "i-slint-core",
+ "itertools 0.14.0",
+ "js-sys",
+ "libloading 0.9.0",
+ "napi",
+ "napi-build",
+ "napi-derive",
+ "send_wrapper",
+ "slint-interpreter",
+ "smol_str 0.3.2",
+ "spin_on",
+ "vtable",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "slint-lsp"
 version = "1.18.0"
 dependencies = [
@@ -7472,28 +7501,6 @@ dependencies = [
  "i-slint-compiler",
  "proc-macro2",
  "quote",
- "spin_on",
-]
-
-[[package]]
-name = "slint-node"
-version = "1.18.0"
-dependencies = [
- "async-io",
- "css-color-parser2",
- "i-slint-backend-selector",
- "i-slint-backend-testing",
- "i-slint-common",
- "i-slint-compiler",
- "i-slint-core",
- "itertools 0.14.0",
- "libloading 0.9.0",
- "napi",
- "napi-build",
- "napi-derive",
- "send_wrapper",
- "slint-interpreter",
- "smol_str 0.3.2",
  "spin_on",
 ]
 
@@ -7570,24 +7577,6 @@ dependencies = [
  "tracing-log",
  "tracing-subscriber",
  "zeroconf",
-]
-
-[[package]]
-name = "slint-wasm-interpreter"
-version = "1.18.0"
-dependencies = [
- "console_error_panic_hook",
- "css-color-parser2",
- "i-slint-backend-winit",
- "i-slint-compiler",
- "i-slint-core",
- "js-sys",
- "send_wrapper",
- "slint-interpreter",
- "vtable",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
 ]
 
 [[package]]

@@ -5,8 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build:wasm": "wasm-pack build --dev --target web -- --features console_error_panic_hook",
-    "build:wasm-release": "wasm-pack build --release --target web -- --features console_error_panic_hook",
+    "build:wasm": "wasm-pack build --dev --target web --out-dir browser/pkg --out-name slint_wasm_interpreter .. -- --no-default-features --features console_error_panic_hook",
+    "build:wasm-release": "wasm-pack build --release --target web --out-dir browser/pkg --out-name slint_wasm_interpreter .. -- --no-default-features --features console_error_panic_hook",
     "compile": "tsc --build"
   },
   "devDependencies": {

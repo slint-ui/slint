@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! This wasm library can be loaded from JS to load and display the content of .slint files
-#![cfg(target_arch = "wasm32")]
-
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;

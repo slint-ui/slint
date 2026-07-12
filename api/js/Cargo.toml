@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 [package]
-name = "slint-node"
-description = "Internal Slint Runtime Library for NodeJS API."
+name = "slint-js"
+description = "Internal Slint Runtime Library for JavaScript (Node.js via napi, browser via wasm-bindgen)."
 authors.workspace = true
 documentation.workspace = true
 edition.workspace = true
@@ -19,9 +19,12 @@ publish = false
 
 [lib]
 crate-type = ["cdylib"]
-path = "rust/lib.rs"
+path = "src/lib.rs"
 
 [features]
+# The default features are for the native (Node.js) build. wasm builds must
+# pass --no-default-features: the wasm target section below hardwires the
+# winit backend and femtovg renderer.
 # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, slint_tool_binary.yaml, and api/python/slint/Cargo.toml
 default = ["backend-linuxkms-noseat", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
 
@@ -53,20 +56,36 @@ testing = ["dep:i-slint-backend-testing"]
 system-testing = ["dep:i-slint-backend-testing", "i-slint-backend-selector/system-testing"]
 mcp = ["dep:i-slint-backend-testing", "i-slint-backend-selector/mcp"]
 
+console_error_panic_hook = ["dep:console_error_panic_hook"]
+
 [dependencies]
+i-slint-compiler = { workspace = true, features = ["default"] }
+i-slint-core = { workspace = true, features = ["default"] }
+slint-interpreter = { workspace = true, default-features = false, features = ["std", "display-diagnostics", "internal", "compat-1-2"] }
+send_wrapper = { workspace = true }
+css-color-parser2 = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 napi = { version = "3", default-features = false, features = ["napi8"] }
 napi-derive = "3"
-i-slint-compiler = { workspace = true, features = ["default"] }
-i-slint-core = { workspace = true, features = ["default", "gettext-rs"] }
+i-slint-core = { workspace = true, features = ["gettext-rs"] }
 i-slint-backend-selector = { workspace = true }
-slint-interpreter = { workspace = true, default-features = false, features = ["display-diagnostics", "internal", "compat-1-2", "system-tray"] }
+slint-interpreter = { workspace = true, default-features = false, features = ["system-tray"] }
 spin_on = { workspace = true }
-css-color-parser2 = { workspace = true }
 itertools = { workspace = true }
-send_wrapper = { workspace = true }
 # Removed by node_package xtask
 i-slint-backend-testing = { workspace = true, optional = true, features = ["internal"] }
 smol_str = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+slint-interpreter = { workspace = true, default-features = false, features = ["backend-winit", "renderer-femtovg"] }
+i-slint-backend-winit = { workspace = true }
+vtable = { workspace = true }
+console_error_panic_hook = { version = "0.1.6", optional = true }
+js-sys = "0.3.44"
+wasm-bindgen-futures = { version = "0.4.18" }
+wasm-bindgen = { version = "0.2.66" }
+web-sys = { workspace = true, features = ["Request", "RequestInit", "RequestMode", "Response", "Window"] }
 
 [target.'cfg(unix)'.dependencies]
 libloading = "0.9"

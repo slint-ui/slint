@@ -123,7 +123,7 @@ depends = ["prepare:pnpm-install"]
 ["build:interpreter:wasm"]
 description = "Build the Slint interpreter (WASM)"
 dir = "tools/slintpad"
-sources = ["api/js/browser/Cargo.toml", "api/js/browser/src/**/*.rs"]
+sources = ["api/js/Cargo.toml", "api/js/src/**/*.rs"]
 outputs = ["api/js/browser/pkg/*"]
 run = "pnpm run build:wasm_interpreter"
 tools = { "ubi:wasm-bindgen/wasm-pack" = "0.13.1" }

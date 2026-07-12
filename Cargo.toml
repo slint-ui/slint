@@ -12,13 +12,12 @@
 [workspace]
 members = [
   'api/cpp',
-  'api/js/node',
+  'api/js',
   'api/rs/build',
   'api/rs/macros',
   'api/rs/slint',
   'api/slint-sc',
   'api/python/slint',
-  'api/js/browser',
   'editors/zed',
   'helper_crates/const-field-offset',
   'helper_crates/vtable',

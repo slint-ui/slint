@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 mod interpreter;
-mod weak_ref;
+pub(crate) mod weak_ref;
 use std::path::PathBuf;
 
 pub use interpreter::*;
 
-mod types;
+pub(crate) mod types;
 pub use types::*;
 
 mod uv_event_loop;
@@ -34,9 +34,6 @@ pub(crate) fn set_hidden_property<'a, V: napi::JsValue<'a>>(
     JsObjectValue::define_properties(obj, &[prop])
 }
 
-#[macro_use]
-extern crate napi_derive;
-
 #[napi]
 pub fn mock_elapsed_time(_ms: f64) {
     #[cfg(feature = "testing")]
@@ -57,7 +54,7 @@ pub enum ProcessEventsResult {
     Exited,
 }
 
-fn process_events_with_timeout(
+pub(crate) fn process_events_with_timeout(
     timeout: Option<std::time::Duration>,
 ) -> napi::Result<ProcessEventsResult> {
     i_slint_backend_selector::with_platform(|b| {
