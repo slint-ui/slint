@@ -34,7 +34,7 @@ Slint-node comes with pre-built binaries for Linux (x86-64 and ARM64, glibc), ma
 Windows (x86-64 and ARM64). On other systems, installing the `slint-ui` package succeeds, but loading it
 fails because no matching binary is found. `npm install` does not build Slint-node from source automatically;
 instead, build it yourself from a checkout of the [Slint repository](https://github.com/slint-ui/slint)
-(run `pnpm install && pnpm build` in `api/node`). This requires:
+(run `pnpm install && pnpm build` in `api/js/node`). This requires:
 
   * **[pnpm](https://www.pnpm.io/)**
   * **[Rust compiler](https://www.rust-lang.org/tools/install)**

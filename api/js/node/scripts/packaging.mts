@@ -16,9 +16,9 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const here = dirname(fileURLToPath(import.meta.url)); // api/node/scripts
-const nodeDir = join(here, ".."); // api/node
-const repoRoot = join(nodeDir, "..", ".."); // repository root
+const here = dirname(fileURLToPath(import.meta.url)); // api/js/node/scripts
+const nodeDir = join(here, ".."); // api/js/node
+const repoRoot = join(nodeDir, "..", "..", ".."); // repository root
 
 /** The napi-rs platform suffixes for the binary packages. */
 export const NAPI_TARGETS = [
@@ -150,7 +150,7 @@ export function setMainBinaryDeps(opts: {
 /**
  * Assemble and pack the slint-ui-dev meta-package: it ships the dev loader and
  * pulls in the matching platform's dev binary. Requires the dev loader
- * (rust-module-dev.cjs) to be built in api/node.
+ * (rust-module-dev.cjs) to be built in api/js/node.
  */
 export async function packDevMeta(opts: {
     version: string;

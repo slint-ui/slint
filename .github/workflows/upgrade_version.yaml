@@ -34,7 +34,7 @@ jobs:
                   # Version in package.json files
                   git ls-files | grep package.json | xargs sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/'
                   # Update version in Node.js binary package config
-                  sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/' api/node/binaries.json api/node/binaries-dev.json
+                  sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/' api/js/node/binaries.json api/js/node/binaries-dev.json
 
                   # Version in the AI plugins (cursor, claude, ...) mirrored to the ai-plugins repo
                   git ls-files | grep '^ai-plugins/.*\(plugin\|marketplace\)\.json$' | xargs sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/'

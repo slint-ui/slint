@@ -1,7 +1,7 @@
 # FFI & Language Bindings
 
 > Note for AI coding assistants (agents):
-> **When to load this document:** Working on `api/cpp/`, `api/node/`, `api/python/`,
+> **When to load this document:** Working on `api/cpp/`, `api/js/node/`, `api/python/`,
 > language bindings, cbindgen, FFI modules in `internal/`, or adding new cross-language APIs.
 > For general build commands and project structure, see `/AGENTS.md`.
 
@@ -22,8 +22,8 @@ Slint provides language bindings for C++, Node.js, and Python, all built on top 
 | `api/cpp/cbindgen.rs` | C++ header generator (enums, structs, vtables) |
 | `api/cpp/platform.rs` | Platform abstraction for C++ |
 | `api/cpp/CMakeLists.txt` | CMake integration via Corrosion |
-| `api/node/rust/lib.rs` | Neon/NAPI module entry point |
-| `api/node/rust/interpreter/` | Interpreter bindings for Node.js |
+| `api/js/node/rust/lib.rs` | Neon/NAPI module entry point |
+| `api/js/node/rust/interpreter/` | Interpreter bindings for Node.js |
 | `api/python/slint/lib.rs` | PyO3 module initialization |
 | `api/python/slint/interpreter.rs` | Interpreter bindings for Python |
 | `internal/core/properties/ffi.rs` | Property system FFI |
@@ -38,7 +38,7 @@ Slint provides language bindings for C++, Node.js, and Python, all built on top 
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        Language APIs                                 │
 ├─────────────────┬─────────────────┬─────────────────────────────────┤
-│   C++ (api/cpp) │ Node.js (api/node)│ Python (api/python)            │
+│   C++ (api/cpp) │ Node.js (api/js/node)│ Python (api/python)            │
 │   cbindgen      │ Neon/NAPI        │ PyO3                           │
 ├─────────────────┴─────────────────┴─────────────────────────────────┤
 │                     FFI Layer (extern "C")                           │
@@ -172,7 +172,7 @@ cmake --build .
 Uses Neon/NAPI for Node.js native modules:
 
 ```
-api/node/
+api/js/node/
 ├── rust/
 │   ├── lib.rs              # Module entry point
 │   ├── types/              # Type wrappers
@@ -190,7 +190,7 @@ api/node/
 ### NAPI Function Pattern
 
 ```rust
-// api/node/rust/lib.rs
+// api/js/node/rust/lib.rs
 use napi::{Env, JsFunction};
 extern crate napi_derive;
 
@@ -221,7 +221,7 @@ pub fn process_events() -> napi::Result<ProcessEventsResult> {
 ### Type Bindings
 
 ```rust
-// api/node/rust/types/brush.rs
+// api/js/node/rust/types/brush.rs
 #[napi(object)]
 pub struct RgbaColor {
     pub red: f64,
@@ -268,7 +268,7 @@ pub fn invoke_from_event_loop(env: Env, callback: JsFunction) -> napi::Result<na
 ### Building Node.js Module
 
 ```sh
-cd api/node
+cd api/js/node
 pnpm install
 pnpm build
 ```
@@ -675,7 +675,7 @@ m.add_function(wrap_pyfunction!(mymodule::new_function, m)?)?;
 ### Step 5: Add Node.js Binding
 
 ```rust
-// api/node/rust/mymodule.rs
+// api/js/node/rust/mymodule.rs
 #[napi]
 pub fn new_function(param: i32) -> napi::Result<ResultType> {
     Ok(internal_function(param))
@@ -744,7 +744,7 @@ ctest
 ### Node.js Tests
 
 ```sh
-cd api/node
+cd api/js/node
 pnpm test
 ```
 

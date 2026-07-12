@@ -9,7 +9,7 @@ const docsNodejsRoot = join(scriptsDir, "..");
 const repoRoot = join(docsNodejsRoot, "..", "..");
 
 generateThirdPartyMarkdown({
-    crateDir: join(repoRoot, "api", "node"),
+    crateDir: join(repoRoot, "api", "js", "node"),
     outFile: join(
         docsNodejsRoot,
         "src",

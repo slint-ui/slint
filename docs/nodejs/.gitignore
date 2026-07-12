@@ -1,4 +1,4 @@
-# starlight-typedoc output (requires `pnpm -C api/node run build` first)
+# starlight-typedoc output (requires `pnpm -C api/js/node run build` first)
 src/content/docs/api/
 
 # build output

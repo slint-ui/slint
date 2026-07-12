@@ -41,7 +41,7 @@ cmake --build .
 
 ### Node.js Build
 ```sh
-cd api/node && pnpm install
+cd api/js/node && pnpm install
 ```
 
 ## Testing

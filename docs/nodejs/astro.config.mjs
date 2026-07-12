@@ -54,8 +54,8 @@ export default defineConfig({
             },
             plugins: [
                 starlightTypeDoc({
-                    entryPoints: ["../../api/node/typescript/index.ts"],
-                    tsconfig: "../../api/node/tsconfig.json",
+                    entryPoints: ["../../api/js/node/typescript/index.ts"],
+                    tsconfig: "../../api/js/node/tsconfig.json",
                     sidebar: { label: "API" },
                     typeDoc: {
                         hideGenerator: true,

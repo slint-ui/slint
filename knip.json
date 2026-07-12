@@ -7,7 +7,7 @@
       "ignoreDependencies": ["@cspell/dict-fr-fr"],
       "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
     },
-    "api/node": {
+    "api/js/node": {
       "project": ["typescript/**/*.ts", "__test__/**/*.{ts,mts}"]
     },
     "editors/vscode": {

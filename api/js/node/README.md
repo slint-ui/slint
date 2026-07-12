@@ -20,7 +20,7 @@ in detail.
 
 ## API documentation (local build)
 
-Published API docs for this binding live under [slint.dev …/docs/node/](https://slint.dev/latest/docs/node/). See [docs/building.md](../../docs/building.md#nodejs-api-docs) and [docs/nodejs/README.md](../../docs/nodejs/README.md).
+Published API docs for this binding live under [slint.dev …/docs/node/](https://slint.dev/latest/docs/node/). See [docs/building.md](../../../docs/building.md#nodejs-api-docs) and [docs/nodejs/README.md](../../../docs/nodejs/README.md).
 
 ## Installing Slint
 
@@ -36,7 +36,7 @@ included for Linux (x86-64 and ARM64, glibc), macOS (ARM64), and Windows (x86-64
 ### Building from Source
 
 On platforms without pre-built binaries, build Slint-node from a checkout of this repository by running
-`pnpm install && pnpm build` in `api/node`. You need to install the following components:
+`pnpm install && pnpm build` in `api/js/node`. You need to install the following components:
 
   * **[pnpm](https://www.pnpm.io/)**
   * **[Rust compiler](https://www.rust-lang.org/tools/install)**

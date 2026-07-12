@@ -19,7 +19,7 @@ fn check_output(o: std::process::Output) {
 }
 
 static NODE_API_JS_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
-    let node_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../api/node");
+    let node_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../api/js/node");
 
     // On Windows pnpm is 'pnpm.cmd', which Rust's process::Command doesn't look for as extension, because
     // it tries to emulate CreateProcess.

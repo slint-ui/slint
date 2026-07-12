@@ -11,7 +11,7 @@
         "outDir": "./dist",
         "paths": {
             "@lsp/*": ["../../lsp/pkg/*"],
-            "@interpreter/*": ["../../../api/wasm-interpreter/pkg/*"]
+            "@interpreter/*": ["../../../api/js/browser/pkg/*"]
         },
         "rootDir": ".",
         "skipLibCheck": true,

@@ -102,7 +102,7 @@ api_python:
  - '.github/workflows/python_test_reusable.yaml'
 
 api_node:
- - 'api/node/**'
+ - 'api/js/**'
  - *js_config
  - '.github/workflows/node_test_reusable.yaml'
 
@@ -134,7 +134,7 @@ vsce:
 slintpad:
  - *internal
  - 'tools/slintpad/**'
- - 'api/wasm-interpreter/**'
+ - 'api/js/**'
  - 'tools/lsp/**'
  - 'api/rs/**'
  - 'docs/common/src/utils/slint.tmLanguage.json'

@@ -192,16 +192,16 @@ You can pass `-DCMAKE_INSTALL_PREFIX` in the first cmake command in order to cho
 The Slint Node.js API is implemented as npm build. You can build it locally using the following command line:
 
 ```sh
-cd api/node
+cd api/js/node
 npm install
 ```
 
-To build your own project against the Git version of the Slint Node.js API, add the path to the `api/node` folder
+To build your own project against the Git version of the Slint Node.js API, add the path to the `api/js/node` folder
 in the dependencies section of your `package.json`:
 
 ```json
     "dependencies": {
-        "slint-ui": "/path/to/api/node"
+        "slint-ui": "/path/to/api/js/node"
     },
 ```
 

@@ -18,7 +18,7 @@
 //   * Gate (publish workflow): SLINT_E2E_TGZ_DIR/_VERSION/_TAG point at the real,
 //     already-built all-platform tarballs — see publish_npm_package.yaml.
 //   * Dev (local): builds and packs the host packages on the fly under a
-//     throwaway version (needs `pnpm build` + `pnpm build:debug` in api/node).
+//     throwaway version (needs `pnpm build` + `pnpm build:debug` in api/js/node).
 //
 // Run with `node --test` (Node >= 23 strips types automatically; older Node needs
 // --experimental-strip-types).
@@ -69,9 +69,9 @@ const PUBLISH_TAG = providedTgzDir ? (process.env.SLINT_E2E_TAG ?? "") : "e2e";
 // A deliberately different version, written into the installed slint-ui-dev to
 // trigger binding.cjs's version-mismatch fallback.
 const MISMATCH_VERSION = "0.0.0-mismatch";
-const here = dirname(fileURLToPath(import.meta.url)); // api/node/__test__/registry
-const nodeDir = join(here, "..", ".."); // api/node
-const repoRoot = join(nodeDir, "..", ".."); // repository root
+const here = dirname(fileURLToPath(import.meta.url)); // api/js/node/__test__/registry
+const nodeDir = join(here, "..", ".."); // api/js/node
+const repoRoot = join(nodeDir, "..", "..", ".."); // repository root
 const stripArgs =
     Number(process.versions.node.split(".")[0]) < 23
         ? ["--experimental-strip-types"]
@@ -195,8 +195,8 @@ after(() => {
             repoRoot,
             "checkout",
             "--",
-            "api/node/package.json",
-            "api/node/dev-package/package.json",
+            "api/js/node/package.json",
+            "api/js/node/dev-package/package.json",
         ]);
     }
 });

@@ -8,6 +8,6 @@
     },
     "scripts": {
         "start": "node .",
-        "prestart": "cd ../../api/node/ && pnpm run build && pnpm compile"
+        "prestart": "cd ../../api/js/node/ && pnpm run build && pnpm compile"
     }
 }

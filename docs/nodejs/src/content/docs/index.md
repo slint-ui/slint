@@ -26,7 +26,7 @@ The **API** group in the sidebar lists types and functions generated from the Ty
 Before you run `pnpm -C docs/nodejs run dev` or `pnpm -C docs/nodejs run build`, compile the native module and declarations from the repo root:
 
 ```sh
-pnpm -C api/node run build
+pnpm -C api/js/node run build
 ```
 
 ## Prerequisites

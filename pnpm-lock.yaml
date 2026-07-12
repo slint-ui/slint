@@ -95,7 +95,7 @@ importers:
         specifier: 6.24.0
         version: 6.24.0
 
-  api/node:
+  api/js/node:
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
@@ -129,7 +129,7 @@ importers:
     dependencies:
       slint-ui:
         specifier: workspace:*
-        version: link:../../api/node
+        version: link:../../api/js/node
 
   demos/home-automation/node:
     dependencies:
@@ -138,19 +138,19 @@ importers:
         version: 2.5.2
       slint-ui:
         specifier: workspace:*
-        version: link:../../../api/node
+        version: link:../../../api/js/node
 
   demos/printerdemo/node:
     dependencies:
       slint-ui:
         specifier: workspace:*
-        version: link:../../../api/node
+        version: link:../../../api/js/node
 
   demos/weather-demo:
     dependencies:
       slint-ui:
         specifier: workspace:*
-        version: link:../../api/node
+        version: link:../../api/js/node
 
   docs/astro:
     dependencies:
@@ -408,13 +408,13 @@ importers:
     dependencies:
       slint-ui:
         specifier: workspace:*
-        version: link:../../../api/node
+        version: link:../../../api/js/node
 
   examples/dnd-kanban:
     dependencies:
       slint-ui:
         specifier: workspace:*
-        version: link:../../api/node
+        version: link:../../api/js/node
 
   examples/imagefilter/node:
     dependencies:
@@ -423,7 +423,7 @@ importers:
         version: 1.6.2
       slint-ui:
         specifier: workspace:*
-        version: link:../../../api/node
+        version: link:../../../api/js/node
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -439,31 +439,31 @@ importers:
         version: 0.35.3(@types/node@24.12.0)
       slint-ui:
         specifier: workspace:*
-        version: link:../../api/node
+        version: link:../../api/js/node
 
   examples/memory:
     dependencies:
       slint-ui:
         specifier: workspace:*
-        version: link:../../api/node
+        version: link:../../api/js/node
 
   examples/slide_puzzle:
     dependencies:
       slint-ui:
         specifier: workspace:*
-        version: link:../../api/node
+        version: link:../../api/js/node
 
   examples/system-tray:
     dependencies:
       slint-ui:
         specifier: workspace:*
-        version: link:../../api/node
+        version: link:../../api/js/node
 
   examples/todo/node:
     dependencies:
       slint-ui:
         specifier: workspace:*
-        version: link:../../../api/node
+        version: link:../../../api/js/node
 
   tools/figma-inspector:
     dependencies:

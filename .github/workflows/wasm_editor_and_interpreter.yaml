@@ -35,7 +35,7 @@ jobs:
 
             - name: Compile slint-wasm-interpreter
               run: wasm-pack build --release --target web -- --features console_error_panic_hook
-              working-directory: api/wasm-interpreter
+              working-directory: api/js/browser
 
             - name: Build slint-wasm-lsp
               env:
@@ -48,7 +48,7 @@ jobs:
               with:
                   name: wasm
                   path: |
-                      api/wasm-interpreter/pkg/
+                      api/js/browser/pkg/
                       tools/lsp/pkg/
 
     build-slintpad:
