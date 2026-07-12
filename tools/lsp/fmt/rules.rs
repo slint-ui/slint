@@ -3,10 +3,11 @@
 
 //! The Slint formatting rules for the query-based formatter.
 //!
-//! This is the prototype ruleset: global punctuation spacing, indentation
-//! bookkeeping for elements, and full formatting for the `states` construct.
-//! Boundaries no rule covers fall back to the engine's default (a single
-//! space between tokens), so the ruleset is still far from complete.
+//! Global token rules handle punctuation spacing; node rules lay out each
+//! construct's body — element, code-block, struct, enum, match, array,
+//! animation, transition, states and import bodies — and tighten expression
+//! spacing. Boundaries no rule covers fall back to the engine's default (a
+//! single space between tokens).
 
 use super::atoms::Atom;
 use super::atoms::Atom::*;
@@ -113,7 +114,12 @@ pub fn make_rules() -> FormatRules {
     // interface) break one item per line when multiline, stay inline
     // otherwise.
     rules.node(SyntaxKind::Element, |element| {
-        break_braced_body(element, SyntaxKind::LBrace, SyntaxKind::RBrace, element.spaced_softline());
+        break_braced_body(
+            element,
+            SyntaxKind::LBrace,
+            SyntaxKind::RBrace,
+            element.spaced_softline(),
+        );
     });
 
     // Imperative code blocks (function, callback and binding bodies).
