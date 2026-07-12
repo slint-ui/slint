@@ -407,6 +407,20 @@ impl ItemRc {
             && clip.min.y <= geometry.max.y
     }
 
+    pub(crate) fn visibility_clips(&self) -> Vec<VWeakMapped<ItemTreeVTable, crate::items::Clip>> {
+        let mut visibility_clips = Vec::new();
+        let mut current = Some(self.clone());
+        while let Some(item) = current {
+            if let Some(clip) = item.downcast::<crate::items::Clip>() {
+                if clip.as_pin_ref().is_visibility_clip() {
+                    visibility_clips.push(VRcMapped::downgrade(&clip));
+                }
+            }
+            current = item.parent_item(ParentItemTraversalMode::StopAtPopups);
+        }
+        visibility_clips
+    }
+
     /// Returns true if this item is visible or only clipped away by a `Flickable`.
     pub(crate) fn is_visible_or_clipped_by_flickable(&self) -> bool {
         if self.is_visible() {
