@@ -87,6 +87,9 @@ wasm-bindgen-futures = { version = "0.4.18" }
 wasm-bindgen = { version = "0.2.66" }
 web-sys = { workspace = true, features = ["Request", "RequestInit", "RequestMode", "Response", "Window"] }
 
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3.13"
+
 [target.'cfg(unix)'.dependencies]
 libloading = "0.9"
 async-io = "2"

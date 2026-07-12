@@ -5,8 +5,9 @@
 
 use std::rc::Rc;
 
-use i_slint_core::Brush;
+use i_slint_core::graphics::{Image, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::model::{Model, ModelNotify, ModelRc, ModelTracker};
+use i_slint_core::{Brush, ImageInner};
 use slint_interpreter::{Value, ValueType};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
@@ -50,10 +51,7 @@ pub fn value_to_js(value: &Value) -> JsValue {
             arr.into()
         }
         Value::Brush(brush) => brush_to_js(brush),
-        Value::Image(_) => {
-            // Image conversion is not yet implemented; return a placeholder.
-            JsValue::from_str("[Image]")
-        }
+        Value::Image(image) => image_to_js(image),
         // Internal types that shouldn't normally be exposed
         _ => JsValue::UNDEFINED,
     }
@@ -71,6 +69,7 @@ pub fn js_to_value(js: &JsValue, ty: Option<&ValueType>) -> Value {
         Some(ValueType::String) => Value::String(js.as_string().unwrap_or_default().into()),
         Some(ValueType::Bool) => Value::Bool(js.as_bool().unwrap_or(false)),
         Some(ValueType::Brush) => js_to_brush(js).unwrap_or(Value::Void),
+        Some(ValueType::Image) => js_to_image(js).unwrap_or(Value::Void),
         _ => js_to_value_infer(js),
     }
 }
@@ -102,6 +101,13 @@ fn js_to_value_infer(js: &JsValue) -> Value {
         if let Some(brush) = try_rgba_object(&obj) {
             return Value::Brush(brush);
         }
+        // A browser `ImageData` instance is unambiguous, so it converts even
+        // without a type hint (e.g. nested in a model row or struct field).
+        if obj.constructor().name() == "ImageData"
+            && let Some(image) = js_to_image(js)
+        {
+            return image;
+        }
         let entries = js_sys::Object::entries(&obj);
         let mut s = slint_interpreter::Struct::default();
         for i in 0..entries.length() {
@@ -114,6 +120,90 @@ fn js_to_value_infer(js: &JsValue) -> Value {
     } else {
         Value::Void
     }
+}
+
+/// Convert a Slint image to a JS value: a browser `ImageData` when that global
+/// exists (so the result can go straight to `putImageData`), otherwise a plain
+/// `{ width, height, data }` object with the same shape. `data` is RGBA8.
+fn image_to_js(image: &Image) -> JsValue {
+    let size = image.size();
+    let image_inner: &ImageInner = image.into();
+    let rgba: Vec<u8> = match image_inner.render_to_buffer(None) {
+        Some(SharedImageBuffer::RGBA8(buffer)) => buffer.as_bytes().to_vec(),
+        Some(SharedImageBuffer::RGB8(buffer)) => {
+            let mut rgba = Vec::with_capacity(buffer.as_bytes().len() / 3 * 4);
+            for px in buffer.as_bytes().chunks_exact(3) {
+                rgba.extend_from_slice(px);
+                rgba.push(255);
+            }
+            rgba
+        }
+        Some(SharedImageBuffer::RGBA8Premultiplied(buffer)) => {
+            let mut rgba = buffer.as_bytes().to_vec();
+            for px in rgba.chunks_exact_mut(4) {
+                let a = px[3] as u16;
+                if a > 0 && a < 255 {
+                    px[0] = (px[0] as u16 * 255 / a) as u8;
+                    px[1] = (px[1] as u16 * 255 / a) as u8;
+                    px[2] = (px[2] as u16 * 255 / a) as u8;
+                }
+            }
+            rgba
+        }
+        None => vec![0; size.width as usize * size.height as usize * 4],
+    };
+
+    let data = js_sys::Uint8ClampedArray::new_with_length(rgba.len() as u32);
+    data.copy_from(&rgba);
+
+    let width = JsValue::from_f64(size.width as f64);
+    let height = JsValue::from_f64(size.height as f64);
+    let obj: JsValue = js_sys::Reflect::get(&js_sys::global(), &"ImageData".into())
+        .ok()
+        .and_then(|ctor| ctor.dyn_into::<js_sys::Function>().ok())
+        .and_then(|ctor| {
+            let args = js_sys::Array::of3(&data, &width, &height);
+            js_sys::Reflect::construct(&ctor, &args).ok()
+        })
+        .map(Into::into)
+        .unwrap_or_else(|| {
+            let obj = js_sys::Object::new();
+            js_sys::Reflect::set(&obj, &"width".into(), &width).unwrap_throw();
+            js_sys::Reflect::set(&obj, &"height".into(), &height).unwrap_throw();
+            js_sys::Reflect::set(&obj, &"data".into(), &data).unwrap_throw();
+            obj.into()
+        });
+    if let Some(path) = image.path() {
+        let _ =
+            js_sys::Reflect::set(&obj, &"path".into(), &JsValue::from_str(&path.to_string_lossy()));
+    }
+    obj
+}
+
+/// Convert an `ImageData`-shaped JS object (`{ width, height, data }`, with
+/// `data` as RGBA8 in a `Uint8ClampedArray` or `Uint8Array` of exactly
+/// width * height * 4 bytes) to a Slint image.
+fn js_to_image(js: &JsValue) -> Option<Value> {
+    if !js.is_object() {
+        return None;
+    }
+    let obj = js_sys::Object::from(js.clone());
+    let width = js_sys::Reflect::get(&obj, &"width".into()).ok()?.as_f64()? as u32;
+    let height = js_sys::Reflect::get(&obj, &"height".into()).ok()?.as_f64()? as u32;
+    let data = js_sys::Reflect::get(&obj, &"data".into()).ok()?;
+    let bytes: Vec<u8> = if let Some(a) = data.dyn_ref::<js_sys::Uint8ClampedArray>() {
+        a.to_vec()
+    } else if let Some(a) = data.dyn_ref::<js_sys::Uint8Array>() {
+        a.to_vec()
+    } else {
+        return None;
+    };
+    if bytes.len() != width as usize * height as usize * 4 {
+        return None;
+    }
+    Some(Value::Image(Image::from_rgba8(SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+        &bytes, width, height,
+    ))))
 }
 
 fn js_to_brush(js: &JsValue) -> Option<Value> {
@@ -186,6 +276,46 @@ fn try_wrap_js_model(obj: &js_sys::Object) -> Option<ModelRc<Value>> {
     let id = id_js.as_f64()? as u32;
     let notify = notify_from_id(id)?;
     Some(ModelRc::new(WasmJsModel { js_impl: obj.clone().into(), notify }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    fn image_data_like(width: u32, height: u32, bytes: &[u8]) -> JsValue {
+        let obj = js_sys::Object::new();
+        let data = js_sys::Uint8ClampedArray::new_with_length(bytes.len() as u32);
+        data.copy_from(bytes);
+        js_sys::Reflect::set(&obj, &"width".into(), &JsValue::from_f64(width as f64)).unwrap();
+        js_sys::Reflect::set(&obj, &"height".into(), &JsValue::from_f64(height as f64)).unwrap();
+        js_sys::Reflect::set(&obj, &"data".into(), &data).unwrap();
+        obj.into()
+    }
+
+    #[wasm_bindgen_test]
+    fn image_roundtrip() {
+        let bytes: Vec<u8> = (0..16).map(|i| i * 3).collect();
+        let value = js_to_value(&image_data_like(2, 2, &bytes), Some(&ValueType::Image));
+        let Value::Image(ref image) = value else {
+            panic!("expected an image value");
+        };
+        assert_eq!(image.size().width, 2);
+        assert_eq!(image.size().height, 2);
+
+        let js = value_to_js(&value);
+        let get = |name: &str| js_sys::Reflect::get(&js, &name.into()).unwrap();
+        assert_eq!(get("width").as_f64(), Some(2.0));
+        assert_eq!(get("height").as_f64(), Some(2.0));
+        let data: js_sys::Uint8ClampedArray = get("data").dyn_into().unwrap();
+        assert_eq!(data.to_vec(), bytes);
+    }
+
+    #[wasm_bindgen_test]
+    fn image_rejects_wrong_buffer_size() {
+        let bytes = [0u8; 12]; // 2x2 RGBA needs 16
+        assert!(js_to_image(&image_data_like(2, 2, &bytes)).is_none());
+    }
 }
 
 /// A `Model<Value>` implementation that wraps a JavaScript Model class.
