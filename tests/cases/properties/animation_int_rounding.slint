@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An animated int property interpolates in int space: every intermediate
+// value is rounded to the nearest integer, not truncated and not left
+// fractional. At 336ms of a linear 0->100 animation the raw value is 33.6,
+// so a correct implementation reads 34 everywhere, including through the
+// language APIs that see the raw value (e.g. JavaScript numbers).
+
+export component TestCase inherits Window {
+    in-out property <int> value: 0;
+    animate value { duration: 1000ms; }
+
+    out property <bool> test: value == 0;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_value(), 0);
+instance.set_value(100);
+// no time has elapsed yet
+assert_eq!(instance.get_value(), 0);
+
+slint_testing::mock_elapsed_time(336);
+assert_eq!(instance.get_value(), 34, "33.6 must round to 34");
+
+slint_testing::mock_elapsed_time(164);
+assert_eq!(instance.get_value(), 50);
+
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value(), 100);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_value(), 0);
+instance.set_value(100);
+// no time has elapsed yet
+assert_eq(instance.get_value(), 0);
+
+slint_testing::mock_elapsed_time(336);
+assert_eq(instance.get_value(), 34); // 33.6 must round to 34
+
+slint_testing::mock_elapsed_time(164);
+assert_eq(instance.get_value(), 50);
+
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value(), 100);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.value, 0);
+instance.value = 100;
+// no time has elapsed yet
+assert.equal(instance.value, 0);
+
+slintlib.private_api.mock_elapsed_time(336);
+assert.equal(instance.value, 34); // 33.6 must round to 34
+
+slintlib.private_api.mock_elapsed_time(164);
+assert.equal(instance.value, 50);
+
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value, 100);
+```
+*/

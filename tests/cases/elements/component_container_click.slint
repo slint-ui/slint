@@ -1,0 +1,82 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//ignore: cpp,js,pyi
+
+export component TestCase inherits Window {
+    in property <component-factory> cc <=> cont.component-factory;
+    out property <bool> outer-clicked;
+    out property <bool> outside-clicked;
+
+    width: 400px;
+    height: 400px;
+
+    outside := TouchArea {
+        clicked => { root.outside-clicked = true; }
+    }
+
+    cont := ComponentContainer {
+        x: 50px;
+        y: 60px;
+        width: 100px;
+        height: 80px;
+    }
+}
+
+/*
+```rust
+use slint::ComponentHandle;
+use slint_interpreter::{ComponentInstance, Value};
+
+let inner: std::rc::Rc<core::cell::RefCell<Option<ComponentInstance>>> = Default::default();
+let inner_clone = inner.clone();
+
+let factory = slint::ComponentFactory::new(move |ctx| {
+    let compiler = slint_interpreter::Compiler::new();
+    let e = spin_on::spin_on(compiler.build_from_source(
+        r#"export component Inner inherits Window {
+            out property <bool> inner-clicked;
+            TouchArea {
+                clicked => { root.inner-clicked = true; }
+            }
+        }"#.into(),
+        std::path::PathBuf::from("embedded.slint"),
+    )).component("Inner").unwrap();
+    let instance = e.create_embedded(ctx).ok();
+    inner_clone.replace(instance.as_ref().map(|i| i.clone_strong()));
+    instance
+});
+
+let instance = TestCase::new().unwrap();
+instance.set_cc(factory.clone());
+
+// Click inside the ComponentContainer (at 100, 100 — the container is at 50,60 with
+// size 100x80, so the local coordinate is (50, 40) which is inside).
+slint_testing::send_mouse_click(&instance, 100., 100.);
+
+let inner_rc = inner.borrow();
+let inner_instance = inner_rc.as_ref().expect("embedded instance should exist");
+
+// The embedded's inner TouchArea must have received the click, NOT the outer TouchArea.
+assert_eq!(
+    inner_instance.get_property("inner-clicked").unwrap(),
+    Value::Bool(true),
+    "embedded inner TouchArea was not clicked",
+);
+assert!(
+    !instance.get_outer_clicked(),
+    "outer TouchArea should not have received the click that landed inside the container",
+);
+assert!(
+    !instance.get_outside_clicked(),
+    "outside TouchArea should not have received the click",
+);
+
+// Click outside the ComponentContainer (at 300, 300 — outside container bounds).
+slint_testing::send_mouse_click(&instance, 300., 300.);
+assert!(
+    instance.get_outside_clicked(),
+    "outside TouchArea should have received the click at 300,300",
+);
+```
+*/

@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Out-of-bounds array access returns the element type's default, also when
+// the array is a function parameter, a callback result, or lives in a global.
+
+global Flags {
+    in property <[bool]> flags;
+    in property <bool> other: true;
+    out property <bool> first: flags[0] && other;
+}
+
+export component TestCase {
+    // Runtime index so constant propagation doesn't fold the access away.
+    in property <int> idx: 3;
+
+    function get(arr: [int]) -> int {
+        return arr[idx];
+    }
+    out property <int> from-function-arg: get([1, 2]);
+
+    pure callback items() -> [float];
+    items() => {
+        [42]
+    }
+    out property <float> from-callback: items()[5];
+
+    out property <bool> test: from-function-arg == 0 && from-callback == 0 && !Flags.first;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/
