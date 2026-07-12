@@ -5390,6 +5390,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-driver-browser"
+version = "1.18.0"
+dependencies = [
+ "serde_json",
+ "test_driver_lib",
+ "which",
+]
+
+[[package]]
 name = "test-driver-cpp"
 version = "1.18.0"
 dependencies = [

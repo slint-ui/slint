@@ -1,0 +1,9 @@
+{
+    "name": "slint-browser-test-runner",
+    "version": "1.18.0",
+    "private": true,
+    "type": "module",
+    "devDependencies": {
+        "playwright": "1.61.1"
+    }
+}

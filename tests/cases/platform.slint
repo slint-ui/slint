@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// the js block uses require(), which does not exist in the browser
+//ignore: browser
+
 // Basic test for Platform.os and Platform.style-name. This is done in JS, as with Rust and C++ the style is fixed
 // to fluent.
 

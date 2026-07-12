@@ -1,6 +1,9 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// image loading through @image-url is not supported on wasm yet
+//ignore: browser
+
 // Test FlexboxLayout with an Image child (height-for-width behavior).
 // The Image preserves its aspect ratio, so its height depends on its width.
 // Tests two states: wide (image at natural size beside rect) and narrow (image shrunk).

@@ -3,6 +3,7 @@
 
 packages:
   - api/js/browser
+  - tests/driver/browser
   - api/js/common
   - api/js/node
   - editors/vscode

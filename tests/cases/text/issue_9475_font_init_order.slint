@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// custom font registration is not supported on wasm
+//ignore: browser
+
 // Regression test for #9475: custom fonts must be registered before the property
 // initialization. The Text is in a sub-component (not the root, which the generators handle
 // specially) and reads its width in the `init` callback. If the font is registered too late,

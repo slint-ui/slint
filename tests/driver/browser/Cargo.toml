@@ -1,0 +1,25 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "test-driver-browser"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[[bin]]
+path = "main.rs"
+name = "test-driver-browser"
+
+[dev-dependencies]
+test_driver_lib = { path = "../driverlib" }
+serde_json = "1"
+which = "8.0"
+
+[build-dependencies]
+test_driver_lib = { path = "../driverlib" }

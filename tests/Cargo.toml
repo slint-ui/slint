@@ -14,6 +14,7 @@ members = [
   'driver/cpp',
   'driver/driverlib',
   'driver/interpreter',
+  'driver/browser',
   'driver/nodejs',
   'driver/python',
   'driver/rust',

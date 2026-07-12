@@ -7,7 +7,8 @@
   "scripts": {
     "build:wasm": "wasm-pack build --dev --target web --out-dir browser/pkg --out-name slint_wasm_interpreter .. -- --no-default-features --features console_error_panic_hook",
     "build:wasm-release": "wasm-pack build --release --target web --out-dir browser/pkg --out-name slint_wasm_interpreter .. -- --no-default-features --features console_error_panic_hook",
-    "compile": "tsc --build"
+    "compile": "tsc --build",
+    "build:wasm:testing": "wasm-pack build --dev --target web --out-dir browser/pkg-testing --out-name slint_wasm_interpreter .. -- --no-default-features --features console_error_panic_hook,testing"
   },
   "devDependencies": {
     "typescript": "catalog:"

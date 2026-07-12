@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// custom font registration is not supported on wasm
+//ignore: browser
+
 // This test imports a custom font and declares it for use, to ensure at least that the generated init code for
 // the custom font setup compiles.
 
