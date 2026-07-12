@@ -23,21 +23,21 @@ import {
     wrapModule,
     setModelBackend,
     setRunEventLoop,
-} from "slint-js-common";
+} from "@slint-ui/common";
 import type {
     Diagnostic,
     DefinitionLike,
-} from "slint-js-common";
+} from "@slint-ui/common";
 
-export { CompileError, Component } from "slint-js-common";
-export { Model, ArrayModel, MapModel } from "slint-js-common";
+export { CompileError, Component } from "@slint-ui/common";
+export { Model, ArrayModel, MapModel } from "@slint-ui/common";
 export type {
     Point,
     Size,
     Window,
     ImageData,
     ComponentHandle,
-} from "slint-js-common";
+} from "@slint-ui/common";
 
 /**
  * Options for compiling a Slint source string.

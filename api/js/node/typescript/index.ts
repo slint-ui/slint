@@ -23,11 +23,11 @@ import {
     setRunEventLoop,
     type Component,
     MapModel as _MapModel,
-} from "slint-js-common";
-import type { LoadFileOptions } from "slint-js-common";
+} from "@slint-ui/common";
+import type { LoadFileOptions } from "@slint-ui/common";
 
-export { CompileError, Component } from "slint-js-common";
-export { Model, ArrayModel } from "slint-js-common";
+export { CompileError, Component } from "@slint-ui/common";
+export { Model, ArrayModel } from "@slint-ui/common";
 export type {
     Point,
     Size,
@@ -35,7 +35,7 @@ export type {
     ImageData,
     ComponentHandle,
     LoadFileOptions,
-} from "slint-js-common";
+} from "@slint-ui/common";
 
 // Initialize the model backend with napi functions
 setModelBackend({

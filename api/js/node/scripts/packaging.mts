@@ -9,7 +9,13 @@
 // Run with Node's TypeScript type stripping (Node >= 23, or --experimental-strip-types).
 
 import { execFile } from "node:child_process";
-import { cpSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import {
+    cpSync,
+    readFileSync,
+    readdirSync,
+    rmSync,
+    writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -18,6 +24,7 @@ const execFileAsync = promisify(execFile);
 
 const here = dirname(fileURLToPath(import.meta.url)); // api/js/node/scripts
 const nodeDir = join(here, ".."); // api/js/node
+const commonDir = join(nodeDir, "..", "common"); // api/js/common
 const repoRoot = join(nodeDir, "..", "..", ".."); // repository root
 
 /** The napi-rs platform suffixes for the binary packages. */
@@ -179,6 +186,28 @@ export async function packDevMeta(opts: {
 }
 
 /**
+ * Pack the @slint-ui/common package (the shared TypeScript layer slint-ui
+ * depends on). Requires its `compile` script to have run. The version must
+ * already be set: `pnpm pack` of slint-ui resolves the `workspace:*`
+ * dependency to whatever version this package carries at pack time.
+ */
+export async function packCommon(opts: {
+    version: string;
+    dest: string;
+}): Promise<void> {
+    const { version, dest } = opts;
+    await run("npm", ["pkg", "set", `version=${version}`], { cwd: commonDir });
+    cpSync(join(repoRoot, "LICENSE.md"), join(commonDir, "LICENSE.md"));
+    try {
+        await run("pnpm", ["pack", "--pack-destination", dest], {
+            cwd: commonDir,
+        });
+    } finally {
+        rmSync(join(commonDir, "LICENSE.md"), { force: true });
+    }
+}
+
+/**
  * Publish every *.tgz in `dir` to a registry. Used identically against the
  * throwaway Verdaccio registry (the e2e gate) and the real npm registry; only
  * the registry URL (and the ambient auth in env) differ.
@@ -226,6 +255,11 @@ async function main(argv: string[]): Promise<void> {
                 version,
                 targets: targets.length ? targets : undefined,
             });
+            break;
+        }
+        case "pack-common": {
+            const [version, dest] = args;
+            await packCommon({ version, dest });
             break;
         }
         case "pack-dev-meta": {

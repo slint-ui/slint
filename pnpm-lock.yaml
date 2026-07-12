@@ -97,7 +97,7 @@ importers:
 
   api/js/browser:
     dependencies:
-      slint-js-common:
+      '@slint-ui/common':
         specifier: workspace:*
         version: link:../common
     devDependencies:
@@ -113,7 +113,7 @@ importers:
 
   api/js/node:
     dependencies:
-      slint-js-common:
+      '@slint-ui/common':
         specifier: workspace:*
         version: link:../common
     devDependencies:

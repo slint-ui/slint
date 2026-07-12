@@ -13,6 +13,6 @@
     "typescript": "catalog:"
   },
   "dependencies": {
-    "slint-js-common": "workspace:*"
+    "@slint-ui/common": "workspace:*"
   }
 }

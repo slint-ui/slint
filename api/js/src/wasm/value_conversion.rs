@@ -174,7 +174,7 @@ fn parse_css_color(s: &str) -> Option<i_slint_core::Color> {
     Some(i_slint_core::Color::from_argb_u8((c.a * 255.0).round() as u8, c.r, c.g, c.b))
 }
 
-/// Try to detect a JS Model instance (one created from `slint-js-common`'s
+/// Try to detect a JS Model instance (one created from `@slint-ui/common`'s
 /// `Model` / `ArrayModel` classes) and wrap it as a Rust `ModelRc<Value>`
 /// that forwards calls back to JS.
 fn try_wrap_js_model(obj: &js_sys::Object) -> Option<ModelRc<Value>> {

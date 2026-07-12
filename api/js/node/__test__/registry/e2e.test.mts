@@ -48,6 +48,7 @@ import type { Server } from "node:http";
 import {
     NAPI_TARGETS,
     packBinary,
+    packCommon,
     packDevMeta,
     publishAll,
     run,
@@ -125,6 +126,15 @@ before(async () => {
             cwd: nodeDir,
         });
         setMainBinaryDeps({ version: VERSION, targets });
+        // Pack @slint-ui/common before slint-ui: packing slint-ui resolves the
+        // workspace dependency to the version packCommon stamps in.
+        assert.ok(
+            existsSync(
+                join(nodeDir, "..", "common", "dist", "esm", "index.js"),
+            ),
+            "@slint-ui/common not compiled (run `pnpm compile` in api/js/common)",
+        );
+        await packCommon({ version: VERSION, dest: tgzDir });
         await run("pnpm", ["pack", "--pack-destination", tgzDir], {
             cwd: nodeDir,
         });
@@ -197,6 +207,7 @@ after(() => {
             "--",
             "api/js/node/package.json",
             "api/js/node/dev-package/package.json",
+            "api/js/common/package.json",
         ]);
     }
 });
