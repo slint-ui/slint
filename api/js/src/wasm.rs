@@ -283,6 +283,12 @@ pub async fn compile_from_string_with_style(
     optional_import_callback: Option<ImportCallbackFunction>,
 ) -> Result<CompilationResult, JsValue> {
     let mut compiler = slint_interpreter::Compiler::default();
+    // The test cases run by the browser test driver may use experimental
+    // syntax; SLINT_ENABLE_EXPERIMENTAL_FEATURES cannot be set on wasm.
+    #[cfg(feature = "testing")]
+    {
+        compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    }
     if !style.is_empty() {
         compiler.set_style(style)
     }
@@ -625,7 +631,17 @@ impl WrappedInstance {
     /// Invokes a callback or function by name.
     #[wasm_bindgen]
     pub fn invoke(&self, name: &str, args: js_sys::Array) -> Result<JsValue, JsValue> {
-        let values: Vec<Value> = args.iter().map(|a| js_to_value(&a, None)).collect();
+        let (ty, _) = self
+            .0
+            .definition()
+            .properties_and_callbacks()
+            .find_map(|(n, t)| if n == name { Some(t) } else { None })
+            .ok_or_else(|| {
+                JsValue::from(js_sys::Error::new(&format!(
+                    "Callback {name} not found in the component"
+                )))
+            })?;
+        let values = invoke_args(name, &ty, args)?;
         let result = self
             .0
             .invoke(name, &values)
@@ -692,7 +708,17 @@ impl WrappedInstance {
         name: &str,
         args: js_sys::Array,
     ) -> Result<JsValue, JsValue> {
-        let values: Vec<Value> = args.iter().map(|a| js_to_value(&a, None)).collect();
+        let (ty, _) = self
+            .0
+            .definition()
+            .global_properties_and_callbacks(global_name)
+            .and_then(|mut props| props.find_map(|(n, t)| if n == name { Some(t) } else { None }))
+            .ok_or_else(|| {
+                JsValue::from(js_sys::Error::new(&format!(
+                    "Callback {name} not found in the global {global_name}"
+                )))
+            })?;
+        let values = invoke_args(name, &ty, args)?;
         let result = self
             .0
             .invoke_global(global_name, name, &values)
@@ -791,6 +817,38 @@ pub fn quit_event_loop() -> Result<(), JsValue> {
 /// Set the HTML canvas element ID that the next created component instance
 /// will render into. Consumed by the platform's window_attributes_hook on
 /// the next window creation.
+/// Validate the argument count against the callback's declared signature and
+/// convert the arguments with the declared types as hints. The error messages
+/// match the Node.js binding.
+fn invoke_args(
+    name: &str,
+    ty: &i_slint_compiler::langtype::Type,
+    args: js_sys::Array,
+) -> Result<Vec<Value>, JsValue> {
+    use i_slint_compiler::langtype::Type;
+    let arg_types = match ty {
+        Type::Callback(f) | Type::Function(f) => &f.args,
+        _ => {
+            return Err(
+                js_sys::Error::new(&format!("{name} is not a callback or a function")).into()
+            );
+        }
+    };
+    if args.length() as usize != arg_types.len() {
+        return Err(js_sys::Error::new(&format!(
+            "{name} expect {} arguments, but {} where provided",
+            arg_types.len(),
+            args.length()
+        ))
+        .into());
+    }
+    Ok(args
+        .iter()
+        .zip(arg_types)
+        .map(|(a, ty)| js_to_value(&a, Some(&ty.clone().into())))
+        .collect())
+}
+
 #[wasm_bindgen]
 pub fn set_next_canvas_id(id: String) {
     NEXT_CANVAS_ID.with(|next_id| {
@@ -811,7 +869,11 @@ thread_local!(
 pub fn init() -> Result<(), JsValue> {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
-    i_slint_backend_testing::init_no_event_loop();
+    // Consistent results for OS-dependent behavior like dialog button order,
+    // like the interpreter test driver.
+    i_slint_core::OPERATING_SYSTEM_OVERRIDE
+        .set(Some(i_slint_core::items::OperatingSystemType::Windows));
+    i_slint_backend_testing::init_integration_test_with_mock_time();
     Ok(())
 }
 
