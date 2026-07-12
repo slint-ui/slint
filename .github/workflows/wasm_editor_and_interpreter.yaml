@@ -34,7 +34,7 @@ jobs:
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
             - name: Compile slint-wasm-interpreter
-              run: wasm-pack build --release --target web -- --features console_error_panic_hook
+              run: wasm-pack build --release --target web --out-dir browser/pkg --out-name slint_wasm_interpreter .. -- --no-default-features --features console_error_panic_hook
               working-directory: api/js/browser
 
             - name: Build slint-wasm-lsp

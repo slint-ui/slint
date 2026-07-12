@@ -115,13 +115,13 @@ jobs:
               # dedicated toolchain (node/python/cpp) and are covered by their own
               # ci.yaml jobs. Crates moved into the examples/demos/tests workspaces
               # are no longer root members, so they need no exclude here.
-              run: "cargo test --locked --verbose --all-features --workspace --timings ${{ inputs.extra_args }} --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc -- --skip=qt::"
+              run: "cargo test --locked --verbose --all-features --workspace --timings ${{ inputs.extra_args }} --exclude slint-js --exclude slint-cpp --exclude slint-python --exclude slint-sc -- --skip=qt::"
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run tests (qt)
               if: runner.os != 'Windows' && inputs.run_qt
-              run: "cargo test --locked --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc qt:: -- --test-threads=1"
+              run: "cargo test --locked --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-js --exclude slint-cpp --exclude slint-python --exclude slint-sc qt:: -- --test-threads=1"
               shell: bash
             # The integration tests now live in their own workspace (tests/Cargo.toml).
             # The C++/Node/Python drivers and doctests are run by dedicated jobs in ci.yaml.

@@ -36,9 +36,13 @@ fn cp_r(
 
 pub fn generate(sha1: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
     let root = super::root_dir();
-    let node_dir = root.join("api").join("node");
+    let js_dir = root.join("api").join("js");
+    let node_dir = js_dir.join("node");
 
-    let cargo_toml_path = node_dir.join("Cargo.toml");
+    // The npm package ships the Rust sources of the slint-js crate, which
+    // live one level above the package directory. Copy them in for packing,
+    // with a Cargo.toml stripped of workspace inheritance and relative paths.
+    let cargo_toml_path = js_dir.join("Cargo.toml");
 
     println!("Removing relative paths from {}", cargo_toml_path.to_string_lossy());
 
@@ -102,11 +106,7 @@ pub fn generate(sha1: Option<String>) -> Result<(), Box<dyn std::error::Error>> 
     }
 
     // Remove all `path = ` entries from dependencies and substitute workspace = true
-    for dep_key in ["dependencies", "build-dependencies"].iter() {
-        let dep_table = match toml[dep_key].as_table_mut() {
-            Some(table) => table,
-            _ => continue,
-        };
+    let rewrite_dep_table = |dep_table: &mut toml_edit::Table| {
         let deps: Vec<_> = dep_table.iter().map(|(name, _)| name.to_string()).collect();
 
         deps.iter().for_each(|name| {
@@ -133,11 +133,34 @@ pub fn generate(sha1: Option<String>) -> Result<(), Box<dyn std::error::Error>> 
                 dep_config.remove("path");
             }
         });
+    };
+
+    for dep_key in ["dependencies", "build-dependencies"].iter() {
+        if let Some(table) = toml[dep_key].as_table_mut() {
+            rewrite_dep_table(table);
+        }
+    }
+
+    // The engine-specific dependencies live in [target.'cfg(...)'.dependencies] tables
+    if let Some(target_table) = toml.get_mut("target").and_then(|t| t.as_table_mut()) {
+        let targets: Vec<_> = target_table.iter().map(|(name, _)| name.to_string()).collect();
+        for target in targets {
+            if let Some(table) =
+                target_table[&target].get_mut("dependencies").and_then(|d| d.as_table_mut())
+            {
+                rewrite_dep_table(table);
+            }
+        }
     }
 
     let edited_toml = toml.to_string();
 
-    sh.write_file(cargo_toml_path.clone(), edited_toml).context("Error writing Cargo.toml")?;
+    println!("Copying the slint-js crate sources into the package");
+
+    sh.write_file(node_dir.join("Cargo.toml"), edited_toml).context("Error writing Cargo.toml")?;
+    sh.copy_file(js_dir.join("build.rs"), node_dir.join("build.rs"))
+        .context("Error copying build.rs into the node dir for packaging")?;
+    cp_r(&sh, &js_dir.join("src"), &node_dir.join("src"))?;
 
     println!("Putting LICENSE information into place for the source package");
 
@@ -166,9 +189,11 @@ pub fn generate(sha1: Option<String>) -> Result<(), Box<dyn std::error::Error>> 
         cmd!(sh, "pnpm pack").run()?;
     }
 
-    println!("Reverting Cargo.toml");
+    println!("Removing the copied crate sources");
 
-    sh.write_file(cargo_toml_path, toml_source).context("Error writing Cargo.toml")?;
+    sh.remove_path(node_dir.join("Cargo.toml")).context("Error deleting Cargo.toml copy")?;
+    sh.remove_path(node_dir.join("build.rs")).context("Error deleting build.rs copy")?;
+    sh.remove_path(node_dir.join("src")).context("Error deleting src copy")?;
 
     sh.remove_path(node_dir.join("LICENSE.md")).context("Error deleting LICENSE.md copy")?;
 
