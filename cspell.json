@@ -24,6 +24,8 @@
         "minx",
         "miny",
         "miri",
+        "monomorphized",
+        "monomorphizing",
         "peekable",
         "Realloc",
         "refcell",
