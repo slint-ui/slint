@@ -79,6 +79,10 @@ pub fn make_rules() -> FormatRules {
     rules.token(SyntaxKind::Dot, |dot| {
         dot.prepend(Antispace).append(Antispace);
     });
+    // `@` binds to the builtin that follows it: `@image-url`, `@children`.
+    rules.token(SyntaxKind::At, |at| {
+        at.append(Antispace);
+    });
 
     // Spans of foreign syntax the global rules must not touch: the arbitrary
     // Rust tokens inside `@rust-attr(...)` and the expressions interpolated
@@ -135,6 +139,11 @@ pub fn make_rules() -> FormatRules {
         SyntaxKind::CallbackDeclaration,
         SyntaxKind::CallbackConnection,
         SyntaxKind::Function,
+        SyntaxKind::AtImageUrl,
+        SyntaxKind::AtGradient,
+        SyntaxKind::AtTr,
+        SyntaxKind::AtMarkdown,
+        SyntaxKind::AtKeys,
     ] {
         rules.node(kind, |call| {
             call.token(SyntaxKind::LParent).prepend(Antispace);
@@ -178,6 +187,28 @@ pub fn make_rules() -> FormatRules {
         };
         array.at(children[open].clone()).append(IndentStart).append(array.empty_softline());
         array.at(children[close].clone()).prepend(IndentEnd).prepend(array.empty_softline());
+    });
+
+    // Animation and transition bodies break like element bodies.
+    for kind in [SyntaxKind::PropertyAnimation, SyntaxKind::Transition] {
+        rules.node(kind, |body| {
+            break_braced_body(body, SyntaxKind::LBrace, SyntaxKind::RBrace, body.spaced_softline());
+        });
+    }
+
+    // `transitions [ ... ]`, one transition per line when multiline.
+    rules.node(SyntaxKind::Transitions, |transitions| {
+        break_braced_body(
+            transitions,
+            SyntaxKind::LBracket,
+            SyntaxKind::RBracket,
+            transitions.spaced_softline(),
+        );
+    });
+
+    // `import { Foo, Bar } from "..."` keeps spaces inside the braces.
+    rules.node(SyntaxKind::ImportIdentifierList, |list| {
+        break_braced_body(list, SyntaxKind::LBrace, SyntaxKind::RBrace, list.spaced_softline());
     });
 
     // `states [ ... ]`
