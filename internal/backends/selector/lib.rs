@@ -164,8 +164,7 @@ pub fn parse_backend_env_var(backend_config: &str) -> (&str, &str) {
 }
 
 /// Start the system-testing and MCP servers if their features are enabled.
-/// The bindings call this after installing a platform with `set_platform()`, which bypasses
-/// the selector and thus the call it makes below.
+/// Also called by the bindings that install a platform with `set_platform()`, bypassing the selector.
 #[cfg(any(feature = "system-testing", feature = "mcp"))]
 pub fn init_testing_backends() {
     #[cfg(feature = "system-testing")]

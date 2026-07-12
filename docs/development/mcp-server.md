@@ -36,7 +36,7 @@ See the [README](../../internal/backends/testing/README.md#enabling-the-mcp-serv
 
 ## Initialization Flow
 
-Initialization is triggered from the backend selector (`internal/backends/selector/api.rs`) after the platform is successfully created. The Android entry points and the C++ platform registration install a platform with `set_platform()` instead, which bypasses the selector, so they call `i_slint_backend_selector::init_testing_backends()` themselves.
+Initialization is triggered from the backend selector (`internal/backends/selector/api.rs`) after the platform is successfully created, and from the bindings that install a platform with `set_platform()` and thus bypass the selector:
 
 1. `mcp_server::init()` checks `SLINT_MCP_PORT`. If absent, returns early.
 2. Calls `introspection::ensure_window_tracking()` to install a window-shown hook that registers windows with the shared `IntrospectionState`.
