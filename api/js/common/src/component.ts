@@ -56,25 +56,24 @@ export class Component {
     }
 
     show(): void {
-        const w = this.#instance.window() as { show?: () => void } | null;
-        if (w && typeof w.show === "function") {
-            w.show();
+        // Browser/WASM: the instance owns its canvas and exposes show/hide
+        // directly, integrated with the web event loop. Prefer that over the
+        // window API (the Node.js instance has no show method).
+        const inst = this.#instance as unknown as { show?: () => void };
+        if (typeof inst.show === "function") {
+            inst.show();
             return;
         }
-        // Browser/WASM: there is no separate window object — the instance
-        // owns its canvas and exposes show/hide directly.
-        const inst = this.#instance as unknown as { show?: () => void };
-        if (typeof inst.show === "function") inst.show();
+        this.window.show();
     }
 
     hide(): void {
-        const w = this.#instance.window() as { hide?: () => void } | null;
-        if (w && typeof w.hide === "function") {
-            w.hide();
+        const inst = this.#instance as unknown as { hide?: () => void };
+        if (typeof inst.hide === "function") {
+            inst.hide();
             return;
         }
-        const inst = this.#instance as unknown as { hide?: () => void };
-        if (typeof inst.hide === "function") inst.hide();
+        this.window.hide();
     }
 }
 

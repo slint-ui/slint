@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// the wasm binding has no window API yet
+// image loading through @image-url is not supported on wasm yet
 //ignore: browser
+
 
 // Issue #12139: an unsized Image used to give an auto-sizing window an unbounded
 // height (its aspect ratio scaled the unconstrained measuring width to infinity).

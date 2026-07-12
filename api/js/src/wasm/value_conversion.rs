@@ -46,6 +46,10 @@ pub fn value_to_js(value: &Value) -> JsValue {
         }
         Value::Brush(brush) => brush_to_js(brush),
         Value::Image(image) => image_to_js(image),
+        Value::Keys(keys) => crate::wasm::types::WasmKeys::new(keys.clone()).into(),
+        Value::StyledText(styled_text) => {
+            crate::wasm::types::WasmStyledText::new(styled_text.clone()).into()
+        }
         // Internal types that shouldn't normally be exposed
         _ => JsValue::UNDEFINED,
     }
@@ -94,6 +98,12 @@ fn js_to_value_infer(js: &JsValue) -> Value {
         // Detect an RGBA object: { red, green, blue, alpha? }.
         if let Some(brush) = try_rgba_object(&obj) {
             return Value::Brush(brush);
+        }
+        if let Some(keys) = crate::wasm::types::try_keys_from_js(js) {
+            return Value::Keys(keys);
+        }
+        if let Some(styled_text) = crate::wasm::types::try_styled_text_from_js(js) {
+            return Value::StyledText(styled_text);
         }
         // A browser `ImageData` instance is unambiguous, so it converts even
         // without a type hint (e.g. nested in a model row or struct field).

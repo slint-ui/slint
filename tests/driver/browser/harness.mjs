@@ -117,6 +117,8 @@ const slintlib = {
     ArrayModel: slint.ArrayModel,
     MapModel: slint.MapModel,
     CompileError: slint.CompileError,
+    Keys: pkg.Keys,
+    StyledText: pkg.StyledText,
     private_api: {
         initTesting: () => {
             // The testing backend is installed at wasm module start.

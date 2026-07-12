@@ -9,6 +9,8 @@ use wasm_bindgen::prelude::*;
 
 use slint_interpreter::{ComponentHandle, Value, ValueType};
 
+mod types;
+pub use types::*;
 mod value_conversion;
 use value_conversion::{js_to_value, value_to_js};
 
@@ -728,11 +730,18 @@ impl WrappedInstance {
         result
     }
 
-    /// Returns the window handle (not useful in WASM, included for API parity).
+    /// Returns the {@link Window} associated with this component instance.
     #[wasm_bindgen]
-    pub fn window(&self) -> JsValue {
-        // Window management is canvas-based in WASM; return null for API parity.
-        JsValue::NULL
+    pub fn window(&self) -> Result<WrappedWindow, JsValue> {
+        if !self.0.definition().is_window() {
+            return Err(js_sys::Error::new(
+                "this component is not windowed (for example because it inherits from SystemTrayIcon) and has no window",
+            )
+            .into());
+        }
+        Ok(WrappedWindow {
+            inner: i_slint_core::window::WindowInner::from_pub(self.0.window()).window_adapter(),
+        })
     }
 
     fn invoke_from_event_loop_wrapped_in_promise(
