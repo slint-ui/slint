@@ -42,13 +42,7 @@ pub fn value_to_js(value: &Value) -> JsValue {
             if let Some(js_model) = model.as_any().downcast_ref::<WasmJsModel>() {
                 return js_model.js_impl.clone();
             }
-            let arr = js_sys::Array::new();
-            for i in 0..model.row_count() {
-                if let Some(val) = model.row_data(i) {
-                    arr.push(&value_to_js(&val));
-                }
-            }
-            arr.into()
+            rust_model_to_js(model)
         }
         Value::Brush(brush) => brush_to_js(brush),
         Value::Image(image) => image_to_js(image),
@@ -120,6 +114,57 @@ fn js_to_value_infer(js: &JsValue) -> Value {
     } else {
         Value::Void
     }
+}
+
+/// Expose a Rust model to JS as a read-only model object with `rowCount()`,
+/// `rowData(row)`, a warning-only `setRowData`, and the iterator protocol —
+/// the same surface as the Node.js binding's ReadOnlyRustModel.
+fn rust_model_to_js(model: &ModelRc<Value>) -> JsValue {
+    let obj = js_sys::Object::new();
+
+    let m = model.clone();
+    let row_count = Closure::<dyn Fn() -> u32>::new(move || m.row_count() as u32);
+    let m = model.clone();
+    let row_data = Closure::<dyn Fn(u32) -> JsValue>::new(move |row| {
+        m.row_data(row as usize).map(|v| value_to_js(&v)).unwrap_or(JsValue::UNDEFINED)
+    });
+    let set_row_data = Closure::<dyn Fn(u32, JsValue)>::new(move |_row, _data| {
+        web_sys::console::log_1(
+            &"setRowData called on a model which does not re-implement this method. \
+              This happens when trying to modify a read-only model"
+                .into(),
+        );
+    });
+    let m = model.clone();
+    let iterator = Closure::<dyn Fn() -> JsValue>::new(move || {
+        let m = m.clone();
+        let row = std::cell::Cell::new(0usize);
+        let next = Closure::<dyn Fn() -> JsValue>::new(move || {
+            let result = js_sys::Object::new();
+            match m.row_data(row.get()) {
+                Some(value) => {
+                    row.set(row.get() + 1);
+                    js_sys::Reflect::set(&result, &"done".into(), &false.into()).unwrap_throw();
+                    js_sys::Reflect::set(&result, &"value".into(), &value_to_js(&value))
+                        .unwrap_throw();
+                }
+                None => {
+                    js_sys::Reflect::set(&result, &"done".into(), &true.into()).unwrap_throw();
+                }
+            }
+            result.into()
+        });
+        let iter = js_sys::Object::new();
+        js_sys::Reflect::set(&iter, &"next".into(), &next.into_js_value()).unwrap_throw();
+        iter.into()
+    });
+
+    js_sys::Reflect::set(&obj, &"rowCount".into(), &row_count.into_js_value()).unwrap_throw();
+    js_sys::Reflect::set(&obj, &"rowData".into(), &row_data.into_js_value()).unwrap_throw();
+    js_sys::Reflect::set(&obj, &"setRowData".into(), &set_row_data.into_js_value()).unwrap_throw();
+    js_sys::Reflect::set(&obj, &js_sys::Symbol::iterator(), &iterator.into_js_value())
+        .unwrap_throw();
+    obj.into()
 }
 
 /// Convert a Slint image to a JS value: a browser `ImageData` when that global
