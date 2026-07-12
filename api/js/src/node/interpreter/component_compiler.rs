@@ -9,7 +9,6 @@ use napi::bindgen_prelude::*;
 use napi::{Env, JsValue};
 use slint_interpreter::Compiler;
 use slint_interpreter::Value;
-use smol_str::StrExt;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -105,56 +104,25 @@ impl JsComponentCompiler {
 
     #[napi(getter)]
     pub fn structs<'a>(&self, env: &'a Env) -> HashMap<String, Unknown<'a>> {
-        fn convert_type<'a>(env: &'a Env, ty: &Type) -> Option<(String, Unknown<'a>)> {
-            match ty {
-                Type::Struct(s) if s.node().is_some() => {
-                    let name = s.name.slint_name().unwrap();
-                    let struct_instance = crate::to_js_unknown(
-                        env,
-                        &Value::Struct(slint_interpreter::Struct::from_iter(s.fields.iter().map(
-                            |(name, field_type)| {
-                                (
-                                    name.to_string(),
-                                    slint_interpreter::default_value_for_type(field_type),
-                                )
-                            },
-                        ))),
-                    );
-
-                    Some((name.to_string(), struct_instance.ok()?))
-                }
-                _ => None,
-            }
-        }
-
-        self.structs_and_enums
-            .iter()
-            .filter_map(|ty| convert_type(env, ty))
-            .collect::<HashMap<String, Unknown<'a>>>()
+        crate::shared::extract_structs(self.structs_and_enums.iter())
+            .filter_map(|(name, default_struct)| {
+                Some((name, crate::to_js_unknown(env, &Value::Struct(default_struct)).ok()?))
+            })
+            .collect()
     }
 
     #[napi(getter)]
     pub fn enums<'a>(&self, env: &'a Env) -> HashMap<String, Unknown<'a>> {
-        fn convert_type<'a>(env: &'a Env, ty: &Type) -> Option<(String, Unknown<'a>)> {
-            match ty {
-                Type::Enumeration(en) => {
-                    let mut o = Object::new(env).ok()?;
-
-                    for value in en.values.iter() {
-                        let value = value.replace_smolstr("-", "_");
-                        let str_val = env.create_string(&value).ok()?;
-                        o.set_named_property(&value, str_val).ok()?;
-                    }
-                    Some((en.name.to_string(), o.into_unknown(env).ok()?))
+        crate::shared::extract_enums(self.structs_and_enums.iter())
+            .filter_map(|(name, values)| {
+                let mut o = Object::new(env).ok()?;
+                for value in values {
+                    let str_val = env.create_string(&value).ok()?;
+                    o.set_named_property(&value, str_val).ok()?;
                 }
-                _ => None,
-            }
-        }
-
-        self.structs_and_enums
-            .iter()
-            .filter_map(|ty| convert_type(env, ty))
-            .collect::<HashMap<String, Unknown<'a>>>()
+                Some((name, o.into_unknown(env).ok()?))
+            })
+            .collect()
     }
 
     #[napi(setter)]

@@ -4,6 +4,8 @@
 //! Slint runtime library for JavaScript: the Node.js binding (napi) on native
 //! targets, the browser binding (wasm-bindgen) on wasm32.
 
+mod shared;
+
 #[cfg(not(target_arch = "wasm32"))]
 #[macro_use]
 extern crate napi_derive;

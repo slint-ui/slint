@@ -5,14 +5,15 @@
 
 use std::rc::Rc;
 
-use i_slint_core::graphics::{Image, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::Brush;
+use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::model::{Model, ModelNotify, ModelRc, ModelTracker};
-use i_slint_core::{Brush, ImageInner};
 use slint_interpreter::{Value, ValueType};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
 use crate::notify_from_id;
+use crate::shared::{image_to_rgba8, parse_css_color};
 
 /// Convert a Slint `Value` to a JavaScript value.
 pub fn value_to_js(value: &Value) -> JsValue {
@@ -182,31 +183,7 @@ fn rust_model_to_js(model: &ModelRc<Value>) -> JsValue {
 /// `{ width, height, data }` object with the same shape. `data` is RGBA8.
 fn image_to_js(image: &Image) -> JsValue {
     let size = image.size();
-    let image_inner: &ImageInner = image.into();
-    let rgba: Vec<u8> = match image_inner.render_to_buffer(None) {
-        Some(SharedImageBuffer::RGBA8(buffer)) => buffer.as_bytes().to_vec(),
-        Some(SharedImageBuffer::RGB8(buffer)) => {
-            let mut rgba = Vec::with_capacity(buffer.as_bytes().len() / 3 * 4);
-            for px in buffer.as_bytes().chunks_exact(3) {
-                rgba.extend_from_slice(px);
-                rgba.push(255);
-            }
-            rgba
-        }
-        Some(SharedImageBuffer::RGBA8Premultiplied(buffer)) => {
-            let mut rgba = buffer.as_bytes().to_vec();
-            for px in rgba.chunks_exact_mut(4) {
-                let a = px[3] as u16;
-                if a > 0 && a < 255 {
-                    px[0] = (px[0] as u16 * 255 / a) as u8;
-                    px[1] = (px[1] as u16 * 255 / a) as u8;
-                    px[2] = (px[2] as u16 * 255 / a) as u8;
-                }
-            }
-            rgba
-        }
-        None => vec![0; size.width as usize * size.height as usize * 4],
-    };
+    let rgba = image_to_rgba8(image);
 
     let data = js_sys::Uint8ClampedArray::new_with_length(rgba.len() as u32);
     data.copy_from(&rgba);
@@ -309,14 +286,6 @@ fn brush_to_js(brush: &Brush) -> JsValue {
         format!("#{:02x}{:02x}{:02x}{:02x}", c.red(), c.green(), c.blue(), c.alpha())
     };
     JsValue::from_str(&s)
-}
-
-/// Parse a CSS color literal: `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`,
-/// `rgb(r, g, b)`, `rgba(r, g, b, a)`, `hsl(...)`, `hsla(...)`, or a named
-/// color (e.g. `"red"`). Returns `None` if the string is not a valid color.
-fn parse_css_color(s: &str) -> Option<i_slint_core::Color> {
-    let c = s.trim().parse::<css_color_parser2::Color>().ok()?;
-    Some(i_slint_core::Color::from_argb_u8((c.a * 255.0).round() as u8, c.r, c.g, c.b))
 }
 
 /// Try to detect a JS Model instance (one created from `@slint-ui/common`'s

@@ -399,11 +399,10 @@ pub fn to_value(
 fn string_to_brush(js_string: napi::JsString<'_>) -> Result<Value> {
     let string = js_string.into_utf8()?.as_str()?.to_string();
 
-    let c = string
-        .parse::<css_color_parser2::Color>()
-        .map_err(|_| napi::Error::from_reason(format!("Could not convert {string} to Brush.")))?;
+    let color = crate::shared::parse_css_color(&string)
+        .ok_or_else(|| napi::Error::from_reason(format!("Could not convert {string} to Brush.")))?;
 
-    Ok(Value::Brush(Brush::from(Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b))))
+    Ok(Value::Brush(Brush::from(color)))
 }
 
 fn brush_from_color(rgb_color: Object) -> Result<Value> {

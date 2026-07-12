@@ -181,38 +181,57 @@ extern "C" {
 }
 
 fn build_diagnostics(compiler: &slint_interpreter::CompilationResult) -> (js_sys::Array, String) {
-    let line_key = JsValue::from_str("lineNumber");
-    let column_key = JsValue::from_str("columnNumber");
-    let message_key = JsValue::from_str("message");
-    let file_key = JsValue::from_str("fileName");
-    let level_key = JsValue::from_str("level");
     let mut error_as_string = String::new();
     let array = js_sys::Array::new();
     for d in compiler.diagnostics() {
-        let filename =
-            d.source_file().as_ref().map_or(String::new(), |sf| sf.to_string_lossy().into());
+        let data = crate::shared::DiagnosticData::from(&d);
 
-        let filename_js = JsValue::from_str(&filename);
-        let (line, column) = d.line_column();
-
-        if d.level() == slint_interpreter::DiagnosticLevel::Error {
+        if data.level == slint_interpreter::DiagnosticLevel::Error {
             if !error_as_string.is_empty() {
                 error_as_string.push_str("\n");
             }
             use std::fmt::Write;
-
-            write!(&mut error_as_string, "{}:{}:{}", filename, line, d).unwrap();
+            write!(
+                &mut error_as_string,
+                "{}:{}:{}",
+                data.file_name.as_deref().unwrap_or_default(),
+                data.line_number,
+                d
+            )
+            .unwrap();
         }
 
         let error_obj = js_sys::Object::new();
-        js_sys::Reflect::set(&error_obj, &message_key, &JsValue::from_str(&d.message()))
+        js_sys::Reflect::set(&error_obj, &"message".into(), &JsValue::from_str(&data.message))
             .unwrap_throw();
-        js_sys::Reflect::set(&error_obj, &line_key, &JsValue::from_f64(line as f64)).unwrap_throw();
-        js_sys::Reflect::set(&error_obj, &column_key, &JsValue::from_f64(column as f64))
-            .unwrap_throw();
-        js_sys::Reflect::set(&error_obj, &file_key, &filename_js).unwrap_throw();
-        js_sys::Reflect::set(&error_obj, &level_key, &JsValue::from_f64(d.level() as i8 as f64))
-            .unwrap_throw();
+        js_sys::Reflect::set(
+            &error_obj,
+            &"lineNumber".into(),
+            &JsValue::from_f64(data.line_number as f64),
+        )
+        .unwrap_throw();
+        js_sys::Reflect::set(
+            &error_obj,
+            &"columnNumber".into(),
+            &JsValue::from_f64(data.column_number as f64),
+        )
+        .unwrap_throw();
+        js_sys::Reflect::set(
+            &error_obj,
+            &"fileName".into(),
+            &JsValue::from_str(data.file_name.as_deref().unwrap_or_default()),
+        )
+        .unwrap_throw();
+        js_sys::Reflect::set(
+            &error_obj,
+            &"level".into(),
+            &JsValue::from_f64(if data.level == slint_interpreter::DiagnosticLevel::Error {
+                0.0
+            } else {
+                1.0
+            }),
+        )
+        .unwrap_throw();
         array.push(&error_obj);
     }
     (array, error_as_string)
@@ -221,46 +240,32 @@ fn build_diagnostics(compiler: &slint_interpreter::CompilationResult) -> (js_sys
 fn extract_structs_and_enums(
     compiler: &slint_interpreter::CompilationResult,
 ) -> (JsValue, JsValue) {
-    use i_slint_compiler::langtype::Type;
+    let types: Vec<_> = compiler.structs_and_enums(i_slint_core::InternalToken {}).collect();
 
     let structs_obj = js_sys::Object::new();
-    let enums_obj = js_sys::Object::new();
-
-    for ty in compiler.structs_and_enums(i_slint_core::InternalToken {}) {
-        match ty {
-            Type::Struct(s) => {
-                if let Some(name) = s.name.slint_name() {
-                    let default_obj = js_sys::Object::new();
-                    for (field_name, field_type) in &s.fields {
-                        let default_val = slint_interpreter::default_value_for_type(field_type);
-                        js_sys::Reflect::set(
-                            &default_obj,
-                            &JsValue::from_str(field_name),
-                            &value_to_js(&default_val),
-                        )
-                        .unwrap_throw();
-                    }
-                    js_sys::Reflect::set(&structs_obj, &JsValue::from_str(&name), &default_obj)
-                        .unwrap_throw();
-                }
-            }
-            Type::Enumeration(en) => {
-                let enum_obj = js_sys::Object::new();
-                for v in en.values.iter() {
-                    let js_name = v.replace("-", "_");
-                    js_sys::Reflect::set(
-                        &enum_obj,
-                        &JsValue::from_str(&js_name),
-                        &JsValue::from_str(&js_name),
-                    )
-                    .unwrap_throw();
-                }
-                js_sys::Reflect::set(&enums_obj, &JsValue::from_str(en.name.as_str()), &enum_obj)
-                    .unwrap_throw();
-            }
-            _ => {}
-        }
+    for (name, default_struct) in crate::shared::extract_structs(types.iter().copied()) {
+        js_sys::Reflect::set(
+            &structs_obj,
+            &JsValue::from_str(&name),
+            &value_to_js(&Value::Struct(default_struct)),
+        )
+        .unwrap_throw();
     }
+
+    let enums_obj = js_sys::Object::new();
+    for (name, values) in crate::shared::extract_enums(types.iter().copied()) {
+        let enum_obj = js_sys::Object::new();
+        for js_name in values {
+            js_sys::Reflect::set(
+                &enum_obj,
+                &JsValue::from_str(&js_name),
+                &JsValue::from_str(&js_name),
+            )
+            .unwrap_throw();
+        }
+        js_sys::Reflect::set(&enums_obj, &JsValue::from_str(&name), &enum_obj).unwrap_throw();
+    }
+
     (structs_obj.into(), enums_obj.into())
 }
 

@@ -51,16 +51,13 @@ pub struct JsDiagnostic {
 
 impl From<Diagnostic> for JsDiagnostic {
     fn from(internal_diagnostic: Diagnostic) -> Self {
-        let (line_number, column) = internal_diagnostic.line_column();
+        let data = crate::shared::DiagnosticData::from(&internal_diagnostic);
         Self {
-            level: internal_diagnostic.level().into(),
-            message: internal_diagnostic.message().into(),
-            line_number: line_number as u32,
-            column_number: column as u32,
-            file_name: internal_diagnostic
-                .source_file()
-                .and_then(|path| path.to_str())
-                .map(|str| str.into()),
+            level: data.level.into(),
+            message: data.message,
+            line_number: data.line_number as u32,
+            column_number: data.column_number as u32,
+            file_name: data.file_name,
         }
     }
 }
