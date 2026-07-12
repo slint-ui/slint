@@ -811,14 +811,26 @@ impl SyntaxToken {
         // ConditionalExpression has an empty Expression/CodeBlock  for the else part,
         // and next_token doesn't go into that.
         // So re-implement: walk to the next element in document order,
-        // skipping over token-less nodes.
+        // descending into nodes to find their first token.
+
+        // The first token anywhere inside `node`, searching children in order.
+        // rowan's own `first_token()` only descends into the first child, so a
+        // node whose first child is empty (e.g. an empty leading `Expression`)
+        // wrongly reports no token — and skipping the whole node on that would
+        // drop every later child. This descends properly.
+        fn first_token(node: &rowan::SyntaxNode<Language>) -> Option<rowan::SyntaxToken<Language>> {
+            node.children_with_tokens().find_map(|child| match child {
+                rowan::NodeOrToken::Token(token) => Some(token),
+                rowan::NodeOrToken::Node(node) => first_token(&node),
+            })
+        }
 
         let mut ancestors = self.token.parent_ancestors();
         let mut next = self.token.next_sibling_or_token();
         let token = loop {
             match next {
                 Some(rowan::NodeOrToken::Token(token)) => break token,
-                Some(rowan::NodeOrToken::Node(node)) => match node.first_token() {
+                Some(rowan::NodeOrToken::Node(node)) => match first_token(&node) {
                     Some(token) => break token,
                     None => next = node.next_sibling_or_token(),
                 },
@@ -1074,6 +1086,33 @@ fn test_normalize_identifier() {
     assert_eq!(normalize_identifier("__1"), SmolStr::new("_-1"));
     assert_eq!(normalize_identifier("--1"), SmolStr::new("_-1"));
     assert_eq!(normalize_identifier("--1--"), SmolStr::new("_-1--"));
+}
+
+#[test]
+fn test_next_token_visits_every_token() {
+    // `next_token` must walk the whole document even across error trees whose
+    // nodes begin with an empty child node — rowan's shallow `first_token`
+    // would report such a node token-less and the walk would skip its whole
+    // subtree.
+    let sources = [
+        "component A { x: 1; }",
+        // `if (true) {}` — empty else Expression/CodeBlock.
+        "component A { function f() { if (true) {}foo(); } }",
+        // Element with an empty leading QualifiedName (`inherits` with no type).
+        "component Bar inherits {\n    if true : {}\n}",
+        // Wildcard match case with no preceding case: empty leading Expression.
+        "export component Baz {\n    match foo {\n        *: Rectangle { }\n    }\n}",
+    ];
+    for source in sources {
+        let document = parse(String::from(source), None, &mut BuildDiagnostics::default());
+        let mut visited = String::new();
+        let mut token = document.first_token();
+        while let Some(current) = token {
+            visited += current.text();
+            token = current.next_token();
+        }
+        assert_eq!(visited, source, "next_token walk lost tokens for {source:?}");
+    }
 }
 
 // Actual parser
