@@ -224,6 +224,28 @@ If `SLINT_MCP_PORT` is not set, no server is started and there is no runtime ove
 Do not add `mcp` to the `[features]` section of your `Cargo.toml` — use the `--features`
 flag on the command line instead.
 
+### On Android
+
+Grant the `INTERNET` permission in the manifest. The kernel gates `AF_INET` socket *creation*
+on `AID_INET`, which this permission provides, so without it even binding to `127.0.0.1` fails
+with `EACCES`.
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+```
+
+An APK never sees the environment it was built from, so bake `SLINT_MCP_PORT` in at build time
+and restore it before `slint::android::init()`:
+
+```rust
+if let Some(port) = option_env!("SLINT_MCP_PORT") {
+    unsafe { std::env::set_var("SLINT_MCP_PORT", port) };
+}
+```
+
+Then reach the device with `adb forward tcp:8080 tcp:8080` — not `adb reverse`, as it is the host
+connecting into the app.
+
 ### Running Without a Display
 
 On a machine with no display server (CI, container, agent sandbox) the regular
