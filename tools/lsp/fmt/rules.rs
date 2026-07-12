@@ -8,23 +8,71 @@
 //! Boundaries no rule covers fall back to the engine's default (a single
 //! space between tokens), so the ruleset is still far from complete.
 
+use super::atoms::Atom;
 use super::atoms::Atom::*;
-use super::engine::{FormatRules, format_document_with_rules};
+use super::engine::{FormatRules, Selection, format_document_with_rules};
 use super::writer::TokenWriter;
-use i_slint_compiler::parser::{SyntaxKind, syntax_nodes};
+use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, syntax_nodes};
+
+/// Break the body delimited by `open`/`close` (`{}`, `[]`) so that each item
+/// sits on its own line when the node is multiline, and inline otherwise. The
+/// opening and closing delimiters use `edge` (a spaced or empty softline);
+/// items in between break with a spaced softline and keep one blank line from
+/// the input.
+fn break_braced_body(selection: &Selection, open: SyntaxKind, close: SyntaxKind, edge: Atom) {
+    let children: Vec<NodeOrToken> = selection.children().iter().cloned().collect();
+    let Some(open_index) = children.iter().position(|child| child.kind() == open) else {
+        return;
+    };
+    let Some(close_index) = children.iter().rposition(|child| child.kind() == close) else {
+        return;
+    };
+    if close_index < open_index {
+        return;
+    }
+    selection.at(children[open_index].clone()).append(IndentStart).append(edge.clone());
+    selection.at(children[close_index].clone()).prepend(IndentEnd).prepend(edge);
+    for child in &children[(open_index + 1)..close_index] {
+        // Separators hug the item before them: a semicolon terminates a code
+        // block statement, a comma separates struct/enum members — both are
+        // direct children in those bodies, and their spacing comes from the
+        // global punctuation rules, not from a per-item break.
+        if matches!(child.kind(), SyntaxKind::Semicolon | SyntaxKind::Comma) {
+            continue;
+        }
+        selection.at(child.clone()).prepend(AllowBlankLines).prepend(selection.spaced_softline());
+    }
+}
 
 pub fn make_rules() -> FormatRules {
     let mut rules = FormatRules::default();
 
-    // Global punctuation spacing. Fires on every colon/semicolon in the
+    // Global punctuation spacing. Fires on every matching token in the
     // document; node rules override it where they disagree.
-    // TODO: this also re-spaces ternary colons (`cond ? a : b` becomes
-    // `cond ? a: b`) until a ConditionalExpression rule overrides it.
     rules.token(SyntaxKind::Colon, |colon| {
         colon.prepend(Antispace).append(Space);
     });
     rules.token(SyntaxKind::Semicolon, |semicolon| {
         semicolon.prepend(Antispace);
+    });
+    // A comma hugs the token before it and, after it, breaks with its
+    // container: a space inline, a newline once the container spans lines.
+    // The softline measures the comma's parent node, so one rule handles
+    // every list — arguments, arrays, structs, enums, callback parameters.
+    rules.token(SyntaxKind::Comma, |comma| {
+        comma.prepend(Antispace).append(comma.spaced_softline());
+    });
+    rules.token(SyntaxKind::LParent, |paren| {
+        paren.append(Antispace);
+    });
+    rules.token(SyntaxKind::RParent, |paren| {
+        paren.prepend(Antispace);
+    });
+    rules.token(SyntaxKind::LBracket, |bracket| {
+        bracket.append(Antispace);
+    });
+    rules.token(SyntaxKind::RBracket, |bracket| {
+        bracket.prepend(Antispace);
     });
 
     // Spans of foreign syntax the global rules must not touch: the arbitrary
@@ -39,12 +87,49 @@ pub fn make_rules() -> FormatRules {
         template.leaf();
     });
 
-    // Elements contribute only indentation bookkeeping for now: rules firing
-    // inside an element need correct levels even while the element's own
-    // spacing still falls back to the default.
+    // Top-level items (components, structs, enums, imports, exports) each go
+    // on their own line, with input blank lines between them preserved.
+    rules.node(SyntaxKind::Document, |document| {
+        let children: Vec<NodeOrToken> = document.children().iter().cloned().collect();
+        for child in children.iter().skip(1) {
+            document.at(child.clone()).prepend(AllowBlankLines).prepend(Hardline);
+        }
+    });
+
+    // Element bodies (`Foo { ... }`, and the body of a component, global or
+    // interface) break one item per line when multiline, stay inline
+    // otherwise.
     rules.node(SyntaxKind::Element, |element| {
-        element.token(SyntaxKind::LBrace).append(IndentStart);
-        element.token(SyntaxKind::RBrace).prepend(IndentEnd);
+        break_braced_body(element, SyntaxKind::LBrace, SyntaxKind::RBrace, element.spaced_softline());
+    });
+
+    // Imperative code blocks (function, callback and binding bodies).
+    rules.node(SyntaxKind::CodeBlock, |block| {
+        break_braced_body(block, SyntaxKind::LBrace, SyntaxKind::RBrace, block.spaced_softline());
+    });
+
+    // Struct, enum and object-literal bodies: one member per line when
+    // multiline, spaces inside the braces when inline.
+    for kind in [SyntaxKind::ObjectType, SyntaxKind::EnumDeclaration, SyntaxKind::ObjectLiteral] {
+        rules.node(kind, |body| {
+            break_braced_body(body, SyntaxKind::LBrace, SyntaxKind::RBrace, body.spaced_softline());
+        });
+    }
+
+    // Array literals stay tight inline (`[1, 2, 3]`) and break one element
+    // per line when multiline; the commas carry the inter-element breaks.
+    rules.node(SyntaxKind::Array, |array| {
+        let children: Vec<NodeOrToken> = array.children().iter().cloned().collect();
+        let Some(open) = children.iter().position(|child| child.kind() == SyntaxKind::LBracket)
+        else {
+            return;
+        };
+        let Some(close) = children.iter().rposition(|child| child.kind() == SyntaxKind::RBracket)
+        else {
+            return;
+        };
+        array.at(children[open].clone()).append(IndentStart).append(array.empty_softline());
+        array.at(children[close].clone()).prepend(IndentEnd).prepend(array.empty_softline());
     });
 
     // `states [ ... ]`
