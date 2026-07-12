@@ -15,10 +15,10 @@ use super::writer::TokenWriter;
 use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, syntax_nodes};
 
 /// Break the body delimited by `open`/`close` (`{}`, `[]`) so that each item
-/// sits on its own line when the node is multiline, and inline otherwise. The
-/// opening and closing delimiters use `edge` (a spaced or empty softline);
-/// items in between break with a spaced softline and keep one blank line from
-/// the input.
+/// sits on its own line when the node is multiline, and inline otherwise. A
+/// non-empty inline body uses `edge` (usually a spaced softline) around its
+/// delimiters; an empty one closes up tight (`{}`). Items in between break with
+/// a spaced softline and keep one blank line from the input.
 fn break_braced_body(selection: &Selection, open: SyntaxKind, close: SyntaxKind, edge: Atom) {
     let children: Vec<NodeOrToken> = selection.children().iter().cloned().collect();
     let Some(open_index) = children.iter().position(|child| child.kind() == open) else {
@@ -30,6 +30,9 @@ fn break_braced_body(selection: &Selection, open: SyntaxKind, close: SyntaxKind,
     if close_index < open_index {
         return;
     }
+    // An empty body collapses to `{}` inline (but keeps a broken-open `{`/`}`
+    // pair when the input already spread it across lines).
+    let edge = if close_index == open_index + 1 { selection.empty_softline() } else { edge };
     selection.at(children[open_index].clone()).append(IndentStart).append(edge.clone());
     selection.at(children[close_index].clone()).prepend(IndentEnd).prepend(edge);
     for child in &children[(open_index + 1)..close_index] {
