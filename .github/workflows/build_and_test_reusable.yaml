@@ -126,13 +126,13 @@ jobs:
             # The integration tests now live in their own workspace (tests/Cargo.toml).
             # The C++/Node/Python drivers and doctests are run by dedicated jobs in ci.yaml.
             - name: Run integration tests
-              run: "cargo test --locked --verbose --all-features --workspace --timings --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} --exclude doctests --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python -- --skip=qt::"
+              run: "cargo test --locked --verbose --all-features --workspace --timings --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} --exclude doctests --exclude test-driver-browser --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python -- --skip=qt::"
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run integration tests (qt)
               if: runner.os != 'Windows' && inputs.run_qt
-              run: "cargo test --locked --verbose --all-features --workspace --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} --exclude doctests --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python qt:: -- --test-threads=1"
+              run: "cargo test --locked --verbose --all-features --workspace --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} --exclude doctests --exclude test-driver-browser --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python qt:: -- --test-threads=1"
               shell: bash
             # The examples and demos are also their own workspaces. The mcu/uefi
             # members need dedicated targets/features and are checked in ci.yaml.
