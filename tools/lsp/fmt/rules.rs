@@ -74,6 +74,11 @@ pub fn make_rules() -> FormatRules {
     rules.token(SyntaxKind::RBracket, |bracket| {
         bracket.prepend(Antispace);
     });
+    // A member-access or qualified-name dot hugs both neighbors
+    // (`self.foo`, `MyModule.Widget`).
+    rules.token(SyntaxKind::Dot, |dot| {
+        dot.prepend(Antispace).append(Antispace);
+    });
 
     // Spans of foreign syntax the global rules must not touch: the arbitrary
     // Rust tokens inside `@rust-attr(...)` and the expressions interpolated
@@ -115,6 +120,49 @@ pub fn make_rules() -> FormatRules {
             break_braced_body(body, SyntaxKind::LBrace, SyntaxKind::RBrace, body.spaced_softline());
         });
     }
+
+    // A property's type sits tight inside its angle brackets:
+    // `property <int> foo`, not `property < int > foo`.
+    rules.node(SyntaxKind::PropertyDeclaration, |property| {
+        property.token(SyntaxKind::LAngle).append(Antispace);
+        property.token(SyntaxKind::RAngle).prepend(Antispace);
+    });
+
+    // A call, callback/function declaration or index keeps its parenthesis or
+    // bracket tight against the name before it: `foo(a, b)`, `arr[i]`.
+    for kind in [
+        SyntaxKind::FunctionCallExpression,
+        SyntaxKind::CallbackDeclaration,
+        SyntaxKind::CallbackConnection,
+        SyntaxKind::Function,
+    ] {
+        rules.node(kind, |call| {
+            call.token(SyntaxKind::LParent).prepend(Antispace);
+        });
+    }
+
+    // A ternary spaces both operators symmetrically, overriding the global
+    // colon rule (which would otherwise hug the colon to the true-branch).
+    rules.node(SyntaxKind::ConditionalExpression, |ternary| {
+        ternary.token(SyntaxKind::Question).prepend(Space).append(Space);
+        ternary.token(SyntaxKind::Colon).prepend(Space).append(Space);
+    });
+    rules.node(SyntaxKind::IndexExpression, |index| {
+        index.token(SyntaxKind::LBracket).prepend(Antispace);
+    });
+    // A repeated element's index binds tight to the model name: `for x[i] in`.
+    rules.node(SyntaxKind::RepeatedIndex, |index| {
+        index.prepend(Antispace);
+    });
+
+    // A unary operator hugs its operand: `-1`, `!enabled`.
+    rules.node(SyntaxKind::UnaryOpExpression, |unary| {
+        unary
+            .token_matching(|kind| {
+                matches!(kind, SyntaxKind::Minus | SyntaxKind::Plus | SyntaxKind::Bang)
+            })
+            .append(Antispace);
+    });
 
     // Array literals stay tight inline (`[1, 2, 3]`) and break one element
     // per line when multiline; the commas carry the inter-element breaks.
