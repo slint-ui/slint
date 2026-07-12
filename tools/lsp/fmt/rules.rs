@@ -121,6 +121,16 @@ pub fn make_rules() -> FormatRules {
         break_braced_body(block, SyntaxKind::LBrace, SyntaxKind::RBrace, block.spaced_softline());
     });
 
+    // `match expr { case: Elem { } ... }`, one case per line when multiline.
+    rules.node(SyntaxKind::MatchElement, |match_element| {
+        break_braced_body(
+            match_element,
+            SyntaxKind::LBrace,
+            SyntaxKind::RBrace,
+            match_element.spaced_softline(),
+        );
+    });
+
     // Struct, enum and object-literal bodies: one member per line when
     // multiline, spaces inside the braces when inline.
     for kind in [SyntaxKind::ObjectType, SyntaxKind::EnumDeclaration, SyntaxKind::ObjectLiteral] {
