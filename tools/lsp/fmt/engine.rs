@@ -580,13 +580,6 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
             .get(&slot.token.text_range().start())
             .map_or(no_atoms, Vec::as_slice);
 
-        // Literals inject fixed text without deciding whitespace: an
-        // append-literal hugs the left token (before the gap's whitespace), a
-        // prepend-literal hugs this token (after it).
-        for text in literal_texts(append_atoms) {
-            instructions.push(Instruction::EmitLiteral { text: text.to_string() });
-        }
-
         // A gap wholly inside a leaf (both flanking tokens in the same leaf
         // range) is kept verbatim whatever the rules said. The boundary gaps
         // just before and after the leaf resolve normally, so a rule can
@@ -595,6 +588,16 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
         // exact.
         let leaf_internal =
             slot_index > 0 && leaf.is_some() && leaf == leaf_of_slot[slot_index - 1];
+
+        // Literals inject fixed text without deciding whitespace: an
+        // append-literal hugs the left token (before the gap's whitespace), a
+        // prepend-literal hugs this token (after it). Inside a leaf they are
+        // suppressed like every other boundary effect.
+        if !leaf_internal {
+            for text in literal_texts(append_atoms) {
+                instructions.push(Instruction::EmitLiteral { text: text.to_string() });
+            }
+        }
 
         // These are the atoms that make no whitespace decision on their own.
         // (Antispace counts as a decision — an Antispace-only gap collapses
@@ -624,8 +627,10 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
             instructions.push(Instruction::KeepGap { slot: slot_index });
         }
 
-        for text in literal_texts(prepend_atoms) {
-            instructions.push(Instruction::EmitLiteral { text: text.to_string() });
+        if !leaf_internal {
+            for text in literal_texts(prepend_atoms) {
+                instructions.push(Instruction::EmitLiteral { text: text.to_string() });
+            }
         }
         instructions.push(Instruction::EmitToken { slot: slot_index });
         last_surviving = Some(slot_index);
@@ -1157,6 +1162,15 @@ mod tests {
             "export ",
             "component A {",
             "import { Foo }",
+            // Regression: an Element whose leading QualifiedName is empty
+            // (`inherits` with no type after it). rowan's shallow first_token
+            // reported the Element as token-less, so next_token skipped the
+            // whole component body — panic in debug, silent text loss in
+            // release.
+            "component Bar inherits {\n    if true : {}\n}",
+            // Regression: a wildcard match case with no case before it yields
+            // a match node whose first child is an empty Expression.
+            "export component Baz {\n    match foo {\n        *: Rectangle { }\n    }\n}",
         ];
         for source in sources {
             let document = parse(source);
@@ -1773,6 +1787,40 @@ mod tests {
         check("component A { x: test(a,\nb); }", "component A { x: test(\n    a,\n    b,\n); }");
         // Broken across lines, trailing comma present: kept.
         check("component A { x: test(a,\nb,); }", "component A { x: test(\n    a,\n    b,\n); }");
+    }
+
+    #[test]
+    fn literal_inside_a_leaf_is_suppressed() {
+        // A rule leafs the call and also injects a literal after its comma (an
+        // interior boundary). Leaf suppression must swallow the literal, the
+        // same way it suppresses whitespace and deletes, leaving the call
+        // verbatim.
+        let mut leafed = FormatRules::default();
+        leafed.node(SyntaxKind::FunctionCallExpression, |call| {
+            call.leaf();
+            call.token(SyntaxKind::Comma).append(Atom::Literal(String::from("!")));
+        });
+        assert_eq!(
+            format_with("component A { x: test(a, b); }", &leafed),
+            "component A { x: test(a, b); }"
+        );
+
+        // Without the leaf the very same literal rule does fire — proving the
+        // suppression above is real, not a rule that never triggered.
+        let mut plain = FormatRules::default();
+        plain.token(SyntaxKind::Comma, |comma| {
+            comma.append(Atom::Literal(String::from("!")));
+        });
+        assert_eq!(
+            format_with("component A { x: test(a, b); }", &plain),
+            "component A { x: test(a,! b); }"
+        );
+        // And an ignore directive, which leafs via the engine core, suppresses
+        // it too.
+        assert_eq!(
+            format_with("component A {\n    // slint-fmt:ignore\n    x: test(a, b);\n}", &plain),
+            "component A {\n    // slint-fmt:ignore\n    x: test(a, b);\n}"
+        );
     }
 
     #[test]
