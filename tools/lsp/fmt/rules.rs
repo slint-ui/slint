@@ -295,7 +295,7 @@ mod tests {
     fn antispace_deletes_even_an_input_newline() {
         // Input newlines only survive where a rule asks for them
         // (InputSoftline); a bare Antispace boundary collapses completely.
-        assert_formatting_query("component A { x: 1\n; }", "component A { x: 1; }");
+        assert_formatting_query("component A { x: 1\n; }", "component A {\n    x: 1;\n}");
     }
 
     #[test]
@@ -313,11 +313,13 @@ mod tests {
     states [ s1 when b : {c: 1;} s2 : {
 } ]
 }",
-            "component A { states [
+            "component A {
+    states [
         s1 when b: { c: 1; }
         s2: {
         }
-    ] }",
+    ]
+}",
         );
     }
 
@@ -333,11 +335,13 @@ mod tests {
         s2: { }
     ]
 }",
-            "component A { states [
+            "component A {
+    states [
         s1: { }
 
         s2: { }
-    ] }",
+    ]
+}",
         );
     }
 
@@ -349,8 +353,10 @@ mod tests {
         assert_formatting_query(
             "component A { states [
 ] }",
-            "component A { states [
-    ] }",
+            "component A {
+    states [
+    ]
+}",
         );
     }
 
@@ -363,10 +369,12 @@ mod tests {
             s2: { }
     ]
 }",
-            "component A { states [
+            "component A {
+    states [
         s1: { } // trail
         s2: { }
-    ] }",
+    ]
+}",
         );
     }
 
@@ -380,11 +388,13 @@ mod tests {
         s2: { }
     ]
 }",
-            "component A { states [
+            "component A {
+    states [
         s1: { }
         // note
         s2: { }
-    ] }",
+    ]
+}",
         );
     }
 
@@ -401,11 +411,13 @@ mod tests {
         s2: { }
     ]
 }",
-            "component A { states [
+            "component A {
+    states [
         s1: { }
 //  ^error{x}
         s2: { }
-    ] }",
+    ]
+}",
         );
     }
 
@@ -421,12 +433,14 @@ mod tests {
         s2: { }
     ]
 }",
-            "component A { states [
+            "component A {
+    states [
         s1: { }
 
         // note
         s2: { }
-    ] }",
+    ]
+}",
         );
     }
 
@@ -442,11 +456,13 @@ mod tests {
         }
     ]
 }",
-            "component A { states [
+            "component A {
+    states [
         s1: { // note
             c: 1;
         }
-    ] }",
+    ]
+}",
         );
     }
 
@@ -463,12 +479,14 @@ mod tests {
         }
     ]
 }",
-            "component A { states [
+            "component A {
+    states [
         s1: {
             c: 1;
             // done
         }
-    ] }",
+    ]
+}",
         );
     }
 
@@ -481,10 +499,12 @@ mod tests {
             // end
     ]
 }",
-            "component A { states [
+            "component A {
+    states [
         s1: { }
         // end
-    ] }",
+    ]
+}",
         );
     }
 
@@ -506,12 +526,14 @@ mod tests {
         s2: { }
     ]
 }",
-            "component A { states [
+            "component A {
+    states [
         s1: { }
         // a
         // b
         s2: { }
-    ] }",
+    ]
+}",
         );
     }
 
@@ -526,10 +548,12 @@ mod tests {
         s2: { }
     ]
 }",
-            "component A { states [
+            "component A {
+    states [
         s1: { } /* a */ /* b */
         s2: { }
-    ] }",
+    ]
+}",
         );
     }
 
@@ -569,13 +593,15 @@ component A { x: 1; }",
         s2: { }
     ]
 }",
-            "component A { states [
+            "component A {
+    states [
         s1: { }
         // a
 
         // b
         s2: { }
-    ] }",
+    ]
+}",
         );
     }
 
@@ -589,9 +615,11 @@ component A { x: 1; }",
     // why
     1;
 }",
-            "component A { x:
+            "component A {
+    x:
     // why
-    1; }",
+    1;
+}",
         );
     }
 
@@ -608,12 +636,14 @@ component A { x: 1; }",
         s2: { }
     ]
 }",
-            "component A { states [
+            "component A {
+    states [
         s1: { }
         /* long
            note */
         s2: { }
-    ] }",
+    ]
+}",
         );
     }
 
@@ -629,7 +659,9 @@ component A { x: 1; }",
 }",
             "component A {
     // slint-fmt:ignore
-    x   :1; y: 2; }",
+    x   :1;
+    y: 2;
+}",
         );
     }
 
@@ -642,7 +674,7 @@ component A { x: 1; }",
         assert_formatting_query(
             "@rust-attr(a : b)
 struct S { foo :int }",
-            "@ rust-attr ( a : b ) struct S { foo: int }",
+            "@rust-attr (a : b) struct S { foo: int }",
         );
     }
 
@@ -657,9 +689,8 @@ struct S { foo :int }",
     }
 
     #[test]
-    fn states_nested_in_unformatted_elements_indent_by_depth() {
-        // The inner element's braces are never re-spaced, but their
-        // indentation bookkeeping still places the states content at the
+    fn states_nested_in_elements_indent_by_depth() {
+        // Nested element bodies break too; the states content lands at the
         // right depth (level 3: two elements + the states bracket).
         assert_formatting_query(
             "component A {
@@ -668,10 +699,14 @@ struct S { foo :int }",
             s2: { } ]
     }
 }",
-            "component A { inner := Rectangle { states [
+            "component A {
+    inner := Rectangle {
+        states [
             s1: { c: 1; }
             s2: { }
-        ] } }",
+        ]
+    }
+}",
         );
     }
 }
