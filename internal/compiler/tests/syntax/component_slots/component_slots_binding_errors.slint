@@ -124,3 +124,8 @@ export component FailForwardingOnNonComponent inherits Rectangle {
 
     header {}
 }
+
+export component FailChildrenReference inherits Rectangle {
+    out property <length> header_y: children.absolute-position.y;
+//                                  >                          <error{The default slot '@children' cannot be referenced in expressions}
+}

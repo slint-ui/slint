@@ -2183,7 +2183,7 @@ fn lookup_qualified_name_node(
             {
                 return continue_lookup_within_element(&slot_element, &mut it, node, ctx);
             }
-            if is_declared_slot_in_scope(first_str.as_str(), ctx) {
+            if first_str == "children" || is_declared_slot_in_scope(first_str.as_str(), ctx) {
                 // resolve_slot_reference_element() already emitted a slot-specific diagnostic.
                 return None;
             }
