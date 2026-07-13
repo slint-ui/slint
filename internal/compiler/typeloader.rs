@@ -516,6 +516,7 @@ impl Snapshotter {
                 index_id: r.index_id.clone(),
                 is_conditional_element: r.is_conditional_element,
                 is_listview: r.is_listview.as_ref().map(|lv| object_tree::ListViewInfo {
+                    flickable: lv.flickable.snapshot(self),
                     viewport_y: lv.viewport_y.snapshot(self),
                     viewport_height: lv.viewport_height.snapshot(self),
                     viewport_width: lv.viewport_width.snapshot(self),

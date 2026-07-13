@@ -24,7 +24,7 @@ use i_slint_core::item_tree::{
     VisitChildrenResult,
 };
 use i_slint_core::items::{
-    AccessibleRole, ItemRef, ItemVTable, PopupClosePolicy, PropertyAnimation,
+    AccessibleRole, Flickable, ItemRef, ItemVTable, PopupClosePolicy, PropertyAnimation,
 };
 use i_slint_core::layout::{LayoutInfo, LayoutItemInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalRect};
@@ -2200,11 +2200,21 @@ extern "C" fn ensure_instantiated(component: ItemTreeRefPin) -> bool {
         {
             let assume_property_logical_length =
                 |prop| unsafe { Pin::new_unchecked(&*(prop as *const Property<LogicalLength>)) };
+            // Derive the flickable from viewport_y: after the remove_aliases pass,
+            // lv.viewport_y points directly to Flickable.viewport_y.
+            let viewport_y_ptr = get_property_ptr(&lv.viewport_y, instance_ref);
+            let flickable = unsafe {
+                let vp_y_offset = Flickable::FIELD_OFFSETS.viewport_y().get_byte_offset();
+                Pin::new_unchecked(
+                    &*((viewport_y_ptr as *const u8).sub(vp_y_offset) as *const Flickable),
+                )
+            };
             changed |= repeater.ensure_updated_listview(
                 init,
+                flickable,
                 assume_property_logical_length(get_property_ptr(&lv.viewport_width, instance_ref)),
                 assume_property_logical_length(get_property_ptr(&lv.viewport_height, instance_ref)),
-                assume_property_logical_length(get_property_ptr(&lv.viewport_y, instance_ref)),
+                assume_property_logical_length(viewport_y_ptr),
                 eval::load_property(
                     instance_ref,
                     &lv.listview_width.element(),

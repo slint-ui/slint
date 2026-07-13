@@ -853,8 +853,22 @@ fn lower_repeated_component(
 
     let listview = repeated.is_listview.as_ref().map(|lv| {
         let geom = component.root_element.borrow().geometry_props.clone().unwrap();
+        let viewport_y = ctx.map_property_reference(&lv.viewport_y);
+        // Derive the flickable reference from viewport_y by clearing the property name.
+        // After the remove_aliases pass, viewport_y resolves directly to Flickable.viewport_y,
+        // so stripping prop_name gives a reference to the Flickable item itself.
+        let flickable = {
+            let mut r = viewport_y.clone();
+            if let MemberReference::Relative { local_reference, .. } = &mut r {
+                if let LocalMemberIndex::Native { prop_name, .. } = &mut local_reference.reference {
+                    *prop_name = SmolStr::default();
+                }
+            }
+            r
+        };
         ListViewInfo {
-            viewport_y: ctx.map_property_reference(&lv.viewport_y),
+            flickable,
+            viewport_y,
             viewport_height: ctx.map_property_reference(&lv.viewport_height),
             viewport_width: ctx.map_property_reference(&lv.viewport_width),
             listview_height: ctx.map_property_reference(&lv.listview_height),

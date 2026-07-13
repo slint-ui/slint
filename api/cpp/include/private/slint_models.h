@@ -1145,10 +1145,7 @@ public:
     /// Same as ensure_updated but for a ListView.
     /// Returns true if any instance was created or any child changed.
     template<typename Parent>
-    bool ensure_updated_listview(const Parent *parent,
-                                 const private_api::Property<float> *viewport_width,
-                                 const private_api::Property<float> *viewport_height,
-                                 const private_api::Property<float> *viewport_y,
+    bool ensure_updated_listview(const cbindgen_private::Flickable *flickable, const Parent *parent,
                                  float listview_width, float listview_height) const
     {
         refresh_model();
@@ -1165,8 +1162,8 @@ public:
         VTableContext<Parent> ctx { inner.get(), parent };
         auto ops = make_ops(ctx);
         bool changed = cbindgen_private::slint_repeater_ensure_updated_listview(
-                &ops, &inner->layout_state, m->row_count(), viewport_width, viewport_height,
-                viewport_y, listview_width, listview_height);
+                &ops, &inner->layout_state, m->row_count(), flickable, listview_width,
+                listview_height);
         if (changed)
             instance_generation.mark_dirty();
         return recurse_ensure_instantiated() || changed;

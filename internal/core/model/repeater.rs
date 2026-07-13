@@ -12,6 +12,8 @@
 use super::model_peer::{ModelChangeListener, ModelChangeListenerContainer};
 use super::{Model, ModelExt, ModelRc};
 use crate::item_tree::{ItemTreeVTable, TraversalOrder};
+use crate::items::Flickable;
+use crate::items::SnapMode;
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
 use crate::{Coord, Property};
@@ -21,6 +23,7 @@ use core::pin::Pin;
 #[allow(unused)]
 use euclid::num::Floor;
 use pin_project::pin_project;
+use std::println;
 
 type ItemTreeRc<C> = vtable::VRc<crate::item_tree::ItemTreeVTable, C>;
 
@@ -104,18 +107,40 @@ impl<C: RepeatedItemTree> Default for RepeaterInner<C> {
     }
 }
 
+#[derive(Default, Clone, Debug)]
+struct ItemIndex {
+    /// The position of the item in the model
+    row: usize,
+    /// The index of the item in the instances collection
+    instance_index: usize,
+}
+
+impl ItemIndex {
+    /// get the instance index from the model index `row`
+    fn get_instance_index(&self, row: usize) -> usize {
+        self.instance_index.wrapping_add(row.wrapping_sub(self.row))
+    }
+
+    fn get_instance_index_opt(&self, row: usize) -> Option<usize> {
+        row.checked_sub(self.row).map_or_else(
+            || self.instance_index.checked_add(row).and_then(|res| res.checked_sub(self.row)),
+            |res| self.instance_index.checked_add(res),
+        )
+    }
+}
+
 /// Persistent layout state for a ListView repeater.
 #[derive(Default, Clone, Debug)]
 #[repr(C)]
 pub struct RepeaterLayoutState {
     /// The model row index of the first instance in the collection.
-    pub offset: usize,
+    pub item_index: ItemIndex,
     /// The average visible item height (cached between frames).
     pub cached_item_height: Coord,
     /// The viewport_y value from the previous layout pass.
     /// It is used to detect if we are scrolling up or down
     pub previous_viewport_y: Coord,
-    /// The y position of the item at `offset`.
+    /// The y position of the item at `item_index`.
     pub anchor_y: Coord,
 }
 
@@ -127,6 +152,21 @@ trait RepeaterInstanceOps {
 
     /// Replace the range `position..position+remove` with `add` new empty/dirty slots.
     fn splice(&mut self, position: usize, remove: usize, add: usize);
+
+    /// Clears the instance collection
+    fn clear(&mut self) {
+        self.splice(0, self.len(), 0);
+    }
+
+    /// Prepends `add` number of items before the first item
+    fn prepend(&mut self, add: usize) {
+        self.splice(0, 0, add);
+    }
+
+    /// inserts `add` items at index `index`
+    fn insert(&mut self, index: usize, add: usize) {
+        self.splice(index, 0, add);
+    }
 
     /// If dirty, ensure the instance is created, initialized, and updated
     /// for `row`. Returns `true` if freshly created.
@@ -167,13 +207,13 @@ fn update_all_instances(ops: &mut impl RepeaterInstanceOps, offset: usize, count
 /// This is the core virtualization algorithm: it estimates which model rows
 /// are visible, instantiates/updates those, lays them out, and cleans up
 /// off-screen instances. Returns whether any instance was created.
+///
+/// `ops` - the list of items currently visible
 fn update_visible_instances(
     ops: &mut impl RepeaterInstanceOps,
     state: &mut RepeaterLayoutState,
     row_count: usize,
-    viewport_width: Pin<&Property<LogicalLength>>,
-    viewport_height: Pin<&Property<LogicalLength>>,
-    viewport_y: Pin<&Property<LogicalLength>>,
+    flickable: Pin<&Flickable>,
     listview_width: LogicalLength,
     listview_height: LogicalLength,
 ) -> bool {
@@ -181,11 +221,19 @@ fn update_visible_instances(
     let mut vp_width = listview_width.get();
     let listview_height = listview_height.get();
 
+    let viewport_width = (Flickable::FIELD_OFFSETS.viewport_width()).apply_pin(flickable);
+    let viewport_height = (Flickable::FIELD_OFFSETS.viewport_height()).apply_pin(flickable);
+    let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flickable);
+    let snap_mode = flickable.snap_mode();
+
+    println!("State offset: {:?}. Anchor y: {}", state.item_index, state.anchor_y);
+
     if row_count == 0 {
         ops.splice(0, ops.len(), 0);
         viewport_height.set(zero);
         viewport_y.set(zero);
         viewport_width.set(listview_width);
+        state.item_index = Default::default();
         return false;
     }
 
@@ -213,77 +261,100 @@ fn update_visible_instances(
             total_height / count as Coord
         } else {
             // No items exist yet. Create one to measure.
-            state.offset = state.offset.min(row_count - 1);
+            state.item_index.row = state.item_index.row.min(row_count - 1);
             ops.splice(0, ops.len(), 1);
-            changed |= ops.ensure_updated(0, state.offset);
+            changed |= ops.ensure_updated(0, state.item_index.row);
             ops.height(0).unwrap_or(0 as Coord)
         }
     };
 
-    if state.offset >= row_count {
-        state.offset = row_count - 1;
+    if state.item_index.row >= row_count {
+        state.item_index.row = row_count - 1;
     }
 
     let one_and_a_half_screen = listview_height * 3 as Coord / 2 as Coord;
     let first_item_y = state.anchor_y;
     let last_item_bottom = first_item_y + element_height * ops.len() as Coord;
 
-    let (mut new_offset, mut new_offset_y) = if first_item_y > -vp_y + one_and_a_half_screen
+    // Calculate the item index of the new item at `vp_y`
+    let (mut new_item_index, mut new_item_anchor_y) = if first_item_y
+        > -vp_y + one_and_a_half_screen
         || last_item_bottom + element_height < -vp_y
     {
         // Jumping more than 1.5 screens: random seek.
-        ops.splice(0, ops.len(), 0);
-        state.offset = ((-vp_y / element_height).floor() as usize).min(row_count - 1);
-        (state.offset, 0 as Coord)
+        ops.clear();
+        state.item_index.row = ((-vp_y / element_height).floor() as usize).min(row_count - 1);
+        // We don't know the exact viewport position so we start again at zero and adapt later
+        (state.item_index.row, 0 as Coord)
     } else if vp_y < state.previous_viewport_y {
         // Scrolled down: find the new offset by walking existing instances.
         let mut it_y = first_item_y + vp_y;
-        let mut new_off = state.offset;
-        for i in 0..ops.len() {
-            changed |= ops.ensure_updated(i, new_off);
-            let h = ops.height(i).unwrap_or(0 as Coord);
-            if it_y + h > 0 as Coord || new_off + 1 >= row_count {
+        let mut new_item_index = state.item_index.row;
+        for instance_index in state.item_index.collection_index..ops.len() {
+            changed |= ops.ensure_updated(instance_index, new_item_index);
+            let h = ops.height(instance_index).unwrap_or(0 as Coord);
+            if it_y + h > 0 as Coord || new_item_index + 1 >= row_count {
                 break;
             }
             it_y += h;
-            new_off += 1;
+            new_item_index += 1;
         }
-        (new_off, it_y)
+        (new_item_index, it_y)
     } else {
         // Scrolled up: will instantiate items before offset in the loop below.
-        (state.offset, first_item_y + vp_y)
+        (state.item_index.row, first_item_y + vp_y)
     };
+
+    {}
 
     let mut loop_count = 0;
     loop {
-        // Fill gap before new_offset using already-instantiated items.
-        while new_offset > state.offset && new_offset_y > 0 as Coord {
-            new_offset -= 1;
-            new_offset_y -= ops.height(new_offset - state.offset).unwrap_or(0 as Coord);
+        // Fill gap before `new_item_index` using already-instantiated items.
+        // Items are after `state.item_index`
+        while new_item_index > state.item_index.row && new_item_anchor_y > 0 as Coord {
+            new_item_index -= 1;
+            new_item_anchor_y -=
+                ops.height(new_item_index - state.item_index.row).unwrap_or(0 as Coord);
         }
         // If there is still a gap, create new instances before the current ones.
+        // Items before `state.item_index`
         let mut prepend_count = 0;
-        while new_offset > 0 && new_offset_y > 0 as Coord {
-            new_offset -= 1;
-            ops.splice(0, 0, 1);
-            changed |= ops.ensure_updated(0, new_offset);
-            new_offset_y -= ops.height(0).unwrap_or(0 as Coord);
+        while new_item_index > 0 && new_item_anchor_y > 0 as Coord {
+            new_item_index -= 1;
+            ops.prepend(1);
+            changed |= ops.ensure_updated(0, new_item_index);
+            new_item_anchor_y -= ops.height(0).unwrap_or(0 as Coord);
             prepend_count += 1;
         }
         if prepend_count > 0 {
-            state.offset = new_offset;
+            state.item_index.row = new_item_index;
         }
-        debug_assert!(new_offset >= state.offset && new_offset <= state.offset + ops.len());
+        debug_assert!(
+            new_item_index >= state.item_index.row
+                && new_item_index <= state.item_index.row + ops.len()
+        );
 
         // Layout items until we fill the view, starting with already-instantiated ones.
-        let mut y = new_offset_y;
-        let mut idx = new_offset;
-        let instances_begin = new_offset - state.offset;
+        let offset = match snap_mode {
+            SnapMode::None | SnapMode::Start => 0.,
+            SnapMode::Center => listview_height / 2.,
+            SnapMode::End => listview_height,
+        };
+        let mut y = new_item_anchor_y + offset;
+        let mut idx = new_item_index;
+        let instances_begin = new_item_index - state.item_index.row;
         for i in instances_begin..ops.len() {
             if idx >= row_count {
                 break;
             }
             changed |= ops.ensure_updated(i, idx);
+            if i == instances_begin {
+                match snap_mode {
+                    SnapMode::Center => y -= ops.height(i).unwrap_or(0. as Coord) / (2. as Coord),
+                    SnapMode::End => y -= ops.height(i).unwrap_or(0. as Coord),
+                    SnapMode::Start | SnapMode::None => (),
+                }
+            }
             vp_width = vp_width.max(ops.listview_layout(i, &mut y));
             idx += 1;
             if y >= listview_height {
@@ -294,7 +365,7 @@ fn update_visible_instances(
         // Create more items until there is no more room.
         while y < listview_height && idx < row_count {
             let i = ops.len();
-            ops.splice(i, 0, 1);
+            ops.insert(i, 1);
             changed |= ops.ensure_updated(i, idx);
             vp_width = vp_width.max(ops.listview_layout(i, &mut y));
             idx += 1;
@@ -309,12 +380,12 @@ fn update_visible_instances(
         }
 
         // Clean up instances that are not shown.
-        if new_offset != state.offset {
-            let remove_count = new_offset - state.offset;
+        if new_item_index != state.item_index.row {
+            let remove_count = new_item_index - state.item_index.row;
             ops.splice(0, remove_count, 0);
-            state.offset = new_offset;
+            state.item_index.row = new_item_index;
         }
-        let keep = idx - new_offset;
+        let keep = idx - new_item_index;
         if ops.len() > keep {
             ops.splice(keep, ops.len() - keep, 0);
         }
@@ -324,11 +395,11 @@ fn update_visible_instances(
         }
 
         // Recompute coordinates for the scrollbar.
-        state.cached_item_height = (y - new_offset_y) / ops.len() as Coord;
-        state.anchor_y = state.cached_item_height * state.offset as Coord;
+        state.cached_item_height = (y - new_item_anchor_y) / ops.len() as Coord;
+        state.anchor_y = state.cached_item_height * state.item_index.row as Coord;
         viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
         viewport_width.set(LogicalLength::new(vp_width));
-        let new_viewport_y = -state.anchor_y + new_offset_y;
+        let new_viewport_y = -state.anchor_y + new_item_anchor_y;
         // Important: Use get_internal here, the viewport_y may have a binding on it (especially
         // a physical animation).
         // We must not yet trigger a re-evaluation of that binding, as we have already updated the
@@ -340,6 +411,20 @@ fn update_visible_instances(
             // a call to set() - so it's okay to just use a normal set here.
             viewport_y.set(LogicalLength::new(new_viewport_y));
         }
+
+        // If the flicking is ongoing, we should not change anything
+        if !flickable.flicking_ongoing() {
+            if let Some(limit) = flickable.simulation_flick_limit_y() {
+                // We have to update the simulation limit, because we changed the height
+                // TODO: adjust the decceleration to reach the point smoothly
+                println!("Animation: Change properties!!!!!!!");
+                flickable.update_simulation_limit_y(limit);
+            } else {
+                // No simulation is ongoing so we set an animation to the desired y position
+                println!("Setup Animation to bound back!!!!!!!!!")
+            }
+        }
+
         state.previous_viewport_y = new_viewport_y;
 
         break;
@@ -436,7 +521,9 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     fn row_changed(self: Pin<&Self>, row: usize) {
         let mut inner = self.inner.borrow_mut();
         let inner = &mut *inner;
-        if let Some(c) = inner.instances.get_mut(row.wrapping_sub(inner.layout_state.offset)) {
+        if let Some(c) =
+            inner.instances.get_mut(inner.layout_state.item_index.get_instance_index(row))
+        {
             if !self.model.is_dirty() {
                 if let Some(comp) = c.1.as_ref() {
                     let model = self.project_ref().model.get_untracked();
@@ -451,20 +538,20 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     /// Notify the peers that rows were added
     fn row_added(self: Pin<&Self>, mut index: usize, mut count: usize) {
         let mut inner = self.inner.borrow_mut();
-        if index < inner.layout_state.offset {
-            if index + count <= inner.layout_state.offset {
+        if index < inner.layout_state.item_index.row {
+            if index + count <= inner.layout_state.item_index.row {
                 // Entirely before the visible range: shift the offset.
-                inner.layout_state.offset += count;
+                inner.layout_state.item_index.row += count;
                 self.is_dirty.set(true);
                 for c in inner.instances.iter_mut() {
                     c.0 = RepeatedInstanceState::Dirty;
                 }
                 return;
             }
-            count -= inner.layout_state.offset - index;
+            count -= inner.layout_state.item_index.row - index;
             index = 0;
         } else {
-            index -= inner.layout_state.offset;
+            index -= inner.layout_state.item_index.row;
         }
         if count == 0 || index > inner.instances.len() {
             return;
@@ -482,21 +569,22 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     /// Notify the peers that rows were removed
     fn row_removed(self: Pin<&Self>, mut index: usize, mut count: usize) {
         let mut inner = self.inner.borrow_mut();
-        if index < inner.layout_state.offset {
-            if index + count <= inner.layout_state.offset {
+        if index < inner.layout_state.item_index.row {
+            // We remove items before the current item
+            if index + count <= inner.layout_state.item_index.row {
                 // Entirely before the visible range: shift the offset.
-                inner.layout_state.offset -= count;
+                inner.layout_state.item_index.row -= count;
                 self.is_dirty.set(true);
                 for c in inner.instances.iter_mut() {
                     c.0 = RepeatedInstanceState::Dirty;
                 }
                 return;
             }
-            count -= inner.layout_state.offset - index;
-            inner.layout_state.offset = index;
+            count -= inner.layout_state.item_index.row - index;
+            inner.layout_state.item_index.row = index;
             index = 0;
         } else {
-            index -= inner.layout_state.offset;
+            index -= inner.layout_state.item_index.row;
         }
         if count == 0 || index >= inner.instances.len() {
             return;
@@ -589,7 +677,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let model = self.model();
         let changed = if self.data().project_ref().is_dirty.get() {
             let count = model.row_count();
-            let offset = self.0.inner.borrow().layout_state.offset;
+            let offset = self.0.inner.borrow().layout_state.item_index.row;
             let mut ops = RustRepeaterOps { inner: &self.0.inner, init: &init, model: &model };
             self.data().is_dirty.set(false);
             update_all_instances(&mut ops, offset, count);
@@ -637,9 +725,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
-        viewport_width: Pin<&Property<LogicalLength>>,
-        viewport_height: Pin<&Property<LogicalLength>>,
-        viewport_y: Pin<&Property<LogicalLength>>,
+        flickable: Pin<&Flickable>,
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
     ) -> bool {
@@ -655,9 +741,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             &mut ops,
             &mut layout_state,
             row_count,
-            viewport_width,
-            viewport_height,
-            viewport_y,
+            flickable,
             listview_width,
             listview_height.get(),
         );
@@ -720,9 +804,11 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     /// model at an offset.
     pub fn range(&self) -> core::ops::Range<usize> {
         let inner = self.0.inner.borrow();
+        let num_before_index_row = inner.layout_state.item_index.instance_index;
+        let num_after_index_row = inner.instances.len() - num_before_index_row; // Includes the current index
         core::ops::Range {
-            start: inner.layout_state.offset,
-            end: inner.layout_state.offset + inner.instances.len(),
+            start: inner.layout_state.item_index.row - num_before_index_row,
+            end: inner.layout_state.item_index.row + num_after_index_row,
         }
     }
 
@@ -730,7 +816,10 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     /// The index should be within [`Self::range()`]
     pub fn instance_at(&self, index: usize) -> Option<ItemTreeRc<C>> {
         let inner = self.0.inner.borrow();
-        inner.instances.get(index.checked_sub(inner.layout_state.offset)?).and_then(|c| c.1.clone())
+        inner
+            .instances
+            .get(inner.layout_state.item_index.get_instance_index_opt(index)?)
+            .and_then(|c| c.1.clone())
     }
 
     /// Return true if the Repeater as empty
@@ -939,21 +1028,10 @@ mod ffi {
         ops: &mut RepeaterInstanceOpsVTable,
         state: &mut RepeaterLayoutState,
         row_count: usize,
-        viewport_width: Pin<&Property<LogicalLength>>,
-        viewport_height: Pin<&Property<LogicalLength>>,
-        viewport_y: Pin<&Property<LogicalLength>>,
+        flickable: Pin<&Flickable>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
     ) -> bool {
-        update_visible_instances(
-            ops,
-            state,
-            row_count,
-            viewport_width,
-            viewport_height,
-            viewport_y,
-            listview_width,
-            listview_height,
-        )
+        update_visible_instances(ops, state, row_count, flickable, listview_width, listview_height)
     }
 }
