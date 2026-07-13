@@ -8,7 +8,7 @@
 //! keyed by an integer id (the same pattern as `WasmSharedModelNotify`):
 //! wasm-bindgen classes cannot be recovered from a `JsValue` on the Rust
 //! side, but a hidden id getter can be read via `Reflect::get`, which is how
-//! `js_to_value` converts them back.
+//! the JS-to-`Value` conversion recovers them.
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;

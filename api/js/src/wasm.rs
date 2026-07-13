@@ -12,7 +12,7 @@ use slint_interpreter::{ComponentHandle, Value, ValueType};
 mod types;
 pub use types::*;
 mod value_conversion;
-use value_conversion::{js_to_value, value_to_js};
+use value_conversion::{js_to_value_typed, value_to_js};
 
 use i_slint_core::model::ModelNotify;
 use std::cell::Cell;
@@ -614,8 +614,17 @@ impl WrappedInstance {
     /// Sets a property value by name.
     #[wasm_bindgen(js_name = "setProperty")]
     pub fn set_property(&self, name: &str, value: JsValue) -> Result<(), JsValue> {
-        let ty = self.0.definition().properties().find(|(n, _)| n == name).map(|(_, t)| t);
-        let val = js_to_value(&value, ty.as_ref());
+        let (ty, _) = self
+            .0
+            .definition()
+            .properties_and_callbacks()
+            .find_map(|(n, t)| if n == name { Some(t) } else { None })
+            .ok_or_else(|| {
+                JsValue::from(js_sys::Error::new(&format!(
+                    "Property {name} not found in the component"
+                )))
+            })?;
+        let val = js_to_value_typed(&value, &ty)?;
         let result =
             self.0.set_property(name, val).map_err(|e| JsValue::from_str(&format!("{e:?}")));
         wake_event_loop();
@@ -625,13 +634,24 @@ impl WrappedInstance {
     /// Registers a callback handler.
     #[wasm_bindgen(js_name = "setCallback")]
     pub fn set_callback(&self, name: &str, callback: js_sys::Function) -> Result<(), JsValue> {
+        let (ty, _) = self
+            .0
+            .definition()
+            .properties_and_callbacks()
+            .find_map(|(n, t)| if n == name { Some(t) } else { None })
+            .ok_or_else(|| {
+                JsValue::from(js_sys::Error::new(&format!(
+                    "Callback {name} not found in the component"
+                )))
+            })?;
+        let i_slint_compiler::langtype::Type::Callback(cb_type) = ty else {
+            return Err(js_sys::Error::new(&format!("{name} is not a callback")).into());
+        };
         self.0
-            .set_callback(name, move |args| {
-                let js_args: js_sys::Array = args.iter().map(|v| value_to_js(v)).collect();
-                let result =
-                    callback.apply(&JsValue::UNDEFINED, &js_args).unwrap_or(JsValue::UNDEFINED);
-                js_to_value(&result, None)
-            })
+            .set_callback(
+                name,
+                make_callback_handler(callback, cb_type.return_type.clone(), name.to_string()),
+            )
             .map_err(|e| JsValue::from_str(&format!("{e:?}")))
     }
 
@@ -675,12 +695,20 @@ impl WrappedInstance {
         name: &str,
         value: JsValue,
     ) -> Result<(), JsValue> {
-        let ty = self
+        let (ty, _) = self
             .0
             .definition()
-            .global_properties(global_name)
-            .and_then(|mut props| props.find(|(n, _)| n == name).map(|(_, t)| t));
-        let val = js_to_value(&value, ty.as_ref());
+            .global_properties_and_callbacks(global_name)
+            .ok_or_else(|| {
+                JsValue::from(js_sys::Error::new(&format!("Global {global_name} not found")))
+            })?
+            .find_map(|(n, t)| if n == name { Some(t) } else { None })
+            .ok_or_else(|| {
+                JsValue::from(js_sys::Error::new(&format!(
+                    "Property {name} of global {global_name} not found in the component"
+                )))
+            })?;
+        let val = js_to_value_typed(&value, &ty)?;
         let result = self
             .0
             .set_global_property(global_name, name, val)
@@ -697,13 +725,28 @@ impl WrappedInstance {
         name: &str,
         callback: js_sys::Function,
     ) -> Result<(), JsValue> {
+        let (ty, _) = self
+            .0
+            .definition()
+            .global_properties_and_callbacks(global_name)
+            .ok_or_else(|| {
+                JsValue::from(js_sys::Error::new(&format!("Global {global_name} not found")))
+            })?
+            .find_map(|(n, t)| if n == name { Some(t) } else { None })
+            .ok_or_else(|| {
+                JsValue::from(js_sys::Error::new(&format!(
+                    "Callback {name} of global {global_name} not found in the component"
+                )))
+            })?;
+        let i_slint_compiler::langtype::Type::Callback(cb_type) = ty else {
+            return Err(js_sys::Error::new(&format!("{name} is not a callback")).into());
+        };
         self.0
-            .set_global_callback(global_name, name, move |args| {
-                let js_args: js_sys::Array = args.iter().map(|v| value_to_js(v)).collect();
-                let result =
-                    callback.apply(&JsValue::UNDEFINED, &js_args).unwrap_or(JsValue::UNDEFINED);
-                js_to_value(&result, None)
-            })
+            .set_global_callback(
+                global_name,
+                name,
+                make_callback_handler(callback, cb_type.return_type.clone(), name.to_string()),
+            )
             .map_err(|e| JsValue::from_str(&format!("{e:?}")))
     }
 
@@ -828,12 +871,44 @@ pub fn quit_event_loop() -> Result<(), JsValue> {
     slint_interpreter::quit_event_loop().map_err(|e| -> JsValue { format!("{e}").into() })
 }
 
-/// Set the HTML canvas element ID that the next created component instance
-/// will render into. Consumed by the platform's window_attributes_hook on
-/// the next window creation.
+/// Build the Rust closure for `setCallback` / `setGlobalCallback`: convert
+/// the arguments to JS, call the JS function, and convert the return value
+/// back with the callback's declared return type (mirroring the Node.js
+/// binding's handler, including its console errors).
+fn make_callback_handler(
+    callback: js_sys::Function,
+    return_type: i_slint_compiler::langtype::Type,
+    name: String,
+) -> impl Fn(&[Value]) -> Value {
+    use i_slint_compiler::langtype::Type;
+    move |args| {
+        let js_args: js_sys::Array = args.iter().map(|v| value_to_js(v)).collect();
+        let result = match callback.apply(&JsValue::UNDEFINED, &js_args) {
+            Ok(result) => result,
+            Err(err) => {
+                web_sys::console::error_2(
+                    &format!("Invoking callback '{name}' failed:").into(),
+                    &err,
+                );
+                return Value::Void;
+            }
+        };
+        if matches!(return_type, Type::Void) {
+            Value::Void
+        } else if let Ok(value) = js_to_value_typed(&result, &return_type) {
+            value
+        } else {
+            web_sys::console::error_1(
+                &format!("cannot convert return type of callback {name}").into(),
+            );
+            slint_interpreter::default_value_for_type(&return_type)
+        }
+    }
+}
+
 /// Validate the argument count against the callback's declared signature and
-/// convert the arguments with the declared types as hints. The error messages
-/// match the Node.js binding.
+/// convert the arguments with their declared types. The error messages match
+/// the Node.js binding.
 fn invoke_args(
     name: &str,
     ty: &i_slint_compiler::langtype::Type,
@@ -856,12 +931,12 @@ fn invoke_args(
         ))
         .into());
     }
-    Ok(args
-        .iter()
-        .zip(arg_types)
-        .map(|(a, ty)| js_to_value(&a, Some(&ty.clone().into())))
-        .collect())
+    args.iter().zip(arg_types).map(|(a, ty)| js_to_value_typed(&a, ty)).collect()
 }
+
+/// Set the HTML canvas element ID that the next created component instance
+/// will render into. Consumed by the platform's window_attributes_hook on
+/// the next window creation.
 
 #[wasm_bindgen]
 pub fn set_next_canvas_id(id: String) {
