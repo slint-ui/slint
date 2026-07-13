@@ -167,6 +167,8 @@ pub trait WindowAdapter {
     ) -> Result<raw_window_handle_06::DisplayHandle<'_>, raw_window_handle_06::HandleError> {
         Err(raw_window_handle_06::HandleError::NotSupported)
     }
+
+    fn set_position_anchor(&self, _anchor: &crate::items::PopupAnchor) {}
 }
 
 /// What a `DragArea` offers to start a native (OS-level) drag, passed to
@@ -2016,6 +2018,11 @@ impl WindowInner {
                 popup_window.set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
 
                 popup_window_adapter.set_visible(true).expect("unable to show popup window");
+                if let Some(window_item) =
+                    ItemRef::downcast_pin::<crate::items::WindowItem>(popup_root)
+                {
+                    popup_window_adapter.set_position_anchor(&window_item.anchor())
+                }
                 (
                     PopupWindowLocation::TopLevel(popup_window_adapter),
                     Box::pin(PropertyTracker::new_with_dirty_handler(
