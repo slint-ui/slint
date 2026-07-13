@@ -2038,7 +2038,7 @@ impl BindingExpression {
             if !matches!(other.expression, Expression::Invalid)
                 && !other.expression.is_synthetic_debug_hook()
             {
-                *expression = Box::new(other.expression.clone());
+                **expression = other.expression.clone();
                 *synthetic = false;
                 self.priority = other.priority;
                 return true;

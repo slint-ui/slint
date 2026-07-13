@@ -57,13 +57,13 @@ fn lower_state_in_element(
                 false_expr: Box::new(std::mem::take(&mut state_value)),
             };
         }
-        for (ne, expr, node) in state.property_changes {
-            affected_properties.insert(ne.clone());
-            let e = ne.element();
-            let property_expr = match expression_for_property(&e, ne.name()) {
+        for (property_reference, expr, node) in state.property_changes {
+            affected_properties.insert(property_reference.clone());
+            let element = property_reference.element();
+            let property_expr = match expression_for_property(&element, property_reference.name()) {
                 ExpressionForProperty::TwoWayBinding => {
                     diag.push_error(
-                    format!("Cannot change the property '{}' in a state because it is initialized with a two-way binding", ne.name()),
+                    format!("Cannot change the property '{}' in a state because it is initialized with a two-way binding", property_reference.name()),
                     &node
                 );
                     continue;
@@ -71,7 +71,7 @@ fn lower_state_in_element(
                 ExpressionForProperty::Expression(e) => e,
                 ExpressionForProperty::InvalidBecauseOfIssue1461 => {
                     diag.push_error(
-                        format!("Internal error: The expression for the default state currently cannot be represented: https://github.com/slint-ui/slint/issues/1461\nAs a workaround, add a binding for property {}", ne.name()),
+                        format!("Internal error: The expression for the default state currently cannot be represented: https://github.com/slint-ui/slint/issues/1461\nAs a workaround, add a binding for property {}", property_reference.name()),
                         &node
                     );
                     continue;
@@ -86,7 +86,8 @@ fn lower_state_in_element(
                 true_expr: Box::new(expr),
                 false_expr: Box::new(property_expr),
             };
-            match e.borrow_mut().bindings.entry(ne.name().clone()) {
+
+            match element.borrow_mut().bindings.entry(property_reference.name().clone()) {
                 std::collections::btree_map::Entry::Occupied(mut e) => {
                     let binding = e.get_mut().get_mut();
                     // A synthetic debug hook may occupy an unbound property: upgrade it in
@@ -95,16 +96,16 @@ fn lower_state_in_element(
                     // `property_expr` (the else-branch), so it is replaced as before.
                     match &mut binding.expression {
                         Expression::DebugHook { expression, synthetic, .. } if *synthetic => {
-                            *expression = Box::new(new_expr);
+                            **expression = new_expr;
                             *synthetic = false;
                         }
                         expression => *expression = new_expr,
                     }
                 }
-                std::collections::btree_map::Entry::Vacant(e) => {
+                std::collections::btree_map::Entry::Vacant(binding_entry) => {
                     let mut r = BindingExpression::from(new_expr);
                     r.priority = 1;
-                    e.insert(r.into());
+                    binding_entry.insert(r.into());
                 }
             };
         }
@@ -214,9 +215,6 @@ fn expression_for_property(element: &ElementRc, name: &str) -> ExpressionForProp
     let mut element_it = Some(element.clone());
     let mut in_base = false;
     while let Some(elem) = element_it {
-        // binding() skips synthetic debug hooks: an unbound property's placeholder must not
-        // shadow a real default binding deeper in the base chain (it would become the state's
-        // else-branch and change the idle value).
         if let Some(e) = elem.borrow().binding(name) {
             let e = e.borrow();
             if !e.two_way_bindings.is_empty() {

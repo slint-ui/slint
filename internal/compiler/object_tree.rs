@@ -2522,19 +2522,10 @@ impl Element {
             }
             Entry::Occupied(mut existing_entry) => {
                 let inner = existing_entry.get_mut().get_mut();
-                // If a synthetic debug hook occupies the slot, replace its inner expression
-                // with the new value and mark it as non-synthetic.
-                if let expression_tree::Expression::DebugHook { expression, synthetic, .. } =
-                    &mut inner.expression
-                {
-                    *expression = Box::new(expression_fn());
-                    *synthetic = false;
-                    inner.priority = i32::MAX;
-                } else {
-                    let mut binding: BindingExpression = expression_fn().into();
-                    binding.priority = i32::MAX;
-                    inner.merge_with(&binding);
-                }
+                let mut binding: BindingExpression = expression_fn().into();
+                binding.priority = i32::MAX;
+                // merge_with takes care of overwriting synthetic debug hooks.
+                inner.merge_with(&binding);
             }
         };
         true
@@ -2554,7 +2545,7 @@ impl Element {
     pub fn set_binding_overwriting(
         &mut self,
         property_name: SmolStr,
-        new_binding: BindingExpression,
+        mut new_binding: BindingExpression,
     ) -> Option<BindingExpression> {
         match self.bindings.entry(property_name) {
             Entry::Vacant(v) => {
@@ -2563,16 +2554,22 @@ impl Element {
             }
             Entry::Occupied(mut e) => {
                 let existing = e.get_mut().get_mut();
-                if let expression_tree::Expression::DebugHook { expression, synthetic, .. } =
+                if let expression_tree::Expression::DebugHook { expression: _, synthetic, id } =
                     &mut existing.expression
+                    && *synthetic
                 {
-                    if *synthetic {
-                        // Upgrade the synthetic placeholder in-place.
-                        *expression = Box::new(new_binding.expression);
-                        *synthetic = false;
-                        existing.priority = i32::MAX;
-                        return None;
-                    }
+                    // Adopt the previous synthetic debug hook into the new binding, which is now no
+                    // longer synthetic.
+                    let new_debug_hook = expression_tree::Expression::DebugHook {
+                        expression: Box::new(new_binding.expression),
+                        id: id.clone(),
+                        synthetic: false,
+                    };
+                    new_binding.expression = new_debug_hook;
+                    *existing = new_binding;
+                    // previously the binding was only a synthetic debug hook - don't report a
+                    // conflict
+                    return None;
                 }
                 // Real (non-synthetic) binding exists: replace it and report the conflict.
                 Some(std::mem::replace(e.get_mut().get_mut(), new_binding))

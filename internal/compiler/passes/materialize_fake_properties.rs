@@ -40,27 +40,13 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
 
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
         for prop in elem.borrow().bindings.keys() {
-            // Synthetic DebugHook bindings must not be materialized into property_declarations
-            // via this path: they are placeholders equivalent to "no binding", and a real
-            // binding for the same property would not have existed here. They are
-            // self-contained and must survive remove_unused_properties (which only removes
-            // declared properties). Non-synthetic hooks wrap a real binding and must behave
-            // exactly like one — including triggering materialization.
-            if elem
-                .borrow()
-                .bindings
-                .get(prop)
-                .is_some_and(|b| b.borrow().expression.is_synthetic_debug_hook())
-            {
-                continue;
-            }
             let nr = NamedReference::new(elem, prop.clone());
-            if let std::collections::hash_map::Entry::Vacant(e) = to_materialize.entry(nr) {
+            if let std::collections::hash_map::Entry::Vacant(entry) = to_materialize.entry(nr) {
                 let elem = elem.borrow();
                 if let Some(ty) =
                     should_materialize(&elem.property_declarations, &elem.base_type, prop)
                 {
-                    e.insert(ty);
+                    entry.insert(ty);
                 }
             }
         }
@@ -99,15 +85,14 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
                 std::collections::btree_map::Entry::Occupied(mut e) => {
                     // A synthetic debug hook may occupy the slot (must_initialize treats it as
                     // uninitialized): upgrade it in place — keep the wrapper and id so the
-                    // property stays live-editable, wrap the computed default.
-                    if let Expression::DebugHook { expression, synthetic, .. } =
-                        &mut e.get_mut().get_mut().expression
+                    // property stays live-editable.
+                    let mut binding_expression = &mut e.get_mut().get_mut().expression;
+                    if let Expression::DebugHook { expression, synthetic, .. } = binding_expression
                     {
-                        *expression = Box::new(init_expr);
                         *synthetic = false;
-                    } else {
-                        e.get_mut().get_mut().expression = init_expr;
+                        binding_expression = &mut **expression;
                     }
+                    *binding_expression = init_expr;
                 }
             }
         }
@@ -115,13 +100,11 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
 }
 
 // One must initialize if there is no real expression for that binding.
-// A synthetic debug hook (materialized default) counts as "not initialized".
 fn must_initialize(elem: &Element, prop: &str) -> bool {
-    match elem.bindings.get(prop) {
+    match elem.binding(prop) {
         None => true,
         Some(b) => {
-            matches!(b.borrow().expression, Expression::Invalid)
-                || b.borrow().expression.is_synthetic_debug_hook()
+            matches!(b.borrow().expression.ignore_debug_hooks(), Expression::Invalid)
         }
     }
 }

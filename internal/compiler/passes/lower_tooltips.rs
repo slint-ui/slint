@@ -116,8 +116,6 @@ fn bind_popup_effective_size_from_content(
     popup_window_rc: &ElementRc,
     tooltip_content_rc: &ElementRc,
 ) {
-    // binding() ignores synthetic debug hooks — an unbound width/height must take the
-    // preferred-size path even when a hook placeholder occupies the slot.
     let content_has_width = tooltip_content_rc.borrow().binding(WIDTH).is_some();
     let content_has_height = tooltip_content_rc.borrow().binding(HEIGHT).is_some();
 

@@ -657,7 +657,6 @@ fn lower_menu_items(
                 element.borrow_mut().enclosing_component = component_weak.clone();
                 element.borrow_mut().geometry_props = None;
 
-                // binding() ignores synthetic debug hooks (placeholders for the unbound property)
                 if !in_menubar && let Some(binding) = element.borrow().binding("shortcut") {
                     diag.push_error(
                         "MenuItem shortcuts are currently only supported in the MenuBar".into(),

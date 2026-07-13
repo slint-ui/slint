@@ -11,9 +11,6 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     run_test(testcase, false)?;
 
-    // With the `inject-debug-hooks` feature, run every test a second time with debug hooks
-    // injected (as the visual editor's live-preview does). Debug hooks must never change
-    // program behavior, so the test must pass identically in both runs.
     #[cfg(feature = "inject-debug-hooks")]
     run_test(testcase, true)?;
 

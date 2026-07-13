@@ -65,8 +65,6 @@ pub fn handle_rotation_origin(component: &Component, diag: &mut BuildDiagnostics
                     .collect(),
             };
 
-            // set_binding_overwriting upgrades a synthetic debug hook placeholder in place
-            // and only reports a real (user-written) binding as a conflict.
             if let Some(old_binding) =
                 elem.borrow_mut().set_binding_overwriting(transform_origin.0.into(), expr.into())
             {
