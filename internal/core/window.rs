@@ -1561,7 +1561,7 @@ impl WindowInner {
             if let Some(parent) = popup.parent_item.clone().upgrade() {
                 parent.map_to_native_window(
                     parent.geometry().origin
-                        + LogicalPoint::new(window_item.x().get(), window_item.y().get())
+                        + LogicalPoint::new(window_item.anchor().x, window_item.anchor().y)
                             .to_vector(),
                 )
             } else {
@@ -1655,11 +1655,24 @@ impl WindowInner {
                         .expect("Popup component is a Window item");
                     window_item.x().get(); // Dummy access to track position changes
                     window_item.y().get(); // Dummy access to track position changes
+                    window_item.anchor(); // Dummy access to track changes
                     new_position = Some(LogicalPosition::from_euclid(offset));
                 });
+
+                let component = ItemTreeRc::borrow_pin(&popup.component);
+                let root_item = component.as_ref().get_item_ref(0);
+                let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
+                    .expect("Popup component is a Window item");
                 if let Some(pos) = new_position {
-                    adapter.window().set_position(pos);
+                    let mut anchor = window_item.anchor().clone();
+                    anchor.x = pos.x;
+                    anchor.y = pos.y;
+                    adapter.set_position_anchor(&anchor);
                 }
+
+                adapter
+                    .window()
+                    .set_position(LogicalPosition::new(window_item.x().0, window_item.y().0));
             }
         }
     }
@@ -2018,11 +2031,6 @@ impl WindowInner {
                 popup_window.set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
 
                 popup_window_adapter.set_visible(true).expect("unable to show popup window");
-                if let Some(window_item) =
-                    ItemRef::downcast_pin::<crate::items::WindowItem>(popup_root)
-                {
-                    popup_window_adapter.set_position_anchor(&window_item.anchor())
-                }
                 (
                     PopupWindowLocation::TopLevel(popup_window_adapter),
                     Box::pin(PropertyTracker::new_with_dirty_handler(

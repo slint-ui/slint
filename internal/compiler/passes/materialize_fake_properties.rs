@@ -117,6 +117,11 @@ fn should_materialize(element_rc: &Rc<RefCell<Element>>, prop: &str) -> Option<T
 /// Returns true if the property is declared in this element or parent
 /// (as opposed to being implicitly declared)
 pub fn has_declared_property(elem: &Element, prop: &str) -> bool {
+    if prop == "anchor"
+        && elem.enclosing_component.upgrade().is_some_and(|c| c.inherits_popup_window.get())
+    {
+        return true;
+    }
     if elem.property_declarations.contains_key(prop) {
         return true;
     }
