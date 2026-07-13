@@ -29,6 +29,12 @@ pub struct LookupCtx<'a> {
     /// (some property come in the scope)
     pub property_type: Type,
 
+    /// The expected type at the current position within the expression, updated as the
+    /// resolver descends into struct fields, array elements and call arguments. Unlike
+    /// `property_type` (the whole binding's type) it drives type-directed name resolution
+    /// (color/easing/enum literals) at that exact position.
+    pub expected_type: Type,
+
     /// Here is the stack in which id applies. (the last element in the scope is looked up first)
     pub component_scope: &'a [ElementRc],
 
@@ -65,6 +71,7 @@ impl<'a> LookupCtx<'a> {
         Self {
             property_name: Default::default(),
             property_type: Default::default(),
+            expected_type: Default::default(),
             component_scope: Default::default(),
             diag,
             symbol_counters,
@@ -81,6 +88,14 @@ impl<'a> LookupCtx<'a> {
             Type::Callback(f) | Type::Function(f) => &f.return_type,
             _ => &self.property_type,
         }
+    }
+
+    /// Run `f` with `expected_type` temporarily set to `ty`, restoring it afterwards.
+    pub fn with_expected_type<R>(&mut self, ty: Type, f: impl FnOnce(&mut Self) -> R) -> R {
+        let old = std::mem::replace(&mut self.expected_type, ty);
+        let r = f(self);
+        self.expected_type = old;
+        r
     }
 
     pub fn is_legacy_component(&self) -> bool {
@@ -618,15 +633,15 @@ impl LookupType {
     }
 }
 
-/// Lookup for things specific to the return type (eg: colors or enums)
-pub struct ReturnTypeSpecificLookup;
-impl LookupObject for ReturnTypeSpecificLookup {
+/// Lookup for things specific to the expected type (eg: colors or enums)
+pub struct TypeSpecificLookup;
+impl LookupObject for TypeSpecificLookup {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        match ctx.return_type() {
+        match &ctx.expected_type {
             Type::Color => ColorSpecific.for_each_entry(ctx, f),
             Type::Brush => ColorSpecific.for_each_entry(ctx, f),
             Type::Easing => EasingSpecific.for_each_entry(ctx, f),
@@ -636,7 +651,7 @@ impl LookupObject for ReturnTypeSpecificLookup {
     }
 
     fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
-        match ctx.return_type() {
+        match &ctx.expected_type {
             Type::Color => ColorSpecific.lookup(ctx, name),
             Type::Brush => ColorSpecific.lookup(ctx, name),
             Type::Easing => EasingSpecific.lookup(ctx, name),
@@ -945,10 +960,7 @@ pub fn global_lookup() -> impl LookupObject {
                         InScopeLookup,
                         (
                             LookupType,
-                            (
-                                BuiltinNamespaceLookup,
-                                (ReturnTypeSpecificLookup, BuiltinFunctionLookup),
-                            ),
+                            (BuiltinNamespaceLookup, (TypeSpecificLookup, BuiltinFunctionLookup)),
                         ),
                     ),
                 ),
