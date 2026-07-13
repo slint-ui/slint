@@ -5,32 +5,31 @@ description: Package a desktop Slint app for direct macOS distribution or the Ma
 
 import { Aside } from '@astrojs/starlight/components';
 
-There are two main routes to distributing MacOS apps. The [Mac App Store](https://www.apple.com/app-store/) and direct distribution. Slint apps support both routes and the key to this via generating
-standard Xcode projects that are compatible with the Apple build and distribution tools.
+There are two main routes for distributing macOS apps: the [Mac App Store](https://www.apple.com/app-store/) and direct distribution.
+Slint supports both routes by generating standard Xcode projects that work with Apple's build and distribution tools.
 
 <Aside type="note">
-To distribute an app outside the Mac App Store, you need an Apple Developer account. Without this you can only self sign
-your app for local development testing.
+To distribute an app outside the Mac App Store, you need an Apple Developer Program membership.
+Without one, you can only self-sign your app for local development and testing.
 </Aside>
 
 ## XcodeGen
 
-[XcodeGen](https://github.com/yonaskolb/XcodeGen) will create a current version of the Xcode project that is compatible with the Apple build and distribution tools.
-We recommend you don't check in or edit this generated project file. Instead, edit the YAML project spec and regenerate the
-project whenever you make changes to the app.
+[XcodeGen](https://github.com/yonaskolb/XcodeGen) creates an Xcode project that is compatible with Apple's build and distribution tools.
+Don't check in or edit the generated project file.
+Instead, edit the YAML project spec and regenerate the project whenever you change the app.
 
-This saves you having to check in a project to source control and attempt to keep it up to date.
+This avoids checking a generated project into source control and keeping it up to date.
 
 <Aside type="note">
-If you do open the project file in Xcode it's quite normal for there to be warnings about the project being out of date.
+If you open the project file in Xcode, you might see warnings that the project is out of date.
 This is because the project is generated from a YAML spec and not edited directly in Xcode.
 You can safely ignore these warnings.
 </Aside>
 
-To compliment this flow we also provide a pre-configured Cargo build script that will build the app and place the binary in the expected location.
+To complement this flow, we also provide a preconfigured Cargo build script that builds the app and places the binary in the expected location.
 
-This includes the app icon, entitlements, launch assets, and bundled resources.
-
+The project spec also configures the app icon, entitlements, launch assets, and bundled resources.
 
 ## Prerequisites
 
@@ -87,7 +86,8 @@ targets:
 ```
 
 <Aside type="note">
-See in the above example how even Info.plist values are set via the YAML spec. This means you can easily change the app's bundle identifier, team, app category, entitlements, and resources without having to edit the project file.
+The example sets the `Info.plist` values in the YAML spec.
+You can change the app's bundle identifier, team, app category, entitlements, and resources without editing the generated project.
 </Aside>
 
 Then generate the Xcode project:
@@ -96,9 +96,10 @@ Then generate the Xcode project:
 xcodegen generate --spec project.yml
 ```
 
-The generated `.xcodeproj` is a normal Xcode project and you should add it to your .gitignore file so you don't check it in.
+The generated `.xcodeproj` is a normal Xcode project.
+Add it to your `.gitignore` file so that you don't check it in.
 You can open it in Xcode, build it with `xcodebuild`, or use it with Xcode Cloud.
-When you need to change the app target, Info.plist values, resources, entitlements, build phases, or signing settings, edit `project.yml` and regenerate the project.
+To change the app target, `Info.plist` values, resources, entitlements, build phases, or signing settings, edit `project.yml` and regenerate the project.
 
 The Cargo build script must copy the final executable to the path Xcode expects:
 
@@ -162,19 +163,19 @@ A typical TestFlight pipeline is:
 ## Distribute Through the Mac App Store
 
 Use this route when you want users to install and update the app through the Mac App Store.
-You still start with XcodeGen, because App Store submission expects a real Xcode project or archive.
+You still start with XcodeGen because App Store submission expects a real Xcode project or archive.
 Mac App Store distribution uses Apple's store signing and App Store Connect upload flow, not the Developer ID signing flow used for direct downloads.
 
-The recommended flow is:
+A typical Mac App Store pipeline is:
 
 1. Check in the XcodeGen YAML spec and related source assets.
 2. Generate the Xcode project with `xcodegen generate`.
 3. Configure the bundle identifier, team, app category, entitlements, and resources in the YAML spec.
 4. Create the app record in App Store Connect.
-5. Build, archive, sign, and upload the app with Xcode Cloud.
+5. Build, archive, sign, and upload the app with Xcode or Xcode Cloud.
 
 You can also open the generated project in Xcode and submit from your local Mac.
-That works well for development and manual testing.
+This works well when you want to manage releases manually.
 Xcode Cloud can automate the same archive and upload steps when you want a managed CI workflow.
 
 [Xcode Cloud](https://developer.apple.com/xcode-cloud/) is built into Xcode and App Store Connect.
@@ -185,14 +186,15 @@ Xcode Cloud performs the build, signing, and upload steps configured in your wor
 You remain responsible for the bundle identifier, signing settings, entitlements, TestFlight groups, and App Store submission settings.
 </Aside>
 
+## Important Xcode Cloud Information
 
-## Important Xcode Cloud information
-When setting up Xcode Cloud it will expect your app has an Xcode Project. This is easily worked around without you having to
-check in the generated project file. Just open the project in Xcode and follow
+Xcode Cloud expects your app to have an Xcode project.
+You can meet this requirement without checking in the generated project.
+Open the project in Xcode and follow
 [Apple's instructions](https://developer.apple.com/documentation/xcode/setting-up-your-project-to-use-xcode-cloud) for setting up Xcode Cloud.
-The generated project will ensure you are able to complete the build and archive steps. Then ensure you have a ci_scripts/ci_post_clone.sh
-file that will install the dependencies and generate the project in Xcode Cloud. We have provided a template for this.
-
+The generated project lets Xcode Cloud complete the build and archive steps.
+Use a `ci_scripts/ci_post_clone.sh` script to install the dependencies and generate the project in Xcode Cloud.
+The Slint repository includes a [post-clone script](https://github.com/slint-ui/slint/blob/master/tools/viewer/ci_scripts/ci_post_clone.sh) you can use as a template.
 
 ## What to Check In
 
@@ -209,11 +211,10 @@ Regenerate it from the YAML spec instead.
 XcodeGen documents the YAML project format here:
 [Project Spec](https://yonaskolb.github.io/XcodeGen/Docs/ProjectSpec.html).
 
-
 ## Automate Direct Distribution in CI
 
 Xcode Cloud is optional.
 You can build, sign, notarize, package, and verify a direct-download app on a local Mac or with a macOS CI service such as GitHub Actions or CircleCI.
 
 Automate the direct-distribution pipeline so that every release follows the same signing, notarization, stapling, and verification steps.
-The [Slint macOS Visual Editor workflow](https://github.com/slint-ui/slint/) provides a complete GitHub Actions example.
+The [Slint macOS Visual Editor workflow](https://github.com/slint-ui/slint/blob/master/.github/workflows/visual_editor_macos_dmg.yaml) provides a complete GitHub Actions example.
