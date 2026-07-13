@@ -1275,6 +1275,8 @@ pub struct WindowItem {
     /// position of the popup. Important: Not relevant for normal windows
     pub x: Property<LogicalLength>,
     pub y: Property<LogicalLength>,
+
+    pub anchor: Property<PopupAnchor>,
 }
 
 impl Item for WindowItem {

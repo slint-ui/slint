@@ -1632,7 +1632,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 .with_title("child window")
                 .with_decorations(false)
                 .with_visible(true)
-                .with_window_type(WindowType::Popup { grab_keyboard: true });
+                .with_window_type(WindowType::Popup);
 
             // #[cfg(feature = "wayland")]
             // {

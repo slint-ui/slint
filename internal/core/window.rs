@@ -505,7 +505,6 @@ pub struct PopupWindow {
     pub component: ItemTreeRc,
     /// Defines the close behavior of the popup.
     pub close_policy: PopupClosePolicy,
-    pub anchor: PopupAnchor,
     /// the item that had the focus in the parent window when the popup was opened
     focus_item_in_parent: ItemWeak,
     /// The item from where the Popup was invoked from
@@ -1881,7 +1880,6 @@ impl WindowInner {
         &self,
         popup_componentrc: &ItemTreeRc,
         close_policy: PopupClosePolicy,
-        anchor: PopupAnchor,
         parent_item: &ItemRc,
         window_kind: WindowKind,
         is_open_setter: Box<dyn Fn(bool)>,
@@ -2048,7 +2046,6 @@ impl WindowInner {
             location,
             component: popup_componentrc.clone(),
             close_policy,
-            anchor,
             focus_item_in_parent: focus_item,
             parent_item: parent_item.downgrade(),
             window_kind,
