@@ -144,6 +144,21 @@ Apple's notarization guide is here:
 Direct DMG distribution gives you control over hosting and updates, but it also means you own the signing certificates, CI keychains, notarization credentials, DMG layout, and verification steps.
 Keep that automation small, explicit, and repeatable.
 
+## Test a Beta With TestFlight
+
+Use [TestFlight](https://developer.apple.com/testflight/) to distribute beta builds, manage testers, and collect feedback before release.
+TestFlight isn't a production distribution channel.
+It uses App Store Connect and Apple's store signing flow, not the Developer ID signing and notarization flow used for direct DMG downloads.
+
+A typical TestFlight pipeline is:
+
+1. Create the app record in App Store Connect.
+2. Generate the Xcode project with `xcodegen generate`.
+3. Configure the bundle identifier, team, entitlements, and resources in the YAML spec.
+4. Build, archive, sign, and upload the beta with Xcode or Xcode Cloud.
+5. Add the build to an internal or external testing group in App Store Connect.
+6. Invite testers and collect their feedback through TestFlight.
+
 ## Distribute Through the Mac App Store
 
 Use this route when you want users to install and update the app through the Mac App Store.
@@ -166,8 +181,8 @@ For repeatable releases, Xcode Cloud is usually the better default.
 Apple Developer Program membership includes some free compute hours to build your app.
 
 <Aside type="caution">
-We recommend you use Xcode Cloud as Apple ensure your app is built and signed correctly and have automated the steps
-for you regarding Test Flight and App Store Connect distribution.
+Xcode Cloud can automate builds and uploads for both TestFlight testing and Mac App Store releases.
+Configure each destination separately so that beta builds aren't submitted for App Review unintentionally.
 </Aside>
 
 
