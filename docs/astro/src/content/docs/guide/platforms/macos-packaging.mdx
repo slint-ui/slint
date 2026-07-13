@@ -175,14 +175,14 @@ The recommended flow is:
 
 You can also open the generated project in Xcode and submit from your local Mac.
 That works well for development and manual testing.
-For repeatable releases, Xcode Cloud is usually the better default.
+Xcode Cloud can automate the same archive and upload steps when you want a managed CI workflow.
 
 [Xcode Cloud](https://developer.apple.com/xcode-cloud/) is built into Xcode and App Store Connect.
 Apple Developer Program membership includes some free compute hours to build your app.
 
-<Aside type="caution">
-Xcode Cloud can automate builds and uploads for both TestFlight testing and Mac App Store releases.
-Configure each destination separately so that beta builds aren't submitted for App Review unintentionally.
+<Aside type="note">
+Xcode Cloud performs the build, signing, and upload steps configured in your workflow.
+You remain responsible for the bundle identifier, signing settings, entitlements, TestFlight groups, and App Store submission settings.
 </Aside>
 
 
@@ -210,10 +210,10 @@ XcodeGen documents the YAML project format here:
 [Project Spec](https://yonaskolb.github.io/XcodeGen/Docs/ProjectSpec.html).
 
 
-## Building outside of Xcode Cloud
+## Automate Direct Distribution in CI
 
-If you are not using Xcode Cloud you can still build and sign your app manually and in CI services
-such as GitHub Actions or CircleCI. However it involves many steps and these can change over time.
-We don't recommend this approach as it is error prone and difficult to maintain. But if you look in
-the [Slint monorepo](https://github.com/slint-ui/slint/) you will see an example of how to build.
-sign and notarize your app.
+Xcode Cloud is optional.
+You can build, sign, notarize, package, and verify a direct-download app on a local Mac or with a macOS CI service such as GitHub Actions or CircleCI.
+
+Automate the direct-distribution pipeline so that every release follows the same signing, notarization, stapling, and verification steps.
+The [Slint macOS Visual Editor workflow](https://github.com/slint-ui/slint/) provides a complete GitHub Actions example.
