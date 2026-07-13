@@ -1404,8 +1404,8 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         &mut self,
         physical_rect: sharedparley::PhysicalRect,
         brush: GlyphBrush,
-        radius: f32,
-        border: Option<(GlyphBrush, f32)>,
+        radius: sharedparley::PhysicalLength,
+        border: Option<sharedparley::RectangleBorder<GlyphBrush>>,
     ) {
         let qt_brush = match brush {
             GlyphBrush::Fill(qt_brush) => qt_brush,
@@ -1421,10 +1421,14 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         let painter: &mut QPainterPtr = &mut self.painter;
 
         let (border_brush, border_width) = match border {
-            Some((GlyphBrush::Fill(b), w)) if w > 0.0 => (b, w as f64),
+            Some(sharedparley::RectangleBorder { brush: GlyphBrush::Fill(b), width })
+                if width.get() > 0.0 =>
+            {
+                (b, width.get() as f64)
+            }
             _ => (qttypes::QBrush::default(), 0.0_f64),
         };
-        let radius = radius as f64;
+        let radius = radius.get() as f64;
 
         cpp! { unsafe [
             painter as "QPainterPtr*",

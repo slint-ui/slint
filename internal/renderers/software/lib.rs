@@ -3332,10 +3332,11 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         &mut self,
         mut physical_rect: sharedparley::PhysicalRect,
         color: Color,
-        radius: f32,
-        border: Option<(Color, f32)>,
+        radius: sharedparley::PhysicalLength,
+        border: Option<sharedparley::RectangleBorder<Color>>,
     ) {
-        let has_visible_border = border.is_some_and(|(c, w)| w > 0.0 && c.alpha() > 0);
+        let has_visible_border =
+            border.as_ref().is_some_and(|b| b.width.get() > 0.0 && b.brush.alpha() > 0);
         if color.alpha() == 0 && !has_visible_border {
             return;
         }
@@ -3350,19 +3351,20 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             Brush::SolidColor(color),
         );
 
-        if radius > 0.0 {
-            let r = radius.min(args.width / 2.0).min(args.height / 2.0);
+        if radius.get() > 0.0 {
+            let r = radius.get().min(args.width / 2.0).min(args.height / 2.0);
             args.top_left_radius = r;
             args.top_right_radius = r;
             args.bottom_right_radius = r;
             args.bottom_left_radius = r;
         }
 
-        if let Some((border_color, border_width)) = border
-            && border_width > 0.0
+        if let Some(sharedparley::RectangleBorder { brush: border_color, width: border_width }) =
+            border
+            && border_width.get() > 0.0
             && border_color.alpha() > 0
         {
-            args.border_width = border_width;
+            args.border_width = border_width.get();
             args.border = Brush::SolidColor(border_color);
         }
 

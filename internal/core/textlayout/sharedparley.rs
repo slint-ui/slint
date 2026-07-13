@@ -102,6 +102,13 @@ pub type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
 type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
 
+/// Outline drawn around a rectangle filled via [`GlyphRenderer::fill_rectangle`].
+#[derive(Clone)]
+pub struct RectangleBorder<Brush> {
+    pub brush: Brush,
+    pub width: PhysicalLength,
+}
+
 /// Trait used for drawing text and text input elements with parley, where parley does the
 /// shaping and positioning, and the renderer is responsible for drawing just the glyphs.
 pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
@@ -145,20 +152,19 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
     /// brush and fills `physical_rect` with sharp corners and no outline.
     fn fill_rectangle_with_color(&mut self, physical_rect: PhysicalRect, color: Color) {
         if let Some(platform_brush) = self.platform_brush_for_color(&color) {
-            self.fill_rectangle(physical_rect, platform_brush, 0.0, None);
+            self.fill_rectangle(physical_rect, platform_brush, PhysicalLength::zero(), None);
         }
     }
 
     /// Fills `physical_rect` with `brush`, optionally rounding the corners by `radius`
-    /// physical pixels and outlining it with a border brush at `border_width` physical
-    /// pixels. Passing `0.0` for `radius` produces sharp corners; passing `None` for
-    /// `border` skips the outline.
+    /// and outlining it with `border`. Passing a zero `radius` produces sharp corners;
+    /// passing `None` for `border` skips the outline.
     fn fill_rectangle(
         &mut self,
         physical_rect: PhysicalRect,
         brush: Self::PlatformBrush,
-        radius: f32,
-        border: Option<(Self::PlatformBrush, f32)>,
+        radius: PhysicalLength,
+        border: Option<RectangleBorder<Self::PlatformBrush>>,
     );
 }
 
@@ -809,10 +815,18 @@ impl TextParagraph {
         } else {
             Color::from_argb_u8(56, 128, 128, 128)
         };
-        const BORDER_WIDTH: f32 = 1.0;
+        // Border width and radius bounds are logical so that the capsule looks the
+        // same at every DPI; the part of the radius derived from the capsule height
+        // already scales with the (physical) font size.
+        const BORDER_WIDTH: LogicalLength = LogicalLength::new(1.0);
+        const MIN_RADIUS: LogicalLength = LogicalLength::new(2.0);
+        const MAX_RADIUS: LogicalLength = LogicalLength::new(5.0);
         // A touch of vertical padding above and below the cap-height / descender band
         // so the capsule edge doesn't sit flush against tall glyphs.
         const VERTICAL_PADDING_RATIO: f32 = 0.15;
+
+        let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
+        let border_width = BORDER_WIDTH * scale_factor;
 
         for line in self.layout.lines() {
             for item in line.items() {
@@ -870,12 +884,15 @@ impl TextParagraph {
                     ),
                     PhysicalSize::new(bg_width, bg_height),
                 );
-                let radius = (bg_height * 0.22).clamp(2.0, 5.0);
+                let radius = PhysicalLength::new(bg_height * 0.22)
+                    .max(MIN_RADIUS * scale_factor)
+                    .min(MAX_RADIUS * scale_factor);
                 let Some(fill_brush) = item_renderer.platform_brush_for_color(&fill) else {
                     continue;
                 };
-                let border_brush =
-                    item_renderer.platform_brush_for_color(&border).map(|b| (b, BORDER_WIDTH));
+                let border_brush = item_renderer
+                    .platform_brush_for_color(&border)
+                    .map(|brush| RectangleBorder { brush, width: border_width });
                 item_renderer.fill_rectangle(bg_rect, fill_brush, radius, border_brush);
             }
         }
@@ -1002,7 +1019,7 @@ impl TextParagraph {
                     PhysicalSize::new(glyph_run.advance(), metrics.underline_size),
                 ),
                 fill_brush.clone(),
-                0.0,
+                PhysicalLength::zero(),
                 None,
             );
         }
@@ -1020,7 +1037,7 @@ impl TextParagraph {
                     PhysicalSize::new(glyph_run.advance(), metrics.strikethrough_size),
                 ),
                 fill_brush,
-                0.0,
+                PhysicalLength::zero(),
                 None,
             );
         }
