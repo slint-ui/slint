@@ -53,6 +53,8 @@ mod android {
             i_slint_backend_android_activity::AndroidPlatform::new(app),
         ))
         .unwrap();
+        #[cfg(any(feature = "mcp", feature = "system-testing"))]
+        i_slint_backend_selector::init_testing_backends();
         unsafe { slint_main() };
     }
 }
