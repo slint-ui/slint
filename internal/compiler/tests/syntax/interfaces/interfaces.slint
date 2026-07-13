@@ -48,3 +48,7 @@ global MyGlobal { }
 
 export component MyGlobalG implements MyGlobal { }
 //                                    >       <error{Cannot implement MyGlobal. It is not an interface}
+
+export component LineEditNewSyntax {
+    implement LineEdit <=> self;
+}

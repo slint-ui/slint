@@ -140,6 +140,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::LBracket if p.peek().as_str() == "transitions" => {
                     parse_transitions(&mut *p);
                 }
+                SyntaxKind::Identifier if p.peek().as_str() == "implement" => {
+                    parse_implement_statement(&mut *p);
+                }
                 _ => {
                     if p.peek().as_str() == "changed" {
                         // Try to recover some errors
@@ -434,6 +437,27 @@ fn parse_two_way_binding(p: &mut impl Parser) {
     p.consume(); // the identifier
     p.expect(SyntaxKind::DoubleArrow);
     parse_expression(&mut *p);
+    p.expect(SyntaxKind::Semicolon);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,ImplementStatement
+/// implement Foo <=> self;
+/// implement Foo <=> root;
+/// implement Foo <=> parent;
+/// implement Foo <=> inner;
+/// implement Qualified.Foo <=> self;
+/// ```
+fn parse_implement_statement(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "implement");
+    let mut p = p.start_node(SyntaxKind::ImplementStatement);
+    p.expect(SyntaxKind::Identifier); // "implement"
+    parse_qualified_name(&mut *p);
+    p.expect(SyntaxKind::DoubleArrow);
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
     p.expect(SyntaxKind::Semicolon);
 }
 

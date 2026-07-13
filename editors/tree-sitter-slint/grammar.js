@@ -177,6 +177,15 @@ module.exports = grammar({
         ";",
       ),
 
+    implement_statement: ($) =>
+      seq(
+        "implement",
+        field("interface", $.user_type_identifier),
+        "<=>",
+        field("target", $.simple_identifier),
+        ";",
+      ),
+
     global_block: ($) =>
       seq(
         "{",
@@ -280,6 +289,7 @@ module.exports = grammar({
         $.for_loop,
         $.function_definition,
         $.if_statement,
+        $.implement_statement,
         $.match_statement,
         $.property,
         $.property_assignment,
