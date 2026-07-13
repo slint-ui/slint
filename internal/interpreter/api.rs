@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore theproperty underscoresanddashespreserved xreadonly
+// cSpell: ignore theproperty underscoresanddashespreserved xreadonly noregress
 use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::PathData;
@@ -2530,9 +2530,8 @@ export component Win inherits Window {
     }
 
     // The definition's default must be preserved: `background: tint` with `tint: blue`.
-    let blue = Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_rgb_u8(
-        0, 0, 255,
-    )));
+    let blue =
+        Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_rgb_u8(0, 0, 255)));
     assert_eq!(instance.get_property("sub-background").unwrap(), blue);
 
     // Resolve the instance element and its hash (hooks carry the instance element's id).
@@ -2553,9 +2552,8 @@ export component Win inherits Window {
     };
 
     // Override the instance's background (an upgraded synthetic hook) and revert.
-    let red = Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_rgb_u8(
-        255, 0, 0,
-    )));
+    let red =
+        Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_rgb_u8(255, 0, 0)));
     set_override("background", Some(red.clone()));
     assert_eq!(instance.get_property("sub-background").unwrap(), red);
     set_override("background", None);

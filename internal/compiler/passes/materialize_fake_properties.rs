@@ -46,9 +46,12 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
             // self-contained and must survive remove_unused_properties (which only removes
             // declared properties). Non-synthetic hooks wrap a real binding and must behave
             // exactly like one — including triggering materialization.
-            if elem.borrow().bindings.get(prop).is_some_and(|b| {
-                b.borrow().expression.is_synthetic_debug_hook()
-            }) {
+            if elem
+                .borrow()
+                .bindings
+                .get(prop)
+                .is_some_and(|b| b.borrow().expression.is_synthetic_debug_hook())
+            {
                 continue;
             }
             let nr = NamedReference::new(elem, prop.clone());

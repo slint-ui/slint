@@ -55,32 +55,36 @@ pub fn validate_no_orphan_synthetic_hooks(component: &std::rc::Rc<object_tree::C
     if !cfg!(debug_assertions) {
         return;
     }
-    object_tree::recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, &()| {
-        let elem = elem.borrow();
-        for (name, binding_expression) in elem.bindings.iter() {
-            if !binding_expression.borrow().expression.is_synthetic_debug_hook() {
-                continue;
-            }
-            if super::materialize_fake_properties::should_materialize(
-                &elem.property_declarations,
-                &elem.base_type,
-                name,
-            )
-            .is_some()
-            {
-                panic!(
-                    "Orphan synthetic debug hook: property '{name}' on element '{}' ({}) does \
+    object_tree::recurse_elem_including_sub_components_no_borrow(
+        component,
+        &(),
+        &mut |elem, &()| {
+            let elem = elem.borrow();
+            for (name, binding_expression) in elem.bindings.iter() {
+                if !binding_expression.borrow().expression.is_synthetic_debug_hook() {
+                    continue;
+                }
+                if super::materialize_fake_properties::should_materialize(
+                    &elem.property_declarations,
+                    &elem.base_type,
+                    name,
+                )
+                .is_some()
+                {
+                    panic!(
+                        "Orphan synthetic debug hook: property '{name}' on element '{}' ({}) does \
                      not exist at runtime — a pass inserted or kept a synthetic hook for a \
                      property that is neither native, declared, nor materialized",
-                    elem.id,
-                    elem.debug
-                        .first()
-                        .map(|d| format!("{:?}", d.node.source_file.path()))
-                        .unwrap_or_default(),
-                );
+                        elem.id,
+                        elem.debug
+                            .first()
+                            .map(|d| format!("{:?}", d.node.source_file.path()))
+                            .unwrap_or_default(),
+                    );
+                }
             }
-        }
-    });
+        },
+    );
 }
 
 fn calculate_element_hash(
@@ -217,8 +221,8 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState, i
     // A `PopupWindow` is still an ordinary child element at this point, but the lower_popups
     // pass later turns it into the root of its own component. `builtin_type()` walks through
     // component bases, so instances of `component MyPopup inherits PopupWindow` are covered.
-    let becomes_root = is_root
-        || element.borrow().builtin_type().is_some_and(|b| b.name == "PopupWindow");
+    let becomes_root =
+        is_root || element.borrow().builtin_type().is_some_and(|b| b.name == "PopupWindow");
 
     // Reserved geometry properties (x, y, width, height) — these are not in property_list()
     // because they are injected globally by the type system, not per builtin element.
@@ -239,8 +243,7 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState, i
                 if elem.bindings.contains_key(*prop_name) {
                     return None;
                 }
-                if elem.lookup_property(prop_name).property_type == crate::langtype::Type::Invalid
-                {
+                if elem.lookup_property(prop_name).property_type == crate::langtype::Type::Invalid {
                     return None;
                 }
                 let default = Expression::default_value_for_type(ty);
@@ -275,8 +278,7 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState, i
         let property_name = smol_str::SmolStr::new_static("transform-rotation");
         if becomes_root
             || elem.bindings.contains_key(&property_name)
-            || elem.lookup_property(&property_name).property_type
-                == crate::langtype::Type::Invalid
+            || elem.lookup_property(&property_name).property_type == crate::langtype::Type::Invalid
         {
             None
         } else {
@@ -489,10 +491,10 @@ mod tests {
             // The hook id must belong to one of the merged source elements (the instance
             // element's hash — hooks were injected before inlining).
             assert!(
-                borrowed
-                    .debug
-                    .iter()
-                    .any(|d| property_id(d.element_hash, &smol_str::SmolStr::new_static("background")) == id),
+                borrowed.debug.iter().any(|d| property_id(
+                    d.element_hash,
+                    &smol_str::SmolStr::new_static("background")
+                ) == id),
                 "{what}: hook id {id} must match a merged element hash"
             );
         };
@@ -654,7 +656,8 @@ mod tests {
             let mut found = None;
             object_tree::recurse_elem(&foo.root_element, &(), &mut |elem, &()| {
                 for (_, binding_expression) in elem.borrow().bindings.iter() {
-                    if let Expression::DebugHook { id, .. } = &binding_expression.borrow().expression
+                    if let Expression::DebugHook { id, .. } =
+                        &binding_expression.borrow().expression
                         && id == wanted_id
                     {
                         found = Some(binding_expression.borrow().expression.clone());
@@ -680,4 +683,3 @@ mod tests {
         }
     }
 }
-

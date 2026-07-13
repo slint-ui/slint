@@ -78,7 +78,8 @@ fn can_optimize(elem: &ElementRc) -> bool {
         .map(|(k, _)| k)
         .chain(analysis.iter().filter(|(_, v)| v.is_set).map(|(k, _)| k))
         .any(|k| {
-        !e.property_declarations.contains_key(k.as_str())
-            && base_type.properties.contains_key(k.as_str())
-    }) && e.accessibility_props.0.is_empty()
+            !e.property_declarations.contains_key(k.as_str())
+                && base_type.properties.contains_key(k.as_str())
+        })
+        && e.accessibility_props.0.is_empty()
 }

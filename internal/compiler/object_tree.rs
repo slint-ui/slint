@@ -2491,9 +2491,7 @@ impl Element {
     ///
     /// The hook-aware replacement for iterating `self.bindings` directly when enumerating the
     /// properties that are actually set on this element.
-    pub fn real_bindings(
-        &self,
-    ) -> impl Iterator<Item = (&SmolStr, &RefCell<BindingExpression>)> {
+    pub fn real_bindings(&self) -> impl Iterator<Item = (&SmolStr, &RefCell<BindingExpression>)> {
         self.bindings
             .iter()
             .filter(|(_, binding)| !binding.borrow().expression.is_synthetic_debug_hook())
