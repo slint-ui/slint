@@ -129,11 +129,13 @@ A typical direct-distribution pipeline is:
 1. Generate the Xcode project with XcodeGen.
 2. Build or archive the app with Xcode or `xcodebuild`.
 3. Sign the app bundle with the hardened runtime enabled.
-4. Submit the app or the DMG to Apple's notarization service.
-5. Staple the accepted notarization ticket.
-6. Create a DMG that contains the signed app bundle.
-7. Sign the DMG.
-8. Verify the final DMG, mounted app, code signature, and stapled ticket.
+4. Submit the app to Apple's notarization service.
+5. Staple and validate the accepted notarization ticket on the app.
+6. Create a DMG that contains the notarized app bundle.
+7. Sign the DMG with a Developer ID Application certificate.
+8. Submit the DMG to Apple's notarization service.
+9. Staple and validate the accepted notarization ticket on the DMG.
+10. Verify the final DMG, its code signature, and the mounted app.
 
 The core command-line tools are `xcodebuild`, `codesign`, `xcrun notarytool`, `xcrun stapler`, `hdiutil`, and `spctl`.
 Apple's notarization guide is here:
