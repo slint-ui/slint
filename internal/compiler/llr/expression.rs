@@ -7,7 +7,7 @@ use super::{
     SubComponentInstanceIdx,
 };
 use crate::expression_tree::{BuiltinFunction, MinMaxOp, OperatorClass};
-use crate::langtype::{Keys, Type};
+use crate::langtype::{Keys, Struct, StructName, Type};
 use crate::layout::Orientation;
 use itertools::Either;
 use smol_str::SmolStr;
@@ -882,6 +882,12 @@ impl<'a, T> EvaluationContext<'a, T> {
                     return &Type::PathData;
                 }
                 let item = &sc.items[*item_index];
+                if item.ty.class_name == "WindowItem" && prop_name == "anchor" {
+                    return &Type::Struct(Rc::new(Struct {
+                        name: StructName::Builtin(crate::langtype::BuiltinStruct::PopupAnchor),
+                        fields: Default::default(),
+                    }));
+                }
                 item.ty.lookup_property(prop_name).unwrap_or_else(|| {
                     panic!("Failed to lookup property {prop_name} for {}", item.name)
                 })

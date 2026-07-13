@@ -12,8 +12,8 @@ pub fn remove_unused_properties(doc: &Document) {
         crate::object_tree::recurse_elem_including_sub_components_no_borrow(
             component,
             &(),
-            &mut |elem, _| {
-                let mut elem = elem.borrow_mut();
+            &mut |elem_rc, _| {
+                let mut elem = elem_rc.borrow_mut();
                 let mut to_remove = HashSet::new();
                 for (prop, decl) in &elem.property_declarations {
                     if !decl.expose_in_public_api

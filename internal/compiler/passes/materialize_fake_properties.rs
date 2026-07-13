@@ -11,21 +11,19 @@ use crate::langtype::{ElementType, Type};
 use crate::layout::Orientation;
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
-use smol_str::SmolStr;
 use std::borrow::Cow;
-use std::collections::BTreeMap;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 pub fn materialize_fake_properties(component: &Rc<Component>) {
     let mut to_materialize = std::collections::HashMap::new();
 
     visit_all_named_references(component, &mut |nr| {
-        let elem = nr.element();
-        let elem = elem.borrow();
+        let elem_rc = nr.element();
         if !to_materialize.contains_key(nr)
-            && let Some(ty) =
-                should_materialize(&elem.property_declarations, &elem.base_type, nr.name())
+            && let Some(ty) = should_materialize(&elem_rc, nr.name())
         {
+            let elem = elem_rc.borrow();
             // This only brings more trouble down the line
             if elem.repeated.is_some() {
                 panic!(
@@ -41,13 +39,10 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
         for prop in elem.borrow().bindings.keys() {
             let nr = NamedReference::new(elem, prop.clone());
-            if let std::collections::hash_map::Entry::Vacant(e) = to_materialize.entry(nr) {
-                let elem = elem.borrow();
-                if let Some(ty) =
-                    should_materialize(&elem.property_declarations, &elem.base_type, prop)
-                {
-                    e.insert(ty);
-                }
+            if let std::collections::hash_map::Entry::Vacant(e) = to_materialize.entry(nr)
+                && let Some(ty) = should_materialize(elem, prop)
+            {
+                e.insert(ty);
             }
         }
     });
@@ -92,44 +87,41 @@ fn must_initialize(elem: &Element, prop: &str) -> bool {
 }
 
 /// Returns a type if the property needs to be materialized.
-fn should_materialize(
-    property_declarations: &BTreeMap<SmolStr, PropertyDeclaration>,
-    base_type: &ElementType,
-    prop: &str,
-) -> Option<Type> {
-    if property_declarations.contains_key(prop) {
+/// It should be materialized for example if
+/// - it is not a reserved property
+/// - it is not a property of the base type
+fn should_materialize(element_rc: &Rc<RefCell<Element>>, prop: &str) -> Option<Type> {
+    let element = element_rc.borrow();
+
+    if has_declared_property(&element, prop) {
         return None;
     }
-    let has_declared_property = match base_type {
-        ElementType::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
-        ElementType::Builtin(b) => b.native_class.lookup_property(prop).is_some(),
-        ElementType::Native(n) => n.lookup_property(prop).is_some(),
-        ElementType::Global | ElementType::Interface | ElementType::Error => false,
-    };
 
-    if !has_declared_property {
-        let ty = crate::typeregister::reserved_property(Cow::Borrowed(prop)).property_type.clone();
-        if ty != Type::Invalid {
-            return Some(ty);
-        } else if prop == "close-on-click" {
-            // PopupWindow::close-on-click
-            return Some(Type::Bool);
-        } else if prop == "close-policy" {
-            // PopupWindow::close-policy
-            return Some(Type::Enumeration(
-                crate::typeregister::BUILTIN.with(|e| e.enums.PopupClosePolicy.clone()),
-            ));
-        } else {
-            let ty = base_type.lookup_property(prop).property_type.clone();
-            return (ty != Type::Invalid).then_some(ty);
-        }
+    let ty = crate::typeregister::reserved_property(Cow::Borrowed(prop)).property_type.clone();
+    if ty != Type::Invalid {
+        Some(ty)
+    } else if prop == "close-on-click" {
+        // PopupWindow::close-on-click
+        Some(Type::Bool)
+    } else if prop == "close-policy" {
+        // PopupWindow::close-policy
+        Some(Type::Enumeration(
+            crate::typeregister::BUILTIN.with(|e| e.enums.PopupClosePolicy.clone()),
+        ))
+    } else {
+        let ty = element.base_type.lookup_property(prop).property_type.clone();
+        (ty != Type::Invalid).then_some(ty)
     }
-    None
 }
 
 /// Returns true if the property is declared in this element or parent
 /// (as opposed to being implicitly declared)
 pub fn has_declared_property(elem: &Element, prop: &str) -> bool {
+    if prop == "anchor"
+        && elem.enclosing_component.upgrade().is_some_and(|c| c.inherits_popup_window.get())
+    {
+        return true;
+    }
     if elem.property_declarations.contains_key(prop) {
         return true;
     }

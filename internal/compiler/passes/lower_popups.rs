@@ -14,6 +14,7 @@ use std::rc::{Rc, Weak};
 
 const CLOSE_ON_CLICK: &str = "close-on-click";
 const CLOSE_POLICY: &str = "close-policy";
+const ANCHOR_PROPERTY_NAME: &str = "anchor";
 
 pub fn lower_popups(
     component: &Rc<Component>,
@@ -185,6 +186,10 @@ fn lower_popup_window(
         parent_element: RefCell::new(Rc::downgrade(parent_element)),
         ..Component::default()
     });
+    // The root was a `PopupWindow` (now lowered to a `Window`); record that so later passes
+    // can treat it specially. `materialize_fake_properties` uses this to keep `x`/`y` bound to
+    // the native `WindowItem` item fields instead of synthesizing local properties.
+    popup_comp.inherits_popup_window.set(true);
 
     let weak = Rc::downgrade(&popup_comp);
     recurse_elem(&popup_comp.root_element, &(), &mut |e, _| {
@@ -230,22 +235,32 @@ fn lower_popup_window(
     // converted to absolute coordinates in the run-time library.
     let coord_x = NamedReference::new(&popup_comp.root_element, SmolStr::new_static("x"));
     let coord_y = NamedReference::new(&popup_comp.root_element, SmolStr::new_static("y"));
+    let anchor =
+        NamedReference::new(&popup_comp.root_element, SmolStr::new_static(ANCHOR_PROPERTY_NAME));
+    // Ensure anchor is in property_declarations so lower_sub_component maps it as a Property
+    // (not as a native Window property, since Window has no anchor). Must happen before the
+    // base type is changed to Window below.
+    {
+        let anchor_type = match &popup_comp.root_element.borrow().base_type {
+            ElementType::Builtin(b) => b.properties.get(ANCHOR_PROPERTY_NAME).map(|p| p.ty.clone()),
+            _ => None,
+        };
+        if let Some(ty) = anchor_type {
+            popup_comp
+                .root_element
+                .borrow_mut()
+                .property_declarations
+                .entry(SmolStr::new_static(ANCHOR_PROPERTY_NAME))
+                .or_insert_with(|| PropertyDeclaration { property_type: ty, ..Default::default() });
+        }
+    }
 
     // Meanwhile, set the geometry x/y to zero, because we'll be shown as a top-level and
     // children should be rendered starting with a (0, 0) offset.
-    {
-        let mut popup_mut = popup_comp.root_element.borrow_mut();
-        let name = format_smolstr!("popup-{}-dummy", popup_mut.id);
-        popup_mut.property_declarations.insert(name.clone(), Type::LogicalLength.into());
-        drop(popup_mut);
-        let dummy1 = NamedReference::new(&popup_comp.root_element, name.clone());
-        let dummy2 = NamedReference::new(&popup_comp.root_element, name.clone());
-        let mut popup_mut = popup_comp.root_element.borrow_mut();
-        popup_mut.geometry_props.as_mut().unwrap().x = dummy1;
-        popup_mut.geometry_props.as_mut().unwrap().y = dummy2;
-    }
+    detach_window_geometry_from_position(&popup_comp.root_element);
 
     check_no_reference_to_popup(popup_window_element, &parent_component, &weak, &coord_x, diag);
+    check_no_reference_to_popup(popup_window_element, &parent_component, &weak, &coord_y, diag);
 
     if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
         popup_window_element.borrow_mut().base_type = window_type.clone();
@@ -258,6 +273,7 @@ fn lower_popup_window(
         x: coord_x,
         y: coord_y,
         close_policy,
+        anchor,
         parent_element: parent_element.clone(),
         is_tooltip: popup_window_element.borrow().is_tooltip,
         is_open,
@@ -266,6 +282,30 @@ fn lower_popup_window(
 
 fn report_const_error(prop: &str, span: &Option<SourceLocation>, diag: &mut BuildDiagnostics) {
     diag.push_error(format!("The {prop} property only supports constants at the moment"), span);
+}
+
+/// Point the geometry `x`/`y` of a window/popup root element to a fresh dummy property (default 0)
+/// instead of the element's own `x`/`y`.
+///
+/// A `WindowItem`'s native `x`/`y` fields hold the *popup position* (where the window is placed on
+/// screen), which `show_popup`/`set_popup_position` read. Now that `x`/`y` are real `WindowItem`
+/// properties, the element's item geometry would otherwise resolve to those same fields and get
+/// offset by the popup position. Since the root is shown as a top-level, its children must be
+/// rendered starting at a (0, 0) offset, so decouple the geometry from the position here.
+pub fn detach_window_geometry_from_position(root_element: &ElementRc) {
+    let mut root_mut = root_element.borrow_mut();
+    if root_mut.geometry_props.is_none() {
+        return;
+    }
+    let name = format_smolstr!("popup-{}-dummy", root_mut.id);
+    root_mut.property_declarations.insert(name.clone(), Type::LogicalLength.into());
+    drop(root_mut);
+    let dummy1 = NamedReference::new(root_element, name.clone());
+    let dummy2 = NamedReference::new(root_element, name);
+    let mut root_mut = root_element.borrow_mut();
+    let geom = root_mut.geometry_props.as_mut().unwrap();
+    geom.x = dummy1;
+    geom.y = dummy2;
 }
 
 /// Throw error when accessing the popup from outside

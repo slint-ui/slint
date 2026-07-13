@@ -682,6 +682,7 @@ impl Snapshotter {
             x: popup_window.x.snapshot(self),
             y: popup_window.y.snapshot(self),
             close_policy: popup_window.close_policy.clone(),
+            anchor: popup_window.anchor.clone(), // Expression cloned as-is; NamedReferences inside are re-snapshotted by caller
             parent_element: self.use_element(&popup_window.parent_element),
             is_tooltip: popup_window.is_tooltip,
             is_open: popup_window.is_open.as_ref().map(|is_open| is_open.snapshot(self)),

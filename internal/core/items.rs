@@ -1270,6 +1270,13 @@ pub struct WindowItem {
     pub default_font_size: Property<LogicalLength>,
     pub default_font_weight: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
+
+    // Popup related properties
+    /// position of the popup. Important: Not relevant for normal windows
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+
+    pub anchor: Property<PopupAnchor>,
 }
 
 impl Item for WindowItem {

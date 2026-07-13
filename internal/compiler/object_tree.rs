@@ -374,6 +374,7 @@ pub struct PopupWindow {
     pub x: NamedReference,
     pub y: NamedReference,
     pub close_policy: EnumerationValue,
+    pub anchor: NamedReference,
     pub parent_element: ElementRc,
     pub is_tooltip: bool,
     /// A reference to a synthesized property on the *parent* component that the runtime keeps in sync
