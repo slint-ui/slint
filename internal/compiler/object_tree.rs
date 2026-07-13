@@ -3507,11 +3507,8 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
 
     new_root.borrow_mut().child_of_layout =
         std::mem::replace(&mut old_root.borrow_mut().child_of_layout, false);
-    // The injected parent becomes the repeated element, so it takes over the grid
-    // cell role. Some callers already moved the cell onto it; don't clobber that.
-    if new_root.borrow().grid_layout_cell.is_none() {
-        new_root.borrow_mut().grid_layout_cell = old_root.borrow_mut().grid_layout_cell.take();
-    }
+    // The injected parent becomes the repeated element, so it takes over the grid cell role.
+    new_root.borrow_mut().grid_layout_cell = old_root.borrow_mut().grid_layout_cell.take();
     let layout_info_prop = old_root.borrow().layout_info_prop.clone().or_else(|| {
         // generate the layout_info_prop that forward to the implicit layout for that item
         let li_v = crate::layout::create_new_prop(
