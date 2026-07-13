@@ -173,6 +173,25 @@ macro_rules! for_each_builtin_structs {
                 /// The bottom edge value
                 bottom: Coord,
             }
+
+            #[non_exhaustive]
+            struct ConstraintAdjustment {
+                slide: bool,
+                flip: bool,
+                resize: bool,
+            }
+
+            #[non_exhaustive]
+            struct PopupAnchor {
+                location: PopupAnchorLocation,
+                x: Coord,
+                y: Coord,
+                width: Coord,
+                height: Coord,
+                gravity: PopupGravity,
+                constraint_adjustment_x: ConstraintAdjustment,
+                constraint_adjustment_y: ConstraintAdjustment,
+            }
         ];
     };
 }

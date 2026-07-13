@@ -514,6 +514,7 @@ pub struct SubComponent {
 #[derive(Debug)]
 pub struct PopupWindow {
     pub item_tree: ItemTree,
+    pub anchor: MemberReference,
     pub is_tooltip: bool,
     pub x: MemberReference,
     pub y: MemberReference,

@@ -127,6 +127,7 @@ pub fn count_property_use(root: &CompilationUnit) {
             );
             visit_property(&popup.x, &popup_ctx);
             visit_property(&popup.y, &popup_ctx);
+			visit_property(&popup.anchor, &popup_ctx);
         }
 
         // 11. timer

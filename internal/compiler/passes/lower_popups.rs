@@ -14,6 +14,7 @@ use std::rc::{Rc, Weak};
 
 const CLOSE_ON_CLICK: &str = "close-on-click";
 const CLOSE_POLICY: &str = "close-policy";
+const ANCHOR_PROPERTY_NAME: &str = "anchor";
 
 pub fn lower_popups(
     component: &Rc<Component>,
@@ -234,12 +235,32 @@ fn lower_popup_window(
     // converted to absolute coordinates in the run-time library.
     let coord_x = NamedReference::new(&popup_comp.root_element, SmolStr::new_static("x"));
     let coord_y = NamedReference::new(&popup_comp.root_element, SmolStr::new_static("y"));
+    let anchor =
+        NamedReference::new(&popup_comp.root_element, SmolStr::new_static(ANCHOR_PROPERTY_NAME));
+    // Ensure anchor is in property_declarations so lower_sub_component maps it as a Property
+    // (not as a native Window property, since Window has no anchor). Must happen before the
+    // base type is changed to Window below.
+    {
+        let anchor_type = match &popup_comp.root_element.borrow().base_type {
+            ElementType::Builtin(b) => b.properties.get(ANCHOR_PROPERTY_NAME).map(|p| p.ty.clone()),
+            _ => None,
+        };
+        if let Some(ty) = anchor_type {
+            popup_comp
+                .root_element
+                .borrow_mut()
+                .property_declarations
+                .entry(SmolStr::new_static(ANCHOR_PROPERTY_NAME))
+                .or_insert_with(|| PropertyDeclaration { property_type: ty, ..Default::default() });
+        }
+    }
 
     // Meanwhile, set the geometry x/y to zero, because we'll be shown as a top-level and
     // children should be rendered starting with a (0, 0) offset.
     detach_window_geometry_from_position(&popup_comp.root_element);
 
     check_no_reference_to_popup(popup_window_element, &parent_component, &weak, &coord_x, diag);
+    check_no_reference_to_popup(popup_window_element, &parent_component, &weak, &coord_y, diag);
 
     if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
         popup_window_element.borrow_mut().base_type = window_type.clone();
@@ -252,6 +273,7 @@ fn lower_popup_window(
         x: coord_x,
         y: coord_y,
         close_policy,
+        anchor,
         parent_element: parent_element.clone(),
         is_tooltip: popup_window_element.borrow().is_tooltip,
         is_open,

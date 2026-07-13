@@ -1156,6 +1156,7 @@ fn call_builtin_function(
                 let id = window.show_popup(
                     &popup_rc,
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
+                    corelib::items::PopupAnchor::default(),
                     &item_rc,
                     WindowKind::Menu,
                     Box::new(|_| {}),
