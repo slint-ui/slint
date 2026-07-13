@@ -3,16 +3,34 @@ title: macOS Packaging
 description: Package a desktop Slint app for direct macOS distribution or the Mac App Store.
 ---
 
-macOS desktop apps are distributed as app bundles.
-For a Slint application, the usual job is to place the compiled binary, app metadata, icons, entitlements, and resources into a bundle that Apple's tooling can sign, verify, archive, and upload.
+import { Aside } from '@astrojs/starlight/components';
 
-[XcodeGen](https://github.com/yonaskolb/XcodeGen) is the key to this flow.
-It gives you a real Xcode project, but the project is generated from a small YAML description.
-Treat the YAML file as the source of truth.
-Change the YAML, run XcodeGen again, and let it recreate the `.xcodeproj`.
+There are two main routes to distributing MacOS apps. The [Mac App Store](https://www.apple.com/app-store/) and direct distribution. Slint apps support both routes and the key to this via generating
+standard Xcode projects that are compatible with the Apple build and distribution tools.
 
-This keeps the Xcode project reproducible and avoids checking in generated project files.
-Check in the XcodeGen project spec, build scripts, icons, entitlements, and other source assets instead.
+<Aside type="note">
+To distribute an app outside the Mac App Store, you need an Apple Developer account. Without this you can only self sign
+your app for local development testing.
+</Aside>
+
+## XcodeGen
+
+[XcodeGen](https://github.com/yonaskolb/XcodeGen) will create a current version of the Xcode project that is compatible with the Apple build and distribution tools.
+We recommend you don't check in or edit this generated project file. Instead, edit the YAML project spec and regenerate the
+project whenever you make changes to the app.
+
+This saves you having to check in a project to source control and attempt to keep it up to date.
+
+<Aside type="note">
+If you do open the project file in Xcode it's quite normal for there to be warnings about the project being out of date.
+This is because the project is generated from a YAML spec and not edited directly in Xcode.
+You can safely ignore these warnings.
+</Aside>
+
+To compliment this flow we also provide a pre-configured Cargo build script that will build the app and place the binary in the expected location.
+
+This includes the app icon, entitlements, launch assets, and bundled resources.
+
 
 ## Prerequisites
 
@@ -68,13 +86,17 @@ targets:
           - $(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)
 ```
 
+<Aside type="note">
+See in the above example how even Info.plist values are set via the YAML spec. This means you can easily change the app's bundle identifier, team, app category, entitlements, and resources without having to edit the project file.
+</Aside>
+
 Then generate the Xcode project:
 
 ```sh
 xcodegen generate --spec project.yml
 ```
 
-The generated `.xcodeproj` is a normal Xcode project.
+The generated `.xcodeproj` is a normal Xcode project and you should add it to your .gitignore file so you don't check it in.
 You can open it in Xcode, build it with `xcodebuild`, or use it with Xcode Cloud.
 When you need to change the app target, Info.plist values, resources, entitlements, build phases, or signing settings, edit `project.yml` and regenerate the project.
 
@@ -139,11 +161,21 @@ That works well for development and manual testing.
 For repeatable releases, Xcode Cloud is usually the better default.
 
 [Xcode Cloud](https://developer.apple.com/xcode-cloud/) is built into Xcode and App Store Connect.
-Apple Developer Program membership includes 25 compute hours per month, and additional plans are available when you need more.
-Because the build and upload path runs inside Apple's environment, signing and App Store Connect integration are handled by Apple's tooling instead of a separate CI system that needs its own keychain, certificate, provisioning, and upload setup.
+Apple Developer Program membership includes some free compute hours to build your app.
 
-Use local Xcode builds to debug the generated project and release flow.
-Use Xcode Cloud for the release pipeline when you want the least custom signing infrastructure.
+<Aside type="caution">
+We recommend you use Xcode Cloud as Apple ensure your app is built and signed correctly and have automated the steps
+for you regarding Test Flight and App Store Connect distribution.
+</Aside>
+
+
+## Important Xcode Cloud information
+When setting up Xcode Cloud it will expect your app has an Xcode Project. This is easily worked around without you having to
+check in the generated project file. Just open the project in Xcode and follow
+[Apple's instructions](https://developer.apple.com/documentation/xcode/setting-up-your-project-to-use-xcode-cloud) for setting up Xcode Cloud.
+The generated project will ensure you are able to complete the build and archive steps. Then ensure you have a ci_scripts/ci_post_clone.sh
+file that will install the dependencies and generate the project in Xcode Cloud. We have provided a template for this.
+
 
 ## What to Check In
 
@@ -159,3 +191,12 @@ Regenerate it from the YAML spec instead.
 
 XcodeGen documents the YAML project format here:
 [Project Spec](https://yonaskolb.github.io/XcodeGen/Docs/ProjectSpec.html).
+
+
+## Building outside of Xcode Cloud
+
+If you are not using Xcode Cloud you can still build and sign your app manually and in CI services
+such as GitHub Actions or CircleCI. However it involves many steps and these can change over time.
+We don't recommend this approach as it is error prone and difficult to maintain. But if you look in
+the [Slint monorepo](https://github.com/slint-ui/slint/) you will see an example of how to build.
+sign and notarize your app.
