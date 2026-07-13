@@ -1024,8 +1024,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         &mut self,
         physical_rect: sharedparley::PhysicalRect,
         brush: Self::PlatformBrush,
-        radius: f32,
-        border: Option<(Self::PlatformBrush, f32)>,
+        radius: sharedparley::PhysicalLength,
+        border: Option<sharedparley::RectangleBorder<Self::PlatformBrush>>,
     ) {
         let fill_paint = match brush {
             GlyphBrush::Fill(paint) => paint,
@@ -1033,13 +1033,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         };
 
         let mut path = femtovg::Path::new();
-        if radius > 0.0 {
+        if radius.get() > 0.0 {
             path.rounded_rect(
                 physical_rect.min_x(),
                 physical_rect.min_y(),
                 physical_rect.width(),
                 physical_rect.height(),
-                radius,
+                radius.get(),
             );
         } else {
             path.rect(
@@ -1050,13 +1050,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
             );
         }
 
-        let stroke_paint = border.and_then(|(brush, width)| {
-            (width > 0.0).then(|| {
+        let stroke_paint = border.and_then(|sharedparley::RectangleBorder { brush, width }| {
+            (width.get() > 0.0).then(|| {
                 let mut paint = match brush {
                     GlyphBrush::Fill(paint) => paint,
                     GlyphBrush::Stroke(paint) => paint,
                 };
-                paint.set_line_width(width);
+                paint.set_line_width(width.get());
                 paint.set_anti_alias(true);
                 paint
             })
