@@ -11,17 +11,18 @@ Therefore, we'll set up the syntax highlighting first.
 
 ### Syntax Highlighting
 
-The file [slint.ksyntaxhighlighter.xml][syntax-xml] needs to be copied into a location where Kate can find it.
-See the [kate documentation](https://docs.kde.org/stable5/en/kate/katepart/highlight.html#katehighlight-xml-format)
+Kate has built-in support for highlighting Slint files since KDE Frameworks 6.27. The current Frameworks version can checked under the "Help" -> "About Kate" menu. Since this release is new as of time of writing, you can still find manual installation instructions below.
+
+The highlighting syntax file needs to be copied into a location where Kate can find it. See the [Kate documentation](https://docs.kde.org/stable_kf6/en/kate/katepart/highlight.html#katehighlight-xml-format) more information.
 
 On Linux, this can be done by running this command
 
 ```sh
 mkdir -p ~/.local/share/org.kde.syntax-highlighting/syntax/
-wget https://raw.githubusercontent.com/slint-ui/slint/master/editors/kate/slint.ksyntaxhighlighter.xml -O ~/.local/share/org.kde.syntax-highlighting/syntax/slint.xml
+wget https://invent.kde.org/frameworks/syntax-highlighting/-/raw/master/data/syntax/slint.xml -O ~/.local/share/org.kde.syntax-highlighting/syntax/slint.xml
 ```
 
-On Windows, download [slint.ksyntaxhighlighter.xml][syntax-xml] into `%USERPROFILE%\AppData\Local\org.kde.syntax-highlighting\syntax`
+On Windows, download [slint.xml](https://invent.kde.org/frameworks/syntax-highlighting/-/raw/master/data/syntax/slint.xml) into `%USERPROFILE%\AppData\Local\org.kde.syntax-highlighting\syntax`
 
 ### LSP
 
@@ -50,5 +51,3 @@ Once the LSP is correctly set up, to preview a component, first, position your c
 Then, activate the *Show Preview* code action.
 You can do this by using the Alt+Enter shortcut to bring up the code action menu,
 or find it in the menu bar at *LSP Client > Code Action > Show Preview*
-
-[syntax-xml]: <https://github.com/slint-ui/slint/blob/master/editors/kate/slint.ksyntaxhighlighter.xml>
