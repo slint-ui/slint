@@ -997,6 +997,7 @@ component KeyBinding {
 /// interacting with `TouchArea` elements:
 ///
 /// 1. If the `Flickable`'s `interactive` property is `false`, all events are forwarded to elements underneath.
+///    If `mouse-drag-pan-enabled` is `false`, only mouse events are forwarded this way, while touch events keep panning.
 /// 2. If a press event is received where the event's coordinates interact with a `TouchArea`, the event is stored
 ///    and any subsequent move and release events are handled as follows:
 ///    1. If 100ms elapse without any events, the stored press event is delivered to the `TouchArea`.
@@ -1018,7 +1019,7 @@ component KeyBinding {
 /// ## Wheel/Scroll Event Interaction
 ///
 /// The `Flickable` also supports scrolling with the mouse wheel and touchpad scroll gestures.
-/// It will scroll regardless of the `interactive` property.
+/// It will scroll regardless of the `interactive` and `mouse-drag-pan-enabled` properties.
 /// If the `Flickable` can scroll in the event's direction, the event will be intercepted.
 /// If the Flickable can't scroll in the direction of the event, the event will be forwarded to the parent.
 /// \group:gestures
@@ -1028,8 +1029,12 @@ export component Flickable inherits Empty {
     ///     interactive: false;
     /// }
     /// ```
-    /// When true, the viewport can be scrolled by clicking on it and dragging it with the cursor.
+    /// When false, the viewport can't be panned by the user, neither by dragging with the mouse
+    /// nor with touch.
     in property <bool> interactive: true;
+    /// When true, the viewport can be scrolled by clicking on it and dragging it with the cursor.
+    /// Panning with a touch screen is only affected by `interactive`.
+    in property <bool> mouse-drag-pan-enabled: true;
     /// The total width of the scrollable element.
     in property <length> viewport-width;
     /// The total height of the scrollable element.
