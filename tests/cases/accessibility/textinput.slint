@@ -15,10 +15,12 @@ export component TestCase inherits Window {
 
     ti := TextInput {
         text: "123";
+
     }
 
     le := LineEdit {
         text: "456";
+        placeholder-text: "Password";
     }
 }
 
@@ -44,6 +46,7 @@ let instance = TestCase::new().unwrap();
     line_edit.set_accessible_value("World");
     assert_eq!(line_edit.accessible_value(), Some("World".into()));
     assert_eq!(instance.get_line_edit_text(), "World", "Test component was not notified");
+    assert_eq!(line_edit.accessible_placeholder_text(), Some("Password".into()));
 }
 ```
 
