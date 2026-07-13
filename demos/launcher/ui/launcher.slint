@@ -1,0 +1,253 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Palette } from "std-widgets.slint";
+import "../../home-automation/ui/fonts/Inter-VariableFont.ttf";
+
+export struct LauncherEntry {
+    title: string,
+    description: string,
+}
+
+export global Launcher {
+    in property <[LauncherEntry]> entries;
+    in property <string> status;
+    // Whether a keyboard is available for navigating the list. Only then the
+    // focus ring around the selected entry is shown. On LinuxKMS the host
+    // tracks keyboard hotplug via libinput; elsewhere a keyboard is assumed.
+    in property <bool> keyboard-attached: true;
+    // Whether any input device - keyboard, mouse, or touch screen - is
+    // attached. While none is, a hint is shown. On LinuxKMS the host tracks
+    // this via libinput; elsewhere input devices are assumed.
+    in property <bool> input-device-attached: true;
+    callback launch(int);
+}
+
+global Style {
+    out property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+    // In light mode less transparency: the light gray page background eats
+    // more of the contrast than the dark one does.
+    out property <color> secondary-text: Palette.foreground.transparentize(dark-color-scheme ? 0.4 : 0.3);
+}
+
+component EntryButton inherits Rectangle {
+    in property <string> title;
+    in property <string> description;
+    in property <bool> selected;
+    callback activated;
+
+    border-radius: 12px;
+    // Mostly opaque, so that the decorative lines of the window background
+    // don't shine through the text. In dark mode the cards are lighter than
+    // the page; in light mode they are white on the light gray page, since
+    // gray-on-gray offers too little contrast.
+    background: (touch.pressed ? Palette.background.mix(Palette.foreground, Style.dark-color-scheme ? 0.75 : 0.86)
+        : touch.has-hover ? Palette.background.mix(Palette.foreground, Style.dark-color-scheme ? 0.82 : 0.94)
+        : Style.dark-color-scheme ? Palette.background.mix(Palette.foreground, 0.88)
+        : Palette.background).with-alpha(0.9);
+    animate background { duration: 150ms; }
+    border-width: root.selected ? 2px : 0;
+    border-color: Palette.accent-background;
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.activated();
+        }
+    }
+
+    accessible-role: button;
+    accessible-label: root.title;
+    accessible-action-default => {
+        root.activated();
+    }
+
+    HorizontalLayout {
+        padding: 16px;
+        spacing: 16px;
+
+        VerticalLayout {
+            spacing: 4px;
+            horizontal-stretch: 1;
+            alignment: center;
+
+            Text {
+                text: root.title;
+                font-weight: 500;
+                overflow: elide;
+            }
+
+            Text {
+                text: root.description;
+                font-size: 0.82rem;
+                color: Style.secondary-text;
+                overflow: elide;
+            }
+        }
+
+        Text {
+            text: "›";
+            font-size: 1.41rem;
+            color: Style.secondary-text;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component LauncherWindow inherits Window {
+    title: @tr("Slint Launcher");
+    preferred-width: 800px;
+    preferred-height: 480px;
+    default-font-family: "Inter";
+
+    property <bool> dark-color-scheme: Style.dark-color-scheme;
+    property <bool> landscape-layout: root.width > root.height;
+
+    // Called by the host on LinuxKMS, where no system color scheme preference
+    // exists that could be followed. On desktops the system preference wins.
+    public function default-to-dark-color-scheme() {
+        Palette.color-scheme = ColorScheme.dark;
+    }
+
+    // Keyboard navigation state: the entry launched with the Return key. The
+    // uniform entry height keeps the scroll-into-view arithmetic simple; it is
+    // in rem so that it grows with the window's default font size.
+    property <int> current-item: 0;
+    property <length> item-height: 6rem;
+    property <length> item-spacing: 8px;
+
+    function select(index: int) {
+        if Launcher.entries.length == 0 {
+            return;
+        }
+        current-item = Math.clamp(index, 0, Launcher.entries.length - 1);
+        // Scroll the selected entry into view.
+        if -flick.viewport-y > item-top(current-item) {
+            flick.viewport-y = -item-top(current-item);
+        } else if item-top(current-item) + item-height + flick.viewport-y > flick.height {
+            flick.viewport-y = flick.height - (item-top(current-item) + item-height);
+        }
+    }
+
+    pure function item-top(index: int) -> length {
+        index * (item-height + item-spacing)
+    }
+
+    forward-focus: key-handler;
+
+    // Called when a keyboard is attached, so that cursor key navigation
+    // works right away.
+    public function reset-focus() {
+        key-handler.focus();
+    }
+
+    key-handler := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.DownArrow {
+                root.select(root.current-item + 1);
+                return accept;
+            }
+            if event.text == Key.UpArrow {
+                root.select(root.current-item - 1);
+                return accept;
+            }
+            if event.text == Key.Return || event.text == " " {
+                if Launcher.entries.length > 0 {
+                    Launcher.launch(root.current-item);
+                }
+                return accept;
+            }
+            reject
+        }
+    }
+
+    Rectangle {
+        background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(0deg, #D7D9DD, white);
+    }
+
+    if !root.landscape-layout: Image {
+        y: root.height - self.height;
+        width: 100%;
+        source: root.dark-color-scheme
+            ? @image-url("../../../tools/viewer/remote/assets/bg-frame.svg")
+            : @image-url("../../../tools/viewer/remote/assets/bg-frame-light.svg");
+    }
+
+    if root.landscape-layout: Image {
+        x: root.width - self.width;
+        y: root.height - self.height - root.height * 20%;
+        width: min(root.width * 0.36, 360px);
+        source: root.dark-color-scheme
+            ? @image-url("../../../tools/viewer/remote/assets/bg-frame-mark.svg")
+            : @image-url("../../../tools/viewer/remote/assets/bg-frame-mark-light.svg");
+    }
+
+    if root.landscape-layout: Image {
+        x: 0px;
+        y: root.height - self.height;
+        width: root.width;
+        source: root.dark-color-scheme
+            ? @image-url("../../../tools/viewer/remote/assets/bg-frame-lines.svg")
+            : @image-url("../../../tools/viewer/remote/assets/bg-frame-lines-light.svg");
+    }
+
+    VerticalLayout {
+        padding-left: max(root.safe-area-insets.left, 24px);
+        padding-right: max(root.safe-area-insets.right, 24px);
+        padding-top: root.safe-area-insets.top + 24px;
+        padding-bottom: root.safe-area-insets.bottom + 24px;
+        spacing: 16px;
+
+        VerticalLayout {
+            spacing: 8px;
+
+            Text {
+                text: @tr("Welcome to");
+                font-size: 1.41rem;
+                font-weight: 100;
+                opacity: 0.9;
+            }
+
+            Text {
+                text: @tr("Slint Demos & Examples");
+                font-size: 1.41rem;
+                font-weight: 400;
+            }
+        }
+
+        flick := Flickable {
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                alignment: start;
+                spacing: root.item-spacing;
+
+                for entry[index] in Launcher.entries: EntryButton {
+                    height: root.item-height;
+                    title: entry.title;
+                    description: entry.description;
+                    selected: Launcher.keyboard-attached && index == root.current-item;
+                    activated => {
+                        root.select(index);
+                        Launcher.launch(index);
+                    }
+                }
+
+                if Launcher.entries.length == 0: Text {
+                    text: @tr("No demos or examples were found in PATH.");
+                    color: Style.secondary-text;
+                }
+            }
+        }
+
+        // The no-input-device hint takes priority over the last exit status.
+        if !Launcher.input-device-attached || Launcher.status != "": Text {
+            text: !Launcher.input-device-attached
+                ? @tr("Connect a keyboard, mouse, or touch screen to get started.")
+                : Launcher.status;
+            font-size: 0.82rem;
+            color: Style.secondary-text;
+            wrap: word-wrap;
+        }
+    }
+}

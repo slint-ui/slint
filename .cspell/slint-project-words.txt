@@ -261,6 +261,7 @@ hlayout
 hmenu
 horizontalbox
 horizontallayout
+hotplug
 hspace
 HSPI
 HSYNC
