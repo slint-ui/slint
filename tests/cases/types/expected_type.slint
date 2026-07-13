@@ -133,8 +133,8 @@ export component TestCase inherits Rectangle {
     in-out property<S> built;
     in-out property<bool> ok;
 
-    callback run();
-    run => {
+    callback activate();
+    activate => {
         fg = red;
         align = center;
         built = { c: red, a: center };
@@ -161,7 +161,7 @@ export component TestCase inherits Rectangle {
 ```rust
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
-instance.invoke_run();
+instance.invoke_activate();
 assert!(instance.get_ok());
 assert_eq!(instance.get_fg(), slint::Color::from_rgb_u8(0xff, 0, 0));
 assert_eq!(instance.get_align(), Align::Center);
@@ -176,7 +176,7 @@ assert_eq!(instance.invoke_echo(slint::Color::from_rgb_u8(1, 2, 3)), slint::Colo
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
-instance.invoke_run();
+instance.invoke_activate();
 assert(instance.get_ok());
 assert_eq(instance.get_fg(), slint::Color::from_rgb_uint8(0xff, 0, 0));
 assert(instance.get_align() == Align::Center);
@@ -190,7 +190,7 @@ assert_eq(instance.invoke_echo(slint::Color::from_rgb_uint8(1, 2, 3)), slint::Co
 ```js
 var instance = new slint.TestCase({});
 assert(instance.test);
-instance.run();
+instance.activate();
 assert(instance.ok);
 assert.equal(instance.fg.toString(), "#ff0000");
 assert.equal(instance.align, "center");
