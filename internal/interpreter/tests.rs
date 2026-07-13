@@ -10,6 +10,7 @@ fn set_global_log_message_handler(
         .unwrap()
 }
 
+#[cfg(feature = "internal")]
 #[test]
 fn reuse_window() {
     i_slint_backend_testing::init_no_event_loop();

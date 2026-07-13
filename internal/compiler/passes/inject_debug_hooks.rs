@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Hooks properties for live inspection.
+//! Hooks properties for live updates (and potentially inspection in the future).
 //!
 //! This pass runs once, early in compilation — right after the import passes but before any
-//! lowering or inlining. At that point every element has exactly one debug entry and
-//! source-identity is intact.
+//! lowering or inlining. At that point elements match 1:1 to the code as written (and every
+//! element has exactly one debug entry).
 //!
 //! For each element the pass does two things:
 //!
@@ -14,20 +14,13 @@
 //!
 //! 2. **Materialize synthetic hooks** for every *unbound* settable property, wrapping the
 //!    type default.  These are marked `synthetic: true` (and inserted with `priority = 0`).
-//!    The compiler's central helpers (`is_binding_set`, `set_binding_if_not_set`, …) in
-//!    `object_tree.rs` treat synthetic hooks as "no binding", so later passes see exactly the
-//!    same binding landscape as they did before the hooks were injected.  When a later pass
-//!    sets a default on a property that carries a synthetic hook, `set_binding_if_not_set`
-//!    replaces the hook's inner expression in place (keeping the wrapper and id) and clears
-//!    the `synthetic` flag — so the hook ends up wrapping the real compiler-computed value.
-//!
-//! 3. **Inject a real `transform-rotation` binding** (a *non-synthetic* hook wrapping the 0deg
-//!    default) on elements that support it. Transform properties only exist at runtime when the
-//!    lowering reifies them onto a `Transform` wrapper element, which requires a visible binding
-//!    — see the comment on `transform_candidate` below.
+//!    The accessors in `object_tree.rs` treat synthetic hooks as "no binding", so later passes
+//!    must opt-in to seeing bindings with a synthetic hook.
+//!    Exception: transform properties are marked non-synthetic, as they must force the transform
+//!    pass to inject a wrapper element for the transform.
 
 use crate::expression_tree::Expression;
-use crate::object_tree::{self, ElementRc, PropertyVisibility};
+use crate::object_tree::{self, Element, ElementDebugInfo, ElementRc, PropertyVisibility};
 
 pub fn inject_debug_hooks(
     component: &std::rc::Rc<object_tree::Component>,
@@ -88,11 +81,11 @@ pub fn validate_no_orphan_synthetic_hooks(component: &std::rc::Rc<object_tree::C
 }
 
 fn calculate_element_hash(
-    elem: &object_tree::Element,
+    debug_info: &ElementDebugInfo,
     random_state: &std::hash::RandomState,
 ) -> u64 {
     // At early-injection time (before any inlining) every element has exactly one debug entry.
-    let node = &elem.debug[0].node;
+    let node = &debug_info.node;
 
     let elem_path = node.source_file.path();
     let elem_offset = node
@@ -108,112 +101,135 @@ fn calculate_element_hash(
     hasher.finish()
 }
 
-fn process_element(element: &ElementRc, random_state: &std::hash::RandomState, is_root: bool) {
-    let e = element.borrow();
-    // Before repeater_component::process_repeater_components runs, a repeated element still
-    // holds its content as children — recurse_elem will visit them naturally.
-    //
-    // Component-instance elements (base_type = Component, e.g. `sub := Sub { ... }`) are
-    // processed like any other element: their explicit instance bindings are wrapped and
-    // their unbound properties get synthetic hooks. The definition's own defaults are NOT
-    // consulted here — when the component is inlined, `BindingExpression::merge_with`
-    // upgrades a synthetic hook in place with the definition's real binding, so the
-    // property stays live-editable per instance (under the instance element's hook id)
-    // at its correct default value.
-    //
-    // Skip only the @children placeholder (the generator skips these too).
-    if e.is_component_placeholder {
-        return;
-    }
-    if e.debug.is_empty() {
-        return;
-    }
-    drop(e);
+fn assign_element_hash(element: &ElementRc, random_state: &std::hash::RandomState) -> u64 {
+    let mut elem = element.borrow_mut();
 
-    // Step 1: compute and store the element hash.
-    // At early-injection time debug.len() == 1, so a single hash suffices.
-    let element_hash = {
-        let mut elem = element.borrow_mut();
-        if elem.debug[0].element_hash == 0 {
-            let hash = calculate_element_hash(&elem, random_state);
-            elem.debug[0].element_hash = hash;
+    // Each element in the source has one debug entry.
+    // There may be more if elements have been inlined.
+    // This should not yet have happened so that we can identify which source element this is.
+    debug_assert!(elem.debug.len() == 1);
+    let debug_info = &mut elem.debug[0];
+    if debug_info.element_hash == 0 {
+        let hash = calculate_element_hash(debug_info, random_state);
+        debug_info.element_hash = hash;
+    }
+    debug_info.element_hash
+}
+
+fn hook_existing_bindings(element: &ElementRc, element_hash: u64) {
+    let elem = element.borrow();
+    elem.bindings.iter().for_each(|(name, be)| {
+        // Only hook properties — callback handlers and functions also live in
+        // `bindings`, but hook ids are a property-only namespace and overriding a code
+        // block with a value makes no sense.
+        if !elem.lookup_property(name).property_type.is_property_type() {
+            return;
         }
-        elem.debug[0].element_hash
-    };
-
-    // Step 2: Wrap existing real bindings in a non-synthetic DebugHook.
-    {
-        let elem = element.borrow();
-        elem.bindings.iter().for_each(|(name, be)| {
-            // Only hook properties — callback handlers and functions also live in
-            // `bindings`, but hook ids are a property-only namespace and overriding a code
-            // block with a value makes no sense.
-            if !elem.lookup_property(name).property_type.is_property_type() {
-                return;
+        let expr = std::mem::take(&mut be.borrow_mut().expression);
+        be.borrow_mut().expression = {
+            let stripped = super::ignore_debug_hooks(&expr);
+            if matches!(stripped, Expression::Invalid)
+                || matches!(expr, Expression::DebugHook { .. })
+            {
+                expr
+            } else {
+                Expression::DebugHook {
+                    expression: Box::new(expr),
+                    id: property_id(element_hash, name),
+                    synthetic: false,
+                }
             }
-            let expr = std::mem::take(&mut be.borrow_mut().expression);
-            be.borrow_mut().expression = {
-                let stripped = super::ignore_debug_hooks(&expr);
-                if matches!(stripped, Expression::Invalid)
-                    || matches!(expr, Expression::DebugHook { .. })
-                {
-                    expr
-                } else {
-                    Expression::DebugHook {
-                        expression: Box::new(expr),
-                        id: property_id(element_hash, name),
-                        synthetic: false,
-                    }
-                }
-            };
-        });
-    }
+        };
+    });
+}
 
-    // Step 3: Materialize synthetic hooks for unbound settable properties.
-    // Collect candidates first to release the borrow, then insert.
-    let candidates: Vec<(smol_str::SmolStr, crate::langtype::Type)> = {
-        let elem = element.borrow();
+fn property_defaults(
+    elem: &Element,
+) -> impl Iterator<Item = (smol_str::SmolStr, crate::expression_tree::Expression, bool)> {
+    // Properties from the base type.
+    let base_props = elem.base_type.property_list();
 
-        // Properties from the base type.
-        let base_props = elem.base_type.property_list();
+    // Properties from own declarations.
+    let own_props: Vec<(smol_str::SmolStr, crate::langtype::Type)> = elem
+        .property_declarations
+        .iter()
+        .map(|(name, decl)| (name.clone(), decl.property_type.clone()))
+        .collect();
 
-        // Properties from own declarations.
-        let own_props: Vec<(smol_str::SmolStr, crate::langtype::Type)> = elem
-            .property_declarations
-            .iter()
-            .map(|(name, decl)| (name.clone(), decl.property_type.clone()))
-            .collect();
+    base_props
+        .into_iter()
+        .chain(own_props)
+        .filter(|(name, _)| !elem.bindings.contains_key(name.as_str()))
+        .filter_map(|(name, _ty)| {
+            let name_str = name.clone();
+            let lookup = elem.lookup_property(&name_str);
+            // Skip functions/callbacks exposed as builtin functions.
+            if lookup.builtin_function.is_some() {
+                return None;
+            }
+            // Only settable visibilities.
+            match lookup.property_visibility {
+                PropertyVisibility::Public
+                | PropertyVisibility::InOut
+                | PropertyVisibility::Input
+                | PropertyVisibility::Private => {}
+                PropertyVisibility::Output
+                | PropertyVisibility::Constexpr
+                | PropertyVisibility::Protected
+                | PropertyVisibility::Fake => return None,
+            }
+            let default = Expression::default_value_for_type(&lookup.property_type);
+            if matches!(default, Expression::Invalid) {
+                return None;
+            }
+            Some((name, default, true))
+        })
+}
 
-        base_props
-            .into_iter()
-            .chain(own_props)
-            .filter(|(name, _)| !elem.bindings.contains_key(name.as_str()))
-            .filter_map(|(name, _ty)| {
-                let name_str = name.clone();
-                let lookup = elem.lookup_property(&name_str);
-                // Skip functions/callbacks exposed as builtin functions.
-                if lookup.builtin_function.is_some() {
-                    return None;
-                }
-                // Only settable visibilities.
-                match lookup.property_visibility {
-                    PropertyVisibility::Public
-                    | PropertyVisibility::InOut
-                    | PropertyVisibility::Input
-                    | PropertyVisibility::Private => {}
-                    PropertyVisibility::Output
-                    | PropertyVisibility::Constexpr
-                    | PropertyVisibility::Protected
-                    | PropertyVisibility::Fake => return None,
-                }
-                let default = Expression::default_value_for_type(&lookup.property_type);
-                if matches!(default, Expression::Invalid) {
-                    return None;
-                }
-                Some((name, lookup.property_type))
-            })
-            .collect()
-    };
+// Reserved geometry properties (x, y, width, height) are not in property_list()
+// because they are injected by the type system.
+// We exclude "z" to avoid spurious property materialization in materialize_fake_properties.
+// TODO: Add appropriate debug hook.
+fn geometry_properties()
+-> impl Iterator<Item = (smol_str::SmolStr, crate::expression_tree::Expression, bool)> {
+    crate::typeregister::RESERVED_GEOMETRY_PROPERTIES
+        .iter()
+        .filter(|(name, _)| *name != "z")
+        .filter_map(|(prop_name, ty)| {
+            let default = Expression::default_value_for_type(ty);
+            if matches!(default, Expression::Invalid) {
+                return None;
+            }
+            Some((smol_str::SmolStr::new_static(prop_name), default, true))
+        })
+}
+
+// The reserved transform properties are unlike the geometry properties above: no item
+// actually has them. They only exist at runtime when the lower_transform_properties pass
+// finds a binding and wraps the element in a Transform element.
+//
+// Make the binding non-synthetic, so the later pass picks them up.
+fn transform_properties<'a>(
+    element: &'a ElementRc,
+) -> impl Iterator<Item = (smol_str::SmolStr, crate::expression_tree::Expression, bool)> + 'a {
+    // TODO: Wrap other transform properties.
+    const TRANSFORM_PROPS: [&str; 3] =
+        ["transform-rotation", "transform-scale-x", "transform-scale-y"];
+    TRANSFORM_PROPS.into_iter().map(|property_name| {
+        let property_name = smol_str::SmolStr::new_static(property_name);
+        let default_expression =
+            super::lower_property_to_element::transform_property_default_value(
+                element,
+                &property_name,
+            )
+            .unwrap();
+        (property_name.clone(), default_expression, false)
+    })
+}
+
+fn add_hooks_for_non_existent_bindings(element: &ElementRc, element_hash: u64, is_root: bool) {
+    let elem = element.borrow();
+    let mut properties: Vec<_> = property_defaults(&elem).collect();
 
     // Elements that are (or will become) the root of a component are never wrapped by the
     // property-to-element lowerings, and their geometry is managed specially (runtime-managed
@@ -224,112 +240,58 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState, i
     let becomes_root =
         is_root || element.borrow().builtin_type().is_some_and(|b| b.name == "PopupWindow");
 
-    // Reserved geometry properties (x, y, width, height) — these are not in property_list()
-    // because they are injected globally by the type system, not per builtin element.
-    // We exclude "z" to avoid spurious property materialization in materialize_fake_properties.
-    // We skip root elements because their geometry is either runtime-managed (Window) or set
+    // Skip root elements because their geometry is either runtime-managed (Window) or set
     // after inlining into a parent component — either way, no compiler pass will upgrade a
     // synthetic hook, which would leave root geometry frozen at 0px.
-    // We also skip elements that don't actually have the property (non-item types like Timer
-    // report Type::Invalid for the reserved properties).
-    let geometry_candidates: Vec<(smol_str::SmolStr, Expression)> = if becomes_root {
-        vec![]
-    } else {
-        let elem = element.borrow();
-        crate::typeregister::RESERVED_GEOMETRY_PROPERTIES
-            .iter()
-            .filter(|(name, _)| *name != "z")
-            .filter_map(|(prop_name, ty)| {
-                if elem.bindings.contains_key(*prop_name) {
-                    return None;
-                }
-                if elem.lookup_property(prop_name).property_type == crate::langtype::Type::Invalid {
-                    return None;
-                }
-                let default = Expression::default_value_for_type(ty);
-                if matches!(default, Expression::Invalid) {
-                    return None;
-                }
-                Some((smol_str::SmolStr::new_static(prop_name), default))
-            })
-            .collect()
+    if !becomes_root {
+        properties.extend(geometry_properties());
     };
 
-    // The reserved transform properties are unlike the geometry properties above: no item
-    // actually has them. They only exist at runtime when the lower_transform_properties pass
-    // finds a binding and reifies the property onto an injected `Transform` wrapper element.
-    // A synthetic hook is (by design) invisible to other passes, so it would never cause that
-    // wrapper to be created — the hook would remain as a binding to a property that never
-    // materializes, and the interpreter aborts on the unknown property.
-    //
-    // To keep every element rotatable in live-preview, inject `transform-rotation` as a
-    // *non-synthetic* hook wrapping its default — semantically "as if the user had written
-    // `transform-rotation: 0deg;`" — which the lowering then reifies like any real binding.
-    // Only `transform-rotation` gets this treatment: it is what the editor overrides live, and
-    // its default is context-free. The other transform properties have context-dependent
-    // defaults (e.g. `transform-scale-x` follows `transform-scale`, which passes running after
-    // this one may still bind) that are correctly computed at lowering time instead.
-    //
     // Root elements (including future popup roots) are skipped — the lowering never wraps a
     // root, so the transform properties are not applicable there — as are elements that don't
     // support transforms at all (non-item types).
-    let transform_candidate: Option<(smol_str::SmolStr, Expression)> = {
-        let elem = element.borrow();
-        let property_name = smol_str::SmolStr::new_static("transform-rotation");
-        if becomes_root
-            || elem.bindings.contains_key(&property_name)
-            || elem.lookup_property(&property_name).property_type == crate::langtype::Type::Invalid
-        {
-            None
-        } else {
-            drop(elem);
-            super::lower_property_to_element::transform_property_default_value(
-                element,
-                &property_name,
-            )
-            .map(|default_expression| (property_name, default_expression))
-        }
-    };
+    //
+    if !becomes_root {
+        properties.extend(transform_properties(element));
+    }
 
-    // Insert synthetic hooks for all unbound properties.
-    for (name, ty) in candidates {
-        let default = Expression::default_value_for_type(&ty);
+    drop(elem);
+    let unbound_properties = properties.into_iter().filter(|(name, _default, _synthetic)| {
+        let elem = element.borrow();
+        !elem.bindings.contains_key(name)
+            // Filter invalid reserved properties (e.g. x/y on a Timer, etc.)
+            && elem.lookup_property(name).property_type != crate::langtype::Type::Invalid
+    });
+
+    for (name, default, synthetic) in unbound_properties {
         let id = property_id(element_hash, &name);
         let mut binding_expressions: crate::expression_tree::BindingExpression =
-            Expression::DebugHook { expression: Box::new(default), id, synthetic: true }.into();
+            Expression::DebugHook { expression: Box::new(default), id, synthetic }.into();
         binding_expressions.priority = 0;
         use std::collections::btree_map::Entry;
         if let Entry::Vacant(entry) = element.borrow_mut().bindings.entry(name) {
             entry.insert(binding_expressions.into());
         }
     }
+}
 
-    // Insert synthetic hooks for reserved geometry properties (x, y, width, height).
-    for (name, default_expr) in geometry_candidates {
-        let id = property_id(element_hash, &name);
-        let mut binding_expressions: crate::expression_tree::BindingExpression =
-            Expression::DebugHook { expression: Box::new(default_expr), id, synthetic: true }
-                .into();
-        binding_expressions.priority = 0;
-        use std::collections::btree_map::Entry;
-        if let Entry::Vacant(v) = element.borrow_mut().bindings.entry(name) {
-            v.insert(binding_expressions.into());
+fn process_element(element: &ElementRc, random_state: &std::hash::RandomState, is_root: bool) {
+    {
+        let element = element.borrow();
+        // Skip the @children placeholder (the generator skips these too).
+        if element.is_component_placeholder {
+            return;
+        }
+        if element.debug.is_empty() {
+            return;
         }
     }
 
-    // Insert the transform-rotation hook. Deliberately *non-synthetic*: later passes must see
-    // it as a real binding so the Transform wrapper element is created (see above).
-    if let Some((name, default_expr)) = transform_candidate {
-        let id = property_id(element_hash, &name);
-        let mut binding_expressions: crate::expression_tree::BindingExpression =
-            Expression::DebugHook { expression: Box::new(default_expr), id, synthetic: false }
-                .into();
-        binding_expressions.priority = 0;
-        use std::collections::btree_map::Entry;
-        if let Entry::Vacant(v) = element.borrow_mut().bindings.entry(name) {
-            v.insert(binding_expressions.into());
-        }
-    }
+    let element_hash = assign_element_hash(element, random_state);
+
+    hook_existing_bindings(element, element_hash);
+
+    add_hooks_for_non_existent_bindings(element, element_hash, is_root);
 }
 
 #[cfg(test)]

@@ -26,8 +26,6 @@ pub(crate) fn lower_property_to_element(
     diag: &mut BuildDiagnostics,
 ) {
     for property_name in property_names.clone() {
-        // binding() only returns real (non-synthetic) bindings — synthetic debug hooks are
-        // placeholders that will be upgraded or stripped later and must not warn.
         if let Some(b) = component.root_element.borrow().binding(property_name) {
             diag.push_warning(
                 format!(
@@ -52,7 +50,6 @@ pub(crate) fn lower_property_to_element(
         let has_property_binding = |e: &ElementRc| {
             property_names.clone().any(|property_name| {
                 e.borrow().base_type.lookup_property(property_name).property_type != Type::Invalid
-                    // binding() ignores synthetic debug hooks — placeholders, not user bindings.
                     && (e.borrow().binding(property_name).is_some()
                         || e.borrow()
                             .property_analysis
@@ -109,8 +106,6 @@ fn create_property_element(
                 NamedReference::new(child, property_name.clone()).into(),
             );
             if let Some(default_value_for_extra_properties) = default_value_for_extra_properties
-                // binding() ignores synthetic debug hooks: an unbound property placeholder
-                // must not suppress the default value.
                 && child.borrow().binding(&property_name).is_none()
                 && let Some(e) = default_value_for_extra_properties(child, &property_name)
             {

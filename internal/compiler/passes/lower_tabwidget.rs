@@ -290,8 +290,6 @@ fn set_geometry_prop(
     prop: &str,
     diag: &mut BuildDiagnostics,
 ) {
-    // set_binding_overwriting upgrades a synthetic debug hook placeholder in place and only
-    // reports a real (user-written) binding as a conflict.
     let old = content.borrow_mut().set_binding_overwriting(
         prop.into(),
         Expression::PropertyReference(NamedReference::new(

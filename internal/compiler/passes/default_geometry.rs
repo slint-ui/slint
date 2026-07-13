@@ -365,15 +365,15 @@ fn fix_percent_size(
     symbol_counters: &SymbolCounters,
 ) -> bool {
     let elem = elem.borrow();
-    let binding = match elem.bindings.get(property) {
-        Some(b) => b,
-        None => return false,
+    // Note: access the bindings map directly here, this reads synthetic debug hook expressions
+    // instead of discarding them.
+    let Some(binding) = elem.bindings.get(property) else {
+        return false;
     };
 
     if binding.borrow().ty() != Type::Percent {
         let Some(parent) = parent.as_ref() else { return false };
         // Pattern match to check it was already parent.<property>
-        // (through a possible debug hook wrapper)
         return matches!(binding.borrow().expression.ignore_debug_hooks(), Expression::PropertyReference(nr) if *nr.name() == property && Rc::ptr_eq(&nr.element(), parent));
     }
     let mut b = binding.borrow_mut();
