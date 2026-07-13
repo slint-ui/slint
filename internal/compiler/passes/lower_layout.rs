@@ -393,7 +393,7 @@ pub fn lower_layouts(
     });
 
     *component.root_constraints.borrow_mut() =
-        LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
+        LayoutConstraints::new(&component.root_element, Some((diag, DiagnosticLevel::Error)));
 
     recurse_elem_including_sub_components(
         component,
@@ -401,11 +401,17 @@ pub fn lower_layouts(
         &mut |elem, parent_layout_type| {
             let component = elem.borrow().enclosing_component.upgrade().unwrap();
 
-            // Popups have their own layout constraints
-            for popup in component.popup_windows.borrow_mut().iter() {
-                let component = &popup.component;
-                *component.root_constraints.borrow_mut() =
-                    LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
+            // A popup is not visited as a component on its own (it can be nested in a sub-component),
+            // so set the constraints of its root here, once per component when visiting its root. A
+            // redundant size constraint on a popup root is only a warning (not an error like on a
+            // window root) for compatibility with older versions of Slint that did not report it.
+            if Rc::ptr_eq(elem, &component.root_element) {
+                for popup in component.popup_windows.borrow().iter() {
+                    *popup.component.root_constraints.borrow_mut() = LayoutConstraints::new(
+                        &popup.component.root_element,
+                        Some((&mut *diag, DiagnosticLevel::Warning)),
+                    );
+                }
             }
 
             lower_element_layout(
@@ -1041,7 +1047,9 @@ impl GridLayout {
                     rowspan_expr: rowspan_expr.unwrap_or(RowColExpr::Literal(1)),
                     child_items: None,
                 }));
-                child.borrow_mut().grid_layout_cell = Some(child_grid_cell);
+                // Attach to the element the solver reads: the sub-component root for an inner
+                // repeater (so it reports its own colspan/rowspan), or `child` for a static child.
+                sub_item.elem.borrow_mut().grid_layout_cell = Some(child_grid_cell);
 
                 // Compute the effective inner_rep_idx for this child:
                 // - For inner repeater items: cumulative_pos + model_index
@@ -1302,7 +1310,7 @@ fn lower_box_layout(
 
     for layout_child in &layout_children {
         let item = create_layout_item(layout_child, diag);
-        let index = layout.elems.len() * 2;
+        let index = layout.elems.len() * BOX_LAYOUT_CACHE_ENTRIES_PER_CELL;
         let rep_idx = &item.repeater_index;
         let (fixed_size, fixed_ortho) = match orientation {
             Orientation::Horizontal => {
@@ -1313,14 +1321,31 @@ fn lower_box_layout(
             }
         };
         let actual_elem = &item.elem;
-        set_prop_from_cache(actual_elem, pos, &layout_cache_prop, index, rep_idx, 2, diag);
+        let entries = BOX_LAYOUT_CACHE_ENTRIES_PER_CELL;
+        set_prop_from_cache(actual_elem, pos, &layout_cache_prop, index, rep_idx, entries, diag);
         if !fixed_size {
-            set_prop_from_cache(actual_elem, size, &layout_cache_prop, index + 1, rep_idx, 2, diag);
+            set_prop_from_cache(
+                actual_elem,
+                size,
+                &layout_cache_prop,
+                index + 1,
+                rep_idx,
+                entries,
+                diag,
+            );
         }
         if let Some(cache_ortho) = &layout_cache_ortho_prop {
-            set_prop_from_cache(actual_elem, pad, cache_ortho, index, rep_idx, 2, diag);
+            set_prop_from_cache(actual_elem, pad, cache_ortho, index, rep_idx, entries, diag);
             if !fixed_ortho {
-                set_prop_from_cache(actual_elem, ortho, cache_ortho, index + 1, rep_idx, 2, diag);
+                set_prop_from_cache(
+                    actual_elem,
+                    ortho,
+                    cache_ortho,
+                    index + 1,
+                    rep_idx,
+                    entries,
+                    diag,
+                );
             }
         } else {
             let (pad_expr, size_expr) = stretch_bindings.as_ref().unwrap();
@@ -1441,6 +1466,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
         let index = layout.elems.len() * 4; // 4 values per item: x, y, width, height
         let rep_idx = &item.repeater_index;
         let actual_elem = &item.elem;
+        actual_elem.borrow_mut().child_of_flexbox = true;
 
         // Set x from cache[index]
         set_prop_from_cache(actual_elem, "x", &layout_cache_prop, index, rep_idx, 4, diag);
@@ -1842,8 +1868,10 @@ fn create_layout_item(
         fix_explicit_percent("width", &rep_comp.root_element);
         fix_explicit_percent("height", &rep_comp.root_element);
 
-        *rep_comp.root_constraints.borrow_mut() =
-            LayoutConstraints::new(&rep_comp.root_element, diag, DiagnosticLevel::Error);
+        *rep_comp.root_constraints.borrow_mut() = LayoutConstraints::new(
+            &rep_comp.root_element,
+            Some((&mut *diag, DiagnosticLevel::Error)),
+        );
         rep_comp.root_element.borrow_mut().child_of_layout = true;
         (
             Some(if r.is_conditional_element {
@@ -1857,7 +1885,7 @@ fn create_layout_item(
         (None, item_element.clone())
     };
 
-    let constraints = LayoutConstraints::new(&actual_elem, diag, DiagnosticLevel::Error);
+    let constraints = LayoutConstraints::new(&actual_elem, Some((diag, DiagnosticLevel::Error)));
     CreateLayoutItemResult {
         item: LayoutItem { element: item_element.clone(), constraints },
         elem: actual_elem,
@@ -2196,7 +2224,7 @@ pub fn check_popup_layout(component: &Rc<Component>) {
             adjust_window_layout(&p.component, "height");
         }
 
-        if p.component.root_constraints.borrow().fixed_height {
+        if p.component.root_constraints.borrow().fixed_width {
             adjust_window_layout(&p.component, "width");
         }
     });

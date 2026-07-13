@@ -16,10 +16,7 @@ type ConstPropCache = HashMap<NamedReference, Option<Expression>>;
 
 pub fn const_propagation(component: &Component, global_analysis: &GlobalAnalysis) {
     let mut cache = ConstPropCache::new();
-    visit_all_expressions(component, |expr, ty| {
-        if matches!(ty(), Type::Callback { .. }) {
-            return;
-        }
+    visit_all_expressions(component, |expr, _ty| {
         simplify_expression(expr, global_analysis, &mut cache);
     });
 
@@ -72,17 +69,14 @@ fn simplify_expression(
             can_inline &= simplify_expression(rhs, ga, cache);
 
             let new = match (*op, &mut **lhs, &mut **rhs) {
+                // constant folding
                 ('+', Expression::StringLiteral(a), Expression::StringLiteral(b)) => {
                     Some(Expression::StringLiteral(format_smolstr!("{}{}", a, b)))
                 }
-                ('+', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
-                    if un1 == un2 =>
-                {
+                ('+', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, _)) => {
                     Some(Expression::NumberLiteral(*a + *b, *un1))
                 }
-                ('-', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
-                    if un1 == un2 =>
-                {
+                ('-', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, _)) => {
                     Some(Expression::NumberLiteral(*a - *b, *un1))
                 }
                 ('*', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
@@ -96,47 +90,72 @@ fn simplify_expression(
                     Expression::NumberLiteral(a, un1),
                     Expression::NumberLiteral(b, Unit::None),
                 ) => Some(Expression::NumberLiteral(*a / *b, *un1)),
-                // TODO: take care of * and / when both numbers have units
-                ('=' | '!', Expression::NumberLiteral(a, _), Expression::NumberLiteral(b, _)) => {
-                    Some(Expression::BoolLiteral((a == b) == (*op == '=')))
+                ('/', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
+                    if un1 == un2 =>
+                {
+                    Some(Expression::NumberLiteral(*a / *b, Unit::None))
                 }
+                // TODO: fold * and / that produce a unit product
+
+                // arithmetic identities
+                ('+', e, Expression::NumberLiteral(n, _))
+                | ('+', Expression::NumberLiteral(n, _), e)
+                | ('-', e, Expression::NumberLiteral(n, _))
+                    if *n == 0. =>
+                {
+                    Some(std::mem::take(e))
+                }
+                ('*', e, Expression::NumberLiteral(n, Unit::None))
+                | ('*', Expression::NumberLiteral(n, Unit::None), e)
+                | ('/', e, Expression::NumberLiteral(n, Unit::None))
+                    if *n == 1. =>
+                {
+                    Some(std::mem::take(e))
+                }
+
+                // comparisons
+                (
+                    '=' | '!' | '<' | '>' | '≤' | '≥',
+                    Expression::NumberLiteral(a, _),
+                    Expression::NumberLiteral(b, _),
+                ) => Some(Expression::BoolLiteral(match op {
+                    '=' => a == b,
+                    '!' => a != b,
+                    '<' => a < b,
+                    '>' => a > b,
+                    '≤' => a <= b,
+                    _ => a >= b,
+                })),
                 ('=' | '!', Expression::StringLiteral(a), Expression::StringLiteral(b)) => {
                     Some(Expression::BoolLiteral((a == b) == (*op == '=')))
                 }
                 ('=' | '!', Expression::EnumerationValue(a), Expression::EnumerationValue(b)) => {
                     Some(Expression::BoolLiteral((a == b) == (*op == '=')))
                 }
+                ('=' | '!', Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => {
+                    Some(Expression::BoolLiteral((a == b) == (*op == '=')))
+                }
                 // TODO: more types and more comparison operators
+
+                // boolean logic
+                ('&', Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => {
+                    Some(Expression::BoolLiteral(*a && *b))
+                }
+                ('|', Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => {
+                    Some(Expression::BoolLiteral(*a || *b))
+                }
                 ('&', Expression::BoolLiteral(false), _) => {
                     can_inline = true;
                     Some(Expression::BoolLiteral(false))
                 }
-                ('&', _, Expression::BoolLiteral(false)) => {
-                    can_inline = true;
-                    Some(Expression::BoolLiteral(false))
-                }
-                ('&', Expression::BoolLiteral(true), e) => Some(std::mem::take(e)),
-                ('&', e, Expression::BoolLiteral(true)) => Some(std::mem::take(e)),
                 ('|', Expression::BoolLiteral(true), _) => {
                     can_inline = true;
                     Some(Expression::BoolLiteral(true))
                 }
-                ('|', _, Expression::BoolLiteral(true)) => {
-                    can_inline = true;
-                    Some(Expression::BoolLiteral(true))
-                }
-                ('|', Expression::BoolLiteral(false), e) => Some(std::mem::take(e)),
-                ('|', e, Expression::BoolLiteral(false)) => Some(std::mem::take(e)),
-                ('>', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
-                    if un1 == un2 =>
-                {
-                    Some(Expression::BoolLiteral(*a > *b))
-                }
-                ('<', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
-                    if un1 == un2 =>
-                {
-                    Some(Expression::BoolLiteral(*a < *b))
-                }
+                ('&', Expression::BoolLiteral(true), e)
+                | ('&', e, Expression::BoolLiteral(true))
+                | ('|', Expression::BoolLiteral(false), e)
+                | ('|', e, Expression::BoolLiteral(false)) => Some(std::mem::take(e)),
                 _ => None,
             };
             if let Some(new) = new {
@@ -182,6 +201,9 @@ fn simplify_expression(
                 match (&**from, to) {
                     (Expression::NumberLiteral(x, Unit::None), Type::String) => {
                         locale_independent_number_to_string(*x).map(Expression::StringLiteral)
+                    }
+                    (Expression::NumberLiteral(x, _), Type::Float32) => {
+                        Some(Expression::NumberLiteral(*x, Unit::None))
                     }
                     (Expression::Struct { values, .. }, Type::Struct(ty)) => {
                         Some(Expression::Struct { ty: ty.clone(), values: values.clone() })
@@ -674,4 +696,69 @@ export component Foo inherits Window {
         matches!(test_binding, Expression::NumberLiteral(val, _) if val == 5.0),
         "Expression should be 5.0: {test_binding:?}"
     );
+}
+
+#[test]
+fn test_unit_normalization() {
+    // Compile `out property <ty> a: expr;` and return the folded binding of `a`.
+    fn fold(ty: &str, expr: &str) -> Expression {
+        let mut config =
+            crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        config.style = Some("fluent".into());
+        let mut diags = crate::diagnostics::BuildDiagnostics::default();
+        let doc_node = crate::parser::parse(
+            format!("export component Foo {{ out property <{ty}> a: {expr}; }}").into(),
+            Some(std::path::Path::new("HELLO")),
+            &mut diags,
+        );
+        let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
+        assert!(!diag.has_errors(), "{expr}: {:#?}", diag.to_string_vec());
+        doc.inner_components.last().unwrap().root_element.borrow().bindings["a"]
+            .borrow()
+            .expression
+            .clone()
+    }
+
+    // A literal is stored in its type's canonical unit, not the one it was written in.
+    assert!(matches!(fold("length", "1in"), Expression::NumberLiteral(v, Unit::Px) if v == 96.0));
+    assert!(
+        matches!(fold("duration", "2s"), Expression::NumberLiteral(v, Unit::Ms) if v == 2000.0)
+    );
+
+    // Mixed units of one type now fold, because they share a canonical unit.
+    assert!(
+        matches!(fold("length", "5px + 5cm"), Expression::NumberLiteral(v, Unit::Px) if v == 194.0),
+        "{:?}",
+        fold("length", "5px + 5cm")
+    );
+    assert!(
+        matches!(fold("duration", "1s - 500ms"), Expression::NumberLiteral(v, Unit::Ms) if v == 500.0)
+    );
+    assert!(
+        matches!(fold("length", "max(12cm, 12px)"), Expression::NumberLiteral(v, Unit::Px) if v == 12.0 * 37.8),
+        "{:?}",
+        fold("length", "max(12cm, 12px)")
+    );
+
+    // Comparisons fold on the normalized values, so different units compare correctly.
+    assert!(matches!(fold("bool", "12cm == 12px"), Expression::BoolLiteral(false)));
+    assert!(matches!(fold("bool", "1s == 1000ms"), Expression::BoolLiteral(true)));
+    assert!(matches!(fold("bool", "12cm < 12px"), Expression::BoolLiteral(false)));
+    assert!(matches!(fold("bool", "1turn == 360deg"), Expression::BoolLiteral(true)));
+
+    // Multiplying by a unitless 0 yields 0 in the other factor's unit.
+    assert!(
+        matches!(fold("length", "10px * 0.0"), Expression::NumberLiteral(v, Unit::Px) if v == 0.0)
+    );
+    assert!(
+        matches!(fold("float", "10 * 0.0"), Expression::NumberLiteral(v, Unit::None) if v == 0.0)
+    );
+
+    // Dividing equal units cancels to a unitless ratio.
+    assert!(
+        matches!(fold("float", "3px / 6px"), Expression::NumberLiteral(v, Unit::None) if v == 0.5)
+    );
+    // Equality folds for numbers (now via the ordering arm) and bools.
+    assert!(matches!(fold("bool", "1px != 2px"), Expression::BoolLiteral(true)));
+    assert!(matches!(fold("bool", "true == false"), Expression::BoolLiteral(false)));
 }

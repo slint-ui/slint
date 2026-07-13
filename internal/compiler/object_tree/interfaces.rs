@@ -644,7 +644,7 @@ fn filter_conflicting_uses_statements(
             seen_interfaces.push(interface_name.clone());
 
             let mut valid = true;
-            for (prop_name, _) in vus.interface.borrow().property_declarations.iter() {
+            for prop_name in vus.interface.borrow().property_declarations.keys() {
                 if let Some(existing_interface) = seen_interface_api.get(prop_name) {
                     diag.push_error(
                         format!(

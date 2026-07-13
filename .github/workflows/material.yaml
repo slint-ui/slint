@@ -95,11 +95,15 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - name: Take screenshots
-        run: cargo run -p slint-doc-generator -- screenshots -Lmaterial=$PWD/src/material.slint docs
+        # slint-doc-generator lives in the repository root workspace, not the
+        # material workspace, so point cargo at the root manifest.
+        run: cargo run --manifest-path ../../Cargo.toml -p slint-doc-generator -- screenshots -Lmaterial=$PWD/src/material.slint docs
         working-directory: ui-libraries/material
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build
+        env:
+          MATERIAL_DOCS_BASE_PATH: ${{ github.event_name == 'pull_request' && '/material/' || '' }}
         run: pnpm build
       - uses: actions/download-artifact@v8
         with:

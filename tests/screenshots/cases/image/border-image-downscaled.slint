@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//
+// Regression test: a stretched nine-slice whose embedded texture is downscaled
+// (scale factor < 1) must not show a background seam where the centre slice meets
+// a cap. The red background reveals any gap. Asymmetric borders (odd left+right)
+// give the centre slice a fractional width, which is what used to round apart.
+//ignore:skia
+// SIZE=64x64
+// SLINT_SCALE_FACTOR=0.5
+export component TestCase inherits Window {
+    width: 128px;
+    height: 128px;
+    Rectangle {
+        background: #ff0000;
+        Image {
+            x: 1px;
+            y: 10px;
+            width: 110px;
+            height: 40px;
+            source: @image-url("border-image.png", nine-slice(6 7 6 6));
+        }
+    }
+}

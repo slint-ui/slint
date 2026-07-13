@@ -59,6 +59,11 @@ pub enum LspToPreviewMessage {
         error: Option<String>,
     },
     Quit,
+    /// Keepalive probe; the viewer answers with [`super::PreviewToLspMessage::Pong`].
+    /// Never sent to local previews.
+    /// A protocol message because the LSP's browser-compatible WebSocket layer
+    /// doesn't expose frame-level pings.
+    Ping,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]

@@ -1286,7 +1286,7 @@ export component DropArea {
     callback dropped(event: DropEvent) -> DragAction;
     /// `true` while an accepted drag hovers over the area, `false` otherwise.
     /// Bind it to a visual property to give the user feedback, for example a background color.
-    out property <bool> contains-drag;
+    out property <bool> has-drag;
     /// The action the runtime is currently negotiating with the source: `none` when no drag is hovering,
     /// or `copy`/`move`/`link` once a concrete action is settled.
     out property <DragAction> current-action;

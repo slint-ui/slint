@@ -91,7 +91,7 @@ impl Item for TouchArea {
             }
             return InputEventFilterResult::ForwardAndIgnore;
         }
-        if matches!(event, MouseEvent::DragMove(..) | MouseEvent::Drop(..)) {
+        if matches!(event, MouseEvent::DragMove { .. } | MouseEvent::Drop { .. }) {
             // Someone else has the grab, don't handle hover
             return InputEventFilterResult::ForwardAndIgnore;
         }
@@ -213,7 +213,7 @@ impl Item for TouchArea {
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                 InputEventResult::EventIgnored
             }
-            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
+            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => InputEventResult::EventIgnored,
         }
     }
 
@@ -796,7 +796,7 @@ impl Item for SwipeGestureHandler {
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
-            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
+            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
         }
@@ -846,7 +846,7 @@ impl Item for SwipeGestureHandler {
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                 InputEventResult::EventIgnored
             }
-            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
+            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => InputEventResult::EventIgnored,
         }
     }
 

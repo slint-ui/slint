@@ -1,14 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { FluentFontSettings, FluentPalette, Icons } from "styling.slint";
+import { FluentPalette, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component CheckBox {
     in property <string> text;
     in property <bool> enabled <=> touch-area.enabled;
-    in property <length> font-size: FluentFontSettings.body.font-size;
-    in property <int> font-weight: FluentFontSettings.body.font-weight;
+    in property <length> font-size;
+    in property <int> font-weight;
     out property <bool> has-focus: focus-scope.has-focus;
     in-out property <bool> checked;
 

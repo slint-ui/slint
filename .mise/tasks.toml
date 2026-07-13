@@ -17,12 +17,24 @@ description = "Update the main lockfile (if absolutely necessary)"
 # The fix:legal:copyright task needs the xtask anyhow, so this has a double use.
 run = "cargo build --locked -p xtask || (echo \"### Updating Main Lockfile! ###\" && cargo update)"
 
-["fix:rust:lockfile:bevy"]
-description = "Update the bevy example lockfile (if absolutely necessary)"
-# Use cargo metadata to test if the lockfile needs updating.
+# The examples, demos and tests workspaces each keep their own committed
+# Cargo.lock (bevy and servo folded into examples/Cargo.lock). Use cargo metadata
+# to test whether each lockfile needs updating.
 # --format-version suppresses "warning: please specify `--format-version` flag explicitly to avoid compatibility problems"
-run = "cargo metadata --locked --format-version=1 > /dev/null || (echo \"### Updating Main Lockfile! ###\" && cargo update)"
-dir = "examples/bevy"
+["fix:rust:lockfile:examples"]
+description = "Update the examples workspace lockfile (if absolutely necessary)"
+run = "cargo metadata --locked --format-version=1 > /dev/null || (echo \"### Updating Examples Lockfile! ###\" && cargo update)"
+dir = "examples"
+
+["fix:rust:lockfile:demos"]
+description = "Update the demos workspace lockfile (if absolutely necessary)"
+run = "cargo metadata --locked --format-version=1 > /dev/null || (echo \"### Updating Demos Lockfile! ###\" && cargo update)"
+dir = "demos"
+
+["fix:rust:lockfile:tests"]
+description = "Update the tests workspace lockfile (if absolutely necessary)"
+run = "cargo metadata --locked --format-version=1 > /dev/null || (echo \"### Updating Tests Lockfile! ###\" && cargo update)"
+dir = "tests"
 
 ["fix:legal:copyright"]
 description = "Run the check_license_headers --fix xtask"
@@ -139,7 +151,9 @@ depends = [
   "fix:ts:biome",
   "fix:ts:format",
   "fix:rust:lockfile:root",
-  "fix:rust:lockfile:bevy",
+  "fix:rust:lockfile:examples",
+  "fix:rust:lockfile:demos",
+  "fix:rust:lockfile:tests",
 ]
 
 ["ci:autofix:lint"]

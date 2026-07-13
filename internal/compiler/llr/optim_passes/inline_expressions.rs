@@ -115,6 +115,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::Exp => 10,
         BuiltinFunction::ToFixed => ALLOC_COST,
         BuiltinFunction::ToPrecision => ALLOC_COST,
+        BuiltinFunction::ToStringUnlocalized => ALLOC_COST,
         BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => isize::MAX,
         BuiltinFunction::ShowPopupWindow
         | BuiltinFunction::ClosePopupWindow
@@ -126,6 +127,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::StringIsFloat => 50,
         BuiltinFunction::StringIsEmpty => 50,
         BuiltinFunction::StringCharacterCount => 50,
+        BuiltinFunction::StringStartsWith | BuiltinFunction::StringEndsWith => 50,
         BuiltinFunction::StringToLowercase | BuiltinFunction::StringToUppercase => ALLOC_COST,
         BuiltinFunction::KeysToString => ALLOC_COST,
         BuiltinFunction::ColorRgbaStruct => 50,
@@ -138,6 +140,9 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ColorWithAlpha => 50,
         BuiltinFunction::ImageSize => 50,
         BuiltinFunction::ArrayLength => 50,
+        BuiltinFunction::ArrayPush
+        | BuiltinFunction::ArrayRemove
+        | BuiltinFunction::ArrayInsert => ALLOC_COST,
         BuiltinFunction::Rgb => 50,
         BuiltinFunction::Hsv => 50,
         BuiltinFunction::Oklch => 50,

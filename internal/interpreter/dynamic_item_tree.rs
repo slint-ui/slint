@@ -837,7 +837,7 @@ pub(crate) struct ItemRTTI {
 fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>>()
 -> (&'static str, Rc<ItemRTTI>) {
     let rtti = ItemRTTI {
-        vtable: T::static_vtable(),
+        vtable: T::STATIC_VTABLE,
         type_info: dynamic_type::StaticTypeInfo::new::<T>(),
         properties: T::properties()
             .into_iter()
@@ -1628,11 +1628,6 @@ pub fn instantiate(
         {
             continue;
         }
-        if let Some(b) = description.original.root_element.borrow().bindings.get(prop_name)
-            && b.borrow().two_way_bindings.is_empty()
-        {
-            continue;
-        }
         let p = description.custom_properties.get(prop_name).unwrap();
         unsafe {
             let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(p.offset));
@@ -1661,6 +1656,15 @@ pub fn instantiate(
                 prop_rtti.set_debug_name(item, name);
             }
         }
+    }
+
+    // Register the fonts before the property bindings, so a property that needs them
+    // (image decoding, text sizing) finds them.
+    for code in description.original.init_code.borrow().font_registration_code.iter() {
+        eval::eval_expression(
+            code,
+            &mut eval::EvalLocalContext::from_component_instance(instance_ref),
+        );
     }
 
     generator::handle_property_bindings_init(
@@ -2077,7 +2081,9 @@ impl ErasedItemTreeBox {
         generativity::make_guard!(guard);
         let compo_box = self.unerase(guard);
         let instance_ref = compo_box.borrow_instance();
-        for extra_init_code in self.0.description.original.init_code.borrow().iter() {
+        for extra_init_code in
+            self.0.description.original.init_code.borrow().iter_without_font_registration()
+        {
             eval::eval_expression(
                 extra_init_code,
                 &mut eval::EvalLocalContext::from_component_instance(instance_ref),
@@ -2223,19 +2229,24 @@ extern "C" fn layout_info(component: ItemTreeRefPin, orientation: Orientation) -
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let orientation = crate::eval_layout::from_runtime(orientation);
 
-    // The vtable layout_info path is taken e.g. for repeater cells. When
-    // the component root has a parameterized layout-info function, route
-    // through it: reading the bare `layoutinfo-{h,v}` would cycle on
-    // `self.{w,h}` for the cross-axis case, and we have no explicit
-    // constraint at this entry point. `f32::MAX` (i.e. "unconstrained")
-    // tells the runtime's flex algorithm to behave as if items don't
-    // need to wrap, which gives the natural max-cell-cross-axis result
-    // — much closer to correct than the `sqrt(item-areas)` heuristic
-    // that a `-1` sentinel would trigger.
+    // Vtable entry (repeater cells, window auto-size). Pass the cross-axis size
+    // to the root's parameterized layout-info function explicitly, avoiding a
+    // cycle on `self.{w,h}`: for the vertical query the preferred width, so a
+    // height-for-width Image sizes its height to that and not to infinity; for
+    // the horizontal query `f32::MAX`, i.e. "don't wrap".
     let root = &instance_ref.description.original.root_element;
+    let window_adapter = instance_ref.window_adapter();
     let cross_axis_constraint = match orientation {
         i_slint_compiler::layout::Orientation::Vertical => {
-            root.borrow().layout_info_v_with_constraint.is_some().then_some(f32::MAX)
+            root.borrow().layout_info_v_with_constraint.is_some().then(|| {
+                crate::eval_layout::get_layout_info(
+                    root,
+                    instance_ref,
+                    &window_adapter,
+                    i_slint_compiler::layout::Orientation::Horizontal,
+                )
+                .preferred_bounded()
+            })
         }
         i_slint_compiler::layout::Orientation::Horizontal => {
             root.borrow().layout_info_h_with_constraint.is_some().then_some(f32::MAX)
@@ -2244,7 +2255,7 @@ extern "C" fn layout_info(component: ItemTreeRefPin, orientation: Orientation) -
     let mut result = crate::eval_layout::get_layout_info_with_constraint(
         root,
         instance_ref,
-        &instance_ref.window_adapter(),
+        &window_adapter,
         orientation,
         cross_axis_constraint,
     );
@@ -2668,18 +2679,11 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
     }
 
     pub fn window_adapter(&self) -> WindowAdapterRc {
-        let root_weak = vtable::VWeak::into_dyn(self.root_weak().clone());
-        let root = self.root_weak().upgrade().unwrap();
-        generativity::make_guard!(guard);
-        let comp = root.unerase(guard);
-        Self::get_or_init_window_adapter_ref(
-            &comp.description,
-            root_weak,
-            true,
-            comp.instance.as_pin_ref().get_ref(),
-        )
-        .unwrap()
-        .clone()
+        self.try_window_adapter().unwrap()
+    }
+
+    pub fn try_window_adapter(&self) -> Result<WindowAdapterRc, PlatformError> {
+        self.root_weak().upgrade().unwrap().window_adapter_ref().cloned()
     }
 
     pub fn get_or_init_window_adapter_ref<'b, 'id2>(

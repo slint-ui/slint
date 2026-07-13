@@ -2,7 +2,7 @@
 title: Types
 description: All Slint types
 ---
-{/* cSpell: ignore Farbfeld */}
+{/* cSpell: ignore Farbfeld rgbacolor */}
 
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
@@ -43,6 +43,21 @@ Anything else following an unescaped `\` is an error.
 :::note[Note]
   The `\{...}` syntax is not valid within the `slint!` macro in Rust.
 :::
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+In Rust, properties or struct fields of the string type are mapped to <LangRefLink lang="rust-slint" relpath="struct.SharedString.html">`slint::SharedString`</LangRefLink>.
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+In C++, properties or struct fields of the string type are mapped to <LangRefLink lang="cpp" relpath="api/slint/sharedstring/">`slint::SharedString`</LangRefLink>.
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+In JavaScript, properties or struct fields of the string type are mapped to the `String` type.
+</TabItem>
+<TabItem label="Python" icon="seti:python">
+In Python, properties or struct fields of the string type are mapped to the native `str` type.
+</TabItem>
+</Tabs>
 
 </SlintProperty>
 
@@ -101,6 +116,34 @@ export component StringToUppercase {
 }
 ```
 
+#### starts-with(pat: string) -> bool
+
+Returns `true` if the given pattern matches a prefix of this string.
+
+Returns `false` if it does not.
+
+```slint
+export component StringStartsWith {
+    property<bool> res1: "Hello".starts-with("He"); // true
+    property<bool> res2: "你好".starts-with("好"); // false
+}
+```
+
+#### ends-with(pat: string) -> bool
+
+Returns `true` if the given pattern matches a suffix of this string.
+
+Returns `false` if it does not.
+
+```slint
+export component StringEndsWith {
+    property<bool> res1: "Hello".ends-with("lo"); // true
+    property<bool> res2: "你好".ends-with("你"); // false
+}
+```
+
+Returns a string with leading and trailing whitespace removed.
+
 #### to-float() -> float
 
 Returns the number contained in the string, or 0 if the string isn't a valid number.
@@ -140,6 +183,23 @@ Literal color names and hex values work directly: `@markdown("<font color='red'>
 To interpolate a dynamic color, the expression must be of type `color`:
 `@markdown("<font color='\{self.my-color}'>colored</font>")`.
 Interpolation inside HTML tags is only allowed in the color attribute value.
+
+Create styled text at runtime by parsing markdown with the `StyledText` API:
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+In Rust, parse markdown into styled text with <LangRefLink lang="rust-slint" relpath="struct.StyledText.html">`slint::StyledText`</LangRefLink>.
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+In C++, parse markdown into styled text with <LangRefLink lang="cpp" relpath="api/slint/styledtext/">`slint::StyledText`</LangRefLink>.
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+In JavaScript, parse markdown into styled text with the <LangRefLink lang="nodejs" relpath="api/classes/styledtext/">`StyledText`</LangRefLink> class.
+</TabItem>
+<TabItem label="Python" icon="seti:python">
+In Python, parse markdown into styled text with the <LangRefLink lang="python" relpath="api/classes/styledtext/">`StyledText`</LangRefLink> class.
+</TabItem>
+</Tabs>
 
 </SlintProperty>
 
@@ -186,6 +246,10 @@ export component FloatToString {
 In addition, call the <Link type="MathRef" label="math functions"/> in postfix style on any numeric value,
 for example `(-10).abs()` or `x.round()`.
 
+#### to-string-unlocalized() -> string
+
+Returns a string representation of the number but not localized. This means the decimal separator will always be a dot.
+
 ### int
 <SlintProperty propName="int" typeName="int" defaultValue='0'>
 Signed integral number.
@@ -219,11 +283,41 @@ Please see the language specific API references how these types are mapped to th
 ### brush
 <SlintProperty propName="brush" typeName="brush" defaultValue='transparent'>
 A brush is a special type that can be either initialized from a `color` or a `gradient`. See <Link type="ColorsRef" label="Colors & Brushes" />.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+In Rust, properties or struct fields of the brush type are mapped to <LangRefLink lang="rust-slint" relpath="enum.Brush.html">`slint::Brush`</LangRefLink>.
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+In C++, properties or struct fields of the brush type are mapped to <LangRefLink lang="cpp" relpath="api/slint/brush/">`slint::Brush`</LangRefLink>.
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+In JavaScript, properties or struct fields of the brush type are mapped to an object that implements the <LangRefLink lang="nodejs" relpath="api/interfaces/brush/">Brush interface</LangRefLink>.
+</TabItem>
+<TabItem label="Python" icon="seti:python">
+In Python, properties or struct fields of the brush type are mapped to <LangRefLink lang="python" relpath="api/classes/brush/">`Brush`</LangRefLink>.
+</TabItem>
+</Tabs>
 </SlintProperty>
 
 ### color
 <SlintProperty propName="color" typeName="color" defaultValue='transparent'>
 RGB color with an alpha channel, with 8 bit precision for each channel. CSS color names as well as the hexadecimal color encodings are supported, such as #RRGGBBAA or #RGB. See <Link type="ColorsRef" label="Colors & Brushes" />.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+In Rust, properties or struct fields of the color type are mapped to <LangRefLink lang="rust-slint" relpath="struct.Color.html">`slint::Color`</LangRefLink>.
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+In C++, properties or struct fields of the color type are mapped to <LangRefLink lang="cpp" relpath="api/slint/color/">`slint::Color`</LangRefLink>.
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+In JavaScript, properties or struct fields of the color type are mapped to an object that implements the <LangRefLink lang="nodejs" relpath="api/interfaces/rgbacolor/">RgbaColor interface</LangRefLink>.
+</TabItem>
+<TabItem label="Python" icon="seti:python">
+In Python, properties or struct fields of the color type are mapped to <LangRefLink lang="python" relpath="api/classes/color/">`Color`</LangRefLink>.
+</TabItem>
+</Tabs>
 </SlintProperty>
 
 ## Keyboard input
@@ -235,6 +329,21 @@ This is the primitive type used to detect if a KeyEvent should trigger a given k
 
 Key bindings in Slint are based on **logical keys** — the character a key produces on the current keyboard layout — not the physical position of a key on the keyboard.
 See <Link type="KeyBindingOverview" label="Key Bindings" /> for details.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+In Rust, properties or struct fields of the keys type are mapped to <LangRefLink lang="rust-slint" relpath="struct.Keys.html">`slint::Keys`</LangRefLink>.
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+In C++, properties or struct fields of the keys type are mapped to <LangRefLink lang="cpp" relpath="api/slint/keys/">`slint::Keys`</LangRefLink>.
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+In JavaScript, properties or struct fields of the keys type are mapped to the <LangRefLink lang="nodejs" relpath="api/classes/keys/">`Keys`</LangRefLink> class.
+</TabItem>
+<TabItem label="Python" icon="seti:python">
+In Python, properties or struct fields of the keys type are mapped to <LangRefLink lang="python" relpath="api/classes/keys/">`Keys`</LangRefLink>.
+</TabItem>
+</Tabs>
 </SlintProperty>
 
 `keys` values have the following member function:
@@ -282,10 +391,7 @@ Supported format are SVG, and formats supported by the [`image` crate](https://c
 AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP.
 
 <Tabs syncKey="dev-language">
-<TabItem label="C++">
-In C++, properties or struct fields of the image type are mapped to <LangRefLink lang="cpp" relpath="api/slint/image/">`slint::Image`</LangRefLink>.
-</TabItem>
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 In Rust, properties or struct fields of the image type are mapped to <LangRefLink lang="rust-slint" relpath="struct.Image">`slint::Image`</LangRefLink>.
 :::note[Note]
 By default, only PNG, JPEG, and SVG are supported.
@@ -293,11 +399,14 @@ Enable the `image-default-formats` Cargo feature to support the other formats li
 which comes at a cost of increased binary size and compilation time.
 :::
 </TabItem>
-<TabItem label="NodeJS" >
-In JavaScript properties or struct fields of the image type are mapped an object that implement the <LangRefLink lang="nodejs" relpath="api/interfaces/ImageData/">ImageData interface</LangRefLink>.
+<TabItem label="C++" icon="seti:cpp">
+In C++, properties or struct fields of the image type are mapped to <LangRefLink lang="cpp" relpath="api/slint/image/">`slint::Image`</LangRefLink>.
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+In JavaScript properties or struct fields of the image type are mapped an object that implement the <LangRefLink lang="nodejs" relpath="api/interfaces/imagedata/">ImageData interface</LangRefLink>.
 </TabItem>
 
-<TabItem label="Python" >
+<TabItem label="Python" icon="seti:python">
 In Python, properties or struct fields of the image type are mapped to <LangRefLink lang="python" relpath="api/classes/image/">`Image`</LangRefLink>.
 </TabItem>
 
@@ -364,6 +473,21 @@ It abstracts over the file-type transfer mechanisms supported by each platform.
 The type is opaque in Slint code:
 construct a `data-transfer` value and read its content via callbacks implemented in the host language.
 See <Link type="DragAndDrop" /> for an end-to-end example.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+In Rust, properties or struct fields of the data-transfer type are mapped to <LangRefLink lang="rust-slint" relpath="struct.DataTransfer.html">`slint::DataTransfer`</LangRefLink>.
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+In C++, properties or struct fields of the data-transfer type are mapped to <LangRefLink lang="cpp" relpath="api/slint/datatransfer/">`slint::DataTransfer`</LangRefLink>.
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+In JavaScript, properties or struct fields of the data-transfer type are mapped to the <LangRefLink lang="nodejs" relpath="api/classes/datatransfer/">`DataTransfer`</LangRefLink> class.
+</TabItem>
+<TabItem label="Python" icon="seti:python">
+In Python, properties or struct fields of the data-transfer type are mapped to <LangRefLink lang="python" relpath="api/classes/datatransfer/">`DataTransfer`</LangRefLink>.
+</TabItem>
+</Tabs>
 
 </SlintProperty>
 
@@ -478,6 +602,7 @@ export component Example {
 `int` and `float` convert implicitly to `string`.
 To control how many digits appear in the result, use the [`to-fixed()` and `to-precision()`](#to-fixeddigits-int---string)
 member functions instead of the implicit conversion.
+To always use a dot as decimal separator regardless of the locale, use [`to-string-unlocalized()`](#to-string-unlocalized---string).
 
 For the other direction, convert a `string` to a number with the [`to-float()`](#to-float---float) member function,
 and check whether a string holds a valid number with `is-float()`.

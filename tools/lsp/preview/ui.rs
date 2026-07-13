@@ -132,8 +132,10 @@ pub fn create_ui(
         model
     });
 
-    api.set_current_style(style.clone().into());
+    let current_style_index =
+        known_styles.iter().position(|&s| s == style.as_str()).unwrap_or(0) as i32;
     api.set_known_styles(style_model.into());
+    api.set_current_style_index(current_style_index);
 
     api.on_add_new_component(super::add_new_component);
     api.on_rename_component(super::rename_component);
@@ -466,7 +468,7 @@ fn string_to_code(
     }
 }
 
-fn unit_model(units: &[expression_tree::Unit]) -> ModelRc<SharedString> {
+fn unit_model(units: &[expression_tree::WrittenUnit]) -> ModelRc<SharedString> {
     Rc::new(VecModel::from(
         units.iter().map(|u| u.to_string().into()).collect::<Vec<SharedString>>(),
     ))
@@ -618,7 +620,7 @@ fn map_value_and_type(
             ..Default::default()
         });
     }
-    use i_slint_compiler::expression_tree::Unit;
+    use i_slint_compiler::expression_tree::WrittenUnit;
     use langtype::Type;
 
     match ty {
@@ -649,11 +651,11 @@ fn map_value_and_type(
         Type::Duration => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Ms),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), WrittenUnit::Ms),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                visual_items: unit_model(&[Unit::S, Unit::Ms]),
+                visual_items: unit_model(&[WrittenUnit::S, WrittenUnit::Ms]),
                 value_int: 1,
                 code: get_code(value),
                 default_selection: 1,
@@ -664,18 +666,18 @@ fn map_value_and_type(
         Type::PhysicalLength => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Phx),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), WrittenUnit::Phx),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 visual_items: unit_model(&[
-                    Unit::Px,
-                    Unit::Cm,
-                    Unit::Mm,
-                    Unit::In,
-                    Unit::Pt,
-                    Unit::Phx,
-                    Unit::Rem,
+                    WrittenUnit::Px,
+                    WrittenUnit::Cm,
+                    WrittenUnit::Mm,
+                    WrittenUnit::In,
+                    WrittenUnit::Pt,
+                    WrittenUnit::Phx,
+                    WrittenUnit::Rem,
                 ]),
                 value_int: 5,
                 code: get_code(value),
@@ -687,18 +689,18 @@ fn map_value_and_type(
         Type::LogicalLength => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Px),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), WrittenUnit::Px),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 visual_items: unit_model(&[
-                    Unit::Px,
-                    Unit::Cm,
-                    Unit::Mm,
-                    Unit::In,
-                    Unit::Pt,
-                    Unit::Phx,
-                    Unit::Rem,
+                    WrittenUnit::Px,
+                    WrittenUnit::Cm,
+                    WrittenUnit::Mm,
+                    WrittenUnit::In,
+                    WrittenUnit::Pt,
+                    WrittenUnit::Phx,
+                    WrittenUnit::Rem,
                 ]),
                 value_int: 0,
                 code: get_code(value),
@@ -710,18 +712,18 @@ fn map_value_and_type(
         Type::Rem => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Rem),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), WrittenUnit::Rem),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 visual_items: unit_model(&[
-                    Unit::Px,
-                    Unit::Cm,
-                    Unit::Mm,
-                    Unit::In,
-                    Unit::Pt,
-                    Unit::Phx,
-                    Unit::Rem,
+                    WrittenUnit::Px,
+                    WrittenUnit::Cm,
+                    WrittenUnit::Mm,
+                    WrittenUnit::In,
+                    WrittenUnit::Pt,
+                    WrittenUnit::Phx,
+                    WrittenUnit::Rem,
                 ]),
                 value_int: 6,
                 code: get_code(value),
@@ -733,11 +735,16 @@ fn map_value_and_type(
         Type::Angle => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Deg),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), WrittenUnit::Deg),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                visual_items: unit_model(&[Unit::Deg, Unit::Grad, Unit::Turn, Unit::Rad]),
+                visual_items: unit_model(&[
+                    WrittenUnit::Deg,
+                    WrittenUnit::Grad,
+                    WrittenUnit::Turn,
+                    WrittenUnit::Rad,
+                ]),
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
@@ -748,11 +755,15 @@ fn map_value_and_type(
         Type::Percent => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Percent),
+                display_string: slint::format!(
+                    "{}{}",
+                    get_value::<f32>(value),
+                    WrittenUnit::Percent
+                ),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                visual_items: unit_model(&[Unit::Percent]),
+                visual_items: unit_model(&[WrittenUnit::Percent]),
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,

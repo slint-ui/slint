@@ -179,18 +179,36 @@ impl VulkanSurface {
             }
         };
 
+        // Cap the Vulkan API version Skia uses. Skia otherwise assumes the highest version reported
+        // by the physical device and tries to load functions and request features for it. That fails
+        // on drivers where the logical device we created only negotiated a lower version, so limit it
+        // to the version vulkano negotiated for this physical device under our instance.
+        let api_version = physical_device.api_version();
+        let max_api_version = skia_safe::gpu::vk::Version::new(
+            api_version.major as _,
+            api_version.minor as _,
+            api_version.patch as _,
+        );
+
         let backend_context = unsafe {
-            skia_safe::gpu::vk::BackendContext::new(
+            skia_safe::gpu::vk::BackendContext::new_builder(
                 instance.handle().as_raw() as _,
                 physical_device.handle().as_raw() as _,
                 device.handle().as_raw() as _,
                 (queue.handle().as_raw() as _, queue.queue_index() as _),
                 &get_proc,
+                Some(max_api_version),
             )
+            .build()
         };
 
         let gr_context = skia_safe::gpu::direct_contexts::make_vulkan(&backend_context, None)
-            .ok_or_else(|| "Error creating Skia Vulkan context".to_string())?;
+            .ok_or_else(|| {
+                format!(
+                    "Error creating Skia Vulkan context (max api version {}.{}.{})",
+                    api_version.major, api_version.minor, api_version.patch
+                )
+            })?;
 
         let previous_frame_end = RefCell::new(Some(sync::now(device.clone()).boxed()));
 

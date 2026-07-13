@@ -13,7 +13,9 @@ use i_slint_core::window::{
 };
 
 use i_slint_core::SharedString;
-use i_slint_core::items::TextWrap;
+use i_slint_core::api::LogicalPosition;
+use i_slint_core::input::MouseEvent;
+use i_slint_core::items::{AllowedDragActions, DragAction, DropEvent, TextWrap};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::pin::Pin;
@@ -191,6 +193,8 @@ impl i_slint_core::platform::Platform for TestingBackend {
             open_url: self.open_url.clone(),
             debug_logs: self.debug_logs.clone(),
             native_popup: Cell::new(false),
+            simulate_native_drag: Cell::new(false),
+            native_drag: Default::default(),
             #[cfg(supports_headless)]
             renderer_name: self.renderer_name.clone(),
             #[cfg(supports_headless)]
@@ -289,6 +293,10 @@ pub struct TestingWindow {
     pub open_url: Rc<RefCell<Option<SharedString>>>,
     pub debug_logs: Rc<RefCell<Vec<String>>>,
     native_popup: Cell<bool>,
+    simulate_native_drag: Cell<bool>,
+    /// Payload and allowed actions recorded by `start_drag` while simulating a native drag,
+    /// so the receive-side helpers can build the drop they deliver to a target window.
+    native_drag: RefCell<Option<(i_slint_core::data_transfer::DataTransfer, AllowedDragActions)>>,
     /// Remembered for child popups, so they pick the same rasterizer.
     #[cfg(supports_headless)]
     renderer_name: Option<SharedString>,
@@ -318,11 +326,74 @@ impl TestingWindow {
     pub fn take_debug_log(&self) -> Vec<String> {
         self.debug_logs.borrow_mut().drain(..).collect()
     }
+
+    /// Enable simulating native (OS-level) drag-and-drop. Once enabled, `start_drag` takes the
+    /// drag over as a real backend does (instead of declining it and using the in-window
+    /// fallback), recording the payload so [`Self::simulate_native_drag_move`] and
+    /// [`Self::simulate_native_drop`] can drive the receive side.
+    pub fn set_simulate_native_drag(&self, enabled: bool) {
+        self.simulate_native_drag.set(enabled);
+    }
+
+    /// Move the in-flight simulated native drag over `target` at `position`, as a backend does
+    /// when the OS drags across a window. Returns the action the target's `DropArea` proposes.
+    pub fn simulate_native_drag_move(
+        &self,
+        target: &i_slint_core::api::Window,
+        position: LogicalPosition,
+    ) -> DragAction {
+        self.deliver_native_drag(target, position, false)
+    }
+
+    /// Drop the in-flight simulated native drag onto `target` at `position`, then report
+    /// completion back to this source window, as a backend does when the OS drag ends. Returns
+    /// the final negotiated action.
+    pub fn simulate_native_drop(
+        &self,
+        target: &i_slint_core::api::Window,
+        position: LogicalPosition,
+    ) -> DragAction {
+        let action = self.deliver_native_drag(target, position, true);
+        WindowInner::from_pub(&self.window).report_drag_finished(action);
+        action
+    }
+
+    fn deliver_native_drag(
+        &self,
+        target: &i_slint_core::api::Window,
+        position: LogicalPosition,
+        drop: bool,
+    ) -> DragAction {
+        let (data, allowed) =
+            self.native_drag.borrow().clone().expect("no simulated native drag in flight");
+        let mut event = DropEvent::default();
+        event.data = data;
+        event.position = position;
+        event.proposed_action =
+            i_slint_core::items::compute_proposed_action(Default::default(), allowed);
+        let event = if drop {
+            MouseEvent::Drop { event, allowed }
+        } else {
+            MouseEvent::DragMove { event, allowed }
+        };
+        WindowInner::from_pub(target)
+            .process_mouse_input(event)
+            .and_then(|r| r.drag_action)
+            .unwrap_or(DragAction::None)
+    }
 }
 
 impl WindowAdapterInternal for TestingWindow {
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
         self.ime_requests.borrow_mut().push(request)
+    }
+
+    fn start_drag(&self, request: &i_slint_core::window::DragRequest) -> bool {
+        if !self.simulate_native_drag.get() {
+            return false;
+        }
+        *self.native_drag.borrow_mut() = Some((request.data().clone(), request.allowed_actions()));
+        true
     }
 
     fn set_mouse_cursor(&self, cursor: i_slint_core::items::MouseCursor) {
@@ -365,6 +436,8 @@ impl WindowAdapterInternal for TestingWindow {
                 open_url: self.open_url.clone(),
                 debug_logs: self.debug_logs.clone(),
                 native_popup: self.native_popup.clone(),
+                simulate_native_drag: self.simulate_native_drag.clone(),
+                native_drag: Default::default(),
                 #[cfg(supports_headless)]
                 renderer_name: self.renderer_name.clone(),
                 #[cfg(supports_headless)]

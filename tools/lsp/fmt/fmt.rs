@@ -149,6 +149,12 @@ fn format_node(
         SyntaxKind::RepeatedIndex => {
             return format_repeated_index(node, writer, state);
         }
+        SyntaxKind::MatchElement => {
+            return format_match_element(node, writer, state);
+        }
+        SyntaxKind::MatchCase | SyntaxKind::WildcardMatchCase => {
+            return format_match_case(node, writer, state);
+        }
         SyntaxKind::Array => {
             return format_array(node, writer, state);
         }
@@ -1144,7 +1150,7 @@ fn format_return_statement(
     let mut sub = node.children_with_tokens();
     whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
     if node.child_node(SyntaxKind::Expression).is_some() {
-        whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, " ")?;
+        whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
     }
     whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
     state.new_line();
@@ -1234,6 +1240,56 @@ fn format_repeated_element(
 
     for s in sub {
         fold(s, writer, state)?;
+    }
+    Ok(())
+}
+
+fn format_match_element(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+    whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?;
+
+    state.indentation_level += 1;
+    state.new_line();
+
+    for s in sub {
+        if s.kind() == SyntaxKind::RBrace {
+            state.indentation_level -= 1;
+            state.whitespace_to_add = None;
+            state.new_line();
+            fold(s, writer, state)?;
+            state.new_line();
+        } else {
+            fold(s, writer, state)?;
+        }
+    }
+    Ok(())
+}
+
+fn format_match_case(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens().peekable();
+    whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?;
+    whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?;
+    if node.child_node(SyntaxKind::SubElement).is_none() {
+        whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?;
+        whitespace_to(&mut sub, SyntaxKind::RBrace, writer, state, " ")?;
+        state.skip_all_whitespace = true;
+        state.new_line();
+    } else {
+        state.insert_whitespace(" ");
+        state.skip_all_whitespace = true;
+        for s in sub {
+            fold(s, writer, state)?;
+        }
     }
     Ok(())
 }

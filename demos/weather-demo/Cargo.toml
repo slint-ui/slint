@@ -4,7 +4,7 @@
 # cSpell:ignore openweather urlencoding
 [package]
 name = "weather-demo"
-version = "1.17.0"
+version = "1.18.0"
 authors = ["FELGO GmbH <contact@felgo.com>"]
 edition.workspace = true
 build = "build.rs"

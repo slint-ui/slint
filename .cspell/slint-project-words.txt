@@ -257,6 +257,7 @@ hidpi
 highp
 HINSTANCE
 Hira
+hlayout
 hmenu
 horizontalbox
 horizontallayout
@@ -434,6 +435,7 @@ objfile
 Octa
 oklch
 oldsyspath
+optipng
 ospi
 othercomp
 ovmf
@@ -658,6 +660,7 @@ verticalbox
 verticallayout
 VGWGPU
 viewports
+vlayout
 vref
 vscodeversion
 vtables

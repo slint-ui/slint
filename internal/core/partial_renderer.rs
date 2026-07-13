@@ -460,19 +460,26 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                             &cached_geom.transform(),
                         );
 
+                        let moved = state.must_refresh_children
+                            || new_state.transform_to_screen != new_state.old_transform_to_screen;
+
                         if rendering_dirty {
                             self.mark_dirty_rect(
                                 cached_geom.bounding_rect(),
                                 state.transform_to_screen,
                                 &state.clipped,
                             );
+                            if moved {
+                                self.mark_dirty_rect(
+                                    cached_geom.bounding_rect(),
+                                    state.old_transform_to_screen,
+                                    &state.clipped,
+                                );
+                            }
 
                             ItemVisitorResult::Continue(new_state)
                         } else {
-                            if state.must_refresh_children
-                                || new_state.transform_to_screen
-                                    != new_state.old_transform_to_screen
-                            {
+                            if moved {
                                 self.mark_dirty_rect(
                                     cached_geom.bounding_rect(),
                                     state.old_transform_to_screen,

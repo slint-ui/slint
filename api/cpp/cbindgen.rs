@@ -336,6 +336,7 @@ fn default_config() -> cbindgen::Config {
     config.export = cbindgen::ExportConfig {
         rename: [
             ("Callback".into(), "private_api::CallbackHelper".into()),
+            ("ChangeTracker".into(), "private_api::ChangeTracker".into()),
             ("VoidArg".into(), "void".into()),
             ("FocusReasonArg".into(), "FocusReason".into()),
             ("StringArg".into(), "slint::SharedString".into()),
@@ -525,6 +526,8 @@ fn gen_corelib(
         "slint_property_listener_scope_is_dirty",
         "PropertyTrackerOpaque",
         "CallbackOpaque",
+        "ChangeTracker",
+        "ChangeTrackerOpaque",
         "WindowAdapterRc",
         "VoidArg",
         "StringArg",
@@ -813,6 +816,7 @@ fn gen_corelib(
             .with_src(crate_dir.join("data_transfer/ffi.rs"))
             .with_src(crate_dir.join("animations.rs"))
             .with_src(crate_dir.join("input.rs"))
+            .with_src(crate_dir.join("items/drag_n_drop.rs"))
             .with_src(crate_dir.join("item_rendering.rs"))
             .with_src(crate_dir.join("window.rs"))
             .with_src(crate_dir.join("../renderers/software/lib.rs"))

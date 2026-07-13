@@ -514,9 +514,10 @@ impl BuildDiagnostics {
     #[cfg(feature = "display-diagnostics")]
     /// Print the diagnostics on the console
     pub fn print(self) {
+        use std::io::Write;
         let to_print = self.call_diagnostics(None);
         if !to_print.is_empty() {
-            std::eprintln!("{to_print}");
+            let _ = writeln!(std::io::stderr(), "{to_print}");
         }
     }
 

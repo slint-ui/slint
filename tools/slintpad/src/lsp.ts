@@ -159,7 +159,9 @@ export class LspWaiter {
                 let received = 0;
                 while (true) {
                     const { done, value } = await reader.read();
-                    if (done) break;
+                    if (done) {
+                        break;
+                    }
                     if (value) {
                         received += value.length;
                         on_progress?.({

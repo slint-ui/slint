@@ -1,7 +1,7 @@
 {
     "name": "slint-docs",
     "type": "module",
-    "version": "1.17.0",
+    "version": "1.18.0",
     "scripts": {
         "dev": "astro dev",
         "start": "astro dev",
@@ -31,8 +31,8 @@
         "unpic": "4.2.2"
     },
     "devDependencies": {
-        "@astrojs/markdown-remark": "7.2.0",
-        "@astrojs/mdx": "5.0.6",
+        "@astrojs/markdown-remark": "7.2.1",
+        "@astrojs/mdx": "7.0.2",
         "@astrojs/partytown": "2.1.7",
         "@astrojs/tailwind": "6.0.2",
         "@biomejs/biome": "catalog:",
@@ -45,7 +45,7 @@
         "@types/mdx": "2.0.14",
         "astro-compress": "2.4.1",
         "cspell": "catalog:",
-        "js-yaml": "4.2.0",
+        "js-yaml": "4.3.0",
         "mdast-util-to-string": "4.0.0",
         "reading-time": "1.5.0",
         "tailwind-merge": "3.6.0",

@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Adding rows to the model from a pointer-event handler used to panic with
+// "assertion failed: result.len() >= total_repeated_cells * 2" while the layout
+// cache was recomputed mid-event, before the new rows were instantiated.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in-out property <[int]> items;
+    out property <int> count: items.length;
+    callback expand();
+
+    Flickable {
+        viewport-height: items.length * 30px;
+        VerticalLayout {
+            alignment: start;
+            for item[index] in items: TouchArea {
+                height: 30px;
+                pointer-event(event) => {
+                    if (event.button == PointerEventButton.left) && (event.kind == PointerEventKind.down) {
+                        expand();
+                    }
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let model = std::rc::Rc::new(slint::VecModel::<i32>::from(vec![0]));
+instance.set_items(model.clone().into());
+instance.on_expand(move || {
+    model.push(0);
+    model.push(0);
+});
+slint_testing::send_mouse_click(&instance, 150., 15.);
+assert_eq!(instance.get_count(), 3);
+```
+
+```cpp
+auto handle = TestCase::create();
+TestCase &instance = *handle;
+auto model = std::make_shared<slint::VectorModel<int>>();
+model->push_back(0);
+instance.set_items(model);
+instance.on_expand([=]() {
+    model->push_back(0);
+    model->push_back(0);
+});
+slint_testing::send_mouse_click(&instance, 150., 15.);
+assert_eq(instance.get_count(), 3);
+```
+
+```js
+var instance = new slint.TestCase({});
+let model = new slintlib.ArrayModel([0]);
+instance.items = model;
+instance.expand = () => {
+    model.push(0);
+    model.push(0);
+};
+slintlib.private_api.send_mouse_click(instance, 150., 15.);
+assert.equal(instance.count, 3);
+```
+*/

@@ -431,9 +431,12 @@ pub struct InitCode {
 
 impl InitCode {
     pub fn iter(&self) -> impl Iterator<Item = &Expression> {
-        self.font_registration_code
+        self.font_registration_code.iter().chain(self.iter_without_font_registration())
+    }
+    /// The init code without the font registration, which has to run before the property init.
+    pub fn iter_without_font_registration(&self) -> impl Iterator<Item = &Expression> {
+        self.focus_setting_code
             .iter()
-            .chain(self.focus_setting_code.iter())
             .chain(self.constructor_code.iter())
             .chain(self.inlined_init_code.values())
     }
@@ -880,6 +883,10 @@ pub struct Element {
 
     /// true when this item's geometry is handled by a layout
     pub child_of_layout: bool,
+    /// true when this item is a direct cell of a `FlexboxLayout`. Narrower
+    /// than `child_of_layout`: only flexbox cells need the per-repeater
+    /// `flexbox_layout_item_info` accessor.
+    pub child_of_flexbox: bool,
     /// The property pointing to the layout info. `(horizontal, vertical)`
     pub layout_info_prop: Option<(NamedReference, NamedReference)>,
     /// `pure function layoutinfo-v-with-constraint(width: length) -> LayoutInfo`
@@ -1204,6 +1211,12 @@ impl Element {
                     error_on(&cb, "an 'init' callback")
                 }
             });
+            node.MatchElement().for_each(|n| error_on(&n, "match statements"));
+
+            if parent_type == ElementType::Interface {
+                node.Binding().for_each(|n| error_on(&n, "bindings"));
+                node.TwoWayBinding().for_each(|n| error_on(&n, "two-way bindings"));
+            }
 
             parent_type
         } else if parent_type != ElementType::Error {
@@ -1213,6 +1226,7 @@ impl Element {
         } else {
             tr.empty_type()
         };
+        let is_interface = base_type == ElementType::Interface;
         // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
         let qualified_id = (!id.is_empty()).then(|| id.clone());
         if let ElementType::Component(c) = &base_type {
@@ -1328,11 +1342,25 @@ impl Element {
                 }
             });
 
-            if base_type == ElementType::Interface && visibility == PropertyVisibility::Private {
-                diag.push_error(
-                    "'private' properties are inaccessible in an interface".into(),
-                    &prop_decl,
-                );
+            if is_interface {
+                if let Some(binding_expression) = &prop_decl.BindingExpression() {
+                    diag.push_error(
+                        "Interface properties cannot have default values".into(),
+                        binding_expression,
+                    )
+                }
+                if let Some(two_way) = &prop_decl.TwoWayBinding() {
+                    diag.push_error(
+                        "Interface properties cannot have default bindings".into(),
+                        two_way,
+                    )
+                }
+                if visibility == PropertyVisibility::Private {
+                    diag.push_error(
+                        "'private' properties are inaccessible in an interface".into(),
+                        &prop_decl,
+                    );
+                }
             }
 
             // Use the name as declared, not the resolved name: when the declaration
@@ -1567,7 +1595,7 @@ impl Element {
                 }
             }
 
-            if base_type == ElementType::Interface && visibility != PropertyVisibility::Public {
+            if is_interface && visibility != PropertyVisibility::Public {
                 diag.push_error(
                     "Function declarations in an interface must be public".into(),
                     &func,
@@ -1842,6 +1870,23 @@ impl Element {
                     )
                 }
                 r.borrow_mut().children.push(rep);
+            } else if se.kind() == SyntaxKind::MatchElement {
+                let mut sub_child_insertion_point = None;
+                let rep = Element::from_match_node(
+                    se.into(),
+                    r.borrow().base_type.clone(),
+                    &mut sub_child_insertion_point,
+                    is_legacy_syntax,
+                    diag,
+                    tr,
+                );
+                if let Some(ChildrenInsertionPoint { node: se, .. }) = sub_child_insertion_point {
+                    diag.push_error(
+                        "The @children placeholder cannot appear in a match element".into(),
+                        &se,
+                    )
+                }
+                r.borrow_mut().children.extend(rep);
             } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
                 #[cfg(feature = "slint-sc")]
                 diag.slint_sc_error("The @children placeholder is", &se);
@@ -2064,6 +2109,86 @@ impl Element {
         e
     }
 
+    fn from_match_node(
+        node: syntax_nodes::MatchElement,
+        parent_type: ElementType,
+        component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
+        is_in_legacy_component: bool,
+        diag: &mut BuildDiagnostics,
+        tr: &TypeRegister,
+    ) -> Vec<ElementRc> {
+        if !diag.enable_experimental {
+            diag.push_error("match statements are an experimental feature".into(), &node);
+        }
+        let mut cases: Vec<ElementRc> = Vec::new();
+        let expr = node.Expression();
+        for case in node.MatchCase() {
+            let Some(sub_element) = case.SubElement() else {
+                continue;
+            };
+            let rei = RepeatedElementInfo {
+                model: Expression::BinaryExpression {
+                    lhs: (Box::new(Expression::Uncompiled(expr.clone().into()))),
+                    rhs: Box::new(Expression::Uncompiled(case.Expression().into())),
+                    op: '=',
+                },
+                model_data_id: SmolStr::default(),
+                index_id: SmolStr::default(),
+                is_conditional_element: true,
+                is_listview: None,
+            };
+            let e: Rc<RefCell<Element>> = Element::from_sub_element_node(
+                sub_element,
+                parent_type.clone(),
+                component_child_insertion_point,
+                is_in_legacy_component,
+                diag,
+                tr,
+            );
+            e.borrow_mut().repeated = Some(rei);
+            cases.push(e);
+        }
+        if let Some(wildcard) = node.WildcardMatchCase()
+            && let Some(sub_element) = wildcard.SubElement()
+        {
+            let case_exprs: Vec<_> = node.MatchCase().collect();
+            let mut condition = Expression::BinaryExpression {
+                lhs: Box::new(Expression::Uncompiled(expr.clone().into())),
+                rhs: Box::new(Expression::Uncompiled(case_exprs[0].Expression().into())),
+                op: '!',
+            };
+            for case in &case_exprs[1..] {
+                condition = Expression::BinaryExpression {
+                    lhs: Box::new(condition),
+                    rhs: Box::new(Expression::BinaryExpression {
+                        lhs: Box::new(Expression::Uncompiled(expr.clone().into())),
+                        rhs: Box::new(Expression::Uncompiled(case.Expression().into())),
+                        op: '!',
+                    }),
+                    op: '&',
+                };
+            }
+            let rei = RepeatedElementInfo {
+                model: condition,
+                model_data_id: SmolStr::default(),
+                index_id: SmolStr::default(),
+                is_conditional_element: true,
+                is_listview: None,
+            };
+            let e = Element::from_sub_element_node(
+                sub_element,
+                parent_type.clone(),
+                component_child_insertion_point,
+                is_in_legacy_component,
+                diag,
+                tr,
+            );
+            e.borrow_mut().repeated = Some(rei);
+            cases.push(e);
+        }
+        cases
+    }
+
     /// Return the type of a property in this element or its base, along with the final name, in case
     /// the provided name points towards a property alias. Type::Invalid is returned if the property does
     /// not exist.
@@ -2244,9 +2369,11 @@ impl Element {
             // Conservatively treat any wrap binding (including a literal
             // `no-wrap`) as height-for-width.
             "Text" | "TextInput" => self.is_binding_set("wrap", false),
-            // `StyledText` has no `wrap` property; markdown text always
-            // wraps to fill the given width.
-            "Image" | "ClippedImage" | "StyledText" => true,
+            // An Image is height-for-width only while its height comes from its
+            // width; with an explicit height it is fixed, so it is not.
+            "Image" | "ClippedImage" => !self.is_binding_set("height", true),
+            // Markdown text always wraps to fill the given width.
+            "StyledText" => true,
             _ => false,
         }
     }
@@ -2267,6 +2394,23 @@ impl Element {
             base = root.base_type.clone();
         }
         None
+    }
+
+    /// Whether [`Self::inherited_layout_info_v_with_constraint`] would return
+    /// `Some`, without cloning the `NamedReference`.
+    pub fn has_inherited_layout_info_v_with_constraint(&self) -> bool {
+        if self.layout_info_v_with_constraint.is_some() {
+            return true;
+        }
+        let mut base = self.base_type.clone();
+        while let ElementType::Component(base_comp) = base {
+            let root = base_comp.root_element.borrow();
+            if root.layout_info_v_with_constraint.is_some() {
+                return true;
+            }
+            base = root.base_type.clone();
+        }
+        false
     }
 
     /// Mirror of [`Self::inherited_layout_info_v_with_constraint`] for the
@@ -3278,7 +3422,7 @@ impl Exports {
                     diag.push_warning(
                         format!(
                             "'{}' is already exported in this file; it will not be re-exported",
-                            &*export.0
+                            *export.0
                         ),
                         &export.0.name_ident,
                     );

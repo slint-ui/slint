@@ -28,7 +28,7 @@ impl FemtoVGWgpuRendererAdapter {
 
         let renderer = i_slint_renderer_femtovg::FemtoVGRenderer::new_suspended();
         renderer
-            .set_surface(surface_target, size, requested_graphics_api.cloned())
+            .set_surface(surface_target, size, requested_graphics_api.cloned(), false)
             .map_err(|e| format!("Error initializing FemtoVG wgpu surface: {e}"))?;
 
         let renderer = Box::new(Self { renderer, size, _drm_output: drm_output });

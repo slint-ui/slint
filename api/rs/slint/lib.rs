@@ -412,6 +412,14 @@ macro_rules! init_translations {
     };
 }
 
+/// Forces all the strings that are translated with `@tr(...)` to be re-evaluated.
+/// Call this function after changing the language at run-time and when translating
+/// with either gettext or a custom translator. For bundled translations, there is no need
+/// to call this function.
+pub fn update_all_translations() {
+    i_slint_core::translations::mark_all_translations_dirty();
+}
+
 /// This module contains items that you need to use or implement if you want use Slint in an environment without
 /// one of the supplied platform backends such as qt or winit.
 ///
@@ -508,7 +516,7 @@ pub mod android;
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct VersionCheck_1_17_0;
+pub struct VersionCheck_1_18_0;
 
 #[cfg(doctest)]
 mod compile_fail_tests;
@@ -554,7 +562,7 @@ pub mod wgpu_29 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.17", features = ["unstable-wgpu-29"] }
+    //! slint = { version = "~1.18", features = ["unstable-wgpu-29"] }
     //! ```
     //!
     //! `main.rs`:
@@ -641,7 +649,7 @@ pub mod winit_031 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.17", features = ["unstable-winit-031"] }
+    //! slint = { version = "~1.18", features = ["unstable-winit-031"] }
     //! ```
     //!
     //! `main.rs`:
@@ -696,9 +704,9 @@ pub mod winit_031 {
     pub type WinitWindowEventResult = EventResult;
 }
 
-#[cfg(feature = "unstable-fontique-010")]
-pub mod fontique_010 {
-    //! Fontique 0.10 specific types and re-exports.
+#[cfg(feature = "unstable-fontique-011")]
+pub mod fontique_011 {
+    //! Fontique 0.11 specific types and re-exports.
     //!
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major Fontique releases become available.
@@ -721,18 +729,18 @@ pub mod fontique_010 {
     ///
     /// `Cargo.toml`:
     /// ```toml
-    /// slint = { version = "~1.17", features = ["unstable-fontique-010"] }
+    /// slint = { version = "~1.18", features = ["unstable-fontique-011"] }
     /// ```
     ///
     /// `main.rs`:
     /// ```rust,no_run
-    /// use slint::fontique_010::fontique;
+    /// use slint::fontique_011::fontique;
     ///
     /// fn main() {
     ///     // ...
     ///     let downloaded_font: Vec<u8> = todo!("Download https://somewebsite.com/font.ttf");
     ///     let blob = fontique::Blob::new(std::sync::Arc::new(downloaded_font));
-    ///     let mut collection = slint::fontique_010::shared_collection();
+    ///     let mut collection = slint::fontique_011::shared_collection();
     ///     let fonts = collection.register_fonts(blob, None);
     ///     collection
     ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Hira"), None), fonts.iter().map(|x| x.0));

@@ -1,0 +1,93 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression tests for the column-flex stretch behavior.
+//
+// Items use `preferred-width` (definite preferred cross size, but no maximum) so
+// they are horizontally stretchable while their wrap geometry stays deterministic
+// across backends (no font metrics involved). The Text children are only there so
+// a human running the test can see which item is which.
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 400px;
+
+    // --- Test 1 -------------------------------------------------------------
+    // A flex-direction:column FlexboxLayout is given a *definite* width that is
+    // wider than its content needs, plus a height that forces the items to wrap
+    // into a second column. The wrapped columns must pack at their flex-line
+    // width and stay inside the flex; they must NOT each stretch to the full
+    // container width (which would push the second column outside the flex).
+    // The bordered Rectangle just marks the flex's bounds when viewed by a human.
+    Rectangle { x: 0; y: 0; width: 300px; height: 96px; border-width: 1px; border-color: gray; }
+    flex := FlexboxLayout {
+        flex-direction: column;
+        x: 0;
+        y: 0;
+        width: 300px;     // generous, much wider than one item column
+        height: 96px;     // forces the 3 items to wrap into 2 columns
+        spacing: 8px;
+
+        b1 := Rectangle { preferred-width: 100px; height: 40px; background: #c33; Text { text: "Portrait"; color: white; } }
+        b2 := Rectangle { preferred-width: 100px; height: 40px; background: #3c3; Text { text: "Landscape"; color: white; } }
+        b3 := Rectangle { preferred-width: 100px; height: 40px; background: #36c; Text { text: "Auto"; color: white; } }
+    }
+
+    // b3 must have wrapped into a 2nd column (x > 0) and the whole column
+    // contents must stay within the flex's 300px width.
+    out property <bool> wrapped: b3.x > 0px;
+    out property <bool> no_overflow: b3.x + b3.width <= 300px && b1.x + b1.width <= 300px;
+
+    // --- Test 2 -------------------------------------------------------------
+    // Per-item `flex-align-self: stretch` must win even when the container's
+    // `cross-axis-alignment` is NOT stretch. Here the container aligns items to
+    // the start (so plain items keep their preferred 100px width), but s3 opts
+    // into stretch and must therefore fill its flex line's cross size, which the
+    // default `align-content: stretch` grows wider than 100px.
+    Rectangle { x: 0; y: 200px; width: 300px; height: 96px; border-width: 1px; border-color: gray; }
+    flex2 := FlexboxLayout {
+        flex-direction: column;
+        cross-axis-alignment: start;
+        x: 0;
+        y: 200px;
+        width: 300px;
+        height: 96px;     // same wrap as above: s1+s2 in column 1, s3 in column 2
+        spacing: 8px;
+
+        s1 := Rectangle { preferred-width: 100px; height: 40px; background: #c33; Text { text: "start"; color: white; } }
+        s2 := Rectangle { preferred-width: 100px; height: 40px; background: #3c3; Text { text: "start"; color: white; } }
+        s3 := Rectangle { preferred-width: 100px; height: 40px; flex-align-self: stretch; background: #36c; Text { text: "stretch"; color: white; } }
+    }
+
+    // s1 keeps its preferred width (container start-aligns it); s3 stretches to
+    // its flex line, which is wider, so it must end up wider than s1.
+    out property <bool> align_self_stretches: s3.width > s1.width;
+
+    out property <bool> test: wrapped && no_overflow && align_self_stretches;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_wrapped());
+assert(handle->get_no_overflow());
+assert(handle->get_align_self_stretches());
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_wrapped(), "b3 should wrap to a 2nd column");
+assert!(instance.get_no_overflow(), "column contents overflow the 300px flex");
+assert!(instance.get_align_self_stretches(), "s3 with flex-align-self:stretch should be wider than start-aligned s1");
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.wrapped);
+assert(instance.no_overflow);
+assert(instance.align_self_stretches);
+assert(instance.test);
+```
+*/

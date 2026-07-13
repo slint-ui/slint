@@ -6,10 +6,13 @@ use crate::dynamic_item_tree::ErasedItemTreeBox;
 
 use super::*;
 use core::ptr::NonNull;
-use i_slint_core::model::{Model, ModelNotify, SharedVectorModel};
+use i_slint_core::model::{Model, ModelNotify, ModelRc, SharedVectorModel};
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapter;
+use smol_str::SmolStr;
 use std::ffi::c_void;
+use std::path::PathBuf;
+use std::rc::Rc;
 use vtable::VRef;
 
 /// Construct a new Value in the given memory location
@@ -641,6 +644,9 @@ pub struct ModelAdaptorVTable {
     pub row_count: extern "C" fn(VRef<ModelAdaptorVTable>) -> usize,
     pub row_data: unsafe extern "C" fn(VRef<ModelAdaptorVTable>, row: usize) -> *mut Value,
     pub set_row_data: extern "C" fn(VRef<ModelAdaptorVTable>, row: usize, value: Box<Value>),
+    pub push_row: extern "C" fn(VRef<ModelAdaptorVTable>, value: Box<Value>),
+    pub remove_row: extern "C" fn(VRef<ModelAdaptorVTable>, row: isize),
+    pub insert_row: extern "C" fn(VRef<ModelAdaptorVTable>, row: isize, value: Box<Value>),
     pub get_notify: extern "C" fn(VRef<'_, ModelAdaptorVTable>) -> &ModelNotifyOpaque,
     pub drop: extern "C" fn(VRefMut<ModelAdaptorVTable>),
 }
@@ -665,6 +671,20 @@ impl Model for ModelAdaptorWrapper {
     fn set_row_data(&self, row: usize, data: Value) {
         let val = Box::new(data);
         self.0.set_row_data(row, val);
+    }
+
+    fn push_row(&self, data: Value) {
+        let val = Box::new(data);
+        self.0.push_row(val);
+    }
+
+    fn remove_row(&self, row: isize) {
+        self.0.remove_row(row);
+    }
+
+    fn insert_row(&self, row: isize, data: Value) {
+        let val = Box::new(data);
+        self.0.insert_row(row, val);
     }
 
     fn as_any(&self) -> &dyn core::any::Any {
@@ -854,7 +874,7 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_get_diagnostics(
     out_diags: &mut SharedVector<Diagnostic>,
 ) {
     #[allow(deprecated)]
-    out_diags.extend(compiler.as_component_compiler().diagnostics.iter().map(|diagnostic| {
+    out_diags.extend(compiler.as_component_compiler().diagnostics().iter().map(|diagnostic| {
         let (line, column) = diagnostic.line_column();
         Diagnostic {
             message: diagnostic.message().into(),

@@ -17,9 +17,9 @@ jobs:
         # Exactly one branch uses `mode: full-nightly`: it owns the `nightly` tag and the VS Code extension.
         include:
           - branch: pre-release/1.17
-            mode: full-nightly
-          - branch: master
             mode: website-only
+          - branch: master
+            mode: full-nightly
 
     steps:
       - uses: actions/checkout@v6

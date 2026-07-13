@@ -1,0 +1,94 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A `restart()` on a timer that lives in an inlined component used from a
+// conditional, which is itself inside another inlined component. Inlining
+// duplicates the repeated sub-component and its timers, and the duplicated
+// timer's element reference must be remapped, otherwise lowering the
+// `restart()` call cannot find the timer.
+
+export global G {
+    in-out property <string> res;
+}
+
+component Overlay {
+    width: 100%;
+    height: 100%;
+
+    t := Timer {
+        interval: 100ms;
+        running: false;
+        triggered => {
+            G.res += "t";
+            self.stop();
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            t.restart();
+        }
+    }
+
+    init => {
+        t.start();
+    }
+}
+
+component Middle {
+    width: 100%;
+    height: 100%;
+    in property <bool> show-overlay;
+
+    if show-overlay: Overlay { }
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <string> result <=> G.res;
+
+    Middle {
+        width: 100%;
+        height: 100%;
+        show-overlay: true;
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+// The timer started from `init` fires once.
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_result(), "t");
+// Clicking restarts it, so it fires again.
+slint_testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_result(), "tt");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_result(), "t");
+slint_testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_result(), "tt");
+```
+
+```js
+var instance = new slint.TestCase({});
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.result, "t");
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.result, "tt");
+```
+*/

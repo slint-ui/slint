@@ -35,7 +35,7 @@ export global Logic  {
 // ...
 ```
 <Tabs syncKey="dev-language">
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 
 ```rust
 slint::slint!{
@@ -61,7 +61,7 @@ fn main() {
 ```
 
 </TabItem>
-<TabItem label="C++">
+<TabItem label="C++" icon="seti:cpp">
 
 ```cpp
 #include "app.h"
@@ -76,7 +76,7 @@ int main() {
 }
 ```
 </TabItem>
-<TabItem label="NodeJS">
+<TabItem label="NodeJS" icon="node">
 
 ```js
 let slint = require("slint-ui");
@@ -89,7 +89,7 @@ app.Logic.the_value = 42;
 // ...
 ```
 </TabItem>
-<TabItem label="Python">
+<TabItem label="Python" icon="seti:python">
 
 ```python
 import slint

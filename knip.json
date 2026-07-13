@@ -3,7 +3,7 @@
   "ignoreExportsUsedInFile": { "interface": true, "type": true },
   "workspaces": {
     ".": {
-      "ignoreBinaries": ["github-actions-ctrf", "local-package", "test_grammar", "build", "check", "biome"],
+      "ignoreBinaries": ["local-package", "test_grammar", "build", "check", "biome"],
       "ignoreDependencies": ["@cspell/dict-fr-fr"],
       "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
     },
@@ -103,6 +103,7 @@
       ]
     },
     "docs/cpp": {
+      "ignoreBinaries": ["doxygen"],
       "ignoreFiles": [
         "src/styles/api-signature.css"
       ]

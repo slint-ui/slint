@@ -496,27 +496,37 @@ pub unsafe extern "C" fn slint_property_tracker_drop(handle: *mut PropertyTracke
     unsafe { core::ptr::drop_in_place(handle as *mut PropertyTracker) };
 }
 
+#[repr(C)]
+/// Opaque type representing the ChangeTracker
+pub struct ChangeTrackerOpaque {
+    _inner: *const c_void,
+}
+
+static_assertions::assert_eq_align!(ChangeTrackerOpaque, ChangeTracker);
+static_assertions::assert_eq_size!(ChangeTrackerOpaque, ChangeTracker);
+
 /// Construct a ChangeTracker
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_change_tracker_construct(ct: *mut ChangeTracker) {
-    unsafe { core::ptr::write(ct, ChangeTracker::default()) };
+pub unsafe extern "C" fn slint_change_tracker_construct(ct: *mut ChangeTrackerOpaque) {
+    unsafe { core::ptr::write(ct as *mut ChangeTracker, ChangeTracker::default()) };
 }
 
 /// Drop a ChangeTracker
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_change_tracker_drop(ct: *mut ChangeTracker) {
-    unsafe { core::ptr::drop_in_place(ct) };
+pub unsafe extern "C" fn slint_change_tracker_drop(ct: *mut ChangeTrackerOpaque) {
+    unsafe { core::ptr::drop_in_place(ct as *mut ChangeTracker) };
 }
 
 /// initialize the change tracker
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_change_tracker_init(
-    ct: &ChangeTracker,
+    ct: *const ChangeTrackerOpaque,
     user_data: *mut c_void,
     drop_user_data: extern "C" fn(user_data: *mut c_void),
     eval_fn: extern "C" fn(user_data: *mut c_void) -> bool,
     notify_fn: extern "C" fn(user_data: *mut c_void),
 ) {
+    let ct = unsafe { &*ct.cast::<ChangeTracker>() };
     #[allow(non_camel_case_types)]
     struct C_ChangeTrackerInner {
         user_data: *mut c_void,
@@ -540,6 +550,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         let _self_raw = _self;
         let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
         let inner = unsafe { core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap() };
+        unsafe { *(*core::ptr::addr_of!((*_self).dep_nodes)).get() = Default::default() };
         let notify = super::current_binding_storage::set(Some(_self_raw), || {
             (inner.eval_fn)(inner.user_data)
         });
@@ -586,4 +597,54 @@ pub unsafe extern "C" fn slint_change_tracker_init(
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_animation_tick() -> u64 {
     crate::animations::animation_tick()
+}
+
+#[cfg(test)]
+mod ffi_change_tracker_leak_test {
+    use super::*;
+    use crate::properties::ChangeTracker;
+    use alloc::boxed::Box;
+    use core::cell::Cell;
+    use core::pin::Pin;
+
+    // What the generated C++ stores for a `changed` handler: the watched
+    // property and the last seen value.
+    struct EvalState {
+        prop: *const Property<i32>,
+        last: Cell<i32>,
+    }
+
+    extern "C" fn eval_fn(user_data: *mut c_void) -> bool {
+        let st = unsafe { &*(user_data as *const EvalState) };
+        let v = unsafe { Pin::new_unchecked(&*st.prop) }.get();
+        let changed = v != st.last.get();
+        st.last.set(v);
+        changed
+    }
+    extern "C" fn notify_fn(_user_data: *mut c_void) {}
+    extern "C" fn drop_fn(_user_data: *mut c_void) {}
+
+    // The dependency nodes must not accumulate across re-evaluations.
+    #[test]
+    fn ffi_change_tracker_does_not_leak_dep_nodes() {
+        let prop = Box::pin(Property::new(0));
+        let state = EvalState { prop: &*prop as *const _, last: Cell::new(0) };
+        let ct = ChangeTracker::default();
+        unsafe {
+            slint_change_tracker_init(
+                &ct as *const ChangeTracker as *const ChangeTrackerOpaque,
+                &state as *const EvalState as *mut c_void,
+                drop_fn,
+                eval_fn,
+                notify_fn,
+            );
+        }
+        assert_eq!(ct.test_dep_node_count(), 1);
+
+        for i in 1..=200 {
+            prop.as_ref().set(i);
+            ChangeTracker::run_change_handlers();
+            assert_eq!(ct.test_dep_node_count(), 1, "leaked a DependencyNode at iteration {i}");
+        }
+    }
 }

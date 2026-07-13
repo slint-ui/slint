@@ -229,3 +229,63 @@ def test_model_writeback() -> None:
     assert list(instance.get_property("model")) == [100, 42]
     instance.invoke("write-to-model", 0, 25)
     assert list(instance.get_property("model")) == [25, 42]
+
+
+def test_model_modifications() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> ints;
+            in-out property<[int]> empty-ints;
+            public function push-one(value: int) { ints.push(value) }
+            public function remove-one(index: int) { ints.remove(index) }
+            public function insert-one(index: int, value: int) { ints.insert(index, value) }
+            public function push-one-empty() { empty-ints.push(0) }
+            public function remove-one-empty() { empty-ints.remove(0) }
+            public function insert-one-empty() { empty-ints.insert(0, 0) }
+        }
+        """,
+        Path(""),
+    ).component("App")
+
+    assert compdef is not None
+
+    instance = compdef.create()
+    assert instance is not None
+
+    model = models.ListModel([1, 2, 3])
+    instance.set_property("ints", model)
+
+    assert len(model) == 3
+
+    instance.invoke("push-one", 10)
+    assert len(model) == 4
+    assert model[3] == 10
+
+    instance.invoke("remove-one", 1)
+    assert len(model) == 3
+    assert model[2] == 10
+
+    instance.invoke("insert-one", 1, 20)
+    assert len(model) == 4
+    assert model[1] == 20
+
+    instance.invoke("remove_one", -1)
+    assert len(model), 4
+    instance.invoke("remove_one", 10)
+    assert len(model), 4
+
+    instance.invoke("insert_one", -1, 30)
+    assert len(model), 4
+    instance.invoke("insert_one", 10, 30)
+    assert len(model), 4
+
+    model = instance.get_property("empty_ints")
+    assert len(model) == 0
+    instance.invoke("push_one_empty", 1)
+    assert len(model) == 0
+    instance.invoke("remove_one_empty")
+    assert len(model) == 0
+    instance.invoke("insert_one_empty")
+    assert len(model) == 0

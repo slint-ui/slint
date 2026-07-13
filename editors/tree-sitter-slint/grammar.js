@@ -11,7 +11,7 @@ module.exports = grammar({
     [$._assignment_value_block],
     [$.assignment_block],
     // Caused by accepting arbitrary expressions in the radial-gradient/conical-gradient without a separator!
-    [$._unary_prec_operator, $.add_prec_operator]
+    [$.unary_prec_operator, $.add_prec_operator]
 ],
 
   externals: ($) => [$.block_comment],
@@ -52,7 +52,7 @@ module.exports = grammar({
       optional(seq("from", field("from", $.string_value), ";"))
     ),
 
-    _rust_attr_args: ($) => seq("(", seq(/[^()]*/, repeat(seq($._rust_attr_args, /[^()]*/))), ")"),
+    _rust_attr_args: ($) => seq("(", repeat(choice(/[^()"]+/, $.string_value, $._rust_attr_args)), ")"),
 
     rust_attr: ($) => seq(repeat1(seq("@rust-attr", $._rust_attr_args)), choice($.exported_definition, $._local_type)),
 
@@ -177,8 +177,6 @@ module.exports = grammar({
         ";",
       ),
 
-    binding: ($) => seq(field("name", $.simple_identifier), ":", $._binding),
-
     global_block: ($) =>
       seq(
         "{",
@@ -277,6 +275,7 @@ module.exports = grammar({
         $.for_loop,
         $.function_definition,
         $.if_statement,
+        $.match_statement,
         $.property,
         $.property_assignment,
         $.states_definition,
@@ -371,6 +370,26 @@ module.exports = grammar({
       ),
 
     for_range: ($) => choice($.value_list, $.expression),
+
+    match_statement: ($) =>
+      seq("match",
+        field("value", $.simple_identifier),
+        "{",
+        repeat($.match_case),
+        optional($.wildcard_match_case),
+        "}",
+      ),
+
+    match_case: ($) =>
+      seq(
+        field("case", choice($._basic_value,
+          seq($.user_type_identifier, ".", $.user_type_identifier))),
+        ":",
+        choice($.component, seq("{", "}"))
+      ),
+
+    wildcard_match_case: ($) =>
+      seq("*", ":", $.component),
 
     type_list: ($) => seq("[", commaSep($.type), optional(","), "]"),
 
@@ -493,7 +512,7 @@ module.exports = grammar({
     unary_expression: ($) =>
       prec.left(
         14,
-        seq(field("op", $._unary_prec_operator), field("expr", $.expression)),
+        seq(field("op", $.unary_prec_operator), field("expr", $.expression)),
       ),
 
     binary_expression: ($) =>
@@ -748,7 +767,7 @@ module.exports = grammar({
         seq("(", optional(seq(commaSep1($.argument), optional(","))), ")"),
       ),
 
-    _unary_prec_operator: (_) => choice("!", "-", "+"),
+    unary_prec_operator: (_) => choice("!", "-", "+"),
 
     add_prec_operator: (_) => choice("+", "-"),
     mult_prec_operator: (_) => choice("*", "/"),

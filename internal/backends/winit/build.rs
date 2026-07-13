@@ -5,6 +5,9 @@ use cfg_aliases::cfg_aliases;
 
 fn main() {
     println!("cargo:warning=Accesskit and FemtoVG backend disabled for winit 0.31 port"); // see "false" below
+    println!(
+        "cargo:warning=Using software renderer in the CI for slintpad smoke tests. tools/slintpad/package.json"
+    );
 
     // Setup cfg aliases
     cfg_aliases! {

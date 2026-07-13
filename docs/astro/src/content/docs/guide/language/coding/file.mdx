@@ -344,19 +344,7 @@ Use one of the following methods to help the Slint compiler resolve libraries to
 path on disk:
 
 <Tabs syncKey="dev-language">
-<TabItem label="C++">
-* Specify `LIBRARY_PATHS` with <LangRefLink lang="cpp" relpath="cmake-reference/slint-target-sources/">`slint_target_sources`</LangRefLink>. For example:
-
-```cmake
-slint_target_sources(my_application
-    ui/main.slint
-    LIBRARY_PATHS
-        material=${CMAKE_CURRENT_SOURCE_DIR}/material-1.0/material.slint
-)
-```
-
-</TabItem>
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 * In `build.rs`, call <LangRefLink lang="rust-slint-build" relpath="struct.CompilerConfiguration#method.with_library_paths">`with_library_paths`</LangRefLink>
   to provide a mapping from library name to path. For example:
 
@@ -374,7 +362,19 @@ fn main() {
 ```
 
 </TabItem>
-<TabItem label="NodeJS">
+<TabItem label="C++" icon="seti:cpp">
+* Specify `LIBRARY_PATHS` with <LangRefLink lang="cpp" relpath="cmake-reference/slint-target-sources/">`slint_target_sources`</LangRefLink>. For example:
+
+```cmake
+slint_target_sources(my_application
+    ui/main.slint
+    LIBRARY_PATHS
+        material=${CMAKE_CURRENT_SOURCE_DIR}/material-1.0/material.slint
+)
+```
+
+</TabItem>
+<TabItem label="NodeJS" icon="node">
 * Provide the `libraryPaths` map with <LangRefLink lang="nodejs" relpath="api/functions/loadFile/">`loadFile`</LangRefLink> in `LoadFileOptions`. For example:
 
 ```javascript
@@ -386,7 +386,7 @@ let ui = slint.loadFile("/path/to/main.slint", {
 ```
 
 </TabItem>
-<TabItem label="Python">
+<TabItem label="Python" icon="seti:python">
 * Provide the `library_paths` dict with <LangRefLink lang="python" relpath="api/functions/load_file/">`load_file`</LangRefLink>. For example:
 
 ```python
