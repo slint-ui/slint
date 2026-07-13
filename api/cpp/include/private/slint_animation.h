@@ -97,8 +97,7 @@ inline uintptr_t slint_animation_handle_restart_helper(
             on_finished, on_finished_user_data, on_finished_drop_user_data);
 }
 
-/// Handle to a push-based tween animation, driven every frame from the Rust side.
-/// Mirrors `slint::Timer`: a lightweight, non-copyable id-holding handle.
+/// Handle to an animation
 struct AnimationHandle
 {
     AnimationHandle() = default;
@@ -109,6 +108,8 @@ struct AnimationHandle
         private_api::assert_main_thread();
         cbindgen_private::slint_animation_handle_drop(id);
     }
+
+    // TODO fix this needs to be more generic to fit with the rest of animation types
 
     /// Start a fresh tween from `from` to `to`. No-op if an animation is already running on
     /// this handle (use restart() to force a restart).

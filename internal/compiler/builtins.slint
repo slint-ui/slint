@@ -2777,6 +2777,41 @@ component Animation {
     //-is_internal
 }
 
+/// :::note[Note]
+/// TweenAnimation is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
+/// :::
+///
+/// This example shows a timer that counts down from 10 to 0 every second:
+///
+/// ```slint playground
+/// import { Button } from "std-widgets.slint";
+/// export component Example inherits Window {
+///     property <int> value: 10;
+///     timer := Timer {
+///         interval: 1s;
+///         running: true;
+///         triggered() => {
+///             value -= 1;
+///             if (value == 0) {
+///                 self.running = false;
+///             }
+///         }
+///     }
+///     HorizontalLayout {
+///         Text { text: value; }
+///         Button {
+///             text: "Reset";
+///             clicked() => { value = 10; timer.running = true; }
+///         }
+///     }
+/// }
+/// ```
+///
+///
+///
+/// Use the TweenAnimation pseudo-element to animate a property
+/// The animation starts when running is changed or start is called
+/// TODO the animation needs to start on property change
 export component TweenAnimation inherits Animation {
     in property <animatable> from;
     in property <animatable> to;

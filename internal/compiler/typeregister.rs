@@ -489,6 +489,7 @@ impl TypeRegister {
         register.insert_type(Type::DataTransfer);
         register.types.insert("Point".into(), logical_point_type().into());
         register.types.insert("Size".into(), logical_size_type().into());
+        register.insert_type(Type::Animatable);
 
         BUILTIN.with(|e| e.enums.fill_register(&mut register));
 
@@ -499,10 +500,6 @@ impl TypeRegister {
         register.supported_property_animation_types.insert(Type::LogicalLength.to_string());
         register.supported_property_animation_types.insert(Type::Brush.to_string());
         register.supported_property_animation_types.insert(Type::Angle.to_string());
-
-        // TODO fix
-        register.insert_type(Type::Animatable);
-        register.supported_property_animation_types.insert(Type::Animatable.to_string());
 
         macro_rules! register_builtin_structs {
             ($(

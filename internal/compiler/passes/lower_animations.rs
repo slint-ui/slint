@@ -85,7 +85,6 @@ fn validate_animation_properties(
     let from_prop = animatable_props.get("from");
     let to_prop = animatable_props.get("to");
 
-    // TODO actually change the type to the actual type
     if let Some(target_binding) = target {
         if let Ok(target_expr) = target_binding.try_borrow() {
             let target_type = target_expr.ty();

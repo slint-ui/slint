@@ -321,7 +321,8 @@ where
         animation: Option<PropertyAnimation>,
     ) -> Result<(), ()> {
         if let Some(animation) = animation {
-            self.apply_pin(item).set_animated_value(value.try_into().map_err(|_| ())?, animation);
+            self.apply_pin(item)
+                .set_animated_value_object(value.try_into().map_err(|_| ())?, animation);
             Ok(())
         } else {
             self.0.set(item, value, None)
@@ -351,7 +352,7 @@ where
                     Ok(())
                 }
                 AnimatedBindingKind::Animation(animation) => {
-                    p.set_animated_binding(
+                    p.set_animated_binding_object(
                         move || {
                             binding()
                                 .try_into()
@@ -363,7 +364,7 @@ where
                     Ok(())
                 }
                 AnimatedBindingKind::Transition(tr) => {
-                    p.set_animated_binding(
+                    p.set_animated_binding_object(
                         move || {
                             binding()
                                 .try_into()
