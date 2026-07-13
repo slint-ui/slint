@@ -281,53 +281,48 @@ struct Property
     /// bindings onto its *fields*. Mirrors the Rust `StructMemberBindings`
     /// (see internal/core/properties/two_way_binding.rs): each mapped field
     /// is synchronized with a shared narrow common property of the field's
-    /// type; the struct's own value-producing binding lives in the
-    /// `DriverSlot` and both produces the unmapped fields and drives the
+    /// type; the struct's own value-producing binding lives on the slot
+    /// property and both produces the unmapped fields and drives the
     /// commons via projections.
     struct StructMemberBindings
     {
-        struct DriverSlot
+        /// The struct property's own value-producing binding ("real
+        /// binding") is installed on this dedicated property, shared with
+        /// the driver projections of the mapped fields' commons: its dirty
+        /// flag memoizes the evaluation (the binding runs at most once per
+        /// change of its inputs, no matter how many commons and wrappers
+        /// read it) and the dependency graph (commons/wrapper -> slot
+        /// property -> the binding's inputs) replaces manual dirty
+        /// forwarding.
+        std::shared_ptr<Property<T>> slot;
+
+        explicit StructMemberBindings(const T &seed) : slot(std::make_shared<Property<T>>(seed))
         {
-            /// The struct property's own value-producing binding is
-            /// installed on this dedicated property: its dirty flag
-            /// memoizes the evaluation (the binding runs at most once per
-            /// change of its inputs, no matter how many commons and
-            /// wrappers read it) and the dependency graph (commons/wrapper
-            /// -> slot property -> the binding's inputs) replaces manual
-            /// dirty forwarding.
-            Property<T> property;
+        }
 
-            explicit DriverSlot(const T &seed) : property(seed) { }
-
-            bool has_holder() const
-            {
-                return (reinterpret_cast<uintptr_t>(property.inner._0) & 0b10) != 0;
-            }
-            /// Drop the real binding, if any. Panics ("Recursion detected")
-            /// when the real binding is currently executing (a binding
-            /// writing back to its own struct property).
-            void clear()
-            {
-                cbindgen_private::slint_property_remove_binding(&property.inner);
-            }
-            /// Install `holder` (an owned Rust `BindingHolder`) as the slot
-            /// property's binding, dropping the previous one.
-            void install(void *holder)
-            {
-                clear();
-                cbindgen_private::slint_property_set_binding_internal(&property.inner, holder);
-                // A stolen (second-hand) holder may have been evaluated in
-                // its old home with a clean dirty flag and wiped dependency
-                // registrations; without this it would never re-evaluate
-                // here.
-                cbindgen_private::slint_property_mark_binding_and_dependencies_dirty(
-                        &property.inner);
-            }
-        };
-
-        std::shared_ptr<DriverSlot> slot;
-
-        explicit StructMemberBindings(const T &seed) : slot(std::make_shared<DriverSlot>(seed)) { }
+        static bool slot_has_binding(const Property<T> &slot_property)
+        {
+            return (reinterpret_cast<uintptr_t>(slot_property.inner._0) & 0b10) != 0;
+        }
+        /// Drop the real binding, if any. Panics ("Recursion detected")
+        /// when the real binding is currently executing (a binding
+        /// writing back to its own struct property).
+        void clear_driver_binding() const
+        {
+            cbindgen_private::slint_property_remove_binding(&slot->inner);
+        }
+        /// Install `holder` (an owned Rust `BindingHolder`) as the slot
+        /// property's binding, dropping the previous one.
+        void install_driver_binding(void *holder) const
+        {
+            clear_driver_binding();
+            cbindgen_private::slint_property_set_binding_internal(&slot->inner, holder);
+            // A stolen (second-hand) holder may have been evaluated in
+            // its old home with a clean dirty flag and wiped dependency
+            // registrations; without this it would never re-evaluate
+            // here.
+            cbindgen_private::slint_property_mark_binding_and_dependencies_dirty(&slot->inner);
+        }
 
         struct Mapping
         {
@@ -340,7 +335,7 @@ struct Property
             std::function<void(const T &)> push_to_common;
             /// Installs a driver projection for this mapping's field onto
             /// the common.
-            std::function<void(const std::shared_ptr<DriverSlot> &)> install_projection;
+            std::function<void(const std::shared_ptr<Property<T>> &)> install_projection;
             /// The narrow common property (a shared_ptr<Property<T2>>),
             /// type-erased for the field-keyed reuse lookup.
             std::shared_ptr<void> common;
@@ -358,7 +353,7 @@ struct Property
         }
         auto *wrapper = new StructMemberBindings(prop->value);
         if (void *old = cbindgen_private::slint_property_detach_binding(&prop->inner)) {
-            wrapper->slot->install(old);
+            wrapper->install_driver_binding(old);
         }
         cbindgen_private::slint_property_set_binding_with_kind(
                 &prop->inner,
@@ -368,8 +363,8 @@ struct Property
                     // Only read the slot property while it carries the real
                     // binding: when binding-less its stored value is stale
                     // and would clobber the struct's own stored value.
-                    if (self->slot->has_holder()) {
-                        v = self->slot->property.get();
+                    if (StructMemberBindings::slot_has_binding(*self->slot)) {
+                        v = self->slot->get();
                     }
                     for (auto &mapping : self->mappings) {
                         mapping.apply_from_common(v);
@@ -384,7 +379,7 @@ struct Property
                     // property) and pushes the mapped fields into their
                     // classes; the unmapped fields are stored by set().
                     auto *self = reinterpret_cast<StructMemberBindings *>(user_data);
-                    self->slot->clear();
+                    self->clear_driver_binding();
                     const T &v = *reinterpret_cast<const T *>(value);
                     for (auto &mapping : self->mappings) {
                         mapping.push_to_common(v);
@@ -400,7 +395,7 @@ struct Property
                     // was evaluated while installed elsewhere (mirrors the
                     // Rust StructMemberBindings::intercept_set_binding)
                     cbindgen_private::slint_property_reset_binding_dependencies(new_binding);
-                    self->slot->install(new_binding);
+                    self->install_driver_binding(new_binding);
                     for (auto &mapping : self->mappings) {
                         mapping.install_projection(self->slot);
                     }
@@ -439,21 +434,20 @@ struct Property
             std::string(field_key),
             [common, set_field](T &value) { set_field(value, common->get()); },
             [common, get_field](const T &value) { common->set(get_field(value)); },
-            [common, get_field](const std::shared_ptr<typename StructMemberBindings::DriverSlot>
-                                        &slot) {
+            [common, get_field](const std::shared_ptr<Property<T>> &slot) {
                 // The driver projection: evaluates the struct's binding and
                 // extracts the mapped field, so the binding drives the class
                 // (last installed binding on the common wins).
                 struct Projection
                 {
-                    std::shared_ptr<typename StructMemberBindings::DriverSlot> slot;
+                    std::shared_ptr<Property<T>> slot;
                     GetField get_field;
                 };
                 cbindgen_private::slint_property_set_binding(
                         &common->inner,
                         [](void *user_data, void *value) {
                             auto *self = reinterpret_cast<Projection *>(user_data);
-                            if (!self->slot->has_holder()) {
+                            if (!StructMemberBindings::slot_has_binding(*self->slot)) {
                                 // the driver was dropped: keep the common's
                                 // current value (a C++ binding cannot remove
                                 // itself; the projection stays installed but
@@ -464,7 +458,7 @@ struct Property
                             // projection as its dependent and memoizes the
                             // real binding behind its dirty flag
                             *reinterpret_cast<T2 *>(value) =
-                                    self->get_field(self->slot->property.get());
+                                    self->get_field(self->slot->get());
                         },
                         new Projection { slot, get_field },
                         [](void *user_data) { delete reinterpret_cast<Projection *>(user_data); },
@@ -473,7 +467,7 @@ struct Property
             common,
         };
         // A pre-existing binding must also drive this field's class.
-        if (wrapper->slot->has_holder()) {
+        if (StructMemberBindings::slot_has_binding(*wrapper->slot)) {
             mapping.install_projection(wrapper->slot);
         }
         bool replaced = false;

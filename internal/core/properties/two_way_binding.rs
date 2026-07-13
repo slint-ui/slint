@@ -314,61 +314,6 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
     }
 }
 
-/// State shared between a [`StructMemberBindings`] wrapper installed on a
-/// struct property and the [`DriverProjection`] bindings it installs on the
-/// narrow common properties of the two-way classes its fields belong to.
-///
-/// The struct's own value-producing binding ("real binding") is installed
-/// on a dedicated [`Property<T>`]: its dirty flag memoizes the evaluation
-/// (the binding runs at most once per change of its inputs, no matter how
-/// many commons and wrappers read it) and the dependency graph
-/// (commons/wrapper → slot property → the binding's inputs) replaces
-/// manual dirty forwarding.
-///
-/// The slot is only ever handled through a `Pin<Rc<Self>>`; `property` is
-/// pinned structurally (it is never moved out, the slot has no `Drop`, and
-/// `Property<T>` makes the slot `!Unpin`).
-struct DriverSlot<T> {
-    property: Property<T>,
-}
-
-impl<T: PartialEq + Clone + 'static> DriverSlot<T> {
-    fn new(seed: T) -> Self {
-        Self { property: Property::new(seed) }
-    }
-
-    /// Structural pin projection to the slot property.
-    fn property(self: Pin<&Self>) -> Pin<&Property<T>> {
-        // Safety: see the pinning notes on the type
-        unsafe { self.map_unchecked(|slot| &slot.property) }
-    }
-
-    /// Drop the real binding, if any. Panics ("Recursion detected") when
-    /// the real binding is currently executing — that only happens when a
-    /// binding writes back to its own struct property, a state in which
-    /// every full-topology route already panicked on a locked common or
-    /// struct handle before this design; the slot property merely fails
-    /// earlier, before any mutation.
-    fn clear(&self) {
-        self.property.handle.remove_binding();
-    }
-
-    fn has_holder(&self) -> bool {
-        self.property.has_binding()
-    }
-
-    /// Install `holder` as the slot property's binding, dropping the
-    /// previous one (bypassing the old binding's `intercept_set_binding`).
-    fn install(&self, holder: *mut BindingHolder) {
-        self.clear();
-        // A stolen (second-hand) holder may have been evaluated in its old
-        // home: its dirty flag is false and its dependency registrations
-        // were wiped, so without this it would never re-evaluate here.
-        unsafe { (*holder).dirty.set(true) };
-        self.property.handle.set_binding_impl(holder);
-    }
-}
-
 /// Binding installed on a narrow common property so that the struct
 /// property's real binding drives the two-way class ("driver election"):
 /// it evaluates the real binding and extracts the mapped field.
@@ -377,7 +322,7 @@ impl<T: PartialEq + Clone + 'static> DriverSlot<T> {
 /// property; the last installed binding on the common wins, like any other
 /// binding installed on a two-way class.
 struct DriverProjection<T, T2, GetField> {
-    slot: Pin<Rc<DriverSlot<T>>>,
+    slot: Pin<Rc<Property<T>>>,
     get_field: GetField,
     marker: PhantomData<fn(T) -> T2>,
 }
@@ -390,7 +335,7 @@ unsafe impl<
 > BindingCallable<T2> for DriverProjection<T, T2, GetField>
 {
     fn evaluate(self: Pin<&Self>, value: &mut T2) -> BindingResult {
-        if !self.slot.has_holder() {
+        if !self.slot.has_binding() {
             // The driver was dropped (e.g. a value was set on the struct
             // property); keep the common's current value and clean up.
             // Not reading the slot property also avoids registering a
@@ -399,7 +344,7 @@ unsafe impl<
         }
         // Reading the slot property registers this projection as its
         // dependent and memoizes the real binding behind its dirty flag.
-        *value = (self.get_field)(&self.slot.as_ref().property().get());
+        *value = (self.get_field)(&self.slot.as_ref().get());
         BindingResult::KeepBinding
     }
 }
@@ -417,8 +362,9 @@ struct StructMemberMapping<T> {
     /// `common.set(get_field(value))`
     push_to_common: Box<dyn Fn(&T)>,
     /// Installs a [`DriverProjection`] for this mapping's field onto the
-    /// common, making the given slot's real binding drive the class.
-    install_projection: Box<dyn Fn(&Pin<Rc<DriverSlot<T>>>)>,
+    /// common, making the real binding on the given slot property drive
+    /// the class.
+    install_projection: Box<dyn Fn(&Pin<Rc<Property<T>>>)>,
     /// The narrow common property (an `Rc<Property<T2>>`, semantically
     /// pinned), type-erased for the field-keyed reuse lookup.
     common: Rc<dyn core::any::Any>,
@@ -428,11 +374,41 @@ struct StructMemberMapping<T> {
 /// bindings onto its *fields*. Each mapped field is synchronized with a
 /// narrow common property of the field's type that is shared by every
 /// member of the two-way binding class; the struct's own value-producing
-/// binding, if any, lives in the [`DriverSlot`] and both produces the
+/// binding, if any, lives on the slot property and both produces the
 /// unmapped fields and drives the commons via [`DriverProjection`]s.
 struct StructMemberBindings<T> {
-    slot: Pin<Rc<DriverSlot<T>>>,
+    /// The struct's own value-producing binding ("real binding") is
+    /// installed on this dedicated property, shared with the
+    /// [`DriverProjection`]s of the mapped fields' commons: its dirty flag
+    /// memoizes the evaluation (the binding runs at most once per change
+    /// of its inputs, no matter how many commons and wrappers read it) and
+    /// the dependency graph (commons/wrapper → slot property → the
+    /// binding's inputs) replaces manual dirty forwarding.
+    slot: Pin<Rc<Property<T>>>,
     mappings: RefCell<Vec<StructMemberMapping<T>>>,
+}
+
+impl<T: PartialEq + Clone + 'static> StructMemberBindings<T> {
+    /// Drop the real binding, if any. Panics ("Recursion detected") when
+    /// the real binding is currently executing — that only happens when a
+    /// binding writes back to its own struct property, a state in which
+    /// every full-topology route already panicked on a locked common or
+    /// struct handle before this design; the slot property merely fails
+    /// earlier, before any mutation.
+    fn clear_driver_binding(&self) {
+        self.slot.handle.remove_binding();
+    }
+
+    /// Install `holder` as the slot property's binding, dropping the
+    /// previous one (bypassing the old binding's `intercept_set_binding`).
+    fn install_driver_binding(&self, holder: *mut BindingHolder) {
+        self.clear_driver_binding();
+        // A stolen (second-hand) holder may have been evaluated in its old
+        // home: its dirty flag is false and its dependency registrations
+        // were wiped, so without this it would never re-evaluate here.
+        unsafe { (*holder).dirty.set(true) };
+        self.slot.handle.set_binding_impl(holder);
+    }
 }
 
 // Safety: IS_STRUCT_MEMBER_BINDINGS is true and Self is StructMemberBindings
@@ -441,8 +417,8 @@ unsafe impl<T: PartialEq + Clone + 'static> BindingCallable<T> for StructMemberB
         // Only read the slot property while it carries the real binding:
         // when binding-less its stored value is stale and would clobber the
         // struct's own stored value (and register a spurious dependency).
-        if self.slot.has_holder() {
-            *value = self.slot.as_ref().property().get();
+        if self.slot.has_binding() {
+            *value = self.slot.as_ref().get();
         }
         for mapping in self.mappings.borrow().iter() {
             (mapping.apply_from_common)(value);
@@ -454,7 +430,7 @@ unsafe impl<T: PartialEq + Clone + 'static> BindingCallable<T> for StructMemberB
         // Setting a value drops the real binding (as it would on an
         // unwrapped property) and pushes the mapped fields into their
         // classes. The unmapped fields are stored by `Property::set`.
-        self.slot.clear();
+        self.clear_driver_binding();
         for mapping in self.mappings.borrow().iter() {
             (mapping.push_to_common)(value);
         }
@@ -473,7 +449,7 @@ unsafe impl<T: PartialEq + Clone + 'static> BindingCallable<T> for StructMemberB
             // on the slot property when it evaluates the binding.
             *(*new_binding).dep_nodes.get() = Default::default();
         }
-        self.slot.install(new_binding);
+        self.install_driver_binding(new_binding);
         // The new binding must drive the classes of all mapped fields.
         // Installing the projections also marks the commons' dependents
         // dirty (including this wrapper and the struct's dependents),
@@ -542,7 +518,10 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         if self.with_struct_member_bindings(|_| ()).is_some() {
             return;
         }
-        let slot = Rc::pin(DriverSlot::new(self.get_internal()));
+        let wrapper = StructMemberBindings {
+            slot: Rc::pin(Property::new(self.get_internal())),
+            mappings: RefCell::new(Vec::new()),
+        };
         if let Some(old) = self.handle.detach_binding() {
             debug_assert!(
                 unsafe { !(*old).is_two_way_binding },
@@ -554,12 +533,12 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             // registrations land on the slot property when it evaluates the
             // binding.
             unsafe { *(*old).dep_nodes.get() = Default::default() };
-            slot.install(old);
+            wrapper.install_driver_binding(old);
         }
         // Safety: StructMemberBindings<T> is a BindingCallable for type T
         unsafe {
             self.handle.set_binding(
-                StructMemberBindings { slot, mappings: RefCell::new(Vec::new()) },
+                wrapper,
                 #[cfg(slint_debug_property)]
                 &alloc::format!("<members of {}>", self.debug_name.borrow()),
             );
@@ -593,7 +572,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                 }),
                 install_projection: Box::new({
                     let common = common.clone();
-                    move |slot: &Pin<Rc<DriverSlot<T>>>| {
+                    move |slot: &Pin<Rc<Property<T>>>| {
                         // Safety: DriverProjection is a BindingCallable for T2
                         unsafe {
                             common.handle.set_binding(
@@ -615,7 +594,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             // A pre-existing real binding must also drive this field's class
             // (it may be a new class, or the class' driver may have been
             // dropped by the value push that preceded this call).
-            if wrapper.slot.has_holder() {
+            if wrapper.slot.has_binding() {
                 (mapping.install_projection)(&wrapper.slot);
             }
             let mut mappings = wrapper.mappings.borrow_mut();
@@ -1585,26 +1564,30 @@ mod struct_member_tests {
         assert_eq!(z_scalar.as_ref().get(), 11);
     }
 
-    /// Clearing the slot while its holder is being evaluated (a binding
-    /// that writes back to its own struct property) is a clean "Recursion
-    /// detected" panic: the lock assertion fires before any drop, so a
-    /// use-after-free is impossible by construction. (Every full-topology
-    /// route to this state also panicked under the previous deferred-drop
-    /// design — on the locked common or struct handle instead.)
+    /// Clearing the slot property while its holder is being evaluated (a
+    /// binding that writes back to its own struct property) is a clean
+    /// "Recursion detected" panic: the lock assertion fires before any
+    /// drop, so a use-after-free is impossible by construction. (Every
+    /// full-topology route to this state also panicked under the previous
+    /// deferred-drop design — on the locked common or struct handle
+    /// instead.)
     #[test]
     #[should_panic(expected = "Recursion detected")]
-    fn driver_slot_clear_of_executing_holder_panics_cleanly() {
-        let slot = Rc::pin(DriverSlot::<i32>::new(0));
+    fn clearing_executing_driver_binding_panics_cleanly() {
+        let wrapper = Rc::new(StructMemberBindings::<i32> {
+            slot: Rc::pin(Property::new(0)),
+            mappings: RefCell::new(Vec::new()),
+        });
         let holder = alloc_binding_holder::<i32, _>({
-            let slot = slot.clone();
+            let wrapper = wrapper.clone();
             move |value: &mut i32| {
-                slot.clear();
+                wrapper.clear_driver_binding();
                 *value = 42;
                 BindingResult::KeepBinding
             }
         });
-        slot.install(holder);
-        let _ = slot.as_ref().property().get();
+        wrapper.install_driver_binding(holder);
+        let _ = wrapper.slot.as_ref().get();
     }
 
     /// The full-topology version of the scenario above: a struct binding
