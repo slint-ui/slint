@@ -96,7 +96,7 @@ Pass the `--no-default-translation-context` flag to `slint-tr-extractor` if you 
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">
-With <LangRefLink lang="rust-slint-build" relpath="struct.compilerconfiguration#method.set_default_translation_context">`slint_build::CompilerConfiguration::set_default_translation_context(slint_build::DefaultTranslationContext::None)`</LangRefLink>
+With <LangRefLink lang="rust-slint-build" relpath="struct.compilerconfiguration#method.with_default_translation_context">`slint_build::CompilerConfiguration::with_default_translation_context(slint_build::DefaultTranslationContext::None)`</LangRefLink>
 when using a build script.
 With <LangRefLink lang="rust-slint-interpreter" relpath="struct.compiler#method.set_default_translation_context">`slint_interpreter::Compiler::set_default_translation_context(slint_interpreter::DefaultTranslationContext::None)`</LangRefLink>
 when using the `slint-interpreter` crate.

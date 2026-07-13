@@ -431,7 +431,7 @@ import * as slint from "slint-ui";
 let ui = slint.loadFile(new URL("ui/my-component.slint", import.meta.url));
 let component = new ui.MyComponent();
 
-component.Logic.to_upper_case = (str) => {
+component.Logic.to_uppercase = (str) => {
     return str.toUpperCase();
 };
 ```

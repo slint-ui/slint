@@ -85,7 +85,7 @@ services:
       - "c 226:* rmw"
 ```
 
-:::Note{}
+:::note[Note]
 Change the `image` to match your hardware platform:
 
 | Platform      | Image                                                    |
