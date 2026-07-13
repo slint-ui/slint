@@ -24,6 +24,11 @@ fn run_test(
     testcase: &test_driver_lib::TestCase,
     inject_debug_hooks: bool,
 ) -> Result<(), Box<dyn Error>> {
+    if inject_debug_hooks && testcase.is_ignored("interpreter-debug-hooks") {
+        eprintln!("Ignoring test {} for the debug hooks", testcase.relative_path.display());
+        return Ok(());
+    }
+
     let mode = if inject_debug_hooks { " (with debug hooks)" } else { "" };
 
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
