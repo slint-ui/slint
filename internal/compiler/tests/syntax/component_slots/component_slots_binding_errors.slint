@@ -106,3 +106,21 @@ export component FailUnassignedSlotReference inherits Rectangle {
 //                                      >                        <error{Slot 'header' is not assigned in this instance}
     }
 }
+
+export component FailAssignmentOnNonComponent inherits Rectangle {
+    Rectangle {
+        header << Rectangle { }
+//      >                     <error{Slot assignments can only be used on components}
+    }
+}
+
+export component FailForwardingOnNonComponent inherits Rectangle {
+    slot header;
+
+    Rectangle {
+        hostHeader << header;
+//      >                   <error{Slot forwarding can only be used on components}
+    }
+
+    header {}
+}
