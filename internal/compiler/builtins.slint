@@ -1508,6 +1508,8 @@ export component ContextMenuArea inherits Empty {
 }
 
 component WindowItem {
+    in-out property <length> x;
+    in-out property <length> y;
     in-out property <length> width;
     in-out property <length> height;
     /// Whether the window should be placed above all other windows on window managers supporting it.
@@ -2491,10 +2493,7 @@ export component RadioGroup {
 /// :::
 /// \group:window
 export component PopupWindow {
-    //property <length> x;
-    //property <length> y;
-    in property <length> width;
-    in property <length> height;
+
     /*property <length> anchor_x;
     in property <length> anchor_y;
     in property <length> anchor_height;
@@ -2865,7 +2864,8 @@ export global Platform {
     /// to the top of the window stack. On other platforms this function is a no-op.
     ///
     /// This corresponds to the standard macOS **Window › Bring All to Front** menu item.
-    function macos-bring-all-windows-to-front() { }
+    function macos-bring-all-windows-to-front() {
+    }
 }
 
 export component NativeButton {

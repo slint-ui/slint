@@ -2785,9 +2785,9 @@ mod tests {
         // A popup has it's own ItemTreeVTable
         let (window_adapter, parent) = create_one_node_component(Some(window_item));
         let popup_component = create_subsubtree_items(Some(window_adapter.clone())).1;
+        crate::window::WindowInner::set_popup_position(&popup_component, POPUP_LOCATION);
         window_adapter.window.0.show_popup(
             &popup_component,
-            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
             crate::window::WindowKind::Popup,
@@ -2823,9 +2823,9 @@ mod tests {
     fn test_map_to_window_popup() {
         const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
         let (window_adapter, item_tree) = create_subsubtree_items(None);
+        crate::window::WindowInner::set_popup_position(&item_tree, POPUP_LOCATION);
         window_adapter.window.0.show_popup(
             &item_tree,
-            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
             crate::window::WindowKind::Popup,
@@ -2924,9 +2924,9 @@ mod tests {
         // A popup has it's own ItemTreeVTable
         let (window_adapter, parent) = create_one_node_component(Some(window_item));
         let popup_component = create_subsubtree_items_dynamic_elements(window_adapter.clone());
+        crate::window::WindowInner::set_popup_position(&popup_component, POPUP_LOCATION);
         window_adapter.window.0.show_popup(
             &popup_component,
-            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
             crate::window::WindowKind::Popup,

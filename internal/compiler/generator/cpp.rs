@@ -4980,7 +4980,8 @@ fn compile_builtin_function_call(
                     CppGeneratorContext { global_access: "self->globals".into(), conditional_includes: ctx.generator_state.conditional_includes },
                     Some(&parent_ctx),
                 );
-                let position = compile_expression(&popup.position.borrow(), &popup_ctx);
+                let popup_x = compile_expression(&crate::llr::Expression::PropertyReference(popup.x.clone()), &popup_ctx);
+                let popup_y = compile_expression(&crate::llr::Expression::PropertyReference(popup.y.clone()), &popup_ctx);
                 let close_policy = compile_expression(close_policy, ctx);
                 let window_kind = if popup.is_tooltip { "slint::cbindgen_private::WindowKind::ToolTip" } else { "slint::cbindgen_private::WindowKind::Popup" };
                 // Keep the parent's `is-open` property in sync. The setter is passed directly into
@@ -5012,7 +5013,11 @@ fn compile_builtin_function_call(
                     "{window}.close_popup({component_access}->popup_id_{popup_index}); \
                     {component_access}->popup_id_{popup_index} =  \
                         {window}.template show_popup<{popup_window_id}>(&*({component_access}),  \
-                                                                        [=](auto self) {{ return {position}; }},  \
+                                                                        [=](auto self) {{ \
+                                                                            return slint::LogicalPosition( slint::Point<float> {{ \
+                                                                                {popup_x}, {popup_y}    \
+                                                                            }}); \
+                                                                        }},  \
                                                                         {close_policy},  \
                                                                         {{ {parent_component} }},  \
                                                                         {window_kind},  \

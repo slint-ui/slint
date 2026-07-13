@@ -3808,14 +3808,6 @@ fn compile_builtin_function_call(
                     inner_component_id(&ctx.compilation_unit.sub_components[popup.item_tree.root]);
                 let parent_item = access_item_rc(parent_ref, ctx);
 
-                let parent_ctx = ParentScope::new(ctx, None);
-                let popup_ctx = EvaluationContext::new_sub_component(
-                    ctx.compilation_unit,
-                    popup.item_tree.root,
-                    RustGeneratorContext { global_access: quote!(_self.globals()) },
-                    Some(&parent_ctx),
-                );
-                let position = compile_expression(&popup.position.borrow(), &popup_ctx);
                 let close_policy = compile_expression(close_policy, ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 let window_kind = if popup.is_tooltip {
@@ -3874,15 +3866,9 @@ fn compile_builtin_function_call(
                             window.close_popup(current_id);
                         }
 
-                        let popup_instance_vrc_for_position = popup_instance_vrc.clone();
-                        let access_position = sp::Box::new(move || {
-                            let _self = popup_instance_vrc_for_position.as_pin_ref(); #position
-                        });
-
                         #is_open_self_weak_decl
                         let popup_id = window.show_popup(
                             &sp::VRc::into_dyn(popup_instance.into()),
-                            access_position,
                             #close_policy,
                             parent_item,
                             #window_kind,
@@ -3977,10 +3963,14 @@ fn compile_builtin_function_call(
                 .then(|context_menu| quote!(#context_menu.popup_id.set(Some(id))));
             let slint_show = quote! {
                 #close_popup
-                let access_position = sp::Box::new(move || position);
+
+                // Menus are positioned at show time and have no `x`/`y` binding, so store the
+                // computed `position` on the popup's `WindowItem` before showing it. `show_popup`
+                // then derives the placement from those fields.
+                let popup_rc = sp::VRc::into_dyn(popup_instance.into());
+                sp::WindowInner::set_popup_position(&popup_rc, position);
                 let id = sp::WindowInner::from_pub(window_adapter.window()).show_popup(
-                    &sp::VRc::into_dyn(popup_instance.into()),
-                    access_position,
+                    &popup_rc,
                     sp::PopupClosePolicy::CloseOnClickOutside,
                     #context_menu_rc,
                     sp::WindowKind::Menu,

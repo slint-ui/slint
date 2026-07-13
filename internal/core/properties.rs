@@ -1544,5 +1544,40 @@ fn test_nested_property_tracker_evaluate_if_dirty() {
     assert_eq!(r, 12);
 }
 
+#[test]
+#[allow(clippy::redundant_closure)]
+fn test_tracker_chained_properties() {
+    use pin_weak::rc::PinWeak;
+    use std::rc::Rc;
+
+    let scope = Box::<PropertyTracker<true>>::pin(PropertyTracker::default());
+    let prop1 = Box::pin(Property::new(42));
+    let prop2 = Rc::pin(Property::new(25));
+
+    prop1.set_binding({
+        let w = PinWeak::downgrade(prop2.clone());
+        move || w.upgrade().unwrap().as_ref().get()
+    });
+    assert!(scope.is_dirty()); // It is dirty at the beginning
+
+    let r = scope.as_ref().evaluate(|| prop1.as_ref().get());
+    assert_eq!(r, 25);
+    assert!(!scope.is_dirty()); // It is no longer dirty
+
+    // Changing property 2 should lead to a dirty tracker
+    prop2.as_ref().set(26);
+    assert!(scope.is_dirty()); // now dirty for prop2 changed.
+    let r = scope.as_ref().evaluate(|| prop1.as_ref().get() + 1);
+    assert_eq!(r, 27);
+    assert!(!scope.is_dirty());
+
+    // Evaluate tracker again but with non dirty prop1
+    let r = scope.as_ref().evaluate(|| prop1.as_ref().get() + 1);
+    assert_eq!(r, 27);
+    assert!(!scope.is_dirty());
+    prop2.as_ref().set(39);
+    assert!(scope.is_dirty());
+}
+
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi;

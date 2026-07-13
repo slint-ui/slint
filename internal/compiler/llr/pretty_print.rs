@@ -247,9 +247,10 @@ impl PrettyPrinter<'_> {
                 EvaluationContext::new_sub_component(root, w.item_tree.root, (), Some(&parent));
             write!(
                 self.writer,
-                "{} at {} : /*@popup({i})*/ ",
+                "{} at ({}, {}) : /*@popup({i})*/ ",
                 if w.is_tooltip { "tooltip" } else { "popup" },
-                DisplayExpression(&w.position.borrow(), &popup_ctx)
+                DisplayPropertyRef(&w.x, &popup_ctx),
+                DisplayPropertyRef(&w.y, &popup_ctx)
             )?;
             self.print_component(root, w.item_tree.root, Some(&parent))?
         }
