@@ -113,8 +113,8 @@ The software renderer builds a scene graph then rasterizes:
 pub struct SoftwareRenderer { ... }
 
 impl SoftwareRenderer {
-    pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize);
-    pub fn render_by_line(&self, line_callback: impl FnMut(&mut [impl TargetPixel]));
+    pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion;
+    pub fn render_by_line(&self, line_buffer: impl LineBufferProvider) -> PhysicalRegion;
 }
 ```
 
@@ -174,15 +174,29 @@ renderer-software = ["i-slint-backend-selector/renderer-software"]
 
 ### Backend Selector
 
-The selector (`internal/backends/selector/lib.rs`) chooses renderer at runtime:
+`create_backend()` (`internal/backends/selector/lib.rs`) chooses the event-loop backend
+(winit/Qt/linuxkms/testing/headless) at runtime:
 
-1. Check `SLINT_BACKEND` environment variable (e.g., `winit-skia`, `winit-femtovg`)
-2. Fall back to compile-time feature priority
+1. Parse the `SLINT_BACKEND` environment variable with `parse_backend_env_var()`, which
+   splits it into an event-loop name and a renderer name (e.g. `winit-skia` → `("winit",
+   "skia")`).
+2. Dispatch to the matching event-loop backend's constructor, passing the renderer name
+   along (e.g. `i_slint_backend_winit::Backend::new_with_renderer_by_name`).
+3. If no backend/renderer was requested (or the requested one isn't compiled in), fall
+   back to `create_default_backend()`'s compile-time feature priority.
+
+The renderer name itself is resolved *inside* each event-loop backend, not in the
+selector. For winit, that's `create_renderer()` in `internal/backends/winit/lib.rs`, which
+matches on the renderer name (`"skia"`, `"software"`, `"gl"`/`"femtovg"`, ...) against the
+renderers compiled in via Cargo features.
 
 To add a new renderer:
-1. Add feature flag to `internal/backends/selector/Cargo.toml`
-2. Update `try_create_renderer()` in `internal/backends/selector/lib.rs`
-3. Wire up in the appropriate backend (e.g., `internal/backends/winit/`)
+1. Add a feature flag to the relevant backend's `Cargo.toml` (e.g.
+   `internal/backends/winit/Cargo.toml`) and to `api/rs/slint/Cargo.toml`.
+2. Add a match arm for its name in that backend's renderer-dispatch function (e.g.
+   `create_renderer()` in `internal/backends/winit/lib.rs`).
+3. Implement `WinitCompatibleRenderer` (or the equivalent trait for other backends) for
+   the new renderer.
 
 ### Runtime Selection
 
@@ -260,14 +274,19 @@ internal/renderers/
 │   ├── lib.rs           # FemtoVGRenderer, GraphicsBackend trait
 │   ├── itemrenderer.rs  # GLItemRenderer (ItemRenderer impl)
 │   ├── opengl.rs        # OpenGL backend
-│   └── wgpu.rs          # WebGPU backend
+│   ├── wgpu.rs          # WebGPU backend
+│   ├── font_cache.rs
+│   └── images.rs
 ├── skia/
 │   ├── lib.rs           # SkiaRenderer, Surface trait
 │   ├── itemrenderer.rs  # SkiaItemRenderer (ItemRenderer impl)
 │   ├── opengl_surface.rs
 │   ├── metal_surface.rs
 │   ├── vulkan_surface.rs
-│   └── software_surface.rs
+│   ├── d3d_surface.rs
+│   ├── software_surface.rs
+│   ├── wgpu_28_surface.rs / wgpu_29_surface.rs
+│   └── wgpu_renderer.rs
 └── software/
     ├── lib.rs           # SoftwareRenderer, scene building
     ├── scene.rs         # Scene graph structures

@@ -1,3 +1,4 @@
+<!-- cSpell: ignore slotmap -->
 # Embedded MCP Server
 
 The testing backend includes an embedded [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that allows MCP-compatible clients (e.g. Claude Code) to inspect and interact with a running Slint application over HTTP. This document covers the architecture and internals for developers working on `internal/backends/testing/`.
@@ -10,7 +11,7 @@ The MCP server shares a common introspection layer with the system-testing (prot
 ┌─────────────────────────────────────────────┐
 │         Slint Application (event loop)      │
 ├──────────────────┬──────────────────────────┤
-│                  │  introspection.rs         │
+│                  │  introspection/           │
 │                  │  IntrospectionState       │
 │                  │  (window/element arenas)  │
 │       ┌──────────┴──────────┐               │
@@ -36,7 +37,7 @@ See the [README](../../internal/backends/testing/README.md#enabling-the-mcp-serv
 
 ## Initialization Flow
 
-Initialization is triggered from the backend selector (`internal/backends/selector/api.rs`) after the platform is successfully created:
+Initialization is triggered from `init_testing_backends()` in the backend selector (`internal/backends/selector/lib.rs`) after the platform is successfully created:
 
 1. `mcp_server::init()` checks `SLINT_MCP_PORT`. If absent, returns early.
 2. Calls `introspection::ensure_window_tracking()` to install a window-shown hook that registers windows with the shared `IntrospectionState`.
@@ -44,19 +45,21 @@ Initialization is triggered from the backend selector (`internal/backends/select
 
 The lazy start via `OnceCell` ensures the server only binds the port once the application has an event loop running and a window to inspect.
 
-## Shared Introspection Layer (`introspection.rs`)
+## Shared Introspection Layer (`introspection/`)
 
 ### IntrospectionState
 
-The central data structure, stored as a thread-local `Rc<IntrospectionState>`:
+The central data structure, stored as a thread-local `Rc<IntrospectionState>`. `windows` and
+`element_handles` are keyed by a `slotmap`-based `ArenaIndex` (a generational key type
+defined via `slotmap::new_key_type!`), not the `generational_arena` crate:
 
-- **`windows`** — `Arena<TrackedWindow>`: tracks live windows via weak references to their `WindowAdapter`.
-- **`element_handles`** — `Arena<ElementHandle>`: maps arena indices to `ElementHandle` instances.
-- **`element_handle_order`** — `VecDeque<Index>`: tracks insertion order for FIFO eviction.
+- **`windows`** — `RefCell<SlotMap<ArenaIndex, TrackedWindow>>`: tracks live windows via weak references to their `WindowAdapter`.
+- **`element_handles`** — `RefCell<SlotMap<ArenaIndex, ElementHandle>>`: maps arena indices to `ElementHandle` instances.
+- **`element_handle_order`** — `RefCell<VecDeque<ArenaIndex>>`: tracks insertion order for FIFO eviction.
 
 ### Handle System
 
-Both transports use `generational_arena::Index` internally. The proto `Handle` type (`{index, generation}`) is the wire format — `index_to_handle()` and `handle_to_index()` convert between them.
+Both transports use `ArenaIndex` (a `slotmap` key) internally. The proto `Handle` type (`{index, generation}`) is the wire format — `index_to_handle()` and `handle_to_index()` convert between them.
 
 Handles are generational: if an element is evicted and its arena slot reused, stale handles are detected because the generation won't match.
 
@@ -120,14 +123,15 @@ The MCP transport uses the `serde_json`-based serialization, while the system-te
 1. Add request and response message types to `slint_systest.proto`. The build pipeline will auto-generate the JSON schema for the MCP tool's `inputSchema`.
 2. Add a `ToolDef` entry to the `TOOLS` table in `mcp_server.rs` with name, description, proto request type, and optional fields.
 3. Add a match arm in `handle_tool_call()`.
-4. If the tool needs new introspection capabilities, add methods to `IntrospectionState` in `introspection.rs` so both transports can use them.
+4. If the tool needs new introspection capabilities, add methods to `IntrospectionState` in `introspection/mod.rs` so both transports can use them.
 5. Update the `instructions` string in the `initialize` response if the new tool changes the recommended workflow.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `internal/backends/testing/introspection.rs` | Shared `IntrospectionState`, arena management, window/element operations |
+| `internal/backends/testing/introspection/mod.rs` | Shared `IntrospectionState`, arena management, window/element operations |
+| `internal/backends/testing/introspection/proto.rs` | Conversions between internal state and protobuf-derived types |
 | `internal/backends/testing/mcp_server.rs` | HTTP server, JSON-RPC dispatch, MCP tool definitions |
 | `internal/backends/testing/systest.rs` | System-testing TCP/protobuf transport (shares introspection layer) |
 | `internal/backends/testing/slint_systest.proto` | Protobuf definitions (source of truth for data types) |
