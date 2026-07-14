@@ -2,6 +2,14 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+ - Rust: Added `Window::copy_focused_text_selection()`, `Window::cut_focused_text_selection()`, and
+   `Window::paste_into_focused_text()` so custom backends can drive clipboard operations on the focused
+   text input from their own event handlers (e.g. web `ClipboardEvent`s); the winit web backend now uses them.
+ - Rust: Added `Window::has_focused_text_input()` so custom backends can tell when a text input holds the
+   focus (e.g. to keep a hidden editable element focused for web clipboard/IME events).
+
 ## [1.17.1] - 2026-07-07
 
  - Fixed a panic/crash on startup when a global reads `Palette.color-scheme` (or accent-color) during its initialization.
