@@ -1833,6 +1833,7 @@ fn generate_sub_component(
             let restart_body = build_and_drive(restart_call, true);
 
             restart_fns.push(quote!(
+                #[allow(dead_code)]
                 fn #restart_ident(self: ::core::pin::Pin<&Self>) {
                     let _self = self;
                     // `restart()` bypasses the `running = true/false` lowering that `start()`/
@@ -1860,6 +1861,7 @@ fn generate_sub_component(
                     // the loop, same as calling `.start()` (a no-op if already running).
                     let start_ident = format_ident!("start_anim{idx}");
                     restart_fns.push(quote!(
+                        #[allow(dead_code)]
                         fn #start_ident(self: ::core::pin::Pin<&Self>) {
                             let _self = self;
                             #start_body
@@ -1876,6 +1878,7 @@ fn generate_sub_component(
                     let restart_on_change_ident =
                         format_ident!("restart_anim{idx}_on_target_change");
                     restart_fns.push(quote!(
+                        #[allow(dead_code)]
                         fn #restart_on_change_ident(
                             self: ::core::pin::Pin<&Self>,
                             from_value: #target_rust_ty,
