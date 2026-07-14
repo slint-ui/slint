@@ -58,11 +58,6 @@ export component PreviewUi inherits Window {
     property <bool> is-slintpad: Api.runs-in-slintpad;
     property <bool> brand-dark: is-slintpad && Palette.color-scheme == ColorScheme.dark;
     background: brand-dark ? Brand.ink : Palette.background;
-    changed is-slintpad => {
-        if is-slintpad {
-            Palette.color-scheme = ColorScheme.dark;
-        }
-    }
     init => {
         if is-slintpad {
             Palette.color-scheme = ColorScheme.dark;
