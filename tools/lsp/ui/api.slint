@@ -303,6 +303,16 @@ export global Api {
     in-out property <bool> always-on-top;
     in property <bool> focus-previewed-element;
 
+    // ## Panel layout, persisted by the SlintPad host across reloads.
+    // The host restores these on startup and is notified through
+    // panels-layout-changed() whenever the user shows or hides a panel.
+    in-out property <bool> panel-library-open;
+    in-out property <bool> panel-properties-open;
+    in-out property <bool> panel-outline-open;
+    in-out property <bool> panel-data-open;
+    in-out property <bool> panel-console-open;
+    callback panels-layout-changed();
+
     // ## Component Data for ComponentList:
     // All the components
     in property <[ComponentListItem]> known-components;

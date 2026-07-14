@@ -101,6 +101,10 @@ export global ConsoleStyles {
     out property <color> log-background: dark-scheme ? (branded ? Brand.ink : #262626) : #ffffff;
     out property <color> text-color: dark-scheme ? #cccccc : #525252;
     out property <color> toolbar-background: dark-scheme ? (branded ? Brand.surface : #2c2c2c) : #f3f3f3;
+    // Panel body surface and border: match the brand chrome in SlintPad,
+    // otherwise fall back to the active widget style.
+    out property <color> panel-background: (branded && dark-scheme) ? Brand.ink : Palette.background;
+    out property <color> panel-border: (branded && dark-scheme) ? Brand.line : Palette.border;
     out property <length> header-height: 28px;
     out property <length> log-height: 120px;
     out property <color> slint-blue: #0088ff;

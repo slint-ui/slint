@@ -41,11 +41,18 @@ export component PreviewUi inherits Window {
     property <bool> show-floating-table-editor <=> WindowManager.showing-table-editor;
     property <bool> show-color-stop-picker <=> WindowManager.showing-color-stop-picker;
     property <length> initial-floating-x;
-    property <bool> console-panel-expanded: false;
-    property <bool> properties-widget: false;
-    property <bool> data-widget: false;
-    property <bool> outline-widget: false;
-    property <bool> library-widget: false;
+    // Panel visibility is aliased to Api so the SlintPad host can restore it on
+    // startup and persist it whenever the user toggles a panel.
+    property <bool> console-panel-expanded <=> Api.panel-console-open;
+    property <bool> properties-widget <=> Api.panel-properties-open;
+    property <bool> data-widget <=> Api.panel-data-open;
+    property <bool> outline-widget <=> Api.panel-outline-open;
+    property <bool> library-widget <=> Api.panel-library-open;
+    changed console-panel-expanded => { Api.panels-layout-changed(); }
+    changed properties-widget => { Api.panels-layout-changed(); }
+    changed data-widget => { Api.panels-layout-changed(); }
+    changed outline-widget => { Api.panels-layout-changed(); }
+    changed library-widget => { Api.panels-layout-changed(); }
     property <bool> remote-mode: Api.preview-mode == PreviewMode.Remote;
     in-out property <bool> select-mode: false;
 
@@ -345,7 +352,7 @@ export component PreviewUi inherits Window {
                             }
                             mouse-cursor: ns-resize;
                             Rectangle {
-                                background: Palette.border;
+                                background: root.brand-dark ? Brand.line : Palette.border;
                             }
                         }
 
@@ -369,7 +376,7 @@ export component PreviewUi inherits Window {
                             }
                             mouse-cursor: ns-resize;
                             Rectangle {
-                                background: Palette.border;
+                                background: root.brand-dark ? Brand.line : Palette.border;
                             }
                         }
 

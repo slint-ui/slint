@@ -40,6 +40,7 @@ export class PreviewWidget extends Widget {
         resource_url_mapper: ResourceUrlMapperFunction,
         style: string,
         slintpad_callback: InvokeSlintpadCallback,
+        on_ready?: (previewer: Previewer) => void,
     ) {
         super({ node: PreviewWidget.createNode() });
 
@@ -54,6 +55,10 @@ export class PreviewWidget extends Widget {
             .previewer(resource_url_mapper, style, slintpad_callback)
             .then((p) => {
                 this.#previewer = p;
+
+                // Restore the persisted panel layout before the first paint so
+                // the panels appear in the state the user left them.
+                on_ready?.(p);
 
                 // Give the UI some time to wire up the canvas so it can be found
                 // when searching the document.

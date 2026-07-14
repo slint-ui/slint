@@ -4,7 +4,7 @@
 // cSpell: ignore cupertino lumino permalink
 
 import { EditorWidget, initialize as initializeEditor } from "./editor_widget";
-import { LspWaiter, type Lsp, type LoadPhase } from "./lsp";
+import { LspWaiter, type Lsp, type LoadPhase, type PanelLayout } from "./lsp";
 import { PreviewWidget } from "./preview_widget";
 
 import {
@@ -63,6 +63,35 @@ const commands = new CommandRegistry();
 const url_params = new URLSearchParams(window.location.search);
 const url_style = url_params.get("style");
 
+const PANEL_LAYOUT_KEY = "slintpad-panel-layout";
+
+function load_panel_layout(): PanelLayout | null {
+    try {
+        const raw = window.localStorage.getItem(PANEL_LAYOUT_KEY);
+        if (raw === null) {
+            return null;
+        }
+        const parsed = JSON.parse(raw);
+        return {
+            library: !!parsed.library,
+            properties: !!parsed.properties,
+            outline: !!parsed.outline,
+            data: !!parsed.data,
+            console: !!parsed.console,
+        };
+    } catch (_) {
+        return null;
+    }
+}
+
+function save_panel_layout(layout: PanelLayout): void {
+    try {
+        window.localStorage.setItem(PANEL_LAYOUT_KEY, JSON.stringify(layout));
+    } catch (_) {
+        // Ignore storage failures (e.g. private mode with a full quota).
+    }
+}
+
 function setup(lsp: Lsp) {
     const editor = new EditorWidget(lsp);
     set_panic_share_url_getter(() => editor.share_url());
@@ -79,6 +108,14 @@ function setup(lsp: Lsp) {
                 void editor.copy_permalink_to_clipboard();
             } else if (func_type === SlintPadCallbackFunction.NewFile) {
                 void editor.set_demo("");
+            } else if (func_type === SlintPadCallbackFunction.SavePanelLayout) {
+                save_panel_layout(args as PanelLayout);
+            }
+        },
+        (previewer) => {
+            const layout = load_panel_layout();
+            if (layout !== null) {
+                previewer.restore_panels(layout);
             }
         },
     );
