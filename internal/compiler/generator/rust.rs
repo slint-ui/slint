@@ -1699,6 +1699,10 @@ fn generate_sub_component(
     );
     let anim_names =
         component.animation_objects.iter().enumerate().map(|(idx, _)| format_ident!("anim{idx}"));
+    // Extra struct fields (ChangeTracker / cached-previous-value) needed to restart a tween
+    // when its `target` property is assigned directly, rather than only when `running` toggles.
+    let mut anim_target_change_field_decls = Vec::new();
+    let mut anim_target_change_init = Vec::new();
     let update_animations = (!component.animation_objects.is_empty()).then(|| {
         let mut restart_fns = Vec::new();
         let upda = component.animation_objects.iter().enumerate().map(|(idx, anim)| {
@@ -1729,18 +1733,44 @@ fn generate_sub_component(
             let iteration_count = anim.iteration_count.as_ref().map(|i| get_property(&i.borrow())).unwrap_or_else(|| quote!(1.0));
             let direction = anim.direction.as_ref().map(|d| get_property(&d.borrow())).unwrap_or_else(|| quote!(sp::items::AnimationDirection::Normal));
 
+            // A target-change tracker (below) needs to tell the tween's own per-frame writes
+            // to `target` apart from a genuine external assignment (e.g. `rect.x = 100px;`).
+            // It does so by comparing the freshly observed value against this cache, which
+            // every write to `target` -- whether from the tween ticking or from outside --
+            // keeps up to date.
+            let target_rust_ty = Some(
+                rust_property_type(ctx.property_ty(&target_ref))
+                    .expect("animation target must have a representable Rust type"),
+            );
+            let cache_field = target_rust_ty.is_some().then(|| format_ident!("anim_last_target{idx}"));
+
             // Resolved a second time on purpose (once here, once below for the restart
             // function): each copy is spliced into its own `move` closure, so it must be
             // re-evaluated fresh against that closure's own `_self` (rebound each frame via
             // `self_weak.upgrade()`) rather than reuse a resolution whose `prop`/`x`, for
             // parent-hop targets (`MemberAccess::Option`/`OptionFn`), only lives for this
             // immediate call.
-            let set_stmt = access_member(&target_ref, &ctx).then(|prop| quote!(#prop.set(value)));
+            let set_stmt = access_member(&target_ref, &ctx).then(|prop| {
+                if let Some(cache_field) = &cache_field {
+                    quote!(
+                        _self.#cache_field.replace(value.clone());
+                        #prop.set(value);
+                    )
+                } else {
+                    quote!(#prop.set(value))
+                }
+            });
             // Resolved the same way as `set_stmt`: spliced into the `on_finished` closure so
             // the runtime can reflect natural completion back into the Slint `running`
             // property (fixing `running` never returning to false once a tween ends).
             let set_running_false =
                 access_member(&running_ref, &ctx).then(|prop| quote!(#prop.set(false)));
+            // A target-change-triggered (re)start (below) drives the low-level handle
+            // directly, bypassing the `running` binding -- reflect it back into the
+            // Slint-visible `running` property so `anim.running` doesn't read `false`
+            // while the animation is actually running.
+            let set_running_true =
+                access_member(&running_ref, &ctx).then(|prop| quote!(#prop.set(true)));
 
             // Builds a fresh `sp::TweenAnimation` (the "data") from the target's current
             // value and the animation's current property values, then hands it to
@@ -1790,6 +1820,100 @@ fn generate_sub_component(
                 }
             ));
 
+            // Restart the tween when `target` is assigned directly (e.g. `rect.x = 100px;`),
+            // instead of only reacting to `running` toggling.
+            if let (Some(target_rust_ty), Some(cache_field)) = (&target_rust_ty, &cache_field) {
+                let target_tracker = format_ident!("anim_target_tracker{idx}");
+                let target_get_expr = access_member(&target_ref, &ctx).get_property();
+                anim_target_change_field_decls.push(quote!(
+                    #target_tracker : sp::ChangeTracker,
+                    #cache_field : ::core::cell::RefCell<#target_rust_ty>,
+                ));
+
+                let restart_call_stmt = if to.is_some() {
+                    // `to` is fixed, so the animation's endpoints don't depend on the changed
+                    // value at all -- treat the assignment purely as a trigger to (re-)start
+                    // the loop, same as calling `.start()` (a no-op if already running).
+                    let start_ident = format_ident!("start_anim{idx}");
+                    restart_fns.push(quote!(
+                        fn #start_ident(self: ::core::pin::Pin<&Self>) {
+                            let _self = self;
+                            #start_body
+                        }
+                    ));
+                    quote!(_self.#start_ident();)
+                } else if from.is_some() {
+                    // `from` is fixed, so the existing restart logic (from = declared `from`,
+                    // to = target's current, already-updated value) is already correct.
+                    quote!(_self.#restart_ident();)
+                } else {
+                    // No `from`/`to`: animate from the value `target` held right before this
+                    // change, towards the newly-assigned value.
+                    let restart_on_change_ident =
+                        format_ident!("restart_anim{idx}_on_target_change");
+                    restart_fns.push(quote!(
+                        fn #restart_on_change_ident(
+                            self: ::core::pin::Pin<&Self>,
+                            from_value: #target_rust_ty,
+                            to_value: #target_rust_ty,
+                        ) {
+                            let _self = self;
+                            let self_weak = self.self_weak.get().unwrap().clone();
+                            let self_weak_finished = self.self_weak.get().unwrap().clone();
+                            let tween = sp::TweenAnimation::new_with_callbacks(
+                                from_value,
+                                to_value,
+                                sp::PropertyAnimation {
+                                    duration: #duration as i32,
+                                    easing: #easing,
+                                    iteration_count: #iteration_count,
+                                    direction: #direction,
+                                    ..::core::default::Default::default()
+                                },
+                                move |value| {
+                                    if let Some(self_rc) = self_weak.upgrade() {
+                                        let _self = self_rc.as_pin_ref();
+                                        #set_stmt
+                                    }
+                                },
+                                move || {
+                                    if let Some(self_rc) = self_weak_finished.upgrade() {
+                                        let _self = self_rc.as_pin_ref();
+                                        #set_running_false
+                                    }
+                                },
+                            );
+                            self.#ident.restart(sp::Box::new(tween));
+                        }
+                    ));
+                    quote!(_self.#restart_on_change_ident(old_value, new_value.clone());)
+                };
+
+                anim_target_change_init.push(quote!(
+                    _self.#cache_field.replace(#target_get_expr);
+                    let self_weak = sp::VRcMapped::downgrade(&self_rc);
+                    _self.#target_tracker.init(
+                        self_weak,
+                        move |self_weak| {
+                            let self_rc = self_weak.upgrade().unwrap();
+                            let _self = self_rc.as_pin_ref();
+                            #target_get_expr
+                        },
+                        move |self_weak, new_value| {
+                            let self_rc = self_weak.upgrade().unwrap();
+                            let _self = self_rc.as_pin_ref();
+                            let old_value = _self.#cache_field.replace(new_value.clone());
+                            // Skip writes the tween itself just made; only a genuine external
+                            // assignment to `target` should restart the animation.
+                            if old_value != *new_value {
+                                #set_running_true;
+                                #restart_call_stmt
+                            }
+                        },
+                    );
+                ));
+            }
+
             quote!(
                 if #running {
                     #start_body
@@ -1807,6 +1931,7 @@ fn generate_sub_component(
             #(#restart_fns)*
         )
     });
+    user_init_code.extend(anim_target_change_init);
 
     let pin_macro = if pinned_drop { quote!(#[pin_drop]) } else { quote!(#[pin]) };
 
@@ -1827,6 +1952,7 @@ fn generate_sub_component(
             #(#change_tracker_names : sp::ChangeTracker,)*
             #(#timer_names : sp::Timer,)*
             #(#anim_names : sp::AnimationHandle,)*
+            #(#anim_target_change_field_decls)*
             self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,
             #(parent : #parent_component_type,)*
             globals: sp::OnceCell<sp::Rc<SharedGlobals>>,
