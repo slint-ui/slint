@@ -26,8 +26,10 @@ export component HeaderView {
         mode-combobox.current-index = root.preview-mode == PreviewMode.Remote ? 1 : 0;
     }
 
+    property <bool> brand-dark: Api.runs-in-slintpad && Palette.color-scheme == ColorScheme.dark;
+
     background-layer := Rectangle {
-        background: Api.runs-in-slintpad ? Brand.surface : Palette.alternate-background;
+        background: root.brand-dark ? Brand.surface : Palette.alternate-background;
 
         content-layer := HorizontalBox {
             horizontal-stretch: 1;
@@ -159,7 +161,7 @@ export component HeaderView {
             y: parent.height - self.height;
             height: 1px;
 
-            background: Api.runs-in-slintpad ? Brand.line : Palette.border;
+            background: root.brand-dark ? Brand.line : Palette.border;
         }
     }
 }

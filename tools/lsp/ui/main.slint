@@ -53,9 +53,18 @@ export component PreviewUi inherits Window {
     icon: @image-url("assets/slint-logo-small-light.png");
     always-on-top <=> Api.always-on-top;
     // Brand the chrome with the dark slint.dev look, matching the editor.
-    background: Api.runs-in-slintpad ? Brand.ink : Palette.background;
+    // runs-in-slintpad is set by the host after construction, so force the
+    // scheme both on init and reactively when it flips true.
+    property <bool> is-slintpad: Api.runs-in-slintpad;
+    property <bool> brand-dark: is-slintpad && Palette.color-scheme == ColorScheme.dark;
+    background: brand-dark ? Brand.ink : Palette.background;
+    changed is-slintpad => {
+        if is-slintpad {
+            Palette.color-scheme = ColorScheme.dark;
+        }
+    }
     init => {
-        if Api.runs-in-slintpad {
+        if is-slintpad {
             Palette.color-scheme = ColorScheme.dark;
         }
         WindowGlobal.window-width = self.width;
@@ -307,7 +316,7 @@ export component PreviewUi inherits Window {
                         right-panel-border := Rectangle {
                             x: 0px;
                             width: 2px;
-                            background: Api.runs-in-slintpad ? Brand.line : Palette.border;
+                            background: root.brand-dark ? Brand.line : Palette.border;
                         }
 
                         property <float> ratio1: 0.5;
