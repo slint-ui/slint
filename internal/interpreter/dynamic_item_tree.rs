@@ -2998,6 +2998,185 @@ pub fn update_timers(instance: InstanceRef) {
     }
 }
 
+/// Builds an expression evaluating to a `Box<dyn Animation>` for `desc`, recursing into
+/// `desc.children` for Parallel/Sequential containers. Mirrors the Rust-codegen
+/// `build_animation_value` helper: unlike a top-level `Tween` (built via [`build_tween`], which
+/// additionally wires up the target-change-tracker/cache-field bookkeeping keyed by `idx`), a
+/// `Tween` reached here is always a nested leaf, so its `set_value` callback just writes the
+/// target property directly.
+fn build_animation_value(
+    instance: InstanceRef,
+    desc: &object_tree::Animation,
+) -> Box<dyn i_slint_core::properties::Animation> {
+    match desc.animation_type {
+        object_tree::AnimationType::Tween => {
+            let target = desc.target.as_ref().expect("TweenAnimation requires a target");
+            let current =
+                || eval::load_property(instance, &target.element(), target.name()).unwrap();
+            let from = desc
+                .from
+                .as_ref()
+                .map(|f| eval::load_property(instance, &f.element(), f.name()).unwrap())
+                .unwrap_or_else(current);
+            let to = desc
+                .to
+                .as_ref()
+                .map(|t| eval::load_property(instance, &t.element(), t.name()).unwrap())
+                .unwrap_or_else(current);
+            let details = animation_details(instance, desc);
+
+            let target_ref = target.clone();
+            let self_weak_value = instance.self_weak().get().unwrap().clone();
+            let set_value = move |value: Value| {
+                if let Some(instance) = self_weak_value.upgrade() {
+                    generativity::make_guard!(guard);
+                    let c = instance.unerase(guard);
+                    let instance_ref = c.borrow_instance();
+                    eval::store_property(
+                        instance_ref,
+                        &target_ref.element(),
+                        target_ref.name(),
+                        value,
+                    )
+                    .unwrap();
+                }
+            };
+
+            let running_ref = desc.running.clone();
+            let self_weak_finished = instance.self_weak().get().unwrap().clone();
+            let on_finished = move || {
+                if let Some(instance) = self_weak_finished.upgrade() {
+                    generativity::make_guard!(guard);
+                    let c = instance.unerase(guard);
+                    let instance_ref = c.borrow_instance();
+                    eval::store_property(
+                        instance_ref,
+                        &running_ref.element(),
+                        running_ref.name(),
+                        Value::Bool(false),
+                    )
+                    .unwrap();
+                }
+            };
+
+            Box::new(i_slint_core::properties::TweenAnimation::new_with_callbacks(
+                from,
+                to,
+                details,
+                set_value,
+                on_finished,
+            ))
+        }
+        object_tree::AnimationType::Delay => {
+            let duration: i64 = desc
+                .duration
+                .as_ref()
+                .map(|d| {
+                    eval::load_property(instance, &d.element(), d.name()).unwrap().try_into().unwrap()
+                })
+                .unwrap_or(0);
+            Box::new(i_slint_core::properties::DelayAnimation::new(duration as u64))
+        }
+        object_tree::AnimationType::Parallel | object_tree::AnimationType::Sequential => {
+            let iteration_count: f64 = desc
+                .iteration_count
+                .as_ref()
+                .map(|i| {
+                    eval::load_property(instance, &i.element(), i.name()).unwrap().try_into().unwrap()
+                })
+                .unwrap_or(1.);
+            let children =
+                desc.children.iter().map(|c| build_animation_value(instance, c)).collect::<Vec<_>>();
+            if desc.animation_type == object_tree::AnimationType::Parallel {
+                let mut container = i_slint_core::properties::ParallelAnimation::new();
+                container.set_iteration_count(iteration_count);
+                for child in children {
+                    container.add_animation(child);
+                }
+                Box::new(container)
+            } else {
+                let mut container = i_slint_core::properties::SequentialAnimation::new();
+                container.set_iteration_count(iteration_count);
+                for child in children {
+                    container.add_animation(child);
+                }
+                Box::new(container)
+            }
+        }
+    }
+}
+
+/// Like [`build_animation_value`], but for a *root* (top-level, `instance.description.animations`)
+/// Delay/Parallel/Sequential node: also wires up `set_on_finished` to write `false` back to the
+/// `running` property once the tree finishes on its own. A Tween already does this itself (via
+/// the callback baked into `build_animation_value`'s `Tween` arm), so this is a passthrough for
+/// those.
+fn build_root_animation_value(
+    instance: InstanceRef,
+    desc: &object_tree::Animation,
+) -> Box<dyn i_slint_core::properties::Animation> {
+    let mut tree = build_animation_value(instance, desc);
+    if desc.animation_type == object_tree::AnimationType::Tween {
+        return tree;
+    }
+    let running_ref = desc.running.clone();
+    let self_weak_finished = instance.self_weak().get().unwrap().clone();
+    tree.set_on_finished(Box::new(move || {
+        if let Some(instance) = self_weak_finished.upgrade() {
+            generativity::make_guard!(guard);
+            let c = instance.unerase(guard);
+            let instance_ref = c.borrow_instance();
+            eval::store_property(
+                instance_ref,
+                &running_ref.element(),
+                running_ref.name(),
+                Value::Bool(false),
+            )
+            .unwrap();
+        }
+    }));
+    tree
+}
+
+fn animation_details(
+    instance: InstanceRef,
+    desc: &object_tree::Animation,
+) -> i_slint_core::items::PropertyAnimation {
+    let duration: i64 = desc
+        .duration
+        .as_ref()
+        .map(|d| eval::load_property(instance, &d.element(), d.name()).unwrap().try_into().unwrap())
+        .unwrap_or(0);
+    let easing: i_slint_core::animations::EasingCurve = desc
+        .easing
+        .as_ref()
+        .map(|e| eval::load_property(instance, &e.element(), e.name()).unwrap().try_into().unwrap())
+        .unwrap_or_default();
+    let iteration_count: f64 = desc
+        .iteration_count
+        .as_ref()
+        .map(|i| eval::load_property(instance, &i.element(), i.name()).unwrap().try_into().unwrap())
+        .unwrap_or(1.);
+    let direction = desc
+        .direction
+        .as_ref()
+        .map(|d| {
+            i_slint_core::items::AnimationDirection::try_from(
+                eval::load_property(instance, &d.element(), d.name()).unwrap(),
+            )
+            .unwrap()
+        })
+        .unwrap_or_default();
+    i_slint_core::items::PropertyAnimation {
+        delay: 0,
+        duration: duration as i32,
+        iteration_count: iteration_count as f32,
+        direction,
+        easing,
+        enabled: true,
+    }
+}
+
 fn build_tween(
     instance: InstanceRef,
     idx: usize,
@@ -3029,39 +3208,7 @@ fn build_tween_with(
     to: Value,
 ) -> (Box<dyn i_slint_core::properties::Animation>, Value) {
     let target = desc.target.as_ref().expect("TweenAnimation requires a target");
-    let duration: i64 = desc
-        .duration
-        .as_ref()
-        .map(|d| eval::load_property(instance, &d.element(), d.name()).unwrap().try_into().unwrap())
-        .unwrap_or(0);
-    let easing: i_slint_core::animations::EasingCurve = desc
-        .easing
-        .as_ref()
-        .map(|e| eval::load_property(instance, &e.element(), e.name()).unwrap().try_into().unwrap())
-        .unwrap_or_default();
-    let iteration_count: f64 = desc
-        .iteration_count
-        .as_ref()
-        .map(|i| eval::load_property(instance, &i.element(), i.name()).unwrap().try_into().unwrap())
-        .unwrap_or(1.);
-    let direction = desc
-        .direction
-        .as_ref()
-        .map(|d| {
-            i_slint_core::items::AnimationDirection::try_from(
-                eval::load_property(instance, &d.element(), d.name()).unwrap(),
-            )
-            .unwrap()
-        })
-        .unwrap_or_default();
-    let details = i_slint_core::items::PropertyAnimation {
-        delay: 0,
-        duration: duration as i32,
-        iteration_count: iteration_count as f32,
-        direction,
-        easing,
-        enabled: true,
-    };
+    let details = animation_details(instance, desc);
 
     let target_ref = target.clone();
     let self_weak_value = instance.self_weak().get().unwrap().clone();
@@ -3115,7 +3262,10 @@ pub fn update_animations(instance: InstanceRef) {
         let running =
             eval::load_property(instance, &desc.running.element(), desc.running.name()).unwrap();
         if matches!(running, Value::Bool(true)) {
-            let (tween, _from) = build_tween(instance, idx, desc);
+            let tween = match desc.animation_type {
+                object_tree::AnimationType::Tween => build_tween(instance, idx, desc).0,
+                _ => build_root_animation_value(instance, desc),
+            };
             handle.start(tween);
         } else {
             handle.stop();
@@ -3131,8 +3281,6 @@ pub fn restart_animation(element: ElementWeak, instance: InstanceRef) {
         .enumerate()
         .find(|(_, (desc, _))| Weak::ptr_eq(&desc.element, &element))
     {
-        let (tween, from) = build_tween(instance, idx, desc);
-        let target = desc.target.as_ref().expect("TweenAnimation requires a target");
         // changes running to true on restart
         eval::store_property(
             instance,
@@ -3141,11 +3289,21 @@ pub fn restart_animation(element: ElementWeak, instance: InstanceRef) {
             Value::Bool(true),
         )
         .unwrap();
-        offset.apply(instance.as_ref()).restart(tween);
-        // changes property to from on this tick
-        eval::store_property(instance, &target.element(), target.name(), from.clone()).unwrap();
-        let cache_offset = instance.description.animation_target_trackers[idx].1;
-        *cache_offset.apply(instance.as_ref()).borrow_mut() = from;
+        if desc.animation_type == object_tree::AnimationType::Tween {
+            let (tween, from) = build_tween(instance, idx, desc);
+            let target = desc.target.as_ref().expect("TweenAnimation requires a target");
+            offset.apply(instance.as_ref()).restart(tween);
+            // changes property to from on this tick
+            eval::store_property(instance, &target.element(), target.name(), from.clone())
+                .unwrap();
+            let cache_offset = instance.description.animation_target_trackers[idx].1;
+            *cache_offset.apply(instance.as_ref()).borrow_mut() = from;
+        } else {
+            // Delay/Parallel/Sequential have no single scalar target to push a `from` value
+            // into; a fresh tree is simply (re)built and (re)started from the beginning.
+            let tree = build_root_animation_value(instance, desc);
+            offset.apply(instance.as_ref()).restart(tree);
+        }
     }
 }
 
@@ -3157,6 +3315,25 @@ fn on_target_changed(
     old_value: Value,
     new_value: Value,
 ) {
+    // A `target` on a Parallel/Sequential animation is only a trigger: unlike Tween there's no
+    // single scalar value to animate, so any external write simply (re)starts the whole tree.
+    if matches!(
+        desc.animation_type,
+        object_tree::AnimationType::Parallel | object_tree::AnimationType::Sequential
+    ) {
+        eval::store_property(
+            instance,
+            &desc.running.element(),
+            desc.running.name(),
+            Value::Bool(true),
+        )
+        .unwrap();
+        let handle = instance.description.animations[idx].apply(instance.as_ref());
+        let tree = build_root_animation_value(instance, desc);
+        handle.restart(tree);
+        return;
+    }
+
     if desc.to.is_some() {
         // `to` is fixed so a property change just starts the animation
         eval::store_property(
@@ -3186,12 +3363,14 @@ fn on_target_changed(
     }
 }
 
-/// Initialize change trackers so animations can start on property change
+/// Initialize change trackers so animations can start on property change. Only Tween (always)
+/// and Parallel/Sequential (optionally, when used as a start trigger) have a `target`; Delay
+/// never does, and a target-less Parallel/Sequential is started purely via `running`.
 pub fn init_animation_target_trackers(instance: InstanceRef) {
     let anims = instance.description.original.animations.borrow();
     let self_weak = instance.self_weak().get().unwrap().clone();
     for (idx, desc) in anims.iter().enumerate() {
-        let target = desc.target.as_ref().expect("TweenAnimation requires a target");
+        let Some(target) = desc.target.as_ref() else { continue };
         let initial = eval::load_property(instance, &target.element(), target.name()).unwrap();
         let cache_offset = instance.description.animation_target_trackers[idx].1;
         *cache_offset.apply(instance.as_ref()).borrow_mut() = initial;

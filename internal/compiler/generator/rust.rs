@@ -1276,6 +1276,34 @@ fn build_animation_value(anim: &llr::AnimationObject, ctx: &EvaluationContext) -
     }
 }
 
+/// Like [`build_animation_value`], but for a *root* (top-level, `component.animation_objects`)
+/// Delay/Parallel/Sequential node: also wires up `set_on_finished` to write `false` back to the
+/// `.slint`-visible `running` property once the tree finishes on its own. A `TweenAnimation`
+/// already does this itself (via the callback baked into its constructor), so this is a no-op
+/// passthrough for those.
+fn build_root_animation_value(anim: &llr::AnimationObject, ctx: &EvaluationContext) -> TokenStream {
+    let tree = build_animation_value(anim, ctx);
+    if anim.animation_type == AnimationType::Tween {
+        return tree;
+    }
+    let running_ref = match &*anim.running.borrow() {
+        llr::Expression::PropertyReference(mr) => mr.clone(),
+        _ => panic!("internal error: animation running must be a property reference"),
+    };
+    let set_running_false = access_member(&running_ref, ctx).then(|prop| quote!(#prop.set(false)));
+    quote!({
+        let mut __anim = #tree;
+        let self_weak_finished = self.self_weak.get().unwrap().clone();
+        __anim.set_on_finished(sp::Box::new(move || {
+            if let Some(self_rc) = self_weak_finished.upgrade() {
+                let _self = self_rc.as_pin_ref();
+                #set_running_false;
+            }
+        }));
+        __anim
+    })
+}
+
 fn generate_sub_component(
     component_idx: llr::SubComponentIdx,
     root: &llr::CompilationUnit,
@@ -1823,7 +1851,27 @@ fn generate_sub_component(
             if anim.animation_type == AnimationType::Delay {
                 // No target so a fresh tree is (re)built and handed to the handle when `running`
                 // changes
-                let tree = build_animation_value(anim, &ctx);
+                let tree = build_root_animation_value(anim, &ctx);
+
+                // `.restart()` called from .slint still needs a `restart_anim{idx}` function
+                // even though there's no target-driven auto-restart machinery here.
+                let restart_ident = format_ident!("restart_anim{idx}");
+                let running_ref = match &*anim.running.borrow() {
+                    llr::Expression::PropertyReference(mr) => mr.clone(),
+                    _ => panic!("internal error: animation running must be a property reference"),
+                };
+                let set_running_true =
+                    access_member(&running_ref, &ctx).then(|prop| quote!(#prop.set(true)));
+                let restart_tree = build_root_animation_value(anim, &ctx);
+                restart_fns.push(quote!(
+                    #[allow(dead_code)]
+                    fn #restart_ident(self: ::core::pin::Pin<&Self>) {
+                        let _self = self;
+                        #set_running_true;
+                        self.#ident.restart(#restart_tree);
+                    }
+                ));
+
                 return quote!(
                     if #running {
                         self.#ident.start(#tree);
@@ -1837,7 +1885,29 @@ fn generate_sub_component(
                 // A `target` only makes sense on a root level Parallel/Sequential animation.
                 // Unlike tween this is only a trigger property to start the animation
                 let Some(target) = &anim.target else {
-                    let tree = build_animation_value(anim, &ctx);
+                    let tree = build_root_animation_value(anim, &ctx);
+
+                    // `.restart()` called from .slint still needs a `restart_anim{idx}`
+                    // function even without a target to auto-restart on.
+                    let restart_ident = format_ident!("restart_anim{idx}");
+                    let running_ref = match &*anim.running.borrow() {
+                        llr::Expression::PropertyReference(mr) => mr.clone(),
+                        _ => panic!(
+                            "internal error: animation running must be a property reference"
+                        ),
+                    };
+                    let set_running_true =
+                        access_member(&running_ref, &ctx).then(|prop| quote!(#prop.set(true)));
+                    let restart_tree = build_root_animation_value(anim, &ctx);
+                    restart_fns.push(quote!(
+                        #[allow(dead_code)]
+                        fn #restart_ident(self: ::core::pin::Pin<&Self>) {
+                            let _self = self;
+                            #set_running_true;
+                            self.#ident.restart(#restart_tree);
+                        }
+                    ));
+
                     return quote!(
                         if #running {
                             self.#ident.start(#tree);
@@ -1860,7 +1930,7 @@ fn generate_sub_component(
                 let set_running_true =
                     access_member(&running_ref, &ctx).then(|prop| quote!(#prop.set(true)));
 
-                let restart_tree = build_animation_value(anim, &ctx);
+                let restart_tree = build_root_animation_value(anim, &ctx);
                 restart_fns.push(quote!(
                     #[allow(dead_code)]
                     fn #restart_ident(self: ::core::pin::Pin<&Self>) {
@@ -1902,7 +1972,7 @@ fn generate_sub_component(
                     );
                 ));
 
-                let tree = build_animation_value(anim, &ctx);
+                let tree = build_root_animation_value(anim, &ctx);
                 return quote!(
                     if #running {
                         self.#ident.start(#tree);

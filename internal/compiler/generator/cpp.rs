@@ -468,7 +468,7 @@ use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, EvaluationScope, ParentScope,
     TypeResolutionContext as _,
 };
-use crate::object_tree::Document;
+use crate::object_tree::{AnimationType, Document};
 use cpp_ast::*;
 use itertools::{Either, Itertools};
 use std::cell::Cell;
@@ -2122,6 +2122,121 @@ fn generate_item_tree(
     ));
 }
 
+fn animation_member_ref(exp: &llr::Expression) -> llr::MemberReference {
+    match exp {
+        llr::Expression::PropertyReference(mr) => mr.clone(),
+        _ => panic!("internal error: animation field must be a property reference"),
+    }
+}
+
+/// Builds the `slint::cbindgen_private::PropertyAnimation` details expression shared by every
+/// Tween leaf (top-level or nested inside a Parallel/Sequential).
+fn animation_details_expr(anim: &llr::AnimationObject, ctx: &EvaluationContext) -> String {
+    let duration =
+        compile_expression(&anim.duration.as_ref().expect("duration is required").borrow(), ctx);
+    let easing =
+        compile_expression(&anim.easing.as_ref().expect("easing is required").borrow(), ctx);
+    let iteration_count = anim
+        .iteration_count
+        .as_ref()
+        .map(|e| compile_expression(&e.borrow(), ctx))
+        .unwrap_or_else(|| "1.".into());
+    let direction = anim
+        .direction
+        .as_ref()
+        .map(|e| compile_expression(&e.borrow(), ctx))
+        .unwrap_or_else(|| "slint::cbindgen_private::AnimationDirection::Normal".into());
+    format!(
+        "[&]{{ slint::cbindgen_private::PropertyAnimation o{{}}; o.delay = 0; o.duration = (int)({duration}); o.iteration_count = (float)({iteration_count}); o.direction = {direction}; o.easing = {easing}; o.enabled = true; return o; }}()"
+    )
+}
+
+/// Builds a C++ expression evaluating to a `slint::private_api::AnimationNode` for `anim`,
+/// recursing into `anim.children` for Parallel/Sequential containers. A `Tween` reached here is
+/// always a nested leaf (or, for a target-less top-level Parallel/Sequential, part of that
+/// container's own tree): its `set_value`/`on_finished` callbacks just write straight to the
+/// target/running properties, unlike a top-level Tween (built separately, further down in
+/// `generate_sub_component`), which additionally tracks a last-known-value cache so external
+/// writes to its target can (re)start it.
+fn build_animation_node(anim: &llr::AnimationObject, ctx: &EvaluationContext) -> String {
+    match anim.animation_type {
+        AnimationType::Tween => {
+            let target_ref =
+                animation_member_ref(&anim.target.as_ref().expect("TweenAnimation requires a target").borrow());
+            let target_ty = ctx.property_ty(&target_ref).clone();
+            let cpp_ty = target_ty.cpp_type().expect("animation target must have a C++ type");
+            let target_get = access_member(&target_ref, ctx).get_property();
+
+            let running_ref = animation_member_ref(&anim.running.borrow());
+            let from = anim
+                .from
+                .as_ref()
+                .map(|f| compile_expression(&f.borrow(), ctx))
+                .unwrap_or_else(|| target_get.clone());
+            let to = anim
+                .to
+                .as_ref()
+                .map(|t| compile_expression(&t.borrow(), ctx))
+                .unwrap_or_else(|| target_get.clone());
+            let details = animation_details_expr(anim, ctx);
+
+            let set_stmt =
+                access_member(&target_ref, ctx).then(|prop| format!("{prop}.set(value)"));
+            let set_running_false =
+                access_member(&running_ref, ctx).then(|prop| format!("{prop}.set(false)"));
+
+            format!(
+                "slint::private_api::AnimationNode::new_tween<{cpp_ty}>({from}, {to}, {details}, [self]({cpp_ty} value) {{ {set_stmt}; }}, [self]() {{ {set_running_false}; }})"
+            )
+        }
+        AnimationType::Delay => {
+            let duration_ms = anim
+                .duration
+                .as_ref()
+                .map(|d| compile_expression(&d.borrow(), ctx))
+                .unwrap_or_else(|| "0".into());
+            format!("slint::private_api::AnimationNode::new_delay((uint64_t)({duration_ms}))")
+        }
+        AnimationType::Parallel | AnimationType::Sequential => {
+            let ctor = if anim.animation_type == AnimationType::Parallel {
+                "new_parallel"
+            } else {
+                "new_sequential"
+            };
+            let iteration_count = anim
+                .iteration_count
+                .as_ref()
+                .map(|i| compile_expression(&i.borrow(), ctx))
+                .unwrap_or_else(|| "1.".into());
+            let add_children: String = anim
+                .children
+                .iter()
+                .map(|c| format!(" __container.add_child({});", build_animation_node(c, ctx)))
+                .collect();
+            format!(
+                "[&]{{ auto __container = slint::private_api::AnimationNode::{ctor}(); __container.set_iteration_count((double)({iteration_count}));{add_children} return __container; }}()"
+            )
+        }
+    }
+}
+
+/// Like [`build_animation_node`], but for a *root* (top-level, `component.animation_objects`)
+/// Delay/Parallel/Sequential node: also wires up `set_on_finished` to write `false` back to the
+/// `.slint`-visible `running` property once the tree finishes on its own. A Tween already does
+/// this itself (via the callback passed to `new_tween`), so this is a passthrough for those.
+fn build_root_animation_node(anim: &llr::AnimationObject, ctx: &EvaluationContext) -> String {
+    let tree = build_animation_node(anim, ctx);
+    if anim.animation_type == AnimationType::Tween {
+        return tree;
+    }
+    let running_ref = animation_member_ref(&anim.running.borrow());
+    let set_running_false =
+        access_member(&running_ref, ctx).then(|prop| format!("{prop}.set(false)"));
+    format!(
+        "[self]{{ auto __anim = {tree}; __anim.set_on_finished([self]() {{ {set_running_false}; }}); return __anim; }}()"
+    )
+}
+
 fn generate_sub_component(
     target_struct: &mut Struct,
     component: llr::SubComponentIdx,
@@ -2552,6 +2667,146 @@ fn generate_sub_component(
         for (i, anim) in component.animation_objects.iter().enumerate() {
             user_init.push("self->update_animations();".to_string());
             let name = format_smolstr!("anim{}", i);
+            let running = compile_expression(&anim.running.borrow(), &ctx);
+
+            if anim.animation_type == AnimationType::Delay {
+                // No target so a fresh tree is (re)built and handed to the handle whenever
+                // `running` changes.
+                let tree = build_root_animation_node(anim, &ctx);
+                update_animations.push(format!("if ({running}) {{"));
+                update_animations.push(format!("   self->{name}.start({tree});"));
+                update_animations.push(format!("}} else {{ self->{name}.stop(); }}"));
+                target_struct.members.push((
+                    field_access,
+                    Declaration::Var(Var {
+                        ty: "slint::private_api::AnimationHandle".into(),
+                        name: name.clone(),
+                        ..Default::default()
+                    }),
+                ));
+
+                // `.restart()` called from .slint still needs a `restart_anim{i}` function
+                // even though there's no target-driven auto-restart machinery here.
+                let running_ref = animation_member_ref(&anim.running.borrow());
+                let set_running_true =
+                    access_member(&running_ref, &ctx).then(|prop| format!("{prop}.set(true)"));
+                let restart_tree = build_root_animation_node(anim, &ctx);
+                target_struct.members.push((
+                    field_access,
+                    Declaration::Function(Function {
+                        name: format_smolstr!("restart_anim{}", i),
+                        signature: "() const -> void".into(),
+                        statements: Some(vec![
+                            "auto self = this;".into(),
+                            format!("{set_running_true};"),
+                            format!("self->{name}.restart({restart_tree});"),
+                        ]),
+                        ..Default::default()
+                    }),
+                ));
+                continue;
+            }
+
+            if matches!(anim.animation_type, AnimationType::Parallel | AnimationType::Sequential) {
+                // A `target` only makes sense on a root-level Parallel/Sequential animation.
+                // Unlike Tween this is only a trigger property to (re)start the animation, not a
+                // value to interpolate.
+                let Some(target) = &anim.target else {
+                    let tree = build_root_animation_node(anim, &ctx);
+                    update_animations.push(format!("if ({running}) {{"));
+                    update_animations.push(format!("   self->{name}.start({tree});"));
+                    update_animations.push(format!("}} else {{ self->{name}.stop(); }}"));
+                    target_struct.members.push((
+                        field_access,
+                        Declaration::Var(Var {
+                            ty: "slint::private_api::AnimationHandle".into(),
+                            name: name.clone(),
+                            ..Default::default()
+                        }),
+                    ));
+
+                    // `.restart()` called from .slint still needs a `restart_anim{i}` function
+                    // even without a target to auto-restart on.
+                    let running_ref = animation_member_ref(&anim.running.borrow());
+                    let set_running_true = access_member(&running_ref, &ctx)
+                        .then(|prop| format!("{prop}.set(true)"));
+                    let restart_tree = build_root_animation_node(anim, &ctx);
+                    target_struct.members.push((
+                        field_access,
+                        Declaration::Function(Function {
+                            name: format_smolstr!("restart_anim{}", i),
+                            signature: "() const -> void".into(),
+                            statements: Some(vec![
+                                "auto self = this;".into(),
+                                format!("{set_running_true};"),
+                                format!("self->{name}.restart({restart_tree});"),
+                            ]),
+                            ..Default::default()
+                        }),
+                    ));
+                    continue;
+                };
+
+                let target_ref = animation_member_ref(&target.borrow());
+                let running_ref = animation_member_ref(&anim.running.borrow());
+                let set_running_true =
+                    access_member(&running_ref, &ctx).then(|prop| format!("{prop}.set(true)"));
+                let target_ty = ctx.property_ty(&target_ref).clone();
+                let cpp_ty = target_ty.cpp_type().expect("animation target must have a C++ type");
+                let target_get = access_member(&target_ref, &ctx).get_property();
+                let cache_field = format_smolstr!("anim_last_target{}", i);
+                let tracker_name = format_smolstr!("anim_target_tracker{}", i);
+
+                let restart_tree = build_root_animation_node(anim, &ctx);
+                target_struct.members.push((
+                    field_access,
+                    Declaration::Function(Function {
+                        name: format_smolstr!("restart_anim{}", i),
+                        signature: "() const -> void".into(),
+                        statements: Some(vec![
+                            "auto self = this;".into(),
+                            format!("{set_running_true};"),
+                            format!("self->{name}.restart({restart_tree});"),
+                        ]),
+                        ..Default::default()
+                    }),
+                ));
+
+                target_struct.members.push((
+                    field_access,
+                    Declaration::Var(Var {
+                        ty: "slint::private_api::ChangeTracker".into(),
+                        name: tracker_name.clone(),
+                        ..Default::default()
+                    }),
+                ));
+                target_struct.members.push((
+                    field_access,
+                    Declaration::Var(Var {
+                        ty: format_smolstr!("mutable {}", cpp_ty),
+                        name: cache_field.clone(),
+                        ..Default::default()
+                    }),
+                ));
+                user_init.push(format!("self->{cache_field} = {target_get};"));
+                user_init.push(format!(
+                    "self->{tracker_name}.init(self, [](auto self) {{ return {target_get}; }}, [](auto self, auto new_value) {{ auto old_value = self->{cache_field}; self->{cache_field} = new_value; if (old_value != new_value) {{ self->restart_anim{i}(); }} }});"
+                ));
+
+                let tree = build_root_animation_node(anim, &ctx);
+                update_animations.push(format!("if ({running}) {{"));
+                update_animations.push(format!("   self->{name}.start({tree});"));
+                update_animations.push(format!("}} else {{ self->{name}.stop(); }}"));
+                target_struct.members.push((
+                    field_access,
+                    Declaration::Var(Var {
+                        ty: "slint::private_api::AnimationHandle".into(),
+                        name,
+                        ..Default::default()
+                    }),
+                ));
+                continue;
+            }
 
             let member_ref = |exp: &llr::Expression| -> llr::MemberReference {
                 match exp {
@@ -2566,7 +2821,6 @@ fn generate_sub_component(
             let cpp_ty = target_ty.cpp_type().expect("animation target must have a C++ type");
             let target_get = access_member(&target_ref, &ctx).get_property();
 
-            let running = compile_expression(&anim.running.borrow(), &ctx);
             let from = anim
                 .from
                 .as_ref()
@@ -2577,27 +2831,7 @@ fn generate_sub_component(
                 .as_ref()
                 .map(|t| compile_expression(&t.borrow(), &ctx))
                 .unwrap_or_else(|| target_get.clone());
-            let duration = compile_expression(
-                &anim.duration.as_ref().expect("duration is required").borrow(),
-                &ctx,
-            );
-            let easing = compile_expression(
-                &anim.easing.as_ref().expect("easing is required").borrow(),
-                &ctx,
-            );
-            let iteration_count = anim
-                .iteration_count
-                .as_ref()
-                .map(|e| compile_expression(&e.borrow(), &ctx))
-                .unwrap_or_else(|| "1.".into());
-            let direction = anim
-                .direction
-                .as_ref()
-                .map(|e| compile_expression(&e.borrow(), &ctx))
-                .unwrap_or_else(|| "slint::cbindgen_private::AnimationDirection::Normal".into());
-            let details = format!(
-                "[&]{{ slint::cbindgen_private::PropertyAnimation o{{}}; o.delay = 0; o.duration = (int)({duration}); o.iteration_count = (float)({iteration_count}); o.direction = {direction}; o.easing = {easing}; o.enabled = true; return o; }}()"
-            );
+            let details = animation_details_expr(anim, &ctx);
 
             // Cache of the target's last-known value, kept in sync by every write
             let cache_field = format_smolstr!("anim_last_target{}", i);

@@ -638,6 +638,19 @@ fn gen_corelib(
             "slint_animation_handle_stop",
             "slint_animation_handle_is_running",
             "slint_animation_handle_drop",
+            "slint_animation_new_tween_int",
+            "slint_animation_new_tween_float",
+            "slint_animation_new_tween_color",
+            "slint_animation_new_tween_brush",
+            "slint_animation_new_delay",
+            "slint_animation_new_parallel",
+            "slint_animation_new_sequential",
+            "slint_animation_container_set_iteration_count",
+            "slint_animation_container_add_child",
+            "slint_animation_node_set_on_finished",
+            "slint_animation_handle_start_box",
+            "slint_animation_handle_restart_box",
+            "slint_animation_box_drop",
         ]
         .iter()
         .map(|s| s.to_string())

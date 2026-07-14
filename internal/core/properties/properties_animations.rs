@@ -68,6 +68,12 @@ pub trait Animation {
     fn update(&mut self) -> bool {
         self.is_running()
     }
+    fn set_iteration_count(&mut self, _iteration_count: f64) {}
+    /// Add a child animation to a Parallel/Sequential container
+    fn add_child(&mut self, _child: Box<dyn Animation>) {}
+    /// Register a callback invoked exactly once, the first time `update()` reports that this
+    /// animation is no longer running
+    fn set_on_finished(&mut self, _on_finished: Box<dyn FnMut()>) {}
 }
 
 enum AnimationState {
@@ -357,12 +363,18 @@ pub struct DelayAnimation {
     delay_ms: u64,
     start_time: crate::animations::Instant,
     running: bool,
+    on_finished: Option<Box<dyn FnMut()>>,
 }
 
 impl DelayAnimation {
     /// Creates a new delay of `delay_ms` milliseconds, starting now.
     pub fn new(delay_ms: u64) -> Self {
-        Self { delay_ms, start_time: crate::animations::current_tick(), running: true }
+        Self {
+            delay_ms,
+            start_time: crate::animations::current_tick(),
+            running: true,
+            on_finished: None,
+        }
     }
 
     /// Returns true once `delay_ms` has elapsed since the delay started (or restarted).
@@ -397,8 +409,14 @@ impl Animation for DelayAnimation {
             // updating us so `is_finished()` gets observed once the delay elapses.
             crate::animations::CURRENT_ANIMATION_DRIVER
                 .with(|driver| driver.set_has_active_animations());
+        } else if let Some(mut on_finished) = self.on_finished.take() {
+            on_finished();
         }
         running
+    }
+
+    fn set_on_finished(&mut self, on_finished: Box<dyn FnMut()>) {
+        self.on_finished = Some(on_finished);
     }
 }
 
@@ -409,6 +427,7 @@ pub struct SequentialAnimation {
     running: bool,
     iteration_count: f64,
     completed_iterations: u64,
+    on_finished: Option<Box<dyn FnMut()>>,
 }
 
 impl SequentialAnimation {
@@ -420,6 +439,7 @@ impl SequentialAnimation {
             running: true,
             iteration_count: 1.0,
             completed_iterations: 0,
+            on_finished: None,
         }
     }
 
@@ -521,7 +541,25 @@ impl Animation for SequentialAnimation {
             }
             self.advance_to_next();
         }
-        self.is_running()
+        let running = self.is_running();
+        if !running {
+            if let Some(mut on_finished) = self.on_finished.take() {
+                on_finished();
+            }
+        }
+        running
+    }
+
+    fn set_on_finished(&mut self, on_finished: Box<dyn FnMut()>) {
+        self.on_finished = Some(on_finished);
+    }
+
+    fn set_iteration_count(&mut self, iteration_count: f64) {
+        SequentialAnimation::set_iteration_count(self, iteration_count);
+    }
+
+    fn add_child(&mut self, child: Box<dyn Animation>) {
+        self.add_animation(child);
     }
 }
 
@@ -531,12 +569,19 @@ pub struct ParallelAnimation {
     running: bool,
     iteration_count: f64,
     completed_iterations: u64,
+    on_finished: Option<Box<dyn FnMut()>>,
 }
 
 impl ParallelAnimation {
     /// Creates an empty group of animations to run in parallel, run once by default.
     pub fn new() -> Self {
-        Self { animations: Vec::new(), running: true, iteration_count: 1.0, completed_iterations: 0 }
+        Self {
+            animations: Vec::new(),
+            running: true,
+            iteration_count: 1.0,
+            completed_iterations: 0,
+            on_finished: None,
+        }
     }
 
     /// Sets how many times the whole group should run (negative loops forever).
@@ -617,7 +662,25 @@ impl Animation for ParallelAnimation {
                 }
             }
         }
-        self.is_running()
+        let running = self.is_running();
+        if !running {
+            if let Some(mut on_finished) = self.on_finished.take() {
+                on_finished();
+            }
+        }
+        running
+    }
+
+    fn set_on_finished(&mut self, on_finished: Box<dyn FnMut()>) {
+        self.on_finished = Some(on_finished);
+    }
+
+    fn set_iteration_count(&mut self, iteration_count: f64) {
+        ParallelAnimation::set_iteration_count(self, iteration_count);
+    }
+
+    fn add_child(&mut self, child: Box<dyn Animation>) {
+        self.add_animation(child);
     }
 }
 
@@ -1043,6 +1106,303 @@ pub(crate) mod animation_object_ffi {
         )
     }
 
+    // The functions below let C++ assemble a Delay/Parallel/Sequential tree (with Tween leaves)
+    // node-by-node before handing the finished tree to an `AnimationHandle`. Each node is
+    // represented across the FFI boundary as a `Box<dyn Animation>` smuggled through a
+    // `*mut c_void` via `Box::into_raw`/`Box::from_raw`, since cbindgen cannot lay out a trait
+    // object directly. `slint_animation_container_add_child` and `slint_animation_handle_start_box`/
+    // `slint_animation_handle_restart_box` take ownership of (i.e. consume) the `*mut c_void` they
+    // are passed.
+
+    fn animation_box_into_raw(animation: Box<dyn Animation>) -> *mut c_void {
+        alloc::boxed::Box::into_raw(alloc::boxed::Box::new(animation)) as *mut c_void
+    }
+
+    /// # Safety
+    /// `ptr` must have been produced by [`animation_box_into_raw`] and not yet consumed.
+    unsafe fn animation_box_from_raw(ptr: *mut c_void) -> Box<dyn Animation> {
+        *unsafe { alloc::boxed::Box::from_raw(ptr as *mut Box<dyn Animation>) }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn animation_box_new_tween_impl<T: InterpolatedPropertyValue + Clone + 'static>(
+        from: T,
+        to: T,
+        details: PropertyAnimation,
+        set_value: extern "C" fn(*mut c_void, *const T),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        on_finished: extern "C" fn(*mut c_void),
+        on_finished_user_data: *mut c_void,
+        on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> *mut c_void {
+        let set_value_wrap = SetValueWrapFn {
+            callback: set_value,
+            user_data: set_value_user_data,
+            drop_user_data: set_value_drop_user_data,
+        };
+        let on_finished_wrap = WrapFn {
+            callback: on_finished,
+            user_data: on_finished_user_data,
+            drop_user_data: on_finished_drop_user_data,
+        };
+        let tween = TweenAnimation::new_with_callbacks(
+            from,
+            to,
+            details,
+            move |value| set_value_wrap.call(value),
+            move || on_finished_wrap.call(),
+        );
+        animation_box_into_raw(Box::new(tween))
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_new_tween_int(
+        from: i32,
+        to: i32,
+        details: &PropertyAnimation,
+        set_value: extern "C" fn(*mut c_void, *const i32),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        on_finished: extern "C" fn(*mut c_void),
+        on_finished_user_data: *mut c_void,
+        on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> *mut c_void {
+        animation_box_new_tween_impl(
+            from,
+            to,
+            details.clone(),
+            set_value,
+            set_value_user_data,
+            set_value_drop_user_data,
+            on_finished,
+            on_finished_user_data,
+            on_finished_drop_user_data,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_new_tween_float(
+        from: f32,
+        to: f32,
+        details: &PropertyAnimation,
+        set_value: extern "C" fn(*mut c_void, *const f32),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        on_finished: extern "C" fn(*mut c_void),
+        on_finished_user_data: *mut c_void,
+        on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> *mut c_void {
+        animation_box_new_tween_impl(
+            from,
+            to,
+            details.clone(),
+            set_value,
+            set_value_user_data,
+            set_value_drop_user_data,
+            on_finished,
+            on_finished_user_data,
+            on_finished_drop_user_data,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_new_tween_color(
+        from: crate::Color,
+        to: crate::Color,
+        details: &PropertyAnimation,
+        set_value: extern "C" fn(*mut c_void, *const crate::Color),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        on_finished: extern "C" fn(*mut c_void),
+        on_finished_user_data: *mut c_void,
+        on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> *mut c_void {
+        animation_box_new_tween_impl(
+            from,
+            to,
+            details.clone(),
+            set_value,
+            set_value_user_data,
+            set_value_drop_user_data,
+            on_finished,
+            on_finished_user_data,
+            on_finished_drop_user_data,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_new_tween_brush(
+        from: crate::Brush,
+        to: crate::Brush,
+        details: &PropertyAnimation,
+        set_value: extern "C" fn(*mut c_void, *const crate::Brush),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        on_finished: extern "C" fn(*mut c_void),
+        on_finished_user_data: *mut c_void,
+        on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> *mut c_void {
+        animation_box_new_tween_impl(
+            from,
+            to,
+            details.clone(),
+            set_value,
+            set_value_user_data,
+            set_value_drop_user_data,
+            on_finished,
+            on_finished_user_data,
+            on_finished_drop_user_data,
+        )
+    }
+
+    /// Build a leaf `DelayAnimation` node.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_new_delay(duration_ms: u64) -> *mut c_void {
+        animation_box_into_raw(Box::new(DelayAnimation::new(duration_ms)))
+    }
+
+    /// Build an empty `ParallelAnimation` container node; add children via
+    /// `slint_animation_container_add_child`.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_new_parallel() -> *mut c_void {
+        animation_box_into_raw(Box::new(ParallelAnimation::new()))
+    }
+
+    /// Build an empty `SequentialAnimation` container node; add children via
+    /// `slint_animation_container_add_child`.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_new_sequential() -> *mut c_void {
+        animation_box_into_raw(Box::new(SequentialAnimation::new()))
+    }
+
+    /// Set the number of whole passes a Parallel/Sequential container node should repeat.
+    /// No-op if `container` is a Tween/Delay leaf.
+    ///
+    /// # Safety
+    /// `container` must have been produced by `slint_animation_new_parallel`/`_sequential` (or
+    /// any other `slint_animation_new_*`/`slint_animation_container_add_child` builder above)
+    /// and not yet consumed by `slint_animation_container_add_child` or
+    /// `slint_animation_handle_start_box`/`_restart_box`.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_container_set_iteration_count(
+        container: *mut c_void,
+        iteration_count: f64,
+    ) {
+        if container.is_null() {
+            return;
+        }
+        let container_ref = unsafe { &mut *(container as *mut Box<dyn Animation>) };
+        container_ref.set_iteration_count(iteration_count);
+    }
+
+    /// Register a callback invoked exactly once, when `node` (a root Delay/Parallel/Sequential
+    /// tree, as opposed to a Tween, which takes its own `on_finished` at construction time)
+    /// first reports it's no longer running. Used by codegen to write `false` back to the
+    /// `.slint`-visible `running` property when such a tree finishes on its own.
+    ///
+    /// # Safety
+    /// `node` must have been produced by one of the `slint_animation_new_*` builders above and
+    /// not yet consumed.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_node_set_on_finished(
+        node: *mut c_void,
+        on_finished: extern "C" fn(*mut c_void),
+        on_finished_user_data: *mut c_void,
+        on_finished_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) {
+        if node.is_null() {
+            return;
+        }
+        let on_finished_wrap = WrapFn {
+            callback: on_finished,
+            user_data: on_finished_user_data,
+            drop_user_data: on_finished_drop_user_data,
+        };
+        let node_ref = unsafe { &mut *(node as *mut Box<dyn Animation>) };
+        node_ref.set_on_finished(Box::new(move || on_finished_wrap.call()));
+    }
+
+    /// Move `child` into `container` (a Parallel/Sequential node built above). Consumes `child`;
+    /// a no-op (leaking nothing, since ownership is taken back into a `Box` and dropped) if
+    /// `container` is actually a Tween/Delay leaf, since those cannot have children.
+    ///
+    /// # Safety
+    /// `container` and `child` must each have been produced by one of the `slint_animation_new_*`
+    /// builders above (or, for `container`, a previous `slint_animation_container_add_child`) and
+    /// not yet consumed.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_container_add_child(
+        container: *mut c_void,
+        child: *mut c_void,
+    ) {
+        if container.is_null() || child.is_null() {
+            return;
+        }
+        let child = unsafe { animation_box_from_raw(child) };
+        let container_ref = unsafe { &mut *(container as *mut Box<dyn Animation>) };
+        container_ref.add_child(child);
+    }
+
+    /// Start driving the animation tree rooted at `animation` on this handle. Consumes
+    /// `animation`. No-op (freeing `animation`) if something is already running on this handle,
+    /// mirroring [`AnimationHandle::start`].
+    ///
+    /// # Safety
+    /// `animation` must have been produced by one of the `slint_animation_new_*` builders above
+    /// and not yet consumed.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_handle_start_box(id: usize, animation: *mut c_void) -> usize {
+        if animation.is_null() {
+            return id;
+        }
+        let animation = unsafe { animation_box_from_raw(animation) };
+        let handle = AnimationHandle::default();
+        if id != 0 {
+            handle.id.set(NonZeroUsize::new(id));
+        }
+        handle.start(animation);
+        handle.id.take().map(usize::from).unwrap_or(0)
+    }
+
+    /// Force the animation tree rooted at `animation` to (re)start from the beginning on this
+    /// handle, even if something is already running on it. Consumes `animation`.
+    ///
+    /// # Safety
+    /// `animation` must have been produced by one of the `slint_animation_new_*` builders above
+    /// and not yet consumed.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_handle_restart_box(
+        id: usize,
+        animation: *mut c_void,
+    ) -> usize {
+        if animation.is_null() {
+            return id;
+        }
+        let animation = unsafe { animation_box_from_raw(animation) };
+        let handle = AnimationHandle::default();
+        if id != 0 {
+            handle.id.set(NonZeroUsize::new(id));
+        }
+        handle.restart(animation);
+        handle.id.take().map(usize::from).unwrap_or(0)
+    }
+
+    /// Free an animation tree node that was never consumed by
+    /// `slint_animation_container_add_child` or `slint_animation_handle_start_box`/`_restart_box`
+    /// (e.g. because C++-side assembly of the tree was aborted partway through). A no-op if
+    /// `animation` is null.
+    ///
+    /// # Safety
+    /// `animation` must have been produced by one of the `slint_animation_new_*` builders above
+    /// and not yet consumed.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_box_drop(animation: *mut c_void) {
+        if !animation.is_null() {
+            drop(unsafe { animation_box_from_raw(animation) });
+        }
+    }
+
     /// Stop and deregister whatever animation is running on this handle.
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_animation_handle_stop(id: usize) {
@@ -1214,6 +1574,260 @@ mod animation_architecture_tests {
         assert_eq!(*observed.borrow().last().unwrap(), 100);
         assert!(finished.get());
         assert!(!handle.is_running());
+    }
+
+    #[test]
+    fn test_delay_animation_lifecycle() {
+        let start_time = crate::animations::current_tick();
+        let mut delay = DelayAnimation::new(100);
+        assert!(delay.is_running());
+        assert!(!delay.is_finished());
+
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(50))
+        });
+        assert!(delay.update());
+        assert!(delay.is_running());
+
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(150))
+        });
+        assert!(!delay.update());
+        assert!(delay.is_finished());
+        assert!(!delay.is_running());
+
+        // restart() resets the clock, so the delay is running again.
+        delay.restart();
+        assert!(delay.is_running());
+        assert!(!delay.is_finished());
+
+        delay.stop();
+        assert!(!delay.is_running());
+    }
+
+    #[test]
+    fn test_parallel_animation_structure() {
+        let mut par = ParallelAnimation::new();
+        par.add_animation(Box::new(DelayAnimation::new(100)));
+        par.add_animation(Box::new(DelayAnimation::new(200)));
+
+        assert!(!par.is_finished());
+
+        par.start();
+        assert!(par.is_running());
+    }
+
+    #[test]
+    fn test_parallel_two_tweens_finish_together() {
+        // Two children with different durations: the group must keep reporting
+        // running until the *longer* one finishes, not the shorter one.
+        let short_observed = Rc::new(RefCell::new(Vec::new()));
+        let short_observed_clone = short_observed.clone();
+        let long_observed = Rc::new(RefCell::new(Vec::new()));
+        let long_observed_clone = long_observed.clone();
+
+        let start_time = crate::animations::current_tick();
+
+        let mut par = ParallelAnimation::new();
+        par.add_animation(Box::new(TweenAnimation::new_with_callbacks(
+            0i32,
+            100i32,
+            PropertyAnimation { duration: 100, ..Default::default() },
+            move |v: i32| short_observed_clone.borrow_mut().push(v),
+            || {},
+        )));
+        par.add_animation(Box::new(TweenAnimation::new_with_callbacks(
+            0i32,
+            100i32,
+            PropertyAnimation { duration: 200, ..Default::default() },
+            move |v: i32| long_observed_clone.borrow_mut().push(v),
+            || {},
+        )));
+        par.start();
+
+        // Halfway through the shorter tween, both are still running.
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(50))
+        });
+        assert!(par.update());
+        assert_eq!(*short_observed.borrow().last().unwrap(), 50);
+        assert_eq!(*long_observed.borrow().last().unwrap(), 25);
+
+        // The shorter tween finishes, but the group keeps running because the
+        // longer one hasn't finished yet.
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(100))
+        });
+        assert!(par.update());
+        assert_eq!(*short_observed.borrow().last().unwrap(), 100);
+        assert_eq!(*long_observed.borrow().last().unwrap(), 50);
+
+        // Both finish: the group reports done.
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(200))
+        });
+        assert!(!par.update());
+        assert_eq!(*long_observed.borrow().last().unwrap(), 100);
+        assert!(!par.is_running());
+    }
+
+    #[test]
+    fn test_sequential_iteration_count_loops() {
+        let start_time = crate::animations::current_tick();
+
+        let mut seq = SequentialAnimation::new();
+        seq.set_iteration_count(2.0);
+        seq.add_animation(Box::new(DelayAnimation::new(100)));
+        seq.start();
+
+        // First pass finishes...
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(100))
+        });
+        // ...but a second iteration is due, so the sequence is still running.
+        assert!(seq.update());
+
+        // Second pass finishes: no iterations remain.
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(200))
+        });
+        assert!(!seq.update());
+        assert!(!seq.is_running());
+    }
+
+    #[test]
+    fn test_parallel_iteration_count_loops() {
+        let start_time = crate::animations::current_tick();
+
+        let mut par = ParallelAnimation::new();
+        par.set_iteration_count(2.0);
+        par.add_animation(Box::new(DelayAnimation::new(100)));
+        par.start();
+
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(100))
+        });
+        assert!(par.update());
+
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(200))
+        });
+        assert!(!par.update());
+        assert!(!par.is_running());
+    }
+
+    #[test]
+    fn test_default_set_iteration_count_and_add_child_are_noop_on_leaves() {
+        // Through the type-erased `dyn Animation` (as C++/interpreter always see nodes), calling
+        // the container-only methods on a leaf must be harmless rather than panicking.
+        let mut tween: Box<dyn Animation> = Box::new(TweenAnimation::new_with_callbacks(
+            0i32,
+            100i32,
+            PropertyAnimation::default(),
+            |_: i32| {},
+            || {},
+        ));
+        tween.set_iteration_count(5.0);
+        tween.add_child(Box::new(DelayAnimation::new(100)));
+        // No way to observe internal state from the trait object; simply not panicking (and
+        // still behaving like a plain tween) is the contract being tested here.
+        assert!(tween.is_running());
+
+        let mut delay: Box<dyn Animation> = Box::new(DelayAnimation::new(50));
+        delay.set_iteration_count(5.0);
+        delay.add_child(Box::new(DelayAnimation::new(100)));
+        assert!(delay.is_running());
+    }
+
+    #[test]
+    fn test_dyn_animation_set_iteration_count_and_add_child_delegate_on_containers() {
+        // Mirrors how the C++ FFI layer builds a tree: only ever through `Box<dyn Animation>`,
+        // never the concrete `SequentialAnimation`/`ParallelAnimation` types.
+        let start_time = crate::animations::current_tick();
+
+        let mut seq: Box<dyn Animation> = Box::new(SequentialAnimation::new());
+        seq.set_iteration_count(1.0);
+        seq.add_child(Box::new(DelayAnimation::new(100)));
+        seq.add_child(Box::new(DelayAnimation::new(100)));
+        seq.start();
+        assert!(seq.is_running());
+
+        // First child's delay elapses; the second child hasn't started yet, so the
+        // sequence (having advanced to it) is still running.
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(100))
+        });
+        assert!(seq.update());
+
+        // Both children's delays have now elapsed.
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(210))
+        });
+        assert!(!seq.update());
+        assert!(!seq.is_running());
+    }
+}
+
+#[cfg(all(test, feature = "ffi"))]
+mod animation_object_ffi_tests {
+    use super::animation_object_ffi::*;
+    use core::ffi::c_void;
+
+    extern "C" fn noop_set_value(_user_data: *mut c_void, _value: *const i32) {}
+    extern "C" fn noop_on_finished(_user_data: *mut c_void) {}
+
+    #[test]
+    fn test_container_tree_built_across_ffi_boundary_and_started() {
+        let details = super::PropertyAnimation { duration: 100, ..Default::default() };
+
+        let tween = slint_animation_new_tween_int(
+            0,
+            100,
+            &details,
+            noop_set_value,
+            core::ptr::null_mut(),
+            None,
+            noop_on_finished,
+            core::ptr::null_mut(),
+            None,
+        );
+        assert!(!tween.is_null());
+
+        let delay = slint_animation_new_delay(50);
+        assert!(!delay.is_null());
+
+        let sequential = slint_animation_new_sequential();
+        assert!(!sequential.is_null());
+        slint_animation_container_set_iteration_count(sequential, 2.0);
+        slint_animation_container_add_child(sequential, tween);
+        slint_animation_container_add_child(sequential, delay);
+
+        let parallel = slint_animation_new_parallel();
+        assert!(!parallel.is_null());
+        slint_animation_container_add_child(parallel, sequential);
+
+        let id = slint_animation_handle_start_box(0, parallel);
+        assert_ne!(id, 0);
+        assert!(slint_animation_handle_is_running(id));
+        slint_animation_handle_stop(id);
+    }
+
+    #[test]
+    fn test_box_drop_frees_an_unconsumed_node() {
+        // Simulates aborting tree construction partway through: the node built here is never
+        // handed to a container or a handle, only dropped directly.
+        let delay = slint_animation_new_delay(50);
+        assert!(!delay.is_null());
+        slint_animation_box_drop(delay);
+    }
+
+    #[test]
+    fn test_null_nodes_are_handled_gracefully() {
+        slint_animation_container_set_iteration_count(core::ptr::null_mut(), 3.0);
+        slint_animation_container_add_child(core::ptr::null_mut(), core::ptr::null_mut());
+        slint_animation_box_drop(core::ptr::null_mut());
+        assert_eq!(slint_animation_handle_start_box(0, core::ptr::null_mut()), 0);
+        assert_eq!(slint_animation_handle_restart_box(0, core::ptr::null_mut()), 0);
     }
 }
 
