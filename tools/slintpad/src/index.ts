@@ -29,28 +29,6 @@ import {
 import { CommandRegistry } from "@lumino/commands";
 import { Menu, MenuBar, SplitPanel, Widget } from "@lumino/widgets";
 
-// Demos offered in the command palette, matching tools/lsp/ui/api.slint.
-const DEMOS: { title: string; url: string }[] = [
-    { title: "Gallery", url: "examples/gallery/gallery.slint" },
-    {
-        title: "Home Automation",
-        url: "demos/home-automation/ui/demo-debug.slint",
-    },
-    { title: "Use Cases", url: "demos/usecases/ui/app.slint" },
-    { title: "Printer Demo", url: "demos/printerdemo/ui/printerdemo.slint" },
-    {
-        title: "Energy Monitor",
-        url: "demos/energy-monitor/ui/desktop_window.slint",
-    },
-    { title: "Todo", url: "examples/todo/ui/todo.slint" },
-    { title: "IOT Dashboard", url: "examples/iot-dashboard/main.slint" },
-    { title: "Fancy Switches", url: "examples/fancy-switches/demo.slint" },
-    { title: "Fancy Dial", url: "examples/dial/dial.slint" },
-    { title: "Fancy Animations", url: "examples/orbit-animation/demo.slint" },
-    { title: "Fancy Repeater", url: "examples/repeater/demo.slint" },
-    { title: "Sprite Sheet", url: "examples/sprite-sheet/demo.slint" },
-];
-
 import { type InvokeSlintpadCallback, SlintPadCallbackFunction } from "./lsp";
 
 const loader = document.getElementById("loader");
@@ -94,19 +72,24 @@ function setup(lsp: Lsp) {
     const editor = new EditorWidget(lsp);
     set_panic_share_url_getter(() => editor.share_url());
 
-    const palette_commands: Command[] = [
+    // Built fresh each time the palette opens; the demo list is read from the
+    // LSP (Api.demos) so it always matches the toolbar's Open Demo menu.
+    const palette_commands = (): Command[] => [
         {
             id: "new-file",
             title: "New File",
             hint: "Action",
             run: () => void editor.set_demo(""),
         },
-        ...DEMOS.map((demo) => ({
-            id: `demo:${demo.url}`,
-            title: `Open Demo: ${demo.title}`,
-            hint: "Demo",
-            run: () => void editor.set_demo(demo.url),
-        })),
+        ...lsp
+            .demos()
+            .filter((demo) => demo.url !== "")
+            .map((demo) => ({
+                id: `demo:${demo.url}`,
+                title: `Open Demo: ${demo.title}`,
+                hint: "Demo",
+                run: () => void editor.set_demo(demo.url),
+            })),
         {
             id: "copy-permalink",
             title: "Copy Permalink to Clipboard",

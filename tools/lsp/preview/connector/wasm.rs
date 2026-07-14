@@ -152,6 +152,28 @@ impl PreviewConnector {
         preview::get_current_style().into()
     }
 
+    /// Returns the built-in demos as an array of `{ title, url }`, so the
+    /// command palette can offer the same list as the "Open Demo" menu.
+    #[wasm_bindgen]
+    pub fn demos(&self) -> JsValue {
+        let array = js_sys::Array::new();
+        for (title, url) in preview::get_demos() {
+            let entry = js_sys::Object::new();
+            let _ = js_sys::Reflect::set(
+                &entry,
+                &JsValue::from_str("title"),
+                &JsValue::from_str(&title),
+            );
+            let _ = js_sys::Reflect::set(
+                &entry,
+                &JsValue::from_str("url"),
+                &JsValue::from_str(&url),
+            );
+            array.push(&entry);
+        }
+        array.into()
+    }
+
     #[wasm_bindgen]
     pub fn show_ui(&self) -> Result<js_sys::Promise, JsValue> {
         invoke_from_event_loop_wrapped_in_promise(|instance| instance.show())

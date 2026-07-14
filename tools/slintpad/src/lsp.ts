@@ -216,6 +216,13 @@ export class Previewer {
     current_style(): string {
         return this.#preview_connector.current_style();
     }
+
+    demos(): { title: string; url: string }[] {
+        return this.#preview_connector.demos() as {
+            title: string;
+            url: string;
+        }[];
+    }
 }
 
 export class Lsp {
