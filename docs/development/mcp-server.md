@@ -41,9 +41,10 @@ Initialization is triggered from `init_testing_backends()` in the backend select
 
 1. `mcp_server::init()` checks `SLINT_MCP_PORT`. If absent, returns early.
 2. Calls `introspection::ensure_window_tracking()` to install a window-shown hook that registers windows with the shared `IntrospectionState`.
-3. Installs a second window-shown hook that lazily starts the TCP listener on the first window show. The server task is spawned onto the Slint event loop via `context.spawn_local()`.
+3. Installs a second window-shown hook that lazily starts the TCP listener on a background thread when the first window is shown.
+   The hook captures an event-loop proxy that the connection threads use to dispatch introspection requests to the UI thread.
 
-The lazy start via `OnceCell` ensures the server only binds the port once the application has an event loop running and a window to inspect.
+The start flag ensures the server binds the port only once the application has an event loop and a window to inspect.
 
 ## Shared Introspection Layer (`introspection/`)
 
@@ -87,7 +88,13 @@ The server is stateless (no session management). Each request is a single JSON-R
 
 ### HTTP Server
 
-The HTTP server is built directly on `async-net` (async TCP) and `httparse` (HTTP/1.1 parsing), with no framework dependency. It supports:
+The HTTP server uses `std::net` and `httparse` directly, with no framework dependency.
+The listener and connection handlers run on background threads.
+Each request is dispatched to the Slint event loop because introspection state must remain on the UI thread.
+If the event loop doesn't start processing a request within 30 seconds, the server returns a JSON-RPC error instead of leaving the HTTP connection hanging.
+Once processing starts, the server waits for it to finish so that interaction requests aren't canceled partway through.
+
+The server supports:
 
 - HTTP/1.1 keep-alive (persistent connections)
 - CORS preflight (`OPTIONS`) for browser-based clients
