@@ -1688,7 +1688,7 @@ fn generate_sub_component(
         true,
         &mut chunk_fns,
     );
-    let user_init_code = emit_in_chunks(
+    let mut user_init_code = emit_in_chunks(
         "user_init",
         user_init_code,
         &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>),

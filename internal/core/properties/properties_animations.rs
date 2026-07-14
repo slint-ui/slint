@@ -1361,8 +1361,13 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         );
     }
 
-    /// Animate the property from its current value to `value`.  
+    /// Animate the property from its current value to `value`.
     pub fn set_animated_value_object(&self, value: T, animation_data: PropertyAnimation) {
+        // Force the existing binding to run before it gets replaced below: otherwise, if it
+        // was never evaluated (e.g. assigning to an animated property in `init`, before its
+        // binding ever ran), the animation would start from the type's default value instead
+        // of the binding's actual value.
+        unsafe { Pin::new_unchecked(self) }.get();
         let binding_callable = properties_animations::AnimatedBindingObjectCallable::<T, _> {
             original_binding: PropertyHandle {
                 handle: Cell::new(
@@ -1431,15 +1436,6 @@ mod animation_tests {
     // Helper just for testing
     fn get_prop_value<T: Clone>(prop: &Property<T>) -> T {
         unsafe { Pin::new_unchecked(prop).get() }
-    }
-
-    // Helper just for testing: the property lives in a pinned `Rc<Component>`.
-    fn set_animated_value<T: Clone + InterpolatedPropertyValue + 'static>(
-        prop: &Property<T>,
-        value: T,
-        animation_data: PropertyAnimation,
-    ) {
-        unsafe { Pin::new_unchecked(prop) }.set_animated_value(value, animation_data);
     }
 
     #[test]
@@ -1970,7 +1966,7 @@ mod animation_tests {
             ..PropertyAnimation::default()
         };
 
-        let w = Rc::downgrade(&compo);
+        let w = PinWeak::downgrade(compo.clone());
         compo.width.set_animated_binding_object(
             move || {
                 let compo = w.upgrade().unwrap();
@@ -2069,7 +2065,7 @@ mod animation_tests {
             ..PropertyAnimation::default()
         };
 
-        let w = Rc::downgrade(&compo);
+        let w = PinWeak::downgrade(compo.clone());
         compo.width.set_animated_binding_object(
             move || {
                 let compo = w.upgrade().unwrap();
@@ -2112,7 +2108,7 @@ mod animation_tests {
             ..PropertyAnimation::default()
         };
 
-        let w = Rc::downgrade(&compo);
+        let w = PinWeak::downgrade(compo.clone());
         compo.width.set_animated_binding_object(
             move || {
                 let compo = w.upgrade().unwrap();
@@ -2160,7 +2156,7 @@ mod animation_tests {
             ..PropertyAnimation::default()
         };
 
-        let w = Rc::downgrade(&compo);
+        let w = PinWeak::downgrade(compo.clone());
         compo.width.set_animated_binding_object(
             move || {
                 let compo = w.upgrade().unwrap();
@@ -2206,7 +2202,7 @@ mod animation_tests {
             ..PropertyAnimation::default()
         };
 
-        let w = Rc::downgrade(&compo);
+        let w = PinWeak::downgrade(compo.clone());
         compo.width.set_animated_binding_object(
             move || {
                 let compo = w.upgrade().unwrap();
@@ -2251,7 +2247,7 @@ mod animation_tests {
             ..PropertyAnimation::default()
         };
 
-        let w = Rc::downgrade(&compo);
+        let w = PinWeak::downgrade(compo.clone());
         let details_clone = animation_details.clone();
         compo.width.set_animated_binding_object(
             move || {
