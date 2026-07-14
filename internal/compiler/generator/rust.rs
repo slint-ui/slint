@@ -1699,8 +1699,7 @@ fn generate_sub_component(
     );
     let anim_names =
         component.animation_objects.iter().enumerate().map(|(idx, _)| format_ident!("anim{idx}"));
-    // Extra struct fields (ChangeTracker / cached-previous-value) needed to restart a tween
-    // when its `target` property is assigned directly, rather than only when `running` toggles.
+    // ChangeTracker/cached-previous-value needed to restart a tween on property change
     let mut anim_target_change_field_decls = Vec::new();
     let mut anim_target_change_init = Vec::new();
     let update_animations = (!component.animation_objects.is_empty()).then(|| {
@@ -1733,23 +1732,13 @@ fn generate_sub_component(
             let iteration_count = anim.iteration_count.as_ref().map(|i| get_property(&i.borrow())).unwrap_or_else(|| quote!(1.0));
             let direction = anim.direction.as_ref().map(|d| get_property(&d.borrow())).unwrap_or_else(|| quote!(sp::items::AnimationDirection::Normal));
 
-            // A target-change tracker (below) needs to tell the tween's own per-frame writes
-            // to `target` apart from a genuine external assignment (e.g. `rect.x = 100px;`).
-            // It does so by comparing the freshly observed value against this cache, which
-            // every write to `target` -- whether from the tween ticking or from outside --
-            // keeps up to date.
+            // keep the cache up to date
             let target_rust_ty = Some(
                 rust_property_type(ctx.property_ty(&target_ref))
                     .expect("animation target must have a representable Rust type"),
             );
             let cache_field = target_rust_ty.is_some().then(|| format_ident!("anim_last_target{idx}"));
 
-            // Resolved a second time on purpose (once here, once below for the restart
-            // function): each copy is spliced into its own `move` closure, so it must be
-            // re-evaluated fresh against that closure's own `_self` (rebound each frame via
-            // `self_weak.upgrade()`) rather than reuse a resolution whose `prop`/`x`, for
-            // parent-hop targets (`MemberAccess::Option`/`OptionFn`), only lives for this
-            // immediate call.
             let set_stmt = access_member(&target_ref, &ctx).then(|prop| {
                 if let Some(cache_field) = &cache_field {
                     quote!(
@@ -1760,32 +1749,18 @@ fn generate_sub_component(
                     quote!(#prop.set(value))
                 }
             });
-            // Resolved the same way as `set_stmt`: spliced into the `on_finished` closure so
-            // the runtime can reflect natural completion back into the Slint `running`
-            // property (fixing `running` never returning to false once a tween ends).
+            // resolved like `set_stmt` so the runtime sets running to false once the tween ends
             let set_running_false =
                 access_member(&running_ref, &ctx).then(|prop| quote!(#prop.set(false)));
-            // A target-change-triggered (re)start (below) drives the low-level handle
-            // directly, bypassing the `running` binding -- reflect it back into the
-            // Slint-visible `running` property so `anim.running` doesn't read `false`
-            // while the animation is actually running.
+            // on target change, running is set to true
             let set_running_true =
                 access_member(&running_ref, &ctx).then(|prop| quote!(#prop.set(true)));
 
-            // Builds a fresh `sp::TweenAnimation` (the "data") from the target's current
-            // value and the animation's current property values, then hands it to
-            // `#call` (`start` or `restart`) on the `#ident` handle field (the "handle").
-            // When `push_initial` is set, the `from` value is also written into the target
-            // property synchronously, right after registration -- `restart()` must make the
-            // property read back as `from` immediately, without waiting for the next driver
-            // tick (unlike a fresh `start()`, which only ever runs from the target's current
-            // value, so there's nothing new to push).
+            // Builds a fresh TweenAnimation data from current values
             let build_and_drive = |call: TokenStream, push_initial: bool| access_member(&target_ref, &ctx).then(|prop| {
                 let from_arg = from.as_ref().map(|f| quote!(#f)).unwrap_or_else(|| quote!(#prop.get()));
                 let to_arg = to.as_ref().map(|t| quote!(#t)).unwrap_or_else(|| quote!(#prop.get()));
-                // Mirrors `set_stmt` (used by the per-frame callback below): the cache must
-                // stay in sync with this synchronous write too, or the target-change tracker
-                // would mistake it for a genuine external assignment and re-trigger a restart.
+                // keeps the cache in sync
                 let push_initial_stmt = push_initial.then(|| {
                     let cache_update = cache_field
                         .as_ref()
@@ -1836,17 +1811,13 @@ fn generate_sub_component(
                 #[allow(dead_code)]
                 fn #restart_ident(self: ::core::pin::Pin<&Self>) {
                     let _self = self;
-                    // `restart()` bypasses the `running = true/false` lowering that `start()`/
-                    // `stop()` calls get (see `lower_animations.rs`), so reflect it into the
-                    // Slint-visible `running` property here -- otherwise `anim.running` would
-                    // keep reading `false` (from a preceding `stop()`) until the next tick.
+                    // Sets running to true on restart
                     #set_running_true;
                     #restart_body
                 }
             ));
 
-            // Restart the tween when `target` is assigned directly (e.g. `rect.x = 100px;`),
-            // instead of only reacting to `running` toggling.
+            // (Re)start the tween when the target property is changed
             if let (Some(target_rust_ty), Some(cache_field)) = (&target_rust_ty, &cache_field) {
                 let target_tracker = format_ident!("anim_target_tracker{idx}");
                 let target_get_expr = access_member(&target_ref, &ctx).get_property();
@@ -1856,9 +1827,7 @@ fn generate_sub_component(
                 ));
 
                 let restart_call_stmt = if to.is_some() {
-                    // `to` is fixed, so the animation's endpoints don't depend on the changed
-                    // value at all -- treat the assignment purely as a trigger to (re-)start
-                    // the loop, same as calling `.start()` (a no-op if already running).
+                    // `to` is fixed so a property change just starts the animation
                     let start_ident = format_ident!("start_anim{idx}");
                     restart_fns.push(quote!(
                         #[allow(dead_code)]
@@ -1869,12 +1838,9 @@ fn generate_sub_component(
                     ));
                     quote!(_self.#start_ident();)
                 } else if from.is_some() {
-                    // `from` is fixed, so the existing restart logic (from = declared `from`,
-                    // to = target's current, already-updated value) is already correct.
                     quote!(_self.#restart_ident();)
                 } else {
-                    // No `from`/`to`: animate from the value `target` held right before this
-                    // change, towards the newly-assigned value.
+                    // animates from current value to the new value
                     let restart_on_change_ident =
                         format_ident!("restart_anim{idx}_on_target_change");
                     restart_fns.push(quote!(
@@ -1930,8 +1896,7 @@ fn generate_sub_component(
                             let self_rc = self_weak.upgrade().unwrap();
                             let _self = self_rc.as_pin_ref();
                             let old_value = _self.#cache_field.replace(new_value.clone());
-                            // Skip writes the tween itself just made; only a genuine external
-                            // assignment to `target` should restart the animation.
+                            // only an external write to target should restart the animation
                             if old_value != *new_value {
                                 #set_running_true;
                                 #restart_call_stmt

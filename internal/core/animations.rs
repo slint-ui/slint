@@ -416,17 +416,12 @@ fn easing_test() {
 }
 */
 
-/// Advance all currently-running animation objects (e.g. `TweenAnimation`) by one tick.
+/// Advance all currently-running animation objects by one tick.
 pub use crate::properties::update_animation_objects;
 
 /// Advance the global animation clock to the current platform time (honoring
 /// `SLINT_SLOW_ANIMATIONS`) and reset the active-animations flag for the new frame.
-///
-/// This only moves the clock; it does not advance any animation. Call it at the
-/// start of each frame, before timers and change handlers run, so they observe the
-/// fresh tick; [`update_animation_objects`] then reads this clock and pushes each
-/// registered animation's value at the end of the frame. Tests bypass this and set
-/// the tick directly via [`AnimationDriver::update_animations`].
+/// Should run first so timers and change handlers see the correct value
 pub fn advance_animation_clock() {
     CURRENT_ANIMATION_DRIVER.with(|driver| {
         #[allow(unused_mut)]

@@ -111,8 +111,7 @@ struct AnimationHandle
 
     // TODO fix this needs to be more generic to fit with the rest of animation types
 
-    /// Start a fresh tween from `from` to `to`. No-op if an animation is already running on
-    /// this handle (use restart() to force a restart).
+    /// Start a tween from `from` to `to`. Does nothing if it is already running
     template<typename T, typename SetValue, typename OnFinished>
     void start(const T &from, const T &to, const PropertyAnimation &details, SetValue set_value,
                OnFinished on_finished) const
@@ -138,8 +137,8 @@ struct AnimationHandle
                 [](void *data) { delete reinterpret_cast<OnFinishedData *>(data); });
     }
 
-    /// Force a fresh tween from `from` to `to` to (re)start from the beginning, even if
-    /// something is already running on this handle.
+    /// Force a tween from `from` to `to` to (re)start from the beginning
+    /// even if it's already running
     template<typename T, typename SetValue, typename OnFinished>
     void restart(const T &from, const T &to, const PropertyAnimation &details, SetValue set_value,
                  OnFinished on_finished) const
@@ -165,14 +164,14 @@ struct AnimationHandle
                 [](void *data) { delete reinterpret_cast<OnFinishedData *>(data); });
     }
 
-    /// Stop and deregister whatever's running, freezing the target property at its current value.
+    /// Stop and deregister the animation freezing the property
     void stop() const
     {
         private_api::assert_main_thread();
         cbindgen_private::slint_animation_handle_stop(id);
     }
 
-    /// Returns true if an animation is currently running on this handle.
+    /// Returns true the handle contains a running animation
     bool is_running() const
     {
         private_api::assert_main_thread();

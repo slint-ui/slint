@@ -273,7 +273,8 @@ fn simplify_optimized_items(items: &[ElementRc]) {
 
                 elem.borrow_mut().property_declarations.extend(c.properties.iter().filter_map(
                     |(k, v)| {
-                        // Skip the "target" property for animation elements - it's extracted directly from the binding
+                        // Skip the "target" property for animation elements as its extracted from
+                        // the binding
                         if let Some(ref _target) = target_type {
                             if k == "target" {
                                 return None;

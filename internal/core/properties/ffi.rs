@@ -221,6 +221,7 @@ fn property_from_handle<T>(handle: &PropertyHandleOpaque) -> &Property<T> {
 /// `Property::set_animated_value_object` (the consolidated registry backend). No `from` value is
 /// needed: the object backend captures the property's current cell value (the same memory the C++
 /// side would have passed as `from`) as the animation's start value.
+/// TODO remove the PropertyAnimation from these
 fn c_set_animated_value_object<T: InterpolatedPropertyValue + Clone + 'static>(
     handle: &PropertyHandleOpaque,
     to: T,

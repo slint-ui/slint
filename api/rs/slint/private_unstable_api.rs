@@ -64,8 +64,7 @@ pub fn set_property_binding<
     })
 }
 
-/// Installs an animated binding routed through the consolidated `TweenAnimation`/registry backend
-/// (`Property::set_animated_binding_object`), driven each frame by `update_animation_objects()`.
+/// Creates an animated binding driven each frame by `update_animation_objects()`
 pub fn set_animated_property_binding_object<
     T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
     StrongRef: StrongItemTreeRef + 'static,

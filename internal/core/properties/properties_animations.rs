@@ -15,11 +15,8 @@ use crate::{
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
-/// Global registry of live animation objects, keyed by a **monotonically increasing** id that is
-/// never reused. Ids must never be reused because an [`AnimationHandle`] can outlive its entry:
-/// when `update_animation_objects` drops a finished animation the handle keeps its id, and if that
-/// id were later handed to a *different* animation the stale handle's `clear`/`Drop` would remove
-/// the wrong one. A monotonic key makes a stale id simply refer to an absent entry (a no-op).
+/// Global registry of live animation objects keyed by an id that is never reused.
+/// Necessary because an [`AnimationHandle`] can outlive its entry
 #[derive(Default)]
 struct AnimationRegistry {
     next_id: usize,
@@ -39,11 +36,8 @@ impl AnimationRegistry {
 crate::thread_local!(static CURRENT_ANIMATIONS: RefCell<AnimationRegistry> = RefCell::default());
 
 crate::thread_local!(
-    /// Set while an object-driven animated binding is pushing its interpolated value back into
-    /// its own target property via `Property::set`. `AnimatedBindingObjectCallable::intercept_set`
-    /// reads this so that the animation's own writes keep the (change-detector) binding installed,
-    /// while an *external* write (guard clear) still removes it — preserving the legacy
-    /// "an imperative set cancels the animated binding" semantics.
+    /// Set so the change detector can differentiate between our animation updates and external
+    /// writes.
     static APPLYING_ANIMATION: Cell<bool> = const { Cell::new(false) }
 );
 
@@ -68,9 +62,8 @@ pub trait Animation {
     fn restart(&mut self);
     /// Check if the animation is currently running
     fn is_running(&self) -> bool;
-    /// Advance the animation state by one frame: a tween updates its target property,
-    /// a composite (sequential/parallel) updates its children. Returns true if the
-    /// animation is still running.
+    /// Advance the animation state by one frame
+    /// Returns true if the animation is still running.
     /// Default implementation returns `is_running()` with no state change.
     fn update(&mut self) -> bool {
         self.is_running()
@@ -93,8 +86,7 @@ enum AnimationState {
 ///
 /// This is the "data" half of the tween's handle+data pattern: codegen holds a
 /// [`AnimationHandle`] field and, on each frame where the Slint `running`
-/// property is true, builds a fresh `TweenAnimation` (via
-/// [`new_with_callbacks`](Self::new_with_callbacks)) and hands it to
+/// property is true, builds a fresh `TweenAnimation` and hands it to
 /// [`AnimationHandle::start`]/[`restart`](AnimationHandle::restart).
 /// `set_value`/`on_finished` are only populated on that path; [`AnimatedBindingObjectCallable`]
 /// drives its tween itself and calls `compute_interpolated_value()` directly, leaving them `None`.
@@ -216,13 +208,9 @@ impl<T: InterpolatedPropertyValue + Clone> TweenAnimation<T> {
 
                     (val, false)
                 } else {
-                    // `current_iteration` is `floor(total_elapsed / duration)`. When
-                    // `time_progress` (the remainder) is zero, the total elapsed time lands
-                    // exactly on an iteration boundary, so `current_iteration` actually names
-                    // the iteration about to start rather than the one just completed -- back
-                    // up by one to get the direction of the iteration that just finished.
-                    // Otherwise (a fractional `iteration_count` truncating mid-iteration),
-                    // `current_iteration` already names the iteration being cut short.
+                    // If `time_progress` is zero, the elapsed time lands on a iteration boundary
+                    // so current iteration names the iteration about to start instead of the one
+                    // that just finished
                     let finished_iteration = if time_progress == 0 {
                         current_iteration.max(1) - 1
                     } else {
@@ -266,14 +254,8 @@ impl<T: InterpolatedPropertyValue + Clone> Animation for TweenAnimation<T> {
     }
 
     fn is_running(&self) -> bool {
-        // Not just `Animating`: a freshly registered tween sits in `Delaying` (never yet
-        // ticked by `update()`) but is very much active. Codegen's `AnimationHandle::start`
-        // relies on this to no-op a redundant `start()` on a tween that hasn't ticked even
-        // once yet -- e.g. one registered synchronously by an explicit `.start()` call, then
-        // immediately redundantly re-triggered by the `running` property's own (deferred)
-        // change tracker on the next driver tick. Treating `Delaying` as not-running would let
-        // that second call replace it with a freshly time-stamped tween, silently resetting
-        // progress that was never actually observed as reset.
+        // Delaying and Animating are considered Running so checking running after start returns
+        // true
         self.running && !matches!(self.state, AnimationState::Done { .. })
     }
 
@@ -295,25 +277,16 @@ impl<T: InterpolatedPropertyValue + Clone> Animation for TweenAnimation<T> {
 }
 
 /// An animation object driven by a physics [`Simulation`](physics_simulation::Simulation)
-/// (e.g. constant-deceleration friction or a spring-damper) rather than by tween interpolation.
-///
-/// Like [`TweenAnimation`], it is registered in the `CURRENT_ANIMATIONS` registry (via an
-/// [`AnimationHandle`]) and, on each frame, steps its simulation and *pushes* the resulting value
-/// into the target property through `set_value`. `Flickable` uses it for kinetic scrolling.
 ///
 /// Unlike a tween, the simulation integrates *in place*: each frame it reads the target's current
-/// value via `get_value`, advances it, and writes it back through `set_value`. Reading the live
-/// value (rather than an internally-cached one) means an external write to the target between
-/// frames — e.g. a `ListView` re-adjusting `viewport-y` after refining its item-height estimates —
-/// is picked up and the simulation continues smoothly from there instead of snapping back to the
-/// trajectory it would otherwise have followed. This mirrors the legacy pull-based physics binding,
-/// which integrated on the property's own cell value.
+/// value via `get_value`, advances it, and writes it back through `set_value`. Reads the live
+/// values so modifications are picked up and the animation continues smoothly
 pub struct PhysicsAnimation<S> {
     simulation: S,
     running: bool,
     finished: bool,
     /// Reads the target property's current value at the start of each frame; the simulation is
-    /// advanced from this value (see the type-level note on in-place integration).
+    /// advanced from this value
     get_value: Box<dyn FnMut() -> crate::Coord>,
     /// Pushes each freshly computed value into the target property (once per frame).
     set_value: Box<dyn FnMut(crate::Coord)>,
@@ -360,14 +333,13 @@ impl<S: physics_simulation::Simulation> Animation for PhysicsAnimation<S> {
             return false;
         }
         // Integrate in place on the target's *live* value: read it now, step, and write it back,
-        // so an external adjustment since the last frame is carried forward (see the type note).
+        // so an external adjustment since the last frame is carried forward.
         // The simulation works in `f32`; adapt to/from `Coord`.
         let mut value = (self.get_value)() as f32;
         let finished = self.simulation.step(&mut value, crate::animations::current_tick());
         let value = value as crate::Coord;
         // Push with the self-write guard so that, should the target ever carry a competing
-        // (change-detector) binding, this write is treated as a self-write. `Flickable`'s viewport
-        // carries no binding while flicking, but this keeps the push consistent with the tween path.
+        // (change-detector) binding, this write is treated as a self-write.
         with_applying_animation(|| (self.set_value)(value));
         if finished {
             self.finished = true;
@@ -458,10 +430,7 @@ impl SequentialAnimation {
         self.current_index += 1;
         if self.current_index < self.animations.len() {
             if let Some(anim) = self.current_animation_mut() {
-                // `restart()`, not `start()`: children are constructed up front (e.g.
-                // a tween queued behind a delay) but only actually activated once
-                // their turn comes, potentially much later, so their clock must be
-                // reset to "now" rather than keep counting from construction time.
+                // `restart` as children are constructed at the beginning but only activated now
                 anim.restart();
             }
         }
@@ -483,8 +452,7 @@ impl Animation for SequentialAnimation {
     fn start(&mut self) {
         self.running = true;
         if !self.animations.is_empty() && self.current_index == 0 {
-            // See `advance_to_next()`: `restart()` gives the first child a fresh
-            // clock, covering any gap between when it was constructed and now.
+            // `restart` as children are constructed at the beginning but only activated now
             self.animations[0].restart();
         }
     }
@@ -512,11 +480,7 @@ impl Animation for SequentialAnimation {
         if !self.running {
             return false;
         }
-        // `update()`, not `is_running()`: children like a tween only advance their own
-        // state (and push their interpolated value) from inside `update()`. Loop so that
-        // a child finishing (e.g. a DelayAnimation elapsing) advances to and updates the
-        // next child within the same frame, instead of leaving it un-updated until the
-        // next call and visibly lagging a frame behind.
+        // Loop so a child finishing begins the next child in the same frame
         while let Some(current_anim) = self.animations.get_mut(self.current_index) {
             if current_anim.update() {
                 break;
@@ -593,7 +557,7 @@ impl Animation for ParallelAnimation {
     }
 }
 
-/// Handle to a registered animation object (e.g. `TweenAnimation`).
+/// Handle to a registered animation object
 /// Analogous to `crate::timers::Timer`, this is a lightweight id-holding handle
 /// that the codegen can store as a component field.
 #[derive(Default)]
@@ -1193,34 +1157,21 @@ pub(super) enum AnimatedBindingState {
 pub(super) type AnimationDetail = (PropertyAnimation, Option<crate::animations::Instant>);
 
 /// The change-detector binding used by [`Property::set_animated_binding_object`].
-/// It is installed as the target property's binding and
-/// acts purely as a **change detector + from/to capturer**: when the wrapped `original_binding`
-/// goes dirty it (re)starts a `TweenAnimation` registered in the shared `CURRENT_ANIMATIONS`
-/// registry (driven each frame by [`update_animation_objects`]), which pushes interpolated values
-/// back into the property. This routes `animate x` through the same object backend as the explicit
-/// `TweenAnimation` element while keeping the exact trigger-on-property-change semantics.
+/// It acts only as a **change detector + from/to capturer**. (Re)starts an object when the
+/// original binding goes dirty. This is so `animate x` uses the same object backend
 #[pin_project::pin_project]
 pub(super) struct AnimatedBindingObjectCallable<T, A> {
     #[pin]
     pub(super) original_binding: PropertyHandle,
     pub(super) state: Cell<AnimatedBindingState>,
     pub(super) compute_animation_details: A,
-    /// The instant the change was detected (captured in `mark_dirty`). The animation is anchored
-    /// here, not at the first `.get()`, so that changing a value and then elapsing time animates
-    /// correctly even without an intervening read (matching the legacy `reset()`-in-`mark_dirty`
-    /// behaviour). Overridden by an explicit start_time from `compute_animation_details` (state
-    /// transitions).
+    /// The instant the change was detected
     pub(super) trigger_time: Cell<Option<crate::animations::Instant>>,
-    /// Monotonic counter bumped by `mark_dirty` on every detected change. Each registered tween
-    /// captures the value current when it was built and only pushes while it still matches, so a
-    /// *stale* tween (one superseded by a newer change but not yet replaced by the next
-    /// `evaluate`) cannot push its endpoint over the fresh value. This is done with a plain `Cell`
-    /// rather than by stopping the old tween, because `mark_dirty` can run re-entrantly from
-    /// inside `update_animation_objects` (a dependent animated property) where touching the
-    /// `CURRENT_ANIMATIONS` registry would panic.
+    /// Counter bumped by `mark_dirty` on every detected change so a stale tween cannot push its
+    /// endpoint over a fresh value.
     pub(super) generation: Rc<Cell<u64>>,
     /// Handle owning the registry-driven tween. Its `Drop` deregisters the tween, so it is torn
-    /// down together with this binding (and thus before `target` — see `target` below).
+    /// down together with this binding
     pub(super) handle: AnimationHandle,
     /// Raw pointer to the property this binding is installed on, used by the tween's `set_value`
     /// to push interpolated values. Valid for as long as this binding lives: the binding is owned
@@ -1239,7 +1190,7 @@ unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> Bi
             "<AnimatedBindingObjectCallable>",
         );
         match self.state.get() {
-            // The tween pushes values directly into the property cell (see `set_value` below), so
+            // The tween pushes values directly into the property cell, so
             // once running there is nothing to compute here; keep the current cell value.
             AnimatedBindingState::Animating => {}
             AnimatedBindingState::NotAnimating => {
@@ -1365,8 +1316,7 @@ impl InterpolatedPropertyValue for LogicalLength {
 impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     /// Install an animated binding: an [`AnimatedBindingObjectCallable`] change-detector whose
     /// triggered animation is a `TweenAnimation` registered in the shared `CURRENT_ANIMATIONS`
-    /// registry (driven each frame by [`update_animation_objects`]). This is the backend used by
-    /// the Rust generator for `animate x` and state transitions.
+    /// registry (driven each frame by [`update_animation_objects`]).
     pub fn set_animated_binding_object(
         &self,
         binding: impl Binding<T> + 'static,
@@ -1405,12 +1355,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         );
     }
 
-    /// Animate the property from its current value to `value` through the consolidated registry
-    /// backend, driven each frame by [`update_animation_objects`]. An
-    /// imperative animated assignment is just a bound animation with a *constant* target and an
-    /// immediate trigger, so it reuses [`AnimatedBindingObjectCallable`] with the state forced to
-    /// `ShouldStart`. Re-assigning replaces this binding (dropping its handle, deregistering the
-    /// previous tween), so a mid-flight re-assignment cleanly restarts from the current value.
+    /// Animate the property from its current value to `value`.  
     pub fn set_animated_value_object(&self, value: T, animation_data: PropertyAnimation) {
         let binding_callable = properties_animations::AnimatedBindingObjectCallable::<T, _> {
             original_binding: PropertyHandle {
@@ -2104,8 +2049,7 @@ mod animation_tests {
     }
 
 
-    // ---- Object-backed animated binding (set_animated_binding_object) ----
-    // These mirror the legacy `*_triggered_by_binding` tests but drive the consolidated object
+    // These mirror the old `*_triggered_by_binding` tests but drive the consolidated object
     // backend: values are pushed by `update_animation_objects()` each frame rather than pulled
     // lazily, so each frame the test advances the clock *and* calls `update_animation_objects()`.
 

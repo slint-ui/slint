@@ -487,11 +487,7 @@ pub struct ItemTreeDescription<'id> {
     )>,
     timers: Vec<FieldOffset<Instance<'id>, Timer>>,
     animations: Vec<FieldOffset<Instance<'id>, i_slint_core::properties::AnimationHandle>>,
-    /// For each entry in `animations`, a change tracker on its `target` property and a cache
-    /// of the last value written to `target` by the tween itself. Used to restart the
-    /// animation when `target` is assigned directly (e.g. `rect.x = 100px;`), as opposed to
-    /// via the tween's own frame updates. Mirrors the rust/cpp generators'
-    /// `anim_target_tracker*`/`anim_last_target*`.
+    /// used to restart the animation when target changes
     animation_target_trackers:
         Vec<(FieldOffset<Instance<'id>, ChangeTracker>, FieldOffset<Instance<'id>, std::cell::RefCell<Value>>)>,
     /// Map of element IDs to their active popup's ID
@@ -3072,11 +3068,7 @@ fn build_tween_with(
 
     let target_ref = target.clone();
     let self_weak_value = instance.self_weak().get().unwrap().clone();
-    // The target-change tracker (see `init_animation_target_trackers`) needs to tell the
-    // tween's own per-frame writes to `target` apart from a genuine external assignment
-    // (e.g. `rect.x = 100px;`). It does so by comparing the freshly observed value against
-    // this cache, which every write to `target` -- whether from the tween ticking here or
-    // from outside -- keeps up to date.
+    // keeps cache updated
     let set_value = move |value: Value| {
         if let Some(instance) = self_weak_value.upgrade() {
             generativity::make_guard!(guard);
@@ -3140,10 +3132,7 @@ pub fn restart_animation(element: ElementWeak, instance: InstanceRef) {
     {
         let (tween, from) = build_tween(instance, idx, desc);
         let target = desc.target.as_ref().expect("TweenAnimation requires a target");
-        // `restart()` bypasses the `running = true/false` lowering that `start()`/`stop()`
-        // calls get, so reflect it into the Slint-visible `running` property here -- otherwise
-        // `anim.running` would keep reading `false` (from a preceding `stop()`) until the next
-        // tick.
+        // changes running to true on restart
         eval::store_property(
             instance,
             &desc.running.element(),
@@ -3152,19 +3141,14 @@ pub fn restart_animation(element: ElementWeak, instance: InstanceRef) {
         )
         .unwrap();
         offset.apply(instance.as_ref()).restart(tween);
-        // Restarting must make the target property read back as `from` immediately,
-        // without waiting for the next driver tick (unlike a fresh `start()`, which only
-        // ever runs from the target's current value, so there's nothing new to push).
+        // changes property to from on this tick
         eval::store_property(instance, &target.element(), target.name(), from.clone()).unwrap();
         let cache_offset = instance.description.animation_target_trackers[idx].1;
         *cache_offset.apply(instance.as_ref()).borrow_mut() = from;
     }
 }
 
-/// Restart (or start) a tween whose `target` property was just assigned directly (rather than
-/// via the tween's own frame updates, or via an explicit `anim.start()`/`anim.restart()` call).
-/// Mirrors the rust/cpp generators' handling in their `update_animations`/target-change-tracker
-/// code.
+/// (Re)start an animation when the target property was changed
 fn on_target_changed(
     instance: InstanceRef,
     idx: usize,
@@ -3173,9 +3157,7 @@ fn on_target_changed(
     new_value: Value,
 ) {
     if desc.to.is_some() {
-        // `to` is fixed, so the animation's endpoints don't depend on the changed value at
-        // all -- treat the assignment purely as a trigger to (re-)start the loop, same as
-        // calling `.start()` (a no-op if already running).
+        // `to` is fixed so a property change just starts the animation
         eval::store_property(
             instance,
             &desc.running.element(),
@@ -3187,12 +3169,9 @@ fn on_target_changed(
         let (tween, _from) = build_tween(instance, idx, desc);
         handle.start(tween);
     } else if desc.from.is_some() {
-        // `from` is fixed, so the existing restart logic (from = declared `from`, to =
-        // target's current, already-updated value) is already correct.
         restart_animation(desc.element.clone(), instance);
     } else {
-        // No `from`/`to`: animate from the value `target` held right before this change,
-        // towards the newly-assigned value.
+        // animates from the current value to the new value
         eval::store_property(
             instance,
             &desc.running.element(),
@@ -3206,9 +3185,7 @@ fn on_target_changed(
     }
 }
 
-/// Initialize, for every animation, a change tracker on its `target` property that restarts
-/// the animation when `target` is assigned directly. Mirrors the rust/cpp generators'
-/// `anim_target_tracker*` initialization.
+/// Initialize change trackers so animations can start on property change
 pub fn init_animation_target_trackers(instance: InstanceRef) {
     let anims = instance.description.original.animations.borrow();
     let self_weak = instance.self_weak().get().unwrap().clone();

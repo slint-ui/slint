@@ -442,8 +442,7 @@ struct FlickableDataInner {
 
     /// Handles owning the object-backend physics animations that drive the viewport position
     /// during kinetic scrolling (one per axis). Dropping a handle deregisters its animation, so
-    /// they are torn down together with this `FlickableDataInner` (and thus with the viewport
-    /// properties the animations push into — see `start_physic_animation`).
+    /// they are torn down together with this `FlickableDataInner` 
     physics_animation_x: AnimationHandle,
     physics_animation_y: AnimationHandle,
 }
@@ -660,9 +659,8 @@ impl FlickableDataInner {
         [limit_x, limit_y]
     }
 
-    /// Start (or restart) a physics-driven kinetic-scroll animation on `handle`, pushing the
-    /// interpolated position into the viewport property `viewport` through the object-based
-    /// animation backend (the `CURRENT_ANIMATIONS` registry, driven by `update_animation_objects`).
+    /// (re)start a physics based scroll on `handle` pushing the interpolated position into the
+    /// viewport property `viewport`
     fn start_physic_animation<AD>(
         handle: &AnimationHandle,
         viewport: Pin<&Property<LogicalLength>>,

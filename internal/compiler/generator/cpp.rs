@@ -2594,10 +2594,7 @@ fn generate_sub_component(
                 "[&]{{ slint::cbindgen_private::PropertyAnimation o{{}}; o.delay = 0; o.duration = (int)({duration}); o.iteration_count = (float)({iteration_count}); o.direction = {direction}; o.easing = {easing}; o.enabled = true; return o; }}()"
             );
 
-            // Cache of the target's last-known value, kept in sync by every write --
-            // whether from the tween ticking (below) or from a genuine external
-            // assignment (the target-change tracker further down) -- so the tracker can
-            // tell the two apart.
+            // Cache of the target's last-known value, kept in sync by every write
             let cache_field = format_smolstr!("anim_last_target{}", i);
             let set_stmt = access_member(&target_ref, &ctx)
                 .then(|prop| format!("self->{cache_field} = value; {prop}.set(value)"));
@@ -2617,9 +2614,7 @@ fn generate_sub_component(
             update_animations.push(format!("   {}", call("start")));
             update_animations.push(format!("}} else {{ self->{name}.stop(); }}"));
 
-            // Restarting must make the target property read back as `from` immediately,
-            // without waiting for the next driver tick (unlike a fresh `start()`, which only
-            // ever runs from the target's current value, so there's nothing new to push).
+            // Restarting must make the target property read back as `from` immediately
             let set_from_stmt = access_member(&target_ref, &ctx)
                 .then(|prop| format!("self->{cache_field} = {from}; {prop}.set({from})"));
             target_struct.members.push((
@@ -2629,10 +2624,7 @@ fn generate_sub_component(
                     signature: "() const -> void".into(),
                     statements: Some(vec![
                         "auto self = this;".into(),
-                        // `restart()` bypasses the `running = true/false` lowering that
-                        // `start()`/`stop()` calls get, so reflect it into the Slint-visible
-                        // `running` property here -- otherwise `anim.running` would keep
-                        // reading `false` (from a preceding `stop()`) until the next tick.
+                        // sets running to true on restart otherwise it would be false
                         format!("{set_running_true};"),
                         call("restart"),
                         format!("{set_from_stmt};"),
@@ -2641,8 +2633,7 @@ fn generate_sub_component(
                 }),
             ));
 
-            // Restart the tween when `target` is assigned directly (e.g. `rect.x = 100px;`),
-            // instead of only reacting to `running` toggling. Mirrors rust.rs.
+            // Restart the tween when `target` is assigned directly
             let tracker_name = format_smolstr!("anim_target_tracker{}", i);
             target_struct.members.push((
                 field_access,
@@ -2662,9 +2653,7 @@ fn generate_sub_component(
             ));
 
             let restart_call_stmt = if anim.to.is_some() {
-                // `to` is fixed, so the animation's endpoints don't depend on the changed
-                // value at all -- treat the assignment purely as a trigger to (re-)start
-                // the loop, same as calling `.start()` (a no-op if already running).
+                // `to` is fixed so treat the property change as a trigger to (re)start the loop
                 let start_ident = format_smolstr!("start_anim{}", i);
                 target_struct.members.push((
                     field_access,
@@ -2677,12 +2666,9 @@ fn generate_sub_component(
                 ));
                 format!("self->{start_ident}();")
             } else if anim.from.is_some() {
-                // `from` is fixed, so the existing restart logic (from = declared `from`,
-                // to = target's current, already-updated value) is already correct.
                 format!("self->restart_anim{i}();")
             } else {
-                // No `from`/`to`: animate from the value `target` held right before this
-                // change, towards the newly-assigned value.
+                // Animate from current value to the new value it is changing to
                 let restart_on_change_ident =
                     format_smolstr!("restart_anim{}_on_target_change", i);
                 target_struct.members.push((

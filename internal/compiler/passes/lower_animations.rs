@@ -22,10 +22,7 @@ pub fn lower_animations(
     diag: &mut BuildDiagnostics,
 ) {
     // replace <animation>.start/end with <animation>.running = true/false, followed by a
-    // synchronous `update_animations()` -- without it, the actual (re)registration of the
-    // driving tween would only happen on the next driver tick, via the `running` property's
-    // change callback (see `lower_animation` below), leaving `start()`/`stop()` observably
-    // deferred by one tick instead of taking effect immediately.
+    // synchronous `update_animations()` so updates happen on this tick
     visit_all_expressions(component, |e, _| {
         e.visit_recursive_mut(&mut |e| {
             if let Expression::FunctionCall { function, arguments, .. } = e
