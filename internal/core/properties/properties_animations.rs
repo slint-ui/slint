@@ -95,7 +95,7 @@ enum AnimationState {
 /// [`AnimationHandle`] field and, on each frame where the Slint `running`
 /// property is true, builds a fresh `TweenAnimation` and hands it to
 /// [`AnimationHandle::start`]/[`restart`](AnimationHandle::restart).
-/// `set_value`/`on_finished` are only populated on that path; [`AnimatedBindingObjectCallable`]
+/// `set_value`/`on_finished` are only populated on that path; `AnimatedBindingObjectCallable`
 /// drives its tween itself and calls `compute_interpolated_value()` directly, leaving them `None`.
 pub struct TweenAnimation<T> {
     from_value: T,
@@ -283,7 +283,7 @@ impl<T: InterpolatedPropertyValue + Clone> Animation for TweenAnimation<T> {
     }
 }
 
-/// An animation object driven by a physics [`Simulation`](physics_simulation::Simulation)
+/// An animation object driven by a physics `Simulation`
 ///
 /// Unlike a tween, the simulation integrates *in place*: each frame it reads the target's current
 /// value via `get_value`, advances it, and writes it back through `set_value`. Reads the live
@@ -1999,7 +1999,7 @@ impl InterpolatedPropertyValue for LogicalLength {
 }
 
 impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
-    /// Install an animated binding: an [`AnimatedBindingObjectCallable`] change-detector whose
+    /// Install an animated binding: an `AnimatedBindingObjectCallable` change-detector whose
     /// triggered animation is a `TweenAnimation` registered in the shared `CURRENT_ANIMATIONS`
     /// registry (driven each frame by [`update_animation_objects`]).
     pub fn set_animated_binding_object(

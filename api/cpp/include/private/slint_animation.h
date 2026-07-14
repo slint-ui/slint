@@ -20,7 +20,9 @@ inline uintptr_t slint_animation_handle_start_helper(
         void *on_finished_user_data, void (*on_finished_drop_user_data)(void *))
 {
     return cbindgen_private::slint_animation_handle_start_int(
-            id, from, to, &details, set_value, set_value_user_data, set_value_drop_user_data,
+            id, from, to, &details,
+            reinterpret_cast<void (*)(void *, const int32_t *)>(set_value),
+            set_value_user_data, set_value_drop_user_data,
             on_finished, on_finished_user_data, on_finished_drop_user_data);
 }
 inline uintptr_t slint_animation_handle_restart_helper(
@@ -30,7 +32,9 @@ inline uintptr_t slint_animation_handle_restart_helper(
         void *on_finished_user_data, void (*on_finished_drop_user_data)(void *))
 {
     return cbindgen_private::slint_animation_handle_restart_int(
-            id, from, to, &details, set_value, set_value_user_data, set_value_drop_user_data,
+            id, from, to, &details,
+            reinterpret_cast<void (*)(void *, const int32_t *)>(set_value),
+            set_value_user_data, set_value_drop_user_data,
             on_finished, on_finished_user_data, on_finished_drop_user_data);
 }
 
@@ -106,7 +110,9 @@ inline void *slint_animation_new_tween_helper(int from, int to, const PropertyAn
                                               void (*on_finished_drop_user_data)(void *))
 {
     return cbindgen_private::slint_animation_new_tween_int(
-            from, to, &details, set_value, set_value_user_data, set_value_drop_user_data,
+            from, to, &details,
+            reinterpret_cast<void (*)(void *, const int32_t *)>(set_value),
+            set_value_user_data, set_value_drop_user_data,
             on_finished, on_finished_user_data, on_finished_drop_user_data);
 }
 inline void *slint_animation_new_tween_helper(

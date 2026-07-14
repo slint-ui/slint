@@ -2813,6 +2813,7 @@ component Animation {
 ///
 /// Use the TweenAnimation pseudo-element to animate a property
 /// The animation starts when running is changed or start is called
+/// \group:animations
 export component TweenAnimation inherits Animation {
     in property <animatable> from;
     in property <animatable> to;
@@ -2826,15 +2827,27 @@ export component TweenAnimation inherits Animation {
     //-disallow_global_types_as_child_elements
 }
 
+/// :::note[Note]
+/// DelayAnimation is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
+/// :::
+/// \group:animations
 export component DelayAnimation inherits Animation {
     in property <duration> duration;
     //-is_non_item_type
     //-disallow_global_types_as_child_elements
 }
 
+/// :::note[Note]
+/// ParallelAnimation is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
+/// :::
+/// \group:animations
 export component ParallelAnimation inherits Animation {
     //-is_non_item_type
 }
+/// :::note[Note]
+/// SequentialAnimation is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
+/// :::
+/// \group:animations
 export component SequentialAnimation inherits Animation {
     //-is_non_item_type
 }

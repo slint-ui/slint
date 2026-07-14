@@ -304,6 +304,17 @@ export default defineConfig({
                                         ],
                                     },
                                     {
+                                        label: "Animations",
+                                        items: [
+                                            {
+                                                autogenerate: {
+                                                    directory:
+                                                        "reference/generated/animations",
+                                                },
+                                            },
+                                        ],
+                                    },
+                                    {
                                         label: "Drag and Drop",
                                         items: [
                                             {
