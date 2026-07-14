@@ -420,6 +420,7 @@ module.exports = grammar({
       prec.right(
         choice(
           $.keys,
+          $.physical_keys,
           $.parens_op,
           $.index_op,
           $.tr,
@@ -491,6 +492,23 @@ module.exports = grammar({
             repeat(seq(
               "+",
               $._keys_entry
+            ))
+          )),
+        ")",
+      ),
+
+    // @physical-keys(...)
+    _physical_keys_entry: ($) => seq($.simple_identifier, optional("?")),
+    physical_keys: ($) =>
+      seq(
+        "@physical-keys",
+        "(",
+        optional(
+          seq(
+            $._physical_keys_entry,
+            repeat(seq(
+              "+",
+              $._physical_keys_entry
             ))
           )),
         ")",

@@ -5,6 +5,7 @@
     {
       "languageId": "rust",
       "words": [
+        "Backquote",
         "bbox",
         "bindgen",
         "boxshadowcache",
@@ -13,6 +14,7 @@
         "codemap",
         "concat",
         "Consts",
+        "desugars",
         "evenodd",
         "FBOs", // plural of FBO (frame buffer object)
         "fontdb",
@@ -35,6 +37,7 @@
         "unlocalized",
         "Unlocalized",
         "unmap",
+        "unshifted",
         "unsync",
         "vsync"
       ],

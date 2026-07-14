@@ -498,6 +498,11 @@ enum KeysParseErrorInner {
     /// Incompatible modifiers were specified (e.g. both `Shift` and `Shift?`).
     /// The contained string is a human-readable description of the conflict.
     IncompatibleModifiers(SharedString),
+    /// A `@physical-keys` shortcut named a key that is not in the physical-key table.
+    /// The contained string is the offending key part (e.g. `"Foo"`).
+    UnknownPhysicalKey(SharedString),
+    /// The `@physical-keys` marker appeared somewhere other than the first entry.
+    PhysicalMarkerNotFirst,
 }
 
 /// Error type returned when constructing a [`Keys`] from string parts.
@@ -522,13 +527,23 @@ impl core::fmt::Display for KeysParseError {
                 write!(f, "key string must be lowercase, use \"{lower}\" instead")
             }
             KeysParseErrorInner::IncompatibleModifiers(msg) => write!(f, "{msg}"),
+            KeysParseErrorInner::UnknownPhysicalKey(s) => {
+                write!(
+                    f,
+                    "{s} is not a known physical key (use a name like A, Digit1, BackQuote, or LeftArrow)"
+                )
+            }
+            KeysParseErrorInner::PhysicalMarkerNotFirst => {
+                write!(f, "the {PHYSICAL_KEYS_MARKER} marker must be the first entry")
+            }
         }
     }
 }
 
 impl core::error::Error for KeysParseError {}
 
-use i_slint_common::key_codes::{ShiftBehavior, lookup_key_name};
+use i_slint_common::key_codes::{ShiftBehavior, lookup_key_char, lookup_key_name};
+use i_slint_common::physical_key_codes::{lookup_physical_key_name, lookup_physical_key_native};
 
 /// Re-exported in private_unstable_api to create a Keys struct.
 pub fn make_keys(
@@ -536,9 +551,16 @@ pub fn make_keys(
     modifiers: KeyboardModifiers,
     ignore_shift: bool,
     ignore_alt: bool,
+    is_physical: bool,
 ) -> Keys {
     Keys {
-        inner: KeysInner { key: key.to_lowercase().into(), modifiers, ignore_shift, ignore_alt },
+        inner: KeysInner {
+            key: if is_physical { key } else { key.to_lowercase().into() },
+            modifiers,
+            ignore_shift,
+            ignore_alt,
+            is_physical,
+        },
     }
 }
 
@@ -558,6 +580,7 @@ pub(crate) mod ffi {
         meta: bool,
         ignore_shift: bool,
         ignore_alt: bool,
+        is_physical: bool,
         out: &mut Keys,
     ) {
         *out = make_keys(
@@ -565,6 +588,7 @@ pub(crate) mod ffi {
             KeyboardModifiers { alt, control, shift, meta },
             ignore_shift,
             ignore_alt,
+            is_physical,
         );
     }
 
@@ -591,6 +615,14 @@ pub(crate) mod ffi {
             Err(_) => false,
         }
     }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_keys_to_parts(
+        keys: &Keys,
+        out: &mut crate::SharedVector<SharedString>,
+    ) {
+        *out = keys.to_parts().into_iter().collect();
+    }
 }
 
 /// Normalize a key string: lowercase and NFC-normalize.
@@ -607,6 +639,10 @@ fn normalize_key(key: &str) -> SharedString {
     }
 }
 
+/// Marker token introducing a physical-key shortcut in a parts list, mirroring the
+/// `@physical-keys(...)` macro. When present it must be the first (non-empty) entry.
+const PHYSICAL_KEYS_MARKER: &str = "@physical-keys";
+
 fn keys_from_parts<'a>(parts: impl Iterator<Item = &'a str>) -> Result<Keys, KeysParseError> {
     keys_from_parts_inner(parts).map_err(KeysParseError)
 }
@@ -614,18 +650,29 @@ fn keys_from_parts<'a>(parts: impl Iterator<Item = &'a str>) -> Result<Keys, Key
 fn keys_from_parts_inner<'a>(
     parts: impl Iterator<Item = &'a str>,
 ) -> Result<Keys, KeysParseErrorInner> {
-    use unicode_segmentation::UnicodeSegmentation;
-
     let mut modifiers = KeyboardModifiers::default();
     let mut ignore_shift = false;
     let mut ignore_alt = false;
+    let mut is_physical = false;
     let mut key_part: Option<&str> = None;
+    let mut seen_part = false;
 
     for part in parts {
         let part = part.trim();
         if part.is_empty() {
             continue;
         }
+        if part == PHYSICAL_KEYS_MARKER {
+            // The marker only declares the kind of shortcut, and only as the very
+            // first entry, so the parts list is unambiguous from the start.
+            if seen_part {
+                return Err(KeysParseErrorInner::PhysicalMarkerNotFirst);
+            }
+            is_physical = true;
+            seen_part = true;
+            continue;
+        }
+        seen_part = true;
         match part {
             "Control" => modifiers.control = true,
             "Alt" => {
@@ -672,12 +719,56 @@ fn keys_from_parts_inner<'a>(
 
     let key_name = match key_part {
         Some(k) => k,
-        None if modifiers == KeyboardModifiers::default() && !ignore_shift && !ignore_alt => {
+        None if modifiers == KeyboardModifiers::default()
+            && !ignore_shift
+            && !ignore_alt
+            && !is_physical =>
+        {
             // Empty input (or only whitespace) → Keys::default(), same as @keys()
             return Ok(Keys::default());
         }
         None => return Err(KeysParseErrorInner::NoKey),
     };
+
+    if is_physical {
+        from_physical_parts(key_name, modifiers, ignore_shift, ignore_alt)
+    } else {
+        from_logical_parts(key_name, modifiers, ignore_shift, ignore_alt)
+    }
+}
+
+/// Resolve a physical-key shortcut (the runtime counterpart of `@physical-keys(...)`).
+/// The key is looked up in the physical-key table by its user-facing name; string
+/// literals are not allowed.
+fn from_physical_parts(
+    key_name: &str,
+    modifiers: KeyboardModifiers,
+    ignore_shift: bool,
+    ignore_alt: bool,
+) -> Result<Keys, KeysParseErrorInner> {
+    let native = lookup_physical_key_name(key_name)
+        .ok_or_else(|| KeysParseErrorInner::UnknownPhysicalKey(key_name.into()))?;
+    Ok(Keys {
+        inner: KeysInner {
+            key: native.into(),
+            modifiers,
+            ignore_shift,
+            ignore_alt,
+            is_physical: true,
+        },
+    })
+}
+
+/// Resolve a logical-key shortcut (the runtime counterpart of `@keys(...)`).
+/// The key is first looked up by name (case-sensitive); if not found it is treated
+/// as a string literal (a single lowercase grapheme cluster).
+fn from_logical_parts(
+    key_name: &str,
+    modifiers: KeyboardModifiers,
+    mut ignore_shift: bool,
+    ignore_alt: bool,
+) -> Result<Keys, KeysParseErrorInner> {
+    use unicode_segmentation::UnicodeSegmentation;
 
     // First: try named-key lookup (case-sensitive, like the @keys macro)
     if let Some((key_char, shift_behavior)) = lookup_key_name(key_name) {
@@ -694,7 +785,9 @@ fn keys_from_parts_inner<'a>(
         }
         // Key code literals in key_codes.rs are already NFC-normalized, just lowercase.
         let key: SharedString = key_char.to_lowercase().collect::<alloc::string::String>().into();
-        return Ok(Keys { inner: KeysInner { key, modifiers, ignore_shift, ignore_alt } });
+        return Ok(Keys {
+            inner: KeysInner { key, modifiers, ignore_shift, ignore_alt, is_physical: false },
+        });
     }
 
     // Fallback: treat as a string literal (like @keys("€"))
@@ -711,7 +804,7 @@ fn keys_from_parts_inner<'a>(
     }
 
     let key = normalize_key(key_name);
-    Ok(Keys { inner: KeysInner { key, modifiers, ignore_shift, ignore_alt } })
+    Ok(Keys { inner: KeysInner { key, modifiers, ignore_shift, ignore_alt, is_physical: false } })
 }
 
 /// Internal representation of the `Keys` type.
@@ -720,8 +813,6 @@ fn keys_from_parts_inner<'a>(
 #[repr(C)]
 pub struct KeysInner {
     /// The `key` used to trigger the shortcut
-    ///
-    /// Note: This is currently converted to lowercase when the shortcut is created!
     pub key: SharedString,
     /// `KeyboardModifier`s that need to be pressed for the shortcut to fire
     pub modifiers: KeyboardModifiers,
@@ -729,6 +820,8 @@ pub struct KeysInner {
     pub ignore_shift: bool,
     /// Whether to ignore alt state when matching the shortcut
     pub ignore_alt: bool,
+    /// Whether this shortcut matches the physical key code instead of the logical key text.
+    pub is_physical: bool,
 }
 
 impl KeysInner {
@@ -747,6 +840,12 @@ impl Keys {
     /// if not found, treated as a string literal (must be a single lowercase grapheme cluster).
     /// Exactly one non-modifier key must be present.
     ///
+    /// To create a physical-key shortcut (the runtime counterpart of
+    /// `@physical-keys(...)`), pass `"@physical-keys"` as the **first** entry of the
+    /// parts list. The key part is then resolved against the physical-key table
+    /// (`A`, `Digit1`, `BackQuote`, `LeftArrow`, ...) and string-literal fallback is
+    /// not allowed.
+    ///
     /// An empty iterator returns `Keys::default()` (same as `@keys()`).
     ///
     /// See also the Slint documentation on [Key Bindings](slint:KeyBindingOverview).
@@ -756,6 +855,106 @@ impl Keys {
         parts: impl IntoIterator<Item = &'a str>,
     ) -> Result<Keys, KeysParseError> {
         keys_from_parts(parts.into_iter())
+    }
+
+    #[i_slint_core_macros::slint_doc]
+    /// Decompose this `Keys` value into the list of string parts that
+    /// [`Keys::from_parts`] accepts.
+    ///
+    /// See also the Slint documentation on [Key Bindings](slint:KeyBindingOverview).
+    ///
+    /// A `Keys` value round-trips through `from_parts`:
+    ///
+    /// ```
+    /// use i_slint_core::input::Keys;
+    /// let k = Keys::from_parts(["Control", "Shift?", "Z"])?;
+    /// let parts = k.to_parts();
+    /// assert_eq!(parts.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+    ///            vec!["Control", "Shift?", "Z"]);
+    /// assert_eq!(Keys::from_parts(parts.iter().map(|s| s.as_str()))?, k);
+    /// # Ok::<(), i_slint_core::input::KeysParseError>(())
+    /// ```
+    ///
+    /// Note the round-trip direction: `Keys → to_parts → from_parts` reproduces an
+    /// equal `Keys`. The reverse (`parts → from_parts → to_parts`) is *not*
+    /// guaranteed to reproduce the input parts, because `from_parts` may de-sugar
+    /// the input (e.g. `["Control", "Plus"]` becomes `["Control", "Shift?", "+"]`).
+    ///
+    /// An empty `Keys` (i.e. [`Keys::default()`]) returns an empty `Vec`.
+    pub fn to_parts(&self) -> alloc::vec::Vec<SharedString> {
+        if self.inner.key.is_empty() {
+            return alloc::vec::Vec::new();
+        }
+        if self.inner.is_physical { self.to_physical_parts() } else { self.to_logical_parts() }
+    }
+
+    /// Push the modifier prefix shared by both shortcut kinds.
+    /// Order matches the `@keys` macro / Debug impl: Meta, Control, Alt, Shift.
+    fn push_modifier_parts(&self, parts: &mut alloc::vec::Vec<SharedString>) {
+        let inner = &self.inner;
+        if inner.modifiers.meta {
+            parts.push("Meta".into());
+        }
+        if inner.modifiers.control {
+            parts.push("Control".into());
+        }
+        if inner.modifiers.alt {
+            parts.push("Alt".into());
+        } else if inner.ignore_alt {
+            parts.push("Alt?".into());
+        }
+        if inner.modifiers.shift {
+            parts.push("Shift".into());
+        } else if inner.ignore_shift {
+            parts.push("Shift?".into());
+        }
+    }
+
+    fn to_physical_parts(&self) -> alloc::vec::Vec<SharedString> {
+        let mut parts = alloc::vec::Vec::new();
+        // The marker leads the list, mirroring `from_parts`' requirement.
+        parts.push(PHYSICAL_KEYS_MARKER.into());
+        self.push_modifier_parts(&mut parts);
+        // Reverse-map the native physical-key name (e.g. "Backquote") back to the
+        // user-facing spelling accepted by `from_parts` ("BackQuote"); fall back to
+        // the raw native name for forward compatibility.
+        parts.push(match lookup_physical_key_native(self.inner.key.as_str()) {
+            Some(name) => name.into(),
+            None => self.inner.key.clone(),
+        });
+        parts
+    }
+
+    fn to_logical_parts(&self) -> alloc::vec::Vec<SharedString> {
+        let inner = &self.inner;
+
+        // Recover a readable name for the stored character, but only for
+        // `Unshiftable` keys (letters, function keys, Space, Return, ...). For
+        // `LocalizedShiftable` keys (digits/punctuation) the named form auto-applies
+        // `ignore_shift` on re-parse, so emitting it would break the round-trip of
+        // a literal such as `["Control", "+"]` (which has `ignore_shift = false`).
+        // Emitting the raw character instead lets the `ignore_shift` flag be carried
+        // explicitly by `Shift?`, e.g. `@keys(Control + Plus)` round-trips as
+        // `["Control", "Shift?", "+"]`. We keep the name for `Unshiftable` keys
+        // because their raw characters (e.g. Space's `' '` or Return's `'\n'`) would
+        // not survive re-parsing as string literals.
+        let named = {
+            let mut chars = inner.key.chars();
+            let first = chars.next();
+            let single = first.is_some() && chars.next().is_none();
+            match single.then(|| first.and_then(lookup_key_char)).flatten() {
+                Some((name, ShiftBehavior::Unshiftable)) => Some(name),
+                _ => None,
+            }
+        };
+
+        let mut parts = alloc::vec::Vec::new();
+        self.push_modifier_parts(&mut parts);
+        parts.push(match named {
+            Some(name) => name.into(),
+            None => inner.key.clone(),
+        });
+        parts
     }
 
     /// Check whether a `Keys` can be triggered by the given `KeyEvent`
@@ -774,20 +973,30 @@ impl Keys {
         if inner.ignore_alt {
             expected_modifiers.alt = key_event.modifiers.alt;
         }
-        // Note: The shortcut's key is already in lowercase and NFC-normalized
-        // (by the compiler and backends respectively), so we only need to
-        // lowercase the event text. Backends are expected to NFC-normalize
-        // key event text before dispatching.
-        //
-        // This improves our handling of CapsLock and Shift, as the event text will be in uppercase
-        // if caps lock is active, even if shift is not pressed.
-        let event_text = key_event.text.chars().flat_map(|character| character.to_lowercase());
+        let key_matches = if inner.is_physical {
+            key_event.physical_key == inner.key
+        } else {
+            // Note: The shortcut's key is already in lowercase and NFC-normalized
+            // (by the compiler and backends respectively), so we only need to
+            // lowercase the event text. Backends are expected to NFC-normalize
+            // key event text before dispatching.
+            //
+            // This improves our handling of CapsLock and Shift, as the event text will be in uppercase
+            // if caps lock is active, even if shift is not pressed.
+            let event_text = key_event.text.chars().flat_map(|character| character.to_lowercase());
+            event_text.eq(inner.key.chars())
+        };
 
-        event_text.eq(inner.key.chars()) && key_event.modifiers == expected_modifiers
+        key_matches && key_event.modifiers == expected_modifiers
     }
 
     fn format_key_for_display(&self) -> crate::SharedString {
         let key_str = self.inner.key.as_str();
+
+        if self.inner.is_physical {
+            return key_str.into();
+        }
+
         let first_char = key_str.chars().next();
 
         if let Some(first_char) = first_char {
@@ -910,20 +1119,24 @@ impl core::fmt::Debug for Keys {
                 .then_some("Shift?+")
                 .or(inner.modifiers.shift.then_some("Shift+"))
                 .unwrap_or_default();
-            let keycode: SharedString = inner
-                .key
-                .chars()
-                .flat_map(|character| {
-                    let mut escaped = alloc::vec![];
-                    if character.is_control() {
-                        escaped.extend(character.escape_unicode());
-                    } else {
-                        escaped.push(character);
-                    }
-                    escaped
-                })
-                .collect();
-            write!(f, "{meta}{ctrl}{alt}{shift}\"{keycode}\"")
+            if inner.is_physical {
+                write!(f, "{meta}{ctrl}{alt}{shift}{}", inner.key)
+            } else {
+                let keycode: SharedString = inner
+                    .key
+                    .chars()
+                    .flat_map(|character| {
+                        let mut escaped = alloc::vec![];
+                        if character.is_control() {
+                            escaped.extend(character.escape_unicode());
+                        } else {
+                            escaped.push(character);
+                        }
+                        escaped
+                    })
+                    .collect();
+                write!(f, "{meta}{ctrl}{alt}{shift}\"{keycode}\"")
+            }
         }
     }
 }
@@ -2838,7 +3051,7 @@ mod tests {
             _expected_linux,
         ) in test_cases
         {
-            let shortcut = make_keys(key.into(), modifiers, ignore_shift, ignore_alt);
+            let shortcut = make_keys(key.into(), modifiers, ignore_shift, ignore_alt, false);
 
             use crate::alloc::string::ToString;
             let result = shortcut.to_string();
@@ -2957,7 +3170,7 @@ mod tests {
         for (desc, parts, expected_key, mods, is, ia) in cases {
             let result =
                 Keys::from_parts(parts.iter().copied()).unwrap_or_else(|e| panic!("{desc}: {e}"));
-            assert_eq!(result, make_keys((*expected_key).into(), *mods, *is, *ia), "{desc}");
+            assert_eq!(result, make_keys((*expected_key).into(), *mods, *is, *ia, false), "{desc}");
         }
     }
 
@@ -3023,6 +3236,103 @@ mod tests {
             let result = Keys::from_parts(parts.iter().copied());
             assert!(result.is_err(), "{desc}: expected error, got {result:?}");
             assert_eq!(&result.unwrap_err(), expected_err, "{desc}");
+        }
+    }
+
+    #[test]
+    fn test_to_parts_roundtrip() {
+        // Inputs that should round-trip identically through from_parts → to_parts.
+        let inputs: &[&[&str]] = &[
+            &[],
+            &["A"],
+            &["Control", "A"],
+            &["Control", "Shift", "A"],
+            &["Control", "Shift?", "Z"],
+            &["Control", "Alt?", "A"],
+            &["Control", "Alt", "Shift", "Meta", "A"],
+            &["Meta", "Control", "Alt", "Shift", "A"],
+            &["F5"],
+            &["Return"],
+            &["Space"],
+            &["Control", "Plus"], // LocalizedShiftable: desugars to ["Control", "Shift?", "+"]
+            &["Control", "+"],    // literal '+': stays ["Control", "+"] (no auto ignore_shift)
+            &["Control", "Digit0"],
+            &["Control", "€"],
+            &["Control", "é"],
+            // Physical keys round-trip through the "@physical-keys" marker (always first).
+            &["@physical-keys", "A"],
+            &["@physical-keys", "Control", "BackQuote"],
+            &["@physical-keys", "Control", "Shift?", "Digit1"],
+            &["@physical-keys", "Meta", "LeftArrow"],
+        ];
+        for parts in inputs {
+            let k = Keys::from_parts(parts.iter().copied()).unwrap();
+            let out = k.to_parts();
+            let out_strs: alloc::vec::Vec<&str> = out.iter().map(|s| s.as_str()).collect();
+            let k2 = Keys::from_parts(out_strs.iter().copied()).unwrap();
+            assert_eq!(k, k2, "round-trip mismatch for {parts:?} → {out_strs:?}");
+        }
+    }
+
+    #[test]
+    fn test_physical_parts() {
+        // The "@physical-keys" marker (first entry) selects the physical-key table.
+        let keys = Keys::from_parts(["@physical-keys", "Control", "BackQuote"]).unwrap();
+        assert!(KeysInner::from_pub(&keys).is_physical);
+
+        // Only the user-facing spelling is accepted; the native spelling is not.
+        let err = Keys::from_parts(["@physical-keys", "Backquote"]).unwrap_err();
+        assert_eq!(
+            err,
+            KeysParseError(KeysParseErrorInner::UnknownPhysicalKey("Backquote".into()))
+        );
+
+        // An unknown physical key is rejected with the dedicated error variant.
+        let err = Keys::from_parts(["@physical-keys", "Nope"]).unwrap_err();
+        assert_eq!(err, KeysParseError(KeysParseErrorInner::UnknownPhysicalKey("Nope".into())));
+
+        // The marker is only valid as the first entry.
+        let err = Keys::from_parts(["Control", "@physical-keys", "A"]).unwrap_err();
+        assert_eq!(err, KeysParseError(KeysParseErrorInner::PhysicalMarkerNotFirst));
+
+        // A lone marker (no key) is rejected like any modifier-only input.
+        let err = Keys::from_parts(["@physical-keys"]).unwrap_err();
+        assert_eq!(err, KeysParseError(KeysParseErrorInner::NoKey));
+    }
+
+    #[test]
+    fn test_to_parts_canonical_form() {
+        // Spot-check the exact strings to lock in the canonical output.
+        let cases: &[(&[&str], &[&str])] = &[
+            (&[], &[]),
+            (&["A"], &["A"]),
+            (&["a"], &["A"]), // letter literal → named form
+            (&["Control", "S"], &["Control", "S"]),
+            (&["Control", "Shift?", "Z"], &["Control", "Shift?", "Z"]),
+            (&["Control", "Alt?", "A"], &["Control", "Alt?", "A"]),
+            (&["F5"], &["F5"]),
+            // LocalizedShiftable: the auto ignore_shift is surfaced as Shift? and the
+            // raw character is emitted (no reverse-lookup to the "Plus" name).
+            (&["Control", "Plus"], &["Control", "Shift?", "+"]),
+            (&["Control", "+"], &["Control", "+"]), // literal '+': no auto ignore_shift
+            (&["Control", "€"], &["Control", "€"]),
+            (&["Meta", "Control", "Alt", "Shift", "A"], &["Meta", "Control", "Alt", "Shift", "A"]),
+            // Physical keys: the marker leads the list.
+            (&["@physical-keys", "A"], &["@physical-keys", "A"]),
+            (
+                &["@physical-keys", "Control", "BackQuote"],
+                &["@physical-keys", "Control", "BackQuote"],
+            ),
+            (
+                &["@physical-keys", "Control", "Shift?", "Digit1"],
+                &["@physical-keys", "Control", "Shift?", "Digit1"],
+            ),
+        ];
+        for (input, expected) in cases {
+            let k = Keys::from_parts(input.iter().copied()).unwrap();
+            let out = k.to_parts();
+            let out_strs: alloc::vec::Vec<&str> = out.iter().map(|s| s.as_str()).collect();
+            assert_eq!(&out_strs.as_slice(), expected, "for input {input:?}");
         }
     }
 
