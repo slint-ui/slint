@@ -73,6 +73,16 @@ export component HeaderView {
                     }
                 }
 
+                // Discoverable entry point for the command palette (⌘K).
+                if Api.runs-in-slintpad: Button {
+                    icon: Icons.search;
+                    colorize-icon: true;
+                    text: Platform.os == OperatingSystemType.macos ? "Commands  ⌘K" : "Commands  Ctrl+K";
+                    clicked => {
+                        Api.open-command-palette();
+                    }
+                }
+
                 if !Api.runs-in-slintpad: Text {
                     horizontal-alignment: left;
                     vertical-alignment: center;

@@ -19,6 +19,7 @@ pub enum SlintPadCallbackFunction {
     ShowAbout,
     CopyPermalink,
     NewFile,
+    OpenCommandPalette,
     SavePanelLayout,
 }
 
@@ -327,6 +328,7 @@ fn init_slintpad_specific_ui(api: &crate::preview::ui::Api) {
         open_demo_url(&url);
     });
     api.on_show_about_slint(show_about_slint);
+    api.on_open_command_palette(open_command_palette);
     api.on_panels_layout_changed(save_panel_layout);
 }
 
@@ -377,6 +379,27 @@ fn save_panel_layout() {
             &JsValue::UNDEFINED,
             &wasm_bindgen::JsValue::from(SlintPadCallbackFunction::SavePanelLayout),
             &obj.into(),
+        );
+    });
+}
+
+fn open_command_palette() {
+    WASM_CALLBACKS.with_borrow(|callbacks| {
+        let maybe_callback = wasm_bindgen::JsValue::from(
+            callbacks
+                .as_ref()
+                .expect("Callbacks were set up earlier")
+                .invoke_slintpad_callback
+                .clone(),
+        );
+        if !maybe_callback.is_function() {
+            return;
+        }
+        let opener = js_sys::Function::from(maybe_callback);
+        let _ = opener.call2(
+            &JsValue::UNDEFINED,
+            &wasm_bindgen::JsValue::from(SlintPadCallbackFunction::OpenCommandPalette),
+            &wasm_bindgen::JsValue::undefined(),
         );
     });
 }
