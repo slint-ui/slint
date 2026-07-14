@@ -17,6 +17,7 @@
 #include <chrono>
 #include <span>
 #include <concepts>
+#include <limits>
 
 #ifndef SLINT_FEATURE_FREESTANDING
 #    include <mutex>
@@ -33,6 +34,18 @@
 namespace slint {
 
 namespace private_api {
+
+/// Saturating float-to-int cast matching Rust's `as i32` (NaN maps to 0).
+inline int saturating_float_to_int(double value)
+{
+    if (value != value) // NaN
+        return 0;
+    if (value >= std::numeric_limits<int>::max())
+        return std::numeric_limits<int>::max();
+    if (value <= std::numeric_limits<int>::min())
+        return std::numeric_limits<int>::min();
+    return static_cast<int>(value);
+}
 
 /// Convert a slint `{height: length, width: length, x: length, y: length}` to a Rect
 inline cbindgen_private::Rect convert_anonymous_rect(std::tuple<float, float, float, float> tuple)
@@ -250,6 +263,13 @@ inline cbindgen_private::LayoutInfo flexbox_layout_info_main_axis(
 {
     return cbindgen_private::slint_flexbox_layout_info_main_axis(cells, spacing, &padding,
                                                                  flex_wrap);
+}
+
+inline float flexbox_layout_unwrapped_main(
+        cbindgen_private::Slice<cbindgen_private::FlexboxLayoutItemInfo> cells, float spacing,
+        const cbindgen_private::Padding &padding)
+{
+    return cbindgen_private::slint_flexbox_layout_unwrapped_main(cells, spacing, &padding);
 }
 
 inline cbindgen_private::LayoutInfo flexbox_layout_info_cross_axis(

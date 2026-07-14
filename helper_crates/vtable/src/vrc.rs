@@ -157,7 +157,7 @@ impl<VTable: VTableMetaDropInPlace, X: HasStaticVTable<VTable>> VRc<VTable, X> {
 
         unsafe {
             mem.write(VRcInner {
-                vtable: X::static_vtable(),
+                vtable: X::STATIC_VTABLE,
                 strong_ref: AtomicU32::new(1),
                 weak_ref: AtomicU32::new(1), // All the VRc together hold a weak_ref to the memory
                 data_offset: 0,

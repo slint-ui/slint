@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore frontmost
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -503,6 +504,9 @@ impl SoftwareRenderer {
     /// Set how the window need to be rotated in the buffer.
     ///
     /// This is typically used to implement screen rotation in software
+    ///
+    /// **Note:** This only affects rendering. Input events must still be given to
+    /// Slint in logical (un-rotated) coordinates.
     pub fn set_rendering_rotation(&self, rotation: RenderingRotation) {
         self.rotation.set(rotation)
     }
@@ -1301,8 +1305,23 @@ fn render_window_frame_by_line(
                 |line_buffer| {
                     let offset = r.start;
 
-                    line_buffer.fill(background_color);
-                    for span in scene.items[0..scene.current_items_index].iter().rev() {
+                    let items = &scene.items[0..scene.current_items_index];
+                    // A span that opaquely covers the whole range hides
+                    // everything behind it, background included. Draw from the
+                    // frontmost such span and drop the rest.
+                    let first_cover = items.iter().position(|span| {
+                        span.pos.x <= r.start
+                            && span.pos.x + span.size.width >= r.end
+                            && scene.is_guaranteed_opaque(&span.command)
+                    });
+                    let items = match first_cover {
+                        Some(i) => &items[..=i],
+                        None => {
+                            line_buffer.fill(background_color);
+                            items
+                        }
+                    };
+                    for span in items.iter().rev() {
                         debug_assert!(scene.current_line >= span.pos.y_length());
                         debug_assert!(
                             scene.current_line < span.pos.y_length() + span.size.height_length(),
@@ -2228,13 +2247,28 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                     let target_rect = if tiled.is_some() {
                         euclid::Rect::new(offset, fit_size).round().cast::<i32>()
                     } else {
-                        // map t.rect to to the target
-                        euclid::Rect::<f32, PhysicalPx>::from_untyped(
-                            &src_rect.to_rect().translate(-source_rect.min.to_vector()).cast(),
+                        // The slice maps onto the fit rect `offset ..= offset + fit_size`;
+                        // this texture only covers `src_rect` of the slice's `source_rect`, so
+                        // inset each edge by the uncovered source amount. Edges reaching the
+                        // slice boundary keep the exact fit rect, so abutting slices share a
+                        // seamless edge (scaling each from its source extent drifted apart).
+                        let inset = |a: i32, b: i32, s2t: f32| (a - b) as f32 * s2t;
+                        euclid::Box2D::<f32, PhysicalPx>::new(
+                            euclid::point2(
+                                offset.x
+                                    + inset(src_rect.min.x, source_rect.min.x, source_to_target_x),
+                                offset.y
+                                    + inset(src_rect.min.y, source_rect.min.y, source_to_target_y),
+                            ),
+                            euclid::point2(
+                                offset.x + fit_size.width
+                                    - inset(source_rect.max.x, src_rect.max.x, source_to_target_x),
+                                offset.y + fit_size.height
+                                    - inset(source_rect.max.y, src_rect.max.y, source_to_target_y),
+                            ),
                         )
-                        .scale(source_to_target_x, source_to_target_y)
-                        .translate(offset.to_vector())
                         .round()
+                        .to_rect()
                         .cast::<i32>()
                     };
                     let target_rect = target_rect.transformed(self.rotation).round();
@@ -2893,23 +2927,9 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     if let Some(clipped_src) = cursor_rect.intersection(&physical_clip.cast()) {
                         let geometry =
                             clipped_src.translate(offset.cast()).transformed(self.rotation);
-                        #[allow(unused_mut)]
-                        let mut cursor_color = text_visual_representation.cursor_color;
-                        #[cfg(all(feature = "std", target_os = "macos"))]
-                        {
-                            // On macOs, the cursor color is different than other platform. Use a hack to pass the screenshot test.
-                            static IS_SCREENSHOT_TEST: std::sync::OnceLock<bool> =
-                                std::sync::OnceLock::new();
-                            if *IS_SCREENSHOT_TEST.get_or_init(|| {
-                                std::env::var_os("CARGO_PKG_NAME").unwrap_or_default()
-                                    == "test-driver-screenshots"
-                            }) {
-                                cursor_color = color;
-                            }
-                        }
                         let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
                             geometry.cast(),
-                            self.alpha_color(cursor_color).into(),
+                            self.alpha_color(text_visual_representation.cursor_color).into(),
                         );
                         self.processor.process_rectangle(&args, geometry);
                     }
@@ -2977,23 +2997,9 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     if let Some(clipped_src) = cursor_rect.intersection(&physical_clip.cast()) {
                         let geometry =
                             clipped_src.translate(offset.cast()).transformed(self.rotation);
-                        #[allow(unused_mut)]
-                        let mut cursor_color = text_visual_representation.cursor_color;
-                        #[cfg(all(feature = "std", target_os = "macos"))]
-                        {
-                            // On macOs, the cursor color is different than other platform. Use a hack to pass the screenshot test.
-                            static IS_SCREENSHOT_TEST: std::sync::OnceLock<bool> =
-                                std::sync::OnceLock::new();
-                            if *IS_SCREENSHOT_TEST.get_or_init(|| {
-                                std::env::var_os("CARGO_PKG_NAME").unwrap_or_default()
-                                    == "test-driver-screenshots"
-                            }) {
-                                cursor_color = color;
-                            }
-                        }
                         let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
                             geometry.cast(),
-                            self.alpha_color(cursor_color).into(),
+                            self.alpha_color(text_visual_representation.cursor_color).into(),
                         );
                         self.processor.process_rectangle(&args, geometry);
                     }
@@ -3322,8 +3328,16 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         Some(brush.color())
     }
 
-    fn fill_rectangle(&mut self, mut physical_rect: sharedparley::PhysicalRect, color: Color) {
-        if color.alpha() == 0 {
+    fn fill_rectangle(
+        &mut self,
+        mut physical_rect: sharedparley::PhysicalRect,
+        color: Color,
+        radius: sharedparley::PhysicalLength,
+        border: Option<sharedparley::RectangleBorder<Color>>,
+    ) {
+        let has_visible_border =
+            border.as_ref().is_some_and(|b| b.width.get() > 0.0 && b.brush.alpha() > 0);
+        if color.alpha() == 0 && !has_visible_border {
             return;
         }
 
@@ -3331,13 +3345,30 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             (self.current_state.offset.to_vector().cast() * self.scale_factor).cast();
 
         physical_rect.origin += global_offset;
-        let physical_rect = physical_rect.cast().transformed(self.rotation);
-
-        let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
-            physical_rect.cast(),
+        let clip = physical_rect.cast().transformed(self.rotation);
+        let mut args = target_pixel_buffer::DrawRectangleArgs::from_rect(
+            clip.cast(),
             Brush::SolidColor(color),
         );
-        self.processor.process_rectangle(&args, physical_rect);
+
+        if radius.get() > 0.0 {
+            let r = radius.get().min(args.width / 2.0).min(args.height / 2.0);
+            args.top_left_radius = r;
+            args.top_right_radius = r;
+            args.bottom_right_radius = r;
+            args.bottom_left_radius = r;
+        }
+
+        if let Some(sharedparley::RectangleBorder { brush: border_color, width: border_width }) =
+            border
+            && border_width.get() > 0.0
+            && border_color.alpha() > 0
+        {
+            args.border_width = border_width.get();
+            args.border = Brush::SolidColor(border_color);
+        }
+
+        self.processor.process_rectangle(&args, clip);
     }
 
     fn draw_glyph_run(

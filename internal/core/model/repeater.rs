@@ -140,8 +140,17 @@ trait RepeaterInstanceOps {
     fn listview_layout(&self, instance_idx: usize, y: &mut Coord) -> Coord;
 }
 
+/// More rows than this is presumably a bug (e.g. a division by zero) and would run out of memory
+const MAX_EAGER_INSTANCE_COUNT: usize = 1 << 20;
+
 /// Update all instances in the repeater, creating any that are missing.
 fn update_all_instances(ops: &mut impl RepeaterInstanceOps, offset: usize, count: usize) {
+    let count = if count > MAX_EAGER_INSTANCE_COUNT {
+        crate::debug_log!("A repeater's model has {count} rows: too many to instantiate");
+        0
+    } else {
+        count
+    };
     let cur = ops.len();
     if count > cur {
         ops.splice(cur, 0, count - cur);

@@ -69,7 +69,7 @@ jobs:
             - name: Run test-driver-nodejs
               # Release is only applied to the harness that drives the node.js invocations, but needed
               # to avoid crashing on Windows with what looks like an out of stack exception.
-              run: cargo test --verbose --release --all-features -p test-driver-nodejs
+              run: cargo test --verbose --release --all-features --manifest-path tests/Cargo.toml -p test-driver-nodejs
             - name: Check image-filter example
               working-directory: examples/imagefilter/node
               run: pnpm check

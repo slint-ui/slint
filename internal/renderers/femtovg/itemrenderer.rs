@@ -1024,24 +1024,51 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         &mut self,
         physical_rect: sharedparley::PhysicalRect,
         brush: Self::PlatformBrush,
+        radius: sharedparley::PhysicalLength,
+        border: Option<sharedparley::RectangleBorder<Self::PlatformBrush>>,
     ) {
-        let paint = match brush {
+        let fill_paint = match brush {
             GlyphBrush::Fill(paint) => paint,
             GlyphBrush::Stroke(paint) => paint,
         };
 
         let mut path = femtovg::Path::new();
-        path.rect(
-            physical_rect.min_x(),
-            physical_rect.min_y(),
-            physical_rect.width(),
-            physical_rect.height(),
-        );
+        if radius.get() > 0.0 {
+            path.rounded_rect(
+                physical_rect.min_x(),
+                physical_rect.min_y(),
+                physical_rect.width(),
+                physical_rect.height(),
+                radius.get(),
+            );
+        } else {
+            path.rect(
+                physical_rect.min_x(),
+                physical_rect.min_y(),
+                physical_rect.width(),
+                physical_rect.height(),
+            );
+        }
+
+        let stroke_paint = border.and_then(|sharedparley::RectangleBorder { brush, width }| {
+            (width.get() > 0.0).then(|| {
+                let mut paint = match brush {
+                    GlyphBrush::Fill(paint) => paint,
+                    GlyphBrush::Stroke(paint) => paint,
+                };
+                paint.set_line_width(width.get());
+                paint.set_anti_alias(true);
+                paint
+            })
+        });
 
         // When rendering text we align to the pixel grid, so do the same for underlines,
         // selection, etc.
         Self::align_canvas_during(&mut *self.canvas.borrow_mut(), |canvas| {
-            canvas.fill_path(&path, &paint)
+            canvas.fill_path(&path, &fill_paint);
+            if let Some(sp) = stroke_paint.as_ref() {
+                canvas.stroke_path(&path, sp);
+            }
         });
     }
 }

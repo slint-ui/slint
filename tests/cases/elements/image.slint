@@ -1,9 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+
 //include_path: ../../../demos/printerdemo/ui/images/
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     img := Image {
         x:0;y:0;
         source: @image-url("cat.jpg");

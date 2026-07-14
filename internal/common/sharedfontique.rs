@@ -4,6 +4,9 @@
 pub use fontique;
 pub use skrifa;
 
+#[cfg(feature = "svg-text")]
+pub mod svg;
+
 #[cfg(any(target_family = "wasm", target_os = "nto"))]
 use fontique::ScriptExt;
 

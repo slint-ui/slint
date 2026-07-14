@@ -77,8 +77,21 @@ pub(crate) fn compute_box_layout_info(
     let expr_eval = |nr: &NamedReference| -> f32 {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };
-    let (cells, alignment) =
-        box_layout_data(box_layout, orientation, component, &expr_eval, None, cross_axis_size);
+    let cross_axis_size = cross_axis_size.map(|w| {
+        let (cross_pad, _) =
+            padding_and_spacing(&box_layout.geometry, orientation.orthogonal(), &expr_eval);
+        w - cross_pad.begin - cross_pad.end
+    });
+    let (cells, alignment) = box_layout_data(
+        box_layout,
+        orientation,
+        component,
+        &expr_eval,
+        None,
+        cross_axis_size,
+        local_context,
+        None,
+    );
     let (padding, spacing) = padding_and_spacing(&box_layout.geometry, orientation, &expr_eval);
     if orientation == box_layout.orientation {
         core_layout::box_layout_info(Slice::from(cells.as_slice()), spacing, &padding, alignment)
@@ -161,13 +174,45 @@ pub(crate) fn solve_box_layout(
     };
 
     let mut repeated_indices = Vec::new();
+    // For a horizontal layout's main (width) pass, supply the layout's real cross
+    // size (content height) so width-for-height children (e.g. a column
+    // FlexboxLayout) compute their width from it via layoutinfo-h-with-constraint,
+    // instead of reading self.height and cycling through our own vertical pass.
+    let cross_axis_size = (orientation == box_layout.orientation
+        && orientation == Orientation::Horizontal
+        && box_layout
+            .elems
+            .iter()
+            .any(|c| c.element.borrow().inherited_layout_info_h_with_constraint().is_some()))
+    .then(|| {
+        let cross = orientation.orthogonal();
+        box_layout.geometry.rect.size_reference(cross).map(&expr_eval).map(|s| {
+            let (pad, _) = padding_and_spacing(&box_layout.geometry, cross, &expr_eval);
+            s - pad.begin - pad.end
+        })
+    })
+    .flatten();
+    // On the cross pass, the layout's real cross size (its own content size
+    // along this orientation) is known. Forward it so a wrapping perpendicular
+    // flex cell can be given its natural single-line size instead of the
+    // compact sqrt preferred (see `clamp_wrapping_flex_cross_preferred`).
+    let available_cross = (orientation != box_layout.orientation)
+        .then(|| {
+            box_layout.geometry.rect.size_reference(orientation).map(&expr_eval).map(|s| {
+                let (pad, _) = padding_and_spacing(&box_layout.geometry, orientation, &expr_eval);
+                s - pad.begin - pad.end
+            })
+        })
+        .flatten();
     let (cells, alignment) = box_layout_data(
         box_layout,
         orientation,
         component,
         &expr_eval,
         Some(&mut repeated_indices),
-        None,
+        cross_axis_size,
+        local_context,
+        available_cross,
     );
     let (padding, spacing) = padding_and_spacing(&box_layout.geometry, orientation, &expr_eval);
     let size = box_layout.geometry.rect.size_reference(orientation).map(&expr_eval).unwrap_or(0.);
@@ -220,12 +265,20 @@ pub(crate) fn solve_flexbox_layout(
     let height_ref = &flexbox_layout.geometry.rect.height_reference;
     let direction = flexbox_layout_direction(flexbox_layout, local_context);
 
-    // For column direction, pass the container width so cells_v can use it
-    // as the constraint for height-for-width items (items stretch to it).
+    // For column direction, pass the container content width (outer width minus
+    // horizontal padding) so cells_v can use it as the constraint for
+    // height-for-width items — the width they are actually laid out at.
     let container_width_for_cells = match direction {
         i_slint_core::items::FlexboxLayoutDirection::Column
         | i_slint_core::items::FlexboxLayoutDirection::ColumnReverse => {
-            width_ref.as_ref().map(&expr_eval)
+            width_ref.as_ref().map(|w| {
+                let (pad_h, _) = padding_and_spacing(
+                    &flexbox_layout.geometry,
+                    Orientation::Horizontal,
+                    &expr_eval,
+                );
+                expr_eval(w) - pad_h.begin - pad_h.end
+            })
         }
         _ => None,
     };
@@ -464,6 +517,18 @@ pub(crate) fn compute_flexbox_layout_info(
         Orientation::Vertical => (cross_axis_size, None),
         Orientation::Horizontal => (None, cross_axis_size),
     };
+    // Subtract padding so height-for-width cells are measured at the content
+    // width they are actually laid out at, not the padded outer width.
+    let width_override = width_override.map(|w| {
+        let (pad_h, _) =
+            padding_and_spacing(&flexbox_layout.geometry, Orientation::Horizontal, &expr_eval);
+        w - pad_h.begin - pad_h.end
+    });
+    let height_override = height_override.map(|h| {
+        let (pad_v, _) =
+            padding_and_spacing(&flexbox_layout.geometry, Orientation::Vertical, &expr_eval);
+        h - pad_v.begin - pad_v.end
+    });
     let (cells_h, cells_v, _repeated_indices) = flexbox_layout_data(
         flexbox_layout,
         component,
@@ -780,11 +845,35 @@ fn grid_layout_input_data(
                                 repeated_element,
                                 ..
                             } => {
+                                // colspan/rowspan live on the inner sub-component's root,
+                                // evaluated per inner instance.
+                                let inner_root = repeated_element
+                                    .borrow()
+                                    .base_type
+                                    .as_component()
+                                    .root_element
+                                    .clone();
+                                let (rowspan_expr, colspan_expr) = {
+                                    let element_ref = inner_root.borrow();
+                                    let child_cell =
+                                        element_ref.grid_layout_cell.as_ref().unwrap().borrow();
+                                    (
+                                        child_cell.rowspan_expr.clone(),
+                                        child_cell.colspan_expr.clone(),
+                                    )
+                                };
                                 let inner_instances =
                                     repeater_instances(sub_instance_ref, repeated_element);
-                                for i in 0..inner_instances.len() {
+                                for (i, erased_inner) in inner_instances.iter().enumerate() {
+                                    generativity::make_guard!(inner_guard);
+                                    let inner_comp = erased_inner.as_pin_ref();
+                                    let inner_instance_ref = unsafe {
+                                        InstanceRef::from_pin_ref(inner_comp.borrow(), inner_guard)
+                                    };
                                     result.push(GridLayoutInputData {
                                         new_row: i == 0 && new_row,
+                                        rowspan: eval_or_default(&rowspan_expr, inner_instance_ref),
+                                        colspan: eval_or_default(&colspan_expr, inner_instance_ref),
                                         ..Default::default()
                                     });
                                 }
@@ -1047,6 +1136,8 @@ fn box_layout_data(
     expr_eval: &impl Fn(&NamedReference) -> f32,
     mut repeater_indices: Option<&mut Vec<u32>>,
     cross_axis_size: Option<f32>,
+    local_context: &mut EvalLocalContext,
+    available_cross: Option<f32>,
 ) -> (Vec<core_layout::LayoutItemInfo>, i_slint_core::items::LayoutAlignment) {
     let window_adapter = component.window_adapter();
     let mut cells = Vec::with_capacity(box_layout.elems.len());
@@ -1073,6 +1164,16 @@ fn box_layout_data(
                 orientation,
                 cross_axis,
             );
+            clamp_wrapping_flex_cross_preferred(
+                &mut layout_info,
+                &cell.element,
+                box_layout,
+                orientation,
+                component,
+                &expr_eval,
+                local_context,
+                available_cross,
+            );
             fill_layout_info_constraints(
                 &mut layout_info,
                 &cell.constraints,
@@ -1094,6 +1195,76 @@ fn box_layout_data(
         })
         .unwrap_or_default();
     (cells, alignment)
+}
+
+/// When a wrapping FlexboxLayout is a cell of a perpendicular box layout (its
+/// main axis is the parent's cross axis), a non-stretch parent gives the cell
+/// its `preferred` cross size. The flex's plain preferred is the compact
+/// sqrt-area "square" (it wraps), but with room it should fill a single line
+/// and only wrap when the available cross size can't hold it. Clamp the
+/// preferred to `min(available, unwrapped)`, so the height it is given equals
+/// the height its width was computed at: no wrap when tall, no overlap with
+/// siblings. Only at solve time (`available_cross` is `Some`); during
+/// layout-info aggregation the sqrt preferred is kept so the flex can still
+/// size a window.
+#[allow(clippy::too_many_arguments)]
+fn clamp_wrapping_flex_cross_preferred(
+    layout_info: &mut core_layout::LayoutInfo,
+    elem: &ElementRc,
+    box_layout: &i_slint_compiler::layout::BoxLayout,
+    orientation: Orientation,
+    component: InstanceRef,
+    expr_eval: &impl Fn(&NamedReference) -> f32,
+    local_context: &mut EvalLocalContext,
+    available_cross: Option<f32>,
+) {
+    let Some(available) = available_cross else { return };
+    if orientation == box_layout.orientation {
+        return;
+    }
+    let Some(fl) = i_slint_compiler::layout::FlexboxLayout::from_element(elem) else { return };
+
+    // The flex's main axis must be the parent's cross axis, and it must wrap.
+    let direction = flexbox_layout_direction(&fl, local_context);
+    let main_is_cross = matches!(
+        (direction, orientation),
+        (FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse, Orientation::Horizontal)
+            | (
+                FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse,
+                Orientation::Vertical
+            )
+    );
+    if !main_is_cross {
+        return;
+    }
+    let flex_wrap =
+        fl.flex_wrap.as_ref().map_or(i_slint_core::items::FlexboxLayoutWrap::default(), |nr| {
+            eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
+        });
+    if matches!(flex_wrap, i_slint_core::items::FlexboxLayoutWrap::NoWrap) {
+        return;
+    }
+
+    let (cells_h, cells_v, _ri) =
+        flexbox_layout_data(&fl, component, expr_eval, local_context, None, None);
+    let (cells, padding, spacing) = match orientation {
+        Orientation::Horizontal => {
+            let (padding, spacing) =
+                padding_and_spacing(&fl.geometry, Orientation::Horizontal, expr_eval);
+            (cells_h, padding, spacing)
+        }
+        Orientation::Vertical => {
+            let (padding, spacing) =
+                padding_and_spacing(&fl.geometry, Orientation::Vertical, expr_eval);
+            (cells_v, padding, spacing)
+        }
+    };
+    let unwrapped = core_layout::flexbox_layout_unwrapped_main(
+        Slice::from(cells.as_slice()),
+        spacing,
+        &padding,
+    );
+    layout_info.preferred = available.min(unwrapped);
 }
 
 pub(crate) fn fill_layout_info_constraints(
@@ -1217,30 +1388,35 @@ pub(crate) fn get_layout_info_with_constraint(
     }
 }
 
-/// Decide the cross-axis (width) constraint to forward to a cell's
-/// vertical layout-info call: returns `Some` only when this cell is
-/// height-for-width (a builtin Text with wrap, Image, or a component
-/// with a synthesized `layoutinfo-v-with-constraint`) AND the parent
-/// has supplied the cross-axis dimension.
+/// Decide the cross-axis constraint to forward to a cell's perpendicular
+/// layout-info call. Returns `Some` only when the parent supplied the cross
+/// dimension and the cell consumes it: a height-for-width cell on the vertical
+/// pass (wrapped Text/Image, or a `layoutinfo-v-with-constraint` component), or a
+/// width-for-height cell on the horizontal pass (a `layoutinfo-h-with-constraint`
+/// component, e.g. a column FlexboxLayout).
 fn cross_axis_size_for_cell(
     elem: &ElementRc,
     orientation: Orientation,
     parent_cross_axis_size: Option<f32>,
 ) -> Option<f32> {
-    if orientation != Orientation::Vertical {
-        return None;
-    }
-    let width = parent_cross_axis_size?;
+    let cross = parent_cross_axis_size?;
     let elem_b = elem.borrow();
+    if orientation == Orientation::Horizontal {
+        // Width-for-height cells (e.g. a column FlexboxLayout) carry a synthesized
+        // layoutinfo-h-with-constraint; forward the cross size so they compute their
+        // width from it instead of reading self.height (which would cycle through
+        // the parent's vertical pass).
+        return elem_b.inherited_layout_info_h_with_constraint().is_some().then_some(cross);
+    }
     if elem_b.layout_info_v_with_constraint.is_some() {
-        return Some(width);
+        return Some(cross);
     }
     // For builtin height-for-width items, the existing VTable cross_axis_constraint
     // parameter mechanism is what consumes the value; conservatively
     // forward it for any element without its own layoutinfo-v property
     // (i.e. anything that ends up calling the builtin VTable).
     if elem_b.layout_info_prop(Orientation::Vertical).is_none() {
-        return Some(width);
+        return Some(cross);
     }
     None
 }

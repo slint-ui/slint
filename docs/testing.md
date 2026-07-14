@@ -2,6 +2,14 @@
 
 This documents describe the testing infrastructure of Slint
 
+## Workspace layout
+
+Most of the test crates below (`test-driver-*`, `doctests`, `test-driver-screenshots`)
+live in the separate `tests/` Cargo workspace, not the root workspace. Running their
+`cargo test -p <crate>` commands from the repository root requires
+`--manifest-path tests/Cargo.toml`, as shown below. `tests/run_tests.sh` already passes
+this for you, so prefer it when it covers your driver (see the Rust driver section).
+
 ## Syntax tests
 
 The syntax tests are testing that the compiler show the right error messages in case of error.
@@ -47,7 +55,7 @@ The interpreter test is the faster test to compile and run. It test the compiler
 as run by the viewer or such. It can be run like so:
 
 ```
-cargo test -p test-driver-interpreter --
+cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter --
 ```
 
 You can add an argument to test only for particular tests.
@@ -73,7 +81,7 @@ that matches the filter.
 Example: to run all the layout tests:
 
 ```
-SLINT_TEST_FILTER=layout cargo test -p test-driver-rust
+SLINT_TEST_FILTER=layout cargo test --manifest-path tests/Cargo.toml -p test-driver-rust
 ```
 or
 ```
@@ -84,7 +92,7 @@ Instead of putting everything in a slint! macro, it's possible to tell the drive
 compilation in the build.rs, with the build-time feature:
 
 ```
-SLINT_TEST_FILTER=layout cargo test -p test-driver-rust --features build-time
+SLINT_TEST_FILTER=layout cargo test --manifest-path tests/Cargo.toml -p test-driver-rust --features build-time
 ```
 or
 ```
@@ -100,7 +108,7 @@ Each program is compiled separately. And then run.
 Some macro like `assert_eq` are defined to look similar to the rust equivalent.
 
 ```
-cargo test -p  test-driver-cpp --
+cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --
 ```
 
 Note that there are also C++ unit tests that can be run by CMake
@@ -112,7 +120,7 @@ with it that loads the .slint and runs node with it.
 Each test is run in a different node process.
 
 ```
-cargo  test -p test-driver-nodejs
+cargo test --manifest-path tests/Cargo.toml -p test-driver-nodejs
 ```
 
 ## Screenshot tests
@@ -123,13 +131,13 @@ rendered and the results will be compared to the reference images in `tests/scre
 To generate references images for all test files in `tests/screenshots/cases` run:
 
 ```
-SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots
+SLINT_CREATE_SCREENSHOTS=1 cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots
 ```
 
 To start the tests run and compare images:
 
 ```
-cargo test -p test-driver-screenshots
+cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots
 ```
 
 ## Embedded MCP Server
@@ -145,7 +153,7 @@ and [docs/development/mcp-server.md](development/mcp-server.md) for architecture
 ## Doctests
 
 ```
-cargo test -p doctests
+cargo test --manifest-path tests/Cargo.toml -p doctests
 ```
 
 The doctests extracts the ```` ```slint ````  from the files in the docs folder and make  sure that

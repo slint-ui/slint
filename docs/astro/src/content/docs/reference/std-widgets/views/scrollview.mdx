@@ -36,7 +36,7 @@ are bigger than the size of the visible area.
 If the ScrollView contains a layout, the default value for the `viewport-width` and
 `viewport-height` is the minimum size of that layout.
 
-:::note{Note}
+:::note[Note]
 A ScrollView will always instantiate all of its children, so its performance may degrade with large number of children, even if they are not visible.
 If you want to display a long list of items, use a <Link type="ListView"/> instead, which only instantiates visible children.
 :::
@@ -49,8 +49,9 @@ Used to render the frame as disabled or enabled, but doesn't change behavior of 
 </SlintProperty>
 
 ### mouse-drag-pan-enabled
-<SlintProperty propName="mouse-drag-pan-enabled" typeName="bool" defaultValue="true for Material style, false for all others" propertyVisibility="in">
+<SlintProperty propName="mouse-drag-pan-enabled" typeName="bool" defaultValue="false" propertyVisibility="in">
 When true, the view can be scrolled by dragging with the mouse.
+Panning with a touch screen and scrolling with the mouse wheel works regardless of this property.
 </SlintProperty>
 
 ### has-focus

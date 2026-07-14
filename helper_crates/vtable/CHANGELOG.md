@@ -2,6 +2,11 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
+## [0.5.0]
+
+ - Replaced the `static_vtable` function with `STATIC_VTABLE` associated
+   const.
+
 ## [0.4.0]
 
  - Bumped the `const-field-offset` dependency to 0.2 (breaking change in the

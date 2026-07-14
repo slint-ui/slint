@@ -5,7 +5,9 @@
 This module contains image and caching related types for the run-time library.
 */
 
-use super::{CachedPath, Image, ImageCacheKey, ImageInner, SharedImageBuffer};
+#[cfg(not(target_arch = "wasm32"))]
+use super::CachedPath;
+use super::{Image, ImageCacheKey, ImageInner, SharedImageBuffer};
 use crate::{SharedString, slice::Slice};
 
 struct ImageWeightInBytes;
@@ -72,19 +74,18 @@ impl ImageCache {
         }))
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn load_image_from_path(&mut self, _path: &SharedString) -> Option<Image> {
+        None
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn load_image_from_path(&mut self, path: &SharedString) -> Option<Image> {
         if path.is_empty() {
             return None;
         }
         let cache_key = ImageCacheKey::Path(CachedPath::new(path.as_str()));
-        #[cfg(target_arch = "wasm32")]
-        return self.lookup_image_in_cache_or_create(cache_key, |_| {
-            return Some(ImageInner::HTMLImage(vtable::VRc::new(
-                super::htmlimage::HTMLImage::new(&path),
-            )));
-        });
-        #[cfg(not(target_arch = "wasm32"))]
-        return self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
+        self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
             if cfg!(feature = "svg") && (path.ends_with(".svg") || path.ends_with(".svgz")) {
                 return Some(ImageInner::Svg(vtable::VRc::new(
                     super::svg::load_from_path(path, cache_key).map_or_else(
@@ -109,7 +110,20 @@ impl ImageCache {
                     })
                 },
             )
-        });
+        })
+    }
+
+    /// Load an image by handing its URL to an `<img>` element for the browser to
+    /// fetch. This is a web-only slintpad mechanism, not general network loading.
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn load_as_html_image(&mut self, url: &str) -> Option<Image> {
+        if url.is_empty() {
+            return None;
+        }
+        let cache_key = ImageCacheKey::URL(url.into());
+        self.lookup_image_in_cache_or_create(cache_key, |_| {
+            Some(ImageInner::HTMLImage(vtable::VRc::new(super::htmlimage::HTMLImage::new(url))))
+        })
     }
 
     pub(crate) fn load_image_from_embedded_data(

@@ -1123,6 +1123,15 @@ impl WinitWindowAdapter {
                 self.resize_window(size.into())?;
             };
 
+            // Pre-render the first frame before mapping the window to avoid a flash of
+            // uninitialized VRAM on X11 (no background_pixmap). Skipped on Wayland, where
+            // rendering before the initial configure makes the compositor mis-size the window.
+            if matches!(visibility, WindowVisibility::ShownFirstTime)
+                && !self.shared_backend_data.is_wayland
+            {
+                let _ = self.draw();
+            }
+
             winit_window.set_visible(true);
 
             // Refresh the SlintContext color-scheme now that the window is mapped: on some platforms

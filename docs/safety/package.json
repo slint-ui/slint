@@ -1,7 +1,7 @@
 {
   "name": "slint-safety-manual",
   "type": "module",
-  "version": "1.17.0",
+  "version": "1.18.0",
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
@@ -20,8 +20,8 @@
     "@slint/common-files": "workspace:*",
     "@types/node": "catalog:",
     "astro": "catalog:",
-    "astro-mermaid": "2.0.1",
-    "mermaid": "11.15.0",
+    "astro-mermaid": "2.1.0",
+    "mermaid": "11.16.0",
     "sharp": "catalog:",
     "typescript": "catalog:"
   }

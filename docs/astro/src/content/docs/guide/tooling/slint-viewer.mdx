@@ -1,0 +1,205 @@
+---
+title: Slint Viewer
+description: Preview .slint files, render screenshots, and check files from the command line.
+---
+
+import Link from '@slint/common-files/src/components/Link.astro';
+
+The `slint-viewer` command-line tool opens and previews `.slint` files.
+Use it to iterate on a UI with live reload, render screenshots, or check that a file compiles.
+
+## Installation
+
+Install the binary from crates.io with a Rust toolchain:
+
+```sh
+cargo install slint-viewer
+```
+
+Alternatively, download a pre-built binary for Linux or Windows:
+
+1. Go to [the latest Slint release](https://github.com/slint-ui/slint/releases/latest).
+2. From "Assets" download `slint-viewer-linux.tar.gz` for Linux or `slint-viewer-windows-x86_64.zip` for Windows.
+3. Uncompress the archive and run `slint-viewer`.
+
+On Debian-like systems, install the runtime dependencies with:
+
+```sh
+sudo apt install -y libx11-xcb1 libxcb1 libxkbcommon0 libinput10 libgbm1
+```
+
+The Slint Viewer app is also available for Android on Google Play and for iOS, iPadOS, and macOS on the App Store:[^trademarks]
+
+<div style={{display: "flex", alignItems: "center", flexWrap: "wrap"}}>
+  <a href="https://play.google.com/store/apps/details?id=dev.slint.viewer" target="_blank">
+    <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" style={{height: "60px"}} />
+  </a>
+  <a href="https://apps.apple.com/app/slint-viewer/id6773729654" target="_blank">
+    <img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/en-us" alt="Download on the App Store" style={{height: "40px", marginLeft: "10px"}} />
+  </a>
+</div>
+
+These apps run in remote mode: see [Remote Viewer](#remote-viewer) for how to connect them to the live preview in your editor.
+
+[^trademarks]: Google Play and the Google Play logo are trademarks of Google LLC. Apple and the Apple logo are trademarks of Apple Inc., registered in the U.S. and other countries and regions. App Store is a service mark of Apple Inc.
+
+## Opening a File
+
+Pass a path to preview a `.slint` file:
+
+```sh
+slint-viewer path/to/myfile.slint
+```
+
+Use `-` instead of a path to read from standard input.
+
+Add `--auto-reload` to watch the file on disk and reload the preview whenever it changes, so you can iterate without restarting the viewer:
+
+```sh
+slint-viewer --auto-reload path/to/myfile.slint
+```
+
+## Rendering a Screenshot
+
+`--screenshot` renders the component to an image and exits, with no window:
+
+```sh
+slint-viewer --screenshot screenshot.png path/to/myfile.slint
+```
+
+The image format follows the file extension (such as `.png` or `.jpg`).
+Use `-` to write a PNG to standard output.
+Set the `SLINT_SCALE_FACTOR` environment variable to override the default scale factor of `1`.
+
+## Checking a File
+
+`--check` compiles the file, prints any diagnostics, and exits without opening a window.
+The exit status is `1` on error and `0` otherwise; warnings still print.
+
+```sh
+slint-viewer --check path/to/myfile.slint
+```
+
+## Loading and Saving Property Data
+
+`--save-data` writes the component's public properties to a JSON file when the viewer exits:
+
+```sh
+slint-viewer --save-data output.json path/to/myfile.slint
+```
+
+`--load-data` sets them from a JSON file at startup:
+
+```sh
+slint-viewer --load-data input.json path/to/myfile.slint
+```
+
+Each works on its own; pass both to load initial values and write the result back. Only properties whose types serialize to JSON are read or written, and `--save-data` is incompatible with `--auto-reload`.
+
+For a component with these properties:
+
+```slint
+export component Form inherits Window {
+    in-out property <string> name;
+    in-out property <int> age;
+}
+```
+
+the JSON file looks like:
+
+```json
+{
+    "name": "Alice",
+    "age": 30
+}
+```
+
+## Remote Viewer
+
+`--remote` starts the viewer in remote mode.
+Instead of loading a file, the viewer waits for the live preview in your editor to connect over the network and push the UI to it.
+Use it to preview a `.slint` file on another machine or a device while you edit on your computer.
+
+```sh
+slint-viewer --remote
+```
+
+The viewer shows an idle screen with its name and the address to connect to, and advertises itself on the local network so editors can discover it.
+By default it listens on an automatically assigned port on all network interfaces.
+Pass `--remote-address <address>` to choose a specific address and port.
+
+To connect, open the live preview of a `.slint` file in your editor, then pick **Remote** from the combobox in the top-right corner of the preview and enter the address the viewer shows.
+The editor compiles the `.slint` file and sends the result to the remote viewer, reloading it as you edit, while debug output from the previewed UI is sent back to the editor.
+
+`--remote` doesn't take a file path, and can't be combined with `--screenshot` or `--check`.
+
+## Command-Line Options
+
+Run `slint-viewer --help` for the authoritative, always-current list. The common options:
+
+| Option | Description |
+|---|---|
+| `<path>` | The `.slint` file to load. Required unless `--remote` is given. |
+| `--auto-reload` | Watch the file system and reload when the file changes. |
+| `--load-data <file>` | Load the values of public properties from a JSON file. |
+| `--save-data <file>` | On exit, write the values of public properties to a JSON file. Incompatible with `--auto-reload`. |
+| `--screenshot <file>` | Render the component to an image and exit. |
+| `--check` | Compile the file, print diagnostics, and exit without opening a window. Incompatible with the options above. |
+| `--remote` | Start in remote mode and wait for the editor to connect. See [Remote Viewer](#remote-viewer). |
+| `--remote-address <address>` | Address and port to listen on in remote mode. Defaults to an auto-assigned port on all interfaces. |
+| `--component <name>` | Load the component with this name. Defaults to the last exported component. |
+| `--style <style>` | Set the widget style. Defaults to `fluent`. |
+| `--backend <backend>` | Override the Slint rendering <Link type="backends_and_renderers" label="backend"/>. |
+| `-I <path>` | Add an include path for imported `.slint` files or images. |
+| `-L <library=path>` | Add a library path for `@library` imports. |
+| `--on <callback> <handler>` | Run a shell command when a callback is invoked. See [Callback Handlers](#callback-handlers). |
+
+Use `-` in place of a file path to read from standard input or write to standard output.
+
+A viewer built with the `gettext` feature also accepts `--translation-domain <domain>`, `--translation-dir <dir>`, and `--no-default-translation-context` to resolve `@tr(...)` strings against gettext catalogs.
+
+## Callback Handlers
+
+`--on` runs a shell command when a callback is invoked, followed by the callback name and the command.
+In the command, `$1`, `$2`, … are replaced by the callback arguments, shell-escaped.
+
+Given a `.slint` file with an `open-url` callback:
+
+```slint
+export component MyApp inherits Window {
+    callback open-url(string);
+    // ...
+}
+```
+
+Wire the callback to a command:
+
+```sh
+slint-viewer --on open-url 'xdg-open $1' myfile.slint
+```
+
+Use single quotes, or escape the `$`, so the shell does not expand `$1`.
+
+## Dialogs
+
+When the root element is a `Dialog`, the standard buttons close it if no callback is set on the button:
+
+- `ok`, `yes`, and `close` accept the dialog.
+- `cancel` and `no` reject the dialog.
+
+## Exit Codes
+
+| Code | Meaning |
+|---|---|
+| `0` | A window was closed, or a dialog was accepted with `Ok`, `Close`, or `Yes`. |
+| `1` | A dialog was rejected with `Cancel`, `No`, or the window's close button. Also a compilation error under `--check` or `--screenshot`. |
+| `2` | Command-line argument parsing or validation failed. |
+| `-1` | Compilation failed (except under `--check` or `--screenshot`). |
+
+## Driving a UI From a Shell Script
+
+`slint-viewer` can display a GUI from a shell script.
+Read `.slint` from standard input with `-`, and write the property values back as JSON on exit with `--save-data -`, so a script can collect user input from a dialog.
+
+For a walkthrough, see the blog post [Showing GUIs from shell scripts](https://slint.dev/blog/showing-guis-from-shell-scripts).
+Ready-to-run examples live in the [examples/bash](https://github.com/slint-ui/slint/tree/master/examples/bash) folder.

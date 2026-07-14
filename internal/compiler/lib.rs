@@ -36,6 +36,7 @@ pub mod namedreference;
 pub mod object_tree;
 pub mod parser;
 pub mod pathutils;
+pub mod symbol_counters;
 #[cfg(feature = "bundle-translations")]
 pub mod translations;
 pub mod typeloader;
@@ -62,7 +63,7 @@ pub enum EmbedResourcesKind {
     /// Embed the content of all image resources in the binary as-is (a compressed PNG stays
     /// compressed), to be decoded at run-time.
     EmbedAllResources,
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     /// Pre-process images and fonts at compile time and embed them as uncompressed pixel data,
     /// ready to be drawn by the software renderer without any decoding at run-time.
     ///
@@ -119,7 +120,8 @@ pub enum ComponentSelection {
 /// Unfortunately AsyncFn is not dyn-compatible yet.
 pub type OpenImportCallback =
     Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>;
-pub type ResourceUrlMapper = Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>;
+pub type ResourceUrlMapper =
+    Rc<dyn Fn(&url::Url) -> Pin<Box<dyn Future<Output = Option<url::Url>>>>>;
 
 /// CompilationConfiguration allows configuring different aspects of the compiler.
 #[derive(Clone)]
@@ -128,7 +130,7 @@ pub struct CompilerConfiguration {
     /// to retain references to the resources on the file system.
     pub embed_resources: EmbedResourcesKind,
     /// Whether to use SDF when pre-rendering fonts.
-    #[cfg(all(feature = "software-renderer", feature = "sdf-fonts"))]
+    #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
     pub use_sdf_fonts: bool,
     /// The compiler will look in these paths for components used in the file to compile.
     pub include_paths: Vec<std::path::PathBuf>,
@@ -207,11 +209,11 @@ impl CompilerConfiguration {
         let embed_resources = if std::env::var_os("SLINT_EMBED_TEXTURES").is_some()
             || std::env::var_os("DEP_MCU_BOARD_SUPPORT_MCU_EMBED_TEXTURES").is_some()
         {
-            #[cfg(not(feature = "software-renderer"))]
+            #[cfg(not(feature = "renderer-software"))]
             panic!(
-                "the software-renderer feature must be enabled in i-slint-compiler when embedding textures"
+                "the renderer-software feature must be enabled in i-slint-compiler when embedding textures"
             );
-            #[cfg(feature = "software-renderer")]
+            #[cfg(feature = "renderer-software")]
             EmbedResourcesKind::EmbedTextures
         } else if let Ok(var) = std::env::var("SLINT_EMBED_RESOURCES") {
             let var = var.parse::<bool>().unwrap_or_else(|_|{
@@ -282,7 +284,7 @@ impl CompilerConfiguration {
             debug_info,
             debug_hooks: None,
             components_to_generate: ComponentSelection::ExportedWindows,
-            #[cfg(all(feature = "software-renderer", feature = "sdf-fonts"))]
+            #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
             use_sdf_fonts: false,
             #[cfg(feature = "bundle-translations")]
             translation_path_bundle: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
@@ -303,7 +305,7 @@ fn prepare_for_compile(
     diagnostics: &mut diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
 ) -> typeloader::TypeLoader {
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     if compiler_config.embed_resources == EmbedResourcesKind::EmbedTextures {
         // HACK: disable accessibility when compiling for the software renderer
         // accessibility is not supported with backend that support software renderer anyway
@@ -333,12 +335,14 @@ pub async fn compile_syntax_node(
     let (foreign_imports, reexports) =
         loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
 
+    let ignore_missing_font_files = loader.compiler_config.resource_url_mapper.is_some();
     let mut doc = crate::object_tree::Document::from_node(
         doc_node,
         foreign_imports,
         reexports,
         &mut diagnostics,
         &type_registry,
+        ignore_missing_font_files,
     );
 
     if !diagnostics.has_errors() {

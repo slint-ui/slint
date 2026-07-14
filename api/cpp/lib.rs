@@ -38,6 +38,9 @@ pub use i_slint_backend_testing;
 #[cfg(feature = "slint-interpreter")]
 pub use slint_interpreter;
 
+#[cfg(feature = "live-preview")]
+pub use i_slint_live_preview;
+
 #[cfg(target_os = "android")]
 mod android {
     unsafe extern "C" {
@@ -50,6 +53,8 @@ mod android {
             i_slint_backend_android_activity::AndroidPlatform::new(app),
         ))
         .unwrap();
+        #[cfg(any(feature = "mcp", feature = "system-testing"))]
+        i_slint_backend_selector::init_testing_backends();
         unsafe { slint_main() };
     }
 }

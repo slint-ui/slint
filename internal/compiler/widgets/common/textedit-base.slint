@@ -127,16 +127,26 @@ export component TextEditBase inherits Rectangle {
                 }
 
                 cursor-position-changed(cpos) => {
-                    if (cpos.x + root.viewport-x < 12px) {
-                        root.viewport-x = min(0px, max(parent.visible-width - self.width,  - cpos.x + 12px));
-                    } else if (cpos.x + root.viewport-x > parent.visible-width - 12px) {
-                        root.viewport-x = min(0px, max(parent.visible-width - self.width,  parent.visible-width - cpos.x - 12px));
+                    if (cpos.x + root.viewport-x < 0px) {
+                        root.viewport-x = min(0px, max(parent.visible-width - self.width, -cpos.x));
+                    } else if (cpos.x + root.viewport-x > parent.visible-width) {
+                        root.viewport-x = min(0px, max(parent.visible-width - self.width, parent.visible-width - cpos.x));
                     }
-                    if (cpos.y + root.viewport-y < 12px) {
-                        root.viewport-y = min(0px, max(parent.visible-height - self.height,  - cpos.y + 12px));
-                    } else if (cpos.y + root.viewport-y > parent.visible-height - 12px - 20px) {
+
+                    if (cpos.y + root.viewport-y < 0px) {
+                        root.viewport-y = min(
+                            0px,
+
+                            // This prevents jumping back and forth between this case and the
+                            // else if on each cursor movement. This means that if the visible
+                            // height is less than the line height we align on the cursor bottom.
+                            parent.visible-height - cpos.y - 20px,
+
+                            max(parent.visible-height - self.height, -cpos.y),
+                        );
+                    } else if (cpos.y + root.viewport-y > parent.visible-height - 20px) {
                         // FIXME: font-height hardcoded to 20px
-                            root.viewport-y = min(0px, max(parent.visible-height - self.height,  parent.visible-height - cpos.y - 12px - 20px));
+                        root.viewport-y = min(0px, max(parent.visible-height - self.height, parent.visible-height - cpos.y - 20px));
                     }
                 }
             }

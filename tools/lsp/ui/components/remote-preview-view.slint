@@ -62,8 +62,10 @@ component PhonePreview {
 
 export component RemotePreviewView inherits Rectangle {
     background: Palette.background;
-    width: 740px;
-    height: 600px;
+    preferred-width: 850px;
+    preferred-height: 600px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
     clip: true;
 
     property <int> selected-index: -1;
@@ -88,7 +90,10 @@ export component RemotePreviewView inherits Rectangle {
         }
     }
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
-    property <image> background-image: root.dark-color-scheme ? @image-url("../../../viewer/remote/assets/bg-frame.svg") : @image-url("../../../viewer/remote/assets/bg-frame-light.svg");
+    property <bool> landscape-layout: root.width > root.height;
+    property <image> background-image: root.dark-color-scheme ? @image-url("../assets/bg-frame.svg") : @image-url("../assets/bg-frame-light.svg");
+    property <image> background-mark-image: root.dark-color-scheme ? @image-url("../assets/bg-frame-mark.svg") : @image-url("../assets/bg-frame-mark-light.svg");
+    property <image> background-lines-image: root.dark-color-scheme ? @image-url("../assets/bg-frame-lines.svg") : @image-url("../assets/bg-frame-lines-light.svg");
     property <string> best-device-name: Api.remote-discovered-viewers[selected-index].name != "" ? Api.remote-discovered-viewers[selected-index].name
         : Api.remote-connection-target;
 
@@ -96,10 +101,25 @@ export component RemotePreviewView inherits Rectangle {
         background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(0deg, #D7D9DD, white);
     }
 
-    Image {
-        y: parent.height - self.height;
+    if !root.landscape-layout: Image {
         width: 100%;
+        height: 100%;
+        image-fit: cover;
         source: background-image;
+    }
+
+    if root.landscape-layout: Image {
+        x: root.width - self.width;
+        y: root.height - self.height - root.height * 20%;
+        width: min(root.width * 0.36, 360px);
+        source: background-mark-image;
+    }
+
+    if root.landscape-layout: Image {
+        x: 0px;
+        y: root.height - self.height;
+        width: root.width;
+        source: background-lines-image;
     }
 
     VerticalLayout {

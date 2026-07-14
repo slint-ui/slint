@@ -34,6 +34,7 @@ export default ({
                 )) as Config;
                 const { SITE, I18N, METADATA, APP_BLOG, UI, ANALYTICS } =
                     configBuilder(rawJsonConfig);
+                SITE.base = process.env.MATERIAL_DOCS_BASE_PATH || SITE.base;
 
                 updateConfig({
                     site: SITE.site,

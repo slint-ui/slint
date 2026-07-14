@@ -37,10 +37,31 @@ test("root index (empty id) maps to the index.md slug", () => {
     ]);
     assert.deepEqual(
         paths.map((p) => p.params.slug),
-        ["index", "guide/intro"],
+        ["index.md", "guide/intro.md"],
     );
     // The entry travels through as a prop for the GET handler.
     assert.equal(paths[1].props.entry.id, "guide/intro");
+});
+
+test("doc source extensions are stripped from route slugs", () => {
+    const mdEntry = entry({ id: "guide/backend_linuxkms.md" });
+    const paths = markdownStaticPaths([
+        mdEntry,
+        entry({ id: "guide/intro.mdx" }),
+        entry({ id: "guide/v1.2/intro" }),
+        entry({ id: "guide/file.name.markdown" }),
+    ]);
+
+    assert.deepEqual(
+        paths.map((p) => p.params.slug),
+        [
+            "guide/backend_linuxkms.md",
+            "guide/intro.md",
+            "guide/v1.2/intro.md",
+            "guide/file.name.md",
+        ],
+    );
+    assert.equal(paths[0].props.entry, mdEntry);
 });
 
 test("renders YAML frontmatter and serves text/markdown", async () => {
@@ -202,4 +223,41 @@ test("without projectRoot, code imports are left as-is", async () => {
     const res = renderMarkdownResponse(entry({ body }));
     const text = await res.text();
     assert.match(text, /import script from/);
+});
+
+test("API-reference signature HTML collapses to a ```cpp fence", async () => {
+    const body = [
+        '### <a id="title"></a> `title` <small>(virtual)</small>',
+        "",
+        '<pre class="shiki api-signature" style="--x:1"><code><span class="line">' +
+            '<a href="../sharedstring/" class="api-link">SharedString</a>' +
+            "<span> slint</span><span>::</span><span>title</span>" +
+            "<span>() </span><span>const</span></span></code></pre>",
+    ].join("\n");
+    const text = await renderMarkdownResponse(entry({ body }), {
+        apiSignatures: true,
+    }).text();
+    // The signature becomes a plain fence with the entities/tags stripped.
+    assert.match(text, /```cpp\nSharedString slint::title\(\) const\n```/);
+    // The empty deep-link anchor and the <small> marker are gone, the heading
+    // text (kept as inline code) and the marker text remain.
+    assert.doesNotMatch(text, /<a id=|<small>|<pre/);
+    assert.match(text, /### `title` \(virtual\)/);
+});
+
+test("angle-bracket types in a signature are decoded, not left as entities", async () => {
+    // Shiki escapes `<` as the hex reference `&#x3C;` (not `&lt;`); `>` is left
+    // bare. Both the hex and named forms must decode.
+    const body =
+        '<pre class="api-signature"><code>' +
+        "std::optional&#x3C; SharedPixelBuffer&lt;Rgba8Pixel> > take_snapshot()" +
+        "</code></pre>";
+    const text = await renderMarkdownResponse(entry({ body }), {
+        apiSignatures: true,
+    }).text();
+    assert.match(
+        text,
+        /```cpp\nstd::optional< SharedPixelBuffer<Rgba8Pixel> > take_snapshot\(\)\n```/,
+    );
+    assert.doesNotMatch(text, /&#x|&lt;|&gt;/);
 });

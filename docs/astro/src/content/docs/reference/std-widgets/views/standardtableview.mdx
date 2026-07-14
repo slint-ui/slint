@@ -9,7 +9,7 @@ import Link from '@slint/common-files/src/components/Link.astro';
 
 The `StandardTableView` represents a table of data with columns and rows. Cells
 are organized in a model where each row is a model of
-<SlintProperty typeName="struct" structName="StandardListViewItem" propName="model" default="[]" >
+<SlintProperty typeName="struct" structName="StandardListViewItem" propName="model" defaultValue="[]" >
 The model of items in each row.
 </SlintProperty>
 
@@ -55,7 +55,7 @@ Indicates the sorted column, or `-1` when no column is sorted.
 </SlintProperty>
 
 ### columns
-<SlintProperty typeName="[struct]" structName="TableColumn" propName="columns" default="[]" propertyVisibility="in-out">
+<SlintProperty typeName="[struct]" structName="TableColumn" propName="columns" defaultValue="[]" propertyVisibility="in-out">
 Defines the model of the table columns.
 
 ```slint 'columns: [{ title: "Header 1" }, { title: "Header 2" }];'
@@ -67,7 +67,7 @@ StandardTableView {
 </SlintProperty>
 
 ### rows
-<SlintProperty typeName="[[struct]]" structName="StandardListViewItem" propName="rows" default="[]" propertyVisibility="in-out">
+<SlintProperty typeName="[[struct]]" structName="StandardListViewItem" propName="rows" defaultValue="[]" propertyVisibility="in-out">
 Defines the model of table rows.
 
 ```slint 'rows: [{ text: "Item 1" }, { text: "Item 2" }];'
@@ -79,7 +79,7 @@ StandardTableView {
 </SlintProperty>
 
 ### current-row
-<SlintProperty typeName="int" propName="current-row" default="-1" propertyVisibility="in-out">
+<SlintProperty typeName="int" propName="current-row" defaultValue="-1" propertyVisibility="in-out">
 The index of the currently active row. -1 mean none is selected, which is the default.
 </SlintProperty>
 

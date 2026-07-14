@@ -113,14 +113,14 @@ The `cbindgen.rs` file (900+ lines) generates C++ headers:
 
 ```rust
 // api/cpp/cbindgen.rs
-fn gen_enums(include_dir: &Path) {
+fn enums(include_dir: &Path) {
     // Generates slint_enums.h and slint_enums_internal.h
-    i_slint_common::for_each_enums!(gen_enum_descriptors);
+    i_slint_common::for_each_enums!(print_enums);
 }
 
-fn gen_structs(include_dir: &Path) {
+fn builtin_structs(include_dir: &Path) {
     // Generates slint_builtin_structs.h
-    i_slint_common::for_each_builtin_structs!(gen_struct_descriptors);
+    i_slint_common::for_each_builtin_structs!(print_structs);
 }
 
 // Type renaming for C++
@@ -177,7 +177,7 @@ api/node/
 │   ├── lib.rs              # Module entry point
 │   ├── types/              # Type wrappers
 │   │   ├── brush.rs
-│   │   ├── image.rs
+│   │   ├── image_data.rs
 │   │   └── ...
 │   └── interpreter/        # Interpreter bindings
 │       ├── component_compiler.rs
@@ -195,8 +195,9 @@ use napi::{Env, JsFunction};
 extern crate napi_derive;
 
 #[napi]
-pub fn mock_elapsed_time(ms: f64) {
-    i_slint_core::tests::slint_mock_elapsed_time(ms as _);
+pub fn mock_elapsed_time(_ms: f64) {
+    #[cfg(feature = "testing")]
+    i_slint_backend_testing::mock_elapsed_time(_ms as u64);
 }
 
 #[napi]
@@ -430,13 +431,14 @@ fn make_c_function_binding(
 }
 ```
 
-### Window FFI (`internal/core/window.rs`)
+### Window FFI (`internal/core/window.rs`, plus `slint_windowrc_init` in `api/cpp/lib.rs`)
 
 ```rust
 pub mod ffi {
     #[repr(C)]
     pub struct WindowAdapterRcOpaque(*const c_void, *const c_void);
 
+    // Defined in api/cpp/lib.rs, not window.rs's ffi module
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) { ... }
 
@@ -450,7 +452,7 @@ pub mod ffi {
     ) { ... }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_show(handle: &WindowAdapterRcOpaque) { ... }
+    pub unsafe extern "C" fn slint_windowrc_show(handle: *const WindowAdapterRcOpaque) { ... }
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_hide(handle: &WindowAdapterRcOpaque) { ... }

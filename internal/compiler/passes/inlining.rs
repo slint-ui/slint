@@ -409,6 +409,7 @@ fn duplicate_element_with_mapping(
             .map(|t| duplicate_transition(t, mapping, root_component, priority_delta))
             .collect(),
         child_of_layout: elem.child_of_layout,
+        child_of_flexbox: elem.child_of_flexbox,
         layout_info_prop: elem.layout_info_prop.clone(),
         layout_info_v_with_constraint: elem.layout_info_v_with_constraint.clone(),
         layout_info_h_with_constraint: elem.layout_info_h_with_constraint.clone(),
@@ -513,6 +514,9 @@ fn duplicate_sub_component(
         fixup_reference(&mut t.interval, mapping);
         fixup_reference(&mut t.running, mapping);
         fixup_reference(&mut t.triggered, mapping);
+        if let Some(e) = mapping.get(&element_key(t.element.upgrade().unwrap())) {
+            t.element = Rc::downgrade(e);
+        }
     }
     *new_component.menu_item_tree.borrow_mut() = component_to_duplicate
         .menu_item_tree
@@ -611,6 +615,27 @@ fn fixup_reference(nr: &mut NamedReference, mapping: &Mapping) {
     }
 }
 
+/// Remap all the element references stored in a grid layout (the cell items and
+/// the repeated-row child templates) through the inlining `mapping`.
+fn fixup_grid_layout(layout: &mut crate::layout::GridLayout, fxe: &impl Fn(&mut ElementRc)) {
+    for e in &mut layout.elems {
+        fxe(&mut e.item.element);
+    }
+    // Break the cell Rc sharing with the original before remapping the elements
+    // stored inside the repeated-row cells.
+    layout.clone_cells();
+    for elem in &mut layout.elems {
+        let mut cell = elem.cell.borrow_mut();
+        let Some(child_items) = &mut cell.child_items else { continue };
+        for child in child_items.iter_mut() {
+            fxe(&mut child.layout_item_mut().element);
+            if let crate::layout::RowChildTemplate::Repeated { repeated_element, .. } = child {
+                fxe(repeated_element);
+            }
+        }
+    }
+}
+
 fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
     let fx = |element: &mut std::rc::Weak<RefCell<Element>>| {
         if let Some(e) = element.upgrade().and_then(|e| mapping.get(&element_key(e))) {
@@ -638,16 +663,10 @@ fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
             }
         }
         Expression::SolveGridLayout { layout, .. } | Expression::OrganizeGridLayout(layout) => {
-            for e in &mut layout.elems {
-                fxe(&mut e.item.element);
-            }
-            layout.clone_cells();
+            fixup_grid_layout(layout, &fxe);
         }
         Expression::ComputeGridLayoutInfo { layout, cross_axis_size, .. } => {
-            for e in &mut layout.elems {
-                fxe(&mut e.item.element);
-            }
-            layout.clone_cells();
+            fixup_grid_layout(layout, &fxe);
             if let Some(cas) = cross_axis_size {
                 fixup_element_references(cas, mapping);
             }

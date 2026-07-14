@@ -6,11 +6,15 @@
 /** Starlight collects pages under `src/content/docs`; the generated API lives under `api/`. */
 export const API_ROOT = "api";
 
-/** A filesystem/url-safe fragment, lowercased, with `::` and other separators collapsed to `-`. */
+/**
+ * A filesystem/url-safe fragment: lowercased, punctuation collapsed to `-`.
+ * Underscores are kept (like {@link memberAnchorBase}) so the slug mirrors the
+ * C++ identifier, e.g. `update_all_translations` not `update-all-translations`.
+ */
 function slugify(text: string): string {
     return text
         .replace(/::/g, "-")
-        .replace(/[^a-zA-Z0-9]+/g, "-")
+        .replace(/[^a-zA-Z0-9_]+/g, "-")
         .replace(/-+/g, "-")
         .replace(/^-|-$/g, "")
         .toLowerCase();
@@ -75,7 +79,7 @@ export function disambiguateAnchor(base: string, occurrence: number): string {
 
 /**
  * A relative URL from one page slug to another (both relative to the docs root,
- * e.g. `api/namespaces/slint`). Relative links resolve correctly whether the
+ * e.g. `api/slint`). Relative links resolve correctly whether the
  * site is served at `/` or under a base like `/master/docs/cpp/`, unlike
  * root-absolute links which Astro does not rewrite with the base. Pages use
  * `trailingSlash: "always"`, so each slug is served as its own directory.

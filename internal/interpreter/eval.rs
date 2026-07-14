@@ -202,7 +202,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::Invalid => panic!("invalid expression while evaluating"),
         Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
         Expression::StringLiteral(s) => Value::String(s.as_str().into()),
-        Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
+        Expression::NumberLiteral(n, _unit) => Value::Number(*n),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::ElementReference(_) => todo!(
             "Element references are only supported in the context of built-in function calls at the moment"
@@ -321,6 +321,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs = eval_expression(lhs, local_context);
+            // && and || short circuit like in the generated code, or else side
+            // effects in the rhs would run in the interpreter only
+            match (op, &lhs) {
+                ('&', Value::Bool(false)) => return Value::Bool(false),
+                ('|', Value::Bool(true)) => return Value::Bool(true),
+                _ => {}
+            }
             let rhs = eval_expression(rhs, local_context);
 
             match (op, lhs, rhs) {
@@ -368,31 +375,42 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::ImageReference { resource_ref, nine_slice, .. } => {
             let mut image = match resource_ref {
                 i_slint_compiler::expression_tree::ImageReference::None => Ok(Default::default()),
-                i_slint_compiler::expression_tree::ImageReference::AbsolutePath(path) => {
-                    if path.starts_with("data:") {
-                        i_slint_compiler::data_uri::decode_data_uri(path)
-                            .ok()
-                            .and_then(|(data, extension)| {
-                                corelib::graphics::load_image_from_dynamic_data(&data, &extension)
-                                    .ok()
-                            })
-                            .ok_or_else(Default::default)
-                    } else {
-                        let path = std::path::Path::new(path);
-                        if path.starts_with("builtin:/") {
-                            i_slint_compiler::fileaccess::load_file(path)
-                                .and_then(|virtual_file| virtual_file.builtin_contents)
-                                .map(|virtual_file| {
-                                    let extension = path.extension().unwrap().to_str().unwrap();
-                                    corelib::graphics::load_image_from_embedded_data(
-                                        corelib::slice::Slice::from_slice(virtual_file),
-                                        corelib::slice::Slice::from_slice(extension.as_bytes()),
-                                    )
-                                })
-                                .ok_or_else(Default::default)
-                        } else {
-                            corelib::graphics::Image::load_from_path(path)
-                        }
+                i_slint_compiler::expression_tree::ImageReference::DataUri(data) => {
+                    i_slint_compiler::data_uri::decode_data_uri(data)
+                        .ok()
+                        .and_then(|(data, extension)| {
+                            corelib::graphics::load_image_from_dynamic_data(&data, &extension).ok()
+                        })
+                        .ok_or_else(Default::default)
+                }
+                i_slint_compiler::expression_tree::ImageReference::Url(url)
+                    if url.scheme() == "builtin" =>
+                {
+                    let path = std::path::Path::new(url.as_str());
+                    i_slint_compiler::fileaccess::load_file(path)
+                        .and_then(|virtual_file| virtual_file.builtin_contents)
+                        .map(|virtual_file| {
+                            let extension = path.extension().unwrap().to_str().unwrap();
+                            corelib::graphics::load_image_from_embedded_data(
+                                corelib::slice::Slice::from_slice(virtual_file),
+                                corelib::slice::Slice::from_slice(extension.as_bytes()),
+                            )
+                        })
+                        .ok_or_else(Default::default)
+                }
+                i_slint_compiler::expression_tree::ImageReference::Path(path) => {
+                    corelib::graphics::Image::load_from_path(std::path::Path::new(path))
+                }
+                i_slint_compiler::expression_tree::ImageReference::Url(url) => {
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        corelib::graphics::load_as_html_image(url.as_str())
+                    }
+                    // URL image references only work on the web, where the browser fetches them.
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        let _ = url;
+                        Err(Default::default())
                     }
                 }
                 i_slint_compiler::expression_tree::ImageReference::EmbeddedData { .. } => {
@@ -861,6 +879,10 @@ fn call_builtin_function(
             let precision: usize = precision.max(0) as usize;
             Value::String(i_slint_core::string::shared_string_from_number_precision(n, precision))
         }
+        BuiltinFunction::ToStringUnlocalized => {
+            let n: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::String(i_slint_core::string::shared_string_from_number_unlocalized(n))
+        }
         BuiltinFunction::SetFocusItem => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to SetFocusItem")
@@ -1296,6 +1318,34 @@ fn call_builtin_function(
                 panic!("Argument not a string");
             }
         }
+        BuiltinFunction::StringStartsWith => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to StringStartsWith")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                if let Value::String(pat) = eval_expression(&arguments[1], local_context) {
+                    Value::Bool(s.starts_with(pat.as_str()))
+                } else {
+                    panic!("Second argument not a string");
+                }
+            } else {
+                panic!("First argument not a string");
+            }
+        }
+        BuiltinFunction::StringEndsWith => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to StringEndsWith")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                if let Value::String(pat) = eval_expression(&arguments[1], local_context) {
+                    Value::Bool(s.ends_with(pat.as_str()))
+                } else {
+                    panic!("Second argument not a string");
+                }
+            } else {
+                panic!("First argument not a string");
+            }
+        }
         BuiltinFunction::KeysToString => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to KeysToString")
@@ -1474,6 +1524,59 @@ fn call_builtin_function(
                     panic!("First argument not an array: {:?}", arguments[0]);
                 }
             }
+        }
+        BuiltinFunction::ArrayPush => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ArrayPush")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let value = eval_expression(&arguments[1], local_context);
+
+            model.push_row(value);
+
+            Value::Void
+        }
+        BuiltinFunction::ArrayRemove => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ArrayRemove")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let index = match eval_expression(&arguments[1], local_context) {
+                Value::Number(i) => i,
+                _ => panic!("Second argument not an integer: {:?}", arguments[1]),
+            };
+
+            model.remove_row(index as isize);
+
+            Value::Void
+        }
+
+        BuiltinFunction::ArrayInsert => {
+            if arguments.len() != 3 {
+                panic!("internal error: incorrect argument count to ArrayInsert")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let index = match eval_expression(&arguments[1], local_context) {
+                Value::Number(i) => i,
+                _ => panic!("Second argument not an integer: {:?}", arguments[1]),
+            };
+
+            let value = eval_expression(&arguments[2], local_context);
+            model.insert_row(index as isize, value);
+
+            Value::Void
         }
         BuiltinFunction::Rgb => {
             let r: i32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
@@ -1732,13 +1835,19 @@ fn call_builtin_function(
             }
             let component = local_context.component_instance;
             if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                if let Some(err) = component
-                    .window_adapter()
-                    .renderer()
-                    .register_font_from_path(&std::path::PathBuf::from(s.as_str()))
-                    .err()
-                {
-                    corelib::debug_log!("Error loading custom font {}: {}", s.as_str(), err);
+                // If the window adapter can't be created, log and skip the registration
+                // instead of panicking: the same error resurfaces when the window is
+                // actually used.
+                let result = component.try_window_adapter().map_err(|e| e.to_string()).and_then(
+                    |window_adapter| {
+                        window_adapter
+                            .renderer()
+                            .register_font_from_path(&std::path::PathBuf::from(s.as_str()))
+                            .map_err(|e| format!("Cannot load custom font {}: {e}", s.as_str()))
+                    },
+                );
+                if let Err(err) = result {
+                    corelib::debug_log!("{err}");
                 }
                 Value::Void
             } else {

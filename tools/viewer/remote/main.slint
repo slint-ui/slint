@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette, Button } from "std-widgets.slint";
+import { LicensesPage, AttributionItem } from "licenses.slint";
 
 export enum RemoteViewerState {
     /// No editor is connected (startup, and after a disconnect).
@@ -21,11 +22,15 @@ export component RemoteViewerWindow inherits Window {
     in property <string> slint-version;
     in property <string> build-info;
     in property <RemoteViewerState> state;
+    in property <[AttributionItem]> third-party-licenses;
+
+    property <bool> show-licenses: false;
 
     property <bool> has-name: name != "";
     property <bool> showing-name: true;
 
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+    property <bool> landscape-layout: root.width > root.height;
     property <string> toast-message;
 
     hidden-input := TextInput {
@@ -56,10 +61,24 @@ export component RemoteViewerWindow inherits Window {
         background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(0deg, #D7D9DD, white);
     }
 
-    Image {
+    if !root.landscape-layout: Image {
         y: root.height - self.height;
         width: 100%;
         source: root.dark-color-scheme ? @image-url("assets/bg-frame.svg") : @image-url("assets/bg-frame-light.svg");
+    }
+
+    if root.landscape-layout: Image {
+        x: root.width - self.width;
+        y: root.height - self.height - root.height * 20%;
+        width: min(root.width * 0.36, 360px);
+        source: root.dark-color-scheme ? @image-url("assets/bg-frame-mark.svg") : @image-url("assets/bg-frame-mark-light.svg");
+    }
+
+    if root.landscape-layout: Image {
+        x: 0px;
+        y: root.height - self.height;
+        width: root.width;
+        source: root.dark-color-scheme ? @image-url("assets/bg-frame-lines.svg") : @image-url("assets/bg-frame-lines-light.svg");
     }
 
     TouchArea {
@@ -93,7 +112,8 @@ export component RemoteViewerWindow inherits Window {
 
     VerticalLayout {
         alignment: space-between;
-        padding-left: 24px;
+        padding-left: max(root.safe-area-insets.left, 24px);
+        padding-right: max(root.safe-area-insets.right, 24px);
         padding-top: root.safe-area-insets.top + 146px;
         padding-bottom: root.safe-area-insets.bottom;
         visible: root.state != RemoteViewerState.preview-error;
@@ -138,6 +158,30 @@ export component RemoteViewerWindow inherits Window {
         }
     }
 
+    // Info button opening the third-party license attribution page. Only the
+    // app-store builds embed attribution data (see build.rs).
+    if root.third-party-licenses.length > 0: info-button := TouchArea {
+        width: 44px;
+        height: 44px;
+        x: root.width - self.width - 8px;
+        y: root.height - root.safe-area-insets.bottom - self.height - 8px;
+
+        clicked => {
+            root.show-licenses = true;
+        }
+
+        accessible-role: button;
+        accessible-label: @tr("Show the licenses of the third-party software used by this application");
+
+        Image {
+            source: @image-url("assets/info.svg");
+            colorize: Palette.foreground;
+            width: 1rem;
+            height: self.width;
+            opacity: info-button.has-hover ? 0.9 : 0.6;
+        }
+    }
+
     toast := Rectangle {
         y: root.height - root.safe-area-insets.bottom - self.height - 100px;
         width: 300px;
@@ -166,8 +210,8 @@ export component RemoteViewerWindow inherits Window {
 
     VerticalLayout {
         alignment: center;
-        padding-left: 24px;
-        padding-right: 24px;
+        padding-left: max(root.safe-area-insets.left, 24px);
+        padding-right: max(root.safe-area-insets.right, 24px);
         padding-top: root.safe-area-insets.top;
         padding-bottom: root.safe-area-insets.bottom;
 
@@ -175,6 +219,17 @@ export component RemoteViewerWindow inherits Window {
             text: message;
             horizontal-alignment: center;
             wrap: word-wrap;
+        }
+    }
+
+    if root.show-licenses: LicensesPage {
+        items: root.third-party-licenses;
+        safe-area-top: root.safe-area-insets.top;
+        safe-area-bottom: root.safe-area-insets.bottom;
+        safe-area-left: root.safe-area-insets.left;
+        safe-area-right: root.safe-area-insets.right;
+        close => {
+            root.show-licenses = false;
         }
     }
 }

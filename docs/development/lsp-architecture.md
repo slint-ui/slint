@@ -32,6 +32,9 @@ The Slint LSP (Language Server Protocol) server provides IDE features for `.slin
 | `tools/lsp/language/semantic_tokens.rs` | Syntax highlighting |
 | `tools/lsp/language/signature_help.rs` | Function/callback signatures |
 | `tools/lsp/common/document_cache.rs` | Document caching and compilation |
+| `tools/lsp/common/rename_component.rs` | Rename of components, structs, enums, properties, callbacks, functions |
+| `tools/lsp/common/host_language_search.rs` | Cross-language rename: walks workspace files to replace matching Rust/C++ accessor identifiers |
+| `internal/compiler/generator/accessor_names.rs` | Shared name mapping for Rust/C++ property/callback/function accessors (used by both codegen and the LSP scanner) |
 | `tools/lsp/preview.rs` | Live preview engine |
 | `tools/lsp/fmt/` | Code formatter |
 
@@ -304,23 +307,41 @@ pub fn goto_definition(
 - Import paths → Imported file
 - Qualified names → Resolved definition
 
+## Rename
+
+Rename support lives in `tools/lsp/common/rename_component.rs` and is
+dispatched from the `textDocument/rename` handler in `language.rs`. It
+handles components, structs, enums, internal/export names, properties,
+callbacks, and functions through a single `DeclarationNode::rename`
+entry point that returns a `WorkspaceEdit` covering the `.slint`
+sources.
+
+### Cross-language rename
+
+Renaming a public property, callback, or function can also search and replace
+its generated Rust/C++ accessors in workspace files.
+See `tools/lsp/common/rename_component.rs` for the rename flow and
+`tools/lsp/common/host_language_search.rs` for the workspace search.
+
 ## Live Preview
 
 ### Preview State
 
 ```rust
 pub struct PreviewState {
-    pub ui: Option<PreviewUi>,
+    pub app_window: Option<ui::AppWindow>,
+    pub api: slint::Weak<ui::Api<'static>>,
     handle: Rc<RefCell<Option<ComponentInstance>>>,
     document_cache: Rc<RefCell<Option<Rc<DocumentCache>>>>,
     selected: Option<ElementSelection>,
 
     source_code: SourceCodeCache,
-    config: PreviewConfig,
+    pub config: PreviewConfig,
     current_previewed_component: Option<PreviewComponent>,
     loading_state: PreviewFutureState,
 
     pub to_lsp: RefCell<Option<Rc<dyn PreviewToLsp>>>,
+    // ... plus undo/redo, live-data, and dependency-tracking fields
 }
 ```
 
@@ -341,21 +362,34 @@ pub struct PreviewState {
 
 ### LSP ↔ Preview Communication
 
+Both enums are defined in the `i-slint-live-preview` crate
+(`internal/live-preview/protocol/`), not in `tools/lsp/` itself.
+
 ```rust
-// LSP to Preview
+// LSP to Preview (internal/live-preview/protocol/lsp_to_preview.rs)
 pub enum LspToPreviewMessage {
-    SetContents { url: VersionedUrl, contents: String },
+    InvalidateContents { url: Url },
+    ForgetFile { url: Url },
+    SetContents { url: VersionedUrl, contents: Vec<u8> },
     SetConfiguration { config: PreviewConfig },
     ShowPreview(PreviewComponent),
-    HighlightFromEditor { url: Url, offset: TextSize },
+    HighlightFromEditor { url: Option<Url>, offset: u32 },
+    // ... plus remote-preview WebSocket state messages
 }
 
-// Preview to LSP
+// Preview to LSP (internal/live-preview/protocol/preview_to_lsp.rs)
 pub enum PreviewToLspMessage {
-    RequestState { paths: Vec<String> },
-    UpdateElement { ... },
-    SendWorkspaceEdit { ... },
-    ShowDocument { ... },
+    Diagnostics { uri: Url, version: SourceFileVersion, diagnostics: Vec<Diagnostic> },
+    ShowDocument { file: Url, selection: Range, take_focus: bool },
+    PreviewTypeChanged { target: PreviewTarget },
+    RequestState { files: Vec<Url> },
+    SendWorkspaceEdit { label: Option<String>, edit: WorkspaceEdit },
+    SendShowMessage { message: ShowMessageParams },
+    TelemetryEvent(Map<String, Value>),
+    DebugMessage { location: Option<(PathBuf, usize, usize)>, message: String },
+    ConnectRemote { addresses: Vec<String>, port: u16 },
+    DisconnectRemote,
+    Pong,
 }
 ```
 
@@ -454,12 +488,17 @@ with_lookup_ctx(document_cache, node, Some(offset), |ctx| {
 
 ### Finding Element at Position
 
+`element_at_position` is a method on `DocumentCache`
+(`tools/lsp/common/document_cache.rs`), not a free function:
+
 ```rust
-fn element_at_position(
-    document_cache: &DocumentCache,
-    uri: &Url,
-    position: &Position,
-) -> Option<ElementRc>;
+impl DocumentCache {
+    pub fn element_at_position(
+        &self,
+        uri: &Url,
+        position: &Position,
+    ) -> Option<ElementRcNode>;
+}
 ```
 
 ### Publishing Diagnostics

@@ -6,6 +6,7 @@
 #include "private/slint_item_tree.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -45,6 +46,30 @@ long int model_length(const std::shared_ptr<M> &model)
     } else {
         model->track_row_count_changes();
         return model->row_count();
+    }
+}
+
+template<typename M, typename ModelData>
+void model_push(const std::shared_ptr<M> &model, const ModelData &value)
+{
+    if (model) {
+        model->push_row(value);
+    }
+}
+
+template<typename M>
+void model_remove(const std::shared_ptr<M> &model, std::ptrdiff_t index)
+{
+    if (model) {
+        model->remove_row(index);
+    }
+}
+
+template<typename M, typename ModelData>
+void model_insert(const std::shared_ptr<M> &model, std::ptrdiff_t index, const ModelData &value)
+{
+    if (model) {
+        model->insert_row(index, value);
     }
 }
 
@@ -92,6 +117,46 @@ public:
     {
 #ifndef SLINT_FEATURE_FREESTANDING
         std::cerr << "Model::set_row_data was called on a read-only model" << std::endl;
+#endif
+    };
+
+    /// Adds a new row with the given \a data at the end of the model.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call `notify_row_added`
+    virtual void push_row(const ModelData &)
+    {
+#ifndef SLINT_FEATURE_FREESTANDING
+        std::cerr << "Model::push_row was called on a read-only model" << std::endl;
+#endif
+    };
+
+    /// Removes the row at the given \a index from the model.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call `notify_row_removed`
+    virtual void remove_row(std::ptrdiff_t)
+    {
+#ifndef SLINT_FEATURE_FREESTANDING
+        std::cerr << "Model::remove_row was called on a read-only model" << std::endl;
+#endif
+    };
+
+    /// Inserts a new row with the given \a data at the given \a index, shifting the
+    /// following rows by one.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call `notify_row_added`
+    virtual void insert_row(std::ptrdiff_t, const ModelData &)
+    {
+#ifndef SLINT_FEATURE_FREESTANDING
+        std::cerr << "Model::insert_row was called on a read-only model" << std::endl;
 #endif
     };
 
@@ -210,44 +275,6 @@ private:
 };
 
 namespace private_api {
-/// A Model backed by a std::array of constant size
-/// \private
-template<int Count, typename ModelData>
-class ArrayModel : public Model<ModelData>
-{
-    std::array<ModelData, Count> data;
-
-public:
-    /// Constructs a new ArrayModel by forwarding \a to the std::array constructor.
-    template<typename... A>
-    ArrayModel(A &&...a) : data { std::forward<A>(a)... }
-    {
-    }
-    size_t row_count() const override { return Count; }
-    std::optional<ModelData> row_data(size_t i) const override
-    {
-        if (i >= row_count())
-            return {};
-        return data[i];
-    }
-    void set_row_data(size_t i, const ModelData &value) override
-    {
-        if (i < row_count()) {
-            data[i] = value;
-            this->notify_row_changed(i);
-        }
-    }
-};
-
-// Specialize for the empty array. We can't have a Model<void>, but `int` will work for our purpose
-template<>
-class ArrayModel<0, void> : public Model<int>
-{
-public:
-    size_t row_count() const override { return 0; }
-    std::optional<int> row_data(size_t) const override { return {}; }
-};
-
 /// Model to be used when we just want to repeat without data.
 struct UIntModel : Model<int>
 {
@@ -289,6 +316,22 @@ public:
         if (i < row_count()) {
             data[i] = value;
             this->notify_row_changed(i);
+        }
+    }
+
+    void push_row(const ModelData &value) override { push_back(value); }
+
+    void remove_row(std::ptrdiff_t index) override
+    {
+        if (index >= 0 && index < static_cast<std::ptrdiff_t>(data.size())) {
+            erase(static_cast<size_t>(index));
+        }
+    }
+
+    void insert_row(std::ptrdiff_t index, const ModelData &value) override
+    {
+        if (index >= 0 && index <= static_cast<std::ptrdiff_t>(data.size())) {
+            insert(static_cast<size_t>(index), value);
         }
     }
 
@@ -1146,11 +1189,7 @@ public:
     /// Register the instance generation as a dependency of the current
     /// tracking scope. Layout code uses this to re-evaluate only after
     /// ensure_updated materializes instance changes.
-    void track_instance_changes() const
-    {
-        if (inner)
-            instance_generation.register_as_dependency();
-    }
+    void track_instance_changes() const { instance_generation.register_as_dependency(); }
 
     /// Register the ListView viewport properties as dependencies so that
     /// scrolling triggers a redraw.  Model dependencies are registered by
@@ -1173,6 +1212,8 @@ public:
     uint64_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
     {
         track_model_changes();
+        if (!inner)
+            return std::numeric_limits<uint64_t>::max();
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
             auto index = order == TraversalOrder::BackToFront ? i : inner->data.size() - 1 - i;
             if (!inner->data[index].ptr)
@@ -1188,6 +1229,8 @@ public:
 
     vtable::VWeak<private_api::ItemTreeVTable> instance_at(std::size_t i) const
     {
+        if (!inner)
+            return {};
         const auto offset = inner->layout_state.offset;
         if (i < offset || i - offset >= inner->data.size()) {
             return {};
@@ -1200,6 +1243,8 @@ public:
 
     private_api::IndexRange index_range() const
     {
+        if (!inner)
+            return private_api::IndexRange { 0, 0 };
         const auto offset = inner->layout_state.offset;
         return private_api::IndexRange { offset, offset + inner->data.size() };
     }

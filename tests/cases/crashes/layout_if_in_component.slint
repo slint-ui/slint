@@ -3,9 +3,10 @@
 
 
 export Btn := Rectangle {
+    property <bool> show: false;
     min-height: max(32px, l.min-height);
     l := HorizontalLayout {
-        if (false): button_in_image := Image {
+        if (show): button_in_image := Image {
             width: 24px;
         }
         text := Text {  }
@@ -13,7 +14,8 @@ export Btn := Rectangle {
 }
 
 export TestCase := Window {
+    property <bool> show: false;
     x := HorizontalLayout {
-        btn := Btn {}
+        btn := Btn { show: root.show; }
     }
 }

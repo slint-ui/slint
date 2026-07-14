@@ -13,6 +13,7 @@ use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{ElementRc, PropertyVisibility};
 use crate::parser::NodeOrToken;
+use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use smol_str::{SmolStr, ToSmolStr};
 use std::cell::RefCell;
@@ -34,6 +35,9 @@ pub struct LookupCtx<'a> {
     /// Somewhere to report diagnostics
     pub diag: &'a mut BuildDiagnostics,
 
+    /// Counters for generating unique symbol names (shared across the compilation).
+    pub symbol_counters: Rc<SymbolCounters>,
+
     /// The name of the arguments of the callback or function
     pub arguments: Vec<SmolStr>,
 
@@ -53,12 +57,17 @@ pub struct LookupCtx<'a> {
 
 impl<'a> LookupCtx<'a> {
     /// Return a context that is just suitable to build simple const expression
-    pub fn empty_context(type_register: &'a TypeRegister, diag: &'a mut BuildDiagnostics) -> Self {
+    pub fn empty_context(
+        type_register: &'a TypeRegister,
+        diag: &'a mut BuildDiagnostics,
+        symbol_counters: Rc<SymbolCounters>,
+    ) -> Self {
         Self {
             property_name: Default::default(),
             property_type: Default::default(),
             component_scope: Default::default(),
             diag,
+            symbol_counters,
             arguments: Default::default(),
             type_register,
             type_loader: None,
@@ -1038,6 +1047,8 @@ impl LookupObject for StringExpression<'_> {
             .or_else(|| f("character-count", function_call(BuiltinFunction::StringCharacterCount)))
             .or_else(|| f("to-lowercase", member_function(BuiltinFunction::StringToLowercase)))
             .or_else(|| f("to-uppercase", member_function(BuiltinFunction::StringToUppercase)))
+            .or_else(|| f("starts-with", member_function(BuiltinFunction::StringStartsWith)))
+            .or_else(|| f("ends-with", member_function(BuiltinFunction::StringEndsWith)))
     }
 }
 
@@ -1124,16 +1135,20 @@ impl LookupObject for ArrayExpression<'_> {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        let member_function = |f: BuiltinFunction| {
+        let function_call = |f: BuiltinFunction| {
             LookupResult::from(Expression::FunctionCall {
                 function: Callable::Builtin(f),
                 source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
                 arguments: vec![self.0.clone()],
             })
         };
-        None.or_else(|| {
-            f(&SmolStr::new_static("length"), member_function(BuiltinFunction::ArrayLength))
-        })
+        let mut member_macro = member_macro_generator(self.0.clone(), ctx.current_token.clone());
+
+        let mut f = |s, res| f(&SmolStr::new_static(s), res);
+        None.or_else(|| f("length", function_call(BuiltinFunction::ArrayLength)))
+            .or_else(|| f("push", member_macro(BuiltinMacroFunction::ArrayPush)))
+            .or_else(|| f("remove", member_macro(BuiltinMacroFunction::ArrayRemove)))
+            .or_else(|| f("insert", member_macro(BuiltinMacroFunction::ArrayInsert)))
     }
 }
 
@@ -1163,6 +1178,9 @@ impl LookupObject for NumberExpression<'_> {
             .or_else(|| f2("sign", member_macro(BuiltinMacroFunction::Sign)))
             .or_else(|| f2("to-fixed", member_function(BuiltinFunction::ToFixed)))
             .or_else(|| f2("to-precision", member_function(BuiltinFunction::ToPrecision)))
+            .or_else(|| {
+                f2("to-string-unlocalized", member_function(BuiltinFunction::ToStringUnlocalized))
+            })
             .or_else(|| NumberWithUnitExpression(self.0).for_each_entry(ctx, f))
     }
 }
