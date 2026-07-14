@@ -12,7 +12,9 @@ interface Speaker {
     pure callback speak() -> string;
 }
 
-component SpeakerImpl implements Speaker {
+component SpeakerImpl {
+    implement Speaker <=> self;
+
     property <string> message;
 
     add-message(text) => {
@@ -28,7 +30,10 @@ component SpeakerImpl implements Speaker {
     }
 }
 
-export component TestCase uses { Speaker from speaker } implements TestInterface {
+export component TestCase {
+    implement Speaker <=> speaker;
+    implement TestInterface <=> self;
+
     invert(b) => {
         return !b;
     }

@@ -14,7 +14,9 @@ export interface ValidInterfacePropertyDeclarations {
     in_out property <angle> in-out-underscore-property;
 }
 
-export component ComponentWithDuplicateProperty implements ValidInterfacePropertyDeclarations {
+export component ComponentWithDuplicateProperty {
+    implement ValidInterfacePropertyDeclarations <=> self;
+
     out property <string> out-property;
 //  >                                 <error{Conflict with 'ValidInterfacePropertyDeclarations' which declares a property with the same name}
 }
@@ -24,9 +26,11 @@ export interface Background {
     callback clip();
 }
 
-export component MyComponent implements Background inherits Rectangle { }
-//                                      >         <error{Cannot implement interface 'Background' because 'background' conflicts with an existing property in 'Rectangle'}
-//                                      >         <^error{Cannot implement interface 'Background' because 'clip' conflicts with an existing property in 'Rectangle'}
+export component MyComponent inherits Rectangle {
+    implement Background <=> self;
+//            >         <error{Cannot implement interface 'Background' because 'background' conflicts with an existing property in 'Rectangle'}
+//            >         <^error{Cannot implement interface 'Background' because 'clip' conflicts with an existing property in 'Rectangle'}
+}
 
 export interface InterfaceWithDefaultPropertyValues {
     in property <int> in-property: 42;

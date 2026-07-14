@@ -9,7 +9,9 @@ interface LineEditInterface {
     in-out property <string> text;
 }
 
-export component LineEditBase implements LineEditInterface {
+export component LineEditBase {
+    implement LineEditInterface <=> self;
+
     text <=> text-input.text;
     color <=> text-input.color;
 //  >   <error{Unknown property color}
@@ -20,35 +22,58 @@ interface Inverter {
     pure callback invert(bool) -> bool;
 }
 
-export component InverterImpl implements Inverter {
+export component InverterImpl {
+    implement Inverter <=> self;
+
     invert(b) => {
         return !b;
     }
 }
 
-export component LineEditBase2 implements LineEditInterface inherits Rectangle { }
+export component LineEditBase2 inherits Rectangle {
+    implement LineEditInterface <=> self;
+}
 
-export component MyLineEdit uses { LineEditInterface from base } {
+export component MyLineEdit {
+    implement LineEditInterface <=> base;
     base := LineEditBase { }
 }
 
-export component Foo implements Bar { }
-//                              >  <error{Unknown element 'Bar'}
+export component Foo {
+    implement Bar <=> self;
+//            >  <error{Unknown element 'Bar'}
+}
 
-export component MyRectangle implements Rectangle { }
-//                                      >        <error{Cannot implement Rectangle. It is not an interface}
+export component MyRectangle {
+    implement Rectangle <=> self;
+//            >        <error{Cannot implement Rectangle. It is not an interface}
+}
 
-export component ImplementsRow implements Row { }
-//                                        >  <error{Row can only be within a GridLayout element}
+export component ImplementsRow {
+    implement Row <=> self;
+//            >  <error{Row can only be within a GridLayout element}
+}
 
-export component LineEdit implements LineEditBase { }
-//                                   >           <error{Cannot implement LineEditBase. It is not an interface}
+export component LineEdit {
+    implement LineEditBase <=> self;
+//            >           <error{Cannot implement LineEditBase. It is not an interface}
+}
 
 global MyGlobal { }
 
-export component MyGlobalG implements MyGlobal { }
-//                                    >       <error{Cannot implement MyGlobal. It is not an interface}
+export component MyGlobalG {
+    implement MyGlobal <=> self;
+//            >       <error{Cannot implement MyGlobal. It is not an interface}
+}
 
 export component LineEditNewSyntax {
     implement LineEdit <=> self;
+//            >       <error{Cannot implement LineEdit. It is not an interface}
+}
+
+export component ImplementInNonRootElement {
+    inner := Rectangle {
+        implement Inverter <=> self;
+//      >                          <error{'implement' is only allowed in the root element}
+    }
 }

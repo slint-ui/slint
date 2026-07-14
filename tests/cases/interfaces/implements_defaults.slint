@@ -11,7 +11,8 @@ interface InterfaceWithDefaults {
     callback checked();
 }
 
-export component TestCase implements InterfaceWithDefaults {
+export component TestCase {
+    implement InterfaceWithDefaults <=> self;
 
     confidence: 0.5;
 

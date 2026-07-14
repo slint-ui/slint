@@ -7,7 +7,9 @@ interface TextInterface {
     public pure function length(text: string) -> int;
 }
 
-export component TestCase implements TextInterface {
+export component TestCase {
+    implement TextInterface <=> self;
+
     text <=> text-input.text;
 
     text-input := TextInput {

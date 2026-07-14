@@ -5,7 +5,9 @@ interface TestInterface {
     in-out property <bool> test;
 }
 
-export component TestCase implements TestInterface inherits Rectangle {
+export component TestCase inherits Rectangle {
+    implement TestInterface <=> self;
+
     test: true;
     background: Colors.lightblue;
 }

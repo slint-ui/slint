@@ -6,18 +6,22 @@ interface TestInterface {
     pure public function double(i: int) -> int;
 }
 
-component TestBase implements TestInterface {
+component TestBase {
+    implement TestInterface <=> self;
+
     test: true;
     pure public function double(i: int) -> int {
         return i * 2;
     }
 }
 
-component TestA uses { TestInterface from base } {
+component TestA {
+    implement TestInterface <=> base;
     base := TestBase { }
 }
 
-component TestB uses { TestInterface from base } {
+component TestB {
+    implement TestInterface <=> base;
     base := TestBase { }
 }
 

@@ -11,7 +11,8 @@ interface InterfaceWithDefaults {
     callback checked();
 }
 
-component Base implements InterfaceWithDefaults {
+component Base {
+    implement InterfaceWithDefaults <=> self;
 
     // Base provides its own default value
     confidence: 0.5;

@@ -19,4 +19,6 @@ export component Impl {
     @children
 }
 
-export component ComponentImplementsInterface implements InvalidPropertyTypeInterface inherits Impl { }
+export component ComponentImplementsInterface inherits Impl {
+    implement InvalidPropertyTypeInterface <=> self;
+}

@@ -5,6 +5,7 @@ export interface TestInterface {
     in-out property <bool> test;
 }
 
-export interface ImplementingInterface implements
-//                                     >        <error{Interfaces cannot implement another interface}
- TestInterface { }
+export interface ImplementingInterface {
+    implement TestInterface <=> self;
+//  >                               <error{Interfaces cannot implement another interface}
+ }

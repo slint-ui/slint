@@ -1,0 +1,43 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Verifies that the same-interface and member-collision checks are unified across self- and
+// child-targeted `implement` statements, not just checked within each group separately.
+
+interface I {
+    in-out property <bool> value;
+}
+
+interface J {
+    in-out property <bool> value;
+}
+
+component ChildA { }
+
+export component SelfChildSameInterface {
+    implement I <=> self;
+    implement I <=> child;
+//  >                    <error{'I' is implemented multiple times}
+
+    child := ChildA { }
+}
+
+export component SelfSelfSameInterface {
+    implement I <=> self;
+    implement I <=> self;
+//  >                   <error{'I' is implemented multiple times}
+}
+
+export component SelfSelfMemberConflict {
+    implement I <=> self;
+    implement J <=> self;
+//            ><error{'value' occurs in 'J' and 'I'}
+}
+
+export component SelfChildMemberConflict {
+    implement I <=> self;
+    implement J <=> child;
+//            ><error{'value' occurs in 'J' and 'I'}
+
+    child := ChildA { }
+}
