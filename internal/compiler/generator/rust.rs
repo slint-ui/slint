@@ -1840,7 +1840,7 @@ fn generate_sub_component(
     let mut anim_target_change_init = Vec::new();
     let update_animations = (!component.animation_objects.is_empty()).then(|| {
         let mut restart_fns = Vec::new();
-        let upda = component.animation_objects.iter().enumerate().map(|(idx, anim)| {
+        let update = component.animation_objects.iter().enumerate().map(|(idx, anim)| {
             let ident = format_ident!("anim{idx}");
             let running = compile_expression(&anim.running.borrow(), &ctx);
 
@@ -2189,7 +2189,7 @@ fn generate_sub_component(
         quote!(
             fn update_animations(self: ::core::pin::Pin<&Self>) {
                 let _self = self;
-                #(#upda)*
+                #(#update)*
             }
             #(#restart_fns)*
         )
