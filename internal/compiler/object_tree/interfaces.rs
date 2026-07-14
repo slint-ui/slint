@@ -17,7 +17,6 @@ use crate::langtype::{ElementType, Function, PropertyLookupResult, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
     Component, Element, ElementRc, PropertyDeclaration, QualifiedTypeName, find_element_by_id,
-    visit_named_references_in_expression,
 };
 use crate::parser;
 use crate::parser::{SyntaxKind, syntax_nodes};
@@ -323,52 +322,6 @@ fn apply_interface_property_declaration(
     }
 
     e.property_declarations.insert(unresolved_prop_name.clone(), prop_decl.clone());
-}
-
-/// Apply default property values defined in the interface to the element.
-pub(super) fn apply_default_property_values(
-    e: &ElementRc,
-    implemented_interface: &Option<ImplementedInterface>,
-) {
-    let Some(ImplementedInterface { interface, .. }) = implemented_interface else {
-        return;
-    };
-
-    let interface_root = interface.clone();
-
-    // Collect the bindings to apply first, to avoid borrow conflicts
-    let bindings_to_apply: Vec<_> = interface
-        .borrow()
-        .property_declarations
-        .iter()
-        .filter(|(_, prop_decl)| {
-            // Only apply default bindings for properties
-            !matches!(prop_decl.property_type, Type::Function { .. } | Type::Callback { .. })
-        })
-        .filter_map(|(property_name, _)| {
-            interface
-                .borrow()
-                .bindings
-                .get(property_name)
-                .map(|binding| (property_name.clone(), binding.clone()))
-        })
-        .filter(|(property_name, _)| {
-            // Only apply the default binding if there isn't already a binding set on the element.
-            // `need_explicit: false` includes two-way bindings from a `uses { ... }` alias on
-            // a base component — overriding those with an interface default would sever the alias.
-            !e.borrow().is_binding_set(property_name, false)
-        })
-        .collect();
-
-    for (property_name, binding) in bindings_to_apply {
-        // Remap NamedReferences from the interface's root element to the implementing element
-        visit_named_references_in_expression(&mut binding.borrow_mut().expression, &mut |nr| {
-            if Rc::ptr_eq(&nr.element(), &interface_root) {
-                *nr = NamedReference::new(e, nr.name().clone());
-            }
-        });
-        e.borrow_mut().bindings.insert(property_name, binding);
-    }
 }
 
 /// Validate that the functions declared in the interface are correctly implemented in the element. Emits diagnostics if not.
