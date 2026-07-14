@@ -26,13 +26,35 @@ export component TestCase {
     in-out property <PlayerWithDefault> never-set;
     in-out property <NestedDefault> nested;
 
+    // A struct literal returned from a function takes the declared defaults, too
+    function make-player(name: string) -> PlayerWithDefault {
+        return { name: name };
+    }
+
+    // Early returns from different branches are each filled with the defaults
+    function pick-player(early: bool) -> PlayerWithDefault {
+        if (early) {
+            return { name: "early" };
+        }
+        return { name: "late", score: 1, alive: false };
+    }
+
+    out property <PlayerWithDefault> made: make-player("made");
+    out property <PlayerWithDefault> picked-early: pick-player(true);
+    out property <PlayerWithDefault> picked-late: pick-player(false);
+
     out property <bool> test:
         partial.name == "partial" && partial.score == 42 && partial.energy == 1
         && partial.alive && partial.tint == #00ff00 && partial.rank == Rank.gold
         && partial.time == 2s && partial.plain == 0
         && never-set.name == "unknown" && never-set.score == 42 && never-set.alive
         && nested.player.name == "nested" && nested.player.score == 42
-        && nested.tags.length == 2 && nested.tags[0] == "a";
+        && nested.tags.length == 2 && nested.tags[0] == "a"
+        && made.name == "made" && made.score == 42 && made.energy == 1 && made.alive
+        && made.rank == Rank.gold && made.time == 2s && made.plain == 0
+        && picked-early.name == "early" && picked-early.score == 42 && picked-early.alive
+        && picked-late.name == "late" && picked-late.score == 1 && !picked-late.alive
+        && picked-late.energy == 1 && picked-late.rank == Rank.gold;
 }
 
 /*
