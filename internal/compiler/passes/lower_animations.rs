@@ -21,7 +21,11 @@ pub fn lower_animations(
     type_register: &Rc<RefCell<TypeRegister>>,
     diag: &mut BuildDiagnostics,
 ) {
-    // replace <animation>.start/end with <animation>.running = true/false
+    // replace <animation>.start/end with <animation>.running = true/false, followed by a
+    // synchronous `update_animations()` -- without it, the actual (re)registration of the
+    // driving tween would only happen on the next driver tick, via the `running` property's
+    // change callback (see `lower_animation` below), leaving `start()`/`stop()` observably
+    // deferred by one tick instead of taking effect immediately.
     visit_all_expressions(component, |e, _| {
         e.visit_recursive_mut(&mut |e| {
             if let Expression::FunctionCall { function, arguments, .. } = e
@@ -30,7 +34,7 @@ pub fn lower_animations(
                 ) = function
                 && let [Expression::ElementReference(animation)] = arguments.as_slice()
             {
-                *e = Expression::SelfAssignment {
+                let assign_running = Expression::SelfAssignment {
                     lhs: Box::new(Expression::PropertyReference(NamedReference::new(
                         &animation.upgrade().unwrap(),
                         SmolStr::new_static("running"),
@@ -41,7 +45,13 @@ pub fn lower_animations(
                     ))),
                     op: '=',
                     node: None,
-                }
+                };
+                let update_animations = Expression::FunctionCall {
+                    function: BuiltinFunction::UpdateAnimations.into(),
+                    arguments: Vec::new(),
+                    source_location: None,
+                };
+                *e = Expression::CodeBlock(vec![assign_running, update_animations]);
             }
         });
     });
@@ -106,7 +116,8 @@ fn validate_animation_properties(
             if let Some(from_binding) = from_prop {
                 if let Ok(from_expr) = from_binding.try_borrow() {
                     let from_type = from_expr.ty();
-                    if from_type != target_type {
+                    // TODO double check
+                    if from_type != target_type && !from_type.can_convert(&target_type) {
                         let msg = format!(
                             "'from' type {:?} doesn't match 'target' type {:?}",
                             from_type, target_type
@@ -120,7 +131,7 @@ fn validate_animation_properties(
             if let Some(to_binding) = to_prop {
                 if let Ok(to_expr) = to_binding.try_borrow() {
                     let to_type = to_expr.ty();
-                    if to_type != target_type {
+                    if to_type != target_type && !to_type.can_convert(&target_type) {
                         let msg = format!(
                             "'to' type {:?} doesn't match 'target' type {:?}",
                             to_type, target_type

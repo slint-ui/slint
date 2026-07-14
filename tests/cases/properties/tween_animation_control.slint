@@ -18,16 +18,15 @@ export component TestCase inherits Rectangle {
     }
 
     public function start_anim() {
-        anim.running = true;
+        anim.start()
     }
 
     public function stop_anim() {
-        anim.running = false;
+        anim.stop()
     }
 
     public function restart_anim() {
-        anim.running = false;
-        anim.running = true;
+        anim.restart()
     }
 }
 
@@ -39,25 +38,24 @@ assert_eq!(instance.get_value(), 0.);
 
 // Start animation
 instance.invoke_start_anim();
-slint_testing::mock_elapsed_time(1);
+assert!(instance.get_anim_running());
+assert_eq!(instance.get_value(), 0.);
 
 // Progress partway
 slint_testing::mock_elapsed_time(250);
-let value_at_250 = instance.get_value();
-assert!(value_at_250 > 20. && value_at_250 < 30., "Value at 250ms should be around 25, got {}", value_at_250);
+assert_eq!(instance.get_value(), 25.);
 // While animating, `running` reads back as true.
 assert!(instance.get_anim_running());
 
 // Stop animation
 instance.invoke_stop_anim();
-slint_testing::mock_elapsed_time(1);
-let stopped_value = instance.get_value();
-assert_eq!(stopped_value, value_at_250);
+assert_eq!(instance.get_value(), 25.);
+assert!(!instance.get_anim_running());
 
 // Restart animation from beginning
 instance.invoke_restart_anim();
-slint_testing::mock_elapsed_time(1);
 assert_eq!(instance.get_value(), 0.);
+assert!(instance.get_anim_running());
 
 // Let it complete
 slint_testing::mock_elapsed_time(1000);
@@ -73,31 +71,62 @@ assert_eq(instance.get_value(), 0.);
 
 // Start animation
 instance.invoke_start_anim();
-slint_testing::mock_elapsed_time(1);
+assert(instance.get_anim_running());
+assert_eq(instance.get_value(), 0.);
 
 // Progress partway
 slint_testing::mock_elapsed_time(250);
-auto value_at_250 = instance.get_value();
-assert(value_at_250 > 20. && value_at_250 < 30.);
+assert_eq(instance.get_value(), 25.);
 // While animating, `running` reads back as true.
 assert(instance.get_anim_running());
 
 // Stop animation
 instance.invoke_stop_anim();
-slint_testing::mock_elapsed_time(1);
-auto stopped_value = instance.get_value();
-assert_eq(stopped_value, value_at_250);
+assert_eq(instance.get_value(), 25.);
+assert(!instance.get_anim_running());
 
 // Restart animation from beginning
 instance.invoke_restart_anim();
-slint_testing::mock_elapsed_time(1);
 assert_eq(instance.get_value(), 0.);
+assert(instance.get_anim_running());
 
 // Let it complete
 slint_testing::mock_elapsed_time(1000);
 assert_eq(instance.get_value(), 100.);
 // When the animation finishes on its own, `running` must return to false.
 assert(!instance.get_anim_running());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.value, 0.);
+
+// Start animation
+instance.start_anim();
+assert(instance.anim_running);
+assert.equal(instance.value, 0.);
+
+// Progress partway
+slintlib.private_api.mock_elapsed_time(250);
+assert.equal(instance.value, 25.);
+// While animating, `running` reads back as true.
+assert(instance.anim_running);
+
+// Stop animation
+instance.stop_anim();
+assert.equal(instance.value, 25.);
+assert(!instance.anim_running);
+
+// Restart animation from beginning
+instance.restart_anim();
+assert.equal(instance.value, 0.);
+assert(instance.anim_running);
+
+// Let it complete
+slintlib.private_api.mock_elapsed_time(1000);
+assert.equal(instance.value, 100.);
+// When the animation finishes on its own, `running` must return to false.
+assert(!instance.anim_running);
 ```
 
 */

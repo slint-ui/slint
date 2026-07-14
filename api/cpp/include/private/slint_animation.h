@@ -115,7 +115,7 @@ struct AnimationHandle
     /// this handle (use restart() to force a restart).
     template<typename T, typename SetValue, typename OnFinished>
     void start(const T &from, const T &to, const PropertyAnimation &details, SetValue set_value,
-               OnFinished on_finished)
+               OnFinished on_finished) const
     {
         private_api::assert_main_thread();
         struct SetValueData
@@ -142,7 +142,7 @@ struct AnimationHandle
     /// something is already running on this handle.
     template<typename T, typename SetValue, typename OnFinished>
     void restart(const T &from, const T &to, const PropertyAnimation &details, SetValue set_value,
-                 OnFinished on_finished)
+                 OnFinished on_finished) const
     {
         private_api::assert_main_thread();
         struct SetValueData
@@ -166,7 +166,7 @@ struct AnimationHandle
     }
 
     /// Stop and deregister whatever's running, freezing the target property at its current value.
-    void stop()
+    void stop() const
     {
         private_api::assert_main_thread();
         cbindgen_private::slint_animation_handle_stop(id);
@@ -180,7 +180,7 @@ struct AnimationHandle
     }
 
 private:
-    uintptr_t id = 0;
+    mutable uintptr_t id = 0;
 };
 
 } // namespace slint::private_api

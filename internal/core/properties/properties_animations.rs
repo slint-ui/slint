@@ -266,7 +266,15 @@ impl<T: InterpolatedPropertyValue + Clone> Animation for TweenAnimation<T> {
     }
 
     fn is_running(&self) -> bool {
-        self.running && matches!(self.state, AnimationState::Animating { .. })
+        // Not just `Animating`: a freshly registered tween sits in `Delaying` (never yet
+        // ticked by `update()`) but is very much active. Codegen's `AnimationHandle::start`
+        // relies on this to no-op a redundant `start()` on a tween that hasn't ticked even
+        // once yet -- e.g. one registered synchronously by an explicit `.start()` call, then
+        // immediately redundantly re-triggered by the `running` property's own (deferred)
+        // change tracker on the next driver tick. Treating `Delaying` as not-running would let
+        // that second call replace it with a freshly time-stamped tween, silently resetting
+        // progress that was never actually observed as reset.
+        self.running && !matches!(self.state, AnimationState::Done { .. })
     }
 
     fn update(&mut self) -> bool {
@@ -1130,8 +1138,8 @@ mod animation_architecture_tests {
         );
         handle.start(Box::new(tween));
 
-        // First tick: moves the tween past its (zero) delay into Animating, at which
-        // point is_running() reports true.
+        // First tick: moves the tween past its (zero) delay into Animating. `is_running()`
+        // already reported true before this tick too (registered, not yet Done).
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.update_animations(start_time));
         crate::animations::update_animation_objects();

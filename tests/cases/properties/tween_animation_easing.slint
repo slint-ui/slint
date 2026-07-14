@@ -58,7 +58,6 @@ let instance = TestCase::new().unwrap();
 
 // Start all animations
 instance.invoke_start_all();
-slint_testing::mock_elapsed_time(1);
 assert_eq!(instance.get_linear_value(), 0.);
 assert_eq!(instance.get_ease_in_value(), 0.);
 assert_eq!(instance.get_ease_out_value(), 0.);
@@ -97,7 +96,6 @@ const TestCase &instance = *handle;
 
 // Start all animations
 instance.invoke_start_all();
-slint_testing::mock_elapsed_time(1);
 assert_eq(instance.get_linear_value(), 0.);
 assert_eq(instance.get_ease_in_value(), 0.);
 assert_eq(instance.get_ease_out_value(), 0.);
@@ -128,6 +126,43 @@ assert_eq(instance.get_linear_value(), 100.);
 assert_eq(instance.get_ease_in_value(), 100.);
 assert_eq(instance.get_ease_out_value(), 100.);
 assert_eq(instance.get_ease_in_out_value(), 100.);
+```
+
+```js
+var instance = new slint.TestCase({});
+
+// Start all animations
+instance.start_all();
+assert.equal(instance.linear_value, 0.);
+assert.equal(instance.ease_in_value, 0.);
+assert.equal(instance.ease_out_value, 0.);
+assert.equal(instance.ease_in_out_value, 0.);
+
+// Halfway through animation (500ms)
+slintlib.private_api.mock_elapsed_time(500);
+let linear_halfway = instance.linear_value;
+let ease_in_halfway = instance.ease_in_value;
+let ease_out_halfway = instance.ease_out_value;
+let ease_in_out_halfway = instance.ease_in_out_value;
+
+// Linear should be at exactly 50
+assert.equal(linear_halfway, 50.);
+
+// ease-in should be less than linear (slower start)
+assert(ease_in_halfway < linear_halfway);
+
+// ease-out should be more than linear (faster start)
+assert(ease_out_halfway > linear_halfway);
+
+// ease-in-out is symmetric, so at the exact midpoint it coincides with linear (50).
+assert.equal(ease_in_out_halfway, linear_halfway);
+
+// Finish animations
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.linear_value, 100.);
+assert.equal(instance.ease_in_value, 100.);
+assert.equal(instance.ease_out_value, 100.);
+assert.equal(instance.ease_in_out_value, 100.);
 ```
 
 */

@@ -33,9 +33,13 @@ export component TestCase inherits Rectangle {
     }
 
     out property <length> rect-x: rect.x;
+    out property <bool> anim_running: anim.running;
 
     public function start_anim() {
         anim.start();
+    }
+    public function change_x() {
+        rect.x = 20px;
     }
 }
 
@@ -47,7 +51,20 @@ assert_eq!(instance.get_rect_x(), 20.);
 
 // Start animation
 instance.invoke_start_anim();
+
+// Halfway through animation
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_rect_x(), 110.);
+
+// Finished animation
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_rect_x(), 200.);
+
+// test property change
+instance.invoke_change_x();
 slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_rect_x(), 20.);
+assert!(instance.get_anim_running());
 
 // Halfway through animation
 slint_testing::mock_elapsed_time(500);
@@ -65,7 +82,6 @@ assert_eq(instance.get_rect_x(), 20.);
 
 // Start animation
 instance.invoke_start_anim();
-slint_testing::mock_elapsed_time(1);
 
 // Halfway through animation
 slint_testing::mock_elapsed_time(500);
@@ -74,6 +90,50 @@ assert_eq(instance.get_rect_x(), 110.);
 // Finished animation
 slint_testing::mock_elapsed_time(500);
 assert_eq(instance.get_rect_x(), 200.);
+
+// test property change
+instance.invoke_change_x();
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_rect_x(), 20.);
+assert(instance.get_anim_running());
+
+// Halfway through animation
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_rect_x(), 110.);
+
+// Finished animation
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_rect_x(), 200.);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.rect_x, 20.);
+
+// Start animation
+instance.start_anim();
+
+// Halfway through animation
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.rect_x, 110.);
+
+// Finished animation
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.rect_x, 200.);
+
+// test property change
+instance.change_x();
+slintlib.private_api.mock_elapsed_time(1);
+assert.equal(instance.rect_x, 20.);
+assert(instance.anim_running);
+
+// Halfway through animation
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.rect_x, 110.);
+
+// Finished animation
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.rect_x, 200.);
 ```
 
 */

@@ -1775,9 +1775,27 @@ fn generate_sub_component(
             // Builds a fresh `sp::TweenAnimation` (the "data") from the target's current
             // value and the animation's current property values, then hands it to
             // `#call` (`start` or `restart`) on the `#ident` handle field (the "handle").
-            let build_and_drive = |call: TokenStream| access_member(&target_ref, &ctx).then(|prop| {
+            // When `push_initial` is set, the `from` value is also written into the target
+            // property synchronously, right after registration -- `restart()` must make the
+            // property read back as `from` immediately, without waiting for the next driver
+            // tick (unlike a fresh `start()`, which only ever runs from the target's current
+            // value, so there's nothing new to push).
+            let build_and_drive = |call: TokenStream, push_initial: bool| access_member(&target_ref, &ctx).then(|prop| {
                 let from_arg = from.as_ref().map(|f| quote!(#f)).unwrap_or_else(|| quote!(#prop.get()));
                 let to_arg = to.as_ref().map(|t| quote!(#t)).unwrap_or_else(|| quote!(#prop.get()));
+                // Mirrors `set_stmt` (used by the per-frame callback below): the cache must
+                // stay in sync with this synchronous write too, or the target-change tracker
+                // would mistake it for a genuine external assignment and re-trigger a restart.
+                let push_initial_stmt = push_initial.then(|| {
+                    let cache_update = cache_field
+                        .as_ref()
+                        .map(|cache_field| quote!(_self.#cache_field.replace(initial_value.clone());));
+                    quote!(
+                        let initial_value = #from_arg;
+                        #cache_update
+                        #prop.set(initial_value);
+                    )
+                });
                 quote!(
                     let self_weak = self.self_weak.get().unwrap().clone();
                     let self_weak_finished = self.self_weak.get().unwrap().clone();
@@ -1805,17 +1823,23 @@ fn generate_sub_component(
                         },
                     );
                     self.#ident.#call(sp::Box::new(tween));
+                    #push_initial_stmt
                 )
             });
 
             let start_call = quote!(start);
             let restart_call = quote!(restart);
-            let start_body = build_and_drive(start_call);
-            let restart_body = build_and_drive(restart_call);
+            let start_body = build_and_drive(start_call, false);
+            let restart_body = build_and_drive(restart_call, true);
 
             restart_fns.push(quote!(
                 fn #restart_ident(self: ::core::pin::Pin<&Self>) {
                     let _self = self;
+                    // `restart()` bypasses the `running = true/false` lowering that `start()`/
+                    // `stop()` calls get (see `lower_animations.rs`), so reflect it into the
+                    // Slint-visible `running` property here -- otherwise `anim.running` would
+                    // keep reading `false` (from a preceding `stop()`) until the next tick.
+                    #set_running_true;
                     #restart_body
                 }
             ));

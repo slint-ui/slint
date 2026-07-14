@@ -2594,11 +2594,18 @@ fn generate_sub_component(
                 "[&]{{ slint::cbindgen_private::PropertyAnimation o{{}}; o.delay = 0; o.duration = (int)({duration}); o.iteration_count = (float)({iteration_count}); o.direction = {direction}; o.easing = {easing}; o.enabled = true; return o; }}()"
             );
 
-            let set_stmt =
-                access_member(&target_ref, &ctx).then(|prop| format!("{prop}.set(value)"));
+            // Cache of the target's last-known value, kept in sync by every write --
+            // whether from the tween ticking (below) or from a genuine external
+            // assignment (the target-change tracker further down) -- so the tracker can
+            // tell the two apart.
+            let cache_field = format_smolstr!("anim_last_target{}", i);
+            let set_stmt = access_member(&target_ref, &ctx)
+                .then(|prop| format!("self->{cache_field} = value; {prop}.set(value)"));
             let running_ref = member_ref(&anim.running.borrow());
             let set_running_false =
                 access_member(&running_ref, &ctx).then(|prop| format!("{prop}.set(false)"));
+            let set_running_true =
+                access_member(&running_ref, &ctx).then(|prop| format!("{prop}.set(true)"));
 
             let call = |method: &str| -> String {
                 format!(
@@ -2610,14 +2617,94 @@ fn generate_sub_component(
             update_animations.push(format!("   {}", call("start")));
             update_animations.push(format!("}} else {{ self->{name}.stop(); }}"));
 
+            // Restarting must make the target property read back as `from` immediately,
+            // without waiting for the next driver tick (unlike a fresh `start()`, which only
+            // ever runs from the target's current value, so there's nothing new to push).
+            let set_from_stmt = access_member(&target_ref, &ctx)
+                .then(|prop| format!("self->{cache_field} = {from}; {prop}.set({from})"));
             target_struct.members.push((
                 field_access,
                 Declaration::Function(Function {
                     name: format_smolstr!("restart_anim{}", i),
-                    signature: "() -> void".into(),
-                    statements: Some(vec!["auto self = this;".into(), call("restart")]),
+                    signature: "() const -> void".into(),
+                    statements: Some(vec![
+                        "auto self = this;".into(),
+                        // `restart()` bypasses the `running = true/false` lowering that
+                        // `start()`/`stop()` calls get, so reflect it into the Slint-visible
+                        // `running` property here -- otherwise `anim.running` would keep
+                        // reading `false` (from a preceding `stop()`) until the next tick.
+                        format!("{set_running_true};"),
+                        call("restart"),
+                        format!("{set_from_stmt};"),
+                    ]),
                     ..Default::default()
                 }),
+            ));
+
+            // Restart the tween when `target` is assigned directly (e.g. `rect.x = 100px;`),
+            // instead of only reacting to `running` toggling. Mirrors rust.rs.
+            let tracker_name = format_smolstr!("anim_target_tracker{}", i);
+            target_struct.members.push((
+                field_access,
+                Declaration::Var(Var {
+                    ty: "slint::private_api::ChangeTracker".into(),
+                    name: tracker_name.clone(),
+                    ..Default::default()
+                }),
+            ));
+            target_struct.members.push((
+                field_access,
+                Declaration::Var(Var {
+                    ty: format_smolstr!("mutable {}", cpp_ty),
+                    name: cache_field.clone(),
+                    ..Default::default()
+                }),
+            ));
+
+            let restart_call_stmt = if anim.to.is_some() {
+                // `to` is fixed, so the animation's endpoints don't depend on the changed
+                // value at all -- treat the assignment purely as a trigger to (re-)start
+                // the loop, same as calling `.start()` (a no-op if already running).
+                let start_ident = format_smolstr!("start_anim{}", i);
+                target_struct.members.push((
+                    field_access,
+                    Declaration::Function(Function {
+                        name: start_ident.clone(),
+                        signature: "() const -> void".into(),
+                        statements: Some(vec!["auto self = this;".into(), call("start")]),
+                        ..Default::default()
+                    }),
+                ));
+                format!("self->{start_ident}();")
+            } else if anim.from.is_some() {
+                // `from` is fixed, so the existing restart logic (from = declared `from`,
+                // to = target's current, already-updated value) is already correct.
+                format!("self->restart_anim{i}();")
+            } else {
+                // No `from`/`to`: animate from the value `target` held right before this
+                // change, towards the newly-assigned value.
+                let restart_on_change_ident =
+                    format_smolstr!("restart_anim{}_on_target_change", i);
+                target_struct.members.push((
+                    field_access,
+                    Declaration::Function(Function {
+                        name: restart_on_change_ident.clone(),
+                        signature: format!("({cpp_ty} from_value, {cpp_ty} to_value) const -> void"),
+                        statements: Some(vec![
+                            "auto self = this;".into(),
+                            format!(
+                                "self->{name}.restart<{cpp_ty}>(from_value, to_value, {details}, [self]({cpp_ty} value) {{ {set_stmt}; }}, [self]() {{ {set_running_false}; }});"
+                            ),
+                        ]),
+                        ..Default::default()
+                    }),
+                ));
+                format!("self->{restart_on_change_ident}(old_value, new_value);")
+            };
+
+            user_init.push(format!("self->{cache_field} = {target_get};"));
+            user_init.push(format!(
+                "self->{tracker_name}.init(self, [](auto self) {{ return {target_get}; }}, [](auto self, auto new_value) {{ auto old_value = self->{cache_field}; self->{cache_field} = new_value; if (old_value != new_value) {{ {set_running_true}; {restart_call_stmt} }} }});"
             ));
 
             target_struct.members.push((
@@ -2633,7 +2720,7 @@ fn generate_sub_component(
             field_access,
             Declaration::Function(Function {
                 name: "update_animations".into(),
-                signature: "() -> void".into(),
+                signature: "() const -> void".into(),
                 statements: Some(update_animations),
                 ..Default::default()
             }),

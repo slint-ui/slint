@@ -38,7 +38,6 @@ instance.set_duration_ms(1000);
 
 // Start animation
 instance.invoke_start_anim();
-slint_testing::mock_elapsed_time(1);
 
 // Halfway through animation
 slint_testing::mock_elapsed_time(500);
@@ -63,7 +62,6 @@ instance.set_duration_ms(1000);
 
 // Start animation
 instance.invoke_start_anim();
-slint_testing::mock_elapsed_time(1);
 
 // Halfway through animation
 slint_testing::mock_elapsed_time(500);
@@ -74,6 +72,29 @@ assert_eq(halfway, 60.);
 // Finished animation
 slint_testing::mock_elapsed_time(500);
 assert_eq(instance.get_current_value(), 110.);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.current_value, 0.);
+
+// Change start and end values
+instance.start_value = 10.;
+instance.end_value = 110.;
+instance.duration_ms = 1000;
+
+// Start animation
+instance.start_anim();
+
+// Halfway through animation
+slintlib.private_api.mock_elapsed_time(500);
+let halfway = instance.current_value;
+// Linear from 10 to 110 at the exact midpoint is deterministically 60.
+assert.equal(halfway, 60.);
+
+// Finished animation
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.current_value, 110.);
 ```
 
 */

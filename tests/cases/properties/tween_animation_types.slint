@@ -9,7 +9,7 @@ export component TestCase inherits Rectangle {
     in-out property <length> length-value: 0px;
     in-out property <float> float-value: 0.0;
     in-out property <color> color-value: #ffffff;
-    // TODO test int
+    in-out property <int> int-value: 0;
 
     length-anim := TweenAnimation {
         target: length-value;
@@ -35,10 +35,19 @@ export component TestCase inherits Rectangle {
         easing: linear;
     }
 
+    int-anim := TweenAnimation {
+        target: int-value;
+        from: 0;
+        to: 10;
+        duration: 500ms;
+        easing: linear;
+    }
+
     public function start_all() {
         length-anim.start();
         float-anim.start();
         color-anim.start();
+        int-anim.start();
     }
 }
 
@@ -49,20 +58,22 @@ let instance = TestCase::new().unwrap();
 
 // Start all animations
 instance.invoke_start_all();
-slint_testing::mock_elapsed_time(1);
 assert_eq!(instance.get_length_value(), 0.);
 assert_eq!(instance.get_float_value(), 0.0);
+assert_eq!(instance.get_int_value(), 0);
 
 // At 250ms (halfway)
 slint_testing::mock_elapsed_time(250);
 assert_eq!(instance.get_length_value(), 50.);
 let float_halfway = instance.get_float_value();
 assert!(float_halfway > 0.49 && float_halfway < 0.51, "Float halfway should be ~0.5, got {}", float_halfway);
+assert_eq!(instance.get_int_value(), 5);
 
 // At 500ms (complete)
 slint_testing::mock_elapsed_time(250);
 assert_eq!(instance.get_length_value(), 100.);
 assert_eq!(instance.get_float_value(), 1.0);
+assert_eq!(instance.get_int_value(), 10);
 
 // Color should have changed (from white to black)
 let color = instance.get_color_value();
@@ -75,24 +86,56 @@ const TestCase &instance = *handle;
 
 // Start all animations
 instance.invoke_start_all();
-slint_testing::mock_elapsed_time(1);
 assert_eq(instance.get_length_value(), 0.);
 assert_eq(instance.get_float_value(), 0.0);
+assert_eq(instance.get_int_value(), 0);
 
 // At 250ms (halfway)
 slint_testing::mock_elapsed_time(250);
 assert_eq(instance.get_length_value(), 50.);
 auto float_halfway = instance.get_float_value();
 assert(float_halfway > 0.49 && float_halfway < 0.51);
+assert_eq(instance.get_int_value(), 5);
 
 // At 500ms (complete)
 slint_testing::mock_elapsed_time(250);
 assert_eq(instance.get_length_value(), 100.);
 assert_eq(instance.get_float_value(), 1.0);
+assert_eq(instance.get_int_value(), 10);
 
 // Color should have changed (from white to black)
 auto color = instance.get_color_value();
 assert(color.red() < 128 && color.green() < 128 && color.blue() < 128);
+```
+
+```js
+var instance = new slint.TestCase({});
+
+// Start all animations
+instance.start_all();
+assert.equal(instance.length_value, 0.);
+assert.equal(instance.float_value, 0.0);
+assert.equal(instance.int_value, 0);
+
+// At 250ms (halfway)
+slintlib.private_api.mock_elapsed_time(250);
+assert.equal(instance.length_value, 50.);
+let float_halfway = instance.float_value;
+assert(float_halfway > 0.49 && float_halfway < 0.51);
+assert.equal(instance.int_value, 5);
+
+// At 500ms (complete)
+slintlib.private_api.mock_elapsed_time(250);
+assert.equal(instance.length_value, 100.);
+assert.equal(instance.float_value, 1.0);
+assert.equal(instance.int_value, 10);
+
+// Color should have changed (from white to black)
+let color_hex = instance.color_value.toString().replace('#', '');
+let r = parseInt(color_hex.substring(0, 2), 16);
+let g = parseInt(color_hex.substring(2, 4), 16);
+let b = parseInt(color_hex.substring(4, 6), 16);
+assert(r < 128 && g < 128 && b < 128);
 ```
 
 */

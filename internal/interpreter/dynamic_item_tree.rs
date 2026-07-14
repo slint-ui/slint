@@ -487,6 +487,13 @@ pub struct ItemTreeDescription<'id> {
     )>,
     timers: Vec<FieldOffset<Instance<'id>, Timer>>,
     animations: Vec<FieldOffset<Instance<'id>, i_slint_core::properties::AnimationHandle>>,
+    /// For each entry in `animations`, a change tracker on its `target` property and a cache
+    /// of the last value written to `target` by the tween itself. Used to restart the
+    /// animation when `target` is assigned directly (e.g. `rect.x = 100px;`), as opposed to
+    /// via the tween's own frame updates. Mirrors the rust/cpp generators'
+    /// `anim_target_tracker*`/`anim_last_target*`.
+    animation_target_trackers:
+        Vec<(FieldOffset<Instance<'id>, ChangeTracker>, FieldOffset<Instance<'id>, std::cell::RefCell<Value>>)>,
     /// Map of element IDs to their active popup's ID
     popup_ids: std::cell::RefCell<HashMap<SmolStr, NonZeroU32>>,
 
@@ -1383,6 +1390,17 @@ pub(crate) fn generate_item_tree<'id>(
             builder.type_builder.add_field_type::<i_slint_core::properties::AnimationHandle>()
         })
         .collect();
+    let animation_target_trackers = component
+        .animations
+        .borrow()
+        .iter()
+        .map(|_| {
+            (
+                builder.type_builder.add_field_type::<ChangeTracker>(),
+                builder.type_builder.add_field_type::<std::cell::RefCell<Value>>(),
+            )
+        })
+        .collect();
 
     // only the public exported component needs the public property list
     let public_properties = if component.parent_element().is_none() {
@@ -1433,6 +1451,7 @@ pub(crate) fn generate_item_tree<'id>(
         change_trackers,
         timers,
         animations,
+        animation_target_trackers,
         popup_ids: std::cell::RefCell::new(HashMap::new()),
         popup_menu_description: builder.popup_menu_description,
         #[cfg(feature = "internal-highlight")]
@@ -2140,6 +2159,7 @@ impl ErasedItemTreeBox {
         }
         update_timers(instance_ref);
         update_animations(instance_ref);
+        init_animation_target_trackers(instance_ref);
     }
 }
 impl<'id> From<ItemTreeBox<'id>> for ErasedItemTreeBox {
@@ -2984,8 +3004,9 @@ pub fn update_timers(instance: InstanceRef) {
 
 fn build_tween(
     instance: InstanceRef,
+    idx: usize,
     desc: &object_tree::Animation,
-) -> Box<dyn i_slint_core::properties::Animation> {
+) -> (Box<dyn i_slint_core::properties::Animation>, Value) {
     let target = desc.target.as_ref().expect("TweenAnimation requires a target");
     let current =
         || eval::load_property(instance, &target.element(), target.name()).unwrap();
@@ -2999,6 +3020,20 @@ fn build_tween(
         .as_ref()
         .map(|t| eval::load_property(instance, &t.element(), t.name()).unwrap())
         .unwrap_or_else(current);
+    build_tween_with(instance, idx, desc, from, to)
+}
+
+/// Like [`build_tween`], but with explicit `from`/`to` values rather than reading the
+/// animation's own (possibly unset) `from`/`to` bindings. Used to animate from the target's
+/// pre-change value towards its newly-assigned one, when neither `from` nor `to` is fixed.
+fn build_tween_with(
+    instance: InstanceRef,
+    idx: usize,
+    desc: &object_tree::Animation,
+    from: Value,
+    to: Value,
+) -> (Box<dyn i_slint_core::properties::Animation>, Value) {
+    let target = desc.target.as_ref().expect("TweenAnimation requires a target");
     let duration: i64 = desc
         .duration
         .as_ref()
@@ -3037,11 +3072,18 @@ fn build_tween(
 
     let target_ref = target.clone();
     let self_weak_value = instance.self_weak().get().unwrap().clone();
+    // The target-change tracker (see `init_animation_target_trackers`) needs to tell the
+    // tween's own per-frame writes to `target` apart from a genuine external assignment
+    // (e.g. `rect.x = 100px;`). It does so by comparing the freshly observed value against
+    // this cache, which every write to `target` -- whether from the tween ticking here or
+    // from outside -- keeps up to date.
     let set_value = move |value: Value| {
         if let Some(instance) = self_weak_value.upgrade() {
             generativity::make_guard!(guard);
             let c = instance.unerase(guard);
             let instance_ref = c.borrow_instance();
+            let cache_offset = instance_ref.description.animation_target_trackers[idx].1;
+            *cache_offset.apply(instance_ref.as_ref()).borrow_mut() = value.clone();
             eval::store_property(instance_ref, &target_ref.element(), target_ref.name(), value)
                 .unwrap();
         }
@@ -3064,19 +3106,24 @@ fn build_tween(
         }
     };
 
-    Box::new(i_slint_core::properties::TweenAnimation::new_with_callbacks(
-        from, to, details, set_value, on_finished,
-    ))
+    let from_value = from.clone();
+    (
+        Box::new(i_slint_core::properties::TweenAnimation::new_with_callbacks(
+            from, to, details, set_value, on_finished,
+        )),
+        from_value,
+    )
 }
 
 pub fn update_animations(instance: InstanceRef) {
     let anims = instance.description.original.animations.borrow();
-    for (desc, offset) in anims.iter().zip(&instance.description.animations) {
+    for (idx, (desc, offset)) in anims.iter().zip(&instance.description.animations).enumerate() {
         let handle = offset.apply(instance.as_ref());
         let running =
             eval::load_property(instance, &desc.running.element(), desc.running.name()).unwrap();
         if matches!(running, Value::Bool(true)) {
-            handle.start(build_tween(instance, desc));
+            let (tween, _from) = build_tween(instance, idx, desc);
+            handle.start(tween);
         } else {
             handle.stop();
         }
@@ -3085,13 +3132,118 @@ pub fn update_animations(instance: InstanceRef) {
 
 pub fn restart_animation(element: ElementWeak, instance: InstanceRef) {
     let anims = instance.description.original.animations.borrow();
-    if let Some((desc, offset)) = anims
+    if let Some((idx, (desc, offset))) = anims
         .iter()
         .zip(&instance.description.animations)
-        .find(|(desc, _)| Weak::ptr_eq(&desc.element, &element))
+        .enumerate()
+        .find(|(_, (desc, _))| Weak::ptr_eq(&desc.element, &element))
     {
-        let tween = build_tween(instance, desc);
+        let (tween, from) = build_tween(instance, idx, desc);
+        let target = desc.target.as_ref().expect("TweenAnimation requires a target");
+        // `restart()` bypasses the `running = true/false` lowering that `start()`/`stop()`
+        // calls get, so reflect it into the Slint-visible `running` property here -- otherwise
+        // `anim.running` would keep reading `false` (from a preceding `stop()`) until the next
+        // tick.
+        eval::store_property(
+            instance,
+            &desc.running.element(),
+            desc.running.name(),
+            Value::Bool(true),
+        )
+        .unwrap();
         offset.apply(instance.as_ref()).restart(tween);
+        // Restarting must make the target property read back as `from` immediately,
+        // without waiting for the next driver tick (unlike a fresh `start()`, which only
+        // ever runs from the target's current value, so there's nothing new to push).
+        eval::store_property(instance, &target.element(), target.name(), from.clone()).unwrap();
+        let cache_offset = instance.description.animation_target_trackers[idx].1;
+        *cache_offset.apply(instance.as_ref()).borrow_mut() = from;
+    }
+}
+
+/// Restart (or start) a tween whose `target` property was just assigned directly (rather than
+/// via the tween's own frame updates, or via an explicit `anim.start()`/`anim.restart()` call).
+/// Mirrors the rust/cpp generators' handling in their `update_animations`/target-change-tracker
+/// code.
+fn on_target_changed(
+    instance: InstanceRef,
+    idx: usize,
+    desc: &object_tree::Animation,
+    old_value: Value,
+    new_value: Value,
+) {
+    if desc.to.is_some() {
+        // `to` is fixed, so the animation's endpoints don't depend on the changed value at
+        // all -- treat the assignment purely as a trigger to (re-)start the loop, same as
+        // calling `.start()` (a no-op if already running).
+        eval::store_property(
+            instance,
+            &desc.running.element(),
+            desc.running.name(),
+            Value::Bool(true),
+        )
+        .unwrap();
+        let handle = instance.description.animations[idx].apply(instance.as_ref());
+        let (tween, _from) = build_tween(instance, idx, desc);
+        handle.start(tween);
+    } else if desc.from.is_some() {
+        // `from` is fixed, so the existing restart logic (from = declared `from`, to =
+        // target's current, already-updated value) is already correct.
+        restart_animation(desc.element.clone(), instance);
+    } else {
+        // No `from`/`to`: animate from the value `target` held right before this change,
+        // towards the newly-assigned value.
+        eval::store_property(
+            instance,
+            &desc.running.element(),
+            desc.running.name(),
+            Value::Bool(true),
+        )
+        .unwrap();
+        let handle = instance.description.animations[idx].apply(instance.as_ref());
+        let (tween, _from) = build_tween_with(instance, idx, desc, old_value, new_value);
+        handle.restart(tween);
+    }
+}
+
+/// Initialize, for every animation, a change tracker on its `target` property that restarts
+/// the animation when `target` is assigned directly. Mirrors the rust/cpp generators'
+/// `anim_target_tracker*` initialization.
+pub fn init_animation_target_trackers(instance: InstanceRef) {
+    let anims = instance.description.original.animations.borrow();
+    let self_weak = instance.self_weak().get().unwrap().clone();
+    for (idx, desc) in anims.iter().enumerate() {
+        let target = desc.target.as_ref().expect("TweenAnimation requires a target");
+        let initial = eval::load_property(instance, &target.element(), target.name()).unwrap();
+        let cache_offset = instance.description.animation_target_trackers[idx].1;
+        *cache_offset.apply(instance.as_ref()).borrow_mut() = initial;
+
+        let eval_target_ref = target.clone();
+        let desc = desc.clone();
+        let tracker_offset = instance.description.animation_target_trackers[idx].0;
+        tracker_offset.apply(instance.as_ref()).init(
+            self_weak.clone(),
+            move |self_weak| {
+                let Some(instance) = self_weak.upgrade() else { return Value::default() };
+                generativity::make_guard!(guard);
+                let c = instance.unerase(guard);
+                let instance_ref = c.borrow_instance();
+                eval::load_property(instance_ref, &eval_target_ref.element(), eval_target_ref.name())
+                    .unwrap()
+            },
+            move |self_weak, new_value| {
+                let Some(instance) = self_weak.upgrade() else { return };
+                generativity::make_guard!(guard);
+                let c = instance.unerase(guard);
+                let instance_ref = c.borrow_instance();
+                let cache_offset = instance_ref.description.animation_target_trackers[idx].1;
+                let old_value =
+                    cache_offset.apply(instance_ref.as_ref()).replace(new_value.clone());
+                if old_value != *new_value {
+                    on_target_changed(instance_ref, idx, &desc, old_value, new_value.clone());
+                }
+            },
+        );
     }
 }
 
