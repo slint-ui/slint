@@ -204,78 +204,6 @@ pub unsafe extern "C" fn slint_property_drop(handle: *mut PropertyHandleOpaque) 
     }
 }
 
-fn c_set_animated_value<T: InterpolatedPropertyValue + Clone>(
-    handle: &PropertyHandleOpaque,
-    from: T,
-    to: T,
-    animation_data: &PropertyAnimation,
-) {
-    let d = RefCell::new(properties_animations::TweenAnimation::new(
-        from,
-        to,
-        animation_data.clone(),
-    ));
-    // Safety: The BindingCallable is for type T
-    unsafe {
-        handle.0.set_binding(move |val: &mut T| {
-            let (value, finished) = d.borrow_mut().compute_interpolated_value();
-            *val = value;
-            if finished {
-                BindingResult::RemoveBinding
-            } else {
-                crate::animations::CURRENT_ANIMATION_DRIVER
-                    .with(|driver| driver.set_has_active_animations());
-                BindingResult::KeepBinding
-            }
-        })
-    };
-    handle.0.mark_dirty();
-}
-
-/// Internal function to set up a property animation to the specified target value for an integer property.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_property_set_animated_value_int(
-    handle: &PropertyHandleOpaque,
-    from: i32,
-    to: i32,
-    animation_data: &PropertyAnimation,
-) {
-    c_set_animated_value(handle, from, to, animation_data)
-}
-
-/// Internal function to set up a property animation to the specified target value for a float property.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_property_set_animated_value_float(
-    handle: &PropertyHandleOpaque,
-    from: f32,
-    to: f32,
-    animation_data: &PropertyAnimation,
-) {
-    c_set_animated_value(handle, from, to, animation_data)
-}
-
-/// Internal function to set up a property animation to the specified target value for a color property.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_property_set_animated_value_color(
-    handle: &PropertyHandleOpaque,
-    from: Color,
-    to: Color,
-    animation_data: &PropertyAnimation,
-) {
-    c_set_animated_value(handle, from, to, animation_data);
-}
-
-/// Internal function to set up a property animation to the specified target value for a brush property.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_property_set_animated_value_brush(
-    handle: &PropertyHandleOpaque,
-    from: &Brush,
-    to: &Brush,
-    animation_data: &PropertyAnimation,
-) {
-    c_set_animated_value(handle, from.clone(), to.clone(), animation_data);
-}
-
 /// Reconstruct a `&Property<T>` from the C ABI handle pointer.
 ///
 /// Safety/layout: `PropertyHandleOpaque` is `#[repr(C)]` around `PropertyHandle`, and both the Rust
@@ -289,11 +217,10 @@ fn property_from_handle<T>(handle: &PropertyHandleOpaque) -> &Property<T> {
     unsafe { &*(handle as *const PropertyHandleOpaque as *const Property<T>) }
 }
 
-/// Object-backend counterpart to [`c_set_animated_value`]: routes the imperative animated
-/// assignment through `Property::set_animated_value_object` (the consolidated registry backend)
-/// instead of installing a legacy lazy/pull tween binding. The `from` value is not needed here: the
-/// object backend captures the property's current cell value (which is the same memory the C++ side
-/// passed as `from`) as the animation's start value.
+/// Routes an imperative animated assignment from C++ through
+/// `Property::set_animated_value_object` (the consolidated registry backend). No `from` value is
+/// needed: the object backend captures the property's current cell value (the same memory the C++
+/// side would have passed as `from`) as the animation's start value.
 fn c_set_animated_value_object<T: InterpolatedPropertyValue + Clone + 'static>(
     handle: &PropertyHandleOpaque,
     to: T,
@@ -346,133 +273,6 @@ pub unsafe extern "C" fn slint_property_set_animated_value_object_brush(
     c_set_animated_value_object(handle, to.clone(), animation_data);
 }
 
-unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
-    handle: &PropertyHandleOpaque,
-    binding: extern "C" fn(*mut c_void, *mut T),
-    user_data: *mut c_void,
-    drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    transition_data: extern "C" fn(
-        user_data: *mut c_void,
-        start_instant: &mut *mut u64,
-    ) -> PropertyAnimation,
-) {
-    unsafe {
-        let binding = core::mem::transmute::<
-            extern "C" fn(*mut c_void, *mut T),
-            extern "C" fn(*mut c_void, *mut c_void),
-        >(binding);
-        let original_binding = PropertyHandle {
-            handle: Cell::new(
-                (alloc_binding_holder(make_c_function_binding(
-                    binding,
-                    user_data,
-                    drop_user_data,
-                    None,
-                    None,
-                )) as *mut ())
-                    .map_addr(|a| a | 0b10),
-            ),
-        };
-        let animation_data = RefCell::new(properties_animations::TweenAnimation::new(
-            T::default(),
-            T::default(),
-            PropertyAnimation::default(),
-        ));
-
-        handle.0.set_binding(properties_animations::AnimatedBindingCallable::<T, _> {
-            original_binding,
-            state: Cell::new(properties_animations::AnimatedBindingState::NotAnimating),
-            animation_data,
-            compute_animation_details: move || -> properties_animations::AnimationDetail {
-                // The transition_data function receives a *mut *mut u64 pointer for the
-                // timestamp.
-                // If the function sets the pointer to nullptr, it doesn't provide a start_time.
-                // Otherwise, we assume it has written a value to the start_instant.
-                // This basically models a `&mut Option<u64>`, which is then converted to an
-                // `Option<Instant>`
-                let mut start_instant = 0u64;
-                let mut start_instant_ref = &mut start_instant as *mut u64;
-                let anim = transition_data(user_data, &mut start_instant_ref);
-                let start_instant = if start_instant_ref.is_null() {
-                    None
-                } else {
-                    Some(crate::animations::Instant(start_instant))
-                };
-                (anim, start_instant)
-            },
-        });
-        handle.0.mark_dirty();
-    }
-}
-
-/// Internal function to set up a property animation between values produced by the specified binding for an integer property.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_property_set_animated_binding_int(
-    handle: &PropertyHandleOpaque,
-    binding: extern "C" fn(*mut c_void, *mut core::ffi::c_int),
-    user_data: *mut c_void,
-    drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    transition_data: extern "C" fn(
-        user_data: *mut c_void,
-        start_instant: &mut *mut u64,
-    ) -> PropertyAnimation,
-) {
-    unsafe {
-        c_set_animated_binding(handle, binding, user_data, drop_user_data, transition_data);
-    }
-}
-
-/// Internal function to set up a property animation between values produced by the specified binding for a float property.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_property_set_animated_binding_float(
-    handle: &PropertyHandleOpaque,
-    binding: extern "C" fn(*mut c_void, *mut f32),
-    user_data: *mut c_void,
-    drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    transition_data: extern "C" fn(
-        user_data: *mut c_void,
-        start_instant: &mut *mut u64,
-    ) -> PropertyAnimation,
-) {
-    unsafe {
-        c_set_animated_binding(handle, binding, user_data, drop_user_data, transition_data);
-    }
-}
-
-/// Internal function to set up a property animation between values produced by the specified binding for a color property.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_property_set_animated_binding_color(
-    handle: &PropertyHandleOpaque,
-    binding: extern "C" fn(*mut c_void, *mut Color),
-    user_data: *mut c_void,
-    drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    transition_data: extern "C" fn(
-        user_data: *mut c_void,
-        start_instant: &mut *mut u64,
-    ) -> PropertyAnimation,
-) {
-    unsafe {
-        c_set_animated_binding(handle, binding, user_data, drop_user_data, transition_data);
-    }
-}
-
-/// Internal function to set up a property animation between values produced by the specified binding for a brush property.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_property_set_animated_binding_brush(
-    handle: &PropertyHandleOpaque,
-    binding: extern "C" fn(*mut c_void, *mut Brush),
-    user_data: *mut c_void,
-    drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    transition_data: extern "C" fn(
-        user_data: *mut c_void,
-        start_instant: &mut *mut u64,
-    ) -> PropertyAnimation,
-) {
-    unsafe {
-        c_set_animated_binding(handle, binding, user_data, drop_user_data, transition_data);
-    }
-}
-
 /// A [`Binding`] that produces its value by calling a C function into a scratch `T`.
 ///
 /// Owns `user_data` and frees it on drop via `drop_user_data`, mirroring the ownership the legacy
@@ -500,9 +300,8 @@ impl<T: Clone> Binding<T> for CAnimatedBinding<T> {
     }
 }
 
-/// Object-backend counterpart to [`c_set_animated_binding`]: routes `animate x` bindings and state
-/// transitions through `Property::set_animated_binding_object` (the consolidated registry backend)
-/// instead of the legacy lazy/pull `AnimatedBindingCallable`.
+/// Routes `animate x` bindings and state transitions from C++ through
+/// `Property::set_animated_binding_object` (the consolidated registry backend).
 unsafe fn c_set_animated_binding_object<T: InterpolatedPropertyValue + Clone + 'static>(
     handle: &PropertyHandleOpaque,
     binding: extern "C" fn(*mut c_void, *mut T),

@@ -64,31 +64,8 @@ pub fn set_property_binding<
     })
 }
 
-pub fn set_animated_property_binding<
-    T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
-    StrongRef: StrongItemTreeRef + 'static,
->(
-    property: Pin<&Property<T>>,
-    component_strong: &StrongRef,
-    binding: fn(StrongRef) -> T,
-    compute_animation_details: fn(
-        StrongRef,
-    )
-        -> (PropertyAnimation, Option<i_slint_core::animations::Instant>),
-) {
-    let weak_1 = component_strong.to_weak();
-    let weak_2 = weak_1.clone();
-    property.set_animated_binding(
-        move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak_1).unwrap()),
-        move || {
-            compute_animation_details(<StrongRef as StrongItemTreeRef>::from_weak(&weak_2).unwrap())
-        },
-    )
-}
-
-/// Object-backed counterpart to [`set_animated_property_binding`]: routes the animation through
-/// the consolidated `TweenAnimation`/registry backend (`Property::set_animated_binding_object`)
-/// rather than the legacy lazily-pulled binding. Same signature and semantics.
+/// Installs an animated binding routed through the consolidated `TweenAnimation`/registry backend
+/// (`Property::set_animated_binding_object`), driven each frame by `update_animation_objects()`.
 pub fn set_animated_property_binding_object<
     T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
     StrongRef: StrongItemTreeRef + 'static,

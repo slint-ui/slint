@@ -298,7 +298,7 @@ type DependencyNode = dependency_tracker::DependencyNode<*const BindingHolder>;
 
 use alloc::boxed::Box;
 use core::cell::{Cell, UnsafeCell};
-#[cfg(any(slint_debug_property, feature = "ffi"))]
+#[cfg(slint_debug_property)]
 use core::cell::RefCell;
 use core::ffi::c_void;
 use core::marker::PhantomPinned;

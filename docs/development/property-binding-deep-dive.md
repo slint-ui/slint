@@ -251,20 +251,29 @@ ChangeTracker::run_change_handlers();
 Animated properties use special bindings:
 
 ```rust
-pub struct AnimatedBindingCallable<T, A> {
-    original_binding: PropertyHandle,  // The underlying binding
-    state: Cell<AnimatedBindingState>, // Animating/NotAnimating/ShouldStart
-    animation_data: RefCell<PropertyValueAnimationData<T>>,
-    compute_animation_details: A,      // Returns animation parameters
+pub struct AnimatedBindingObjectCallable<T, A> {
+    original_binding: PropertyHandle,       // The underlying binding
+    state: Cell<AnimatedBindingState>,      // Animating/NotAnimating/ShouldStart
+    compute_animation_details: A,           // Returns animation parameters
+    trigger_time: Cell<Option<Instant>>,
+    generation: Rc<Cell<u64>>,
+    handle: AnimationHandle,                // Registers a TweenAnimation in CURRENT_ANIMATIONS
+    target: *const Property<T>,
 }
 ```
 
 **Animation flow:**
 1. When the underlying binding changes, `mark_dirty` sets state to `ShouldStart`
-2. On next `evaluate`, animation begins from current value to new binding value
-3. Animation driver calls `update_animations()` to advance time
-4. Each evaluation interpolates between from/to values
-5. When finished, state returns to `NotAnimating`
+2. On next `evaluate`, a `TweenAnimation` is registered via `handle` in the shared
+   `CURRENT_ANIMATIONS` registry, animating from the current value to the new binding value
+3. Animation driver calls `update_animation_objects()` each frame to advance every registered
+   animation object
+4. Each tick interpolates between from/to values and pushes the result into the target property
+5. When finished, the animation deregisters itself and state returns to `NotAnimating`
+
+`Property::set_animated_value_object` and `Property::set_animated_binding_object` are the two
+entry points that install this callable — used for imperative animated assignments and bound
+animations/state transitions respectively.
 
 ## Constant Properties
 
