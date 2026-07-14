@@ -17,6 +17,20 @@
     overflow: auto;
 }
 
+/* Dark brand chrome for the editor and preview panes */
+.content.editor,
+.content.preview {
+    background: var(--brand-code-bg);
+    border-color: var(--brand-line);
+    color: var(--brand-text);
+    box-shadow: none;
+}
+
+.content.editor > div,
+.content.preview > div {
+    border-color: var(--brand-line);
+}
+
 .content input {
     margin: 8px;
 }
