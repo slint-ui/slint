@@ -26,11 +26,13 @@
           <path d="M24.15.76 1.04 16.88S0 17.48 0 18.43c0 1.27 1.32 1.68 1.32 1.68l12.71 5.07c.46.17 1.08-.33.5-.97l-4.21-4.25s-1.17-1.16-1.17-1.92c0-.76.72-1.43.72-1.43L25.17 1.73c.56-.53-.18-1.49-1.02-.97Z" />
         </svg>
       </div>
-      <div class="loader-tagline">
-        Build the UI once.<br />Run it <span class="loader-grad">on everything.</span>
+      <div class="loader-strip">
+        <progress class="loader-progress" id="loader-progress"></progress>
+        <label class="loader-message" id="loader-message" for="loader-progress">Loading…</label>
       </div>
-      <label class="loader-message" id="loader-message" for="loader-progress">Loading…</label>
-      <progress class="loader-progress" id="loader-progress"></progress>
+      <p class="loader-tagline">
+        Build the UI once. Run it <span class="loader-grad">on everything.</span>
+      </p>
     </div>
   </div>
 </body>

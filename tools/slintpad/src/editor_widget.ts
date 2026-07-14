@@ -8,6 +8,7 @@ import * as monaco from "monaco-editor";
 import { slint_language } from "./highlighting";
 import type { Lsp } from "./lsp";
 import * as github from "./github";
+import type { Template } from "./welcome";
 
 import { BoxLayout, TabPanel, Widget } from "@lumino/widgets";
 import type { Message as LuminoMessage } from "@lumino/messaging";
@@ -38,7 +39,7 @@ let EDITOR_WIDGET: EditorWidget | null = null;
 const FILESYSTEM_PROVIDER: RegisteredFileSystemProvider =
     new RegisteredFileSystemProvider(false);
 
-export const SLINT_DARK_THEME = "slint-dark";
+const SLINT_DARK_THEME = "slint-dark";
 
 // A dark editor theme that matches the slint.dev brand syntax palette.
 // Token names correspond to the Monarch grammar in `highlighting.ts`.
@@ -463,8 +464,25 @@ export class EditorWidget extends Widget {
             void this.project_from_url(load_url);
         } else if (load_demo) {
             void this.set_demo(load_demo);
-        } else if (!this.restore_from_history_state()) {
-            void this.set_demo("");
+        } else {
+            // On reload, restore the previous project. On a true first run this
+            // does nothing and the editor stays empty: the startup screen
+            // (index.ts) offers starter templates and applies the chosen one
+            // through apply_template().
+            this.restore_from_history_state();
+        }
+    }
+
+    // Load a starter template chosen on the first-run startup screen.
+    public apply_template(template: Template) {
+        if (template.demo) {
+            void this.set_demo(template.demo);
+        } else {
+            this.clear_editors();
+            this.open_file_with_content(
+                internal_file_uri("/main.slint"),
+                template.code ?? "",
+            );
         }
     }
 

@@ -93,7 +93,6 @@ body {
     font-family: var(--brand-sans);
     overflow: hidden;
 }
-
 /* Soft radial glows, composited cheaply (no blur filter) */
 .loader-glow {
     position: absolute;
@@ -144,13 +143,15 @@ body {
     height: 38px;
 }
 
+/* Brand tagline: the muted line under the loading strip, shared by the plain
+   loader and the welcome so the order (loading, then tagline) is uniform. */
 .loader-tagline {
+    margin: 0;
     font-family: var(--brand-display);
-    font-weight: 800;
-    font-size: 20px;
-    line-height: 1.25;
-    letter-spacing: -0.02em;
-    color: var(--brand-text);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+    color: var(--brand-muted);
     text-align: center;
 }
 
@@ -161,12 +162,40 @@ body {
     color: transparent;
 }
 
+/* Welcome hero, shown only in first-run mode above the cards. */
+.loader-title {
+    margin: 14px 0 0;
+    font-family: var(--brand-display);
+    font-weight: 800;
+    font-size: 26px;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--brand-text);
+    text-align: center;
+}
+
+/* Loading strip: progress bar and status side by side, above the tagline. */
+.loader-strip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 460px;
+    transition: opacity 0.4s ease;
+}
+
+.loader-strip .loader-progress {
+    flex: 1;
+}
+
 .loader-message {
     font-family: var(--brand-mono);
     font-size: 13px;
     color: var(--brand-muted);
     text-align: center;
     font-variant-numeric: tabular-nums;
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 .loader-progress {
@@ -228,5 +257,115 @@ body {
 @media (prefers-reduced-motion: reduce) {
     .loader-progress:indeterminate {
         animation: none;
+    }
+}
+
+/* First-run starter grid, embedded in the loader (see index.ts). */
+.welcome-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px;
+    margin-top: 32px;
+    text-align: left;
+}
+
+.welcome-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 18px;
+    border-radius: var(--brand-radius);
+    border: 1px solid var(--brand-line);
+    background: var(--brand-ink-2);
+    color: inherit;
+    font-family: var(--brand-sans);
+    cursor: pointer;
+    text-align: left;
+    transition:
+        transform 0.15s ease,
+        border-color 0.15s ease,
+        box-shadow 0.2s ease;
+}
+
+.welcome-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--brand-line-strong);
+    box-shadow: 0 14px 34px rgba(5, 10, 14, 0.5);
+}
+
+.welcome-card:focus-visible {
+    outline: 2px solid var(--color_focus_blue);
+    outline-offset: 2px;
+}
+
+.welcome-card-name {
+    font-family: var(--brand-display);
+    font-weight: 700;
+    font-size: 17px;
+}
+
+.welcome-card-desc {
+    color: var(--brand-muted);
+    font-size: 13.5px;
+    line-height: 1.4;
+}
+
+/* Unified startup screen: the loader reframed as the first-run welcome, with
+   the starter grid and a progress strip on one screen. */
+/* Taller welcome content must scroll rather than clip against the centered,
+   overflow-hidden loader. `safe center` keeps it centered when it fits and
+   pins it to the top (scrollable) when it does not. */
+.loader--welcome {
+    flex-direction: column;
+    justify-content: safe center;
+    overflow-y: auto;
+    padding: 32px 16px;
+}
+.loader--welcome .loader-content {
+    width: min(860px, 92vw);
+    gap: 10px;
+}
+.loader-subtitle {
+    margin: 0;
+    max-width: 460px;
+    color: var(--brand-muted);
+    font-size: 14px;
+    text-align: center;
+}
+.loader--welcome .welcome-grid {
+    width: 100%;
+    margin-top: 18px;
+}
+/* When ready with no pick, keep the completed strip in place (so the layout
+   does not jump) but let it recede so it stops drawing attention. */
+.loader--welcome.loader--ready .loader-strip {
+    opacity: 0.4;
+}
+/* A starter chosen before the runtime is ready: highlight it, dim the rest,
+   and spin a small indicator until it loads. */
+.loader--committed .welcome-card:not(.welcome-card--queued) {
+    opacity: 0.45;
+}
+.welcome-card--queued {
+    position: relative;
+    border-color: var(--brand-line-strong);
+    outline: 2px solid var(--color_focus_blue);
+    outline-offset: 2px;
+}
+.welcome-card--queued::after {
+    content: "";
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--brand-line-strong);
+    border-top-color: #4f9bff;
+    animation: welcome-card-spin 0.7s linear infinite;
+}
+@keyframes welcome-card-spin {
+    to {
+        transform: rotate(360deg);
     }
 }
