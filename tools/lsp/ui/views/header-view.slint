@@ -5,7 +5,7 @@ import { Button, HorizontalBox, Switch, Palette, ComboBox } from "std-widgets.sl
 import { BodyText } from "../components/body-text.slint";
 import { HeaderText } from "../components/header-text.slint";
 import { Api, ComponentItem, PreviewMode } from "../api.slint";
-import { EditorSpaceSettings, Icons, ConsoleStyles } from "../components/styling.slint";
+import { EditorSpaceSettings, Icons, ConsoleStyles, Brand } from "../components/styling.slint";
 
 
 export component HeaderView {
@@ -27,7 +27,7 @@ export component HeaderView {
     }
 
     background-layer := Rectangle {
-        background: Palette.alternate-background;
+        background: Api.runs-in-slintpad ? Brand.surface : Palette.alternate-background;
 
         content-layer := HorizontalBox {
             horizontal-stretch: 1;
@@ -159,7 +159,7 @@ export component HeaderView {
             y: parent.height - self.height;
             height: 1px;
 
-            background: Palette.border;
+            background: Api.runs-in-slintpad ? Brand.line : Palette.border;
         }
     }
 }

@@ -7,7 +7,7 @@ import { Button, TabWidget, Palette, Switch, ScrollView} from "std-widgets.slint
 import { Api, ComponentItem, DiagnosticSummary, PreviewMode, RemoteConnectionState } from "api.slint";
 
 import { EditorUi } from "./editor.slint";
-import { EditorSizeSettings, EditorSpaceSettings, Icons, PickerStyles, ConsoleStyles } from "./components/styling.slint";
+import { EditorSizeSettings, EditorSpaceSettings, Icons, PickerStyles, ConsoleStyles, Brand } from "./components/styling.slint";
 import { StatusLine } from "./components/status-line.slint";
 import { HeaderView } from "./views/header-view.slint";
 import { LibraryView } from "./views/library-view.slint";
@@ -52,7 +52,12 @@ export component PreviewUi inherits Window {
     title: @tr("Slint Live-Preview");
     icon: @image-url("assets/slint-logo-small-light.png");
     always-on-top <=> Api.always-on-top;
+    // Brand the chrome with the dark slint.dev look, matching the editor.
+    background: Api.runs-in-slintpad ? Brand.ink : Palette.background;
     init => {
+        if Api.runs-in-slintpad {
+            Palette.color-scheme = ColorScheme.dark;
+        }
         WindowGlobal.window-width = self.width;
         WindowGlobal.window-height = self.height;
         initial-floating-x = (self.width - PickerStyles.picker-width - 350px).max(0);
@@ -302,7 +307,7 @@ export component PreviewUi inherits Window {
                         right-panel-border := Rectangle {
                             x: 0px;
                             width: 2px;
-                            background: Palette.border;
+                            background: Api.runs-in-slintpad ? Brand.line : Palette.border;
                         }
 
                         property <float> ratio1: 0.5;
