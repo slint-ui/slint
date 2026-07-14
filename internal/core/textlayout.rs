@@ -73,6 +73,7 @@ impl<Font: AbstractFont> TextLayout<'_, Font> {
         text: &str,
         max_width: Option<Font::Length>,
         text_wrap: TextWrap,
+        max_lines: Option<usize>,
     ) -> (Font::Length, Font::Length)
     where
         Font::Length: core::fmt::Debug,
@@ -81,7 +82,9 @@ impl<Font: AbstractFont> TextLayout<'_, Font> {
         let mut line_count: i16 = 0;
         let shape_buffer = ShapeBuffer::new(self, text);
 
-        for line in TextLineBreaker::<Font>::new(text, &shape_buffer, max_width, None, text_wrap) {
+        for line in
+            TextLineBreaker::<Font>::new(text, &shape_buffer, max_width, max_lines, text_wrap)
+        {
             max_line_width = euclid::approxord::max(max_line_width, line.text_width);
             line_count += 1;
         }
@@ -181,13 +184,17 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
         };
 
         let mut y = baseline_y;
+        let mut line_index = 0usize;
 
         let mut process_line = |line: &TextLine<Font::Length>, glyphs: &[Glyph<Font::Length>]| {
             let elide_long_line =
                 elide && (self.single_line || !wrap) && line.text_width > self.max_width;
+            // The last line before the line limit carries the ellipsis just like the last line
+            // that fits the height, so `max-lines` truncation is signalled the same way.
+            let reached_line_limit = max_lines.is_some_and(|max_lines| line_index + 1 == max_lines);
             let elide_last_line = elide
                 && line.glyph_range.end < glyphs.len()
-                && y + self.layout.font.height() * two > self.max_height;
+                && (y + self.layout.font.height() * two > self.max_height || reached_line_limit);
 
             // On a vertically truncated line the ellipsis is anchored right after the text by
             // ignoring trailing whitespace, so it reads "please…" rather than "please   …". The
@@ -319,6 +326,7 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
                 return core::ops::ControlFlow::Break(break_val);
             }
             y += self.layout.font.height();
+            line_index += 1;
 
             core::ops::ControlFlow::Continue(())
         };
@@ -719,6 +727,88 @@ fn test_max_lines_limits_visible_lines() {
         })
         .collect::<Vec<_>>();
     debug_assert_eq!(rendered_text, std::vec!["Hello", "World"]);
+}
+
+#[cfg(test)]
+fn render_lines(paragraph: &TextParagraphLayout<'_, FixedTestFont>) -> Vec<std::string::String> {
+    let mut lines = Vec::new();
+    paragraph
+        .layout_lines::<()>(
+            |glyphs, _, _, _, _| {
+                lines.push(
+                    glyphs
+                        .flat_map(|positioned_glyph| {
+                            core::char::decode_utf16(core::iter::once(
+                                positioned_glyph.glyph_id.get(),
+                            ))
+                            .map(|r| r.unwrap())
+                            .collect::<Vec<char>>()
+                        })
+                        .collect::<std::string::String>(),
+                );
+                core::ops::ControlFlow::Continue(())
+            },
+            None,
+        )
+        .unwrap();
+    lines
+}
+
+#[test]
+fn test_max_lines_with_word_wrap() {
+    let font = FixedTestFont;
+    // Wraps to one word per line at 60px; the line limit counts the wrapped lines.
+    let text = "Hello World Again";
+
+    let paragraph = TextParagraphLayout {
+        string: text,
+        layout: TextLayout { font: &font, letter_spacing: None },
+        max_width: 6. * 10.,
+        max_height: 100.,
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::WordWrap,
+        overflow: TextOverflow::Clip,
+        single_line: false,
+        max_lines: Some(2),
+    };
+    assert_eq!(render_lines(&paragraph), std::vec!["Hello ", "World "]);
+}
+
+#[test]
+fn test_max_lines_elide_marks_cut_line() {
+    let font = FixedTestFont;
+    let text = "Hello\nWorld\nAgain";
+
+    // The box is tall enough for all three lines, but the line limit cuts after the second:
+    // with `overflow: elide` the ellipsis goes on the last kept line.
+    let paragraph = TextParagraphLayout {
+        string: text,
+        layout: TextLayout { font: &font, letter_spacing: None },
+        max_width: 100. * 10.,
+        max_height: 100.,
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::NoWrap,
+        overflow: TextOverflow::Elide,
+        single_line: false,
+        max_lines: Some(2),
+    };
+    assert_eq!(render_lines(&paragraph), std::vec!["Hello", "World…"]);
+}
+
+#[test]
+fn test_text_size_with_max_lines() {
+    let font = FixedTestFont;
+    let layout = TextLayout { font: &font, letter_spacing: None };
+    let text = "On\nFour\nLonger";
+
+    let (width, height) = layout.text_size(text, None, TextWrap::NoWrap, None);
+    assert_eq!((width, height), (6. * 10., 3. * 10.));
+
+    // With a line limit, both the height and the longest-line width only cover the kept lines.
+    let (width, height) = layout.text_size(text, None, TextWrap::NoWrap, Some(2));
+    assert_eq!((width, height), (4. * 10., 2. * 10.));
 }
 
 #[test]

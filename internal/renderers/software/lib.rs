@@ -849,6 +849,7 @@ impl RendererSealed for SoftwareRenderer {
                     &string,
                     max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
                     text_wrap,
+                    max_lines,
                 )
             }
             fonts::Font::PixelFont(pf) => {
@@ -857,18 +858,11 @@ impl RendererSealed for SoftwareRenderer {
                     &string,
                     max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
                     text_wrap,
+                    max_lines,
                 )
             }
         };
-        let mut size: LogicalSize =
-            (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast();
-        if let Some(max_lines) = max_lines {
-            let font_metrics = self.font_metrics(font_request);
-            let max_lines_coord: i_slint_core::Coord = NumCast::from(max_lines).unwrap_or_default();
-            let max_height = (font_metrics.ascent - font_metrics.descent) * max_lines_coord;
-            size.height = size.height.min(max_height);
-        }
-        size
+        (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
     }
 
     fn char_size(
@@ -907,7 +901,7 @@ impl RendererSealed for SoftwareRenderer {
                 let mut buf = [0u8, 0u8, 0u8, 0u8];
                 let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
                 let (longest_line_width, height) =
-                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap);
+                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap, None);
                 (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
                     .cast()
             }
@@ -915,7 +909,7 @@ impl RendererSealed for SoftwareRenderer {
                 let mut buf = [0u8, 0u8, 0u8, 0u8];
                 let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
                 let (longest_line_width, height) =
-                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap);
+                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap, None);
                 (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
                     .cast()
             }

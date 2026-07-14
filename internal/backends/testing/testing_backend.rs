@@ -503,8 +503,13 @@ impl RendererSealed for TestingWindow {
                     i_slint_core::styled_text::get_raw_text(&s).into_owned()
                 }
             };
-            let max_line_len = text.lines().map(|l: &str| l.len()).max().unwrap_or(0);
-            let num_lines = text.lines().count().max(1);
+            let max_lines = usize::try_from(text_item.max_lines())
+                .ok()
+                .filter(|max_lines| *max_lines > 0)
+                .unwrap_or(usize::MAX);
+            let max_line_len =
+                text.lines().take(max_lines).map(|l: &str| l.len()).max().unwrap_or(0);
+            let num_lines = text.lines().take(max_lines).count().max(1);
             let width = max_line_len as f32 * pixel_size;
             let height = num_lines as f32 * pixel_size;
             LogicalSize::new(width, height)
