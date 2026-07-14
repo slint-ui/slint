@@ -1111,12 +1111,87 @@ pub fn init() -> Result<(), EventLoopError> {
 mod tests {
     use super::*;
 
+    #[derive(Clone, Default)]
+    struct StalledEventLoopProxy {
+        queued_events: Arc<std::sync::Mutex<Vec<Box<dyn FnOnce() + Send>>>>,
+    }
+
+    impl i_slint_core::platform::EventLoopProxy for StalledEventLoopProxy {
+        fn quit_event_loop(&self) -> Result<(), EventLoopError> {
+            Ok(())
+        }
+
+        fn invoke_from_event_loop(
+            &self,
+            event: Box<dyn FnOnce() + Send>,
+        ) -> Result<(), EventLoopError> {
+            // A host event loop may accept the callback after it has stopped draining its queue.
+            self.queued_events.lock().unwrap().push(event);
+            Ok(())
+        }
+    }
+
     fn block_on<F: std::future::Future>(f: F) -> F::Output {
         futures_lite::future::block_on(f)
     }
 
     fn make_state() -> IntrospectionState {
         IntrospectionState::new()
+    }
+
+    #[test]
+    fn test_stalled_event_loop_returns_error() {
+        let dispatcher = RequestDispatcher::with_timeout(
+            Box::new(StalledEventLoopProxy::default()),
+            Duration::from_millis(20),
+        );
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+
+        let server = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            handle_connection(&dispatcher, stream);
+        });
+
+        let body = r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"list_windows","arguments":{}}}"#;
+        let request = format!(
+            "POST /mcp HTTP/1.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        let mut client = std::net::TcpStream::connect(address).unwrap();
+        client.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        client.write_all(request.as_bytes()).unwrap();
+
+        let mut response = String::new();
+        client.read_to_string(&mut response).unwrap();
+        server.join().unwrap();
+
+        let (_, response_body) = response.split_once("\r\n\r\n").unwrap();
+        let response: Value = serde_json::from_str(response_body).unwrap();
+        assert_eq!(response["id"], 7);
+        assert_eq!(response["error"]["code"], -32603);
+        assert!(
+            response["error"]["message"].as_str().unwrap().contains("did not start processing")
+        );
+    }
+
+    #[test]
+    fn test_started_request_is_not_canceled_at_dispatch_deadline() {
+        let dispatcher = RequestDispatcher::with_timeout(
+            Box::new(StalledEventLoopProxy::default()),
+            Duration::from_millis(10),
+        );
+        let (started_sender, started_receiver) = mpsc::sync_channel(1);
+        let request_state = AtomicU8::new(REQUEST_STARTED);
+
+        let sender = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(30));
+            started_sender.send(Ok(())).unwrap();
+        });
+
+        let deadline = Instant::now() + dispatcher.dispatch_timeout;
+        dispatcher.wait_for_start(started_receiver, &request_state, deadline).unwrap();
+        sender.join().unwrap();
     }
 
     #[test]
