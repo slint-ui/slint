@@ -877,3 +877,39 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
     }
     Ok(())
 }
+
+/// Guards the invariant documented on `SlintServer` in `wasm_main.rs`: every
+/// exported `async` method must take `&self`, never `&mut self`. wasm-bindgen
+/// holds its borrow of the exported object for the whole lifetime of the
+/// returned future, so a `&mut self` async method that suspends at an `.await`
+/// keeps an exclusive borrow while the JS event loop dispatches the next LSP
+/// message — the next `SlintServer` call then panics with "recursive use of an
+/// object detected which would lead to unsafe aliasing in rust". This is a
+/// deterministic complement to the behavior regression test in
+/// `tools/slintpad/tests/demo-load.spec.ts`.
+// cSpell:ignore reentrancy
+#[cfg(test)]
+mod wasm_export_reentrancy {
+    // The wasm entry points live in a sibling file that is only compiled for
+    // wasm32; read it as text so this guard runs on the host under `cargo test`.
+    const WASM_MAIN: &str = include_str!("wasm_main.rs");
+
+    #[test]
+    fn no_exported_async_method_takes_mut_self() {
+        let offenders: Vec<&str> = WASM_MAIN
+            .lines()
+            .map(str::trim)
+            .filter(|line| line.contains("async fn") && line.contains("&mut self"))
+            .collect();
+
+        assert!(
+            offenders.is_empty(),
+            "wasm-bindgen-exported async methods must take `&self`, not `&mut self`: a \
+             `&mut self` receiver is held as an exclusive borrow across the future's \
+             `.await` points, so the LSP panics with \"recursive use of an object ... \
+             unsafe aliasing in rust\" when re-entered by the JS event loop. \
+             Offending line(s):\n{}",
+            offenders.join("\n"),
+        );
+    }
+}

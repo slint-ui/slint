@@ -236,6 +236,14 @@ pub struct SlintServer {
     /// but the document cache does not support concurrent access, so we serialize them.
     /// (So that a request being sent when we are await'ing for a file from the typeloader
     /// doesn't access the document cache)
+    ///
+    /// For this reason every exported `async` method below must take `&self`, never
+    /// `&mut self`: wasm-bindgen holds its borrow of the exported object for the whole
+    /// lifetime of the returned future, so a `&mut self` method that suspends at an
+    /// `.await` would keep an exclusive borrow while the JS event loop dispatches the
+    /// next message, and any other method call would then panic with "recursive use of
+    /// an object detected which would lead to unsafe aliasing in rust". Interior
+    /// mutability is handled through `ctx`'s async lock instead.
     ctx: ReentryGuard<Context>,
     rh: Rc<RequestHandler>,
 }
@@ -408,7 +416,7 @@ impl SlintServer {
     }
 
     #[wasm_bindgen]
-    pub async fn trigger_file_watcher(&mut self, url: JsValue, typ: JsValue) -> JsResult<JsValue> {
+    pub async fn trigger_file_watcher(&self, url: JsValue, typ: JsValue) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
         let url: Url = serde_wasm_bindgen::from_value(url)?;
         let typ: lsp_types::FileChangeType = serde_wasm_bindgen::from_value(typ)?;
@@ -454,7 +462,7 @@ impl SlintServer {
     }
 
     #[wasm_bindgen]
-    pub async fn close_document(&mut self, uri: JsValue) -> JsResult<JsValue> {
+    pub async fn close_document(&self, uri: JsValue) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
         language::close_document(&mut ctx, uri).await.map_err(|e| JsError::new(&e.to_string()))?;
