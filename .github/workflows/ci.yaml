@@ -532,6 +532,14 @@ jobs:
               run: |
                   . ${IDF_PATH}/export.sh
                   idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
+            - name: Build Home Automation demo (ESP32-P4)
+              # The demo requires ESP-IDF >= 5.4, so skip the v5.2 matrix entry
+              if: ${{ inputs.full && matrix.esp-idf-version != 'release-v5.2' }}
+              shell: bash
+              working-directory: demos/home-automation/esp-idf
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py build
 
     android:
         needs: files-changed
