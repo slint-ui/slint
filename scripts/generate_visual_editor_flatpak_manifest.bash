@@ -6,38 +6,49 @@ set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
 
-cd "${repo_root}/tools/lsp"
+required_commands=(jq ytt)
+missing_commands=()
+
+for required_command in "${required_commands[@]}"; do
+    if ! command -v "${required_command}" >/dev/null; then
+        missing_commands+=("${required_command}")
+    fi
+done
+
+if [ ${#missing_commands[@]} -ne 0 ]; then
+    echo "This script requires the following tools to be installed: ${missing_commands[@]}" >&2
+    exit 1
+fi
 
 version=$(
-    cargo metadata --offline --format-version 1 --no-deps |
+    cargo metadata --manifest-path tools/lsp/Cargo.toml --offline --format-version 1 --no-deps |
         jq -r 'first(.packages[] | select(.name == "slint-lsp") | .version)'
 )
 current_commit=$(git rev-parse --verify HEAD)
 
 CARGO_PROFILE="${CARGO_PROFILE:-dev}"
 
-cargo_profile_dir="${CARGO_PROFILE}"
-
-if [ "${cargo_profile_dir}" = dev ]; then
-    cargo_profile_dir=debug
-fi
-
-if [ -z "${FLATPAK_CARGO_GENERATOR_PATH:-}" ] && ! [ -f "${flatpak_cargo_generator}" ]; then
-    echo -e 'Please download flatpak-cargo-generator.py from github.com/flatpak/flatpak-builder-tools and set FLATPAK_CARGO_GENERATOR_PATH to point to it'
+if [ -z "${FLATPAK_CARGO_GENERATOR_PATH:-}" ] || ! [ -f "${FLATPAK_CARGO_GENERATOR_PATH}" ]; then
+    echo 'Please download flatpak-cargo-generator.py from github.com/flatpak/flatpak-builder-tools and set FLATPAK_CARGO_GENERATOR_PATH to point to it' >&2
     exit 1
 fi
 
-"${FLATPAK_CARGO_GENERATOR_PATH}" "${repo_root}/Cargo.lock" -o "${CARGO_SOURCES_PATH:-cargo-sources.json}"
+CARGO_SOURCES_PATH="${CARGO_SOURCES_PATH:-${repo_root}/tools/lsp/cargo-sources.json}"
 
-output_flatpak_manifest_path="${OUTPUT_FLATPAK_MANIFEST:-${PWD}/org.sixtyfps.SlintVisualEditor.yml}"
+python3 "${FLATPAK_CARGO_GENERATOR_PATH}" "${repo_root}/Cargo.lock" -o "${CARGO_SOURCES_PATH}"
 
-echo -e 'Generated flatpak manifest:'
-sed \
-    org.sixtyfps.SlintVisualEditor.template.yml \
-    -e 's/\$\$GIT_COMMIT\$\$/'${current_commit}'/g;
-        s:\$\$GIT_CHECKOUT_PATH\$\$:'${repo_root}':g;
-        s/\$\$CARGO_PROFILE\$\$/'${CARGO_PROFILE}'/g;
-        s/\$\$CARGO_PROFILE_DIR\$\$/'${cargo_profile_dir}'/g' \
+output_flatpak_manifest_path="${OUTPUT_FLATPAK_MANIFEST:-${repo_root}/tools/lsp/org.sixtyfps.SlintVisualEditor.yml}"
+
+relative_sources_path="$(python3 -c "import os.path; print(os.path.relpath('${CARGO_SOURCES_PATH}', '${repo_root}/tools/lsp'))")"
+
+echo 'Generated flatpak manifest:' >&2
+ytt \
+    -f tools/lsp/org.sixtyfps.SlintVisualEditor.template.yml \
+    -f tools/lsp/org.sixtyfps.SlintVisualEditor.schema.yml \
+    -v "git.commit=${current_commit}" \
+    -v "git.local=${repo_root}" \
+    -v "cargo.profile=${CARGO_PROFILE}" \
+    -v "cargo.sources=${relative_sources_path}" \
     | tee "${output_flatpak_manifest_path}" 1>&2
 
 echo -e

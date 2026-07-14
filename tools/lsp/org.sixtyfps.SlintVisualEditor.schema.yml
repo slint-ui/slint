@@ -1,0 +1,12 @@
+#@data/values-schema
+---
+git:
+  #@schema/nullable
+  local: ""
+  #@schema/nullable
+  remote: ""
+  #@schema/nullable
+  commit: ""
+cargo:
+  profile: "dev"
+  sources: cargo-sources.json
