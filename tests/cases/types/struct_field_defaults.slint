@@ -43,6 +43,15 @@ export component TestCase {
     out property <PlayerWithDefault> picked-early: pick-player(true);
     out property <PlayerWithDefault> picked-late: pick-player(false);
 
+    in property <bool> flag: true;
+    // Conditional with the same fields in both branches: the defaults apply to all
+    // missing fields
+    out property <PlayerWithDefault> cond-same: flag ? { name: "x" } : { name: "y" };
+    // A field that only one branch sets becomes part of the common type of the two
+    // branches, so the other branch gets that anonymous type's zero default (not the
+    // declared one). Fields absent from both branches take the declared defaults.
+    out property <PlayerWithDefault> cond-mixed: flag ? { name: "a" } : { name: "b", score: 1 };
+
     out property <bool> test:
         partial.name == "partial" && partial.score == 42 && partial.energy == 1
         && partial.alive && partial.tint == #00ff00 && partial.rank == Rank.gold
@@ -54,7 +63,11 @@ export component TestCase {
         && made.rank == Rank.gold && made.time == 2s && made.plain == 0
         && picked-early.name == "early" && picked-early.score == 42 && picked-early.alive
         && picked-late.name == "late" && picked-late.score == 1 && !picked-late.alive
-        && picked-late.energy == 1 && picked-late.rank == Rank.gold;
+        && picked-late.energy == 1 && picked-late.rank == Rank.gold
+        && cond-same.name == "x" && cond-same.score == 42 && cond-same.alive
+        && cond-same.rank == Rank.gold && cond-same.time == 2s
+        && cond-mixed.name == "a" && cond-mixed.score == 0
+        && cond-mixed.alive && cond-mixed.energy == 1 && cond-mixed.rank == Rank.gold;
 }
 
 /*
@@ -85,6 +98,15 @@ assert_eq!(nested.tags.row_data(1).unwrap(), slint::SharedString::from("b"));
 let custom = PlayerWithDefault { name: "custom".into(), ..Default::default() };
 assert_eq!(custom.name, "custom");
 assert_eq!(custom.score, 42);
+
+// Take the other conditional branches
+instance.set_flag(false);
+assert_eq!(instance.get_cond_same().name, "y");
+assert_eq!(instance.get_cond_same().score, 42);
+assert!(instance.get_cond_same().alive);
+assert_eq!(instance.get_cond_mixed().name, "b");
+assert_eq!(instance.get_cond_mixed().score, 1);
+assert!(instance.get_cond_mixed().alive);
 ```
 
 ```cpp
