@@ -16,7 +16,7 @@ use super::{Animation, LocalMemberReference, MemberReference, PropertyIdx};
 use crate::expression_tree::{
     BuiltinFunction, Callable, Expression as tree_Expression, MouseCursorInner,
 };
-use crate::langtype::{BuiltinStruct, Struct, StructName, Type};
+use crate::langtype::{BuiltinStruct, ConstantExpression, Struct, StructName, Type};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
@@ -65,6 +65,33 @@ impl ExpressionLoweringCtx<'_> {
 impl super::TypeResolutionContext for ExpressionLoweringCtx<'_> {
     fn property_ty(&self, _: &MemberReference) -> &Type {
         unimplemented!()
+    }
+}
+
+/// Lower a constant expression, such as the default value of a struct field
+/// (see [`crate::langtype::Struct::field_defaults`]),
+/// so that the code generators can compile it with their regular expression compilation.
+pub fn lower_constant_expression(expression: &ConstantExpression) -> llr_Expression {
+    match expression {
+        ConstantExpression::StringLiteral(s) => llr_Expression::StringLiteral(s.clone()),
+        ConstantExpression::NumberLiteral(n, _unit) => llr_Expression::NumberLiteral(*n),
+        ConstantExpression::BoolLiteral(b) => llr_Expression::BoolLiteral(*b),
+        ConstantExpression::EnumerationValue(e) => llr_Expression::EnumerationValue(e.clone()),
+        ConstantExpression::Cast { from, to } => {
+            llr_Expression::Cast { from: Box::new(lower_constant_expression(from)), to: to.clone() }
+        }
+        ConstantExpression::UnaryOp { sub, op } => {
+            llr_Expression::UnaryOp { sub: Box::new(lower_constant_expression(sub)), op: *op }
+        }
+        ConstantExpression::Struct { ty, values } => llr_Expression::Struct {
+            ty: ty.clone(),
+            values: values.iter().map(|(k, v)| (k.clone(), lower_constant_expression(v))).collect(),
+        },
+        ConstantExpression::Array { element_ty, values } => llr_Expression::Array {
+            element_ty: element_ty.clone(),
+            values: values.iter().map(lower_constant_expression).collect(),
+            output: llr_ArrayOutput::Model,
+        },
     }
 }
 
@@ -601,10 +628,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
     }
 
     fn animation_ty() -> Rc<Struct> {
-        Rc::new(Struct {
-            fields: animation_fields().collect(),
-            name: BuiltinStruct::PropertyAnimation.into(),
-        })
+        Rc::new(Struct::new(animation_fields().collect(), BuiltinStruct::PropertyAnimation))
     }
 
     match a {
@@ -645,15 +669,15 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
             }
             let result = llr_Expression::Struct {
                 // This is going to be a tuple
-                ty: Rc::new(Struct {
-                    fields: IntoIterator::into_iter([
+                ty: Rc::new(Struct::new(
+                    IntoIterator::into_iter([
                         (SmolStr::new_static("0"), animation_ty),
                         // The type is an instant, which does not exist in our type system
                         (SmolStr::new_static("1"), Type::Invalid),
                     ])
                     .collect(),
-                    name: StructName::None,
-                }),
+                    StructName::None,
+                )),
                 values: IntoIterator::into_iter([
                     (SmolStr::new_static("0"), get_anim),
                     (
@@ -696,14 +720,14 @@ fn compile_path(
             let converted_elements = elements
                 .iter()
                 .map(|element| {
-                    let element_type = Rc::new(Struct {
-                        fields: element
+                    let element_type = Rc::new(Struct::new(
+                        element
                             .element_type
                             .properties
                             .iter()
                             .map(|(k, v)| (k.clone(), v.ty.clone()))
                             .collect(),
-                        name: StructName::Builtin(
+                        StructName::Builtin(
                             element
                                 .element_type
                                 .native_class
@@ -711,7 +735,7 @@ fn compile_path(
                                 .clone()
                                 .expect("path elements should have a native_type"),
                         ),
-                    });
+                    ));
 
                     llr_Expression::Struct {
                         ty: element_type,
@@ -754,14 +778,14 @@ fn compile_path(
 
             llr_Expression::Cast {
                 from: llr_Expression::Struct {
-                    ty: Rc::new(Struct {
-                        fields: IntoIterator::into_iter([
+                    ty: Rc::new(Struct::new(
+                        IntoIterator::into_iter([
                             (SmolStr::new_static("events"), Type::Array(event_type.clone().into())),
                             (SmolStr::new_static("points"), Type::Array(point_type.clone().into())),
                         ])
                         .collect(),
-                        name: StructName::None,
-                    }),
+                        StructName::None,
+                    )),
                     values: IntoIterator::into_iter([
                         (
                             SmolStr::new_static("events"),
@@ -804,5 +828,5 @@ pub fn make_struct(
         values.insert(SmolStr::new(name), expr);
     }
 
-    llr_Expression::Struct { ty: Rc::new(Struct { fields, name: name.into() }), values }
+    llr_Expression::Struct { ty: Rc::new(Struct::new(fields, name)), values }
 }

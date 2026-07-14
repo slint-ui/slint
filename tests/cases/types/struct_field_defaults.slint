@@ -1,0 +1,140 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export enum Rank { bronze, silver, gold }
+
+export struct PlayerWithDefault {
+    name: string = "unknown",
+    score: int = 42,
+    energy: float = 0.5 * 2,
+    alive: bool = true,
+    tint: color = #00ff00,
+    rank: Rank = Rank.gold,
+    time: duration = 2s,
+    plain: int,
+}
+
+export struct NestedDefault {
+    player: PlayerWithDefault = { name: "nested" },
+    tags: [string] = ["a", "b"],
+}
+
+export component TestCase {
+    // Missing fields in a struct literal take the declared defaults
+    in-out property <PlayerWithDefault> partial: { name: "partial" };
+    // A property that is never set is initialized with the declared defaults
+    in-out property <PlayerWithDefault> never-set;
+    in-out property <NestedDefault> nested;
+
+    out property <bool> test:
+        partial.name == "partial" && partial.score == 42 && partial.energy == 1
+        && partial.alive && partial.tint == #00ff00 && partial.rank == Rank.gold
+        && partial.time == 2s && partial.plain == 0
+        && never-set.name == "unknown" && never-set.score == 42 && never-set.alive
+        && nested.player.name == "nested" && nested.player.score == 42
+        && nested.tags.length == 2 && nested.tags[0] == "a";
+}
+
+/*
+```rust
+use slint::Model;
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+let default_player = PlayerWithDefault::default();
+assert_eq!(default_player.name, "unknown");
+assert_eq!(default_player.score, 42);
+assert_eq!(default_player.energy, 1.);
+assert!(default_player.alive);
+assert_eq!(default_player.tint, slint::Color::from_rgb_u8(0, 255, 0));
+assert_eq!(default_player.rank, Rank::Gold);
+assert_eq!(default_player.time, 2000);
+assert_eq!(default_player.plain, 0);
+
+let nested = NestedDefault::default();
+assert_eq!(nested.player.name, "nested");
+assert_eq!(nested.player.score, 42);
+assert_eq!(nested.tags.row_count(), 2);
+assert_eq!(nested.tags.row_data(0).unwrap(), slint::SharedString::from("a"));
+assert_eq!(nested.tags.row_data(1).unwrap(), slint::SharedString::from("b"));
+
+// Fields left out in a Rust struct literal take the declared defaults, too
+let custom = PlayerWithDefault { name: "custom".into(), ..Default::default() };
+assert_eq!(custom.name, "custom");
+assert_eq!(custom.score, 42);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+PlayerWithDefault default_player;
+assert_eq(default_player.name, "unknown");
+assert_eq(default_player.score, 42);
+assert_eq(default_player.energy, 1.f);
+assert(default_player.alive);
+assert_eq(default_player.tint, slint::Color::from_rgb_uint8(0, 255, 0));
+assert(default_player.rank == Rank::Gold);
+assert_eq(default_player.time, 2000);
+assert_eq(default_player.plain, 0);
+
+PlayerWithDefault aggregate {};
+assert_eq(aggregate.score, 42);
+
+NestedDefault nested;
+assert_eq(nested.player.name, "nested");
+assert_eq(nested.player.score, 42);
+assert_eq(nested.tags->row_count(), 2);
+assert_eq(nested.tags->row_data(0).value(), "a");
+assert_eq(nested.tags->row_data(1).value(), "b");
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+
+let default_player = new slint.PlayerWithDefault();
+assert.equal(default_player.name, "unknown");
+assert.equal(default_player.score, 42);
+assert.equal(default_player.energy, 1);
+assert.equal(default_player.alive, true);
+assert.equal(default_player.time, 2000);
+assert.equal(default_player.plain, 0);
+
+let custom = new slint.PlayerWithDefault({ name: "custom" });
+assert.equal(custom.name, "custom");
+assert.equal(custom.score, 42);
+
+// Missing fields of a plain object assigned to a struct property take the defaults
+instance.partial = { name: "js" };
+assert.equal(instance.partial.name, "js");
+assert.equal(instance.partial.score, 42);
+
+let nested = new slint.NestedDefault();
+assert.equal(nested.player.name, "nested");
+assert.equal(nested.player.score, 42);
+```
+
+```python
+instance = TestCase()
+assert instance.test
+
+default_player = PlayerWithDefault()
+assert default_player.name == "unknown"
+assert default_player.score == 42
+assert default_player.energy == 1
+assert default_player.alive
+assert default_player.time == 2000
+assert default_player.plain == 0
+
+custom = PlayerWithDefault(name="custom")
+assert custom.name == "custom"
+assert custom.score == 42
+
+nested = NestedDefault()
+assert nested.player.name == "nested"
+assert nested.player.score == 42
+```
+*/

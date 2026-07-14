@@ -17,6 +17,7 @@ use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
+use crate::llr::lower_expression::lower_constant_expression;
 use crate::llr::{
     self, ArrayOutput, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression,
     ParentScope, TypeResolutionContext as _,
@@ -205,14 +206,14 @@ pub fn generate(
             .collect::<Vec<_>>()
     };
 
-    let (structs_and_enums_ids, inner_module) =
-        generate_types(&doc.used_types.borrow().structs_and_enums);
-
     let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
     if llr.public_components.is_empty() {
         return Ok(Default::default());
     }
+
+    let (structs_and_enums_ids, inner_module) =
+        generate_types(&doc.used_types.borrow().structs_and_enums, &llr);
 
     let sub_compos = llr
         .used_sub_components
@@ -295,13 +296,16 @@ pub(super) fn generate_module_header() -> TokenStream {
 }
 
 /// Generate the struct and enums. Return a vector of names to import and a token stream with the inner module
-pub fn generate_types(used_types: &[Type]) -> (Vec<Ident>, TokenStream) {
+pub fn generate_types(
+    used_types: &[Type],
+    unit: &llr::CompilationUnit,
+) -> (Vec<Ident>, TokenStream) {
     let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = used_types
         .iter()
         .filter_map(|ty| match ty {
             Type::Struct(s) => match s.as_ref() {
-                Struct { fields, name: struct_name @ StructName::User { name, .. } } => {
-                    Some((ident(name), generate_struct(struct_name, fields)))
+                the_struct @ Struct { name: StructName::User { name, .. }, .. } => {
+                    Some((ident(name), generate_struct(the_struct, unit)))
                 }
                 _ => None,
             },
@@ -704,12 +708,17 @@ fn generate_shared_globals(
     }
 }
 
-fn generate_struct(name: &StructName, fields: &BTreeMap<SmolStr, Type>) -> TokenStream {
-    let component_id = struct_name_to_tokens(name).unwrap();
-    let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) =
-        fields.iter().map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap())).unzip();
+fn generate_struct(the_struct: &Struct, unit: &llr::CompilationUnit) -> TokenStream {
+    let component_id = struct_name_to_tokens(&the_struct.name).unwrap();
+    let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) = the_struct
+        .fields
+        .iter()
+        .map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap()))
+        .unzip();
 
-    let StructName::User { name, node } = name else { unreachable!("generating non-user struct") };
+    let StructName::User { name, node } = &the_struct.name else {
+        unreachable!("generating non-user struct")
+    };
 
     let attributes =
         node.parent().and_then(crate::parser::syntax_nodes::StructDeclaration::new).map(|node| {
@@ -728,12 +737,47 @@ fn generate_struct(name: &StructName, fields: &BTreeMap<SmolStr, Type>) -> Token
             quote! { #(#attrs)* }
         });
 
+    // With user-declared field default values, `Default` cannot be derived anymore
+    let default_impl = (!the_struct.field_defaults.is_empty()).then(|| {
+        // Constant expressions cannot access the globals; make sure a bug in that
+        // assumption breaks the build of the generated code with a clear message
+        let ctx = EvaluationContext::new_const(
+            unit,
+            RustGeneratorContext {
+                global_access: quote!(compile_error!("no global access in a constant expression")),
+            },
+        );
+        let (field_names, field_values): (Vec<_>, Vec<_>) = the_struct
+            .fields
+            .keys()
+            .map(|field_name| {
+                let value = match the_struct.field_defaults.get(field_name) {
+                    Some(expr) => {
+                        let value = compile_expression(&lower_constant_expression(expr), &ctx);
+                        quote!(#value as _)
+                    }
+                    None => quote!(::core::default::Default::default()),
+                };
+                (ident(field_name), value)
+            })
+            .unzip();
+        quote! {
+            impl ::core::default::Default for #component_id {
+                fn default() -> Self {
+                    Self { #(#field_names: #field_values,)* }
+                }
+            }
+        }
+    });
+    let default_derive = default_impl.is_none().then(|| quote!(Default,));
+
     quote! {
         #attributes
-        #[derive(Default, PartialEq, Debug, Clone)]
+        #[derive(#default_derive PartialEq, Debug, Clone)]
         pub struct #component_id {
             #(pub #declared_property_vars : #declared_property_types),*
         }
+        #default_impl
     }
 }
 

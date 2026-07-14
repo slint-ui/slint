@@ -182,14 +182,12 @@ impl CompilationResult {
             match struct_or_enum {
                 Type::Struct(s) if s.node().is_some() => {
                     let struct_instance = self.type_collection.struct_to_py(
-                        slint_interpreter::Struct::from_iter(s.fields.iter().map(
-                            |(name, field_type)| {
-                                (
-                                    ident(&name).into(),
-                                    slint_interpreter::default_value_for_type(field_type),
-                                )
-                            },
-                        )),
+                        slint_interpreter::Struct::from_iter(s.fields.keys().map(|name| {
+                            (
+                                ident(&name).into(),
+                                slint_interpreter::default_value_for_struct_field(s, name),
+                            )
+                        })),
                         None,
                     );
 

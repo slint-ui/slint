@@ -2241,10 +2241,10 @@ fn lang_type_to_value_type() {
     assert_eq!(ValueType::from(LangType::Array(Rc::new(LangType::Void))), ValueType::Model);
     assert_eq!(ValueType::from(LangType::Bool), ValueType::Bool);
     assert_eq!(
-        ValueType::from(LangType::Struct(Rc::new(LangStruct {
-            fields: BTreeMap::default(),
-            name: i_slint_compiler::langtype::StructName::None,
-        }))),
+        ValueType::from(LangType::Struct(Rc::new(LangStruct::new(
+            BTreeMap::default(),
+            i_slint_compiler::langtype::StructName::None
+        )))),
         ValueType::Struct
     );
     assert_eq!(ValueType::from(LangType::Image), ValueType::Image);

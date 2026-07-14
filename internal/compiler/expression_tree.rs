@@ -243,49 +243,37 @@ declare_builtin_function_types!(
     StringEndsWith: (Type::String, Type::String) -> Type::Bool,
     KeysToString: (Type::Keys) -> Type::String,
     ImplicitLayoutInfo(..): (Type::ElementReference, Type::Float32) -> typeregister::layout_info_type().into(),
-    ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
-        fields: IntoIterator::into_iter([
+    ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct::new(IntoIterator::into_iter([
             (SmolStr::new_static("red"), Type::Int32),
             (SmolStr::new_static("green"), Type::Int32),
             (SmolStr::new_static("blue"), Type::Int32),
             (SmolStr::new_static("alpha"), Type::Int32),
         ])
-        .collect(),
-        name: BuiltinStruct::Color.into(),
-    })),
-    ColorHsvaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
-        fields: IntoIterator::into_iter([
+        .collect(), BuiltinStruct::Color))),
+    ColorHsvaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct::new(IntoIterator::into_iter([
             (SmolStr::new_static("hue"), Type::Float32),
             (SmolStr::new_static("saturation"), Type::Float32),
             (SmolStr::new_static("value"), Type::Float32),
             (SmolStr::new_static("alpha"), Type::Float32),
         ])
-        .collect(),
-        name: BuiltinStruct::Color.into(),
-    })),
-    ColorOklchStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
-        fields: IntoIterator::into_iter([
+        .collect(), BuiltinStruct::Color))),
+    ColorOklchStruct: (Type::Color) -> Type::Struct(Rc::new(Struct::new(IntoIterator::into_iter([
             (SmolStr::new_static("lightness"), Type::Float32),
             (SmolStr::new_static("chroma"), Type::Float32),
             (SmolStr::new_static("hue"), Type::Float32),
             (SmolStr::new_static("alpha"), Type::Float32),
         ])
-        .collect(),
-        name: BuiltinStruct::Color.into(),
-    })),
+        .collect(), BuiltinStruct::Color))),
     ColorBrighter: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorDarker: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorTransparentize: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorWithAlpha: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorMix: (Type::Color, Type::Color, Type::Float32) -> Type::Color,
-    ImageSize: (Type::Image) -> Type::Struct(Rc::new(Struct {
-        fields: IntoIterator::into_iter([
+    ImageSize: (Type::Image) -> Type::Struct(Rc::new(Struct::new(IntoIterator::into_iter([
             (SmolStr::new_static("width"), Type::Int32),
             (SmolStr::new_static("height"), Type::Int32),
         ])
-        .collect(),
-        name: crate::langtype::BuiltinStruct::Size.into(),
-    })),
+        .collect(), crate::langtype::BuiltinStruct::Size))),
     ArrayLength: (Type::Model) -> Type::Int32,
     // Using Type::InferredProperty as there is currently no valid type for the data argument.
     ArrayPush: (Type::Model, Type::InferredProperty) -> Type::Void,
@@ -1576,7 +1564,7 @@ impl Expression {
                         let mut new_values = BTreeMap::new();
                         for (key, ty) in &right.fields {
                             let (key, expression) = values.remove_entry(key).map_or_else(
-                                || (key.clone(), Expression::default_value_for_type(ty)),
+                                || (key.clone(), right.default_value_for_field(key)),
                                 |(k, e)| {
                                     (k, e.maybe_convert_to(ty.clone(), node, diag, symbol_counters))
                                 },
@@ -1603,7 +1591,7 @@ impl Expression {
                                 symbol_counters,
                             )
                         } else {
-                            Expression::default_value_for_type(ty)
+                            right.default_value_for_field(key)
                         };
                         new_values.insert(key.clone(), expression);
                     }
@@ -1695,8 +1683,9 @@ impl Expression {
                     return self;
                 }
             }
-            for (f, t) in fields {
-                new_values.insert(f, Expression::default_value_for_type(&t));
+            for f in fields.into_keys() {
+                let default_value = struct_type.default_value_for_field(&f);
+                new_values.insert(f, default_value);
             }
             Expression::Struct { ty: struct_type.clone(), values: new_values }
         } else {
@@ -1769,8 +1758,8 @@ impl Expression {
                 ty: s.clone(),
                 values: s
                     .fields
-                    .iter()
-                    .map(|(k, v)| (k.clone(), Expression::default_value_for_type(v)))
+                    .keys()
+                    .map(|k| (k.clone(), s.default_value_for_field(k)))
                     .collect(),
             },
             Type::Easing => Expression::EasingCurve(EasingCurve::default()),

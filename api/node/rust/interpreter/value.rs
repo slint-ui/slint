@@ -319,7 +319,7 @@ pub fn to_value(
                         let prop: Unknown =
                             js_object.get_named_property(&pro_name.replace('-', "_"))?;
                         let prop_value = if prop.get_type()? == napi::ValueType::Undefined {
-                            slint_interpreter::default_value_for_type(pro_ty)
+                            slint_interpreter::default_value_for_struct_field(s, pro_name)
                         } else {
                             to_value(env, prop, pro_ty, anchor_owner)?
                         };
