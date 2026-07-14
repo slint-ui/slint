@@ -223,6 +223,24 @@ export class Previewer {
             url: string;
         }[];
     }
+
+    restore_panels(layout: PanelLayout): void {
+        this.#preview_connector.restore_panels(
+            layout.library,
+            layout.properties,
+            layout.outline,
+            layout.data,
+            layout.console,
+        );
+    }
+}
+
+export interface PanelLayout {
+    library: boolean;
+    properties: boolean;
+    outline: boolean;
+    data: boolean;
+    console: boolean;
 }
 
 export class Lsp {

@@ -20,6 +20,7 @@ pub enum SlintPadCallbackFunction {
     CopyPermalink,
     NewFile,
     OpenCommandPalette,
+    SavePanelLayout,
 }
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -174,6 +175,35 @@ impl PreviewConnector {
         array.into()
     }
 
+    /// Restore the panel visibility the host persisted from an earlier session.
+    /// Setting the properties fires the change handlers, so the host will save
+    /// the same values straight back, which is harmless.
+    #[wasm_bindgen]
+    pub fn restore_panels(
+        &self,
+        library: bool,
+        properties: bool,
+        outline: bool,
+        data: bool,
+        console: bool,
+    ) -> Result<(), JsValue> {
+        i_slint_core::api::invoke_from_event_loop(move || {
+            // Upgrade and drop the PREVIEW_STATE borrow before touching any
+            // property: setting one triggers panels-layout-changed, whose
+            // handler borrows PREVIEW_STATE again and would otherwise panic.
+            let api = preview::PREVIEW_STATE.with_borrow(|preview_state| preview_state.api.upgrade());
+            if let Some(api) = api {
+                api.set_panel_library_open(library);
+                api.set_panel_properties_open(properties);
+                api.set_panel_outline_open(outline);
+                api.set_panel_data_open(data);
+                api.set_panel_console_open(console);
+            }
+        })
+        .map_err(|e| -> JsValue { format!("{e:?}").into() })?;
+        Ok(())
+    }
+
     #[wasm_bindgen]
     pub fn show_ui(&self) -> Result<js_sys::Promise, JsValue> {
         invoke_from_event_loop_wrapped_in_promise(|instance| instance.show())
@@ -321,6 +351,58 @@ fn init_slintpad_specific_ui(api: &crate::preview::ui::Api) {
     });
     api.on_show_about_slint(show_about_slint);
     api.on_open_command_palette(open_command_palette);
+    api.on_panels_layout_changed(save_panel_layout);
+}
+
+fn save_panel_layout() {
+    // Read the current panel visibility, then drop the PREVIEW_STATE borrow
+    // before calling into JS.
+    let layout = preview::PREVIEW_STATE.with_borrow(|preview_state| {
+        preview_state.api.upgrade().map(|api| {
+            (
+                api.get_panel_library_open(),
+                api.get_panel_properties_open(),
+                api.get_panel_outline_open(),
+                api.get_panel_data_open(),
+                api.get_panel_console_open(),
+            )
+        })
+    });
+    let Some((library, properties, outline, data, console)) = layout else {
+        return;
+    };
+
+    WASM_CALLBACKS.with_borrow(|callbacks| {
+        let maybe_callback = wasm_bindgen::JsValue::from(
+            callbacks
+                .as_ref()
+                .expect("Callbacks were set up earlier")
+                .invoke_slintpad_callback
+                .clone(),
+        );
+        if !maybe_callback.is_function() {
+            return;
+        }
+        let opener = js_sys::Function::from(maybe_callback);
+        let obj = js_sys::Object::new();
+        let _ =
+            js_sys::Reflect::set(&obj, &JsValue::from_str("library"), &JsValue::from_bool(library));
+        let _ = js_sys::Reflect::set(
+            &obj,
+            &JsValue::from_str("properties"),
+            &JsValue::from_bool(properties),
+        );
+        let _ =
+            js_sys::Reflect::set(&obj, &JsValue::from_str("outline"), &JsValue::from_bool(outline));
+        let _ = js_sys::Reflect::set(&obj, &JsValue::from_str("data"), &JsValue::from_bool(data));
+        let _ =
+            js_sys::Reflect::set(&obj, &JsValue::from_str("console"), &JsValue::from_bool(console));
+        let _ = opener.call2(
+            &JsValue::UNDEFINED,
+            &wasm_bindgen::JsValue::from(SlintPadCallbackFunction::SavePanelLayout),
+            &obj.into(),
+        );
+    });
 }
 
 fn open_command_palette() {
