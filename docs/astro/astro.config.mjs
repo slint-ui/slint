@@ -182,19 +182,26 @@ export default defineConfig({
                                 label: "Platforms",
                                 collapsed: true,
                                 items: [
-                                    "guide/platforms/desktop",
-                                    "guide/platforms/embedded",
-                                    {
-                                        label: "Mobile",
-                                        collapsed: true,
-                                        items: [
-                                            "guide/platforms/mobile/general",
-                                            "guide/platforms/mobile/android",
-                                            "guide/platforms/mobile/ios",
-                                        ],
-                                    },
-                                    "guide/platforms/web",
-                                    "guide/platforms/other",
+                                  "guide/platforms/desktop",
+                                  {
+                                    label: "Packaging",
+                                    collapsed: true,
+                                    items: [
+                                      "guide/platforms/packaging/linux-packaging",
+                                    ],
+                                  },
+                                  "guide/platforms/embedded",
+                                  {
+                                      label: "Mobile",
+                                      collapsed: true,
+                                      items: [
+                                          "guide/platforms/mobile/general",
+                                          "guide/platforms/mobile/android",
+                                          "guide/platforms/mobile/ios",
+                                      ],
+                                  },
+                                  "guide/platforms/web",
+                                  "guide/platforms/other",
                                 ],
                             },
                             {
