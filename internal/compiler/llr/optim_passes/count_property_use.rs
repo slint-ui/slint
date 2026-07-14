@@ -36,7 +36,7 @@ pub fn count_property_use(root: &CompilationUnit) {
             }
         }
         // 3. the init code
-        for expr in &sc.init_code {
+        for expr in sc.pre_init_code.iter().chain(&sc.init_code) {
             expr.borrow().visit_property_references(ctx, &mut visit_property);
         }
         // 4. the models
@@ -73,6 +73,9 @@ pub fn count_property_use(root: &CompilationUnit) {
             e.borrow().visit_property_references(ctx, &mut visit_property);
         }
         if let Some(e) = &sc.flexbox_layout_item_info_for_repeated {
+            e.borrow().visit_property_references(ctx, &mut visit_property);
+        }
+        if let Some(e) = &sc.layout_info_v_constrained_for_repeated {
             e.borrow().visit_property_references(ctx, &mut visit_property);
         }
         for child in &sc.grid_layout_children {

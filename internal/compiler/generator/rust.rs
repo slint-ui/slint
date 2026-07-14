@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore conv gdata powf punct vref rescope updt
+// cSpell: ignore conv gdata powf punct vref rescope rfold updt
 
 /*! module for the Rust code generator
 
@@ -12,6 +12,7 @@ Some convention used in the generated code:
    this is usually a local variable to the init code that shouldn't be relied upon by the binding code.
 */
 
+use super::accessor_names::{self, AccessorKind};
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
@@ -335,9 +336,7 @@ fn generate_public_component(
     let ctx = EvaluationContext {
         compilation_unit: unit,
         current_scope: EvaluationScope::SubComponent(llr.item_tree.root, None),
-        generator_state: RustGeneratorContext {
-            global_access: quote!(_self.globals.get().unwrap()),
-        },
+        generator_state: RustGeneratorContext { global_access: quote!(_self.globals()) },
         argument_types: &[],
     };
 
@@ -652,15 +651,22 @@ fn generate_shared_globals(
         impl SharedGlobals {
             #pub_token fn new(root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>) -> sp::Rc<Self> {
                 #(let #library_shared_globals_names = #library_shared_globals_types::new(root_item_tree_weak.clone());)*
-                let _self = sp::Rc::new(Self {
+                sp::Rc::new(Self {
                     #(#global_names : #global_types::new(),)*
                     #(#from_library_global_names : #library_global_vars.clone(),)*
                     window_adapter : ::core::default::Default::default(),
                     root_item_tree_weak,
                     #(#library_shared_globals_names,)*
-                });
-                #(_self.#global_names.clone().init(&_self);)*
-                _self
+                })
+            }
+
+            // Run the eager initialization of the globals. This must be called only *after* the
+            // root component's `globals` field has been set (see the root component's `new`),
+            // because a global's init may evaluate a binding (e.g. `Palette.color-scheme`) that
+            // resolves the root's window adapter through `globals`, which would otherwise panic.
+            #pub_token fn init_globals(self: &sp::Rc<Self>) {
+                #(self.#library_shared_globals_names.init_globals();)*
+                #(self.#global_names.clone().init(self);)*
             }
 
             // Clone the SharedGlobals struct but use a different window adapter. This is for example used for popup windows, because they need access to the globals, but need their own window adapter
@@ -1002,7 +1008,6 @@ fn public_api(
 ) -> TokenStream {
     let mut property_and_callback_accessors: Vec<TokenStream> = Vec::new();
     for p in public_properties {
-        let prop_ident = ident(&p.name);
         let prop = access_member(&p.prop, ctx).unwrap();
 
         if let Type::Callback(callback) = &p.ty {
@@ -1011,7 +1016,7 @@ fn public_api(
             let return_type = rust_primitive_type(&callback.return_type).unwrap();
             let args_name =
                 (0..callback.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
@@ -1019,7 +1024,7 @@ fn public_api(
                     #prop.call(&(#(#args_name,)*))
                 }
             ));
-            let on_ident = format_ident!("on_{}", prop_ident);
+            let on_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Handler);
             let args_index = (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
             let tracker_access = access_callback_tracker(&p.prop, ctx);
             let set_dirty = tracker_access.map(|t| quote!(#t.mark_dirty();));
@@ -1041,7 +1046,7 @@ fn public_api(
             let return_type = rust_primitive_type(&function.return_type).unwrap();
             let args_name =
                 (0..function.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
@@ -1052,7 +1057,7 @@ fn public_api(
         } else {
             let rust_property_type = rust_primitive_type(&p.ty).unwrap();
 
-            let getter_ident = format_ident!("get_{}", prop_ident);
+            let getter_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Getter);
 
             let prop_expression = primitive_property_value(&p.ty, MemberAccess::Direct(prop));
 
@@ -1065,7 +1070,7 @@ fn public_api(
                 }
             ));
 
-            let setter_ident = format_ident!("set_{}", prop_ident);
+            let setter_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Setter);
             if !p.read_only {
                 let set_value = property_set_value_tokens(&p.prop, quote!(value), ctx);
                 property_and_callback_accessors.push(quote!(
@@ -1085,15 +1090,14 @@ fn public_api(
     }
 
     for (name, ty) in private_properties {
-        let prop_ident = ident(name);
         if let Type::Function { .. } = ty {
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(
                 quote!( #[allow(dead_code)] fn #caller_ident(&self, _private_function: ()) {} ),
             );
         } else {
-            let getter_ident = format_ident!("get_{}", prop_ident);
-            let setter_ident = format_ident!("set_{}", prop_ident);
+            let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
+            let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)] fn #getter_ident(&self, _private_property: ()) {}
                 #[allow(dead_code)] fn #setter_ident(&self, _private_property: ()) {}
@@ -1102,6 +1106,61 @@ fn public_api(
     }
 
     quote!(#(#property_and_callback_accessors)*)
+}
+
+/// Maximum number of statements in a generated `init`-like function body.
+/// rustc's per-function-body work scales super-linearly, so bigger bodies are
+/// split into chunk functions. Measured on a large project, the build time
+/// stops improving below 128 statements per chunk.
+const INIT_CHUNK_SIZE: usize = 128;
+
+/// When `stmts` is bigger than [`INIT_CHUNK_SIZE`], move the statements into
+/// `{prefix}_chunk_{i}` functions (added to `chunk_fns`) and return the calls
+/// to them. Each statement must only use the names bound by `params` and
+/// `prologue` (`quote!` is not hygienic, so the exact names matter).
+///
+/// When `fallible` is set the chunks return `Result` and are called with `?`,
+/// so `init`'s statements can use the `?` operator (e.g. for font registration).
+fn emit_in_chunks(
+    prefix: &str,
+    stmts: Vec<TokenStream>,
+    params: &TokenStream,
+    args: &TokenStream,
+    prologue: &TokenStream,
+    fallible: bool,
+    chunk_fns: &mut Vec<TokenStream>,
+) -> Vec<TokenStream> {
+    if stmts.len() <= INIT_CHUNK_SIZE {
+        return stmts;
+    }
+    let (ret, ok, question) = if fallible {
+        (
+            quote!(-> ::core::result::Result<(), slint::PlatformError>),
+            quote!(::core::result::Result::Ok(())),
+            quote!(?),
+        )
+    } else {
+        (quote!(), quote!(), quote!())
+    };
+    stmts
+        .chunks(INIT_CHUNK_SIZE)
+        .enumerate()
+        .map(|(i, chunk)| {
+            let name = format_ident!("{prefix}_chunk_{i}");
+            // inline(never) stops the MIR inliner from re-merging the chunks
+            // into one huge function.
+            chunk_fns.push(quote!(
+                #[inline(never)]
+                fn #name(#params) #ret {
+                    #![allow(unused)]
+                    #prologue
+                    #(#chunk)*
+                    #ok
+                }
+            ));
+            quote!(Self::#name(#args)#question;)
+        })
+        .collect()
 }
 
 /// Generate the rust code for the given component.
@@ -1118,7 +1177,7 @@ fn generate_sub_component(
     let ctx = EvaluationContext::new_sub_component(
         root,
         component_idx,
-        RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+        RustGeneratorContext { global_access: quote!(_self.globals()) },
         parent_ctx,
     );
     let mut extra_components = component
@@ -1393,7 +1452,7 @@ fn generate_sub_component(
         init.push(quote!(#sub_component_id::init(
             sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
             #global_access.clone(), #global_index, #global_children
-        );));
+        )?;));
         user_init_code.push(quote!(#sub_component_id::user_init(
             sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
         );));
@@ -1487,6 +1546,17 @@ fn generate_sub_component(
         };
         init.push(quote!(#r;))
     }
+
+    // The pre-init code (custom font registration) runs before the property initialization.
+    let pre_init_code: Vec<TokenStream> = component
+        .pre_init_code
+        .iter()
+        .map(|e| {
+            let code = compile_expression(&e.borrow(), &ctx);
+            quote!(#code;)
+        })
+        .collect();
+    init.splice(0..0, pre_init_code);
 
     // Initialize all properties which have an initial value in the slint file
     // This sets up also the callback handler and bindings
@@ -1608,6 +1678,26 @@ fn generate_sub_component(
         )
     });
 
+    let mut chunk_fns = Vec::new();
+    let init = emit_in_chunks(
+        "init",
+        init,
+        &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>, tree_index: u32, tree_index_of_first_child: u32),
+        &quote!(self_rc.clone(), tree_index, tree_index_of_first_child),
+        &quote!(let _self = self_rc.as_pin_ref();),
+        true,
+        &mut chunk_fns,
+    );
+    let user_init_code = emit_in_chunks(
+        "user_init",
+        user_init_code,
+        &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>),
+        &quote!(self_rc.clone()),
+        &quote!(let _self = self_rc.as_pin_ref();),
+        false,
+        &mut chunk_fns,
+    );
+
     let pin_macro = if pinned_drop { quote!(#[pin_drop]) } else { quote!(#[pin]) };
 
     quote!(
@@ -1634,9 +1724,23 @@ fn generate_sub_component(
         }
 
         impl #inner_component_id {
+            // Shorthands used by the generated expression code: these accesses are
+            // emitted many times, so keep the call sites as small as possible.
+            #[allow(dead_code)]
+            fn globals(&self) -> &sp::Rc<SharedGlobals> {
+                self.globals.get().unwrap()
+            }
+
+            #[allow(dead_code)]
+            fn origin_rc(&self) -> sp::ItemTreeRc {
+                sp::VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap())
+            }
+
             fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
                     globals : sp::Rc<SharedGlobals>,
-                    tree_index: u32, tree_index_of_first_child: u32) {
+                    tree_index: u32, tree_index_of_first_child: u32)
+                -> ::core::result::Result<(), slint::PlatformError>
+            {
                 #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
                 let _ = _self.self_weak.set(sp::VRcMapped::downgrade(&self_rc));
@@ -1644,6 +1748,7 @@ fn generate_sub_component(
                 _self.tree_index.set(tree_index);
                 _self.tree_index_of_first_child.set(tree_index_of_first_child);
                 #(#init)*
+                ::core::result::Result::Ok(())
             }
 
             fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
@@ -1651,6 +1756,8 @@ fn generate_sub_component(
                 let _self = self_rc.as_pin_ref();
                 #(#user_init_code)*
             }
+
+            #(#chunk_fns)*
 
             fn visit_dynamic_children(
                 self: ::core::pin::Pin<&Self>,
@@ -1859,9 +1966,7 @@ fn generate_global(
     let ctx = EvaluationContext::new_global(
         root,
         global_idx,
-        RustGeneratorContext {
-            global_access: quote!(_self.globals.get().unwrap().upgrade().unwrap()),
-        },
+        RustGeneratorContext { global_access: quote!(_self.globals()) },
     );
 
     let declared_functions = generate_functions(global.functions.as_ref(), &ctx);
@@ -1909,6 +2014,17 @@ fn generate_global(
             );
         }
     }));
+
+    let mut chunk_fns = Vec::new();
+    let init = emit_in_chunks(
+        "init",
+        init,
+        &quote!(self_rc: ::core::pin::Pin<sp::Rc<Self>>),
+        &quote!(self_rc.clone()),
+        &quote!(let _self = self_rc.as_ref();),
+        false,
+        &mut chunk_fns,
+    );
 
     let pub_token = if compiler_config.library_name.is_some() && !global.is_builtin {
         global_exports.push(quote! (#inner_component_id));
@@ -1967,6 +2083,12 @@ fn generate_global(
             }
 
             impl #inner_component_id {
+                // Shorthand used by the generated expression code: the member access is
+                // emitted for every global property access, so keep it as small as possible.
+                #[allow(dead_code)]
+                fn globals(&self) -> sp::Rc<SharedGlobals> {
+                    self.globals.get().unwrap().upgrade().unwrap()
+                }
                 fn new() -> ::core::pin::Pin<sp::Rc<Self>> {
                     sp::Rc::pin(Self::default())
                 }
@@ -1977,6 +2099,8 @@ fn generate_global(
                     let _self = self_rc.as_ref();
                     #(#init)*
                 }
+
+                #(#chunk_fns)*
 
                 #(#declared_functions)*
             }
@@ -2041,12 +2165,26 @@ fn generate_item_tree(
         })
         .collect::<Vec<_>>();
 
+    let is_root_component = !is_popup && parent_ctx.is_none();
     let globals = if is_popup {
         quote!(globals)
     } else if parent_ctx.is_some() {
         quote!(parent.upgrade().unwrap().globals.get().unwrap().clone())
     } else {
         quote!(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc)))
+    };
+    // The root component owns the freshly created `SharedGlobals` and is responsible for running
+    // its eager initialization. The root's own `globals` field must be set *before* that init
+    // runs, because a global binding (e.g. `Palette.color-scheme`) may resolve the root's window
+    // adapter through `globals` during evaluation. Popups and sub-components receive an already
+    // initialized `SharedGlobals`, so they skip this step.
+    let set_and_init_globals = if is_root_component {
+        quote!(
+            let _ = sp::VRc::map(self_rc.clone(), |x| x).as_pin_ref().globals.set(globals.clone());
+            globals.init_globals();
+        )
+    } else {
+        quote!()
     };
     let globals_arg = is_popup.then(|| quote!(globals: sp::Rc<SharedGlobals>));
 
@@ -2085,7 +2223,7 @@ fn generate_item_tree(
     let mut item_array = Vec::new();
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
-        let (path, component) =
+        let (_, component) =
             follow_sub_component_path(root, sub_tree.root, &node.sub_component_path);
         match node.item_index {
             Either::Right(mut repeater_index) => {
@@ -2104,10 +2242,6 @@ fn generate_item_tree(
             }
             Either::Left(item_index) => {
                 let item = &component.items[item_index];
-                let field = access_component_field_offset(
-                    &self::inner_component_id(component),
-                    &ident(&item.name),
-                );
 
                 let children_count = node.children.len() as u32;
                 let children_index = children_offset as u32;
@@ -2122,7 +2256,26 @@ fn generate_item_tree(
                         item_array_index: #item_array_len,
                     }
                 ));
-                item_array.push(quote!(sp::VOffset::new(#path #field)));
+
+                // The array is const, so nested offsets are composed with the
+                // const compose_field_offsets rather than the non-const `+`.
+                let mut sc = &root.sub_components[sub_tree.root];
+                let mut offsets = Vec::new();
+                for i in &node.sub_component_path {
+                    offsets.push(access_component_field_offset(
+                        &self::inner_component_id(sc),
+                        &ident(&sc.sub_components[*i].name),
+                    ));
+                    sc = &root.sub_components[sc.sub_components[*i].ty];
+                }
+                let offset = offsets.into_iter().rfold(
+                    access_component_field_offset(
+                        &self::inner_component_id(component),
+                        &ident(&item.name),
+                    ),
+                    |acc, seg| quote!(sp::compose_field_offsets(#seg, #acc)),
+                );
+                item_array.push(quote!(sp::VOffset::new(#offset)));
             }
         }
     });
@@ -2192,8 +2345,9 @@ fn generate_item_tree(
                 let self_rc = sp::VRc::new(_self);
                 let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
                 let globals = #globals;
+                #set_and_init_globals
                 sp::register_item_tree(&self_dyn_rc, #register_window_adapter_arg);
-                Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1);
+                Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1)?;
                 ::core::result::Result::Ok(self_rc)
             }
 
@@ -2203,11 +2357,9 @@ fn generate_item_tree(
             }
 
             fn item_array() -> &'static [sp::VOffset<Self, sp::ItemVTable, sp::AllowPin>] {
-                // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
-                static ITEM_ARRAY : sp::OnceBox<
-                    [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
-                > = sp::OnceBox::new();
-                &*ITEM_ARRAY.get_or_init(|| sp::vec![#(#item_array),*].into_boxed_slice().try_into().unwrap())
+                const ITEM_ARRAY : [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
+                    = [#(#item_array),*];
+                &ITEM_ARRAY
             }
         }
 
@@ -2377,10 +2529,10 @@ fn generate_repeated_component(
                             let inner_len = _self.as_ref().#inner_rep_id.len();
                             for _i in 0..inner_len {
                                 if write_idx < result.len() {
-                                    result[write_idx] = sp::GridLayoutInputData {
-                                        new_row: write_idx == 0 && new_row,
-                                        ..Default::default()
-                                    };
+                                    // Let the inner cell report its own col/row/colspan/rowspan.
+                                    if let Some(inner) = _self.as_ref().#inner_rep_id.instance_at(_i) {
+                                        inner.as_pin_ref().grid_layout_input_data(write_idx == 0 && new_row, core::slice::from_mut(&mut result[write_idx]));
+                                    }
                                 }
                                 write_idx += 1;
                             }
@@ -2461,7 +2613,7 @@ fn generate_repeated_component(
                         Some(parent_ctx),
                     ),
                     generator_state: RustGeneratorContext {
-                        global_access: quote!(_self.globals.get().unwrap()),
+                        global_access: quote!(_self.globals()),
                     },
                     argument_types: &[],
                 };
@@ -2558,13 +2710,31 @@ fn generate_repeated_component(
         });
         let flexbox_layout_item_info_fn =
             root_sc.flexbox_layout_item_info_for_repeated.as_ref().map(|_| {
+                // Break the height-for-width recursion for a repeated instance
+                // in a column FlexboxLayout: its vertical info must not read
+                // self.width (set by the parent flex cache it is feeding).
+                // Use the constrained vertical info (computed at the instance's
+                // own preferred width via layoutinfo-v-with-constraint) instead.
+                let v_constrained =
+                    root_sc.layout_info_v_constrained_for_repeated.as_ref().map(|e| {
+                        let v_info = compile_expression(&e.borrow(), &ctx);
+                        quote! {
+                            if matches!(o, sp::Orientation::Vertical) && child_index.is_none() {
+                                info.constraint = #v_info;
+                                return info;
+                            }
+                        }
+                    });
                 quote! {
                     fn flexbox_layout_item_info(
                         self: ::core::pin::Pin<&Self>,
                         o: sp::Orientation,
                         child_index: sp::Option<usize>,
                     ) -> sp::FlexboxLayoutItemInfo {
+                        #[allow(unused)]
+                        let _self = self.as_ref();
                         let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
+                        #v_constrained
                         info.constraint = self.layout_item_info(o, child_index).constraint;
                         info
                     }
@@ -2928,7 +3098,7 @@ fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> TokenSt
         component_access_tokens = quote!(#component_access_tokens . #sub_component_name);
         sub_component = &ctx.compilation_unit.sub_components[sub_component.sub_components[*i].ty];
     }
-    let component_rc_tokens = quote!(sp::VRcMapped::origin(&#component_access_tokens.self_weak.get().unwrap().upgrade().unwrap()));
+    let component_rc_tokens = quote!(#component_access_tokens.origin_rc());
     let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
     let item_index_tokens = if item_index_in_tree == 0 {
         quote!(#component_access_tokens.tree_index.get())
@@ -2941,9 +3111,48 @@ fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> TokenSt
 
 /// Compile `expr` to a Rust expression returning an owned value.
 fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    /// Whether the code generated by [`compile_expression`] always evaluates to a fresh owned
+    /// value, so that no `.clone()` is needed to use it as a value.
+    fn produces_owned_value(expr: &Expression) -> bool {
+        match expr {
+            Expression::StringLiteral(..)
+            | Expression::NumberLiteral(..)
+            | Expression::BoolLiteral(..)
+            | Expression::KeysLiteral(..)
+            // compiles to a `.get()` (or `.map(...).unwrap_or_default()`) call
+            | Expression::PropertyReference(..)
+            // compiles to `args.N.clone()`
+            | Expression::FunctionParameterReference { .. }
+            // compiles to `x.row_data_tracked(i).unwrap_or_default()`
+            | Expression::ArrayIndex { .. }
+            | Expression::Cast { .. }
+            | Expression::BuiltinFunctionCall { .. }
+            | Expression::CallBackCall { .. }
+            | Expression::FunctionCall { .. }
+            | Expression::ItemMemberFunctionCall { .. }
+            | Expression::ExtraBuiltinFunctionCall { .. }
+            | Expression::BinaryExpression { .. }
+            | Expression::UnaryOp { .. }
+            | Expression::ImageReference { .. }
+            | Expression::Array { .. }
+            | Expression::Struct { .. }
+            | Expression::EasingCurve(..)
+            | Expression::LinearGradient { .. }
+            | Expression::RadialGradient { .. }
+            | Expression::ConicGradient { .. }
+            | Expression::EnumerationValue(..) => true,
+            Expression::Condition { true_expr, false_expr, .. } => {
+                produces_owned_value(true_expr) && produces_owned_value(false_expr)
+            }
+            // an empty code block evaluates to `()`, which is owned
+            Expression::CodeBlock(b) => b.last().is_none_or(produces_owned_value),
+            _ => false,
+        }
+    }
+
     let compiled_expr = compile_expression(expr, ctx);
 
-    quote!((#compiled_expr).clone())
+    if produces_owned_value(expr) { compiled_expr } else { quote!((#compiled_expr).clone()) }
 }
 
 /// Compile `expr` to a Rust expression which may potentially return a reference.
@@ -2976,8 +3185,19 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                         #ignore_shift,
                         #ignore_alt))
         },
-        Expression::NumberLiteral(n) if n.is_finite() => quote!(#n),
-        Expression::NumberLiteral(_) => quote!(0.),
+        Expression::NumberLiteral(n) => {
+            if n.is_nan() {
+                quote!(f64::NAN)
+            } else if n.is_infinite() {
+                if *n > 0. {
+                    quote!(f64::INFINITY)
+                } else {
+                    quote!(f64::NEG_INFINITY)
+                }
+            } else {
+                quote!(#n)
+            }
+        }
         Expression::BoolLiteral(b) => quote!(#b),
         Expression::Cast { from, to } => {
             let f = compile_expression(from, ctx);
@@ -3264,9 +3484,22 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 crate::expression_tree::ImageReference::None => {
                     quote!(sp::Image::default())
                 }
-                crate::expression_tree::ImageReference::AbsolutePath(path) => {
+                crate::expression_tree::ImageReference::Path(path) => {
                     let path = path.as_str();
                     quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
+                }
+                crate::expression_tree::ImageReference::Url(url) => {
+                    let url = url.as_str();
+                    // URL image references only work on the web, where the browser fetches them.
+                    quote!({
+                        #[cfg(target_arch = "wasm32")]
+                        { sp::load_as_html_image(#url).unwrap_or_default() }
+                        #[cfg(not(target_arch = "wasm32"))]
+                        { sp::Image::default() }
+                    })
+                }
+                crate::expression_tree::ImageReference::DataUri(_) => {
+                    unreachable!("data: URIs are embedded before code generation")
                 }
                 crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                     let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
@@ -3316,17 +3549,46 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
         }
         Expression::Struct { ty, values } => {
-            let elem = ty.fields.keys().map(|k| values.get(k).map(|e| compile_expression_to_value(e, ctx)));
             if ty.name.is_some() {
                 let name_tokens = struct_name_to_tokens(&ty.name).unwrap();
-                let keys = ty.fields.keys().map(|k| ident(k));
-                if matches!(&ty.name, StructName::Builtin(b) if b.is_layout_data())
-                {
-                    quote!(#name_tokens{#(#keys: #elem as _,)*})
+                // A struct literal can only be used when all the fields are public, there
+                // is no hidden field (like euclid's `_unit`), and the struct is not
+                // `#[non_exhaustive]`. That holds for the generated user structs and for
+                // the listed builtin structs.
+                use crate::langtype::BuiltinStruct as BS;
+                let supports_struct_literal = match &ty.name {
+                    StructName::User { .. } => true,
+                    StructName::Builtin(b) => {
+                        b.is_layout_data()
+                            || matches!(
+                                b,
+                                BS::LayoutInfo
+                                    | BS::LayoutItemInfo
+                                    | BS::FlexboxLayoutItemInfo
+                                    | BS::Padding
+                                    | BS::PropertyAnimation
+                                    | BS::StateInfo
+                            )
+                    }
+                    StructName::None => false,
+                };
+                if supports_struct_literal {
+                    let (keys, elem): (Vec<_>, Vec<_>) = ty
+                        .fields
+                        .keys()
+                        .filter(|k| values.contains_key(*k))
+                        .map(|k| (ident(k), compile_expression_to_value(&values[k], ctx)))
+                        .unzip();
+                    let default_rest = (keys.len() != ty.fields.len())
+                        .then(|| quote!(..::core::default::Default::default()));
+                    quote!(#name_tokens{#(#keys: #elem as _,)* #default_rest})
                 } else {
+                    let elem = ty.fields.keys().map(|k| values.get(k).map(|e| compile_expression_to_value(e, ctx)));
+                    let keys = ty.fields.keys().map(|k| ident(k));
                     quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys = #elem as _;)* the_struct})
                 }
             } else {
+                let elem = ty.fields.keys().map(|k| values.get(k).map(|e| compile_expression_to_value(e, ctx)));
                 let as_ = ty.fields.values().map(|t| {
                     if t.as_unit_product().is_some() {
                         // number needs to be converted to the right things because intermediate
@@ -3343,7 +3605,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
 
         Expression::StoreLocalVariable { name, value } => {
-            let value = compile_expression_no_parenthesis(value, ctx);
+            let value = compile_expression_to_value_no_parenthesis(value, ctx);
             let name = ident(name);
             quote!(let #name = #value;)
         }
@@ -3351,29 +3613,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let name = ident(name);
             quote!(#name)
         }
-        Expression::EasingCurve(EasingCurve::Linear) => {
-            quote!(sp::EasingCurve::Linear)
-        }
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => {
             quote!(sp::EasingCurve::CubicBezier([#a, #b, #c, #d]))
         }
-        Expression::EasingCurve(EasingCurve::EaseInElastic) => {
-            quote!(sp::EasingCurve::EaseInElastic)
-        }
-        Expression::EasingCurve(EasingCurve::EaseOutElastic) => {
-            quote!(sp::EasingCurve::EaseOutElastic)
-        }
-        Expression::EasingCurve(EasingCurve::EaseInOutElastic) => {
-            quote!(sp::EasingCurve::EaseInOutElastic)
-        }
-        Expression::EasingCurve(EasingCurve::EaseInBounce) => {
-            quote!(sp::EasingCurve::EaseInBounce)
-        }
-        Expression::EasingCurve(EasingCurve::EaseOutBounce) => {
-            quote!(sp::EasingCurve::EaseOutBounce)
-        }
-        Expression::EasingCurve(EasingCurve::EaseInOutBounce) => {
-            quote!(sp::EasingCurve::EaseInOutBounce)
+        // The other curves have no parameters and map to a runtime variant with the same name.
+        Expression::EasingCurve(e) => {
+            let ident = format_ident!("{e:?}");
+            quote!(sp::EasingCurve::#ident)
         }
         Expression::LinearGradient { angle, stops } => {
             let angle = compile_expression(angle, ctx);
@@ -3656,7 +3902,7 @@ fn compile_builtin_function_call(
                 let popup_ctx = EvaluationContext::new_sub_component(
                     ctx.compilation_unit,
                     popup.item_tree.root,
-                    RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+                    RustGeneratorContext { global_access: quote!(_self.globals()) },
                     Some(&parent_ctx),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
@@ -3802,7 +4048,7 @@ fn compile_builtin_function_call(
             let popup_ctx = EvaluationContext::new_sub_component(
                 ctx.compilation_unit,
                 popup.item_tree.root,
-                RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+                RustGeneratorContext { global_access: quote!(_self.globals()) },
                 None,
             );
             let access_entries = access_member(&popup.entries, &popup_ctx).unwrap();
@@ -3968,29 +4214,31 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::RegisterCustomFontByPath => {
             if let [Expression::StringLiteral(path)] = arguments {
-                let window_adapter_tokens = access_window_adapter_field(ctx);
+                let global_access = &ctx.generator_state.global_access;
                 let path = path.as_str();
-                quote!(#window_adapter_tokens.renderer().register_font_from_path(&std::path::PathBuf::from(#path)).unwrap())
+                // The `?` requires the enclosing generated function to return `Result`: font
+                // registration is only emitted in `init()`, which does.
+                quote!(#global_access.window_adapter_ref()?.renderer().register_font_from_path(&std::path::PathBuf::from(#path)).unwrap())
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByPath {arguments:?}")
             }
         }
         BuiltinFunction::RegisterCustomFontByMemory => {
             if let [Expression::NumberLiteral(resource_id)] = &arguments {
+                let global_access = &ctx.generator_state.global_access;
                 let resource_id: usize = *resource_id as _;
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                let window_adapter_tokens = access_window_adapter_field(ctx);
-                quote!(#window_adapter_tokens.renderer().register_font_from_memory(#symbol.into()).unwrap())
+                quote!(#global_access.window_adapter_ref()?.renderer().register_font_from_memory(#symbol.into()).unwrap())
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByMemory {arguments:?}")
             }
         }
         BuiltinFunction::RegisterBitmapFont => {
             if let [Expression::NumberLiteral(resource_id)] = &arguments {
+                let global_access = &ctx.generator_state.global_access;
                 let resource_id: usize = *resource_id as _;
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                let window_adapter_tokens = access_window_adapter_field(ctx);
-                quote!(#window_adapter_tokens.renderer().register_bitmap_font(&#symbol))
+                quote!(#global_access.window_adapter_ref()?.renderer().register_bitmap_font(&#symbol))
             } else {
                 panic!("internal error: invalid args to RegisterBitmapFont must be a number")
             }
@@ -4056,6 +4304,10 @@ fn compile_builtin_function_call(
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
             quote!(sp::shared_string_from_number_precision(#a1 as f64, (#a2 as i32).max(0) as usize))
         }
+        BuiltinFunction::ToStringUnlocalized => {
+            let a1 = a.next().unwrap();
+            quote!(sp::shared_string_from_number_unlocalized(#a1 as f64))
+        }
         BuiltinFunction::StringToFloat => {
             quote!(sp::string_to_float(#(#a)*.as_str()).unwrap_or_default())
         }
@@ -4066,6 +4318,14 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::StringToLowercase => quote!(sp::SharedString::from(#(#a)*.to_lowercase())),
         BuiltinFunction::StringToUppercase => quote!(sp::SharedString::from(#(#a)*.to_uppercase())),
+        BuiltinFunction::StringStartsWith => {
+            let (s, pat) = (a.next().unwrap(), a.next().unwrap());
+            quote!(#s.starts_with(#pat.as_str()))
+        }
+        BuiltinFunction::StringEndsWith => {
+            let (s, pat) = (a.next().unwrap(), a.next().unwrap());
+            quote!(#s.ends_with(#pat.as_str()))
+        }
         BuiltinFunction::KeysToString => quote!(sp::ToSharedString::to_shared_string(&#(#a)*)),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
         BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),
@@ -4103,7 +4363,35 @@ fn compile_builtin_function_call(
                 x.row_count() as i32
             }})
         }
-
+        BuiltinFunction::ArrayPush => {
+            let model = a.next().unwrap();
+            let value = a.next().unwrap();
+            quote!({
+                let model = &#model;
+                let value = #value;
+                model.push_row(value);
+            })
+        }
+        BuiltinFunction::ArrayRemove => {
+            let model = a.next().unwrap();
+            let index = a.next().unwrap();
+            quote!({
+                let model = &#model;
+                let index = #index;
+                model.remove_row(index as isize);
+            })
+        }
+        BuiltinFunction::ArrayInsert => {
+            let model = a.next().unwrap();
+            let index = a.next().unwrap();
+            let value = a.next().unwrap();
+            quote!({
+                let model = &#model;
+                let index = #index;
+                let value = #value;
+                model.insert_row(index as isize, value);
+            })
+        }
         BuiltinFunction::Rgb => {
             let (r, g, b, a) =
                 (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
@@ -4585,7 +4873,7 @@ fn generate_with_grid_input_data(
                             let total_item_count = max_total;
                             #rs_init
                             let start_offset = items_vec.len();
-                            items_vec.extend(core::iter::repeat_with(Default::default).take(len * total_item_count));
+                            items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(len * total_item_count));
                             for i in 0..len {
                                 if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                                     let offset = start_offset + i * total_item_count;
@@ -4602,7 +4890,7 @@ fn generate_with_grid_input_data(
                         quote!({
                             let len = _self.#repeater_id.len();
                             let start_offset = items_vec.len();
-                            items_vec.extend(core::iter::repeat_with(Default::default).take(len * #step));
+                            items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(len * #step));
                             for i in 0..len {
                                 if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                                     let offset = start_offset + i * #step;
@@ -4694,6 +4982,10 @@ fn generate_with_layout_item_info(
                                         for child_idx in 0..total_item_count {
                                             items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, Some(child_idx)));
                                         }
+                                    } else {
+                                        // Not-yet-instantiated slot: push placeholder cells so the cell
+                                        // count stays in sync with the repeater length written above.
+                                        items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(total_item_count));
                                     }
                                 }
                             }
@@ -4708,6 +5000,8 @@ fn generate_with_layout_item_info(
                                 for i in 0.._self.#repeater_id.len() {
                                     if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                                        items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, None));
+                                    } else {
+                                        items_vec.push(::core::default::Default::default());
                                     }
                                 }
                             )
@@ -4718,6 +5012,8 @@ fn generate_with_layout_item_info(
                                         for child_idx in 0..#step {
                                             items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, Some(child_idx)));
                                         }
+                                    } else {
+                                        items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(#step));
                                     }
                                 }
                             )
@@ -4796,6 +5092,11 @@ fn generate_with_flexbox_layout_item_info(
                         items_vec_v.push(
                             sub_comp.as_pin_ref().flexbox_layout_item_info(sp::Orientation::Vertical, None),
                         );
+                    } else {
+                        // Not-yet-instantiated slot: push placeholder cells so the cell
+                        // count stays in sync with the repeater length written above.
+                        items_vec_h.push(::core::default::Default::default());
+                        items_vec_v.push(::core::default::Default::default());
                     }
                 });
                 push_code.push(quote!(
@@ -4921,7 +5222,7 @@ fn embedded_file_tokens(path: &str) -> TokenStream {
 }
 
 fn generate_resources(doc: &Document) -> Vec<TokenStream> {
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     let link_section = std::env::var("SLINT_ASSET_SECTION")
         .ok()
         .map(|section| quote!(#[unsafe(link_section = #section)]));
@@ -4943,7 +5244,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                 crate::embedded_resources::EmbeddedResourcesKind::DataUriPayload(bytes, _) => {
                     quote!(static #symbol: &'static [u8] = &[#(#bytes),*];)
                 }
-                #[cfg(feature = "software-renderer")]
+                #[cfg(feature = "renderer-software")]
                 crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture {
                     data, format, rect,
                     total_size: crate::embedded_resources::Size{width, height},
@@ -4977,7 +5278,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                         };
                     )
                 },
-                #[cfg(feature = "software-renderer")]
+                #[cfg(feature = "renderer-software")]
                 crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, x_height, cap_height, glyphs, weight, italic, sdf }) => {
 
                     let character_map_size = character_map.len();

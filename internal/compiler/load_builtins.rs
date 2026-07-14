@@ -22,7 +22,10 @@ use crate::typeregister::TypeRegister;
 /// Parse the contents of builtins.slint and fill the builtin type registry
 /// `register` is the register to fill with the builtin types.
 /// At this point, it really should already contain the basic Types (string, int, ...)
-pub(crate) fn load_builtins(register: &mut TypeRegister) {
+pub(crate) fn load_builtins(
+    register: &mut TypeRegister,
+    symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
+) {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
     let node = crate::parser::parse(include_str!("builtins.slint").into(), None, &mut diag);
     if !diag.is_empty() {
@@ -99,7 +102,8 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                     if let Some(e) = p.BindingExpression() {
                         assert!(!info.shadowable, "shadowable property {id}::{prop_name} can't have a default value as it would end up on the shadowing declaration");
                         let ty = info.ty.clone();
-                        info.default_value = BuiltinPropertyDefault::Expr(compiled(e, register, ty));
+                        info.default_value =
+                            BuiltinPropertyDefault::Expr(compiled(e, register, ty, symbol_counters));
                     }
 
                     (prop_name, info)
@@ -274,12 +278,14 @@ fn compiled(
     node: syntax_nodes::BindingExpression,
     type_register: &TypeRegister,
     ty: Type,
+    symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
 ) -> Expression {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
-    let mut ctx = crate::lookup::LookupCtx::empty_context(type_register, &mut diag);
+    let mut ctx =
+        crate::lookup::LookupCtx::empty_context(type_register, &mut diag, symbol_counters.clone());
     ctx.property_type = ty.clone();
     let e = Expression::from_binding_expression_node(node.clone().into(), &mut ctx)
-        .maybe_convert_to(ty, &node, &mut diag);
+        .maybe_convert_to(ty, &node, ctx.diag, &ctx.symbol_counters);
     if diag.has_errors() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]

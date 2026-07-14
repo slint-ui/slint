@@ -49,5 +49,8 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
             #[cfg(not(target_arch = "wasm32"))]
             let _ = slint::quit_event_loop();
         }
+        M::Ping => {
+            // Keepalive for the remote-preview WebSocket; local previews never see it.
+        }
     }
 }

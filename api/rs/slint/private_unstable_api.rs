@@ -188,7 +188,7 @@ pub mod re_exports {
         Keys, MouseEvent, key_codes::Key, make_keys,
     };
     pub use i_slint_core::item_tree::{
-        IndexRange, ItemTree, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak,
+        IndexRange, ItemTree, ItemTreeRc, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak,
         ensure_item_tree_instantiated, register_item_tree, unregister_item_tree,
     };
     pub use i_slint_core::item_tree::{
@@ -211,6 +211,7 @@ pub mod re_exports {
     pub use i_slint_core::string::shared_string_from_number;
     pub use i_slint_core::string::shared_string_from_number_fixed;
     pub use i_slint_core::string::shared_string_from_number_precision;
+    pub use i_slint_core::string::shared_string_from_number_unlocalized;
     pub use i_slint_core::timers::{Timer, TimerMode};
     pub use i_slint_core::translations::{
         set_bundled_languages, translate_from_bundle, translate_from_bundle_with_plural,

@@ -95,7 +95,6 @@ jobs:
                     # - "https://github.com/xcodes2cn/Xviewer" #copies slint
                     - "https://github.com/olishmollie/radix"
                     - "https://github.com/zivit/watchlist"
-                    - "https://github.com/FelgoSDK/RustyWeather"
                     - "https://github.com/ThilinaTLM/docker_ui"
                     - "https://github.com/PlanetTeamSpeakk/Thermostat"
                     - "https://github.com/Albino-Client/AlbinoLauncher"
@@ -109,7 +108,7 @@ jobs:
                     - "https://github.com/sloganking/codevis-gui"
                     - "https://github.com/CzNorbi/tic_tac_toe_ui"
                     - "https://github.com/remy2019/smtbr_gui"
-                    - "https://github.com/mrandal/PDFer"
+                    # - "https://github.com/mrandal/PDFer" # assigns to the read-only 'has-focus' output property
                     - "https://github.com/dhasoft-rs/7Seg-Slint-Widget"
                     # - "https://github.com/DraKraft/ozon-rs"  # Error: the trait `ToSql` is not implemented for `usize`
                     # - "https://github.com/SUP2Ak/Lur-Slint" # repo gone?
@@ -151,7 +150,7 @@ jobs:
                     - https://github.com/BiliRumble/Cloubit
 
                     - "https://github.com/Erik7354/slint_minesweeper"
-                    - "https://github.com/guimath/GeoQuiz"
+                    # - "https://github.com/guimath/GeoQuiz" # @image-url assets are not checked into the repo
 
                     # from madewithslint and github search (added 2026-06)
                     - "https://github.com/heng30/slint-template"
@@ -165,7 +164,7 @@ jobs:
                     - "https://github.com/cangzhang/champ-r"
                     - "https://github.com/Lee-matod/GProfiles"
                     - "https://github.com/mooofin/Thalix"
-                    - "https://github.com/Arkilo-Labs/NanoTrans"
+                    # - "https://github.com/Arkilo-Labs/NanoTrans" # uses a `platform_impl` module that only exists on Windows
                     - "https://github.com/owu/wsl-dashboard"
 
                     # Missing images (hardcoded absolute path)
@@ -251,9 +250,10 @@ jobs:
                     #- git_url: "https://github.com/LeeeSe/MessAuto"
                     #  os: macos-latest
                     #  sub_path: "."
-                    - git_url: "https://github.com/planet0104/USB-Screen/"
-                      extra_args: "--no-default-features --features=editor"
-                      sub_path: "."
+                    # the `editor` feature references undefined functions (pick_index_or_first / pick_map_value_or_first)
+                    # - git_url: "https://github.com/planet0104/USB-Screen/"
+                    #   extra_args: "--no-default-features --features=editor"
+                    #   sub_path: "."
                     - git_url: "https://github.com/newfla/daily-strip"
                       sub_path: "."
                       extra_args: "--no-default-features --features=slint_frontend"
@@ -285,6 +285,8 @@ jobs:
                       sub_path: "flymoon"
                     - git_url: "https://github.com/gopher64/gopher64"
                       sub_path: "."
+                      # rust-version = 1.96 is newer than crater's stable toolchain, so build it with nightly
+                      toolchain: nightly
                       extra_packages: libpipewire-0.3-dev libwayland-dev libdecor-0-dev liburing-dev cmake ninja-build gnome-desktop-testing libasound2-dev libpulse-dev libaudio-dev libfribidi-dev libsndio-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev libthai-dev
                     - git_url: "https://github.com/PonasKovas/salix"
                       sub_path: "client-gui"
@@ -332,15 +334,17 @@ jobs:
                           cargo update
                     - git_url: "https://github.com/nununoisy/gb-presenter-rs"
                       sub_path: "."
-                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev
+                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
                     - git_url: "https://github.com/nununoisy/nsf-presenter-rs"
                       sub_path: "."
-                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev
+                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
                     - git_url: "https://github.com/RustOtomeLab/RustEng"
                       sub_path: "."
-                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev
+                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
                     - git_url: "https://github.com/vonnieda/dimple"
                       sub_path: "dimple_ui_slint"
+                      # a dependency uses the unstable `c_variadic` feature, so build it with nightly
+                      toolchain: nightly
                     - git_url: "https://github.com/Danila-Bain/wav-wav"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
@@ -349,13 +353,15 @@ jobs:
                       extra_args: "--features=ui"
                     - git_url: "https://github.com/paulusminus/lipl-display"
                       sub_path: "crates/lipl-display-slint"
-                    - git_url: "https://github.com/vimyoung/spell"
-                      sub_path: "spell-framework"
+                    # implements sealed/internal i-slint-core traits (RendererSealed, with_buffer) and pins an old i-slint-core
+                    # - git_url: "https://github.com/vimyoung/spell"
+                    #   sub_path: "spell-framework"
                     - git_url: "https://github.com/Farmadupe/vid_dup_finder_lib"
                       sub_path: vid_dup_finder_app
                     - git_url: "https://github.com/simmsb/inkview-rs"
                       sub_path: inkview-slint
-                    - git_url: "https://codeberg.org/psylink/psylink"
+                    # uses the removed bincode::serde::decode_borrowed_from_slice API
+                    # - git_url: "https://codeberg.org/psylink/psylink"
                     - git_url: "https://github.com/shuntia/bestest"
                       extra_args: "--features=gui"
                     - git_url: https://github.com/Konstantin-Dudersky/rsiot
@@ -375,14 +381,15 @@ jobs:
                       sub_path: launcher-gui
                     - git_url: https://github.com/MERCorg/merc
                       sub_path: tools/gui
-                    - git_url: https://github.com/guycorbaz/rbibli
-                      sub_path: frontend
+                    # repo is no longer publicly accessible (clone fails)
+                    # - git_url: https://github.com/guycorbaz/rbibli
+                    #   sub_path: frontend
                     #- git_url: https://github.com/tadghh/transparent-windows # windows-only code, and uses #![feature] on stable
                     #  extra_args: "--features=tray-item/ksni"
                     - git_url: "https://codeberg.org/vivi-ui/lili"
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
                     - git_url: "https://github.com/bandipapa/rsaber"
-                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libgl1-mesa-dev libvulkan-dev libjsoncpp-dev libx11-dev
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libgl1-mesa-dev libvulkan-dev libjsoncpp-dev libx11-dev libxxf86vm-dev libxrandr-dev
                     - git_url: "https://github.com/heng30/wayshot"
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev libx264-dev
                     - git_url: https://github.com/heng30/tasklog
@@ -395,10 +402,12 @@ jobs:
                       extra_packages: protobuf-compiler
                     - git_url: https://github.com/reedrosenbluth/oscen
                       sub_path: "."
+                      # oscen-lib uses nightly `#![feature(inherent_associated_types)]`, so build it with nightly
+                      toolchain: nightly
                       extra_packages: alsa-utils libasound2-dev
                     - git_url: https://github.com/futo-org/fcast
                       sub_path: "."
-                      extra_packages: meson ninja-build python3-jinja2 libvulkan-dev glslang-tools libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev
+                      extra_packages: meson ninja-build python3-jinja2 libvulkan-dev glslang-tools libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev libdav1d-dev
                     - git_url: "https://gitlab.com/floers/ordinary"
                       sub_path: "."
                       # zip = "*" in its Cargo.toml, but the bundled epub lib needs the old zip API

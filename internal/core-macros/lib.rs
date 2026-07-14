@@ -212,8 +212,14 @@ pub fn slint_doc_str(input: TokenStream) -> TokenStream {
 /// warn about ABI incompatibilities we wouldn't care about.
 ///
 /// (can be applied to a function or a vtable struct)
+///
+/// No-op when this crate's `ffi` feature is enabled (set via `i-slint-core/ffi`).
 #[proc_macro_attribute]
 pub fn remove_extern(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    if cfg!(feature = "ffi") {
+        return item;
+    }
+
     let mut input = syn::parse_macro_input!(item as syn::Item);
 
     match &mut input {

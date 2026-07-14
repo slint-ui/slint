@@ -326,6 +326,9 @@
     "SlintLSP": {
         "href": "guide/tooling/manual-setup/#slint-lsp"
     },
+    "SlintViewer": {
+        "href": "guide/tooling/slint-viewer/"
+    },
     "KateSyntaxHighlighting": {
         "href": "guide/tooling/kate/#syntax-highlighting"
     },

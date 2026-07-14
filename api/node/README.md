@@ -30,11 +30,14 @@ Slint is available via NPM, so you can install by running the following command:
 npm install slint-ui
 ```
 
-### Dependencies
+This requires **[Node.js](https://nodejs.org/download/release/)** (v20 or newer). Pre-built binaries are
+included for Linux (x86-64 and ARM64, glibc), macOS (ARM64), and Windows (x86-64 and ARM64).
 
-You need to install the following components:
+### Building from Source
 
-  * **[Node.js](https://nodejs.org/download/release/)** (v20 or newer)
+On platforms without pre-built binaries, build Slint-node from a checkout of this repository by running
+`pnpm install && pnpm build` in `api/node`. You need to install the following components:
+
   * **[pnpm](https://www.pnpm.io/)**
   * **[Rust compiler](https://www.rust-lang.org/tools/install)**
 

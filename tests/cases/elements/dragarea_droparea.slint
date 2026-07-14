@@ -24,7 +24,7 @@ export component TestCase inherits Window {
     out property <image> result-image;
     in property <bool> use-image: false;
     in property <bool> empty-data: false;
-    out property <bool> contains-drag <=> da.contains-drag;
+    out property <bool> has-drag <=> da.has-drag;
     out property <DragAction> current-action <=> da.current-action;
     out property <bool> dragging <=> dragger.dragging;
     // TODO: Expose the image version
@@ -50,7 +50,7 @@ export component TestCase inherits Window {
             }
         }
         Rectangle {
-            background: da.contains-drag ? green : blue;
+            background: da.has-drag ? green : blue;
             da := DropArea {
                 can-drop(event) => {
                     debug("can-drop", event);
@@ -95,11 +95,11 @@ instance.on_can_drop(|data, use_image| {
     }
 });
 
-// `contains-drag`, `current-action`, and `dragging` should always move in lockstep:
+// `has-drag`, `current-action`, and `dragging` should always move in lockstep:
 // drop-area has-drag <-> action is concrete, and dragging is true between StartDrag
 // and the drop / cancel.
-let assert_drag_state = |contains: bool, action: DragAction, dragging: bool| {
-    assert_eq!(instance.get_contains_drag(), contains, "contains-drag");
+let assert_drag_state = |has_drag: bool, action: DragAction, dragging: bool| {
+    assert_eq!(instance.get_has_drag(), has_drag, "has-drag");
     assert_eq!(instance.get_current_action(), action, "current-action");
     assert_eq!(instance.get_dragging(), dragging, "dragging");
 };

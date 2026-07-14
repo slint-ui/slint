@@ -131,3 +131,15 @@ fn test_empty_window() {
     assert_eq!(region.bounding_box_size(), i_slint_core::api::PhysicalSize::default());
     assert_eq!(region.bounding_box_origin(), i_slint_core::api::PhysicalPosition::default());
 }
+
+#[test]
+fn test_set_size_without_platform() {
+    // Regression test for #12179: driving a MinimalSoftwareWindow directly (e.g. on a
+    // microcontroller) by calling set_size before a platform is installed used to panic,
+    // because dispatching the resulting Resized event tried to resolve the (absent) context
+    // to look up the window event hook. set_size must not panic in this case.
+    // Each test runs on its own thread, so the thread-local global context is unset here.
+    let msw = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
+    msw.set_size(i_slint_core::api::PhysicalSize::new(320, 240));
+    assert_eq!(msw.size(), i_slint_core::api::PhysicalSize::new(320, 240));
+}

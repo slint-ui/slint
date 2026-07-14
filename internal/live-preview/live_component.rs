@@ -20,6 +20,8 @@ pub use slint_interpreter::{Compiler, ComponentInstance, DefaultTranslationConte
 pub struct LiveReloadingComponent {
     // because new_cyclic cannot return error, we need to initialize the instance after
     instance: Option<ComponentInstance>,
+    // Kept so the FFI can return a stable reference; the window is reused across reloads.
+    window_adapter: Option<Rc<dyn i_slint_core::window::WindowAdapter>>,
     watcher: Arc<Mutex<Watcher>>,
     compiler: Compiler,
     file_name: PathBuf,
@@ -43,6 +45,7 @@ impl LiveReloadingComponent {
             let watcher = Watcher::new(self_weak.clone());
             RefCell::new(Self {
                 instance: None,
+                window_adapter: None,
                 watcher,
                 compiler,
                 file_name,
@@ -57,14 +60,15 @@ impl LiveReloadingComponent {
         let mut self_mut = self_rc.borrow_mut();
         let result = self_mut.build();
         result.print_diagnostics();
-        assert!(
-            !result.has_errors(),
-            "Was not able to compile the file {}. \n{:?}",
-            self_mut.file_name.display(),
-            result.diagnostics().collect::<Vec<_>>()
-        );
-        let definition = self_mut.find_component(&result).expect("Cannot open component");
+        if result.has_errors() {
+            return Err(format!("Could not compile {}", self_mut.file_name.display()).into());
+        }
+        let definition = self_mut.find_component(&result).ok_or_else(|| -> PlatformError {
+            format!("No component found in {}", self_mut.file_name.display()).into()
+        })?;
         let instance = definition.create()?;
+        self_mut.window_adapter =
+            Some(i_slint_core::window::WindowInner::from_pub(instance.window()).window_adapter());
         self_mut.instance = Some(instance);
         drop(self_mut);
         Ok(self_rc)
@@ -456,19 +460,17 @@ mod ffi {
         }
     }
 
-    /// Same precondition as slint_interpreter_component_instance_window
+    /// Return a borrowed pointer to the component's window adapter (valid while the component lives).
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_live_preview_window(
+    pub extern "C" fn slint_live_preview_window(
         component: &LiveReloadingComponentInner,
-        out: *mut *const i_slint_core::window::ffi::WindowAdapterRcOpaque,
-    ) {
+    ) -> *const i_slint_core::window::ffi::WindowAdapterRcOpaque {
         assert_eq!(
             core::mem::size_of::<Rc<dyn WindowAdapter>>(),
             core::mem::size_of::<i_slint_core::window::ffi::WindowAdapterRcOpaque>()
         );
         let borrow = component.borrow();
-        let adapter = i_slint_core::window::WindowInner::from_pub(borrow.instance().window())
-            .window_adapter();
-        unsafe { core::ptr::write(out as *mut *const Rc<dyn WindowAdapter>, &adapter as *const _) };
+        let adapter = borrow.window_adapter.as_ref().unwrap();
+        (adapter as *const Rc<dyn WindowAdapter>).cast()
     }
 }

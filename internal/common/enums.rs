@@ -540,7 +540,7 @@ macro_rules! for_each_enums {
             /// It indicates that an element is a live region whose content changes should be
             /// announced by assistive technologies.
             #[non_exhaustive]
-            enum AccessibleLiveness {
+            pub enum AccessibleLiveness {
                 /// Use in regions that present information that is of low-importance to the user.
                 /// Assistive technologies are expected to not announce changes unless the user explicitly asks for it.
                 Off,
@@ -568,7 +568,7 @@ macro_rules! for_each_enums {
 
             /// Represents the orientation of an element or widget such as the `Slider`.
             // (on purpose not #[non_exhaustive])
-            enum Orientation {
+            pub enum Orientation {
                 /// Element is oriented horizontally.
                 Horizontal,
                 /// Element is oriented vertically.

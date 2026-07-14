@@ -1,0 +1,55 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nicholas Turner <nicholas.turner@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Foo {
+    out property <int> case0: 0;
+    out property <int> case1: 1;
+    out property <int> case2: 2;
+
+    out property <int> num: 1;
+
+    match num {
+        case0: Rectangle { }
+//      >   <error{Match expressions must be literal values}
+        case1: Rectangle { }
+//      >   <error{Match expressions must be literal values}
+        case2: Rectangle { }
+//      >   <error{Match expressions must be literal values}
+        *: Rectangle { }
+    }
+}
+
+export component Bar {
+    out property <string> greeting: "hello world";
+
+    match greeting {
+        "hello": Rectangle { }
+        "hello " + "world": Rectangle { }
+//      >                <error{Match expressions must be literal values}
+        *: Rectangle { }
+    }
+}
+
+export component Baz {
+    function func(xx: int) -> string {
+        return xx == 0 ? "hello world" : "goodbye world";
+    }
+    out property <string> greeting: "hello world";
+
+    match greeting {
+        func(0): Rectangle { }
+//      >     <error{Match expressions must be literal values}
+        *: Rectangle { }
+    }
+}
+
+export component FooBar {
+    in property <string> greeting: "hello world";
+    in property <string> world: "world";
+
+    match greeting {
+        "hello \{world}": Rectangle { }
+//      >              <error{Match expressions must be literal values}
+        "hello": Rectangle { }
+    }
+}

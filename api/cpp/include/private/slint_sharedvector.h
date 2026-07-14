@@ -242,7 +242,7 @@ bool operator==(cbindgen_private::Slice<T> a, cbindgen_private::Slice<T> b)
 template<typename T>
 bool operator!=(cbindgen_private::Slice<T> a, cbindgen_private::Slice<T> b)
 {
-    return !(a != b);
+    return !(a == b);
 }
 #endif // !defined(DOXYGEN)
 

@@ -38,7 +38,7 @@ fn eval_expression(
 
     match expression {
         Expression::StringLiteral(s) => Value::String(s.as_str().into()),
-        Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
+        Expression::NumberLiteral(n, _unit) => Value::Number(*n),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::StructFieldAccess { base, name } => {
             if let Value::Struct(o) = eval_expression(
@@ -437,6 +437,11 @@ fn handle_builtin_function(
             let precision: usize = precision.max(0) as usize;
             Value::String(i_slint_core::string::shared_string_from_number_precision(n, precision))
         }
+        BuiltinFunction::ToStringUnlocalized => {
+            let n: f64 =
+                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
+            Value::String(i_slint_core::string::shared_string_from_number_unlocalized(n))
+        }
         BuiltinFunction::StringIsFloat => {
             if arguments.len() != 1 {
                 return Value::Void;
@@ -641,6 +646,59 @@ fn handle_builtin_function(
                 Value::Model(model) => Value::Number(model.row_count() as f64),
                 _ => Value::Void,
             }
+        }
+        BuiltinFunction::ArrayPush => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ArrayPush")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context, None) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let value = eval_expression(&arguments[1], local_context, None);
+
+            model.push_row(value);
+
+            Value::Void
+        }
+        BuiltinFunction::ArrayRemove => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ArrayRemove")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context, None) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+
+            let index = match eval_expression(&arguments[1], local_context, None) {
+                Value::Number(i) => i,
+                _ => panic!("Second argument not an integer: {:?}", arguments[1]),
+            };
+
+            model.remove_row(index as isize);
+
+            Value::Void
+        }
+        BuiltinFunction::ArrayInsert => {
+            if arguments.len() != 3 {
+                panic!("internal error: incorrect argument count to ArrayInsert")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context, None) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let index = match eval_expression(&arguments[1], local_context, None) {
+                Value::Number(i) => i,
+                _ => panic!("Second argument not an integer: {:?}", arguments[1]),
+            };
+
+            let value = eval_expression(&arguments[2], local_context, None);
+            model.insert_row(index as isize, value);
+
+            Value::Void
         }
         BuiltinFunction::Rgb => {
             let r: i32 =

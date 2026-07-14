@@ -208,6 +208,16 @@ impl ChangeTracker {
         };
     }
 
+    /// Test helper: the number of dependency nodes the bound holder currently owns.
+    #[cfg(test)]
+    pub(crate) fn test_dep_node_count(&self) -> usize {
+        let inner = self.inner.get();
+        if inner.is_null() {
+            return 0;
+        }
+        unsafe { (*(*core::ptr::addr_of!((*inner).dep_nodes)).get()).iter().count() }
+    }
+
     /// Clear the change tracker.
     /// No notify function will be called after this.
     pub fn clear(&self) {

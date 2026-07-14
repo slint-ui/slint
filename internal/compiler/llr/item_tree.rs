@@ -20,7 +20,7 @@ pub struct CallbackIdx(usize);
 pub struct SubComponentIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct GlobalIdx(usize);
-#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SubComponentInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ItemInstanceIdx(usize);
@@ -127,6 +127,8 @@ pub struct GlobalComponent {
     pub functions: TiVec<FunctionIdx, Function>,
     /// One entry per property
     pub init_values: BTreeMap<LocalMemberIndex, BindingExpression>,
+    /// The animation for properties which are animated
+    pub animations: BTreeMap<LocalMemberIndex, Expression>,
     // maps property to its changed callback
     pub change_callbacks: BTreeMap<PropertyIdx, MutExpression>,
     pub const_properties: TiVec<PropertyIdx, bool>,
@@ -221,7 +223,7 @@ impl From<LocalMemberReference> for MemberReference {
 }
 
 /// A reference to something within an ItemTree
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct LocalMemberReference {
     pub sub_component_path: Vec<SubComponentInstanceIdx>,
     pub reference: LocalMemberIndex,
@@ -465,10 +467,13 @@ pub struct SubComponent {
     pub property_init: Vec<(MemberReference, BindingExpression)>,
     pub change_callbacks: Vec<(MemberReference, MutExpression)>,
     /// The animation for properties which are animated
-    pub animations: HashMap<LocalMemberReference, Expression>,
+    pub animations: BTreeMap<LocalMemberReference, Expression>,
     /// The two way bindings that map the first property to the second wih optional field access
     pub two_way_bindings: Vec<TwoWayBinding>,
     pub const_properties: Vec<LocalMemberReference>,
+    /// Code run at the start of the constructor, before the property initialization.
+    /// Custom font registration uses this, so fonts are ready before a property needs them.
+    pub pre_init_code: Vec<MutExpression>,
     /// Code that is run in the sub component constructor, after property initializations
     pub init_code: Vec<MutExpression>,
 
@@ -482,6 +487,12 @@ pub struct SubComponent {
     /// Expression that builds a FlexboxLayoutItemInfo for a repeated element in a FlexboxLayout.
     /// Contains property references to flex-grow, flex-shrink, flex-basis, align-self, order.
     pub flexbox_layout_item_info_for_repeated: Option<MutExpression>,
+    /// Vertical `LayoutInfo` for a repeated element, computed with a width
+    /// constraint (its preferred width) so a height-for-width instance in a
+    /// column FlexboxLayout doesn't read `self.width` and recurse through the
+    /// parent flex cache. `Some` only when the element carries a
+    /// `layoutinfo-v-with-constraint`. See `flexbox_layout_item_info`.
+    pub layout_info_v_constrained_for_repeated: Option<MutExpression>,
     /// True when this is a repeated Row in a GridLayout, meaning layout_item_info
     /// needs to be able to return layout info for individual children
     pub is_repeated_row: bool,
@@ -654,6 +665,9 @@ impl CompilationUnit {
         visitor: &mut dyn FnMut(&'a super::MutExpression, &EvaluationContext<'_>),
     ) {
         self.for_each_sub_components(&mut |sc, ctx| {
+            for e in &sc.pre_init_code {
+                visitor(e, ctx);
+            }
             for e in &sc.init_code {
                 visitor(e, ctx);
             }
@@ -666,6 +680,9 @@ impl CompilationUnit {
                 visitor(e, ctx);
             }
             if let Some(e) = &sc.flexbox_layout_item_info_for_repeated {
+                visitor(e, ctx);
+            }
+            if let Some(e) = &sc.layout_info_v_constrained_for_repeated {
                 visitor(e, ctx);
             }
             for e in sc.accessible_prop.values() {

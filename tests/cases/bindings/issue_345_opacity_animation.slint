@@ -11,7 +11,7 @@ component Sub inherits Rectangle {
     }
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     in-out property cond <=> s.cond;
     in-out property val <=> s.child_opacity;
     s := Sub {}

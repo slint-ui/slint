@@ -1,0 +1,168 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Interactive demo for the wrapping main-axis preferred-size fix: a FlexboxLayout
+// sized to its OWN preferred-width snaps to a whole number of items per row, so
+// equal items tile into a clean grid square instead of wrapping mid-item.
+//
+// Open in the viewer and use the steppers:
+//   slint-viewer tests/cases/layout/flexbox-preferred-grid-demo.slint
+// - "items": watch the block stay square (4 -> 2x2, 9 -> 3x3, 16 -> 4x4, ...);
+//   before the fix the preferred-width fell between item boundaries and an extra
+//   ragged row appeared.
+// - "spacing": the preferred-width grows only by the gaps WITHIN a row (e.g. 2
+//   gaps for a 3-column row), not one gap per item as the old code counted.
+//   Spacing is folded into the square-side target (each item modeled as a
+//   size+spacing square), so the grid stays square as spacing grows instead of
+//   skewing taller.
+// - "fill window": pin the flex to its preferred-width (off) vs stretch it to
+//   the available width (on), to compare preferred-size against re-wrapping at
+//   the actually-available width.
+//
+// No std-widgets, so no Image -> safe on the winit-only backend of this clone.
+
+// A small "- value +" stepper built from TouchAreas (no std-widgets).
+component Stepper inherits HorizontalLayout {
+    in property <string> label;
+    in property <int> step: 1;
+    in property <int> minimum: 0;
+    in property <int> maximum: 100;
+    in-out property <int> value;
+
+    spacing: 6px;
+    Text { text: root.label; vertical-alignment: center; }
+    Rectangle {
+        width: 32px;
+        border-radius: 4px;
+        background: minus-ta.pressed ? #444 : #777;
+        Text { text: "−"; color: white; horizontal-alignment: center; vertical-alignment: center; }
+        minus-ta := TouchArea {
+            clicked => { root.value = clamp(root.value - root.step, root.minimum, root.maximum); }
+        }
+    }
+    Text { text: "\{root.value}"; width: 36px; horizontal-alignment: center; vertical-alignment: center; }
+    Rectangle {
+        width: 32px;
+        border-radius: 4px;
+        background: plus-ta.pressed ? #444 : #777;
+        Text { text: "+"; color: white; horizontal-alignment: center; vertical-alignment: center; }
+        plus-ta := TouchArea {
+            clicked => { root.value = clamp(root.value + root.step, root.minimum, root.maximum); }
+        }
+    }
+}
+
+// A custom checkbox built from a TouchArea (no std-widgets).
+component Toggle inherits HorizontalLayout {
+    in property <string> label;
+    in-out property <bool> checked;
+
+    spacing: 8px;
+    Rectangle {
+        width: 22px;
+        height: 22px;
+        border-width: 2px;
+        border-color: #777;
+        border-radius: 4px;
+        background: root.checked ? #4363d8 : transparent;
+        Text { text: root.checked ? "✓" : ""; color: white; horizontal-alignment: center; vertical-alignment: center; }
+        TouchArea { clicked => { root.checked = !root.checked; } }
+    }
+    Text { text: root.label; vertical-alignment: center; }
+}
+
+export component TestCase inherits Window {
+    preferred-width: 640px;
+    preferred-height: 520px;
+    default-font-size: 16px;
+    // Live actual-vs-preferred width goes in the title: the title does not take
+    // part in layout, so reading flex.width here cannot form a binding loop.
+    title: root.fill-window
+        ? "FlexboxLayout — fill: flex.width \{round(flex.width / 1px)}px (preferred \{round(flex.preferred-width / 1px)}px)"
+        : "FlexboxLayout — fit: preferred-width \{round(flex.preferred-width / 1px)}px";
+
+    in-out property <int> item-count: 32;
+    in-out property <int> spacing-px: 0;
+    in-out property <bool> fill-window: false;
+    property <[color]> palette: [#e6194b, #3cb44b, #4363d8, #f58231, #911eb4, #008080];
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 14px;
+
+        Text {
+            text: "A wrapping FlexboxLayout sized to its own preferred-width tiles equal items "
+                + "into a clean grid square — the preferred main-axis size snaps to whole items.";
+            wrap: word-wrap;
+        }
+
+        HorizontalLayout {
+            spacing: 28px;
+            Stepper { label: "items:"; value <=> root.item-count; minimum: 1; maximum: 36; }
+            Stepper { label: "spacing:"; value <=> root.spacing-px; minimum: 0; maximum: 40; step: 5; }
+            Toggle { label: "fill window"; checked <=> root.fill-window; }
+        }
+
+        // Intrinsic (window-independent) values only, so this text never feeds the
+        // window width back into flex.width. The live actual width is in the title.
+        Text {
+            text: root.fill-window
+                ? "fill window: flex stretches to the available width and re-wraps (preferred-width \{round(flex.preferred-width / 1px)}px; live actual width in the title bar)"
+                : "fit preferred: flex.width = preferred-width = \{round(flex.preferred-width / 1px)}px";
+            wrap: word-wrap;
+            font-weight: 700;
+        }
+
+        // Fit mode: the flex takes its preferred-width (the grid square this demo is
+        // about). Fill mode: it stretches to the available width and re-wraps. Driven
+        // by layout stretch, not by binding the width to root.width — the latter forms
+        // a binding loop and ratchets the window's min-width as it grows.
+        HorizontalLayout {
+            alignment: root.fill-window ? LayoutAlignment.stretch : LayoutAlignment.start;
+            flex := FlexboxLayout {
+                align-content: start;
+                spacing: root.spacing-px * 1px;
+                vertical-stretch: 0;
+                horizontal-stretch: root.fill-window ? 1.0 : 0.0;
+
+                for idx in root.item-count: Rectangle {
+                    width: 50px;
+                    height: 50px;
+                    border-radius: 4px;
+                    background: root.palette[mod(idx, 6)];
+                    Text {
+                        text: "\{idx}";
+                        color: white;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        Rectangle { } // soak up remaining vertical space
+    }
+
+    // Automated check at the default state (32 items, 50px, spacing 0, no padding):
+    // sqrt(32 * 50²) ≈ 283 → snaps to 6 items per row (6×50 = 300px); 32 items
+    // wrap into 6 rows. The widest single item (50px) sets min-width.
+    out property <bool> test: flex.preferred-width == 300px && flex.min-width == 50px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

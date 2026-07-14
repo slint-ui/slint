@@ -1,7 +1,7 @@
 {
   "name": "slint-docs",
   "type": "module",
-  "version": "1.17.0",
+  "version": "1.18.0",
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
@@ -27,7 +27,7 @@
     "playwright-ctrf-json-reporter": "catalog:",
     "remark-parse": "catalog:",
     "sharp": "catalog:",
-    "starlight-sidebar-topics": "0.7.1",
+    "starlight-sidebar-topics": "0.8.0",
     "typescript": "catalog:",
     "unified": "catalog:",
     "unist-util-visit": "catalog:",

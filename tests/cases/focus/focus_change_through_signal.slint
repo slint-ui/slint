@@ -11,7 +11,7 @@ component SubElement inherits Rectangle {
     }
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     width: 400phx;
     height: 400phx;
 
@@ -35,7 +35,8 @@ component TestCase inherits Rectangle {
         height: 200phx;
     }
 
-    if (false) : SubElement {  }
+    in property <bool> show: false;
+    if (root.show) : SubElement {  }
 
     in-out property<bool> input1_focused: input1.has_focus;
     in-out property<string> input1_text: input1.text;

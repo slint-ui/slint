@@ -11,7 +11,7 @@ homepage = "https://slint.dev"
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-version = "1.17.0"
+version = "1.18.0"
 categories = ["gui", "development-tools", "command-line-utilities"]
 keywords = ["lsp", "ui", "toolkit"]
 default-run = "slint-lsp"
@@ -103,7 +103,7 @@ tracing-subscriber = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 smol_str = { workspace = true }
-i-slint-live-preview = { version = "=1.17.0", path = "../../internal/live-preview", features = ["protocol", "file-watcher"] }
+i-slint-live-preview = { version = "=1.18.0", path = "../../internal/live-preview", features = ["protocol", "file-watcher"] }
 lsp-types = { workspace = true }
 
 # for the preview-engine feature
@@ -133,6 +133,9 @@ lsp-server = "0.7"
 tokio = { version = "1.50.0", features = ["rt", "sync", "time", "macros", "io-std", "io-util", "net", "fs", "process"] }
 dashmap = "6.1.0"
 mdns-sd = "0.20.0"
+# Unicode XID property lookup used by the host-language accessor scanner to
+# tokenize identifiers in Rust/C++ source rather than scanning byte-by-byte.
+icu_properties = { version = "2.2.0", features = ["compiled_data"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.5"
@@ -148,9 +151,12 @@ tokio = { version = "1.50.0", features = ["rt", "sync", "macros"] }
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
 spin_on = { workspace = true }
+tempfile = "3"
+# The remote connector tests talk to the real viewer-side connection.
+i-slint-live-preview = { path = "../../internal/live-preview", features = ["remote"] }
 
 [build-dependencies]
-slint-build = { workspace = true, features = ["default"], optional = true }
+slint-build = { workspace = true, optional = true }
 
 # [package.metadata.wasm-pack.profile.release]
 # wasm-opt = false

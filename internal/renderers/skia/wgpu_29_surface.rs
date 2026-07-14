@@ -206,9 +206,15 @@ impl crate::Surface for WGPUSurface {
             wgpu::CurrentSurfaceTexture::Validation => {
                 return Err("WGPU surface validation error in get_current_texture".into());
             }
-            wgpu::CurrentSurfaceTexture::Outdated
+            stale @ (wgpu::CurrentSurfaceTexture::Outdated
             | wgpu::CurrentSurfaceTexture::Suboptimal(_)
-            | wgpu::CurrentSurfaceTexture::Lost => {
+            | wgpu::CurrentSurfaceTexture::Lost) => {
+                // `Suboptimal` carries a live `SurfaceTexture`; matched with `_` it is not bound,
+                // so the value returned by `get_current_texture()` keeps it alive across the
+                // `surface.configure()` below — which wgpu forbids ("`SurfaceOutput` must be
+                // dropped before a new `Surface` is made"), panicking on the first frame on
+                // Wayland. Drop it first. (`Outdated`/`Lost` carry nothing → no-op.)
+                drop(stale);
                 surface.configure(&self.device, surface_config);
                 match surface.get_current_texture() {
                     wgpu::CurrentSurfaceTexture::Success(t) => t,

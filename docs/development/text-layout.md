@@ -27,7 +27,8 @@ Slint's text layout system handles the complex process of converting text string
 | `internal/core/textlayout/fragments.rs` | TextFragment, fragment iteration |
 | `internal/core/textlayout/glyphclusters.rs` | Glyph cluster grouping |
 | `internal/core/textlayout/linebreak_unicode.rs` | Unicode line break algorithm |
-| `internal/core/styled_text.rs` | Markdown/HTML parsing |
+| `internal/core/styled_text.rs` | Public `StyledText` API, FFI |
+| `internal/common/styled_text.rs` | Markdown/HTML parsing, `Style`/`FormattedSpan`/`StyledTextParagraph` |
 
 ## Text Layout Pipeline
 
@@ -364,6 +365,11 @@ pub fn byte_offset_for_position(
 
 ## Styled Text
 
+`Style`, `FormattedSpan`, and `StyledTextParagraph` are defined in
+`internal/common/styled_text.rs` (crate `i-slint-common`, behind the `markdown` feature),
+not `internal/core/styled_text.rs` — the core file only re-exports `StyledTextParagraph`
+and adds the public `StyledText` API and FFI.
+
 ### Style Types
 
 ```rust
@@ -374,7 +380,7 @@ pub enum Style {
     Code,           // `code`
     Link,           // [text](url)
     Underline,      // <u>underline</u>
-    Color(Color),   // <span style="color:...">
+    Color(u32),     // <span style="color:...">, ARGB-encoded
 }
 ```
 
@@ -397,12 +403,15 @@ pub struct FormattedSpan {
 
 ```rust
 pub struct StyledText {
-    pub paragraphs: SharedVector<StyledTextParagraph>,
+    pub(crate) paragraphs: SharedVector<StyledTextParagraph>,
 }
 
 impl StyledText {
-    /// Parse markdown string
-    pub fn parse(string: &str) -> Result<Self, StyledTextError>;
+    /// Create styled text from plain text without markdown parsing.
+    pub fn from_plain_text(text: &str) -> Self;
+
+    /// Parse markdown into styled text.
+    pub fn from_markdown(markdown: &str) -> Result<Self, StyledTextFromMarkdownError>;
 }
 ```
 

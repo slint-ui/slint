@@ -110,6 +110,11 @@ struct Cli {
     #[arg(long, value_name = "image file", action)]
     screenshot: Option<std::path::PathBuf>,
 
+    /// Size of the `--screenshot` window as `WIDTHxHEIGHT` in logical pixels
+    /// (e.g. `360x800`). Defaults to the component's preferred size.
+    #[arg(long, value_name = "WxH", action, requires = "screenshot")]
+    size: Option<String>,
+
     /// Compile, print any diagnostics, and exit without opening a window.
     /// Exit status is 1 on errors, 0 otherwise (warnings still print).
     #[arg(
@@ -151,14 +156,13 @@ impl Cli {
 static EXIT_CODE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
 
 fn main() -> Result<()> {
-    // By default, show INFO level and above in a compact format.
     tracing_subscriber::fmt()
         .log_internal_errors(false)
         .without_time()
         .with_target(false)
         .with_env_filter(
             tracing_subscriber::EnvFilter::builder()
-                .with_default_directive(tracing::level_filters::LevelFilter::INFO.into())
+                .with_default_directive(tracing::level_filters::LevelFilter::WARN.into())
                 .from_env_lossy(),
         )
         .init();

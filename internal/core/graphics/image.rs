@@ -296,7 +296,7 @@ pub struct CachedPath {
     last_modified: u32,
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 impl CachedPath {
     fn new<P: AsRef<std::path::Path>>(path: P) -> Self {
         let path_str = path.as_ref().to_string_lossy().as_ref().into();
@@ -1103,6 +1103,18 @@ impl BorrowedOpenGLTextureBuilder {
     }
 }
 
+/// Load an image by handing a URL to an HTML `<img>` element for the browser
+/// to fetch. This is a web-only mechanism used by slintpad to display image
+/// references that are URLs rather than file-system paths; it is not general
+/// network image loading.
+/// This is called by the interpreter and the generated code.
+#[cfg(all(target_arch = "wasm32", feature = "image-decoders"))]
+pub fn load_as_html_image(url: &str) -> Result<Image, LoadImageError> {
+    self::cache::IMAGE_CACHE.with(|global_cache| {
+        global_cache.borrow_mut().load_as_html_image(url).ok_or(LoadImageError(()))
+    })
+}
+
 /// Load an image from an image embedded in the binary.
 /// This is called by the generated code.
 #[cfg(feature = "image-decoders")]
@@ -1130,6 +1142,8 @@ fn test_image_size_from_buffer_without_backend() {
 
 #[cfg(feature = "svg")]
 #[test]
+// memchr's manually aligned SIMD loads are a false positive under -Zmiri-symbolic-alignment-check
+#[cfg_attr(miri, ignore)]
 fn test_image_size_from_svg() {
     let simple_svg = r#"<svg width="320" height="200" xmlns="http://www.w3.org/2000/svg"></svg>"#;
     let image = Image::load_from_svg_data(simple_svg.as_bytes()).unwrap();
@@ -1139,6 +1153,8 @@ fn test_image_size_from_svg() {
 
 #[cfg(feature = "svg")]
 #[test]
+// memchr's manually aligned SIMD loads are a false positive under -Zmiri-symbolic-alignment-check
+#[cfg_attr(miri, ignore)]
 fn test_image_invalid_svg() {
     let invalid_svg = r#"AaBbCcDd"#;
     let result = Image::load_from_svg_data(invalid_svg.as_bytes());

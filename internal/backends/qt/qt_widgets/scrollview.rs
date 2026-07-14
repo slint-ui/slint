@@ -258,7 +258,9 @@ impl Item for NativeScrollView {
                 MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                     InputEventResult::EventIgnored
                 }
-                MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
+                MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => {
+                    InputEventResult::EventIgnored
+                }
             };
             self.data.set(data);
             result

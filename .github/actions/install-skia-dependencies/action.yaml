@@ -25,6 +25,18 @@ runs:
           if: runner.os == 'Windows'
           run: rm /usr/bin/link
           shell: bash
+        # The macos-14 image defaults to Xcode 15.4, whose libc++ lacks the
+        # P0960 parenthesized-aggregate-init support that skia-bindings' PDF
+        # code (SkPDFTag.cpp) relies on. Select a newer Xcode that the image
+        # also ships. xcode-select propagates to /usr/bin/clang and the
+        # LIBCLANG_PATH derived below. Newer images default to a working Xcode.
+        - name: Select a newer Xcode on macos-14
+          if: runner.os == 'macOS'
+          shell: bash
+          run: |
+              if [ "$ImageOS" = "macos14" ]; then
+                  sudo xcode-select -s /Applications/Xcode_16.2.app
+              fi
         - name: Unselect homebrew clang to work around https://github.com/actions/runner-images/issues/13827
           if: runner.os == 'macOS'
           shell: bash

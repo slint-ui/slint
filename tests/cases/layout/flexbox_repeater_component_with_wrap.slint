@@ -1,0 +1,103 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test: a FlexboxLayout containing a repeater of components with
+// height-for-width content (a wrapped Text) used to panic with "Recursion
+// detected with property .layoutinfo-v". Each repeated instance's vertical
+// info was queried without a cross-axis constraint, so it read self.width —
+// set by the parent flex cache it was feeding — and cycled. The repeater path
+// now routes through the synthesized layoutinfo-v-with-constraint, like static
+// cells do, so the layout resolves instead.
+
+component Card inherits Rectangle {
+    in property <string> label;
+    background: #e0e0e0;
+    VerticalLayout {
+        padding: 5px;
+        Text {
+            text: label;
+            wrap: word-wrap;
+            horizontal-alignment: left;
+        }
+    }
+}
+
+// Card2 adds nothing: the wrapped Text (height-for-width) lives in the base, so
+// the synthesized layoutinfo-v-with-constraint is reached through inheritance.
+// Exercises the inherited_layout_info_v_with_constraint path of the fix.
+component Card2 inherits Card { }
+
+export component TestCase inherits Window {
+    width: 320px;
+    height: 400px;
+
+    in property <[string]> labels: [
+        "Short",
+        "A medium-length card text that may or may not wrap",
+        "A really long card text that will almost certainly need to wrap onto two or more lines when the flex space is tight",
+    ];
+
+    // Single-line reference for the card Text, so the height assertions stay
+    // font-independent (the nodejs backend has no test fonts): each card holds
+    // at least one such line.
+    refLine := Text { x: 0; y: -1000px; text: "Short"; wrap: no-wrap; }
+    out property <length> line-height: refLine.height;
+
+    FlexboxLayout {
+        flex-direction: column;
+        spacing: 6px;
+        padding: 8px;
+
+        for s in labels: Card {
+            label: s;
+            flex-shrink: 0;
+        }
+        // Non-repeater anchor whose laid-out position depends on the total
+        // height of the repeated Cards above. Reading anchor.y forces the
+        // flexbox to solve, which is what used to recurse.
+        anchor := Rectangle {
+            background: blue;
+            height: 10px;
+        }
+    }
+
+    // A second flex of inherited-base cards, to cover the inherited path.
+    FlexboxLayout {
+        x: 0; y: 300px; width: 320px; height: 100px;
+        flex-direction: column;
+        spacing: 6px;
+        padding: 8px;
+
+        for s in labels: Card2 {
+            label: s;
+            flex-shrink: 0;
+        }
+        anchor2 := Rectangle { height: 5px; }
+    }
+
+    // anchor.y sits below the three stacked Cards: each card is at least one
+    // text line tall, so the anchor is well past 3 lines and still inside the
+    // window (no infinite/overflowing height). anchor2.y > 0 proves the
+    // inherited-base flex solved without recursing too.
+    out property <bool> test:
+        anchor.y > 3 * line-height
+        && anchor.y < self.height
+        && anchor2.y > 0px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

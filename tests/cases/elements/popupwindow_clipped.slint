@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 500px;
+
+    out property <bool> popup-open: false;
+    out property <length> window-width: self.width;
+    out property <length> window-height: self.width;
+
+    Rectangle {
+        background: blue;
+    }
+
+    callback show-popup();
+    show-popup => {
+        popup.show();
+    }
+
+    // Manual testing
+    TouchArea {
+        clicked => {
+            popup.show();
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        y: root.height - 20px;
+        width: 200px;
+        height: 200px;
+
+        init => {
+            root.popup-open = true;
+        }
+
+        Rectangle {
+            background: red;
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let inner =  slint_testing::WindowInner::from_pub(&instance.window());
+instance.window().set_size(slint::PhysicalSize::new(500, 500));
+
+slint_testing::mock_elapsed_time(50000);
+
+assert_eq!(instance.get_window_width(), 500.);
+assert_eq!(instance.get_window_height(), 500.);
+assert_eq!(instance.get_popup_open(), false);
+
+instance.invoke_show_popup();
+
+assert_eq!(instance.get_popup_open(), true);
+assert_eq!(inner.active_popups.borrow().len(), 1, "We have one open popup");
+
+let popups = inner.active_popups.borrow();
+if let slint_testing::PopupWindowLocation::ChildWindow(loc) = &popups.first().unwrap().location {
+    assert_eq!(loc.x, 0.);
+    assert_eq!(loc.y, 500. - 200., "The popup was moved up because otherwise it would clip");
+}else {
+    assert!(false, "The popup is expected to be a ChildWindow");
+};
+```
+
+*/

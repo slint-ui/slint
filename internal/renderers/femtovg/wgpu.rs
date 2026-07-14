@@ -195,9 +195,17 @@ impl GraphicsBackend for WGPUBackend {
             wgpu::CurrentSurfaceTexture::Validation => {
                 return Err("WGPU surface validation error in get_current_texture".into());
             }
-            wgpu::CurrentSurfaceTexture::Outdated
+            stale @ (wgpu::CurrentSurfaceTexture::Outdated
             | wgpu::CurrentSurfaceTexture::Suboptimal(_)
-            | wgpu::CurrentSurfaceTexture::Lost => {
+            | wgpu::CurrentSurfaceTexture::Lost) => {
+                // `Suboptimal` carries a live `SurfaceTexture`; matched with `_` it is not bound,
+                // so the temporary returned by `get_current_texture()` keeps it alive for the
+                // whole arm — i.e. across the `surface.configure()` below. wgpu forbids
+                // reconfiguring a surface while an acquired surface texture is still alive and
+                // panics with "`SurfaceOutput` must be dropped before a new `Surface` is made".
+                // Drop it first. This is the common FIRST-frame status on Wayland, so without the
+                // drop the renderer panics on startup. (`Outdated`/`Lost` carry nothing → no-op.)
+                drop(stale);
                 let mut device = self.device.borrow_mut();
                 let device = device.as_mut().unwrap();
                 surface.configure(device, self.surface_config.borrow().as_ref().unwrap());
@@ -302,6 +310,7 @@ impl FemtoVGRenderer<WGPUBackend> {
         surface_target: impl Into<i_slint_core::graphics::wgpu_29::SurfaceTarget>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
+        transparent: bool,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let (instance, adapter, device, queue, surface) =
             i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface(
@@ -324,6 +333,19 @@ impl FemtoVGRenderer<WGPUBackend> {
             .copied()
             .unwrap_or_else(|| swapchain_capabilities.formats[0]);
         surface_config.format = swapchain_format;
+
+        // The default `Opaque` discards the scene's alpha; pick a translucent mode if offered.
+        // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
+        if transparent {
+            use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
+            let advertised = &swapchain_capabilities.alpha_modes;
+            if let Some(mode) =
+                [PreMultiplied, PostMultiplied].into_iter().find(|m| advertised.contains(m))
+            {
+                surface_config.alpha_mode = mode;
+            }
+        }
+
         surface.configure(&device, &surface_config);
 
         *self.graphics_backend.instance.borrow_mut() = Some(instance.clone());

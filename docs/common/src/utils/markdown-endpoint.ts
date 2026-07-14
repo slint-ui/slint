@@ -42,6 +42,12 @@ export interface MarkdownEndpointOptions {
      * blocks. Sites whose pages don't import code from files omit this.
      */
     projectRoot?: string;
+    /**
+     * Fold the C++ API reference's `api-signature` `<pre>` HTML into ```cpp
+     * fences and drop the empty heading anchors. Only the doxygen-generated
+     * pages carry that HTML (and the fence is C++), so other sites omit this.
+     */
+    apiSignatures?: boolean;
 }
 
 /**
@@ -50,9 +56,17 @@ export interface MarkdownEndpointOptions {
  */
 export function markdownStaticPaths(entries: MarkdownDocEntry[]) {
     return entries.map((entry) => ({
-        params: { slug: entry.id === "" ? "index" : entry.id },
+        params: { slug: `${markdownRouteContentPath(entry.id)}.md` },
         props: { entry },
     }));
+}
+
+function markdownRouteContentPath(id: string): string {
+    if (id === "") {
+        return "index";
+    }
+    // cspell:ignore mkdn mdwn
+    return id.replace(/\.(?:md|mdx|markdown|mdown|mkdn|mkd|mdwn)$/i, "");
 }
 
 /** Build the `text/markdown` Response for a single doc entry. */
@@ -62,6 +76,9 @@ export function renderMarkdownResponse(
 ): Response {
     const data = entry.data;
     let body = entry.body ?? "";
+    if (options.apiSignatures) {
+        body = simplifyApiReferenceHtml(body);
+    }
     if (options.projectRoot) {
         body = inlineRawCodeImports(body, options.projectRoot, entry.filePath);
     }
@@ -95,6 +112,64 @@ export function renderMarkdownResponse(
 // YAML-safe double-quoting for single-line scalar values.
 function quote(s: string): string {
     return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+// The C++ pages render signatures as `<pre class="api-signature">` HTML and
+// give member headings an `<a id>` anchor — both noise in the plain markdown an
+// agent reads. Fold signatures into ```cpp fences, drop the anchors and the
+// `<small>` markers (keeping their text). A no-op for pages without that HTML.
+const API_SIGNATURE_RE =
+    /<pre\b[^>]*class="[^"]*\bapi-signature\b[^"]*"[^>]*>([\s\S]*?)<\/pre>/g;
+// cSpell:ignore apos
+const NAMED_ENTITY: Record<string, string> = {
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    amp: "&",
+};
+
+// Decode the entities in the signature markup. Shiki escapes `<` as the hex
+// `&#x3C;`, so numeric refs are handled too, not just named ones. `&amp;` is
+// decoded last so an escaped `&amp;lt;` survives as the literal `&lt;`.
+function decodeHtmlEntities(s: string): string {
+    return s
+        .replace(
+            /&#x([0-9a-fA-F]+);|&#(\d+);|&(lt|gt|quot|apos);/g,
+            (_, hex: string, dec: string, name: string) => {
+                if (hex !== undefined) {
+                    return String.fromCodePoint(Number.parseInt(hex, 16));
+                }
+                if (dec !== undefined) {
+                    return String.fromCodePoint(Number.parseInt(dec, 10));
+                }
+                return NAMED_ENTITY[name];
+            },
+        )
+        .replace(/&amp;/g, "&");
+}
+
+function simplifyApiReferenceHtml(body: string): string {
+    return (
+        body
+            .replace(API_SIGNATURE_RE, (_whole, inner: string) => {
+                const code = inner
+                    // Keep only the `<code>…</code>` payload.
+                    .replace(/^[\s\S]*?<code[^>]*>/, "")
+                    .replace(/<\/code>[\s\S]*$/, "")
+                    // Shiki wraps each source line in its own span.
+                    .replace(/<span class="line">/g, "\n")
+                    .replace(/<[^>]+>/g, "");
+                const text = decodeHtmlEntities(code)
+                    .replace(/^\n+/, "")
+                    .replace(/\n+$/, "");
+                return `\`\`\`cpp\n${text}\n\`\`\``;
+            })
+            // Empty heading anchors (`### <a id="name"></a> \`name\``) and the
+            // `<small>(virtual)</small>` markers around member headings.
+            .replace(/<a id="[^"]*"><\/a>\s?/g, "")
+            .replace(/<\/?small>/g, "")
+    );
 }
 
 // Replace `<Link type="X" label="Y" />` (the in-prose linking component used

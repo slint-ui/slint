@@ -18,6 +18,7 @@ pub mod api {
     This module contains types that are public and re-exported in the slint-rs as well as the slint-interpreter crate as public API.
     */
 
+    #[doc(no_inline)]
     pub use super::wgpu;
 
     /// This data structure provides settings for initializing WGPU renderers.
