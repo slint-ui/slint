@@ -536,6 +536,7 @@ impl Expression {
                         ctx.diag.slint_sc_error("String interpolation expressions are", &node);
                         Some(Self::from_string_template_node(node.into(), ctx))
                     }
+                    SyntaxKind::Closure => Some(Self::from_closure_node(node.into(), ctx, None)),
                     _ => None,
                 },
                 NodeOrToken::Token(token) => match token.kind() {
@@ -1555,8 +1556,31 @@ impl Expression {
             }
             return Self::Invalid;
         };
+        // For `.any(predicate)` / `.all(predicate)` the closure's argument type is
+        // structurally derived from the base array's element type. Compute it here
+        // so we can hand it to the closure when resolving that specific argument.
+        let expected_closure_arg_type = match &function {
+            Some(LookupResult::Callable(LookupResultCallable::MemberFunction {
+                base,
+                member,
+                ..
+            })) if matches!(
+                **member,
+                LookupResultCallable::Callable(Callable::Builtin(
+                    BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll
+                ))
+            ) =>
+            {
+                let Type::Array(elem_ty) = base.ty() else { unreachable!() };
+                Some((*elem_ty).clone())
+            }
+            _ => None,
+        };
+
         // Convert the arguments once the parameter types are known, so a bare color/enum
-        // literal in argument position resolves against its parameter type.
+        // literal in argument position resolves against its parameter type. A closure
+        // argument (of `.any()`/`.all()`) is routed through `from_argument_expression_node`
+        // so its body resolves against `expected_closure_arg_type`.
         let arg_nodes = sub_expr.collect::<Vec<_>>();
         let convert_args = |ctx: &mut LookupCtx, expected: &[Type]| {
             arg_nodes
@@ -1565,7 +1589,11 @@ impl Expression {
                 .map(|(i, n)| {
                     let ty = expected.get(i).cloned().unwrap_or(Type::Invalid);
                     let e = ctx.with_expected_type(ty, |ctx| {
-                        Self::from_expression_node((*n).clone(), ctx)
+                        Self::from_argument_expression_node(
+                            (*n).clone(),
+                            ctx,
+                            &expected_closure_arg_type,
+                        )
                     });
                     (e, Some(NodeOrToken::from((**n).clone())))
                 })
@@ -1597,8 +1625,8 @@ impl Expression {
                     &ctx.symbol_counters,
                 );
             }
-            LookupResultCallable::MemberFunction { member, base, base_node } => {
-                arguments.push((base, base_node));
+            LookupResultCallable::MemberFunction { member, base, source_node } => {
+                arguments.push((base, source_node));
                 adjust_arg_count = 1;
                 match *member {
                     LookupResultCallable::Callable(c) => c,
@@ -2013,6 +2041,72 @@ impl Expression {
         Expression::Array { element_ty, values }
     }
 
+    /// Resolve a closure expression. `arg_type` is `Some` only when the closure appears in a
+    /// position whose callee constrains the argument's type (currently `.any` / `.all`); in
+    /// that case the body is also required to evaluate to `bool`. When `arg_type` is `None`
+    /// the closure is still a valid expression of type [`Type::Closure`], but its body cannot
+    /// be meaningfully typed and any later type-conversion error will be reported at the
+    /// position that consumes it.
+    fn from_closure_node(
+        node: syntax_nodes::Closure,
+        ctx: &mut LookupCtx,
+        arg_type: Option<Type>,
+    ) -> Expression {
+        let has_expected_arg_type = arg_type.is_some();
+        let ty = arg_type.unwrap_or(Type::Invalid);
+        let arg_name = node.DeclaredIdentifier().to_smolstr();
+        let internal_arg_name: SmolStr = format!("local_{arg_name}").into();
+
+        ctx.local_variables.push(vec![(internal_arg_name.clone(), ty)]);
+        let expression = Expression::from_expression_node(node.Expression(), ctx);
+        ctx.local_variables.pop();
+
+        let body_ty = expression.ty();
+        if has_expected_arg_type && body_ty != Type::Bool && body_ty != Type::Invalid {
+            ctx.diag.push_error(
+                format!("Closure body must be of type bool, but is {body_ty}"),
+                &node.Expression(),
+            );
+            return Expression::Invalid;
+        }
+
+        Expression::Closure { arg_name: internal_arg_name, expression: Box::new(expression) }
+    }
+
+    /// Resolve a function call argument. If the argument is a closure expression (possibly
+    /// nested in zero or more parenthesizing `Expression` wrappers), dispatch directly to
+    /// `from_closure_node` with the expected argument type. Otherwise fall back to the
+    /// generic expression resolver, in which case any closure encountered inside has no
+    /// expected argument type.
+    fn from_argument_expression_node(
+        node: syntax_nodes::Expression,
+        ctx: &mut LookupCtx,
+        expected_closure_arg_type: &Option<Type>,
+    ) -> Expression {
+        if expected_closure_arg_type.is_some() {
+            let mut current = node.clone();
+            loop {
+                let first_meaningful_child = current
+                    .children()
+                    .find(|n| matches!(n.kind(), SyntaxKind::Expression | SyntaxKind::Closure));
+                match first_meaningful_child {
+                    Some(child) if child.kind() == SyntaxKind::Closure => {
+                        return Self::from_closure_node(
+                            child.into(),
+                            ctx,
+                            expected_closure_arg_type.clone(),
+                        );
+                    }
+                    Some(child) if child.kind() == SyntaxKind::Expression => {
+                        current = child.into();
+                    }
+                    _ => break,
+                }
+            }
+        }
+        Self::from_expression_node(node, ctx)
+    }
+
     fn from_string_template_node(
         node: syntax_nodes::StringTemplate,
         ctx: &mut LookupCtx,
@@ -2373,7 +2467,7 @@ fn continue_lookup_within_element(
         if matches!(fun.args.first(), Some(Type::ElementReference)) {
             LookupResult::Callable(LookupResultCallable::MemberFunction {
                 base: Expression::ElementReference(Rc::downgrade(elem)),
-                base_node: Some(NodeOrToken::Node(node.into())),
+                source_node: Some(NodeOrToken::Node(node.into())),
                 member: Box::new(LookupResultCallable::Callable(callable)),
             })
             .into()

@@ -4565,6 +4565,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 ),
             }
         }
+        Expression::Closure { arg_name, expression } => {
+            let arg = ident(arg_name);
+            let expr = compile_expression(expression, ctx);
+
+            format!("[&](auto const &{arg}) -> bool {{ return {expr}; }}")
+        }
     }
 }
 
@@ -5238,6 +5244,12 @@ fn compile_builtin_function_call(
             let color = a.next().unwrap();
             format!("slint::private_api::color_to_styled_text({})", color)
         }
+        BuiltinFunction::ArrayAny => {
+            format!("slint::private_api::model_any({}, {})", a.next().unwrap(), a.next().unwrap())
+        },
+        BuiltinFunction::ArrayAll => {
+            format!("slint::private_api::model_all({}, {})", a.next().unwrap(), a.next().unwrap())
+        },
     }
 }
 

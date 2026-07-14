@@ -3140,7 +3140,8 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
             | Expression::LinearGradient { .. }
             | Expression::RadialGradient { .. }
             | Expression::ConicGradient { .. }
-            | Expression::EnumerationValue(..) => true,
+            | Expression::EnumerationValue(..)
+            | Expression::Closure { .. } => true,
             Expression::Condition { true_expr, false_expr, .. } => {
                 produces_owned_value(true_expr) && produces_owned_value(false_expr)
             }
@@ -3151,7 +3152,6 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
     }
 
     let compiled_expr = compile_expression(expr, ctx);
-
     if produces_owned_value(expr) { compiled_expr } else { quote!((#compiled_expr).clone()) }
 }
 
@@ -3820,6 +3820,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 None => {
                     quote!(sp::translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice()))
                 }
+            }
+        }
+        Expression::Closure { arg_name, expression } => {
+            let arg_name = ident(arg_name);
+            let expression = compile_expression(expression, ctx);
+            quote! {
+                |#arg_name| {#expression}
             }
         }
     }
@@ -4656,6 +4663,30 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorToStyledText => {
             let color = a.next().unwrap();
             quote!(sp::color_to_styled_text(#color))
+        }
+        BuiltinFunction::ArrayAny => {
+            let arr_expression = compile_expression_to_value(&arguments[0], ctx);
+            let Expression::Closure { arg_name, expression } = &arguments[1] else {
+                panic!("internal error: ArrayAny expects a closure as second argument")
+            };
+            let arg_name = ident(arg_name);
+            let closure_expression = compile_expression(expression, ctx);
+            quote!({
+                let arr = #arr_expression;
+                sp::model_any(&arr, |#arg_name| -> bool { #closure_expression })
+            })
+        }
+        BuiltinFunction::ArrayAll => {
+            let arr_expression = compile_expression_to_value(&arguments[0], ctx);
+            let Expression::Closure { arg_name, expression } = &arguments[1] else {
+                panic!("internal error: ArrayAll expects a closure as second argument")
+            };
+            let arg_name = ident(arg_name);
+            let closure_expression = compile_expression(expression, ctx);
+            quote!({
+                let arr = #arr_expression;
+                sp::model_all(&arr, |#arg_name| -> bool { #closure_expression })
+            })
         }
     }
 }

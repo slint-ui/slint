@@ -73,6 +73,36 @@ void model_insert(const std::shared_ptr<M> &model, std::ptrdiff_t index, const M
     }
 }
 
+template<typename M, typename P>
+bool model_any(const std::shared_ptr<M> &model, P predicate)
+{
+    long int count = model_length(model);
+
+    for (long int i = 0; i < count; ++i) {
+        auto data = access_array_index(model, i);
+        if (predicate(data)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+template<typename M, typename P>
+bool model_all(const std::shared_ptr<M> &model, P predicate)
+{
+    long int count = model_length(model);
+
+    for (long int i = 0; i < count; ++i) {
+        auto data = access_array_index(model, i);
+        if (!predicate(data)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 } // namespace private_api
 
 /// A Model is providing Data for Slint Models or ListView elements of the
