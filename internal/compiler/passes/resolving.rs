@@ -45,6 +45,7 @@ fn resolve_expression(
         let mut lookup_ctx = LookupCtx {
             property_name,
             property_type,
+            expected_type: Type::default(),
             component_scope: scope,
             diag,
             symbol_counters: type_loader.symbol_counters.clone(),
@@ -54,6 +55,7 @@ fn resolve_expression(
             current_token: None,
             local_variables: Vec::new(),
         };
+        lookup_ctx.expected_type = lookup_ctx.return_type().clone();
 
         let new_expr = match node.kind() {
             SyntaxKind::CallbackConnection => {
@@ -368,11 +370,14 @@ impl Expression {
         // prefix with "local_" to avoid conflicts
         let name: SmolStr = format!("local_{name}",).into();
 
-        let value = Self::from_expression_node(node.Expression(), ctx);
-        let ty = match node.Type() {
-            Some(ty) => type_from_node(ty, ctx.diag, ctx.type_register),
-            None => value.ty(),
+        let declared_ty = node.Type().map(|ty| type_from_node(ty, ctx.diag, ctx.type_register));
+        let value = match &declared_ty {
+            Some(t) => ctx.with_expected_type(t.clone(), |ctx| {
+                Self::from_expression_node(node.Expression(), ctx)
+            }),
+            None => Self::from_expression_node(node.Expression(), ctx),
         };
+        let ty = declared_ty.unwrap_or_else(|| value.ty());
 
         // we can get the last scope exists, because each codeblock creates a new scope and we are inside a codeblock here by necessity
         ctx.local_variables.last_mut().unwrap().push((name.clone(), ty.clone()));
@@ -393,12 +398,9 @@ impl Expression {
             ctx.diag.push_error(format!("Must return a value of type '{return_type}'"), &node);
         }
         Expression::ReturnStatement(e.map(|n| {
-            Box::new(Self::from_expression_node(n, ctx).maybe_convert_to(
-                return_type,
-                &node,
-                ctx.diag,
-                &ctx.symbol_counters,
-            ))
+            let e = ctx
+                .with_expected_type(return_type.clone(), |ctx| Self::from_expression_node(n, ctx));
+            Box::new(e.maybe_convert_to(return_type, &node, ctx.diag, &ctx.symbol_counters))
         }))
     }
 
@@ -901,14 +903,10 @@ impl Expression {
                     )),
                 }
             } else {
-                // To facilitate color literal conversion, adjust the expected return type.
-                let e = {
-                    let old_property_type = std::mem::replace(&mut ctx.property_type, Type::Color);
-                    let e =
-                        Expression::from_expression_node(n.as_node().unwrap().clone().into(), ctx);
-                    ctx.property_type = old_property_type;
-                    e
-                };
+                // To facilitate color literal conversion, adjust the expected type.
+                let e = ctx.with_expected_type(Type::Color, |ctx| {
+                    Expression::from_expression_node(n.as_node().unwrap().clone().into(), ctx)
+                });
                 match std::mem::replace(&mut current_stop, Stop::Finished) {
                     Stop::Empty => {
                         current_stop = Stop::Color(e.maybe_convert_to(
@@ -1557,18 +1555,31 @@ impl Expression {
             }
             return Self::Invalid;
         };
-        let sub_expr = sub_expr.map(|n| {
-            (Self::from_expression_node(n.clone(), ctx), Some(NodeOrToken::from((*n).clone())))
-        });
+        // Convert the arguments once the parameter types are known, so a bare color/enum
+        // literal in argument position resolves against its parameter type.
+        let arg_nodes = sub_expr.collect::<Vec<_>>();
+        let convert_args = |ctx: &mut LookupCtx, expected: &[Type]| {
+            arg_nodes
+                .iter()
+                .enumerate()
+                .map(|(i, n)| {
+                    let ty = expected.get(i).cloned().unwrap_or(Type::Invalid);
+                    let e = ctx.with_expected_type(ty, |ctx| {
+                        Self::from_expression_node((*n).clone(), ctx)
+                    });
+                    (e, Some(NodeOrToken::from((**n).clone())))
+                })
+                .collect::<Vec<_>>()
+        };
         let Some(function) = function else {
             // Check sub expressions anyway
-            sub_expr.count();
+            convert_args(ctx, &[]);
             assert!(ctx.diag.has_errors());
             return Self::Invalid;
         };
         let LookupResult::Callable(function) = function else {
             // Check sub expressions anyway
-            sub_expr.count();
+            convert_args(ctx, &[]);
             ctx.diag.push_error("The expression is not a function".into(), &node);
             return Self::Invalid;
         };
@@ -1577,7 +1588,7 @@ impl Expression {
         let function = match function {
             LookupResultCallable::Callable(c) => c,
             LookupResultCallable::Macro(mac) => {
-                arguments.extend(sub_expr);
+                arguments.extend(convert_args(ctx, &[]));
                 return crate::builtin_macros::lower_macro(
                     mac,
                     &source_location,
@@ -1592,7 +1603,7 @@ impl Expression {
                 match *member {
                     LookupResultCallable::Callable(c) => c,
                     LookupResultCallable::Macro(mac) => {
-                        arguments.extend(sub_expr);
+                        arguments.extend(convert_args(ctx, &[]));
                         return crate::builtin_macros::lower_macro(
                             mac,
                             &source_location,
@@ -1608,7 +1619,12 @@ impl Expression {
             }
         };
 
-        arguments.extend(sub_expr);
+        match function.ty() {
+            Type::Function(f) | Type::Callback(f) => {
+                arguments.extend(convert_args(ctx, f.args.get(adjust_arg_count..).unwrap_or(&[])));
+            }
+            _ => arguments.extend(convert_args(ctx, &[])),
+        }
 
         if matches!(&function, Callable::Callback(nr) if nr.name() == "init") {
             ctx.diag.push_warning(
@@ -1701,7 +1717,9 @@ impl Expression {
                 Type::Invalid
             }
         };
-        let rhs = Self::from_expression_node(rhs_n.clone(), ctx);
+        let rhs = ctx.with_expected_type(expected_ty.clone(), |ctx| {
+            Self::from_expression_node(rhs_n.clone(), ctx)
+        });
         Expression::SelfAssignment {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs.maybe_convert_to(
@@ -1738,11 +1756,25 @@ impl Expression {
             })
             .unwrap_or('_');
 
+        let op_class = operator_class(op);
         let (lhs_n, rhs_n) = node.Expression();
-        let lhs = Self::from_expression_node(lhs_n.clone(), ctx);
-        let rhs = Self::from_expression_node(rhs_n.clone(), ctx);
+        // `&&`/`||` operands are bool; a comparison's rhs takes the lhs type. Setting the
+        // expected type lets a bare literal resolve (or cleanly fail) at that position.
+        let lhs = if op_class == OperatorClass::LogicalOp {
+            ctx.with_expected_type(Type::Bool, |ctx| Self::from_expression_node(lhs_n.clone(), ctx))
+        } else {
+            Self::from_expression_node(lhs_n.clone(), ctx)
+        };
+        let rhs = match op_class {
+            OperatorClass::ComparisonOp => ctx
+                .with_expected_type(lhs.ty(), |ctx| Self::from_expression_node(rhs_n.clone(), ctx)),
+            OperatorClass::LogicalOp => ctx.with_expected_type(Type::Bool, |ctx| {
+                Self::from_expression_node(rhs_n.clone(), ctx)
+            }),
+            OperatorClass::ArithmeticOp => Self::from_expression_node(rhs_n.clone(), ctx),
+        };
 
-        let expected_ty = match operator_class(op) {
+        let expected_ty = match op_class {
             OperatorClass::ComparisonOp => {
                 let ty =
                     Self::common_target_type_for_type_list([lhs.ty(), rhs.ty()].iter().cloned());
@@ -1833,9 +1865,6 @@ impl Expression {
         node: syntax_nodes::UnaryOpExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let exp_n = node.Expression();
-        let exp = Self::from_expression_node(exp_n, ctx);
-
         let op = node
             .children_with_tokens()
             .find_map(|n| match n.kind() {
@@ -1845,6 +1874,13 @@ impl Expression {
                 _ => None,
             })
             .unwrap_or('_');
+
+        let exp_n = node.Expression();
+        let exp = if op == '!' {
+            ctx.with_expected_type(Type::Bool, |ctx| Self::from_expression_node(exp_n, ctx))
+        } else {
+            Self::from_expression_node(exp_n, ctx)
+        };
 
         let exp = match op {
             '!' => exp.maybe_convert_to(Type::Bool, &node, ctx.diag, &ctx.symbol_counters),
@@ -1878,13 +1914,11 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let (condition_n, true_expr_n, false_expr_n) = node.Expression();
-        // FIXME: we should we add bool to the context
-        let condition = Self::from_expression_node(condition_n.clone(), ctx).maybe_convert_to(
-            Type::Bool,
-            &condition_n,
-            ctx.diag,
-            &ctx.symbol_counters,
-        );
+        let condition = ctx
+            .with_expected_type(Type::Bool, |ctx| {
+                Self::from_expression_node(condition_n.clone(), ctx)
+            })
+            .maybe_convert_to(Type::Bool, &condition_n, ctx.diag, &ctx.symbol_counters);
         let true_expr = Self::from_expression_node(true_expr_n.clone(), ctx);
         let false_expr = Self::from_expression_node(false_expr_n.clone(), ctx);
         let result_ty = common_expression_type(&true_expr, &false_expr);
@@ -1909,12 +1943,11 @@ impl Expression {
     ) -> Expression {
         let (array_expr_n, index_expr_n) = node.Expression();
         let array_expr = Self::from_expression_node(array_expr_n, ctx);
-        let index_expr = Self::from_expression_node(index_expr_n.clone(), ctx).maybe_convert_to(
-            Type::Int32,
-            &index_expr_n,
-            ctx.diag,
-            &ctx.symbol_counters,
-        );
+        let index_expr = ctx
+            .with_expected_type(Type::Int32, |ctx| {
+                Self::from_expression_node(index_expr_n.clone(), ctx)
+            })
+            .maybe_convert_to(Type::Int32, &index_expr_n, ctx.diag, &ctx.symbol_counters);
 
         let ty = array_expr.ty();
         if !matches!(ty, Type::Array(_) | Type::Invalid | Type::Function(_) | Type::Callback(_)) {
@@ -1930,10 +1963,15 @@ impl Expression {
         let values: BTreeMap<SmolStr, Expression> = node
             .ObjectMember()
             .map(|n| {
-                (
-                    identifier_text(&n).unwrap_or_default(),
-                    Expression::from_expression_node(n.Expression(), ctx),
-                )
+                let name = identifier_text(&n).unwrap_or_default();
+                let field_ty = match &ctx.expected_type {
+                    Type::Struct(s) => s.fields.get(&name).cloned().unwrap_or_default(),
+                    _ => Type::Invalid,
+                };
+                let value = ctx.with_expected_type(field_ty, |ctx| {
+                    Expression::from_expression_node(n.Expression(), ctx)
+                });
+                (name, value)
             })
             .collect();
         let ty = Rc::new(Struct {
@@ -1944,8 +1982,18 @@ impl Expression {
     }
 
     fn from_array_node(node: syntax_nodes::Array, ctx: &mut LookupCtx) -> Expression {
-        let mut values: Vec<Expression> =
-            node.Expression().map(|e| Expression::from_expression_node(e, ctx)).collect();
+        let element_expected = match &ctx.expected_type {
+            Type::Array(el) => (**el).clone(),
+            _ => Type::Invalid,
+        };
+        let mut values: Vec<Expression> = node
+            .Expression()
+            .map(|e| {
+                ctx.with_expected_type(element_expected.clone(), |ctx| {
+                    Expression::from_expression_node(e, ctx)
+                })
+            })
+            .collect();
 
         let element_ty = if values.is_empty() {
             Type::Void
@@ -2245,7 +2293,7 @@ fn continue_lookup_within_element(
         } else if let Some(LookupResult::Expression {
             expression: Expression::EnumerationValue(value),
             ..
-        }) = crate::lookup::ReturnTypeSpecificLookup.lookup(ctx, &elem.borrow().id)
+        }) = crate::lookup::TypeSpecificLookup.lookup(ctx, &elem.borrow().id)
         {
             rest = format!(
                 ". Use '{}.{value}' to access the enumeration value",
@@ -2481,6 +2529,7 @@ fn resolve_two_way_bindings_for_element(
             let mut lookup_ctx = LookupCtx {
                 property_name: Some(prop_name.as_str()),
                 property_type: lhs_lookup.property_type.clone(),
+                expected_type: lhs_lookup.property_type.clone(),
                 component_scope: scope,
                 diag,
                 // Two-way bindings don't generate temporaries; a fresh set is fine.

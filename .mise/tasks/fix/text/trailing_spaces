@@ -4,6 +4,8 @@
 
 #MISE description="Run trailing WS fix on all files"
 
+# cSpell: ignore OSTYPE INPLACE
+
 set -e
 
 if [[ "$OSTYPE" == "darwin"* ]]; then

@@ -1,0 +1,120 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The default cross axis (no `cross-axis-alignment`) stretches, but must still
+// honor the cells' min/max and percent constraints, like the runtime solver
+// does when `cross-axis-alignment: stretch` is set explicitly.
+
+component TestMaxClamp inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    HorizontalLayout {
+        padding: 0phx;
+        r1 := Rectangle { background: red; max-height: 80phx; }
+        r2 := Rectangle { background: green; }
+    }
+
+    out property <bool> test:
+        r1.y == 0phx && r1.height == 80phx
+        && r2.y == 0phx && r2.height == 200phx;
+}
+
+component TestMinWins inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    HorizontalLayout {
+        padding: 0phx;
+        r1 := Rectangle { background: red; min-height: 250phx; }
+    }
+
+    out property <bool> test: r1.y == 0phx && r1.height == 250phx;
+}
+
+component TestPercent inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    HorizontalLayout {
+        padding: 0phx;
+        r1 := Rectangle { background: red; height: 30%; }
+    }
+
+    out property <bool> test: r1.y == 0phx && r1.height == 60phx;
+}
+
+component TestPercentWithPadding inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    HorizontalLayout {
+        padding-top: 30phx;
+        padding-bottom: 10phx;
+        padding-left: 0phx;
+        padding-right: 0phx;
+        r1 := Rectangle { background: red; height: 50%; }
+    }
+
+    // content box: 200 - 30 - 10 = 160phx
+    out property <bool> test: r1.y == 30phx && r1.height == 80phx;
+}
+
+component TestVerticalMaxClamp inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        r1 := Rectangle { background: red; max-width: 120phx; }
+    }
+
+    out property <bool> test: r1.x == 0phx && r1.width == 120phx;
+}
+
+// The explicit `cross-axis-alignment: stretch` must behave the same as the default.
+component TestExplicitStretchSame inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    HorizontalLayout {
+        padding: 0phx;
+        cross-axis-alignment: stretch;
+        r1 := Rectangle { background: red; max-height: 80phx; }
+    }
+
+    out property <bool> test: r1.y == 0phx && r1.height == 80phx;
+}
+
+export component TestCase inherits Rectangle {
+    max_clamp := TestMaxClamp {}
+    min_wins := TestMinWins {}
+    percent := TestPercent {}
+    percent_pad := TestPercentWithPadding {}
+    v_max := TestVerticalMaxClamp {}
+    explicit_same := TestExplicitStretchSame {}
+
+    out property <bool> test:
+        max_clamp.test && min_wins.test && percent.test && percent_pad.test
+        && v_max.test && explicit_same.test;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+
+*/

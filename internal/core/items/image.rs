@@ -68,6 +68,8 @@ impl Item for ImageItem {
                     natural_size.height as Coord * w / natural_size.width as Coord
                 }
             },
+            // The compiler's single-cell box layout lowering relies on image items
+            // keeping the default stretch of 0 in their layout info.
             ..Default::default()
         }
     }

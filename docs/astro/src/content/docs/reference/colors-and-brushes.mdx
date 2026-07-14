@@ -20,8 +20,8 @@ In addition to plain colors, many elements have properties that are of type `bru
 A brush is a type that can be either a color or gradient. The brush is then used to fill an element or
 draw the outline.
 
-CSS Color names are only in scope in expressions of type `color` or `brush`. Otherwise, access
-colors from the `Colors` namespace.
+CSS color names are in scope wherever a `color` or `brush` value is expected, including struct
+fields, array elements and function arguments. Elsewhere, access colors from the `Colors` namespace.
 
 ## Color Properties
 

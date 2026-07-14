@@ -92,6 +92,7 @@ fn resolve_alias(
         let mut lookup_ctx = LookupCtx::empty_context(type_register, diag, symbol_counters.clone());
         lookup_ctx.property_name = Some(prop);
         lookup_ctx.property_type = old_type.clone();
+        lookup_ctx.expected_type = old_type.clone();
         lookup_ctx.component_scope = &scope.0;
         crate::passes::resolving::resolve_two_way_binding(node, &mut lookup_ctx)
     };

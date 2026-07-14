@@ -56,6 +56,7 @@ cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter   # Faste
 cargo test --manifest-path tests/Cargo.toml -p test-driver-rust          # Rust API (slow to compile without SLINT_TEST_FILTER)
 cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp           # C++ (build slint-cpp first for the dynamic library)
 cargo test --manifest-path tests/Cargo.toml -p test-driver-nodejs        # Node.js
+cargo test --manifest-path tests/Cargo.toml -p test-driver-python        # Python
 cargo test --manifest-path tests/Cargo.toml -p doctests                  # Documentation snippets
 ```
 
@@ -155,6 +156,10 @@ When this principle applies: any time you design syntax for a new visual or layo
 
 - The default git branch is `master`.
 - Prefer linear history — rebase or squash on merge.
+- During review, prefer adding small follow-up commits over amending, so the reviewer can
+  track how feedback was incorporated; squash them once the review is complete. See
+  [`docs/development.md`](docs/development.md#commit-history--code-reviews) for the full
+  fixup-then-squash workflow, and for `mise`-based environment setup.
 
 ## Code Style
 
