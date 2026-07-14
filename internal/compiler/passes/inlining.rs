@@ -245,7 +245,7 @@ fn inline_element(
                 move_children_into_popup = Some(children);
             } else {
                 diag.push_error(
-                    format!("Slot '{slot_name}' is inside a PopupWindow, which is not supported"),
+                    format!("The slot '{slot_name}' cannot appear in a PopupWindow"),
                     &inlined_cip.node,
                 );
             }
