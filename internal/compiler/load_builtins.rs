@@ -284,6 +284,7 @@ fn compiled(
     let mut ctx =
         crate::lookup::LookupCtx::empty_context(type_register, &mut diag, symbol_counters.clone());
     ctx.property_type = ty.clone();
+    ctx.expected_type = ty.clone();
     let e = Expression::from_binding_expression_node(node.clone().into(), &mut ctx)
         .maybe_convert_to(ty, &node, ctx.diag, &ctx.symbol_counters);
     if diag.has_errors() {

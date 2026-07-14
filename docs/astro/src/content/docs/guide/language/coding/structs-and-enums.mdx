@@ -53,7 +53,28 @@ export component Example {
 Enum values can be referenced by using the name of the enum and the name of the value
 separated by a dot. (eg: `CardSuit.spade`)
 
-The name of the enum can be omitted in bindings of the type of that enum, or if the
-return value of a callback is of that enum.
+The name of the enum can be omitted wherever a value of that enum type is expected, such as
+in a binding, a struct field, an array element, a function or callback argument, or a return
+value:
+
+```slint
+export enum CardSuit { clubs, diamonds, hearts, spade }
+export struct Card { suit: CardSuit, value: int }
+
+export component Example {
+    // in a struct field and an array element
+    out property<Card> card: { suit: hearts, value: 10 };
+    out property<[CardSuit]> deck: [clubs, diamonds, hearts, spade];
+
+    pure function is-red(suit: CardSuit) -> bool {
+        return suit == hearts || suit == diamonds;
+    }
+    // as a function argument
+    out property<bool> spade-is-red: is-red(spade);
+}
+```
+
+In a comparison the name can be omitted only on the right-hand side, which takes the type of
+the left: `card.suit == hearts` works, but `hearts == card.suit` does not.
 
 The default value of each enum type is always the first value.
