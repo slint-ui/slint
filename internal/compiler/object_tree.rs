@@ -497,6 +497,23 @@ pub struct Component {
     pub from_library: Cell<bool>,
 }
 
+/// True (and a diagnostic emitted) if the given experimental feature should be rejected: such
+/// features are only permitted when either the compiler's experimental flag is enabled, or the
+/// file is exposing internal types (e.g. the standard widgets library).
+fn reject_experimental_feature(
+    diag: &mut BuildDiagnostics,
+    tr: &TypeRegister,
+    feature: &str,
+    source: &dyn Spanned,
+) -> bool {
+    if !diag.enable_experimental && !tr.expose_internal_types {
+        diag.push_error(format!("'{feature}' is an experimental feature"), source);
+        true
+    } else {
+        false
+    }
+}
+
 impl Component {
     pub fn from_node(
         node: syntax_nodes::Component,
@@ -518,8 +535,7 @@ impl Component {
                         ElementType::Global
                     }
                     Some(t) if t == "interface" => {
-                        if !diag.enable_experimental && !tr.expose_internal_types {
-                            diag.push_error("'interface' is an experimental feature".into(), &node);
+                        if reject_experimental_feature(diag, tr, "interface", &node) {
                             ElementType::Error
                         } else {
                             ElementType::Interface
@@ -545,7 +561,6 @@ impl Component {
                 *qualified_id = format_smolstr!("{}::{}", c.id, qualified_id);
             }
         });
-        interfaces::apply_uses_statement(&c.root_element, node.UsesSpecifier(), tr, diag);
         c
     }
 
@@ -1218,6 +1233,14 @@ impl Element {
             if parent_type == ElementType::Interface {
                 node.Binding().for_each(|n| error_on(&n, "bindings"));
                 node.TwoWayBinding().for_each(|n| error_on(&n, "two-way bindings"));
+
+                node.ImplementStatement().for_each(|stmt| {
+                    diag.push_error("Interfaces cannot implement another interface".into(), &stmt);
+                });
+            } else {
+                node.ImplementStatement().for_each(|stmt| {
+                    diag.push_error("Globals cannot implement an interface".into(), &stmt);
+                });
             }
 
             parent_type
@@ -1393,8 +1416,17 @@ impl Element {
             }
         }
 
-        let implemented_interface = interfaces::get_implemented_interface(&r, &node, tr, diag);
-        interfaces::apply_properties(&mut r, &implemented_interface, diag);
+        let (implemented_interfaces, child_implements) =
+            if matches!(r.base_type, ElementType::Global | ElementType::Interface) {
+                // Already rejected above with a more specific diagnostic.
+                (Vec::new(), Vec::new())
+            } else if r.id == "root" {
+                interfaces::get_implemented_interfaces(&r, &node, tr, diag)
+            } else {
+                interfaces::disallow_implement_in_non_root(&node, tr, diag);
+                (Vec::new(), Vec::new())
+            };
+        interfaces::apply_properties(&mut r, &implemented_interfaces, diag);
 
         for (prop_name, csn, source) in property_bindings {
             match r.bindings.entry(prop_name.clone()) {
@@ -1526,7 +1558,7 @@ impl Element {
             );
         }
 
-        interfaces::apply_callbacks(&mut r, &implemented_interface, diag);
+        interfaces::apply_callbacks(&mut r, &implemented_interfaces, diag);
 
         for func in node.Function() {
             #[cfg(feature = "slint-sc")]
@@ -1979,7 +2011,8 @@ impl Element {
             }
         }
 
-        interfaces::validate_function_implementations(&r.borrow(), &implemented_interface, diag);
+        interfaces::validate_function_implementations(&r.borrow(), &implemented_interfaces, diag);
+        interfaces::apply_child_implement_statements(&r, child_implements, diag);
 
         r
     }

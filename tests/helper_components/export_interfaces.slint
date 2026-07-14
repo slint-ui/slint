@@ -5,7 +5,8 @@ export interface ExportedInterface {
     in-out property <float> value;
 }
 
-export component ExportedBase implements ExportedInterface {
+export component ExportedBase {
+    implement ExportedInterface <=> self;
     value: 2.71;
 }
 

@@ -17,7 +17,9 @@ export component Impl {
     @children
 }
 
-export component ComponentImplementsInterface implements ValidInterface inherits Impl { }
+export component ComponentImplementsInterface inherits Impl {
+    implement ValidInterface <=> self;
+}
 
 export component IncorrectImpl {
     in-out property <float> value;
@@ -29,12 +31,16 @@ export component IncorrectImpl {
     @children
 }
 
-export component DerivedImplementsInterfaceIncorrectly implements ValidInterface inherits IncorrectImpl { }
-//                                                                >             <error{Cannot implement interface 'ValidInterface' because 'value' conflicts with an existing property in 'IncorrectImpl'}
-//                                                                >             <^error{Cannot implement interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'IncorrectImpl'}
-//                                                                >             <^^error{Incorrect arguments for implementation of 'reset' from interface 'ValidInterface'. Expected () but got (float)}
+export component DerivedImplementsInterfaceIncorrectly inherits IncorrectImpl {
+    implement ValidInterface <=> self;
+//            >             <error{Cannot implement interface 'ValidInterface' because 'value' conflicts with an existing property in 'IncorrectImpl'}
+//            >             <^error{Cannot implement interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'IncorrectImpl'}
+//            >             <^^error{Incorrect arguments for implementation of 'reset' from interface 'ValidInterface'. Expected () but got (float)}
+}
 
-export component ComponentDeclaresInterfaceAPI implements ValidInterface {
+export component ComponentDeclaresInterfaceAPI {
+    implement ValidInterface <=> self;
+
     in-out property <int> value: 24;
 //  >                              <error{Conflict with 'ValidInterface' which declares a property with the same name}
     callback speak();
@@ -44,7 +50,9 @@ export component ComponentDeclaresInterfaceAPI implements ValidInterface {
     }
 }
 
-export component ComponentDeclaresInterfaceAPIWithTwoWayBinding implements ValidInterface {
+export component ComponentDeclaresInterfaceAPIWithTwoWayBinding {
+    implement ValidInterface <=> self;
+
     in-out property <int> other: 32;
     in-out property <int> value <=> self.other;
 //  >                                         <error{Conflict with 'ValidInterface' which declares a property with the same name}
@@ -55,7 +63,9 @@ export component ComponentDeclaresInterfaceAPIWithTwoWayBinding implements Valid
     }
 }
 
-export component ComponentDeclaresInterfaceAPIIncorrectly implements ValidInterface {
+export component ComponentDeclaresInterfaceAPIIncorrectly {
+    implement ValidInterface <=> self;
+
     in-out property <float> value;
 //  >                            <error{Conflict with 'ValidInterface' which declares a property with the same name}
     callback speak(string);
