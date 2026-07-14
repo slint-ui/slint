@@ -21,9 +21,8 @@ inline void slint_property_set_animated_binding_helper(
         void *user_data, void (*drop_user_data)(void *),
         cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t **))
 {
-    cbindgen_private::slint_property_set_animated_binding_object_int(handle, binding, user_data,
-                                                                     drop_user_data,
-                                                                     transition_data);
+    cbindgen_private::slint_property_set_animated_binding_object_int(
+            handle, binding, user_data, drop_user_data, transition_data);
 }
 
 inline void slint_property_set_animated_binding_helper(
@@ -31,9 +30,8 @@ inline void slint_property_set_animated_binding_helper(
         void *user_data, void (*drop_user_data)(void *),
         cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t **))
 {
-    cbindgen_private::slint_property_set_animated_binding_object_float(handle, binding, user_data,
-                                                                       drop_user_data,
-                                                                       transition_data);
+    cbindgen_private::slint_property_set_animated_binding_object_float(
+            handle, binding, user_data, drop_user_data, transition_data);
 }
 
 inline void slint_property_set_animated_binding_helper(
@@ -41,9 +39,8 @@ inline void slint_property_set_animated_binding_helper(
         void *user_data, void (*drop_user_data)(void *),
         cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t **))
 {
-    cbindgen_private::slint_property_set_animated_binding_object_color(handle, binding, user_data,
-                                                                       drop_user_data,
-                                                                       transition_data);
+    cbindgen_private::slint_property_set_animated_binding_object_color(
+            handle, binding, user_data, drop_user_data, transition_data);
 }
 
 inline void slint_property_set_animated_binding_helper(
@@ -51,9 +48,8 @@ inline void slint_property_set_animated_binding_helper(
         void *user_data, void (*drop_user_data)(void *),
         cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t **))
 {
-    cbindgen_private::slint_property_set_animated_binding_object_brush(handle, binding, user_data,
-                                                                       drop_user_data,
-                                                                       transition_data);
+    cbindgen_private::slint_property_set_animated_binding_object_brush(
+            handle, binding, user_data, drop_user_data, transition_data);
 }
 
 template<typename T>

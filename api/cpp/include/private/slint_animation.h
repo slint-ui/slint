@@ -97,11 +97,13 @@ inline uintptr_t slint_animation_handle_restart_helper(
             on_finished, on_finished_user_data, on_finished_drop_user_data);
 }
 
-inline void *slint_animation_new_tween_helper(
-        int from, int to, const PropertyAnimation &details,
-        void (*set_value)(void *, const int *), void *set_value_user_data,
-        void (*set_value_drop_user_data)(void *), void (*on_finished)(void *),
-        void *on_finished_user_data, void (*on_finished_drop_user_data)(void *))
+inline void *slint_animation_new_tween_helper(int from, int to, const PropertyAnimation &details,
+                                              void (*set_value)(void *, const int *),
+                                              void *set_value_user_data,
+                                              void (*set_value_drop_user_data)(void *),
+                                              void (*on_finished)(void *),
+                                              void *on_finished_user_data,
+                                              void (*on_finished_drop_user_data)(void *))
 {
     return cbindgen_private::slint_animation_new_tween_int(
             from, to, &details, set_value, set_value_user_data, set_value_drop_user_data,
@@ -163,7 +165,7 @@ public:
     /// Build a leaf tween node animating `from` to `to`.
     template<typename T, typename SetValue, typename OnFinished>
     static AnimationNode new_tween(const T &from, const T &to, const PropertyAnimation &details,
-                                    SetValue set_value, OnFinished on_finished)
+                                   SetValue set_value, OnFinished on_finished)
     {
         struct SetValueData
         {
