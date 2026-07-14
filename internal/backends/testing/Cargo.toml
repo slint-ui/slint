@@ -45,8 +45,6 @@ mcp = [
   "serde",
   "serde_json",
   "slotmap",
-  "async-net",
-  "futures-lite",
   "image",
   "base64",
   "httparse",
@@ -88,6 +86,7 @@ protox = { version = "0.9", optional = true }
 slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
 i-slint-core-macros = { path = "../../core-macros" }
 i-slint-common = { path = "../../common" }
+futures-lite = "2.3.0"
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

@@ -15,10 +15,16 @@
 //! ```
 
 use base64::Engine;
-use futures_lite::{AsyncReadExt, AsyncWriteExt};
 use i_slint_core::api::EventLoopError;
 use serde_json::Value;
+use std::io::{Read, Write};
 use std::rc::Rc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicU8, Ordering},
+    mpsc,
+};
+use std::time::{Duration, Instant};
 
 use crate::introspection::{self, IntrospectionState, dispatch, proto};
 use introspection::{handle_to_index, index_to_handle};
@@ -451,6 +457,148 @@ fn json_rpc_error(id: &Value, code: i32, message: String) -> Value {
     })
 }
 
+const UI_DISPATCH_TIMEOUT: Duration = Duration::from_secs(30);
+const REQUEST_WAITING: u8 = 0;
+const REQUEST_STARTED: u8 = 1;
+const REQUEST_CANCELED: u8 = 2;
+
+#[derive(Clone)]
+struct RequestDispatcher {
+    event_loop_proxy: Arc<dyn i_slint_core::platform::EventLoopProxy>,
+    dispatch_timeout: Duration,
+}
+
+impl RequestDispatcher {
+    fn new(event_loop_proxy: Box<dyn i_slint_core::platform::EventLoopProxy>) -> Self {
+        Self { event_loop_proxy: event_loop_proxy.into(), dispatch_timeout: UI_DISPATCH_TIMEOUT }
+    }
+
+    #[cfg(test)]
+    fn with_timeout(
+        event_loop_proxy: Box<dyn i_slint_core::platform::EventLoopProxy>,
+        dispatch_timeout: Duration,
+    ) -> Self {
+        Self { event_loop_proxy: event_loop_proxy.into(), dispatch_timeout }
+    }
+
+    fn dispatch(&self, body: String) -> Result<Option<Value>, String> {
+        let (started_sender, started_receiver) = mpsc::sync_channel(1);
+        let (response_sender, response_receiver) = mpsc::sync_channel(1);
+        let request_state = Arc::new(AtomicU8::new(REQUEST_WAITING));
+        let request_state_in_event_loop = request_state.clone();
+        let dispatch_timeout = self.dispatch_timeout;
+        let deadline = Instant::now() + dispatch_timeout;
+
+        self.event_loop_proxy
+            .invoke_from_event_loop(Box::new(move || {
+                if request_state_in_event_loop.load(Ordering::Acquire) != REQUEST_WAITING {
+                    return;
+                }
+                let started_sender_for_error = started_sender.clone();
+                let request_state_in_future = request_state_in_event_loop.clone();
+                let spawn_result = i_slint_core::with_global_context(
+                    || Err(i_slint_core::platform::PlatformError::NoPlatform),
+                    |context| {
+                        let state = introspection::shared_state();
+                        context.spawn_local(async move {
+                            if Instant::now() >= deadline {
+                                if request_state_in_future
+                                    .compare_exchange(
+                                        REQUEST_WAITING,
+                                        REQUEST_CANCELED,
+                                        Ordering::AcqRel,
+                                        Ordering::Acquire,
+                                    )
+                                    .is_ok()
+                                {
+                                    let _ = started_sender
+                                        .send(Err(Self::timeout_error_for(dispatch_timeout)));
+                                }
+                                return;
+                            }
+                            if request_state_in_future
+                                .compare_exchange(
+                                    REQUEST_WAITING,
+                                    REQUEST_STARTED,
+                                    Ordering::AcqRel,
+                                    Ordering::Acquire,
+                                )
+                                .is_err()
+                            {
+                                return;
+                            }
+                            if started_sender.send(Ok(())).is_err() {
+                                return;
+                            }
+                            let response = handle_mcp_request(&state, &body).await;
+                            let _ = response_sender.send(response);
+                        })
+                    },
+                );
+
+                match spawn_result {
+                    Ok(Ok(_)) => {}
+                    Ok(Err(error)) => {
+                        request_state_in_event_loop.store(REQUEST_CANCELED, Ordering::Release);
+                        let _ = started_sender_for_error
+                            .send(Err(format!("failed to dispatch request: {error}")));
+                    }
+                    Err(error) => {
+                        request_state_in_event_loop.store(REQUEST_CANCELED, Ordering::Release);
+                        let _ = started_sender_for_error
+                            .send(Err(format!("failed to access the UI event loop: {error}")));
+                    }
+                }
+            }))
+            .map_err(|error| format!("UI event loop is unavailable: {error}"))?;
+
+        self.wait_for_start(started_receiver, &request_state, deadline)?;
+        response_receiver.recv().map_err(|_| Self::dropped_error())
+    }
+
+    fn wait_for_start(
+        &self,
+        started_receiver: mpsc::Receiver<Result<(), String>>,
+        request_state: &AtomicU8,
+        deadline: Instant,
+    ) -> Result<(), String> {
+        let receive_result = match deadline.checked_duration_since(Instant::now()) {
+            Some(remaining) if !remaining.is_zero() => started_receiver.recv_timeout(remaining),
+            _ => Err(mpsc::RecvTimeoutError::Timeout),
+        };
+        match receive_result {
+            Ok(result) => result,
+            Err(mpsc::RecvTimeoutError::Disconnected) => Err(Self::dropped_error()),
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                match request_state.compare_exchange(
+                    REQUEST_WAITING,
+                    REQUEST_CANCELED,
+                    Ordering::AcqRel,
+                    Ordering::Acquire,
+                ) {
+                    Ok(_) | Err(REQUEST_CANCELED) => Err(self.timeout_error()),
+                    Err(REQUEST_STARTED) => {
+                        started_receiver.recv().map_err(|_| Self::dropped_error())?
+                    }
+                    Err(state) => unreachable!("unexpected MCP request state {state}"),
+                }
+            }
+        }
+    }
+
+    fn dropped_error() -> String {
+        "UI event loop dropped the MCP request without a response".into()
+    }
+
+    fn timeout_error(&self) -> String {
+        Self::timeout_error_for(self.dispatch_timeout)
+    }
+
+    fn timeout_error_for(dispatch_timeout: Duration) -> String {
+        format!("UI event loop did not start processing the request within {dispatch_timeout:?}")
+    }
+}
+
 async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Value> {
     let request: Value = match serde_json::from_str(body) {
         Ok(v) => v,
@@ -601,8 +749,8 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
 // HTTP Server
 // ============================================================================
 
-async fn read_http_request(
-    stream: &mut async_net::TcpStream,
+fn read_http_request(
+    stream: &mut std::net::TcpStream,
     carry: Vec<u8>,
 ) -> Result<(String, String, Vec<(String, String)>, Vec<u8>, Vec<u8>), String> {
     let mut buf = carry;
@@ -612,7 +760,7 @@ async fn read_http_request(
     } else {
         loop {
             let mut chunk = [0u8; 1024];
-            let n = stream.read(&mut chunk).await.map_err(|e| format!("read error: {e}"))?;
+            let n = stream.read(&mut chunk).map_err(|e| format!("read error: {e}"))?;
             if n == 0 {
                 return Err("connection closed".into());
             }
@@ -668,7 +816,7 @@ async fn read_http_request(
         let mut body = buf[body_start..].to_vec();
         let remaining = content_length - available;
         let mut rest = vec![0u8; remaining];
-        stream.read_exact(&mut rest).await.map_err(|e| format!("body read error: {e}"))?;
+        stream.read_exact(&mut rest).map_err(|e| format!("body read error: {e}"))?;
         body.extend_from_slice(&rest);
         (body, Vec::new())
     };
@@ -680,8 +828,8 @@ fn find_header_end(buf: &[u8]) -> Option<usize> {
     buf.windows(4).position(|w| w == b"\r\n\r\n")
 }
 
-async fn write_http_response(
-    stream: &mut async_net::TcpStream,
+fn write_http_response(
+    stream: &mut std::net::TcpStream,
     status: u16,
     status_text: &str,
     headers: &[(&str, &str)],
@@ -694,9 +842,9 @@ async fn write_http_response(
     response.push_str(&format!("Content-Length: {}\r\n", body.len()));
     response.push_str("\r\n");
 
-    stream.write_all(response.as_bytes()).await.map_err(|e| format!("write error: {e}"))?;
-    stream.write_all(body).await.map_err(|e| format!("write error: {e}"))?;
-    stream.flush().await.map_err(|e| format!("flush error: {e}"))?;
+    stream.write_all(response.as_bytes()).map_err(|e| format!("write error: {e}"))?;
+    stream.write_all(body).map_err(|e| format!("write error: {e}"))?;
+    stream.flush().map_err(|e| format!("flush error: {e}"))?;
     Ok(())
 }
 
@@ -724,15 +872,14 @@ fn wants_close(headers: &[(String, String)]) -> bool {
     headers.iter().any(|(k, v)| k == "connection" && v.eq_ignore_ascii_case("close"))
 }
 
-async fn handle_connection(state: &IntrospectionState, mut stream: async_net::TcpStream) {
+fn handle_connection(dispatcher: &RequestDispatcher, mut stream: std::net::TcpStream) {
     let mut carry = Vec::new();
 
     loop {
-        let (method, path, headers, body, leftover) =
-            match read_http_request(&mut stream, carry).await {
-                Ok(req) => req,
-                Err(_) => return,
-            };
+        let (method, path, headers, body, leftover) = match read_http_request(&mut stream, carry) {
+            Ok(req) => req,
+            Err(_) => return,
+        };
 
         let close_after = wants_close(&headers);
         carry = leftover;
@@ -746,8 +893,7 @@ async fn handle_connection(state: &IntrospectionState, mut stream: async_net::Tc
                     "Forbidden",
                     &[],
                     b"Origin not allowed\n",
-                )
-                .await;
+                );
                 return;
             }
         };
@@ -771,10 +917,9 @@ async fn handle_connection(state: &IntrospectionState, mut stream: async_net::Tc
                 ("Access-Control-Max-Age", "86400"),
                 ("Vary", "Origin"),
             ];
-            let _ = write_http_response(&mut stream, 204, "No Content", &cors_headers, b"").await;
+            let _ = write_http_response(&mut stream, 204, "No Content", &cors_headers, b"");
         } else if method != "POST" || (path != "/mcp" && path != "/") {
-            let _ =
-                write_http_response(&mut stream, 404, "Not Found", &[], b"404 Not Found\n").await;
+            let _ = write_http_response(&mut stream, 404, "Not Found", &[], b"404 Not Found\n");
         } else if !headers
             .iter()
             .find(|(k, _)| k == "content-type")
@@ -787,8 +932,7 @@ async fn handle_connection(state: &IntrospectionState, mut stream: async_net::Tc
                 "Unsupported Media Type",
                 &[],
                 b"Content-Type must be application/json\n",
-            )
-            .await;
+            );
         } else {
             let body_str = match String::from_utf8(body) {
                 Ok(s) => s,
@@ -799,15 +943,17 @@ async fn handle_connection(state: &IntrospectionState, mut stream: async_net::Tc
                         "Bad Request",
                         &[],
                         b"Request body is not valid UTF-8\n",
-                    )
-                    .await;
+                    );
                     if close_after {
                         return;
                     }
                     continue;
                 }
             };
-            let response = handle_mcp_request(state, &body_str).await;
+            let response = match dispatcher.dispatch(body_str.clone()) {
+                Ok(response) => response,
+                Err(error) => dispatcher_error_response(&body_str, error),
+            };
 
             let resp_headers = [
                 ("Content-Type", "application/json"),
@@ -819,12 +965,10 @@ async fn handle_connection(state: &IntrospectionState, mut stream: async_net::Tc
                 Some(resp) => {
                     let json = serde_json::to_string(&resp).unwrap();
                     let _ =
-                        write_http_response(&mut stream, 200, "OK", &resp_headers, json.as_bytes())
-                            .await;
+                        write_http_response(&mut stream, 200, "OK", &resp_headers, json.as_bytes());
                 }
                 None => {
-                    let _ =
-                        write_http_response(&mut stream, 202, "Accepted", &resp_headers, b"").await;
+                    let _ = write_http_response(&mut stream, 202, "Accepted", &resp_headers, b"");
                 }
             }
         }
@@ -835,9 +979,31 @@ async fn handle_connection(state: &IntrospectionState, mut stream: async_net::Tc
     }
 }
 
-async fn run_server(state: Rc<IntrospectionState>, port: u16) {
+fn dispatcher_error_response(body: &str, error: String) -> Option<Value> {
+    let request: Value = match serde_json::from_str(body) {
+        Ok(request) => request,
+        Err(parse_error) => {
+            return Some(json_rpc_error(
+                &Value::Null,
+                -32700,
+                format!("Parse error: {parse_error}"),
+            ));
+        }
+    };
+    if request.is_array() {
+        return Some(json_rpc_error(
+            &Value::Null,
+            -32600,
+            "Batch requests are not supported".into(),
+        ));
+    }
+    let id = request.get("id")?.clone();
+    Some(json_rpc_error(&id, -32603, error))
+}
+
+fn run_server(dispatcher: RequestDispatcher, port: u16) {
     let addr = format!("127.0.0.1:{port}");
-    let listener = match async_net::TcpListener::bind(&addr).await {
+    let listener = match std::net::TcpListener::bind(&addr) {
         Ok(l) => l,
         Err(e) => {
             eprintln!("MCP server: failed to bind to {addr}: {e}");
@@ -847,18 +1013,16 @@ async fn run_server(state: Rc<IntrospectionState>, port: u16) {
     eprintln!("Slint MCP server listening on http://{addr}/mcp");
 
     loop {
-        match listener.accept().await {
+        match listener.accept() {
             Ok((stream, _peer)) => {
                 stream.set_nodelay(true).ok();
-                let state = state.clone();
-                let _ = i_slint_core::with_global_context(
-                    || panic!("uninitialized platform"),
-                    |context| {
-                        let _ = context.spawn_local(async move {
-                            handle_connection(&state, stream).await;
-                        });
-                    },
-                );
+                let dispatcher = dispatcher.clone();
+                if let Err(error) = std::thread::Builder::new()
+                    .name("slint-mcp-connection".into())
+                    .spawn(move || handle_connection(&dispatcher, stream))
+                {
+                    eprintln!("MCP server: failed to handle connection: {error}");
+                }
             }
             Err(e) => {
                 eprintln!("MCP server: accept error: {e}");
@@ -892,13 +1056,9 @@ pub fn init() -> Result<(), EventLoopError> {
     }
 
     introspection::ensure_window_tracking()?;
-    let state = introspection::shared_state();
 
-    // The JoinHandle is kept alive inside the OnceCell so the server task is not dropped.
-    let server_started =
-        Rc::new(std::cell::OnceCell::<i_slint_core::future::JoinHandle<()>>::new());
+    let server_started = Rc::new(std::cell::Cell::new(false));
     let server_started_clone = server_started.clone();
-    let state_clone = state.clone();
 
     // Mark as installed before registering the hook so re-entrant calls to init() are rejected.
     INIT_INSTALLED.with(|installed| installed.set(true));
@@ -912,28 +1072,26 @@ pub fn init() -> Result<(), EventLoopError> {
             prev(adapter);
         }
 
-        // OnceCell ensures we only spawn once even if the hook fires multiple times.
-        if server_started_clone.get().is_some() {
+        if server_started_clone.get() {
             return;
         }
 
-        let state = state_clone.clone();
-        let spawn_result = i_slint_core::with_global_context(
+        let proxy_result = i_slint_core::with_global_context(
             || panic!("uninitialized platform"),
-            |context| context.spawn_local(async move { run_server(state, port).await }),
+            |context| context.event_loop_proxy().ok_or(EventLoopError::NoEventLoopProvider),
         );
-        match spawn_result {
-            Ok(Ok(join_handle)) => {
-                let _ = server_started_clone.set(join_handle);
-            }
-            // spawn_local fails when no event-loop proxy is available yet. The hook
-            // will fire again on the next window-show, so this is non-fatal.
-            Ok(Err(e)) => {
-                i_slint_core::debug_log!("MCP server failed to start: {e:?}");
-            }
-            Err(e) => {
-                i_slint_core::debug_log!("MCP server failed to start: {e:?}");
-            }
+        let Ok(Ok(proxy)) = proxy_result else {
+            i_slint_core::debug_log!("MCP server failed to obtain an event-loop proxy");
+            return;
+        };
+
+        let dispatcher = RequestDispatcher::new(proxy);
+        match std::thread::Builder::new()
+            .name("slint-mcp-server".into())
+            .spawn(move || run_server(dispatcher, port))
+        {
+            Ok(_) => server_started_clone.set(true),
+            Err(error) => i_slint_core::debug_log!("MCP server failed to start: {error}"),
         }
     })))
     .is_err()
