@@ -43,6 +43,31 @@ export component TestCase {
     out property <PlayerWithDefault> picked-early: pick-player(true);
     out property <PlayerWithDefault> picked-late: pick-player(false);
 
+    // Struct literal nested inside another struct literal: defaults apply at
+    // every depth, and the omitted tags field takes NestedDefault's own default
+    out property <NestedDefault> deep: { player: { name: "deep" } };
+
+    // Array elements with the same fields take the defaults
+    out property <[PlayerWithDefault]> team: [{ name: "a" }, { name: "b" }];
+    // Like cond-mixed below: a field set in only one element becomes part of the
+    // elements' common type and is zero-padded in the others
+    out property <[PlayerWithDefault]> team-mixed: [{ name: "m0" }, { name: "m1", score: 1 }];
+
+    // Struct literals as function call arguments and in typed let statements
+    pure function score-of(p: PlayerWithDefault) -> int {
+        return p.score;
+    }
+    pure function let-player(name: string) -> PlayerWithDefault {
+        let p: PlayerWithDefault = { name: name };
+        return p;
+    }
+
+    // Struct literal returned from a callback
+    pure callback make-cb() -> PlayerWithDefault;
+    make-cb() => {
+        { name: "cb" }
+    }
+
     in property <bool> flag: true;
     // Conditional with the same fields in both branches: the defaults apply to all
     // missing fields
@@ -67,7 +92,15 @@ export component TestCase {
         && cond-same.name == "x" && cond-same.score == 42 && cond-same.alive
         && cond-same.rank == Rank.gold && cond-same.time == 2s
         && cond-mixed.name == "a" && cond-mixed.score == 0
-        && cond-mixed.alive && cond-mixed.energy == 1 && cond-mixed.rank == Rank.gold;
+        && cond-mixed.alive && cond-mixed.energy == 1 && cond-mixed.rank == Rank.gold
+        && deep.player.name == "deep" && deep.player.score == 42 && deep.player.alive
+        && deep.player.rank == Rank.gold && deep.tags.length == 2 && deep.tags[0] == "a"
+        && team[0].name == "a" && team[0].score == 42 && team[0].alive
+        && team[1].name == "b" && team[1].score == 42 && team[1].rank == Rank.gold
+        && team-mixed[0].score == 0 && team-mixed[0].alive && team-mixed[1].score == 1
+        && score-of({ name: "arg" }) == 42
+        && let-player("let").name == "let" && let-player("let").score == 42
+        && make-cb().name == "cb" && make-cb().score == 42 && make-cb().rank == Rank.gold;
 }
 
 /*
@@ -99,6 +132,12 @@ let custom = PlayerWithDefault { name: "custom".into(), ..Default::default() };
 assert_eq!(custom.name, "custom");
 assert_eq!(custom.score, 42);
 
+// A callback returning a partial struct literal applies the defaults
+let from_cb = instance.invoke_make_cb();
+assert_eq!(from_cb.name, "cb");
+assert_eq!(from_cb.score, 42);
+assert_eq!(from_cb.rank, Rank::Gold);
+
 // Take the other conditional branches
 instance.set_flag(false);
 assert_eq!(instance.get_cond_same().name, "y");
@@ -126,6 +165,11 @@ assert_eq(default_player.plain, 0);
 
 PlayerWithDefault aggregate {};
 assert_eq(aggregate.score, 42);
+
+auto from_cb = instance.invoke_make_cb();
+assert_eq(from_cb.name, "cb");
+assert_eq(from_cb.score, 42);
+assert(from_cb.rank == Rank::Gold);
 
 NestedDefault nested;
 assert_eq(nested.player.name, "nested");
@@ -159,6 +203,10 @@ assert.equal(instance.partial.score, 42);
 let nested = new slint.NestedDefault();
 assert.equal(nested.player.name, "nested");
 assert.equal(nested.player.score, 42);
+
+let from_cb = instance.make_cb();
+assert.equal(from_cb.name, "cb");
+assert.equal(from_cb.score, 42);
 ```
 
 ```python
@@ -180,5 +228,9 @@ assert custom.score == 42
 nested = NestedDefault()
 assert nested.player.name == "nested"
 assert nested.player.score == 42
+
+from_cb = instance.make_cb()
+assert from_cb.name == "cb"
+assert from_cb.score == 42
 ```
 */
