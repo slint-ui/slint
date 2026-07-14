@@ -38,6 +38,7 @@
     /* Brand design tokens (matches the slint.dev visual language) */
     --brand-ink: var(--color_dark);
     --brand-ink-2: #0f1519;
+    --brand-code-bg: #0f1418;
     --brand-text: #eef3f5;
     --brand-muted: #9fb0b8;
     --brand-line: rgba(255, 255, 255, 0.12);
