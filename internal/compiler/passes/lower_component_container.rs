@@ -56,7 +56,7 @@ fn diagnose_component_container(element: &ElementRc, diag: &mut BuildDiagnostics
             let slot_name = if name == DEFAULT_SLOT_NAME {
                 "The @children placeholder".into()
             } else {
-                format!("the slot '{name}'")
+                format!("The slot '{name}'")
             };
             diag.push_error(
                 format!("{} cannot appear in a ComponentContainer", slot_name),
