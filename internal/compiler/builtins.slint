@@ -2823,6 +2823,20 @@ export component TweenAnimation inherits Animation {
     /// The direction of the animation (normal, reverse, alternate, alternate-reverse)
     in property <AnimationDirection> direction: normal;
     //-is_non_item_type
+    //-disallow_global_types_as_child_elements
+}
+
+export component DelayAnimation inherits Animation {
+    in property <duration> duration;
+    //-is_non_item_type
+    //-disallow_global_types_as_child_elements
+}
+
+export component ParallelAnimation inherits Animation {
+    //-is_non_item_type
+}
+export component SequentialAnimation inherits Animation {
+    //-is_non_item_type
 }
 
 /// ```slint playground imageAlt="dialog example" width="200" height="100"

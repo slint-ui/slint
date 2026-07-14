@@ -740,8 +740,7 @@ impl Snapshotter {
             } else {
                 None
             },
-            // TODO implement children
-            children: animation.children.clone(),
+            children: animation.children.iter().map(|c| self.snapshot_animation(c)).collect(),
             element: animation.element.clone(),
         }
     }

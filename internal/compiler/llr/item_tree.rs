@@ -539,6 +539,7 @@ pub struct Timer {
 
 #[derive(Debug)]
 pub struct AnimationObject {
+    pub animation_type: crate::object_tree::AnimationType,
     pub target: Option<MutExpression>,
     pub running: MutExpression,
     pub from: Option<MutExpression>,
@@ -547,8 +548,7 @@ pub struct AnimationObject {
     pub easing: Option<MutExpression>,
     pub iteration_count: Option<MutExpression>,
     pub direction: Option<MutExpression>,
-    // TODO implement
-    // pub children: Vec<AnimationObject>,
+    pub children: Vec<AnimationObject>,
 }
 
 #[derive(Debug, Clone)]

@@ -21,7 +21,7 @@ use crate::llr::{
     self, ArrayOutput, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression,
     ParentScope, TypeResolutionContext as _,
 };
-use crate::object_tree::Document;
+use crate::object_tree::{AnimationType, Document};
 use crate::typeloader::LibraryInfo;
 use itertools::Either;
 use proc_macro2::{Ident, TokenStream, TokenTree};
@@ -1164,6 +1164,118 @@ fn emit_in_chunks(
 }
 
 /// Generate the rust code for the given component.
+fn animation_get_property(exp: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    if let Expression::PropertyReference(nr) = exp {
+        access_member(nr, ctx).get_property()
+    } else {
+        panic!("internal error: {:#?} needs to be a property reference", exp);
+    }
+}
+
+/// Builds an expression evaluating to a `sp::Box<dyn sp::Animation>` for `anim`, recursing into
+/// `anim.children` for Parallel/Sequential containers. Assumes `target`/`running`/etc are local
+/// to the enclosing component (as they always are for the current container-animation feature),
+/// unlike the top-level Tween handling in `generate_sub_component` which also copes with the
+/// target living behind an (possibly dead) parent pointer.
+fn build_animation_value(anim: &llr::AnimationObject, ctx: &EvaluationContext) -> TokenStream {
+    match &anim.animation_type {
+        AnimationType::Tween => {
+            let running_ref = match &*anim.running.borrow() {
+                llr::Expression::PropertyReference(mr) => mr.clone(),
+                _ => panic!("internal error: animation running must be a property reference"),
+            };
+            let target_ref = match &*anim
+                .target
+                .as_ref()
+                .expect("TweenAnimation requires a target")
+                .borrow()
+            {
+                llr::Expression::PropertyReference(mr) => mr.clone(),
+                _ => panic!("internal error: animation target must be a property reference"),
+            };
+            let from = anim.from.as_ref().map(|f| animation_get_property(&f.borrow(), ctx));
+            let to = anim.to.as_ref().map(|t| animation_get_property(&t.borrow(), ctx));
+            let duration = animation_get_property(&anim.duration.as_ref().unwrap().borrow(), ctx);
+            let easing = animation_get_property(&anim.easing.as_ref().unwrap().borrow(), ctx);
+            let iteration_count = anim
+                .iteration_count
+                .as_ref()
+                .map(|i| animation_get_property(&i.borrow(), ctx))
+                .unwrap_or_else(|| quote!(1.0));
+            let direction = anim
+                .direction
+                .as_ref()
+                .map(|d| animation_get_property(&d.borrow(), ctx))
+                .unwrap_or_else(|| quote!(sp::items::AnimationDirection::Normal));
+
+            let target_prop = access_member(&target_ref, ctx).unwrap();
+            let running_prop = access_member(&running_ref, ctx).unwrap();
+            let from_arg =
+                from.as_ref().map(|f| quote!(#f)).unwrap_or_else(|| quote!(#target_prop.get()));
+            let to_arg =
+                to.as_ref().map(|t| quote!(#t)).unwrap_or_else(|| quote!(#target_prop.get()));
+
+            quote!({
+                let self_weak = self.self_weak.get().unwrap().clone();
+                let self_weak_finished = self.self_weak.get().unwrap().clone();
+                let tween = sp::TweenAnimation::new_with_callbacks(
+                    #from_arg,
+                    #to_arg,
+                    sp::PropertyAnimation {
+                        duration: #duration as i32,
+                        easing: #easing,
+                        iteration_count: #iteration_count,
+                        direction: #direction,
+                        ..::core::default::Default::default()
+                    },
+                    move |value| {
+                        if let Some(self_rc) = self_weak.upgrade() {
+                            let _self = self_rc.as_pin_ref();
+                            #target_prop.set(value);
+                        }
+                    },
+                    move || {
+                        if let Some(self_rc) = self_weak_finished.upgrade() {
+                            let _self = self_rc.as_pin_ref();
+                            #running_prop.set(false);
+                        }
+                    },
+                );
+                sp::Box::new(tween) as sp::Box<dyn sp::Animation>
+            })
+        }
+        AnimationType::Delay => {
+            let duration_ms = anim
+                .duration
+                .as_ref()
+                .map(|d| animation_get_property(&d.borrow(), ctx))
+                .unwrap_or_else(|| quote!(0));
+            quote!(
+                sp::Box::new(sp::DelayAnimation::new(#duration_ms as u64)) as sp::Box<dyn sp::Animation>
+            )
+        }
+        AnimationType::Parallel | AnimationType::Sequential => {
+            let container_ty = if anim.animation_type == AnimationType::Parallel {
+                quote!(sp::ParallelAnimation)
+            } else {
+                quote!(sp::SequentialAnimation)
+            };
+            let iteration_count = anim
+                .iteration_count
+                .as_ref()
+                .map(|i| animation_get_property(&i.borrow(), ctx))
+                .unwrap_or_else(|| quote!(1.0));
+            let children = anim.children.iter().map(|c| build_animation_value(c, ctx));
+            quote!({
+                let mut container = #container_ty::new();
+                container.set_iteration_count(#iteration_count as f64);
+                #(container.add_animation(#children);)*
+                sp::Box::new(container) as sp::Box<dyn sp::Animation>
+            })
+        }
+    }
+}
+
 fn generate_sub_component(
     component_idx: llr::SubComponentIdx,
     root: &llr::CompilationUnit,
@@ -1706,8 +1818,101 @@ fn generate_sub_component(
         let mut restart_fns = Vec::new();
         let upda = component.animation_objects.iter().enumerate().map(|(idx, anim)| {
             let ident = format_ident!("anim{idx}");
-            let restart_ident = format_ident!("restart_anim{idx}");
             let running = compile_expression(&anim.running.borrow(), &ctx);
+
+            if anim.animation_type == AnimationType::Delay {
+                // No target so a fresh tree is (re)built and handed to the handle when `running`
+                // changes
+                let tree = build_animation_value(anim, &ctx);
+                return quote!(
+                    if #running {
+                        self.#ident.start(#tree);
+                    } else {
+                        self.#ident.stop();
+                    }
+                );
+            }
+
+            if matches!(anim.animation_type, AnimationType::Parallel | AnimationType::Sequential) {
+                // A `target` only makes sense on a root level Parallel/Sequential animation.
+                // Unlike tween this is only a trigger property to start the animation
+                let Some(target) = &anim.target else {
+                    let tree = build_animation_value(anim, &ctx);
+                    return quote!(
+                        if #running {
+                            self.#ident.start(#tree);
+                        } else {
+                            self.#ident.stop();
+                        }
+                    );
+                };
+
+                let restart_ident = format_ident!("restart_anim{idx}");
+                let running_ref = match &*anim.running.borrow() {
+                    llr::Expression::PropertyReference(mr) => mr.clone(),
+                    _ => panic!("internal error: animation running must be a property reference"),
+                };
+                let target_ref = match &*target.borrow() {
+                    llr::Expression::PropertyReference(mr) => mr.clone(),
+                    _ => panic!("internal error: animation target must be a property reference"),
+                };
+
+                let set_running_true =
+                    access_member(&running_ref, &ctx).then(|prop| quote!(#prop.set(true)));
+
+                let restart_tree = build_animation_value(anim, &ctx);
+                restart_fns.push(quote!(
+                    #[allow(dead_code)]
+                    fn #restart_ident(self: ::core::pin::Pin<&Self>) {
+                        let _self = self;
+                        self.#ident.restart(#restart_tree);
+                    }
+                ));
+
+                let target_rust_ty = rust_property_type(ctx.property_ty(&target_ref))
+                    .expect("animation target must have a representable Rust type");
+                let cache_field = format_ident!("anim_last_target{idx}");
+                let target_tracker = format_ident!("anim_target_tracker{idx}");
+                let target_get_expr = access_member(&target_ref, &ctx).get_property();
+
+                anim_target_change_field_decls.push(quote!(
+                    #target_tracker : sp::ChangeTracker,
+                    #cache_field : ::core::cell::RefCell<#target_rust_ty>,
+                ));
+                anim_target_change_init.push(quote!(
+                    _self.#cache_field.replace(#target_get_expr);
+                    let self_weak = sp::VRcMapped::downgrade(&self_rc);
+                    _self.#target_tracker.init(
+                        self_weak,
+                        move |self_weak| {
+                            let self_rc = self_weak.upgrade().unwrap();
+                            let _self = self_rc.as_pin_ref();
+                            #target_get_expr
+                        },
+                        move |self_weak, new_value| {
+                            let self_rc = self_weak.upgrade().unwrap();
+                            let _self = self_rc.as_pin_ref();
+                            let old_value = _self.#cache_field.replace(new_value.clone());
+                            // only an external write to target should restart the animation
+                            if old_value != *new_value {
+                                #set_running_true;
+                                _self.#restart_ident();
+                            }
+                        },
+                    );
+                ));
+
+                let tree = build_animation_value(anim, &ctx);
+                return quote!(
+                    if #running {
+                        self.#ident.start(#tree);
+                    } else {
+                        self.#ident.stop();
+                    }
+                );
+            }
+
+            let restart_ident = format_ident!("restart_anim{idx}");
             let running_ref = match &*anim.running.borrow() {
                 llr::Expression::PropertyReference(mr) => mr.clone(),
                 _ => panic!("internal error: animation running must be a property reference"),

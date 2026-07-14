@@ -589,26 +589,31 @@ impl TypeRegister {
             _ => unreachable!(),
         }
 
-        match &mut register.elements.get_mut("TweenAnimation").unwrap() {
-            ElementType::Builtin(b) => {
-                let animation = Rc::get_mut(b).unwrap();
-                // `start` / `stop` / `restart` are declared as stub
-                // functions in `builtins.slint` so their doc comments get
-                // picked up, then replaced here with the real builtin
-                // implementations. Carry the docs over onto the
-                // replacements.
-                for (name, func) in [
-                    ("start", BuiltinFunction::StartAnimation),
-                    ("stop", BuiltinFunction::StopAnimation),
-                    ("restart", BuiltinFunction::RestartAnimation),
-                ] {
-                    let existing_docs = animation.properties.get(name).and_then(|p| p.docs.clone());
-                    let mut info = BuiltinPropertyInfo::from(func);
-                    info.docs = existing_docs;
-                    animation.properties.insert(name.into(), info);
+        for animation_type in
+            ["TweenAnimation", "DelayAnimation", "ParallelAnimation", "SequentialAnimation"]
+        {
+            match &mut register.elements.get_mut(animation_type).unwrap() {
+                ElementType::Builtin(b) => {
+                    let animation = Rc::get_mut(b).unwrap();
+                    // `start` / `stop` / `restart` are declared as stub
+                    // functions in `builtins.slint` so their doc comments get
+                    // picked up, then replaced here with the real builtin
+                    // implementations. Carry the docs over onto the
+                    // replacements.
+                    for (name, func) in [
+                        ("start", BuiltinFunction::StartAnimation),
+                        ("stop", BuiltinFunction::StopAnimation),
+                        ("restart", BuiltinFunction::RestartAnimation),
+                    ] {
+                        let existing_docs =
+                            animation.properties.get(name).and_then(|p| p.docs.clone());
+                        let mut info = BuiltinPropertyInfo::from(func);
+                        info.docs = existing_docs;
+                        animation.properties.insert(name.into(), info);
+                    }
                 }
+                _ => {}
             }
-            _ => {}
         }
 
         let font_metrics_prop = crate::langtype::BuiltinPropertyInfo {

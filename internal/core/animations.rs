@@ -12,7 +12,10 @@ pub(crate) mod physics_simulation;
 
 pub mod tween {
     //! Re-export the tween handle+data types from properties_animations
-    pub use crate::properties::{AnimationHandle, TweenAnimation};
+    pub use crate::properties::{
+        Animation, AnimationHandle, DelayAnimation, ParallelAnimation, SequentialAnimation,
+        TweenAnimation,
+    };
 }
 
 mod cubic_bezier {

@@ -407,12 +407,25 @@ pub struct SequentialAnimation {
     animations: Vec<Box<dyn Animation>>,
     current_index: usize,
     running: bool,
+    iteration_count: f64,
+    completed_iterations: u64,
 }
 
 impl SequentialAnimation {
-    /// Creates an empty sequence of animations.
+    /// Creates an empty sequence of animations, run once by default.
     pub fn new() -> Self {
-        Self { animations: Vec::new(), current_index: 0, running: true }
+        Self {
+            animations: Vec::new(),
+            current_index: 0,
+            running: true,
+            iteration_count: 1.0,
+            completed_iterations: 0,
+        }
+    }
+
+    /// Sets how many times the whole sequence should run (negative loops forever).
+    pub fn set_iteration_count(&mut self, iteration_count: f64) {
+        self.iteration_count = iteration_count;
     }
 
     /// Appends `animation` to the end of the sequence.
@@ -425,7 +438,12 @@ impl SequentialAnimation {
         self.animations.get_mut(self.current_index)
     }
 
-    /// Advances to and restarts the next animation in the sequence, if any remain.
+    fn more_iterations_remaining(&self) -> bool {
+        self.iteration_count < 0. || (self.completed_iterations as f64) < self.iteration_count
+    }
+
+    /// Advances to and restarts the next animation in the sequence
+    /// Once the last one finishes, loops to the beginning if more iterations in `iteration_count`
     pub fn advance_to_next(&mut self) {
         self.current_index += 1;
         if self.current_index < self.animations.len() {
@@ -433,12 +451,23 @@ impl SequentialAnimation {
                 // `restart` as children are constructed at the beginning but only activated now
                 anim.restart();
             }
+            return;
+        }
+
+        self.completed_iterations += 1;
+        if !self.animations.is_empty() && self.more_iterations_remaining() {
+            self.current_index = 0;
+            for anim in &mut self.animations {
+                anim.restart();
+            }
         }
     }
 
-    /// Returns true once every animation in the sequence has run to completion.
+    /// Returns true once the sequence has run `iteration_count` times to completion.
     pub fn is_finished(&self) -> bool {
-        self.current_index >= self.animations.len()
+        self.animations.is_empty()
+            || self.iteration_count == 0.
+            || self.current_index >= self.animations.len()
     }
 }
 
@@ -451,6 +480,10 @@ impl Default for SequentialAnimation {
 impl Animation for SequentialAnimation {
     fn start(&mut self) {
         self.running = true;
+        if self.is_finished() {
+            self.current_index = 0;
+            self.completed_iterations = 0;
+        }
         if !self.animations.is_empty() && self.current_index == 0 {
             // `restart` as children are constructed at the beginning but only activated now
             self.animations[0].restart();
@@ -466,6 +499,7 @@ impl Animation for SequentialAnimation {
 
     fn restart(&mut self) {
         self.current_index = 0;
+        self.completed_iterations = 0;
         self.running = true;
         for anim in &mut self.animations {
             anim.restart();
@@ -480,7 +514,7 @@ impl Animation for SequentialAnimation {
         if !self.running {
             return false;
         }
-        // Loop so a child finishing begins the next child in the same frame
+        // Loop so a child finishing begins the next child (or the next iteration) in the same frame
         while let Some(current_anim) = self.animations.get_mut(self.current_index) {
             if current_anim.update() {
                 break;
@@ -495,12 +529,19 @@ impl Animation for SequentialAnimation {
 pub struct ParallelAnimation {
     animations: Vec<Box<dyn Animation>>,
     running: bool,
+    iteration_count: f64,
+    completed_iterations: u64,
 }
 
 impl ParallelAnimation {
-    /// Creates an empty group of animations to run in parallel.
+    /// Creates an empty group of animations to run in parallel, run once by default.
     pub fn new() -> Self {
-        Self { animations: Vec::new(), running: true }
+        Self { animations: Vec::new(), running: true, iteration_count: 1.0, completed_iterations: 0 }
+    }
+
+    /// Sets how many times the whole group should run (negative loops forever).
+    pub fn set_iteration_count(&mut self, iteration_count: f64) {
+        self.iteration_count = iteration_count;
     }
 
     /// Adds `animation` to the group.
@@ -508,9 +549,20 @@ impl ParallelAnimation {
         self.animations.push(animation);
     }
 
-    /// Returns true once every animation in the group has finished running.
+    /// Returns true once every animation in the group has finished running (this iteration).
     pub fn all_finished(&self) -> bool {
         self.animations.is_empty() || self.animations.iter().all(|a| !a.is_running())
+    }
+
+    fn more_iterations_remaining(&self) -> bool {
+        self.iteration_count < 0. || (self.completed_iterations as f64) < self.iteration_count
+    }
+
+    /// Returns true once the group has run `iteration_count` times to completion.
+    pub fn is_finished(&self) -> bool {
+        self.animations.is_empty()
+            || self.iteration_count == 0.
+            || (self.all_finished() && !self.more_iterations_remaining())
     }
 }
 
@@ -523,6 +575,9 @@ impl Default for ParallelAnimation {
 impl Animation for ParallelAnimation {
     fn start(&mut self) {
         self.running = true;
+        if self.is_finished() {
+            self.completed_iterations = 0;
+        }
         for anim in &mut self.animations {
             anim.start();
         }
@@ -536,6 +591,7 @@ impl Animation for ParallelAnimation {
     }
 
     fn restart(&mut self) {
+        self.completed_iterations = 0;
         for anim in &mut self.animations {
             anim.restart();
         }
@@ -543,7 +599,7 @@ impl Animation for ParallelAnimation {
     }
 
     fn is_running(&self) -> bool {
-        self.running && !self.all_finished()
+        self.running && !self.is_finished()
     }
 
     fn update(&mut self) -> bool {
@@ -552,6 +608,14 @@ impl Animation for ParallelAnimation {
         }
         for anim in &mut self.animations {
             anim.update();
+        }
+        if !self.animations.is_empty() && self.all_finished() {
+            self.completed_iterations += 1;
+            if self.more_iterations_remaining() {
+                for anim in &mut self.animations {
+                    anim.restart();
+                }
+            }
         }
         self.is_running()
     }

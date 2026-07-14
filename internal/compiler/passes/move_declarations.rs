@@ -163,30 +163,7 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
         fixup_reference(&mut t.running, renames);
         fixup_reference(&mut t.triggered, renames);
     });
-    component.animations.borrow_mut().iter_mut().for_each(|a| {
-        if let Some(ref mut target) = a.target {
-            fixup_reference(target, renames);
-        }
-        fixup_reference(&mut a.running, renames);
-        if let Some(ref mut from) = a.from {
-            fixup_reference(from, renames);
-        }
-        if let Some(ref mut to) = a.to {
-            fixup_reference(to, renames);
-        }
-        if let Some(ref mut duration) = a.duration {
-            fixup_reference(duration, renames);
-        }
-        if let Some(ref mut easing) = a.easing {
-            fixup_reference(easing, renames);
-        }
-        if let Some(ref mut iteration_count) = a.iteration_count {
-            fixup_reference(iteration_count, renames);
-        }
-        if let Some(ref mut direction) = a.direction {
-            fixup_reference(direction, renames);
-        }
-    });
+    component.animations.borrow_mut().iter_mut().for_each(|a| fixup_animation(a, renames));
     component.menu_item_tree.borrow_mut().iter_mut().for_each(|c| {
         visit_all_named_references(c, &mut |nr| fixup_reference(nr, renames));
     });
@@ -220,6 +197,32 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
         r.property_analysis.borrow_mut().extend(new_root_property_analysis);
         r.change_callbacks.extend(new_root_change_callbacks);
     }
+}
+
+fn fixup_animation(a: &mut Animation, renames: &RenameMap) {
+    if let Some(ref mut target) = a.target {
+        fixup_reference(target, renames);
+    }
+    fixup_reference(&mut a.running, renames);
+    if let Some(ref mut from) = a.from {
+        fixup_reference(from, renames);
+    }
+    if let Some(ref mut to) = a.to {
+        fixup_reference(to, renames);
+    }
+    if let Some(ref mut duration) = a.duration {
+        fixup_reference(duration, renames);
+    }
+    if let Some(ref mut easing) = a.easing {
+        fixup_reference(easing, renames);
+    }
+    if let Some(ref mut iteration_count) = a.iteration_count {
+        fixup_reference(iteration_count, renames);
+    }
+    if let Some(ref mut direction) = a.direction {
+        fixup_reference(direction, renames);
+    }
+    a.children.iter_mut().for_each(|c| fixup_animation(c, renames));
 }
 
 /// Map the reference to the previous properties to the new moved property at the root
@@ -269,16 +272,15 @@ fn simplify_optimized_items(items: &[ElementRc]) {
                 // This assume that all properties of builtin items are fine with the default value
 
                 // For animation elements, get the actual type of from/to properties
+                let is_animation = is_animation_element(&c);
                 let target_type = get_animation_target_type(&elem, &c);
 
                 elem.borrow_mut().property_declarations.extend(c.properties.iter().filter_map(
                     |(k, v)| {
-                        // Skip the "target" property for animation elements as its extracted from
+                        // Skip the target property for animation elements as its extracted from
                         // the binding
-                        if let Some(ref _target) = target_type {
-                            if k == "target" {
-                                return None;
-                            }
+                        if is_animation && k == "target" {
+                            return None;
                         }
 
                         let prop_type = if let Some(ref target) = target_type {
@@ -307,11 +309,18 @@ fn simplify_optimized_items(items: &[ElementRc]) {
     }
 }
 
+fn is_animation_element(builtin: &BuiltinElement) -> bool {
+    matches!(
+        builtin.name.as_str(),
+        "TweenAnimation" | "DelayAnimation" | "ParallelAnimation" | "SequentialAnimation"
+    )
+}
+
 fn get_animation_target_type(
     elem: &ElementRc,
     builtin: &BuiltinElement,
 ) -> Option<crate::langtype::Type> {
-    // Only check for animation elements
+    // Only TweenAnimation actually binds and uses `target`.
     if builtin.name != "TweenAnimation" {
         return None;
     }

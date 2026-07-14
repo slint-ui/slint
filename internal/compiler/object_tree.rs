@@ -393,7 +393,9 @@ pub struct Timer {
 #[derive(Debug, Clone, PartialEq)]
 pub enum AnimationType {
     Tween,
-    // Other types will be implemented here
+    Delay,
+    Parallel,
+    Sequential,
 }
 
 #[derive(Debug, Clone)]

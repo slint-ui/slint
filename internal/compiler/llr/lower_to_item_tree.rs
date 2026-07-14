@@ -929,6 +929,7 @@ fn lower_animation(
     ctx: &ExpressionLoweringCtx,
 ) -> AnimationObject {
     AnimationObject {
+        animation_type: animation.animation_type.clone(),
         target: match &animation.target {
             Some(_) => Some(
                 super::Expression::PropertyReference(
@@ -996,6 +997,7 @@ fn lower_animation(
             ),
             None => None,
         },
+        children: animation.children.iter().map(|c| lower_animation(c, ctx)).collect(),
     }
 }
 

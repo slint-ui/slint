@@ -368,28 +368,7 @@ fn inline_element(
         fixup_reference(&mut t.triggered, &mapping);
     }
     for a in root_component.animations.borrow_mut().iter_mut() {
-        if let Some(ref mut target) = a.target {
-            fixup_reference(target, &mapping);
-        }
-        fixup_reference(&mut a.running, &mapping);
-        if let Some(ref mut from) = a.from {
-            fixup_reference(from, &mapping);
-        }
-        if let Some(ref mut to) = a.to {
-            fixup_reference(to, &mapping);
-        }
-        if let Some(ref mut duration) = a.duration {
-            fixup_reference(duration, &mapping);
-        }
-        if let Some(ref mut easing) = a.easing {
-            fixup_reference(easing, &mapping);
-        }
-        if let Some(ref mut iteration_count) = a.iteration_count {
-            fixup_reference(iteration_count, &mapping);
-        }
-        if let Some(ref mut direction) = a.direction {
-            fixup_reference(direction, &mapping);
-        }
+        fixup_animation(a, &mapping);
     }
     // If some element were moved into PopupWindow, we need to report error if they are used outside of the popup window.
     if !moved_into_popup.is_empty() {
@@ -552,28 +531,7 @@ fn duplicate_sub_component(
         }
     }
     for a in new_component.animations.borrow_mut().iter_mut() {
-        if let Some(ref mut target) = a.target {
-            fixup_reference(target, &mapping);
-        }
-        fixup_reference(&mut a.running, &mapping);
-        if let Some(ref mut from) = a.from {
-            fixup_reference(from, &mapping);
-        }
-        if let Some(ref mut to) = a.to {
-            fixup_reference(to, &mapping);
-        }
-        if let Some(ref mut duration) = a.duration {
-            fixup_reference(duration, &mapping);
-        }
-        if let Some(ref mut easing) = a.easing {
-            fixup_reference(easing, &mapping);
-        }
-        if let Some(ref mut iteration_count) = a.iteration_count {
-            fixup_reference(iteration_count, &mapping);
-        }
-        if let Some(ref mut direction) = a.direction {
-            fixup_reference(direction, &mapping);
-        }
+        fixup_animation(a, &mapping);
     }
     *new_component.menu_item_tree.borrow_mut() = component_to_duplicate
         .menu_item_tree
@@ -670,6 +628,32 @@ fn fixup_reference(nr: &mut NamedReference, mapping: &Mapping) {
     if let Some(e) = mapping.get(&element_key(nr.element())) {
         *nr = NamedReference::new(e, nr.name().clone());
     }
+}
+
+fn fixup_animation(a: &mut Animation, mapping: &Mapping) {
+    if let Some(ref mut target) = a.target {
+        fixup_reference(target, mapping);
+    }
+    fixup_reference(&mut a.running, mapping);
+    if let Some(ref mut from) = a.from {
+        fixup_reference(from, mapping);
+    }
+    if let Some(ref mut to) = a.to {
+        fixup_reference(to, mapping);
+    }
+    if let Some(ref mut duration) = a.duration {
+        fixup_reference(duration, mapping);
+    }
+    if let Some(ref mut easing) = a.easing {
+        fixup_reference(easing, mapping);
+    }
+    if let Some(ref mut iteration_count) = a.iteration_count {
+        fixup_reference(iteration_count, mapping);
+    }
+    if let Some(ref mut direction) = a.direction {
+        fixup_reference(direction, mapping);
+    }
+    a.children.iter_mut().for_each(|c| fixup_animation(c, mapping));
 }
 
 /// Remap all the element references stored in a grid layout (the cell items and

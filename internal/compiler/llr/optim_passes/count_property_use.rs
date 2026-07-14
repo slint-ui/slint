@@ -135,56 +135,7 @@ pub fn count_property_use(root: &CompilationUnit) {
         }
         // 12. animations
         for anim in &sc.animation_objects {
-            if anim.target.is_some() {
-                anim.target
-                    .as_ref()
-                    .unwrap()
-                    .borrow()
-                    .visit_property_references(ctx, &mut visit_property);
-            }
-            anim.running.borrow().visit_property_references(ctx, &mut visit_property);
-            if anim.from.is_some() {
-                anim.from
-                    .as_ref()
-                    .unwrap()
-                    .borrow()
-                    .visit_property_references(ctx, &mut visit_property);
-            }
-            if anim.to.is_some() {
-                anim.to
-                    .as_ref()
-                    .unwrap()
-                    .borrow()
-                    .visit_property_references(ctx, &mut visit_property);
-            }
-            if anim.duration.is_some() {
-                anim.duration
-                    .as_ref()
-                    .unwrap()
-                    .borrow()
-                    .visit_property_references(ctx, &mut visit_property);
-            }
-            if anim.easing.is_some() {
-                anim.easing
-                    .as_ref()
-                    .unwrap()
-                    .borrow()
-                    .visit_property_references(ctx, &mut visit_property);
-            }
-            if anim.iteration_count.is_some() {
-                anim.iteration_count
-                    .as_ref()
-                    .unwrap()
-                    .borrow()
-                    .visit_property_references(ctx, &mut visit_property);
-            }
-            if anim.direction.is_some() {
-                anim.direction
-                    .as_ref()
-                    .unwrap()
-                    .borrow()
-                    .visit_property_references(ctx, &mut visit_property);
-            }
+            visit_animation_object(anim, ctx);
         }
     });
 
@@ -233,6 +184,34 @@ fn visit_binding_expression(binding: &BindingExpression, ctx: &EvaluationContext
             e.visit_property_references(ctx, &mut visit_property);
         }
         None => (),
+    }
+}
+
+fn visit_animation_object(anim: &crate::llr::AnimationObject, ctx: &EvaluationContext) {
+    if let Some(target) = &anim.target {
+        target.borrow().visit_property_references(ctx, &mut visit_property);
+    }
+    anim.running.borrow().visit_property_references(ctx, &mut visit_property);
+    if let Some(from) = &anim.from {
+        from.borrow().visit_property_references(ctx, &mut visit_property);
+    }
+    if let Some(to) = &anim.to {
+        to.borrow().visit_property_references(ctx, &mut visit_property);
+    }
+    if let Some(duration) = &anim.duration {
+        duration.borrow().visit_property_references(ctx, &mut visit_property);
+    }
+    if let Some(easing) = &anim.easing {
+        easing.borrow().visit_property_references(ctx, &mut visit_property);
+    }
+    if let Some(iteration_count) = &anim.iteration_count {
+        iteration_count.borrow().visit_property_references(ctx, &mut visit_property);
+    }
+    if let Some(direction) = &anim.direction {
+        direction.borrow().visit_property_references(ctx, &mut visit_property);
+    }
+    for c in &anim.children {
+        visit_animation_object(c, ctx);
     }
 }
 

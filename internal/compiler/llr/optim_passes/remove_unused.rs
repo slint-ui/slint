@@ -364,33 +364,7 @@ mod visitor {
             visit_expression(t.running.get_mut(), &scope, state, visitor);
         }
         for a in animation_objects {
-            if a.target.is_some() {
-                visit_expression(a.target.as_mut().unwrap().get_mut(), &scope, state, visitor);
-            }
-            visit_expression(a.running.get_mut(), &scope, state, visitor);
-            if a.from.is_some() {
-                visit_expression(a.from.as_mut().unwrap().get_mut(), &scope, state, visitor);
-            }
-            if a.to.is_some() {
-                visit_expression(a.to.as_mut().unwrap().get_mut(), &scope, state, visitor);
-            }
-            if a.duration.is_some() {
-                visit_expression(a.duration.as_mut().unwrap().get_mut(), &scope, state, visitor);
-            }
-            if a.easing.is_some() {
-                visit_expression(a.easing.as_mut().unwrap().get_mut(), &scope, state, visitor);
-            }
-            if a.iteration_count.is_some() {
-                visit_expression(
-                    a.iteration_count.as_mut().unwrap().get_mut(),
-                    &scope,
-                    state,
-                    visitor,
-                );
-            }
-            if a.direction.is_some() {
-                visit_expression(a.direction.as_mut().unwrap().get_mut(), &scope, state, visitor);
-            }
+            visit_animation_object(a, &scope, state, visitor);
         }
         for (idx, init) in property_init {
             visit_member_reference(idx, &scope, state, visitor);
@@ -520,6 +494,39 @@ mod visitor {
         visit_member_reference(activated, &scope, state, visitor);
         visit_member_reference(close, &scope, state, visitor);
         visit_member_reference(entries, &scope, state, visitor);
+    }
+
+    pub fn visit_animation_object(
+        a: &mut AnimationObject,
+        scope: &EvaluationScope,
+        state: &VisitorState,
+        visitor: &mut (impl Visitor + ?Sized),
+    ) {
+        if let Some(target) = a.target.as_mut() {
+            visit_expression(target.get_mut(), scope, state, visitor);
+        }
+        visit_expression(a.running.get_mut(), scope, state, visitor);
+        if let Some(from) = a.from.as_mut() {
+            visit_expression(from.get_mut(), scope, state, visitor);
+        }
+        if let Some(to) = a.to.as_mut() {
+            visit_expression(to.get_mut(), scope, state, visitor);
+        }
+        if let Some(duration) = a.duration.as_mut() {
+            visit_expression(duration.get_mut(), scope, state, visitor);
+        }
+        if let Some(easing) = a.easing.as_mut() {
+            visit_expression(easing.get_mut(), scope, state, visitor);
+        }
+        if let Some(iteration_count) = a.iteration_count.as_mut() {
+            visit_expression(iteration_count.get_mut(), scope, state, visitor);
+        }
+        if let Some(direction) = a.direction.as_mut() {
+            visit_expression(direction.get_mut(), scope, state, visitor);
+        }
+        for c in &mut a.children {
+            visit_animation_object(c, scope, state, visitor);
+        }
     }
 
     pub fn visit_public_property(
