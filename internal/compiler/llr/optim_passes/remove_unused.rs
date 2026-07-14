@@ -103,6 +103,9 @@ pub fn remove_unused(root: &mut CompilationUnit) {
                     EvaluationScope::Global(global_idx) => {
                         self.glob_mappings[*global_idx].$field[*p]
                     }
+                    EvaluationScope::Const => {
+                        panic!("member reference in a constant expression")
+                    }
                 }
                 .unwrap();
             }

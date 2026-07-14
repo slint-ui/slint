@@ -14,6 +14,14 @@ use smol_str::format_smolstr;
 
 type ConstPropCache = HashMap<NamedReference, Option<Expression>>;
 
+/// Fold constants in an expression that stands on its own, outside of a component.
+///
+/// This is used for expressions that cannot reference any properties or elements,
+/// such as the default values of struct fields.
+pub(crate) fn fold_const_expression(expr: &mut Expression) {
+    simplify_expression(expr, &GlobalAnalysis::default(), &mut ConstPropCache::default());
+}
+
 pub fn const_propagation(component: &Component, global_analysis: &GlobalAnalysis) {
     let mut cache = ConstPropCache::new();
     visit_all_expressions(component, |expr, _ty| {

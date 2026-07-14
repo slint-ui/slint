@@ -464,6 +464,7 @@ use crate::langtype::{
     BuiltinStruct, Enumeration, EnumerationValue, NativeClass, StructName, Type,
 };
 use crate::layout::Orientation;
+use crate::llr::lower_expression::lower_constant_expression;
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, EvaluationScope, ParentScope,
     TypeResolutionContext as _,
@@ -790,13 +791,13 @@ pub fn generate(
         return super::cpp_live_preview::generate(doc, config, compiler_config);
     }
 
-    let mut file = generate_types(&doc.used_types.borrow().structs_and_enums, &config);
+    let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
+
+    let mut file = generate_types(&doc.used_types.borrow().structs_and_enums, &config, &llr);
 
     for (resource_id, er) in doc.embedded_file_resources.borrow().iter_enumerated() {
         embed_resource(er, resource_id, &mut file.resources);
     }
-
-    let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
     #[cfg(feature = "bundle-translations")]
     if let Some(translations) = &llr.translations {
@@ -1036,7 +1037,7 @@ pub fn generate(
     Ok(file)
 }
 
-pub fn generate_types(used_types: &[Type], config: &Config) -> File {
+pub fn generate_types(used_types: &[Type], config: &Config, unit: &llr::CompilationUnit) -> File {
     let mut file = File { namespace: config.namespace.clone(), ..Default::default() };
 
     file.includes.push("<array>".into());
@@ -1052,10 +1053,15 @@ pub fn generate_types(used_types: &[Type], config: &Config) -> File {
         z = env!("CARGO_PKG_VERSION_PATCH")
     );
 
+    // The evaluation context for the field default values needs an instance,
+    // but the constant expressions cannot call any of the functions that
+    // record a conditional include
+    let conditional_includes = ConditionalIncludes::default();
+
     for ty in used_types {
         match ty {
             Type::Struct(s) if s.node().is_some() => {
-                generate_struct(&mut file, &s.name, &s.fields);
+                generate_struct(&mut file, s, unit, &conditional_includes);
             }
             Type::Enumeration(en) => {
                 generate_enum(&mut file, en);
@@ -1063,6 +1069,13 @@ pub fn generate_types(used_types: &[Type], config: &Config) -> File {
             _ => (),
         }
     }
+
+    debug_assert!(
+        !conditional_includes.iostream.get()
+            && !conditional_includes.cstdlib.get()
+            && !conditional_includes.cmath.get(),
+        "a constant expression recorded a conditional include; apply them to the file"
+    );
 
     file
 }
@@ -1305,20 +1318,44 @@ fn embed_resource(
     }
 }
 
-fn generate_struct(file: &mut File, name: &StructName, fields: &BTreeMap<SmolStr, Type>) {
-    let StructName::User { name: user_name, node } = name else {
+fn generate_struct(
+    file: &mut File,
+    the_struct: &crate::langtype::Struct,
+    unit: &llr::CompilationUnit,
+    conditional_includes: &ConditionalIncludes,
+) {
+    let StructName::User { name: user_name, node } = &the_struct.name else {
         panic!("internal error: Cannot generate anonymous struct");
     };
+    // Constant expressions cannot access the globals; make sure a bug in that
+    // assumption breaks the build of the generated code with a clear message
+    let ctx = EvaluationContext::new_const(
+        unit,
+        CppGeneratorContext {
+            global_access: "no_global_access_in_a_constant_expression".into(),
+            conditional_includes,
+        },
+    );
     let name = ident(user_name);
     let mut members = node
         .ObjectTypeMember()
         .map(|n| crate::parser::identifier_text(&n).unwrap())
         .map(|name| {
+            // When any field has a declared default value, initialize the remaining fields, too,
+            // so that default construction is fully deterministic, like in the other language backends.
+            let init = match the_struct.field_defaults.get(&name) {
+                Some(default_value) => {
+                    Some(compile_expression(&lower_constant_expression(default_value), &ctx))
+                }
+                None if !the_struct.field_defaults.is_empty() => Some("{}".into()),
+                None => None,
+            };
             (
                 Access::Public,
                 Declaration::Var(Var {
-                    ty: fields.get(&name).unwrap().cpp_type().unwrap(),
+                    ty: the_struct.fields.get(&name).unwrap().cpp_type().unwrap(),
                     name: ident(&name),
+                    init,
                     ..Default::default()
                 }),
             )

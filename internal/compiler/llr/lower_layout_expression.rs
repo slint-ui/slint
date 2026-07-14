@@ -1516,8 +1516,8 @@ fn grid_layout_input_data(
 }
 
 pub(super) fn grid_layout_input_data_ty() -> Type {
-    Type::Struct(Rc::new(Struct {
-        fields: IntoIterator::into_iter([
+    Type::Struct(Rc::new(Struct::new(
+        IntoIterator::into_iter([
             (SmolStr::new_static("new_row"), Type::Bool),
             (SmolStr::new_static("row"), Type::Int32),
             (SmolStr::new_static("col"), Type::Int32),
@@ -1525,8 +1525,8 @@ pub(super) fn grid_layout_input_data_ty() -> Type {
             (SmolStr::new_static("colspan"), Type::Int32),
         ])
         .collect(),
-        name: BuiltinStruct::GridLayoutInputData.into(),
-    }))
+        BuiltinStruct::GridLayoutInputData,
+    )))
 }
 
 fn generate_layout_padding_and_spacing(

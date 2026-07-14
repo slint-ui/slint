@@ -4,6 +4,7 @@
 //! Module containing the parsing functions for type names
 
 use super::document::parse_qualified_name;
+use super::expressions::parse_expression;
 use super::prelude::*;
 
 #[cfg_attr(test, parser_test)]
@@ -30,6 +31,8 @@ pub fn parse_type(p: &mut impl Parser) {
 /// {a: string}
 /// {a: string,}
 /// {a: { foo: string, bar: int, }, q: {} }
+/// {a: string = "hello", b: int = 42}
+/// {a: int = 1 + 2, b: color = #f00,}
 /// ```
 pub fn parse_type_object(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::ObjectType);
@@ -41,6 +44,9 @@ pub fn parse_type_object(p: &mut impl Parser) {
         p.expect(SyntaxKind::Identifier);
         p.expect(SyntaxKind::Colon);
         parse_type(&mut *p);
+        if p.test(SyntaxKind::Equal) {
+            parse_expression(&mut *p);
+        }
         if p.peek().kind() == SyntaxKind::Semicolon {
             p.error("Expected ','. Use ',' instead of ';' to separate fields in a struct");
             p.consume();
@@ -72,6 +78,7 @@ pub fn parse_type_array(p: &mut impl Parser) {
 /// struct Bar := {}
 /// struct Foo { foo: bar, xxx: { aaa: bbb, } }
 /// struct Bar {}
+/// struct Player { name: string = "unknown", score: int = 0 }
 /// ```
 pub fn parse_struct_declaration<P: Parser>(p: &mut P, checkpoint: Option<P::Checkpoint>) -> bool {
     debug_assert_eq!(p.peek().as_str(), "struct");

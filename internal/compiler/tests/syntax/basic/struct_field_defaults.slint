@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct Ok1 {
+    a: int = 42,
+    b: string = "hello",
+    c: float = 0.5 * 2,
+    d: duration = -2s,
+}
+
+struct Ok2 {
+    nested: Ok1 = { a: 1 },
+    tags: [string] = ["x"],
+}
+
+struct WrongType {
+    a: int = "hello",
+//           >     <error{Cannot convert string to int}
+}
+
+struct NotConstant {
+    a: string = some-function(),
+//              >           <error{Unknown unqualified identifier 'some-function'}
+    b: duration = animation-tick(),
+//                >              <error{The default value of a struct field must be a constant expression}
+}
+
+struct ForwardReference {
+    e: LaterEnum = LaterEnum.x,
+//     >        <error{Unknown type 'LaterEnum'}
+//                 >         <^error{Cannot access id 'LaterEnum'}
+}
+
+enum LaterEnum { x, y }
+
+export component Foo {
+    in property <{a: int = 1}> anonymous;
+//                         ^error{Field default values are only supported in named struct declarations}
+}

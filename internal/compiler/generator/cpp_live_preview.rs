@@ -16,13 +16,14 @@ pub fn generate(
     config: Config,
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<File> {
-    let mut file = super::cpp::generate_types(&doc.used_types.borrow().structs_and_enums, &config);
+    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
+
+    let mut file =
+        super::cpp::generate_types(&doc.used_types.borrow().structs_and_enums, &config, &llr);
 
     file.includes.push("<private/slint_live_preview.h>".into());
 
     generate_value_conversions(&mut file, &doc.used_types.borrow().structs_and_enums);
-
-    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
     let main_file = doc
         .node

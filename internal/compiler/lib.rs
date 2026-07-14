@@ -343,6 +343,7 @@ pub async fn compile_syntax_node(
         &mut diagnostics,
         &type_registry,
         ignore_missing_font_files,
+        &loader.symbol_counters,
     );
 
     if !diagnostics.has_errors() {

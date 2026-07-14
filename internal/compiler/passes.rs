@@ -16,7 +16,7 @@ mod collect_libraries;
 mod collect_structs_and_enums;
 mod collect_subcomponents;
 mod compile_paths;
-mod const_propagation;
+pub(crate) mod const_propagation;
 mod deduplicate_property_read;
 mod default_geometry;
 mod deprecated_rotation_origin;

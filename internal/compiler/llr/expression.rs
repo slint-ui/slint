@@ -356,7 +356,15 @@ impl Expression {
                 values: s
                     .fields
                     .iter()
-                    .map(|(k, v)| Some((k.clone(), Expression::default_value_for_type(v)?)))
+                    .map(|(k, v)| {
+                        let value = match s.field_defaults.get(k) {
+                            Some(default_value) => {
+                                super::lower_expression::lower_constant_expression(default_value)
+                            }
+                            None => Expression::default_value_for_type(v)?,
+                        };
+                        Some((k.clone(), value))
+                    })
                     .collect::<Option<_>>()?,
             },
             Type::Easing => Expression::EasingCurve(crate::expression_tree::EasingCurve::default()),
@@ -711,6 +719,9 @@ pub enum EvaluationScope<'a> {
     SubComponent(SubComponentIdx, Option<&'a ParentScope<'a>>),
     /// The evaluation context is in a global
     Global(GlobalIdx),
+    /// The evaluation context is a constant expression that cannot reference any
+    /// properties or elements, such as the default value of a struct field
+    Const,
 }
 
 #[derive(Clone)]
@@ -746,6 +757,18 @@ impl<'a, T> EvaluationContext<'a, T> {
         Self {
             compilation_unit,
             current_scope: EvaluationScope::Global(global),
+            generator_state,
+            argument_types: &[],
+        }
+    }
+
+    /// A context for compiling a constant expression that cannot reference any
+    /// properties or elements, such as the default value of a struct field
+    /// (see [`crate::langtype::Struct::field_defaults`])
+    pub fn new_const(compilation_unit: &'a super::CompilationUnit, generator_state: T) -> Self {
+        Self {
+            compilation_unit,
+            current_scope: EvaluationScope::Const,
             generator_state,
             argument_types: &[],
         }
@@ -873,6 +896,9 @@ impl<'a, T> EvaluationContext<'a, T> {
                             local_reference,
                             ContextMap::from_parent_level(*parent_level),
                         )
+                    }
+                    EvaluationScope::Const => {
+                        panic!("property reference in a constant expression")
                     }
                 }
             }

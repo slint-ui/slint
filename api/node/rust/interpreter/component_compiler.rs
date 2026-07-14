@@ -111,11 +111,11 @@ impl JsComponentCompiler {
                     let name = s.name.slint_name().unwrap();
                     let struct_instance = crate::to_js_unknown(
                         env,
-                        &Value::Struct(slint_interpreter::Struct::from_iter(s.fields.iter().map(
-                            |(name, field_type)| {
+                        &Value::Struct(slint_interpreter::Struct::from_iter(s.fields.keys().map(
+                            |name| {
                                 (
                                     name.to_string(),
-                                    slint_interpreter::default_value_for_type(field_type),
+                                    slint_interpreter::default_value_for_struct_field(s, name),
                                 )
                             },
                         ))),
