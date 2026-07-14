@@ -112,8 +112,13 @@ function inject_styles(): void {
     document.head.appendChild(style);
 }
 
-export function install_command_palette(commands: Command[]): CommandPalette {
+export function install_command_palette(
+    get_commands: () => Command[],
+): CommandPalette {
     inject_styles();
+    // Recomputed each time the palette opens, so dynamic entries (e.g. the
+    // demo list read from the LSP) are always current.
+    let commands: Command[] = [];
     let overlay: HTMLDivElement | null = null;
     let input: HTMLInputElement | null = null;
     let list: HTMLDivElement | null = null;
@@ -186,6 +191,7 @@ export function install_command_palette(commands: Command[]): CommandPalette {
         if (overlay !== null) {
             return;
         }
+        commands = get_commands();
         active = 0;
 
         overlay = document.createElement("div");

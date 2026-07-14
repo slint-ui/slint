@@ -217,6 +217,13 @@ export class Previewer {
         return this.#preview_connector.current_style();
     }
 
+    demos(): { title: string; url: string }[] {
+        return this.#preview_connector.demos() as {
+            title: string;
+            url: string;
+        }[];
+    }
+
     restore_panels(layout: PanelLayout): void {
         this.#preview_connector.restore_panels(
             layout.library,

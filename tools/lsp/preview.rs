@@ -1960,6 +1960,21 @@ fn get_current_style() -> String {
     })
 }
 
+/// The list of built-in demos (title, url), so the SlintPad command palette
+/// can offer the same demos as the "Open Demo" menu without duplicating them.
+fn get_demos() -> Vec<(String, String)> {
+    PREVIEW_STATE.with_borrow(|preview_state| -> Vec<(String, String)> {
+        if let Some(api) = preview_state.api.upgrade() {
+            use slint::Model;
+            // The `{title, url}` struct compiles to a tuple with fields sorted
+            // alphabetically, so `.0` is `title` and `.1` is `url`.
+            api.get_demos().iter().map(|d| (d.0.to_string(), d.1.to_string())).collect()
+        } else {
+            Vec::new()
+        }
+    })
+}
+
 fn set_status_text(text: &str) {
     let text = text.to_string();
 
