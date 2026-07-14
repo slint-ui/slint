@@ -1557,7 +1557,7 @@ impl Expression {
         };
         // Convert the arguments once the parameter types are known, so a bare color/enum
         // literal in argument position resolves against its parameter type.
-        let arg_nodes: Vec<_> = sub_expr.collect();
+        let arg_nodes = sub_expr.collect::<Vec<_>>();
         let convert_args = |ctx: &mut LookupCtx, expected: &[Type]| {
             arg_nodes
                 .iter()
