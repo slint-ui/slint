@@ -29,12 +29,17 @@ body {
 
 .browser-error {
     display: flex;
+    flex-direction: column;
+    gap: 12px;
     width: 100%;
     height: 100%;
     justify-content: center;
     align-items: center;
-    background: var(--color_blue);
-    color: var(--color_white);
+    background: var(--brand-ink);
+    color: var(--brand-text);
+    font-family: var(--brand-sans);
+    text-align: center;
+    padding: 0 24px;
 }
 
 .loader {
@@ -43,33 +48,145 @@ body {
     height: 100%;
     justify-content: center;
     align-items: center;
-    background: var(--color_blue);
-    color: var(--color_white);
-    font-family: system-ui, -apple-system, Helvetica, Arial, sans-serif;
+    background: var(--brand-ink);
+    color: var(--brand-text);
+    font-family: var(--brand-sans);
+    overflow: hidden;
+}
+
+/* Soft radial glows — composited cheaply (no blur filter) */
+.loader-glow {
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+    width: 560px;
+    height: 560px;
+    border-radius: 50%;
+    opacity: 0.5;
+}
+
+.loader-glow-a {
+    background: radial-gradient(circle, #2379f4 0%, transparent 70%);
+    top: -180px;
+    left: -160px;
+}
+
+.loader-glow-b {
+    background: radial-gradient(circle, #6b0dff 0%, transparent 70%);
+    bottom: -180px;
+    right: -160px;
 }
 
 .loader-content {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
-    width: min(360px, 60vw);
+    gap: 14px;
+    width: min(340px, 72vw);
 }
 
 .loader-logo {
-    width: 96px;
-    height: 96px;
-    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 76px;
+    height: 76px;
+    border-radius: 20px;
+    background: var(--brand-gradient);
+    box-shadow: 0 16px 40px rgba(53, 27, 180, 0.45);
+    margin-bottom: 4px;
+}
+
+.loader-logo svg {
+    width: 38px;
+    height: 38px;
+}
+
+.loader-tagline {
+    font-family: var(--brand-display);
+    font-weight: 800;
+    font-size: 20px;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    color: var(--brand-text);
+    text-align: center;
+}
+
+.loader-tagline .loader-grad {
+    background: var(--brand-gradient-bright);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
 }
 
 .loader-message {
+    font-family: var(--brand-mono);
     font-size: 13px;
-    opacity: 0.85;
+    color: var(--brand-muted);
     text-align: center;
     font-variant-numeric: tabular-nums;
 }
 
 .loader-progress {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
     width: 100%;
     height: 6px;
+    border: none;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--brand-line);
+    color: #2379f4; /* Firefox indeterminate/value colour */
+}
+
+.loader-progress::-webkit-progress-bar {
+    background: var(--brand-line);
+    border-radius: 999px;
+}
+
+.loader-progress::-webkit-progress-value {
+    background: var(--brand-gradient-bright);
+    border-radius: 999px;
+    transition: width 0.2s ease;
+}
+
+.loader-progress::-moz-progress-bar {
+    background: var(--brand-gradient-bright);
+    border-radius: 999px;
+}
+
+/* Indeterminate phases (compiling / initializing): a travelling sheen */
+.loader-progress:indeterminate {
+    background: var(--brand-line)
+        linear-gradient(
+            100deg,
+            transparent 20%,
+            rgba(79, 155, 255, 0.9) 50%,
+            transparent 80%
+        )
+        no-repeat;
+    background-size: 40% 100%;
+    animation: loader-indeterminate 1.2s ease-in-out infinite;
+}
+
+.loader-progress:indeterminate::-webkit-progress-bar {
+    background: transparent;
+}
+
+@keyframes loader-indeterminate {
+    from {
+        background-position: -40% 0;
+    }
+    to {
+        background-position: 140% 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loader-progress:indeterminate {
+        animation: none;
+    }
 }
