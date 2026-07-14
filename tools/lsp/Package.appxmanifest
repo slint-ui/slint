@@ -48,11 +48,6 @@
         <uap:DefaultTile Wide310x150Logo="Assets\WideTile.png" />
       </uap:VisualElements>
       <Extensions>
-        <!-- <uap5:Extension Category="windows.appExecutionAlias">
-          <uap5:AppExecutionAlias>
-            <uap5:ExecutionAlias Alias="$targetnametoken$.exe" />
-          </uap5:AppExecutionAlias>
-        </uap5:Extension> -->
       </Extensions>
     </Application>
   </Applications>
