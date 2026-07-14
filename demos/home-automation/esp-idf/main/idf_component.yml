@@ -5,3 +5,8 @@
 dependencies:
   idf: ">=5.4"
   espressif/esp32_p4_function_ev_board_noglib: "^4.2.1"
+  # Exclude esp_lcd_touch_gt911 1.2.0~2: it lists the designators in
+  # ESP_LCD_TOUCH_IO_I2C_GT911_CONFIG() out of declaration order, which is a
+  # hard error in C++ (esp-bsp commit f6cb4c2, same regression as esp-bsp#797).
+  # Drop this line once a fixed release is out.
+  espressif/esp_lcd_touch_gt911: "^1,!=1.2.0~2"
