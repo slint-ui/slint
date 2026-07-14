@@ -1758,12 +1758,20 @@ impl Expression {
 
         let op_class = operator_class(op);
         let (lhs_n, rhs_n) = node.Expression();
-        let lhs = Self::from_expression_node(lhs_n.clone(), ctx);
-        // A comparison's rhs is expected to have the lhs type, so a bare literal resolves.
-        let rhs = if op_class == OperatorClass::ComparisonOp {
-            ctx.with_expected_type(lhs.ty(), |ctx| Self::from_expression_node(rhs_n.clone(), ctx))
+        // `&&`/`||` operands are bool; a comparison's rhs takes the lhs type. Setting the
+        // expected type lets a bare literal resolve (or cleanly fail) at that position.
+        let lhs = if op_class == OperatorClass::LogicalOp {
+            ctx.with_expected_type(Type::Bool, |ctx| Self::from_expression_node(lhs_n.clone(), ctx))
         } else {
-            Self::from_expression_node(rhs_n.clone(), ctx)
+            Self::from_expression_node(lhs_n.clone(), ctx)
+        };
+        let rhs = match op_class {
+            OperatorClass::ComparisonOp => ctx
+                .with_expected_type(lhs.ty(), |ctx| Self::from_expression_node(rhs_n.clone(), ctx)),
+            OperatorClass::LogicalOp => ctx.with_expected_type(Type::Bool, |ctx| {
+                Self::from_expression_node(rhs_n.clone(), ctx)
+            }),
+            OperatorClass::ArithmeticOp => Self::from_expression_node(rhs_n.clone(), ctx),
         };
 
         let expected_ty = match op_class {
@@ -1857,9 +1865,6 @@ impl Expression {
         node: syntax_nodes::UnaryOpExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let exp_n = node.Expression();
-        let exp = Self::from_expression_node(exp_n, ctx);
-
         let op = node
             .children_with_tokens()
             .find_map(|n| match n.kind() {
@@ -1869,6 +1874,13 @@ impl Expression {
                 _ => None,
             })
             .unwrap_or('_');
+
+        let exp_n = node.Expression();
+        let exp = if op == '!' {
+            ctx.with_expected_type(Type::Bool, |ctx| Self::from_expression_node(exp_n, ctx))
+        } else {
+            Self::from_expression_node(exp_n, ctx)
+        };
 
         let exp = match op {
             '!' => exp.maybe_convert_to(Type::Bool, &node, ctx.diag, &ctx.symbol_counters),
@@ -1902,13 +1914,11 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let (condition_n, true_expr_n, false_expr_n) = node.Expression();
-        // FIXME: we should we add bool to the context
-        let condition = Self::from_expression_node(condition_n.clone(), ctx).maybe_convert_to(
-            Type::Bool,
-            &condition_n,
-            ctx.diag,
-            &ctx.symbol_counters,
-        );
+        let condition = ctx
+            .with_expected_type(Type::Bool, |ctx| {
+                Self::from_expression_node(condition_n.clone(), ctx)
+            })
+            .maybe_convert_to(Type::Bool, &condition_n, ctx.diag, &ctx.symbol_counters);
         let true_expr = Self::from_expression_node(true_expr_n.clone(), ctx);
         let false_expr = Self::from_expression_node(false_expr_n.clone(), ctx);
         let result_ty = common_expression_type(&true_expr, &false_expr);
@@ -1933,12 +1943,11 @@ impl Expression {
     ) -> Expression {
         let (array_expr_n, index_expr_n) = node.Expression();
         let array_expr = Self::from_expression_node(array_expr_n, ctx);
-        let index_expr = Self::from_expression_node(index_expr_n.clone(), ctx).maybe_convert_to(
-            Type::Int32,
-            &index_expr_n,
-            ctx.diag,
-            &ctx.symbol_counters,
-        );
+        let index_expr = ctx
+            .with_expected_type(Type::Int32, |ctx| {
+                Self::from_expression_node(index_expr_n.clone(), ctx)
+            })
+            .maybe_convert_to(Type::Int32, &index_expr_n, ctx.diag, &ctx.symbol_counters);
 
         let ty = array_expr.ty();
         if !matches!(ty, Type::Array(_) | Type::Invalid | Type::Function(_) | Type::Callback(_)) {
