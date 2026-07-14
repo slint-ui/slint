@@ -8,6 +8,7 @@ import * as monaco from "monaco-editor";
 import { slint_language } from "./highlighting";
 import type { Lsp } from "./lsp";
 import * as github from "./github";
+import { show_welcome } from "./welcome";
 
 import { BoxLayout, TabPanel, Widget } from "@lumino/widgets";
 import type { Message as LuminoMessage } from "@lumino/messaging";
@@ -464,8 +465,23 @@ export class EditorWidget extends Widget {
         } else if (load_demo) {
             void this.set_demo(load_demo);
         } else if (!this.restore_from_history_state()) {
-            void this.set_demo("");
+            this.open_welcome();
         }
+    }
+
+    // First run: offer starter templates instead of dumping a fixed sample.
+    private open_welcome() {
+        show_welcome((template) => {
+            if (template.demo) {
+                void this.set_demo(template.demo);
+            } else {
+                this.clear_editors();
+                this.open_file_with_content(
+                    internal_file_uri("/main.slint"),
+                    template.code ?? "",
+                );
+            }
+        });
     }
 
     private clear_editors() {
