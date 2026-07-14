@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::*;
-use alloc::vec::Vec;
-use alloc::boxed::Box;
-use alloc::rc::Rc;
-use core::num::NonZeroUsize;
-use core::cell::RefCell;
 use crate::{
     animations::physics_simulation,
     items::{AnimationDirection, PropertyAnimation},
     lengths::LogicalLength,
 };
+use alloc::boxed::Box;
+use alloc::rc::Rc;
+use alloc::vec::Vec;
+use core::cell::RefCell;
+use core::num::NonZeroUsize;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
@@ -1055,27 +1055,31 @@ mod animation_architecture_tests {
         seq.start();
 
         // Still delaying: the tween hasn't started, nothing observed yet.
-        crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.update_animations(start_time + core::time::Duration::from_millis(50)));
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(50))
+        });
         assert!(seq.update());
         assert!(observed.borrow().is_empty());
 
         // The delay elapses: the tween is activated (with a freshly-reset clock,
         // hence progress 0) and ticked within this same call.
-        crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.update_animations(start_time + core::time::Duration::from_millis(100)));
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(100))
+        });
         assert!(seq.update());
         assert_eq!(*observed.borrow().last().unwrap(), 0);
 
         // 100ms into the tween's own (200ms) duration: halfway.
-        crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.update_animations(start_time + core::time::Duration::from_millis(200)));
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(200))
+        });
         assert!(seq.update());
         assert_eq!(*observed.borrow().last().unwrap(), 50);
 
         // Past the tween's duration: finished, sequence reports not-running.
-        crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.update_animations(start_time + core::time::Duration::from_millis(300)));
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(300))
+        });
         assert!(!seq.update());
         assert_eq!(*observed.borrow().last().unwrap(), 100);
     }
@@ -1120,8 +1124,9 @@ mod animation_architecture_tests {
         );
         handle.start(Box::new(no_op_tween));
 
-        crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.update_animations(start_time + core::time::Duration::from_millis(100)));
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(100))
+        });
         crate::animations::update_animation_objects();
         assert_eq!(*observed.borrow().last().unwrap(), 50);
 
@@ -1138,8 +1143,9 @@ mod animation_architecture_tests {
         handle.restart(Box::new(restarted_tween));
 
         let start_time = crate::animations::current_tick();
-        crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.update_animations(start_time + core::time::Duration::from_millis(200)));
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(200))
+        });
         crate::animations::update_animation_objects();
         assert_eq!(*observed.borrow().last().unwrap(), 100);
         assert!(finished.get());
@@ -2047,7 +2053,6 @@ mod animation_tests {
 
         assert_eq!(get_prop_value(&compo.width), 300);
     }
-
 
     // These mirror the old `*_triggered_by_binding` tests but drive the consolidated object
     // backend: values are pushed by `update_animation_objects()` each frame rather than pulled

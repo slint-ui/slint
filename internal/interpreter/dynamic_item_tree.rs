@@ -488,8 +488,10 @@ pub struct ItemTreeDescription<'id> {
     timers: Vec<FieldOffset<Instance<'id>, Timer>>,
     animations: Vec<FieldOffset<Instance<'id>, i_slint_core::properties::AnimationHandle>>,
     /// used to restart the animation when target changes
-    animation_target_trackers:
-        Vec<(FieldOffset<Instance<'id>, ChangeTracker>, FieldOffset<Instance<'id>, std::cell::RefCell<Value>>)>,
+    animation_target_trackers: Vec<(
+        FieldOffset<Instance<'id>, ChangeTracker>,
+        FieldOffset<Instance<'id>, std::cell::RefCell<Value>>,
+    )>,
     /// Map of element IDs to their active popup's ID
     popup_ids: std::cell::RefCell<HashMap<SmolStr, NonZeroU32>>,
 
@@ -1382,9 +1384,7 @@ pub(crate) fn generate_item_tree<'id>(
         .animations
         .borrow()
         .iter()
-        .map(|_| {
-            builder.type_builder.add_field_type::<i_slint_core::properties::AnimationHandle>()
-        })
+        .map(|_| builder.type_builder.add_field_type::<i_slint_core::properties::AnimationHandle>())
         .collect();
     let animation_target_trackers = component
         .animations
@@ -3004,8 +3004,7 @@ fn build_tween(
     desc: &object_tree::Animation,
 ) -> (Box<dyn i_slint_core::properties::Animation>, Value) {
     let target = desc.target.as_ref().expect("TweenAnimation requires a target");
-    let current =
-        || eval::load_property(instance, &target.element(), target.name()).unwrap();
+    let current = || eval::load_property(instance, &target.element(), target.name()).unwrap();
     let from = desc
         .from
         .as_ref()
@@ -3038,9 +3037,7 @@ fn build_tween_with(
     let easing: i_slint_core::animations::EasingCurve = desc
         .easing
         .as_ref()
-        .map(|e| {
-            eval::load_property(instance, &e.element(), e.name()).unwrap().try_into().unwrap()
-        })
+        .map(|e| eval::load_property(instance, &e.element(), e.name()).unwrap().try_into().unwrap())
         .unwrap_or_default();
     let iteration_count: f64 = desc
         .iteration_count
@@ -3101,7 +3098,11 @@ fn build_tween_with(
     let from_value = from.clone();
     (
         Box::new(i_slint_core::properties::TweenAnimation::new_with_callbacks(
-            from, to, details, set_value, on_finished,
+            from,
+            to,
+            details,
+            set_value,
+            on_finished,
         )),
         from_value,
     )
@@ -3205,8 +3206,12 @@ pub fn init_animation_target_trackers(instance: InstanceRef) {
                 generativity::make_guard!(guard);
                 let c = instance.unerase(guard);
                 let instance_ref = c.borrow_instance();
-                eval::load_property(instance_ref, &eval_target_ref.element(), eval_target_ref.name())
-                    .unwrap()
+                eval::load_property(
+                    instance_ref,
+                    &eval_target_ref.element(),
+                    eval_target_ref.name(),
+                )
+                .unwrap()
             },
             move |self_weak, new_value| {
                 let Some(instance) = self_weak.upgrade() else { return };

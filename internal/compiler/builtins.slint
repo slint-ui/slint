@@ -2748,8 +2748,7 @@ export component Timer {
 
 /// Base class for all animation objects. Not user-facing directly;
 /// concrete animations (TweenAnimation, DelayAnimation, ParallelAnimation,
-/// SequentialAnimation, ...) inherit from this. Each subtype declares its
-/// own concretely-typed `target` property.
+/// SequentialAnimation, ...) inherit from this.
 component Animation {
     /// Optional property reference to bind the animation to. When bound,
     /// triggers animation automatically when this property's value changes
@@ -2781,29 +2780,32 @@ component Animation {
 /// TweenAnimation is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
 /// :::
 ///
-/// This example shows a timer that counts down from 10 to 0 every second:
+/// This example shows a tween animation that animates a button on click
 ///
 /// ```slint playground
 /// import { Button } from "std-widgets.slint";
 /// export component Example inherits Window {
-///     property <int> value: 10;
-///     timer := Timer {
-///         interval: 1s;
-///         running: true;
-///         triggered() => {
-///             value -= 1;
-///             if (value == 0) {
-///                 self.running = false;
-///             }
-///         }
-///     }
-///     HorizontalLayout {
-///         Text { text: value; }
-///         Button {
-///             text: "Reset";
-///             clicked() => { value = 10; timer.running = true; }
-///         }
-///     }
+///    width: 500px;
+///    height: 400px;
+///    background: white;
+///
+///    rect := Button {
+///        x: 20px;
+///        y: 20px;
+///        text: "Press me";
+///        clicked => {
+///            anim.start()
+///        }
+///    }
+///    anim := TweenAnimation {
+///        target: rect.x;
+///        from: 20px;
+///        to: 200px;
+///        duration: 500ms;
+///        direction: alternate-reverse;
+///        iteration-count: -1;
+///        easing: ease-in-out;
+///    }
 /// }
 /// ```
 ///
@@ -2811,7 +2813,6 @@ component Animation {
 ///
 /// Use the TweenAnimation pseudo-element to animate a property
 /// The animation starts when running is changed or start is called
-/// TODO the animation needs to start on property change
 export component TweenAnimation inherits Animation {
     in property <animatable> from;
     in property <animatable> to;

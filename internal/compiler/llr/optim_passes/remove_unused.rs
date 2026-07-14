@@ -381,7 +381,12 @@ mod visitor {
                 visit_expression(a.easing.as_mut().unwrap().get_mut(), &scope, state, visitor);
             }
             if a.iteration_count.is_some() {
-                visit_expression(a.iteration_count.as_mut().unwrap().get_mut(), &scope, state, visitor);
+                visit_expression(
+                    a.iteration_count.as_mut().unwrap().get_mut(),
+                    &scope,
+                    state,
+                    visitor,
+                );
             }
             if a.direction.is_some() {
                 visit_expression(a.direction.as_mut().unwrap().get_mut(), &scope, state, visitor);

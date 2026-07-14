@@ -204,7 +204,11 @@ impl InterpolatedPropertyValue for Value {
             (Value::Number(a), Value::Number(b)) => Value::Number(*a + (t as f64) * (*b - *a)),
             (Value::Brush(a), Value::Brush(b)) => Value::Brush(a.interpolate(b, t)),
             _ => {
-                if t >= 1.0 { target_value.clone() } else { self.clone() }
+                if t >= 1.0 {
+                    target_value.clone()
+                } else {
+                    self.clone()
+                }
             }
         }
     }

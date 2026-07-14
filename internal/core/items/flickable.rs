@@ -11,8 +11,9 @@ use super::{
     VoidArg,
 };
 use crate::animations::Instant;
-use crate::animations::physics_simulation::{ConstantDecelerationParameters, Parameter, Simulation};
-use crate::properties::{AnimationHandle, PhysicsAnimation};
+use crate::animations::physics_simulation::{
+    ConstantDecelerationParameters, Parameter, Simulation,
+};
 use crate::input::InternalKeyEvent;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent, TouchPhase,
@@ -23,6 +24,7 @@ use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     PointLengths, RectLengths,
 };
+use crate::properties::{AnimationHandle, PhysicsAnimation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
@@ -442,7 +444,7 @@ struct FlickableDataInner {
 
     /// Handles owning the object-backend physics animations that drive the viewport position
     /// during kinetic scrolling (one per axis). Dropping a handle deregisters its animation, so
-    /// they are torn down together with this `FlickableDataInner` 
+    /// they are torn down together with this `FlickableDataInner`
     physics_animation_x: AnimationHandle,
     physics_animation_y: AnimationHandle,
 }

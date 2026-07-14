@@ -2559,8 +2559,9 @@ fn generate_sub_component(
                     _ => panic!("internal error: animation field must be a property reference"),
                 }
             };
-            let target_ref =
-                member_ref(&anim.target.as_ref().expect("TweenAnimation requires a target").borrow());
+            let target_ref = member_ref(
+                &anim.target.as_ref().expect("TweenAnimation requires a target").borrow(),
+            );
             let target_ty = ctx.property_ty(&target_ref).clone();
             let cpp_ty = target_ty.cpp_type().expect("animation target must have a C++ type");
             let target_get = access_member(&target_ref, &ctx).get_property();
@@ -2576,10 +2577,14 @@ fn generate_sub_component(
                 .as_ref()
                 .map(|t| compile_expression(&t.borrow(), &ctx))
                 .unwrap_or_else(|| target_get.clone());
-            let duration =
-                compile_expression(&anim.duration.as_ref().expect("duration is required").borrow(), &ctx);
-            let easing =
-                compile_expression(&anim.easing.as_ref().expect("easing is required").borrow(), &ctx);
+            let duration = compile_expression(
+                &anim.duration.as_ref().expect("duration is required").borrow(),
+                &ctx,
+            );
+            let easing = compile_expression(
+                &anim.easing.as_ref().expect("easing is required").borrow(),
+                &ctx,
+            );
             let iteration_count = anim
                 .iteration_count
                 .as_ref()
@@ -2669,8 +2674,7 @@ fn generate_sub_component(
                 format!("self->restart_anim{i}();")
             } else {
                 // Animate from current value to the new value it is changing to
-                let restart_on_change_ident =
-                    format_smolstr!("restart_anim{}_on_target_change", i);
+                let restart_on_change_ident = format_smolstr!("restart_anim{}_on_target_change", i);
                 target_struct.members.push((
                     field_access,
                     Declaration::Function(Function {
