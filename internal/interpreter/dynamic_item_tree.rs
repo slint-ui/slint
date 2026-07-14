@@ -3072,7 +3072,10 @@ fn build_animation_value(
                 .duration
                 .as_ref()
                 .map(|d| {
-                    eval::load_property(instance, &d.element(), d.name()).unwrap().try_into().unwrap()
+                    eval::load_property(instance, &d.element(), d.name())
+                        .unwrap()
+                        .try_into()
+                        .unwrap()
                 })
                 .unwrap_or(0);
             Box::new(i_slint_core::properties::DelayAnimation::new(duration as u64))
@@ -3082,11 +3085,17 @@ fn build_animation_value(
                 .iteration_count
                 .as_ref()
                 .map(|i| {
-                    eval::load_property(instance, &i.element(), i.name()).unwrap().try_into().unwrap()
+                    eval::load_property(instance, &i.element(), i.name())
+                        .unwrap()
+                        .try_into()
+                        .unwrap()
                 })
                 .unwrap_or(1.);
-            let children =
-                desc.children.iter().map(|c| build_animation_value(instance, c)).collect::<Vec<_>>();
+            let children = desc
+                .children
+                .iter()
+                .map(|c| build_animation_value(instance, c))
+                .collect::<Vec<_>>();
             if desc.animation_type == object_tree::AnimationType::Parallel {
                 let mut container = i_slint_core::properties::ParallelAnimation::new();
                 container.set_iteration_count(iteration_count);
@@ -3294,8 +3303,7 @@ pub fn restart_animation(element: ElementWeak, instance: InstanceRef) {
             let target = desc.target.as_ref().expect("TweenAnimation requires a target");
             offset.apply(instance.as_ref()).restart(tween);
             // changes property to from on this tick
-            eval::store_property(instance, &target.element(), target.name(), from.clone())
-                .unwrap();
+            eval::store_property(instance, &target.element(), target.name(), from.clone()).unwrap();
             let cache_offset = instance.description.animation_target_trackers[idx].1;
             *cache_offset.apply(instance.as_ref()).borrow_mut() = from;
         } else {

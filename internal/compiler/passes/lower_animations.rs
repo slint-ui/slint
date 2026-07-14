@@ -231,8 +231,7 @@ fn build_animation(
         {
             let mut b = binding.borrow_mut();
             let expr = core::mem::replace(&mut b.expression, Expression::Invalid);
-            b.expression =
-                expr.maybe_convert_to(target_type.clone(), &*b, diag, &symbol_counters);
+            b.expression = expr.maybe_convert_to(target_type.clone(), &*b, diag, &symbol_counters);
         }
     };
 

@@ -1,0 +1,117 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    width: 200px;
+    height: 200px;
+    background: white;
+
+    in-out property <length> value: 0px;
+    out property <bool> anim-running: anim.running;
+
+    anim := SequentialAnimation {
+        DelayAnimation {
+            duration: 100ms;
+        }
+        TweenAnimation {
+            target: value;
+            from: 0px;
+            to: 100px;
+            duration: 200ms;
+            easing: linear;
+        }
+    }
+
+    public function start_anim() {
+        anim.start()
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_value(), 0.);
+
+instance.invoke_start_anim();
+assert!(instance.get_anim_running());
+
+// Still delaying: the tween hasn't started.
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.get_value(), 0.);
+assert!(instance.get_anim_running());
+
+// The delay elapses; the tween starts from scratch.
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.get_value(), 0.);
+assert!(instance.get_anim_running());
+
+// Halfway through the tween's own duration.
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_value(), 50.);
+assert!(instance.get_anim_running());
+
+// The tween (and with it, the whole sequence) finishes.
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_value(), 100.);
+assert!(!instance.get_anim_running());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_value(), 0.);
+
+instance.invoke_start_anim();
+assert(instance.get_anim_running());
+
+// Still delaying: the tween hasn't started.
+slint_testing::mock_elapsed_time(50);
+assert_eq(instance.get_value(), 0.);
+assert(instance.get_anim_running());
+
+// The delay elapses; the tween starts from scratch.
+slint_testing::mock_elapsed_time(50);
+assert_eq(instance.get_value(), 0.);
+assert(instance.get_anim_running());
+
+// Halfway through the tween's own duration.
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_value(), 50.);
+assert(instance.get_anim_running());
+
+// The tween (and with it, the whole sequence) finishes.
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_value(), 100.);
+assert(!instance.get_anim_running());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.value, 0.);
+
+instance.start_anim();
+assert(instance.anim_running);
+
+// Still delaying: the tween hasn't started.
+slintlib.private_api.mock_elapsed_time(50);
+assert.equal(instance.value, 0.);
+assert(instance.anim_running);
+
+// The delay elapses; the tween starts from scratch.
+slintlib.private_api.mock_elapsed_time(50);
+assert.equal(instance.value, 0.);
+assert(instance.anim_running);
+
+// Halfway through the tween's own duration.
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.value, 50.);
+assert(instance.anim_running);
+
+// The tween (and with it, the whole sequence) finishes.
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.value, 100.);
+assert(!instance.anim_running);
+```
+
+*/

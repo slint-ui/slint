@@ -2161,8 +2161,9 @@ fn animation_details_expr(anim: &llr::AnimationObject, ctx: &EvaluationContext) 
 fn build_animation_node(anim: &llr::AnimationObject, ctx: &EvaluationContext) -> String {
     match anim.animation_type {
         AnimationType::Tween => {
-            let target_ref =
-                animation_member_ref(&anim.target.as_ref().expect("TweenAnimation requires a target").borrow());
+            let target_ref = animation_member_ref(
+                &anim.target.as_ref().expect("TweenAnimation requires a target").borrow(),
+            );
             let target_ty = ctx.property_ty(&target_ref).clone();
             let cpp_ty = target_ty.cpp_type().expect("animation target must have a C++ type");
             let target_get = access_member(&target_ref, ctx).get_property();
@@ -2728,8 +2729,8 @@ fn generate_sub_component(
                     // `.restart()` called from .slint still needs a `restart_anim{i}` function
                     // even without a target to auto-restart on.
                     let running_ref = animation_member_ref(&anim.running.borrow());
-                    let set_running_true = access_member(&running_ref, &ctx)
-                        .then(|prop| format!("{prop}.set(true)"));
+                    let set_running_true =
+                        access_member(&running_ref, &ctx).then(|prop| format!("{prop}.set(true)"));
                     let restart_tree = build_root_animation_node(anim, &ctx);
                     target_struct.members.push((
                         field_access,

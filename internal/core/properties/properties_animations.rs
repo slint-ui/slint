@@ -68,6 +68,7 @@ pub trait Animation {
     fn update(&mut self) -> bool {
         self.is_running()
     }
+    /// Sets iteration count for the animation
     fn set_iteration_count(&mut self, _iteration_count: f64) {}
     /// Add a child animation to a Parallel/Sequential container
     fn add_child(&mut self, _child: Box<dyn Animation>) {}

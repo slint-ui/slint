@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    width: 200px;
+    height: 200px;
+    background: white;
+
+    out property <bool> anim-running: anim.running;
+
+    anim := SequentialAnimation {
+        iteration-count: 2;
+        DelayAnimation {
+            duration: 100ms;
+        }
+    }
+
+    public function start_anim() {
+        anim.start()
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+
+instance.invoke_start_anim();
+assert!(instance.get_anim_running());
+
+// First pass completes, but a second iteration is due: still running.
+slint_testing::mock_elapsed_time(100);
+assert!(instance.get_anim_running());
+
+// Second (last) pass completes: no iterations remain.
+slint_testing::mock_elapsed_time(100);
+assert!(!instance.get_anim_running());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+instance.invoke_start_anim();
+assert(instance.get_anim_running());
+
+// First pass completes, but a second iteration is due: still running.
+slint_testing::mock_elapsed_time(100);
+assert(instance.get_anim_running());
+
+// Second (last) pass completes: no iterations remain.
+slint_testing::mock_elapsed_time(100);
+assert(!instance.get_anim_running());
+```
+
+```js
+var instance = new slint.TestCase({});
+
+instance.start_anim();
+assert(instance.anim_running);
+
+// First pass completes, but a second iteration is due: still running.
+slintlib.private_api.mock_elapsed_time(100);
+assert(instance.anim_running);
+
+// Second (last) pass completes: no iterations remain.
+slintlib.private_api.mock_elapsed_time(100);
+assert(!instance.anim_running);
+```
+
+*/

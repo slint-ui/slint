@@ -1184,15 +1184,11 @@ fn build_animation_value(anim: &llr::AnimationObject, ctx: &EvaluationContext) -
                 llr::Expression::PropertyReference(mr) => mr.clone(),
                 _ => panic!("internal error: animation running must be a property reference"),
             };
-            let target_ref = match &*anim
-                .target
-                .as_ref()
-                .expect("TweenAnimation requires a target")
-                .borrow()
-            {
-                llr::Expression::PropertyReference(mr) => mr.clone(),
-                _ => panic!("internal error: animation target must be a property reference"),
-            };
+            let target_ref =
+                match &*anim.target.as_ref().expect("TweenAnimation requires a target").borrow() {
+                    llr::Expression::PropertyReference(mr) => mr.clone(),
+                    _ => panic!("internal error: animation target must be a property reference"),
+                };
             let from = anim.from.as_ref().map(|f| animation_get_property(&f.borrow(), ctx));
             let to = anim.to.as_ref().map(|t| animation_get_property(&t.borrow(), ctx));
             let duration = animation_get_property(&anim.duration.as_ref().unwrap().borrow(), ctx);

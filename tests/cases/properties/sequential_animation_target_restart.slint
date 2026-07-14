@@ -1,0 +1,115 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    width: 200px;
+    height: 200px;
+    background: white;
+
+    // For a container animation, `target` is only a start/restart trigger: writing to it
+    // (re)starts the whole tree from scratch, unlike a TweenAnimation's target which is the
+    // value being interpolated.
+    in-out property <int> trigger: 0;
+    in-out property <length> value: 0px;
+    out property <bool> anim-running: anim.running;
+
+    anim := SequentialAnimation {
+        target: trigger;
+        TweenAnimation {
+            target: value;
+            from: 0px;
+            to: 100px;
+            duration: 100ms;
+            easing: linear;
+        }
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_anim_running());
+assert_eq!(instance.get_value(), 0.);
+
+// Writing to `trigger` (re)starts the tree; no from/to value is pushed by the write itself.
+instance.set_trigger(1);
+slint_testing::mock_elapsed_time(1);
+assert!(instance.get_anim_running());
+assert_eq!(instance.get_value(), 0.);
+
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.get_value(), 50.);
+assert!(instance.get_anim_running());
+
+// Finishes on its own once the (single) tween child completes.
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.get_value(), 100.);
+assert!(!instance.get_anim_running());
+
+// Writing again restarts it from the beginning.
+instance.set_trigger(2);
+slint_testing::mock_elapsed_time(1);
+assert!(instance.get_anim_running());
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.get_value(), 50.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(!instance.get_anim_running());
+assert_eq(instance.get_value(), 0.);
+
+// Writing to `trigger` (re)starts the tree; no from/to value is pushed by the write itself.
+instance.set_trigger(1);
+slint_testing::mock_elapsed_time(1);
+assert(instance.get_anim_running());
+assert_eq(instance.get_value(), 0.);
+
+slint_testing::mock_elapsed_time(50);
+assert_eq(instance.get_value(), 50.);
+assert(instance.get_anim_running());
+
+// Finishes on its own once the (single) tween child completes.
+slint_testing::mock_elapsed_time(50);
+assert_eq(instance.get_value(), 100.);
+assert(!instance.get_anim_running());
+
+// Writing again restarts it from the beginning.
+instance.set_trigger(2);
+slint_testing::mock_elapsed_time(1);
+assert(instance.get_anim_running());
+slint_testing::mock_elapsed_time(50);
+assert_eq(instance.get_value(), 50.);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(!instance.anim_running);
+assert.equal(instance.value, 0.);
+
+// Writing to `trigger` (re)starts the tree; no from/to value is pushed by the write itself.
+instance.trigger = 1;
+slintlib.private_api.mock_elapsed_time(1);
+assert(instance.anim_running);
+assert.equal(instance.value, 0.);
+
+slintlib.private_api.mock_elapsed_time(50);
+assert.equal(instance.value, 50.);
+assert(instance.anim_running);
+
+// Finishes on its own once the (single) tween child completes.
+slintlib.private_api.mock_elapsed_time(50);
+assert.equal(instance.value, 100.);
+assert(!instance.anim_running);
+
+// Writing again restarts it from the beginning.
+instance.trigger = 2;
+slintlib.private_api.mock_elapsed_time(1);
+assert(instance.anim_running);
+slintlib.private_api.mock_elapsed_time(50);
+assert.equal(instance.value, 50.);
+```
+
+*/
