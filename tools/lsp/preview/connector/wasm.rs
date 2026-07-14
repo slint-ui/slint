@@ -168,7 +168,8 @@ impl PreviewConnector {
             // Upgrade and drop the PREVIEW_STATE borrow before touching any
             // property: setting one triggers panels-layout-changed, whose
             // handler borrows PREVIEW_STATE again and would otherwise panic.
-            let api = preview::PREVIEW_STATE.with_borrow(|preview_state| preview_state.api.upgrade());
+            let api =
+                preview::PREVIEW_STATE.with_borrow(|preview_state| preview_state.api.upgrade());
             if let Some(api) = api {
                 api.set_panel_library_open(library);
                 api.set_panel_properties_open(properties);
