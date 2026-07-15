@@ -74,7 +74,7 @@ macro_rules! declare_enums {
                 }
             }
             fn fill_register(&self, register: &mut TypeRegister) {
-                $(if stringify!($Name) != "PathEvent" {
+                $(if stringify!($Name) != "PathEvent" && stringify!($Name) != "BuiltInMouseCursor" {
                     register.insert_type_with_name(
                         Type::Enumeration(self.$Name.clone()),
                         stringify!($Name).replace_smolstr("_", "-")
@@ -487,6 +487,7 @@ impl TypeRegister {
         register.insert_type(Type::StyledText);
         register.insert_type(Type::Keys);
         register.insert_type(Type::DataTransfer);
+        register.insert_type(Type::MouseCursor);
         register.types.insert("Point".into(), logical_point_type().into());
         register.types.insert("Size".into(), logical_size_type().into());
         register.insert_type(Type::Animatable);

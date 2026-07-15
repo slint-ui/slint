@@ -62,6 +62,10 @@ slug: reference/global-structs-enums
         if name == "keys" {
             continue;
         }
+        // Documented in the MouseCursor type.
+        if name == "BuiltInMouseCursor" {
+            continue;
+        }
         writeln!(
             file,
             "import {0} from \"/src/content/docs/reference/generated/enums/_{0}.md\"",
@@ -84,6 +88,9 @@ slug: reference/global-structs-enums
 
     for name in enums.keys() {
         if name == "keys" {
+            continue;
+        }
+        if name == "BuiltInMouseCursor" {
             continue;
         }
         writeln!(file, "### {name}")?;

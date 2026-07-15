@@ -21,6 +21,16 @@ pub enum ArrayOutput {
     Vector,
 }
 
+#[derive(Clone, Debug)]
+pub enum MouseCursorInner {
+    BuiltIn(Box<Expression>),
+    CustomMouseCursor {
+        image: Box<Expression>,
+        hotspot_x: Box<Expression>,
+        hotspot_y: Box<Expression>,
+    },
+}
+
 #[derive(Debug, Clone)]
 pub enum Expression {
     /// A string literal. The .0 is the content of the string, without the quotes
@@ -165,6 +175,8 @@ pub enum Expression {
     },
 
     EasingCurve(crate::expression_tree::EasingCurve),
+
+    MouseCursor(MouseCursorInner),
 
     LinearGradient {
         angle: Box<Expression>,
@@ -344,6 +356,12 @@ impl Expression {
                     .collect::<Option<_>>()?,
             },
             Type::Easing => Expression::EasingCurve(crate::expression_tree::EasingCurve::default()),
+            Type::MouseCursor => {
+                let e = crate::typeregister::BUILTIN.with(|e| e.enums.BuiltInMouseCursor.clone());
+                Expression::MouseCursor(MouseCursorInner::BuiltIn(Box::new(
+                    Expression::EnumerationValue(e.default_value()),
+                )))
+            }
             Type::Brush => Expression::Cast {
                 from: Box::new(Expression::default_value_for_type(&Type::Color)?),
                 to: Type::Brush,
@@ -408,6 +426,7 @@ impl Expression {
             Self::Array { element_ty, .. } => Type::Array(element_ty.clone().into()),
             Self::Struct { ty, .. } => ty.clone().into(),
             Self::EasingCurve(_) => Type::Easing,
+            Self::MouseCursor(_) => Type::MouseCursor,
             Self::LinearGradient { .. } => Type::Brush,
             Self::RadialGradient { .. } => Type::Brush,
             Self::ConicGradient { .. } => Type::Brush,
@@ -477,6 +496,16 @@ macro_rules! visit_impl {
             Expression::Array { values, .. } => values.$iter().for_each($visitor),
             Expression::Struct { values, .. } => values.$values().for_each($visitor),
             Expression::EasingCurve(_) => {}
+            Expression::MouseCursor(cursor) => match cursor {
+                MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                    $visitor(image);
+                    $visitor(hotspot_x);
+                    $visitor(hotspot_y);
+                }
+                MouseCursorInner::BuiltIn(e) => {
+                    $visitor(e);
+                }
+            },
             Expression::LinearGradient { angle, stops } => {
                 $visitor(angle);
                 for (a, b) in stops {
@@ -607,6 +636,10 @@ impl Expression {
             let p = match expr {
                 Expression::PropertyReference(p) => p,
                 Expression::CallBackCall { callback, .. } => callback,
+                // The `function` of a call is also a member reference. `property_info`
+                // returns nothing for it, so callers that only care about properties
+                // ignore it, while callers that track function use can act on it.
+                Expression::FunctionCall { function, .. } => function,
                 Expression::PropertyAssignment { property, .. } => {
                     if let Some((a, map)) = &ctx.property_info(property).animation {
                         let ctx2 = map.map_context(ctx);
@@ -813,7 +846,12 @@ impl<'a, T> EvaluationContext<'a, T> {
                     }
                     EvaluationScope::SubComponent(mut sc, mut parent) => {
                         for _ in 0..*parent_level {
-                            let p = parent.unwrap();
+                            // The parent chain is severed for function bodies (see
+                            // `for_each_expression`); the reference is then not
+                            // resolvable, like `function_info` also reports.
+                            let Some(p) = parent else {
+                                return PropertyInfoResult::default();
+                            };
                             sc = p.sub_component;
                             parent = p.parent;
                         }
@@ -829,6 +867,44 @@ impl<'a, T> EvaluationContext<'a, T> {
             MemberReference::Global { global_index, member } => {
                 let g = &self.compilation_unit.globals[*global_index];
                 in_global(g, member, ContextMap::InGlobal(*global_index))
+            }
+        }
+    }
+
+    /// Resolve a reference to a user function, returning the function and the
+    /// [`ContextMap`] to evaluate its body in the current context.
+    pub(crate) fn function_info<'b>(
+        &'b self,
+        reference: &MemberReference,
+    ) -> Option<(&'b super::Function, ContextMap)> {
+        let cu = self.compilation_unit;
+        match reference {
+            MemberReference::Relative { parent_level, local_reference } => {
+                // Cheap check before walking the scope: most references are not functions.
+                let LocalMemberIndex::Function(idx) = local_reference.reference else {
+                    return None;
+                };
+                let mut scope = self.current_scope;
+                for _ in 0..*parent_level {
+                    let EvaluationScope::SubComponent(_, Some(p)) = scope else { return None };
+                    scope = EvaluationScope::SubComponent(p.sub_component, p.parent);
+                }
+                let EvaluationScope::SubComponent(mut sc, _) = scope else { return None };
+                for i in &local_reference.sub_component_path {
+                    sc = cu.sub_components[sc].sub_components[*i].ty;
+                }
+                Some((
+                    cu.sub_components[sc].functions.get(idx)?,
+                    ContextMap::from_parent_level(*parent_level)
+                        .deeper_by_path(&local_reference.sub_component_path),
+                ))
+            }
+            MemberReference::Global { global_index, member } => {
+                let LocalMemberIndex::Function(idx) = member else { return None };
+                Some((
+                    cu.globals[*global_index].functions.get(*idx)?,
+                    ContextMap::InGlobal(*global_index),
+                ))
             }
         }
     }
@@ -954,6 +1030,10 @@ impl ContextMap {
         }
     }
 
+    fn deeper_by_path(self, path: &[SubComponentInstanceIdx]) -> Self {
+        path.iter().fold(self, |m, sub| m.deeper_in_sub_component(*sub))
+    }
+
     pub fn map_property_reference(&self, p: &MemberReference) -> MemberReference {
         match self {
             ContextMap::Identity => p.clone(),
@@ -991,6 +1071,8 @@ impl ContextMap {
         match e {
             Expression::PropertyReference(p)
             | Expression::CallBackCall { callback: p, .. }
+            | Expression::FunctionCall { function: p, .. }
+            | Expression::ItemMemberFunctionCall { function: p, .. }
             | Expression::PropertyAssignment { property: p, .. }
             | Expression::LayoutCacheAccess { layout_cache_prop: p, .. }
             | Expression::GridRepeaterCacheAccess { layout_cache_prop: p, .. } => {

@@ -184,7 +184,8 @@ The `LookupCtx` provides context for resolving identifiers in expressions:
 ```rust
 pub struct LookupCtx<'a> {
     pub property_name: Option<&'a str>,     // Current property being bound
-    pub property_type: Type,                 // Expected type
+    pub property_type: Type,                 // Type of the whole binding
+    pub expected_type: Type,                 // Type expected at the current position
     pub component_scope: &'a [ElementRc],   // Element scope stack
     pub arguments: Vec<SmolStr>,             // Callback/function arguments
     pub type_register: &'a TypeRegister,    // Type registry
@@ -201,8 +202,22 @@ When resolving an identifier, lookup proceeds in this order:
 3. **Special identifiers** - `self`, `parent`, `true`, `false`
 4. **Element IDs** - Named elements in the component
 5. **In-scope properties** - Properties from scope stack (legacy syntax: parent properties)
-6. **Built-in namespaces** - `Colors`, `Math`, `Key`, `Easing`
-7. **Global types** - Types from the type register
+6. **Global types** - Types from the type register
+7. **Built-in namespaces** - `Colors`, `Easing`, `Math`, `Key`, `FontWeight`
+8. **Type-specific values** - Bare `color`, `enum` or `easing` literals (e.g. `red`, `center`), resolved against `expected_type`
+9. **Built-in functions** - Unqualified global functions (`min`, `max`, `clamp`, `abs`, `debug`, ...)
+
+The type-specific step is what makes a bare `red` mean a color: it only matches when
+`expected_type` is a `color`, `brush`, `enum` or `easing`. Because it comes near the end, a
+property, element or variable of the same name still takes precedence.
+
+### Expected type
+
+`property_type` is the type of the whole binding; `expected_type` is the type expected at the
+current position within the expression. As the resolver descends into struct fields, array
+elements and call arguments it updates `expected_type` (via `LookupCtx::with_expected_type`), so a
+bare literal resolves against the locally expected type. This is why `property <S> s: { c: red }`
+resolves `red` as a color even though the binding's type is the struct `S`.
 
 ### LookupResult
 
@@ -426,10 +441,10 @@ if let Some(ty) = register.lookup("MyType") {
 
 ```sh
 # Run type system tests
-cargo test -p slint-compiler langtype
-cargo test -p slint-compiler lookup
-cargo test -p slint-compiler typeregister
+cargo test -p i-slint-compiler langtype
+cargo test -p i-slint-compiler lookup
+cargo test -p i-slint-compiler typeregister
 
 # Run all compiler tests
-cargo test -p slint-compiler
+cargo test -p i-slint-compiler
 ```

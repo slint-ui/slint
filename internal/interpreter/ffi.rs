@@ -235,6 +235,24 @@ pub extern "C" fn slint_interpreter_value_to_styled_text(
     }
 }
 
+/// Construct a new Value containing a MouseCursorInner
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_new_mouse_cursor_inner(
+    cursor: &i_slint_core::cursor::MouseCursorInner,
+) -> Box<Value> {
+    Box::new(Value::MouseCursorInner(cursor.clone()))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_to_mouse_cursor_inner(
+    val: &Value,
+) -> Option<&i_slint_core::cursor::MouseCursorInner> {
+    match val {
+        Value::MouseCursorInner(cursor) => Some(cursor),
+        _ => None,
+    }
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_interpreter_value_enum_to_string(
     val: &Value,

@@ -9,7 +9,7 @@
 use super::accessor_names::{self, AccessorKind};
 use crate::fileaccess;
 use std::collections::HashSet;
-use std::fmt::Write;
+use std::fmt::{Formatter, Write};
 use std::sync::OnceLock;
 
 use smol_str::{SmolStr, StrExt, format_smolstr};
@@ -558,6 +558,7 @@ impl CppType for Type {
             Type::ArrayOfU16 => Some("slint::SharedVector<uint16_t>".into()),
             Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
             Type::StyledText => Some("slint::StyledText".into()),
+            Type::MouseCursor => Some("slint::cbindgen_private::MouseCursorInner".into()),
             _ => None,
         }
     }
@@ -2720,14 +2721,16 @@ fn generate_sub_component(
             let running = compile_expression(&tmr.running.borrow(), &ctx);
             let interval = compile_expression(&tmr.interval.borrow(), &ctx);
             let callback = compile_expression(&tmr.triggered.borrow(), &ctx);
-            update_timers.push(format!("if ({running}) {{"));
-            update_timers
-                .push(format!("   auto interval = std::chrono::milliseconds({interval});"));
+            update_timers.push(format!(
+                "{{ std::int64_t millis = ({running}) ? static_cast<std::int64_t>({interval}) : -1;"
+            ));
+            update_timers.push("if (millis >= 0) {".into());
+            update_timers.push("   auto interval = std::chrono::milliseconds(millis);".into());
             update_timers.push(format!(
                 "   if (!self->{name}.running() || self->{name}.interval() != interval)"
             ));
             update_timers.push(format!("       self->{name}.start(slint::TimerMode::Repeated, interval, [self] {{ {callback}; }});"));
-            update_timers.push(format!("}} else {{ self->{name}.stop(); }}"));
+            update_timers.push(format!("}} else {{ self->{name}.stop(); }} }}"));
             target_struct.members.push((
                 field_access,
                 Declaration::Var(Var { ty: "slint::Timer".into(), name, ..Default::default() }),
@@ -3860,7 +3863,7 @@ fn generate_functions<'a>(
         let ret = if f.ret_ty != Type::Void { "return " } else { "" };
         let body = vec![
             "[[maybe_unused]] auto self = this;".into(),
-            format!("{ret}{};", compile_expression(&f.code, &ctx2)),
+            format!("{ret}{};", compile_expression(&f.code.borrow(), &ctx2)),
         ];
         Declaration::Function(Function {
             name: concatenate_ident(&format_smolstr!("fn_{}", f.name)),
@@ -4356,6 +4359,37 @@ fn shared_string_literal(string: &str) -> String {
     format!(r#"slint::SharedString(u8"{}")"#, escape_string(string))
 }
 
+impl std::fmt::Display for crate::expression_tree::ImageReference {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            crate::expression_tree::ImageReference::None => write!(f, r#"slint::Image()"#),
+            resource_ref @ (crate::expression_tree::ImageReference::Path(_)
+            | crate::expression_tree::ImageReference::Url(_)) => write!(
+                f,
+                r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#,
+                escape_string(resource_ref.source().unwrap())
+            ),
+            crate::expression_tree::ImageReference::DataUri(_) => {
+                unreachable!("data: URIs are embedded before code generation")
+            }
+            crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
+                let symbol = format!("slint_embedded_resource_{resource_id}");
+                write!(
+                    f,
+                    r#"slint::private_api::load_image_from_embedded_data({symbol}, "{}")"#,
+                    escape_string(extension)
+                )
+            }
+            crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
+                write!(
+                    f,
+                    "slint::private_api::image_from_embedded_textures(&slint_embedded_resource_{resource_id})"
+                )
+            }
+        }
+    }
+}
+
 fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String {
     use llr::Expression;
     match expr {
@@ -4690,39 +4724,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::UnaryOp { sub, op } => {
             format!("({op} {sub})", sub = compile_expression(sub, ctx), op = op,)
         }
-        Expression::ImageReference { resource_ref, nine_slice } => {
-            let image = match resource_ref {
-                crate::expression_tree::ImageReference::None => r#"slint::Image()"#.to_string(),
-                resource_ref @ (crate::expression_tree::ImageReference::Path(_)
-                | crate::expression_tree::ImageReference::Url(_)) => format!(
-                    r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#,
-                    escape_string(resource_ref.source().unwrap())
-                ),
-                crate::expression_tree::ImageReference::DataUri(_) => {
-                    unreachable!("data: URIs are embedded before code generation")
-                }
-                crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
-                    let symbol = format!("slint_embedded_resource_{resource_id}");
-                    format!(
-                        r#"slint::private_api::load_image_from_embedded_data({symbol}, "{}")"#,
-                        escape_string(extension)
-                    )
-                }
-                crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
-                    format!(
-                        "slint::private_api::image_from_embedded_textures(&slint_embedded_resource_{resource_id})"
-                    )
-                }
-            };
-            match &nine_slice {
-                Some([a, b, c, d]) => {
-                    format!(
-                        "([&] {{ auto image = {image}; image.set_nine_slice_edges({a}, {b}, {c}, {d}); return image; }})()"
-                    )
-                }
-                None => image,
+        Expression::ImageReference { resource_ref, nine_slice } => match &nine_slice {
+            Some([a, b, c, d]) => {
+                format!(
+                    "([&] {{ auto image = {resource_ref}; image.set_nine_slice_edges({a}, {b}, {c}, {d}); return image; }})()"
+                )
             }
-        }
+            None => resource_ref.to_string(),
+        },
         Expression::Condition { condition, true_expr, false_expr } => {
             let ty = expr.ty(ctx);
             let cond_code = compile_expression(condition, ctx);
@@ -4788,6 +4797,20 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 )
             }
         }
+        Expression::MouseCursor(cursor) => match cursor {
+            llr::MouseCursorInner::BuiltIn(cursor) => {
+                let cursor = compile_expression(cursor.as_ref(), ctx);
+                format!("slint::cbindgen_private::MouseCursorInner({cursor})")
+            }
+            llr::MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                let image = compile_expression(image.as_ref(), ctx);
+                let hotspot_x = compile_expression(hotspot_x.as_ref(), ctx);
+                let hotspot_y = compile_expression(hotspot_y.as_ref(), ctx);
+                format!(
+                    "slint::cbindgen_private::MouseCursorInner({image}, {hotspot_x}, {hotspot_y})"
+                )
+            }
+        },
         Expression::EasingCurve(EasingCurve::Linear) => {
             "slint::cbindgen_private::EasingCurve()".into()
         }

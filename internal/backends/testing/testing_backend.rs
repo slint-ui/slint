@@ -290,7 +290,7 @@ pub struct TestingWindow {
     window: i_slint_core::api::Window,
     size: Cell<PhysicalSize>,
     pub ime_requests: RefCell<Vec<InputMethodRequest>>,
-    mouse_cursor: Cell<i_slint_core::items::MouseCursor>,
+    mouse_cursor: RefCell<i_slint_core::cursor::MouseCursorInner>,
     all_item_trees: CheckAllItemTreesUnregistered,
     pub open_url: Rc<RefCell<Option<SharedString>>>,
     pub debug_logs: Rc<RefCell<Vec<String>>>,
@@ -315,8 +315,8 @@ impl TestingWindow {
     }
 
     #[allow(dead_code)] // Used by various tests
-    pub fn mouse_cursor(&self) -> i_slint_core::items::MouseCursor {
-        self.mouse_cursor.get()
+    pub fn mouse_cursor(&self) -> i_slint_core::cursor::MouseCursorInner {
+        self.mouse_cursor.borrow().clone()
     }
 
     #[allow(dead_code)]
@@ -398,8 +398,8 @@ impl WindowAdapterInternal for TestingWindow {
         true
     }
 
-    fn set_mouse_cursor(&self, cursor: i_slint_core::items::MouseCursor) {
-        self.mouse_cursor.set(cursor);
+    fn set_mouse_cursor(&self, cursor: i_slint_core::cursor::MouseCursorInner) {
+        self.mouse_cursor.replace(cursor);
     }
 
     fn register_item_tree(&self, item_tree: i_slint_core::item_tree::ItemTreeRefPin) {
@@ -505,10 +505,13 @@ impl RendererSealed for TestingWindow {
                     i_slint_core::styled_text::get_raw_text(&s).into_owned()
                 }
             };
-            let max_line_len = text.lines().map(|l: &str| l.len()).max().unwrap_or(0);
-            let num_lines = text.lines().count().max(1);
+            let max_lines = text_item.line_limit().unwrap_or(usize::MAX);
+            let (max_line_len, num_lines) = text
+                .lines()
+                .take(max_lines)
+                .fold((0, 0), |(len, count), line| (len.max(line.len()), count + 1));
             let width = max_line_len as f32 * pixel_size;
-            let height = num_lines as f32 * pixel_size;
+            let height = num_lines.max(1) as f32 * pixel_size;
             LogicalSize::new(width, height)
         } else {
             sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap, None)

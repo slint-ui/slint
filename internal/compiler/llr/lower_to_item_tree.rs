@@ -360,7 +360,8 @@ fn lower_sub_component(
                     ret_ty: function.return_type.clone(),
                     args: function.args.clone(),
                     // will be replaced later
-                    code: super::Expression::CodeBlock(Vec::new()),
+                    code: super::Expression::CodeBlock(Vec::new()).into(),
+                    use_count: Default::default(),
                 });
                 index.into()
             } else if let Type::Callback(callback) = &x.property_type {
@@ -489,8 +490,9 @@ fn lower_sub_component(
                 unreachable!()
             };
 
-            sub_component.functions[function_index].code =
-                super::lower_expression::lower_expression(&binding.expression, &mut ctx);
+            sub_component.functions[function_index]
+                .code
+                .replace(super::lower_expression::lower_expression(&binding.expression, &mut ctx));
 
             return;
         }
@@ -1062,7 +1064,8 @@ fn lower_global(
                 ret_ty: function.return_type.clone(),
                 args: function.args.clone(),
                 // will be replaced later
-                code: super::Expression::CodeBlock(Vec::new()),
+                code: super::Expression::CodeBlock(Vec::new()).into(),
+                use_count: Default::default(),
             });
             state.global_properties.insert(
                 nr.clone(),
@@ -1184,7 +1187,7 @@ fn lower_global_expressions(
             MemberReference::Global {
                 member: LocalMemberIndex::Function(function_index), ..
             } => {
-                lowered.functions[*function_index].code = expression;
+                lowered.functions[*function_index].code.replace(expression);
                 continue;
             }
             MemberReference::Global { member, .. } => member.clone(),

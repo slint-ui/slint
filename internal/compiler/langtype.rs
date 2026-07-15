@@ -75,6 +75,7 @@ pub enum Type {
 
     /// Used by the animation objects
     Animatable,
+    MouseCursor,
 }
 
 impl core::cmp::PartialEq for Type {
@@ -106,6 +107,7 @@ impl core::cmp::PartialEq for Type {
             Type::Model => matches!(other, Type::Model),
             Type::PathData => matches!(other, Type::PathData),
             Type::Easing => matches!(other, Type::Easing),
+            Type::MouseCursor => matches!(other, Type::MouseCursor),
             Type::Brush => matches!(other, Type::Brush),
             Type::Array(a) => matches!(other, Type::Array(b) if a == b),
             Type::Struct(lhs) => {
@@ -174,6 +176,7 @@ impl Display for Type {
             Type::Struct(t) => write!(f, "{t}"),
             Type::PathData => write!(f, "pathdata"),
             Type::Easing => write!(f, "easing"),
+            Type::MouseCursor => write!(f, "MouseCursor"),
             Type::Brush => write!(f, "brush"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
             Type::Keys => write!(f, "keys"),
@@ -228,6 +231,7 @@ impl Type {
                 | Self::Image
                 | Self::Bool
                 | Self::Easing
+                | Self::MouseCursor
                 | Self::Enumeration(_)
                 | Self::Keys
                 | Self::DataTransfer
@@ -332,6 +336,7 @@ impl Type {
             Type::Model => None,
             Type::PathData => None,
             Type::Easing => None,
+            Type::MouseCursor => None,
             Type::Brush => None,
             Type::Array(_) => None,
             Type::Struct { .. } => None,

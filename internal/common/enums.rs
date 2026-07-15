@@ -197,11 +197,11 @@ macro_rules! for_each_enums {
                 Forward,
             }
 
-            /// This enum represents different types of mouse cursors. It's a subset of the mouse cursors available in CSS.
+            /// Represents different types of mouse cursors. It's a subset of the mouse cursors available in CSS.
             /// For details and pictograms see the [MDN Documentation for cursor](https://developer.mozilla.org/en-US/docs/Web/CSS/cursor#values).
             /// Depending on the backend and used OS unidirectional resize cursors may be replaced with bidirectional ones.
             #[non_exhaustive]
-            enum MouseCursor {
+            enum BuiltInMouseCursor {
                 /// The systems default cursor.
                 Default,
                 /// No cursor is displayed.

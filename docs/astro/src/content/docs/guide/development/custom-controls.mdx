@@ -86,7 +86,7 @@ an external `.slint` file together with a build script.
 
 
 ```rust
-slint::slint!(export { Recipe } from "docs/reference/src/recipes/button_native.slint";);
+slint::slint!(export { Recipe } from "button_native.slint";);
 
 fn main() {
     let recipe = Recipe::new().unwrap();
@@ -480,7 +480,6 @@ fn main() {
 ```
 </TabItem>
 <TabItem label="C++" icon="seti:cpp">
-<summary>C++ code</summary>
 In C++ you can set the callback like this:
 
 ```cpp
