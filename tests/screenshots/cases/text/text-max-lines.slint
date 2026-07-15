@@ -12,7 +12,7 @@
 // Each Text holds a child Rectangle that fills it with a 1px red border, so the Text geometry is
 // visible. The Rectangle is a child of the Text and does not influence its layout.
 //ignore: skia
-//SIZE=180x220
+//SIZE=180x260
 
 component TextGeometry inherits Rectangle {
     border-width: 1px;
@@ -23,7 +23,7 @@ export component TestCase inherits Window {
     default-font-family: "Noto Sans";
     background: white;
     width: 180px;
-    height: 220px;
+    height: 260px;
 
     // Wrapping text cut by the line limit. No height is set anywhere: the layout must size the
     // Text to exactly two lines, both lines must render, and the ellipsis goes on the second one.
@@ -72,6 +72,18 @@ export component TestCase inherits Window {
             color: black;
             text: "Alpha\nBeta\nGamma";
             TextGeometry {}
+        }
+    }
+
+    // StyledText: the inline-code span wraps onto the dropped second line; no capsule may be
+    // painted under text that isn't rendered.
+    HorizontalLayout {
+        x: 0; y: 220px;
+        width: 150px;
+        StyledText {
+            max-lines: 1;
+            default-color: black;
+            text: @markdown("some words then `a wrapped code span`");
         }
     }
 }
