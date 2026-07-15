@@ -53,13 +53,8 @@ fn diagnose_component_container(element: &ElementRc, diag: &mut BuildDiagnostics
     for (name, cip) in &*elem.enclosing_component.upgrade().unwrap().child_insertion_points.borrow()
     {
         if Rc::ptr_eq(&cip.parent, element) {
-            let slot_name = if name == DEFAULT_SLOT_NAME {
-                "The @children placeholder".into()
-            } else {
-                format!("The slot '{name}'")
-            };
             diag.push_error(
-                format!("{} cannot appear in a ComponentContainer", slot_name),
+                format!("{} cannot appear in a ComponentContainer", slot_error_subject(name)),
                 &*element.borrow(),
             );
         }
