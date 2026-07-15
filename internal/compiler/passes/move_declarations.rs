@@ -324,7 +324,11 @@ fn simplify_optimized_items(items: &[ElementRc]) {
 fn is_animation_element(builtin: &BuiltinElement) -> bool {
     matches!(
         builtin.name.as_str(),
-        "TweenAnimation" | "DelayAnimation" | "ParallelAnimation" | "SequentialAnimation" | "SpringAnimation"
+        "TweenAnimation"
+            | "DelayAnimation"
+            | "ParallelAnimation"
+            | "SequentialAnimation"
+            | "SpringAnimation"
     )
 }
 

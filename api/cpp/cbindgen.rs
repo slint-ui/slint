@@ -642,6 +642,8 @@ fn gen_corelib(
             "slint_animation_new_tween_float",
             "slint_animation_new_tween_color",
             "slint_animation_new_tween_brush",
+            "slint_animation_new_spring_duration_bounce",
+            "slint_animation_new_spring_physical",
             "slint_animation_new_delay",
             "slint_animation_new_parallel",
             "slint_animation_new_sequential",

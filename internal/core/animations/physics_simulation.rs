@@ -1068,8 +1068,8 @@ impl SpringRegime {
                 let decay = f32::exp(-zeta * w_n * t);
                 let (s, c) = f32::sin_cos(w_d * t);
                 let pos = decay * (c1 * c + c2 * s);
-                let vel = decay
-                    * ((-zeta * w_n * c1 + w_d * c2) * c + (-zeta * w_n * c2 - w_d * c1) * s);
+                let vel =
+                    decay * ((-zeta * w_n * c1 + w_d * c2) * c + (-zeta * w_n * c2 - w_d * c1) * s);
                 (pos, vel)
             }
             Self::Critical { c1, c2 } => {
@@ -1130,14 +1130,7 @@ impl SpringSimulation {
         debug_assert!(zeta >= 0., "damping ratio must not be negative");
         let x0 = start_value - target;
         let regime = SpringRegime::new(x0, initial_velocity, w_n, zeta);
-        Self {
-            target,
-            w_n,
-            zeta,
-            regime,
-            start_time,
-            last_velocity: initial_velocity,
-        }
+        Self { target, w_n, zeta, regime, start_time, last_velocity: initial_velocity }
     }
 
     fn step_internal(&mut self, current: &mut f32, new_tick: Instant) -> bool {
@@ -1173,20 +1166,20 @@ mod tests_spring_simulation {
 
     #[test]
     fn duration_bounce_conversion_edge_cases() {
-        let (_, zeta) = SpringDurationBounceParameters::new(1., 0.)
-            .to_natural_frequency_and_damping_ratio();
+        let (_, zeta) =
+            SpringDurationBounceParameters::new(1., 0.).to_natural_frequency_and_damping_ratio();
         assert_approx_eq!(zeta, 1.); // critically damped
 
-        let (_, zeta) = SpringDurationBounceParameters::new(1., 1.)
-            .to_natural_frequency_and_damping_ratio();
+        let (_, zeta) =
+            SpringDurationBounceParameters::new(1., 1.).to_natural_frequency_and_damping_ratio();
         assert_approx_eq!(zeta, 0.); // undamped boundary of underdamped
 
-        let (_, zeta) = SpringDurationBounceParameters::new(1., -1.)
-            .to_natural_frequency_and_damping_ratio();
+        let (_, zeta) =
+            SpringDurationBounceParameters::new(1., -1.).to_natural_frequency_and_damping_ratio();
         assert_approx_eq!(zeta, 2.); // overdamped
 
-        let (w_n, _) = SpringDurationBounceParameters::new(2., 0.)
-            .to_natural_frequency_and_damping_ratio();
+        let (w_n, _) =
+            SpringDurationBounceParameters::new(2., 0.).to_natural_frequency_and_damping_ratio();
         assert_approx_eq!(w_n, core::f32::consts::PI);
     }
 
@@ -1203,8 +1196,8 @@ mod tests_spring_simulation {
         const START: f32 = 0.;
         const TARGET: f32 = 100.;
         const INITIAL_VELOCITY: f32 = 0.;
-        let (w_n, zeta) = SpringDurationBounceParameters::new(1., 0.5)
-            .to_natural_frequency_and_damping_ratio();
+        let (w_n, zeta) =
+            SpringDurationBounceParameters::new(1., 0.5).to_natural_frequency_and_damping_ratio();
         assert!(zeta < 1.);
 
         let time = Instant::now();
@@ -1229,8 +1222,8 @@ mod tests_spring_simulation {
         let decay = f32::exp(-zeta * w_n * tt);
         let (s, c) = f32::sin_cos(w_d * tt);
         let expected_pos = TARGET + decay * (c1 * c + c2 * s);
-        let expected_vel = decay
-            * ((-zeta * w_n * c1 + w_d * c2) * c + (-zeta * w_n * c2 - w_d * c1) * s);
+        let expected_vel =
+            decay * ((-zeta * w_n * c1 + w_d * c2) * c + (-zeta * w_n * c2 - w_d * c1) * s);
 
         assert_approx_eq!(current, expected_pos);
         assert_approx_eq!(sim.velocity(), expected_vel);
@@ -1241,8 +1234,8 @@ mod tests_spring_simulation {
         const START: f32 = 0.;
         const TARGET: f32 = 100.;
         const INITIAL_VELOCITY: f32 = 0.;
-        let (w_n, zeta) = SpringDurationBounceParameters::new(1., 0.)
-            .to_natural_frequency_and_damping_ratio();
+        let (w_n, zeta) =
+            SpringDurationBounceParameters::new(1., 0.).to_natural_frequency_and_damping_ratio();
         assert_approx_eq!(zeta, 1.);
 
         let time = Instant::now();
@@ -1275,8 +1268,8 @@ mod tests_spring_simulation {
         const START: f32 = 0.;
         const TARGET: f32 = 100.;
         const INITIAL_VELOCITY: f32 = 0.;
-        let (w_n, zeta) = SpringDurationBounceParameters::new(1., -0.5)
-            .to_natural_frequency_and_damping_ratio();
+        let (w_n, zeta) =
+            SpringDurationBounceParameters::new(1., -0.5).to_natural_frequency_and_damping_ratio();
         assert!(zeta > 1.);
 
         let time = Instant::now();

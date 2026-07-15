@@ -302,6 +302,7 @@ pub struct PhysicsAnimation<S> {
     get_value: Box<dyn FnMut() -> crate::Coord>,
     /// Pushes each freshly computed value into the target property (once per frame).
     set_value: Box<dyn FnMut(crate::Coord)>,
+    on_finished: Option<Box<dyn FnMut()>>,
 }
 
 impl<S: physics_simulation::Simulation> PhysicsAnimation<S> {
@@ -318,6 +319,7 @@ impl<S: physics_simulation::Simulation> PhysicsAnimation<S> {
             finished: false,
             get_value: Box::new(get_value),
             set_value: Box::new(set_value),
+            on_finished: None,
         }
     }
 }
@@ -355,12 +357,19 @@ impl<S: physics_simulation::Simulation> Animation for PhysicsAnimation<S> {
         with_applying_animation(|| (self.set_value)(value));
         if finished {
             self.finished = true;
+            if let Some(mut on_finished) = self.on_finished.take() {
+                on_finished();
+            }
             false
         } else {
             crate::animations::CURRENT_ANIMATION_DRIVER
                 .with(|driver| driver.set_has_active_animations());
             true
         }
+    }
+
+    fn set_on_finished(&mut self, on_finished: Box<dyn FnMut()>) {
+        self.on_finished = Some(on_finished);
     }
 
     fn velocity(&self) -> Option<f32> {
@@ -852,6 +861,26 @@ pub(crate) mod animation_object_ffi {
         }
     }
 
+    struct GetValueWrapFn {
+        callback: extern "C" fn(*mut c_void) -> f32,
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    }
+
+    impl Drop for GetValueWrapFn {
+        fn drop(&mut self) {
+            if let Some(x) = self.drop_user_data {
+                x(self.user_data)
+            }
+        }
+    }
+
+    impl GetValueWrapFn {
+        fn call(&self) -> f32 {
+            (self.callback)(self.user_data)
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn animation_handle_start_impl<T: InterpolatedPropertyValue + Clone + 'static>(
         id: usize,
@@ -1269,6 +1298,106 @@ pub(crate) mod animation_object_ffi {
             on_finished,
             on_finished_user_data,
             on_finished_drop_user_data,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn animation_box_new_spring_impl(
+        start_value: f32,
+        initial_velocity: f32,
+        target_value: f32,
+        parameters: impl physics_simulation::SpringParameters,
+        get_value: extern "C" fn(*mut c_void) -> f32,
+        get_value_user_data: *mut c_void,
+        get_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        set_value: extern "C" fn(*mut c_void, *const f32),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> *mut c_void {
+        let get_value_wrap = GetValueWrapFn {
+            callback: get_value,
+            user_data: get_value_user_data,
+            drop_user_data: get_value_drop_user_data,
+        };
+        let set_value_wrap = SetValueWrapFn {
+            callback: set_value,
+            user_data: set_value_user_data,
+            drop_user_data: set_value_drop_user_data,
+        };
+        let simulation = physics_simulation::SpringSimulation::new(
+            start_value,
+            initial_velocity,
+            target_value,
+            parameters,
+        );
+        let physics = PhysicsAnimation::new(
+            simulation,
+            move || get_value_wrap.call(),
+            move |value| set_value_wrap.call(value),
+        );
+        animation_box_into_raw(Box::new(physics))
+    }
+
+    /// Build a leaf spring node whose natural frequency/damping are derived from a
+    /// `duration`/`bounce` pair.  
+    #[allow(clippy::too_many_arguments)]
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_new_spring_duration_bounce(
+        start_value: f32,
+        initial_velocity: f32,
+        target_value: f32,
+        duration_secs: f32,
+        bounce: f32,
+        get_value: extern "C" fn(*mut c_void) -> f32,
+        get_value_user_data: *mut c_void,
+        get_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        set_value: extern "C" fn(*mut c_void, *const f32),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> *mut c_void {
+        animation_box_new_spring_impl(
+            start_value,
+            initial_velocity,
+            target_value,
+            physics_simulation::SpringDurationBounceParameters::new(duration_secs, bounce),
+            get_value,
+            get_value_user_data,
+            get_value_drop_user_data,
+            set_value,
+            set_value_user_data,
+            set_value_drop_user_data,
+        )
+    }
+
+    /// Build a leaf spring node whose natural frequency/damping are derived from a
+    /// `mass`/`stiffness`/`damping` triple. See
+    #[allow(clippy::too_many_arguments)]
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_new_spring_physical(
+        start_value: f32,
+        initial_velocity: f32,
+        target_value: f32,
+        mass: f32,
+        stiffness: f32,
+        damping: f32,
+        get_value: extern "C" fn(*mut c_void) -> f32,
+        get_value_user_data: *mut c_void,
+        get_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        set_value: extern "C" fn(*mut c_void, *const f32),
+        set_value_user_data: *mut c_void,
+        set_value_drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> *mut c_void {
+        animation_box_new_spring_impl(
+            start_value,
+            initial_velocity,
+            target_value,
+            physics_simulation::SpringPhysicalParameters::new(mass, stiffness, damping),
+            get_value,
+            get_value_user_data,
+            get_value_drop_user_data,
+            set_value,
+            set_value_user_data,
+            set_value_drop_user_data,
         )
     }
 

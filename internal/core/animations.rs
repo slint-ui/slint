@@ -14,13 +14,13 @@ pub mod tween {
     //! Re-export the tween handle+data types from properties_animations, plus the
     //! physics-driven `PhysicsAnimation` wrapper and the spring simulation types it can be
     //! driven with.
-    pub use crate::properties::{
-        Animation, AnimationHandle, DelayAnimation, ParallelAnimation, PhysicsAnimation,
-        SequentialAnimation, TweenAnimation,
-    };
     pub use crate::animations::physics_simulation::{
         SpringDurationBounceParameters, SpringParameters, SpringPhysicalParameters,
         SpringSimulation,
+    };
+    pub use crate::properties::{
+        Animation, AnimationHandle, DelayAnimation, ParallelAnimation, PhysicsAnimation,
+        SequentialAnimation, TweenAnimation,
     };
 }
 

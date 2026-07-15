@@ -1271,8 +1271,7 @@ fn build_animation_value(anim: &llr::AnimationObject, ctx: &EvaluationContext) -
         }
         AnimationType::Spring => {
             let target_ref =
-                match &*anim.target.as_ref().expect("SpringAnimation requires a target").borrow()
-                {
+                match &*anim.target.as_ref().expect("SpringAnimation requires a target").borrow() {
                     llr::Expression::PropertyReference(mr) => mr.clone(),
                     _ => panic!("internal error: animation target must be a property reference"),
                 };
@@ -1281,17 +1280,24 @@ fn build_animation_value(anim: &llr::AnimationObject, ctx: &EvaluationContext) -
             // `SpringSimulation` only understands raw `f32`, so LogicalLength (and any other
             // wrapper type) must be unwrapped before it's fed in, and re-wrapped on the way out -
             // the same conversion Flickable already does by hand around `PhysicsAnimation`.
-            let get_raw = primitive_value_from_property_value(&target_ty, quote!(#target_prop.get()));
+            let get_raw =
+                primitive_value_from_property_value(&target_ty, quote!(#target_prop.get()));
             let set_raw_stmt = {
                 let wrapped = set_primitive_property_value(&target_ty, quote!(value));
                 quote!(#target_prop.set(#wrapped))
             };
 
             let from = anim.from.as_ref().map(|f| {
-                primitive_value_from_property_value(&target_ty, animation_get_property(&f.borrow(), ctx))
+                primitive_value_from_property_value(
+                    &target_ty,
+                    animation_get_property(&f.borrow(), ctx),
+                )
             });
             let to = anim.to.as_ref().map(|t| {
-                primitive_value_from_property_value(&target_ty, animation_get_property(&t.borrow(), ctx))
+                primitive_value_from_property_value(
+                    &target_ty,
+                    animation_get_property(&t.borrow(), ctx),
+                )
             });
             let from_arg = from.unwrap_or_else(|| get_raw.clone());
             let to_arg = to.unwrap_or_else(|| get_raw.clone());

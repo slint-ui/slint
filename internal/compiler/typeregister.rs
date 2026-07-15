@@ -589,9 +589,13 @@ impl TypeRegister {
             _ => unreachable!(),
         }
 
-        for animation_type in
-            ["TweenAnimation", "DelayAnimation", "ParallelAnimation", "SequentialAnimation", "SpringAnimation"]
-        {
+        for animation_type in [
+            "TweenAnimation",
+            "DelayAnimation",
+            "ParallelAnimation",
+            "SequentialAnimation",
+            "SpringAnimation",
+        ] {
             match &mut register.elements.get_mut(animation_type).unwrap() {
                 ElementType::Builtin(b) => {
                     let animation = Rc::get_mut(b).unwrap();

@@ -2151,6 +2151,49 @@ fn animation_details_expr(anim: &llr::AnimationObject, ctx: &EvaluationContext) 
     )
 }
 
+/// Builds a `slint::private_api::AnimationNode::new_spring_duration_bounce`/`new_spring_physical`
+/// expression, given already-built `from`/`to`/`get_value`/`set_value` C++ expressions.
+fn spring_animation_node_expr(
+    anim: &llr::AnimationObject,
+    ctx: &EvaluationContext,
+    from: &str,
+    to: &str,
+    get_value_lambda: &str,
+    set_value_lambda: &str,
+) -> String {
+    // Velocity handoff between successive springs isn't wired up yet, so every spring
+    // currently starts at rest.
+    let initial_velocity = "0.f";
+    if let Some(bounce) = &anim.bounce {
+        let duration_ms = compile_expression(
+            &anim
+                .duration
+                .as_ref()
+                .expect("SpringAnimation with bounce requires a duration")
+                .borrow(),
+            ctx,
+        );
+        let bounce = compile_expression(&bounce.borrow(), ctx);
+        format!(
+            "slint::private_api::AnimationNode::new_spring_duration_bounce((float)({from}), {initial_velocity}, (float)({to}), (float)({duration_ms}) / 1000.f, (float)({bounce}), {get_value_lambda}, {set_value_lambda})"
+        )
+    } else {
+        let mass = compile_expression(
+            &anim
+                .mass
+                .as_ref()
+                .expect("SpringAnimation requires either duration/bounce or mass/stiffness/damping")
+                .borrow(),
+            ctx,
+        );
+        let stiffness = compile_expression(&anim.stiffness.as_ref().unwrap().borrow(), ctx);
+        let damping = compile_expression(&anim.damping.as_ref().unwrap().borrow(), ctx);
+        format!(
+            "slint::private_api::AnimationNode::new_spring_physical((float)({from}), {initial_velocity}, (float)({to}), (float)({mass}), (float)({stiffness}), (float)({damping}), {get_value_lambda}, {set_value_lambda})"
+        )
+    }
+}
+
 /// Builds a C++ expression evaluating to a `slint::private_api::AnimationNode` for `anim`,
 /// recursing into `anim.children` for Parallel/Sequential containers. A `Tween` reached here is
 /// always a nested leaf (or, for a target-less top-level Parallel/Sequential, part of that
@@ -2217,6 +2260,32 @@ fn build_animation_node(anim: &llr::AnimationObject, ctx: &EvaluationContext) ->
             format!(
                 "[&]{{ auto __container = slint::private_api::AnimationNode::{ctor}(); __container.set_iteration_count((double)({iteration_count}));{add_children} return __container; }}()"
             )
+        }
+        AnimationType::Spring => {
+            let target_ref = animation_member_ref(
+                &anim.target.as_ref().expect("SpringAnimation requires a target").borrow(),
+            );
+            let target_ty = ctx.property_ty(&target_ref).clone();
+            let cpp_ty = target_ty.cpp_type().expect("animation target must have a C++ type");
+            let target_get = access_member(&target_ref, ctx).get_property();
+
+            let from = anim
+                .from
+                .as_ref()
+                .map(|f| compile_expression(&f.borrow(), ctx))
+                .unwrap_or_else(|| target_get.clone());
+            let to = anim
+                .to
+                .as_ref()
+                .map(|t| compile_expression(&t.borrow(), ctx))
+                .unwrap_or_else(|| target_get.clone());
+
+            let set_stmt =
+                access_member(&target_ref, ctx).then(|prop| format!("{prop}.set(({cpp_ty})value)"));
+            let get_value_lambda = format!("[self]() -> float {{ return (float)({target_get}); }}");
+            let set_value_lambda = format!("[self](float value) {{ {set_stmt}; }}");
+
+            spring_animation_node_expr(anim, ctx, &from, &to, &get_value_lambda, &set_value_lambda)
         }
     }
 }
@@ -2815,8 +2884,9 @@ fn generate_sub_component(
                     _ => panic!("internal error: animation field must be a property reference"),
                 }
             };
+            let is_spring = anim.animation_type == AnimationType::Spring;
             let target_ref = member_ref(
-                &anim.target.as_ref().expect("TweenAnimation requires a target").borrow(),
+                &anim.target.as_ref().expect("Tween/SpringAnimation requires a target").borrow(),
             );
             let target_ty = ctx.property_ty(&target_ref).clone();
             let cpp_ty = target_ty.cpp_type().expect("animation target must have a C++ type");
@@ -2832,23 +2902,51 @@ fn generate_sub_component(
                 .as_ref()
                 .map(|t| compile_expression(&t.borrow(), &ctx))
                 .unwrap_or_else(|| target_get.clone());
-            let details = animation_details_expr(anim, &ctx);
+            // Tween-only knob; Spring instead reads `bounce`/`mass`/`stiffness`/`damping` (see
+            // `spring_animation_node_expr`).
+            let details = (!is_spring).then(|| animation_details_expr(anim, &ctx));
 
             // Cache of the target's last-known value, kept in sync by every write
             let cache_field = format_smolstr!("anim_last_target{}", i);
-            let set_stmt = access_member(&target_ref, &ctx)
-                .then(|prop| format!("self->{cache_field} = value; {prop}.set(value)"));
+            let set_stmt = access_member(&target_ref, &ctx).then(|prop| {
+                if is_spring {
+                    format!("self->{cache_field} = ({cpp_ty})value; {prop}.set(({cpp_ty})value)")
+                } else {
+                    format!("self->{cache_field} = value; {prop}.set(value)")
+                }
+            });
             let running_ref = member_ref(&anim.running.borrow());
             let set_running_false =
                 access_member(&running_ref, &ctx).then(|prop| format!("{prop}.set(false)"));
             let set_running_true =
                 access_member(&running_ref, &ctx).then(|prop| format!("{prop}.set(true)"));
 
-            let call = |method: &str| -> String {
-                format!(
-                    "self->{name}.{method}<{cpp_ty}>({from}, {to}, {details}, [self]({cpp_ty} value) {{ {set_stmt}; }}, [self]() {{ {set_running_false}; }});"
-                )
+            // Builds a fresh Tween/SpringAnimation from `from_expr`/`to_expr` and drives it via
+            // `self->{name}.{method}(...)`.
+            let build_and_drive = |method: &str, from_expr: &str, to_expr: &str| -> String {
+                if is_spring {
+                    let get_value_lambda =
+                        format!("[self]() -> float {{ return (float)({target_get}); }}");
+                    let set_value_lambda = format!("[self](float value) {{ {set_stmt}; }}");
+                    let node = spring_animation_node_expr(
+                        anim,
+                        &ctx,
+                        from_expr,
+                        to_expr,
+                        &get_value_lambda,
+                        &set_value_lambda,
+                    );
+                    format!(
+                        "{{ auto __node = {node}; __node.set_on_finished([self]() {{ {set_running_false}; }}); self->{name}.{method}(std::move(__node)); }}"
+                    )
+                } else {
+                    let details = details.as_ref().unwrap();
+                    format!(
+                        "self->{name}.{method}<{cpp_ty}>({from_expr}, {to_expr}, {details}, [self]({cpp_ty} value) {{ {set_stmt}; }}, [self]() {{ {set_running_false}; }});"
+                    )
+                }
             };
+            let call = |method: &str| -> String { build_and_drive(method, &from, &to) };
 
             update_animations.push(format!("if ({running}) {{"));
             update_animations.push(format!("   {}", call("start")));
@@ -2914,12 +3012,12 @@ fn generate_sub_component(
                     field_access,
                     Declaration::Function(Function {
                         name: restart_on_change_ident.clone(),
-                        signature: format!("({cpp_ty} from_value, {cpp_ty} to_value) const -> void"),
+                        signature: format!(
+                            "({cpp_ty} from_value, {cpp_ty} to_value) const -> void"
+                        ),
                         statements: Some(vec![
                             "auto self = this;".into(),
-                            format!(
-                                "self->{name}.restart<{cpp_ty}>(from_value, to_value, {details}, [self]({cpp_ty} value) {{ {set_stmt}; }}, [self]() {{ {set_running_false}; }});"
-                            ),
+                            build_and_drive("restart", "from_value", "to_value"),
                         ]),
                         ..Default::default()
                     }),

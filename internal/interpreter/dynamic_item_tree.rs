@@ -31,7 +31,7 @@ use i_slint_core::lengths::{LogicalLength, LogicalRect};
 use i_slint_core::menus::MenuFromItemTree;
 use i_slint_core::model::{ModelRc, RepeatedItemTree, Repeater};
 use i_slint_core::platform::PlatformError;
-use i_slint_core::properties::{ChangeTracker, InterpolatedPropertyValue};
+use i_slint_core::properties::{Animation, ChangeTracker, InterpolatedPropertyValue};
 use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use i_slint_core::slice::Slice;
 use i_slint_core::styled_text::StyledText;
@@ -3112,6 +3112,136 @@ fn build_animation_value(
                 Box::new(container)
             }
         }
+        object_tree::AnimationType::Spring => {
+            let target = desc.target.as_ref().expect("SpringAnimation requires a target");
+            let current = || -> f32 {
+                eval::load_property(instance, &target.element(), target.name())
+                    .unwrap()
+                    .try_into()
+                    .unwrap()
+            };
+            let from: f32 = desc
+                .from
+                .as_ref()
+                .map(|f| {
+                    eval::load_property(instance, &f.element(), f.name())
+                        .unwrap()
+                        .try_into()
+                        .unwrap()
+                })
+                .unwrap_or_else(current);
+            let to: f32 = desc
+                .to
+                .as_ref()
+                .map(|t| {
+                    eval::load_property(instance, &t.element(), t.name())
+                        .unwrap()
+                        .try_into()
+                        .unwrap()
+                })
+                .unwrap_or_else(current);
+
+            // Velocity handoff between successive springs isn't wired up yet, so every spring
+            // currently starts at rest.
+            let simulation = build_spring_simulation(instance, desc, from, 0., to);
+
+            let target_ref = target.clone();
+            let self_weak_get = instance.self_weak().get().unwrap().clone();
+            let self_weak_set = self_weak_get.clone();
+            let get_ref = target_ref.clone();
+            let get_value = move || -> i_slint_core::Coord {
+                self_weak_get
+                    .upgrade()
+                    .map(|instance| {
+                        generativity::make_guard!(guard);
+                        let c = instance.unerase(guard);
+                        let instance_ref = c.borrow_instance();
+                        eval::load_property(instance_ref, &get_ref.element(), get_ref.name())
+                            .unwrap()
+                            .try_into()
+                            .unwrap()
+                    })
+                    .unwrap_or_default()
+            };
+            let set_value = move |value: i_slint_core::Coord| {
+                if let Some(instance) = self_weak_set.upgrade() {
+                    generativity::make_guard!(guard);
+                    let c = instance.unerase(guard);
+                    let instance_ref = c.borrow_instance();
+                    eval::store_property(
+                        instance_ref,
+                        &target_ref.element(),
+                        target_ref.name(),
+                        Value::Number(value as f64),
+                    )
+                    .unwrap();
+                }
+            };
+
+            Box::new(i_slint_core::properties::PhysicsAnimation::new(
+                simulation, get_value, set_value,
+            ))
+        }
+    }
+}
+
+/// Builds the concrete `SpringSimulation` for `desc`, deciding between `duration`/`bounce`-style
+/// and `mass`/`stiffness`/`damping`-style parameters depending on which properties are set
+fn build_spring_simulation(
+    instance: InstanceRef,
+    desc: &object_tree::Animation,
+    start_value: f32,
+    initial_velocity: f32,
+    target_value: f32,
+) -> i_slint_core::animations::physics_simulation::SpringSimulation {
+    use i_slint_core::animations::physics_simulation::{
+        SpringDurationBounceParameters, SpringPhysicalParameters, SpringSimulation,
+    };
+    if let Some(bounce) = desc.bounce.as_ref() {
+        let duration: i64 = desc
+            .duration
+            .as_ref()
+            .map(|d| {
+                eval::load_property(instance, &d.element(), d.name()).unwrap().try_into().unwrap()
+            })
+            .expect("SpringAnimation with bounce requires a duration");
+        let bounce: f32 = eval::load_property(instance, &bounce.element(), bounce.name())
+            .unwrap()
+            .try_into()
+            .unwrap();
+        SpringSimulation::new(
+            start_value,
+            initial_velocity,
+            target_value,
+            SpringDurationBounceParameters::new(duration as f32 / 1000., bounce),
+        )
+    } else {
+        let mass_ref = desc
+            .mass
+            .as_ref()
+            .expect("SpringAnimation requires either duration/bounce or mass/stiffness/damping");
+        let mass: f32 = eval::load_property(instance, &mass_ref.element(), mass_ref.name())
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let stiffness_ref = desc.stiffness.as_ref().unwrap();
+        let stiffness: f32 =
+            eval::load_property(instance, &stiffness_ref.element(), stiffness_ref.name())
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let damping_ref = desc.damping.as_ref().unwrap();
+        let damping: f32 =
+            eval::load_property(instance, &damping_ref.element(), damping_ref.name())
+                .unwrap()
+                .try_into()
+                .unwrap();
+        SpringSimulation::new(
+            start_value,
+            initial_velocity,
+            target_value,
+            SpringPhysicalParameters::new(mass, stiffness, damping),
+        )
     }
 }
 
@@ -3264,6 +3394,98 @@ fn build_tween_with(
     )
 }
 
+fn build_spring(
+    instance: InstanceRef,
+    idx: usize,
+    desc: &object_tree::Animation,
+) -> (Box<dyn i_slint_core::properties::Animation>, Value) {
+    let target = desc.target.as_ref().expect("SpringAnimation requires a target");
+    let current = || eval::load_property(instance, &target.element(), target.name()).unwrap();
+    let from = desc
+        .from
+        .as_ref()
+        .map(|f| eval::load_property(instance, &f.element(), f.name()).unwrap())
+        .unwrap_or_else(current);
+    let to = desc
+        .to
+        .as_ref()
+        .map(|t| eval::load_property(instance, &t.element(), t.name()).unwrap())
+        .unwrap_or_else(current);
+    build_spring_with(instance, idx, desc, from, to)
+}
+
+/// `build_spring` but with explicit `from`/`to`
+fn build_spring_with(
+    instance: InstanceRef,
+    idx: usize,
+    desc: &object_tree::Animation,
+    from: Value,
+    to: Value,
+) -> (Box<dyn i_slint_core::properties::Animation>, Value) {
+    let target = desc.target.as_ref().expect("SpringAnimation requires a target");
+    let start_value: f32 = from.clone().try_into().unwrap();
+    let target_value: f32 = to.clone().try_into().unwrap();
+    // Velocity handoff between successive springs isn't wired up yet, so every spring
+    // currently starts at rest.
+    let simulation = build_spring_simulation(instance, desc, start_value, 0., target_value);
+
+    let target_ref = target.clone();
+    let self_weak_get = instance.self_weak().get().unwrap().clone();
+    let self_weak_set = self_weak_get.clone();
+    let get_ref = target_ref.clone();
+    let get_value = move || -> i_slint_core::Coord {
+        self_weak_get
+            .upgrade()
+            .map(|instance| {
+                generativity::make_guard!(guard);
+                let c = instance.unerase(guard);
+                let instance_ref = c.borrow_instance();
+                eval::load_property(instance_ref, &get_ref.element(), get_ref.name())
+                    .unwrap()
+                    .try_into()
+                    .unwrap()
+            })
+            .unwrap_or_default()
+    };
+    // keeps cache updated
+    let set_value = move |value: i_slint_core::Coord| {
+        if let Some(instance) = self_weak_set.upgrade() {
+            generativity::make_guard!(guard);
+            let c = instance.unerase(guard);
+            let instance_ref = c.borrow_instance();
+            let value = Value::Number(value as f64);
+            let cache_offset = instance_ref.description.animation_target_trackers[idx].1;
+            *cache_offset.apply(instance_ref.as_ref()).borrow_mut() = value.clone();
+            eval::store_property(instance_ref, &target_ref.element(), target_ref.name(), value)
+                .unwrap();
+        }
+    };
+
+    let running_ref = desc.running.clone();
+    let self_weak_finished = instance.self_weak().get().unwrap().clone();
+    let on_finished = move || {
+        if let Some(instance) = self_weak_finished.upgrade() {
+            generativity::make_guard!(guard);
+            let c = instance.unerase(guard);
+            let instance_ref = c.borrow_instance();
+            eval::store_property(
+                instance_ref,
+                &running_ref.element(),
+                running_ref.name(),
+                Value::Bool(false),
+            )
+            .unwrap();
+        }
+    };
+
+    let mut physics =
+        i_slint_core::properties::PhysicsAnimation::new(simulation, get_value, set_value);
+    physics.set_on_finished(Box::new(on_finished));
+
+    let from_value = from.clone();
+    (Box::new(physics), from_value)
+}
+
 pub fn update_animations(instance: InstanceRef) {
     let anims = instance.description.original.animations.borrow();
     for (idx, (desc, offset)) in anims.iter().zip(&instance.description.animations).enumerate() {
@@ -3273,6 +3495,7 @@ pub fn update_animations(instance: InstanceRef) {
         if matches!(running, Value::Bool(true)) {
             let tween = match desc.animation_type {
                 object_tree::AnimationType::Tween => build_tween(instance, idx, desc).0,
+                object_tree::AnimationType::Spring => build_spring(instance, idx, desc).0,
                 _ => build_root_animation_value(instance, desc),
             };
             handle.start(tween);
@@ -3298,9 +3521,16 @@ pub fn restart_animation(element: ElementWeak, instance: InstanceRef) {
             Value::Bool(true),
         )
         .unwrap();
-        if desc.animation_type == object_tree::AnimationType::Tween {
-            let (tween, from) = build_tween(instance, idx, desc);
-            let target = desc.target.as_ref().expect("TweenAnimation requires a target");
+        if matches!(
+            desc.animation_type,
+            object_tree::AnimationType::Tween | object_tree::AnimationType::Spring
+        ) {
+            let (tween, from) = if desc.animation_type == object_tree::AnimationType::Tween {
+                build_tween(instance, idx, desc)
+            } else {
+                build_spring(instance, idx, desc)
+            };
+            let target = desc.target.as_ref().expect("Tween/SpringAnimation requires a target");
             offset.apply(instance.as_ref()).restart(tween);
             // changes property to from on this tick
             eval::store_property(instance, &target.element(), target.name(), from.clone()).unwrap();
@@ -3352,7 +3582,11 @@ fn on_target_changed(
         )
         .unwrap();
         let handle = instance.description.animations[idx].apply(instance.as_ref());
-        let (tween, _from) = build_tween(instance, idx, desc);
+        let (tween, _from) = if desc.animation_type == object_tree::AnimationType::Spring {
+            build_spring(instance, idx, desc)
+        } else {
+            build_tween(instance, idx, desc)
+        };
         handle.start(tween);
     } else if desc.from.is_some() {
         restart_animation(desc.element.clone(), instance);
@@ -3366,14 +3600,18 @@ fn on_target_changed(
         )
         .unwrap();
         let handle = instance.description.animations[idx].apply(instance.as_ref());
-        let (tween, _from) = build_tween_with(instance, idx, desc, old_value, new_value);
+        let (tween, _from) = if desc.animation_type == object_tree::AnimationType::Spring {
+            build_spring_with(instance, idx, desc, old_value, new_value)
+        } else {
+            build_tween_with(instance, idx, desc, old_value, new_value)
+        };
         handle.restart(tween);
     }
 }
 
-/// Initialize change trackers so animations can start on property change. Only Tween (always)
-/// and Parallel/Sequential (optionally, when used as a start trigger) have a `target`; Delay
-/// never does, and a target-less Parallel/Sequential is started purely via `running`.
+/// Initialize change trackers so animations can start on property change. Only Tween/Spring
+/// (always) and Parallel/Sequential (optionally, when used as a start trigger) have a `target`;
+/// Delay never does, and a target-less Parallel/Sequential is started purely via `running`.
 pub fn init_animation_target_trackers(instance: InstanceRef) {
     let anims = instance.description.original.animations.borrow();
     let self_weak = instance.self_weak().get().unwrap().clone();

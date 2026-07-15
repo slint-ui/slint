@@ -193,6 +193,71 @@ public:
                 [](void *data) { delete reinterpret_cast<OnFinishedData *>(data); }));
     }
 
+    /// Build a leaf spring node whose natural frequency/damping are derived from a
+    /// `duration`/`bounce` pair. Unlike `new_tween`, a spring integrates in place: `get_value`
+    /// reads the target's live value each frame (so external writes since the last frame are
+    /// picked up) and `set_value` pushes the newly stepped value back. Velocity handoff between
+    /// successive springs isn't wired up in codegen yet, so `initial_velocity` is currently
+    /// always `0.` from call sites, though the FFI already accepts it. Register `on_finished` via
+    /// `set_on_finished` (a spring doesn't take one at construction time, like Delay/Parallel/
+    /// Sequential).
+    template<typename GetValue, typename SetValue>
+    static AnimationNode new_spring_duration_bounce(float start_value, float initial_velocity,
+                                                    float target_value, float duration_secs,
+                                                    float bounce, GetValue get_value,
+                                                    SetValue set_value)
+    {
+        struct GetValueData
+        {
+            GetValue get_value;
+        };
+        struct SetValueData
+        {
+            SetValue set_value;
+        };
+        return AnimationNode(cbindgen_private::slint_animation_new_spring_duration_bounce(
+                start_value, initial_velocity, target_value, duration_secs, bounce,
+                [](void *data) -> float {
+                    return reinterpret_cast<GetValueData *>(data)->get_value();
+                },
+                new GetValueData { get_value },
+                [](void *data) { delete reinterpret_cast<GetValueData *>(data); },
+                [](void *data, const float *value) {
+                    reinterpret_cast<SetValueData *>(data)->set_value(*value);
+                },
+                new SetValueData { set_value },
+                [](void *data) { delete reinterpret_cast<SetValueData *>(data); }));
+    }
+
+    /// Like [`new_spring_duration_bounce`], but with natural frequency/damping derived from a
+    /// `mass`/`stiffness`/`damping` triple instead.
+    template<typename GetValue, typename SetValue>
+    static AnimationNode new_spring_physical(float start_value, float initial_velocity,
+                                             float target_value, float mass, float stiffness,
+                                             float damping, GetValue get_value, SetValue set_value)
+    {
+        struct GetValueData
+        {
+            GetValue get_value;
+        };
+        struct SetValueData
+        {
+            SetValue set_value;
+        };
+        return AnimationNode(cbindgen_private::slint_animation_new_spring_physical(
+                start_value, initial_velocity, target_value, mass, stiffness, damping,
+                [](void *data) -> float {
+                    return reinterpret_cast<GetValueData *>(data)->get_value();
+                },
+                new GetValueData { get_value },
+                [](void *data) { delete reinterpret_cast<GetValueData *>(data); },
+                [](void *data, const float *value) {
+                    reinterpret_cast<SetValueData *>(data)->set_value(*value);
+                },
+                new SetValueData { set_value },
+                [](void *data) { delete reinterpret_cast<SetValueData *>(data); }));
+    }
+
     /// Build a leaf delay node.
     static AnimationNode new_delay(uint64_t duration_ms)
     {
