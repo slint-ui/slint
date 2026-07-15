@@ -354,6 +354,17 @@ export class Lsp {
         return lsp_client;
     }
 
+    // Synchronous view of the demo list for callers that already run after the
+    // preview connector is up (the command palette). Returns an empty list if
+    // the connector is not ready yet, so it never throws. The full Previewer is
+    // reached via previewer() when the connector needs to be created.
+    demos(): { title: string; url: string }[] {
+        return (this.#preview_connector?.demos() ?? []) as {
+            title: string;
+            url: string;
+        }[];
+    }
+
     async previewer(
         resource_url_mapper: ResourceUrlMapperFunction,
         style: string,
