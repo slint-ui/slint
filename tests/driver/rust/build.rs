@@ -269,6 +269,24 @@ fn compile_and_generate(
     source: &str,
     testcase: &test_driver_lib::TestCase,
 ) -> Result<Vec<u8>, std::io::Error> {
+    // Run the compiler in a thread with a reduced stack size to catch excessive
+    // stack usage, which would break compilation in environments with small
+    // default stack sizes.
+    std::thread::scope(|scope| {
+        std::thread::Builder::new()
+            .stack_size(512 * 1024)
+            .spawn_scoped(scope, || compile_and_generate_impl(source, testcase))
+            .expect("failed to spawn compiler thread")
+            .join()
+            .expect("compiler thread panicked")
+    })
+}
+
+#[cfg(feature = "build-time")]
+fn compile_and_generate_impl(
+    source: &str,
+    testcase: &test_driver_lib::TestCase,
+) -> Result<Vec<u8>, std::io::Error> {
     use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 
     let include_paths = test_driver_lib::extract_include_paths(source)
