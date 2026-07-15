@@ -19,7 +19,6 @@ pub enum SlintPadCallbackFunction {
     ShowAbout,
     CopyPermalink,
     NewFile,
-    SavePanelLayout,
 }
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -27,6 +26,7 @@ const CALLBACK_FUNCTION_SECTION: &'static str = r#"
 export type ResourceUrlMapperFunction = (url: string) => Promise<string | undefined>;
 export type SignalLspFunction = (data: any) => void;
 export type InvokeSlintpadCallback = (func: SlintPadCallbackFunction, arg: any) => void | undefined;
+export type PersistUiSettingsFunction = (settings: string) => void | undefined;
 "#;
 
 #[wasm_bindgen]
@@ -41,6 +41,9 @@ extern "C" {
 
     #[wasm_bindgen(typescript_type = "InvokeSlintpadCallback")]
     pub type InvokeSlintpadCallback;
+
+    #[wasm_bindgen(typescript_type = "PersistUiSettingsFunction")]
+    pub type PersistUiSettingsFunction;
 }
 
 // We have conceptually two threads: The UI thread and the JS runtime, even though
@@ -51,6 +54,7 @@ struct WasmCallbacks {
     lsp_notifier: SignalLspFunction,
     resource_url_mapper: ResourceUrlMapperFunction,
     invoke_slintpad_callback: InvokeSlintpadCallback,
+    persist_ui_settings: PersistUiSettingsFunction,
 }
 thread_local! {static WASM_CALLBACKS: RefCell<Option<WasmCallbacks>> = Default::default();}
 
@@ -87,11 +91,13 @@ impl PreviewConnector {
         resource_url_mapper: ResourceUrlMapperFunction,
         style: String,
         invoke_slintpad_callback: InvokeSlintpadCallback,
+        persist_ui_settings: PersistUiSettingsFunction,
     ) -> Result<PreviewConnectorPromise, JsValue> {
         WASM_CALLBACKS.set(Some(WasmCallbacks {
             lsp_notifier,
             resource_url_mapper,
             invoke_slintpad_callback,
+            persist_ui_settings,
         }));
 
         Ok(JsValue::from(js_sys::Promise::new(&mut move |resolve, reject| {
@@ -114,6 +120,7 @@ impl PreviewConnector {
                         match ui::create_ui(&to_lsp, &style, false) {
                             Ok(app_window) => {
                                 init_slintpad_specific_ui(&app_window.api());
+                                init_ui_settings(&app_window.api());
                                 preview_state.borrow_mut().api = app_window.api_weak();
                                 preview_state.borrow_mut().app_window = Some(app_window);
                                 *preview_state.borrow().to_lsp.borrow_mut() = Some(to_lsp);
@@ -152,18 +159,15 @@ impl PreviewConnector {
         preview::get_current_style().into()
     }
 
-    /// Restore the panel visibility the host persisted from an earlier session.
-    /// Setting the properties fires the change handlers, so the host will save
-    /// the same values straight back, which is harmless.
+    /// Restore the opaque UI settings blob the host persisted from an earlier
+    /// session. Call this before `show_ui()` so the panels appear in the state
+    /// the user left them before the first paint.
+    ///
+    /// Applying the blob sets the panel properties, which fires the change
+    /// handlers, so the host will persist the same values straight back, which
+    /// is harmless.
     #[wasm_bindgen]
-    pub fn restore_panels(
-        &self,
-        library: bool,
-        properties: bool,
-        outline: bool,
-        data: bool,
-        console: bool,
-    ) -> Result<(), JsValue> {
+    pub fn restore_ui_settings(&self, settings: String) -> Result<(), JsValue> {
         i_slint_core::api::invoke_from_event_loop(move || {
             // Upgrade and drop the PREVIEW_STATE borrow before touching any
             // property: setting one triggers panels-layout-changed, whose
@@ -171,11 +175,7 @@ impl PreviewConnector {
             let api =
                 preview::PREVIEW_STATE.with_borrow(|preview_state| preview_state.api.upgrade());
             if let Some(api) = api {
-                api.set_panel_library_open(library);
-                api.set_panel_properties_open(properties);
-                api.set_panel_outline_open(outline);
-                api.set_panel_data_open(data);
-                api.set_panel_console_open(console);
+                connector::apply_ui_settings_to_api(&api, &settings);
             }
         })
         .map_err(|e| -> JsValue { format!("{e:?}").into() })?;
@@ -328,15 +328,21 @@ fn init_slintpad_specific_ui(api: &crate::preview::ui::Api) {
         open_demo_url(&url);
     });
     api.on_show_about_slint(show_about_slint);
-    api.on_panels_layout_changed(save_panel_layout);
 }
 
-fn save_panel_layout() {
-    // Read the current panel visibility, then drop the PREVIEW_STATE borrow
-    // before calling into JS.
-    let layout = preview::PREVIEW_STATE.with_borrow(|preview_state| {
+/// Wire the persistence of the preview UI settings. Unlike the SlintPad-only
+/// helpers above, this runs for every WASM host (SlintPad and the VS Code
+/// webview): both can provide a `persist_ui_settings` callback.
+fn init_ui_settings(api: &crate::preview::ui::Api) {
+    api.on_panels_layout_changed(persist_ui_settings);
+}
+
+fn persist_ui_settings() {
+    // Read the current panel visibility and serialize the settings blob, then
+    // drop the PREVIEW_STATE borrow before calling into JS.
+    let blob = preview::PREVIEW_STATE.with_borrow(|preview_state| {
         preview_state.api.upgrade().map(|api| {
-            (
+            connector::serialize_ui_settings(
                 api.get_panel_library_open(),
                 api.get_panel_properties_open(),
                 api.get_panel_outline_open(),
@@ -345,40 +351,19 @@ fn save_panel_layout() {
             )
         })
     });
-    let Some((library, properties, outline, data, console)) = layout else {
+    let Some(blob) = blob else {
         return;
     };
 
     WASM_CALLBACKS.with_borrow(|callbacks| {
         let maybe_callback = wasm_bindgen::JsValue::from(
-            callbacks
-                .as_ref()
-                .expect("Callbacks were set up earlier")
-                .invoke_slintpad_callback
-                .clone(),
+            callbacks.as_ref().expect("Callbacks were set up earlier").persist_ui_settings.clone(),
         );
         if !maybe_callback.is_function() {
             return;
         }
-        let opener = js_sys::Function::from(maybe_callback);
-        let obj = js_sys::Object::new();
-        let _ =
-            js_sys::Reflect::set(&obj, &JsValue::from_str("library"), &JsValue::from_bool(library));
-        let _ = js_sys::Reflect::set(
-            &obj,
-            &JsValue::from_str("properties"),
-            &JsValue::from_bool(properties),
-        );
-        let _ =
-            js_sys::Reflect::set(&obj, &JsValue::from_str("outline"), &JsValue::from_bool(outline));
-        let _ = js_sys::Reflect::set(&obj, &JsValue::from_str("data"), &JsValue::from_bool(data));
-        let _ =
-            js_sys::Reflect::set(&obj, &JsValue::from_str("console"), &JsValue::from_bool(console));
-        let _ = opener.call2(
-            &JsValue::UNDEFINED,
-            &wasm_bindgen::JsValue::from(SlintPadCallbackFunction::SavePanelLayout),
-            &obj.into(),
-        );
+        let persist = js_sys::Function::from(maybe_callback);
+        let _ = persist.call1(&JsValue::UNDEFINED, &JsValue::from_str(&blob));
     });
 }
 

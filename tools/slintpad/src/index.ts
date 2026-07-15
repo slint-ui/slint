@@ -4,7 +4,7 @@
 // cSpell: ignore cupertino lumino permalink
 
 import { EditorWidget, initialize as initializeEditor } from "./editor_widget";
-import { LspWaiter, type Lsp, type LoadPhase, type PanelLayout } from "./lsp";
+import { LspWaiter, type Lsp, type LoadPhase } from "./lsp";
 import { PreviewWidget } from "./preview_widget";
 
 import {
@@ -63,30 +63,22 @@ const commands = new CommandRegistry();
 const url_params = new URLSearchParams(window.location.search);
 const url_style = url_params.get("style");
 
-const PANEL_LAYOUT_KEY = "slintpad-panel-layout";
+// The preview owns an opaque JSON settings blob; SlintPad just stores it
+// verbatim. This key namespaces it; the earlier "slintpad-panel-layout" key
+// held a different (panel-only) shape and is intentionally not migrated.
+const UI_SETTINGS_KEY = "slintpad-ui-settings";
 
-function load_panel_layout(): PanelLayout | null {
+function load_ui_settings(): string | null {
     try {
-        const raw = window.localStorage.getItem(PANEL_LAYOUT_KEY);
-        if (raw === null) {
-            return null;
-        }
-        const parsed = JSON.parse(raw);
-        return {
-            library: !!parsed.library,
-            properties: !!parsed.properties,
-            outline: !!parsed.outline,
-            data: !!parsed.data,
-            console: !!parsed.console,
-        };
+        return window.localStorage.getItem(UI_SETTINGS_KEY);
     } catch (_) {
         return null;
     }
 }
 
-function save_panel_layout(layout: PanelLayout): void {
+function save_ui_settings(settings: string): void {
     try {
-        window.localStorage.setItem(PANEL_LAYOUT_KEY, JSON.stringify(layout));
+        window.localStorage.setItem(UI_SETTINGS_KEY, settings);
     } catch (_) {
         // Ignore storage failures (e.g. private mode with a full quota).
     }
@@ -108,14 +100,15 @@ function setup(lsp: Lsp) {
                 void editor.copy_permalink_to_clipboard();
             } else if (func_type === SlintPadCallbackFunction.NewFile) {
                 void editor.set_demo("");
-            } else if (func_type === SlintPadCallbackFunction.SavePanelLayout) {
-                save_panel_layout(args as PanelLayout);
             }
         },
+        (settings: string) => {
+            save_ui_settings(settings);
+        },
         (previewer) => {
-            const layout = load_panel_layout();
-            if (layout !== null) {
-                previewer.restore_panels(layout);
+            const settings = load_ui_settings();
+            if (settings !== null) {
+                previewer.restore_ui_settings(settings);
             }
         },
     );
