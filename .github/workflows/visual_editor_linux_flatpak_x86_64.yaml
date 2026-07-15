@@ -53,10 +53,15 @@ jobs:
         # TODO: Why is this necessary?
         run: git config --global --add safe.directory '*'
 
-      # cache the build
       - uses: ./.github/actions/setup-rust
         with:
-          key: visual-editor-linux-flatpak
+          key: visual-editor-linux-flatpak-rust
+          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
+      # For `cargo -Zscript`
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: nightly
+          key: visual-editor-linux-flatpak-rust-nightly
           save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
 
       - name: Generate flatpak manifest
