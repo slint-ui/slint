@@ -669,6 +669,7 @@ impl Window {
     ///
     /// Any position fields in the event must be in the logical pixel coordinate system relative to
     /// the top left corner of the window.
+    #[deprecated(note = "use `dispatch_event_with_result` instead")]
     pub fn try_dispatch_event(
         &self,
         event: crate::platform::WindowEvent,

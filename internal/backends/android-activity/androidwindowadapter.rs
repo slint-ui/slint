@@ -215,8 +215,9 @@ impl AndroidWindowAdapter {
                         self.app.config().density().map(|dpi| dpi as f32 / 160.0).unwrap_or(1.0);
 
                     if (scale_factor - self.window.scale_factor()).abs() > f32::EPSILON {
-                        self.window
-                            .try_dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor })?;
+                        self.window.dispatch_event_with_result(
+                            WindowEvent::ScaleFactorChanged { scale_factor },
+                        )?;
                     }
 
                     self.renderer.set_window_handle(
@@ -242,19 +243,20 @@ impl AndroidWindowAdapter {
                 self.do_render()?;
             }
             PollEvent::Main(MainEvent::GainedFocus) => {
-                self.window.try_dispatch_event(WindowEvent::WindowActiveChanged(true))?;
+                self.window.dispatch_event_with_result(WindowEvent::WindowActiveChanged(true))?;
             }
             PollEvent::Main(MainEvent::LostFocus) => {
-                self.window.try_dispatch_event(WindowEvent::WindowActiveChanged(false))?;
+                self.window.dispatch_event_with_result(WindowEvent::WindowActiveChanged(false))?;
             }
             PollEvent::Main(MainEvent::ConfigChanged { .. }) => {
                 let scale_factor =
                     self.app.config().density().map(|dpi| dpi as f32 / 160.0).unwrap_or(1.0);
 
                 if (scale_factor - self.window.scale_factor()).abs() > f32::EPSILON {
-                    self.window
-                        .try_dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor })?;
-                    self.window.try_dispatch_event(WindowEvent::Resized {
+                    self.window.dispatch_event_with_result(WindowEvent::ScaleFactorChanged {
+                        scale_factor,
+                    })?;
+                    self.window.dispatch_event_with_result(WindowEvent::Resized {
                         size: self.size().to_logical(scale_factor),
                     })?;
                     WindowInner::from_pub(&self.window).set_window_item_safe_area(
@@ -339,17 +341,29 @@ impl AndroidWindowAdapter {
                     };
                     match motion_event.action() {
                         MotionAction::ButtonPress => {
-                            result = self.window.try_dispatch_event(WindowEvent::PointerPressed {
-                                position: position_for_event(motion_event, offset, scale),
-                                button: button_for_event(motion_event, &self.last_pressed_state),
-                            });
+                            result = self
+                                .window
+                                .dispatch_event_with_result(WindowEvent::PointerPressed {
+                                    position: position_for_event(motion_event, offset, scale),
+                                    button: button_for_event(
+                                        motion_event,
+                                        &self.last_pressed_state,
+                                    ),
+                                })
+                                .map(|_| ());
                             InputStatus::Handled
                         }
                         MotionAction::ButtonRelease => {
-                            result = self.window.try_dispatch_event(WindowEvent::PointerReleased {
-                                position: position_for_event(motion_event, offset, scale),
-                                button: button_for_event(motion_event, &self.last_pressed_state),
-                            });
+                            result = self
+                                .window
+                                .dispatch_event_with_result(WindowEvent::PointerReleased {
+                                    position: position_for_event(motion_event, offset, scale),
+                                    button: button_for_event(
+                                        motion_event,
+                                        &self.last_pressed_state,
+                                    ),
+                                })
+                                .map(|_| ());
                             InputStatus::Handled
                         }
                         MotionAction::Down => {
@@ -435,7 +449,8 @@ impl AndroidWindowAdapter {
                         MotionAction::HoverMove => {
                             let position = position_for_event(motion_event, offset, scale);
                             let window_event = WindowEvent::PointerMoved { position };
-                            result = self.window.try_dispatch_event(window_event);
+                            result =
+                                self.window.dispatch_event_with_result(window_event).map(|_| ());
                             InputStatus::Handled
                         }
                         MotionAction::Cancel | MotionAction::Outside => {
@@ -512,8 +527,9 @@ impl AndroidWindowAdapter {
         let size = PhysicalSize { width: win.width() as u32, height: win.height() as u32 };
 
         let scale_factor = self.window.scale_factor();
-        self.window
-            .try_dispatch_event(WindowEvent::Resized { size: size.to_logical(scale_factor) })?;
+        self.window.dispatch_event_with_result(WindowEvent::Resized {
+            size: size.to_logical(scale_factor),
+        })?;
         WindowInner::from_pub(&self.window).set_window_item_safe_area(
             self.internal(i_slint_core::InternalToken)
                 .map(|internal| internal.safe_area_inset().to_logical(scale_factor))

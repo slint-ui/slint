@@ -1119,7 +1119,7 @@ fn test_accessibility_role_mapping_complete() {
 }
 
 // `WindowEventDispatchResult` honesty for pointer events: verify that
-// `Window::try_dispatch_event` reports `Accepted` only when an item consumed the
+// `Window::dispatch_event_with_result` reports `Accepted` only when an item consumed the
 // event, and `Ignored` otherwise. Tests install the window-event hook directly
 // since that's the consumer the public contract is for.
 
