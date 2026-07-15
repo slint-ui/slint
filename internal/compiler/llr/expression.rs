@@ -21,15 +21,7 @@ pub enum ArrayOutput {
     Vector,
 }
 
-#[derive(Clone, Debug)]
-pub enum MouseCursorInner {
-    BuiltIn(Box<Expression>),
-    CustomMouseCursor {
-        image: Box<Expression>,
-        hotspot_x: Box<Expression>,
-        hotspot_y: Box<Expression>,
-    },
-}
+pub use crate::expression_tree::MouseCursorInner;
 
 #[derive(Debug, Clone)]
 pub enum Expression {
@@ -176,7 +168,7 @@ pub enum Expression {
 
     EasingCurve(crate::expression_tree::EasingCurve),
 
-    MouseCursor(MouseCursorInner),
+    MouseCursor(MouseCursorInner<Expression>),
 
     LinearGradient {
         angle: Box<Expression>,

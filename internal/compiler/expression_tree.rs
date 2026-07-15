@@ -2086,17 +2086,15 @@ pub enum EasingCurve {
     // Custom(Box<dyn Fn(f32)->f32>),
 }
 
+/// The compiled `mouse-cursor` value: either a built-in cursor or a custom one built from an
+/// image. Generic over the expression type so both the tree and the LLR reuse the same shape.
 #[derive(Clone, Debug)]
-pub enum MouseCursorInner {
-    BuiltIn(Box<Expression>),
-    CustomMouseCursor {
-        image: Box<Expression>,
-        hotspot_x: Box<Expression>,
-        hotspot_y: Box<Expression>,
-    },
+pub enum MouseCursorInner<E = Expression> {
+    BuiltIn(Box<E>),
+    CustomMouseCursor { image: Box<E>, hotspot_x: Box<E>, hotspot_y: Box<E> },
 }
 
-impl Default for MouseCursorInner {
+impl<E: Default> Default for MouseCursorInner<E> {
     fn default() -> Self {
         Self::BuiltIn(Box::default())
     }
