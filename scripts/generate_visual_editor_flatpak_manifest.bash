@@ -43,7 +43,7 @@ relative_sources_path="$(python3 -c "import os.path; print(os.path.relpath('${CA
 
 echo 'Generated flatpak manifest:' >&2
 "${repo_root}/scripts/handlebars.rs" \
-    -i "${repo_root}/tools/lsp/org.sixtyfps.SlintVisualEditor.yml.hbs"
+    -i "${repo_root}/tools/lsp/org.sixtyfps.SlintVisualEditor.yml.hbs" \
     -v "git.commit=${current_commit}" \
     -v "git.local=${repo_root}" \
     -v "cargo.profile=${CARGO_PROFILE}" \
