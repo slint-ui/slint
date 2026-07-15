@@ -87,7 +87,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force tools/lsp/dist | Out-Null
-          Copy-Item tools/lsp/packaging/windows-appx/SlintVisualEditor-Logo-*.png tools/lsp/dist/Assets/
+          Copy-Item (Get-ChildItem tools/lsp/packaging/windows-appx/SlintVisualEditor-Logo-*.png) tools/lsp/dist/Assets/
           Copy-Item target/x86_64-pc-windows-msvc/package-release/slint-visual-editor.exe tools/lsp/dist/slint-visual-editor.exe
           Set-Location tools/lsp
           cargo +nightly -Zscript -q ../../scripts/handlebars.rs `
