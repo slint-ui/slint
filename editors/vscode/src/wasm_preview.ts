@@ -152,9 +152,13 @@ function getPreviewHtml(
         })},
         "${default_style}",
         undefined,
-        (settings) => { vscode.postMessage({ command: "persist_ui_settings", settings: settings }); }
+        undefined
     );
 
+    // Restore the persisted layout before the first paint. The LSP owns the
+    // settings and also relays a RestoreUiSettings once the preview requests its
+    // state, but that lands after this paint, so seed the saved blob here to
+    // avoid a flash of the default layout.
     const initial_ui_settings = ${JSON.stringify(initial_ui_settings)};
     if (initial_ui_settings.length > 0) {
         preview_connector.restore_ui_settings(initial_ui_settings);
@@ -244,17 +248,6 @@ function initPreviewPanel(
                     return;
                 case "slint/preview_to_lsp":
                     send_to_lsp(message.params);
-                    return;
-                case "persist_ui_settings":
-                    context.globalState.update(UI_STATE_KEY, message.settings);
-                    // Keep the LSP's own copy current. It still pushes a
-                    // RestoreUiSettings to the preview when a webview opens, so
-                    // without this echo it would clobber the freshly restored
-                    // layout with the stale value it was seeded with at startup.
-                    language_client?.sendNotification(
-                        "slint/restore_ui_settings",
-                        { settings: message.settings },
-                    );
                     return;
             }
         },
