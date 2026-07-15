@@ -23,21 +23,7 @@ pub use crate::input::Keys;
 pub use crate::sharedvector::SharedVector;
 pub use crate::{format, string::SharedString, string::ToSharedString};
 
-/// Result of dispatching a window event through Slint's runtime.
-///
-/// For pointer events (`PointerPressed`, `PointerReleased`, `PointerMoved`,
-/// `PointerScrolled`), the mapping is:
-/// - [`Accepted`](Self::Accepted) — an item consumed the event (returned
-///   `EventAccepted`, `GrabMouse`, or `StartDrag`; or, for a drag in flight, a
-///   `DropArea` accepted the rewritten `DragMove`/`Drop`).
-/// - [`Ignored`](Self::Ignored) — the event reached no item that wanted it, or
-///   there was no component to dispatch to. Hover-only handling (e.g. a
-///   `TouchArea` that updates `has-hover` on `PointerMoved` without otherwise
-///   consuming) is reported as `Ignored`.
-///
-/// [`PointerExited`](crate::platform::WindowEvent::PointerExited) is a teardown
-/// event: the runtime always acts on it, so it is reported as `Accepted` even
-/// when no item was under the cursor.
+/// Result of dispatching a window event through Slint's runtime with [Window::dispatch_event_with_result].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum WindowEventDispatchResult {
