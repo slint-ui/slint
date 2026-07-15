@@ -100,7 +100,7 @@ impl PrettyPrinter<'_> {
                 f.name,
                 f.args.iter().map(|t| DisplayType(t).to_string()).join(", "),
                 DisplayType(&f.ret_ty),
-                DisplayExpression(&f.code, &ctx)
+                DisplayExpression(&f.code.borrow(), &ctx)
             )?;
         }
         for twb in &sc.two_way_bindings {
@@ -355,7 +355,7 @@ impl PrettyPrinter<'_> {
                 f.name,
                 f.args.iter().map(ToString::to_string).join(", "),
                 f.ret_ty,
-                DisplayExpression(&f.code, &ctx)
+                DisplayExpression(&f.code.borrow(), &ctx)
             )?;
         }
         self.indentation -= 1;

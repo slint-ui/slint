@@ -107,7 +107,7 @@ pub fn count_property_use(root: &CompilationUnit) {
 
         // 8.functions (TODO: only visit used function)
         for f in &sc.functions {
-            f.code.visit_property_references(ctx, &mut visit_property);
+            f.code.borrow().visit_property_references(ctx, &mut visit_property);
         }
 
         // 9. change callbacks
@@ -139,7 +139,7 @@ pub fn count_property_use(root: &CompilationUnit) {
         let ctx = EvaluationContext::new_global(root, idx, ());
         // TODO: only visit used function
         for f in &g.functions {
-            f.code.visit_property_references(&ctx, &mut visit_property);
+            f.code.borrow().visit_property_references(&ctx, &mut visit_property);
         }
 
         for (p, e) in &g.change_callbacks {

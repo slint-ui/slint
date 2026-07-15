@@ -331,7 +331,7 @@ pub struct Function {
     pub name: SmolStr,
     pub ret_ty: Type,
     pub args: Vec<Type>,
-    pub code: Expression,
+    pub code: MutExpression,
 }
 
 #[derive(Debug, Clone)]
@@ -694,6 +694,24 @@ impl CompilationUnit {
             for (_, e) in sc.change_callbacks.iter() {
                 visitor(e, ctx);
             }
+            for child in &sc.grid_layout_children {
+                visitor(&child.layout_info_h, ctx);
+                visitor(&child.layout_info_v, ctx);
+            }
+            for r in sc.repeated.iter() {
+                visitor(&r.model, ctx);
+            }
+            for t in sc.timers.iter() {
+                visitor(&t.interval, ctx);
+                visitor(&t.running, ctx);
+                visitor(&t.triggered, ctx);
+            }
+            // Function bodies and popup positions are intentionally not visited:
+            // a function is called from several contexts and a popup position is
+            // evaluated in a nested one, so mutating their expressions here (which
+            // the inlining pass does) would corrupt the parent levels of their
+            // property references. They keep their properties alive through
+            // count_property_use, which only reads them.
         });
         for (idx, g) in self.globals.iter_enumerated() {
             let ctx = EvaluationContext::new_global(self, idx, ());
