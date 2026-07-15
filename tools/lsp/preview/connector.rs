@@ -123,3 +123,42 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn panels_of(blob: &str) -> PanelSettings {
+        serde_json::from_str::<UiSettings>(blob).unwrap().panels
+    }
+
+    #[test]
+    fn serialize_round_trips_panel_visibility() {
+        let blob = serialize_ui_settings(true, false, true, false, true);
+        let panels = panels_of(&blob);
+        assert!(panels.library && panels.outline && panels.console);
+        assert!(!panels.properties && !panels.data);
+    }
+
+    #[test]
+    fn missing_fields_default_to_false() {
+        // Hosts must tolerate blobs written before a field existed.
+        let panels = panels_of(r#"{"panels":{"library":true}}"#);
+        assert!(panels.library);
+        assert!(!panels.properties && !panels.outline && !panels.data && !panels.console);
+        assert!(panels_of("{}") == PanelSettings::default());
+    }
+
+    #[test]
+    fn unknown_keys_are_ignored() {
+        // New settings can be added without breaking hosts on the old schema.
+        let panels = panels_of(r#"{"panels":{"library":true,"future_panel":true},"future":1}"#);
+        assert!(panels.library);
+    }
+
+    #[test]
+    fn malformed_blob_is_not_fatal() {
+        // apply_ui_settings_to_api relies on this parse failing to a no-op.
+        assert!(serde_json::from_str::<UiSettings>("not json").is_err());
+    }
+}

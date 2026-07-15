@@ -29,6 +29,7 @@ pub fn mock_context() -> Context {
     crate::language::Context {
         document_cache: empty_document_cache(),
         preview_config: Default::default(),
+        preview_ui_settings: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -74,6 +75,7 @@ pub fn loaded_document_cache_with_file_name(
     let mut ctx = crate::language::Context {
         document_cache: dc,
         preview_config: Default::default(),
+        preview_ui_settings: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         to_show: None,
