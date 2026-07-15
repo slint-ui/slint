@@ -221,7 +221,7 @@ loop {
     if let Some(event) = check_for_touch_event(/*...*/) {
         // convert the event from the driver into a `slint::platform::WindowEvent`
         // and pass it to the window.
-        window.try_dispatch_event(event).unwrap();
+        window.dispatch_event_with_result(event).unwrap();
     }
 
     // ... maybe some more application logic ...

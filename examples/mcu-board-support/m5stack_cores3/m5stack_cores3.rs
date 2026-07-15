@@ -399,29 +399,31 @@ impl EspBackend {
                                 if let Some(prev_pos) = last_touch.replace(pos) {
                                     // If position changed, send a PointerMoved event
                                     if prev_pos != pos {
-                                        let _ =
-                                            window.try_dispatch_event(WindowEvent::PointerMoved {
-                                                position: pos,
-                                            });
+                                        let _ = window.dispatch_event_with_result(
+                                            WindowEvent::PointerMoved { position: pos },
+                                        );
                                     }
                                 } else {
                                     // No previous touch, send a PointerPressed event
-                                    let _ =
-                                        window.try_dispatch_event(WindowEvent::PointerPressed {
+                                    let _ = window.dispatch_event_with_result(
+                                        WindowEvent::PointerPressed {
                                             position: pos,
                                             button: PointerEventButton::Left,
-                                        });
+                                        },
+                                    );
                                 }
                             }
                             ft3x68_rs::TouchState::Released => {
                                 // Touch was released, send PointerReleased if we had a previous touch
                                 if let Some(pos) = last_touch.take() {
-                                    let _ =
-                                        window.try_dispatch_event(WindowEvent::PointerReleased {
+                                    let _ = window.dispatch_event_with_result(
+                                        WindowEvent::PointerReleased {
                                             position: pos,
                                             button: PointerEventButton::Left,
-                                        });
-                                    let _ = window.try_dispatch_event(WindowEvent::PointerExited);
+                                        },
+                                    );
+                                    let _ = window
+                                        .dispatch_event_with_result(WindowEvent::PointerExited);
                                 }
                             }
                         }

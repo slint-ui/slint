@@ -241,7 +241,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             WindowEvent::CloseRequested => {
                 self.loop_error = window
                     .window()
-                    .try_dispatch_event(corelib::platform::WindowEvent::CloseRequested)
+                    .dispatch_event_with_result(corelib::platform::WindowEvent::CloseRequested)
                     .err();
             }
             WindowEvent::Focused(have_focus) => {
@@ -492,9 +492,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
                     self.loop_error = window
                         .window()
-                        .try_dispatch_event(corelib::platform::WindowEvent::ScaleFactorChanged {
-                            scale_factor: scale_factor as f32,
-                        })
+                        .dispatch_event_with_result(
+                            corelib::platform::WindowEvent::ScaleFactorChanged {
+                                scale_factor: scale_factor as f32,
+                            },
+                        )
                         .err();
                     // TODO: send a resize event or try to keep the logical size the same.
                     //window.resize_event(inner_size_writer.???)?;

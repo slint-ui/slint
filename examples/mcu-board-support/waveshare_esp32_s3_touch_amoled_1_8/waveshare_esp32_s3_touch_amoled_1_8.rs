@@ -231,31 +231,33 @@ impl EspBackend {
                                     // If position changed, send a PointerMoved event
                                     if prev_pos != pos {
                                         info!("Sending PointerMoved event");
-                                        let _ =
-                                            window.try_dispatch_event(WindowEvent::PointerMoved {
-                                                position: pos,
-                                            });
+                                        let _ = window.dispatch_event_with_result(
+                                            WindowEvent::PointerMoved { position: pos },
+                                        );
                                     }
                                 } else {
                                     // No previous touch, send a PointerPressed event
                                     info!("Sending PointerPressed event");
-                                    let _ =
-                                        window.try_dispatch_event(WindowEvent::PointerPressed {
+                                    let _ = window.dispatch_event_with_result(
+                                        WindowEvent::PointerPressed {
                                             position: pos,
                                             button: PointerEventButton::Left,
-                                        });
+                                        },
+                                    );
                                 }
                             }
                             ft3x68_rs::TouchState::Released => {
                                 // Touch was released, send PointerReleased if we had a previous touch
                                 if let Some(pos) = last_touch.take() {
                                     info!("Touch released, sending PointerReleased event");
-                                    let _ =
-                                        window.try_dispatch_event(WindowEvent::PointerReleased {
+                                    let _ = window.dispatch_event_with_result(
+                                        WindowEvent::PointerReleased {
                                             position: pos,
                                             button: PointerEventButton::Left,
-                                        });
-                                    let _ = window.try_dispatch_event(WindowEvent::PointerExited);
+                                        },
+                                    );
+                                    let _ = window
+                                        .dispatch_event_with_result(WindowEvent::PointerExited);
                                 }
                             }
                         }
@@ -264,11 +266,12 @@ impl EspBackend {
                         // I2C error or other driver error - send release if we had a previous touch
                         if let Some(pos) = last_touch.take() {
                             info!("Touch driver error, sending PointerReleased event: {:?}", e);
-                            let _ = window.try_dispatch_event(WindowEvent::PointerReleased {
-                                position: pos,
-                                button: PointerEventButton::Left,
-                            });
-                            let _ = window.try_dispatch_event(WindowEvent::PointerExited);
+                            let _ =
+                                window.dispatch_event_with_result(WindowEvent::PointerReleased {
+                                    position: pos,
+                                    button: PointerEventButton::Left,
+                                });
+                            let _ = window.dispatch_event_with_result(WindowEvent::PointerExited);
                         }
                         // Don't log every "no touch" - only log actual errors
                         // info!("Touch error: {:?}", e);
