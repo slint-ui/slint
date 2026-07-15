@@ -253,12 +253,12 @@ impl CompilerConfiguration {
             .and_then(|x| x.parse::<f32>().ok())
             .filter(|f| *f > 0.);
 
-        let const_image_sizes = match std::env::var("CARGO_CFG_TARGET_ARCH") {
+        let const_image_sizes = match std::env::var("CARGO_CFG_TARGET_FAMILY") {
             // Set by cargo when running in a build script (slint-build): the target is known.
-            Ok(target_arch) => target_arch != "wasm32",
+            Ok(target_family) => !target_family.split(',').any(|f| f == "wasm"),
             // The target is unknown (slint! macro, C++). The interpreter compiles for the
             // architecture it runs on; otherwise assume the code may run on the web.
-            Err(_) => output_format == OutputFormat::Interpreter && !cfg!(target_arch = "wasm32"),
+            Err(_) => output_format == OutputFormat::Interpreter && !cfg!(target_family = "wasm"),
         };
 
         let enable_experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
