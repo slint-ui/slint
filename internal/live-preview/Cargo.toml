@@ -32,7 +32,7 @@ tokio-tungstenite = { version = "0.29.0", features = ["rustls"], optional = true
 tokio = { version = "1.48.0", features = ["rt", "net", "sync", "macros", "time"], optional = true }
 futures-util = { version = "0.3.31", features = ["sink"], optional = true }
 postcard = { version = "1.1.3", features = ["alloc"], optional = true }
-base64 = { version = "0.22.1", optional = true }
+base64 = "0.22.1"
 hostname = { version = "0.4.1", optional = true }
 tracing = { workspace = true, optional = true }
 anyhow = { version = "1.0.100", optional = true }
@@ -63,7 +63,6 @@ remote = [
   "dep:futures-util",
   "dep:anyhow",
   "dep:postcard",
-  "dep:base64",
   "dep:hostname",
   "dep:mdns-sd",
   "dep:getifs",
