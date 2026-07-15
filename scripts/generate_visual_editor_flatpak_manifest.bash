@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #!/bin/bash
-set -euo pipefail
+set -xeuo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
 
@@ -45,8 +45,8 @@ relative_sources_path="$(python3 -c "import os.path; print(os.path.relpath('${CA
 
 echo 'Generated flatpak manifest:' >&2
 "${YTT_PATH}" \
-    -f tools/lsp/org.sixtyfps.SlintVisualEditor.template.yml \
-    -f tools/lsp/org.sixtyfps.SlintVisualEditor.schema.yml \
+    -f ${repo_root}/tools/lsp/org.sixtyfps.SlintVisualEditor.template.yml \
+    -f ${repo_root}/tools/lsp/org.sixtyfps.SlintVisualEditor.schema.yml \
     -v "git.commit=${current_commit}" \
     -v "git.local=${repo_root}" \
     -v "cargo.profile=${CARGO_PROFILE}" \

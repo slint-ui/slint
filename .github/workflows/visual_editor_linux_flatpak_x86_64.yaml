@@ -39,6 +39,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Restore flatpak-builder state
+        uses: actions/cache@v4
+        with:
+          key: slint-visual-editor-linux-flatpak
+          path: .flatpak-builder
+
       - name: Download ytt
         run: |
           curl -o ${YTT_PATH} ${YTT_URL}
@@ -67,7 +73,6 @@ jobs:
         with:
           bundle: slint-visual-editor.flatpak
           manifest-path: tools/lsp/org.sixtyfps.SlintVisualEditor.yml
-          restore-cache: false
           cache-key: flatpak-builder-${{ github.sha }}
           state-dir: .flatpak-builder
           upload-artifact: true
