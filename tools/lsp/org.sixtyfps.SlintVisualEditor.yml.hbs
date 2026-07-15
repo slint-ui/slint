@@ -30,7 +30,7 @@ modules:
     build-commands:
       - cargo --offline fetch --manifest-path Cargo.toml --verbose
       - cargo build -p slint-lsp --bin slint-visual-editor --profile {{cargo.profile}} --offline --features backend-winit,renderer-skia
-      - install -Dm0755 target/{{val 'profile_dir'}}/slint-visual-editor ${FLATPAK_DEST}/bin/slint-visual-editor"
+      - install -Dm0755 target/{{val 'profile_dir'}}/slint-visual-editor ${FLATPAK_DEST}/bin/slint-visual-editor
       - install -Dm0644 tools/lsp/packaging/linux/SlintVisualEditor-Logo-512x512.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
       - install -Dm0644 tools/lsp/packaging/linux/${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
       - install -Dm0644 tools/lsp/${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
