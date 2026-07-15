@@ -16,7 +16,6 @@ use interpreter::{
 mod api_match;
 mod async_adapter;
 mod brush;
-mod cursor;
 mod errors;
 mod keys;
 mod models;
@@ -224,7 +223,6 @@ fn register_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<value::PyStruct>()?;
     m.add_class::<async_adapter::AsyncAdapter>()?;
     m.add_class::<api_match::PyGeneratedAPI>()?;
-    m.add_class::<cursor::PyMouseCursorInner>()?;
     m.add_function(wrap_pyfunction!(run_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(quit_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(set_xdg_app_id, m)?)?;
