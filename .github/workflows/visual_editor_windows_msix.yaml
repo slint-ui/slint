@@ -22,7 +22,9 @@ permissions:
 env:
   CARGO_INCREMENTAL: false
   SLINT_BUILD_NUMBER: ${{ github.run_number }}
-  SLINT_VISUAL_EDITOR_MSIX_PATH: tools/lsp/slintvisualeditor_0.18.0.0_x64.msix
+  SLINT_VISUAL_EDITOR_MSIX_PATH_PREFIX: tools/lsp/slintvisualeditor_
+  SLINT_VISUAL_EDITOR_MSIX_PATH_SUFFIX: .0_x64.msix
+  SLINT_VISUAL_EDITOR_MSIX_FINAL_PATH: tools/lsp/slintvisualeditor_x64.msix
   SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD: slint-ci-self-signed
 
 jobs:
@@ -87,13 +89,16 @@ jobs:
           $signtool = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
             Sort-Object FullName -Descending |
             Select-Object -First 1 -ExpandProperty FullName
-          $cargoversion = (
-              cargo metadata --manifest-path tools/lsp/Cargo.toml --offline --format-version 1 --no-deps
-            ).packages | where name == "slint-lsp" | select version
+          $cargoversion = cargo metadata --manifest-path tools/lsp/Cargo.toml --offline --format-version 1 --no-deps |
+            ConvertFrom-Json |
+            select -exp packages |
+            where name -eq "slint-lsp" |
+            select -exp version
           if (-not $signtool) {
             throw "signtool.exe was not found in the Windows SDK."
           }
-          Write-Host "Signing $env:SLINT_VISUAL_EDITOR_MSIX_PATH with $signtool"
+          $slintvisualeditor_msixpath = "$env:SLINT_VISUAL_EDITOR_MSIX_PATH_PREFIX$cargoversion$env:SLINT_VISUAL_EDITOR_MSIX_PATH_SUFFIX"
+          Write-Host "Signing $slintvisualeditor_msixpath with $signtool"
           & $signtool sign `
             /fd SHA256 `
             /f "${{ steps.test_certificate.outputs.pfx_path }}" `
@@ -104,12 +109,13 @@ jobs:
             throw "The MSIX does not contain an Authenticode signature."
           }
           Write-Host "Signature status: $($signature.Status)"
+          mv $slintvisualeditor_msixpath $env:SLINT_VISUAL_EDITOR_MSIX_FINAL_PATH
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@v7
         with:
           name: slint-visual-editor-windows-msix
           path: |
-            tools/lsp/slintvisualeditor_0.17.0.0_x64.msix
+            tools/lsp/slintvisualeditor_x64.msix
             slint-visual-editor-self-signed.cer
           if-no-files-found: error
