@@ -514,7 +514,7 @@ TouchArea {
 
 #### Custom shape
 
-To set a custom mouse cursor, provide a `image` and a hotspot. The hotspot determines how the image is positioned relative to the underlying cursor.
+To set a custom mouse cursor, provide an `image` and a hotspot. The hotspot is the point in the image, given in image pixels from the top-left corner, that is aligned with the actual pointer position. It is clamped to the image bounds.
 
 ```slint
 TouchArea {
