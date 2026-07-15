@@ -578,12 +578,27 @@ fn layout(
     let max_width = paragraphs
         .iter()
         .take(visible_paragraph_count)
-        .map(|p| {
+        .enumerate()
+        .map(|(paragraph_index, p)| {
             // The max width is used for the ellipsis computation when eliding text. We *want* to exclude whitespace
             // for that, but we can't at the glyph run level, so the glyph runs always *do* include whitespace glyphs,
             // and as such we must also accept the full width here including trailing whitespace, otherwise text with
             // trailing whitespace will assigned a smaller width for rendering and thus the ellipsis will be placed.
-            PhysicalLength::new(p.layout.full_width())
+            match line_limit_cut {
+                // In the paragraph where the line limit lands, only the kept lines count towards
+                // the width; `full_width()` would also span the dropped lines below the cut. Per
+                // line, mirror parley's `full_width` formula (Slint doesn't use indentation).
+                Some((last_paragraph, last_line)) if paragraph_index == last_paragraph => p
+                    .layout
+                    .lines()
+                    .take(last_line + 1)
+                    .map(|line| {
+                        let metrics = line.metrics();
+                        PhysicalLength::new(metrics.inline_min_coord + metrics.advance)
+                    })
+                    .fold(PhysicalLength::zero(), PhysicalLength::max),
+                _ => PhysicalLength::new(p.layout.full_width()),
+            }
         })
         .fold(PhysicalLength::zero(), PhysicalLength::max);
     // With an active line limit, the height only extends to the bottom of the last kept line, so
@@ -2123,6 +2138,17 @@ mod tests {
             assert_eq!(layout.visible_paragraphs().len(), 3);
             assert_eq!(layout.height, unlimited.height);
         }
+    }
+
+    #[test]
+    fn test_max_lines_caps_preferred_width() {
+        // The cut lands mid-paragraph (a lone CR breaks lines within one paragraph); the
+        // dropped, longer line must not count towards the preferred width, so the layout is
+        // exactly as wide as the kept line alone.
+        let limited = layout_with_max_lines("ab\rlonger", 1);
+        assert_eq!(limited.line_limit_cut, Some((0, 0)));
+        assert!(limited.max_width < layout_text("ab\rlonger").max_width);
+        assert_eq!(limited.max_width, layout_text("ab").max_width);
     }
 
     #[test]
