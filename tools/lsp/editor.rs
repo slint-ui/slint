@@ -293,6 +293,8 @@ async fn lsp_main(
         to_preview,
         pending_recompile: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),
+        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+        preview_ui_settings: None,
     };
 
     // Load the initial document through the compiler. This triggers the import
@@ -422,6 +424,7 @@ fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {
         | TelemetryEvent(..)
         | ConnectRemote { .. }
         | DisconnectRemote
+        | PersistUiSettings { .. }
         | Pong => {
             tracing::debug!("Ignoring message from preview: {msg:?}");
         }

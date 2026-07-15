@@ -6,6 +6,10 @@ import { Uri } from "vscode";
 import * as vscode from "vscode";
 import type { BaseLanguageClient } from "vscode-languageclient";
 
+// The globalState key that holds the opaque preview UI settings blob. Shared
+// with the native preview path so both hosts persist to the same place.
+export const UI_STATE_KEY = "slint.preview.uiState";
+
 let previewPanel: vscode.WebviewPanel | null = null;
 let to_lsp_queue: object[] = [];
 
@@ -95,10 +99,8 @@ function open_preview(context: vscode.ExtensionContext): boolean {
 function getPreviewHtml(
     slint_wasm_preview_url: Uri,
     default_style: string,
+    initial_ui_settings: string,
 ): string {
-    const experimental =
-        typeof process !== "undefined" &&
-        process.env.hasOwnProperty("SLINT_ENABLE_EXPERIMENTAL_FEATURES");
     const result = `<!DOCTYPE html>
 <html lang="en" style="height: 100%; width: 100%;">
 <head>
@@ -149,9 +151,16 @@ function getPreviewHtml(
             vscode.postMessage({ command: "map_url", url: url });
         })},
         "${default_style}",
-        ${experimental ? "true" : "false"},
+        undefined,
         undefined
     );
+
+    // Seed the saved layout here so it is applied before the first paint. The
+    // LSP relays its own RestoreUiSettings too, but that lands after this paint.
+    const initial_ui_settings = ${JSON.stringify(initial_ui_settings)};
+    if (initial_ui_settings.length > 0) {
+        preview_connector.restore_ui_settings(initial_ui_settings);
+    }
 
     window.addEventListener('message', async message => {
         if (message.data.command === "slint/lsp_to_preview") {
@@ -250,9 +259,14 @@ function initPreviewPanel(
     const default_style = vscode.workspace
         .getConfiguration("slint")
         .get("preview.style", "");
+    const initial_ui_settings = context.globalState.get<string>(
+        UI_STATE_KEY,
+        "",
+    );
     panel.webview.html = getPreviewHtml(
         panel.webview.asWebviewUri(lsp_wasm_url),
         default_style,
+        initial_ui_settings,
     );
     panel.onDidDispose(
         () => {

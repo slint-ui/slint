@@ -195,6 +195,7 @@ fn test_goto_definition_multi_files() {
     let mut ctx = crate::language::Context {
         document_cache: dc,
         preview_config: Default::default(),
+        preview_ui_settings: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         to_show: None,

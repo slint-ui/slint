@@ -63,6 +63,27 @@ const commands = new CommandRegistry();
 const url_params = new URLSearchParams(window.location.search);
 const url_style = url_params.get("style");
 
+// The preview owns an opaque JSON settings blob; SlintPad just stores it
+// verbatim. This key namespaces it; the earlier "slintpad-panel-layout" key
+// held a different (panel-only) shape and is intentionally not migrated.
+const UI_SETTINGS_KEY = "slintpad-ui-settings";
+
+function load_ui_settings(): string | null {
+    try {
+        return window.localStorage.getItem(UI_SETTINGS_KEY);
+    } catch (_) {
+        return null;
+    }
+}
+
+function save_ui_settings(settings: string): void {
+    try {
+        window.localStorage.setItem(UI_SETTINGS_KEY, settings);
+    } catch (_) {
+        // Ignore storage failures (e.g. private mode with a full quota).
+    }
+}
+
 function setup(lsp: Lsp) {
     const editor = new EditorWidget(lsp);
     set_panic_share_url_getter(() => editor.share_url());
@@ -79,6 +100,15 @@ function setup(lsp: Lsp) {
                 void editor.copy_permalink_to_clipboard();
             } else if (func_type === SlintPadCallbackFunction.NewFile) {
                 void editor.set_demo("");
+            }
+        },
+        (settings: string) => {
+            save_ui_settings(settings);
+        },
+        (previewer) => {
+            const settings = load_ui_settings();
+            if (settings !== null) {
+                previewer.restore_ui_settings(settings);
             }
         },
     );

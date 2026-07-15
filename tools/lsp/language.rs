@@ -94,6 +94,12 @@ fn create_populate_command(
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn send_state_to_preview(ctx: &Context) {
+    // Restore the UI settings before the content so the panels are laid out
+    // before the first paint.
+    if let Some(settings) = ctx.preview_ui_settings.borrow().clone() {
+        ctx.to_preview.send(&LspToPreviewMessage::RestoreUiSettings { settings });
+    }
+
     let mut doc_count = 0;
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
     let mut fonts_sent = HashSet::<PathBuf>::new();
@@ -269,6 +275,29 @@ pub struct Context {
     /// Disables the host-language rename prompt for the rest of the session.
     /// TODO(#12111): Persist this setting across sessions.
     pub host_language_rename_dont_ask_again: Rc<Cell<bool>>,
+    /// The opaque preview UI settings blob, owned by the LSP for the session and
+    /// seeded into the preview on start. `RefCell` because the preview message
+    /// handler only has a shared `&Context`; the LSP is single-threaded.
+    #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+    pub preview_ui_settings: std::cell::RefCell<Option<String>>,
+}
+
+/// Carries the opaque preview UI settings blob for the `slint/persist_ui_settings`
+/// and `slint/restore_ui_settings` notifications exchanged with the editor host.
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct UiSettingsParams {
+    pub settings: String,
+}
+
+/// LSP -> editor: save the preview UI settings blob to durable storage.
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+pub enum PersistUiSettingsNotification {}
+
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+impl lsp_types::notification::Notification for PersistUiSettingsNotification {
+    type Params = UiSettingsParams;
+    const METHOD: &'static str = "slint/persist_ui_settings";
 }
 
 /// An error from a LSP request
