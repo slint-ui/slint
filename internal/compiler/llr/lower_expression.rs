@@ -95,6 +95,10 @@ pub fn lower_constant_expression(expression: &ConstantExpression) -> llr_Express
     }
 }
 
+/// The body of every non-trivial match arm lives in its own `#[inline(never)]`
+/// helper function: this function recurses for nested expressions, and with all
+/// arm bodies inlined, its stack frame in unoptimized builds becomes so large
+/// that deeply nested expressions overflow the stack.
 pub fn lower_expression(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
@@ -110,26 +114,7 @@ pub fn lower_expression(
         tree_Expression::PropertyReference(nr) => {
             llr_Expression::PropertyReference(ctx.map_property_reference(nr))
         }
-        tree_Expression::ElementReference(e) => {
-            let elem = e.upgrade().unwrap();
-            let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
-            // When within a ShowPopupMenu builtin function, this is a reference to the root of the menu item tree
-            if Rc::ptr_eq(&elem, &enclosing.root_element)
-                && let Some(idx) = ctx
-                    .component
-                    .menu_item_tree
-                    .borrow()
-                    .iter()
-                    .position(|c| Rc::ptr_eq(c, &enclosing))
-            {
-                return llr_Expression::NumberLiteral(idx as _);
-            }
-
-            // We map an element reference to a reference to the property "" inside that native item
-            llr_Expression::PropertyReference(
-                ctx.map_property_reference(&NamedReference::new(&elem, SmolStr::default())),
-            )
-        }
+        tree_Expression::ElementReference(_) => lower_element_reference(expression, ctx),
         tree_Expression::RepeaterIndexReference { element } => llr_Expression::PropertyReference(
             repeater_special_property(element, ctx.component, PropertyIdx::REPEATER_INDEX),
         ),
@@ -160,61 +145,11 @@ pub fn lower_expression(
         tree_Expression::CodeBlock(expr) => {
             llr_Expression::CodeBlock(expr.iter().map(|e| lower_expression(e, ctx)).collect::<_>())
         }
-        tree_Expression::FunctionCall { function, arguments, .. } => match function {
-            Callable::Builtin(BuiltinFunction::RestartTimer) => lower_restart_timer(arguments),
-            Callable::Builtin(BuiltinFunction::ShowPopupWindow) => {
-                lower_show_popup_window(arguments, ctx)
-            }
-            Callable::Builtin(BuiltinFunction::ClosePopupWindow) => {
-                lower_close_popup_window(arguments, ctx)
-            }
-            Callable::Builtin(f) => {
-                let mut arguments =
-                    arguments.iter().map(|e| lower_expression(e, ctx)).collect::<Vec<_>>();
-                // https://github.com/rust-lang/rust-clippy/issues/16191
-                #[allow(clippy::collapsible_if)]
-                if *f == BuiltinFunction::Translate {
-                    if let llr_Expression::Array { output, .. } = &mut arguments[3] {
-                        *output = llr_ArrayOutput::Slice;
-                    }
-                    #[cfg(feature = "bundle-translations")]
-                    if let Some(translation_builder) = ctx.state.translation_builder.as_mut() {
-                        return translation_builder.lower_translate_call(arguments);
-                    }
-                }
-                if *f == BuiltinFunction::ParseMarkdown
-                    && let Some(llr_Expression::Array { output, .. }) = &mut arguments.get_mut(1)
-                {
-                    *output = llr_ArrayOutput::Slice;
-                }
-                llr_Expression::BuiltinFunctionCall { function: f.clone(), arguments }
-            }
-            Callable::Callback(nr) => {
-                let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
-                llr_Expression::CallBackCall { callback: ctx.map_property_reference(nr), arguments }
-            }
-            Callable::Function(nr)
-                if nr
-                    .element()
-                    .borrow()
-                    .native_class()
-                    .is_some_and(|n| n.properties.contains_key(nr.name())) =>
-            {
-                llr_Expression::ItemMemberFunctionCall { function: ctx.map_property_reference(nr) }
-            }
-            Callable::Function(nr) => {
-                let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
-                llr_Expression::FunctionCall { function: ctx.map_property_reference(nr), arguments }
-            }
-        },
+        tree_Expression::FunctionCall { .. } => lower_function_call(expression, ctx),
         tree_Expression::SelfAssignment { lhs, rhs, op, .. } => {
             lower_assignment(lhs, rhs, *op, ctx)
         }
-        tree_Expression::BinaryExpression { lhs, rhs, op } => llr_Expression::BinaryExpression {
-            lhs: Box::new(lower_expression(lhs, ctx)),
-            rhs: Box::new(lower_expression(rhs, ctx)),
-            op: *op,
-        },
+        tree_Expression::BinaryExpression { .. } => lower_binary_expression(expression, ctx),
         tree_Expression::UnaryOp { sub, op } => {
             llr_Expression::UnaryOp { sub: Box::new(lower_expression(sub, ctx)), op: *op }
         }
@@ -224,25 +159,7 @@ pub fn lower_expression(
                 nine_slice: *nine_slice,
             }
         }
-        tree_Expression::Condition { condition, true_expr, false_expr } => {
-            let (true_ty, false_ty) = (true_expr.ty(), false_expr.ty());
-            llr_Expression::Condition {
-                condition: Box::new(lower_expression(condition, ctx)),
-                true_expr: Box::new(lower_expression(true_expr, ctx)),
-                false_expr: if false_ty == Type::Invalid
-                    || false_ty == Type::Void
-                    || true_ty == false_ty
-                {
-                    Box::new(lower_expression(false_expr, ctx))
-                } else {
-                    // Because the type of the Condition is based on the false expression, we need to insert a cast
-                    Box::new(llr_Expression::Cast {
-                        from: Box::new(lower_expression(false_expr, ctx)),
-                        to: Type::Void,
-                    })
-                },
-            }
-        }
+        tree_Expression::Condition { .. } => lower_condition(expression, ctx),
         tree_Expression::Array { element_ty, values } => llr_Expression::Array {
             element_ty: if *element_ty == Type::Void { Type::Int32 } else { element_ty.clone() },
             values: values.iter().map(|e| lower_expression(e, ctx)).collect::<_>(),
@@ -257,84 +174,19 @@ pub fn lower_expression(
         },
         tree_Expression::PathData(data) => compile_path(data, ctx),
         tree_Expression::EasingCurve(x) => llr_Expression::EasingCurve(x.clone()),
-        tree_Expression::MouseCursor(cursor) => llr_Expression::MouseCursor(match cursor {
-            MouseCursorInner::BuiltIn(expression) => {
-                crate::llr::MouseCursorInner::BuiltIn(Box::new(lower_expression(expression, ctx)))
-            }
-            MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
-                crate::llr::MouseCursorInner::CustomMouseCursor {
-                    image: Box::new(lower_expression(image, ctx)),
-                    hotspot_x: Box::new(lower_expression(hotspot_x, ctx)),
-                    hotspot_y: Box::new(lower_expression(hotspot_y, ctx)),
-                }
-            }
-        }),
-        tree_Expression::LinearGradient { angle, stops } => llr_Expression::LinearGradient {
-            angle: Box::new(lower_expression(angle, ctx)),
-            stops: stops
-                .iter()
-                .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
-                .collect::<_>(),
-        },
-        tree_Expression::RadialGradient { center, radius, stops } => {
-            llr_Expression::RadialGradient {
-                center: center.as_ref().map(|(cx, cy)| {
-                    (Box::new(lower_expression(cx, ctx)), Box::new(lower_expression(cy, ctx)))
-                }),
-                radius: radius.as_ref().map(|r| Box::new(lower_expression(r, ctx))),
-                stops: stops
-                    .iter()
-                    .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
-                    .collect::<_>(),
-            }
-        }
-        tree_Expression::ConicGradient { from_angle, center, stops } => {
-            llr_Expression::ConicGradient {
-                from_angle: Box::new(lower_expression(from_angle, ctx)),
-                center: center.as_ref().map(|(cx, cy)| {
-                    (Box::new(lower_expression(cx, ctx)), Box::new(lower_expression(cy, ctx)))
-                }),
-                stops: stops
-                    .iter()
-                    .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
-                    .collect::<_>(),
-            }
-        }
+        tree_Expression::MouseCursor(_) => lower_mouse_cursor(expression, ctx),
+        tree_Expression::LinearGradient { .. } => lower_linear_gradient(expression, ctx),
+        tree_Expression::RadialGradient { .. } => lower_radial_gradient(expression, ctx),
+        tree_Expression::ConicGradient { .. } => lower_conic_gradient(expression, ctx),
         tree_Expression::EnumerationValue(e) => llr_Expression::EnumerationValue(e.clone()),
         tree_Expression::Keys(ks) => llr_Expression::KeysLiteral(ks.clone()),
         tree_Expression::ReturnStatement(..) => {
             panic!("The remove return pass should have removed all return")
         }
-        tree_Expression::LayoutCacheAccess {
-            layout_cache_prop,
-            index,
-            repeater_index,
-            entries_per_item,
-        } => llr_Expression::LayoutCacheAccess {
-            layout_cache_prop: ctx.map_property_reference(layout_cache_prop),
-            index: *index,
-            repeater_index: repeater_index.as_ref().map(|e| lower_expression(e, ctx).into()),
-            entries_per_item: *entries_per_item,
-        },
-        tree_Expression::GridRepeaterCacheAccess {
-            layout_cache_prop,
-            index,
-            repeater_index,
-            stride,
-            child_offset,
-            inner_repeater_index,
-            entries_per_item,
-        } => llr_Expression::GridRepeaterCacheAccess {
-            layout_cache_prop: ctx.map_property_reference(layout_cache_prop),
-            index: *index,
-            repeater_index: lower_expression(repeater_index, ctx).into(),
-            stride: lower_expression(stride, ctx).into(),
-            child_offset: *child_offset,
-            inner_repeater_index: inner_repeater_index
-                .as_ref()
-                .map(|e| lower_expression(e, ctx).into()),
-            entries_per_item: *entries_per_item,
-        },
+        tree_Expression::LayoutCacheAccess { .. } => lower_layout_cache_access(expression, ctx),
+        tree_Expression::GridRepeaterCacheAccess { .. } => {
+            lower_grid_repeater_cache_access(expression, ctx)
+        }
         tree_Expression::OrganizeGridLayout(l) => organize_grid_layout(l, ctx),
         tree_Expression::ComputeBoxLayoutInfo { layout, orientation, cross_axis_size } => {
             compute_box_layout_info(layout, *orientation, ctx, cross_axis_size.as_deref())
@@ -368,6 +220,261 @@ pub fn lower_expression(
         tree_Expression::EmptyComponentFactory => llr_Expression::EmptyComponentFactory,
         tree_Expression::EmptyDataTransfer => llr_Expression::EmptyDataTransfer,
         tree_Expression::DebugHook { expression, .. } => lower_expression(expression, ctx),
+    }
+}
+
+#[inline(never)]
+fn lower_binary_expression(
+    expression: &tree_Expression,
+    ctx: &mut ExpressionLoweringCtx<'_>,
+) -> llr_Expression {
+    // Long chains of binary operators, such as `a && b && c && ...`, nest on the
+    // left side. Iterate that spine instead of recursing into it, so that the
+    // stack depth stays bounded no matter how long the chain is.
+    let mut spine = Vec::new();
+    let mut node = expression;
+    while let tree_Expression::BinaryExpression { lhs, rhs, op } = node {
+        spine.push((rhs, *op));
+        node = lhs;
+    }
+    let mut result = lower_expression(node, ctx);
+    for (rhs, op) in spine.into_iter().rev() {
+        result = llr_Expression::BinaryExpression {
+            lhs: Box::new(result),
+            rhs: Box::new(lower_expression(rhs, ctx)),
+            op,
+        };
+    }
+    result
+}
+
+#[inline(never)]
+fn lower_element_reference(
+    expression: &tree_Expression,
+    ctx: &mut ExpressionLoweringCtx<'_>,
+) -> llr_Expression {
+    let tree_Expression::ElementReference(e) = expression else { unreachable!() };
+    let elem = e.upgrade().unwrap();
+    let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
+    // When within a ShowPopupMenu builtin function, this is a reference to the root of the menu item tree
+    if Rc::ptr_eq(&elem, &enclosing.root_element)
+        && let Some(idx) =
+            ctx.component.menu_item_tree.borrow().iter().position(|c| Rc::ptr_eq(c, &enclosing))
+    {
+        return llr_Expression::NumberLiteral(idx as _);
+    }
+
+    // We map an element reference to a reference to the property "" inside that native item
+    llr_Expression::PropertyReference(
+        ctx.map_property_reference(&NamedReference::new(&elem, SmolStr::default())),
+    )
+}
+
+#[inline(never)]
+fn lower_function_call(
+    expression: &tree_Expression,
+    ctx: &mut ExpressionLoweringCtx<'_>,
+) -> llr_Expression {
+    let tree_Expression::FunctionCall { function, arguments, .. } = expression else {
+        unreachable!()
+    };
+    match function {
+        Callable::Builtin(BuiltinFunction::RestartTimer) => lower_restart_timer(arguments),
+        Callable::Builtin(BuiltinFunction::ShowPopupWindow) => {
+            lower_show_popup_window(arguments, ctx)
+        }
+        Callable::Builtin(BuiltinFunction::ClosePopupWindow) => {
+            lower_close_popup_window(arguments, ctx)
+        }
+        Callable::Builtin(f) => {
+            let mut arguments =
+                arguments.iter().map(|e| lower_expression(e, ctx)).collect::<Vec<_>>();
+            // https://github.com/rust-lang/rust-clippy/issues/16191
+            #[allow(clippy::collapsible_if)]
+            if *f == BuiltinFunction::Translate {
+                if let llr_Expression::Array { output, .. } = &mut arguments[3] {
+                    *output = llr_ArrayOutput::Slice;
+                }
+                #[cfg(feature = "bundle-translations")]
+                if let Some(translation_builder) = ctx.state.translation_builder.as_mut() {
+                    return translation_builder.lower_translate_call(arguments);
+                }
+            }
+            if *f == BuiltinFunction::ParseMarkdown
+                && let Some(llr_Expression::Array { output, .. }) = &mut arguments.get_mut(1)
+            {
+                *output = llr_ArrayOutput::Slice;
+            }
+            llr_Expression::BuiltinFunctionCall { function: f.clone(), arguments }
+        }
+        Callable::Callback(nr) => {
+            let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
+            llr_Expression::CallBackCall { callback: ctx.map_property_reference(nr), arguments }
+        }
+        Callable::Function(nr)
+            if nr
+                .element()
+                .borrow()
+                .native_class()
+                .is_some_and(|n| n.properties.contains_key(nr.name())) =>
+        {
+            llr_Expression::ItemMemberFunctionCall { function: ctx.map_property_reference(nr) }
+        }
+        Callable::Function(nr) => {
+            let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
+            llr_Expression::FunctionCall { function: ctx.map_property_reference(nr), arguments }
+        }
+    }
+}
+
+#[inline(never)]
+fn lower_condition(
+    expression: &tree_Expression,
+    ctx: &mut ExpressionLoweringCtx<'_>,
+) -> llr_Expression {
+    let tree_Expression::Condition { condition, true_expr, false_expr } = expression else {
+        unreachable!()
+    };
+    let (true_ty, false_ty) = (true_expr.ty(), false_expr.ty());
+    llr_Expression::Condition {
+        condition: Box::new(lower_expression(condition, ctx)),
+        true_expr: Box::new(lower_expression(true_expr, ctx)),
+        false_expr: if false_ty == Type::Invalid || false_ty == Type::Void || true_ty == false_ty {
+            Box::new(lower_expression(false_expr, ctx))
+        } else {
+            // Because the type of the Condition is based on the false expression, we need to insert a cast
+            Box::new(llr_Expression::Cast {
+                from: Box::new(lower_expression(false_expr, ctx)),
+                to: Type::Void,
+            })
+        },
+    }
+}
+
+#[inline(never)]
+fn lower_mouse_cursor(
+    expression: &tree_Expression,
+    ctx: &mut ExpressionLoweringCtx<'_>,
+) -> llr_Expression {
+    let tree_Expression::MouseCursor(cursor) = expression else { unreachable!() };
+    llr_Expression::MouseCursor(match cursor {
+        MouseCursorInner::BuiltIn(expression) => {
+            crate::llr::MouseCursorInner::BuiltIn(Box::new(lower_expression(expression, ctx)))
+        }
+        MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+            crate::llr::MouseCursorInner::CustomMouseCursor {
+                image: Box::new(lower_expression(image, ctx)),
+                hotspot_x: Box::new(lower_expression(hotspot_x, ctx)),
+                hotspot_y: Box::new(lower_expression(hotspot_y, ctx)),
+            }
+        }
+    })
+}
+
+#[inline(never)]
+fn lower_linear_gradient(
+    expression: &tree_Expression,
+    ctx: &mut ExpressionLoweringCtx<'_>,
+) -> llr_Expression {
+    let tree_Expression::LinearGradient { angle, stops } = expression else { unreachable!() };
+    llr_Expression::LinearGradient {
+        angle: Box::new(lower_expression(angle, ctx)),
+        stops: stops
+            .iter()
+            .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
+            .collect::<_>(),
+    }
+}
+
+#[inline(never)]
+fn lower_radial_gradient(
+    expression: &tree_Expression,
+    ctx: &mut ExpressionLoweringCtx<'_>,
+) -> llr_Expression {
+    let tree_Expression::RadialGradient { center, radius, stops } = expression else {
+        unreachable!()
+    };
+    llr_Expression::RadialGradient {
+        center: center.as_ref().map(|(cx, cy)| {
+            (Box::new(lower_expression(cx, ctx)), Box::new(lower_expression(cy, ctx)))
+        }),
+        radius: radius.as_ref().map(|r| Box::new(lower_expression(r, ctx))),
+        stops: stops
+            .iter()
+            .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
+            .collect::<_>(),
+    }
+}
+
+#[inline(never)]
+fn lower_conic_gradient(
+    expression: &tree_Expression,
+    ctx: &mut ExpressionLoweringCtx<'_>,
+) -> llr_Expression {
+    let tree_Expression::ConicGradient { from_angle, center, stops } = expression else {
+        unreachable!()
+    };
+    llr_Expression::ConicGradient {
+        from_angle: Box::new(lower_expression(from_angle, ctx)),
+        center: center.as_ref().map(|(cx, cy)| {
+            (Box::new(lower_expression(cx, ctx)), Box::new(lower_expression(cy, ctx)))
+        }),
+        stops: stops
+            .iter()
+            .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
+            .collect::<_>(),
+    }
+}
+
+#[inline(never)]
+fn lower_layout_cache_access(
+    expression: &tree_Expression,
+    ctx: &mut ExpressionLoweringCtx<'_>,
+) -> llr_Expression {
+    let tree_Expression::LayoutCacheAccess {
+        layout_cache_prop,
+        index,
+        repeater_index,
+        entries_per_item,
+    } = expression
+    else {
+        unreachable!()
+    };
+    llr_Expression::LayoutCacheAccess {
+        layout_cache_prop: ctx.map_property_reference(layout_cache_prop),
+        index: *index,
+        repeater_index: repeater_index.as_ref().map(|e| lower_expression(e, ctx).into()),
+        entries_per_item: *entries_per_item,
+    }
+}
+
+#[inline(never)]
+fn lower_grid_repeater_cache_access(
+    expression: &tree_Expression,
+    ctx: &mut ExpressionLoweringCtx<'_>,
+) -> llr_Expression {
+    let tree_Expression::GridRepeaterCacheAccess {
+        layout_cache_prop,
+        index,
+        repeater_index,
+        stride,
+        child_offset,
+        inner_repeater_index,
+        entries_per_item,
+    } = expression
+    else {
+        unreachable!()
+    };
+    llr_Expression::GridRepeaterCacheAccess {
+        layout_cache_prop: ctx.map_property_reference(layout_cache_prop),
+        index: *index,
+        repeater_index: lower_expression(repeater_index, ctx).into(),
+        stride: lower_expression(stride, ctx).into(),
+        child_offset: *child_offset,
+        inner_repeater_index: inner_repeater_index
+            .as_ref()
+            .map(|e| lower_expression(e, ctx).into()),
+        entries_per_item: *entries_per_item,
     }
 }
 

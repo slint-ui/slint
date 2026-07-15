@@ -314,6 +314,17 @@ pub enum Expression {
     },
 }
 
+/// The type of a binary expression with the given operator:
+/// comparison and logic operators produce a bool,
+/// while the arithmetic operators keep the type of the left operand
+pub fn binary_expression_ty(op: char, lhs_ty: impl FnOnce() -> Type) -> Type {
+    if crate::expression_tree::operator_class(op) != OperatorClass::ArithmeticOp {
+        Type::Bool
+    } else {
+        lhs_ty()
+    }
+}
+
 impl Expression {
     pub fn default_value_for_type(ty: &Type) -> Option<Self> {
         Some(match ty {
@@ -425,13 +436,7 @@ impl Expression {
             Self::ModelDataAssignment { .. } => Type::Void,
             Self::ArrayIndexAssignment { .. } => Type::Void,
             Self::SliceIndexAssignment { .. } => Type::Void,
-            Self::BinaryExpression { lhs, rhs: _, op } => {
-                if crate::expression_tree::operator_class(*op) != OperatorClass::ArithmeticOp {
-                    Type::Bool
-                } else {
-                    lhs.ty(ctx)
-                }
-            }
+            Self::BinaryExpression { lhs, rhs: _, op } => binary_expression_ty(*op, || lhs.ty(ctx)),
             Self::UnaryOp { sub, .. } => sub.ty(ctx),
             Self::ImageReference { .. } => Type::Image,
             Self::Condition { false_expr, .. } => false_expr.ty(ctx),
