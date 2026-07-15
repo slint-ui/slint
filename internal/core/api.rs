@@ -24,7 +24,7 @@ pub use crate::sharedvector::SharedVector;
 pub use crate::{format, string::SharedString, string::ToSharedString};
 
 /// Result of dispatching a window event through Slint's runtime with [Window::dispatch_event_with_result].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum WindowEventDispatchResult {
     /// The event was handled. For example, a key handler consumed a key press, or
