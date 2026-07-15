@@ -22,7 +22,7 @@ permissions:
 env:
   CARGO_INCREMENTAL: false
   SLINT_BUILD_NUMBER: ${{ github.run_number }}
-  SLINT_VISUAL_EDITOR_MSIX_PATH: tools/lsp/slintvisualeditor_0.17.0.0_x64.msix
+  SLINT_VISUAL_EDITOR_MSIX_PATH: tools/lsp/slintvisualeditor_0.18.0.0_x64.msix
   SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD: slint-ci-self-signed
 
 jobs:
@@ -39,9 +39,6 @@ jobs:
         with:
           key: visual-editor-windows-msix
           save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
-
-      - name: Install Windows Rust target
-        run: rustup target add x86_64-pc-windows-msvc
 
       - uses: microsoft/setup-WinAppCli@v0.1
 

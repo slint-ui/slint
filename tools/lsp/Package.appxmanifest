@@ -14,7 +14,7 @@
   <Identity
         Name="slintvisualeditor"
         Publisher="CN=sixtyfps"
-        Version="0.17.0.0"
+        Version="0.18.0.0"
     />
   <Properties>
     <DisplayName>Slint Visual Editor</DisplayName>
@@ -39,16 +39,14 @@
             EntryPoint="Windows.FullTrustApplication"
         >
       <uap:VisualElements
-                DisplayName="slintvisualeditor"
-                Description="Windows Application"
+                DisplayName="Slint Visual Editor"
+                Description="The graphical editor for the Slint UI description language"
                 BackgroundColor="transparent"
                 Square150x150Logo="Assets\MedTile.png"
                 Square44x44Logo="Assets\AppList.png"
             >
         <uap:DefaultTile Wide310x150Logo="Assets\WideTile.png" />
       </uap:VisualElements>
-      <Extensions>
-      </Extensions>
     </Application>
   </Applications>
   <Capabilities>
