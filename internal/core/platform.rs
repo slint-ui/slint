@@ -353,6 +353,8 @@ pub enum WindowEvent {
         delta_y: f32,
     },
     /// The pointer exited the window.
+    ///
+    /// Always reported as [`Accepted`](crate::api::WindowEventDispatchResult::Accepted).
     PointerExited,
     /// A key was pressed.
     KeyPressed {
