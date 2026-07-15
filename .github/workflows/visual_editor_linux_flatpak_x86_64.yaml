@@ -34,9 +34,6 @@ jobs:
       CARGO_PROFILE: package-release
       FLATPAK_CARGO_GENERATOR_URL: https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/737c0085912f9f7dabf9341d4608e2a77a51a73a/cargo/flatpak-cargo-generator.py
       FLATPAK_CARGO_GENERATOR_PATH: /tmp/flatpak-cargo-generator.py
-      YTT_PATH: /tmp/ytt
-      YTT_URL: https://github.com/carvel-dev/ytt/releases/download/v0.55.1/ytt-linux-amd64
-      YTT_CHECKSUM: 3a2c925ed222f8db4956946d40279688edd6ceb3e919f03f919a8fc8b8532eda
     steps:
       - uses: actions/checkout@v6
 
@@ -45,12 +42,6 @@ jobs:
         with:
           key: slint-visual-editor-linux-flatpak
           path: .flatpak-builder
-
-      - name: Download ytt
-        run: |
-          curl -s -L "${YTT_URL}" -o "${YTT_PATH}"
-          echo "${YTT_CHECKSUM}  ${YTT_PATH}" | sha256sum -c -
-          chmod +x "${YTT_PATH}"
 
       - name: Download flatpak helper script + dependencies
         run: |
