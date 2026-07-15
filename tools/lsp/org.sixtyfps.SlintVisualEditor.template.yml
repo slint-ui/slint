@@ -15,7 +15,7 @@
 #@ assert.not_null(data.values.git.commit)
 #@ assert.not_null(data.values.cargo.sources)
 
-app-id: org.sixtyfps.SlintVisualEditor
+id: org.sixtyfps.SlintVisualEditor
 runtime: org.freedesktop.Platform
 runtime-version: "25.08"
 sdk: org.freedesktop.Sdk
