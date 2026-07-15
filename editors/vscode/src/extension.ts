@@ -238,11 +238,17 @@ function startClient(
         );
 
         // The native preview persists its UI settings through the LSP: store
-        // the opaque blob in the same globalState key the WASM preview uses.
+        // the opaque blob in the same globalState key the WASM preview uses, and
+        // echo it back so the LSP keeps its in-memory copy current. Without the
+        // echo the LSP only learns the settings on startup, so reopening the
+        // preview in the same session would restore a stale (or empty) layout.
         cl?.onNotification(
             new NotificationType("slint/persist_ui_settings"),
             (params: any) => {
                 context.globalState.update(UI_STATE_KEY, params.settings);
+                cl.sendNotification("slint/restore_ui_settings", {
+                    settings: params.settings,
+                });
             },
         );
     });
