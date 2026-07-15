@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readdirSync, unlinkSync } from "node:fs";
 import * as vscode from "vscode";
 import { SlintTelemetrySender } from "./telemetry";
 import * as common from "./common";
+import { UI_STATE_KEY } from "./wasm_preview";
 import { NotificationType } from "vscode-languageclient";
 
 import {
@@ -235,6 +236,15 @@ function startClient(
                 handleTelemetryEvent(params.type, context.globalState);
             },
         );
+
+        // The native preview persists its UI settings through the LSP: store
+        // the opaque blob in the same globalState key the WASM preview uses.
+        cl?.onNotification(
+            new NotificationType("slint/persist_ui_settings"),
+            (params: any) => {
+                context.globalState.update(UI_STATE_KEY, params.settings);
+            },
+        );
     });
 
     const cl = new LanguageClient(
@@ -246,7 +256,18 @@ function startClient(
 
     common.prepare_client(cl);
 
-    cl.start().then(() => (client.client = cl));
+    cl.start().then(() => {
+        client.client = cl;
+
+        // Seed the preview UI settings persisted from an earlier session so the
+        // next native preview start can restore its panel layout.
+        const stored = context.globalState.get<string>(UI_STATE_KEY, "");
+        if (stored.length > 0) {
+            cl.sendNotification("slint/restore_ui_settings", {
+                settings: stored,
+            });
+        }
+    });
 }
 
 export function activate(context: vscode.ExtensionContext) {

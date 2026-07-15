@@ -50,4 +50,11 @@ pub enum PreviewToLspMessage {
     /// Answer to [`super::LspToPreviewMessage::Ping`], consumed by the LSP's
     /// WebSocket connector.
     Pong,
+    /// Persist the opaque preview UI settings blob. The LSP forwards it to the
+    /// editor host, which stores it so it can be restored in a later session
+    /// via [`super::LspToPreviewMessage::RestoreUiSettings`].
+    ///
+    /// Appended at the end of the enum to keep the postcard discriminants of
+    /// the existing variants stable for the remote-preview wire format.
+    PersistUiSettings { settings: String },
 }

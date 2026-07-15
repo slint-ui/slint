@@ -94,6 +94,13 @@ fn create_populate_command(
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn send_state_to_preview(ctx: &Context) {
+    // Seed any persisted UI settings first so the preview restores its panel
+    // layout before the first paint. Only the native host populates this; the
+    // WASM webview persists directly in the editor and leaves it None.
+    if let Some(settings) = ctx.preview_ui_settings.clone() {
+        ctx.to_preview.send(&LspToPreviewMessage::RestoreUiSettings { settings });
+    }
+
     let mut doc_count = 0;
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
     let mut fonts_sent = HashSet::<PathBuf>::new();
@@ -269,6 +276,10 @@ pub struct Context {
     /// Disables the host-language rename prompt for the rest of the session.
     /// TODO(#12111): Persist this setting across sessions.
     pub host_language_rename_dont_ask_again: Rc<Cell<bool>>,
+    /// The opaque preview UI settings blob the editor host persisted from an
+    /// earlier session, seeded into the preview when it requests its state.
+    #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+    pub preview_ui_settings: Option<String>,
 }
 
 /// An error from a LSP request

@@ -536,6 +536,8 @@ async fn run_main_loop(
         to_preview,
         pending_recompile: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),
+        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+        preview_ui_settings: None,
     };
 
     let connection = Arc::new(connection);
@@ -775,6 +777,15 @@ async fn handle_notification(
         "slint/preview_to_lsp" => {
             handle_preview_to_lsp_message(serde_json::from_value(req.params)?, ctx).await
         }
+
+        // The editor seeds the preview UI settings it persisted from an earlier
+        // session; store them so the next preview start can restore them.
+        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+        "slint/restore_ui_settings" => {
+            let params: UiSettingsParams = serde_json::from_value(req.params)?;
+            ctx.preview_ui_settings = Some(params.settings);
+            Ok(())
+        }
         _ => Ok(()),
     }
 }
@@ -799,6 +810,26 @@ async fn send_workspace_edit(
             .into());
     }
     Ok(())
+}
+
+/// Params for the `slint/persist_ui_settings` and `slint/restore_ui_settings`
+/// custom notifications exchanged with the editor host, carrying the opaque
+/// preview UI settings blob.
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+#[derive(serde::Serialize, serde::Deserialize)]
+struct UiSettingsParams {
+    settings: String,
+}
+
+/// LSP -> editor: persist the opaque preview UI settings blob. The editor
+/// stores it and seeds it back via `slint/restore_ui_settings`.
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+enum PersistUiSettingsNotification {}
+
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+impl Notification for PersistUiSettingsNotification {
+    type Params = UiSettingsParams;
+    const METHOD: &'static str = "slint/persist_ui_settings";
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
@@ -869,6 +900,12 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
             if let Some(remote) = ctx.to_preview.remote() {
                 crate::common::spawn_local(remote.disconnect());
             }
+        }
+        M::PersistUiSettings { settings } => {
+            tracing::debug!("Preview asked to persist UI settings");
+            ctx.server_notifier.send_notification::<PersistUiSettingsNotification>(
+                UiSettingsParams { settings },
+            )?;
         }
         M::Pong => {
             // The remote connector consumes pongs; local previews never send them.

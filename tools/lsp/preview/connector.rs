@@ -105,6 +105,16 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         M::RemoteConnectionState { state, target, error } => {
             preview::set_remote_connection_state(state, target, error);
         }
+        M::RestoreUiSettings { settings } => {
+            // Upgrade and drop the PREVIEW_STATE borrow before applying: setting
+            // the panel properties fires panels-layout-changed, whose handler
+            // borrows PREVIEW_STATE again and would otherwise panic.
+            let api =
+                preview::PREVIEW_STATE.with_borrow(|preview_state| preview_state.api.upgrade());
+            if let Some(api) = api {
+                apply_ui_settings_to_api(&api, &settings);
+            }
+        }
         M::Quit => {
             tracing::debug!("Preview: Quit requested");
             #[cfg(not(target_arch = "wasm32"))]

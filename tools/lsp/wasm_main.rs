@@ -295,6 +295,7 @@ pub fn create(
             to_preview,
             pending_recompile: Default::default(),
             host_language_rename_dont_ask_again: Default::default(),
+            preview_ui_settings: None,
         }),
         rh: Rc::new(rh),
     })
@@ -390,6 +391,11 @@ impl SlintServer {
             }
             M::ConnectRemote { .. } | M::DisconnectRemote | M::Pong => {
                 tracing::debug!("Ignoring remote-preview control message in WASM LSP");
+            }
+            M::PersistUiSettings { .. } => {
+                // The WASM webview persists its UI settings directly in the
+                // editor host, so the WASM LSP never sees this.
+                tracing::debug!("Ignoring PersistUiSettings in WASM LSP");
             }
         }
         Ok(())

@@ -236,6 +236,31 @@ pub fn create_ui(
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
     super::remote::setup(&app_window, to_lsp);
 
+    // Persist the preview UI settings on the native hosts. The WASM connector
+    // wires its own panels handler (persisting through the JS host), so this
+    // only runs off the WASM target.
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let lsp = to_lsp.clone();
+        let api_weak = app_window.api_weak();
+        api.on_panels_layout_changed(move || {
+            let Some(api) = api_weak.upgrade() else {
+                return;
+            };
+            let settings = preview::connector::serialize_ui_settings(
+                api.get_panel_library_open(),
+                api.get_panel_properties_open(),
+                api.get_panel_outline_open(),
+                api.get_panel_data_open(),
+                api.get_panel_console_open(),
+            );
+            let _ =
+                lsp.send(&i_slint_live_preview::protocol::PreviewToLspMessage::PersistUiSettings {
+                    settings,
+                });
+        });
+    }
+
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());
 
