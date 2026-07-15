@@ -366,6 +366,11 @@ pub trait RenderString: HasFont {
     fn max_lines(self: Pin<&Self>) -> i32 {
         0
     }
+    /// The maximum number of lines to lay out and render, from the `max-lines` property.
+    /// Property values less than or equal to zero mean no limit.
+    fn line_limit(self: Pin<&Self>) -> Option<usize> {
+        usize::try_from(self.max_lines()).ok().filter(|max_lines| *max_lines > 0)
+    }
 }
 
 /// Trait for an item that represents an Text towards the renderer

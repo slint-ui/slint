@@ -63,10 +63,6 @@ type PhysicalSize = euclid::Size2D<i16, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 type PhysicalBorderRadius = BorderRadius<i16, PhysicalPx>;
 
-fn normalized_max_lines(max_lines: i32) -> Option<usize> {
-    usize::try_from(max_lines).ok().filter(|max_lines| *max_lines > 0)
-}
-
 pub use i_slint_core::partial_renderer::RepaintBufferType;
 
 /// This enum describes the rotation that should be applied to the contents rendered by the software renderer.
@@ -834,7 +830,7 @@ impl RendererSealed for SoftwareRenderer {
             .unwrap_or_default();
         }
 
-        let max_lines = normalized_max_lines(text_item.max_lines());
+        let max_lines = text_item.line_limit();
         let string = match &content {
             PlainOrStyledText::Plain(string) => alloc::borrow::Cow::Borrowed(string.as_str()),
             PlainOrStyledText::Styled(styled_text) => {
@@ -2815,7 +2811,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
 
         let (horizontal_alignment, vertical_alignment) = text.alignment();
-        let max_lines = normalized_max_lines(text.max_lines());
+        let max_lines = text.line_limit();
 
         match &font {
             fonts::Font::PixelFont(pf) => {
