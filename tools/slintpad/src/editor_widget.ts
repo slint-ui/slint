@@ -511,7 +511,12 @@ export class EditorWidget extends Widget {
         const absolute_uri = monaco.Uri.parse(js_url.toString());
         const mapped_uri =
             this.#url_mapper?.from_internal(absolute_uri) ?? absolute_uri;
-        const mapped_string = mapped_uri.toString();
+        // A `data:` URL carries base64 in its path; the default `toString()` percent-encodes
+        // `;`, `,`, `+` and `=`, which corrupts it. Keep such URLs verbatim.
+        const mapped_string =
+            mapped_uri.scheme === "data"
+                ? mapped_uri.toString(true)
+                : mapped_uri.toString();
 
         if (is_internal_uri(mapped_uri)) {
             const file = file_from_internal_uri(mapped_uri);
