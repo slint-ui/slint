@@ -34,8 +34,7 @@ jobs:
       CARGO_PROFILE: package-release
       FLATPAK_CARGO_GENERATOR_URL: https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/737c0085912f9f7dabf9341d4608e2a77a51a73a/cargo/flatpak-cargo-generator.py
       FLATPAK_CARGO_GENERATOR_PATH: /tmp/flatpak-cargo-generator.py
-      YTT_URL: https://github.com/carvel-dev/ytt/releases/download/v0.55.1/ytt-linux-amd64
-      YTT_PATH: /tmp/ytt
+      YTT_PATH: /tmp/carvel/ytt
     steps:
       - uses: actions/checkout@v6
 
@@ -47,8 +46,7 @@ jobs:
 
       - name: Download ytt
         run: |
-          curl -o ${YTT_PATH} ${YTT_URL}
-          chmod +x ${YTT_PATH}
+          curl -L https://carvel.dev/install.sh | K14SIO_INSTALL_BIN_DIR=/tmp/carvel bash
 
       - name: Download flatpak helper script + dependencies
         run: |
