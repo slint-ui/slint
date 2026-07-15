@@ -25,17 +25,21 @@ use windows::Win32::System::IO::{
 };
 use windows::Win32::System::WindowsProgramming::PUBLIC_OBJECT_TYPE_INFORMATION;
 
-/// Byte offset of the `iocp` field in `uv_loop_s`, given libuv's
-/// `UV_VERSION_HEX`, or `None` for unknown layouts.
-///
-/// The offset only depends on the struct's public prefix, which is
-/// frozen for ABI compatibility. x64 and arm64 share one layout.
-/// Deliberately not bounded above: [`find_iocp`] validates the handle
-/// at runtime, and an upper bound would disable the integration on
-/// every libuv upgrade.
+/// Byte offset of the `iocp` field in `uv_loop_s` for the given libuv
+/// `UV_VERSION_HEX`, or `None` when the layout is unknown.
 fn iocp_offset(uv_version: u32) -> Option<usize> {
     const V1_38_0: u32 = 0x01_2600;
-    (uv_version >= V1_38_0).then_some(if cfg!(target_pointer_width = "64") { 56 } else { 28 })
+    if uv_version < V1_38_0 {
+        return None;
+    }
+    // Only architectures with a verified layout; the rest fall back to polling.
+    if cfg!(any(target_arch = "x86_64", target_arch = "aarch64")) {
+        Some(56)
+    } else if cfg!(target_arch = "x86") {
+        Some(28)
+    } else {
+        None
+    }
 }
 
 /// Locate libuv's I/O completion port inside the loop struct.
@@ -148,6 +152,8 @@ fn watcher_thread(iocp: usize, arm_rx: Receiver<u32>, ready: Arc<AtomicBool>) {
         // The call yields a packet if it succeeded, or if it failed
         // with a non-null OVERLAPPED (completion of a failed I/O).
         if ok.is_ok() || !overlapped.is_null() {
+            // Put the packet back so libuv reads the I/O's final status on
+            // the main thread; we only peeked to learn that work is ready.
             let over = (!overlapped.is_null()).then_some(overlapped as *const OVERLAPPED);
             let _ = unsafe { PostQueuedCompletionStatus(iocp, bytes, key, over) };
             ready.store(true, Ordering::Release);
