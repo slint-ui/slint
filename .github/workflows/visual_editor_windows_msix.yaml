@@ -88,7 +88,7 @@ jobs:
         # First two lines are weird but PowerShell is really finicky about when it'll allow globbing
         run: |
           [string]$icons = $nothing
-          ls tools/lsp/packaging/windows-appx/SlintVisualEditor-Logo-*.png | % { $icons += $_.fullname + $delimiter }
+          ls tools/lsp/packaging/windows-appx/SlintVisualEditor-Logo-*.png | % { $icons += $_.fullname + " " }
           New-Item -ItemType Directory -Force tools/lsp/dist | Out-Null
           New-Item -ItemType Directory -Force tools/lsp/dist/Assets | Out-Null
           Copy-Item $icons tools/lsp/dist/Assets/
