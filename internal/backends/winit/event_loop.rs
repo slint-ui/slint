@@ -728,9 +728,8 @@ impl EventLoopState {
     ) {
         // If there is a new custom cursor, update it.
         let custom_cursor_source = window.custom_cursor_source.take();
-        if let Some(source) = custom_cursor_source {
-            let custom_cursor = event_loop.create_custom_cursor(source);
-            window.winit_window().unwrap().set_cursor(custom_cursor);
+        if let (Some(source), Some(winit_window)) = (custom_cursor_source, window.winit_window()) {
+            winit_window.set_cursor(event_loop.create_custom_cursor(source));
         }
     }
 

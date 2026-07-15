@@ -831,7 +831,24 @@ impl Image {
     /// Returns the pixel buffer for the Image if available in RGBA format.
     /// Returns None if the pixels cannot be obtained, for example when the image was created from borrowed OpenGL textures.
     pub fn to_rgba8(&self) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
-        self.0.render_to_buffer(None).map(|image| match image {
+        self.render_to_rgba8(None)
+    }
+
+    /// Same as [`Self::to_rgba8`], but scalable sources (such as SVGs) are rasterized to
+    /// `target_size` (in physical pixels) instead of their intrinsic size.
+    /// Returns None if the pixels cannot be obtained.
+    pub fn to_rgba8_with_target_size(
+        &self,
+        target_size: IntSize,
+    ) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+        self.render_to_rgba8(Some(target_size.cast_unit()))
+    }
+
+    fn render_to_rgba8(
+        &self,
+        target_size: Option<euclid::Size2D<u32, PhysicalPx>>,
+    ) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+        self.0.render_to_buffer(target_size).map(|image| match image {
             SharedImageBuffer::RGB8(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
                 width: buffer.width,
                 height: buffer.height,

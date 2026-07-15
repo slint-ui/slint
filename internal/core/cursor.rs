@@ -16,13 +16,13 @@ pub enum MouseCursorInner {
     CustomMouseCursor {
         /// Image backing for this cursor.
         image: crate::graphics::Image,
-        /// X pixel coordinate of the image relative to where the cursor is, starting from the left.
+        /// X pixel coordinate of the hotspot from the left edge of the image.
         ///
-        /// If this value is negative, the hotspot is horizontally centered in the image.
+        /// The value is clamped to the image bounds.
         hotspot_x: i32,
-        /// Y pixel coordinate of the image relative to where the cursor is, starting from the top.
+        /// Y pixel coordinate of the hotspot from the top edge of the image.
         ///
-        /// If this value is negative, the hotspot is vertically centered in the image.
+        /// The value is clamped to the image bounds.
         hotspot_y: i32,
     },
 }
@@ -33,3 +33,13 @@ impl Default for MouseCursorInner {
     }
 }
 
+/// Maps a custom cursor's hotspot from the source image into a buffer rendered at
+/// `rendered_size` pixels, clamped to stay inside it.
+pub fn scaled_hotspot(hotspot: i32, source_size: u32, rendered_size: u32) -> u32 {
+    let scaled = if source_size == 0 {
+        0
+    } else {
+        hotspot as i64 * rendered_size as i64 / source_size as i64
+    };
+    scaled.clamp(0, rendered_size.saturating_sub(1) as i64) as u32
+}
