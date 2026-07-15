@@ -87,6 +87,9 @@ jobs:
           $signtool = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
             Sort-Object FullName -Descending |
             Select-Object -First 1 -ExpandProperty FullName
+          $cargoversion = (
+              cargo metadata --manifest-path tools/lsp/Cargo.toml --offline --format-version 1 --no-deps
+            ).packages | where name == "slint-lsp" | select version
           if (-not $signtool) {
             throw "signtool.exe was not found in the Windows SDK."
           }
