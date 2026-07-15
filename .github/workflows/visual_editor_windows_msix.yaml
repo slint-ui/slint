@@ -73,12 +73,27 @@ jobs:
           "pfx_path=$pfxPath" >> $env:GITHUB_OUTPUT
           "cer_path=$cerPath" >> $env:GITHUB_OUTPUT
 
+      - name: Get cargo version
+        id: get_cargo_version
+        run: |
+          $cargoversion = cargo metadata --manifest-path tools/lsp/Cargo.toml --offline --format-version 1 --no-deps |
+            ConvertFrom-Json |
+            select -exp packages |
+            where name -eq "slint-lsp" |
+            select -exp version
+          "cargo_version=$cargoversion" >> $env:GITHUB_OUTPUT
+
       - name: Package app as MSIX
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force tools/lsp/dist | Out-Null
+          Copy-Item tools/lsp/packaging/windows-appx/SlintVisualEditor-Logo-*.png tools/lsp/dist/Assets/
           Copy-Item target/x86_64-pc-windows-msvc/package-release/slint-visual-editor.exe tools/lsp/dist/slint-visual-editor.exe
           Set-Location tools/lsp
+          cargo +nightly -Zscript -q ../../scripts/handlebars.rs \
+            -v cargo.version=${{ steps.get_cargo_version.outputs.cargo_version }} \
+            -i Package.appxmanifest.hbs \
+            -o Package.appxmanifest
           winapp pack ./dist
 
       - name: Sign MSIX with self-signed test certificate
@@ -89,14 +104,10 @@ jobs:
           $signtool = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
             Sort-Object FullName -Descending |
             Select-Object -First 1 -ExpandProperty FullName
-          $cargoversion = cargo metadata --manifest-path tools/lsp/Cargo.toml --offline --format-version 1 --no-deps |
-            ConvertFrom-Json |
-            select -exp packages |
-            where name -eq "slint-lsp" |
-            select -exp version
           if (-not $signtool) {
             throw "signtool.exe was not found in the Windows SDK."
           }
+          $cargoversion = "${{ steps.get_cargo_version.outputs.cargo_version }}$"
           $slintvisualeditor_msixpath = "$env:SLINT_VISUAL_EDITOR_MSIX_PATH_PREFIX$cargoversion$env:SLINT_VISUAL_EDITOR_MSIX_PATH_SUFFIX"
           Write-Host "Signing $slintvisualeditor_msixpath with $signtool"
           & $signtool sign `
