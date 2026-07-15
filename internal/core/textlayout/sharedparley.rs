@@ -1137,6 +1137,14 @@ impl Layout {
         }
     }
 
+    /// True when an active line limit dropped lines and `y` (in item coordinates) falls below
+    /// the last kept line, i.e. into the item region where the dropped lines would have been.
+    /// Nothing is shown there, so nothing there should hit-test. With an active cut, `height`
+    /// is the bottom of the last kept line.
+    fn below_line_limit(&self, y: PhysicalLength) -> bool {
+        self.line_limit_cut.is_some() && y >= self.y_offset + self.height
+    }
+
     /// The last line to draw, combining the height-based elision cut with the `max-lines` limit:
     /// whichever cuts earlier wins. Unlike the elision cut, the line limit also applies with
     /// `overflow: clip` -- just without the ellipsis.
@@ -1613,39 +1621,44 @@ pub fn link_under_cursor(
         },
     );
 
-    let result = layout.paragraph_by_y(cursor.y_length()).and_then(|paragraph| {
-        let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
+    // Clicks below the last line kept by `max-lines` would land on dropped lines of the cut
+    // paragraph; nothing is rendered there, so no link is under the cursor.
+    let result = layout
+        .paragraph_by_y(cursor.y_length())
+        .filter(|_| !layout.below_line_limit(cursor.y_length()))
+        .and_then(|paragraph| {
+            let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
 
-        paragraph
-            .links
-            .iter()
-            .find(|(range, _)| {
-                let start = parley::editing::Cursor::from_byte_index(
-                    &paragraph.layout,
-                    range.start,
-                    Default::default(),
-                );
-                let end = parley::editing::Cursor::from_byte_index(
-                    &paragraph.layout,
-                    range.end,
-                    Default::default(),
-                );
-                let mut clicked = false;
-                let link_range = parley::Selection::new(start, end);
-                link_range.geometry_with(&paragraph.layout, |mut bounding_box, _line| {
-                    bounding_box.y0 += paragraph_y;
-                    bounding_box.y1 += paragraph_y;
-                    clicked = bounding_box.union(parley::BoundingBox::new(
-                        cursor.x.into(),
-                        cursor.y.into(),
-                        cursor.x.into(),
-                        cursor.y.into(),
-                    )) == bounding_box;
-                });
-                clicked
-            })
-            .map(|(_, link)| link.clone())
-    });
+            paragraph
+                .links
+                .iter()
+                .find(|(range, _)| {
+                    let start = parley::editing::Cursor::from_byte_index(
+                        &paragraph.layout,
+                        range.start,
+                        Default::default(),
+                    );
+                    let end = parley::editing::Cursor::from_byte_index(
+                        &paragraph.layout,
+                        range.end,
+                        Default::default(),
+                    );
+                    let mut clicked = false;
+                    let link_range = parley::Selection::new(start, end);
+                    link_range.geometry_with(&paragraph.layout, |mut bounding_box, _line| {
+                        bounding_box.y0 += paragraph_y;
+                        bounding_box.y1 += paragraph_y;
+                        clicked = bounding_box.union(parley::BoundingBox::new(
+                            cursor.x.into(),
+                            cursor.y.into(),
+                            cursor.x.into(),
+                            cursor.y.into(),
+                        )) == bounding_box;
+                    });
+                    clicked
+                })
+                .map(|(_, link)| link.clone())
+        });
 
     // Put paragraphs back into the cache guard for reuse.
     guard.paragraphs = Some(layout.paragraphs);
@@ -2110,6 +2123,21 @@ mod tests {
             assert_eq!(layout.visible_paragraphs().len(), 3);
             assert_eq!(layout.height, unlimited.height);
         }
+    }
+
+    #[test]
+    fn test_max_lines_below_line_limit() {
+        let limited = layout_with_max_lines("a\nb\nc", 2);
+        // Within the visible text: hit-testing stays active.
+        assert!(!limited.below_line_limit(PhysicalLength::zero()));
+        assert!(!limited.below_line_limit(limited.height - PhysicalLength::new(1.0)));
+        // At and below the bottom of the last kept line: dropped-line territory.
+        assert!(limited.below_line_limit(limited.height));
+        assert!(limited.below_line_limit(limited.height + PhysicalLength::new(100.0)));
+
+        // Without an active cut nothing is below the limit, no matter the y.
+        let unlimited = layout_text("a\nb\nc");
+        assert!(!unlimited.below_line_limit(unlimited.height + PhysicalLength::new(100.0)));
     }
 
     #[test]
