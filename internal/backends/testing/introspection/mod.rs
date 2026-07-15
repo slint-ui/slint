@@ -91,7 +91,7 @@ fn ensure_event_tracking() -> Result<(), i_slint_core::api::EventLoopError> {
         i_slint_core::context::set_window_event_hook(Some(Box::new(
             move |adapter, event, result| {
                 if let Some(prev) = previous_hook.as_ref() {
-                    prev(adapter, event, result);
+                    prev(adapter, event, result.clone());
                 }
                 state.record_window_event(adapter, event, result);
             },
@@ -1421,7 +1421,7 @@ mod dispatch_result_tests {
             .iter()
             .rev()
             .find(|(e, _)| matches!(e, WindowEvent::PointerReleased { .. }))
-            .map(|(_, r)| *r)
+            .map(|(_, r)| r.clone())
             .expect("PointerReleased recorded");
         assert_eq!(release, WindowEventDispatchResult::Accepted);
     }
@@ -1459,7 +1459,7 @@ mod dispatch_result_tests {
             .iter()
             .rev()
             .find(|(e, _)| matches!(e, WindowEvent::PointerReleased { .. }))
-            .map(|(_, r)| *r)
+            .map(|(_, r)| r.clone())
             .expect("PointerReleased recorded");
         assert_eq!(release, WindowEventDispatchResult::Ignored);
     }
