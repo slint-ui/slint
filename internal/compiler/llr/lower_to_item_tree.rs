@@ -997,6 +997,42 @@ fn lower_animation(
             ),
             None => None,
         },
+        bounce: match &animation.bounce {
+            Some(_) => Some(
+                super::Expression::PropertyReference(
+                    ctx.map_property_reference(&animation.bounce.as_ref().unwrap()),
+                )
+                .into(),
+            ),
+            None => None,
+        },
+        mass: match &animation.mass {
+            Some(_) => Some(
+                super::Expression::PropertyReference(
+                    ctx.map_property_reference(&animation.mass.as_ref().unwrap()),
+                )
+                .into(),
+            ),
+            None => None,
+        },
+        stiffness: match &animation.stiffness {
+            Some(_) => Some(
+                super::Expression::PropertyReference(
+                    ctx.map_property_reference(&animation.stiffness.as_ref().unwrap()),
+                )
+                .into(),
+            ),
+            None => None,
+        },
+        damping: match &animation.damping {
+            Some(_) => Some(
+                super::Expression::PropertyReference(
+                    ctx.map_property_reference(&animation.damping.as_ref().unwrap()),
+                )
+                .into(),
+            ),
+            None => None,
+        },
         children: animation.children.iter().map(|c| lower_animation(c, ctx)).collect(),
     }
 }

@@ -222,6 +222,18 @@ fn fixup_animation(a: &mut Animation, renames: &RenameMap) {
     if let Some(ref mut direction) = a.direction {
         fixup_reference(direction, renames);
     }
+    if let Some(ref mut bounce) = a.bounce {
+        fixup_reference(bounce, renames);
+    }
+    if let Some(ref mut mass) = a.mass {
+        fixup_reference(mass, renames);
+    }
+    if let Some(ref mut stiffness) = a.stiffness {
+        fixup_reference(stiffness, renames);
+    }
+    if let Some(ref mut damping) = a.damping {
+        fixup_reference(damping, renames);
+    }
     a.children.iter_mut().for_each(|c| fixup_animation(c, renames));
 }
 
@@ -312,7 +324,7 @@ fn simplify_optimized_items(items: &[ElementRc]) {
 fn is_animation_element(builtin: &BuiltinElement) -> bool {
     matches!(
         builtin.name.as_str(),
-        "TweenAnimation" | "DelayAnimation" | "ParallelAnimation" | "SequentialAnimation"
+        "TweenAnimation" | "DelayAnimation" | "ParallelAnimation" | "SequentialAnimation" | "SpringAnimation"
     )
 }
 
@@ -321,7 +333,7 @@ fn get_animation_target_type(
     builtin: &BuiltinElement,
 ) -> Option<crate::langtype::Type> {
     // Only TweenAnimation actually binds and uses `target`.
-    if builtin.name != "TweenAnimation" {
+    if builtin.name != "TweenAnimation" && builtin.name != "SpringAnimation" {
         return None;
     }
 

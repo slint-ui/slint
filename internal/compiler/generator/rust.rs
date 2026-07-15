@@ -1269,6 +1269,100 @@ fn build_animation_value(anim: &llr::AnimationObject, ctx: &EvaluationContext) -
                 sp::Box::new(container) as sp::Box<dyn sp::Animation>
             })
         }
+        AnimationType::Spring => {
+            let target_ref =
+                match &*anim.target.as_ref().expect("SpringAnimation requires a target").borrow()
+                {
+                    llr::Expression::PropertyReference(mr) => mr.clone(),
+                    _ => panic!("internal error: animation target must be a property reference"),
+                };
+            let target_ty = ctx.property_ty(&target_ref).clone();
+            let target_prop = access_member(&target_ref, ctx).unwrap();
+            // `SpringSimulation` only understands raw `f32`, so LogicalLength (and any other
+            // wrapper type) must be unwrapped before it's fed in, and re-wrapped on the way out -
+            // the same conversion Flickable already does by hand around `PhysicsAnimation`.
+            let get_raw = primitive_value_from_property_value(&target_ty, quote!(#target_prop.get()));
+            let set_raw_stmt = {
+                let wrapped = set_primitive_property_value(&target_ty, quote!(value));
+                quote!(#target_prop.set(#wrapped))
+            };
+
+            let from = anim.from.as_ref().map(|f| {
+                primitive_value_from_property_value(&target_ty, animation_get_property(&f.borrow(), ctx))
+            });
+            let to = anim.to.as_ref().map(|t| {
+                primitive_value_from_property_value(&target_ty, animation_get_property(&t.borrow(), ctx))
+            });
+            let from_arg = from.unwrap_or_else(|| get_raw.clone());
+            let to_arg = to.unwrap_or_else(|| get_raw.clone());
+
+            // The eventual `SpringAnimation` component lets users configure the spring either via
+            // `duration`/`bounce` or directly via `mass`/`stiffness`/`damping`; whichever is set
+            // decides which `SpringParameters` impl gets built (see `lower_animations.rs`).
+            let parameters = if anim.bounce.is_some() {
+                let duration_ms = animation_get_property(
+                    &anim
+                        .duration
+                        .as_ref()
+                        .expect("SpringAnimation with bounce requires a duration")
+                        .borrow(),
+                    ctx,
+                );
+                let bounce = animation_get_property(&anim.bounce.as_ref().unwrap().borrow(), ctx);
+                quote!(sp::SpringDurationBounceParameters::new(
+                    #duration_ms as f32 / 1000.,
+                    #bounce as f32,
+                ))
+            } else {
+                let mass = animation_get_property(
+                    &anim
+                        .mass
+                        .as_ref()
+                        .expect(
+                            "SpringAnimation requires either duration/bounce or mass/stiffness/damping",
+                        )
+                        .borrow(),
+                    ctx,
+                );
+                let stiffness =
+                    animation_get_property(&anim.stiffness.as_ref().unwrap().borrow(), ctx);
+                let damping = animation_get_property(&anim.damping.as_ref().unwrap().borrow(), ctx);
+                quote!(sp::SpringPhysicalParameters::new(
+                    #mass as f32,
+                    #stiffness as f32,
+                    #damping as f32,
+                ))
+            };
+
+            quote!({
+                let self_weak_get = self.self_weak.get().unwrap().clone();
+                let self_weak_set = self.self_weak.get().unwrap().clone();
+                let start_value = (#from_arg) as f32;
+                let target_value = (#to_arg) as f32;
+                // Velocity handoff between successive springs isn't wired up yet, so every spring
+                // currently starts at rest.
+                let simulation = sp::SpringSimulation::new(start_value, 0., target_value, #parameters);
+                let physics = sp::PhysicsAnimation::new(
+                    simulation,
+                    move || {
+                        self_weak_get
+                            .upgrade()
+                            .map(|self_rc| {
+                                let _self = self_rc.as_pin_ref();
+                                #get_raw as sp::Coord
+                            })
+                            .unwrap_or_default()
+                    },
+                    move |value: sp::Coord| {
+                        if let Some(self_rc) = self_weak_set.upgrade() {
+                            let _self = self_rc.as_pin_ref();
+                            #set_raw_stmt;
+                        }
+                    },
+                );
+                sp::Box::new(physics) as sp::Box<dyn sp::Animation>
+            })
+        }
     }
 }
 
@@ -1298,6 +1392,75 @@ fn build_root_animation_value(anim: &llr::AnimationObject, ctx: &EvaluationConte
         }));
         __anim
     })
+}
+
+/// Builds a fresh spring-backed `Box<dyn Animation>` and drives it via `self.#ident.#call(...)`,
+/// for the root-level (directly declared, `SpringAnimation { target: ... }`) case in
+/// `generate_sub_component` - the sibling of that function's Tween-specific construction, sharing
+/// the same restart-on-target-change scaffolding (see the call sites).
+///
+/// `current_value_expr` must already be a self-contained expression reading the target's current
+/// value (as built by `access_member(...).get_property()`), since this is spliced both outside
+/// and inside a `move` closure. `from_arg`/`to_arg` are expressions of the target's own type (not
+/// yet converted to a raw `f32`); `set_stmt` is the (also self-contained) statement that writes a
+/// property-typed `value` and keeps the change-cache in sync.
+#[allow(clippy::too_many_arguments)]
+fn build_spring_and_drive(
+    ident: &TokenStream,
+    target_ty: &Type,
+    current_value_expr: &TokenStream,
+    from_arg: &TokenStream,
+    to_arg: &TokenStream,
+    parameters: &TokenStream,
+    set_stmt: &TokenStream,
+    set_running_false: &TokenStream,
+    call: &TokenStream,
+    push_initial_stmt: &TokenStream,
+) -> TokenStream {
+    // `SpringSimulation` only understands raw `f32`, so LogicalLength (and any other wrapper
+    // type) must be unwrapped before it's fed in, and re-wrapped on the way out - the same
+    // conversion Flickable already does by hand around `PhysicsAnimation`.
+    let from_primitive = primitive_value_from_property_value(target_ty, from_arg.clone());
+    let to_primitive = primitive_value_from_property_value(target_ty, to_arg.clone());
+    let get_raw = primitive_value_from_property_value(target_ty, current_value_expr.clone());
+    let set_raw_wrapped = set_primitive_property_value(target_ty, quote!(value));
+    quote!(
+        let self_weak_get = self.self_weak.get().unwrap().clone();
+        let self_weak_set = self.self_weak.get().unwrap().clone();
+        let self_weak_finished = self.self_weak.get().unwrap().clone();
+        let start_value = (#from_primitive) as f32;
+        let target_value = (#to_primitive) as f32;
+        // Velocity handoff between successive springs isn't wired up yet, so every spring
+        // currently starts at rest.
+        let simulation = sp::SpringSimulation::new(start_value, 0., target_value, #parameters);
+        let mut spring_anim: sp::Box<dyn sp::Animation> = sp::Box::new(sp::PhysicsAnimation::new(
+            simulation,
+            move || {
+                self_weak_get
+                    .upgrade()
+                    .map(|self_rc| {
+                        let _self = self_rc.as_pin_ref();
+                        #get_raw as sp::Coord
+                    })
+                    .unwrap_or_default()
+            },
+            move |value: sp::Coord| {
+                if let Some(self_rc) = self_weak_set.upgrade() {
+                    let _self = self_rc.as_pin_ref();
+                    let value = #set_raw_wrapped;
+                    #set_stmt
+                }
+            },
+        ));
+        spring_anim.set_on_finished(sp::Box::new(move || {
+            if let Some(self_rc) = self_weak_finished.upgrade() {
+                let _self = self_rc.as_pin_ref();
+                #set_running_false
+            }
+        }));
+        self.#ident.#call(spring_anim);
+        #push_initial_stmt
+    )
 }
 
 fn generate_sub_component(
@@ -1978,17 +2141,22 @@ fn generate_sub_component(
                 );
             }
 
+            let is_spring = anim.animation_type == AnimationType::Spring;
             let restart_ident = format_ident!("restart_anim{idx}");
             let running_ref = match &*anim.running.borrow() {
                 llr::Expression::PropertyReference(mr) => mr.clone(),
                 _ => panic!("internal error: animation running must be a property reference"),
             };
             let target_ref = match &*anim.target.as_ref()
-                .expect("TweenAnimation requires a target").borrow()
+                .expect("Tween/SpringAnimation requires a target").borrow()
             {
                 llr::Expression::PropertyReference(mr) => mr.clone(),
                 _ => panic!("internal error: animation target must be a property reference"),
             };
+            let target_ty = ctx.property_ty(&target_ref).clone();
+            // Self-contained (already handles a possibly-dead parent pointer) expression reading
+            // the target's current value; used by the spring's `get_value` callback below.
+            let current_value_expr = access_member(&target_ref, &ctx).get_property();
             let get_property = |exp: &Expression| -> TokenStream {
                 if let Expression::PropertyReference(nr) = exp {
                     access_member(nr, &ctx).get_property()
@@ -1998,14 +2166,65 @@ fn generate_sub_component(
             };
             let from = anim.from.as_ref().map(|f| get_property(&f.borrow()));
             let to = anim.to.as_ref().map(|t| get_property(&t.borrow()));
-            let duration = get_property(&anim.duration.as_ref().unwrap().borrow());
-            let easing = get_property(&anim.easing.as_ref().unwrap().borrow());
-            let iteration_count = anim.iteration_count.as_ref().map(|i| get_property(&i.borrow())).unwrap_or_else(|| quote!(1.0));
-            let direction = anim.direction.as_ref().map(|d| get_property(&d.borrow())).unwrap_or_else(|| quote!(sp::items::AnimationDirection::Normal));
+
+            // Tween-only knobs
+            let duration = (!is_spring)
+                .then(|| get_property(&anim.duration.as_ref().unwrap().borrow()));
+            let easing = (!is_spring)
+                .then(|| get_property(&anim.easing.as_ref().unwrap().borrow()));
+            let iteration_count = (!is_spring).then(|| {
+                anim.iteration_count
+                    .as_ref()
+                    .map(|i| get_property(&i.borrow()))
+                    .unwrap_or_else(|| quote!(1.0))
+            });
+            let direction = (!is_spring).then(|| {
+                anim.direction
+                    .as_ref()
+                    .map(|d| get_property(&d.borrow()))
+                    .unwrap_or_else(|| quote!(sp::items::AnimationDirection::Normal))
+            });
+
+            // Spring-only knobs: either `duration`/`bounce` or `mass`/`stiffness`/`damping`
+            // decide the `(natural_frequency, damping_ratio)` pair the ODE is solved with.
+            let spring_parameters = is_spring.then(|| {
+                if anim.bounce.is_some() {
+                    let duration_ms = get_property(
+                        &anim
+                            .duration
+                            .as_ref()
+                            .expect("SpringAnimation with bounce requires a duration")
+                            .borrow(),
+                    );
+                    let bounce = get_property(&anim.bounce.as_ref().unwrap().borrow());
+                    quote!(sp::SpringDurationBounceParameters::new(
+                        #duration_ms as f32 / 1000.,
+                        #bounce as f32,
+                    ))
+                } else {
+                    let mass = get_property(
+                        &anim
+                            .mass
+                            .as_ref()
+                            .expect(
+                                "SpringAnimation requires either duration/bounce or mass/stiffness/damping",
+                            )
+                            .borrow(),
+                    );
+                    let stiffness =
+                        get_property(&anim.stiffness.as_ref().unwrap().borrow());
+                    let damping = get_property(&anim.damping.as_ref().unwrap().borrow());
+                    quote!(sp::SpringPhysicalParameters::new(
+                        #mass as f32,
+                        #stiffness as f32,
+                        #damping as f32,
+                    ))
+                }
+            });
 
             // keep the cache up to date
             let target_rust_ty = Some(
-                rust_property_type(ctx.property_ty(&target_ref))
+                rust_property_type(&target_ty)
                     .expect("animation target must have a representable Rust type"),
             );
             let cache_field = target_rust_ty.is_some().then(|| format_ident!("anim_last_target{idx}"));
@@ -2020,14 +2239,14 @@ fn generate_sub_component(
                     quote!(#prop.set(value))
                 }
             });
-            // resolved like `set_stmt` so the runtime sets running to false once the tween ends
+            // resolved like `set_stmt` so the runtime sets running to false once the animation ends
             let set_running_false =
                 access_member(&running_ref, &ctx).then(|prop| quote!(#prop.set(false)));
             // on target change, running is set to true
             let set_running_true =
                 access_member(&running_ref, &ctx).then(|prop| quote!(#prop.set(true)));
 
-            // Builds a fresh TweenAnimation data from current values
+            // Builds a fresh Tween/SpringAnimation from current values
             let build_and_drive = |call: TokenStream, push_initial: bool| access_member(&target_ref, &ctx).then(|prop| {
                 let from_arg = from.as_ref().map(|f| quote!(#f)).unwrap_or_else(|| quote!(#prop.get()));
                 let to_arg = to.as_ref().map(|t| quote!(#t)).unwrap_or_else(|| quote!(#prop.get()));
@@ -2042,35 +2261,55 @@ fn generate_sub_component(
                         #prop.set(initial_value);
                     )
                 });
-                quote!(
-                    let self_weak = self.self_weak.get().unwrap().clone();
-                    let self_weak_finished = self.self_weak.get().unwrap().clone();
-                    let tween = sp::TweenAnimation::new_with_callbacks(
-                        #from_arg,
-                        #to_arg,
-                        sp::PropertyAnimation {
-                            duration: #duration as i32,
-                            easing: #easing,
-                            iteration_count: #iteration_count,
-                            direction: #direction,
-                            ..::core::default::Default::default()
-                        },
-                        move |value| {
-                            if let Some(self_rc) = self_weak.upgrade() {
-                                let _self = self_rc.as_pin_ref();
-                                #set_stmt
-                            }
-                        },
-                        move || {
-                            if let Some(self_rc) = self_weak_finished.upgrade() {
-                                let _self = self_rc.as_pin_ref();
-                                #set_running_false
-                            }
-                        },
-                    );
-                    self.#ident.#call(sp::Box::new(tween));
-                    #push_initial_stmt
-                )
+
+                if is_spring {
+                    build_spring_and_drive(
+                        &quote!(#ident),
+                        &target_ty,
+                        &current_value_expr,
+                        &from_arg,
+                        &to_arg,
+                        spring_parameters.as_ref().unwrap(),
+                        &set_stmt,
+                        &set_running_false,
+                        &call,
+                        &push_initial_stmt.clone().unwrap_or_default(),
+                    )
+                } else {
+                    let duration = duration.as_ref().unwrap();
+                    let easing = easing.as_ref().unwrap();
+                    let iteration_count = iteration_count.as_ref().unwrap();
+                    let direction = direction.as_ref().unwrap();
+                    quote!(
+                        let self_weak = self.self_weak.get().unwrap().clone();
+                        let self_weak_finished = self.self_weak.get().unwrap().clone();
+                        let tween = sp::TweenAnimation::new_with_callbacks(
+                            #from_arg,
+                            #to_arg,
+                            sp::PropertyAnimation {
+                                duration: #duration as i32,
+                                easing: #easing,
+                                iteration_count: #iteration_count,
+                                direction: #direction,
+                                ..::core::default::Default::default()
+                            },
+                            move |value| {
+                                if let Some(self_rc) = self_weak.upgrade() {
+                                    let _self = self_rc.as_pin_ref();
+                                    #set_stmt
+                                }
+                            },
+                            move || {
+                                if let Some(self_rc) = self_weak_finished.upgrade() {
+                                    let _self = self_rc.as_pin_ref();
+                                    #set_running_false
+                                }
+                            },
+                        );
+                        self.#ident.#call(sp::Box::new(tween));
+                        #push_initial_stmt
+                    )
+                }
             });
 
             let start_call = quote!(start);
@@ -2088,7 +2327,7 @@ fn generate_sub_component(
                 }
             ));
 
-            // (Re)start the tween when the target property is changed
+            // (Re)start the animation when the target property is changed
             if let (Some(target_rust_ty), Some(cache_field)) = (&target_rust_ty, &cache_field) {
                 let target_tracker = format_ident!("anim_target_tracker{idx}");
                 let target_get_expr = access_member(&target_ref, &ctx).get_property();
@@ -2114,14 +2353,25 @@ fn generate_sub_component(
                     // animates from current value to the new value
                     let restart_on_change_ident =
                         format_ident!("restart_anim{idx}_on_target_change");
-                    restart_fns.push(quote!(
-                        #[allow(dead_code)]
-                        fn #restart_on_change_ident(
-                            self: ::core::pin::Pin<&Self>,
-                            from_value: #target_rust_ty,
-                            to_value: #target_rust_ty,
-                        ) {
-                            let _self = self;
+                    let on_change_body = if is_spring {
+                        build_spring_and_drive(
+                            &quote!(#ident),
+                            &target_ty,
+                            &current_value_expr,
+                            &quote!(from_value),
+                            &quote!(to_value),
+                            spring_parameters.as_ref().unwrap(),
+                            &set_stmt,
+                            &set_running_false,
+                            &quote!(restart),
+                            &quote!(),
+                        )
+                    } else {
+                        let duration = duration.as_ref().unwrap();
+                        let easing = easing.as_ref().unwrap();
+                        let iteration_count = iteration_count.as_ref().unwrap();
+                        let direction = direction.as_ref().unwrap();
+                        quote!(
                             let self_weak = self.self_weak.get().unwrap().clone();
                             let self_weak_finished = self.self_weak.get().unwrap().clone();
                             let tween = sp::TweenAnimation::new_with_callbacks(
@@ -2148,6 +2398,17 @@ fn generate_sub_component(
                                 },
                             );
                             self.#ident.restart(sp::Box::new(tween));
+                        )
+                    };
+                    restart_fns.push(quote!(
+                        #[allow(dead_code)]
+                        fn #restart_on_change_ident(
+                            self: ::core::pin::Pin<&Self>,
+                            from_value: #target_rust_ty,
+                            to_value: #target_rust_ty,
+                        ) {
+                            let _self = self;
+                            #on_change_body
                         }
                     ));
                     quote!(_self.#restart_on_change_ident(old_value, new_value.clone());)

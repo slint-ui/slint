@@ -548,6 +548,10 @@ pub struct AnimationObject {
     pub easing: Option<MutExpression>,
     pub iteration_count: Option<MutExpression>,
     pub direction: Option<MutExpression>,
+    pub bounce: Option<MutExpression>,
+    pub mass: Option<MutExpression>,
+    pub stiffness: Option<MutExpression>,
+    pub damping: Option<MutExpression>,
     pub children: Vec<AnimationObject>,
 }
 

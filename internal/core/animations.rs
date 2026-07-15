@@ -8,13 +8,19 @@ use alloc::boxed::Box;
 use core::cell::Cell;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
-pub(crate) mod physics_simulation;
+pub mod physics_simulation;
 
 pub mod tween {
-    //! Re-export the tween handle+data types from properties_animations
+    //! Re-export the tween handle+data types from properties_animations, plus the
+    //! physics-driven `PhysicsAnimation` wrapper and the spring simulation types it can be
+    //! driven with.
     pub use crate::properties::{
-        Animation, AnimationHandle, DelayAnimation, ParallelAnimation, SequentialAnimation,
-        TweenAnimation,
+        Animation, AnimationHandle, DelayAnimation, ParallelAnimation, PhysicsAnimation,
+        SequentialAnimation, TweenAnimation,
+    };
+    pub use crate::animations::physics_simulation::{
+        SpringDurationBounceParameters, SpringParameters, SpringPhysicalParameters,
+        SpringSimulation,
     };
 }
 

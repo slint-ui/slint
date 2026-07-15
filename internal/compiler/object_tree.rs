@@ -396,8 +396,10 @@ pub enum AnimationType {
     Delay,
     Parallel,
     Sequential,
+    Spring,
 }
 
+// TODO split this up into multiple structs
 #[derive(Debug, Clone)]
 pub struct Animation {
     pub animation_type: AnimationType,
@@ -409,6 +411,10 @@ pub struct Animation {
     pub easing: Option<NamedReference>,
     pub iteration_count: Option<NamedReference>,
     pub direction: Option<NamedReference>,
+    pub bounce: Option<NamedReference>,
+    pub mass: Option<NamedReference>,
+    pub stiffness: Option<NamedReference>,
+    pub damping: Option<NamedReference>,
     pub children: Vec<Animation>,
     pub element: ElementWeak,
 }

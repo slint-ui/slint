@@ -524,6 +524,18 @@ mod visitor {
         if let Some(direction) = a.direction.as_mut() {
             visit_expression(direction.get_mut(), scope, state, visitor);
         }
+        if let Some(bounce) = a.bounce.as_mut() {
+            visit_expression(bounce.get_mut(), scope, state, visitor);
+        }
+        if let Some(mass) = a.mass.as_mut() {
+            visit_expression(mass.get_mut(), scope, state, visitor);
+        }
+        if let Some(stiffness) = a.stiffness.as_mut() {
+            visit_expression(stiffness.get_mut(), scope, state, visitor);
+        }
+        if let Some(damping) = a.damping.as_mut() {
+            visit_expression(damping.get_mut(), scope, state, visitor);
+        }
         for c in &mut a.children {
             visit_animation_object(c, scope, state, visitor);
         }

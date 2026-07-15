@@ -86,6 +86,8 @@ fn get_anim_type(anim_base_type: &ElementType) -> Option<AnimationType> {
                 Some(AnimationType::Parallel)
             } else if base.name == "SequentialAnimation" {
                 Some(AnimationType::Sequential)
+            } else if base.name == "SpringAnimation" {
+                Some(AnimationType::Spring)
             } else {
                 None
             }
@@ -213,7 +215,7 @@ fn build_animation(
             );
             return None;
         }
-    } else if anim_type == AnimationType::Tween {
+    } else if anim_type == AnimationType::Tween || anim_type == AnimationType::Spring {
         diag.push_error(
             "TweenAnimation must have a binding set for its 'target' property".into(),
             &*animation_element.borrow(),
@@ -273,17 +275,20 @@ fn build_animation(
         None
     };
 
-    let iteration_count = if animation_element.borrow().is_binding_set("iteration-count", true) {
-        Some(NamedReference::new(animation_element, SmolStr::new_static("iteration-count")))
-    } else {
-        None
+    let parse_property = |prop: &'static str| -> Option<NamedReference> {
+        if animation_element.borrow().is_binding_set(prop, true) {
+            Some(NamedReference::new(animation_element, SmolStr::new_static(prop)))
+        } else {
+            None
+        }
     };
 
-    let direction = if animation_element.borrow().is_binding_set("direction", true) {
-        Some(NamedReference::new(animation_element, SmolStr::new_static("direction")))
-    } else {
-        None
-    };
+    let iteration_count = parse_property("iteration-count");
+    let direction = parse_property("direction");
+    let bounce = parse_property("bounce");
+    let mass = parse_property("mass");
+    let stiffness = parse_property("stiffness");
+    let damping = parse_property("damping");
 
     // Remove the animation_element from its parent
     let mut parent_element_borrowed = parent_element.borrow_mut();
@@ -346,6 +351,10 @@ fn build_animation(
         easing,
         iteration_count,
         direction,
+        bounce,
+        mass,
+        stiffness,
+        damping,
         children,
         element: Rc::downgrade(animation_element),
     })

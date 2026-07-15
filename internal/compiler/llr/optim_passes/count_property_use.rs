@@ -210,6 +210,18 @@ fn visit_animation_object(anim: &crate::llr::AnimationObject, ctx: &EvaluationCo
     if let Some(direction) = &anim.direction {
         direction.borrow().visit_property_references(ctx, &mut visit_property);
     }
+    if let Some(bounce) = &anim.bounce {
+        bounce.borrow().visit_property_references(ctx, &mut visit_property);
+    }
+    if let Some(mass) = &anim.mass {
+        mass.borrow().visit_property_references(ctx, &mut visit_property);
+    }
+    if let Some(stiffness) = &anim.stiffness {
+        stiffness.borrow().visit_property_references(ctx, &mut visit_property);
+    }
+    if let Some(damping) = &anim.damping {
+        damping.borrow().visit_property_references(ctx, &mut visit_property);
+    }
     for c in &anim.children {
         visit_animation_object(c, ctx);
     }

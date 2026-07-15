@@ -25,6 +25,8 @@ enum Direction {
 /// Common simulation trait
 /// All simulations must implement this trait
 pub trait Simulation {
+    /// Advances the simulation to `new_tick`, writing the new value into `current` and
+    /// returning `true` once the simulation has settled/finished.
     fn step(&mut self, current: &mut f32, new_tick: Instant) -> bool;
     /// The simulation's current velocity, used to hand off motion to a replacement simulation.
     fn velocity(&self) -> f32;
@@ -33,7 +35,9 @@ pub trait Simulation {
 /// Trait to convert parameter objects into a simulation
 /// All parameter objects must implement this trait!
 pub trait Parameter {
+    /// The `Simulation` type this parameter object builds.
     type Output;
+    /// Builds the simulation from these parameters.
     fn simulation(
         self,
         start_value: f32,
@@ -44,11 +48,14 @@ pub trait Parameter {
 /// Input parameters for the `ConstantDeceleration` simulation
 #[derive(Debug, Clone)]
 pub struct ConstantDecelerationParameters {
+    /// The initial velocity of the simulation
     pub initial_velocity: f32,
+    /// The deceleration of the simulation
     pub deceleration: f32,
 }
 
 impl ConstantDecelerationParameters {
+    /// Creates a new `ConstantDecelerationParameters` from an initial velocity and deceleration.
     pub fn new(initial_velocity: f32, deceleration: f32) -> Self {
         Self { initial_velocity, deceleration }
     }
@@ -967,16 +974,16 @@ pub trait SpringParameters {
 }
 
 /// `duration` decides the natural frequency and bounce decides the damping
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub struct SpringDurationBounceParameters {
+    /// Fixes the spring's natural frequency, independent of `bounce`.
     pub duration_secs: f32,
     /// Expected range `-1.0..=1.0`, but not clamped here.
     pub bounce: f32,
 }
 
 impl SpringDurationBounceParameters {
-    #[allow(dead_code)]
+    /// Creates new `duration`/`bounce`-style spring parameters.
     pub fn new(duration_secs: f32, bounce: f32) -> Self {
         Self { duration_secs, bounce }
     }
@@ -994,13 +1001,16 @@ impl SpringParameters for SpringDurationBounceParameters {
 /// `mass`/`stiffness`/`damping`-style spring configuration
 #[derive(Debug, Clone, Copy)]
 pub struct SpringPhysicalParameters {
+    /// The mass attached to the spring
     pub mass: f32,
+    /// The spring's stiffness (spring constant)
     pub stiffness: f32,
+    /// The spring's damping coefficient
     pub damping: f32,
 }
 
 impl SpringPhysicalParameters {
-    #[allow(dead_code)]
+    /// Creates new `mass`/`stiffness`/`damping`-style spring parameters.
     pub fn new(mass: f32, stiffness: f32, damping: f32) -> Self {
         Self { mass, stiffness, damping }
     }
@@ -1021,7 +1031,6 @@ impl SpringParameters for SpringPhysicalParameters {
 /// All are relative to `target` (`x_rel = x - target`)
 /// `x_rel(0) = start_value - target`
 /// `vel(0) = initial_velocity`
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 enum SpringRegime {
     /// `zeta < 1`: oscillates while decaying. `x_rel(t) = e^(-zeta*w_n*t) * (c1*cos(w_d*t) + c2*sin(w_d*t))`
@@ -1035,10 +1044,8 @@ enum SpringRegime {
 impl SpringRegime {
     /// `zeta` values within this distance of `1.0` are treated as critically damped, to avoid
     /// `w_d` (underdamped) or `sqrt(zeta^2 - 1)` (overdamped) blowing up near the boundary.
-    #[allow(dead_code)]
     const CRITICAL_ZETA_EPSILON: f32 = 1e-3;
 
-    #[allow(dead_code)]
     fn new(x0: f32, v0: f32, w_n: f32, zeta: f32) -> Self {
         if (zeta - 1.).abs() < Self::CRITICAL_ZETA_EPSILON {
             Self::Critical { c1: x0, c2: v0 + w_n * x0 }
@@ -1083,7 +1090,6 @@ impl SpringRegime {
 /// This simulation moves a point from `start_value` toward a fixed `target`, driven by a spring
 /// with natural frequency `w_n` and damping ratio `zeta`, starting with `initial_velocity`.
 /// This simulates a spring towards a fixed target unlike `ConstantDecelerationSpringDamper`
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct SpringSimulation {
     target: f32,
@@ -1097,7 +1103,6 @@ pub struct SpringSimulation {
 impl SpringSimulation {
     /// Creates a new spring simulation moving from `start_value` toward `target`, starting with
     /// `initial_velocity`
-    #[allow(dead_code)]
     pub fn new(
         start_value: f32,
         initial_velocity: f32,
@@ -1113,7 +1118,6 @@ impl SpringSimulation {
         )
     }
 
-    #[allow(dead_code)]
     fn new_internal(
         start_value: f32,
         initial_velocity: f32,

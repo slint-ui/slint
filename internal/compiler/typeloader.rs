@@ -740,6 +740,26 @@ impl Snapshotter {
             } else {
                 None
             },
+            bounce: if animation.bounce.is_some() {
+                Some(animation.bounce.as_ref().unwrap().snapshot(self))
+            } else {
+                None
+            },
+            mass: if animation.mass.is_some() {
+                Some(animation.mass.as_ref().unwrap().snapshot(self))
+            } else {
+                None
+            },
+            stiffness: if animation.stiffness.is_some() {
+                Some(animation.stiffness.as_ref().unwrap().snapshot(self))
+            } else {
+                None
+            },
+            damping: if animation.damping.is_some() {
+                Some(animation.damping.as_ref().unwrap().snapshot(self))
+            } else {
+                None
+            },
             children: animation.children.iter().map(|c| self.snapshot_animation(c)).collect(),
             element: animation.element.clone(),
         }

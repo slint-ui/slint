@@ -2851,6 +2851,22 @@ export component ParallelAnimation inherits Animation {
 export component SequentialAnimation inherits Animation {
     //-is_non_item_type
 }
+/// :::note[Note]
+/// SpringAnimation is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
+/// :::
+/// \group:animations
+export component SpringAnimation inherits Animation {
+    in property <animatable> from;
+    in property <animatable> to;
+
+    in property <duration> duration;
+    in property <float> bounce;
+
+    in property <float> mass;
+    in property <float> stiffness;
+    in property <float> damping;
+    //-is_non_item_type
+}
 
 /// ```slint playground imageAlt="dialog example" width="200" height="100"
 /// import { StandardButton, Button } from "std-widgets.slint";

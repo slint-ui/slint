@@ -590,7 +590,7 @@ impl TypeRegister {
         }
 
         for animation_type in
-            ["TweenAnimation", "DelayAnimation", "ParallelAnimation", "SequentialAnimation"]
+            ["TweenAnimation", "DelayAnimation", "ParallelAnimation", "SequentialAnimation", "SpringAnimation"]
         {
             match &mut register.elements.get_mut(animation_type).unwrap() {
                 ElementType::Builtin(b) => {

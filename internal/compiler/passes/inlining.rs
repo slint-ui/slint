@@ -653,6 +653,18 @@ fn fixup_animation(a: &mut Animation, mapping: &Mapping) {
     if let Some(ref mut direction) = a.direction {
         fixup_reference(direction, mapping);
     }
+    if let Some(ref mut bounce) = a.bounce {
+        fixup_reference(bounce, mapping);
+    }
+    if let Some(ref mut mass) = a.mass {
+        fixup_reference(mass, mapping);
+    }
+    if let Some(ref mut stiffness) = a.stiffness {
+        fixup_reference(stiffness, mapping);
+    }
+    if let Some(ref mut damping) = a.damping {
+        fixup_reference(damping, mapping);
+    }
     a.children.iter_mut().for_each(|c| fixup_animation(c, mapping));
 }
 
