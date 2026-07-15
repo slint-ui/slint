@@ -148,12 +148,7 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
         // wide. Mirrors the parley path, which always keeps line index 0.
         let max_lines_from_height =
             elide.then(|| self.layout.font.max_lines(self.max_height).max(1));
-        let max_lines = match (self.max_lines, max_lines_from_height) {
-            (Some(max_lines), Some(max_lines_from_height)) => {
-                Some(max_lines.min(max_lines_from_height))
-            }
-            (max_lines, max_lines_from_height) => max_lines.or(max_lines_from_height),
-        };
+        let max_lines = [self.max_lines, max_lines_from_height].into_iter().flatten().min();
 
         let new_line_break_iter = || {
             TextLineBreaker::<Font>::new(
@@ -686,8 +681,6 @@ fn test_max_lines_limits_visible_lines() {
     let font = FixedTestFont;
     let text = "Hello\nWorld\nAgain";
 
-    let mut lines = Vec::new();
-
     let paragraph = TextParagraphLayout {
         string: text,
         layout: TextLayout { font: &font, letter_spacing: None },
@@ -700,33 +693,7 @@ fn test_max_lines_limits_visible_lines() {
         single_line: false,
         max_lines: Some(2),
     };
-    paragraph
-        .layout_lines::<()>(
-            |glyphs, _, _, _, _| {
-                lines.push(
-                    glyphs.map(|positioned_glyph| positioned_glyph.glyph_id).collect::<Vec<_>>(),
-                );
-                core::ops::ControlFlow::Continue(())
-            },
-            None,
-        )
-        .unwrap();
-
-    assert_eq!(lines.len(), 2);
-    let rendered_text = lines
-        .iter()
-        .map(|glyphs_per_line| {
-            glyphs_per_line
-                .iter()
-                .flat_map(|glyph_id| {
-                    core::char::decode_utf16(core::iter::once(glyph_id.get()))
-                        .map(|r| r.unwrap())
-                        .collect::<Vec<char>>()
-                })
-                .collect::<std::string::String>()
-        })
-        .collect::<Vec<_>>();
-    debug_assert_eq!(rendered_text, std::vec!["Hello", "World"]);
+    assert_eq!(render_lines(&paragraph), std::vec!["Hello", "World"]);
 }
 
 #[cfg(test)]
