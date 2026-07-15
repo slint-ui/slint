@@ -77,3 +77,13 @@ export component ImplementInNonRootElement {
 //      >                          <error{'implement' is only allowed in the root element}
     }
 }
+
+export component ImplementOnParent {
+    implement Inverter <=> parent;
+//                         >    <error{Cannot implement an interface on a parent element}
+}
+
+export component ImplementOnRoot {
+    implement Inverter <=> root;
+//                         >  <error{Cannot implement an interface on the root element; use 'self' instead}
+}

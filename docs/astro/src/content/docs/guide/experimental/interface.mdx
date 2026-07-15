@@ -38,6 +38,10 @@ An interface can be exported with `export interface`.
 A component declares that it implements an interface with an `implement I <=> self;` statement in its body.
 The component may override property defaults. The component must provide an implementation of the functions listed in the interface, with matching types and signatures.
 
+An `implement` statement's target must be `self` or the id of a child element (see delegation below), and the statement
+is only allowed directly in a component's root element, not in a nested child element. `root` and `parent` are not valid
+targets: since `implement` is root-only, `root` and `self` refer to the same element there, so use `self` instead.
+
 ```slint no-test
 export component MyText {
     implement TextInterface <=> self;

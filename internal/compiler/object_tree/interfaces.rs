@@ -98,6 +98,15 @@ fn resolve_implement_statement(
     let interface_name = QualifiedTypeName::from_node(qualified_name.clone()).to_smolstr();
     let target_id = parser::identifier_text(&node.DeclaredIdentifier()).unwrap_or_default();
 
+    if let Some(message) = match target_id.as_str() {
+        "parent" => Some("Cannot implement an interface on a parent element"),
+        "root" => Some("Cannot implement an interface on the root element; use 'self' instead"),
+        _ => None,
+    } {
+        diag.push_error(message.into(), &node.DeclaredIdentifier());
+        return None;
+    }
+
     match e.base_type.lookup_type_for_child_element(&interface_name, tr) {
         Ok(ElementType::Component(c)) => {
             if !c.is_interface() {
@@ -199,7 +208,7 @@ pub(super) fn get_implemented_interfaces(
     let mut self_interfaces = Vec::new();
     let mut child_implements = Vec::new();
     for stmt in filtered {
-        if matches!(stmt.target_id.as_str(), "self" | "root") {
+        if stmt.target_id == "self" {
             self_interfaces.push(ImplementedInterface {
                 node: stmt.node,
                 interface: stmt.interface,
