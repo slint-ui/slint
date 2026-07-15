@@ -3706,16 +3706,38 @@ fn compile_array_index_assignment(expr: &Expression, ctx: &EvaluationContext) ->
 
 #[inline(never)]
 fn compile_binary_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::BinaryExpression { lhs, rhs, op } = expr else { unreachable!() };
-    let lhs_ty = lhs.ty(ctx);
-    let lhs = compile_expression_to_value_no_parenthesis(lhs, ctx);
+    // Long chains of binary operators, such as `a && b && c && ...`, nest on the
+    // left side. Iterate that spine instead of recursing into it, so that the
+    // stack depth stays bounded no matter how long the chain is.
+    let mut spine = Vec::new();
+    let mut node = expr;
+    while let Expression::BinaryExpression { lhs, rhs, op } = node {
+        spine.push((rhs, *op));
+        node = lhs;
+    }
+    let mut result = compile_expression_to_value_no_parenthesis(node, ctx);
+    let mut result_ty = node.ty(ctx);
+    for (rhs, op) in spine.into_iter().rev() {
+        result = compile_binary_operator(result, &result_ty, rhs, op, ctx);
+        result_ty = llr::binary_expression_ty(op, || result_ty);
+    }
+    result
+}
+
+fn compile_binary_operator(
+    lhs: TokenStream,
+    lhs_ty: &Type,
+    rhs: &Expression,
+    op: char,
+    ctx: &EvaluationContext,
+) -> TokenStream {
     let rhs = compile_expression_to_value_no_parenthesis(rhs, ctx);
 
-    if lhs_ty.as_unit_product().is_some() && (*op == '=' || *op == '!') {
-        let maybe_negate = if *op == '!' { quote!(!) } else { quote!() };
+    if lhs_ty.as_unit_product().is_some() && (op == '=' || op == '!') {
+        let maybe_negate = if op == '!' { quote!(!) } else { quote!() };
         quote!(#maybe_negate sp::ApproxEq::<f64>::approx_eq(&(#lhs as f64), &(#rhs as f64)))
     } else {
-        let (conv1, conv2) = match crate::expression_tree::operator_class(*op) {
+        let (conv1, conv2) = match crate::expression_tree::operator_class(op) {
             OperatorClass::ArithmeticOp => match lhs_ty {
                 Type::String => (None, Some(quote!(.as_str()))),
                 Type::Struct { .. } => (None, None),
@@ -3747,7 +3769,7 @@ fn compile_binary_expression(expr: &Expression, ctx: &EvaluationContext) -> Toke
             '&' => quote!(&&),
             '|' => quote!(||),
             _ => proc_macro2::TokenTree::Punct(proc_macro2::Punct::new(
-                *op,
+                op,
                 proc_macro2::Spacing::Alone,
             ))
             .into(),
