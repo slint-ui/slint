@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore mousecursor
+export component TestCase  {
+    TouchArea {
+        property <MouseCursor> current-cursor: MouseCursor.default;
+
+        x: 100phx;
+        y: 100phx;
+        width: 10phx;
+        height: 10phx;
+        clicked => { self.current-cursor = MouseCursor.move; }
+        mouse-cursor: current-cursor;
+    }
+
+    TouchArea {
+        x: 200px;
+        y: 200px;
+
+        mouse-cursor: MouseCursor.custom(@image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"), -1, -1);
+    }
+}
+
+/*
+```rust
+use slint::private_unstable_api::re_exports::{BuiltInMouseCursor, MouseCursorInner};
+
+let instance = TestCase::new().unwrap();
+
+
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default),
+     "Unexpected mousecursor at start");
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default),
+    "Click 1 did not change mouse pointer");
+
+slint_testing::send_mouse_click(&instance, 105., 105.);
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Move),
+    "Click 2 did not change mouse pointer");
+```
+
+*/
