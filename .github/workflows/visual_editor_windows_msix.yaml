@@ -24,7 +24,6 @@ env:
   SLINT_BUILD_NUMBER: ${{ github.run_number }}
   SLINT_VISUAL_EDITOR_MSIX_PATH_PREFIX: tools/lsp/slintvisualeditor_
   SLINT_VISUAL_EDITOR_MSIX_PATH_SUFFIX: .0_x64.msix
-  SLINT_VISUAL_EDITOR_MSIX_FINAL_PATH: tools/lsp/slintvisualeditor_x64.msix
   SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD: slint-ci-self-signed
 
 jobs:
@@ -83,6 +82,7 @@ jobs:
           winapp pack ./dist
 
       - name: Sign MSIX with self-signed test certificate
+        id: sign_msix
         shell: pwsh
         timeout-minutes: 2
         run: |
@@ -103,19 +103,19 @@ jobs:
             /fd SHA256 `
             /f "${{ steps.test_certificate.outputs.pfx_path }}" `
             /p "$env:SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD" `
-            "$env:SLINT_VISUAL_EDITOR_MSIX_PATH"
-          $signature = Get-AuthenticodeSignature "$env:SLINT_VISUAL_EDITOR_MSIX_PATH"
+            "$slintvisualeditor_msixpath"
+          $signature = Get-AuthenticodeSignature "$slintvisualeditor_msixpath"
           if (-not $signature.SignerCertificate) {
             throw "The MSIX does not contain an Authenticode signature."
           }
           Write-Host "Signature status: $($signature.Status)"
-          mv $slintvisualeditor_msixpath $env:SLINT_VISUAL_EDITOR_MSIX_FINAL_PATH
+          echo "slint_visual_editor_msix_path=$slintvisualeditor_msixpath" >> $GITHUB_OUTPUT
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@v7
         with:
           name: slint-visual-editor-windows-msix
           path: |
-            tools/lsp/slintvisualeditor_x64.msix
+            ${{ steps.sign_msix.outputs.slint_visual_editor_msix_path }}
             slint-visual-editor-self-signed.cer
           if-no-files-found: error
