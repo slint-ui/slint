@@ -48,7 +48,7 @@ jobs:
 
       - name: Download ytt
         run: |
-          curl -s -L "${YTT_PATH}" -o "${YTT_PATH}"
+          curl -s -L "${YTT_URL}" -o "${YTT_PATH}"
           echo "${YTT_CHECKSUM}  ${YTT_PATH}" | $CHECKSUM_CMD -c -
           chmod +x "${YTT_PATH}"
 
