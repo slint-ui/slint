@@ -26,6 +26,8 @@ enum Direction {
 /// All simulations must implement this trait
 pub trait Simulation {
     fn step(&mut self, current: &mut f32, new_tick: Instant) -> bool;
+    /// The simulation's current velocity, used to hand off motion to a replacement simulation.
+    fn velocity(&self) -> f32;
 }
 
 /// Trait to convert parameter objects into a simulation
@@ -230,6 +232,10 @@ impl ConstantDeceleration {
 impl Simulation for ConstantDeceleration {
     fn step(&mut self, current: &mut f32, new_tick: Instant) -> bool {
         self.step_internal(current, new_tick)
+    }
+
+    fn velocity(&self) -> f32 {
+        self.velocity
     }
 }
 
@@ -698,6 +704,10 @@ impl Simulation for ConstantDecelerationSpringDamper {
     fn step(&mut self, current: &mut f32, new_tick: Instant) -> bool {
         self.step_internal(current, new_tick)
     }
+
+    fn velocity(&self) -> f32 {
+        self.velocity
+    }
 }
 
 #[cfg(test)]
@@ -940,5 +950,415 @@ mod tests_spring_damper {
         assert_eq!(finished, true);
         assert_eq!(simulation.state, State::Done);
         assert_eq!(current, LIMIT_VALUE);
+    }
+}
+
+/// How close to the target position/velocity a `SpringSimulation` must get before it is
+/// considered settled and snaps to rest. This is the "settling duration" and is distinct from the
+/// user-facing `duration` that fixes the natural frequency
+const SPRING_SETTLE_POSITION_EPSILON: f32 = 0.01;
+const SPRING_SETTLE_VELOCITY_EPSILON: f32 = 0.01;
+
+/// Converts a springs configuration into the `(natural_frequency, damping_ratio)` pair
+/// that the `SpringSimulation` solves the ODE with.
+pub trait SpringParameters {
+    /// Returns `(w_n, zeta)`
+    fn to_natural_frequency_and_damping_ratio(&self) -> (f32, f32);
+}
+
+/// `duration` decides the natural frequency and bounce decides the damping
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy)]
+pub struct SpringDurationBounceParameters {
+    pub duration_secs: f32,
+    /// Expected range `-1.0..=1.0`, but not clamped here.
+    pub bounce: f32,
+}
+
+impl SpringDurationBounceParameters {
+    #[allow(dead_code)]
+    pub fn new(duration_secs: f32, bounce: f32) -> Self {
+        Self { duration_secs, bounce }
+    }
+}
+
+impl SpringParameters for SpringDurationBounceParameters {
+    fn to_natural_frequency_and_damping_ratio(&self) -> (f32, f32) {
+        debug_assert!(self.duration_secs > 0., "duration must be greater than zero");
+        let w_n = 2. * core::f32::consts::PI / self.duration_secs;
+        let zeta = 1. - self.bounce;
+        (w_n, zeta)
+    }
+}
+
+/// `mass`/`stiffness`/`damping`-style spring configuration
+#[derive(Debug, Clone, Copy)]
+pub struct SpringPhysicalParameters {
+    pub mass: f32,
+    pub stiffness: f32,
+    pub damping: f32,
+}
+
+impl SpringPhysicalParameters {
+    #[allow(dead_code)]
+    pub fn new(mass: f32, stiffness: f32, damping: f32) -> Self {
+        Self { mass, stiffness, damping }
+    }
+}
+
+impl SpringParameters for SpringPhysicalParameters {
+    fn to_natural_frequency_and_damping_ratio(&self) -> (f32, f32) {
+        debug_assert!(self.mass > 0., "mass must be greater than zero");
+        debug_assert!(self.stiffness >= 0., "stiffness must not be negative");
+        let w_n = f32::sqrt(self.stiffness / self.mass);
+        let critical_damping = 2. * f32::sqrt(self.mass * self.stiffness);
+        let zeta = if critical_damping > 0. { self.damping / critical_damping } else { 0. };
+        (w_n, zeta)
+    }
+}
+
+/// Precomputed coefficients for a spring, one varient per damping regime
+/// All are relative to `target` (`x_rel = x - target`)
+/// `x_rel(0) = start_value - target`
+/// `vel(0) = initial_velocity`
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy)]
+enum SpringRegime {
+    /// `zeta < 1`: oscillates while decaying. `x_rel(t) = e^(-zeta*w_n*t) * (c1*cos(w_d*t) + c2*sin(w_d*t))`
+    Underdamped { w_d: f32, c1: f32, c2: f32 },
+    /// `zeta == 1`: fastest non-oscillating approach. `x_rel(t) = (c1 + c2*t) * e^(-w_n*t)`
+    Critical { c1: f32, c2: f32 },
+    /// `zeta > 1`: slow, non-oscillating approach. `x_rel(t) = c1*e^(r1*t) + c2*e^(r2*t)`
+    Overdamped { r1: f32, r2: f32, c1: f32, c2: f32 },
+}
+
+impl SpringRegime {
+    /// `zeta` values within this distance of `1.0` are treated as critically damped, to avoid
+    /// `w_d` (underdamped) or `sqrt(zeta^2 - 1)` (overdamped) blowing up near the boundary.
+    #[allow(dead_code)]
+    const CRITICAL_ZETA_EPSILON: f32 = 1e-3;
+
+    #[allow(dead_code)]
+    fn new(x0: f32, v0: f32, w_n: f32, zeta: f32) -> Self {
+        if (zeta - 1.).abs() < Self::CRITICAL_ZETA_EPSILON {
+            Self::Critical { c1: x0, c2: v0 + w_n * x0 }
+        } else if zeta < 1. {
+            let w_d = w_n * f32::sqrt(1. - zeta * zeta);
+            Self::Underdamped { w_d, c1: x0, c2: (v0 + zeta * w_n * x0) / w_d }
+        } else {
+            let disc = f32::sqrt(zeta * zeta - 1.);
+            let r1 = w_n * (-zeta + disc);
+            let r2 = w_n * (-zeta - disc);
+            let c1 = (v0 - r2 * x0) / (r1 - r2);
+            Self::Overdamped { r1, r2, c1, c2: x0 - c1 }
+        }
+    }
+
+    /// Evaluates the closed form at elapsed time `t`, returning `(x_rel, vel)`.
+    fn evaluate(&self, w_n: f32, zeta: f32, t: f32) -> (f32, f32) {
+        match *self {
+            Self::Underdamped { w_d, c1, c2 } => {
+                let decay = f32::exp(-zeta * w_n * t);
+                let (s, c) = f32::sin_cos(w_d * t);
+                let pos = decay * (c1 * c + c2 * s);
+                let vel = decay
+                    * ((-zeta * w_n * c1 + w_d * c2) * c + (-zeta * w_n * c2 - w_d * c1) * s);
+                (pos, vel)
+            }
+            Self::Critical { c1, c2 } => {
+                let decay = f32::exp(-w_n * t);
+                let pos = decay * (c1 + c2 * t);
+                let vel = decay * (c2 - w_n * (c1 + c2 * t));
+                (pos, vel)
+            }
+            Self::Overdamped { r1, r2, c1, c2 } => {
+                let pos = c1 * f32::exp(r1 * t) + c2 * f32::exp(r2 * t);
+                let vel = c1 * r1 * f32::exp(r1 * t) + c2 * r2 * f32::exp(r2 * t);
+                (pos, vel)
+            }
+        }
+    }
+}
+
+/// This simulation moves a point from `start_value` toward a fixed `target`, driven by a spring
+/// with natural frequency `w_n` and damping ratio `zeta`, starting with `initial_velocity`.
+/// This simulates a spring towards a fixed target unlike `ConstantDecelerationSpringDamper`
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct SpringSimulation {
+    target: f32,
+    w_n: f32,
+    zeta: f32,
+    regime: SpringRegime,
+    start_time: Instant,
+    last_velocity: f32,
+}
+
+impl SpringSimulation {
+    /// Creates a new spring simulation moving from `start_value` toward `target`, starting with
+    /// `initial_velocity`
+    #[allow(dead_code)]
+    pub fn new(
+        start_value: f32,
+        initial_velocity: f32,
+        target: f32,
+        parameters: impl SpringParameters,
+    ) -> Self {
+        Self::new_internal(
+            start_value,
+            initial_velocity,
+            target,
+            parameters,
+            crate::animations::current_tick(),
+        )
+    }
+
+    #[allow(dead_code)]
+    fn new_internal(
+        start_value: f32,
+        initial_velocity: f32,
+        target: f32,
+        parameters: impl SpringParameters,
+        start_time: Instant,
+    ) -> Self {
+        let (w_n, zeta) = parameters.to_natural_frequency_and_damping_ratio();
+        debug_assert!(w_n > 0., "natural frequency must be greater than zero");
+        debug_assert!(zeta >= 0., "damping ratio must not be negative");
+        let x0 = start_value - target;
+        let regime = SpringRegime::new(x0, initial_velocity, w_n, zeta);
+        Self {
+            target,
+            w_n,
+            zeta,
+            regime,
+            start_time,
+            last_velocity: initial_velocity,
+        }
+    }
+
+    fn step_internal(&mut self, current: &mut f32, new_tick: Instant) -> bool {
+        let t = new_tick.duration_since(self.start_time).as_secs_f32();
+        let (rel_pos, rel_vel) = self.regime.evaluate(self.w_n, self.zeta, t);
+        self.last_velocity = rel_vel;
+        *current = self.target + rel_pos;
+
+        let settled = f32::abs(rel_pos) < SPRING_SETTLE_POSITION_EPSILON
+            && f32::abs(rel_vel) < SPRING_SETTLE_VELOCITY_EPSILON;
+        if settled {
+            *current = self.target;
+            self.last_velocity = 0.;
+        }
+        settled
+    }
+}
+
+impl Simulation for SpringSimulation {
+    fn step(&mut self, current: &mut f32, new_tick: Instant) -> bool {
+        self.step_internal(current, new_tick)
+    }
+
+    fn velocity(&self) -> f32 {
+        self.last_velocity
+    }
+}
+
+#[cfg(test)]
+mod tests_spring_simulation {
+    use super::*;
+    use core::time::Duration;
+
+    #[test]
+    fn duration_bounce_conversion_edge_cases() {
+        let (_, zeta) = SpringDurationBounceParameters::new(1., 0.)
+            .to_natural_frequency_and_damping_ratio();
+        assert_approx_eq!(zeta, 1.); // critically damped
+
+        let (_, zeta) = SpringDurationBounceParameters::new(1., 1.)
+            .to_natural_frequency_and_damping_ratio();
+        assert_approx_eq!(zeta, 0.); // undamped boundary of underdamped
+
+        let (_, zeta) = SpringDurationBounceParameters::new(1., -1.)
+            .to_natural_frequency_and_damping_ratio();
+        assert_approx_eq!(zeta, 2.); // overdamped
+
+        let (w_n, _) = SpringDurationBounceParameters::new(2., 0.)
+            .to_natural_frequency_and_damping_ratio();
+        assert_approx_eq!(w_n, core::f32::consts::PI);
+    }
+
+    #[test]
+    fn physical_conversion_matches_textbook_formula() {
+        let (w_n, zeta) =
+            SpringPhysicalParameters::new(2., 8., 4.).to_natural_frequency_and_damping_ratio();
+        assert_approx_eq!(w_n, 2.); // sqrt(8/2)
+        assert_approx_eq!(zeta, 4. / (2. * f32::sqrt(2. * 8.)));
+    }
+
+    #[test]
+    fn underdamped_matches_closed_form() {
+        const START: f32 = 0.;
+        const TARGET: f32 = 100.;
+        const INITIAL_VELOCITY: f32 = 0.;
+        let (w_n, zeta) = SpringDurationBounceParameters::new(1., 0.5)
+            .to_natural_frequency_and_damping_ratio();
+        assert!(zeta < 1.);
+
+        let time = Instant::now();
+        let mut sim = SpringSimulation::new_internal(
+            START,
+            INITIAL_VELOCITY,
+            TARGET,
+            SpringPhysicalParameters::new(1., w_n * w_n, 2. * zeta * w_n),
+            time,
+        );
+        let mut current = START;
+        let t = Duration::from_millis(50);
+        let finished = sim.step(&mut current, time + t);
+        assert_eq!(finished, false);
+
+        // Independently re-derive the expected value/velocity from the same closed form.
+        let x0 = START - TARGET;
+        let w_d = w_n * f32::sqrt(1. - zeta * zeta);
+        let c1 = x0;
+        let c2 = (INITIAL_VELOCITY + zeta * w_n * x0) / w_d;
+        let tt = t.as_secs_f32();
+        let decay = f32::exp(-zeta * w_n * tt);
+        let (s, c) = f32::sin_cos(w_d * tt);
+        let expected_pos = TARGET + decay * (c1 * c + c2 * s);
+        let expected_vel = decay
+            * ((-zeta * w_n * c1 + w_d * c2) * c + (-zeta * w_n * c2 - w_d * c1) * s);
+
+        assert_approx_eq!(current, expected_pos);
+        assert_approx_eq!(sim.velocity(), expected_vel);
+    }
+
+    #[test]
+    fn critically_damped_matches_closed_form() {
+        const START: f32 = 0.;
+        const TARGET: f32 = 100.;
+        const INITIAL_VELOCITY: f32 = 0.;
+        let (w_n, zeta) = SpringDurationBounceParameters::new(1., 0.)
+            .to_natural_frequency_and_damping_ratio();
+        assert_approx_eq!(zeta, 1.);
+
+        let time = Instant::now();
+        let mut sim = SpringSimulation::new_internal(
+            START,
+            INITIAL_VELOCITY,
+            TARGET,
+            SpringDurationBounceParameters::new(1., 0.),
+            time,
+        );
+        let mut current = START;
+        let t = Duration::from_millis(50);
+        let finished = sim.step(&mut current, time + t);
+        assert_eq!(finished, false);
+
+        let x0 = START - TARGET;
+        let c1 = x0;
+        let c2 = INITIAL_VELOCITY + w_n * x0;
+        let tt = t.as_secs_f32();
+        let decay = f32::exp(-w_n * tt);
+        let expected_pos = TARGET + decay * (c1 + c2 * tt);
+        let expected_vel = decay * (c2 - w_n * (c1 + c2 * tt));
+
+        assert_approx_eq!(current, expected_pos);
+        assert_approx_eq!(sim.velocity(), expected_vel);
+    }
+
+    #[test]
+    fn overdamped_matches_closed_form() {
+        const START: f32 = 0.;
+        const TARGET: f32 = 100.;
+        const INITIAL_VELOCITY: f32 = 0.;
+        let (w_n, zeta) = SpringDurationBounceParameters::new(1., -0.5)
+            .to_natural_frequency_and_damping_ratio();
+        assert!(zeta > 1.);
+
+        let time = Instant::now();
+        let mut sim = SpringSimulation::new_internal(
+            START,
+            INITIAL_VELOCITY,
+            TARGET,
+            SpringDurationBounceParameters::new(1., -0.5),
+            time,
+        );
+        let mut current = START;
+        let t = Duration::from_millis(50);
+        let finished = sim.step(&mut current, time + t);
+        assert_eq!(finished, false);
+
+        let x0 = START - TARGET;
+        let disc = f32::sqrt(zeta * zeta - 1.);
+        let r1 = w_n * (-zeta + disc);
+        let r2 = w_n * (-zeta - disc);
+        let c1 = (INITIAL_VELOCITY - r2 * x0) / (r1 - r2);
+        let c2 = x0 - c1;
+        let tt = t.as_secs_f32();
+        let expected_pos = TARGET + c1 * f32::exp(r1 * tt) + c2 * f32::exp(r2 * tt);
+        let expected_vel = c1 * r1 * f32::exp(r1 * tt) + c2 * r2 * f32::exp(r2 * tt);
+
+        assert_approx_eq!(current, expected_pos);
+        assert_approx_eq!(sim.velocity(), expected_vel);
+    }
+
+    #[test]
+    fn settles_near_target_and_not_before() {
+        const START: f32 = 0.;
+        const TARGET: f32 = 100.;
+        let time = Instant::now();
+        let mut sim = SpringSimulation::new_internal(
+            START,
+            0.,
+            TARGET,
+            SpringDurationBounceParameters::new(0.3, 0.),
+            time,
+        );
+        let mut current = START;
+
+        // Not settled almost immediately.
+        let finished = sim.step(&mut current, time + Duration::from_millis(1));
+        assert_eq!(finished, false);
+
+        // Settled well after the spring's characteristic duration.
+        let finished = sim.step(&mut current, time + Duration::from_secs(10));
+        assert_eq!(finished, true);
+        assert_eq!(current, TARGET);
+        assert_eq!(sim.velocity(), 0.);
+    }
+
+    /// Retargeting mid-flight: seed a fresh simulation with the outgoing one's position/velocity
+    /// at the splice point and assert there is no discontinuity
+    #[test]
+    fn velocity_handoff_has_no_discontinuity() {
+        const START: f32 = 0.;
+        const TARGET_A: f32 = 100.;
+        const TARGET_B: f32 = -50.;
+        let time = Instant::now();
+        let mut sim_a = SpringSimulation::new_internal(
+            START,
+            0.,
+            TARGET_A,
+            SpringDurationBounceParameters::new(1., 0.5),
+            time,
+        );
+        let mut current_a = START;
+        let splice = time + Duration::from_millis(120);
+        sim_a.step(&mut current_a, splice);
+
+        // Build the replacement "in place": same position and velocity, new target.
+        let mut sim_b = SpringSimulation::new_internal(
+            current_a,
+            sim_a.velocity(),
+            TARGET_B,
+            SpringDurationBounceParameters::new(1., 0.5),
+            splice,
+        );
+        let mut current_b = current_a;
+        // Step by (almost) zero time: should reproduce the same starting position/velocity.
+        sim_b.step(&mut current_b, splice + Duration::from_micros(1));
+
+        assert_approx_eq!(current_b, current_a);
+        assert_approx_eq!(sim_b.velocity(), sim_a.velocity());
     }
 }

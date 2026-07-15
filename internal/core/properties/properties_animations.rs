@@ -75,6 +75,11 @@ pub trait Animation {
     /// Register a callback invoked exactly once, the first time `update()` reports that this
     /// animation is no longer running
     fn set_on_finished(&mut self, _on_finished: Box<dyn FnMut()>) {}
+    /// The animation's current velocity, if it has one. Used to hand off motion to a replacement
+    /// animation (e.g. a spring retargeted mid-flight) so it doesn't visibly reset to rest.
+    fn velocity(&self) -> Option<f32> {
+        None
+    }
 }
 
 enum AnimationState {
@@ -356,6 +361,10 @@ impl<S: physics_simulation::Simulation> Animation for PhysicsAnimation<S> {
                 .with(|driver| driver.set_has_active_animations());
             true
         }
+    }
+
+    fn velocity(&self) -> Option<f32> {
+        Some(self.simulation.velocity())
     }
 }
 
@@ -739,6 +748,12 @@ impl AnimationHandle {
         } else {
             false
         }
+    }
+
+    /// The current velocity of whatever is running on this handle, if any and if it has one
+    pub fn velocity(&self) -> Option<f32> {
+        let id = self.id.get()?;
+        CURRENT_ANIMATIONS.with(|anims| anims.borrow().animations.get(&id.get())?.velocity())
     }
 
     /// Remove any previously registered animation and register `animation` in its place.
