@@ -51,7 +51,7 @@ jobs:
         run:
           working-directory: ui-libraries/material
       steps:
-          - uses: actions/checkout@v6
+          - uses: actions/checkout@v7
           - name: Install Linux dependencies
             if: runner.os == 'Linux'
             run: |
@@ -79,7 +79,7 @@ jobs:
         working-directory: ui-libraries/material/docs
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -87,10 +87,10 @@ jobs:
         shell: bash
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-      - uses: pnpm/action-setup@v6.0.8
+      - uses: pnpm/action-setup@v6.0.9
         with:
           version: 10.29.3
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           package-manager-cache: false

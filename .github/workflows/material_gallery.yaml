@@ -26,12 +26,12 @@ jobs:
       run:
         working-directory: ui-libraries/material
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # 1. Check Artifact Caches
       - name: Cache apk build
         id: cache-apk
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             target/x/release/android/material-gallery.apk
@@ -39,7 +39,7 @@ jobs:
 
       - name: Cache aab build
         id: cache-aab
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             target/x/release/android/material-gallery.aab
@@ -73,7 +73,7 @@ jobs:
       - name: Cache xbuild
         if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
         id: xbuild-cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/bin/x

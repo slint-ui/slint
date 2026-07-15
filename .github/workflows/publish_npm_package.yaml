@@ -36,11 +36,11 @@ jobs:
         outputs:
             PKG_VERSION: ${{ steps.mkversion.outputs.PKG_VERSION }}
         steps:
-            - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                 package-manager-cache: false
             - name: Determine version
@@ -85,7 +85,7 @@ jobs:
         needs: determine_version
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ilammy/msvc-dev-cmd@v1
@@ -95,16 +95,16 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.rust-target }}
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
             # Setup .npmrc file to publish to npm
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                   node-version: "24"
                   registry-url: "https://registry.npmjs.org"
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
             - name: Set version
@@ -146,14 +146,14 @@ jobs:
             PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
             RELEASE_INPUT: ${{ github.event.inputs.release }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
             # Setup .npmrc file to publish to npm
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                   node-version: "24"
                   registry-url: "https://registry.npmjs.org"
