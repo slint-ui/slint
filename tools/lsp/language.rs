@@ -94,10 +94,11 @@ fn create_populate_command(
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn send_state_to_preview(ctx: &Context) {
-    // Seed any persisted UI settings first so the preview restores its panel
-    // layout before the first paint. Only the native host populates this; the
-    // WASM webview persists directly in the editor and leaves it None.
-    if let Some(settings) = ctx.preview_ui_settings.clone() {
+    // Seed the persisted UI settings first so the preview restores its panel
+    // layout before the first paint. The LSP owns this blob for the session, so
+    // it is current whether the seed came from the editor host at startup or
+    // from the preview persisting a change mid-session.
+    if let Some(settings) = ctx.preview_ui_settings.borrow().clone() {
         ctx.to_preview.send(&LspToPreviewMessage::RestoreUiSettings { settings });
     }
 
@@ -276,10 +277,35 @@ pub struct Context {
     /// Disables the host-language rename prompt for the rest of the session.
     /// TODO(#12111): Persist this setting across sessions.
     pub host_language_rename_dont_ask_again: Rc<Cell<bool>>,
-    /// The opaque preview UI settings blob the editor host persisted from an
-    /// earlier session, seeded into the preview when it requests its state.
+    /// The opaque preview UI settings blob, held authoritatively by the LSP for
+    /// the session and seeded into the preview when it requests its state. The
+    /// editor host seeds it from an earlier session and persists updates to
+    /// durable storage, but the LSP keeps its own copy current. `RefCell`
+    /// because the preview message handler only has a shared `&Context`; the LSP
+    /// is single-threaded so this never contends.
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    pub preview_ui_settings: Option<String>,
+    pub preview_ui_settings: std::cell::RefCell<Option<String>>,
+}
+
+/// Params for the `slint/persist_ui_settings` and `slint/restore_ui_settings`
+/// custom notifications exchanged with the editor host, carrying the opaque
+/// preview UI settings blob.
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct UiSettingsParams {
+    pub settings: String,
+}
+
+/// LSP -> editor: persist the opaque preview UI settings blob to durable
+/// storage. The LSP keeps its own authoritative copy; this notification just
+/// asks the host to save it across sessions.
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+pub enum PersistUiSettingsNotification {}
+
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+impl lsp_types::notification::Notification for PersistUiSettingsNotification {
+    type Params = UiSettingsParams;
+    const METHOD: &'static str = "slint/persist_ui_settings";
 }
 
 /// An error from a LSP request

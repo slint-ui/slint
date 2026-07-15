@@ -339,7 +339,7 @@ fn init_ui_settings(api: &crate::preview::ui::Api) {
 
 fn persist_ui_settings() {
     // Read the current panel visibility and serialize the settings blob, then
-    // drop the PREVIEW_STATE borrow before calling into JS.
+    // drop the PREVIEW_STATE borrow before calling into JS or the LSP.
     let blob = preview::PREVIEW_STATE.with_borrow(|preview_state| {
         preview_state.api.upgrade().map(|api| {
             connector::serialize_ui_settings(
@@ -355,16 +355,27 @@ fn persist_ui_settings() {
         return;
     };
 
-    WASM_CALLBACKS.with_borrow(|callbacks| {
+    // SlintPad provides a `persist_ui_settings` callback and stores the blob in
+    // its own JS host (localStorage). The VS Code webview provides none, so we
+    // route the persist through the LSP like the native host, letting the LSP
+    // own the settings authoritatively and forward them to the extension.
+    let callback = WASM_CALLBACKS.with_borrow(|callbacks| {
         let maybe_callback = wasm_bindgen::JsValue::from(
             callbacks.as_ref().expect("Callbacks were set up earlier").persist_ui_settings.clone(),
         );
-        if !maybe_callback.is_function() {
-            return;
-        }
-        let persist = js_sys::Function::from(maybe_callback);
-        let _ = persist.call1(&JsValue::UNDEFINED, &JsValue::from_str(&blob));
+        maybe_callback.is_function().then(|| js_sys::Function::from(maybe_callback))
     });
+
+    if let Some(persist) = callback {
+        let _ = persist.call1(&JsValue::UNDEFINED, &JsValue::from_str(&blob));
+        return;
+    }
+
+    let to_lsp =
+        preview::PREVIEW_STATE.with_borrow(|preview_state| preview_state.to_lsp.borrow().clone());
+    if let Some(to_lsp) = to_lsp {
+        let _ = to_lsp.send(&PreviewToLspMessage::PersistUiSettings { settings: blob });
+    }
 }
 
 fn new_file() {

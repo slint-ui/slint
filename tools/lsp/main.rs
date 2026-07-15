@@ -537,7 +537,7 @@ async fn run_main_loop(
         pending_recompile: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        preview_ui_settings: None,
+        preview_ui_settings: Default::default(),
     };
 
     let connection = Arc::new(connection);
@@ -783,7 +783,7 @@ async fn handle_notification(
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         "slint/restore_ui_settings" => {
             let params: UiSettingsParams = serde_json::from_value(req.params)?;
-            ctx.preview_ui_settings = Some(params.settings);
+            *ctx.preview_ui_settings.borrow_mut() = Some(params.settings);
             Ok(())
         }
         _ => Ok(()),
@@ -810,26 +810,6 @@ async fn send_workspace_edit(
             .into());
     }
     Ok(())
-}
-
-/// Params for the `slint/persist_ui_settings` and `slint/restore_ui_settings`
-/// custom notifications exchanged with the editor host, carrying the opaque
-/// preview UI settings blob.
-#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
-#[derive(serde::Serialize, serde::Deserialize)]
-struct UiSettingsParams {
-    settings: String,
-}
-
-/// LSP -> editor: persist the opaque preview UI settings blob. The editor
-/// stores it and seeds it back via `slint/restore_ui_settings`.
-#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
-enum PersistUiSettingsNotification {}
-
-#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
-impl Notification for PersistUiSettingsNotification {
-    type Params = UiSettingsParams;
-    const METHOD: &'static str = "slint/persist_ui_settings";
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
@@ -903,6 +883,10 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
         }
         M::PersistUiSettings { settings } => {
             tracing::debug!("Preview asked to persist UI settings");
+            // Keep the LSP's authoritative copy current so a later preview start
+            // in this session restores what the user just left, then ask the
+            // editor host to save it across sessions.
+            *ctx.preview_ui_settings.borrow_mut() = Some(settings.clone());
             ctx.server_notifier.send_notification::<PersistUiSettingsNotification>(
                 UiSettingsParams { settings },
             )?;
