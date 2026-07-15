@@ -2673,12 +2673,47 @@ fn resolve_struct_field_default_value(
     }
     let constant = crate::langtype::ConstantExpression::from_expression(&expr);
     if constant.is_none() {
+        let reason = non_constant_expression_reason(&expr)
+            .map_or_else(Default::default, |reason| format!(": {reason}"));
         diag.push_error(
-            "The default value of a struct field must be a constant expression".into(),
+            format!("The default value of a struct field must be a constant expression{reason}"),
             &node,
         );
     }
     constant
+}
+
+/// A user-facing explanation of what makes the expression non-constant, if there is
+/// a better one than "it is not in the supported subset"
+fn non_constant_expression_reason(expr: &Expression) -> Option<String> {
+    use crate::expression_tree::{BuiltinFunction, Callable};
+    let mut reason = None;
+    expr.visit_recursive(&mut |e| {
+        if reason.is_some() {
+            return;
+        }
+        reason = match e {
+            Expression::PropertyReference(nr) => {
+                Some(format!("it references the property '{}'", nr.name()))
+            }
+            Expression::FunctionCall { function, .. } => match function {
+                Callable::Function(nr) => Some(format!("it calls the function '{}'", nr.name())),
+                Callable::Callback(nr) => Some(format!("it calls the callback '{}'", nr.name())),
+                Callable::Builtin(BuiltinFunction::GetWindowScaleFactor) => Some(
+                    "the conversion to logical pixels depends on the window's scale factor".into(),
+                ),
+                Callable::Builtin(BuiltinFunction::GetWindowDefaultFontSize) => Some(
+                    "the conversion from 'rem' depends on the window's default font size".into(),
+                ),
+                Callable::Builtin(BuiltinFunction::Translate) => {
+                    Some("the translation is selected at run-time".into())
+                }
+                Callable::Builtin(_) => Some("functions are not evaluated at compile time".into()),
+            },
+            _ => None,
+        };
+    });
+    reason
 }
 
 fn animation_element_from_node(

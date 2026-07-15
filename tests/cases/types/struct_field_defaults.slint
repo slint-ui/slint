@@ -19,6 +19,25 @@ export struct NestedDefault {
     tags: [string] = ["a", "b"],
 }
 
+export struct HeldItem {
+    abc: int,
+}
+
+export struct Holder {
+    model: [HeldItem] = [{ abc: 45 }],
+}
+
+export struct Edge {
+    // Folds to infinity; the backends saturate when converting to int
+    big: int = 45 / 0,
+    // The number to string conversion respects the locale's decimal separator,
+    // so it stays a runtime conversion instead of a compile time string
+    text: string = 42.1,
+    size: length = 44px,
+    // No default here, but the field type declares its own defaults
+    inner: PlayerWithDefault,
+}
+
 export component TestCase {
     // Missing fields in a struct literal take the declared defaults
     in-out property <PlayerWithDefault> partial: { name: "partial" };
@@ -68,6 +87,13 @@ export component TestCase {
         { name: "cb" }
     }
 
+    in-out property <Edge> edge;
+    in-out property <Holder> holder;
+
+    // Two-way bindings between struct properties with field defaults
+    in-out property <PlayerWithDefault> tw-a: { name: "tw" };
+    in-out property <PlayerWithDefault> tw-b <=> tw-a;
+
     in property <bool> flag: true;
     // Conditional with the same fields in both branches: the defaults apply to all
     // missing fields
@@ -100,7 +126,11 @@ export component TestCase {
         && team-mixed[0].score == 0 && team-mixed[0].alive && team-mixed[1].score == 1
         && score-of({ name: "arg" }) == 42
         && let-player("let").name == "let" && let-player("let").score == 42
-        && make-cb().name == "cb" && make-cb().score == 42 && make-cb().rank == Rank.gold;
+        && make-cb().name == "cb" && make-cb().score == 42 && make-cb().rank == Rank.gold
+        && edge.big > 2000000000 && edge.text.starts-with("42") && edge.size == 44px
+        && edge.inner.name == "unknown" && edge.inner.score == 42 && edge.inner.alive
+        && holder.model.length == 1 && holder.model[0].abc == 45
+        && tw-a.name == "tw" && tw-b.name == "tw" && tw-b.score == 42 && tw-b.alive;
 }
 
 /*
@@ -131,6 +161,20 @@ assert_eq!(nested.tags.row_data(1).unwrap(), slint::SharedString::from("b"));
 let custom = PlayerWithDefault { name: "custom".into(), ..Default::default() };
 assert_eq!(custom.name, "custom");
 assert_eq!(custom.score, 42);
+
+// Each instance gets its own copy of a default model
+let h1 = Holder::default();
+let h2 = Holder::default();
+h1.model.as_any().downcast_ref::<slint::VecModel<HeldItem>>().unwrap().push(HeldItem { abc: 46 });
+assert_eq!(h1.model.row_count(), 2);
+assert_eq!(h2.model.row_count(), 1);
+
+let edge = Edge::default();
+assert_eq!(edge.big, i32::MAX);
+assert!(edge.text.starts_with("42"));
+assert_eq!(edge.size, 44.);
+assert_eq!(edge.inner.score, 42);
+assert!(edge.inner.alive);
 
 // A callback returning a partial struct literal applies the defaults
 let from_cb = instance.invoke_make_cb();
@@ -165,6 +209,21 @@ assert_eq(default_player.plain, 0);
 
 PlayerWithDefault aggregate {};
 assert_eq(aggregate.score, 42);
+
+// Each instance gets its own copy of a default model
+Holder h1, h2;
+auto vec_model = std::dynamic_pointer_cast<slint::VectorModel<HeldItem>>(h1.model);
+assert(vec_model);
+vec_model->push_back(HeldItem { 46 });
+assert_eq(h1.model->row_count(), 2);
+assert_eq(h2.model->row_count(), 1);
+
+Edge edge;
+assert_eq(edge.big, std::numeric_limits<int>::max());
+assert(std::string_view(edge.text).starts_with("42"));
+assert_eq(edge.size, 44.f);
+assert_eq(edge.inner.score, 42);
+assert(edge.inner.alive);
 
 auto from_cb = instance.invoke_make_cb();
 assert_eq(from_cb.name, "cb");
@@ -204,6 +263,11 @@ let nested = new slint.NestedDefault();
 assert.equal(nested.player.name, "nested");
 assert.equal(nested.player.score, 42);
 
+let edge = new slint.Edge();
+assert(edge.big > 2000000000);
+assert(edge.text.startsWith("42"));
+assert.equal(edge.inner.score, 42);
+
 let from_cb = instance.make_cb();
 assert.equal(from_cb.name, "cb");
 assert.equal(from_cb.score, 42);
@@ -228,6 +292,16 @@ assert custom.score == 42
 nested = NestedDefault()
 assert nested.player.name == "nested"
 assert nested.player.score == 42
+
+edge = Edge()
+assert edge.big > 2000000000
+assert str(edge.text).startswith("42")
+assert edge.inner.score == 42
+assert edge.size == 44
+
+h1 = Holder()
+h2 = Holder()
+assert len(list(h1.model)) == 1 and len(list(h2.model)) == 1
 
 from_cb = instance.make_cb()
 assert from_cb.name == "cb"
