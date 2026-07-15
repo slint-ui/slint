@@ -90,9 +90,9 @@ jobs:
           Copy-Item tools/lsp/packaging/windows-appx/SlintVisualEditor-Logo-*.png tools/lsp/dist/Assets/
           Copy-Item target/x86_64-pc-windows-msvc/package-release/slint-visual-editor.exe tools/lsp/dist/slint-visual-editor.exe
           Set-Location tools/lsp
-          cargo +nightly -Zscript -q ../../scripts/handlebars.rs \
-            -v cargo.version=${{ steps.get_cargo_version.outputs.cargo_version }} \
-            -i Package.appxmanifest.hbs \
+          cargo +nightly -Zscript -q ../../scripts/handlebars.rs `
+            -v cargo.version=${{ steps.get_cargo_version.outputs.cargo_version }} `
+            -i Package.appxmanifest.hbs `
             -o Package.appxmanifest
           winapp pack ./dist
 
