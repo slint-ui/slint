@@ -3509,6 +3509,27 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
         std::mem::replace(&mut old_root.borrow_mut().child_of_layout, false);
     // The injected parent becomes the repeated element, so it takes over the grid cell role.
     new_root.borrow_mut().grid_layout_cell = old_root.borrow_mut().grid_layout_cell.take();
+    // Likewise it takes over the flexbox cell role, so the flex item-info accessor is
+    // generated on the wrapper the layout actually calls it on.
+    if old_root.borrow().child_of_flexbox {
+        new_root.borrow_mut().child_of_flexbox = true;
+        // That accessor reads the flex-* properties from the repeated root (now the
+        // wrapper). Link them to the inner element that still carries the bindings
+        // (and the FlexboxLayout's captured references keeping them alive), rather
+        // than moving them, which would leave those references dangling.
+        for prop in
+            ["flex-grow", "flex-shrink", "flex-basis", "flex-order", "flex-align-self"].iter()
+        {
+            if old_root.borrow().bindings.contains_key(*prop) {
+                new_root.borrow_mut().bindings.insert(
+                    SmolStr::new_static(prop),
+                    RefCell::new(BindingExpression::new_two_way(
+                        NamedReference::new(old_root, SmolStr::new_static(prop)).into(),
+                    )),
+                );
+            }
+        }
+    }
     let layout_info_prop = old_root.borrow().layout_info_prop.clone().or_else(|| {
         // generate the layout_info_prop that forward to the implicit layout for that item
         let li_v = crate::layout::create_new_prop(
