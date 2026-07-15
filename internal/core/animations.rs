@@ -8,6 +8,7 @@ use alloc::boxed::Box;
 use core::cell::Cell;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
+
 pub(crate) mod physics_simulation;
 
 mod cubic_bezier {
@@ -161,6 +162,8 @@ pub enum EasingCurve {
     /// Easing curve as defined at: <https://easings.net/#easeInOutBounce>
     EaseInOutBounce,
     // Custom(Box<dyn Fn(f32) -> f32>),
+    /// A spring animation, configured via `PropertyAnimation`'s `bounce` and `duration` or `mass`/`stiffness`/`damping`
+    Spring,
 }
 
 /// Represent an instant, in milliseconds since the AnimationDriver's initial_instant
@@ -314,8 +317,31 @@ fn ease_out_bounce_curve(value: f32) -> f32 {
     }
 }
 
+fn spring_curve(regime: &physics_simulation::SpringRegime, value: f32) -> f32 {
+    1.0 + regime.evaluate(value).0
+}
+
+/// Evaluates a mass/stiffness/damping spring at `elapsed_secs`, returning `(progress, settled)`.
+pub fn spring_settle_progress(
+    regime: &physics_simulation::SpringRegime,
+    elapsed_secs: f32,
+) -> (f32, bool) {
+    use physics_simulation::{SPRING_SETTLE_POSITION_EPSILON, SPRING_SETTLE_VELOCITY_EPSILON};
+
+    let (rel_pos, rel_vel) = regime.evaluate(elapsed_secs);
+    let settled = rel_pos.abs() < SPRING_SETTLE_POSITION_EPSILON
+        && rel_vel.abs() < SPRING_SETTLE_VELOCITY_EPSILON;
+    (1.0 + rel_pos, settled)
+}
+
 /// map a value between 0 and 1 to another value between 0 and 1 according to the curve
-pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
+///
+/// `spring` must be `Some` when `curve` is `EasingCurve::Spring`.
+pub fn easing_curve(
+    curve: &EasingCurve,
+    value: f32,
+    spring: Option<&physics_simulation::SpringRegime>,
+) -> f32 {
     match curve {
         EasingCurve::Linear => value,
         EasingCurve::CubicBezier([a, b, c, d]) => {
@@ -377,6 +403,10 @@ pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
                 (1.0 + ease_out_bounce_curve(2.0 * value - 1.0)) / 2.0
             }
         }
+        EasingCurve::Spring => spring_curve(
+            spring.expect("SpringRegime must be provided for EasingCurve::Spring"),
+            value,
+        ),
     }
 }
 
