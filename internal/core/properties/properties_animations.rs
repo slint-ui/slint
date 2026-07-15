@@ -1573,6 +1573,20 @@ pub(crate) mod animation_object_ffi {
         running
     }
 
+    /// Returns the current velocity of whatever is running on this handle, or 0.0 if nothing is
+    /// running or the running animation doesn't track velocity (e.g. a Tween).
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_animation_handle_velocity(id: usize) -> f32 {
+        if id == 0 {
+            return 0.0;
+        }
+        let handle =
+            AnimationHandle { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
+        let velocity = handle.velocity().unwrap_or(0.0);
+        handle.id.take();
+        velocity
+    }
+
     /// Drop (deregister) the animation handle. Called from the C++ destructor.
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_animation_handle_drop(id: usize) {

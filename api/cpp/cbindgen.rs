@@ -637,6 +637,7 @@ fn gen_corelib(
             "slint_animation_handle_restart_brush",
             "slint_animation_handle_stop",
             "slint_animation_handle_is_running",
+            "slint_animation_handle_velocity",
             "slint_animation_handle_drop",
             "slint_animation_new_tween_int",
             "slint_animation_new_tween_float",

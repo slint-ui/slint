@@ -2153,17 +2153,19 @@ fn animation_details_expr(anim: &llr::AnimationObject, ctx: &EvaluationContext) 
 
 /// Builds a `slint::private_api::AnimationNode::new_spring_duration_bounce`/`new_spring_physical`
 /// expression, given already-built `from`/`to`/`get_value`/`set_value` C++ expressions.
+///
+/// `initial_velocity` must be a self-contained C++ expression evaluating to a `float`: either
+/// `"0.f"` (fresh subtree, no outgoing animation to carry velocity from) or the outgoing handle's
+/// `velocity()` (retargeting a running spring), depending on the call site.
 fn spring_animation_node_expr(
     anim: &llr::AnimationObject,
     ctx: &EvaluationContext,
     from: &str,
     to: &str,
+    initial_velocity: &str,
     get_value_lambda: &str,
     set_value_lambda: &str,
 ) -> String {
-    // Velocity handoff between successive springs isn't wired up yet, so every spring
-    // currently starts at rest.
-    let initial_velocity = "0.f";
     if let Some(bounce) = &anim.bounce {
         let duration_ms = compile_expression(
             &anim
@@ -2285,7 +2287,17 @@ fn build_animation_node(anim: &llr::AnimationObject, ctx: &EvaluationContext) ->
             let get_value_lambda = format!("[self]() -> float {{ return (float)({target_get}); }}");
             let set_value_lambda = format!("[self](float value) {{ {set_stmt}; }}");
 
-            spring_animation_node_expr(anim, ctx, &from, &to, &get_value_lambda, &set_value_lambda)
+            // Nested inside a Parallel/Sequential tree: this is always a fresh subtree, not a
+            // retarget of a running handle, so it has no outgoing velocity to carry over.
+            spring_animation_node_expr(
+                anim,
+                ctx,
+                &from,
+                &to,
+                "0.f",
+                &get_value_lambda,
+                &set_value_lambda,
+            )
         }
     }
 }
@@ -2928,11 +2940,15 @@ fn generate_sub_component(
                     let get_value_lambda =
                         format!("[self]() -> float {{ return (float)({target_get}); }}");
                     let set_value_lambda = format!("[self](float value) {{ {set_stmt}; }}");
+                    // Read the outgoing animation's velocity off the same handle before it gets
+                    // replaced by the new spring, so retargeting a running spring carries its
+                    // motion over instead of restarting from rest.
                     let node = spring_animation_node_expr(
                         anim,
                         &ctx,
                         from_expr,
                         to_expr,
+                        &format!("self->{name}.velocity()"),
                         &get_value_lambda,
                         &set_value_lambda,
                     );

@@ -1,0 +1,127 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    width: 200px;
+    height: 200px;
+    background: white;
+
+    in-out property <length> value: 0px;
+    out property <bool> anim-running: anim.running;
+
+    // No `to`/`from`: writing to `value` directly (re)starts the spring from wherever it
+    // previously was towards the newly written value, unconditionally restarting even if a
+    // spring is already running - unlike a fixed `to`, where a same-target write while running
+    // is a no-op.
+    anim := SpringAnimation {
+        target: value;
+        duration: 1000ms;
+        bounce: 0;
+    }
+}
+
+/*
+
+Retargeting a running spring (writing a new value to its `target` property while it's still
+moving) must carry the outgoing spring's velocity into the replacement, instead of restarting it
+from rest - otherwise the property would visibly "jerk" to a stop and re-accelerate every time
+it's retargeted mid-flight.
+
+```rust
+let instance = TestCase::new().unwrap();
+fn assert_almost_eq(value: f32, expected: f32) {
+    assert!((value - expected).abs() < 0.5, "Expected {value} to be close to {expected} (+-0.5)");
+}
+
+assert_eq!(instance.get_value(), 0.);
+
+// Start moving towards 100: critically damped (bounce: 0).
+instance.set_value(100.);
+slint_testing::mock_elapsed_time(1);
+assert!(instance.get_anim_running());
+
+// Progress partway - closed-form value at t=200ms.
+slint_testing::mock_elapsed_time(199);
+assert_almost_eq(instance.get_value(), 35.77);
+
+// Retarget mid-flight, towards 50 this time. The new spring must start with the outgoing
+// spring's velocity (~224.7 px/s at this point), not from rest - otherwise it would land near
+// 40.9 here instead of ~53.7.
+instance.set_value(50.);
+slint_testing::mock_elapsed_time(1);
+assert!(instance.get_anim_running());
+slint_testing::mock_elapsed_time(199);
+assert_almost_eq(instance.get_value(), 53.65);
+
+// Let it settle at the new target.
+slint_testing::mock_elapsed_time(5000);
+assert_eq!(instance.get_value(), 50.);
+assert!(!instance.get_anim_running());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto assert_almost_eq = [](float value, float expected) {
+    assert(std::abs(value - expected) < 0.5);
+};
+
+assert_eq(instance.get_value(), 0.);
+
+// Start moving towards 100: critically damped (bounce: 0).
+instance.set_value(100.);
+slint_testing::mock_elapsed_time(1);
+assert(instance.get_anim_running());
+
+// Progress partway - closed-form value at t=200ms.
+slint_testing::mock_elapsed_time(199);
+assert_almost_eq(instance.get_value(), 35.77);
+
+// Retarget mid-flight, towards 50 this time. The new spring must start with the outgoing
+// spring's velocity (~224.7 px/s at this point), not from rest - otherwise it would land near
+// 40.9 here instead of ~53.7.
+instance.set_value(50.);
+slint_testing::mock_elapsed_time(1);
+assert(instance.get_anim_running());
+slint_testing::mock_elapsed_time(199);
+assert_almost_eq(instance.get_value(), 53.65);
+
+// Let it settle at the new target.
+slint_testing::mock_elapsed_time(5000);
+assert_eq(instance.get_value(), 50.);
+assert(!instance.get_anim_running());
+```
+
+```js
+var instance = new slint.TestCase({});
+function assert_almost_eq(value, expected) {
+    assert(Math.abs(value - expected) < 0.5);
+}
+
+assert.equal(instance.value, 0.);
+
+// Start moving towards 100: critically damped (bounce: 0).
+instance.value = 100.;
+slintlib.private_api.mock_elapsed_time(1);
+assert(instance.anim_running);
+
+// Progress partway - closed-form value at t=200ms.
+slintlib.private_api.mock_elapsed_time(199);
+assert_almost_eq(instance.value, 35.77);
+
+// Retarget mid-flight, towards 50 this time. The new spring must start with the outgoing
+// spring's velocity (~224.7 px/s at this point), not from rest - otherwise it would land near
+// 40.9 here instead of ~53.7.
+instance.value = 50.;
+slintlib.private_api.mock_elapsed_time(1);
+assert(instance.anim_running);
+slintlib.private_api.mock_elapsed_time(199);
+assert_almost_eq(instance.value, 53.65);
+
+// Let it settle at the new target.
+slintlib.private_api.mock_elapsed_time(5000);
+assert.equal(instance.value, 50.);
+assert(!instance.anim_running);
+```
+
+*/

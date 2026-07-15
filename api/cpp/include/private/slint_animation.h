@@ -196,11 +196,10 @@ public:
     /// Build a leaf spring node whose natural frequency/damping are derived from a
     /// `duration`/`bounce` pair. Unlike `new_tween`, a spring integrates in place: `get_value`
     /// reads the target's live value each frame (so external writes since the last frame are
-    /// picked up) and `set_value` pushes the newly stepped value back. Velocity handoff between
-    /// successive springs isn't wired up in codegen yet, so `initial_velocity` is currently
-    /// always `0.` from call sites, though the FFI already accepts it. Register `on_finished` via
-    /// `set_on_finished` (a spring doesn't take one at construction time, like Delay/Parallel/
-    /// Sequential).
+    /// picked up) and `set_value` pushes the newly stepped value back. `initial_velocity` should
+    /// be the outgoing animation's velocity (via `AnimationHandle::velocity()`) when retargeting a
+    /// running spring, or `0.` when starting fresh. Register `on_finished` via `set_on_finished`
+    /// (a spring doesn't take one at construction time, like Delay/Parallel/Sequential).
     template<typename GetValue, typename SetValue>
     static AnimationNode new_spring_duration_bounce(float start_value, float initial_velocity,
                                                     float target_value, float duration_secs,
@@ -423,6 +422,14 @@ struct AnimationHandle
     {
         private_api::assert_main_thread();
         return cbindgen_private::slint_animation_handle_is_running(id);
+    }
+
+    /// Returns the current velocity of whatever is running on this handle, or 0.0 if nothing is
+    /// running or the running animation doesn't track velocity (e.g. a Tween).
+    float velocity() const
+    {
+        private_api::assert_main_thread();
+        return cbindgen_private::slint_animation_handle_velocity(id);
     }
 
 private:

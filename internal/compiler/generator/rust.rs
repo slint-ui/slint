@@ -1345,8 +1345,8 @@ fn build_animation_value(anim: &llr::AnimationObject, ctx: &EvaluationContext) -
                 let self_weak_set = self.self_weak.get().unwrap().clone();
                 let start_value = (#from_arg) as f32;
                 let target_value = (#to_arg) as f32;
-                // Velocity handoff between successive springs isn't wired up yet, so every spring
-                // currently starts at rest.
+                // Nested inside a Parallel/Sequential tree: this is always a fresh subtree, not a
+                // retarget of a running handle, so it has no outgoing velocity to carry over.
                 let simulation = sp::SpringSimulation::new(start_value, 0., target_value, #parameters);
                 let physics = sp::PhysicsAnimation::new(
                     simulation,
@@ -1436,9 +1436,8 @@ fn build_spring_and_drive(
         let self_weak_finished = self.self_weak.get().unwrap().clone();
         let start_value = (#from_primitive) as f32;
         let target_value = (#to_primitive) as f32;
-        // Velocity handoff between successive springs isn't wired up yet, so every spring
-        // currently starts at rest.
-        let simulation = sp::SpringSimulation::new(start_value, 0., target_value, #parameters);
+        let initial_velocity = self.#ident.velocity().unwrap_or(0.);
+        let simulation = sp::SpringSimulation::new(start_value, initial_velocity, target_value, #parameters);
         let mut spring_anim: sp::Box<dyn sp::Animation> = sp::Box::new(sp::PhysicsAnimation::new(
             simulation,
             move || {

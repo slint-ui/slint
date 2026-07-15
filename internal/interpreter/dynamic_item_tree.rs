@@ -3141,8 +3141,8 @@ fn build_animation_value(
                 })
                 .unwrap_or_else(current);
 
-            // Velocity handoff between successive springs isn't wired up yet, so every spring
-            // currently starts at rest.
+            // Nested inside a Parallel/Sequential tree: this is always a fresh subtree, not a
+            // retarget of a running handle, so it has no outgoing velocity to carry over.
             let simulation = build_spring_simulation(instance, desc, from, 0., to);
 
             let target_ref = target.clone();
@@ -3425,9 +3425,10 @@ fn build_spring_with(
     let target = desc.target.as_ref().expect("SpringAnimation requires a target");
     let start_value: f32 = from.clone().try_into().unwrap();
     let target_value: f32 = to.clone().try_into().unwrap();
-    // Velocity handoff between successive springs isn't wired up yet, so every spring
-    // currently starts at rest.
-    let simulation = build_spring_simulation(instance, desc, start_value, 0., target_value);
+    let initial_velocity =
+        instance.description.animations[idx].apply(instance.as_ref()).velocity().unwrap_or(0.);
+    let simulation =
+        build_spring_simulation(instance, desc, start_value, initial_velocity, target_value);
 
     let target_ref = target.clone();
     let self_weak_get = instance.self_weak().get().unwrap().clone();
