@@ -21,6 +21,8 @@ import {
     set_panic_share_url_getter,
 } from "./dialogs";
 
+import { install_command_palette, type Command } from "./command_palette";
+
 import { CommandRegistry } from "@lumino/commands";
 import { Menu, MenuBar, SplitPanel, Widget } from "@lumino/widgets";
 
@@ -95,6 +97,40 @@ function save_panel_layout(layout: PanelLayout): void {
 function setup(lsp: Lsp) {
     const editor = new EditorWidget(lsp);
     set_panic_share_url_getter(() => editor.share_url());
+
+    // Built fresh each time the palette opens; the demo list is read from the
+    // LSP (Api.demos) so it always matches the toolbar's Open Demo menu.
+    const palette_commands = (): Command[] => [
+        {
+            id: "new-file",
+            title: "New File",
+            hint: "Action",
+            run: () => void editor.set_demo(""),
+        },
+        ...lsp
+            .demos()
+            .filter((demo) => demo.url !== "")
+            .map((demo) => ({
+                id: `demo:${demo.url}`,
+                title: `Open Demo: ${demo.title}`,
+                hint: "Demo",
+                run: () => void editor.set_demo(demo.url),
+            })),
+        {
+            id: "copy-permalink",
+            title: "Copy Permalink to Clipboard",
+            hint: "Share",
+            run: () => void editor.copy_permalink_to_clipboard(),
+        },
+        {
+            id: "about",
+            title: "About SlintPad",
+            hint: "Help",
+            run: () => about_dialog(),
+        },
+    ];
+    const palette = install_command_palette(palette_commands);
+
     const preview = new PreviewWidget(
         lsp,
         (url: string) => editor.map_url(url),
@@ -108,6 +144,10 @@ function setup(lsp: Lsp) {
                 void editor.copy_permalink_to_clipboard();
             } else if (func_type === SlintPadCallbackFunction.NewFile) {
                 void editor.set_demo("");
+            } else if (
+                func_type === SlintPadCallbackFunction.OpenCommandPalette
+            ) {
+                palette.open();
             } else if (func_type === SlintPadCallbackFunction.SavePanelLayout) {
                 save_panel_layout(args as PanelLayout);
             }

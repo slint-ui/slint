@@ -19,6 +19,7 @@ pub enum SlintPadCallbackFunction {
     ShowAbout,
     CopyPermalink,
     NewFile,
+    OpenCommandPalette,
     SavePanelLayout,
 }
 
@@ -182,6 +183,25 @@ impl PreviewConnector {
         Ok(())
     }
 
+    /// Returns the built-in demos as an array of `{ title, url }`, so the
+    /// command palette can offer the same list as the "Open Demo" menu.
+    #[wasm_bindgen]
+    pub fn demos(&self) -> JsValue {
+        let array = js_sys::Array::new();
+        for (title, url) in preview::get_demos() {
+            let entry = js_sys::Object::new();
+            let _ = js_sys::Reflect::set(
+                &entry,
+                &JsValue::from_str("title"),
+                &JsValue::from_str(&title),
+            );
+            let _ =
+                js_sys::Reflect::set(&entry, &JsValue::from_str("url"), &JsValue::from_str(&url));
+            array.push(&entry);
+        }
+        array.into()
+    }
+
     #[wasm_bindgen]
     pub fn show_ui(&self) -> Result<js_sys::Promise, JsValue> {
         invoke_from_event_loop_wrapped_in_promise(|instance| instance.show())
@@ -328,6 +348,7 @@ fn init_slintpad_specific_ui(api: &crate::preview::ui::Api) {
         open_demo_url(&url);
     });
     api.on_show_about_slint(show_about_slint);
+    api.on_open_command_palette(open_command_palette);
     api.on_panels_layout_changed(save_panel_layout);
 }
 
@@ -378,6 +399,27 @@ fn save_panel_layout() {
             &JsValue::UNDEFINED,
             &wasm_bindgen::JsValue::from(SlintPadCallbackFunction::SavePanelLayout),
             &obj.into(),
+        );
+    });
+}
+
+fn open_command_palette() {
+    WASM_CALLBACKS.with_borrow(|callbacks| {
+        let maybe_callback = wasm_bindgen::JsValue::from(
+            callbacks
+                .as_ref()
+                .expect("Callbacks were set up earlier")
+                .invoke_slintpad_callback
+                .clone(),
+        );
+        if !maybe_callback.is_function() {
+            return;
+        }
+        let opener = js_sys::Function::from(maybe_callback);
+        let _ = opener.call2(
+            &JsValue::UNDEFINED,
+            &wasm_bindgen::JsValue::from(SlintPadCallbackFunction::OpenCommandPalette),
+            &wasm_bindgen::JsValue::undefined(),
         );
     });
 }
