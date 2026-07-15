@@ -779,7 +779,7 @@ impl TextParagraph {
             _ => (line_count.saturating_sub(1), false),
         };
 
-        self.draw_inline_code_backgrounds(item_renderer, para_y, default_text_color);
+        self.draw_inline_code_backgrounds(item_renderer, para_y, default_text_color, last_drawn);
 
         for (index, line) in self.layout.lines().enumerate() {
             // Stop once we are past the last kept line of the last kept paragraph.
@@ -865,6 +865,7 @@ impl TextParagraph {
         item_renderer: &mut R,
         para_y: PhysicalLength,
         default_text_color: Color,
+        last_drawn: usize,
     ) {
         if self.code_ranges.is_empty() {
             return;
@@ -897,7 +898,9 @@ impl TextParagraph {
         let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
         let border_width = BORDER_WIDTH * scale_factor;
 
-        for line in self.layout.lines() {
+        // Capsules only under lines that are drawn: lines past the visible-extent cut
+        // (`overflow: elide` height limit or `max-lines`) don't render their glyphs either.
+        for line in self.layout.lines().take(last_drawn + 1) {
             for item in line.items() {
                 let parley::PositionedLayoutItem::GlyphRun(glyph_run) = item else {
                     continue;
