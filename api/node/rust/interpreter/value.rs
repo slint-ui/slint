@@ -388,8 +388,7 @@ pub fn to_value(
         | Type::ArrayOfU16
         | Type::Animatable
         | Type::ElementReference => Err(napi::Error::from_reason("reason")),
-        | Type::ElementReference
-        | Type::MouseCursor => Err(napi::Error::from_reason("reason")),
+        Type::ElementReference | Type::MouseCursor => Err(napi::Error::from_reason("reason")),
         Type::StyledText => {
             let obj = unknown.coerce_to_object()?;
             let styled_instance: ClassInstance<SlintStyledText> =

@@ -1339,7 +1339,7 @@ pub(crate) mod animation_object_ffi {
     }
 
     /// Build a leaf spring node whose natural frequency/damping are derived from a
-    /// `duration`/`bounce` pair.  
+    /// `duration`/`bounce` pair.
     #[allow(clippy::too_many_arguments)]
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_animation_new_spring_duration_bounce(
