@@ -103,62 +103,28 @@ pub fn lower_macro(
         }
         BuiltinMacroFunction::CustomMouseCursor => {
             let mut has_error = None;
-            let image_expected_argument_type_error =
-                "The first argument to custom cursor must be image";
-            let hotspot_expected_argument_type_error =
-                "The last two arguments to custom cursor must be an integer";
-            let not_enough_arguments_error = "Not enough arguments";
+            let hotspot_type_error = "The last two arguments to custom cursor must be an integer";
 
-            let image = match sub_expr.next() {
-                Some((e, _)) => match e.ty() {
-                    Type::Image => e,
-                    _ => {
-                        has_error.get_or_insert((
-                            n.to_source_location(),
-                            image_expected_argument_type_error,
-                        ));
+            // Take the next argument if it passes `valid`, otherwise record an error.
+            let mut next_arg =
+                |valid: fn(&Type) -> bool, type_error: &'static str| match sub_expr.next() {
+                    Some((e, _)) if valid(&e.ty()) => e,
+                    Some(_) => {
+                        has_error.get_or_insert((n.to_source_location(), type_error));
                         Expression::Invalid
                     }
-                },
-                None => {
-                    has_error.get_or_insert((n.to_source_location(), not_enough_arguments_error));
-                    Expression::Invalid
-                }
-            };
-            let hotspot_x = match sub_expr.next() {
-                Some((e, _)) => {
-                    if e.ty().can_convert(&Type::Int32) {
-                        e
-                    } else {
-                        has_error.get_or_insert((
-                            n.to_source_location(),
-                            hotspot_expected_argument_type_error,
-                        ));
+                    None => {
+                        has_error.get_or_insert((n.to_source_location(), "Not enough arguments"));
                         Expression::Invalid
                     }
-                }
-                None => {
-                    has_error.get_or_insert((n.to_source_location(), not_enough_arguments_error));
-                    Expression::Invalid
-                }
-            };
-            let hotspot_y = match sub_expr.next() {
-                Some((e, _)) => {
-                    if e.ty().can_convert(&Type::Int32) {
-                        e
-                    } else {
-                        has_error.get_or_insert((
-                            n.to_source_location(),
-                            hotspot_expected_argument_type_error,
-                        ));
-                        Expression::Invalid
-                    }
-                }
-                None => {
-                    has_error.get_or_insert((n.to_source_location(), not_enough_arguments_error));
-                    Expression::Invalid
-                }
-            };
+                };
+
+            let image = next_arg(
+                |t| matches!(t, Type::Image),
+                "The first argument to custom cursor must be image",
+            );
+            let hotspot_x = next_arg(|t| t.can_convert(&Type::Int32), hotspot_type_error);
+            let hotspot_y = next_arg(|t| t.can_convert(&Type::Int32), hotspot_type_error);
 
             let expr = Expression::MouseCursor(MouseCursorInner::CustomMouseCursor {
                 image: Box::new(image),
