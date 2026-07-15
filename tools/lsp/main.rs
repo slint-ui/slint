@@ -536,6 +536,8 @@ async fn run_main_loop(
         to_preview,
         pending_recompile: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),
+        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+        preview_ui_settings: Default::default(),
     };
 
     let connection = Arc::new(connection);
@@ -775,6 +777,15 @@ async fn handle_notification(
         "slint/preview_to_lsp" => {
             handle_preview_to_lsp_message(serde_json::from_value(req.params)?, ctx).await
         }
+
+        // The editor seeds the preview UI settings it persisted from an earlier
+        // session; store them so the next preview start can restore them.
+        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+        "slint/restore_ui_settings" => {
+            let params: UiSettingsParams = serde_json::from_value(req.params)?;
+            *ctx.preview_ui_settings.borrow_mut() = Some(params.settings);
+            Ok(())
+        }
         _ => Ok(()),
     }
 }
@@ -869,6 +880,16 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
             if let Some(remote) = ctx.to_preview.remote() {
                 crate::common::spawn_local(remote.disconnect());
             }
+        }
+        M::PersistUiSettings { settings } => {
+            tracing::debug!("Preview asked to persist UI settings");
+            // Keep the LSP's authoritative copy current so a later preview start
+            // in this session restores what the user just left, then ask the
+            // editor host to save it across sessions.
+            *ctx.preview_ui_settings.borrow_mut() = Some(settings.clone());
+            ctx.server_notifier.send_notification::<PersistUiSettingsNotification>(
+                UiSettingsParams { settings },
+            )?;
         }
         M::Pong => {
             // The remote connector consumes pongs; local previews never send them.

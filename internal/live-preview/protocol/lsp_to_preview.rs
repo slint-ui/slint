@@ -64,6 +64,12 @@ pub enum LspToPreviewMessage {
     /// A protocol message because the LSP's browser-compatible WebSocket layer
     /// doesn't expose frame-level pings.
     Ping,
+    /// Seed the opaque preview UI settings blob so the preview restores its
+    /// layout before the first paint. Kept last to preserve postcard
+    /// discriminants for the remote-preview wire format.
+    RestoreUiSettings {
+        settings: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]

@@ -9,6 +9,7 @@ import * as vscode from "vscode";
 import {
     BaseLanguageClient,
     LanguageClient,
+    NotificationType,
 } from "vscode-languageclient/browser";
 
 import * as wasm_preview from "./wasm_preview";
@@ -73,6 +74,17 @@ function startClient(
                     );
                     return new TextDecoder().decode(contents);
                 });
+
+                // The LSP forwards the preview UI settings for durable storage.
+                cl?.onNotification(
+                    new NotificationType("slint/persist_ui_settings"),
+                    (params: any) => {
+                        context.globalState.update(
+                            wasm_preview.UI_STATE_KEY,
+                            params.settings,
+                        );
+                    },
+                );
             });
 
             cl.start().then(() => (client.client = cl));

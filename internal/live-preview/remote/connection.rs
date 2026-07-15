@@ -461,6 +461,13 @@ impl Connection {
                                                 "Ignoring unexpected RemoteConnectionState over WebSocket"
                                             );
                                         }
+                                        // UI settings persistence is a local-preview
+                                        // concern; remote viewers keep their own layout.
+                                        LspToPreviewMessage::RestoreUiSettings { .. } => {
+                                            tracing::debug!(
+                                                "Ignoring RestoreUiSettings over WebSocket"
+                                            );
+                                        }
                                     }
                                 }
                                 Err(err) => {

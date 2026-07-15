@@ -295,6 +295,7 @@ pub fn create(
             to_preview,
             pending_recompile: Default::default(),
             host_language_rename_dont_ask_again: Default::default(),
+            preview_ui_settings: Default::default(),
         }),
         rh: Rc::new(rh),
     })
@@ -390,6 +391,17 @@ impl SlintServer {
             }
             M::ConnectRemote { .. } | M::DisconnectRemote | M::Pong => {
                 tracing::debug!("Ignoring remote-preview control message in WASM LSP");
+            }
+            M::PersistUiSettings { settings } => {
+                // The VS Code webview routes its persist through the LSP (SlintPad
+                // persists in its JS host instead). Keep the authoritative copy
+                // current, then ask the editor host to save it across sessions.
+                *ctx.preview_ui_settings.borrow_mut() = Some(settings.clone());
+                let _ = ctx
+                    .server_notifier
+                    .send_notification::<language::PersistUiSettingsNotification>(
+                        language::UiSettingsParams { settings },
+                    );
             }
         }
         Ok(())

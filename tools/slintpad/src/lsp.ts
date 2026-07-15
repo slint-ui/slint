@@ -30,11 +30,13 @@ import { report_panic_dialog } from "./dialogs";
 import {
     type ResourceUrlMapperFunction,
     type InvokeSlintpadCallback,
+    type PersistUiSettingsFunction,
     SlintPadCallbackFunction,
 } from "@lsp/slint_lsp_wasm.js";
 export {
     ResourceUrlMapperFunction,
     InvokeSlintpadCallback,
+    PersistUiSettingsFunction,
     SlintPadCallbackFunction,
 };
 
@@ -216,6 +218,10 @@ export class Previewer {
     current_style(): string {
         return this.#preview_connector.current_style();
     }
+
+    restore_ui_settings(settings: string): void {
+        this.#preview_connector.restore_ui_settings(settings);
+    }
 }
 
 export class Lsp {
@@ -333,6 +339,7 @@ export class Lsp {
         resource_url_mapper: ResourceUrlMapperFunction,
         style: string,
         slintpad_callback: InvokeSlintpadCallback,
+        persist_ui_settings: PersistUiSettingsFunction,
     ): Promise<Previewer> {
         if (this.#preview_connector === null) {
             slint_preview.run_event_loop();
@@ -349,6 +356,7 @@ export class Lsp {
                     resource_url_mapper,
                     style,
                     slintpad_callback,
+                    persist_ui_settings,
                 );
         }
         return new Previewer(this.#preview_connector);
