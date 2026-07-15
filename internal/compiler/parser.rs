@@ -348,7 +348,7 @@ declare_syntax! {
     {
         Document -> [ *Component, *ExportsList, *ImportSpecifier, *StructDeclaration, *EnumDeclaration ],
         /// `DeclaredIdentifier := Element { ... }`
-        Component -> [ DeclaredIdentifier, ?UsesSpecifier, ?ImplementsSpecifier, Element ],
+        Component -> [ DeclaredIdentifier, Element ],
         /// `id := Element { ... }`
         SubElement -> [ Element ],
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
@@ -476,12 +476,6 @@ declare_syntax! {
         EnumValue -> [],
         /// `@rust-attr(...)`
         AtRustAttr -> [],
-        /// `uses { Foo from Bar, Baz from Qux }`
-        UsesSpecifier -> [ *UsesIdentifier ],
-        /// `Interface.Foo from bar`
-        UsesIdentifier -> [QualifiedName, DeclaredIdentifier],
-        /// `implements Interface.Foo`
-        ImplementsSpecifier -> [ QualifiedName ],
     }
 }
 
