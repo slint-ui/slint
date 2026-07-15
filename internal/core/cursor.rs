@@ -33,32 +33,3 @@ impl Default for MouseCursorInner {
     }
 }
 
-/// Bindings for cbindgen
-#[cfg(feature = "ffi")]
-pub mod ffi {
-    #![allow(unsafe_code)]
-
-    use super::*;
-
-    #[unsafe(no_mangle)]
-    /// Returns true if \a a is equal to \a b; otherwise returns false.
-    pub extern "C" fn slint_mouse_cursor_inner_eq(
-        a: &MouseCursorInner,
-        b: &MouseCursorInner,
-    ) -> bool {
-        a == b
-    }
-
-    /// Clone `src` into the uninitialized memory at `out`.
-    ///
-    /// # Safety
-    /// `out` must be valid for writes of `MouseCursorInner` and must not currently
-    /// hold an initialized `MouseCursorInner` (otherwise the previous value is leaked).
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_mouse_cursor_inner_clone(
-        out: *mut MouseCursorInner,
-        src: &MouseCursorInner,
-    ) {
-        unsafe { core::ptr::write(out, src.clone()) }
-    }
-}
