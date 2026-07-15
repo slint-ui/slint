@@ -396,6 +396,14 @@ pub struct Timer {
 /// Not a valid Slint identifier, so it can never collide with a user-declared slot name.
 pub const DEFAULT_SLOT_NAME: &str = "@children";
 
+pub fn slot_error_subject(name: &str) -> String {
+    if name == DEFAULT_SLOT_NAME {
+        "The @children placeholder".into()
+    } else {
+        format!("The slot '{name}'")
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ChildrenInsertionPoint {
     pub parent: ElementRc,
@@ -2061,9 +2069,12 @@ impl Element {
                     diag,
                     tr,
                 );
-                for (_, ChildrenInsertionPoint { node: se, .. }) in sub_child_insertion_points {
+                for (name, ChildrenInsertionPoint { node: se, .. }) in sub_child_insertion_points {
                     diag.push_error(
-                        "The @children placeholder cannot appear in a repeated element".into(),
+                        format!(
+                            "{} cannot appear in a repeated element",
+                            slot_error_subject(&name)
+                        ),
                         &se,
                     )
                 }
@@ -2079,9 +2090,12 @@ impl Element {
                     diag,
                     tr,
                 );
-                for (_, ChildrenInsertionPoint { node: se, .. }) in sub_child_insertion_points {
+                for (name, ChildrenInsertionPoint { node: se, .. }) in sub_child_insertion_points {
                     diag.push_error(
-                        "The @children placeholder cannot appear in a conditional element".into(),
+                        format!(
+                            "{} cannot appear in a conditional element",
+                            slot_error_subject(&name)
+                        ),
                         &se,
                     )
                 }
