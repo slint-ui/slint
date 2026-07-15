@@ -46,6 +46,7 @@ jobs:
 
       - name: Download ytt
         run: |
+          mkdir -p /tmp/carvel
           curl -L https://carvel.dev/install.sh | K14SIO_INSTALL_BIN_DIR=/tmp/carvel bash
 
       - name: Download flatpak helper script + dependencies
