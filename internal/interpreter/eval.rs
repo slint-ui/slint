@@ -878,6 +878,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                 EC::EaseOutBounce => Core::EaseOutBounce,
                 EC::EaseInOutBounce => Core::EaseInOutBounce,
                 EC::CubicBezier(a, b, c, d) => Core::CubicBezier([*a, *b, *c, *d]),
+                EC::Spring => Core::Spring,
             })
         }
         Expression::MouseCursor(cursor) => {
