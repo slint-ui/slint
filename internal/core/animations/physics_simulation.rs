@@ -1027,7 +1027,7 @@ impl SpringParameters for SpringPhysicalParameters {
     }
 }
 
-/// Precomputed coefficients for a spring, one varient per damping regime
+/// Precomputed coefficients for a spring, one variant per damping regime
 /// All are relative to `target` (`x_rel = x - target`)
 /// `x_rel(0) = start_value - target`
 /// `vel(0) = initial_velocity`
