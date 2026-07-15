@@ -23,6 +23,7 @@ import { TableEditorView } from "components/spreadsheet-dialog.slint";
 import "./assets/Inter-VariableFont.ttf";
 import "./assets/SourceCodePro-Medium.ttf";
 import { ConsolePanel } from "components/console-panel.slint";
+import { ShareDialog } from "components/share-dialog.slint";
 
 export { Api, EditorUi }
 
@@ -96,13 +97,20 @@ export component PreviewUi inherits Window {
                 }
             }
 
-            if Api.runs-in-slintpad: Menu {
+            Menu {
                 title: @tr("Share");
 
-                MenuItem {
+                if Api.runs-in-slintpad: MenuItem {
                     title: @tr("Copy Permalink to Clipboard");
                     activated => {
                         Api.share-permalink-to-clipboard();
+                    }
+                }
+
+                if Api.share-supported: MenuItem {
+                    title: @tr("Share to SlintPad…");
+                    activated => {
+                        Api.share-open();
                     }
                 }
             }
@@ -429,5 +437,10 @@ export component PreviewUi inherits Window {
         close => {
             WindowManager.hide-color-stop-picker();
         }
+    }
+
+    if Api.share-dialog-visible: ShareDialog {
+        width: 100%;
+        height: 100%;
     }
 }

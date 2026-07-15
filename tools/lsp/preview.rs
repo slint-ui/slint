@@ -49,6 +49,9 @@ mod outline;
 mod properties;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 pub mod remote;
+// Sharing reads the design off the local filesystem and uploads it, so it is native only.
+#[cfg(not(target_arch = "wasm32"))]
+mod share;
 pub mod ui;
 mod undo_redo;
 

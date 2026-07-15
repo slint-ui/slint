@@ -652,4 +652,19 @@ export global Api {
     callback share-permalink-to-clipboard();
     callback load-demo(url: string);
     callback show-about-slint();
+
+    // ## Share to SlintPad
+    // Uploads the previewed design to a gist and returns a SlintPad link.
+    // True only in the native preview, which can read files and upload them.
+    in property <bool> share-supported;
+    callback share-open();
+    callback share-perform(token: string);
+    in-out property <bool> share-dialog-visible;
+    // The files (and excluded assets) that would be uploaded, for the consent list.
+    in property <[string]> share-files;
+    // Set once the upload succeeds: the SlintPad URL to open or copy.
+    in property <string> share-result-url;
+    // Progress or error text shown in the dialog.
+    in property <string> share-status;
+    in property <bool> share-in-progress;
 }
