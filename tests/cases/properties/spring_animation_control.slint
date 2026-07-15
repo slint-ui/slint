@@ -1,0 +1,144 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    width: 200px;
+    height: 200px;
+    background: white;
+
+    in-out property <length> value: 0px;
+    out property <bool> anim-running: anim.running;
+
+    anim := SpringAnimation {
+        target: value;
+        from: 0px;
+        to: 100px;
+        duration: 1000ms;
+        bounce: 0;
+    }
+
+    public function start_anim() {
+        anim.start()
+    }
+
+    public function stop_anim() {
+        anim.stop()
+    }
+
+    public function restart_anim() {
+        anim.restart()
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+fn assert_almost_eq(value: f32, expected: f32) {
+    assert!((value - expected).abs() < 0.5, "Expected {value} to be close to {expected} (+-0.5)");
+}
+
+assert_eq!(instance.get_value(), 0.);
+
+// Start animation
+instance.invoke_start_anim();
+assert!(instance.get_anim_running());
+assert_eq!(instance.get_value(), 0.);
+
+// Progress partway - critically damped spring (bounce: 0), so it approaches monotonically.
+slint_testing::mock_elapsed_time(200);
+assert_almost_eq(instance.get_value(), 35.77);
+assert!(instance.get_anim_running());
+
+// Stop animation
+instance.invoke_stop_anim();
+let stopped_value = instance.get_value();
+slint_testing::mock_elapsed_time(200);
+assert_eq!(instance.get_value(), stopped_value);
+assert!(!instance.get_anim_running());
+
+// Restart animation from the `from` value
+instance.invoke_restart_anim();
+assert_eq!(instance.get_value(), 0.);
+assert!(instance.get_anim_running());
+
+// Let it settle
+slint_testing::mock_elapsed_time(3000);
+assert_eq!(instance.get_value(), 100.);
+assert!(!instance.get_anim_running());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto assert_almost_eq = [](float value, float expected) {
+    assert(std::abs(value - expected) < 0.5);
+};
+
+assert_eq(instance.get_value(), 0.);
+
+// Start animation
+instance.invoke_start_anim();
+assert(instance.get_anim_running());
+assert_eq(instance.get_value(), 0.);
+
+// Progress partway - critically damped spring (bounce: 0), so it approaches monotonically.
+slint_testing::mock_elapsed_time(200);
+assert_almost_eq(instance.get_value(), 35.77);
+assert(instance.get_anim_running());
+
+// Stop animation
+instance.invoke_stop_anim();
+auto stopped_value = instance.get_value();
+slint_testing::mock_elapsed_time(200);
+assert_eq(instance.get_value(), stopped_value);
+assert(!instance.get_anim_running());
+
+// Restart animation from the `from` value
+instance.invoke_restart_anim();
+assert_eq(instance.get_value(), 0.);
+assert(instance.get_anim_running());
+
+// Let it settle
+slint_testing::mock_elapsed_time(3000);
+assert_eq(instance.get_value(), 100.);
+assert(!instance.get_anim_running());
+```
+
+```js
+var instance = new slint.TestCase({});
+function assert_almost_eq(value, expected) {
+    assert(Math.abs(value - expected) < 0.5);
+}
+
+assert.equal(instance.value, 0.);
+
+// Start animation
+instance.start_anim();
+assert(instance.anim_running);
+assert.equal(instance.value, 0.);
+
+// Progress partway - critically damped spring (bounce: 0), so it approaches monotonically.
+slintlib.private_api.mock_elapsed_time(200);
+assert_almost_eq(instance.value, 35.77);
+assert(instance.anim_running);
+
+// Stop animation
+instance.stop_anim();
+var stopped_value = instance.value;
+slintlib.private_api.mock_elapsed_time(200);
+assert.equal(instance.value, stopped_value);
+assert(!instance.anim_running);
+
+// Restart animation from the `from` value
+instance.restart_anim();
+assert.equal(instance.value, 0.);
+assert(instance.anim_running);
+
+// Let it settle
+slintlib.private_api.mock_elapsed_time(3000);
+assert.equal(instance.value, 100.);
+assert(!instance.anim_running);
+```
+
+*/

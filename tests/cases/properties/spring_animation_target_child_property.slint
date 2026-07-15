@@ -1,0 +1,148 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    width: 300px;
+    height: 300px;
+    background: white;
+
+    rect := Rectangle {
+        x: 20px;
+        y: 20px;
+        width: 60px;
+        height: 60px;
+        background: grey;
+        border-radius: 4px;
+    }
+
+    TouchArea {
+        x: 20px;
+        y: 20px;
+        width: 60px;
+        height: 60px;
+        clicked => {
+            anim.running = true;
+        }
+    }
+
+    anim := SpringAnimation {
+        target: rect.x;
+        to: 200px;
+        duration: 1000ms;
+        bounce: 0;
+    }
+
+    out property <length> rect-x: rect.x;
+    out property <bool> anim_running: anim.running;
+
+    public function start_anim() {
+        anim.start();
+    }
+    public function change_x() {
+        rect.x = 20px;
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+fn assert_almost_eq(value: f32, expected: f32) {
+    assert!((value - expected).abs() < 0.5, "Expected {value} to be close to {expected} (+-0.5)");
+}
+assert_eq!(instance.get_rect_x(), 20.);
+
+// Start animation
+instance.invoke_start_anim();
+
+// Progress through the animation - critically damped, closed-form value at t=500ms.
+slint_testing::mock_elapsed_time(500);
+assert_almost_eq(instance.get_rect_x(), 167.78);
+
+// Settled animation
+slint_testing::mock_elapsed_time(3000);
+assert_eq!(instance.get_rect_x(), 200.);
+assert!(!instance.get_anim_running());
+
+// A subsequent write to the target restarts the spring, from the current value.
+instance.invoke_change_x();
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_rect_x(), 20.);
+assert!(instance.get_anim_running());
+
+slint_testing::mock_elapsed_time(500);
+assert_almost_eq(instance.get_rect_x(), 167.78);
+
+slint_testing::mock_elapsed_time(3000);
+assert_eq!(instance.get_rect_x(), 200.);
+assert!(!instance.get_anim_running());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto assert_almost_eq = [](float value, float expected) {
+    assert(std::abs(value - expected) < 0.5);
+};
+assert_eq(instance.get_rect_x(), 20.);
+
+// Start animation
+instance.invoke_start_anim();
+
+// Progress through the animation - critically damped, closed-form value at t=500ms.
+slint_testing::mock_elapsed_time(500);
+assert_almost_eq(instance.get_rect_x(), 167.78);
+
+// Settled animation
+slint_testing::mock_elapsed_time(3000);
+assert_eq(instance.get_rect_x(), 200.);
+assert(!instance.get_anim_running());
+
+// A subsequent write to the target restarts the spring, from the current value.
+instance.invoke_change_x();
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_rect_x(), 20.);
+assert(instance.get_anim_running());
+
+slint_testing::mock_elapsed_time(500);
+assert_almost_eq(instance.get_rect_x(), 167.78);
+
+slint_testing::mock_elapsed_time(3000);
+assert_eq(instance.get_rect_x(), 200.);
+assert(!instance.get_anim_running());
+```
+
+```js
+var instance = new slint.TestCase({});
+function assert_almost_eq(value, expected) {
+    assert(Math.abs(value - expected) < 0.5);
+}
+assert.equal(instance.rect_x, 20.);
+
+// Start animation
+instance.start_anim();
+
+// Progress through the animation - critically damped, closed-form value at t=500ms.
+slintlib.private_api.mock_elapsed_time(500);
+assert_almost_eq(instance.rect_x, 167.78);
+
+// Settled animation
+slintlib.private_api.mock_elapsed_time(3000);
+assert.equal(instance.rect_x, 200.);
+assert(!instance.anim_running);
+
+// A subsequent write to the target restarts the spring, from the current value.
+instance.change_x();
+slintlib.private_api.mock_elapsed_time(1);
+assert.equal(instance.rect_x, 20.);
+assert(instance.anim_running);
+
+slintlib.private_api.mock_elapsed_time(500);
+assert_almost_eq(instance.rect_x, 167.78);
+
+slintlib.private_api.mock_elapsed_time(3000);
+assert.equal(instance.rect_x, 200.);
+assert(!instance.anim_running);
+```
+
+*/

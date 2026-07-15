@@ -1,0 +1,110 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `bounce` controls the damping ratio: positive bounce is underdamped (overshoots and
+// oscillates around the target before settling), 0 is critically damped (fastest approach
+// without overshoot), negative bounce is overdamped (slower, still no overshoot).
+export component TestCase inherits Rectangle {
+    width: 200px;
+    height: 200px;
+    background: white;
+
+    in-out property <length> underdamped-value: 0px;
+    in-out property <length> critical-value: 0px;
+    in-out property <length> overdamped-value: 0px;
+
+    underdamped-anim := SpringAnimation {
+        target: underdamped-value;
+        from: 0px;
+        to: 100px;
+        duration: 1000ms;
+        bounce: 0.5;
+    }
+
+    critical-anim := SpringAnimation {
+        target: critical-value;
+        from: 0px;
+        to: 100px;
+        duration: 1000ms;
+        bounce: 0;
+    }
+
+    overdamped-anim := SpringAnimation {
+        target: overdamped-value;
+        from: 0px;
+        to: 100px;
+        duration: 1000ms;
+        bounce: -0.5;
+    }
+
+    public function start_all() {
+        underdamped-anim.start();
+        critical-anim.start();
+        overdamped-anim.start();
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+
+instance.invoke_start_all();
+
+// At 500ms, the underdamped spring has overshot the target while the critical and
+// overdamped springs, which never overshoot, are still approaching it - and the
+// overdamped spring lags behind the critical one.
+slint_testing::mock_elapsed_time(500);
+assert!(instance.get_underdamped_value() > 100.);
+assert!(instance.get_critical_value() < 100.);
+assert!(instance.get_overdamped_value() < instance.get_critical_value());
+
+// All three eventually settle exactly on the target.
+slint_testing::mock_elapsed_time(5000);
+assert_eq!(instance.get_underdamped_value(), 100.);
+assert_eq!(instance.get_critical_value(), 100.);
+assert_eq!(instance.get_overdamped_value(), 100.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+instance.invoke_start_all();
+
+// At 500ms, the underdamped spring has overshot the target while the critical and
+// overdamped springs, which never overshoot, are still approaching it - and the
+// overdamped spring lags behind the critical one.
+slint_testing::mock_elapsed_time(500);
+assert(instance.get_underdamped_value() > 100.);
+assert(instance.get_critical_value() < 100.);
+assert(instance.get_overdamped_value() < instance.get_critical_value());
+
+// All three eventually settle exactly on the target.
+slint_testing::mock_elapsed_time(5000);
+assert_eq(instance.get_underdamped_value(), 100.);
+assert_eq(instance.get_critical_value(), 100.);
+assert_eq(instance.get_overdamped_value(), 100.);
+```
+
+```js
+var instance = new slint.TestCase({});
+
+instance.start_all();
+
+// At 500ms, the underdamped spring has overshot the target while the critical and
+// overdamped springs, which never overshoot, are still approaching it - and the
+// overdamped spring lags behind the critical one.
+slintlib.private_api.mock_elapsed_time(500);
+assert(instance.underdamped_value > 100.);
+assert(instance.critical_value < 100.);
+assert(instance.overdamped_value < instance.critical_value);
+
+// All three eventually settle exactly on the target.
+slintlib.private_api.mock_elapsed_time(5000);
+assert.equal(instance.underdamped_value, 100.);
+assert.equal(instance.critical_value, 100.);
+assert.equal(instance.overdamped_value, 100.);
+```
+
+*/

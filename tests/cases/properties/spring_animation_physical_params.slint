@@ -1,0 +1,83 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `mass`/`stiffness`/`damping` is an alternative to `duration`/`bounce` for configuring the
+// spring. These values (mass: 1, stiffness: (2*pi)^2, damping: 2*2*pi) describe the same
+// critically damped spring as `duration: 1000ms; bounce: 0;` in spring_animation_control.slint,
+// so the two should produce identical motion.
+export component TestCase inherits Rectangle {
+    width: 200px;
+    height: 200px;
+    background: white;
+
+    in-out property <length> value: 0px;
+
+    anim := SpringAnimation {
+        target: value;
+        from: 0px;
+        to: 100px;
+        mass: 1;
+        stiffness: 39.4784176;
+        damping: 12.56637061;
+    }
+
+    public function start_anim() {
+        anim.start();
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+fn assert_almost_eq(value: f32, expected: f32) {
+    assert!((value - expected).abs() < 0.5, "Expected {value} to be close to {expected} (+-0.5)");
+}
+
+instance.invoke_start_anim();
+
+// Same closed-form value as the equivalent `duration`/`bounce` critically damped spring.
+slint_testing::mock_elapsed_time(200);
+assert_almost_eq(instance.get_value(), 35.77);
+
+// Settles exactly on the target.
+slint_testing::mock_elapsed_time(3000);
+assert_eq!(instance.get_value(), 100.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto assert_almost_eq = [](float value, float expected) {
+    assert(std::abs(value - expected) < 0.5);
+};
+
+instance.invoke_start_anim();
+
+// Same closed-form value as the equivalent `duration`/`bounce` critically damped spring.
+slint_testing::mock_elapsed_time(200);
+assert_almost_eq(instance.get_value(), 35.77);
+
+// Settles exactly on the target.
+slint_testing::mock_elapsed_time(3000);
+assert_eq(instance.get_value(), 100.);
+```
+
+```js
+var instance = new slint.TestCase({});
+function assert_almost_eq(value, expected) {
+    assert(Math.abs(value - expected) < 0.5);
+}
+
+instance.start_anim();
+
+// Same closed-form value as the equivalent `duration`/`bounce` critically damped spring.
+slintlib.private_api.mock_elapsed_time(200);
+assert_almost_eq(instance.value, 35.77);
+
+// Settles exactly on the target.
+slintlib.private_api.mock_elapsed_time(3000);
+assert.equal(instance.value, 100.);
+```
+
+*/

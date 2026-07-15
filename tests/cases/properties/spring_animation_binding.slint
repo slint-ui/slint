@@ -1,0 +1,103 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    width: 200px;
+    height: 200px;
+    background: white;
+
+    in-out property <length> start-value: 0px;
+    in-out property <length> end-value: 100px;
+    in-out property <int> duration-ms: 1000;
+
+    in-out property <length> current-value: 0px;
+
+    anim := SpringAnimation {
+        target: current-value;
+        from: start-value;
+        to: end-value;
+        duration: duration-ms * 1ms;
+        bounce: 0;
+    }
+
+    public function start_anim() {
+        anim.start();
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+fn assert_almost_eq(value: f32, expected: f32) {
+    assert!((value - expected).abs() < 0.5, "Expected {value} to be close to {expected} (+-0.5)");
+}
+assert_eq!(instance.get_current_value(), 0.);
+
+// Change start and end values
+instance.set_start_value(10.);
+instance.set_end_value(110.);
+instance.set_duration_ms(1000);
+
+// Start animation
+instance.invoke_start_anim();
+
+// Halfway through the animation - critically damped, closed-form value at t=500ms.
+slint_testing::mock_elapsed_time(500);
+assert_almost_eq(instance.get_current_value(), 92.1);
+
+// Settled animation
+slint_testing::mock_elapsed_time(3000);
+assert_eq!(instance.get_current_value(), 110.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto assert_almost_eq = [](float value, float expected) {
+    assert(std::abs(value - expected) < 0.5);
+};
+assert_eq(instance.get_current_value(), 0.);
+
+// Change start and end values
+instance.set_start_value(10.);
+instance.set_end_value(110.);
+instance.set_duration_ms(1000);
+
+// Start animation
+instance.invoke_start_anim();
+
+// Halfway through the animation - critically damped, closed-form value at t=500ms.
+slint_testing::mock_elapsed_time(500);
+assert_almost_eq(instance.get_current_value(), 92.1);
+
+// Settled animation
+slint_testing::mock_elapsed_time(3000);
+assert_eq(instance.get_current_value(), 110.);
+```
+
+```js
+var instance = new slint.TestCase({});
+function assert_almost_eq(value, expected) {
+    assert(Math.abs(value - expected) < 0.5);
+}
+assert.equal(instance.current_value, 0.);
+
+// Change start and end values
+instance.start_value = 10.;
+instance.end_value = 110.;
+instance.duration_ms = 1000;
+
+// Start animation
+instance.start_anim();
+
+// Halfway through the animation - critically damped, closed-form value at t=500ms.
+slintlib.private_api.mock_elapsed_time(500);
+assert_almost_eq(instance.current_value, 92.1);
+
+// Settled animation
+slintlib.private_api.mock_elapsed_time(3000);
+assert.equal(instance.current_value, 110.);
+```
+
+*/
