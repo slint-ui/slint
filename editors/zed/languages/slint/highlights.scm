@@ -250,15 +250,11 @@
 (component_modifier
   "inherits" @keyword)
 
-(uses_clause
-  "uses" @keyword)
+(interface_definition
+  "interface" @keyword)
 
-(used_interface
-  "from" @keyword
-  source: (_) @variable)
-
-(implements_clause
-  "implements" @keyword)
+(implement_statement
+  "implement" @keyword)
 
 (enum_definition
   "enum" @keyword)

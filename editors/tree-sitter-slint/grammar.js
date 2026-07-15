@@ -96,30 +96,7 @@ module.exports = grammar({
         $.block,
       ),
 
-    component_modifier: ($) =>
-      choice(
-        $.uses_clause,
-        $.implements_clause,
-        seq("inherits", field("base_type", $.user_type_identifier)),
-      ),
-
-    uses_clause: ($) =>
-      seq(
-        "uses",
-        "{",
-        commaSep1($.used_interface),
-        optional(","),
-        "}",
-      ),
-
-    used_interface: ($) =>
-      seq(
-        field("interface", $.user_type_identifier),
-        "from",
-        field("source", $.simple_identifier),
-      ),
-
-    implements_clause: ($) => seq("implements", commaSep1($.user_type_identifier)),
+    component_modifier: ($) => seq("inherits", field("base_type", $.user_type_identifier)),
 
     _property_type: ($) => seq("<", field("type", $.type), ">"),
 
