@@ -6,7 +6,9 @@ set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
 
-required_commands=(jq ytt)
+YTT_PATH="${YTT_PATH:-ytt}"
+
+required_commands=(jq "${YTT_PATH}")
 missing_commands=()
 
 for required_command in "${required_commands[@]}"; do
@@ -42,7 +44,7 @@ output_flatpak_manifest_path="${OUTPUT_FLATPAK_MANIFEST:-${repo_root}/tools/lsp/
 relative_sources_path="$(python3 -c "import os.path; print(os.path.relpath('${CARGO_SOURCES_PATH}', '${repo_root}/tools/lsp'))")"
 
 echo 'Generated flatpak manifest:' >&2
-ytt \
+"${YTT_PATH}" \
     -f tools/lsp/org.sixtyfps.SlintVisualEditor.template.yml \
     -f tools/lsp/org.sixtyfps.SlintVisualEditor.schema.yml \
     -v "git.commit=${current_commit}" \
