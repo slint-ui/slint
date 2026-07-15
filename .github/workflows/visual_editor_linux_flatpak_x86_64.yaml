@@ -49,7 +49,7 @@ jobs:
       - name: Download ytt
         run: |
           curl -s -L "${YTT_URL}" -o "${YTT_PATH}"
-          echo "${YTT_CHECKSUM}  ${YTT_PATH}" | $CHECKSUM_CMD -c -
+          echo "${YTT_CHECKSUM}  ${YTT_PATH}" | sha256sum -c -
           chmod +x "${YTT_PATH}"
 
       - name: Download flatpak helper script + dependencies
