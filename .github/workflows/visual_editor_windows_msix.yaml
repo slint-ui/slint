@@ -51,13 +51,14 @@ jobs:
       - uses: microsoft/setup-WinAppCli@v0.1
 
       - name: Build app for Windows
+        shell: pwsh
         run: |
-          cargo +stable build \
-            --manifest-path tools/lsp/Cargo.toml \
-            --target x86_64-pc-windows-msvc \
-            --bin slint-visual-editor \
-            --profile package-release \
-            --no-default-features \
+          cargo +stable build `
+            --manifest-path tools/lsp/Cargo.toml `
+            --target x86_64-pc-windows-msvc `
+            --bin slint-visual-editor `
+            --profile package-release `
+            --no-default-features `
             --features backend-winit,renderer-skia
 
       - name: Create self-signed test certificate
