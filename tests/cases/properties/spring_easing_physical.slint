@@ -29,7 +29,6 @@ export component TestCase inherits Rectangle {
     in-out property <float> mass-wins: 0;
     animate mass-wins {
         easing: spring;
-        bounce: 1; // would be undamped (never settles) if this were used instead of mass/stiffness/damping
         mass: 1;
         stiffness: 39.4784176;
         damping: 12.566371;
