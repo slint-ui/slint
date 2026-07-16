@@ -1,0 +1,583 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+---
+
+<spring-graph>
+    <div class="spring-graph not-content">
+        <div class="spring-graph-tabs" role="tablist">
+            <button
+                type="button"
+                role="tab"
+                data-mode="duration-bounce"
+                aria-selected="true"
+            >
+                duration / bounce
+            </button>
+            <button
+                type="button"
+                role="tab"
+                data-mode="physical"
+                aria-selected="false"
+            >
+                mass / stiffness / damping
+            </button>
+        </div>
+
+        <div class="spring-graph-body">
+            <div class="spring-graph-controls">
+                <div class="spring-graph-panel" data-panel="duration-bounce">
+                    <label>
+                        <span class="param-row">
+                            <span class="param-name">duration</span>
+                            <output data-out="duration"></output>
+                        </span>
+                        <input
+                            type="range"
+                            data-param="duration"
+                            min="0.05"
+                            max="2"
+                            step="0.01"
+                            value="0.4"
+                        />
+                    </label>
+                    <label>
+                        <span class="param-row">
+                            <span class="param-name">bounce</span>
+                            <output data-out="bounce"></output>
+                        </span>
+                        <input
+                            type="range"
+                            data-param="bounce"
+                            min="-1"
+                            max="1"
+                            step="0.01"
+                            value="0.3"
+                        />
+                    </label>
+                </div>
+                <div class="spring-graph-panel" data-panel="physical" hidden>
+                    <label>
+                        <span class="param-row">
+                            <span class="param-name">mass</span>
+                            <output data-out="mass"></output>
+                        </span>
+                        <input
+                            type="range"
+                            data-param="mass"
+                            min="0.1"
+                            max="10"
+                            step="0.1"
+                            value="1"
+                        />
+                    </label>
+                    <label>
+                        <span class="param-row">
+                            <span class="param-name">stiffness</span>
+                            <output data-out="stiffness"></output>
+                        </span>
+                        <input
+                            type="range"
+                            data-param="stiffness"
+                            min="1"
+                            max="500"
+                            step="1"
+                            value="120"
+                        />
+                    </label>
+                    <label>
+                        <span class="param-row">
+                            <span class="param-name">damping</span>
+                            <output data-out="damping"></output>
+                        </span>
+                        <input
+                            type="range"
+                            data-param="damping"
+                            min="0"
+                            max="60"
+                            step="0.5"
+                            value="14"
+                        />
+                    </label>
+                </div>
+
+                <div class="spring-graph-info">
+                    <span data-out="regime" class="regime"></span>
+                    <span data-out="formula" class="formula"></span>
+                </div>
+            </div>
+
+            <svg
+                class="spring-graph-svg"
+                viewBox="0 0 640 300"
+                preserveAspectRatio="xMidYMid meet"
+                role="img"
+                aria-label="Graph of the spring's animated value over time"
+            ></svg>
+        </div>
+    </div>
+</spring-graph>
+
+<style>
+    .spring-graph {
+        border: 1px solid var(--sl-color-hairline);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin: 1.5rem 0;
+        background: var(--sl-color-bg-nav);
+    }
+
+    .spring-graph-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .spring-graph-tabs button {
+        font: inherit;
+        font-size: var(--sl-text-sm);
+        cursor: pointer;
+        border: 1px solid var(--sl-color-hairline);
+        background: transparent;
+        color: var(--sl-color-text);
+        border-radius: 0.4rem;
+        padding: 0.35rem 0.75rem;
+    }
+
+    .spring-graph-tabs button[aria-selected="true"] {
+        background: var(--sl-color-accent);
+        border-color: var(--sl-color-accent);
+        color: #fff;
+    }
+
+    .spring-graph-body {
+        display: grid;
+        grid-template-columns: minmax(14rem, 1fr) 2fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    @media (max-width: 640px) {
+        .spring-graph-body {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Grid items default to a min-width based on their content's natural size, which for a
+       row of label + range input + output can exceed the 1fr track — that lets the controls
+       column push into (visually overlap) the graph column instead of respecting the grid. */
+    .spring-graph-controls,
+    .spring-graph-svg {
+        min-width: 0;
+    }
+
+    .spring-graph-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .spring-graph-panel[hidden] {
+        display: none;
+    }
+
+    .spring-graph-panel label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        font-size: var(--sl-text-sm);
+    }
+
+    .spring-graph-panel label .param-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+    }
+
+    .spring-graph-panel label input[type="range"] {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .spring-graph-panel output {
+        font-variant-numeric: tabular-nums;
+        color: var(--sl-color-gray-2);
+    }
+
+    .spring-graph-info {
+        margin-top: 0.5rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--sl-color-hairline);
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        font-size: var(--sl-text-sm);
+    }
+
+    .spring-graph-info .regime {
+        font-weight: 600;
+        color: var(--sl-color-white);
+    }
+
+    .spring-graph-info .formula {
+        display: block;
+        color: var(--sl-color-gray-3);
+        font-family: var(--__sl-font-mono, monospace);
+        font-size: var(--sl-text-base);
+        white-space: pre-line;
+        line-height: 1.6;
+    }
+
+    .spring-graph-svg {
+        width: 100%;
+        height: auto;
+        overflow: visible;
+    }
+</style>
+
+<script>
+    // Mirrors the closed-form solution in internal/core/animations/physics_simulation.rs
+    // (SpringRegime::new / SpringRegime::evaluate), so the plotted curve matches what
+    // Slint actually renders for the same duration/bounce or mass/stiffness/damping values.
+    const CRITICAL_ZETA_EPSILON = 1e-3;
+
+    interface Regime {
+        kind: "underdamped" | "critical" | "overdamped";
+        wn: number;
+        zeta?: number;
+        wd?: number;
+        r1?: number;
+        r2?: number;
+        c1: number;
+        c2: number;
+    }
+
+    function springRegime(
+        x0: number,
+        v0: number,
+        wn: number,
+        zeta: number,
+    ): Regime {
+        if (Math.abs(zeta - 1) < CRITICAL_ZETA_EPSILON) {
+            return { kind: "critical", wn, c1: x0, c2: v0 + wn * x0 };
+        }
+        if (zeta < 1) {
+            const wd = wn * Math.sqrt(1 - zeta * zeta);
+            return {
+                kind: "underdamped",
+                wn,
+                zeta,
+                wd,
+                c1: x0,
+                c2: (v0 + zeta * wn * x0) / wd,
+            };
+        }
+        const disc = Math.sqrt(zeta * zeta - 1);
+        const r1 = wn * (-zeta + disc);
+        const r2 = wn * (-zeta - disc);
+        const c1 = (v0 - r2 * x0) / (r1 - r2);
+        return { kind: "overdamped", wn, r1, r2, c1, c2: x0 - c1 };
+    }
+
+    function evaluate(regime: Regime, t: number): number {
+        switch (regime.kind) {
+            case "underdamped": {
+                const decay = Math.exp(-(regime.zeta as number) * regime.wn * t);
+                const wd = regime.wd as number;
+                return decay * (regime.c1 * Math.cos(wd * t) + regime.c2 * Math.sin(wd * t));
+            }
+            case "critical": {
+                const decay = Math.exp(-regime.wn * t);
+                return decay * (regime.c1 + regime.c2 * t);
+            }
+            case "overdamped": {
+                const r1 = regime.r1 as number;
+                const r2 = regime.r2 as number;
+                return regime.c1 * Math.exp(r1 * t) + regime.c2 * Math.exp(r2 * t);
+            }
+        }
+    }
+
+    function durationBounceToWnZeta(durationSecs: number, bounce: number) {
+        return { wn: (2 * Math.PI) / durationSecs, zeta: 1 - bounce };
+    }
+
+    function physicalToWnZeta(mass: number, stiffness: number, damping: number) {
+        const wn = Math.sqrt(stiffness / mass);
+        const critical = 2 * Math.sqrt(mass * stiffness);
+        return { wn, zeta: critical > 0 ? damping / critical : 0 };
+    }
+
+    function wnZetaToDurationBounce(wn: number, zeta: number) {
+        return { duration: (2 * Math.PI) / wn, bounce: 1 - zeta };
+    }
+
+    // Mass isn't observable from (wn, zeta) alone, so the caller supplies one (the value
+    // already sitting in the physical panel) and stiffness/damping are solved around it.
+    function wnZetaToPhysical(wn: number, zeta: number, mass: number) {
+        const stiffness = wn * wn * mass;
+        const damping = zeta * 2 * Math.sqrt(mass * stiffness);
+        return { mass, stiffness, damping };
+    }
+
+    function clamp(value: number, min: number, max: number): number {
+        return Math.min(Math.max(value, min), max);
+    }
+
+    function regimeLabel(zeta: number): string {
+        if (Math.abs(zeta - 1) < CRITICAL_ZETA_EPSILON) {
+            return "critically damped";
+        }
+        return zeta < 1 ? "underdamped (bouncy)" : "overdamped (slow)";
+    }
+
+    // Finds when the curve is visually settled, by scanning forward over [0, capSeconds] and
+    // keeping the *last* moment the deviation from target still exceeds epsilon. A blanket
+    // multiple of the time constant/period overshoots badly for lightly-damped underdamped
+    // springs (the oscillation dies out well before 3 periods), leaving a long flat tail.
+    function findSettleTime(regime: Regime, epsilon: number, capSeconds: number): number {
+        const steps = 2000;
+        let settleT = 0;
+        for (let i = 0; i <= steps; i++) {
+            const t = (capSeconds * i) / steps;
+            if (Math.abs(evaluate(regime, t)) >= epsilon) {
+                settleT = t;
+            }
+        }
+        return settleT;
+    }
+
+    class SpringGraph extends HTMLElement {
+        mode: "duration-bounce" | "physical" = "duration-bounce";
+
+        connectedCallback() {
+            const root = this.querySelector(".spring-graph") as HTMLElement;
+            const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-mode]"));
+            const panels = Array.from(root.querySelectorAll<HTMLElement>("[data-panel]"));
+            const inputs = Array.from(root.querySelectorAll<HTMLInputElement>("input[data-param]"));
+            const svg = root.querySelector("svg") as SVGSVGElement;
+            const regimeOut = root.querySelector('[data-out="regime"]') as HTMLElement;
+            const formulaOut = root.querySelector('[data-out="formula"]') as HTMLElement;
+
+            const redraw = () => this.render(root, svg, regimeOut, formulaOut);
+
+            for (const tab of tabs) {
+                tab.addEventListener("click", () => {
+                    this.mode = tab.dataset.mode as "duration-bounce" | "physical";
+                    for (const t of tabs) {
+                        t.setAttribute("aria-selected", String(t === tab));
+                    }
+                    for (const panel of panels) {
+                        panel.hidden = panel.dataset.panel !== this.mode;
+                    }
+                    redraw();
+                });
+            }
+
+            for (const input of inputs) {
+                input.addEventListener("input", redraw);
+            }
+
+            redraw();
+        }
+
+        render(
+            root: HTMLElement,
+            svg: SVGSVGElement,
+            regimeOut: HTMLElement,
+            formulaOut: HTMLElement,
+        ) {
+            const get = (name: string) =>
+                Number.parseFloat(
+                    (root.querySelector(`input[data-param="${name}"]`) as HTMLInputElement).value,
+                );
+            const setOut = (name: string, text: string) => {
+                const out = root.querySelector(`[data-out="${name}"]`);
+                if (out) {
+                    out.textContent = text;
+                }
+            };
+            // Writes the derived value into the *other* mode's slider (clamped to its
+            // range) so switching tabs shows the equivalent spring instead of stale
+            // defaults, and returns the clamped number so the label matches the thumb.
+            const setInput = (name: string, value: number) => {
+                const input = root.querySelector(`input[data-param="${name}"]`) as HTMLInputElement;
+                const clamped = clamp(value, Number.parseFloat(input.min), Number.parseFloat(input.max));
+                input.value = String(clamped);
+                return clamped;
+            };
+
+            let wn: number;
+            let zeta: number;
+            let durationMarker: number | null = null;
+
+            if (this.mode === "duration-bounce") {
+                const duration = get("duration");
+                const bounce = get("bounce");
+                ({ wn, zeta } = durationBounceToWnZeta(duration, bounce));
+                setOut("duration", `${Math.round(duration * 1000)} ms`);
+                setOut("bounce", bounce.toFixed(2));
+                durationMarker = duration;
+
+                const mass = get("mass");
+                const { stiffness, damping } = wnZetaToPhysical(wn, zeta, mass);
+                const clampedStiffness = setInput("stiffness", stiffness);
+                const clampedDamping = setInput("damping", damping);
+                setOut("mass", mass.toFixed(1));
+                setOut("stiffness", clampedStiffness.toFixed(0));
+                setOut("damping", clampedDamping.toFixed(1));
+            } else {
+                const mass = get("mass");
+                const stiffness = get("stiffness");
+                const damping = get("damping");
+                ({ wn, zeta } = physicalToWnZeta(mass, stiffness, damping));
+                setOut("mass", mass.toFixed(1));
+                setOut("stiffness", stiffness.toFixed(0));
+                setOut("damping", damping.toFixed(1));
+
+                const { duration, bounce } = wnZetaToDurationBounce(wn, zeta);
+                const clampedDuration = setInput("duration", duration);
+                const clampedBounce = setInput("bounce", bounce);
+                setOut("duration", `${Math.round(clampedDuration * 1000)} ms`);
+                setOut("bounce", clampedBounce.toFixed(2));
+            }
+
+            // Start at 0, target at 1: x_rel(0) = start - target = -1.
+            const x0 = -1;
+            const v0 = 0;
+            const regime = springRegime(x0, v0, wn, zeta);
+
+            regimeOut.textContent = regimeLabel(zeta);
+            formulaOut.textContent = `ω₀ = ${wn.toFixed(2)} rad/s\nζ = ${zeta.toFixed(2)}`;
+
+            const SETTLE_EPSILON = 0.02;
+            const SETTLE_SEARCH_CAP_SECS = 10;
+            let window: number;
+            if (regime.kind === "underdamped") {
+                // A numeric scan for the last time the *oscillating* signal crosses epsilon
+                // jumps discretely: as zeta changes continuously, which oscillation peak is
+                // "the last one above epsilon" flips whole periods at a time. The envelope
+                // (the peak amplitude decay, ignoring the oscillation itself) is smooth and
+                // monotonic, so solving envelope(t) = epsilon in closed form varies
+                // continuously with the sliders instead of snapping between peaks.
+                const zetaWn = zeta * wn;
+                const amplitude = Math.hypot(regime.c1, regime.c2 as number);
+                window =
+                    zetaWn > 0 && amplitude > SETTLE_EPSILON
+                        ? (Math.log(amplitude / SETTLE_EPSILON) / zetaWn) * 1.15
+                        : SETTLE_SEARCH_CAP_SECS;
+            } else {
+                window = findSettleTime(regime, SETTLE_EPSILON, SETTLE_SEARCH_CAP_SECS) * 1.15;
+            }
+            if (durationMarker !== null) {
+                window = Math.max(window, durationMarker * 1.05);
+            }
+            window = Math.min(Math.max(window, 0.3), 10);
+
+            const samples = 300;
+            const points: [number, number][] = [];
+            let minVal = 0;
+            let maxVal = 1;
+            for (let i = 0; i <= samples; i++) {
+                const t = (window * i) / samples;
+                const value = 1 + evaluate(regime, t);
+                points.push([t, value]);
+                minVal = Math.min(minVal, value);
+                maxVal = Math.max(maxVal, value);
+            }
+            const pad = (maxVal - minVal) * 0.15 || 0.1;
+            minVal -= pad;
+            maxVal += pad;
+
+            this.draw(svg, points, window, minVal, maxVal, durationMarker);
+        }
+
+        draw(
+            svg: SVGSVGElement,
+            points: [number, number][],
+            window: number,
+            minVal: number,
+            maxVal: number,
+            durationMarker: number | null,
+        ) {
+            const width = 640;
+            const height = 300;
+            const marginLeft = 44;
+            const marginRight = 12;
+            const marginTop = 16;
+            const marginBottom = 34;
+            const tickFontSize = 14;
+            const plotW = width - marginLeft - marginRight;
+            const plotH = height - marginTop - marginBottom;
+
+            const xAt = (t: number) => marginLeft + (t / window) * plotW;
+            const yAt = (v: number) =>
+                marginTop + plotH - ((v - minVal) / (maxVal - minVal)) * plotH;
+
+            const parts: string[] = [];
+
+            // Elements inserted via innerHTML never receive Astro's scoped-style class, so
+            // colors/strokes are set as plain SVG presentation attributes here rather than
+            // relying on the CSS below (which only affects statically-authored markup) — a
+            // <path> with no fill otherwise defaults to a solid black fill under the curve.
+            const hairline = "var(--sl-color-hairline)";
+            const tickLabel = "var(--sl-color-gray-3)";
+            const reference = "var(--sl-color-gray-4)";
+            const durationColor = "var(--sl-color-orange, var(--sl-color-accent))";
+            const curveColor = "var(--sl-color-accent)";
+
+            // Y grid lines / reference lines at start (0) and target (1).
+            for (const v of [0, 1]) {
+                if (v >= minVal && v <= maxVal) {
+                    const y = yAt(v);
+                    parts.push(
+                        `<line x1="${marginLeft}" y1="${y}" x2="${width - marginRight}" y2="${y}" stroke="${reference}" stroke-width="1" stroke-dasharray="4 3" />`,
+                    );
+                    parts.push(
+                        `<text x="${marginLeft - 8}" y="${y + 4}" text-anchor="end" fill="${tickLabel}" font-size="${tickFontSize}">${v}</text>`,
+                    );
+                }
+            }
+
+            // X ticks.
+            const xTickCount = 5;
+            for (let i = 0; i <= xTickCount; i++) {
+                const t = (window * i) / xTickCount;
+                const x = xAt(t);
+                parts.push(
+                    `<line x1="${x}" y1="${marginTop}" x2="${x}" y2="${height - marginBottom}" stroke="${hairline}" stroke-width="1" stroke-dasharray="2 3" />`,
+                );
+                parts.push(
+                    `<text x="${x}" y="${height - marginBottom + 20}" text-anchor="middle" fill="${tickLabel}" font-size="${tickFontSize}">${t.toFixed(2)}s</text>`,
+                );
+            }
+
+            if (durationMarker !== null && durationMarker <= window) {
+                const x = xAt(durationMarker);
+                parts.push(
+                    `<line x1="${x}" y1="${marginTop}" x2="${x}" y2="${height - marginBottom}" stroke="${durationColor}" stroke-width="1" stroke-dasharray="3 3" />`,
+                );
+                parts.push(
+                    `<text x="${x}" y="${marginTop + 13}" text-anchor="middle" fill="${tickLabel}" font-size="${tickFontSize}">duration</text>`,
+                );
+            }
+
+            // Axes.
+            parts.push(
+                `<line x1="${marginLeft}" y1="${marginTop}" x2="${marginLeft}" y2="${height - marginBottom}" stroke="${hairline}" stroke-width="1" />`,
+            );
+            parts.push(
+                `<line x1="${marginLeft}" y1="${height - marginBottom}" x2="${width - marginRight}" y2="${height - marginBottom}" stroke="${hairline}" stroke-width="1" />`,
+            );
+
+            const path = points
+                .map(([t, v], i) => `${i === 0 ? "M" : "L"}${xAt(t).toFixed(2)},${yAt(v).toFixed(2)}`)
+                .join(" ");
+            parts.push(`<path d="${path}" fill="none" stroke="${curveColor}" stroke-width="2.5" />`);
+
+            svg.innerHTML = parts.join("");
+        }
+    }
+
+    customElements.define("spring-graph", SpringGraph);
+</script>
