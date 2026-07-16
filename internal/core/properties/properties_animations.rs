@@ -80,21 +80,36 @@ pub(super) struct PropertyValueAnimationData<T> {
 impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
     pub fn new(from_value: T, to_value: Option<T>, details: PropertyAnimation) -> Self {
         let start_time = crate::animations::current_tick();
-        let spring = matches!(details.easing, crate::animations::EasingCurve::Spring).then(|| {
-            let (w_n, zeta) = if details.mass > 0. {
-                SpringPhysicalParameters::new(details.mass, details.stiffness, details.damping)
-                    .to_natural_frequency_and_damping_ratio()
-            } else {
-                SpringDurationBounceParameters::new(
-                    details.duration as f32 / 1000.0,
-                    details.bounce,
-                )
-                .to_natural_frequency_and_damping_ratio()
-            };
 
-            // -1 so that the spring knows to go to 0
-            SpringRegime::new(-1.0, 0.0, w_n, zeta)
-        });
+        // A spring with duration <= 0 (and no mass/stiffness/damping override) can't be simulated;
+        // fall back to `None` so it settles immediately
+        let spring = matches!(details.easing, crate::animations::EasingCurve::Spring)
+            .then(|| {
+                let (w_n, zeta) = if details.mass > 0. {
+                    Some(
+                        SpringPhysicalParameters::new(
+                            details.mass,
+                            details.stiffness,
+                            details.damping,
+                        )
+                        .to_natural_frequency_and_damping_ratio(),
+                    )
+                } else if details.duration > 0 {
+                    Some(
+                        SpringDurationBounceParameters::new(
+                            details.duration as f32 / 1000.0,
+                            details.bounce,
+                        )
+                        .to_natural_frequency_and_damping_ratio(),
+                    )
+                } else {
+                    None
+                }?;
+
+                // -1 so that the spring knows to go to 0
+                Some(SpringRegime::new(-1.0, 0.0, w_n, zeta))
+            })
+            .flatten();
 
         Self {
             from_value,
@@ -164,21 +179,21 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                 }
             }
             AnimationState::Animating { mut current_iteration } => {
-                // A spring configured via `mass`/`stiffness`/`damping` ignores `duration`,
-                // `iteration-count` and `direction`
-                // it runs in real time and ends only once it settles.
-                if matches!(self.details.easing, crate::animations::EasingCurve::Spring)
-                {
-                    let elapsed_secs = time_progress as f32 / 1000.0;
-                    let (t, settled) = crate::animations::spring_settle_progress(
-                        self.spring.as_ref().expect("spring set for EasingCurve::Spring"),
-                        elapsed_secs,
-                    );
-                    return if settled {
-                        self.state = AnimationState::Done { iteration_count: 0 };
-                        (to_value, true)
+                // A spring runs in real time and ends only once it settles.
+                if matches!(self.details.easing, crate::animations::EasingCurve::Spring) {
+                    return if let Some(spring) = self.spring.as_ref() {
+                        let elapsed_secs = time_progress as f32 / 1000.0;
+                        let (t, settled) =
+                            crate::animations::spring_settle_progress(spring, elapsed_secs);
+                        if settled {
+                            self.state = AnimationState::Done { iteration_count: 0 };
+                            (to_value, true)
+                        } else {
+                            (self.from_value.interpolate(&to_value, t), false)
+                        }
                     } else {
-                        (self.from_value.interpolate(&to_value, t), false)
+                        self.state = AnimationState::Done { iteration_count: 0 };
+                        self.compute_interpolated_value()
                     };
                 }
 
