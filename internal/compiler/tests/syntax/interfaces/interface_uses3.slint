@@ -5,11 +5,7 @@ interface InterfaceI {
     out property <bool> test;
 }
 
-component Base {
-    implement InterfaceI <=> self;
-}
-
 export component InvalidUses {
-    implement InterfaceI <=>;
-//                          ^error{Syntax error: expected Identifier}
+    implement InterfaceI <=> ;
+//                           ^error{Syntax error: expected Identifier}
 }

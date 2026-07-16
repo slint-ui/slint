@@ -36,7 +36,8 @@ An interface can be exported with `export interface`.
 ## Implementing an interface
 
 A component declares that it implements an interface with an `implement I <=> self;` statement in its body.
-The component must provide an implementation of the functions listed in the interface, with matching types and signatures.
+The component must declare or inherit every property, callback, and function listed in the interface, matching
+type, visibility, and purity. The compiler validates this; it does not add the members for you.
 
 An `implement` statement's target must be `self` or the id of a child element (see delegation below), and the statement
 is only allowed directly in a component's root element, not in a nested child element. `root` and `parent` are not valid
@@ -46,7 +47,7 @@ targets: since `implement` is root-only, `root` and `self` refer to the same ele
 export component MyText {
     implement TextInterface <=> self;
 
-    text <=> input.text;
+    in-out property <string> text <=> input.text;
 
     input := TextInput {
         text: "Hello";
@@ -57,6 +58,8 @@ export component MyText {
     }
 }
 ```
+
+If a member is missing or doesn't match the interface, the compiler reports it as an error.
 
 A component can combine `implement` with `inherits`:
 
@@ -95,6 +98,9 @@ interface Counter {
 component CounterButton {
     // It is not necessary for CounterButton to `implement Counter <=> self;`
     // implement Counter <=> self;
+
+    in-out property <int> value;
+    callback increment();
 
     preferred-width: 100%;
     preferred-height: 100%;

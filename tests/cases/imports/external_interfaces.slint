@@ -9,7 +9,7 @@ import { ExportedInterface } from "export_interfaces.slint";
 
 component Base {
     implement ExportedInterface <=> self;
-    value: 2.71;
+    in-out property <float> value: 2.71;
 }
 
 export component TestCase {

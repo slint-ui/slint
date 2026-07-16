@@ -170,6 +170,8 @@ export component ChildDoesNotImplementInterface5 {
 component ValidBase {
     implement ValidInterface <=> self;
 
+    in-out property <int> value;
+    callback speak();
     public pure function reset() {
     }
 }
@@ -214,6 +216,8 @@ interface InterfaceA {
 component AImpl {
     implement InterfaceA <=> self;
 
+    in property <bool> test;
+    callback test-callback();
     pure public function test-function() {
     }
 }
@@ -227,6 +231,8 @@ interface InterfaceB {
 component BImpl {
     implement InterfaceB <=> self;
 
+    out property <bool> test;
+    callback test-callback(string);
     pure public function test-function(i: int) -> int {
         return i;
     }
