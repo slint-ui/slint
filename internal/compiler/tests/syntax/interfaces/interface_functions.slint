@@ -34,6 +34,9 @@ export interface InvalidFunctionVisibility {
 export component CalculatorImpl {
     implement Calculator <=> self;
 
+    in-out property <int> value;
+    callback notify();
+
     pure public function add(a: int, b: int) -> int {
         return a + b;
     }
@@ -54,6 +57,9 @@ export component MyCalculator inherits Rectangle {
 export component OverrideImpl {
     implement Calculator <=> self;
 
+    in-out property <int> value;
+    callback notify();
+
     public function add(a: int, b: int) -> int {
 //  >error{Implementation of pure function 'add' from interface 'Calculator' cannot be impure}
         return a + b;
@@ -71,6 +77,8 @@ export component OverrideBase {
     }
     in property <string> format;
     callback reset();
+    in-out property <int> value;
+    callback notify();
 
     @children
 }
@@ -85,6 +93,9 @@ export component OverrideInherited inherits OverrideBase {
 export component IncorrectImpl {
     implement Calculator <=> self;
 //            >         <error{Missing implementation of function 'add'}
+
+    in-out property <int> value;
+    callback notify();
 
     // Missing add() function
     public function format(fmt: string, value: int) {
@@ -107,6 +118,8 @@ export component IncorrectBase {
     }
     protected function reset() {
     }
+    in-out property <int> value;
+    callback notify();
     @children
 }
 

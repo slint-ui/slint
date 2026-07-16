@@ -8,7 +8,7 @@ interface TestInterface {
 export component TestCase inherits Rectangle {
     implement TestInterface <=> self;
 
-    test: true;
+    in-out property <bool> test: true;
     background: Colors.lightblue;
 }
 

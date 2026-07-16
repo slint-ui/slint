@@ -1409,7 +1409,6 @@ impl Element {
                 interfaces::disallow_implement_in_non_root(&node, tr, diag);
                 (Vec::new(), Vec::new())
             };
-        interfaces::apply_properties(&mut r, &implemented_interfaces, diag);
 
         for (prop_name, csn, source) in property_bindings {
             match r.bindings.entry(prop_name.clone()) {
@@ -1540,8 +1539,6 @@ impl Element {
                 },
             );
         }
-
-        interfaces::apply_callbacks(&mut r, &implemented_interfaces, diag);
 
         for func in node.Function() {
             #[cfg(feature = "slint-sc")]
@@ -1994,6 +1991,7 @@ impl Element {
             }
         }
 
+        interfaces::validate_properties_and_callbacks(&r.borrow(), &implemented_interfaces, diag);
         interfaces::validate_function_implementations(&r.borrow(), &implemented_interfaces, diag);
         interfaces::apply_child_implement_statements(&r, child_implements, diag);
 

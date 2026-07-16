@@ -15,8 +15,9 @@ import { ComboBoxInterface } from "export_interfaces.slint";
 
 component ComboBoxBase {
     implement ComboBoxInterface <=> self;
-    current-value: root.model[root.current-index];
-    model: ["Kiwi", "Mango"];
+    in property <[string]> model: ["Kiwi", "Mango"];
+    in-out property <int> current-index;
+    in-out property <string> current-value: root.model[root.current-index];
 }
 
 export component TestCase {

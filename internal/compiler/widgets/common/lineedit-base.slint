@@ -6,18 +6,19 @@ import { LineEditInterface } from "std-widget-interfaces.slint";
 export component LineEditBase inherits Rectangle {
     implement LineEditInterface <=> self;
 
-    font-size <=> text-input.font-size;
-    font-family <=> text-input.font-family;
-    font-italic <=> text-input.font-italic;
-    text <=> text-input.text;
-    enabled <=> text-input.enabled;
-    has-focus: text-input.has-focus;
+    in property <length> font-size <=> text-input.font-size;
+    in property <string> font-family <=> text-input.font-family;
+    in property <bool> font-italic <=> text-input.font-italic;
+    in-out property <string> text <=> text-input.text;
+    in property <bool> enabled <=> text-input.enabled;
+    out property <bool> has-focus: text-input.has-focus;
+
     // When true, the password input shows as plain text.
     // Cleared automatically on focus loss.
     in-out property <bool> password-revealed: false;
-    horizontal-alignment <=> text-input.horizontal-alignment;
-    read-only <=> text-input.read-only;
-    input-method-hints <=> text-input.input-method-hints;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> text-input.horizontal-alignment;
+    in property <bool> read-only <=> text-input.read-only;
+    in property <InputMethodHints> input-method-hints <=> text-input.input-method-hints;
 
     changed has-focus => {
         if !self.has-focus {
@@ -31,6 +32,14 @@ export component LineEditBase inherits Rectangle {
     in property <color> selection-background-color <=> text-input.selection-background-color;
     in property <color> selection-foreground-color <=> text-input.selection-foreground-color;
     in property <length> margin;
+
+    in property <InputType> input-type;
+    in property <string> placeholder-text;
+
+    callback accepted(text: string);
+    callback edited(text: string);
+    callback key-pressed(event: KeyEvent) -> EventResult;
+    callback key-released(event: KeyEvent) -> EventResult;
 
     public function set-selection-offsets(start: int, end: int) {
         text-input.set-selection-offsets(start, end);
