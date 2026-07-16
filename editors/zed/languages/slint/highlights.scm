@@ -75,6 +75,9 @@
 (function_definition
   name: (_) @function)
 
+(function_declaration
+  name: (_) @function)
+
 (struct_definition
   name: (_) @type)
 
@@ -184,6 +187,21 @@
 (tr
   "@tr" @attribute)
 
+(rust_attr
+  "@rust-attr" @attribute)
+
+(keys
+  "@keys" @attribute)
+
+(markdown
+  "@markdown" @attribute)
+
+(keys
+  (simple_identifier) @constant)
+
+(keys
+  "+" @operator)
+
 ; Keywords:
 (animate_option_identifier) @keyword
 
@@ -214,14 +232,33 @@
 (animate_statement
   "animate" @keyword)
 
+(gradient_call
+  [
+    "at"
+    "from"
+  ] @keyword)
+
 (callback
   "callback" @keyword)
 
+(changed_event
+  "changed" @keyword)
+
 (component_definition
-  [
-    "component"
-    "inherits"
-  ] @keyword)
+  "component" @keyword)
+
+(component_modifier
+  "inherits" @keyword)
+
+(uses_clause
+  "uses" @keyword)
+
+(used_interface
+  "from" @keyword
+  source: (_) @variable)
+
+(implements_clause
+  "implements" @keyword)
 
 (enum_definition
   "enum" @keyword)
@@ -235,8 +272,16 @@
 (function_definition
   "function" @keyword.function)
 
+(function_declaration
+  "function" @keyword.function)
+
 (global_definition
   "global" @keyword)
+
+(let_statement
+  "let" @keyword
+  name: (_) @variable
+  "=" @operator)
 
 (return_statement
   "return" @keyword.return)
