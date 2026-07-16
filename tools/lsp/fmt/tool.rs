@@ -122,10 +122,8 @@ fn process_file(
 fn visit_node(node: SyntaxNode, file: &mut impl Write) -> std::io::Result<()> {
     if let Some(doc) = syntax_nodes::Document::new(node) {
         let mut writer = writer::FileWriter { file };
-        // Experimental: the query-based formatter prototype (see
-        // API_DESIGN.md). It reformats every gap; only a few rules are
-        // implemented so far, so boundaries they don't cover fall back to the
-        // default single space.
+        // Experimental: the query-based formatter (see API_DESIGN.md),
+        // opt-in until it can replace the imperative one below.
         if std::env::var_os("SLINT_FMT_QUERY").is_some() {
             super::rules::format_document_query(doc, &mut writer)
         } else {

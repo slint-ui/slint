@@ -60,7 +60,7 @@ struct LineDiffSample {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum LineDiffOp<'a> {
+enum LineDiffOperation<'a> {
     Equal(&'a str),
     Delete(&'a str),
     Insert(&'a str),
@@ -77,27 +77,22 @@ fn summarize_file_diff(path: &Path, original: &str, formatted: &str) -> FileDiff
     let mut blank_removed_lines = 0;
     let mut sample = Vec::new();
 
-    for op in diff {
-        match op {
-            LineDiffOp::Equal(_) => {}
-            LineDiffOp::Delete(line) => {
-                removed_lines += 1;
-                if line.trim().is_empty() {
-                    blank_removed_lines += 1;
-                }
-                if sample.len() < 12 {
-                    sample.push(LineDiffSample { prefix: '-', text: line.to_string() });
-                }
+    for operation in diff {
+        let (prefix, line, line_count, blank_count) = match operation {
+            LineDiffOperation::Equal(_) => continue,
+            LineDiffOperation::Delete(line) => {
+                ('-', line, &mut removed_lines, &mut blank_removed_lines)
             }
-            LineDiffOp::Insert(line) => {
-                inserted_lines += 1;
-                if line.trim().is_empty() {
-                    blank_inserted_lines += 1;
-                }
-                if sample.len() < 12 {
-                    sample.push(LineDiffSample { prefix: '+', text: line.to_string() });
-                }
+            LineDiffOperation::Insert(line) => {
+                ('+', line, &mut inserted_lines, &mut blank_inserted_lines)
             }
+        };
+        *line_count += 1;
+        if line.trim().is_empty() {
+            *blank_count += 1;
+        }
+        if sample.len() < 12 {
+            sample.push(LineDiffSample { prefix, text: line.to_string() });
         }
     }
 
@@ -111,41 +106,50 @@ fn summarize_file_diff(path: &Path, original: &str, formatted: &str) -> FileDiff
     }
 }
 
-fn myers_line_diff<'a>(original: &'a [&'a str], formatted: &'a [&'a str]) -> Vec<LineDiffOp<'a>> {
+fn myers_line_diff<'a>(
+    original: &'a [&'a str],
+    formatted: &'a [&'a str],
+) -> Vec<LineDiffOperation<'a>> {
     if original == formatted {
-        return original.iter().copied().map(LineDiffOp::Equal).collect();
+        return original.iter().copied().map(LineDiffOperation::Equal).collect();
     }
 
-    let n = original.len();
-    let m = formatted.len();
-    let max = n + m;
-    let offset = max as isize;
-    let mut v = vec![0usize; 2 * max + 1];
-    let mut trace = Vec::with_capacity(max + 1);
+    let original_length = original.len();
+    let formatted_length = formatted.len();
+    let max_edit_distance = original_length + formatted_length;
+    let diagonal_offset = max_edit_distance as isize;
+    let mut furthest_reaching_x = vec![0usize; 2 * max_edit_distance + 1];
+    let mut trace = Vec::with_capacity(max_edit_distance + 1);
 
-    for d in 0..=max {
-        let d_isize = d as isize;
-        for k in (-d_isize..=d_isize).step_by(2) {
-            let idx = (k + offset) as usize;
-            let x = if k == -d_isize || (k != d_isize && v[idx - 1] < v[idx + 1]) {
-                v[idx + 1]
+    for edit_distance in 0..=max_edit_distance {
+        let edit_distance = edit_distance as isize;
+        for diagonal in (-edit_distance..=edit_distance).step_by(2) {
+            let diagonal_index = (diagonal + diagonal_offset) as usize;
+            let mut original_index = if diagonal == -edit_distance
+                || (diagonal != edit_distance
+                    && furthest_reaching_x[diagonal_index - 1]
+                        < furthest_reaching_x[diagonal_index + 1])
+            {
+                furthest_reaching_x[diagonal_index + 1]
             } else {
-                v[idx - 1] + 1
+                furthest_reaching_x[diagonal_index - 1] + 1
             };
 
-            let mut x = x;
-            let mut y = (x as isize - k) as usize;
-            while x < n && y < m && original[x] == formatted[y] {
-                x += 1;
-                y += 1;
+            let mut formatted_index = (original_index as isize - diagonal) as usize;
+            while original_index < original_length
+                && formatted_index < formatted_length
+                && original[original_index] == formatted[formatted_index]
+            {
+                original_index += 1;
+                formatted_index += 1;
             }
-            v[idx] = x;
-            if x >= n && y >= m {
-                trace.push(v.clone());
+            furthest_reaching_x[diagonal_index] = original_index;
+            if original_index >= original_length && formatted_index >= formatted_length {
+                trace.push(furthest_reaching_x.clone());
                 return backtrack_line_diff(&trace, original, formatted);
             }
         }
-        trace.push(v.clone());
+        trace.push(furthest_reaching_x.clone());
     }
 
     unreachable!("myers diff should always converge");
@@ -155,74 +159,63 @@ fn backtrack_line_diff<'a>(
     trace: &[Vec<usize>],
     original: &'a [&'a str],
     formatted: &'a [&'a str],
-) -> Vec<LineDiffOp<'a>> {
-    let mut x = original.len();
-    let mut y = formatted.len();
-    let max = original.len() + formatted.len();
-    let mut ops = Vec::new();
+) -> Vec<LineDiffOperation<'a>> {
+    let mut original_index = original.len();
+    let mut formatted_index = formatted.len();
+    let diagonal_offset = (original.len() + formatted.len()) as isize;
+    let mut operations = Vec::new();
 
-    for d in (1..trace.len()).rev() {
-        let v = &trace[d - 1];
-        let k = x as isize - y as isize;
-        let prev_k = if k == -(d as isize)
-            || (k != d as isize
-                && v[(k + max as isize - 1) as usize] < v[(k + max as isize + 1) as usize])
+    for edit_distance in (1..trace.len()).rev() {
+        let furthest_reaching_x = &trace[edit_distance - 1];
+        let diagonal = original_index as isize - formatted_index as isize;
+        let previous_diagonal = if diagonal == -(edit_distance as isize)
+            || (diagonal != edit_distance as isize
+                && furthest_reaching_x[(diagonal + diagonal_offset - 1) as usize]
+                    < furthest_reaching_x[(diagonal + diagonal_offset + 1) as usize])
         {
-            k + 1
+            diagonal + 1
         } else {
-            k - 1
+            diagonal - 1
         };
-        let prev_x = v[(prev_k + max as isize) as usize];
-        let prev_y = (prev_x as isize - prev_k) as usize;
+        let previous_original_index =
+            furthest_reaching_x[(previous_diagonal + diagonal_offset) as usize];
+        let previous_formatted_index =
+            (previous_original_index as isize - previous_diagonal) as usize;
 
-        while x > prev_x && y > prev_y {
-            x -= 1;
-            y -= 1;
-            ops.push(LineDiffOp::Equal(original[x]));
+        while original_index > previous_original_index && formatted_index > previous_formatted_index
+        {
+            original_index -= 1;
+            formatted_index -= 1;
+            operations.push(LineDiffOperation::Equal(original[original_index]));
         }
 
-        if x == prev_x {
-            y -= 1;
-            ops.push(LineDiffOp::Insert(formatted[y]));
+        if original_index == previous_original_index {
+            formatted_index -= 1;
+            operations.push(LineDiffOperation::Insert(formatted[formatted_index]));
         } else {
-            x -= 1;
-            ops.push(LineDiffOp::Delete(original[x]));
+            original_index -= 1;
+            operations.push(LineDiffOperation::Delete(original[original_index]));
         }
     }
 
-    while x > 0 && y > 0 {
-        x -= 1;
-        y -= 1;
-        ops.push(LineDiffOp::Equal(original[x]));
+    while original_index > 0 && formatted_index > 0 {
+        original_index -= 1;
+        formatted_index -= 1;
+        operations.push(LineDiffOperation::Equal(original[original_index]));
     }
 
-    ops.reverse();
-    ops
+    operations.reverse();
+    operations
 }
 
+/// Split at `\n`, stripping one trailing `\r` per line; a trailing newline
+/// does not start an extra empty line.
 fn split_logical_lines(source: &str) -> Vec<&str> {
-    let mut lines = Vec::new();
-    let mut start = 0;
-
-    for (index, ch) in source.char_indices() {
-        if ch == '\n' {
-            let mut end = index;
-            if end > start && source.as_bytes()[end - 1] == b'\r' {
-                end -= 1;
-            }
-            lines.push(&source[start..end]);
-            start = index + 1;
-        }
+    let mut lines: Vec<&str> =
+        source.split('\n').map(|line| line.strip_suffix('\r').unwrap_or(line)).collect();
+    if source.ends_with('\n') || source.is_empty() {
+        lines.pop();
     }
-
-    if start < source.len() {
-        let mut end = source.len();
-        if end > start && source.as_bytes()[end - 1] == b'\r' {
-            end -= 1;
-        }
-        lines.push(&source[start..end]);
-    }
-
     lines
 }
 

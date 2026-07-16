@@ -174,7 +174,7 @@ fn apply_indentation_perturbation(
 
         if line_start >= region.start && line_start < region.end {
             let (without_ending, ending) = split_line_ending(line);
-            let (leading_ws, rest) = split_leading_whitespace(without_ending);
+            let (leading_whitespace, rest) = split_leading_whitespace(without_ending);
             if rest.is_empty() {
                 output.push_str(line);
                 continue;
@@ -183,12 +183,12 @@ fn apply_indentation_perturbation(
             match kind {
                 PerturbationKind::AddSpaces => {
                     output.push_str("  ");
-                    output.push_str(leading_ws);
+                    output.push_str(leading_whitespace);
                     output.push_str(rest);
                     changed = true;
                 }
                 PerturbationKind::StripIndentation => {
-                    if !leading_ws.is_empty() {
+                    if !leading_whitespace.is_empty() {
                         output.push_str(rest);
                         changed = true;
                     } else {
@@ -219,43 +219,25 @@ fn split_line_ending(line: &str) -> (&str, &str) {
 }
 
 fn split_leading_whitespace(line: &str) -> (&str, &str) {
-    let idx = line
+    let first_non_whitespace = line
         .char_indices()
-        .find_map(|(index, ch)| (!ch.is_whitespace()).then_some(index))
+        .find_map(|(index, character)| (!character.is_whitespace()).then_some(index))
         .unwrap_or(line.len());
-    line.split_at(idx)
+    line.split_at(first_non_whitespace)
 }
 
 fn first_token_of_kind(node: &SyntaxNode, kind: SyntaxKind) -> Option<SyntaxToken> {
-    tokens_in_node(node).into_iter().find(|token| token.kind() == kind)
+    tokens_in_node(node).find(|token| token.kind() == kind)
 }
 
 fn last_token_of_kind(node: &SyntaxNode, kind: SyntaxKind) -> Option<SyntaxToken> {
-    tokens_in_node(node).into_iter().rev().find(|token| token.kind() == kind)
+    tokens_in_node(node).filter(|token| token.kind() == kind).last()
 }
 
-fn tokens_in_node(node: &SyntaxNode) -> Vec<SyntaxToken> {
-    let Some(mut token) = node.first_token() else {
-        return Vec::new();
-    };
-
-    let end = byte_offset(node.text_range().end());
-    let mut tokens = Vec::new();
-
-    loop {
-        if byte_offset(token.text_range().start()) >= end {
-            break;
-        }
-
-        tokens.push(token.clone());
-
-        let Some(next) = token.next_token() else {
-            break;
-        };
-        token = next;
-    }
-
-    tokens
+fn tokens_in_node(node: &SyntaxNode) -> impl Iterator<Item = SyntaxToken> {
+    let end = node.text_range().end();
+    std::iter::successors(node.first_token(), |token| token.next_token())
+        .take_while(move |token| token.text_range().start() < end)
 }
 
 fn line_number(source: &str, offset: TextSize) -> usize {

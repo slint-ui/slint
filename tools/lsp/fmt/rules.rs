@@ -9,31 +9,37 @@
 //! spacing. Boundaries no rule covers fall back to the engine's default (a
 //! single space between tokens).
 
-use super::atoms::Atom;
 use super::atoms::Atom::*;
 use super::engine::{FormatRules, Selection, format_document_with_rules};
 use super::writer::TokenWriter;
 use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, syntax_nodes};
 
+/// The positions of the `open`/`close` delimiter pair among `children`, when
+/// both are present in order.
+fn delimiter_positions(
+    children: &[NodeOrToken],
+    open: SyntaxKind,
+    close: SyntaxKind,
+) -> Option<(usize, usize)> {
+    let open_index = children.iter().position(|child| child.kind() == open)?;
+    let close_index = children.iter().rposition(|child| child.kind() == close)?;
+    (open_index <= close_index).then_some((open_index, close_index))
+}
+
 /// Break the body delimited by `open`/`close` (`{}`, `[]`) so that each item
-/// sits on its own line when the node is multiline, and inline otherwise. A
-/// non-empty inline body uses `edge` (usually a spaced softline) around its
-/// delimiters; an empty one closes up tight (`{}`). Items in between break with
-/// a spaced softline and keep one blank line from the input.
-fn break_braced_body(selection: &Selection, open: SyntaxKind, close: SyntaxKind, edge: Atom) {
+/// sits on its own line when the node is multiline, and inline otherwise.
+/// An empty body closes up tight (`{}`) unless the input already spread it
+/// across lines. Items keep one blank line from the input.
+fn break_braced_body(selection: &Selection, open: SyntaxKind, close: SyntaxKind) {
     let children: Vec<NodeOrToken> = selection.children().iter().cloned().collect();
-    let Some(open_index) = children.iter().position(|child| child.kind() == open) else {
+    let Some((open_index, close_index)) = delimiter_positions(&children, open, close) else {
         return;
     };
-    let Some(close_index) = children.iter().rposition(|child| child.kind() == close) else {
-        return;
+    let edge = if close_index == open_index + 1 {
+        selection.empty_softline()
+    } else {
+        selection.spaced_softline()
     };
-    if close_index < open_index {
-        return;
-    }
-    // An empty body collapses to `{}` inline (but keeps a broken-open `{`/`}`
-    // pair when the input already spread it across lines).
-    let edge = if close_index == open_index + 1 { selection.empty_softline() } else { edge };
     selection.at(children[open_index].clone()).append(IndentStart).append(edge.clone());
     selection.at(children[close_index].clone()).prepend(IndentEnd).prepend(edge);
     for child in &children[(open_index + 1)..close_index] {
@@ -67,18 +73,17 @@ pub fn make_rules() -> FormatRules {
     rules.token(SyntaxKind::Comma, |comma| {
         comma.prepend(Antispace).append(InputSoftline);
     });
-    rules.token(SyntaxKind::LParent, |paren| {
-        paren.append(Antispace);
-    });
-    rules.token(SyntaxKind::RParent, |paren| {
-        paren.prepend(Antispace);
-    });
-    rules.token(SyntaxKind::LBracket, |bracket| {
-        bracket.append(Antispace);
-    });
-    rules.token(SyntaxKind::RBracket, |bracket| {
-        bracket.prepend(Antispace);
-    });
+    // Parentheses and brackets hug their contents.
+    for kind in [SyntaxKind::LParent, SyntaxKind::LBracket] {
+        rules.token(kind, |open| {
+            open.append(Antispace);
+        });
+    }
+    for kind in [SyntaxKind::RParent, SyntaxKind::RBracket] {
+        rules.token(kind, |close| {
+            close.prepend(Antispace);
+        });
+    }
     // A member-access or qualified-name dot hugs both neighbors
     // (`self.foo`, `MyModule.Widget`).
     rules.token(SyntaxKind::Dot, |dot| {
@@ -110,40 +115,31 @@ pub fn make_rules() -> FormatRules {
         }
     });
 
-    // Element bodies (`Foo { ... }`, and the body of a component, global or
-    // interface) break one item per line when multiline, stay inline
+    // Brace-delimited bodies — elements (`Foo { ... }`, including component,
+    // global and interface bodies), imperative code blocks, match-element
+    // bodies, struct/enum/object-literal members, animations, transitions and
+    // import lists — break one item per line when multiline, stay inline
     // otherwise.
-    rules.node(SyntaxKind::Element, |element| {
-        break_braced_body(
-            element,
-            SyntaxKind::LBrace,
-            SyntaxKind::RBrace,
-            element.spaced_softline(),
-        );
-    });
-
-    // Imperative code blocks (function, callback and binding bodies).
-    rules.node(SyntaxKind::CodeBlock, |block| {
-        break_braced_body(block, SyntaxKind::LBrace, SyntaxKind::RBrace, block.spaced_softline());
-    });
-
-    // `match expr { case: Elem { } ... }`, one case per line when multiline.
-    rules.node(SyntaxKind::MatchElement, |match_element| {
-        break_braced_body(
-            match_element,
-            SyntaxKind::LBrace,
-            SyntaxKind::RBrace,
-            match_element.spaced_softline(),
-        );
-    });
-
-    // Struct, enum and object-literal bodies: one member per line when
-    // multiline, spaces inside the braces when inline.
-    for kind in [SyntaxKind::ObjectType, SyntaxKind::EnumDeclaration, SyntaxKind::ObjectLiteral] {
+    for kind in [
+        SyntaxKind::Element,
+        SyntaxKind::CodeBlock,
+        SyntaxKind::MatchElement,
+        SyntaxKind::ObjectType,
+        SyntaxKind::EnumDeclaration,
+        SyntaxKind::ObjectLiteral,
+        SyntaxKind::PropertyAnimation,
+        SyntaxKind::Transition,
+        SyntaxKind::ImportIdentifierList,
+    ] {
         rules.node(kind, |body| {
-            break_braced_body(body, SyntaxKind::LBrace, SyntaxKind::RBrace, body.spaced_softline());
+            break_braced_body(body, SyntaxKind::LBrace, SyntaxKind::RBrace);
         });
     }
+
+    // `transitions [ ... ]` breaks the same way, inside brackets.
+    rules.node(SyntaxKind::Transitions, |transitions| {
+        break_braced_body(transitions, SyntaxKind::LBracket, SyntaxKind::RBracket);
+    });
 
     // A property's type sits tight inside its angle brackets:
     // `property <int> foo`, not `property < int > foo`.
@@ -197,38 +193,13 @@ pub fn make_rules() -> FormatRules {
     // per line when multiline; the commas carry the inter-element breaks.
     rules.node(SyntaxKind::Array, |array| {
         let children: Vec<NodeOrToken> = array.children().iter().cloned().collect();
-        let Some(open) = children.iter().position(|child| child.kind() == SyntaxKind::LBracket)
+        let Some((open_index, close_index)) =
+            delimiter_positions(&children, SyntaxKind::LBracket, SyntaxKind::RBracket)
         else {
             return;
         };
-        let Some(close) = children.iter().rposition(|child| child.kind() == SyntaxKind::RBracket)
-        else {
-            return;
-        };
-        array.at(children[open].clone()).append(IndentStart).append(array.empty_softline());
-        array.at(children[close].clone()).prepend(IndentEnd).prepend(array.empty_softline());
-    });
-
-    // Animation and transition bodies break like element bodies.
-    for kind in [SyntaxKind::PropertyAnimation, SyntaxKind::Transition] {
-        rules.node(kind, |body| {
-            break_braced_body(body, SyntaxKind::LBrace, SyntaxKind::RBrace, body.spaced_softline());
-        });
-    }
-
-    // `transitions [ ... ]`, one transition per line when multiline.
-    rules.node(SyntaxKind::Transitions, |transitions| {
-        break_braced_body(
-            transitions,
-            SyntaxKind::LBracket,
-            SyntaxKind::RBracket,
-            transitions.spaced_softline(),
-        );
-    });
-
-    // `import { Foo, Bar } from "..."` keeps spaces inside the braces.
-    rules.node(SyntaxKind::ImportIdentifierList, |list| {
-        break_braced_body(list, SyntaxKind::LBrace, SyntaxKind::RBrace, list.spaced_softline());
+        array.at(children[open_index].clone()).append(IndentStart).append(array.empty_softline());
+        array.at(children[close_index].clone()).prepend(IndentEnd).prepend(array.empty_softline());
     });
 
     // `states [ ... ]`

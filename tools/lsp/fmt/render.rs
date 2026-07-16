@@ -12,6 +12,7 @@
 use super::atoms::{FormatPlan, INDENT, Instruction, Whitespace};
 use super::engine::Linearization;
 use super::writer::TokenWriter;
+use i_slint_compiler::parser::SyntaxToken;
 
 pub fn render(
     plan: &FormatPlan,
@@ -26,26 +27,15 @@ pub fn render(
                 }
             }
             &Instruction::ReplaceGap { slot, whitespace } => {
-                let text = whitespace_text(whitespace);
                 // Whole-gap replacement is only produced for comment-free
                 // gaps (comment gaps become sub-gap instruction sequences),
                 // and those have at most one whitespace token.
-                match linearization.slots[slot].single_whitespace_token() {
-                    Some(token) => writer.with_new_content(token.clone(), &text)?,
-                    None if !text.is_empty() => writer.insert_content(&text)?,
-                    None => {}
-                }
+                let token = linearization.slots[slot].single_whitespace_token();
+                replace_whitespace(token, whitespace, writer)?;
             }
             &Instruction::ReplaceSubGap { slot, trivia_index, whitespace } => {
-                let text = whitespace_text(whitespace);
-                match trivia_index {
-                    Some(index) => writer.with_new_content(
-                        linearization.slots[slot].gap_before[index].clone(),
-                        &text,
-                    )?,
-                    None if !text.is_empty() => writer.insert_content(&text)?,
-                    None => {}
-                }
+                let token = trivia_index.map(|index| &linearization.slots[slot].gap_before[index]);
+                replace_whitespace(token, whitespace, writer)?;
             }
             &Instruction::EmitComment { slot, trivia_index, column_shift } => {
                 let token = &linearization.slots[slot].gap_before[trivia_index];
@@ -72,6 +62,21 @@ pub fn render(
         writer.no_change(trivia.clone())?;
     }
     Ok(())
+}
+
+/// Replace `token`'s text with the whitespace — or insert the whitespace
+/// where there is no token to replace (and nothing at all when it is empty).
+fn replace_whitespace(
+    token: Option<&SyntaxToken>,
+    whitespace: Whitespace,
+    writer: &mut impl TokenWriter,
+) -> std::io::Result<()> {
+    let text = whitespace_text(whitespace);
+    match token {
+        Some(token) => writer.with_new_content(token.clone(), &text),
+        None if !text.is_empty() => writer.insert_content(&text),
+        None => Ok(()),
+    }
 }
 
 fn whitespace_text(whitespace: Whitespace) -> String {

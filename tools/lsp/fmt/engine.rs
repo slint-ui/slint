@@ -344,16 +344,23 @@ impl<'a> Selection<'a> {
         significant_span(&self.context).unwrap_or_else(|| TextRange::empty(TextSize::new(0)))
     }
 
+    /// The boundary token of each selected item: the token itself, or the
+    /// significant token `of_node` picks (first or last). Token-less items
+    /// (e.g. empty `Expression` nodes) have no boundary and are skipped.
+    fn boundary_tokens(
+        &self,
+        of_node: fn(&SyntaxNode) -> Option<SyntaxToken>,
+    ) -> impl Iterator<Item = SyntaxToken> + '_ {
+        self.items.iter().filter_map(move |item| match item {
+            NodeOrToken::Token(token) => Some(token.clone()),
+            NodeOrToken::Node(node) => of_node(node),
+        })
+    }
+
     /// Attach an atom to the boundary before each selected item (before a
-    /// node's first significant token). Token-less items (e.g. empty
-    /// `Expression` nodes) have no boundary and are skipped.
+    /// node's first significant token).
     pub fn prepend(&self, atom: Atom) -> &Self {
-        for item in &self.items {
-            let anchor = match item {
-                NodeOrToken::Token(token) => Some(token.clone()),
-                NodeOrToken::Node(node) => first_significant_token(node),
-            };
-            let Some(anchor) = anchor else { continue };
+        for anchor in self.boundary_tokens(first_significant_token) {
             self.sink.attach_before(
                 anchor.text_range().start(),
                 AtomInstance { atom: atom.clone(), tier: self.tier },
@@ -363,14 +370,9 @@ impl<'a> Selection<'a> {
     }
 
     /// Attach an atom to the boundary after each selected item (after a
-    /// node's last significant token). Token-less items are skipped.
+    /// node's last significant token).
     pub fn append(&self, atom: Atom) -> &Self {
-        for item in &self.items {
-            let anchor = match item {
-                NodeOrToken::Token(token) => Some(token.clone()),
-                NodeOrToken::Node(node) => last_significant_token(node),
-            };
-            let Some(anchor) = anchor else { continue };
+        for anchor in self.boundary_tokens(last_significant_token) {
             self.sink.attach_after(
                 anchor.text_range().start(),
                 AtomInstance { atom: atom.clone(), tier: self.tier },
@@ -386,16 +388,7 @@ impl<'a> Selection<'a> {
     /// expressions interpolated into a string template. Token-less nodes have
     /// nothing to protect and are skipped.
     pub fn leaf(&self) -> &Self {
-        for item in &self.items {
-            let range = match item {
-                NodeOrToken::Token(token) => Some(token.text_range()),
-                NodeOrToken::Node(node) => significant_span(node),
-            };
-            if let Some(range) = range {
-                self.sink.mark(range, Marker::Leaf);
-            }
-        }
-        self
+        self.mark(Marker::Leaf)
     }
 
     /// Mark each selected item for deletion: its tokens are emitted as
@@ -409,13 +402,19 @@ impl<'a> Selection<'a> {
     /// injected [`Atom::Literal`] to a *surviving* neighbor (e.g. append it to
     /// the last argument), not to the deleted token.
     pub fn delete(&self) -> &Self {
+        self.mark(Marker::Delete)
+    }
+
+    /// Mark each selected item's range (a token's range, a node's significant
+    /// span). Token-less nodes have no range and are skipped.
+    fn mark(&self, marker: Marker) -> &Self {
         for item in &self.items {
             let range = match item {
                 NodeOrToken::Token(token) => Some(token.text_range()),
                 NodeOrToken::Node(node) => significant_span(node),
             };
             if let Some(range) = range {
-                self.sink.mark(range, Marker::Delete);
+                self.sink.mark(range, marker);
             }
         }
         self
@@ -550,14 +549,8 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
     // collapse away.
     let mut last_surviving: Option<usize> = None;
 
-    // Debug-only idempotency guard, checked after the loop: a `Hardline` that
-    // produces a newline strictly inside a softline span which resolved
-    // single-line would flip that span to multiline on the next run, breaking
-    // `format(format(x)) == format(x)`.
     #[cfg(debug_assertions)]
-    let mut single_line_softline_spans: Vec<TextRange> = Vec::new();
-    #[cfg(debug_assertions)]
-    let mut hardline_newline_positions: Vec<TextSize> = Vec::new();
+    let mut idempotency_guard = IdempotencyGuard::default();
 
     for (slot_index, slot) in slots.iter().enumerate() {
         let leaf = leaf_of_slot[slot_index];
@@ -641,34 +634,16 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
             );
         }
 
-        // Record the softline spans and any Hardline-driven newline in this
-        // gap for the idempotency guard. Leaf-internal gaps are exempt: their
-        // atoms were suppressed above, so nothing was emitted.
+        // Leaf-internal gaps are exempt from the guard: their atoms were
+        // suppressed above, so nothing was emitted.
         #[cfg(debug_assertions)]
         if !leaf_internal {
-            for instance in append_atoms.iter().chain(prepend_atoms) {
-                if let Atom::SpacedSoftline(span) | Atom::EmptySoftline(span) = instance.atom {
-                    if !source[span].contains('\n') {
-                        single_line_softline_spans.push(span);
-                    }
-                }
-            }
-            let produced_newline =
-                instructions[gap_instructions_start..].iter().any(|instruction| {
-                    matches!(
-                        instruction,
-                        Instruction::ReplaceGap { whitespace: Whitespace::Newline { .. }, .. }
-                            | Instruction::ReplaceSubGap {
-                                whitespace: Whitespace::Newline { .. },
-                                ..
-                            }
-                    )
-                });
-            let has_hardline =
-                append_atoms.iter().chain(prepend_atoms).any(|it| it.atom == Atom::Hardline);
-            if has_hardline && produced_newline {
-                hardline_newline_positions.push(slot.token.text_range().start());
-            }
+            idempotency_guard.record_gap(
+                append_atoms.iter().chain(prepend_atoms),
+                &instructions[gap_instructions_start..],
+                slot.token.text_range().start(),
+                source,
+            );
         }
 
         if !leaf_internal {
@@ -680,26 +655,73 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
         last_surviving = Some(slot_index);
     }
 
-    // Idempotency guard (see the accumulators above).
     #[cfg(debug_assertions)]
-    for &position in &hardline_newline_positions {
-        if let Some(span) = single_line_softline_spans
-            .iter()
-            .find(|span| span.start() < position && position < span.end())
-        {
-            panic!(
-                "formatter idempotency violation: a Hardline produced a newline at offset {} \
-                 strictly inside the softline-measured span {:?} ({:?}), which resolved \
-                 single-line — the span would become multiline on the next run. Use Hardline \
-                 only where no softline measures it (e.g. at Document top level).",
-                u32::from(position),
-                span,
-                &source[*span],
-            );
+    idempotency_guard.check(source);
+
+    FormatPlan { instructions }
+}
+
+/// Debug-only idempotency guard: a `Hardline` that produces a newline
+/// strictly inside a softline span which resolved single-line would flip
+/// that span to multiline on the next run, breaking
+/// `format(format(x)) == format(x)`.
+#[cfg(debug_assertions)]
+#[derive(Default)]
+struct IdempotencyGuard {
+    single_line_softline_spans: Vec<TextRange>,
+    hardline_newline_positions: Vec<TextSize>,
+}
+
+#[cfg(debug_assertions)]
+impl IdempotencyGuard {
+    /// Record one resolved gap: the softline spans its atoms measured as
+    /// single-line, and whether a `Hardline` produced a newline here.
+    fn record_gap<'atoms>(
+        &mut self,
+        atoms: impl Iterator<Item = &'atoms AtomInstance> + Clone,
+        gap_instructions: &[Instruction],
+        position: TextSize,
+        source: &str,
+    ) {
+        for instance in atoms.clone() {
+            if let Atom::SpacedSoftline(span) | Atom::EmptySoftline(span) = instance.atom {
+                if !source[span].contains('\n') {
+                    self.single_line_softline_spans.push(span);
+                }
+            }
+        }
+        let produced_newline = gap_instructions.iter().any(|instruction| {
+            matches!(
+                instruction,
+                Instruction::ReplaceGap { whitespace: Whitespace::Newline { .. }, .. }
+                    | Instruction::ReplaceSubGap { whitespace: Whitespace::Newline { .. }, .. }
+            )
+        });
+        let has_hardline = atoms.into_iter().any(|instance| instance.atom == Atom::Hardline);
+        if has_hardline && produced_newline {
+            self.hardline_newline_positions.push(position);
         }
     }
 
-    FormatPlan { instructions }
+    fn check(&self, source: &str) {
+        for &position in &self.hardline_newline_positions {
+            if let Some(span) = self
+                .single_line_softline_spans
+                .iter()
+                .find(|span| span.start() < position && position < span.end())
+            {
+                panic!(
+                    "formatter idempotency violation: a Hardline produced a newline at offset {} \
+                     strictly inside the softline-measured span {:?} ({:?}), which resolved \
+                     single-line — the span would become multiline on the next run. Use Hardline \
+                     only where no softline measures it (e.g. at Document top level).",
+                    u32::from(position),
+                    span,
+                    &source[*span],
+                );
+            }
+        }
+    }
 }
 
 /// The text of every [`Atom::Literal`] among `atoms`, in attachment order.
@@ -1811,10 +1833,14 @@ mod tests {
         rules.node(SyntaxKind::FunctionCallExpression, |call| {
             let multiline = call.is_multiline();
             let children: Vec<NodeOrToken> = call.children().iter().cloned().collect();
-            let Some(open) = children.iter().position(|c| c.kind() == SyntaxKind::LParent) else {
+            let Some(open) =
+                children.iter().position(|child| child.kind() == SyntaxKind::LParent)
+            else {
                 return;
             };
-            let Some(close) = children.iter().rposition(|c| c.kind() == SyntaxKind::RParent) else {
+            let Some(close) =
+                children.iter().rposition(|child| child.kind() == SyntaxKind::RParent)
+            else {
                 return;
             };
             if close <= open + 1 {

@@ -99,8 +99,8 @@ fn main() -> ExitCode {
             println!("{report}");
             ExitCode::SUCCESS
         }
-        Err(err) => {
-            eprintln!("{err}");
+        Err(error) => {
+            eprintln!("{error}");
             ExitCode::FAILURE
         }
     }
