@@ -660,7 +660,7 @@ fn lower_menu_items(
                 if !in_menubar && let Some(binding) = element.borrow().binding("shortcut") {
                     diag.push_error(
                         "MenuItem shortcuts are currently only supported in the MenuBar".into(),
-                        &*binding.borrow(),
+                        &*binding,
                     );
                 }
 

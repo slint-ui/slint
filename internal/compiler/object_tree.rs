@@ -22,7 +22,7 @@ use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
 use crate::typeregister::TypeRegister;
 use itertools::Either;
 use smol_str::{SmolStr, ToSmolStr, format_smolstr};
-use std::cell::{Cell, OnceCell, RefCell};
+use std::cell::{Cell, OnceCell, Ref, RefCell, RefMut};
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Display;
@@ -2481,10 +2481,19 @@ impl Element {
     /// is a materialized placeholder for an *unbound* property and must read as "no binding".
     /// Use this instead of the raw map whenever the question is "did anything bind this
     /// property" or "what is this property's binding".
-    pub fn binding(&self, property_name: &str) -> Option<&RefCell<BindingExpression>> {
+    pub fn binding(&self, property_name: &str) -> Option<Ref<'_, BindingExpression>> {
         self.bindings
             .get(property_name)
             .filter(|binding| !binding.borrow().expression.is_synthetic_debug_hook())
+            .map(|binding| binding.borrow())
+    }
+
+    /// Same as [`Self::binding`], but returns a mutable reference to the binding.
+    pub fn binding_mut(&self, property_name: &str) -> Option<RefMut<'_, BindingExpression>> {
+        self.bindings
+            .get(property_name)
+            .filter(|binding| !binding.borrow().expression.is_synthetic_debug_hook())
+            .map(|binding| binding.borrow_mut())
     }
 
     /// Iterate over the bindings that are not synthetic debug hooks.

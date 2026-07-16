@@ -104,7 +104,7 @@ fn must_initialize(elem: &Element, prop: &str) -> bool {
     match elem.binding(prop) {
         None => true,
         Some(b) => {
-            matches!(b.borrow().expression.ignore_debug_hooks(), Expression::Invalid)
+            matches!(b.expression.ignore_debug_hooks(), Expression::Invalid)
         }
     }
 }

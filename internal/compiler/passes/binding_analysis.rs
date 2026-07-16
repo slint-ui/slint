@@ -1024,7 +1024,6 @@ fn check_window_properties(doc: &Document, global_analysis: &mut GlobalAnalysis)
                             .is_some_and(|a| a.is_set)
                     {
                         let value = elem.borrow().binding(DEFAULT_FONT_SIZE).and_then(|e| match e
-                            .borrow()
                             .expression
                             .ignore_debug_hooks()
                         {
