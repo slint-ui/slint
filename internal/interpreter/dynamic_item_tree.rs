@@ -492,7 +492,7 @@ pub struct ItemTreeDescription<'id> {
     pub(crate) popup_menu_description: PopupMenuDescription,
 
     /// The collection of compiled globals
-    pub(crate) compiled_globals: Option<Rc<CompiledGlobalCollection>>,
+    compiled_globals: Option<Rc<CompiledGlobalCollection>>,
 
     /// The type loader, which will be available only on the top-most `ItemTreeDescription`.
     /// All other `ItemTreeDescription`s have `None` here.
@@ -558,6 +558,11 @@ impl ItemTreeDescription<'_> {
     /// The name of this Component as written in the .slint file
     pub fn id(&self) -> &str {
         self.original.id.as_str()
+    }
+
+    #[cfg(feature="internal")]
+    pub(crate) fn compiled_globals(&self) -> Option<Rc<CompiledGlobalCollection>> {
+        self.compiled_globals.clone()
     }
 
     /// List of publicly declared properties or callbacks

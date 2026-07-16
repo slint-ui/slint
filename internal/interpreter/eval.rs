@@ -726,9 +726,9 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::EmptyComponentFactory => Value::ComponentFactory(Default::default()),
         Expression::EmptyDataTransfer => Value::DataTransfer(Default::default()),
         Expression::DebugHook { expression, id: _id, .. } => {
-            #[cfg(feature = "internal-highlight")]
+            #[cfg(feature = "internal")]
             {
-                if let Some(hook_value) = crate::debug_hook::debug_hook_triggered(
+                if let Some(hook_value) = crate::debug_hook::trigger_debug_hook(
                     &local_context.component_instance,
                     _id.clone(),
                 ) {

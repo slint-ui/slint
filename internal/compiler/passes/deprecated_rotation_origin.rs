@@ -66,7 +66,7 @@ pub fn handle_rotation_origin(component: &Component, diag: &mut BuildDiagnostics
             };
 
             if let Some(old_binding) =
-                elem.borrow_mut().set_binding_overwriting(transform_origin.0.into(), expr.into())
+                elem.borrow_mut().set_binding(transform_origin.0.into(), expr.into())
             {
                 diag.push_error(
                     "Can't specify transform-origin if rotation-origin-x or rotation-origin-y is used on this element".into(),
