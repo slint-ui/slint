@@ -123,7 +123,7 @@ jobs:
             throw "The MSIX does not contain an Authenticode signature."
           }
           Write-Host "Signature status: $($signature.Status)"
-          echo "slint_visual_editor_msix_path=$slintvisualeditor_msixpath" >> $GITHUB_OUTPUT
+          echo "slint_visual_editor_msix_path=$slintvisualeditor_msixpath" >> $env:GITHUB_OUTPUT
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@v7
