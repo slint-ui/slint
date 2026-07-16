@@ -43,3 +43,14 @@ export component NestedPlaceholder inherits Rectangle {
         header {}
     }
 }
+
+export component NotInMatch inherits Rectangle {
+    slot header;
+    in-out property <int> value;
+    match value {
+        0: Rectangle {
+            header {}
+//          >       <error{The slot 'header' cannot appear in a match element}
+        }
+    }
+}

@@ -2124,9 +2124,10 @@ impl Element {
                     diag,
                     tr,
                 );
-                for (_, ChildrenInsertionPoint { node: se, .. }) in sub_child_insertion_points {
+                for (name, ChildrenInsertionPoint { node: se, .. }) in sub_child_insertion_points {
+                    Self::mark_placeholder_rejected(declared_slots, &name);
                     diag.push_error(
-                        "The @children placeholder cannot appear in a match element".into(),
+                        format!("{} cannot appear in a match element", slot_error_subject(&name)),
                         &se,
                     )
                 }
