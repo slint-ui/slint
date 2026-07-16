@@ -392,6 +392,17 @@ impl BackendBuilder {
     }
 }
 
+/// A native drag built by [`WinitWindowAdapter::start_drag`], ready for the event loop to hand
+/// to `ActiveEventLoop::start_drag` (which is only reachable from inside the event handler).
+pub(crate) struct PendingNativeDrag {
+    pub(crate) window_id: winit::window::WindowId,
+    pub(crate) data: Box<dyn winit::data_transfer::DataTransferSend>,
+    /// Allowed actions, ordered by preference, as Wayland and macOS expect.
+    pub(crate) actions: Vec<winit::event_loop::DndAction>,
+    /// The image shown under the cursor while dragging, if any.
+    pub(crate) icon: Option<winit::event_loop::DragIcon>,
+}
+
 pub(crate) struct SharedBackendData {
     /// Allow fallback if the desired renderer is not found
     allow_fallback: bool,
@@ -412,6 +423,15 @@ pub(crate) struct SharedBackendData {
     /// event loop or is from a stale event.
     event_loop_generation: Arc<AtomicUsize>,
     is_wayland: bool,
+    /// A native drag a `DragArea` requested, built and waiting to be handed to the active event
+    /// loop. See [`WinitWindowAdapter::start_drag`] and `EventLoopState::start_drag_if_pending`.
+    pub(crate) pending_drag: RefCell<Option<PendingNativeDrag>>,
+    /// Data of incoming native drags, keyed by winit's data-transfer id. winit delivers it
+    /// asynchronously via `DataTransferReceived`, so we accumulate it here and read it when
+    /// dispatching `DragMove`/`Drop` to `DropArea`s.
+    pub(crate) incoming_transfers: RefCell<
+        HashMap<winit::data_transfer::DataTransferId, i_slint_core::data_transfer::DataTransfer>,
+    >,
     /// Desktop settings read from the XDG portal (cursor blink, appearance query).
     #[cfg(xdg_desktop_settings)]
     desktop_settings: xdg_desktop_settings::DesktopSettings,
@@ -503,6 +523,8 @@ impl SharedBackendData {
             event_queue: Default::default(),
             event_loop_generation: Default::default(),
             is_wayland,
+            pending_drag: None.into(),
+            incoming_transfers: Default::default(),
             #[cfg(xdg_desktop_settings)]
             desktop_settings: xdg_desktop_settings::DesktopSettings::new(),
             #[cfg(target_os = "ios")]

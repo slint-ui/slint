@@ -1951,7 +1951,7 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 [[package]]
 name = "dpi"
 version = "0.1.2"
-source = "git+https://github.com/rust-windowing/winit.git?rev=c4afadbf#c4afadbfabf7b1e7989b40b493db1a4c7bd8ff4e"
+source = "git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788#156433eb912a62a1a07da0f9bbaa2d775270c788"
 
 [[package]]
 name = "drm"
@@ -10174,12 +10174,12 @@ dependencies = [
 [[package]]
 name = "winit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git?rev=c4afadbf#c4afadbfabf7b1e7989b40b493db1a4c7bd8ff4e"
+source = "git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788#156433eb912a62a1a07da0f9bbaa2d775270c788"
 dependencies = [
  "bitflags 2.13.0",
  "cfg_aliases",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=c4afadbf)",
+ "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788)",
  "libc",
  "raw-window-handle",
  "rustix 1.1.4",
@@ -10200,11 +10200,11 @@ dependencies = [
 [[package]]
 name = "winit-android"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git?rev=c4afadbf#c4afadbfabf7b1e7989b40b493db1a4c7bd8ff4e"
+source = "git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788#156433eb912a62a1a07da0f9bbaa2d775270c788"
 dependencies = [
  "android-activity 0.6.1",
  "bitflags 2.13.0",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=c4afadbf)",
+ "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788)",
  "ndk 0.9.0",
  "raw-window-handle",
  "smol_str 0.3.2",
@@ -10215,12 +10215,12 @@ dependencies = [
 [[package]]
 name = "winit-appkit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git?rev=c4afadbf#c4afadbfabf7b1e7989b40b493db1a4c7bd8ff4e"
+source = "git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788#156433eb912a62a1a07da0f9bbaa2d775270c788"
 dependencies = [
  "bitflags 2.13.0",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=c4afadbf)",
+ "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788)",
  "objc2 0.6.4",
  "objc2-app-kit 0.3.2",
  "objc2-core-foundation",
@@ -10237,7 +10237,7 @@ dependencies = [
 [[package]]
 name = "winit-common"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git?rev=c4afadbf#c4afadbfabf7b1e7989b40b493db1a4c7bd8ff4e"
+source = "git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788#156433eb912a62a1a07da0f9bbaa2d775270c788"
 dependencies = [
  "block2 0.6.2",
  "memmap2",
@@ -10254,24 +10254,25 @@ dependencies = [
 [[package]]
 name = "winit-core"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git?rev=c4afadbf#c4afadbfabf7b1e7989b40b493db1a4c7bd8ff4e"
+source = "git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788#156433eb912a62a1a07da0f9bbaa2d775270c788"
 dependencies = [
  "bitflags 2.13.0",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=c4afadbf)",
+ "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788)",
  "keyboard-types 0.8.3",
  "raw-window-handle",
  "smol_str 0.3.2",
+ "url",
  "web-time",
 ]
 
 [[package]]
 name = "winit-orbital"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git?rev=c4afadbf#c4afadbfabf7b1e7989b40b493db1a4c7bd8ff4e"
+source = "git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788#156433eb912a62a1a07da0f9bbaa2d775270c788"
 dependencies = [
  "bitflags 2.13.0",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=c4afadbf)",
+ "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788)",
  "libredox",
  "orbclient",
  "raw-window-handle",
@@ -10284,12 +10285,12 @@ dependencies = [
 [[package]]
 name = "winit-uikit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git?rev=c4afadbf#c4afadbfabf7b1e7989b40b493db1a4c7bd8ff4e"
+source = "git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788#156433eb912a62a1a07da0f9bbaa2d775270c788"
 dependencies = [
  "bitflags 2.13.0",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=c4afadbf)",
+ "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788)",
  "objc2 0.6.4",
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",
@@ -10304,15 +10305,16 @@ dependencies = [
 [[package]]
 name = "winit-wayland"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git?rev=c4afadbf#c4afadbfabf7b1e7989b40b493db1a4c7bd8ff4e"
+source = "git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788#156433eb912a62a1a07da0f9bbaa2d775270c788"
 dependencies = [
  "bitflags 2.13.0",
  "calloop 0.14.4",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=c4afadbf)",
+ "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788)",
  "foldhash 0.2.0",
  "libc",
  "memmap2",
+ "percent-encoding",
  "raw-window-handle",
  "rustix 1.1.4",
  "sctk-adwaita",
@@ -10330,13 +10332,13 @@ dependencies = [
 [[package]]
 name = "winit-web"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git?rev=c4afadbf#c4afadbfabf7b1e7989b40b493db1a4c7bd8ff4e"
+source = "git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788#156433eb912a62a1a07da0f9bbaa2d775270c788"
 dependencies = [
  "atomic-waker",
  "bitflags 2.13.0",
  "concurrent-queue",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=c4afadbf)",
+ "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788)",
  "js-sys",
  "pin-project",
  "raw-window-handle",
@@ -10352,15 +10354,16 @@ dependencies = [
 [[package]]
 name = "winit-win32"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git?rev=c4afadbf#c4afadbfabf7b1e7989b40b493db1a4c7bd8ff4e"
+source = "git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788#156433eb912a62a1a07da0f9bbaa2d775270c788"
 dependencies = [
  "bitflags 2.13.0",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=c4afadbf)",
+ "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788)",
  "raw-window-handle",
  "smol_str 0.3.2",
  "tracing",
  "unicode-segmentation",
+ "url",
  "windows-sys 0.61.2",
  "winit-core",
 ]
@@ -10368,13 +10371,13 @@ dependencies = [
 [[package]]
 name = "winit-x11"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git?rev=c4afadbf#c4afadbfabf7b1e7989b40b493db1a4c7bd8ff4e"
+source = "git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788#156433eb912a62a1a07da0f9bbaa2d775270c788"
 dependencies = [
  "bitflags 2.13.0",
  "bytemuck",
  "calloop 0.14.4",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=c4afadbf)",
+ "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git?rev=156433eb912a62a1a07da0f9bbaa2d775270c788)",
  "libc",
  "percent-encoding",
  "raw-window-handle",
