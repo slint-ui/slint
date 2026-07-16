@@ -161,9 +161,9 @@ pub enum EasingCurve {
     EaseOutBounce,
     /// Easing curve as defined at: <https://easings.net/#easeInOutBounce>
     EaseInOutBounce,
-    // Custom(Box<dyn Fn(f32) -> f32>),
     /// A spring animation, configured via `PropertyAnimation`'s `bounce` and `duration` or `mass`/`stiffness`/`damping`
     Spring,
+    // Custom(Box<dyn Fn(f32) -> f32>),
 }
 
 /// Represent an instant, in milliseconds since the AnimationDriver's initial_instant
@@ -317,10 +317,6 @@ fn ease_out_bounce_curve(value: f32) -> f32 {
     }
 }
 
-fn spring_curve(regime: &physics_simulation::SpringRegime, value: f32) -> f32 {
-    1.0 + regime.evaluate(value).0
-}
-
 /// Evaluates a mass/stiffness/damping spring at `elapsed_secs`, returning `(progress, settled)`.
 pub fn spring_settle_progress(
     regime: &physics_simulation::SpringRegime,
@@ -340,7 +336,6 @@ pub fn spring_settle_progress(
 pub fn easing_curve(
     curve: &EasingCurve,
     value: f32,
-    spring: Option<&physics_simulation::SpringRegime>,
 ) -> f32 {
     match curve {
         EasingCurve::Linear => value,
@@ -403,10 +398,9 @@ pub fn easing_curve(
                 (1.0 + ease_out_bounce_curve(2.0 * value - 1.0)) / 2.0
             }
         }
-        EasingCurve::Spring => spring_curve(
-            spring.expect("SpringRegime must be provided for EasingCurve::Spring"),
-            value,
-        ),
+        EasingCurve::Spring => {
+            panic!("Springs are handled separately");
+        }
     }
 }
 

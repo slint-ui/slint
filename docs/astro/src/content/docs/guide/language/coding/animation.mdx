@@ -63,6 +63,9 @@ For permanently running animations, see <Link type="AnimationTick" label="`anima
 
 <SlintProperty propName="easing" typeName="easing">
 Can be any of the following. See [`easings.net`](https://easings.net/) for a visual reference:
+<a href="/docs/reference/primitive-types/#easing">easings</a>
+<br/>
+If the easing type is set to spring, either `bounce` and `duration` or `mass`, `stiffness`, and `damping` must be set.
 </SlintProperty>
 
 ### direction
@@ -73,4 +76,24 @@ Use this to set or change the direction of the animation.
 ### enabled
 <SlintProperty propName="enabled" typeName="bool" defaultValue="true">
 Controls whether the animation runs. When set to `false`, the property value changes immediately to its target without delay, easing, or iterations.
+</SlintProperty>
+
+### bounce
+<SlintProperty propName="bounce" typeName="float">
+The bounce of a spring. Values between 1 and 0 are bouncy (underdamped), 0 is smooth (critically damped), and values from 0 to -1 are slow (overdamped). Springs with `duration` and `bounce` aren't guarenteed to be finished after `duration` is over, but will be close to done.
+</SlintProperty>
+
+### mass
+<SlintProperty propName="mass" typeName="float">
+The mass attached to a spring.
+</SlintProperty>
+
+### stiffness
+<SlintProperty propName="stiffness" typeName="float">
+The stiffness of a spring.
+</SlintProperty>
+
+### damping
+<SlintProperty propName="damping" typeName="float">
+The damping of a spring.
 </SlintProperty>

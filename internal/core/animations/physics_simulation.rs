@@ -946,8 +946,8 @@ mod tests_spring_damper {
 /// How close to the target position/velocity a `SpringSimulation` must get before it is
 /// considered settled and snaps to rest. This is the "settling duration" and is distinct from the
 /// user-facing `duration` that fixes the natural frequency
-pub(crate) const SPRING_SETTLE_POSITION_EPSILON: f32 = 0.01;
-pub(crate) const SPRING_SETTLE_VELOCITY_EPSILON: f32 = 0.01;
+pub(crate) const SPRING_SETTLE_POSITION_EPSILON: f32 = 0.005;
+pub(crate) const SPRING_SETTLE_VELOCITY_EPSILON: f32 = 0.005;
 
 /// Converts a springs configuration into the `(natural_frequency, damping_ratio)` pair
 /// that the `SpringSimulation` solves the ODE with.

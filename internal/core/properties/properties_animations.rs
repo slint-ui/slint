@@ -144,7 +144,6 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                 // `iteration-count` and `direction`
                 // it runs in real time and ends only once it settles.
                 if matches!(self.details.easing, crate::animations::EasingCurve::Spring)
-                    && self.details.mass > 0.
                 {
                     let elapsed_secs = time_progress as f32 / 1000.0;
                     let (t, settled) = crate::animations::spring_settle_progress(
@@ -186,7 +185,6 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                     let t = crate::animations::easing_curve(
                         &self.details.easing,
                         progress,
-                        self.spring.as_ref(),
                     );
                     let val = self.from_value.interpolate(&self.to_value, t);
 
