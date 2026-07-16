@@ -14,7 +14,8 @@
   <Identity
         Name="slintvisualeditor"
         Publisher="CN=sixtyfps"
-        Version="{{cargo.version}}"
+        <!-- Cargo version has 3 fields, MSIX version has 4 fields, so we just unconditionally add `.0` -->
+        Version="{{cargo.version}}.0"
     />
   <Properties>
     <DisplayName>Slint Visual Editor</DisplayName>
