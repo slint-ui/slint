@@ -102,11 +102,7 @@ fn check_spring_animation_fields(anim_element: &ElementRc, diag: &mut BuildDiagn
             span,
         );
     } else if duration_bounce_set && !has("duration") {
-        diag.push_error_with_span(
-            "A spring easing must have a duration"
-                .into(),
-            span,
-        );
+        diag.push_error_with_span("A spring easing must have a duration".into(), span);
     }
 }
 
