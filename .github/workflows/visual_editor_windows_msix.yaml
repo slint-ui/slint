@@ -91,14 +91,15 @@ jobs:
         timeout-minutes: 2
         run: |
           Write-Host "Importing signing certificate to Root and TrustedPeople"
+          $password = ConvertTo-SecureString -String $env:SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD -Force -AsPlainText
           Import-PfxCertificate `
             -FilePath ${{ steps.test_certificate.outputs.pfx_path }} `
             -CertStoreLocation "Cert:\CurrentUser\Root" `
-            -Password $env:SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD
+            -Password $password
           Import-PfxCertificate `
             -FilePath ${{ steps.test_certificate.outputs.pfx_path }} `
             -CertStoreLocation "Cert:\CurrentUser\TrustedPeople" `
-            -Password $env:SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD
+            -Password $password
 
       - name: Get cargo version
         id: get_cargo_version
