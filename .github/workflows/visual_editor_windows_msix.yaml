@@ -90,16 +90,10 @@ jobs:
         shell: pwsh
         timeout-minutes: 2
         run: |
-          Write-Host "Importing signing certificate to Root and TrustedPeople"
-          $password = ConvertTo-SecureString -String $env:SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD -Force -AsPlainText
-          Import-PfxCertificate `
-            -FilePath ${{ steps.test_certificate.outputs.pfx_path }} `
-            -CertStoreLocation "Cert:\CurrentUser\Root" `
-            -Password $password
-          Import-PfxCertificate `
-            -FilePath ${{ steps.test_certificate.outputs.pfx_path }} `
-            -CertStoreLocation "Cert:\CurrentUser\TrustedPeople" `
-            -Password $password
+          Write-Host "Importing signing certificate to Root"
+          Import-Certificate `
+            -FilePath ${{ steps.test_certificate.outputs.cer_path }} `
+            -CertStoreLocation "Cert:\CurrentUser\Root"
 
       - name: Get cargo version
         id: get_cargo_version
