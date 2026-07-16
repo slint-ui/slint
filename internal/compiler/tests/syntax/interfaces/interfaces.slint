@@ -87,3 +87,11 @@ export component ImplementOnRoot {
     implement Inverter <=> root;
 //                         >  <error{Cannot implement an interface on the root element; use 'self' instead}
 }
+
+export component ChildImplicitlyImplements {
+    implement LineEditInterface <=> child;
+
+    child := Rectangle {
+        in-out property <string> text;
+    }
+}
