@@ -15,7 +15,7 @@ interface I {
 
 component Sink {
     implement I <=> self;
-    value: true;
+    in-out property <bool> value: true;
 }
 
 component Base {

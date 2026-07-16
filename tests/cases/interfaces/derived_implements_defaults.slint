@@ -14,8 +14,13 @@ interface InterfaceWithDefaults {
 component Base {
     implement InterfaceWithDefaults <=> self;
 
+    in-out property <string> text;
+    out property <bool> enabled;
+    in property <int> precision;
+    callback checked();
+
     // Base provides its own default value
-    confidence: 0.5;
+    in property <float> confidence: 0.5;
 
     public pure function length(text: string) -> int {
         text.character-count

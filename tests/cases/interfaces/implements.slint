@@ -10,7 +10,7 @@ interface TextInterface {
 export component TestCase {
     implement TextInterface <=> self;
 
-    text <=> text-input.text;
+    in-out property <string> text <=> text-input.text;
 
     text-input := TextInput {
         text: "Hello TextInterface";
