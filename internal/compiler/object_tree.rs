@@ -2080,16 +2080,12 @@ impl Element {
                     diag,
                     tr,
                 );
-                for (name, ChildrenInsertionPoint { node: se, .. }) in sub_child_insertion_points {
-                    Self::mark_placeholder_rejected(declared_slots, &name);
-                    diag.push_error(
-                        format!(
-                            "{} cannot appear in a repeated element",
-                            slot_error_subject(&name)
-                        ),
-                        &se,
-                    )
-                }
+                Self::reject_slot_placeholders(
+                    diag,
+                    declared_slots,
+                    sub_child_insertion_points,
+                    "a repeated element",
+                );
                 r.borrow_mut().children.push(rep);
             } else if se.kind() == SyntaxKind::ConditionalElement {
                 let mut sub_child_insertion_points = BTreeMap::new();
@@ -2102,16 +2098,12 @@ impl Element {
                     diag,
                     tr,
                 );
-                for (name, ChildrenInsertionPoint { node: se, .. }) in sub_child_insertion_points {
-                    Self::mark_placeholder_rejected(declared_slots, &name);
-                    diag.push_error(
-                        format!(
-                            "{} cannot appear in a conditional element",
-                            slot_error_subject(&name)
-                        ),
-                        &se,
-                    )
-                }
+                Self::reject_slot_placeholders(
+                    diag,
+                    declared_slots,
+                    sub_child_insertion_points,
+                    "a conditional element",
+                );
                 r.borrow_mut().children.push(rep);
             } else if se.kind() == SyntaxKind::MatchElement {
                 let mut sub_child_insertion_points = BTreeMap::new();
@@ -2124,13 +2116,12 @@ impl Element {
                     diag,
                     tr,
                 );
-                for (name, ChildrenInsertionPoint { node: se, .. }) in sub_child_insertion_points {
-                    Self::mark_placeholder_rejected(declared_slots, &name);
-                    diag.push_error(
-                        format!("{} cannot appear in a match element", slot_error_subject(&name)),
-                        &se,
-                    )
-                }
+                Self::reject_slot_placeholders(
+                    diag,
+                    declared_slots,
+                    sub_child_insertion_points,
+                    "a match element",
+                );
                 r.borrow_mut().children.extend(rep);
             } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
                 #[cfg(feature = "slint-sc")]
@@ -2350,6 +2341,21 @@ impl Element {
     fn mark_placeholder_rejected(declared_slots: &mut [DeclaredSlot], name: &str) {
         if let Some(slot) = declared_slots.iter_mut().find(|slot| slot.name.as_str() == name) {
             slot.has_rejected_placeholder = true;
+        }
+    }
+
+    fn reject_slot_placeholders(
+        diagnostics: &mut BuildDiagnostics,
+        declared_slots: &mut [DeclaredSlot],
+        insertion_points: BTreeMap<String, ChildrenInsertionPoint>,
+        context: &str,
+    ) {
+        for (name, ChildrenInsertionPoint { node, .. }) in insertion_points {
+            Self::mark_placeholder_rejected(declared_slots, &name);
+            diagnostics.push_error(
+                format!("{} cannot appear in {context}", slot_error_subject(&name)),
+                &node,
+            );
         }
     }
 
