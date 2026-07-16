@@ -309,7 +309,7 @@ macro_rules! declare_value_struct_conversion {
     ($(
         $(#[$struct_attr:meta])*
         $vis:vis struct $Name:ident {
-            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
         }
     )*) => {
         $(
@@ -329,6 +329,8 @@ macro_rules! declare_value_struct_conversion {
                             type Ty = $Name;
                             #[allow(unused)]
                             let mut res: Ty = Ty::default();
+                            // Every field is required and overwritten, so declared field
+                            // defaults do not apply to this conversion
                             $(res.$field = x.get_field(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_|())?;)*
                             Ok(res)
                         }

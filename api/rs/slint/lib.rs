@@ -494,7 +494,7 @@ pub mod language {
         ($(
             $(#[$attr:meta])*
             $vis:vis struct $Name:ident {
-                $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
+                $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
             }
         )*) => {
             $( #[allow(unused_imports)] $vis use i_slint_core::items::$Name; )*

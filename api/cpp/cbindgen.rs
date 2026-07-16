@@ -124,13 +124,14 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"private/slint_keys.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
+
     macro_rules! print_structs {
         ($(
             $(#[doc = $struct_doc:literal])*
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
             $vis:vis struct $Name:ident {
-                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty, )*
+                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
             }
         )*) => {
             $(
@@ -149,7 +150,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
                         "f32" | "Coord" => "float",
                         other => other,
                     };
-                    writeln!(file, "    {} {};", field_type, stringify!($field))?;
+                    writeln!(file, "    {} {}{{ {} }};", field_type, stringify!($field), stringify!($($field_default)*))?;
                 )*
                 writeln!(file, "    /// \\private")?;
                 writeln!(file, "    {}", format!("friend bool operator==(const {name}&, const {name}&) = default;", name = stringify!($Name)))?;
@@ -259,7 +260,7 @@ fn live_preview_enums(path: &Path) -> anyhow::Result<()> {
     let mut structs: Vec<(String, Vec<String>)> = Vec::new();
     macro_rules! collect_structs {
         ($( $(#[$attr:meta])* $vis:vis struct $Name:ident {
-            $( $(#[$field_attr:meta])* $field:ident : $ty:ty,)*
+            $( $(#[$field_attr:meta])* $field:ident : $ty:ty $(= $field_default:expr)?,)*
         })*) => {
             $(
                 if stringify!($vis) == "pub"

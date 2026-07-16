@@ -3,11 +3,34 @@
 
 //! This module contains all builtin structures exposed in the .slint language.
 
+/// Maps the optional `$(= $field_default:expr)?` capture of a
+/// [`for_each_builtin_structs!`](crate::for_each_builtin_structs) consumer to an `Option`
+/// of the default's `stringify!`-ed tokens:
+/// `builtin_struct_field_default_tokens!($($field_default)?)`.
+/// Note that raw tokens stringify with spaces, such as `- 1.0` or `SortOrder :: Unsorted`.
+#[macro_export]
+macro_rules! builtin_struct_field_default_tokens {
+    () => {
+        None
+    };
+    ($field_default:expr) => {
+        Some(stringify!($field_default))
+    };
+}
+
 /// Call a macro with every builtin structures exposed in the .slint language
 ///
 /// Each struct is declared with `pub struct` if it should be re-exported in a public
 /// language-binding module (e.g. `slint::language` in the Rust crate), or plain `struct`
 /// to stay private. Consumers can dispatch on `$vis:vis`.
+///
+/// A field can declare a default value with `= expression` after its type.
+/// The expression is limited to number literals, bool literals, and enum values,
+/// because the consumers translate it to every target language: Rust and C++ use
+/// the expression verbatim, the other consumers apply their own minimal translation
+/// (see [`builtin_struct_field_default_tokens!`](crate::builtin_struct_field_default_tokens))
+/// and fail their build on anything outside the supported subset.
+/// Fields without a default value default to the zero value of their type.
 ///
 /// ## Example
 /// ```rust
@@ -15,7 +38,7 @@
 ///     ($(
 ///         $(#[$struct_attr:meta])*
 ///         $vis:vis struct $Name:ident {
-///             $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
+///             $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:tt)?, )*
 ///         }
 ///     )*) => {
 ///         $(println!("{} ({}) => [{}]", stringify!($Name), stringify!($vis), stringify!($($field),*));)*
