@@ -19,6 +19,7 @@ fi
 
 shift 2
 
+CARGO_TARGET_NAME=""
 CARGO_PROFILE=dev
 
 while [[ $# -gt 0 ]]; do
@@ -80,7 +81,7 @@ log "cargo build start: $RUST_TARGET"
 
 env RUSTFLAGS='-Clink-args=-Wl,-rpath,@loader_path/../Frameworks' \
     cargo build \
-        "${CARGO_TIMINGS_ARGS[@]}" \
+        ${CARGO_TIMINGS_ARGS[@]+"${CARGO_TIMINGS_ARGS[@]}"} \
         --target "$RUST_TARGET" \
         --bin "$CARGO_TARGET_NAME" \
         --profile "$CARGO_PROFILE" \
