@@ -196,10 +196,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                             (time_progress as f32 / self.details.duration as f32).clamp(0., 1.);
                         if reversed(current_iteration) { 1. - progress } else { progress }
                     };
-                    let t = crate::animations::easing_curve(
-                        &self.details.easing,
-                        progress,
-                    );
+                    let t = crate::animations::easing_curve(&self.details.easing, progress);
                     let val = self.from_value.interpolate(&self.to_value, t);
 
                     (val, false)
