@@ -95,8 +95,14 @@ jobs:
         timeout-minutes: 2
         run: |
           Write-Host "Importing signing certificate to Root and TrustedPeople"
-          Import-Certificate -FilePath ${{ steps.test_certificate.outputs.cer_path }} -CertStoreLocation "Cert:\CurrentUser\Root" -Password slint-ci-self-signed
-          Import-Certificate -FilePath ${{ steps.test_certificate.outputs.cer_path }} -CertStoreLocation "Cert:\CurrentUser\TrustedPeople" -Password slint-ci-self-signed
+          Import-PfxCertificate `
+            -FilePath ${{ steps.test_certificate.outputs.pfx_path }} `
+            -CertStoreLocation "Cert:\CurrentUser\Root" `
+            -Password slint-ci-self-signed
+          Import-PfxCertificate `
+            -FilePath ${{ steps.test_certificate.outputs.pfx_path }} `
+            -CertStoreLocation "Cert:\CurrentUser\TrustedPeople" `
+            -Password slint-ci-self-signed
 
       - name: Get cargo version
         id: get_cargo_version
