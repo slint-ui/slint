@@ -21,6 +21,22 @@ export component NotInFor inherits Rectangle {
     }
 }
 
+export component FailDuplicateUse inherits Rectangle {
+    slot header;
+    header {}
+    header {}
+//  >       <error{The slot 'header' can only appear once in an element}
+}
+
+export component FailDuplicateUse2 inherits Rectangle {
+    slot header;
+    Rectangle {
+        header {}
+    }
+    header {}
+//  >       <error{The slot 'header' can only appear once in an element}
+}
+
 export component NestedPlaceholder inherits Rectangle {
     slot header;
     Rectangle {
