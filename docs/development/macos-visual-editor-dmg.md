@@ -16,29 +16,38 @@ image default instead of setting `DEVELOPER_DIR`.
 
 ## CI secrets and variables
 
-Set these as GitHub Actions secrets. GitHub documents repository and
-organization secrets here:
+The workflow reuses the repository's shared Apple signing and notarization
+secrets and maps them onto the environment variables the packaging script
+expects. GitHub documents repository and organization secrets here:
 <https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets>.
 
-- `MACOS_CERTIFICATE_BASE64`: base64-encoded Developer ID Application `.p12`
-  certificate. GitHub documents storing Apple signing certificates as base64
-  secrets here:
+- `MACOS_CERTIFICATE_BASE64` <- `APPLE_CERTIFICATE_P12`: base64-encoded
+  Developer ID Application `.p12` certificate, the same one used by
+  `.github/actions/codesign`. GitHub documents storing Apple signing
+  certificates as base64 secrets here:
   <https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications>.
-- `MACOS_CERTIFICATE_PASSWORD`: password for the `.p12` certificate.
-- `MACOS_KEYCHAIN_PASSWORD`: temporary CI keychain password.
-- `MACOS_DEVELOPER_ID`: Developer ID Application signing identity name or hash
-  used by `codesign`.
-- `MACOS_DEVELOPMENT_TEAM`: Apple Developer Team ID. This is deliberately a
-  secret, even though Xcode accepts it as the `DEVELOPMENT_TEAM` build setting.
-- `MACOS_BUNDLE_IDENTIFIER`: app bundle identifier used by the generated Xcode
-  project.
-- `NOTARY_API_KEY_BASE64`: base64-encoded App Store Connect API key `.p8`.
-  This is used only for `notarytool` authentication, not for Store/TestFlight
-  upload.
-- `NOTARY_API_KEY_ID`: App Store Connect API key ID for `notarytool`.
-- `NOTARY_ISSUER_ID`: issuer UUID for a Team API key.
+- `MACOS_CERTIFICATE_PASSWORD` <- `APPLE_CERTIFICATE_P12_PASSWORD`: password
+  for the `.p12` certificate.
+- `MACOS_KEYCHAIN_PASSWORD` <- `APPLE_KEYCHAIN_PASSWORD`: temporary CI
+  keychain password.
+- `MACOS_DEVELOPER_ID` <- `APPLE_DEV_ID`: Developer ID Application signing
+  identity name or hash used by `codesign`.
+- `NOTARY_API_KEY_BASE64` <- `APPLE_APPSTORE_PRIVATE_KEY_BASE64`:
+  base64-encoded App Store Connect API key `.p8`. This is used only for
+  `notarytool` authentication, not for Store/TestFlight upload.
+- `NOTARY_API_KEY_ID` <- `APPLE_APPSTORE_CONNECT_KEY`: App Store Connect API
+  key ID for `notarytool`.
+- `NOTARY_ISSUER_ID` <- `APPLE_APPSTORE_ISSUER_ID`: issuer UUID for a Team API
+  key.
 - `EDITOR_SPARKLE_ED_PRIVATE_KEY`: exported Sparkle EdDSA private key for the
   Visual Editor update feed. Use it only for signing update archives.
+
+Two values are not secrets and are not provisioned via GitHub Actions:
+
+- The Apple Developer Team ID is derived by the packaging script from the
+  imported Developer ID certificate. Set `MACOS_DEVELOPMENT_TEAM` to override.
+- The bundle identifier defaults to `dev.slint.visual-editor` in the packaging
+  script. Set `MACOS_BUNDLE_IDENTIFIER` to override.
 
 Optional GitHub Actions variable:
 
@@ -98,8 +107,9 @@ the `dmg_path` output here:
 
 The package driver is `scripts/package_macos_visual_editor.bash`.
 
-1. Validates that all signing, Team ID, bundle ID, and notary values are present
-   in environment variables.
+1. Validates that all signing and notary values are present in environment
+   variables. The Team ID is derived from the imported certificate and the
+   bundle ID has a checked-in default.
 2. Frees unused macOS runner image space before cache restore/build work.
 3. Decodes the Developer ID `.p12` and notary API `.p8` into `$RUNNER_TEMP`.
 4. Creates and unlocks a temporary keychain with `security`.

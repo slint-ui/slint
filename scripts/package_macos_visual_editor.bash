@@ -50,6 +50,8 @@ SPARKLE_UPDATE_PATH="$CLOUDFLARE_ROOT_DIR/$SPARKLE_UPDATE_BASENAME"
 SPARKLE_APPCAST_PATH="$CLOUDFLARE_ROOT_DIR/appcast.xml"
 SPARKLE_FEED_BASE_URL="https://visual-editor.slint.dev"
 export EDITOR_SPARKLE_PUBLIC_ED_KEY="${EDITOR_SPARKLE_PUBLIC_ED_KEY:-Ncon335q8qNLM0D+L2my+HRIAXmNtNb6uGNmUR0yG2o=}"
+# Consumed by xcodegen via tools/lsp/macos-project.yml.
+export MACOS_BUNDLE_IDENTIFIER="${MACOS_BUNDLE_IDENTIFIER:-dev.slint.visual-editor}"
 APP_NOTARY_ZIP_PATH="$BUILD_DIR/$DMG_BASENAME-$VERSION-$BUILD_NUMBER-macos-arm64-notary.zip"
 APP_NOTARY_LOG="$BUILD_DIR/app-notarization-log.json"
 DMG_ATTACHED=0
@@ -93,8 +95,6 @@ validate_environment() {
         MACOS_CERTIFICATE_PASSWORD \
         MACOS_KEYCHAIN_PASSWORD \
         MACOS_DEVELOPER_ID \
-        MACOS_DEVELOPMENT_TEAM \
-        MACOS_BUNDLE_IDENTIFIER \
         NOTARY_API_KEY_BASE64 \
         NOTARY_API_KEY_ID \
         NOTARY_ISSUER_ID
@@ -136,7 +136,26 @@ install_signing_material() {
     log "Signing material installed"
 }
 
+# The team ID is not secret (it is embedded in every signed app), so it is
+# derived from the imported Developer ID certificate instead of being
+# provisioned as a separate secret. MACOS_DEVELOPMENT_TEAM overrides.
+resolve_development_team() {
+    if [ -n "${MACOS_DEVELOPMENT_TEAM:-}" ]; then
+        return
+    fi
+    [ -f "$KEYCHAIN_PATH" ] || die "MACOS_DEVELOPMENT_TEAM is not set and there is no signing keychain to derive it from; run install-signing-material first"
+    local identity
+    identity="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep -m 1 "Developer ID Application:")" \
+        || die "no Developer ID Application identity found in $KEYCHAIN_PATH"
+    MACOS_DEVELOPMENT_TEAM="$(printf "%s" "$identity" | sed -n 's/.*(\([A-Z0-9]\{10\}\))".*/\1/p')"
+    [ -n "$MACOS_DEVELOPMENT_TEAM" ] || die "could not extract a team ID from identity: $identity"
+    export MACOS_DEVELOPMENT_TEAM
+    log "Derived development team from signing certificate: $MACOS_DEVELOPMENT_TEAM"
+}
+
 archive_app() {
+    resolve_development_team
+
     log "Generating Xcode project from $SPEC_PATH"
     # Source: XcodeGen generates an Xcode project from a YAML project spec:
     # https://yonaskolb.github.io/XcodeGen/Docs/ProjectSpec.html
