@@ -98,11 +98,11 @@ jobs:
           Import-PfxCertificate `
             -FilePath ${{ steps.test_certificate.outputs.pfx_path }} `
             -CertStoreLocation "Cert:\CurrentUser\Root" `
-            -Password slint-ci-self-signed
+            -Password $env:SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD
           Import-PfxCertificate `
             -FilePath ${{ steps.test_certificate.outputs.pfx_path }} `
             -CertStoreLocation "Cert:\CurrentUser\TrustedPeople" `
-            -Password slint-ci-self-signed
+            -Password $env:SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD
 
       - name: Get cargo version
         id: get_cargo_version
