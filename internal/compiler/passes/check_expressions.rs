@@ -41,21 +41,52 @@ fn check_animation(anim: &PropertyAnimation, diag: &mut BuildDiagnostics) {
 
 fn check_spring_animation_fields(anim_element: &ElementRc, diag: &mut BuildDiagnostics) {
     let anim_element = anim_element.borrow();
-    let is_spring = anim_element.bindings.get("easing").is_some_and(|b| {
-        matches!(b.borrow().expression, Expression::EasingCurve(EasingCurve::Spring))
-    });
-    if !is_spring {
+
+    enum EasingKind {
+        // no `easing` binding at all (implicit Linear)
+        Missing,
+        Spring,
+        NonSpring,
+        // not an easing
+        Unknown,
+    }
+
+    let easing_kind = match anim_element.bindings.get("easing") {
+        None => EasingKind::Missing,
+        Some(curve) => match &curve.borrow().expression {
+            Expression::EasingCurve(EasingCurve::Spring) => EasingKind::Spring,
+            Expression::EasingCurve(_) => EasingKind::NonSpring,
+            _ => EasingKind::Unknown,
+        },
+    };
+
+    if matches!(easing_kind, EasingKind::Unknown) {
         return;
     }
-    let span = anim_element
-        .bindings
-        .get("easing")
-        .expect("checked above")
-        .borrow()
-        .span
-        .clone()
-        .unwrap_or_default();
-    let has = |name| anim_element.bindings.contains_key(name);
+
+    let has = |name: &str| anim_element.bindings.contains_key(name);
+    let span_for = |name: &str| {
+        anim_element.bindings.get(name).and_then(|b| b.borrow().span.clone()).unwrap_or_default()
+    };
+
+    if !matches!(easing_kind, EasingKind::Spring) {
+        let mut check_binding = |name: &str| {
+            if has(name) {
+                diag.push_error_with_span(
+                    format!("Cannot have '{name}' with a non Spring easing curve").into(),
+                    span_for(name),
+                );
+            }
+        };
+        check_binding("bounce");
+        check_binding("mass");
+        check_binding("stiffness");
+        check_binding("damping");
+        return;
+    }
+
+    // only reach here for an explicit `easing: spring;`
+    let span = span_for("easing");
     let duration_bounce_set = has("bounce") || has("duration");
     let physical_set = has("mass") || has("stiffness") || has("damping");
     if duration_bounce_set && physical_set {
