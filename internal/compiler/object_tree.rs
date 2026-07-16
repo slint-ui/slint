@@ -2364,7 +2364,7 @@ impl Element {
                 );
             } else {
                 diagnostics.push_error(
-                    format!("The slot '{slot_name}' can only appear once in an element hierarchy"),
+                    format!("The slot '{slot_name}' can only appear once in an element"),
                     node,
                 );
             }
