@@ -415,6 +415,7 @@ pub struct ChildrenInsertionPoint {
 pub struct DeclaredSlot {
     pub name: SmolStr,
     pub name_ident: SyntaxNode,
+    has_rejected_placeholder: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -612,7 +613,14 @@ impl Component {
             }
         }
         for (name, node) in declared_slot_nodes.iter() {
-            if !self.child_insertion_points.borrow().contains_key(name.as_str()) {
+            let has_rejected_placeholder = self
+                .declared_slots
+                .borrow()
+                .iter()
+                .any(|slot| slot.has_rejected_placeholder && &slot.name == name);
+            if !self.child_insertion_points.borrow().contains_key(name.as_str())
+                && !has_rejected_placeholder
+            {
                 diagnostics.push_error(format!("The slot '{name}' is declared but not used"), node);
             }
         }
@@ -2070,6 +2078,7 @@ impl Element {
                     tr,
                 );
                 for (name, ChildrenInsertionPoint { node: se, .. }) in sub_child_insertion_points {
+                    Self::mark_placeholder_rejected(declared_slots, &name);
                     diag.push_error(
                         format!(
                             "{} cannot appear in a repeated element",
@@ -2091,6 +2100,7 @@ impl Element {
                     tr,
                 );
                 for (name, ChildrenInsertionPoint { node: se, .. }) in sub_child_insertion_points {
+                    Self::mark_placeholder_rejected(declared_slots, &name);
                     diag.push_error(
                         format!(
                             "{} cannot appear in a conditional element",
@@ -2141,7 +2151,11 @@ impl Element {
                 let decl: syntax_nodes::SlotDeclaration = se.into();
                 let name_ident = decl.DeclaredIdentifier();
                 let name = parser::identifier_text(&name_ident).unwrap_or_default();
-                declared_slots.push(DeclaredSlot { name, name_ident: name_ident.into() });
+                declared_slots.push(DeclaredSlot {
+                    name,
+                    name_ident: name_ident.into(),
+                    has_rejected_placeholder: false,
+                });
             } else if se.kind() == SyntaxKind::SlotAssignment {
                 if !Self::assert_experimental_slots(diag, &se, "named slots") {
                     continue;
@@ -2324,6 +2338,12 @@ impl Element {
         }
         let name = parser::identifier_text(&qualified_name)?;
         declared_slots.iter().any(|slot| slot.name == name).then_some(name)
+    }
+
+    fn mark_placeholder_rejected(declared_slots: &mut [DeclaredSlot], name: &str) {
+        if let Some(slot) = declared_slots.iter_mut().find(|slot| slot.name.as_str() == name) {
+            slot.has_rejected_placeholder = true;
+        }
     }
 
     fn register_slot_placeholder(
