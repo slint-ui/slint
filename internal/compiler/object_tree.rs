@@ -2024,7 +2024,10 @@ impl Element {
                     );
                 } else {
                     diag.push_error(
-                        format!("The slot '{source}' can only appear once in an element"),
+                        format!(
+                            "{} can only appear once in an element",
+                            slot_error_subject(&source)
+                        ),
                         &forwarding.node,
                     );
                 }
@@ -2133,7 +2136,10 @@ impl Element {
                 diag.slint_sc_error("The @children placeholder is", &se);
                 if component_child_insertion_points.contains_key(DEFAULT_SLOT_NAME) {
                     diag.push_error(
-                        "The @children placeholder can only appear once in an element".into(),
+                        format!(
+                            "{} can only appear once in an element",
+                            slot_error_subject(DEFAULT_SLOT_NAME)
+                        ),
                         &se,
                     );
                 } else {
@@ -2364,7 +2370,10 @@ impl Element {
                 );
             } else {
                 diagnostics.push_error(
-                    format!("The slot '{slot_name}' can only appear once in an element"),
+                    format!(
+                        "{} can only appear once in an element",
+                        slot_error_subject(&slot_name)
+                    ),
                     node,
                 );
             }
