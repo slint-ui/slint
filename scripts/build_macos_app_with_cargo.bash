@@ -17,8 +17,6 @@ if [ "$#" -lt 2 ]; then
     exit 2
 fi
 
-shift 2
-
 CARGO_TARGET_NAME=""
 CARGO_PROFILE=dev
 
