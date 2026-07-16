@@ -110,7 +110,7 @@ jobs:
           if (-not $signtool) {
             throw "signtool.exe was not found in the Windows SDK."
           }
-          $cargoversion = "${{ steps.get_cargo_version.outputs.cargo_version }}$"
+          $cargoversion = "${{ steps.get_cargo_version.outputs.cargo_version }}"
           $slintvisualeditor_msixpath = "$env:SLINT_VISUAL_EDITOR_MSIX_PATH_PREFIX$cargoversion$env:SLINT_VISUAL_EDITOR_MSIX_PATH_SUFFIX"
           Write-Host "Signing $slintvisualeditor_msixpath with $signtool"
           & $signtool sign `
