@@ -35,6 +35,10 @@ env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
     SLINT_COMPILER_DENY_WARNINGS: 1
     SLINT_BUILD_NUMBER: ${{ github.run_number }}
+    RUST_BACKTRACE: 1
+    # Speed up CI builds and keep the target directory small.
+    CARGO_INCREMENTAL: false
+    CARGO_PROFILE_DEV_DEBUG: 0
 
 jobs:
     files-changed:
@@ -152,9 +156,6 @@ jobs:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
             RUSTFLAGS: -D warnings
-            CARGO_INCREMENTAL: false
-            RUST_BACKTRACE: 1
-            CARGO_PROFILE_DEV_DEBUG: 0
         strategy:
             matrix:
                 include:
@@ -191,9 +192,6 @@ jobs:
         env:
             SLINT_NO_QT: 1
             RUSTFLAGS: -D warnings
-            CARGO_INCREMENTAL: false
-            RUST_BACKTRACE: 1
-            CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER: gcc
             PKG_CONFIG_ALLOW_CROSS: 1
         steps:
@@ -236,9 +234,6 @@ jobs:
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
             QT_QPA_PLATFORM: offscreen
-            CARGO_INCREMENTAL: false
-            RUST_BACKTRACE: 1
-            CARGO_PROFILE_DEV_DEBUG: 0
             SLINT_EMIT_DEBUG_INFO: 1
         strategy:
             matrix: ${{ fromJSON(needs.cpp_cmake_matrix.outputs.matrix) }}
@@ -292,8 +287,6 @@ jobs:
         runs-on: ubuntu-22.04
         env:
             QT_QPA_PLATFORM: offscreen
-            CARGO_INCREMENTAL: false
-            CARGO_PROFILE_DEV_DEBUG: 0
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
@@ -369,7 +362,6 @@ jobs:
         env:
             SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
             RUSTFLAGS: --cfg slint_int_coord -D warnings
-            CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         runs-on: ubuntu-22.04
@@ -452,9 +444,6 @@ jobs:
         if: ${{ needs.files-changed.outputs.slintpad == 'true' }}
         env:
             SLINT_NO_QT: 1
-            CARGO_INCREMENTAL: false
-            RUST_BACKTRACE: 1
-            CARGO_PROFILE_DEV_DEBUG: 0
             RUSTFLAGS: -D warnings
         runs-on: ubuntu-latest
         steps:
@@ -532,6 +521,14 @@ jobs:
               run: |
                   . ${IDF_PATH}/export.sh
                   idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
+            - name: Build Home Automation demo (ESP32-P4)
+              # The demo requires ESP-IDF >= 5.4, so skip the v5.2 matrix entry
+              if: ${{ inputs.full && matrix.esp-idf-version != 'release-v5.2' }}
+              shell: bash
+              working-directory: demos/home-automation/esp-idf
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py build
 
     android:
         needs: files-changed
@@ -584,9 +581,6 @@ jobs:
         needs: files-changed
         if: ${{ needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.android_backend == 'true' }}
         runs-on: ubuntu-latest
-        env:
-            CARGO_INCREMENTAL: false
-            CARGO_PROFILE_DEV_DEBUG: 0
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
@@ -673,9 +667,6 @@ jobs:
     slint_sc:
         needs: files-changed
         if: ${{ needs.files-changed.outputs.slint_sc == 'true' }}
-        env:
-            CARGO_INCREMENTAL: false
-            CARGO_PROFILE_DEV_DEBUG: 0
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
@@ -705,8 +696,6 @@ jobs:
         if: ${{ needs.files-changed.outputs.rust_files == 'true' }}
         env:
             RUSTFLAGS: -D warnings
-            CARGO_INCREMENTAL: false
-            CARGO_PROFILE_DEV_DEBUG: 0
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
@@ -891,8 +880,6 @@ jobs:
 
     uefi-demo:
         if: ${{ inputs.full }}
-        env:
-            CARGO_PROFILE_DEV_DEBUG: 0
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6

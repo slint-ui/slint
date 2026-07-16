@@ -17,6 +17,9 @@
     "brush": {
         "href": "reference/primitive-types/#brush"
     },
+    "BuiltInMouseCursor": {
+        "href": "reference/global-structs-enums/#builtinmousecursor"
+    },
     "BorderRadiusRectangle": {
         "href": "reference/elements/rectangle/#border-radius-properties"
     },
@@ -151,6 +154,9 @@
     },
     "MathRef": {
         "href": "reference/global-functions/math/"
+    },
+    "MouseCursor": {
+        "href": "reference/primitive-types/#mousecursor"
     },
     "NumericTypes": {
         "href": "reference/primitive-types/#numeric-types"

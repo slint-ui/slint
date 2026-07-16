@@ -72,6 +72,7 @@ pub enum Type {
     ArrayOfU16,
 
     StyledText,
+    MouseCursor,
 }
 
 impl core::cmp::PartialEq for Type {
@@ -103,6 +104,7 @@ impl core::cmp::PartialEq for Type {
             Type::Model => matches!(other, Type::Model),
             Type::PathData => matches!(other, Type::PathData),
             Type::Easing => matches!(other, Type::Easing),
+            Type::MouseCursor => matches!(other, Type::MouseCursor),
             Type::Brush => matches!(other, Type::Brush),
             Type::Array(a) => matches!(other, Type::Array(b) if a == b),
             Type::Struct(lhs) => {
@@ -170,6 +172,7 @@ impl Display for Type {
             Type::Struct(t) => write!(f, "{t}"),
             Type::PathData => write!(f, "pathdata"),
             Type::Easing => write!(f, "easing"),
+            Type::MouseCursor => write!(f, "MouseCursor"),
             Type::Brush => write!(f, "brush"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
             Type::Keys => write!(f, "keys"),
@@ -223,6 +226,7 @@ impl Type {
                 | Self::Image
                 | Self::Bool
                 | Self::Easing
+                | Self::MouseCursor
                 | Self::Enumeration(_)
                 | Self::Keys
                 | Self::DataTransfer
@@ -326,6 +330,7 @@ impl Type {
             Type::Model => None,
             Type::PathData => None,
             Type::Easing => None,
+            Type::MouseCursor => None,
             Type::Brush => None,
             Type::Array(_) => None,
             Type::Struct { .. } => None,
@@ -993,14 +998,126 @@ impl From<BuiltinStruct> for StructName {
 #[derive(Debug, Clone)]
 pub struct Struct {
     pub fields: BTreeMap<SmolStr, Type>,
+    /// User-declared default values for fields (`struct Foo { bar: int = 42 }`).
+    /// The expressions are resolved, converted to the field type, and constant-folded.
+    /// Like the syntax node in `name`, this is ignored by `Type`'s equality comparison.
+    pub field_defaults: BTreeMap<SmolStr, ConstantExpression>,
     pub name: StructName,
 }
 
 impl Struct {
+    /// Create a struct without user-declared field default values
+    /// (only named struct declarations in .slint can have those).
+    pub fn new(fields: BTreeMap<SmolStr, Type>, name: impl Into<StructName>) -> Self {
+        Self { fields, field_defaults: Default::default(), name: name.into() }
+    }
+
     pub fn node(&self) -> Option<&syntax_nodes::ObjectType> {
         match &self.name {
             StructName::User { node, .. } => Some(node),
             _ => None,
+        }
+    }
+
+    /// The default value for the given field: the user-declared default if there is one,
+    /// otherwise the default value for the field's type.
+    pub fn default_value_for_field(&self, name: &SmolStr) -> Expression {
+        self.field_defaults.get(name).map(ConstantExpression::to_expression).unwrap_or_else(|| {
+            Expression::default_value_for_type(
+                self.fields.get(name).expect("default value requested for unknown struct field"),
+            )
+        })
+    }
+}
+
+/// A constant expression, used for the default values of struct fields
+/// (see [`Struct::field_defaults`]).
+///
+/// This is deliberately neither [`Expression`] nor an llr expression:
+/// unlike those, it cannot reference any properties, elements, or syntax nodes,
+/// so a [`Struct`] carrying one can safely outlive the object tree.
+/// The variants are the subset that every consumer can materialize.
+/// Keep the matches over this type exhaustive,
+/// so that adding a variant is a compile error in each consumer:
+/// the conversion to an expression tree ([`Self::to_expression`]),
+/// the lowering for the code generators (`lower_constant_expression` in the llr module),
+/// and the interpreter's evaluator (`eval_constant_expression` there).
+#[derive(Debug, Clone)]
+pub enum ConstantExpression {
+    StringLiteral(SmolStr),
+    /// A number and its unit, in normalized form
+    NumberLiteral(f64, Unit),
+    BoolLiteral(bool),
+    EnumerationValue(EnumerationValue),
+    Cast {
+        from: Box<ConstantExpression>,
+        to: Type,
+    },
+    UnaryOp {
+        sub: Box<ConstantExpression>,
+        op: char,
+    },
+    Struct {
+        ty: Rc<Struct>,
+        values: BTreeMap<SmolStr, ConstantExpression>,
+    },
+    Array {
+        element_ty: Type,
+        values: Vec<ConstantExpression>,
+    },
+}
+
+impl ConstantExpression {
+    /// Create a constant expression from a resolved, converted, and constant-folded
+    /// expression, or `None` if the expression is not in the constant subset.
+    pub fn from_expression(expression: &Expression) -> Option<Self> {
+        Some(match expression {
+            Expression::StringLiteral(s) => Self::StringLiteral(s.clone()),
+            Expression::NumberLiteral(n, unit) => Self::NumberLiteral(*n, *unit),
+            Expression::BoolLiteral(b) => Self::BoolLiteral(*b),
+            Expression::EnumerationValue(e) => Self::EnumerationValue(e.clone()),
+            Expression::Cast { from, to } => {
+                Self::Cast { from: Box::new(Self::from_expression(from)?), to: to.clone() }
+            }
+            Expression::UnaryOp { sub, op } => {
+                Self::UnaryOp { sub: Box::new(Self::from_expression(sub)?), op: *op }
+            }
+            Expression::Struct { ty, values } => Self::Struct {
+                ty: ty.clone(),
+                values: values
+                    .iter()
+                    .map(|(k, v)| Some((k.clone(), Self::from_expression(v)?)))
+                    .collect::<Option<_>>()?,
+            },
+            Expression::Array { element_ty, values } => Self::Array {
+                element_ty: element_ty.clone(),
+                values: values.iter().map(Self::from_expression).collect::<Option<_>>()?,
+            },
+            _ => return None,
+        })
+    }
+
+    /// The expression tree form, for splicing the constant into bindings at compile time
+    pub fn to_expression(&self) -> Expression {
+        match self {
+            Self::StringLiteral(s) => Expression::StringLiteral(s.clone()),
+            Self::NumberLiteral(n, unit) => Expression::NumberLiteral(*n, *unit),
+            Self::BoolLiteral(b) => Expression::BoolLiteral(*b),
+            Self::EnumerationValue(e) => Expression::EnumerationValue(e.clone()),
+            Self::Cast { from, to } => {
+                Expression::Cast { from: Box::new(from.to_expression()), to: to.clone() }
+            }
+            Self::UnaryOp { sub, op } => {
+                Expression::UnaryOp { sub: Box::new(sub.to_expression()), op: *op }
+            }
+            Self::Struct { ty, values } => Expression::Struct {
+                ty: ty.clone(),
+                values: values.iter().map(|(k, v)| (k.clone(), v.to_expression())).collect(),
+            },
+            Self::Array { element_ty, values } => Expression::Array {
+                element_ty: element_ty.clone(),
+                values: values.iter().map(Self::to_expression).collect(),
+            },
         }
     }
 }

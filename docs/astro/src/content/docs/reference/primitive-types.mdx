@@ -8,6 +8,7 @@ import SlintProperty from '@slint/common-files/src/components/SlintProperty.astr
 import Link from '@slint/common-files/src/components/Link.astro';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
+import BuiltInMouseCursor from '/src/content/docs/reference/generated/enums/_BuiltInMouseCursor.md';
 
 Slint is a statically typed language and offers a rich range of primitive types.
 
@@ -488,6 +489,38 @@ In JavaScript, properties or struct fields of the data-transfer type are mapped 
 In Python, properties or struct fields of the data-transfer type are mapped to <LangRefLink lang="python" relpath="api/classes/datatransfer/">`DataTransfer`</LangRefLink>.
 </TabItem>
 </Tabs>
+
+</SlintProperty>
+
+### MouseCursor
+<SlintProperty propName="mouse-cursor" typeName="MouseCursor" defaultValue='default'>
+The `MouseCursor` type is used in the <Link type="TouchArea" label="TouchArea element"/>.
+
+#### Built-in shape
+
+Set to one of the built-in shapes by specifying the name:
+
+```slint
+TouchArea {
+    mouse-cursor: ew-resize;
+}
+
+TouchArea {
+    mouse-cursor: MouseCursor.ew-resize;
+}
+```
+
+<BuiltInMouseCursor />
+
+#### Custom shape
+
+To set a custom mouse cursor, provide a `image` and a hotspot. The hotspot determines how the image is positioned relative to the underlying cursor.
+
+```slint
+TouchArea {
+    mouse-cursor: MouseCursor.custom(@image-url("cursor.png"), 0, 0);
+}
+```
 
 </SlintProperty>
 

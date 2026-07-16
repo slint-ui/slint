@@ -1,6 +1,6 @@
 # Slint tests
 
-This documents describe the testing infrastructure of Slint
+This document describes the testing infrastructure of Slint.
 
 ## Workspace layout
 
@@ -12,12 +12,12 @@ this for you, so prefer it when it covers your driver (see the Rust driver secti
 
 ## Syntax tests
 
-The syntax tests are testing that the compiler show the right error messages in case of error.
+The syntax tests check that the compiler shows the right error messages in case of error.
 
 The syntax tests are located in [internal/compiler/tests/syntax/](../internal/compiler/tests/syntax/) and it's driven by the
 [`syntax_tests.rs`](../internal/compiler/tests/syntax_tests.rs) file. More info in the comments of that file.
 
-In summary, each .slint files have comments with `> <error` like so:
+In summary, each .slint file has comments with `> <error` like so:
 
 ```ignore
 foo bar
@@ -43,15 +43,19 @@ This will change the comments to add the error of the expected messages
 
 ## Driver tests
 
-These tests make sure that feature in .slint behave as expected.
-All the .slint files in the sub directories are going to be test by the drivers with the different
+These tests make sure that features in .slint behave as expected.
+All the .slint files in the sub directories will be tested by the drivers with the different
 language frontends.
 
 The `.slint` code contains a comment with some block of code which is extracted by the relevant driver.
 
+`tests/run_tests.sh <rust|cpp|interpreter|python|nodejs> [<filter>]` is the convenient entry
+point for all five drivers below and passes `--manifest-path tests/Cargo.toml` for you; the
+`cargo test -p test-driver-*` commands shown per driver are the equivalent direct invocations.
+
 ### Interpreter test
 
-The interpreter test is the faster test to compile and run. It test the compiler and the eval feature
+The interpreter test is the faster test to compile and run. It tests the compiler and the eval feature
 as run by the viewer or such. It can be run like so:
 
 ```
@@ -60,7 +64,10 @@ cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter --
 
 You can add an argument to test only for particular tests.
 
-If the last component in the file includes a `bool` property named `test`, the test will verify that its value is `true`.
+If the last component in the file includes a public `bool` property named `test` (declared
+`out` or `in-out`), the test will verify that its value is `true`. A `private` (the default)
+or `in` property is invisible to the driver, so the test passes vacuously without actually
+checking anything.
 
 example:
 
@@ -107,7 +114,11 @@ Each program is compiled separately. And then run.
 
 Some macro like `assert_eq` are defined to look similar to the rust equivalent.
 
+It requires the Slint C++ library to be built first (see
+[building.md](./building.md#c-tests)):
+
 ```
+cargo build --lib -p slint-cpp
 cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --
 ```
 
@@ -123,10 +134,27 @@ Each test is run in a different node process.
 cargo test --manifest-path tests/Cargo.toml -p test-driver-nodejs
 ```
 
+### Python driver
+
+This is used to test the Python API. It compiles each `.slint` file with `OutputFormat::Python`,
+then runs the generated `.py` file as a subprocess via `uv run`, which loads the `slint` Python
+module and re-compiles the source using `slint-interpreter`.
+
+```
+cargo test -p test-driver-python
+```
+
+See [docs/development/python-tests.md](development/python-tests.md) for the full picture,
+including how to rebuild `slint-python` after making changes.
+
 ## Screenshot tests
 
-This is used to test renderer backends. At the moment it supports the `SoftwareRenderer`. Each `.slint` file in `tests/screenshots/cases` will be loaded
-rendered and the results will be compared to the reference images in `tests/screenshots/references`.
+This is used to test renderer backends. It supports the `SoftwareRenderer` (with and without
+embedded assets) and the Skia renderer, selected via the `software`, `software-embed-assets`,
+and `skia` Cargo features (all enabled by default). Each `.slint` file in
+`tests/screenshots/cases` will be loaded, rendered with each enabled renderer, and the results
+will be compared to the reference images in the matching `tests/screenshots/references/<renderer>`
+sub-directory.
 
 To generate references images for all test files in `tests/screenshots/cases` run:
 
@@ -156,5 +184,5 @@ and [docs/development/mcp-server.md](development/mcp-server.md) for architecture
 cargo test --manifest-path tests/Cargo.toml -p doctests
 ```
 
-The doctests extracts the ```` ```slint ````  from the files in the docs folder and make  sure that
-the snippets can be build without errors
+The doctests extract the ```` ```slint ```` snippets from the files in the docs folder and make sure
+they can be built without errors.

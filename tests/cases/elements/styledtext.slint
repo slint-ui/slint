@@ -25,22 +25,22 @@ export component TestCase inherits Window {
 /*
 ```rust
 use slint::{platform::WindowEvent, LogicalPosition};
-use slint::private_unstable_api::re_exports::MouseCursor;
+use slint::private_unstable_api::re_exports::{BuiltInMouseCursor, MouseCursorInner};
 
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
 
 // Not over a link: default cursor
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(5.0, 5.0) });
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default));
 
 // Over the link: pointer cursor
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(30.0, 300.0) });
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Pointer);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Pointer));
 
 // Move away from the link: back to default
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(5.0, 5.0) });
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default));
 
 assert_eq!(instance.get_clicked_link_url(), "");
 

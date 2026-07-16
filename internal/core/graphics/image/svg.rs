@@ -10,6 +10,7 @@ use resvg::{tiny_skia, usvg};
 pub struct ParsedSVG {
     svg_tree: usvg::Tree,
     cache_key: ImageCacheKey,
+    weight_in_bytes: usize,
 }
 
 impl super::OpaqueImage for ParsedSVG {
@@ -28,6 +29,15 @@ impl core::fmt::Debug for ParsedSVG {
 }
 
 impl ParsedSVG {
+    fn new(svg_tree: usvg::Tree, cache_key: ImageCacheKey, source_size: usize) -> Self {
+        // The parsed tree typically costs a few times the source size, and outlining
+        // a short `<text>` element expands it far more; charge a generous multiple of
+        // the source size, plus a constant for the fixed cost of even a tiny tree,
+        // so that the cache stays bounded without measuring the tree.
+        let weight_in_bytes = source_size.saturating_mul(16).saturating_add(8192);
+        Self { svg_tree, cache_key, weight_in_bytes }
+    }
+
     pub fn size(&self) -> crate::graphics::IntSize {
         let size = self.svg_tree.size().to_int_size();
         [size.width(), size.height()].into()
@@ -35,6 +45,11 @@ impl ParsedSVG {
 
     pub fn cache_key(&self) -> ImageCacheKey {
         self.cache_key.clone()
+    }
+
+    /// Approximate number of bytes the parsed tree keeps alive, for cache accounting.
+    pub fn weight_in_bytes(&self) -> usize {
+        self.weight_in_bytes
     }
 
     /// Renders the SVG with the specified size, if no size is specified, get the size from the image
@@ -121,10 +136,11 @@ pub fn load_from_path(
     let svg_data = std::fs::read(std::path::Path::new(&path.as_str()))?;
 
     usvg::Tree::from_data(&svg_data, &svg_options())
-        .map(|svg| ParsedSVG { svg_tree: svg, cache_key })
+        .map(|svg| ParsedSVG::new(svg, cache_key, svg_data.len()))
         .map_err(std::io::Error::other)
 }
 
 pub fn load_from_data(slice: &[u8], cache_key: ImageCacheKey) -> Result<ParsedSVG, usvg::Error> {
-    usvg::Tree::from_data(slice, &svg_options()).map(|svg| ParsedSVG { svg_tree: svg, cache_key })
+    usvg::Tree::from_data(slice, &svg_options())
+        .map(|svg| ParsedSVG::new(svg, cache_key, slice.len()))
 }

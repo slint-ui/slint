@@ -68,6 +68,17 @@ pub trait RepeatedItemTree:
         self.layout_item_info(orientation, child_index).into()
     }
 
+    /// Vertical flexbox info measured at the given cross-axis (container) width.
+    /// A column FlexboxLayout calls this so a height-for-width instance wraps to
+    /// the real width. The default ignores the width (non-height-for-width
+    /// cells); the generated code overrides it for height-for-width instances.
+    fn flexbox_layout_item_info_at_cross_width(
+        self: Pin<&Self>,
+        _flex_cross_width: f32,
+    ) -> crate::layout::FlexboxLayoutItemInfo {
+        self.flexbox_layout_item_info(Orientation::Vertical, None)
+    }
+
     /// Fills in the grid layout input data for this ItemTree if it is in a grid layout.
     /// This will be a single GridLayoutInputData if the repeated item is a single cell,
     /// or multiple GridLayoutInputData if the repeated item is a full Row.

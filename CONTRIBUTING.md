@@ -1,13 +1,15 @@
-
 # Contributing
 
 We warmly welcome contributions to the project. Let's discuss ideas or questions
 in [Github discussions](https://github.com/slint-ui/slint/discussions) or on our [public chat](https://chat.slint.dev).
 Please feel welcome to open GitHub issues or pull requests.
-Use 👍 reaction on issue that you consider important.
+Use 👍 reaction on issues that you consider important.
 
 Issues which we think are suitable for new contributors are tagged with
 https://github.com/slint-ui/slint/labels/good%20first%20issue.
+
+If you use an AI coding assistant, it reads [AGENTS.md](AGENTS.md) for build commands and
+architecture notes specific to this repository.
 
 ## Internal documentation
 
@@ -15,6 +17,7 @@ https://github.com/slint-ui/slint/labels/good%20first%20issue.
  - [Building Slint from sources in this repository](docs/building.md)
  - [Testing](docs/testing.md)
  - [GitHub issues triage and labels](docs/internal/triage.md)
+ - [Writing style guide](docs/internal/writing-style-guide.md) for commit messages, code comments, and documentation
 
 ## License
 

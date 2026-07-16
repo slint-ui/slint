@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::{EvaluationContext, Expression, ParentScope};
+use super::{EvaluationContext, EvaluationScope, Expression, ParentScope};
 use crate::langtype::{NativeClass, Type};
 use derive_more::{From, Into};
 use smol_str::SmolStr;
@@ -331,7 +331,10 @@ pub struct Function {
     pub name: SmolStr,
     pub ret_ty: Type,
     pub args: Vec<Type>,
-    pub code: Expression,
+    pub code: MutExpression,
+    /// The number of times this function is called.
+    /// Only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass.
+    pub use_count: Cell<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -493,6 +496,12 @@ pub struct SubComponent {
     /// parent flex cache. `Some` only when the element carries a
     /// `layoutinfo-v-with-constraint`. See `flexbox_layout_item_info`.
     pub layout_info_v_constrained_for_repeated: Option<MutExpression>,
+    /// Same as `layout_info_v_constrained_for_repeated`, but measured at the
+    /// width passed in the `flex_cross_width` local instead of the preferred
+    /// width. Drives the generated `flexbox_layout_item_info_at_cross_width` method,
+    /// which a column FlexboxLayout calls with its real container width so a
+    /// repeated cell wraps to the same height as an equivalent static cell.
+    pub layout_info_v_at_cross_width_for_repeated: Option<MutExpression>,
     /// True when this is a repeated Row in a GridLayout, meaning layout_item_info
     /// needs to be able to return layout info for individual children
     pub is_repeated_row: bool,
@@ -685,6 +694,9 @@ impl CompilationUnit {
             if let Some(e) = &sc.layout_info_v_constrained_for_repeated {
                 visitor(e, ctx);
             }
+            if let Some(e) = &sc.layout_info_v_at_cross_width_for_repeated {
+                visitor(e, ctx);
+            }
             for e in sc.accessible_prop.values() {
                 visitor(e, ctx);
             }
@@ -694,6 +706,27 @@ impl CompilationUnit {
             for (_, e) in sc.change_callbacks.iter() {
                 visitor(e, ctx);
             }
+            for child in &sc.grid_layout_children {
+                visitor(&child.layout_info_h, ctx);
+                visitor(&child.layout_info_v, ctx);
+            }
+            for r in sc.repeated.iter() {
+                visitor(&r.model, ctx);
+            }
+            for t in sc.timers.iter() {
+                visitor(&t.interval, ctx);
+                visitor(&t.running, ctx);
+                visitor(&t.triggered, ctx);
+            }
+            if let EvaluationScope::SubComponent(idx, _) = ctx.current_scope {
+                // A parent-less context, matching how `count_property_use` counts
+                // function bodies, so both passes rewrite the same references.
+                let fn_ctx = EvaluationContext::new_sub_component(self, idx, (), None);
+                visit_function_bodies(&sc.functions, &fn_ctx, visitor);
+            }
+            // Popup positions are intentionally not visited: they are evaluated in a
+            // nested context, so inlining into them would corrupt the parent levels
+            // of their property references.
         });
         for (idx, g) in self.globals.iter_enumerated() {
             let ctx = EvaluationContext::new_global(self, idx, ());
@@ -703,6 +736,27 @@ impl CompilationUnit {
             for e in g.change_callbacks.values() {
                 visitor(e, &ctx)
             }
+            visit_function_bodies(&g.functions, &ctx, visitor);
+        }
+    }
+}
+
+/// Visit the body of each reachable function in `ctx` (which must have no parents,
+/// see [`CompilationUnit::for_each_expression`]) with `argument_types` set.
+///
+/// Only functions with a non-zero use count: `count_property_use` visits exactly
+/// those bodies, so visiting an unreachable one would inline references it never
+/// counted and underflow the use counts.
+fn visit_function_bodies<'a>(
+    functions: &'a TiVec<FunctionIdx, Function>,
+    ctx: &EvaluationContext<'a>,
+    visitor: &mut dyn FnMut(&'a super::MutExpression, &EvaluationContext<'_>),
+) {
+    for f in functions {
+        if f.use_count.get() > 0 {
+            let mut fn_ctx = ctx.clone();
+            fn_ctx.argument_types = &f.args;
+            visitor(&f.code, &fn_ctx);
         }
     }
 }

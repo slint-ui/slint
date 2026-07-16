@@ -830,6 +830,7 @@ impl RendererSealed for SoftwareRenderer {
             .unwrap_or_default();
         }
 
+        let max_lines = text_item.line_limit();
         let string = match &content {
             PlainOrStyledText::Plain(string) => alloc::borrow::Cow::Borrowed(string.as_str()),
             PlainOrStyledText::Styled(styled_text) => {
@@ -844,6 +845,7 @@ impl RendererSealed for SoftwareRenderer {
                     &string,
                     max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
                     text_wrap,
+                    max_lines,
                 )
             }
             fonts::Font::PixelFont(pf) => {
@@ -852,6 +854,7 @@ impl RendererSealed for SoftwareRenderer {
                     &string,
                     max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
                     text_wrap,
+                    max_lines,
                 )
             }
         };
@@ -894,7 +897,7 @@ impl RendererSealed for SoftwareRenderer {
                 let mut buf = [0u8, 0u8, 0u8, 0u8];
                 let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
                 let (longest_line_width, height) =
-                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap);
+                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap, None);
                 (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
                     .cast()
             }
@@ -902,7 +905,7 @@ impl RendererSealed for SoftwareRenderer {
                 let mut buf = [0u8, 0u8, 0u8, 0u8];
                 let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
                 let (longest_line_width, height) =
-                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap);
+                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap, None);
                 (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
                     .cast()
             }
@@ -1017,6 +1020,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 visual_representation.map_byte_offset_from_visual_text_to_actual_text(
@@ -1045,6 +1049,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 visual_representation.map_byte_offset_from_visual_text_to_actual_text(
@@ -1108,6 +1113,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 let cursor_position = paragraph.cursor_pos_for_byte_offset(byte_offset);
@@ -1142,6 +1148,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 let cursor_position = paragraph.cursor_pos_for_byte_offset(byte_offset);
@@ -2804,6 +2811,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
 
         let (horizontal_alignment, vertical_alignment) = text.alignment();
+        let max_lines = text.line_limit();
 
         match &font {
             fonts::Font::PixelFont(pf) => {
@@ -2818,6 +2826,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text.wrap(),
                     overflow: text.overflow(),
                     single_line: false,
+                    max_lines,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
@@ -2835,6 +2844,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text.wrap(),
                     overflow: text.overflow(),
                     single_line: false,
+                    max_lines,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
@@ -2906,6 +2916,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: text_input.single_line(),
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
@@ -2976,6 +2987,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: text_input.single_line(),
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
@@ -3243,6 +3255,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: Default::default(),
                     overflow: Default::default(),
                     single_line: false,
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, clip, Default::default(), color, None);
@@ -3260,6 +3273,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: Default::default(),
                     overflow: Default::default(),
                     single_line: false,
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, clip, Default::default(), color, None);

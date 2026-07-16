@@ -582,7 +582,7 @@ fn make_struct(it: impl Iterator<Item = (&'static str, Type, Expression)>) -> Ex
     }
     codeblock_with_expr(
         voids,
-        Expression::Struct { ty: Rc::new(Struct { fields, name: StructName::None }), values },
+        Expression::Struct { ty: Rc::new(Struct::new(fields, StructName::None)), values },
     )
 }
 
@@ -595,10 +595,10 @@ fn convert_struct(from: Expression, to: Type, symbol_counters: &SymbolCounters) 
     };
     if let Expression::Struct { mut values, .. } = from {
         let mut new_values = BTreeMap::new();
-        for (key, ty) in &to.fields {
+        for key in to.fields.keys() {
             let (key, expression) = values
                 .remove_entry(key)
-                .unwrap_or_else(|| (key.clone(), Expression::default_value_for_type(ty)));
+                .unwrap_or_else(|| (key.clone(), to.default_value_for_field(key)));
             new_values.insert(key, expression);
         }
         return Expression::Struct { values: new_values, ty: to };
@@ -610,7 +610,7 @@ fn convert_struct(from: Expression, to: Type, symbol_counters: &SymbolCounters) 
         assert_eq!(from_ty, Type::Invalid);
         return Expression::Invalid;
     };
-    for (key, ty) in &to.fields {
+    for key in to.fields.keys() {
         let expression = if from_s.fields.contains_key(key) {
             Expression::StructFieldAccess {
                 base: Box::new(Expression::ReadLocalVariable {
@@ -620,7 +620,7 @@ fn convert_struct(from: Expression, to: Type, symbol_counters: &SymbolCounters) 
                 name: key.clone(),
             }
         } else {
-            Expression::default_value_for_type(ty)
+            to.default_value_for_field(key)
         };
         new_values.insert(key.clone(), expression);
     }

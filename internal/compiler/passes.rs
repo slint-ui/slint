@@ -16,7 +16,7 @@ mod collect_libraries;
 mod collect_structs_and_enums;
 mod collect_subcomponents;
 mod compile_paths;
-mod const_propagation;
+pub(crate) mod const_propagation;
 mod deduplicate_property_read;
 mod default_geometry;
 mod deprecated_rotation_origin;
@@ -158,6 +158,7 @@ pub async fn run_passes(
         flickable::handle_flickable(component, &global_type_registry.borrow());
         lower_layout::lower_layouts(component, type_loader, &style_metrics, diag);
         default_geometry::default_geometry(component, diag, &symbol_counters);
+        lower_layout::optimize_single_cell_layouts(component);
         lower_layout::synthesize_layoutinfo_v_with_constraint(component);
         lower_layout::synthesize_layoutinfo_h_with_constraint(component);
         lower_absolute_coordinates::lower_absolute_coordinates(component);

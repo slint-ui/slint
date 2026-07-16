@@ -36,6 +36,7 @@
         "Unlocalized",
         "unmap",
         "unsync",
+        "vecs", // plural of vec
         "vsync"
       ],
       "ignoreRegExpList": [
@@ -326,7 +327,10 @@
     "springgreen",
     "steelblue",
     "whitesmoke",
-    "yellowgreen"
+    "yellowgreen",
+    "hotspot",
+    "builtinmousecursor",
+    "mousecursor"
   ],
   "ignorePaths": [
     ".github/**",

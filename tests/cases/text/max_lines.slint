@@ -1,0 +1,130 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The preferred size of a Text with `max-lines` set only covers the kept lines: the layouts
+// below size the elements to their preferred size, so the resulting geometry reflects the
+// visible line count and the widest visible line.
+//
+// The first group uses the fixed test font (every glyph is 10phx x 10phx) for exact geometry.
+// The second group goes through the real (parley) text layout with the imported Inter font,
+// asserting the same properties relative to unlimited reference elements.
+
+import "../../../demos/printerdemo/ui/fonts/Inter-24pt-Regular.ttf";
+
+export component TestCase inherits Window {
+    width: 500phx;
+    height: 300phx;
+    default-font-size: 10px;
+    default-font-family: "FixedTestFont";
+
+    VerticalLayout {
+        alignment: start;
+        limited := Text {
+            max-lines: 2;
+            text: "One\nTwo\nThree\nFour";
+        }
+        unlimited := Text {
+            text: "One\nTwo\nThree\nFour";
+        }
+        not-reached := Text {
+            max-lines: 9;
+            text: "One\nTwo\nThree\nFour";
+        }
+        disabled := Text {
+            max-lines: -1;
+            text: "One\nTwo\nThree\nFour";
+        }
+    }
+
+    HorizontalLayout {
+        y: 150phx;
+        alignment: start;
+        width-limited := Text {
+            max-lines: 1;
+            text: "ab\nlonger";
+        }
+    }
+
+    VerticalLayout {
+        x: 150phx;
+        alignment: start;
+        parley-limited := Text {
+            font-family: "Inter 24pt";
+            max-lines: 2;
+            text: "One\nTwo\nThree\nFour";
+        }
+        parley-unlimited := Text {
+            font-family: "Inter 24pt";
+            text: "One\nTwo\nThree\nFour";
+        }
+        parley-two-lines := Text {
+            font-family: "Inter 24pt";
+            text: "One\nTwo";
+        }
+        parley-not-reached := Text {
+            font-family: "Inter 24pt";
+            max-lines: 9;
+            text: "One\nTwo\nThree\nFour";
+        }
+    }
+
+    HorizontalLayout {
+        x: 150phx;
+        y: 150phx;
+        alignment: start;
+        parley-width-limited := Text {
+            font-family: "Inter 24pt";
+            max-lines: 1;
+            text: "ab\nlonger";
+        }
+    }
+
+    HorizontalLayout {
+        x: 150phx;
+        y: 200phx;
+        alignment: start;
+        parley-width-reference := Text {
+            font-family: "Inter 24pt";
+            text: "ab";
+        }
+    }
+
+    out property <bool> test-fixed-font: limited.height == 20phx
+        && unlimited.height == 40phx
+        && not-reached.height == 40phx
+        && disabled.height == 40phx
+        && width-limited.width == 20phx;
+
+    out property <bool> test-parley: parley-limited.height > 0
+        // The capped height is exactly the height of a text with that many lines.
+        && parley-limited.height == parley-two-lines.height
+        && parley-limited.height < parley-unlimited.height
+        // A limit that no line reaches leaves the size unchanged.
+        && parley-not-reached.height == parley-unlimited.height
+        // Lines beyond the limit don't count towards the preferred width.
+        && parley-width-limited.width == parley-width-reference.width;
+
+    out property <bool> test: test-fixed-font && test-parley;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test_fixed_font());
+assert!(instance.get_test_parley());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test_fixed_font());
+assert(instance.get_test_parley());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test_fixed_font);
+assert(instance.test_parley);
+```
+
+*/

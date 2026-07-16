@@ -35,6 +35,7 @@ LogicalSize = native.LogicalSize
 StyledText = native.StyledText
 Timer = native.Timer
 TimerMode = native.TimerMode
+MouseCursorInner = native.MouseCursorInner
 
 
 Struct = native.PyStruct
