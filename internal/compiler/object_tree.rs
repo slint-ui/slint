@@ -2082,7 +2082,7 @@ impl Element {
                     );
                 } else {
                     diag.push_error(
-                        format!("The slot '{source}' can only appear once in an element hierarchy"),
+                        format!("The slot '{source}' can only appear once in an element"),
                         &forwarding.node,
                     );
                 }
