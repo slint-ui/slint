@@ -71,6 +71,26 @@ export component FailForwardAndAssignConflict inherits Rectangle {
     }
 }
 
+export component TwoTargetHost inherits Rectangle {
+    slot hostHeader;
+    slot hostFooter;
+
+    VerticalLayout {
+        hostHeader {}
+        hostFooter {}
+    }
+}
+
+export component FailDuplicateForwardSource inherits Rectangle {
+    slot header;
+
+    TwoTargetHost {
+        hostHeader << header;
+        hostFooter << header;
+//                    >    <error{The slot 'header' can only appear once in an element}
+    }
+}
+
 export component FailForwardAndPlaceholderConflict inherits Rectangle {
     slot header;
 
