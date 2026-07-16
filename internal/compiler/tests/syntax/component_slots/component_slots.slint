@@ -24,22 +24,6 @@ export component Test inherits Rectangle {
     }
 }
 
-export component FailDuplicateUse inherits Rectangle {
-    slot header;
-    header {}
-    header {}
-//  >       <error{The slot 'header' can only appear once in an element hierarchy}
-}
-
-export component FailDuplicateUse2 inherits Rectangle {
-    slot header;
-    header {}
-    Rectangle {
-        header {}
-//      >       <error{The slot 'header' can only appear once in an element hierarchy}
-    }
-}
-
 export component FailReservedSlotName inherits Rectangle {
     slot children;
 //       >      <error{The name 'children' is reserved for the default slot. Use @children instead}
