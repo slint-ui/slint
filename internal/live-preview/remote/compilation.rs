@@ -53,22 +53,10 @@ pub fn init_compiler(connection: Weak<Connection>) -> slint_interpreter::Compile
                 let extension = std::path::Path::new(url.path())
                     .extension()
                     .and_then(|e| e.to_str())
-                    .unwrap_or("png");
-                let mime_type = match extension {
-                    "svg" | "svgz" => "image/svg+xml",
-                    "png" => "image/png",
-                    "jpg" | "jpeg" => "image/jpeg",
-                    "gif" => "image/gif",
-                    "bmp" => "image/bmp",
-                    "webp" => "image/webp",
-                    _ => "application/octet-stream",
-                };
+                    .unwrap_or("png")
+                    .to_owned();
                 let file_content = connection.request_file(url).await.ok()?;
-
-                use base64::Engine as _;
-                let encoded =
-                    base64::engine::general_purpose::STANDARD.encode(&*file_content.contents);
-                Url::parse(&format!("data:{mime_type};base64,{encoded}")).ok()
+                Url::parse(&crate::make_data_url(&extension, &file_content.contents)).ok()
             })
         }));
 

@@ -2393,6 +2393,7 @@ dependencies = [
 name = "i-slint-live-preview"
 version = "1.18.0"
 dependencies = [
+ "base64",
  "i-slint-compiler",
  "i-slint-core",
  "notify",

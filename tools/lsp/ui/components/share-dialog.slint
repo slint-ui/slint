@@ -1,0 +1,129 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, LineEdit, ScrollView, Palette } from "std-widgets.slint";
+import { Api } from "../api.slint";
+
+// Modal dialog for "Share to SlintPad": shows what will be uploaded, takes a GitHub token,
+// and presents the resulting link. It fills the window and dims the background.
+export component ShareDialog inherits Rectangle {
+    // What the user typed into the token field (only used when no token is stored).
+    property <string> token-text;
+
+    background: #00000099;
+
+    // Backdrop: clicking outside the card dismisses the dialog.
+    TouchArea {
+        clicked => {
+            Api.share-dialog-visible = false;
+        }
+    }
+
+    card := Rectangle {
+        width: min(480px, parent.width - 40px);
+        height: layout.preferred-height;
+        background: Palette.background;
+        border-color: Palette.border;
+        border-width: 1px;
+        border-radius: 8px;
+
+        // Swallow clicks so they do not reach the dismiss backdrop.
+        TouchArea { }
+
+        layout := VerticalLayout {
+            padding: 16px;
+            spacing: 10px;
+
+            Text {
+                text: @tr("Share to SlintPad");
+                font-size: 16px;
+                font-weight: 700;
+                color: Palette.foreground;
+            }
+
+            Text {
+                text: @tr("These files are uploaded to an unlisted GitHub gist and rendered on slintpad.com. Anyone with the link can view them.");
+                wrap: word-wrap;
+                color: Palette.foreground;
+            }
+
+            Rectangle {
+                height: 120px;
+                border-width: 1px;
+                border-color: Palette.border;
+                border-radius: 4px;
+
+                ScrollView {
+                    VerticalLayout {
+                        padding: 6px;
+                        alignment: start;
+                        for file in Api.share-files: Text {
+                            text: file;
+                            color: Palette.foreground;
+                        }
+                    }
+                }
+            }
+
+            if Api.share-result-url == "": VerticalLayout {
+                spacing: 4px;
+                Text {
+                    text: @tr("GitHub token (with the 'gist' scope):");
+                    color: Palette.foreground;
+                }
+                LineEdit {
+                    placeholder-text: "github_pat_…";
+                    text <=> root.token-text;
+                }
+            }
+
+            if Api.share-status != "": Text {
+                text: Api.share-status;
+                wrap: word-wrap;
+                color: Palette.foreground;
+            }
+
+            if Api.share-result-url != "": VerticalLayout {
+                spacing: 4px;
+                Text {
+                    text: @tr("Your share link:");
+                    color: Palette.foreground;
+                }
+                // Read-only so the built-in Ctrl+C copies it.
+                LineEdit {
+                    text: Api.share-result-url;
+                    read-only: true;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: end;
+
+                Button {
+                    text: @tr("Close");
+                    clicked => {
+                        Api.share-dialog-visible = false;
+                    }
+                }
+
+                if Api.share-result-url != "": Button {
+                    text: @tr("Open in Browser");
+                    primary: true;
+                    clicked => {
+                        Platform.open-url(Api.share-result-url);
+                    }
+                }
+
+                if Api.share-result-url == "": Button {
+                    text: @tr("Share");
+                    primary: true;
+                    enabled: !Api.share-in-progress;
+                    clicked => {
+                        Api.share-perform(root.token-text);
+                    }
+                }
+            }
+        }
+    }
+}

@@ -151,6 +151,13 @@ pub fn create_ui(
     api.on_show_document_offset_range(super::show_document_offset_range);
     api.on_show_preview_for(super::show_preview_for);
     api.on_reload_preview(super::reload_preview);
+    // Sharing is native only; on WASM `share-supported` stays false and the menu entry hides.
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        api.set_share_supported(true);
+        api.on_share_open(super::share::share_open);
+        api.on_share_perform(super::share::share_perform);
+    }
     api.on_unselect(super::element_selection::unselect_element);
     api.on_reselect(super::element_selection::reselect_element);
     api.on_select_at(super::element_selection::select_element_at);

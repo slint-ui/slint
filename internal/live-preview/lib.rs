@@ -8,6 +8,24 @@
 /// single value governs how reactive the preview feels.
 pub const REBUILD_DEBOUNCE: std::time::Duration = std::time::Duration::from_millis(50);
 
+/// Build a `data:` URL that embeds `bytes`, choosing the media type from the file
+/// `extension` (falling back to `application/octet-stream` for unknown types). Used to hand a
+/// resource to a renderer that can not reach the original file: the remote viewer over its
+/// connection, or SlintPad loading a shared gist.
+pub fn make_data_url(extension: &str, bytes: &[u8]) -> String {
+    use base64::Engine as _;
+    let mime = match extension.to_ascii_lowercase().as_str() {
+        "svg" | "svgz" => "image/svg+xml",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "bmp" => "image/bmp",
+        "webp" => "image/webp",
+        _ => "application/octet-stream",
+    };
+    format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes))
+}
+
 #[cfg(feature = "protocol")]
 pub mod protocol;
 
