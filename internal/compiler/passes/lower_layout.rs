@@ -1285,9 +1285,15 @@ fn optimize_single_cell_layout(
     };
     let replace = |prop: &str, expr: Expression| {
         let elem = cell.borrow();
-        let binding = elem.bindings.get(prop).expect("the layout has set the cell's geometry");
-        debug_assert!(matches!(binding.borrow().expression, Expression::LayoutCacheAccess { .. }));
-        binding.borrow_mut().expression = expr;
+        let binding = elem.binding(prop).expect("the layout has set the cell's geometry");
+        let mut binding = binding.borrow_mut();
+        let expression = &mut binding.expression;
+        debug_assert!(matches!(
+            expression.ignore_debug_hooks(),
+            Expression::LayoutCacheAccess { .. }
+        ));
+
+        *expression.ignore_debug_hooks_mut() = expr;
     };
     let pads = layout.geometry.padding.begin_end(orientation);
     let available = || size_minus_padding(layout_element, size, pads);
