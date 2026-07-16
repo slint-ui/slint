@@ -149,3 +149,19 @@ export component FailChildrenReference inherits Rectangle {
     out property <length> header_y: children.absolute-position.y;
 //                                  >                          <error{The default slot '@children' cannot be referenced in expressions}
 }
+
+export component FailReferenceInRepeated inherits Rectangle {
+    for i in [0, 1]: SlotHost {
+        header << Rectangle { }
+        x: header.absolute-position.x;
+//         >                        <error{Slot 'header' cannot be referenced inside repeated or conditional elements}
+    }
+}
+
+export component FailReferenceInConditional inherits Rectangle {
+    if true: SlotHost {
+        header << Rectangle { }
+        x: header.absolute-position.x;
+//         >                        <error{Slot 'header' cannot be referenced inside repeated or conditional elements}
+    }
+}
