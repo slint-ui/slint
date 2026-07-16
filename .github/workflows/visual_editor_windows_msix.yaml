@@ -24,6 +24,7 @@ env:
   SLINT_BUILD_NUMBER: ${{ github.run_number }}
   SLINT_VISUAL_EDITOR_MSIX_PATH_PREFIX: tools/lsp/slintvisualeditor_
   SLINT_VISUAL_EDITOR_MSIX_PATH_SUFFIX: .0_x64.msix
+  SLINT_VISUAL_EDITOR_MSIX_UNSIGNED_PATH_SUFFIX: .0_x64_unsigned.msix
   SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD: slint-ci-self-signed
 
 jobs:
@@ -83,15 +84,16 @@ jobs:
             -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3")
 
           Write-Host "Exporting signing certificate"
-          Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $password | Out-Null
-          Export-Certificate -Cert $cert -FilePath $cerPath | Out-Null
-
-          Write-Host "Importing signing certificate to Root and TrustedPeople"
-          Import-Certificate -FilePath $cerPath -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
-          Import-Certificate -FilePath $cerPath -CertStoreLocation "Cert:\CurrentUser\TrustedPeople" | Out-Null
+          Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $password
+          Export-Certificate -Cert $cert -FilePath $cerPath
 
           "pfx_path=$pfxPath" >> $env:GITHUB_OUTPUT
           "cer_path=$cerPath" >> $env:GITHUB_OUTPUT
+
+      - name: Install self-signed certificate
+        uses: LiquidLogicLabs/git-action-ca-certificate-import@v2
+        with:
+          certificate: ${{ steps.test_certificate.outputs.cer_path }}
 
       - name: Get cargo version
         id: get_cargo_version
@@ -106,8 +108,8 @@ jobs:
       - name: Package app as MSIX
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force tools/lsp/dist | Out-Null
-          New-Item -ItemType Directory -Force tools/lsp/dist/Assets | Out-Null
+          New-Item -ItemType Directory -Force tools/lsp/dist
+          New-Item -ItemType Directory -Force tools/lsp/dist/Assets
           Copy-Item `
             $(ls tools/lsp/packaging/windows-appx/SlintVisualEditor-Logo-*.png | % {$_.FullName}) `
             tools/lsp/dist/Assets/
@@ -132,9 +134,14 @@ jobs:
           }
           $cargoversion = "${{ steps.get_cargo_version.outputs.cargo_version }}"
           $slintvisualeditor_msixpath = "$env:SLINT_VISUAL_EDITOR_MSIX_PATH_PREFIX$cargoversion$env:SLINT_VISUAL_EDITOR_MSIX_PATH_SUFFIX"
+          $slintvisualeditor_unsignedmsixpath = "$env:SLINT_VISUAL_EDITOR_MSIX_PATH_PREFIX$cargoversion$env:SLINT_VISUAL_EDITOR_MSIX_UNSIGNED_PATH_SUFFIX"
+
+          cp $slintvisualeditor_msixpath $slintvisualeditor_unsignedmsixpath
+
           Write-Host "Signing $slintvisualeditor_msixpath with $signtool"
 
           echo "slint_visual_editor_msix_path=$slintvisualeditor_msixpath" >> $env:GITHUB_OUTPUT
+          echo "slint_visual_editor_unsigned_msix_path=$slintvisualeditor_unsignedmsixpath" >> $env:GITHUB_OUTPUT
 
           & $signtool sign `
             /fd SHA256 `
@@ -150,5 +157,6 @@ jobs:
           name: slint-visual-editor-windows-msix
           path: |
             ${{ steps.sign_msix.outputs.slint_visual_editor_msix_path }}
-            slint-visual-editor-self-signed.cer
+            ${{ steps.sign_msix.outputs.slint_visual_editor_unsigned_msix_path }}
+            ${{ steps.test_certificate.outputs.cer_path }}
           if-no-files-found: error
