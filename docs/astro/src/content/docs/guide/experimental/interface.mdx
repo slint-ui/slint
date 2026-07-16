@@ -81,7 +81,7 @@ component Container {
 }
 ```
 
-The named child must implement (directly or through its own delegation) the listed interface.
+The named child must satisfy the interface API (directly or through its own delegation) the listed interface.
 If two `implement` statements expose properties with the same name, the first one wins and a diagnostic is emitted for the conflict.
 
 ## Full example
@@ -93,7 +93,8 @@ interface Counter {
 }
 
 component CounterButton {
-    implement Counter <=> self;
+    // It is not necessary for CounterButton to `implement Counter <=> self;`
+    // implement Counter <=> self;
 
     preferred-width: 100%;
     preferred-height: 100%;
