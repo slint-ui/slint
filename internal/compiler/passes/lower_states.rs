@@ -216,7 +216,6 @@ fn expression_for_property(element: &ElementRc, name: &str) -> ExpressionForProp
     let mut in_base = false;
     while let Some(elem) = element_it {
         if let Some(e) = elem.borrow().binding(name) {
-            let e = e.borrow();
             if !e.two_way_bindings.is_empty() {
                 return ExpressionForProperty::TwoWayBinding;
             }

@@ -1285,8 +1285,7 @@ fn optimize_single_cell_layout(
     };
     let replace = |prop: &str, expr: Expression| {
         let elem = cell.borrow();
-        let binding = elem.binding(prop).expect("the layout has set the cell's geometry");
-        let mut binding = binding.borrow_mut();
+        let mut binding = elem.binding_mut(prop).expect("the layout has set the cell's geometry");
         let expression = &mut binding.expression;
         debug_assert!(matches!(
             expression.ignore_debug_hooks(),

@@ -31,7 +31,7 @@ pub(crate) fn lower_property_to_element(
                 format!(
                     "The {property_name} property cannot be used on the root element, it will not be applied"
                 ),
-                &*b.borrow(),
+                &*b,
             );
         }
     }
