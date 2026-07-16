@@ -402,7 +402,7 @@ declare_syntax! {
         Expression-> [ ?Expression, ?FunctionCallExpression, ?IndexExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
                        ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtGradient, ?AtTr,
-                       ?MemberAccess, ?AtKeys, ?SlotReference ],
+                       ?MemberAccess, ?AtKeys ],
         /// Concatenate the children Expressions and StringLiteral to make a string
         StringTemplate -> [*Expression],
         /// `@image-url("foo.png")`
@@ -412,8 +412,6 @@ declare_syntax! {
         /// `@tr("foo", ...)`  // the string is a StringLiteral
         AtTr -> [?TrContext, ?TrPlural, *Expression],
         AtMarkdown -> [*Expression],
-        /// slot reference in expressions
-        SlotReference -> [ DeclaredIdentifier ],
         /// `slot header;`
         SlotDeclaration -> [ DeclaredIdentifier ],
         /// `"foo" =>`  in a `AtTr` node

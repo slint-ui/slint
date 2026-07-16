@@ -481,11 +481,6 @@ impl Expression {
                         ctx.diag.slint_sc_error("@keys() expressions are", &node);
                         return Self::from_at_keys_node(node.into(), ctx);
                     }
-                    SyntaxKind::SlotReference => {
-                        #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Slot references are", &node);
-                        return Self::from_slot_reference_node(node.into(), ctx);
-                    }
                     SyntaxKind::QualifiedName => {
                         #[cfg(feature = "slint-sc")]
                         ctx.diag.slint_sc_error("Identifier references are", &node);
@@ -672,14 +667,6 @@ impl Expression {
             source_location: Some(node.to_source_location()),
             nine_slice,
         }
-    }
-
-    fn from_slot_reference_node(node: syntax_nodes::SlotReference, ctx: &mut LookupCtx) -> Self {
-        let name = identifier_text(&node.DeclaredIdentifier()).unwrap_or_default();
-        resolve_slot_reference_element(name.as_str(), ctx, &node, true)
-            .map_or(Expression::Invalid, |element| {
-                Expression::ElementReference(Rc::downgrade(&element))
-            })
     }
 
     pub fn from_at_gradient(node: syntax_nodes::AtGradient, ctx: &mut LookupCtx) -> Self {
@@ -2179,7 +2166,7 @@ fn lookup_qualified_name_node(
     let result = match global_lookup.lookup(ctx, &first_str) {
         None => {
             if let Some(slot_element) =
-                resolve_slot_reference_element(first_str.as_str(), ctx, &node, false)
+                resolve_slot_reference_element(first_str.as_str(), ctx, &node)
             {
                 return continue_lookup_within_element(&slot_element, &mut it, node, ctx);
             }
@@ -2257,7 +2244,6 @@ fn resolve_slot_reference_element(
     name: &str,
     ctx: &mut LookupCtx,
     node: &dyn Spanned,
-    report_unknown: bool,
 ) -> Option<ElementRc> {
     if name == "children" {
         ctx.diag.push_error(
@@ -2298,9 +2284,6 @@ fn resolve_slot_reference_element(
         return None;
     }
 
-    if report_unknown {
-        ctx.diag.push_error(format!("Unknown slot '{name}'"), node);
-    }
     None
 }
 
