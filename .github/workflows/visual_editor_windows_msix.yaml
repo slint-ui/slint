@@ -36,11 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # cache the build
-      - uses: ./.github/actions/setup-rust
-        with:
-          key: visual-editor-windows-msix
-          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
+      # Installing stable toolchain isn't necessary on `windows-latest`
 
       # For `cargo -Zscript`
       - uses: ./.github/actions/setup-rust
