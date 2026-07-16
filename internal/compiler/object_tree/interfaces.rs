@@ -224,22 +224,21 @@ pub(super) fn disallow_implement_in_non_root(
     }
 }
 
-pub(super) fn apply_properties(
-    element: &mut Element,
+pub(super) fn validate_properties_and_callbacks(
+    element: &Element,
     implemented_interfaces: &[ImplementedInterface],
     diagnostics: &mut BuildDiagnostics,
 ) {
     for ImplementedInterface { interface, node, interface_name, .. } in implemented_interfaces {
-        for (unresolved_prop_name, prop_decl) in
-            interface.borrow().property_declarations.iter().filter(|(_, prop_decl)| {
-                // Functions are expected to be implemented manually, so we don't automatically add them.
-                !matches!(prop_decl.property_type, Type::Function { .. } | Type::Callback { .. })
+        for (member_name, member_declaration) in
+            interface.borrow().property_declarations.iter().filter(|(_, property_declaration)| {
+                !matches!(property_declaration.property_type, Type::Function { .. })
             })
         {
-            apply_interface_property_declaration(
+            validate_interface_member_implementation(
                 element,
-                unresolved_prop_name,
-                prop_decl,
+                member_name,
+                member_declaration,
                 node,
                 interface_name,
                 diagnostics,
@@ -248,104 +247,59 @@ pub(super) fn apply_properties(
     }
 }
 
-pub(super) fn apply_callbacks(
-    element: &mut Element,
-    implemented_interfaces: &[ImplementedInterface],
-    diagnostics: &mut BuildDiagnostics,
-) {
-    for ImplementedInterface { interface, node, interface_name, .. } in implemented_interfaces {
-        for (unresolved_prop_name, prop_decl) in
-            interface.borrow().property_declarations.iter().filter(|(_, prop_decl)| {
-                // Functions are expected to be implemented manually, so we don't automatically add them.
-                matches!(prop_decl.property_type, Type::Callback { .. })
-            })
-        {
-            apply_interface_property_declaration(
-                element,
-                unresolved_prop_name,
-                prop_decl,
-                node,
-                interface_name,
-                diagnostics,
-            );
-        }
-    }
-}
-
-fn apply_interface_property_declaration(
-    element: &mut Element,
-    unresolved_prop_name: &SmolStr,
-    prop_declaration: &PropertyDeclaration,
-    node: &syntax_nodes::ImplementStatement,
+fn validate_interface_member_implementation(
+    element: &Element,
+    member_name: &SmolStr,
+    interface_member: &PropertyDeclaration,
+    implement_node: &syntax_nodes::ImplementStatement,
     interface_name: &SmolStr,
     diagnostics: &mut BuildDiagnostics,
 ) {
-    if matches!(prop_declaration.property_type, Type::Invalid) {
+    if matches!(interface_member.property_type, Type::Invalid) {
         // The interface's own declaration is invalid (e.g. an unknown property type). A diagnostic
-        // was already emitted when the interface was parsed, so there is nothing meaningful to apply
-        // or conflict-check here.
+        // was already emitted when the interface was parsed, so there is nothing meaningful to
+        // validate here.
         return;
     }
 
-    let lookup_result = element.lookup_property(unresolved_prop_name);
-
-    fn find_conflicting_node(
-        e: &mut Element,
-        unresolved_prop_name: &SmolStr,
-    ) -> Option<parser::SyntaxNode> {
-        e.property_declarations.get(unresolved_prop_name).and_then(|decl| decl.node.clone())
-    }
-
-    if lookup_result.property_type != Type::Invalid {
-        if lookup_result.is_local_to_component {
-            let property_type_name = match prop_declaration.property_type {
-                Type::Callback { .. } => "callback",
-                Type::Function { .. } => "function",
-                _ => "property",
-            };
-
-            let local_property_node = find_conflicting_node(element, unresolved_prop_name)
-                .expect("Expected local property to have a syntax node");
-
-            diagnostics.push_error(
-                format!(
-                    "Conflict with '{}' which declares a {} with the same name",
-                    interface_name, property_type_name
-                ),
-                &local_property_node,
-            );
-            return;
-        }
-
-        match property_matches_interface(&lookup_result, prop_declaration) {
-            Ok(()) => {
-                return;
-            }
-            Err(error) => {
-                if let Some(local_property_node) =
-                    find_conflicting_node(element, unresolved_prop_name)
-                {
-                    diagnostics.push_error(
-                        format!("Conflict with '{}' which {}", interface_name, error),
-                        &local_property_node,
-                    );
-                    return;
-                }
-            }
-        }
-    }
-
-    if let Err(message) = validate_property_declaration_for_interface(
-        InterfaceUseMode::Implements,
-        &lookup_result,
-        &element.base_type,
-        &interface_name,
-    ) {
-        diagnostics.push_error(message, &node.QualifiedName());
+    let lookup_result = element.lookup_property(member_name);
+    if lookup_result.property_type == Type::Invalid {
+        diagnostics.push_error(
+            format!("Missing '{}' from '{}'", member_name, interface_name),
+            &implement_node.QualifiedName(),
+        );
         return;
     }
 
-    element.property_declarations.insert(unresolved_prop_name.clone(), prop_declaration.clone());
+    let Err(conflict) = property_matches_interface(&lookup_result, interface_member) else {
+        return;
+    };
+
+    if !lookup_result.is_local_to_component {
+        if let Err(message) = validate_property_declaration_for_interface(
+            InterfaceUseMode::Implements,
+            &lookup_result,
+            &element.base_type,
+            &interface_name,
+        ) {
+            diagnostics.push_error(message, &implement_node.QualifiedName());
+        }
+        return;
+    }
+
+    let error = format!(
+        "Incorrect implementation of '{}' from '{}' - {}",
+        member_name, interface_name, conflict
+    );
+    let source = element
+        .property_declarations
+        .get(member_name)
+        .and_then(|declaration| declaration.node.clone())
+        .map_or_else(
+            || parser::NodeOrToken::Node(implement_node.QualifiedName().into()),
+            parser::NodeOrToken::Node,
+        );
+    diagnostics.push_error(error, &source);
 }
 
 pub(super) fn validate_function_implementations(

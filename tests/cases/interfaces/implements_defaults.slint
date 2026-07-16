@@ -14,7 +14,11 @@ interface InterfaceWithDefaults {
 export component TestCase {
     implement InterfaceWithDefaults <=> self;
 
-    confidence: 0.5;
+    in-out property <string> text;
+    out property <bool> enabled;
+    in property <int> precision;
+    in property <float> confidence: 0.5;
+    callback checked();
 
     out property <bool> test: self.text == "" && !self.enabled && self.precision == 0 && self.confidence == 0.5;
 
