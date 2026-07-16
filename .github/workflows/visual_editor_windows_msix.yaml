@@ -41,6 +41,13 @@ jobs:
           key: visual-editor-windows-msix
           save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
 
+      # For `cargo -Zscript`
+      - uses: ./.github/actions/setup-rust
+        with:
+          key: visual-editor-windows-msix
+          toolchain: nightly
+          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
+
       - uses: microsoft/setup-WinAppCli@v0.1
 
       - name: Build app for Windows
@@ -67,9 +74,15 @@ jobs:
             -FriendlyName "Slint Visual Editor CI Test Certificate" `
             -CertStoreLocation "Cert:\CurrentUser\My" `
             -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3")
+
           Write-Host "Exporting signing certificate"
           Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $password | Out-Null
           Export-Certificate -Cert $cert -FilePath $cerPath | Out-Null
+
+          Write-Host "Importing signing certificate to Root and TrustedPeople"
+          Import-Certificate -FilePath $cerPath -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
+          Import-Certificate -FilePath $cerPath -CertStoreLocation "Cert:\CurrentUser\TrustedPeople" | Out-Null
+
           "pfx_path=$pfxPath" >> $env:GITHUB_OUTPUT
           "cer_path=$cerPath" >> $env:GITHUB_OUTPUT
 
@@ -113,17 +126,16 @@ jobs:
           $cargoversion = "${{ steps.get_cargo_version.outputs.cargo_version }}"
           $slintvisualeditor_msixpath = "$env:SLINT_VISUAL_EDITOR_MSIX_PATH_PREFIX$cargoversion$env:SLINT_VISUAL_EDITOR_MSIX_PATH_SUFFIX"
           Write-Host "Signing $slintvisualeditor_msixpath with $signtool"
+
+          echo "slint_visual_editor_msix_path=$slintvisualeditor_msixpath" >> $env:GITHUB_OUTPUT
+
           & $signtool sign `
             /fd SHA256 `
             /f "${{ steps.test_certificate.outputs.pfx_path }}" `
             /p "$env:SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD" `
             "$slintvisualeditor_msixpath"
-          $signature = Get-AuthenticodeSignature "$slintvisualeditor_msixpath"
-          if (-not $signature.SignerCertificate) {
-            throw "The MSIX does not contain an Authenticode signature."
-          }
-          Write-Host "Signature status: $($signature.Status)"
-          echo "slint_visual_editor_msix_path=$slintvisualeditor_msixpath" >> $env:GITHUB_OUTPUT
+
+          & $signtool verify /pa /v "$slintvisualeditor_msixpath"
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@v7
