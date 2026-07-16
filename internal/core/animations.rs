@@ -333,10 +333,7 @@ pub fn spring_settle_progress(
 /// map a value between 0 and 1 to another value between 0 and 1 according to the curve
 ///
 /// `spring` must be `Some` when `curve` is `EasingCurve::Spring`.
-pub fn easing_curve(
-    curve: &EasingCurve,
-    value: f32,
-) -> f32 {
+pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
     match curve {
         EasingCurve::Linear => value,
         EasingCurve::CubicBezier([a, b, c, d]) => {

@@ -211,9 +211,7 @@ fn eval_expression(
             expression_tree::EasingCurve::CubicBezier(a, b, c, d) => {
                 i_slint_core::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
             }
-            expression_tree::EasingCurve::Spring => {
-                i_slint_core::animations::EasingCurve::Spring
-            }
+            expression_tree::EasingCurve::Spring => i_slint_core::animations::EasingCurve::Spring,
         }),
         Expression::LinearGradient { angle, stops } => {
             let angle = eval_expression(angle, local_context, None);
