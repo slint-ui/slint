@@ -11,10 +11,10 @@
     IgnorableNamespaces="uap uap2 uap3 uap10 desktop desktop6 rescap uap5"
     xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
 >
+  <!-- Cargo version has 3 fields, MSIX version has 4 fields, so we just unconditionally add `.0` -->
   <Identity
         Name="slintvisualeditor"
         Publisher="CN=sixtyfps"
-        <!-- Cargo version has 3 fields, MSIX version has 4 fields, so we just unconditionally add `.0` -->
         Version="{{cargo.version}}.0"
     />
   <Properties>
