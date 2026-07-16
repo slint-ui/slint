@@ -1859,6 +1859,13 @@ impl Expression {
         }
     }
 
+    pub fn ignore_debug_hooks_mut(&mut self) -> &mut Expression {
+        match self {
+            Expression::DebugHook { expression, .. } => expression.as_mut(),
+            _ => self,
+        }
+    }
+
     /// Returns true if this is a synthetic debug hook — i.e. a hook materialized for a property
     /// that had no binding in the source. Passes should treat this like `Expression::Invalid`.
     pub fn is_synthetic_debug_hook(&self) -> bool {
