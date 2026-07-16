@@ -79,7 +79,7 @@ compile_error!(
 );
 
 mod api;
-#[cfg(feature = "internal-highlight")]
+#[cfg(feature = "internal")]
 mod debug_hook;
 mod dynamic_item_tree;
 mod dynamic_type;

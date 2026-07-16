@@ -13,17 +13,17 @@ pub(crate) fn set_debug_hook_callback(
     component: Pin<&dynamic_item_tree::ItemTreeBox>,
     func: Option<DebugHookCallback>,
 ) {
-    let Some(global_storage) = component.description().compiled_globals.clone() else {
+    let Some(global_storage) = component.description().compiled_globals() else {
         return;
     };
     *(global_storage.debug_hook_callback.borrow_mut()) = func;
 }
 
-pub(crate) fn debug_hook_triggered(
+pub(crate) fn trigger_debug_hook(
     component_instance: &dynamic_item_tree::InstanceRef,
     id: SmolStr,
 ) -> Option<Value> {
-    component_instance.description.compiled_globals.clone().and_then(|global_storage| {
+    component_instance.description.compiled_globals().and_then(|global_storage| {
         let callback = global_storage.debug_hook_callback.borrow();
         callback.as_ref().and_then(|callback| callback(&id))
     })

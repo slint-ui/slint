@@ -290,7 +290,7 @@ fn set_geometry_prop(
     prop: &str,
     diag: &mut BuildDiagnostics,
 ) {
-    let old = content.borrow_mut().set_binding_overwriting(
+    let old = content.borrow_mut().set_binding(
         prop.into(),
         Expression::PropertyReference(NamedReference::new(
             tab_widget,

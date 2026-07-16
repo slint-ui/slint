@@ -1723,7 +1723,7 @@ impl ComponentInstance {
     }
 
     /// Set a callback triggered by `Expression::DebugHook``.
-    #[cfg(feature = "internal-highlight")]
+    #[cfg(feature = "internal")]
     pub fn set_debug_hook_callback(&self, callback: Option<crate::debug_hook::DebugHookCallback>) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
@@ -2386,7 +2386,7 @@ export component Foo2 inherits Window  {
 // enabled, a `set_debug_hook_callback` that reads a per-id `Property<Option<Value>>` lets the
 // editor reactively override a property's value (and revert it) without touching the source.
 // Setting the override property re-evaluates the hooked binding via Slint's dependency tracker.
-#[cfg(all(test, feature = "internal", feature = "internal-highlight"))]
+#[cfg(all(test, feature = "internal"))]
 #[test]
 fn test_debug_hook_live_override() {
     use i_slint_core::Property;
@@ -2482,7 +2482,7 @@ export component Win inherits Window {
 // *instance* element's hook id). Verifies that the defaults are preserved (regression: they
 // used to be clobbered, rendering repeated items transparent) and that instance properties
 // are live-overridable through the hook callback.
-#[cfg(all(test, feature = "internal", feature = "internal-highlight"))]
+#[cfg(all(test, feature = "internal"))]
 #[test]
 fn test_debug_hook_component_instance_override() {
     use i_slint_core::Property;
@@ -2586,7 +2586,7 @@ export component Win inherits Window {
 // plain items, elements that become component roots later (PopupWindow — plain or through
 // component inheritance), non-item types (Timer), repeated and conditional elements,
 // layouts, menus, style widgets, and tooltips with custom content.
-#[cfg(all(test, feature = "internal", feature = "internal-highlight"))]
+#[cfg(all(test, feature = "internal"))]
 #[test]
 fn test_debug_hooks_instantiate_special_elements() {
     i_slint_backend_testing::init_no_event_loop();
@@ -2656,7 +2656,7 @@ export component Win inherits Window {
 // This must NOT change the rendered result when no override is set: wrapping default-geometry
 // bindings must preserve fill/implicit sizing, and injecting the type-default for unbound props
 // must equal their unbound value (e.g. the font sentinel that drives Window inheritance).
-#[cfg(all(test, feature = "internal", feature = "internal-highlight"))]
+#[cfg(all(test, feature = "internal"))]
 #[test]
 fn test_debug_hooks_preserve_geometry() {
     i_slint_backend_testing::init_no_event_loop();

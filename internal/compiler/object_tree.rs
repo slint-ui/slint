@@ -2542,7 +2542,7 @@ impl Element {
     ///
     /// This is intended for passes like `lower_layout` that must force-set a property and need to
     /// distinguish a genuine conflict from a synthetic placeholder.
-    pub fn set_binding_overwriting(
+    pub fn set_binding(
         &mut self,
         property_name: SmolStr,
         mut new_binding: BindingExpression,

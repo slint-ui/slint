@@ -2349,7 +2349,7 @@ fn insert_cache_prop_binding(
         expr,
         layout_cache_prop.element().borrow().to_source_location(),
     );
-    if let Some(old) = elem.borrow_mut().set_binding_overwriting(prop.into(), new_binding) {
+    if let Some(old) = elem.borrow_mut().set_binding(prop.into(), new_binding) {
         diag.push_error(
             format!("The property '{prop}' cannot be set for elements placed in this layout, because the layout is already setting it"),
             &old,

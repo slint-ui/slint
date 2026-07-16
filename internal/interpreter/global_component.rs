@@ -26,7 +26,7 @@ pub struct CompiledGlobalCollection {
     /// is the normalized name of the global.
     pub exported_globals_by_name: BTreeMap<SmolStr, usize>,
 
-    #[cfg(feature = "internal-highlight")]
+    #[cfg(feature = "internal")]
     pub(crate) debug_hook_callback: RefCell<Option<crate::debug_hook::DebugHookCallback>>,
 }
 
@@ -62,7 +62,7 @@ impl CompiledGlobalCollection {
         Self {
             compiled_globals,
             exported_globals_by_name,
-            #[cfg(feature = "internal-highlight")]
+            #[cfg(feature = "internal")]
             debug_hook_callback: RefCell::new(None),
         }
     }
