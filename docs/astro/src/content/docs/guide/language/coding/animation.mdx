@@ -5,6 +5,7 @@ description: UI Animations.
 
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
+import SpringGraph from '@slint/common-files/src/components/SpringGraph.astro';
 
 Declare animations for properties with the `animate` keyword like this:
 
@@ -62,10 +63,7 @@ For permanently running animations, see <Link type="AnimationTick" label="`anima
 ### easing
 
 <SlintProperty propName="easing" typeName="easing">
-Can be any of the following. See [`easings.net`](https://easings.net/) for a visual reference:
-<a href="/docs/reference/primitive-types/#easing">easings</a>
-<br/>
-If the easing type is set to spring, either `bounce` and `duration` or `mass`, `stiffness`, and `damping` must be set.
+Can be any of the following. See [`easings.net`](https://easings.net/) for a visual reference: <Link type="easing" label="Easings"/>
 </SlintProperty>
 
 ### direction
@@ -78,9 +76,12 @@ Use this to set or change the direction of the animation.
 Controls whether the animation runs. When set to `false`, the property value changes immediately to its target without delay, easing, or iterations.
 </SlintProperty>
 
+
+## Spring Properties
+
 ### bounce
 <SlintProperty propName="bounce" typeName="float">
-The bounce of a spring. Values between 1 and 0 are bouncy (underdamped), 0 is smooth (critically damped), and values from 0 to -1 are slow (overdamped). Springs with `duration` and `bounce` aren't guaranteed to be finished after `duration` is over, but will be close to done.
+The bounce of a spring.
 </SlintProperty>
 
 ### mass
@@ -97,3 +98,29 @@ The stiffness of a spring.
 <SlintProperty propName="damping" typeName="float">
 The damping of a spring.
 </SlintProperty>
+
+## Spring Animation Types
+
+Two ways to define spring animations exist and the animation will fail to compile if properties from both types are used at the same time.
+
+The animation is considered settled (finished) once it has a low velocity and it is very close to the final position.
+
+### 1. `bounce` and `duration`
+This version provides an intuitive sense for how the spring animation will work and defaults to a critically damped spring (`bounce` = 0).
+
+Since `duration` helps define the spring's [natural frequency](https://en.wikipedia.org/wiki/Natural_frequency), the animation is not guaranteed to be done after `duration` elapses. If `bounce` is close to 0, the animation will be nearly done, however the further from 0 `bounce` is, the longer the animation will take. If `bounce` is 1, the animation will never finish.
+
+#### Bounce values
+- `bounce` = 0: Value will approach target as quickly as possible without going past
+- `bounce` > 0: Value will approach target quickly but will overshoot
+- `bounce` < 0: Value will approach target slowly
+
+### 2. `mass`, `stiffness`, and `damping`
+This version provides fine control on how exactly the spring will work, and is advised against unless needed. This does not respect `duration` and will stop once it is settled.
+
+## Spring Example
+
+<SpringGraph />
+
+### Details
+The spring's animation relies on the [natural frequency](https://en.wikipedia.org/wiki/Natural_frequency)(ω₀) and the [damping ratio](https://en.wikipedia.org/wiki/Damping#Damping_ratio)(ζ). These values are derived from `bounce`/`duration` or `mass`/`stiffness`/`damping` to feed the [mass-spring-damper model](https://en.wikipedia.org/wiki/Mass-spring-damper_model)
