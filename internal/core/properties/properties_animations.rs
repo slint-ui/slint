@@ -3,9 +3,12 @@
 
 use super::*;
 use crate::{
-    animations::physics_simulation::{
-        self, Simulation, SpringDurationBounceParameters, SpringParameters,
-        SpringPhysicalParameters, SpringRegime,
+    animations::simulations::{
+        Parameter, Simulation,
+        spring::{
+            SpringDurationBounceParameters, SpringParameters, SpringPhysicalParameters,
+            SpringRegime,
+        },
     },
     items::{AnimationDirection, PropertyAnimation},
     lengths::LogicalLength,
@@ -33,7 +36,7 @@ pub(super) struct PropertyPhysicsAnimationData<S> {
 
 impl<S> PropertyPhysicsAnimationData<S>
 where
-    S: physics_simulation::Simulation,
+    S: Simulation,
 {
     pub fn new(simulation: S) -> PropertyPhysicsAnimationData<S> {
         PropertyPhysicsAnimationData { simulation, state: AnimationState::Delaying }
@@ -456,10 +459,7 @@ unsafe impl<Unit, S: Simulation> BindingCallable<Length<crate::Coord, Unit>>
 
 impl<Unit> Property<Length<crate::Coord, Unit>> {
     /// Change the value by using a physics animation
-    pub fn set_physic_animation_value<
-        S: physics_simulation::Simulation + 'static,
-        AD: physics_simulation::Parameter<Output = S>,
-    >(
+    pub fn set_physic_animation_value<S: Simulation + 'static, AD: Parameter<Output = S>>(
         &self,
         limit_value: Pin<Box<Property<f32>>>,
         simulation_data: AD,
