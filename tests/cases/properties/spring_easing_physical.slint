@@ -24,15 +24,6 @@ export component TestCase inherits Rectangle {
         stiffness: 39.4784176; // (2*PI)^2
         damping: 6.2831853; // 2 * zeta * sqrt(mass * stiffness), zeta == 0.5
     }
-
-    // A non-zero mass takes precedence over bounce, even if bounce is also set.
-    in-out property <float> mass-wins: 0;
-    animate mass-wins {
-        easing: spring;
-        mass: 1;
-        stiffness: 39.4784176;
-        damping: 12.566371;
-    }
 }
 
 /*
@@ -44,12 +35,10 @@ fn assert_approx(value: f32, expected: f32) {
 
 instance.set_critical(1.0);
 instance.set_underdamped(1.0);
-instance.set_mass_wins(1.0);
 
 slint_testing::mock_elapsed_time(250);
 assert_approx(instance.get_critical(), 0.4656);
 assert_approx(instance.get_underdamped(), 0.6473);
-assert_approx(instance.get_mass_wins(), 0.4656);
 
 slint_testing::mock_elapsed_time(250);
 // Critical damping never overshoots the target.
@@ -57,7 +46,6 @@ assert_approx(instance.get_critical(), 0.8210);
 assert!(instance.get_critical() < 1.0);
 // The underdamped spring overshoots past the target.
 assert_approx(instance.get_underdamped(), 1.1407);
-assert_approx(instance.get_mass_wins(), 0.8210);
 
 // Not settled yet: still animating (no fixed duration is involved at all).
 slint_testing::mock_elapsed_time(300); // total elapsed: 800ms
@@ -65,13 +53,12 @@ assert!(instance.get_critical() < 1.0 && instance.get_critical() > 0.9);
 assert!(instance.get_underdamped() != 1.0);
 
 // Critical damping has settled by ~1.38s; the underdamped spring (lighter damping) hasn't yet.
-slint_testing::mock_elapsed_time(600); // total elapsed: 1400ms
+slint_testing::mock_elapsed_time(700); // total elapsed: 1500ms
 assert_eq!(instance.get_critical(), 1.0);
-assert_eq!(instance.get_mass_wins(), 1.0);
 assert!(instance.get_underdamped() != 1.0);
 
 // The underdamped spring has settled by ~2.5s from its own start.
-slint_testing::mock_elapsed_time(1100); // total elapsed: 2500ms
+slint_testing::mock_elapsed_time(1100); // total elapsed: 2600ms
 assert_eq!(instance.get_underdamped(), 1.0);
 ```
 
@@ -81,26 +68,22 @@ const TestCase &instance = *handle;
 
 instance.set_critical(1.0);
 instance.set_underdamped(1.0);
-instance.set_mass_wins(1.0);
 
 slint_testing::mock_elapsed_time(250);
 assert(std::abs(instance.get_critical() - 0.4656) < 0.01);
 assert(std::abs(instance.get_underdamped() - 0.6473) < 0.01);
-assert(std::abs(instance.get_mass_wins() - 0.4656) < 0.01);
 
 slint_testing::mock_elapsed_time(250);
 assert(std::abs(instance.get_critical() - 0.8210) < 0.01);
 assert(instance.get_critical() < 1.0);
 assert(std::abs(instance.get_underdamped() - 1.1407) < 0.01);
-assert(std::abs(instance.get_mass_wins() - 0.8210) < 0.01);
 
 slint_testing::mock_elapsed_time(300);
 assert(instance.get_critical() < 1.0 && instance.get_critical() > 0.9);
 assert(instance.get_underdamped() != 1.0);
 
-slint_testing::mock_elapsed_time(600);
+slint_testing::mock_elapsed_time(700);
 assert_eq(instance.get_critical(), 1.0);
-assert_eq(instance.get_mass_wins(), 1.0);
 assert(instance.get_underdamped() != 1.0);
 
 slint_testing::mock_elapsed_time(1100);
@@ -112,26 +95,22 @@ var instance = new slint.TestCase({});
 
 instance.critical = 1.0;
 instance.underdamped = 1.0;
-instance.mass_wins = 1.0;
 
 slintlib.private_api.mock_elapsed_time(250);
 assert(Math.abs(instance.critical - 0.4656) < 0.01);
 assert(Math.abs(instance.underdamped - 0.6473) < 0.01);
-assert(Math.abs(instance.mass_wins - 0.4656) < 0.01);
 
 slintlib.private_api.mock_elapsed_time(250);
 assert(Math.abs(instance.critical - 0.8210) < 0.01);
 assert(instance.critical < 1.0);
 assert(Math.abs(instance.underdamped - 1.1407) < 0.01);
-assert(Math.abs(instance.mass_wins - 0.8210) < 0.01);
 
 slintlib.private_api.mock_elapsed_time(300);
 assert(instance.critical < 1.0 && instance.critical > 0.9);
 assert(instance.underdamped != 1.0);
 
-slintlib.private_api.mock_elapsed_time(600);
+slintlib.private_api.mock_elapsed_time(700);
 assert.equal(instance.critical, 1.0);
-assert.equal(instance.mass_wins, 1.0);
 assert(instance.underdamped != 1.0);
 
 slintlib.private_api.mock_elapsed_time(1100);

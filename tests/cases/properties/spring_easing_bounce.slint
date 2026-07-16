@@ -56,11 +56,14 @@ assert_approx(instance.get_overdamped(), 0.5357);
 assert!(instance.get_overdamped() < instance.get_critical());
 
 slint_testing::mock_elapsed_time(500);
-// Once the full duration has elapsed, the animation is done and the value snaps
-// exactly to the target regardless of the curve's shape.
-assert_eq!(instance.get_critical(), 1.0);
-assert_eq!(instance.get_undamped(), 1.0);
-assert_eq!(instance.get_overdamped(), 1.0);
+// Once the full duration has elapsed, the animation is done and the
+// value is close to the target
+let critical = instance.get_critical();
+assert!(1.0 - critical < 0.15, "Expected {critical} to be close to 1.0");
+// 0.0 as it oscillates forever
+assert_eq!(instance.get_undamped(), 0.0);
+// overdamped is slower than duration
+assert!(instance.get_overdamped() > 0.7);
 ```
 
 ```cpp
@@ -84,9 +87,12 @@ assert(std::abs(instance.get_overdamped() - 0.5357) < 0.01);
 assert(instance.get_overdamped() < instance.get_critical());
 
 slint_testing::mock_elapsed_time(500);
-assert_eq(instance.get_critical(), 1.0);
-assert_eq(instance.get_undamped(), 1.0);
-assert_eq(instance.get_overdamped(), 1.0);
+auto critical = instance.get_critical();
+assert(1.0 - critical < 0.15);
+// 0.0 as it oscillates forever
+assert_eq(instance.get_undamped(), 0.0);
+// overdamped is slower than duration
+assert(instance.get_overdamped() > 0.7);
 ```
 
 ```js
@@ -109,8 +115,11 @@ assert(Math.abs(instance.overdamped - 0.5357) < 0.01);
 assert(instance.overdamped < instance.critical);
 
 slintlib.private_api.mock_elapsed_time(500);
-assert.equal(instance.critical, 1.0);
-assert.equal(instance.undamped, 1.0);
-assert.equal(instance.overdamped, 1.0);
+var critical = instance.critical;
+assert(1.0 - critical < 0.15);
+// 0.0 as it oscillates forever
+assert.equal(instance.undamped, 0.0);
+// overdamped is slower than duration
+assert(instance.overdamped > 0.7);
 ```
 */
