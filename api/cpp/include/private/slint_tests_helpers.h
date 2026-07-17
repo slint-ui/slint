@@ -60,6 +60,11 @@ inline void send_keyboard_string_sequence(const Component *component,
                                                           &component->window().window_handle());
 }
 
+inline void set_system_accent_color(slint::Color color)
+{
+    cbindgen_private::slint_testing_set_system_accent_color(color.as_argb_encoded());
+}
+
 template<typename Component>
 inline void set_use_native_popup(const Component *component, bool native)
 {
