@@ -1023,12 +1023,14 @@ fn check_window_properties(doc: &Document, global_analysis: &mut GlobalAnalysis)
                             .get(DEFAULT_FONT_SIZE)
                             .is_some_and(|a| a.is_set)
                     {
+                        // Do not ignore debug hooks here. They make the expression variable, so the
+                        // const-check would incorrectly mark the font size as const, even if it is
+                        // not.
                         let value = elem.borrow().binding(DEFAULT_FONT_SIZE).and_then(|e| match e
                             .expression
-                            .ignore_debug_hooks()
                         {
                             Expression::NumberLiteral(v, crate::expression_tree::Unit::Px) => {
-                                Some(*v as f32)
+                                Some(v as f32)
                             }
                             _ => None,
                         });
