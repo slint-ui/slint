@@ -99,7 +99,7 @@ fn whitespace_text(whitespace: Whitespace) -> String {
 /// changes (zero shift or single-line comment); whitespace-only lines stay
 /// untouched to avoid introducing trailing whitespace. Leading tabs count as
 /// one column each and are normalized to spaces.
-fn shift_continuation_lines(text: &str, column_shift: i32) -> Option<String> {
+pub(crate) fn shift_continuation_lines(text: &str, column_shift: i32) -> Option<String> {
     if column_shift == 0 || !text.contains('\n') {
         return None;
     }

@@ -741,7 +741,7 @@ impl IdempotencyGuard {
 }
 
 /// The text of every [`Atom::Literal`] among `atoms`, in attachment order.
-fn literal_texts(atoms: &[AtomInstance]) -> impl Iterator<Item = &str> {
+pub(crate) fn literal_texts(atoms: &[AtomInstance]) -> impl Iterator<Item = &str> {
     atoms.iter().filter_map(|instance| match &instance.atom {
         Atom::Literal(text) => Some(text.as_str()),
         _ => None,
@@ -763,7 +763,7 @@ fn delete_ranges(markers: &[(TextRange, Marker)]) -> Vec<TextRange> {
 /// range only when it extends past every kept range so far therefore yields
 /// the outermost spans, deduplicated. Kept ends increase strictly, so the
 /// last kept range is the running maximum — comparing against it suffices.
-fn normalize_leaf_ranges(markers: &[(TextRange, Marker)]) -> Vec<TextRange> {
+pub(crate) fn normalize_leaf_ranges(markers: &[(TextRange, Marker)]) -> Vec<TextRange> {
     let mut ranges: Vec<TextRange> = markers
         .iter()
         .filter(|(_, marker)| *marker == Marker::Leaf)
@@ -780,11 +780,11 @@ fn normalize_leaf_ranges(markers: &[(TextRange, Marker)]) -> Vec<TextRange> {
 }
 
 /// The index of the sorted, disjoint leaf range that contains `offset`, if any.
-fn containing_leaf(offset: TextSize, leaf_ranges: &[TextRange]) -> Option<usize> {
+pub(crate) fn containing_leaf(offset: TextSize, leaf_ranges: &[TextRange]) -> Option<usize> {
     leaf_ranges.iter().position(|range| range.contains(offset))
 }
 
-fn net_indentation(atoms: &[AtomInstance]) -> i32 {
+pub(crate) fn net_indentation(atoms: &[AtomInstance]) -> i32 {
     atoms
         .iter()
         .map(|instance| match instance.atom {
@@ -899,19 +899,19 @@ fn route_atom(
 /// comments).
 /// Whether a slot's gap touches a document edge: the gap before the first
 /// significant token (`start`), the gap before the terminating Eof (`end`).
-struct DocumentEdges {
-    start: bool,
-    end: bool,
+pub(crate) struct DocumentEdges {
+    pub start: bool,
+    pub end: bool,
 }
 
 /// The outcome of resolving one gap: its whitespace and comment
 /// instructions, and the indentation level after the gap's indent atoms.
-struct GapResolution {
-    instructions: Vec<Instruction>,
-    indentation_level: i32,
+pub(crate) struct GapResolution {
+    pub instructions: Vec<Instruction>,
+    pub indentation_level: i32,
 }
 
-fn resolve_gap(
+pub(crate) fn resolve_gap(
     slot: &TokenSlot,
     slot_index: usize,
     append_atoms: &[AtomInstance],
