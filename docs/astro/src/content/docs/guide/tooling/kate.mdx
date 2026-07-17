@@ -11,18 +11,7 @@ Therefore, we'll set up the syntax highlighting first.
 
 ### Syntax Highlighting
 
-Kate has built-in support for highlighting Slint files since KDE Frameworks 6.27. The current Frameworks version can checked under the "Help" -> "About Kate" menu. Since this release is new as of time of writing, you can still find manual installation instructions below.
-
-The highlighting syntax file needs to be copied into a location where Kate can find it. See the [Kate documentation](https://docs.kde.org/stable_kf6/en/kate/katepart/highlight.html#katehighlight-xml-format) more information.
-
-On Linux, this can be done by running this command
-
-```sh
-mkdir -p ~/.local/share/org.kde.syntax-highlighting/syntax/
-wget https://invent.kde.org/frameworks/syntax-highlighting/-/raw/master/data/syntax/slint.xml -O ~/.local/share/org.kde.syntax-highlighting/syntax/slint.xml
-```
-
-On Windows, download [slint.xml](https://invent.kde.org/frameworks/syntax-highlighting/-/raw/master/data/syntax/slint.xml) into `%USERPROFILE%\AppData\Local\org.kde.syntax-highlighting\syntax`
+Kate has built-in support for highlighting Slint files since KDE Frameworks 6.27. The current Frameworks version can checked under the "Help" -> "About Kate" menu.
 
 ### LSP
 
