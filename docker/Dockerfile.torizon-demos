@@ -36,7 +36,9 @@ WORKDIR /slint
 RUN mkdir demos_compiled \
     && cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia,slint/backend-linuxkms-noseat \
         -p printerdemo -p slide_puzzle -p gallery -p opengl_underlay -p carousel -p todo -p energy-monitor -p weather-demo \
-    && for demo in printerdemo slide_puzzle gallery opengl_underlay carousel todo energy-monitor weather-demo; do \
+    && cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia,slint/backend-linuxkms-noseat \
+        -p slint-viewer \
+    && for demo in printerdemo slide_puzzle gallery opengl_underlay carousel todo energy-monitor weather-demo slint-viewer; do \
         cp target/$RUST_TOOLCHAIN_ARCH/release/$demo ./demos_compiled/; \
     done \
     && if [ "$BUILD_HOME_AUTOMATION_SW_RENDERER" = "true" ]; then \
@@ -54,7 +56,7 @@ FROM --platform=${IMAGE_ARCH} torizon/${BASE_NAME}:${BASE_VERSION} AS deploy
 ARG BUILD_HOME_AUTOMATION_SW_RENDERER
 
 LABEL org.opencontainers.image.source=https://github.com/slint-ui/slint
-LABEL org.opencontainers.image.description="Container image providing Slint demos for use on Torizon. Run with docker run  --user=torizon -v /run/udev:/run/udev -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' --device-cgroup-rule='c 13:* rmw' --device-cgroup-rule='c 4:* rmw'. Available demos: printerdemo slide_puzzle gallery opengl_underlay carousel todo"
+LABEL org.opencontainers.image.description="Container image providing Slint demos for use on Torizon. Run with docker run  --user=torizon -v /run/udev:/run/udev -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' --device-cgroup-rule='c 13:* rmw' --device-cgroup-rule='c 4:* rmw'. Available demos: printerdemo slide_puzzle gallery opengl_underlay carousel todo. slint-viewer is included to use the device as a remote live-preview target."
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install libfontconfig1 libxkbcommon0 libinput10 fonts-noto-core fonts-noto-cjk fonts-noto-cjk-extra fonts-noto-color-emoji fonts-noto-ui-core fonts-noto-ui-extra \
