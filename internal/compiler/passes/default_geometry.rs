@@ -365,18 +365,18 @@ fn fix_percent_size(
     symbol_counters: &SymbolCounters,
 ) -> bool {
     let elem = elem.borrow();
-    // Note: access the bindings map directly here, this reads synthetic debug hook expressions
-    // instead of discarding them.
-    let Some(binding) = elem.bindings.get(property) else {
+    let Some(mut binding) = elem.binding_mut(property) else {
         return false;
     };
 
-    if binding.borrow().ty() != Type::Percent {
+    if binding.ty() != Type::Percent {
         let Some(parent) = parent.as_ref() else { return false };
         // Pattern match to check it was already parent.<property>
-        return matches!(binding.borrow().expression.ignore_debug_hooks(), Expression::PropertyReference(nr) if *nr.name() == property && Rc::ptr_eq(&nr.element(), parent));
+        //
+        // Note: do not ignore debug hooks here, the debug hook may overwrite the expression
+        // so it may not fill after all.
+        return matches!(&binding.expression, Expression::PropertyReference(nr) if *nr.name() == property && Rc::ptr_eq(&nr.element(), parent));
     }
-    let mut b = binding.borrow_mut();
     if let Some(mut parent) = parent.clone() {
         if parent.borrow().is_flickable_viewport {
             // the `%` in a flickable need to refer to the size of the flickable, not the size of the viewport
@@ -386,12 +386,14 @@ fn fix_percent_size(
             parent.borrow().lookup_property(property).property_type,
             Type::LogicalLength
         );
-        let fill = matches!(b.expression.ignore_debug_hooks(),
+        // do not ignore debug hooks here, the debug hook may overwrite the expression
+        // so it may not fill after all.
+        let fill = matches!(binding.expression,
             Expression::NumberLiteral(x, _) if (x - 100.).abs() < 0.001);
-        b.expression = Expression::BinaryExpression {
-            lhs: Box::new(std::mem::take(&mut b.expression).maybe_convert_to(
+        binding.expression = Expression::BinaryExpression {
+            lhs: Box::new(std::mem::take(&mut binding.expression).maybe_convert_to(
                 Type::Float32,
-                &b.span,
+                &binding.span,
                 diag,
                 symbol_counters,
             )),
@@ -403,7 +405,10 @@ fn fix_percent_size(
         };
         fill
     } else {
-        diag.push_error("Cannot find parent property to apply relative length".into(), &b.span);
+        diag.push_error(
+            "Cannot find parent property to apply relative length".into(),
+            &binding.span,
+        );
         false
     }
 }
