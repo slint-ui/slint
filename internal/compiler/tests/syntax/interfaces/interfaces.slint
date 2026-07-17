@@ -80,12 +80,12 @@ export component ImplementInNonRootElement {
 
 export component ImplementOnParent {
     implement Inverter <=> parent;
-//                         >    <error{Cannot implement an interface on a parent element}
+//                         >    <error{Cannot implement an interface based on a parent element}
 }
 
 export component ImplementOnRoot {
     implement Inverter <=> root;
-//                         >  <error{Cannot implement an interface on the root element; use 'self' instead}
+//                         >  <error{Cannot implement an interface based on the root element; use 'self' instead}
 }
 
 export component ChildImplicitlyImplements {

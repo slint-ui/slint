@@ -98,12 +98,15 @@ fn resolve_implement_statement(
     let interface_name = QualifiedTypeName::from_node(qualified_name.clone()).to_smolstr();
     let target_id = parser::identifier_text(&node.DeclaredIdentifier()).unwrap_or_default();
 
-    if let Some(message) = match target_id.as_str() {
-        "parent" => Some("Cannot implement an interface on a parent element"),
-        "root" => Some("Cannot implement an interface on the root element; use 'self' instead"),
+    if let Some(target) = match target_id.as_str() {
+        "parent" => Some("a parent element"),
+        "root" => Some("the root element; use 'self' instead"),
         _ => None,
     } {
-        diag.push_error(message.into(), &node.DeclaredIdentifier());
+        diag.push_error(
+            format!("Cannot implement an interface based on {}", target),
+            &node.DeclaredIdentifier(),
+        );
         return None;
     }
 
