@@ -496,6 +496,7 @@ Randriana
 rasterizer
 rasterizes
 RBUTTONUP
+recompiles
 rects
 redoable
 REFR
