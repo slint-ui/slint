@@ -136,14 +136,25 @@ flat (1 flip beats 3 flips), whereas today any input newline in the measure
 span breaks the whole group. `InputSoftline` stops being a special atom under
 this design: it is simply a single-gap group carrying a deviation penalty.
 
-Idempotency, which today rests on an informal argument, becomes provable. On
-a second run the chosen layout *is* the input, so its deviation is 0. Any
-competitor either has worse overflow (loses at tier 1 — a layout's overflow
-does not depend on the input), or agrees with the chosen layout on every
-penalized group, in which case it already competed on equal terms in the
-first run and lost on height. So the first run's winner wins again. The one
-requirement is deterministic tie-breaking, which the paper's left-biased
-merge already provides.
+Idempotency, which today rests on an informal argument, becomes provable —
+for the core case: **untainted resolutions**, given the flatten rule from
+the implementation sketch (a single-line body never contains a newline). On
+a second run the chosen layout *is* the input, so its deviation is 0 at
+every explicit choice point. A competitor either has worse overflow (loses
+at tier 1 — a layout's overflow does not depend on the input; conditional
+literals render the same text per variant in both runs), or has equal
+overflow and deviation ≥ 1 (loses at tier 2), or agrees with the winner on
+every explicit choice point — then it already competed on equal terms in
+run 1 and lost on height or on the deterministic tie-break. Note the
+tie-break must be specified in our own `dedup`/`merge` (keep the earlier
+measure on exact ties); the paper's left bias covers only the all-tainted
+case. Two cases sit outside this proof: **tainted output** has no
+optimality property — there idempotency follows separately from the taint
+bias (the input-matching variant sits left, and taintedness itself
+reproduces because widths do not depend on the input); and **documents
+whose comment geometry changes between runs** — R2 routing can move a
+group's newline past a trailing comment, so the second run sees different
+sub-gap shapes. That last case is the remaining comments open question.
 
 ## Decided: dynamic rules via conditional atoms
 
@@ -190,16 +201,29 @@ point. Internally a condition is stored as `(span, variant)` with variants
 layout styles (e.g. fill-wrapped arrays) extend the engine without touching
 the atom vocabulary.
 
+One deliberate restriction keeps the rest of the architecture sound:
+**conditions attach to `Literal` atoms and the `delete()` marker only** —
+never to whitespace or indentation atoms. Whitespace already has its
+conditional mechanism (the softline is *the* way a group controls
+whitespace), and unconditional indent atoms are what make every potential
+newline's indent computable before the search (see the implementation
+sketch — the resolver's memo key depends on it). Two debug assertions
+guard the boundary: a conditionally deleted token must not carry
+`IndentStart`/`IndentEnd` atoms, and a `Literal`'s text must not contain a
+newline.
+
 Two engine obligations come with this:
 
 - **Spans used as choice identities must nest or be disjoint** — a choice
   tree cannot represent partial overlap. Node-derived spans satisfy this
   automatically; hand-constructed spans (the `PropertyAnimation` target
   list) are covered by a debug assertion.
-- **A line comment inside a group's span removes the single-line variant**
-  at document-build time — flattening would swallow the rest of the line
-  into the comment. This is a constraint (one branch deleted), not a
-  condition, and is invisible to rules.
+- **Any fixed newline inside a group's span removes the single-line
+  variant** at document-build time: a line comment (flattening would
+  swallow the rest of the line into it), an own-line comment (R1 forces
+  its newline), a `Hardline`, a verbatim newline in a gap no rule engaged,
+  or a multi-line block comment or `Leaf` range. This is a constraint (one
+  branch deleted), not a condition, and is invisible to rules.
 
 ### `separated_by` (the sugar)
 
@@ -320,17 +344,70 @@ Scope of this sketch: no `align`, no fill-wrapping — binary groups only.
 `page_width` (where overflow starts to hurt) and `computation_width` (W, where
 the search gives up optimizing) stay configurable parameters.
 
-The pipeline gains two steps inside phase 2; everything else is unchanged:
+The pipeline gains two steps inside phase 2. Annotation, linearization and
+rendering are untouched — but per-gap resolution is **not**: it moves inside
+document construction and runs once per (gap, variant):
 
 ```text
 annotate (unchanged)
   ──▶ linearize (unchanged)
-  ──▶ per-gap tier merge & comment sub-gaps (unchanged)
   ──▶ NEW: build the choice document
+        — per-gap resolution (tier merge, Antispace, comment sub-gaps,
+          engagement) moves INTO this step, run once per (gap, variant)
   ──▶ NEW: resolve = search for the cheapest variant assignment
   ──▶ emit FormatPlan (as today, but reading group decisions from the search)
   ──▶ render (unchanged)
 ```
+
+### Why per-gap resolution moves inside document construction
+
+The base design resolves every gap once, in one linear pass. Under the
+search, that pass would need the group decisions — which do not exist yet.
+Three concrete dependencies force the per-variant split:
+
+1. **Conditional deletes change which atoms meet in a gap.** A deleted
+   token's own atoms are discarded, and the following gap sources its
+   append-side atoms from the last *emitted* token. With
+   `delete_if_single_line`, which token that is depends on the variant.
+2. **Comment routing (R2) routes by resolved strength.** In the multiline
+   variant a group's newline transfers past a trailing comment (`{ // note`
+   keeps the comment hanging, the break lands after it); in the single-line
+   variant the space stays before the comment. Even the *order* of
+   whitespace and comment in the output differs per variant — and comment
+   position affects line width, so none of this can wait until plan
+   emission.
+3. **Engagement is per variant.** A gap whose only atom is
+   `Literal(",").if_multiline(…)` is engaged in that variant and verbatim
+   in the other.
+
+So the builder calls `resolve_gap(gap, variant)`: today's merge machinery —
+tier-first/strength-second, Antispace cancellation, sub-gap splitting,
+R1–R3 anchoring — with the controlling group's variant substituted for the
+softline measurement. It returns the gap's document sequence (whitespace
+and comment `Text` docs, in routed order). `InputSoftline` keeps its
+abstention semantics for free: in the single-line variant it abstains and
+the remaining atoms merge exactly as they do today.
+
+### Which group controls a gap
+
+Atoms with *different* spans can meet in one gap (the tier-1 comma softline
+measures its context node; a tier-3 rule's softline may carry a hand-built
+span). The controlling group is decided the way today's merge would decide
+it, so the two designs agree wherever they overlap:
+
+- The winning **tier** at a gap does not depend on any variant, so it is
+  decided up front. If the winning tier contains a softline, the gap is
+  group-controlled ("controlled" = its outcome varies with that group's
+  variant); among several softlines in the winning tier, the one with the
+  **innermost span** controls.
+- An outer group's softline landing at a gap strictly inside an inner
+  group's span is **captured** by the inner group: it breaks when the
+  inner group goes multiline and flattens when it goes single-line.
+- Two softlines whose spans neither nest nor are disjoint cannot be
+  represented in a choice tree — debug-assert against this (no current
+  rule produces it).
+- A group can end up controlling no gap at all (everything captured by
+  inner groups); its choice is degenerate and the builder drops it.
 
 ### Data types
 
@@ -343,9 +420,13 @@ enum Variant { SingleLine, Multiline }
 /// The lexicographic cost triple. Compared field by field, in this order.
 struct Cost {
     overflow: u64,   // sum of squared characters past page_width
-    deviation: u32,  // number of groups decided against the input
-    height: u32,     // number of newlines
+    deviation: u32,  // number of explicit choices decided against the input
+    height: u32,     // number of Newline docs (a blank-line upgrade still counts 1)
 }
+
+// Saturating: columns left of page_width cost nothing (and u32 subtraction
+// must not underflow).
+fn squared_excess(x: u32) -> u64 { (x.saturating_sub(page_width) as u64).pow(2) }
 
 impl Cost {
     fn add(a: Cost, b: Cost) -> Cost { /* component-wise sum */ }
@@ -356,33 +437,57 @@ impl Cost {
     /// costs the same as placing it at once (the cost-factory "splitting"
     /// contract — a plain per-piece square would violate it):
     fn text(column: u32, length: u32) -> Cost {
-        fn squared_excess(x: u32) -> u64 { max(x - page_width, 0)^2 }
         Cost { overflow: squared_excess(column + length) - squared_excess(column), ..zero }
     }
-    fn newline() -> Cost { Cost { height: 1, ..zero } }
+    /// A newline must charge the indentation it emits: otherwise breaking
+    /// at an indent beyond page_width looks free, and the search would
+    /// prefer many overflowing short lines over the least-bad compromise.
+    /// (The paper's practical implementation makes nl a function of the
+    /// indent for exactly this reason.)
+    fn newline(indent_width: u32) -> Cost {
+        Cost { overflow: squared_excess(indent_width), height: 1, ..zero }
+    }
     fn deviation() -> Cost { Cost { deviation: 1, ..zero } }
 }
 
-/// The choice document. A tree built once per format run; nodes are
-/// referenced by id so the resolver can memoize on them.
+// Why the deviation constant is sound — the paper's verified optimality
+// theorem does NOT cover per-site costs (its practical `cost` construct is
+// explicitly left unformalized), so we owe our own short argument: each
+// penalty is a constant added uniformly to every measure of one branch,
+// BEFORE that branch is first merged (and therefore pruned) against its
+// sibling. Adding a constant preserves domination between measures of the
+// same branch (lexicographic order over the triple is translation-
+// invariant), so no measure pruned inside a branch could have beaten a
+// survivor once the penalty applies; and across branches the penalty is
+// already in place when pruning first compares them.
+
+/// The choice document. Built once per format run; nodes are referenced by
+/// id so the resolver can memoize on them.
 enum Doc {
-    /// A significant token or a comment (anything with a width),
-    /// referencing the linearization. Conditional literals appear as
-    /// `Text` too, included only in the variant they belong to.
-    Text { slot: SlotRef, width: u32 },
-    /// A decided line break. The indent is baked in at build time: indent
-    /// atoms are unconditional, so a running counter over the boundaries
-    /// fixes every potential newline's indent level before the search.
-    /// (This is why the sketch needs no `nest` node and no indent in the
-    /// memo key — a real simplification over the paper.)
+    /// A SINGLE-LINE run of characters: a token, one line of a comment, a
+    /// space, or a conditional literal's text — never contains a newline.
+    /// Multi-line verbatim items (block comments, multi-line Leaf ranges)
+    /// are expanded by the builder into
+    ///   Text(first line) · Newline(fixed) · … · Text(last line)
+    /// so their width and overflow are counted per line, and the column
+    /// after them is the LAST line's length — one Text with the total
+    /// width would compute garbage columns and taint spuriously.
+    Text { source: SlotOrLiteral, width: u32 },
+    /// A line break — either fixed (R1 comment newlines, Hardline, the
+    /// verbatim newlines of unengaged gaps and Leaf ranges) or emitted by
+    /// a group's multiline body. The indent is baked in at build time:
+    /// indent atoms are never conditional (enforced in the dynamic-rules
+    /// section), so a running counter over the boundaries fixes every
+    /// potential newline's indent level before the search. (This is why
+    /// the sketch needs no `nest` node and no indent in the memo key — a
+    /// real simplification over the paper.)
     Newline { indent_width: u32 },
-    Space,
     Concat(Vec<DocId>),
-    /// One group. `single_line` is None when flattening is forbidden
-    /// (a line comment or a Hardline inside the span).
+    /// One group. Built only when flattening is permitted — otherwise the
+    /// builder emits the multiline body directly (see build_group).
     Choice {
         group: GroupId,
-        single_line: Option<DocId>,
+        single_line: DocId,
         multiline: DocId,
         /// Which variant deviates from the input layout (pays Cost::deviation()).
         penalized: Variant,
@@ -394,30 +499,34 @@ enum Doc {
 struct Measure {
     last_line_width: u32,
     cost: Cost,
-    /// The decisions taken so far: GroupId -> Variant. A persistent
-    /// (structurally shared) map — measures fork off each other constantly.
-    decisions: SharedMap<GroupId, Variant>,
+    /// The decisions taken so far, as an O(1)-append persistent list of
+    /// (GroupId, Variant) entries — flattened into a map once, at top
+    /// level. (A persistent-map union per combine() would multiply the
+    /// complexity by the group count.)
+    decisions: DecisionList,
 }
 
-/// A Pareto frontier, sorted by last_line_width descending / cost strictly
-/// ascending — or a single lazily computed fallback once we blew past W.
+/// A Pareto frontier — sorted by cost strictly ascending, which on a valid
+/// frontier means last_line_width strictly DESCENDING: cheap layouts end in
+/// long last lines; paying more buys a shorter last line for the suffix to
+/// start from — or a single lazily computed fallback once we blew past W.
 enum MeasureSet {
-    Set(Vec<Measure>),          // at most W+1 entries, see dedup()
-    Tainted(Lazy<Measure>),     // greedy, no optimality claim
+    Set(Vec<Measure>),          // at most W+1 entries (distinct widths in 0..=W)
+    Tainted(Lazy<Measure>),     // greedy, no optimality claim, MUST stay unevaluated
 }
 ```
 
 ### Building the document
 
-Input: the token slots, the per-gap merged atom decisions (existing
-machinery), and the set of groups (every distinct span carried by a softline
-or conditional atom, plus one single-gap group per `InputSoftline`). The
-groups' spans form a forest by nesting; tokens and fixed gaps hang off the
-innermost group containing them.
+Input: the token slots and atom stores from phase 1, and the set of groups
+(every distinct span carried by a softline or conditional atom, plus one
+single-gap group per `InputSoftline`). The groups' spans form a forest by
+nesting; tokens and gaps hang off the group that controls them (see "Which
+group controls a gap" above).
 
 ```rust
 fn build_document() -> DocId {
-    // Walk the span forest from the root. Each group builds exactly two
+    // Walk the span forest from the root. Each group builds at most two
     // docs — its multiline body and its flattened body — each built once
     // and shared, so the document stays linear in the input size.
     build_group(root_span)
@@ -426,11 +535,13 @@ fn build_document() -> DocId {
 fn build_group(group) -> DocId {
     let multiline = build_body(group, Variant::Multiline);
     match build_flat(group) {
-        // Flattening forbidden: not a real choice, just use the broken form.
+        // Flattening forbidden: not a real choice. No Choice node exists,
+        // so this GroupId is never recorded in any decision list — see the
+        // lookup rule in emit_plan.
         None => multiline,
         Some(single_line) => alloc(Doc::Choice {
             group: group.id,
-            single_line: Some(single_line),
+            single_line,
             multiline,
             penalized: if group.input_was_multiline { Variant::SingleLine }
                        else                         { Variant::Multiline },
@@ -442,31 +553,33 @@ fn build_body(group, variant) -> DocId {
     let mut parts = Vec::new();
     for item in group.items_in_source_order() {
         match item {
-            Token(slot)      => parts.push(text_doc(slot)),
-            Comment(slot)    => parts.push(text_doc(slot)),
-            // A conditional atom / delete contributes only to its variant:
+            Token(slot)          => parts.push(text_doc(slot)),
+            // Conditional literals / deletes contribute only to their variant:
             ConditionalLiteral(text, for_variant) if for_variant == variant
-                             => parts.push(literal_doc(text)),
+                                 => parts.push(literal_doc(text)),
             DeletedToken(slot, for_variant)
-                             => if for_variant != variant { parts.push(text_doc(slot)) },
-            // Gaps controlled by THIS group follow the variant:
-            GroupGap(gap)    => parts.push(match variant {
-                Variant::Multiline  => alloc(Doc::Newline { indent_width: gap.indent }),
-                Variant::SingleLine => flat_whitespace(gap), // Space or nothing
-            }),
-            // Fixed gaps keep their already-decided whitespace:
-            FixedGap(gap)    => parts.push(fixed_whitespace_doc(gap)),
+                                 => if for_variant != variant { parts.push(text_doc(slot)) },
+            // EVERY gap goes through per-variant gap resolution (tier
+            // merge, comments, sub-gaps, R1-R3 routing — see above). For a
+            // gap controlled by this group, `variant` decides its softline;
+            // fixed gaps ignore it. The result is a small doc sequence:
+            // Text(" ") / Newline / nothing, interleaved with comment
+            // Text docs in routed order.
+            Gap(gap)             => parts.extend(resolve_gap(gap, variant)),
             // Inner groups stay open choices in the multiline body:
-            InnerGroup(g)    => parts.push(build_group(g)),
+            InnerGroup(g)        => parts.push(build_group(g)),
         }
     }
     alloc(Doc::Concat(parts))
 }
 
 /// The single-line body: like build_body(SingleLine), but inner groups are
-/// forced single-line recursively (a newline inside a flattened span is
-/// impossible). Returns None if the span contains a line comment, a
-/// Hardline, or an inner group that itself cannot flatten.
+/// forced single-line recursively. Returns None if the built body contains
+/// ANY Newline doc, of whatever origin: a line comment, an own-line comment
+/// (R1 forces its newline), a Hardline, a verbatim newline in an unengaged
+/// gap, a multi-line block comment or Leaf range, or an inner group that
+/// itself cannot flatten. Checking the BUILT body for Newline docs is
+/// mechanical — there is no case list to keep in sync.
 fn build_flat(group) -> Option<DocId>
 ```
 
@@ -478,7 +591,7 @@ fn build_flat(group) -> Option<DocId>
 /// the document.
 fn resolve(doc: DocId, column: u32) -> MeasureSet {
     match doc {
-        Doc::Text { width, .. } | Doc::Space => {
+        Doc::Text { width, .. } => {
             if column + width > computation_width {
                 MeasureSet::Tainted(lazy_single_measure(doc, column))
             } else {
@@ -491,7 +604,11 @@ fn resolve(doc: DocId, column: u32) -> MeasureSet {
         }
         Doc::Newline { indent_width } => {
             if indent_width > computation_width { /* Tainted, as above */ }
-            set_of_one(Measure { last_line_width: indent_width, cost: Cost::newline(), .. })
+            set_of_one(Measure {
+                last_line_width: indent_width,
+                cost: Cost::newline(indent_width),
+                decisions: empty,
+            })
         }
         Doc::Concat(parts) => {
             // Fold left. For each surviving measure of the prefix, resolve
@@ -503,17 +620,20 @@ fn resolve(doc: DocId, column: u32) -> MeasureSet {
             result
         }
         Doc::Choice { group, single_line, multiline, penalized } => {
-            let flat = single_line.map(|d| {
-                resolve(d, column)
-                    .tag(group, Variant::SingleLine)          // record the decision
-                    .penalize_if(penalized == Variant::SingleLine)
-            });
+            // tag() and penalize_if() COPY the measure vector before
+            // modifying it: the child body and its memo entry are shared
+            // with other parents (notably every enclosing group's flat
+            // body), which must not see this group's tag or penalty. The
+            // post-tag result is memoized under the Choice's own id only.
+            let flat = resolve(single_line, column)
+                .tag(group, Variant::SingleLine)          // record the decision
+                .penalize_if(penalized == Variant::SingleLine);
             let broken = resolve(multiline, column)
                 .tag(group, Variant::Multiline)
                 .penalize_if(penalized == Variant::Multiline);
-            // Put the input-matching side LEFT: merge is left-biased when
-            // both are tainted, so a hopeless overflow degrades to "keep
-            // the author's layout" — today's behavior.
+            // Put the input-matching side LEFT: merge keeps the left side
+            // when BOTH are tainted, so a hopeless overflow degrades to
+            // "keep the author's layout" — today's behavior.
             merge(in_input_order(flat, broken))
         }
     }
@@ -522,17 +642,25 @@ fn resolve(doc: DocId, column: u32) -> MeasureSet {
 fn concat_sets(left: MeasureSet, right_doc: DocId) -> MeasureSet {
     match left {
         Set(measures) => {
-            // Resolve the suffix once per distinct prefix end-column,
-            // combine, then re-establish the Pareto frontier.
-            let combined = measures.flat_map(|m| {
+            // Resolve the suffix once per distinct prefix end-column, then
+            // MERGE the per-prefix results. The Set-preferring merge means
+            // one prefix whose suffix taints does NOT taint the others —
+            // the result is Tainted only if every prefix's suffix tainted
+            // (paper Fig. 15, ConcatRS). Tainting the whole concat because
+            // one too-wide prefix candidate existed would let an
+            // irrelevant sibling flip an enclosing Choice.
+            let per_prefix = measures.map(|m| {
                 match resolve(right_doc, m.last_line_width) {
-                    Set(suffixes) => suffixes.map(|s| combine(m, s)),
-                    Tainted(lazy) => /* whole result becomes Tainted(combine(m, lazy)) */,
+                    Set(suffixes) => Set(dedup(suffixes.map(|s| combine(m, s)))),
+                    // combine under the SAME Lazy — nothing forced here:
+                    Tainted(lazy) => Tainted(lazy_combine(m, lazy)),
                 }
             });
-            dedup(combined)
+            per_prefix.reduce(merge)
         }
-        Tainted(lazy_prefix) => Tainted(/* force prefix, resolve suffix greedily, combine */),
+        // Force the prefix, resolve the suffix greedily, combine — ALL of
+        // it inside the returned Lazy, or the work bound past W is lost:
+        Tainted(lazy_prefix) => Tainted(lazy_concat(lazy_prefix, right_doc)),
     }
 }
 
@@ -540,72 +668,109 @@ fn combine(prefix: Measure, suffix: Measure) -> Measure {
     Measure {
         last_line_width: suffix.last_line_width,
         cost: Cost::add(prefix.cost, suffix.cost),
-        decisions: prefix.decisions.union(suffix.decisions), // disjoint by construction
+        decisions: prefix.decisions.append(suffix.decisions), // O(1), disjoint by construction
     }
 }
 
-/// Keep only the Pareto frontier: sort by last_line_width descending,
-/// keep entries whose cost strictly decreases. Distinct integer widths
-/// in 0..=W bound the frontier at W+1 entries.
+/// Keep only the Pareto frontier. Sort by cost ascending (on equal cost:
+/// width ascending; on equal cost AND width keep the earlier measure —
+/// the deterministic tie-break idempotency relies on). Then keep a measure
+/// iff its last_line_width is strictly smaller than every measure already
+/// kept. Distinct integer widths in 0..=W bound the frontier at W+1
+/// entries.
+/// (Getting this backwards — walking width-descending and filtering for
+/// DECREASING cost — silently keeps only the cheapest measure and discards
+/// the short-last-line candidates the frontier exists for. Unit-test this
+/// function against hand-built frontiers.)
 fn dedup(measures: Vec<Measure>) -> MeasureSet
 
-/// Merge two frontiers (mergesort-style + dedup). Prefer Set over
-/// Tainted; if both are Tainted, keep the LEFT one (greedy fallback).
+/// Merge two frontiers (mergesort by cost + the dedup width filter, left
+/// preferred on exact ties). Prefer Set over Tainted; if both are Tainted,
+/// keep the LEFT one (greedy fallback).
 fn merge(a: MeasureSet, b: MeasureSet) -> MeasureSet
 ```
 
 ### Top level and plan emission
 
 ```rust
-fn resolve_widths(document_root: DocId) -> SharedMap<GroupId, Variant> {
+fn resolve_widths(document_root: DocId) -> Decisions {
     match resolve(document_root, /* column */ 0) {
-        Set(measures)  => measures.min_by(cost).decisions,  // provably optimal within W
-        Tainted(lazy)  => lazy.force().decisions,           // best effort, still valid
+        // Frontier costs are strictly ascending, so the optimum is simply
+        // the FIRST entry — deterministic by construction.
+        Set(measures)  => measures.first().decisions.flatten_to_map(), // optimal within W
+        Tainted(lazy)  => lazy.force().decisions.flatten_to_map(),     // best effort, still valid
     }
 }
 
 fn emit_plan(decisions) -> FormatPlan {
     // Exactly today's phase-2 output step, except a group-controlled gap
-    // asks `decisions[group]` instead of measuring input multilineness:
+    // asks the decision map instead of measuring input multilineness:
     //   Multiline  -> ReplaceGap Newline { indent level, blank-line upgrade
     //                 if AllowBlankLines and the input had one }
     //   SingleLine -> ReplaceGap Space / None
     // Conditional literals emit only in their variant; a conditionally
     // deleted token becomes DeleteToken only in its variant.
     // Fixed gaps, comment sub-gaps, Leaf ranges: unchanged.
+    //
+    // A group can be MISSING from the map. The lookup rule:
+    //   recorded                   -> as recorded
+    //   absent + flattenable       -> SingleLine (it was inlined into an
+    //                                 ancestor's chosen flat body — the only
+    //                                 way a flattenable group goes undecided)
+    //   absent + flatten-forbidden -> Multiline (its Choice never existed)
+    //
+    // Consequence: deviation is counted per EXPLICIT choice point; a group
+    // flattened implicitly by an ancestor pays no penalty of its own.
+    // (Flattening never reduces overflow, so such a candidate always
+    // carries the ancestor's own penalty when it deviates — the undercount
+    // cannot flip a decision by itself, but it IS a divergence from the
+    // literal "number of groups that flip the author's layout" wording.)
 }
 ```
 
 ### Notes for the implementer
 
-- **Indent is static.** Indent atoms are unconditional, so every potential
-  newline's indent level is known before the search. That removes the
-  paper's `nest`/`align` constructs and the indent component of the memo
-  key — our memo key is `(doc, column)` instead of the paper's
-  `(doc, column, indent)`.
-- **Blank lines and comments** stay engine-core mechanics at plan-emission
-  time, outside the search. Comments participate only as `Text` (their
-  width counts toward overflow) and as the flatten-forbidder.
+- **Indent is static — but only because the dynamic-rules section enforces
+  it.** Conditions exist on `Literal` and `delete()` only, never on
+  whitespace or indent atoms, and a conditionally deleted token must not
+  carry `IndentStart`/`IndentEnd` (debug assertion). Those restrictions
+  are what license the missing `nest` construct and the `(doc, column)`
+  memo key — the paper needs `(doc, column, indent)`.
+- **Blank-line upgrades and own-line-comment re-indentation** stay
+  engine-core mechanics at plan-emission time. Comments participate in the
+  search as `Text` docs (width counts toward overflow) and `Newline` docs
+  (which also forbid flattening); `height` counts Newline docs, so a
+  blank-line upgrade is one unit like any other — an accepted, documented
+  approximation.
 - **Taint bias**: ordering the input-matching variant left means "all
   options overflow W" degrades to the author's layout, which is what the
   formatter does today.
 - **Laziness matters.** `Tainted` must stay unevaluated unless it is the
-  only option — that is what bounds work past the width limit (the paper's
-  Section 6.3).
+  only option — including through `concat_sets`, where combining goes
+  *inside* the returned Lazy. That is what bounds work past the width
+  limit (the paper's Section 6.3).
 - **Cost::text must telescope.** The squared-excess-difference form is not
   optional; a naive per-piece square breaks the "splitting a string costs
   the same as placing it whole" contract and with it the optimality proof.
-- **Debug assertions**: group spans nest or are disjoint; `Hardline` only
-  at Document top level or inside never-flattened groups; decision maps
-  union disjointly.
+  Likewise `Cost::newline` must charge its indent, or overflow at deep
+  indentation becomes invisible to the search.
+- **Debug assertions**: group spans nest or are disjoint; no conditional
+  indent atoms; no newline inside a `Literal`'s text; a chosen SingleLine
+  variant renders without newlines (the successor of the base design's
+  "no Hardline inside a single-line softline span" assertion); decision
+  lists concatenate disjointly.
 
 ## Open questions (to resolve in the concrete plan)
 
-- **Comments.** Line width obviously must include comments, so they need to
-  enter the measured document as `text`, and the R1–R3 anchoring rules must
-  compose with choice resolution. (One piece is decided: a line comment
-  inside a group's span removes the single-line variant, see the dynamic
-  rules section.)
+- **Comment geometry across runs.** How comments enter the search is now
+  specified (they become `Text`/`Newline` docs, `resolve_gap` runs the
+  R1–R3 anchoring once per variant, and any comment-forced newline forbids
+  flattening). What remains open is *cross-run stability*: R2 routing can
+  move a group's newline past a trailing comment, so the second run sees
+  different sub-gap shapes than the first — the idempotency proof does not
+  cover this. Either show the routed shape is a fixpoint (corpus check),
+  or make comment-adjacent group boundaries resolve identically in both
+  runs by construction. Decide during implementation.
 - **`align`.** The paper supports column alignment; our design has only
   indent levels. Do we want it? (Nothing forces us to adopt it.)
 - **Page width and W.** What page width do we format to, and what
