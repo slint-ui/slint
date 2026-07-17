@@ -159,6 +159,118 @@ impl EventLoopState {
             runtime_window.process_mouse_input(MouseEvent::Moved { position, touch_finger_id: 0 });
         }
     }
+
+    /// Hand a native drag built by `WinitWindowAdapter::start_drag` to winit, now that the
+    /// `ActiveEventLoop` is in hand.
+    ///
+    /// Falls back to the in-window drag if the native start fails, so the gesture isn't lost.
+    fn start_drag_if_pending(&mut self, event_loop: &dyn ActiveEventLoop) {
+        let Some(drag) = self.shared_backend_data.pending_drag.borrow_mut().take() else {
+            return;
+        };
+
+        if event_loop.start_drag(drag.window_id, drag.data, &drag.actions, drag.icon).is_err()
+            && let Some(window) = self.shared_backend_data.window_by_id(drag.window_id)
+        {
+            WindowInner::from_pub(window.window()).start_in_window_drag();
+        }
+    }
+
+    /// Dispatch an incoming native drag as a `DragMove` (or `Drop`) to the item tree, using
+    /// the data accumulated for `id`, and return the action a `DropArea` negotiated.
+    fn dispatch_incoming_drag(
+        &self,
+        runtime_window: &WindowInner,
+        id: winit::data_transfer::DataTransferId,
+        proposed: corelib::items::DragAction,
+        is_drop: bool,
+    ) -> corelib::items::DragAction {
+        let data = self
+            .shared_backend_data
+            .incoming_transfers
+            .borrow()
+            .get(&id)
+            .cloned()
+            .unwrap_or_default();
+        let mut drop_event = corelib::items::DropEvent::default();
+        drop_event.data = data;
+        drop_event.position =
+            corelib::api::LogicalPosition::new(self.cursor_pos.x, self.cursor_pos.y);
+        drop_event.proposed_action = proposed;
+        // The OS already negotiated the source's allowed actions, so let any DropArea choice
+        // through.
+        let allowed = corelib::items::AllowedDragActions { copy: true, move_: true, link: true };
+        let event = if is_drop {
+            MouseEvent::Drop { event: drop_event, allowed }
+        } else {
+            MouseEvent::DragMove { event: drop_event, allowed }
+        };
+        runtime_window
+            .process_mouse_input(event)
+            .and_then(|r| r.drag_action)
+            .unwrap_or(corelib::items::DragAction::None)
+    }
+
+    /// Dispatch a `DragMove` for an incoming drag and report the resulting valid actions to the
+    /// OS. Called once the payload has arrived, so `can-drop` sees the real data.
+    fn dispatch_and_report_incoming(
+        &self,
+        event_loop: &dyn ActiveEventLoop,
+        runtime_window: &WindowInner,
+        id: winit::data_transfer::DataTransferId,
+        proposed: corelib::items::DragAction,
+    ) {
+        let action = self.dispatch_incoming_drag(runtime_window, id, proposed, false);
+        let _ = event_loop.set_valid_dnd_actions(id, slint_action_to_dnd(action).as_slice());
+    }
+
+    /// Whether the payload of the incoming drag `id` has arrived (via `DataTransferReceived`).
+    fn has_incoming_data(&self, id: winit::data_transfer::DataTransferId) -> bool {
+        self.shared_backend_data.incoming_transfers.borrow().contains_key(&id)
+    }
+}
+
+/// Map a winit drag action to Slint's `DragAction`. A `None` (e.g. unknown) action becomes
+/// `DragAction::None`.
+fn dnd_action_to_slint(action: Option<winit::event_loop::DndAction>) -> corelib::items::DragAction {
+    use corelib::items::DragAction;
+    use winit::event_loop::DndAction;
+    match action {
+        Some(DndAction::Move) => DragAction::Move,
+        Some(DndAction::Copy) => DragAction::Copy,
+        Some(DndAction::Link) => DragAction::Link,
+        Some(DndAction::Ask) | Some(DndAction::Private) | None => DragAction::None,
+    }
+}
+
+/// The action proposed by the OS for an incoming drag, defaulting to `Copy` when the platform
+/// did not supply one (some platforms, such as X11, only report the action when the drop
+/// completes).
+fn proposed_action_or_copy(
+    action: Option<winit::event_loop::DndAction>,
+) -> corelib::items::DragAction {
+    let action = dnd_action_to_slint(action);
+    if action == corelib::items::DragAction::None {
+        corelib::items::DragAction::Copy
+    } else {
+        action
+    }
+}
+
+/// Map a `DropArea`'s chosen action to the single valid winit drag action to report to the OS,
+/// or `None` to reject the drag. Returned as an `Option` so the per-event report on the drag
+/// hot path needs no allocation.
+fn slint_action_to_dnd(action: corelib::items::DragAction) -> Option<winit::event_loop::DndAction> {
+    use corelib::items::DragAction;
+    match action {
+        DragAction::Move => Some(winit::event_loop::DndAction::Move),
+        DragAction::Copy => Some(winit::event_loop::DndAction::Copy),
+        DragAction::Link => Some(winit::event_loop::DndAction::Link),
+        DragAction::None => None,
+        // `DragAction` is `#[non_exhaustive]`, so a catch-all is still required.
+        #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
+        _ => None,
+    }
 }
 
 impl winit::application::ApplicationHandler for EventLoopState {
@@ -419,6 +531,15 @@ impl winit::application::ApplicationHandler for EventLoopState {
                     if let Some(finger_id) = self.map_touch_finger_id(finger_id, phase) {
                         runtime_window.process_touch_input(finger_id, pos, phase);
                     }
+                } else if self.pressed {
+                    // A held-button move may cross a DragArea's threshold and start a native
+                    // drag. That must happen while the platform's pointer grab is still active,
+                    // so dispatch it now instead of buffering (a deferred start gets cancelled).
+                    self.pending_mouse_move = None;
+                    runtime_window.process_mouse_input(MouseEvent::Moved {
+                        position: pos,
+                        touch_finger_id: 0,
+                    });
                 } else {
                     // winit sends this event at a very high frequency. So, bunch up consecutive
                     // cursor moved events and dispatch them as soon as any other kind of event
@@ -561,8 +682,69 @@ impl winit::application::ApplicationHandler for EventLoopState {
                     phase: winit_touch_phase(phase),
                 });
             }
+            // A native drag we started has finished. The core knows which drag is in flight, so
+            // we only report the negotiated action (`None` for a cancel).
+            WindowEvent::OutgoingDragDropped { action, .. } => {
+                runtime_window.report_drag_finished(dnd_action_to_slint(action));
+            }
+            WindowEvent::OutgoingDragCanceled { .. } => {
+                runtime_window.report_drag_finished(corelib::items::DragAction::None);
+            }
+            // An incoming native drag (maybe from another app) entered or moved over the window.
+            // Fetch the data lazily, dispatch it to the DropAreas, and report which actions are
+            // valid so the OS shows the right cursor.
+            WindowEvent::DragEntered { id, position } => {
+                // Fetch the payload. We can only tell whether a DropArea accepts it, and report
+                // the valid actions to the OS, once it arrives (in `DataTransferReceived` below).
+                let _ =
+                    event_loop.fetch_data_transfer(id, &winit::data_transfer::TypeHint::Plaintext);
+                if let Some(position) = position {
+                    let pos = position.to_logical(runtime_window.scale_factor() as f64);
+                    self.cursor_pos = euclid::point2(pos.x, pos.y);
+                }
+            }
+            WindowEvent::DragPosition { id, position, proposed_action } => {
+                let pos = position.to_logical(runtime_window.scale_factor() as f64);
+                self.cursor_pos = euclid::point2(pos.x, pos.y);
+                // Only evaluate once the payload has arrived, so `can-drop` sees the data.
+                if self.has_incoming_data(id) {
+                    let proposed = proposed_action_or_copy(proposed_action);
+                    self.dispatch_and_report_incoming(event_loop, runtime_window, id, proposed);
+                }
+            }
+            WindowEvent::DragDropped { id, proposed_action } => {
+                let proposed = proposed_action_or_copy(proposed_action);
+                self.dispatch_incoming_drag(runtime_window, id, proposed, true);
+                self.shared_backend_data.incoming_transfers.borrow_mut().remove(&id);
+            }
+            WindowEvent::DragLeft { id } => {
+                runtime_window.process_mouse_input(MouseEvent::Exit);
+                self.shared_backend_data.incoming_transfers.borrow_mut().remove(&id);
+            }
+            WindowEvent::DataTransferReceived { id, value, .. } => {
+                if let Ok(text) = value.try_as_string() {
+                    self.shared_backend_data
+                        .incoming_transfers
+                        .borrow_mut()
+                        .entry(id)
+                        .or_default()
+                        .set_plain_text(text.into());
+                    // The payload is now available: evaluate the DropAreas at the current
+                    // position and report the valid actions to the OS.
+                    self.dispatch_and_report_incoming(
+                        event_loop,
+                        runtime_window,
+                        id,
+                        corelib::items::DragAction::Copy,
+                    );
+                }
+            }
             _ => {}
         }
+
+        // A `DragArea` may have requested a native drag above; start it now while the
+        // `ActiveEventLoop` is in hand.
+        self.start_drag_if_pending(event_loop);
 
         if self.loop_error.is_some() {
             event_loop.exit();

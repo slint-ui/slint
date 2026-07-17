@@ -41,7 +41,7 @@ use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
 use corelib::lengths::LogicalLength;
 use corelib::platform::{PlatformError, WindowEvent};
-use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
+use corelib::window::{DragRequest, WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::{Coord, graphics::*};
 use i_slint_core::{self as corelib};
 use winit::cursor::CustomCursorSource;
@@ -1433,6 +1433,50 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             let _ = winit_window.drag_window();
         }
+    }
+
+    fn start_drag(&self, request: &DragRequest) -> bool {
+        // winit's drag API lives on the `ActiveEventLoop`, only reachable inside the event
+        // handler. Build the transfer now and stash it; the handler hands it to winit.
+        let Some(winit_window) = self.winit_window() else {
+            return false;
+        };
+        // Only plain text is sent natively for now; without it, fall back to the in-window drag.
+        let Some(text) = request.data().plain_text().ok().filter(|t| !t.is_empty()) else {
+            return false;
+        };
+        let data = winit::data_transfer::DataTransferSendBuilder::new(text.to_string())
+            .with_type(winit::data_transfer::TypeHint::Plaintext, |text: &String, _| {
+                Some(text.clone())
+            })
+            .build();
+        let allowed = request.allowed_actions();
+        let mut actions = Vec::new();
+        if allowed.move_ {
+            actions.push(winit::event_loop::DndAction::Move);
+        }
+        if allowed.copy {
+            actions.push(winit::event_loop::DndAction::Copy);
+        }
+        if allowed.link {
+            actions.push(winit::event_loop::DndAction::Link);
+        }
+        let drag_image = request.drag_image();
+        let image_size = drag_image.size();
+        let icon = icon_to_winit(
+            drag_image.clone(),
+            euclid::Size2D::new(image_size.width as Coord, image_size.height as Coord),
+        )
+        .map(|icon| winit::event_loop::DragIcon {
+            icon,
+            // Slint's `drag-image-offset` is the point of the image under the cursor; winit's
+            // offset is the image's top-left relative to the cursor.
+            offset_x: -request.drag_image_offset().x,
+            offset_y: -request.drag_image_offset().y,
+        });
+        *self.shared_backend_data.pending_drag.borrow_mut() =
+            Some(crate::PendingNativeDrag { window_id: winit_window.id(), data, actions, icon });
+        true
     }
 
     fn set_mouse_cursor(&self, cursor: MouseCursorInner) {
