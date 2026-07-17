@@ -9,4 +9,5 @@ pub mod rules;
 mod tests;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tool;
+pub mod width;
 pub mod writer;
