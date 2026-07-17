@@ -36,7 +36,7 @@ An interface can be exported with `export interface`.
 ## Implementing an interface
 
 A component declares that it implements an interface with an `implement I <=> self;` statement in its body.
-The component may override property defaults. The component must provide an implementation of the functions listed in the interface, with matching types and signatures.
+The component must provide an implementation of the functions listed in the interface, with matching types and signatures.
 
 An `implement` statement's target must be `self` or the id of a child element (see delegation below), and the statement
 is only allowed directly in a component's root element, not in a nested child element. `root` and `parent` are not valid
@@ -58,7 +58,7 @@ export component MyText {
 }
 ```
 
-A component can combine `implement <=> self` with `inherits`:
+A component can combine `implement` with `inherits`:
 
 ```slint no-test
 component MyText inherits Rectangle {
@@ -67,7 +67,8 @@ component MyText inherits Rectangle {
 }
 ```
 
-A component can implement more than one interface, each with its own `implement <=> self;` statement.
+A component can implement more than one interface, each with its own `implement` statement. Multiple `implement`
+statements exposing properties, callbacks or functions with the same name is an error.
 
 ## Delegating to a child with `implement <=> child`
 
@@ -82,7 +83,6 @@ component Container {
 ```
 
 The named child must satisfy the interface API (directly or through its own delegation) the listed interface.
-If two `implement` statements expose properties with the same name, the first one wins and a diagnostic is emitted for the conflict.
 
 ## Full example
 
