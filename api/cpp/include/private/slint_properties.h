@@ -21,8 +21,8 @@ inline void slint_property_set_animated_binding_helper(
         void *user_data, void (*drop_user_data)(void *),
         cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t **))
 {
-    cbindgen_private::slint_property_set_animated_binding_int(handle, binding, user_data,
-                                                              drop_user_data, transition_data);
+    cbindgen_private::slint_property_set_animated_binding_object_int(
+            handle, binding, user_data, drop_user_data, transition_data);
 }
 
 inline void slint_property_set_animated_binding_helper(
@@ -30,8 +30,8 @@ inline void slint_property_set_animated_binding_helper(
         void *user_data, void (*drop_user_data)(void *),
         cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t **))
 {
-    cbindgen_private::slint_property_set_animated_binding_float(handle, binding, user_data,
-                                                                drop_user_data, transition_data);
+    cbindgen_private::slint_property_set_animated_binding_object_float(
+            handle, binding, user_data, drop_user_data, transition_data);
 }
 
 inline void slint_property_set_animated_binding_helper(
@@ -39,8 +39,8 @@ inline void slint_property_set_animated_binding_helper(
         void *user_data, void (*drop_user_data)(void *),
         cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t **))
 {
-    cbindgen_private::slint_property_set_animated_binding_color(handle, binding, user_data,
-                                                                drop_user_data, transition_data);
+    cbindgen_private::slint_property_set_animated_binding_object_color(
+            handle, binding, user_data, drop_user_data, transition_data);
 }
 
 inline void slint_property_set_animated_binding_helper(
@@ -48,8 +48,8 @@ inline void slint_property_set_animated_binding_helper(
         void *user_data, void (*drop_user_data)(void *),
         cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t **))
 {
-    cbindgen_private::slint_property_set_animated_binding_brush(handle, binding, user_data,
-                                                                drop_user_data, transition_data);
+    cbindgen_private::slint_property_set_animated_binding_object_brush(
+            handle, binding, user_data, drop_user_data, transition_data);
 }
 
 template<typename T>
@@ -307,10 +307,8 @@ template<>
 inline void Property<int32_t>::set_animated_value(
         const int32_t &new_value, const cbindgen_private::PropertyAnimation &animation_data) const
 {
-    // Use get() (not the raw cached value) so the from-value reflects the binding's
-    // current value even if the binding was never evaluated yet (e.g. set in `init`).
-    cbindgen_private::slint_property_set_animated_value_int(&inner, get(), new_value,
-                                                            &animation_data);
+    cbindgen_private::slint_property_set_animated_value_object_int(&inner, new_value,
+                                                                   &animation_data);
 }
 
 template<>
@@ -318,8 +316,8 @@ inline void
 Property<float>::set_animated_value(const float &new_value,
                                     const cbindgen_private::PropertyAnimation &animation_data) const
 {
-    cbindgen_private::slint_property_set_animated_value_float(&inner, get(), new_value,
-                                                              &animation_data);
+    cbindgen_private::slint_property_set_animated_value_object_float(&inner, new_value,
+                                                                     &animation_data);
 }
 
 template<>
@@ -327,8 +325,8 @@ inline void
 Property<Color>::set_animated_value(const Color &new_value,
                                     const cbindgen_private::PropertyAnimation &animation_data) const
 {
-    cbindgen_private::slint_property_set_animated_value_color(&inner, get(), new_value,
-                                                              &animation_data);
+    cbindgen_private::slint_property_set_animated_value_object_color(&inner, new_value,
+                                                                     &animation_data);
 }
 
 template<typename F>

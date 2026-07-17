@@ -189,27 +189,29 @@ fn eval_expression(
             local_context.local_variables.get(name).cloned().unwrap_or_default()
         }
         Expression::EasingCurve(curve) => Value::EasingCurve(match curve {
-            expression_tree::EasingCurve::Linear => i_slint_core::animations::EasingCurve::Linear,
+            expression_tree::EasingCurve::Linear => {
+                i_slint_core::animations::easings::EasingCurve::Linear
+            }
             expression_tree::EasingCurve::EaseInElastic => {
-                i_slint_core::animations::EasingCurve::EaseInElastic
+                i_slint_core::animations::easings::EasingCurve::EaseInElastic
             }
             expression_tree::EasingCurve::EaseOutElastic => {
-                i_slint_core::animations::EasingCurve::EaseOutElastic
+                i_slint_core::animations::easings::EasingCurve::EaseOutElastic
             }
             expression_tree::EasingCurve::EaseInOutElastic => {
-                i_slint_core::animations::EasingCurve::EaseInOutElastic
+                i_slint_core::animations::easings::EasingCurve::EaseInOutElastic
             }
             expression_tree::EasingCurve::EaseInBounce => {
-                i_slint_core::animations::EasingCurve::EaseInBounce
+                i_slint_core::animations::easings::EasingCurve::EaseInBounce
             }
             expression_tree::EasingCurve::EaseOutBounce => {
-                i_slint_core::animations::EasingCurve::EaseOutBounce
+                i_slint_core::animations::easings::EasingCurve::EaseOutBounce
             }
             expression_tree::EasingCurve::EaseInOutBounce => {
-                i_slint_core::animations::EasingCurve::EaseInOutBounce
+                i_slint_core::animations::easings::EasingCurve::EaseInOutBounce
             }
             expression_tree::EasingCurve::CubicBezier(a, b, c, d) => {
-                i_slint_core::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
+                i_slint_core::animations::easings::EasingCurve::CubicBezier([*a, *b, *c, *d])
             }
         }),
         Expression::LinearGradient { angle, stops } => {

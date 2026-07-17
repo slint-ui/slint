@@ -64,7 +64,8 @@ pub fn set_property_binding<
     })
 }
 
-pub fn set_animated_property_binding<
+/// Creates an animated binding driven each frame by `update_animation_objects()`
+pub fn set_animated_property_binding_object<
     T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
     StrongRef: StrongItemTreeRef + 'static,
 >(
@@ -78,7 +79,7 @@ pub fn set_animated_property_binding<
 ) {
     let weak_1 = component_strong.to_weak();
     let weak_2 = weak_1.clone();
-    property.set_animated_binding(
+    property.set_animated_binding_object(
         move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak_1).unwrap()),
         move || {
             compute_animation_details(<StrongRef as StrongItemTreeRef>::from_weak(&weak_2).unwrap())
@@ -175,7 +176,7 @@ pub mod re_exports {
     pub use i_slint_core::accessibility::{
         AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
     };
-    pub use i_slint_core::animations::{EasingCurve, animation_tick, current_tick};
+    pub use i_slint_core::animations::{animation_tick, current_tick, easings::EasingCurve};
     pub use i_slint_core::api::LogicalPosition;
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::context::SlintContext;

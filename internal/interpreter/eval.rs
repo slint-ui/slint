@@ -463,15 +463,21 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             local_context.local_variables.get(name).unwrap().clone()
         }
         Expression::EasingCurve(curve) => Value::EasingCurve(match curve {
-            EasingCurve::Linear => corelib::animations::EasingCurve::Linear,
-            EasingCurve::EaseInElastic => corelib::animations::EasingCurve::EaseInElastic,
-            EasingCurve::EaseOutElastic => corelib::animations::EasingCurve::EaseOutElastic,
-            EasingCurve::EaseInOutElastic => corelib::animations::EasingCurve::EaseInOutElastic,
-            EasingCurve::EaseInBounce => corelib::animations::EasingCurve::EaseInBounce,
-            EasingCurve::EaseOutBounce => corelib::animations::EasingCurve::EaseOutBounce,
-            EasingCurve::EaseInOutBounce => corelib::animations::EasingCurve::EaseInOutBounce,
+            EasingCurve::Linear => corelib::animations::easings::EasingCurve::Linear,
+            EasingCurve::EaseInElastic => corelib::animations::easings::EasingCurve::EaseInElastic,
+            EasingCurve::EaseOutElastic => {
+                corelib::animations::easings::EasingCurve::EaseOutElastic
+            }
+            EasingCurve::EaseInOutElastic => {
+                corelib::animations::easings::EasingCurve::EaseInOutElastic
+            }
+            EasingCurve::EaseInBounce => corelib::animations::easings::EasingCurve::EaseInBounce,
+            EasingCurve::EaseOutBounce => corelib::animations::easings::EasingCurve::EaseOutBounce,
+            EasingCurve::EaseInOutBounce => {
+                corelib::animations::easings::EasingCurve::EaseInOutBounce
+            }
             EasingCurve::CubicBezier(a, b, c, d) => {
-                corelib::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
+                corelib::animations::easings::EasingCurve::CubicBezier([*a, *b, *c, *d])
             }
         }),
         Expression::MouseCursor(cursor) => Value::MouseCursorInner(match cursor {
