@@ -68,7 +68,9 @@ jobs:
               run: |
                   python3 -m pip install auditwheel patchelf
                   python3 -m auditwheel repair --exclude '*' -w repaired wheelhouse/*.whl
-                  rm wheelhouse/*.whl && mv repaired/*.whl wheelhouse/
+                  # The aarch64/armv7 wheels are built by maturin in a container
+                  # as root, so the wheelhouse is root-owned; swap as root.
+                  sudo rm wheelhouse/*.whl && sudo mv repaired/*.whl wheelhouse/
             - name: Store the distribution packages
               uses: actions/upload-artifact@v7
               with:
@@ -93,7 +95,9 @@ jobs:
               run: |
                   python3 -m pip install auditwheel patchelf
                   python3 -m auditwheel repair --exclude '*' -w repaired wheelhouse/*.whl
-                  rm wheelhouse/*.whl && mv repaired/*.whl wheelhouse/
+                  # The aarch64/armv7 wheels are built by maturin in a container
+                  # as root, so the wheelhouse is root-owned; swap as root.
+                  sudo rm wheelhouse/*.whl && sudo mv repaired/*.whl wheelhouse/
             - name: Store the development distribution packages
               uses: actions/upload-artifact@v7
               with:
