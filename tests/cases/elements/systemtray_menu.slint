@@ -34,6 +34,10 @@ export component TestCase inherits SystemTrayIcon {
         }
     }
 
+    // `show()`/`hide()` set the item's `visible` behind the compiler's back;
+    // this binding checks that readers of `visible` stay reactive to that.
+    out property <bool> shown: self.visible;
+
     out property <bool> test: true;
 }
 
@@ -41,12 +45,22 @@ export component TestCase inherits SystemTrayIcon {
 ```rust
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
+assert!(instance.get_shown());
+instance.hide().unwrap();
+assert!(!instance.get_shown());
+instance.show().unwrap();
+assert!(instance.get_shown());
 ```
 
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
+assert(instance.get_shown());
+handle->hide();
+assert(!instance.get_shown());
+handle->show();
+assert(instance.get_shown());
 
 // Compile-time check: a SystemTrayIcon-rooted component must not expose a
 // `window()` member. If a future change adds one, this fires. Wrapping
