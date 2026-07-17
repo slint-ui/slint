@@ -20,8 +20,19 @@ pub fn handle_visible(
 ) {
     // SystemTrayIcon uses `visible` as a real reactive property (toggling the tray
     // icon's presence) rather than the lower-to-Clip layout sugar. Skip the
-    // warning + lowering for tray-rooted components.
+    // warning + lowering for tray-rooted components. The language bindings'
+    // `show()`/`hide()` write `visible` directly on the native item, behind the
+    // compiler's back — mark it as externally set so bindings reading it aren't
+    // const-folded to its initial value.
     if component.inherits_system_tray_icon() {
+        component
+            .root_element
+            .borrow()
+            .property_analysis
+            .borrow_mut()
+            .entry(SmolStr::new_static("visible"))
+            .or_default()
+            .is_set_externally = true;
         return;
     }
 
