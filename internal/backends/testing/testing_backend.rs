@@ -53,6 +53,8 @@ pub fn mock_elapsed_time(time_in_ms: u64) {
     });
     i_slint_core::timers::TimerList::maybe_activate_timers(tick);
     i_slint_core::properties::ChangeTracker::run_change_handlers();
+    // Happens after change handlers so changing the running prop happens on the same frame
+    i_slint_core::animations::update_animation_objects();
     ensure_all_tracked_trees_instantiated();
 }
 

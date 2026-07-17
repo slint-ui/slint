@@ -954,7 +954,7 @@ fn handle_property_init(
                         let anim = compile_expression(anim, ctx);
                         quote! { {
                             #init_self_pin_ref
-                            slint::private_unstable_api::set_animated_property_binding(
+                            slint::private_unstable_api::set_animated_property_binding_object(
                                 #rust_property, &self_rc, #binding_tokens, move |self_rc| {
                                     #init_self_pin_ref
                                     (#anim, None)
@@ -964,7 +964,7 @@ fn handle_property_init(
                     Some(llr::Animation::Transition(animation)) => {
                         let animation = compile_expression(animation, ctx);
                         quote! {
-                            slint::private_unstable_api::set_animated_property_binding(
+                            slint::private_unstable_api::set_animated_property_binding_object(
                                 #rust_property, &self_rc, #binding_tokens, move |self_rc| {
                                     #init_self_pin_ref
                                     let (animation, change_time) = #animation;
@@ -2894,8 +2894,9 @@ fn property_set_value_tokens(
         let mut animation = (*animation).clone();
         map.map_expression(&mut animation);
         let animation_tokens = compile_expression(&animation, ctx);
-        return prop
-            .then(|prop| quote!(#prop.set_animated_value(#value_tokens as _, #animation_tokens)));
+        return prop.then(
+            |prop| quote!(#prop.set_animated_value_object(#value_tokens as _, #animation_tokens)),
+        );
     }
     prop.then(|prop| quote!(#prop.set(#value_tokens as _)))
 }

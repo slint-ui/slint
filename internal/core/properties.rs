@@ -297,7 +297,9 @@ type DependencyListHead = dependency_tracker::DependencyListHead<*const BindingH
 type DependencyNode = dependency_tracker::DependencyNode<*const BindingHolder>;
 
 use alloc::boxed::Box;
-use core::cell::{Cell, RefCell, UnsafeCell};
+#[cfg(slint_debug_property)]
+use core::cell::RefCell;
+use core::cell::{Cell, UnsafeCell};
 use core::ffi::c_void;
 use core::marker::PhantomPinned;
 use core::pin::Pin;

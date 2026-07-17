@@ -1232,7 +1232,7 @@ pub struct PropertyAnimation {
     #[rtti_field]
     pub direction: AnimationDirection,
     #[rtti_field]
-    pub easing: crate::animations::EasingCurve,
+    pub easing: crate::animations::easings::EasingCurve,
     #[rtti_field]
     pub enabled: bool,
 }

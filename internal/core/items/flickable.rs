@@ -11,7 +11,9 @@ use super::{
     VoidArg,
 };
 use crate::animations::Instant;
-use crate::animations::physics_simulation::ConstantDecelerationParameters;
+use crate::animations::physics_simulation;
+use crate::animations::physics_simulation::{ConstantDecelerationParameters, Parameter};
+use crate::animations::{Animation, handle::AnimationHandle, physics::PhysicsAnimation};
 use crate::input::InternalKeyEvent;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent, TouchPhase,
@@ -109,13 +111,21 @@ impl Item for Flickable {
                 let vpy = flick.viewport_y();
                 let p = ensure_in_bound(flick, LogicalPoint::from_lengths(vpx, vpy), &flick_rc);
 
+                // Don't override a viewport that is currently being driven by a kinetic-scroll
+                // animation (it reads the recomputed limit and re-clamps itself), nor one carrying
+                // a user binding.
+                let (x_animating, y_animating) = {
+                    let inner = flick.data.inner.borrow();
+                    (inner.physics_animation_x.is_running(), inner.physics_animation_y.is_running())
+                };
+
                 let x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
-                if *x_out_of_bounds && !x.has_binding() {
+                if *x_out_of_bounds && !x.has_binding() && !x_animating {
                     x.set(p.x_length());
                 }
 
                 let y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
-                if *y_out_of_bounds && !y.has_binding() {
+                if *y_out_of_bounds && !y.has_binding() && !y_animating {
                     y.set(p.y_length());
                 }
             },
@@ -403,6 +413,67 @@ enum CaptureEvents {
     MouseWheel,
 }
 
+/// A persistent physics object driving kinetic-scroll for one axis. Reused  across flicks instead of
+/// reallocated on every flick; only allocates once, the first time it's actually started.
+#[derive(Default)]
+struct AxisPhysicsAnimation {
+    object: Option<Rc<RefCell<PhysicsAnimation<physics_simulation::ConstantDeceleration>>>>,
+    handle: AnimationHandle,
+}
+
+impl AxisPhysicsAnimation {
+    /// Asks the object directly rather than the registry (a stopped, finished, or never-started
+    /// object all correctly report not-running here).
+    fn is_running(&self) -> bool {
+        self.object.as_ref().is_some_and(|object| object.borrow().is_running())
+    }
+
+    fn stop(&self) {
+        self.handle.stop();
+        if let Some(object) = &self.object {
+            object.borrow_mut().stop();
+        }
+    }
+
+    /// (re)start a physics-based scroll on this axis, pushing the interpolated position into the
+    /// viewport property `viewport`.
+    fn restart(
+        &mut self,
+        viewport: Pin<&Property<LogicalLength>>,
+        limit_value: Pin<Box<Property<f32>>>,
+        params: ConstantDecelerationParameters,
+    ) {
+        let start = viewport.get().get();
+        let simulation = params.simulation(start as f32, limit_value);
+        // The viewport property lives inside the pinned `Flickable` item; this axis's `object`
+        // and `handle` live in the same item's `FlickableData`, so the registered animation (the
+        // sole other holder of this pointer, via the registry's clone of `object`) is deregistered
+        // by `handle`'s `Drop` as the item is torn down — never interleaved with a frame tick. So
+        // `target` is valid for every `update()` get/push for as long as `object`/`handle` live.
+        let target: *const Property<LogicalLength> = &*viewport;
+        // Reads the viewport's current position each frame so a `ListView` re-adjusting it (e.g.
+        // after refining item-height estimates) is carried forward smoothly rather than
+        // overwritten by a stale trajectory — matching the legacy pull-based physics binding.
+        // Safety: see above — `target` outlives the registered animation.
+        let get_value = move || unsafe { Pin::new_unchecked(&*target).get().get() };
+        let set_value = move |v| {
+            // Safety: see above — `target` outlives the registered animation.
+            unsafe { (*target).set(LogicalLength::new(v)) };
+        };
+
+        match &self.object {
+            Some(object) => object.borrow_mut().reset(simulation, get_value, set_value),
+            None => {
+                self.object = Some(Rc::new(RefCell::new(PhysicsAnimation::new(
+                    simulation, get_value, set_value,
+                ))));
+            }
+        }
+        let animation: Rc<RefCell<dyn Animation>> = self.object.clone().unwrap();
+        self.handle.restart(animation);
+    }
+}
+
 #[derive(Default)]
 struct FlickableDataInner {
     /// The time and position in which the press was made
@@ -430,6 +501,12 @@ struct FlickableDataInner {
     /// This allows us to add the missing delta of the animation to the next scroll event if the user scrolls again
     /// before the animation is finished.
     running_animation: Option<(Instant, [Option<ConstantDecelerationParameters>; 2])>,
+
+    /// Persistent object-backend physics animations that drive the viewport position during
+    /// kinetic scrolling (one per axis), reused across flicks. Dropping one deregisters its
+    /// animation, so they are torn down together with this `FlickableDataInner`
+    physics_animation_x: AxisPhysicsAnimation,
+    physics_animation_y: AxisPhysicsAnimation,
 }
 
 impl FlickableDataInner {
@@ -498,8 +575,8 @@ impl FlickableDataInner {
         delta = new_pos - current_pos;
 
         if phase != TouchPhase::Ended {
-            viewport_x.remove_binding();
-            viewport_y.remove_binding();
+            self.physics_animation_x.stop();
+            self.physics_animation_y.stop();
             self.running_animation = None;
         }
 
@@ -536,7 +613,7 @@ impl FlickableDataInner {
                             delta.x as f32,
                             WHEEL_SCROLL_DURATION.as_secs_f32(),
                         );
-                        viewport_x.set_physic_animation_value(limit_x, simulation.clone());
+                        self.physics_animation_x.restart(viewport_x, limit_x, simulation.clone());
                         simulation
                     });
 
@@ -545,7 +622,7 @@ impl FlickableDataInner {
                             delta.y as f32,
                             WHEEL_SCROLL_DURATION.as_secs_f32(),
                         );
-                        viewport_y.set_physic_animation_value(limit_y, simulation.clone());
+                        self.physics_animation_y.restart(viewport_y, limit_y, simulation.clone());
                         simulation
                     });
 
@@ -634,7 +711,7 @@ impl FlickableDataInner {
         [limit_x, limit_y]
     }
 
-    fn animate(&self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
+    fn animate(&mut self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
         if let Some(last_time) = self.velocity_rb.last_time() {
             let mean_velocity = self.velocity_rb.mean_velocity();
             if self.capture_events.is_some()
@@ -649,13 +726,13 @@ impl FlickableDataInner {
                 {
                     let simulation =
                         ConstantDecelerationParameters::new(mean_velocity.x as f32, DECELERATION);
-                    viewport_x.set_physic_animation_value(limit_x, simulation);
+                    self.physics_animation_x.restart(viewport_x, limit_x, simulation);
                 }
 
                 {
                     let animation_y =
                         ConstantDecelerationParameters::new(mean_velocity.y as f32, DECELERATION);
-                    viewport_y.set_physic_animation_value(limit_y, animation_y);
+                    self.physics_animation_y.restart(viewport_y, limit_y, animation_y);
                 }
 
                 if mean_velocity.x != 0 as Coord || mean_velocity.y != 0 as Coord {
@@ -703,10 +780,10 @@ impl FlickableData {
                 inner.velocity_rb = VelocityRingBuffer::default();
                 inner.pressed_mouse_state = Some((crate::animations::current_tick(), *position));
                 inner.last_mouse_position = *position;
-                let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
-                viewport_x.remove_binding(); // Stop animation by removing the binding
-                let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
-                viewport_y.remove_binding(); // Stop animation by removing the binding
+                // Stop any running kinetic-scroll animation, freezing the viewport at its current
+                // position.
+                inner.physics_animation_x.stop();
+                inner.physics_animation_y.stop();
 
                 if inner.capture_events.is_some() {
                     InputEventFilterResult::Intercept

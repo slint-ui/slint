@@ -755,7 +755,7 @@ impl WindowInner {
     /// `Exit` (if not). The reported `accepted` reflects the rewritten event, so a
     /// `Released` that completes a drop on a non-accepting target reports `accepted = false`.
     pub fn process_mouse_input(&self, mut event: MouseEvent) -> Option<MouseDispatchResult> {
-        crate::animations::update_animations();
+        crate::animations::advance_animation_clock();
 
         let item_tree = self.try_component()?;
         self.ensure_tree_instantiated();
