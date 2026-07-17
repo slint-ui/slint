@@ -100,8 +100,8 @@ fn node_to_ksni(
 
 pub struct PlatformTray {
     // SNI has no hide operation: the only way to make the icon disappear is to
-    // drop the registered handle (which deregisters from the watcher), and the
-    // only way to bring it back is to spawn a new `KsniTray`. The state needed
+    // shut down the registered service (which deregisters from the watcher), and
+    // the only way to bring it back is to spawn a new `KsniTray`. The state needed
     // to rebuild a fresh tray therefore lives on `PlatformTray`, not inside
     // `KsniTray` itself.
     icon: core::cell::RefCell<::ksni::Icon>,
@@ -184,9 +184,12 @@ impl PlatformTray {
                 }
             }
             (false, true) => {
-                // Drop the handle: the ksni service loop tears down and the
+                // The service loop runs detached and outlives dropped handles;
+                // only an explicit shutdown tears it down so the
                 // StatusNotifierWatcher removes the item.
-                slot.take();
+                if let Some(handle) = slot.take() {
+                    handle.shutdown();
+                }
             }
             _ => {}
         }
@@ -223,6 +226,14 @@ impl PlatformTray {
                 tray.title = new_title;
             });
         }
+    }
+}
+
+impl Drop for PlatformTray {
+    fn drop(&mut self) {
+        // The service loop would otherwise keep the icon registered until the
+        // process exits.
+        self.set_visible(false);
     }
 }
 
