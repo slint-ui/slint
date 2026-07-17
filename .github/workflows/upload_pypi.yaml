@@ -56,8 +56,19 @@ jobs:
               with:
                   working-directory: api/python/slint
                   target: ${{ matrix.platform.target }}
-                  args: --release --out wheelhouse --find-interpreter
+                  args: --release --out wheelhouse --find-interpreter --auditwheel skip
                   container: ${{ matrix.platform.container }}
+            # Don't vendor shared libraries: a bundled libgbm crashes on
+            # gbm_create_device (slint-ui/slint#12522). `--exclude '*'` keeps
+            # them as DT_NEEDED from the host while still applying the manylinux
+            # tag; grafting nothing, it also works for the cross-built wheels.
+            - name: Repair wheel without bundling libraries
+              if: runner.os == 'Linux'
+              working-directory: api/python/slint
+              run: |
+                  python3 -m pip install auditwheel patchelf
+                  python3 -m auditwheel repair --exclude '*' -w repaired wheelhouse/*.whl
+                  rm wheelhouse/*.whl && mv repaired/*.whl wheelhouse/
             - name: Store the distribution packages
               uses: actions/upload-artifact@v7
               with:
@@ -74,8 +85,15 @@ jobs:
               with:
                   working-directory: api/python/slint-dev
                   target: ${{ matrix.platform.target }}
-                  args: --release --out wheelhouse --find-interpreter
+                  args: --release --out wheelhouse --find-interpreter --auditwheel skip
                   container: ${{ matrix.platform.container }}
+            - name: Repair wheel without bundling libraries (slint-dev)
+              if: runner.os == 'Linux'
+              working-directory: api/python/slint-dev
+              run: |
+                  python3 -m pip install auditwheel patchelf
+                  python3 -m auditwheel repair --exclude '*' -w repaired wheelhouse/*.whl
+                  rm wheelhouse/*.whl && mv repaired/*.whl wheelhouse/
             - name: Store the development distribution packages
               uses: actions/upload-artifact@v7
               with:
@@ -144,8 +162,14 @@ jobs:
             # (dlopened at runtime, so not bundled into the manylinux wheel).
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v4
-            - name: Install libxkbcommon-x11
-              run: sudo apt-get update && sudo apt-get install -y libxkbcommon-x11-0
+            # The wheels no longer vendor their dependencies, so provide the
+            # extension's direct DT_NEEDED libraries; apt pulls the rest.
+            - name: Install runtime system libraries
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y \
+                    libxkbcommon-x11-0 libxkbcommon0 libgbm1 libinput10 \
+                    libfontconfig1 libfreetype6
             - uses: actions/download-artifact@v8
               with:
                 pattern: python-package-distributions-*
