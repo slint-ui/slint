@@ -36,10 +36,14 @@ jobs:
           gh api repos/${{ github.repository }}/branches --paginate \
             -q '.[] | select(.name | test("^(master|feature/|pre-release/)")) | .name + " " + .commit.sha' \
           | while read -r branch head_sha; do
-            last_sha=$(gh api "repos/${{ github.repository }}/actions/workflows/ci.yaml/runs?branch=$branch&event=workflow_dispatch&per_page=1" -q '.workflow_runs[0].head_sha // ""')
+            last_sha=$(gh api "repos/${{ github.repository }}/actions/workflows/ci.yaml/runs?branch=$branch&event=workflow_dispatch&per_page=1" -q '.workflow_runs[0].head_sha // ""') || last_sha=""
             if [ "$head_sha" != "$last_sha" ]; then
               echo "Triggering full CI for $branch ($head_sha, last CI ran on ${last_sha:-none})"
-              gh workflow run "CI" --repo ${{ github.repository }} --ref "$branch" -f full=true
+              # Old branches may have a ci.yaml that does not accept the `full`
+              # input; a failed dispatch must not abort the loop for the
+              # remaining branches.
+              gh workflow run "CI" --repo ${{ github.repository }} --ref "$branch" -f full=true \
+                || echo "Warning: failed to trigger CI for $branch"
             else
               echo "No changes on $branch since last CI ($head_sha), skipping"
             fi
