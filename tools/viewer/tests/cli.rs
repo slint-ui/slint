@@ -143,6 +143,59 @@ fn file_with_no_component_is_reported() {
     assert!(!out.exists(), "screenshot file should not have been written");
 }
 
+// --- SystemTrayIcon components ------------------------------------------
+
+// The last export is the tray, so it is what the viewer picks by default.
+const TRAY_AND_WINDOW: &str = r#"
+export component MainWindow inherits Window {
+    Rectangle { background: green; }
+}
+export component Tray inherits SystemTrayIcon {
+    tooltip: "tray";
+}
+"#;
+
+#[test]
+fn tray_component_is_rejected() {
+    let f = write_slint(TRAY_AND_WINDOW);
+    let (code, _stdout, stderr) = run(&[f.path().to_str().unwrap()]);
+    assert_eq!(code, COMPILE_ERROR_EXIT);
+    assert!(
+        stderr.contains("'Tray' is a SystemTrayIcon, which the viewer cannot display"),
+        "stderr was:\n{stderr}"
+    );
+}
+
+#[test]
+fn tray_component_is_rejected_in_screenshot_mode() {
+    let f = write_slint(TRAY_AND_WINDOW);
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("out.png");
+    let (code, _stdout, stderr) =
+        run(&["--screenshot", out.to_str().unwrap(), f.path().to_str().unwrap()]);
+    assert_eq!(code, COMPILE_ERROR_EXIT);
+    assert!(stderr.contains("SystemTrayIcon"), "stderr was:\n{stderr}");
+    assert!(!out.exists(), "screenshot file should not have been written");
+}
+
+#[test]
+fn component_flag_selects_the_window() {
+    let f = write_slint(TRAY_AND_WINDOW);
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("out.png");
+    let (code, _stdout, stderr) = run(&[
+        "--component",
+        "MainWindow",
+        "--screenshot",
+        out.to_str().unwrap(),
+        "--size",
+        "64x64",
+        f.path().to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+    assert!(out.exists(), "screenshot file should have been written");
+}
+
 // --- Check mode --------------------------------------------------------
 
 #[test]
