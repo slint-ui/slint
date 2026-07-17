@@ -56,27 +56,27 @@ fn validate_property_declaration_for_interface(
     }
 }
 
-/// A resolved `implement` statement, targeting `self`.
+#[derive(Debug, PartialEq)]
+pub(super) enum ImplementBinding {
+    OnSelf,
+    OnChild(SmolStr),
+}
+
+impl ImplementBinding {
+    fn from_target(target_id: &SmolStr) -> ImplementBinding {
+        if target_id.as_str() == "self" {
+            ImplementBinding::OnSelf
+        } else {
+            ImplementBinding::OnChild(target_id.clone())
+        }
+    }
+}
+
 pub(super) struct ImplementedInterface {
     node: syntax_nodes::ImplementStatement,
     interface: ElementRc,
     interface_name: SmolStr,
-}
-
-/// A resolved `implement` statement targeting a child element, which forwards the child's API.
-pub(super) struct ChildImplement {
-    node: syntax_nodes::ImplementStatement,
-    interface: ElementRc,
-    interface_name: SmolStr,
-    child_id: SmolStr,
-}
-
-/// An `implement` statement resolved to its interface, before partitioning into self/child targets.
-struct ResolvedImplementStatement {
-    node: syntax_nodes::ImplementStatement,
-    interface: ElementRc,
-    interface_name: SmolStr,
-    target_id: SmolStr,
+    binding: ImplementBinding,
 }
 
 /// Resolve a single `implement` statement's interface. Emits diagnostics if the interface could not
@@ -86,7 +86,7 @@ fn resolve_implement_statement(
     node: syntax_nodes::ImplementStatement,
     tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
-) -> Option<ResolvedImplementStatement> {
+) -> Option<ImplementedInterface> {
     #[cfg(feature = "slint-sc")]
     diag.slint_sc_error("'implement' is", &node);
 
@@ -118,11 +118,11 @@ fn resolve_implement_statement(
             }
 
             c.used.set(true);
-            Some(ResolvedImplementStatement {
+            Some(ImplementedInterface {
                 node,
                 interface: c.root_element.clone(),
                 interface_name,
-                target_id,
+                binding: ImplementBinding::from_target(&target_id),
             })
         }
         Ok(_) => {
@@ -151,8 +151,8 @@ fn resolve_implement_statement(
 /// one and filter out the rest.
 fn filter_conflicting_implement_statements(
     diag: &mut BuildDiagnostics,
-    statements: Vec<ResolvedImplementStatement>,
-) -> Vec<ResolvedImplementStatement> {
+    statements: Vec<ImplementedInterface>,
+) -> Vec<ImplementedInterface> {
     let mut seen_interfaces: Vec<ElementRc> = Vec::new();
     let mut seen_interface_api: BTreeMap<SmolStr, SmolStr> = BTreeMap::new();
     statements
@@ -197,8 +197,8 @@ pub(super) fn get_implemented_interfaces(
     node: &syntax_nodes::Element,
     tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
-) -> (Vec<ImplementedInterface>, Vec<ChildImplement>) {
-    let resolved: Vec<ResolvedImplementStatement> = node
+) -> (Vec<ImplementedInterface>, Vec<ImplementedInterface>) {
+    let resolved: Vec<ImplementedInterface> = node
         .ImplementStatement()
         .filter_map(|stmt| resolve_implement_statement(e, stmt, tr, diag))
         .collect();
@@ -208,19 +208,10 @@ pub(super) fn get_implemented_interfaces(
     let mut self_interfaces = Vec::new();
     let mut child_implements = Vec::new();
     for stmt in filtered {
-        if stmt.target_id == "self" {
-            self_interfaces.push(ImplementedInterface {
-                node: stmt.node,
-                interface: stmt.interface,
-                interface_name: stmt.interface_name,
-            });
+        if stmt.binding == ImplementBinding::OnSelf {
+            self_interfaces.push(stmt);
         } else {
-            child_implements.push(ChildImplement {
-                node: stmt.node,
-                interface: stmt.interface,
-                interface_name: stmt.interface_name,
-                child_id: stmt.target_id,
-            });
+            child_implements.push(stmt);
         }
     }
     (self_interfaces, child_implements)
@@ -248,7 +239,7 @@ pub(super) fn apply_properties(
     implemented_interfaces: &[ImplementedInterface],
     diag: &mut BuildDiagnostics,
 ) {
-    for ImplementedInterface { interface, node, interface_name } in implemented_interfaces {
+    for ImplementedInterface { interface, node, interface_name, .. } in implemented_interfaces {
         for (unresolved_prop_name, prop_decl) in
             interface.borrow().property_declarations.iter().filter(|(_, prop_decl)| {
                 // Functions are expected to be implemented manually, so we don't automatically add them.
@@ -274,7 +265,7 @@ pub(super) fn apply_callbacks(
     implemented_interfaces: &[ImplementedInterface],
     diag: &mut BuildDiagnostics,
 ) {
-    for ImplementedInterface { interface, node, interface_name } in implemented_interfaces {
+    for ImplementedInterface { interface, node, interface_name, .. } in implemented_interfaces {
         for (unresolved_prop_name, prop_decl) in
             interface.borrow().property_declarations.iter().filter(|(_, prop_decl)| {
                 // Functions are expected to be implemented manually, so we don't automatically add them.
@@ -378,7 +369,7 @@ pub(super) fn validate_function_implementations(
     implemented_interfaces: &[ImplementedInterface],
     diag: &mut BuildDiagnostics,
 ) {
-    for ImplementedInterface { interface, node, interface_name } in implemented_interfaces {
+    for ImplementedInterface { interface, node, interface_name, .. } in implemented_interfaces {
         for (function_name, function_property_decl) in interface
             .borrow()
             .property_declarations
@@ -496,10 +487,14 @@ pub(super) fn validate_function_implementations(
 /// element onto the named child (today's `uses`). Emits diagnostics for invalid statements.
 pub(super) fn apply_child_implement_statements(
     e: &ElementRc,
-    child_implements: Vec<ChildImplement>,
+    child_implements: Vec<ImplementedInterface>,
     diag: &mut BuildDiagnostics,
 ) {
-    for ChildImplement { node, interface, interface_name, child_id } in child_implements {
+    for ImplementedInterface { node, interface, interface_name, binding } in child_implements {
+        debug_assert_ne!(binding, ImplementBinding::OnSelf);
+        let ImplementBinding::OnChild(child_id) = binding else {
+            continue;
+        };
         let Some(child) = find_element_by_id(e, &child_id) else {
             diag.push_error(format!("'{}' does not exist", child_id), &node.DeclaredIdentifier());
             continue;
