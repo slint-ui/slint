@@ -1147,8 +1147,10 @@ fn properties_simple_test() {
 }
 
 mod change_tracker;
+mod erased_bindings;
 mod two_way_binding;
 pub use change_tracker::*;
+pub use erased_bindings::*;
 mod properties_animations;
 pub use properties_animations::*;
 

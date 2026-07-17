@@ -427,6 +427,17 @@ impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> VRcMapped<VTab
     }
 }
 
+impl<VTable: VTableMetaDropInPlace + 'static, MappedType> VRcMapped<VTable, MappedType> {
+    /// Returns a new [`VWeakMappedErased`] that points to this instance,
+    /// without being generic over the mapped type.
+    pub fn downgrade_erased(this: &Self) -> VWeakMappedErased<VTable> {
+        VWeakMappedErased {
+            parent_weak: VRc::downgrade(&this.parent_strong),
+            object: this.object as *const (),
+        }
+    }
+}
+
 impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> Deref
     for VRcMapped<VTable, MappedType>
 {
@@ -459,6 +470,36 @@ impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> VWeakMapped<VT
 impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> Clone
     for VWeakMapped<VTable, MappedType>
 {
+    fn clone(&self) -> Self {
+        Self { parent_weak: self.parent_weak.clone(), object: self.object }
+    }
+}
+
+/// A type-erased [`VWeakMapped`]: it is not generic over the mapped type, so
+/// code storing it is not monomorphized per mapped type. The mapped object is
+/// only reachable as a raw pointer through [`Self::with_upgraded`]; it is up
+/// to the user to know its actual type (e.g. through the provenance of the
+/// [`VRcMapped`] this was created from).
+pub struct VWeakMappedErased<VTable: VTableMetaDropInPlace + 'static> {
+    parent_weak: VWeak<VTable, Dyn>,
+    object: *const (),
+}
+
+impl<VTable: VTableMetaDropInPlace + 'static> VWeakMappedErased<VTable> {
+    /// Upgrade the weak reference and call `f` with the raw pointer to the
+    /// mapped object, or return None if the object was dropped. The pointed-to
+    /// object stays alive and pinned for the duration of the call; the
+    /// pointer was erased from the `*const MappedType` of the originating
+    /// [`VRcMapped`], with its provenance intact.
+    pub fn with_upgraded<R>(&self, f: impl FnOnce(*const ()) -> R) -> Option<R> {
+        let _strong = self.parent_weak.upgrade()?;
+        // `_strong` keeps the allocation alive and pinned for the duration
+        // of the call.
+        Some(f(self.object))
+    }
+}
+
+impl<VTable: VTableMetaDropInPlace + 'static> Clone for VWeakMappedErased<VTable> {
     fn clone(&self) -> Self {
         Self { parent_weak: self.parent_weak.clone(), object: self.object }
     }

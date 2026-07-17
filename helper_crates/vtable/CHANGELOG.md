@@ -6,6 +6,8 @@ All notable changes to this crate will be documented in this file.
 
  - Replaced the `static_vtable` function with `STATIC_VTABLE` associated
    const.
+ - Added `VWeakMappedErased`, a `VWeakMapped` that is not generic over the
+   mapped type, and `VRcMapped::downgrade_erased` to create it.
 
 ## [0.4.0]
 
