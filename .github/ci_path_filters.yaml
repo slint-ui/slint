@@ -1,8 +1,14 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# CI configuration that affects every gated job. Workflows that only specific
+# jobs invoke (the `uses:` reusable workflows in ci.yaml) are listed in the
+# group that gates those jobs instead, so that unrelated workflow changes
+# (schedule_ci, releases, triage, ...) don't retrigger everything.
 ci_config: &ci_config
- - '.github/**'
+ - '.github/workflows/ci.yaml'
+ - '.github/ci_path_filters.yaml'
+ - '.github/actions/**'
  - '.mise/**'
  # We count changes to Cargo.lock as a "CI config" level change, as we need to ensure that all CI jobs will work correctly with the updated lock file.
  # Otherwise, later job runs may run into issues that have nothing to do with their changes.
@@ -20,6 +26,7 @@ js_config: &js_config
  - 'pnpm-lock.yaml'
 
 slint:
+ - '.github/workflows/build_and_test_reusable.yaml'
  - 'api/rs/**'
  - 'cmake/**'
  - 'demos/**'
@@ -44,6 +51,7 @@ qt:
 
 # Docs build needs most Rust code because it also checks for doc warnings
 docs_build:
+ - '.github/workflows/build_docs.yaml'
  - 'docs/**'
  - 'api/**'
  - 'internal/**'
@@ -58,6 +66,7 @@ docs_build:
 # Tree-sitter grammar
 # Needs to be re-tested if the Tree-Sitter grammr or any Slint files in the corpus change
 tree_sitter:
+ - '.github/workflows/tree_sitter.yaml'
  - 'editors/tree-sitter-slint/**'
  - 'editors/zed/languages/slint/*.scm'
  - 'tests/cases/**/*.slint'
@@ -71,6 +80,7 @@ figma_inspector:
  - *ci_config
 
 material_components:
+ - '.github/workflows/material.yaml'
  - 'ui-libraries/material/**'
  - 'docs/common/**'
  - *js_config
@@ -118,6 +128,7 @@ examples:
  # Some examples are tested separately and can be excluded from here
  - 'examples/!({servo,bevy,*mcu*,uefi-demo,}/**)'
  - 'demos/**'
+ - '.github/workflows/wasm_demos.yaml'
 
 examples_mcu:
  - 'examples/*mcu*/**'
@@ -133,6 +144,7 @@ vsce:
 
 slintpad:
  - *internal
+ - '.github/workflows/wasm_editor_and_interpreter.yaml'
  - 'tools/slintpad/**'
  - 'api/wasm-interpreter/**'
  - 'tools/lsp/**'
