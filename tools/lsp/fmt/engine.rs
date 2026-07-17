@@ -7,8 +7,8 @@
 //! See `API_DESIGN.md` in this directory for the overall design.
 
 use crate::fmt::atoms::{
-    Annotations, Atom, AtomInstance, AtomSink, FormatPlan, INDENT, Instruction, Marker, Tier,
-    Whitespace,
+    Annotations, Atom, AtomInstance, AtomSink, Condition, FormatPlan, INDENT, Instruction, Marker,
+    Tier, Whitespace,
 };
 use crate::fmt::width::build_document::build_document;
 use crate::fmt::width::search::Resolver;
@@ -414,7 +414,29 @@ impl<'a> Selection<'a> {
     // Not used by the shipped ruleset yet; exercised by the engine tests.
     #[allow(dead_code)]
     pub fn delete(&self) -> &Self {
-        self.mark(Marker::Delete)
+        self.mark(Marker::Delete(None))
+    }
+
+    /// Delete each selected item only when the rule's group resolves
+    /// single-line — the trailing separator a collapsed list no longer needs.
+    /// Pairs with [`Selection::literal_if_multiline`], which re-adds it when
+    /// the list breaks.
+    // Not used by the shipped ruleset yet; exercised by the engine tests.
+    #[allow(dead_code)]
+    pub fn delete_if_single_line(&self) -> &Self {
+        self.mark(Marker::Delete(Some(Condition {
+            span: self.measure_span(),
+            variant: Variant::SingleLine,
+        })))
+    }
+
+    /// A literal emitted only when the rule's group resolves multiline — the
+    /// trailing separator a broken list should gain. Attach it to a surviving
+    /// item with [`Selection::append`].
+    // Not used by the shipped ruleset yet; exercised by the engine tests.
+    #[allow(dead_code)]
+    pub fn literal_if_multiline(&self, text: impl Into<String>) -> Atom {
+        Atom::literal(text).if_multiline(self.measure_span())
     }
 
     /// Mark each selected item's range (a token's range, a node's significant
@@ -578,17 +600,49 @@ impl GapModes<'_> {
         match gap_controller[slot_index] {
             None => SoftlineMode::FromInput,
             Some(group) => {
-                let variant = decisions.get(&group).copied().unwrap_or_else(|| {
-                    if flatten_forbidden.contains(&group) {
-                        Variant::Multiline
-                    } else {
-                        Variant::SingleLine
-                    }
-                });
-                SoftlineMode::Decided(variant)
+                SoftlineMode::Decided(variant_for_group(group, decisions, flatten_forbidden))
             }
         }
     }
+}
+
+/// Whether a conditional atom or delete fires. An unconditional one always
+/// does; a conditioned one only when the group whose body is being emitted
+/// resolves to the named variant. `mode` is that group's variant — the same
+/// `mode` the surrounding gap resolves with, so a conditional atom flips
+/// exactly with the softlines it shares a group with. The builder passes the
+/// region's mode and the emitter the controlling group's mode, so both agree.
+pub(crate) fn condition_active(
+    condition: Option<Condition>,
+    mode: SoftlineMode,
+    source: &str,
+) -> bool {
+    let Some(Condition { span, variant }) = condition else {
+        return true;
+    };
+    let resolved = match mode {
+        SoftlineMode::Decided(decided) => decided,
+        SoftlineMode::FromInput => input_variant(span, source),
+    };
+    resolved == variant
+}
+
+/// The variant the search chose for `group`, or the fallback for a group it
+/// left undecided (multiline if it never had a single-line body, else
+/// single-line — it was inlined into an ancestor's chosen flat body).
+fn variant_for_group(
+    group: GroupId,
+    decisions: &HashMap<GroupId, Variant>,
+    flatten_forbidden: &HashSet<GroupId>,
+) -> Variant {
+    decisions.get(&group).copied().unwrap_or_else(|| {
+        if flatten_forbidden.contains(&group) { Variant::Multiline } else { Variant::SingleLine }
+    })
+}
+
+/// The variant a span took in the input: multiline if it spanned a newline.
+pub(crate) fn input_variant(span: TextRange, source: &str) -> Variant {
+    if source[span].contains('\n') { Variant::Multiline } else { Variant::SingleLine }
 }
 
 /// Phase 2: collapse the collected atoms into concrete instructions.
@@ -628,10 +682,18 @@ pub fn resolve(
 
     for (slot_index, slot) in slots.iter().enumerate() {
         let leaf = leaf_of_slot[slot_index];
+        // The mode of the group controlling this gap; it resolves both the
+        // measured softlines and any conditional literal or delete here, so
+        // they flip together.
+        let mode = modes.mode_for(slot_index);
         // A delete inside a leaf is ignored: the leaf keeps its interior
-        // verbatim (precedence goes to the leaf).
+        // verbatim (precedence goes to the leaf). A conditional delete only
+        // applies in the variant its group resolved to.
         let deleted = leaf.is_none()
-            && delete_ranges.iter().any(|range| range.contains(slot.token.text_range().start()));
+            && delete_ranges.iter().any(|(range, condition)| {
+                range.contains(slot.token.text_range().start())
+                    && condition_active(*condition, mode, source)
+            });
         if deleted {
             // The token emits nothing; its gap's whitespace collapses (but
             // any comment in it is kept — comments are never deleted).
@@ -674,8 +736,10 @@ pub fn resolve(
         // prepend-literal hugs this token (after it). Inside a leaf they are
         // suppressed like every other boundary effect.
         if !leaf_internal {
-            for text in literal_texts(append_atoms) {
-                instructions.push(Instruction::EmitLiteral { text: text.to_string() });
+            for (text, condition) in literals(append_atoms) {
+                if condition_active(condition, mode, source) {
+                    instructions.push(Instruction::EmitLiteral { text: text.to_string() });
+                }
             }
         }
 
@@ -685,7 +749,6 @@ pub fn resolve(
             indentation_level += net_indentation(append_atoms) + net_indentation(prepend_atoms);
             instructions.push(Instruction::KeepGap { slot: slot_index });
         } else {
-            let mode = modes.mode_for(slot_index);
             let resolution = resolve_gap(
                 slot,
                 slot_index,
@@ -714,8 +777,10 @@ pub fn resolve(
         }
 
         if !leaf_internal {
-            for text in literal_texts(prepend_atoms) {
-                instructions.push(Instruction::EmitLiteral { text: text.to_string() });
+            for (text, condition) in literals(prepend_atoms) {
+                if condition_active(condition, mode, source) {
+                    instructions.push(Instruction::EmitLiteral { text: text.to_string() });
+                }
             }
         }
         instructions.push(Instruction::EmitToken { slot: slot_index });
@@ -798,20 +863,26 @@ impl IdempotencyGuard {
     }
 }
 
-/// The text of every [`Atom::Literal`] among `atoms`, in attachment order.
-pub(crate) fn literal_texts(atoms: &[AtomInstance]) -> impl Iterator<Item = &str> {
+/// Every [`Atom::Literal`] among `atoms` with its condition, in attachment
+/// order. A conditional literal is emitted only in the variant it names.
+pub(crate) fn literals(atoms: &[AtomInstance]) -> impl Iterator<Item = (&str, Option<Condition>)> {
     atoms.iter().filter_map(|instance| match &instance.atom {
-        Atom::Literal(text) => Some(text.as_str()),
+        Atom::Literal { text, condition } => Some((text.as_str(), *condition)),
         _ => None,
     })
 }
 
-/// The ranges marked for deletion (single tokens in practice).
-fn delete_ranges(markers: &[(TextRange, Marker)]) -> Vec<TextRange> {
+/// The ranges marked for deletion (single tokens in practice) with their
+/// condition. A conditional delete applies only in the variant it names.
+pub(crate) fn delete_ranges(
+    markers: &[(TextRange, Marker)],
+) -> Vec<(TextRange, Option<Condition>)> {
     markers
         .iter()
-        .filter(|(_, marker)| *marker == Marker::Delete)
-        .map(|(range, _)| *range)
+        .filter_map(|(range, marker)| match marker {
+            Marker::Delete(condition) => Some((*range, *condition)),
+            Marker::Leaf => None,
+        })
         .collect()
 }
 
@@ -935,7 +1006,7 @@ fn route_atom(
         }
         // Literals are emitted separately (they are not whitespace); they
         // never reach the whitespace decision here.
-        Atom::Literal(_) => return,
+        Atom::Literal { .. } => return,
     };
     let target = if strength == Strength::Newline { newline_target } else { space_target };
     sub_gaps[target].decisions.push((instance.tier, strength));
@@ -2014,11 +2085,12 @@ mod tests {
 
     // A minimal function-call ruleset that manages the argument list's
     // trailing comma. Deliberately just this one rule so the demo shows the
-    // comma behavior without indentation from the surrounding element.
+    // comma behavior without indentation from the surrounding element. The
+    // trailing comma follows the width search's decision, not the input: the
+    // conditional atoms share the call's span, so they flip with its softlines.
     fn trailing_comma_rules() -> FormatRules {
         let mut rules = FormatRules::default();
         rules.node(SyntaxKind::FunctionCallExpression, |call| {
-            let multiline = call.is_multiline();
             let children: Vec<NodeOrToken> = call.children().iter().cloned().collect();
             let Some(open) = children.iter().position(|child| child.kind() == SyntaxKind::LParent)
             else {
@@ -2038,25 +2110,22 @@ mod tests {
                 .prepend(call.empty_softline());
 
             let last = close - 1;
-            let has_trailing_comma = children[last].kind() == SyntaxKind::Comma;
             for index in (open + 1)..close {
                 if children[index].kind() != SyntaxKind::Comma {
                     continue;
                 }
                 call.at(children[index].clone()).prepend(Atom::Antispace);
                 if index == last {
-                    // The trailing comma is dropped when the call collapses
-                    // onto one line, kept when it stays broken.
-                    if !multiline {
-                        call.at(children[index].clone()).delete();
-                    }
+                    // Drop the trailing comma when the call collapses onto one
+                    // line, keep it when the call breaks.
+                    call.at(children[index].clone()).delete_if_single_line();
                 } else {
                     call.at(children[index].clone()).append(call.spaced_softline());
                 }
             }
-            if multiline && !has_trailing_comma {
-                // A broken call gains the trailing comma it lacks.
-                call.at(children[last].clone()).append(Atom::Literal(String::from(",")));
+            if children[last].kind() != SyntaxKind::Comma {
+                // The call lacks a trailing comma; add one only when it breaks.
+                call.at(children[last].clone()).append(call.literal_if_multiline(","));
             }
         });
         rules
@@ -2086,6 +2155,57 @@ mod tests {
     }
 
     #[test]
+    fn deleting_a_trailing_comma_frees_width_for_a_single_line() {
+        // The gap before this deleted comma carries no Antispace, so a builder
+        // that resolved it (a default space) instead of collapsing it like the
+        // emitter would count one extra column and break a line that fits. Once
+        // the comma is gone the single line is exactly 100 columns.
+        let mut rules = FormatRules::default();
+        rules.node(SyntaxKind::FunctionCallExpression, |call| {
+            let children: Vec<NodeOrToken> = call.children().iter().cloned().collect();
+            let Some(open) = children.iter().position(|child| child.kind() == SyntaxKind::LParent)
+            else {
+                return;
+            };
+            let Some(close) =
+                children.iter().rposition(|child| child.kind() == SyntaxKind::RParent)
+            else {
+                return;
+            };
+            if close <= open + 1 {
+                return;
+            }
+            call.at(children[open].clone()).append(Atom::IndentStart).append(call.empty_softline());
+            call.at(children[close].clone())
+                .prepend(Atom::IndentEnd)
+                .prepend(call.empty_softline());
+            let last = close - 1;
+            if children[last].kind() == SyntaxKind::Comma {
+                call.at(children[last].clone()).delete_if_single_line();
+            }
+        });
+        let argument = "a".repeat(71);
+        let input = format!("component A {{ x: test({argument},); }}");
+        let expected = format!("component A {{ x : test ({argument}) ; }}");
+        assert_eq!(expected.chars().filter(|&character| character != '\n').count(), 100);
+        assert_eq!(format_with(&input, &rules), expected);
+    }
+
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "shared with no group")]
+    fn a_condition_without_a_group_is_caught() {
+        // `delete_if_single_line` with no softline on the same span has no
+        // group — no choice — to condition on. The builder rejects it rather
+        // than let the builder and emitter resolve it from different states.
+        let mut rules = FormatRules::default();
+        rules.node(SyntaxKind::FunctionCallExpression, |call| {
+            call.token(SyntaxKind::Comma).delete_if_single_line();
+        });
+        format_with("component A { x: test(a, b,); }", &rules);
+    }
+
+    #[test]
     fn literal_inside_a_leaf_is_suppressed() {
         // A rule leafs the call and also injects a literal after its comma (an
         // interior boundary). Leaf suppression must swallow the literal, the
@@ -2094,7 +2214,7 @@ mod tests {
         let mut leafed = FormatRules::default();
         leafed.node(SyntaxKind::FunctionCallExpression, |call| {
             call.leaf();
-            call.token(SyntaxKind::Comma).append(Atom::Literal(String::from("!")));
+            call.token(SyntaxKind::Comma).append(Atom::literal("!"));
         });
         // The call is leafed, so its interior (including the comma boundary
         // the rule targets) is verbatim; only the surrounding boundaries take
@@ -2108,7 +2228,7 @@ mod tests {
         // suppression above is real, not a rule that never triggered.
         let mut plain = FormatRules::default();
         plain.token(SyntaxKind::Comma, |comma| {
-            comma.append(Atom::Literal(String::from("!")));
+            comma.append(Atom::literal("!"));
         });
         assert_eq!(
             format_with("component A { x: test(a, b); }", &plain),

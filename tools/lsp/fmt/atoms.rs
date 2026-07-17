@@ -8,9 +8,21 @@
 //! [`AtomSink`], the resolver collapses them into a [`FormatPlan`], and the
 //! renderer realizes that plan through a `TokenWriter`.
 
+use crate::fmt::width::Variant;
 use i_slint_compiler::parser::{TextRange, TextSize};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+
+/// A condition gating a conditional [`Atom::Literal`] or [`Marker::Delete`] on
+/// the chosen variant of the group identified by `span`. The atom takes effect
+/// only when that group resolves to `variant`. Keyed by span the same way a
+/// softline carries its measure span, so everything sharing a span flips
+/// together.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Condition {
+    pub span: TextRange,
+    pub variant: Variant,
+}
 
 /// A formatting annotation attached to the boundary before or after a token.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,9 +59,55 @@ pub enum Atom {
     /// spacing atoms it makes no whitespace decision (the gap's whitespace is
     /// resolved independently) but it does engage the gap. Used to inject a
     /// trailing comma into a list that broke across lines.
+    ///
+    /// With a [`Condition`] the literal is emitted only when its group resolves
+    /// to the conditioned variant; its `text` must not contain a newline.
     // Not used by the shipped ruleset yet; exercised by the engine tests.
     #[allow(dead_code)]
-    Literal(String),
+    Literal { text: String, condition: Option<Condition> },
+}
+
+impl Atom {
+    /// An unconditional literal. Add [`Atom::if_multiline`] or
+    /// [`Atom::if_single_line`] to gate it on a group's chosen variant.
+    // Not used by the shipped ruleset yet; exercised by the engine tests.
+    #[allow(dead_code)]
+    pub fn literal(text: impl Into<String>) -> Atom {
+        let text = text.into();
+        // A newline in a literal would put a break outside the search's view,
+        // where nothing measures it.
+        debug_assert!(
+            !text.contains('\n'),
+            "a literal's text must not contain a newline: {text:?}"
+        );
+        Atom::Literal { text, condition: None }
+    }
+
+    /// Emit this literal only when the group spanning `span` resolves
+    /// multiline. Only a [`Atom::Literal`] can be conditioned.
+    #[allow(dead_code)]
+    pub fn if_multiline(self, span: TextRange) -> Atom {
+        self.conditioned(span, Variant::Multiline)
+    }
+
+    /// Emit this literal only when the group spanning `span` resolves
+    /// single-line. Only a [`Atom::Literal`] can be conditioned.
+    #[allow(dead_code)]
+    pub fn if_single_line(self, span: TextRange) -> Atom {
+        self.conditioned(span, Variant::SingleLine)
+    }
+
+    fn conditioned(self, span: TextRange, variant: Variant) -> Atom {
+        match self {
+            Atom::Literal { text, .. } => {
+                Atom::Literal { text, condition: Some(Condition { span, variant }) }
+            }
+            other => {
+                debug_assert!(false, "only a literal can carry a condition, not {other:?}");
+                other
+            }
+        }
+    }
 }
 
 /// An annotation that applies to a whole item (a node's range or a single
@@ -59,8 +117,9 @@ pub enum Marker {
     /// Emit every token in the item's range verbatim; suppress all boundary
     /// processing inside. Only meaningful on nodes.
     Leaf,
-    /// Do not emit the item at all.
-    Delete,
+    /// Do not emit the item at all. With a [`Condition`] the item is deleted
+    /// only when its group resolves to the conditioned variant.
+    Delete(Option<Condition>),
 }
 
 /// The rule tier an atom originates from. When whitespace decisions conflict

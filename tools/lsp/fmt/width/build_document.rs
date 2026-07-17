@@ -20,10 +20,12 @@
 
 use super::doc::{Doc, DocId, DocumentArena, line_width};
 use super::{GroupId, Variant};
-use crate::fmt::atoms::{Annotations, Atom, AtomInstance, INDENT, Instruction, Whitespace};
+use crate::fmt::atoms::{
+    Annotations, Atom, AtomInstance, Condition, INDENT, Instruction, Marker, Whitespace,
+};
 use crate::fmt::engine::{
-    DocumentEdges, SoftlineMode, TokenSlot, containing_leaf, literal_texts, net_indentation,
-    normalize_leaf_ranges, resolve_gap,
+    DocumentEdges, SoftlineMode, TokenSlot, condition_active, containing_leaf, delete_ranges,
+    literals, net_indentation, normalize_leaf_ranges, resolve_gap,
 };
 use crate::fmt::render::shift_continuation_lines;
 use i_slint_compiler::parser::{SyntaxKind, TextRange};
@@ -200,6 +202,8 @@ pub fn build_document(
     source: &str,
 ) -> BuiltDocument {
     let forest = GroupForest::build(slots, annotations, source);
+    #[cfg(debug_assertions)]
+    debug_assert_conditions_grouped(annotations, &forest);
     let mut builder = DocumentBuilder::new(slots, annotations, source, &forest);
     let root = builder.build_root();
     // Every group is built once through the all-multiline expansion, so the
@@ -218,6 +222,35 @@ pub fn build_document(
     }
 }
 
+/// Every conditional literal or delete must share its span — hence its
+/// choice — with a group (a measured softline). Verify that up front so a
+/// condition targeting a span no group owns is a loud bug in debug rather
+/// than silently following the input layout.
+#[cfg(debug_assertions)]
+fn debug_assert_conditions_grouped(annotations: &Annotations, forest: &GroupForest) {
+    let group_spans: HashSet<TextRange> =
+        (0..forest.len()).map(|index| forest.get(GroupId(index as u32)).span).collect();
+    let boundary = &annotations.boundary;
+    let literal_conditions =
+        boundary.before.values().chain(boundary.after.values()).flatten().filter_map(|instance| {
+            match &instance.atom {
+                Atom::Literal { condition, .. } => *condition,
+                _ => None,
+            }
+        });
+    let delete_conditions = annotations.markers.iter().filter_map(|(_, marker)| match marker {
+        Marker::Delete(condition) => *condition,
+        Marker::Leaf => None,
+    });
+    for condition in literal_conditions.chain(delete_conditions) {
+        debug_assert!(
+            group_spans.contains(&condition.span),
+            "a condition's span {:?} is shared with no group; pair it with a softline",
+            condition.span
+        );
+    }
+}
+
 /// Walks the group forest and turns each token, gap and group into a [`Doc`].
 struct DocumentBuilder<'a> {
     slots: &'a [TokenSlot],
@@ -231,6 +264,9 @@ struct DocumentBuilder<'a> {
     /// are unconditional, so this is fixed independent of any variant.
     indent_before: Vec<i32>,
     gap_controller: Vec<Option<GroupId>>,
+    /// Token ranges a rule marked for deletion, with their condition — so a
+    /// token deleted in the variant being built contributes no width.
+    delete_ranges: Vec<(TextRange, Option<Condition>)>,
     /// Each group's built docs, so a group referenced by both its own choice
     /// and an ancestor's flat body is built once.
     group_doc: HashMap<GroupId, DocId>,
@@ -264,6 +300,7 @@ impl<'a> DocumentBuilder<'a> {
             leaf_of_slot,
             indent_before: indent_before_each_gap(slots, annotations),
             gap_controller: gap_controllers(slots.len(), forest),
+            delete_ranges: delete_ranges(&annotations.markers),
             slots,
             annotations,
             source,
@@ -350,11 +387,20 @@ impl<'a> DocumentBuilder<'a> {
         let mut next_child = 0;
         let mut slot = first;
         while slot <= last {
-            if self.gap_controller[slot] == region_group {
-                self.emit_gap(slot, gap_mode, &mut parts);
-            }
             let child = children.get(next_child).copied();
             let child_first = child.map(|child| self.forest.get(child).first_slot);
+            // A group boundary is never a deleted separator.
+            let deleted = child_first != Some(slot) && self.is_deleted(slot, gap_mode);
+            if deleted {
+                self.debug_assert_deletable(slot, region_group);
+            }
+            if self.gap_controller[slot] == region_group {
+                if deleted {
+                    self.emit_collapsed_gap(slot, &mut parts);
+                } else {
+                    self.emit_gap(slot, gap_mode, &mut parts);
+                }
+            }
             if child_first == Some(slot) {
                 let child = child.unwrap();
                 let child_last = self.forest.get(child).last_slot;
@@ -364,7 +410,11 @@ impl<'a> DocumentBuilder<'a> {
                 slot = child_last + 1;
                 next_child += 1;
             } else {
-                self.emit_token(slot, &mut parts);
+                // A deleted token emits nothing; the emitter drops it the same
+                // way (its gap collapsed above).
+                if !deleted {
+                    self.emit_token(slot, &mut parts);
+                }
                 slot += 1;
             }
         }
@@ -393,6 +443,40 @@ impl<'a> DocumentBuilder<'a> {
     fn emit_token(&mut self, slot: usize, parts: &mut Vec<DocId>) {
         let text = self.slots[slot].token.text().to_string();
         parts.extend(self.arena.verbatim(&text));
+    }
+
+    /// The gap before a deleted token: the emitter collapses it to nothing, or
+    /// keeps a comment verbatim.
+    fn emit_collapsed_gap(&mut self, slot: usize, parts: &mut Vec<DocId>) {
+        if self.slots[slot].has_comment() {
+            let text = self.full_gap_text(slot);
+            parts.extend(self.arena.verbatim(&text));
+        }
+    }
+
+    /// The invariants a deleted token must satisfy for the builder to match the
+    /// emitter, since the builder does not replay the emitter's carrying of a
+    /// dropped token's atoms across the collapsed gap. The trailing-separator
+    /// idiom satisfies all three; a rule that breaks one is a bug.
+    #[cfg(debug_assertions)]
+    fn debug_assert_deletable(&self, slot: usize, region_group: Option<GroupId>) {
+        // The deleted token's variant must be this region's, so builder and
+        // emitter (which reads `gap_controller[slot]`) resolve it the same way.
+        debug_assert_eq!(
+            self.gap_controller[slot], region_group,
+            "a deleted token must sit strictly inside the group that gates it"
+        );
+        // The emitter carries the previous surviving token's append atoms past
+        // a dropped token and discards the dropped token's own; the builder
+        // does neither, so both must be empty.
+        let (before, _) = gap_atoms(self.slots, self.annotations, slot);
+        let own_start = self.slots[slot].token.text_range().start();
+        let own_appends = self.annotations.boundary.after.get(&own_start);
+        debug_assert!(before.is_empty(), "append atoms before a deleted token would be lost");
+        debug_assert!(
+            own_appends.is_none_or(|atoms| atoms.is_empty()),
+            "a deleted token's own append atoms would be miscounted"
+        );
     }
 
     /// The pieces of the gap before `slot`, gathered while the inputs are
@@ -426,14 +510,36 @@ impl<'a> DocumentBuilder<'a> {
 
         // Append literals hug the left token, then the gap whitespace and
         // comments, then prepend literals hug this token — the order the
-        // engine's own resolver emits them in.
+        // engine's own resolver emits them in. A conditional literal counts
+        // only in the variant it names.
         let mut pieces = Vec::new();
-        pieces.extend(literal_texts(append).map(|text| Piece::Width(line_width(text))));
+        pieces.extend(self.active_literals(append, mode));
         for instruction in &resolution.instructions {
             self.instruction_piece(instruction, slot, &mut pieces);
         }
-        pieces.extend(literal_texts(prepend).map(|text| Piece::Width(line_width(text))));
+        pieces.extend(self.active_literals(prepend, mode));
         pieces
+    }
+
+    /// The width pieces of the literals in `atoms` that fire in `mode`.
+    fn active_literals(&self, atoms: &[AtomInstance], mode: SoftlineMode) -> Vec<Piece> {
+        literals(atoms)
+            .filter(|(_, condition)| condition_active(*condition, mode, self.source))
+            .map(|(text, _)| Piece::Width(line_width(text)))
+            .collect()
+    }
+
+    /// Whether the token at `slot` is deleted in the variant `mode` names. A
+    /// delete inside a leaf is ignored, as the leaf keeps its interior
+    /// verbatim.
+    fn is_deleted(&self, slot: usize, mode: SoftlineMode) -> bool {
+        if self.leaf_of_slot[slot].is_some() {
+            return false;
+        }
+        let start = self.slots[slot].token.text_range().start();
+        self.delete_ranges.iter().any(|(range, condition)| {
+            range.contains(start) && condition_active(*condition, mode, self.source)
+        })
     }
 
     fn instruction_piece(&self, instruction: &Instruction, slot: usize, pieces: &mut Vec<Piece>) {
