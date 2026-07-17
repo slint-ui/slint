@@ -1,0 +1,220 @@
+---
+title: macOS Packaging
+description: Package a desktop Slint app for direct macOS distribution or the Mac App Store.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+There are two main routes for distributing macOS apps: the [Mac App Store](https://www.apple.com/app-store/) and direct distribution.
+Slint supports both routes by generating standard Xcode projects that work with Apple's build and distribution tools.
+
+<Aside type="note">
+To distribute an app outside the Mac App Store, you need an Apple Developer Program membership.
+Without one, you can only self-sign your app for local development and testing.
+</Aside>
+
+## XcodeGen
+
+[XcodeGen](https://github.com/yonaskolb/XcodeGen) creates an Xcode project that is compatible with Apple's build and distribution tools.
+Don't check in or edit the generated project file.
+Instead, edit the YAML project spec and regenerate the project whenever you change the app.
+
+This avoids checking a generated project into source control and keeping it up to date.
+
+<Aside type="note">
+If you open the project file in Xcode, you might see warnings that the project is out of date.
+This is because the project is generated from a YAML spec and not edited directly in Xcode.
+You can safely ignore these warnings.
+</Aside>
+
+To complement this flow, we also provide a preconfigured Cargo build script that builds the app and places the binary in the expected location.
+
+The project spec also configures the app icon, entitlements, launch assets, and bundled resources.
+
+## Prerequisites
+
+- A Mac with [Xcode](https://developer.apple.com/xcode/) installed.
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen?tab=readme-ov-file#installing).
+- Rust and the macOS target you build for, such as `aarch64-apple-darwin`.
+- An Apple Developer Program membership for signing, notarization, and Mac App Store distribution.
+
+## Generate the Xcode Project
+
+Create a `project.yml` file for XcodeGen.
+This example creates a macOS app target and delegates the Rust build to a shell script:
+
+```yaml
+name: My Slint App
+options:
+  deploymentTarget:
+    macOS: "12.0"
+settings:
+  ENABLE_HARDENED_RUNTIME: YES
+targets:
+  My Slint App:
+    type: application
+    platform: macOS
+    deploymentTarget: "12.0"
+    scheme: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.my-slint-app
+        DEVELOPMENT_TEAM: ABCDE12345
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: My Slint App
+        CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: My Slint App
+        CFBundlePackageType: APPL
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        LSMinimumSystemVersion: "12.0"
+        NSHighResolutionCapable: true
+    sources:
+      - path: Packaging/AppIcon.xcassets
+        buildPhase: resources
+    postCompileScripts:
+      - name: Build with Cargo
+        script: |
+          ./build_macos_app_with_cargo.bash my-slint-app
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)
+```
+
+<Aside type="note">
+The example sets the `Info.plist` values in the YAML spec.
+You can change the app's bundle identifier, team, app category, entitlements, and resources without editing the generated project.
+</Aside>
+
+Then generate the Xcode project:
+
+```sh
+xcodegen generate --spec project.yml
+```
+
+The generated `.xcodeproj` is a normal Xcode project.
+Add it to your `.gitignore` file so that you don't check it in.
+You can open it in Xcode, build it with `xcodebuild`, or use it with Xcode Cloud.
+To change the app target, `Info.plist` values, resources, entitlements, build phases, or signing settings, edit `project.yml` and regenerate the project.
+
+The Cargo build script must copy the final executable to the path Xcode expects:
+
+```sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_BINARY="$1"
+RUST_TARGET="aarch64-apple-darwin"
+
+cargo build --release --target "$RUST_TARGET" --bin "$APP_BINARY"
+
+mkdir -p "$(dirname "$TARGET_BUILD_DIR/$EXECUTABLE_PATH")"
+cp "target/$RUST_TARGET/release/$APP_BINARY" "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
+chmod +x "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
+```
+
+This example builds an Apple silicon app.
+If you need to support Intel Macs, add the `x86_64-apple-darwin` target and create a universal binary before copying it into the app bundle.
+
+## Distribute a DMG Outside the Mac App Store
+
+Use this route when users download the app directly from your website.
+The app must be signed with a Developer ID Application certificate and notarized by Apple before distribution.
+
+A typical direct-distribution pipeline is:
+
+1. Generate the Xcode project with XcodeGen.
+2. Build or archive the app with Xcode or `xcodebuild`.
+3. Sign the app bundle with the hardened runtime enabled.
+4. Submit the app to Apple's notarization service.
+5. Staple and validate the accepted notarization ticket on the app.
+6. Create a DMG that contains the notarized app bundle.
+7. Sign the DMG with a Developer ID Application certificate.
+8. Submit the DMG to Apple's notarization service.
+9. Staple and validate the accepted notarization ticket on the DMG.
+10. Verify the final DMG, its code signature, and the mounted app.
+
+The core command-line tools are `xcodebuild`, `codesign`, `xcrun notarytool`, `xcrun stapler`, `hdiutil`, and `spctl`.
+Apple's notarization guide is here:
+[Notarizing macOS software before distribution](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
+
+Direct DMG distribution gives you control over hosting and updates, but it also means you own the signing certificates, CI keychains, notarization credentials, DMG layout, and verification steps.
+Keep that automation small, explicit, and repeatable.
+
+## Test a Beta With TestFlight
+
+Use [TestFlight](https://developer.apple.com/testflight/) to distribute beta builds, manage testers, and collect feedback before release.
+TestFlight isn't a production distribution channel.
+It uses App Store Connect and Apple's store signing flow, not the Developer ID signing and notarization flow used for direct DMG downloads.
+
+A typical TestFlight pipeline is:
+
+1. Create the app record in App Store Connect.
+2. Generate the Xcode project with `xcodegen generate`.
+3. Configure the bundle identifier, team, entitlements, and resources in the YAML spec.
+4. Build, archive, sign, and upload the beta with Xcode or Xcode Cloud.
+5. Add the build to an internal or external testing group in App Store Connect.
+6. Invite testers and collect their feedback through TestFlight.
+
+## Distribute Through the Mac App Store
+
+Use this route when you want users to install and update the app through the Mac App Store.
+You still start with XcodeGen because App Store submission expects a real Xcode project or archive.
+Mac App Store distribution uses Apple's store signing and App Store Connect upload flow, not the Developer ID signing flow used for direct downloads.
+
+A typical Mac App Store pipeline is:
+
+1. Check in the XcodeGen YAML spec and related source assets.
+2. Generate the Xcode project with `xcodegen generate`.
+3. Configure the bundle identifier, team, app category, entitlements, and resources in the YAML spec.
+4. Create the app record in App Store Connect.
+5. Build, archive, sign, and upload the app with Xcode or Xcode Cloud.
+
+You can also open the generated project in Xcode and submit from your local Mac.
+This works well when you want to manage releases manually.
+Xcode Cloud can automate the same archive and upload steps when you want a managed CI workflow.
+
+[Xcode Cloud](https://developer.apple.com/xcode-cloud/) is built into Xcode and App Store Connect.
+Apple Developer Program membership includes some free compute hours to build your app.
+
+<Aside type="note">
+Xcode Cloud performs the build, signing, and upload steps configured in your workflow.
+You remain responsible for the bundle identifier, signing settings, entitlements, TestFlight groups, and App Store submission settings.
+</Aside>
+
+## Important Xcode Cloud Information
+
+Xcode Cloud expects your app to have an Xcode project.
+You can meet this requirement without checking in the generated project.
+Open the project in Xcode and follow
+[Apple's instructions](https://developer.apple.com/documentation/xcode/setting-up-your-project-to-use-xcode-cloud) for setting up Xcode Cloud.
+The generated project lets Xcode Cloud complete the build and archive steps.
+Use a `ci_scripts/ci_post_clone.sh` script to install the dependencies and generate the project in Xcode Cloud.
+The Slint repository includes a [post-clone script](https://github.com/slint-ui/slint/blob/master/tools/viewer/ci_scripts/ci_post_clone.sh) you can use as a template.
+
+## What to Check In
+
+Check in:
+
+- `project.yml`, or whatever you call the XcodeGen project spec.
+- The Cargo build script called by the Xcode target.
+- App icons, entitlements, launch assets, and bundled resources.
+- Any scripts that package, sign, notarize, or verify direct-download artifacts.
+
+Don't check in the generated `.xcodeproj` unless you have a project-specific reason to do so.
+Regenerate it from the YAML spec instead.
+
+XcodeGen documents the YAML project format here:
+[Project Spec](https://yonaskolb.github.io/XcodeGen/Docs/ProjectSpec.html).
+
+## Automate Direct Distribution in CI
+
+Xcode Cloud is optional.
+You can build, sign, notarize, package, and verify a direct-download app on a local Mac or with a macOS CI service such as GitHub Actions or CircleCI.
+
+Automate the direct-distribution pipeline so that every release follows the same signing, notarization, stapling, and verification steps.
+The [Slint macOS Visual Editor workflow](https://github.com/slint-ui/slint/blob/master/.github/workflows/visual_editor_macos_dmg.yaml) provides a complete GitHub Actions example.
