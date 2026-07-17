@@ -1,0 +1,276 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+#![warn(missing_docs)]
+//! The animation system
+
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
+
+/// The representation of an easing curve, for animations
+#[repr(C, u32)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum EasingCurve {
+    /// The linear curve
+    #[default]
+    Linear,
+    /// A Cubic bezier curve, with its 4 parameters
+    CubicBezier([f32; 4]),
+    /// Easing curve as defined at: <https://easings.net/#easeInElastic>
+    EaseInElastic,
+    /// Easing curve as defined at: <https://easings.net/#easeOutElastic>
+    EaseOutElastic,
+    /// Easing curve as defined at: <https://easings.net/#easeInOutElastic>
+    EaseInOutElastic,
+    /// Easing curve as defined at: <https://easings.net/#easeInBounce>
+    EaseInBounce,
+    /// Easing curve as defined at: <https://easings.net/#easeOutBounce>
+    EaseOutBounce,
+    /// Easing curve as defined at: <https://easings.net/#easeInOutBounce>
+    EaseInOutBounce,
+    // Custom(Box<dyn Fn(f32) -> f32>),
+}
+
+mod cubic_bezier {
+    //! This is a copy from lyon_algorithms::geom::cubic_bezier implementation
+    //! (from lyon_algorithms 0.17)
+    type S = f32;
+    use euclid::default::Point2D as Point;
+    #[allow(unused)]
+    use num_traits::Float;
+    trait Scalar {
+        const ONE: f32 = 1.;
+        const THREE: f32 = 3.;
+        const HALF: f32 = 0.5;
+        const SIX: f32 = 6.;
+        const NINE: f32 = 9.;
+        fn value(v: f32) -> f32 {
+            v
+        }
+    }
+    impl Scalar for f32 {}
+    pub struct CubicBezierSegment {
+        pub from: Point<S>,
+        pub ctrl1: Point<S>,
+        pub ctrl2: Point<S>,
+        pub to: Point<S>,
+    }
+
+    impl CubicBezierSegment {
+        /// Sample the x coordinate of the curve at t (expecting t between 0 and 1).
+        pub fn x(&self, t: S) -> S {
+            let t2 = t * t;
+            let t3 = t2 * t;
+            let one_t = S::ONE - t;
+            let one_t2 = one_t * one_t;
+            let one_t3 = one_t2 * one_t;
+
+            self.from.x * one_t3
+                + self.ctrl1.x * S::THREE * one_t2 * t
+                + self.ctrl2.x * S::THREE * one_t * t2
+                + self.to.x * t3
+        }
+
+        /// Sample the y coordinate of the curve at t (expecting t between 0 and 1).
+        pub fn y(&self, t: S) -> S {
+            let t2 = t * t;
+            let t3 = t2 * t;
+            let one_t = S::ONE - t;
+            let one_t2 = one_t * one_t;
+            let one_t3 = one_t2 * one_t;
+
+            self.from.y * one_t3
+                + self.ctrl1.y * S::THREE * one_t2 * t
+                + self.ctrl2.y * S::THREE * one_t * t2
+                + self.to.y * t3
+        }
+
+        #[inline]
+        fn derivative_coefficients(&self, t: S) -> (S, S, S, S) {
+            let t2 = t * t;
+            (
+                -S::THREE * t2 + S::SIX * t - S::THREE,
+                S::NINE * t2 - S::value(12.0) * t + S::THREE,
+                -S::NINE * t2 + S::SIX * t,
+                S::THREE * t2,
+            )
+        }
+
+        /// Sample the x coordinate of the curve's derivative at t (expecting t between 0 and 1).
+        pub fn dx(&self, t: S) -> S {
+            let (c0, c1, c2, c3) = self.derivative_coefficients(t);
+            self.from.x * c0 + self.ctrl1.x * c1 + self.ctrl2.x * c2 + self.to.x * c3
+        }
+    }
+
+    impl CubicBezierSegment {
+        // This is actually in the Monotonic<CubicBezierSegment<S>> impl
+        pub fn solve_t_for_x(&self, x: S, t_range: core::ops::Range<S>, tolerance: S) -> S {
+            debug_assert!(t_range.start <= t_range.end);
+            let from = self.x(t_range.start);
+            let to = self.x(t_range.end);
+            if x <= from {
+                return t_range.start;
+            }
+            if x >= to {
+                return t_range.end;
+            }
+
+            // Newton's method.
+            let mut t = (x - from) / (to - from);
+            for _ in 0..8 {
+                let x2 = self.x(t);
+
+                if S::abs(x2 - x) <= tolerance {
+                    return t;
+                }
+
+                let dx = self.dx(t);
+
+                if dx <= S::EPSILON {
+                    break;
+                }
+
+                t -= (x2 - x) / dx;
+            }
+
+            // Fall back to binary search.
+            let mut min = t_range.start;
+            let mut max = t_range.end;
+            let mut t = S::HALF;
+
+            while min < max {
+                let x2 = self.x(t);
+
+                if S::abs(x2 - x) < tolerance {
+                    return t;
+                }
+
+                if x > x2 {
+                    min = t;
+                } else {
+                    max = t;
+                }
+
+                t = (max - min) * S::HALF + min;
+            }
+
+            t
+        }
+    }
+}
+
+fn ease_out_bounce_curve(value: f32) -> f32 {
+    const N1: f32 = 7.5625;
+    const D1: f32 = 2.75;
+
+    if value < 1.0 / D1 {
+        N1 * value * value
+    } else if value < 2.0 / D1 {
+        let value = value - (1.5 / D1);
+        N1 * value * value + 0.75
+    } else if value < 2.5 / D1 {
+        let value = value - (2.25 / D1);
+        N1 * value * value + 0.9375
+    } else {
+        let value = value - (2.625 / D1);
+        N1 * value * value + 0.984375
+    }
+}
+
+/// map a value between 0 and 1 to another value between 0 and 1 according to the curve
+pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
+    match curve {
+        EasingCurve::Linear => value,
+        EasingCurve::CubicBezier([a, b, c, d]) => {
+            if !(0.0..=1.0).contains(a) && !(0.0..=1.0).contains(c) {
+                return value;
+            };
+            let curve = cubic_bezier::CubicBezierSegment {
+                from: (0., 0.).into(),
+                ctrl1: (*a, *b).into(),
+                ctrl2: (*c, *d).into(),
+                to: (1., 1.).into(),
+            };
+            curve.y(curve.solve_t_for_x(value, 0.0..1.0, 0.01))
+        }
+        EasingCurve::EaseInElastic => {
+            const C4: f32 = 2.0 * core::f32::consts::PI / 3.0;
+
+            if value == 0.0 {
+                0.0
+            } else if value == 1.0 {
+                1.0
+            } else {
+                -f32::powf(2.0, 10.0 * value - 10.0) * f32::sin((value * 10.0 - 10.75) * C4)
+            }
+        }
+        EasingCurve::EaseOutElastic => {
+            let c4 = (2.0 * core::f32::consts::PI) / 3.0;
+
+            if value == 0.0 {
+                0.0
+            } else if value == 1.0 {
+                1.0
+            } else {
+                2.0f32.powf(-10.0 * value) * ((value * 10.0 - 0.75) * c4).sin() + 1.0
+            }
+        }
+        EasingCurve::EaseInOutElastic => {
+            const C5: f32 = 2.0 * core::f32::consts::PI / 4.5;
+
+            if value == 0.0 {
+                0.0
+            } else if value == 1.0 {
+                1.0
+            } else if value < 0.5 {
+                -(f32::powf(2.0, 20.0 * value - 10.0) * f32::sin((20.0 * value - 11.125) * C5))
+                    / 2.0
+            } else {
+                (f32::powf(2.0, -20.0 * value + 10.0) * f32::sin((20.0 * value - 11.125) * C5))
+                    / 2.0
+                    + 1.0
+            }
+        }
+        EasingCurve::EaseInBounce => 1.0 - ease_out_bounce_curve(1.0 - value),
+        EasingCurve::EaseOutBounce => ease_out_bounce_curve(value),
+        EasingCurve::EaseInOutBounce => {
+            if value < 0.5 {
+                (1.0 - ease_out_bounce_curve(1.0 - 2.0 * value)) / 2.0
+            } else {
+                (1.0 + ease_out_bounce_curve(2.0 * value - 1.0)) / 2.0
+            }
+        }
+    }
+}
+
+/*
+#[test]
+fn easing_test() {
+    fn test_curve(name: &str, curve: &EasingCurve) {
+        let mut img = image::ImageBuffer::new(500, 500);
+        let white = image::Rgba([255 as u8, 255 as u8, 255 as u8, 255 as u8]);
+
+        for x in 0..img.width() {
+            let t = (x as f32) / (img.width() as f32);
+            let y = easing_curve(curve, t);
+            let y = (y * (img.height() as f32)) as u32;
+            let y = y.min(img.height() - 1);
+            *img.get_pixel_mut(x, img.height() - 1 - y) = white;
+        }
+
+        img.save(
+            std::path::PathBuf::from(std::env::var_os("HOME").unwrap())
+                .join(format!("{}.png", name)),
+        )
+        .unwrap();
+    }
+
+    test_curve("linear", &EasingCurve::Linear);
+    test_curve("linear2", &EasingCurve::CubicBezier([0.0, 0.0, 1.0, 1.0]));
+    test_curve("ease", &EasingCurve::CubicBezier([0.25, 0.1, 0.25, 1.0]));
+    test_curve("ease_in", &EasingCurve::CubicBezier([0.42, 0.0, 1.0, 1.0]));
+    test_curve("ease_in_out", &EasingCurve::CubicBezier([0.42, 0.0, 0.58, 1.0]));
+    test_curve("ease_out", &EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]));
+}
+*/

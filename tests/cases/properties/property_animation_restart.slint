@@ -25,12 +25,17 @@ instance.set_xx(500);
 slint_testing::mock_elapsed_time(500);
 assert_eq!(instance.get_yy(), 7500 - 2500/2);
 slint_testing::mock_elapsed_time(5000);
+// The new object-based animation backend advances animations in real time even while the
+// property is not being read, so during these 5000ms the previous animation reached its
+// target (5000). Re-setting xx now starts a fresh animation from there. (The old lazy
+// backend "froze" an unread animation at its last observed value, 6250)
 instance.set_xx(1000);
-assert_eq!(instance.get_yy(), 7500 - 2500/2); // even if time has passed, since we reset the xx value, it is as if no time had passed
+assert_eq!(instance.get_yy(), 5000);
 slint_testing::mock_elapsed_time(500);
 instance.set_xx(1000);
 slint_testing::mock_elapsed_time(250);
-assert_eq!(instance.get_yy(), 9063);
+// from 5000 -> 10000, 750ms into a 1000ms linear animation: 5000 + 5000*0.75 = 8750
+assert_eq!(instance.get_yy(), 8750);
 slint_testing::mock_elapsed_time(250);
 assert_eq!(instance.get_yy(), 10000);
 ```

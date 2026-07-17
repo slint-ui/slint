@@ -2094,7 +2094,7 @@ impl QtWindow {
         let runtime_window = WindowInner::from_pub(&self.window);
         let window_adapter = runtime_window.window_adapter();
         runtime_window.draw_contents(|components, post_render| {
-            i_slint_core::animations::update_animations();
+            i_slint_core::animations::advance_animation_clock();
             self.text_layout_cache.clear_cache_if_scale_factor_changed(&self.window);
 
             let mut renderer = QtItemRenderer {
@@ -2202,7 +2202,7 @@ impl QtWindow {
     }
 
     fn key_event(&self, key: i32, text: qttypes::QString, released: bool, repeat: bool) {
-        i_slint_core::animations::update_animations();
+        i_slint_core::animations::advance_animation_clock();
         let text: String = text.into();
 
         let text = qt_key_to_string(key as key_generated::Qt_Key, text);

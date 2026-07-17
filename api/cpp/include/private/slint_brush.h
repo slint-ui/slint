@@ -426,8 +426,8 @@ inline void Property<slint::Brush>::set_animated_value(
         const slint::Brush &new_value,
         const cbindgen_private::PropertyAnimation &animation_data) const
 {
-    cbindgen_private::slint_property_set_animated_value_brush(&inner, &get(), &new_value,
-                                                              &animation_data);
+    cbindgen_private::slint_property_set_animated_value_object_brush(&inner, &new_value,
+                                                                     &animation_data);
 }
 
 } // namespace private_api
