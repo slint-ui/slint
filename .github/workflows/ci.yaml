@@ -48,6 +48,7 @@ jobs:
         pull-requests: read
       outputs:
         slint: ${{ inputs.full || steps.filter.outputs.slint == 'true' }}
+        framework: ${{ inputs.full || steps.filter.outputs.framework == 'true' }}
         figma_inspector: ${{ inputs.full || steps.filter.outputs.figma_inspector == 'true' }}
         material_components: ${{ inputs.full || steps.filter.outputs.material_components == 'true' }}
         internal: ${{ inputs.full || steps.filter.outputs.internal == 'true' }}
@@ -99,6 +100,9 @@ jobs:
             rust_version: ${{ matrix.rust_version }}
             extra_args: ${{ matrix.extra_args }}
             run_qt: ${{ needs.files-changed.outputs.qt == 'true' }}
+            test_workspace: ${{ needs.files-changed.outputs.slint == 'true' }}
+            test_integration: ${{ needs.files-changed.outputs.framework == 'true' || needs.files-changed.outputs.tests == 'true' }}
+            build_examples: ${{ needs.files-changed.outputs.framework == 'true' || needs.files-changed.outputs.examples == 'true' }}
             save_if: ${{ github.ref == 'refs/heads/master' }}
 
     # For changes to Slint internals, do a quick test on Linux for Node.js only.

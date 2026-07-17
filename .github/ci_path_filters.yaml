@@ -1,10 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# CI configuration that affects every gated job. Workflows that only specific
-# jobs invoke (the `uses:` reusable workflows in ci.yaml) are listed in the
-# group that gates those jobs instead, so that unrelated workflow changes
-# (schedule_ci, releases, triage, ...) don't retrigger everything.
+# CI configuration that affects most jobs. Reusable workflows used by a single
+# job belong in the group gating that job instead.
 ci_config: &ci_config
  - '.github/workflows/ci.yaml'
  - '.github/ci_path_filters.yaml'
@@ -25,13 +23,21 @@ js_config: &js_config
  - '.npmrc'
  - 'pnpm-lock.yaml'
 
-slint:
+# Runtime, compiler and Rust API: changes here can break the examples, demos
+# and integration tests, unlike changes to the tools (which only affect the
+# root workspace) or to the examples themselves.
+framework: &framework
  - '.github/workflows/build_and_test_reusable.yaml'
  - 'api/rs/**'
- - 'cmake/**'
- - 'demos/**'
  - 'helper_crates/**'
  - 'internal/**'
+ - 'Cargo.toml'
+ - '.cargo/**'
+ - *ci_config
+
+# Everything the root-workspace `cargo test` covers
+slint:
+ - *framework
  - 'tests/**'
  - 'tools/compiler/**'
  - 'tools/figma_import/**'
@@ -39,9 +45,6 @@ slint:
  - 'tools/tr-extractor/**'
  - 'tools/viewer/**'
  - 'xtask/**'
- - 'Cargo.toml'
- - '.cargo/**'
- - *ci_config
 
 # Qt backend and widget definitions — gates the Qt test step in build_and_test
 qt:
@@ -99,6 +102,7 @@ internal: &internal
 
 api_cpp:
  - 'api/cpp/**'
+ - 'cmake/**'
  - 'tools/compiler/**'
  - 'internal/compiler/generator/cpp*'
  # The renderers are not part of the `internal` group, but are exposed in the C++ API
