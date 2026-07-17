@@ -16,6 +16,12 @@ pub trait SoftwareBufferDisplay {
             drm::buffer::DrmFourcc,
         ) -> Result<(), PlatformError>,
     ) -> Result<(), PlatformError>;
+    /// Returns true if the buffer handed out by `map_back_buffer` is in
+    /// write-combined or otherwise uncached memory, where CPU reads are an
+    /// order of magnitude slower than reads from regular (cached) memory.
+    /// Renderers that read back destination pixels should then render into a
+    /// regular buffer and copy the result into the mapped buffer.
+    fn is_write_combined_memory(&self) -> bool;
     fn as_presenter(self: Arc<Self>) -> Arc<dyn super::Presenter>;
 }
 
