@@ -190,6 +190,22 @@ pub fn significant_span(node: &SyntaxNode) -> Option<TextRange> {
     Some(TextRange::new(first.text_range().start(), last.text_range().end()))
 }
 
+/// The next significant sibling of `item` (a token or a token-bearing node),
+/// skipping trivia and token-less nodes.
+fn next_significant_sibling(item: &NodeOrToken) -> Option<NodeOrToken> {
+    let parent = match item {
+        NodeOrToken::Node(node) => node.parent()?,
+        NodeOrToken::Token(token) => token.parent(),
+    };
+    let range = item.text_range();
+    parent.children_with_tokens().skip_while(|sibling| sibling.text_range() != range).skip(1).find(
+        |sibling| match sibling {
+            NodeOrToken::Token(token) => is_significant(token),
+            NodeOrToken::Node(node) => first_significant_token(node).is_some(),
+        },
+    )
+}
+
 /// A set of significant items (nodes or tokens) that a rule attaches atoms
 /// to.
 ///
@@ -439,6 +455,71 @@ impl<'a> Selection<'a> {
         Atom::literal(text).if_multiline(self.measure_span())
     }
 
+    /// Manage the separators of the selected list items. The span from the
+    /// first to the last item becomes one group: each separator between two
+    /// items gains the group's softline, and the trailing separator follows
+    /// the group's chosen layout — deleted when the list collapses onto one
+    /// line, added after the last item when it breaks.
+    ///
+    /// The span is built from the items, not the rule's node, because a node
+    /// often holds more than the list (a `Function` holds its parameters and
+    /// its body). Fewer than two items are left untouched: there is nothing
+    /// to separate, and a single item's trailing separator stays as written.
+    // Not used by the shipped ruleset yet; exercised by the engine tests.
+    #[allow(dead_code)]
+    pub fn separated_by(&self, separator: SyntaxKind) -> &Self {
+        let separator_text = match separator {
+            SyntaxKind::Comma => ",",
+            SyntaxKind::Semicolon => ";",
+            _ => {
+                debug_assert!(false, "unsupported separator {separator:?}");
+                return self;
+            }
+        };
+        // Error recovery can leave token-less items (an empty `Expression`
+        // after a doubled comma). Which separator is "trailing" is then
+        // ambiguous, so leave a malformed list as written.
+        let token_less = |item: &NodeOrToken| match item {
+            NodeOrToken::Token(_) => false,
+            NodeOrToken::Node(node) => significant_span(node).is_none(),
+        };
+        if self.items.len() < 2 || self.items.iter().any(token_less) {
+            return self;
+        }
+        let Some(first_token) = self.boundary_tokens(first_significant_token).next() else {
+            return self;
+        };
+        let Some(last_token) = self.boundary_tokens(last_significant_token).last() else {
+            return self;
+        };
+        let span = TextRange::new(first_token.text_range().start(), last_token.text_range().end());
+        let separator_after = |item: &NodeOrToken| match next_significant_sibling(item) {
+            Some(NodeOrToken::Token(token)) if token.kind() == separator => Some(token),
+            _ => None,
+        };
+
+        let (last_item, inner_items) = self.items.split_last().expect("checked above");
+        for item in inner_items {
+            if let Some(token) = separator_after(item) {
+                self.at(token).append(Atom::SpacedSoftline(span));
+            }
+        }
+        match separator_after(last_item) {
+            // The input's trailing separator: redundant on one line.
+            Some(token) => {
+                self.sink.mark(
+                    token.text_range(),
+                    Marker::Delete(Some(Condition { span, variant: Variant::SingleLine })),
+                );
+            }
+            // No trailing separator in the input; a broken list gains one.
+            None => {
+                self.at(last_item.clone()).append(Atom::literal(separator_text).if_multiline(span));
+            }
+        }
+        self
+    }
+
     /// Mark each selected item's range (a token's range, a node's significant
     /// span). Token-less nodes have no range and are skipped.
     fn mark(&self, marker: Marker) -> &Self {
@@ -581,6 +662,9 @@ pub(crate) enum GapModes<'a> {
     Decided {
         /// The innermost group controlling each gap, indexed by slot.
         gap_controller: &'a [Option<GroupId>],
+        /// The group each measure span identifies, for resolving the
+        /// condition on a conditional literal or delete by its own group.
+        group_of_span: &'a HashMap<TextRange, GroupId>,
         /// The variant the search chose for each group it decided.
         decisions: &'a HashMap<GroupId, Variant>,
         /// Groups whose single-line body was dropped (a newline forbids
@@ -594,7 +678,7 @@ impl GapModes<'_> {
     /// inlined into an ancestor's chosen flat body (so it renders single-line)
     /// or never had a single-line body at all (so it renders multiline).
     fn mode_for(&self, slot_index: usize) -> SoftlineMode {
-        let GapModes::Decided { gap_controller, decisions, flatten_forbidden } = self else {
+        let GapModes::Decided { gap_controller, decisions, flatten_forbidden, .. } = self else {
             return SoftlineMode::FromInput;
         };
         match gap_controller[slot_index] {
@@ -604,14 +688,35 @@ impl GapModes<'_> {
             }
         }
     }
+
+    /// Whether a conditional atom or delete fires: an unconditional one
+    /// always does; a conditioned one only when the group its span identifies
+    /// resolved to the named variant. Resolving by the condition's own group
+    /// — not the gap's controller — lets a trailing separator sit in a gap
+    /// the enclosing group controls yet flip with its list.
+    fn condition_active(&self, condition: Option<Condition>, source: &str) -> bool {
+        let Some(Condition { span, variant }) = condition else {
+            return true;
+        };
+        let resolved = match self {
+            GapModes::FromInput => input_variant(span, source),
+            GapModes::Decided { group_of_span, decisions, flatten_forbidden, .. } => {
+                match group_of_span.get(&span) {
+                    Some(&group) => variant_for_group(group, decisions, flatten_forbidden),
+                    // Rejected by the builder's grouped-conditions debug
+                    // assertion; keep releases running on the input layout.
+                    None => input_variant(span, source),
+                }
+            }
+        };
+        resolved == variant
+    }
 }
 
-/// Whether a conditional atom or delete fires. An unconditional one always
-/// does; a conditioned one only when the group whose body is being emitted
-/// resolves to the named variant. `mode` is that group's variant — the same
-/// `mode` the surrounding gap resolves with, so a conditional atom flips
-/// exactly with the softlines it shares a group with. The builder passes the
-/// region's mode and the emitter the controlling group's mode, so both agree.
+/// Whether a conditional atom or delete fires while the width search builds
+/// one group body. The builder places a conditional atom only in its own
+/// group's region, so resolving with `mode` — that group's variant — matches
+/// what [`GapModes::condition_active`] replays from the search's decisions.
 pub(crate) fn condition_active(
     condition: Option<Condition>,
     mode: SoftlineMode,
@@ -682,17 +787,13 @@ pub fn resolve(
 
     for (slot_index, slot) in slots.iter().enumerate() {
         let leaf = leaf_of_slot[slot_index];
-        // The mode of the group controlling this gap; it resolves both the
-        // measured softlines and any conditional literal or delete here, so
-        // they flip together.
-        let mode = modes.mode_for(slot_index);
         // A delete inside a leaf is ignored: the leaf keeps its interior
         // verbatim (precedence goes to the leaf). A conditional delete only
         // applies in the variant its group resolved to.
         let deleted = leaf.is_none()
             && delete_ranges.iter().any(|(range, condition)| {
                 range.contains(slot.token.text_range().start())
-                    && condition_active(*condition, mode, source)
+                    && modes.condition_active(*condition, source)
             });
         if deleted {
             // The token emits nothing; its gap's whitespace collapses (but
@@ -737,7 +838,7 @@ pub fn resolve(
         // suppressed like every other boundary effect.
         if !leaf_internal {
             for (text, condition) in literals(append_atoms) {
-                if condition_active(condition, mode, source) {
+                if modes.condition_active(condition, source) {
                     instructions.push(Instruction::EmitLiteral { text: text.to_string() });
                 }
             }
@@ -749,6 +850,7 @@ pub fn resolve(
             indentation_level += net_indentation(append_atoms) + net_indentation(prepend_atoms);
             instructions.push(Instruction::KeepGap { slot: slot_index });
         } else {
+            let mode = modes.mode_for(slot_index);
             let resolution = resolve_gap(
                 slot,
                 slot_index,
@@ -778,7 +880,7 @@ pub fn resolve(
 
         if !leaf_internal {
             for (text, condition) in literals(prepend_atoms) {
-                if condition_active(condition, mode, source) {
+                if modes.condition_active(condition, source) {
                     instructions.push(Instruction::EmitLiteral { text: text.to_string() });
                 }
             }
@@ -1260,6 +1362,7 @@ pub fn format_document_with_rules(
     let decisions = Resolver::new(Rc::new(built.arena)).resolve_widths(built.root);
     let modes = GapModes::Decided {
         gap_controller: &built.gap_controller,
+        group_of_span: &built.group_of_span,
         decisions: &decisions,
         flatten_forbidden: &built.flatten_forbidden,
     };
@@ -2189,6 +2292,91 @@ mod tests {
         let expected = format!("component A {{ x : test ({argument}) ; }}");
         assert_eq!(expected.chars().filter(|&character| character != '\n').count(), 100);
         assert_eq!(format_with(&input, &rules), expected);
+    }
+
+    /// An array ruleset that leaves the separator management to
+    /// [`Selection::separated_by`]: brackets break with the array, elements
+    /// with the item list.
+    fn separated_array_rules() -> FormatRules {
+        let mut rules = FormatRules::default();
+        rules.node(SyntaxKind::Array, |array| {
+            array
+                .token(SyntaxKind::LBracket)
+                .append(Atom::IndentStart)
+                .append(array.empty_softline());
+            array
+                .token(SyntaxKind::RBracket)
+                .prepend(Atom::IndentEnd)
+                .prepend(array.empty_softline());
+            array.token(SyntaxKind::Comma).prepend(Atom::Antispace);
+            array.node(SyntaxKind::Expression).separated_by(SyntaxKind::Comma);
+        });
+        rules
+    }
+
+    #[test]
+    fn separated_by_manages_the_trailing_separator_across_all_four_quadrants() {
+        let rules = separated_array_rules();
+        let check = |input: &str, expected: &str| {
+            assert_eq!(format_with(input, &rules), expected);
+            assert_eq!(format_with(expected, &rules), expected, "not idempotent");
+        };
+        // Flat, no trailing comma: untouched.
+        check("component A { x: [1, 2]; }", "component A { x : [1, 2] ; }");
+        // Flat, trailing comma: deleted.
+        check("component A { x: [1, 2,]; }", "component A { x : [1, 2] ; }");
+        // Broken, no trailing comma: one is added after the last item.
+        check("component A { x: [1,\n2]; }", "component A { x : [\n    1,\n    2,\n] ; }");
+        // Broken, trailing comma: kept.
+        check("component A { x: [1,\n2,]; }", "component A { x : [\n    1,\n    2,\n] ; }");
+    }
+
+    #[test]
+    fn separated_by_keeps_a_comment_inside_the_list() {
+        // The line comment forbids flattening, so the list is forced
+        // multiline — and gains its trailing separator.
+        let rules = separated_array_rules();
+        let output = format_with("component A { x: [1, // note\n2]; }", &rules);
+        assert_eq!(output, "component A { x : [\n    1, // note\n    2,\n] ; }");
+        assert_eq!(format_with(&output, &rules), output, "not idempotent");
+    }
+
+    #[test]
+    fn separated_by_leaves_a_doubled_comma_alone() {
+        // Error recovery parses `[1, 2,,]` with an empty trailing
+        // `Expression`; `separated_by` must back off, or the delete condition
+        // lands on the wrong comma and trips the extent-widening assert.
+        let rules = separated_array_rules();
+        for input in ["component A { x: [1, 2,,]; }", "component A { x: [1, 2, ,]; }"] {
+            let output = format_with(input, &rules);
+            assert_eq!(output, "component A { x : [1, 2,,] ; }");
+            assert_eq!(format_with(&output, &rules), output, "not idempotent");
+        }
+    }
+
+    #[test]
+    fn a_too_wide_list_breaks_per_item_with_a_trailing_separator() {
+        // Even after the brackets break, both items on one line would pass
+        // the page width, so the item list breaks too.
+        let rules = separated_array_rules();
+        let item = format!("\"{}\"", "a".repeat(58));
+        let input = format!("component A {{ x: [{item}, {item}]; }}");
+        let expected = format!("component A {{ x : [\n    {item},\n    {item},\n] ; }}");
+        assert_eq!(format_with(&input, &rules), expected);
+        assert_eq!(format_with(&expected, &rules), expected, "not idempotent");
+    }
+
+    #[test]
+    fn a_moderately_wide_list_breaks_at_the_brackets_before_the_items() {
+        // Breaking the brackets alone brings the line under the page width,
+        // so the cheaper single flip wins and the items stay on one line —
+        // without a trailing separator, since the item list did not break.
+        let rules = separated_array_rules();
+        let item = format!("\"{}\"", "a".repeat(42));
+        let input = format!("component A {{ x: [{item}, {item}]; }}");
+        let expected = format!("component A {{ x : [\n    {item}, {item}\n] ; }}");
+        assert_eq!(format_with(&input, &rules), expected);
+        assert_eq!(format_with(&expected, &rules), expected, "not idempotent");
     }
 
     #[test]

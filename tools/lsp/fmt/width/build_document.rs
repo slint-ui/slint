@@ -28,8 +28,8 @@ use crate::fmt::engine::{
     literals, net_indentation, normalize_leaf_ranges, resolve_gap,
 };
 use crate::fmt::render::shift_continuation_lines;
-use i_slint_compiler::parser::{SyntaxKind, TextRange};
-use std::collections::{HashMap, HashSet};
+use i_slint_compiler::parser::{SyntaxKind, TextRange, TextSize};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// One group: a measure span, the run of token slots it covers, and its place
 /// in the forest.
@@ -39,6 +39,11 @@ pub struct Group {
     /// and last significant tokens.
     pub first_slot: usize,
     pub last_slot: usize,
+    /// The end of the group's *extent*: `last_slot`, widened over a trailing
+    /// separator the group conditionally deletes. The separator sits textually
+    /// after the measure span, but it must be laid out — and its width
+    /// counted — inside the group whose variant decides it.
+    pub extent_last_slot: usize,
     pub parent: Option<GroupId>,
     /// Direct children, in source order.
     pub children: Vec<GroupId>,
@@ -59,6 +64,7 @@ impl Group {
 pub struct GroupForest {
     groups: Vec<Group>,
     roots: Vec<GroupId>,
+    group_of_span: HashMap<TextRange, GroupId>,
 }
 
 impl GroupForest {
@@ -78,6 +84,7 @@ impl GroupForest {
                     span,
                     first_slot,
                     last_slot,
+                    extent_last_slot: last_slot,
                     parent: None,
                     children: Vec::new(),
                     input_multiline: source[span].contains('\n'),
@@ -86,11 +93,57 @@ impl GroupForest {
             .collect();
 
         let roots = link_forest(&mut groups);
-        GroupForest { groups, roots }
+        let group_of_span = groups
+            .iter()
+            .enumerate()
+            .map(|(index, group)| (group.span, GroupId(index as u32)))
+            .collect();
+        let mut forest = GroupForest { groups, roots, group_of_span };
+        forest.widen_extents(slots, annotations);
+        forest
+    }
+
+    /// Widen each group's extent over the trailing separator it conditionally
+    /// deletes (see [`Group::extent_last_slot`]). The separator token directly
+    /// follows the group and precedes the enclosing delimiter, so widening
+    /// never reaches a sibling group or escapes the parent.
+    fn widen_extents(&mut self, slots: &[TokenSlot], annotations: &Annotations) {
+        for (range, marker) in &annotations.markers {
+            let Marker::Delete(Some(condition)) = marker else { continue };
+            // A condition with no group is reported by the grouped-conditions
+            // debug assertion instead.
+            let Some(group) = self.by_span(condition.span) else { continue };
+            let Some(slot) = slots.iter().position(|slot| slot.token.text_range() == *range) else {
+                continue;
+            };
+            if slot <= self.get(group).extent_last_slot {
+                continue; // Already inside the group.
+            }
+            debug_assert_eq!(
+                slot,
+                self.get(group).extent_last_slot + 1,
+                "a conditionally deleted token must directly follow its group"
+            );
+            let parent_last_slot = self.get(group).parent.map(|parent| self.get(parent).last_slot);
+            debug_assert!(
+                parent_last_slot.is_none_or(|last_slot| slot < last_slot),
+                "a widened extent must stay inside the parent group"
+            );
+            debug_assert!(
+                self.groups.iter().all(|other| other.first_slot != slot),
+                "a widened extent must not swallow another group's first slot"
+            );
+            self.groups[group.0 as usize].extent_last_slot = slot;
+        }
     }
 
     pub fn get(&self, group: GroupId) -> &Group {
         &self.groups[group.0 as usize]
+    }
+
+    /// The group whose measure span is exactly `span`, if any.
+    pub fn by_span(&self, span: TextRange) -> Option<GroupId> {
+        self.group_of_span.get(&span).copied()
     }
 
     pub fn roots(&self) -> &[GroupId] {
@@ -190,6 +243,11 @@ pub struct BuiltDocument {
     /// Indexed by slot: the group whose chosen variant resolves the gap
     /// before that slot, or `None` for a gap no group controls.
     pub gap_controller: Vec<Option<GroupId>>,
+    /// The group each measure span identifies, so the emitter can resolve a
+    /// conditional literal or delete by its own group's decision. A widened
+    /// atom sits in a gap another group controls, so the gap's mode is not
+    /// enough there.
+    pub group_of_span: HashMap<TextRange, GroupId>,
     /// Groups with no single-line body (a newline forbids flattening), so
     /// they never became a choice — the emitter resolves them multiline.
     pub flatten_forbidden: HashSet<GroupId>,
@@ -214,10 +272,12 @@ pub fn build_document(
         .filter(|(_, body)| body.is_none())
         .map(|(&group, _)| group)
         .collect();
+    let group_of_span = forest.group_of_span.clone();
     BuiltDocument {
         arena: builder.arena,
         root,
         gap_controller: builder.gap_controller,
+        group_of_span,
         flatten_forbidden,
     }
 }
@@ -267,6 +327,9 @@ struct DocumentBuilder<'a> {
     /// Token ranges a rule marked for deletion, with their condition — so a
     /// token deleted in the variant being built contributes no width.
     delete_ranges: Vec<(TextRange, Option<Condition>)>,
+    /// Per group, the widths of its edge literals (see
+    /// [`DocumentBuilder::emit_edge_literals`]), in attachment order.
+    edge_literals: HashMap<GroupId, Vec<(u32, Condition)>>,
     /// Each group's built docs, so a group referenced by both its own choice
     /// and an ancestor's flat body is built once.
     group_doc: HashMap<GroupId, DocId>,
@@ -296,10 +359,12 @@ impl<'a> DocumentBuilder<'a> {
             .iter()
             .map(|slot| containing_leaf(slot.token.text_range().start(), &leaf_ranges))
             .collect();
+        let gap_controller = gap_controllers(slots.len(), forest);
         DocumentBuilder {
             leaf_of_slot,
             indent_before: indent_before_each_gap(slots, annotations),
-            gap_controller: gap_controllers(slots.len(), forest),
+            edge_literals: edge_literals(slots, annotations, forest, &gap_controller),
+            gap_controller,
             delete_ranges: delete_ranges(&annotations.markers),
             slots,
             annotations,
@@ -327,8 +392,12 @@ impl<'a> DocumentBuilder<'a> {
             return doc;
         }
         let node = self.forest.get(group);
-        let (first, last, children, penalized) =
-            (node.first_slot, node.last_slot, node.children.clone(), node.penalized_variant());
+        let (first, last, children, penalized) = (
+            node.first_slot,
+            node.extent_last_slot,
+            node.children.clone(),
+            node.penalized_variant(),
+        );
         let multiline = self
             .build_region(
                 first,
@@ -357,7 +426,8 @@ impl<'a> DocumentBuilder<'a> {
             return doc;
         }
         let node = self.forest.get(group);
-        let (first, last, children) = (node.first_slot, node.last_slot, node.children.clone());
+        let (first, last, children) =
+            (node.first_slot, node.extent_last_slot, node.children.clone());
         let doc = self.build_region(
             first,
             last,
@@ -371,9 +441,9 @@ impl<'a> DocumentBuilder<'a> {
     }
 
     /// Concatenate the slots `[first, last]`: emit each gap this region
-    /// controls, each token it owns, and each child group in source order.
-    /// `flatten` forces child groups single-line and returns `None` if any
-    /// newline slips in.
+    /// controls, each token it owns, each child group in source order, and
+    /// the region group's edge literals at the end. `flatten` forces child
+    /// groups single-line and returns `None` if any newline slips in.
     fn build_region(
         &mut self,
         first: usize,
@@ -403,7 +473,7 @@ impl<'a> DocumentBuilder<'a> {
             }
             if child_first == Some(slot) {
                 let child = child.unwrap();
-                let child_last = self.forest.get(child).last_slot;
+                let child_last = self.forest.get(child).extent_last_slot;
                 let child_doc =
                     if flatten { self.build_flat_body(child)? } else { self.build_group(child) };
                 parts.push(child_doc);
@@ -418,10 +488,32 @@ impl<'a> DocumentBuilder<'a> {
                 slot += 1;
             }
         }
+        self.emit_edge_literals(region_group, gap_mode, &mut parts);
         if flatten && parts.iter().any(|&doc| matches!(self.arena.get(doc), Doc::Newline { .. })) {
             return None;
         }
         Some(self.arena.alloc(Doc::Concat(parts)))
+    }
+
+    /// Append the region group's edge literals — conditional literals whose
+    /// gap lies just past the group's extent (a trailing separator added to a
+    /// broken list). They belong to this group's choice, so they are laid out
+    /// at the end of its bodies rather than in the parent's gap; the emitter
+    /// produces the same order, literal before the gap's whitespace.
+    fn emit_edge_literals(
+        &mut self,
+        region_group: Option<GroupId>,
+        gap_mode: SoftlineMode,
+        parts: &mut Vec<DocId>,
+    ) {
+        let Some(group) = region_group else { return };
+        // Cloned so the arena's `&mut self` borrow stays free.
+        let edge_literals = self.edge_literals.get(&group).cloned().unwrap_or_default();
+        for (width, condition) in edge_literals {
+            if condition_active(Some(condition), gap_mode, self.source) {
+                parts.push(self.arena.alloc(Doc::Text { width }));
+            }
+        }
     }
 
     /// Append the docs for the gap before `slot`, resolved with `mode`. The
@@ -457,15 +549,30 @@ impl<'a> DocumentBuilder<'a> {
     /// The invariants a deleted token must satisfy for the builder to match the
     /// emitter, since the builder does not replay the emitter's carrying of a
     /// dropped token's atoms across the collapsed gap. The trailing-separator
-    /// idiom satisfies all three; a rule that breaks one is a bug.
+    /// idiom satisfies all of these; a rule that breaks one is a bug.
     #[cfg(debug_assertions)]
     fn debug_assert_deletable(&self, slot: usize, region_group: Option<GroupId>) {
         // The deleted token's variant must be this region's, so builder and
-        // emitter (which reads `gap_controller[slot]`) resolve it the same way.
+        // emitter resolve it the same way.
         debug_assert_eq!(
             self.gap_controller[slot], region_group,
-            "a deleted token must sit strictly inside the group that gates it"
+            "a deleted token must sit inside the extent of the group that gates it"
         );
+        // A conditional delete must be gated by the region's own group; a
+        // condition on some other group would need that group's undecided
+        // variant here.
+        let start = self.slots[slot].token.text_range().start();
+        for (range, condition) in &self.delete_ranges {
+            if !range.contains(start) {
+                continue;
+            }
+            let condition_group =
+                condition.and_then(|condition| self.forest.by_span(condition.span));
+            debug_assert!(
+                condition.is_none() || condition_group == region_group,
+                "a conditional delete must be gated by the group whose region holds the token"
+            );
+        }
         // The emitter carries the previous surviving token's append atoms past
         // a dropped token and discards the dropped token's own; the builder
         // does neither, so both must be empty.
@@ -513,20 +620,39 @@ impl<'a> DocumentBuilder<'a> {
         // engine's own resolver emits them in. A conditional literal counts
         // only in the variant it names.
         let mut pieces = Vec::new();
-        pieces.extend(self.active_literals(append, mode));
+        pieces.extend(self.active_literals(append, mode, slot));
         for instruction in &resolution.instructions {
             self.instruction_piece(instruction, slot, &mut pieces);
         }
-        pieces.extend(self.active_literals(prepend, mode));
+        pieces.extend(self.active_literals(prepend, mode, slot));
         pieces
     }
 
-    /// The width pieces of the literals in `atoms` that fire in `mode`.
-    fn active_literals(&self, atoms: &[AtomInstance], mode: SoftlineMode) -> Vec<Piece> {
+    /// The width pieces of the literals in `atoms` that fire in `mode`, for
+    /// the gap before `gap_slot`. Edge literals are excluded — they belong to
+    /// their own group's body, past whose extent this gap lies.
+    fn active_literals(
+        &self,
+        atoms: &[AtomInstance],
+        mode: SoftlineMode,
+        gap_slot: usize,
+    ) -> Vec<Piece> {
         literals(atoms)
+            .filter(|(_, condition)| !self.is_edge_literal(*condition, gap_slot))
             .filter(|(_, condition)| condition_active(*condition, mode, self.source))
             .map(|(text, _)| Piece::Width(line_width(text)))
             .collect()
+    }
+
+    /// Whether a literal's condition points at a group whose extent ends
+    /// before `gap_slot` — then the literal is one of that group's edge
+    /// literals, emitted at the end of its bodies instead of in this gap.
+    fn is_edge_literal(&self, condition: Option<Condition>, gap_slot: usize) -> bool {
+        let Some(group) = condition.and_then(|condition| self.forest.by_span(condition.span))
+        else {
+            return false;
+        };
+        gap_slot > self.forest.get(group).extent_last_slot
     }
 
     /// Whether the token at `slot` is deleted in the variant `mode` names. A
@@ -619,18 +745,77 @@ fn gap_atoms<'a>(
 }
 
 /// The innermost group controlling each gap (indexed by slot). A group
-/// controls the gaps strictly inside its slot range; processing groups
+/// controls the gaps strictly inside its extent; processing groups
 /// outer-first lets an inner group overwrite its ancestors.
 fn gap_controllers(slot_count: usize, forest: &GroupForest) -> Vec<Option<GroupId>> {
     let mut controllers = vec![None; slot_count];
     for index in 0..forest.len() {
         let group = GroupId(index as u32);
         let node = forest.get(group);
-        for gap in (node.first_slot + 1)..=node.last_slot {
+        for gap in (node.first_slot + 1)..=node.extent_last_slot {
             controllers[gap] = Some(group);
         }
     }
     controllers
+}
+
+/// Each group's edge literals: conditional literals attached past the group's
+/// extent, i.e. a trailing separator a broken list gains. They are emitted at
+/// the end of the group's bodies (see `emit_edge_literals`); an edge literal
+/// anywhere but directly at the extent's end would come out reordered, so
+/// that placement is asserted.
+fn edge_literals(
+    slots: &[TokenSlot],
+    annotations: &Annotations,
+    forest: &GroupForest,
+    gap_controller: &[Option<GroupId>],
+) -> HashMap<GroupId, Vec<(u32, Condition)>> {
+    let mut edges: HashMap<GroupId, Vec<(u32, Condition)>> = HashMap::new();
+    for (text, condition, group, anchor_slot) in
+        grouped_literals(&annotations.boundary.after, slots, forest)
+    {
+        let extent_last_slot = forest.get(group).extent_last_slot;
+        if anchor_slot < extent_last_slot {
+            // In place: the literal's gap is controlled by its own group.
+            debug_assert_eq!(gap_controller[anchor_slot + 1], Some(group));
+            continue;
+        }
+        debug_assert_eq!(
+            anchor_slot, extent_last_slot,
+            "an edge literal must be attached to its group's last token"
+        );
+        edges.entry(group).or_default().push((line_width(text), condition));
+    }
+    // A conditional prepend literal outside its group's controlled gaps has no
+    // defined place; no idiom produces one.
+    #[cfg(debug_assertions)]
+    for (_, _, group, anchor_slot) in grouped_literals(&annotations.boundary.before, slots, forest)
+    {
+        debug_assert_eq!(
+            gap_controller[anchor_slot],
+            Some(group),
+            "a conditional prepend literal must sit in a gap its group controls"
+        );
+    }
+    edges
+}
+
+/// The conditional literals in one boundary map (`before` or `after`), each
+/// with the group its condition names and the slot of its anchor token.
+fn grouped_literals<'a>(
+    boundary: &'a BTreeMap<TextSize, Vec<AtomInstance>>,
+    slots: &'a [TokenSlot],
+    forest: &'a GroupForest,
+) -> impl Iterator<Item = (&'a str, Condition, GroupId, usize)> + 'a {
+    boundary.iter().flat_map(move |(&anchor, atoms)| {
+        literals(atoms).filter_map(move |(text, condition)| {
+            let condition = condition?;
+            let group = forest.by_span(condition.span)?;
+            let anchor_slot =
+                slots.iter().position(|slot| slot.token.text_range().start() == anchor)?;
+            Some((text, condition, group, anchor_slot))
+        })
+    })
 }
 
 #[cfg(test)]
@@ -738,6 +923,28 @@ mod tests {
         let second = forest.get(root.children[1]);
         // Disjoint and in source order.
         assert!(first.last_slot < second.first_slot);
+    }
+
+    #[test]
+    fn a_conditional_trailing_separator_widens_the_group_extent() {
+        // `separated_by` conditionally deletes the trailing comma, which sits
+        // after the item list's measure span; the list group's extent must
+        // grow over it so the group lays it out and controls its gap.
+        let mut rules = FormatRules::default();
+        rules.node(SyntaxKind::Array, |array| {
+            array.node(SyntaxKind::Expression).separated_by(SyntaxKind::Comma);
+        });
+        let source = "component A { x: [1, 2,]; }";
+        let (linearization, forest) = build_forest(source, &rules);
+        assert_eq!(forest.len(), 1);
+        let group = forest.get(GroupId(0));
+        // The raw span ends at the last item; the extent covers the comma.
+        assert_eq!(linearization.slots[group.last_slot].token.text(), "2");
+        assert_eq!(linearization.slots[group.extent_last_slot].token.text(), ",");
+        assert_eq!(group.extent_last_slot, group.last_slot + 1);
+
+        let controllers = gap_controllers(linearization.slots.len(), &forest);
+        assert_eq!(controllers[group.extent_last_slot], Some(GroupId(0)));
     }
 
     #[test]

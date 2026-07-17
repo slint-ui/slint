@@ -178,6 +178,15 @@ resolver's memo key depends on it. Debug assertions guard the boundary: a
 conditionally deleted token must not carry `IndentStart`/`IndentEnd`, and a
 `Literal`'s text must not contain a newline.
 
+Implementation note — **extents, not raw spans**: a list's trailing
+separator sits textually *after* the group's measure span (the span ends at
+the last item), so the builder widens each group's slot range into an
+*extent* covering the tokens and gaps its conditional atoms occupy. The
+group lays those atoms out inside its own bodies — its width and its choice
+stay one unit — while the emitter resolves each condition by the group its
+span identifies. The measure span itself is not widened; input
+multilineness is still read off first-to-last item.
+
 Two engine obligations:
 
 - **Choice spans must nest or be disjoint** — a choice tree cannot
@@ -704,6 +713,14 @@ The concrete deltas to the shipped engine:
 - **Debug assertions**: group spans nest or are disjoint; no conditional
   indent atoms; no newline inside a `Literal`'s text; a chosen SingleLine
   variant renders without newlines; decision lists concatenate disjointly.
+- **A debug run is the ruleset validator.** The builder counts a
+  conditional atom's width inside its condition's group; the emitter fires
+  it by that group's decision. The placement invariants that keep the two
+  in agreement (extent widening, edge literals, gap ownership) are enforced
+  only by debug assertions — a release build with a ruleset that violates
+  them stays textually consistent but measures a document that diverges
+  from what it emits, which can overflow the page width and oscillate
+  between runs. New rulesets must pass the test suite in a debug build.
 
 ## Open questions (to resolve in the concrete plan)
 
