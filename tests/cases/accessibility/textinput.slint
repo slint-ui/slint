@@ -15,12 +15,12 @@ export component TestCase inherits Window {
 
     ti := TextInput {
         text: "123";
-
     }
 
     le := LineEdit {
         text: "456";
         placeholder-text: "Password";
+        read-only: true;
     }
 }
 
@@ -37,6 +37,7 @@ let instance = TestCase::new().unwrap();
     text_input.set_accessible_value("Hello");
     assert_eq!(text_input.accessible_value(), Some("Hello".into()));
     assert_eq!(instance.get_text_input_text(), "Hello", "Test component was not notified");
+    assert_eq!(text_input.accessible_read_only(), Some(false));
 }
 
 {
@@ -47,6 +48,7 @@ let instance = TestCase::new().unwrap();
     assert_eq!(line_edit.accessible_value(), Some("World".into()));
     assert_eq!(instance.get_line_edit_text(), "World", "Test component was not notified");
     assert_eq!(line_edit.accessible_placeholder_text(), Some("Password".into()));
+    assert_eq!(line_edit.accessible_read_only(), Some(true));
 }
 ```
 
@@ -64,6 +66,7 @@ const TestCase &instance = *handle;
     textinput.set_accessible_value("Hello");
     assert(textinput.accessible_value() == "Hello");
     assert(instance.get_text_input_text() == "Hello");
+    assert(textinput.accessible_read_only() == false);
 }
 
 {
@@ -76,6 +79,7 @@ const TestCase &instance = *handle;
     lineedit.set_accessible_value("World");
     assert(lineedit.accessible_value() == "World");
     assert(instance.get_line_edit_text() == "World" );
+    assert(lineedit.accessible_read_only() == true);
 }
 ```
 
