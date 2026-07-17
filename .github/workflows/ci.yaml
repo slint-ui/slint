@@ -35,6 +35,10 @@ env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
     SLINT_COMPILER_DENY_WARNINGS: 1
     SLINT_BUILD_NUMBER: ${{ github.run_number }}
+    RUST_BACKTRACE: 1
+    # Speed up CI builds and keep the target directory small.
+    CARGO_INCREMENTAL: false
+    CARGO_PROFILE_DEV_DEBUG: 0
 
 jobs:
     files-changed:
@@ -65,7 +69,7 @@ jobs:
         tree_sitter: ${{ inputs.full || steps.filter.outputs.tree_sitter == 'true' }}
         slint_sc: ${{ inputs.full || steps.filter.outputs.slint_sc == 'true' }}
       steps:
-        - uses: actions/checkout@v6
+        - uses: actions/checkout@v7
           if: ${{ !inputs.full }}
         - uses: dorny/paths-filter@v4
           if: ${{ !inputs.full }}
@@ -152,9 +156,6 @@ jobs:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
             RUSTFLAGS: -D warnings
-            CARGO_INCREMENTAL: false
-            RUST_BACKTRACE: 1
-            CARGO_PROFILE_DEV_DEBUG: 0
         strategy:
             matrix:
                 include:
@@ -166,7 +167,7 @@ jobs:
         runs-on: ${{ matrix.os }}
 
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   force-gcc-10: true
@@ -191,13 +192,10 @@ jobs:
         env:
             SLINT_NO_QT: 1
             RUSTFLAGS: -D warnings
-            CARGO_INCREMENTAL: false
-            RUST_BACKTRACE: 1
-            CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER: gcc
             PKG_CONFIG_ALLOW_CROSS: 1
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install 32-bit build dependencies
               run: |
@@ -236,15 +234,12 @@ jobs:
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
             QT_QPA_PLATFORM: offscreen
-            CARGO_INCREMENTAL: false
-            RUST_BACKTRACE: 1
-            CARGO_PROFILE_DEV_DEBUG: 0
             SLINT_EMIT_DEBUG_INFO: 1
         strategy:
             matrix: ${{ fromJSON(needs.cpp_cmake_matrix.outputs.matrix) }}
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   force-gcc-10: true
@@ -292,10 +287,8 @@ jobs:
         runs-on: ubuntu-22.04
         env:
             QT_QPA_PLATFORM: offscreen
-            CARGO_INCREMENTAL: false
-            CARGO_PROFILE_DEV_DEBUG: 0
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   force-gcc-10: true
@@ -328,15 +321,15 @@ jobs:
         if: ${{ needs.files-changed.outputs.vsce == 'true' }}
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
             - uses: Swatinem/rust-cache@v2
               with:
                 key: "vsce_1" # increment this to bust the cache if needed
             - uses: ./.github/actions/install-linux-dependencies
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                   node-version: 24
                   package-manager-cache: false
@@ -369,12 +362,11 @@ jobs:
         env:
             SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
             RUSTFLAGS: --cfg slint_int_coord -D warnings
-            CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: thumbv6m-none-eabi,thumbv7em-none-eabihf,thumbv8m.main-none-eabihf
@@ -406,7 +398,7 @@ jobs:
         if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' }}
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: armv7-unknown-linux-gnueabihf
@@ -452,13 +444,10 @@ jobs:
         if: ${{ needs.files-changed.outputs.slintpad == 'true' }}
         env:
             SLINT_NO_QT: 1
-            CARGO_INCREMENTAL: false
-            RUST_BACKTRACE: 1
-            CARGO_PROFILE_DEV_DEBUG: 0
             RUSTFLAGS: -D warnings
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
             - name: run the formatter
@@ -510,7 +499,7 @@ jobs:
                   . ${IDF_PATH}/export.sh
                   cd $IDF_PYTHON_ENV_PATH
                   bin/pip install pydantic==2.11.10
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - run: apt-get update && apt-get install -y libfontconfig1-dev
             - uses: dtolnay/rust-toolchain@stable
             - uses: esp-rs/xtensa-toolchain@v1.7
@@ -552,13 +541,13 @@ jobs:
             # where cargo actually writes the artifacts.
             CARGO_TARGET_DIR: ${{ github.workspace }}/target
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Android API level 30
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
             - name: Cache cargo-apk
               id: cargo-apk-cache
-              uses: actions/cache@v5
+              uses: actions/cache@v6
               with:
                   path: ~/.cargo/bin/cargo-apk
                   key: cargo-apk-cache
@@ -592,11 +581,8 @@ jobs:
         needs: files-changed
         if: ${{ needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.android_backend == 'true' }}
         runs-on: ubuntu-latest
-        env:
-            CARGO_INCREMENTAL: false
-            CARGO_PROFILE_DEV_DEBUG: 0
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
@@ -617,13 +603,13 @@ jobs:
         if: ${{ needs.files-changed.outputs.figma_inspector == 'true' }}
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
-            - uses: actions/setup-node@v6
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
             - name: Run pnpm install
@@ -681,12 +667,9 @@ jobs:
     slint_sc:
         needs: files-changed
         if: ${{ needs.files-changed.outputs.slint_sc == 'true' }}
-        env:
-            CARGO_INCREMENTAL: false
-            CARGO_PROFILE_DEV_DEBUG: 0
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   components: llvm-tools-preview
@@ -713,11 +696,9 @@ jobs:
         if: ${{ needs.files-changed.outputs.rust_files == 'true' }}
         env:
             RUSTFLAGS: -D warnings
-            CARGO_INCREMENTAL: false
-            CARGO_PROFILE_DEV_DEBUG: 0
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install ffmpeg and alsa (Linux)
               run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
@@ -763,7 +744,7 @@ jobs:
         if: ${{ inputs.full }}
         runs-on: ubuntu-24.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: i686-pc-windows-msvc
@@ -780,7 +761,7 @@ jobs:
             # The splat cache is keyed by the architectures it was created for (DONE marker), so
             # keep the cache key specific to x86 to avoid reusing a cache without the x86 libraries.
             - name: Cache xwin Windows SDK
-              uses: actions/cache@v4
+              uses: actions/cache@v6
               with:
                   path: ~/.cache/cargo-xwin
                   key: cargo-xwin-sdk-x86
@@ -816,7 +797,7 @@ jobs:
                       target: armv7-unknown-linux-gnueabihf
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - name: Downgrade cc and ring crate to work around https://github.com/slint-ui/slint/issues/6875
               run: |
                   cargo update -p ring --precise 0.17.9
@@ -872,7 +853,7 @@ jobs:
             fail-fast: false
         runs-on: ubuntu-24.04
         steps:
-          - uses: actions/checkout@v6
+          - uses: actions/checkout@v7
             with:
                 path: slint
           - name: Install linux dependencies, including Zephyr dependencies
@@ -899,11 +880,9 @@ jobs:
 
     uefi-demo:
         if: ${{ inputs.full }}
-        env:
-            CARGO_PROFILE_DEV_DEBUG: 0
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: stable
@@ -934,7 +913,7 @@ jobs:
                   device: iPhone 17
         runs-on: macos-26
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-apple-ios-sim
@@ -1050,7 +1029,7 @@ jobs:
             # cargo-apk does not honor the repository's relative `build.target-dir`.
             CARGO_TARGET_DIR: ${{ github.workspace }}/target
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - name: Install Android API level 30
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
             - uses: dtolnay/rust-toolchain@stable
@@ -1068,7 +1047,7 @@ jobs:
         if: ${{ inputs.full }}
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - name: Install system dependencies
               run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev
             - uses: ./.github/actions/setup-rust

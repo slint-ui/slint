@@ -464,6 +464,7 @@ use crate::langtype::{
     BuiltinStruct, Enumeration, EnumerationValue, NativeClass, StructName, Type,
 };
 use crate::layout::Orientation;
+use crate::llr::lower_expression::lower_constant_expression;
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, EvaluationScope, ParentScope,
     TypeResolutionContext as _,
@@ -790,13 +791,13 @@ pub fn generate(
         return super::cpp_live_preview::generate(doc, config, compiler_config);
     }
 
-    let mut file = generate_types(&doc.used_types.borrow().structs_and_enums, &config);
+    let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
+
+    let mut file = generate_types(&doc.used_types.borrow().structs_and_enums, &config, &llr);
 
     for (resource_id, er) in doc.embedded_file_resources.borrow().iter_enumerated() {
         embed_resource(er, resource_id, &mut file.resources);
     }
-
-    let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
     #[cfg(feature = "bundle-translations")]
     if let Some(translations) = &llr.translations {
@@ -1036,7 +1037,7 @@ pub fn generate(
     Ok(file)
 }
 
-pub fn generate_types(used_types: &[Type], config: &Config) -> File {
+pub fn generate_types(used_types: &[Type], config: &Config, unit: &llr::CompilationUnit) -> File {
     let mut file = File { namespace: config.namespace.clone(), ..Default::default() };
 
     file.includes.push("<array>".into());
@@ -1052,10 +1053,15 @@ pub fn generate_types(used_types: &[Type], config: &Config) -> File {
         z = env!("CARGO_PKG_VERSION_PATCH")
     );
 
+    // The evaluation context for the field default values needs an instance,
+    // but the constant expressions cannot call any of the functions that
+    // record a conditional include
+    let conditional_includes = ConditionalIncludes::default();
+
     for ty in used_types {
         match ty {
             Type::Struct(s) if s.node().is_some() => {
-                generate_struct(&mut file, &s.name, &s.fields);
+                generate_struct(&mut file, s, unit, &conditional_includes);
             }
             Type::Enumeration(en) => {
                 generate_enum(&mut file, en);
@@ -1063,6 +1069,13 @@ pub fn generate_types(used_types: &[Type], config: &Config) -> File {
             _ => (),
         }
     }
+
+    debug_assert!(
+        !conditional_includes.iostream.get()
+            && !conditional_includes.cstdlib.get()
+            && !conditional_includes.cmath.get(),
+        "a constant expression recorded a conditional include; apply them to the file"
+    );
 
     file
 }
@@ -1305,20 +1318,44 @@ fn embed_resource(
     }
 }
 
-fn generate_struct(file: &mut File, name: &StructName, fields: &BTreeMap<SmolStr, Type>) {
-    let StructName::User { name: user_name, node } = name else {
+fn generate_struct(
+    file: &mut File,
+    the_struct: &crate::langtype::Struct,
+    unit: &llr::CompilationUnit,
+    conditional_includes: &ConditionalIncludes,
+) {
+    let StructName::User { name: user_name, node } = &the_struct.name else {
         panic!("internal error: Cannot generate anonymous struct");
     };
+    // Constant expressions cannot access the globals; make sure a bug in that
+    // assumption breaks the build of the generated code with a clear message
+    let ctx = EvaluationContext::new_const(
+        unit,
+        CppGeneratorContext {
+            global_access: "no_global_access_in_a_constant_expression".into(),
+            conditional_includes,
+        },
+    );
     let name = ident(user_name);
     let mut members = node
         .ObjectTypeMember()
         .map(|n| crate::parser::identifier_text(&n).unwrap())
         .map(|name| {
+            // When any field has a declared default value, initialize the remaining fields, too,
+            // so that default construction is fully deterministic, like in the other language backends.
+            let init = match the_struct.field_defaults.get(&name) {
+                Some(default_value) => {
+                    Some(compile_expression(&lower_constant_expression(default_value), &ctx))
+                }
+                None if !the_struct.field_defaults.is_empty() => Some("{}".into()),
+                None => None,
+            };
             (
                 Access::Public,
                 Declaration::Var(Var {
-                    ty: fields.get(&name).unwrap().cpp_type().unwrap(),
+                    ty: the_struct.fields.get(&name).unwrap().cpp_type().unwrap(),
                     name: ident(&name),
+                    init,
                     ..Default::default()
                 }),
             )
@@ -1748,20 +1785,25 @@ fn generate_item_tree(
     let parent_item_from_parent_component = parent_ctx.as_ref()
         .map(|parent| {
             parent.repeater_index.map_or_else(|| {
-                // No repeater index, this could be a PopupWindow
+                // No repeater index, this could be a PopupWindow. The parent may
+                // already be gone (e.g. walked while a subtree is being torn
+                // down), so leave `*result` empty rather than unwrapping a dead
+                // weak (matches the Rust backend).
                 vec![
                     format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(component.instance);"),
-                    format!("auto parent = self->parent.lock().value();"),
+                    format!("if (auto parent = self->parent.lock()) {{"),
                     // TODO: store popup index in ctx and set it here instead of 0?
-                    format!("*result = {{ parent->self_weak, 0 }};"),
+                    format!("    *result = {{ (*parent)->self_weak, 0 }};"),
+                    format!("}}"),
                     ]
                 }, |idx| {
                 let current_sub_component = &root.sub_components[parent.sub_component];
                 let parent_index = current_sub_component.repeated[idx].index_in_tree;
                 vec![
                     format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(component.instance);"),
-                    format!("auto parent = self->parent.lock().value();"),
-                    format!("*result = {{ parent->self_weak, parent->tree_index_of_first_child + {} }};", parent_index - 1),
+                    format!("if (auto parent = self->parent.lock()) {{"),
+                    format!("    *result = {{ (*parent)->self_weak, (*parent)->tree_index_of_first_child + {} }};", parent_index - 1),
+                    format!("}}"),
                 ]
             })
         })
@@ -2889,11 +2931,15 @@ fn generate_layout_item_info_decl(
 fn generate_flexbox_layout_item_info_decl(
     root_sc: &llr::SubComponent,
     ctx: &EvaluationContext,
-) -> Declaration {
+) -> Vec<Declaration> {
     const SIGNATURE: &str = "(slint::cbindgen_private::Orientation o, [[maybe_unused]] std::optional<size_t> child_index) const -> slint::cbindgen_private::FlexboxLayoutItemInfo";
 
-    let body = if let Some(expr) = &root_sc.flexbox_layout_item_info_for_repeated {
-        let compiled = compile_expression(&expr.borrow(), ctx);
+    let for_repeated_compiled = root_sc
+        .flexbox_layout_item_info_for_repeated
+        .as_ref()
+        .map(|expr| compile_expression(&expr.borrow(), ctx));
+
+    let body = if let Some(compiled) = &for_repeated_compiled {
         // Break the height-for-width recursion for a repeated instance in a
         // column FlexboxLayout: use the constrained vertical info (measured at
         // its preferred width via layoutinfo-v-with-constraint) instead of
@@ -2922,12 +2968,50 @@ fn generate_flexbox_layout_item_info_decl(
             .to_owned()
     };
 
-    Declaration::Function(Function {
-        name: "flexbox_layout_item_info".into(),
-        signature: SIGNATURE.to_owned(),
-        statements: Some(vec![body]),
-        ..Function::default()
-    })
+    // A column FlexboxLayout calls this with its real container width so a
+    // height-for-width instance wraps to the same height as a static cell. The
+    // expression reads the `flex_cross_width` parameter.
+    //
+    // `layout_info_v_at_cross_width_for_repeated` is only set for a
+    // height-for-width root, which also forces `flexbox_layout_item_info_for_repeated`
+    // (see `lower_to_item_tree`), so the other cases have no width-dependent
+    // height and just delegate. Unlike Rust, where `RepeatedItemTree` provides
+    // defaults and the generator emits nothing when there is no flex info, a C++
+    // repeated struct has no base class: both members are always emitted, and the
+    // delegating body below is the equivalent of the Rust trait default.
+    let at_cross_width_body = match (
+        &for_repeated_compiled,
+        root_sc.layout_info_v_at_cross_width_for_repeated.as_ref(),
+    ) {
+        (Some(compiled), Some(e)) => {
+            let v = compile_expression(&e.borrow(), ctx);
+            format!(
+                "[[maybe_unused]] auto self = this; \
+                 auto info = {compiled}; \
+                 info.constraint = {v}; \
+                 return info;"
+            )
+        }
+        _ => "return flexbox_layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt);"
+            .to_owned(),
+    };
+
+    vec![
+        Declaration::Function(Function {
+            name: "flexbox_layout_item_info".into(),
+            signature: SIGNATURE.to_owned(),
+            statements: Some(vec![body]),
+            ..Function::default()
+        }),
+        Declaration::Function(Function {
+            name: "flexbox_layout_item_info_at_cross_width".into(),
+            signature:
+                "([[maybe_unused]] float flex_cross_width) const -> slint::cbindgen_private::FlexboxLayoutItemInfo"
+                    .to_owned(),
+            statements: Some(vec![at_cross_width_body]),
+            ..Function::default()
+        }),
+    ]
 }
 
 /// Generates the `grid_layout_input_for_repeated` member function for a repeated component struct,
@@ -3121,9 +3205,9 @@ fn generate_repeated_component(
             Access::Public, // Because Repeater accesses it
             generate_layout_item_info_decl(root_sc, &ctx),
         ));
-        repeater_struct
-            .members
-            .push((Access::Public, generate_flexbox_layout_item_info_decl(root_sc, &ctx)));
+        for decl in generate_flexbox_layout_item_info_decl(root_sc, &ctx) {
+            repeater_struct.members.push((Access::Public, decl));
+        }
         if let Some(decl) = generate_grid_layout_input_decl(root_sc, &ctx) {
             repeater_struct.members.push((Access::Public, decl));
         }
@@ -4469,12 +4553,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             cells_v_variable,
             repeater_indices_var_name,
             elements,
+            repeated_cross_width,
             sub_expression,
         } => generate_with_flexbox_layout_item_info(
             cells_h_variable,
             cells_v_variable,
             repeater_indices_var_name.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
+            repeated_cross_width.as_deref(),
             sub_expression,
             ctx,
         ),
@@ -4483,61 +4569,134 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             repeater_indices,
             measure_cells,
             default_cells,
+            cells_variables,
         } => {
             let data = compile_expression(data, ctx);
             let repeater_indices = compile_expression(repeater_indices, ctx);
             // cbindgen does not expose `LayoutInfo::preferred_bounded()`, so
             // inline it: preferred_bounded = max(min(preferred, max), min).
-            let mut v_cases = String::new();
-            let mut h_cases = String::new();
-            for (i, item) in measure_cells.iter().enumerate() {
-                if let Either::Left((h_info, v_info)) = item {
-                    let v = compile_expression(v_info, ctx);
-                    let h = compile_expression(h_info, ctx);
-                    v_cases.push_str(&format!(
-                        "case {i}: {{ auto li = {v}; nh = std::max(std::min(li.preferred, li.max), li.min); break; }}\n"
-                    ));
-                    h_cases.push_str(&format!(
-                        "case {i}: {{ auto li = {h}; nw = std::max(std::min(li.preferred, li.max), li.min); break; }}\n"
-                    ));
+            const BOUNDED: &str = "std::max(std::min(li.preferred, li.max), li.min)";
+            // Without a repeater the cell index is known at compile time, so switch
+            // on it (O(1) dispatch). With a repeater the count is only known at
+            // runtime: walk the elements, advancing `cursor` by 1 per static cell
+            // and by the repeater's instance count per repeater, until `index`'s
+            // range is found.
+            let (v_body, h_body) = if cells_variables.is_none() {
+                let mut v_cases = String::new();
+                let mut h_cases = String::new();
+                for (i, item) in measure_cells.iter().enumerate() {
+                    if let Either::Left((h_info, v_info)) = item {
+                        let v = compile_expression(v_info, ctx);
+                        let h = compile_expression(h_info, ctx);
+                        v_cases.push_str(&format!(
+                            "case {i}: {{ auto li = {v}; return {{ w, {BOUNDED} }}; }}\n"
+                        ));
+                        h_cases.push_str(&format!(
+                            "case {i}: {{ auto li = {h}; return {{ {BOUNDED}, h }}; }}\n"
+                        ));
+                    }
                 }
-            }
-            // Preferred (default-constraint) size per cell, returned when taffy
-            // asks for a dimension without a known cross-axis size.
-            let mut pref_w = String::new();
-            let mut pref_h = String::new();
-            for item in default_cells {
-                if let Either::Left((h_info, v_info)) = item {
-                    let h = compile_expression(h_info, ctx);
-                    let v = compile_expression(v_info, ctx);
-                    pref_w.push_str(&format!(
-                        "[&]{{ auto li = {h}; return std::max(std::min(li.preferred, li.max), li.min); }}(),\n"
-                    ));
-                    pref_h.push_str(&format!(
-                        "[&]{{ auto li = {v}; return std::max(std::min(li.preferred, li.max), li.min); }}(),\n"
-                    ));
+                (
+                    format!("switch (index) {{\n{v_cases}default: break;\n}}\n"),
+                    format!("switch (index) {{\n{h_cases}default: break;\n}}\n"),
+                )
+            } else {
+                let mut v_steps = String::new();
+                let mut h_steps = String::new();
+                for item in measure_cells {
+                    match item {
+                        Either::Left((h_info, v_info)) => {
+                            let v = compile_expression(v_info, ctx);
+                            let h = compile_expression(h_info, ctx);
+                            v_steps.push_str(&format!(
+                                "if (index == cursor) {{ auto li = {v}; return {{ w, {BOUNDED} }}; }}\n\
+                                 cursor += 1;\n"
+                            ));
+                            h_steps.push_str(&format!(
+                                "if (index == cursor) {{ auto li = {h}; return {{ {BOUNDED}, h }}; }}\n\
+                                 cursor += 1;\n"
+                            ));
+                        }
+                        Either::Right(repeater) => {
+                            let i = usize::from(repeater.repeater_index);
+                            v_steps.push_str(&format!(
+                                "{{ auto len = self->repeater_{i}.len(); \
+                                 if (index >= cursor && index < cursor + len) {{ \
+                                     if (auto *sub_comp = self->repeater_{i}.typed_instance_at(index - cursor)) {{ \
+                                         auto li = sub_comp->flexbox_layout_item_info_at_cross_width(w).constraint; \
+                                         return {{ w, {BOUNDED} }}; }} \
+                                     return {{ w, h }}; }} \
+                                 cursor += len; }}\n"
+                            ));
+                            // No width-for-height accessor on a repeated instance: keep its default.
+                            h_steps.push_str(&format!("cursor += self->repeater_{i}.len();\n"));
+                        }
+                    }
                 }
-            }
+                (
+                    format!("[[maybe_unused]] uintptr_t cursor = 0;\n{v_steps}"),
+                    format!("[[maybe_unused]] uintptr_t cursor = 0;\n{h_steps}"),
+                )
+            };
+            // Preferred size per cell, returned when taffy asks for a dimension
+            // without a known cross-axis size. With a repeater the cell count is
+            // only known at runtime, so read the flat cell arrays the enclosing
+            // `WithFlexboxLayoutItemInfo` built; otherwise inline the constants.
+            let (defaults_decl, default_w, default_h) = match cells_variables {
+                Some((cells_h, cells_v)) => {
+                    let (cells_h, cells_v) = (ident(cells_h), ident(cells_v));
+                    (
+                        String::new(),
+                        format!(
+                            "index < {cells_h}.len ? [&]{{ auto li = {cells_h}.ptr[index].constraint; return {BOUNDED}; }}() : 0.0f"
+                        ),
+                        format!(
+                            "index < {cells_v}.len ? [&]{{ auto li = {cells_v}.ptr[index].constraint; return {BOUNDED}; }}() : 0.0f"
+                        ),
+                    )
+                }
+                None => {
+                    let mut pref_w = String::new();
+                    let mut pref_h = String::new();
+                    for item in default_cells {
+                        if let Either::Left((h_info, v_info)) = item {
+                            let h = compile_expression(h_info, ctx);
+                            let v = compile_expression(v_info, ctx);
+                            pref_w.push_str(&format!(
+                                "[&]{{ auto li = {h}; return {BOUNDED}; }}(),\n"
+                            ));
+                            pref_h.push_str(&format!(
+                                "[&]{{ auto li = {v}; return {BOUNDED}; }}(),\n"
+                            ));
+                        }
+                    }
+                    (
+                        format!(
+                            "const float pref_w[] = {{ {pref_w} }};\n\
+                             const float pref_h[] = {{ {pref_h} }};\n\
+                             const size_t cell_count = sizeof(pref_w) / sizeof(float);\n"
+                        ),
+                        "index < cell_count ? pref_w[index] : 0.0f".to_owned(),
+                        "index < cell_count ? pref_h[index] : 0.0f".to_owned(),
+                    )
+                }
+            };
             format!(
                 "slint::private_api::solve_flexbox_layout_with_measure({data}, {repeater_indices}, \
                  [&](uintptr_t index, std::optional<float> known_w, std::optional<float> known_h) \
                  -> std::pair<float, float> {{\n\
-                    const float pref_w[] = {{ {pref_w} }};\n\
-                    const float pref_h[] = {{ {pref_h} }};\n\
-                    const size_t cell_count = sizeof(pref_w) / sizeof(float);\n\
-                    float w = known_w.value_or(index < cell_count ? pref_w[index] : 0.0f);\n\
-                    float h = known_h.value_or(index < cell_count ? pref_h[index] : 0.0f);\n\
+                    {defaults_decl}\
+                    float w = known_w.value_or({default_w});\n\
+                    float h = known_h.value_or({default_h});\n\
                     if (known_w.has_value() && !known_h.has_value()) {{\n\
                         [[maybe_unused]] float measure_known_w = w;\n\
-                        float nh = h;\n\
-                        switch (index) {{\n{v_cases}default: break;\n}}\n\
-                        return {{ w, nh }};\n\
+                        {v_body}\
+                        return {{ w, h }};\n\
                     }}\n\
                     if (known_h.has_value() && !known_w.has_value()) {{\n\
                         [[maybe_unused]] float measure_known_h = h;\n\
-                        float nw = w;\n\
-                        switch (index) {{\n{h_cases}default: break;\n}}\n\
-                        return {{ nw, h }};\n\
+                        {h_body}\
+                        return {{ w, h }};\n\
                     }}\n\
                     return {{ w, h }};\n\
                  }})"
@@ -5444,10 +5603,14 @@ fn generate_with_flexbox_layout_item_info(
     cells_v_variable: &str,
     repeated_indices_var_name: Option<&str>,
     elements: &[Either<(llr::Expression, llr::Expression), llr::LayoutRepeatedElement>],
+    repeated_cross_width: Option<&llr::Expression>,
     sub_expression: &llr::Expression,
     ctx: &llr_EvaluationContext<CppGeneratorContext>,
 ) -> String {
     let repeated_indices_var_name = repeated_indices_var_name.map(ident);
+    // Container width forwarded to repeated cells' vertical query (column flex),
+    // so a height-for-width instance wraps to the real width like a static cell.
+    let cross_width = repeated_cross_width.map(|w| compile_expression(w, ctx));
     let mut push_code =
         "std::vector<slint::cbindgen_private::FlexboxLayoutItemInfo> cells_vector_h; std::vector<slint::cbindgen_private::FlexboxLayoutItemInfo> cells_vector_v;".to_owned();
     let mut repeater_idx = 0usize;
@@ -5486,13 +5649,21 @@ fn generate_with_flexbox_layout_item_info(
                 // for_each only visits instantiated slots; pad the cells up to len() afterwards so
                 // the cell count matches the repeater length recorded in the repeater_indices array
                 // (not-yet-instantiated rows get placeholders).
+                // For a column flex, measure each instance's vertical info at the
+                // container width; otherwise use its preferred-width default.
+                let v_push = match &cross_width {
+                    Some(w) => format!(
+                        "sub_comp->flexbox_layout_item_info_at_cross_width(static_cast<float>({w}))"
+                    ),
+                    None => "sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt)".to_owned(),
+                };
                 write!(
                     push_code,
                     "{{ \
                      auto start_offset = cells_vector_h.size(); \
                      self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{ \
                      cells_vector_h.push_back(sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Horizontal, std::nullopt)); \
-                     cells_vector_v.push_back(sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt)); }}); \
+                     cells_vector_v.push_back({v_push}); }}); \
                      auto repeater_len = self->repeater_{repeater_index}.len(); \
                      cells_vector_h.resize(start_offset + repeater_len); \
                      cells_vector_v.resize(start_offset + repeater_len); }}"

@@ -307,6 +307,7 @@ fn lower_sub_component(
         grid_layout_input_for_repeated: None,
         flexbox_layout_item_info_for_repeated: None,
         layout_info_v_constrained_for_repeated: None,
+        layout_info_v_at_cross_width_for_repeated: None,
         is_repeated_row: component
             .root_element
             .borrow()
@@ -673,6 +674,13 @@ fn lower_sub_component(
             );
         }
         sub_component.layout_info_v_constrained_for_repeated = v_constrained.map(Into::into);
+        sub_component.layout_info_v_at_cross_width_for_repeated =
+            super::lower_layout_expression::get_layout_info_v_at_cross_width_for_repeated(
+                &mut ctx,
+                root_elem,
+                &component.root_constraints.borrow(),
+            )
+            .map(Into::into);
     }
 
     if let Some(grid_layout_cell) = component.root_element.borrow().grid_layout_cell.as_ref() {
@@ -809,7 +817,7 @@ fn lower_geometry(
         values
             .insert(f.into(), super::Expression::PropertyReference(ctx.map_property_reference(v)));
     }
-    super::Expression::Struct { ty: Rc::new(Struct { fields, name: StructName::None }), values }
+    super::Expression::Struct { ty: Rc::new(Struct::new(fields, StructName::None)), values }
 }
 
 fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::PropertyAnalysis {

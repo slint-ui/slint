@@ -16,7 +16,7 @@ use euclid::approxeq::ApproxEq;
 
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
-use i_slint_core::cursor::MouseCursorInner;
+use i_slint_core::cursor::{MouseCursorInner, scaled_hotspot};
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 use i_slint_core::renderer::DrawOutcome;
 use winit::event_loop::ActiveEventLoop;
@@ -477,7 +477,8 @@ impl WinitWindowAdapter {
             window_attributes = window_attributes.with_transparent(false);
         }
 
-        let winit_window = self.renderer.resume(active_event_loop, window_attributes)?;
+        let winit_window =
+            self.renderer.resume(active_event_loop, window_attributes, self.self_weak.clone())?;
 
         // Push the host shell's color scheme and accent color to the SlintContext.
         // With `xdg_desktop_settings` the backend-wide portal watcher (spawned in
@@ -1452,62 +1453,63 @@ impl WindowAdapter for WinitWindowAdapter {
 }
 
 impl WindowAdapterInternal for WinitWindowAdapter {
+    fn start_window_move(&self) {
+        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
+            let _ = winit_window.drag_window();
+        }
+    }
+
     fn set_mouse_cursor(&self, cursor: MouseCursorInner) {
         let winit_cursor = match &cursor {
-            MouseCursorInner::BuiltIn(cursor) => match cursor {
-                BuiltInMouseCursor::Default => Some(winit::window::CursorIcon::Default),
-                BuiltInMouseCursor::None => Some(winit::window::CursorIcon::Default),
-                BuiltInMouseCursor::Help => Some(winit::window::CursorIcon::Help),
-                BuiltInMouseCursor::Pointer => Some(winit::window::CursorIcon::Pointer),
-                BuiltInMouseCursor::Progress => Some(winit::window::CursorIcon::Progress),
-                BuiltInMouseCursor::Wait => Some(winit::window::CursorIcon::Wait),
-                BuiltInMouseCursor::Crosshair => Some(winit::window::CursorIcon::Crosshair),
-                BuiltInMouseCursor::Text => Some(winit::window::CursorIcon::Text),
-                BuiltInMouseCursor::Alias => Some(winit::window::CursorIcon::Alias),
-                BuiltInMouseCursor::Copy => Some(winit::window::CursorIcon::Copy),
-                BuiltInMouseCursor::Move => Some(winit::window::CursorIcon::Move),
-                BuiltInMouseCursor::NoDrop => Some(winit::window::CursorIcon::NoDrop),
-                BuiltInMouseCursor::NotAllowed => Some(winit::window::CursorIcon::NotAllowed),
-                BuiltInMouseCursor::Grab => Some(winit::window::CursorIcon::Grab),
-                BuiltInMouseCursor::Grabbing => Some(winit::window::CursorIcon::Grabbing),
-                BuiltInMouseCursor::ColResize => Some(winit::window::CursorIcon::ColResize),
-                BuiltInMouseCursor::RowResize => Some(winit::window::CursorIcon::RowResize),
-                BuiltInMouseCursor::NResize => Some(winit::window::CursorIcon::NResize),
-                BuiltInMouseCursor::EResize => Some(winit::window::CursorIcon::EResize),
-                BuiltInMouseCursor::SResize => Some(winit::window::CursorIcon::SResize),
-                BuiltInMouseCursor::WResize => Some(winit::window::CursorIcon::WResize),
-                BuiltInMouseCursor::NeResize => Some(winit::window::CursorIcon::NeResize),
-                BuiltInMouseCursor::NwResize => Some(winit::window::CursorIcon::NwResize),
-                BuiltInMouseCursor::SeResize => Some(winit::window::CursorIcon::SeResize),
-                BuiltInMouseCursor::SwResize => Some(winit::window::CursorIcon::SwResize),
-                BuiltInMouseCursor::EwResize => Some(winit::window::CursorIcon::EwResize),
-                BuiltInMouseCursor::NsResize => Some(winit::window::CursorIcon::NsResize),
-                BuiltInMouseCursor::NeswResize => Some(winit::window::CursorIcon::NeswResize),
-                BuiltInMouseCursor::NwseResize => Some(winit::window::CursorIcon::NwseResize),
-                _ => unimplemented!(),
-            },
+            MouseCursorInner::BuiltIn(cursor) => Some(match cursor {
+                BuiltInMouseCursor::Default => winit::window::CursorIcon::Default,
+                BuiltInMouseCursor::None => winit::window::CursorIcon::Default,
+                BuiltInMouseCursor::Help => winit::window::CursorIcon::Help,
+                BuiltInMouseCursor::Pointer => winit::window::CursorIcon::Pointer,
+                BuiltInMouseCursor::Progress => winit::window::CursorIcon::Progress,
+                BuiltInMouseCursor::Wait => winit::window::CursorIcon::Wait,
+                BuiltInMouseCursor::Crosshair => winit::window::CursorIcon::Crosshair,
+                BuiltInMouseCursor::Text => winit::window::CursorIcon::Text,
+                BuiltInMouseCursor::Alias => winit::window::CursorIcon::Alias,
+                BuiltInMouseCursor::Copy => winit::window::CursorIcon::Copy,
+                BuiltInMouseCursor::Move => winit::window::CursorIcon::Move,
+                BuiltInMouseCursor::NoDrop => winit::window::CursorIcon::NoDrop,
+                BuiltInMouseCursor::NotAllowed => winit::window::CursorIcon::NotAllowed,
+                BuiltInMouseCursor::Grab => winit::window::CursorIcon::Grab,
+                BuiltInMouseCursor::Grabbing => winit::window::CursorIcon::Grabbing,
+                BuiltInMouseCursor::ColResize => winit::window::CursorIcon::ColResize,
+                BuiltInMouseCursor::RowResize => winit::window::CursorIcon::RowResize,
+                BuiltInMouseCursor::NResize => winit::window::CursorIcon::NResize,
+                BuiltInMouseCursor::EResize => winit::window::CursorIcon::EResize,
+                BuiltInMouseCursor::SResize => winit::window::CursorIcon::SResize,
+                BuiltInMouseCursor::WResize => winit::window::CursorIcon::WResize,
+                BuiltInMouseCursor::NeResize => winit::window::CursorIcon::NeResize,
+                BuiltInMouseCursor::NwResize => winit::window::CursorIcon::NwResize,
+                BuiltInMouseCursor::SeResize => winit::window::CursorIcon::SeResize,
+                BuiltInMouseCursor::SwResize => winit::window::CursorIcon::SwResize,
+                BuiltInMouseCursor::EwResize => winit::window::CursorIcon::EwResize,
+                BuiltInMouseCursor::NsResize => winit::window::CursorIcon::NsResize,
+                BuiltInMouseCursor::NeswResize => winit::window::CursorIcon::NeswResize,
+                BuiltInMouseCursor::NwseResize => winit::window::CursorIcon::NwseResize,
+                _ => winit::window::CursorIcon::Default,
+            }),
             MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
-                if let Some(rgba8) = image.to_rgba8() {
-                    let rgba = rgba8
-                        .as_slice()
-                        .iter()
-                        .flat_map(|c| vec![c.r, c.g, c.b, c.a])
-                        .collect::<Vec<u8>>();
-                    let size = image.size();
+                // Render scalable sources (SVG) at the display resolution so the cursor stays crisp.
+                let scale = self.window().scale_factor();
+                let source_size = image.size();
+                let target_size = IntSize::new(
+                    (source_size.width as f32 * scale) as u32,
+                    (source_size.height as f32 * scale) as u32,
+                );
+                if let Some(rgba8) = image.to_rgba8_with_target_size(target_size) {
+                    let (width, height) = (rgba8.width(), rgba8.height());
+                    // winit rejects a hotspot that lies outside the image, so clamp it inside.
                     let source = CustomCursor::from_rgba(
-                        rgba,
-                        size.width as u16,
-                        size.height as u16,
-                        if *hotspot_x >= 0 {
-                            *hotspot_x as u16
-                        } else {
-                            image.size().width as u16 / 2
-                        },
-                        if *hotspot_y >= 0 {
-                            *hotspot_y as u16
-                        } else {
-                            image.size().height as u16 / 2
-                        },
+                        rgba8.as_bytes(),
+                        width as u16,
+                        height as u16,
+                        scaled_hotspot(*hotspot_x, source_size.width, width) as u16,
+                        scaled_hotspot(*hotspot_y, source_size.height, height) as u16,
                     );
 
                     // Custom cursors have to be set during the event loop

@@ -23,7 +23,7 @@ jobs:
             CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:

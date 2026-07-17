@@ -1212,6 +1212,10 @@ declare_item_vtable! {
     fn slint_get_DropAreaVTable() -> DropAreaVTable for DropArea
 }
 
+declare_item_vtable! {
+    fn slint_get_WindowMoveAreaVTable() -> WindowMoveAreaVTable for WindowMoveArea
+}
+
 /// The implementation of the `PropertyAnimation` element
 /// This animation has the time as animation limit
 #[repr(C)]

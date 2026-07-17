@@ -38,16 +38,16 @@ jobs:
             RELEASE_INPUT: ${{ inputs.release }}
             BRANCH_NAME: ${{ github.ref_name }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - name: Set up crate rustdoc link
               run: |
                   rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
                   echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 --extern-html-root-url winit=https://docs.rs/winit/0.30 --extern-html-root-url wgpu=https://docs.rs/wgpu/29 --extern-html-root-url input=https://docs.rs/input/0.9 --extern-html-root-url fontique=https://docs.rs/fontique/0.8" >> $GITHUB_ENV
             - uses: ./.github/actions/install-linux-dependencies
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
@@ -126,11 +126,11 @@ jobs:
             RELEASE_INPUT: ${{ inputs.release }}
             BRANCH_NAME: ${{ github.ref_name }}
         steps:
-            - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
@@ -229,11 +229,11 @@ jobs:
         env:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
-            - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false

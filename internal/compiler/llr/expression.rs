@@ -21,15 +21,7 @@ pub enum ArrayOutput {
     Vector,
 }
 
-#[derive(Clone, Debug)]
-pub enum MouseCursorInner {
-    BuiltIn(Box<Expression>),
-    CustomMouseCursor {
-        image: Box<Expression>,
-        hotspot_x: Box<Expression>,
-        hotspot_y: Box<Expression>,
-    },
-}
+pub use crate::expression_tree::MouseCursorInner;
 
 #[derive(Debug, Clone)]
 pub enum Expression {
@@ -176,7 +168,7 @@ pub enum Expression {
 
     EasingCurve(crate::expression_tree::EasingCurve),
 
-    MouseCursor(MouseCursorInner),
+    MouseCursor(MouseCursorInner<Expression>),
 
     LinearGradient {
         angle: Box<Expression>,
@@ -251,6 +243,11 @@ pub enum Expression {
         repeater_indices_var_name: Option<SmolStr>,
         /// Either an expression pair of type (LayoutItemInfo, LayoutItemInfo), or information about the repeater
         elements: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
+        /// Container (cross-axis) width for a column flex: passed to each
+        /// repeated cell's `flexbox_layout_item_info_at_cross_width` so a
+        /// height-for-width instance wraps to the real width instead of its
+        /// preferred width. `None` for a row flex (no cross-width to forward).
+        repeated_cross_width: Option<Box<Expression>>,
         sub_expression: Box<Expression>,
     },
     /// Calls `solve_flexbox_layout_with_measure` with a generated measure
@@ -264,15 +261,23 @@ pub enum Expression {
     /// `(h_info, v_info)` at the default constraint (matching `data`'s cells);
     /// it provides the preferred size returned when taffy asks for a dimension
     /// without a known cross-axis size (mirroring the plain `solve_flexbox_layout`
-    /// measure). Repeater cells (the `Right` case) are not routed through the
-    /// callback yet.
+    /// measure). A repeater cell (the `Right` case) is measured by calling
+    /// `flexbox_layout_item_info_at_cross_width` on the instance taffy asks for.
     SolveFlexboxLayoutWithMeasure {
         /// The `FlexboxLayoutData` (built inline with the cell arrays, so its
         /// temporaries live for the duration of the solve call).
         data: Box<Expression>,
         repeater_indices: Box<Expression>,
         measure_cells: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
+        /// Only used when `cells_variables` is `None`; empty otherwise.
         default_cells: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
+        /// Names of the flat `(cells_h, cells_v)` locals set up by the enclosing
+        /// `WithFlexboxLayoutItemInfo`. `Some` exactly when the layout has a
+        /// repeater: a repeater expands to a runtime number of cells, so the
+        /// callback maps taffy's flat cell index to an element with a runtime
+        /// cursor, and takes per-cell defaults from these arrays instead of the
+        /// per-element `default_cells`.
+        cells_variables: Option<(SmolStr, SmolStr)>,
     },
     /// Will call the sub_expression, with the cells variable set to the
     /// array of GridLayoutInputData from the elements
@@ -307,6 +312,17 @@ pub enum Expression {
         /// The `n` value to use for the plural form if it is a plural form
         plural: Option<Box<Expression>>,
     },
+}
+
+/// The type of a binary expression with the given operator:
+/// comparison and logic operators produce a bool,
+/// while the arithmetic operators keep the type of the left operand
+pub fn binary_expression_ty(op: char, lhs_ty: impl FnOnce() -> Type) -> Type {
+    if crate::expression_tree::operator_class(op) != OperatorClass::ArithmeticOp {
+        Type::Bool
+    } else {
+        lhs_ty()
+    }
 }
 
 impl Expression {
@@ -351,7 +367,15 @@ impl Expression {
                 values: s
                     .fields
                     .iter()
-                    .map(|(k, v)| Some((k.clone(), Expression::default_value_for_type(v)?)))
+                    .map(|(k, v)| {
+                        let value = match s.field_defaults.get(k) {
+                            Some(default_value) => {
+                                super::lower_expression::lower_constant_expression(default_value)
+                            }
+                            None => Expression::default_value_for_type(v)?,
+                        };
+                        Some((k.clone(), value))
+                    })
                     .collect::<Option<_>>()?,
             },
             Type::Easing => Expression::EasingCurve(crate::expression_tree::EasingCurve::default()),
@@ -412,13 +436,7 @@ impl Expression {
             Self::ModelDataAssignment { .. } => Type::Void,
             Self::ArrayIndexAssignment { .. } => Type::Void,
             Self::SliceIndexAssignment { .. } => Type::Void,
-            Self::BinaryExpression { lhs, rhs: _, op } => {
-                if crate::expression_tree::operator_class(*op) != OperatorClass::ArithmeticOp {
-                    Type::Bool
-                } else {
-                    lhs.ty(ctx)
-                }
-            }
+            Self::BinaryExpression { lhs, rhs: _, op } => binary_expression_ty(*op, || lhs.ty(ctx)),
             Self::UnaryOp { sub, .. } => sub.ty(ctx),
             Self::ImageReference { .. } => Type::Image,
             Self::Condition { false_expr, .. } => false_expr.ty(ctx),
@@ -559,8 +577,16 @@ macro_rules! visit_impl {
                 $visitor(sub_expression);
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
             }
-            Expression::WithFlexboxLayoutItemInfo { elements, sub_expression, .. } => {
+            Expression::WithFlexboxLayoutItemInfo {
+                elements,
+                repeated_cross_width,
+                sub_expression,
+                ..
+            } => {
                 $visitor(sub_expression);
+                if let Some(w) = repeated_cross_width {
+                    $visitor(w);
+                }
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
                     $visitor(h);
                     $visitor(v);
@@ -571,6 +597,7 @@ macro_rules! visit_impl {
                 repeater_indices,
                 measure_cells,
                 default_cells,
+                cells_variables: _,
             } => {
                 $visitor(data);
                 $visitor(repeater_indices);
@@ -698,6 +725,9 @@ pub enum EvaluationScope<'a> {
     SubComponent(SubComponentIdx, Option<&'a ParentScope<'a>>),
     /// The evaluation context is in a global
     Global(GlobalIdx),
+    /// The evaluation context is a constant expression that cannot reference any
+    /// properties or elements, such as the default value of a struct field
+    Const,
 }
 
 #[derive(Clone)]
@@ -733,6 +763,18 @@ impl<'a, T> EvaluationContext<'a, T> {
         Self {
             compilation_unit,
             current_scope: EvaluationScope::Global(global),
+            generator_state,
+            argument_types: &[],
+        }
+    }
+
+    /// A context for compiling a constant expression that cannot reference any
+    /// properties or elements, such as the default value of a struct field
+    /// (see [`crate::langtype::Struct::field_defaults`])
+    pub fn new_const(compilation_unit: &'a super::CompilationUnit, generator_state: T) -> Self {
+        Self {
+            compilation_unit,
+            current_scope: EvaluationScope::Const,
             generator_state,
             argument_types: &[],
         }
@@ -860,6 +902,9 @@ impl<'a, T> EvaluationContext<'a, T> {
                             local_reference,
                             ContextMap::from_parent_level(*parent_level),
                         )
+                    }
+                    EvaluationScope::Const => {
+                        panic!("property reference in a constant expression")
                     }
                 }
             }

@@ -1948,10 +1948,10 @@ impl Expression {
                 (name, value)
             })
             .collect();
-        let ty = Rc::new(Struct {
-            fields: values.iter().map(|(k, v)| (k.clone(), v.ty())).collect(),
-            name: StructName::None,
-        });
+        let ty = Rc::new(Struct::new(
+            values.iter().map(|(k, v)| (k.clone(), v.ty())).collect(),
+            StructName::None,
+        ));
         Expression::Struct { ty, values }
     }
 
@@ -2046,9 +2046,12 @@ impl Expression {
                                 }
                             }
                         }
+                        // The field defaults must come from the same struct as the name
+                        let source = if result.name.is_some() { &result } else { &elem };
                         Type::Struct(Rc::new(Struct {
-                            name: result.name.clone().or(elem.name.clone()),
                             fields,
+                            field_defaults: source.field_defaults.clone(),
+                            name: source.name.clone(),
                         }))
                     }
                     (Type::Array(lhs), Type::Array(rhs)) => Type::Array(if *lhs == Type::Void {
@@ -2097,7 +2100,7 @@ fn common_expression_type(true_expr: &Expression, false_expr: &Expression) -> Ty
     fn merge_struct(origin: &Struct, other: &Struct) -> Type {
         let mut fields = other.fields.clone();
         fields.extend(origin.fields.iter().map(|(k, v)| (k.clone(), v.clone())));
-        Rc::new(Struct { fields, name: StructName::None }).into()
+        Rc::new(Struct::new(fields, StructName::None)).into()
     }
 
     if let Expression::Struct { ty, values } = true_expr {
@@ -2115,7 +2118,7 @@ fn common_expression_type(true_expr: &Expression, false_expr: &Expression) -> Ty
                     fields.insert(k.clone(), v.ty());
                 }
             }
-            return Type::Struct(Rc::new(Struct { fields, name: StructName::None }));
+            return Type::Struct(Rc::new(Struct::new(fields, StructName::None)));
         } else if let Type::Struct(false_ty) = false_expr.ty() {
             return merge_struct(&false_ty, ty);
         }

@@ -106,7 +106,7 @@ vtable = { version = "0.5", path = "helper_crates/vtable" }
 by_address = { version = "1.0.4" }
 bytemuck = { version = "1.13.1" }
 cbindgen = { version = "0.29", default-features = false }
-cfg_aliases = { version = "0.2.0" }
+cfg_aliases = { version = "0.2.2" }
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
 clru = { version = "0.6.0" }
 css-color-parser2 = { version = "1.0.1" }

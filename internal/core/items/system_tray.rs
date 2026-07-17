@@ -62,10 +62,14 @@ pub struct Params<'a> {
 pub enum Error {
     #[display("Failed to create a rgba8 buffer from an icon image")]
     Rgba8,
-    #[display("{}", 0)]
+    #[display("{_0}")]
     PlatformError(crate::platform::PlatformError),
-    #[display("{}", 0)]
+    #[display("{_0}")]
     EventLoopError(crate::api::EventLoopError),
+    #[display(
+        "no system tray backend compiled in (missing `system-tray` feature or unsupported platform)"
+    )]
+    Unsupported,
 }
 
 /// Owning handle to a live platform tray icon. Dropping it removes the icon.

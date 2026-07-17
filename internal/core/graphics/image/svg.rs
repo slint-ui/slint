@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{ImageCacheKey, SharedImageBuffer, SharedPixelBuffer};
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "image-decoders", not(target_arch = "wasm32")))]
 use crate::SharedString;
 use crate::lengths::PhysicalPx;
 use resvg::{tiny_skia, usvg};
@@ -97,7 +97,7 @@ impl ParsedSVG {
 ///
 /// Gated on `shared-parley`: without Slint's text engine there is no text layout, so
 /// SVG text resolution would be moot.
-#[cfg(feature = "shared-parley")]
+#[cfg(all(feature = "shared-parley", not(target_arch = "wasm32")))]
 fn svg_options() -> usvg::Options<'static> {
     use i_slint_common::sharedfontique::{self, fontique};
 
@@ -123,12 +123,12 @@ fn svg_options() -> usvg::Options<'static> {
     sharedfontique::svg::options(find_font)
 }
 
-#[cfg(not(feature = "shared-parley"))]
+#[cfg(all(not(feature = "shared-parley"), not(target_arch = "wasm32")))]
 fn svg_options() -> usvg::Options<'static> {
     usvg::Options::default()
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "image-decoders", not(target_arch = "wasm32")))]
 pub fn load_from_path(
     path: &SharedString,
     cache_key: ImageCacheKey,
@@ -140,6 +140,7 @@ pub fn load_from_path(
         .map_err(std::io::Error::other)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn load_from_data(slice: &[u8], cache_key: ImageCacheKey) -> Result<ParsedSVG, usvg::Error> {
     usvg::Tree::from_data(slice, &svg_options())
         .map(|svg| ParsedSVG::new(svg, cache_key, slice.len()))

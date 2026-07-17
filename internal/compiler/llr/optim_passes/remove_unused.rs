@@ -103,6 +103,9 @@ pub fn remove_unused(root: &mut CompilationUnit) {
                     EvaluationScope::Global(global_idx) => {
                         self.glob_mappings[*global_idx].$field[*p]
                     }
+                    EvaluationScope::Const => {
+                        panic!("member reference in a constant expression")
+                    }
                 }
                 .unwrap();
             }
@@ -305,6 +308,7 @@ mod visitor {
             grid_layout_input_for_repeated,
             flexbox_layout_item_info_for_repeated,
             layout_info_v_constrained_for_repeated,
+            layout_info_v_at_cross_width_for_repeated,
             is_repeated_row: _,
             grid_layout_children,
             accessible_prop,
@@ -398,6 +402,9 @@ mod visitor {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
         if let Some(e) = layout_info_v_constrained_for_repeated {
+            visit_expression(e.get_mut(), &scope, state, visitor);
+        }
+        if let Some(e) = layout_info_v_at_cross_width_for_repeated {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
         for child in grid_layout_children {

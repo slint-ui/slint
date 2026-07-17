@@ -23,7 +23,7 @@
 #[macro_export]
 macro_rules! for_each_enums {
     ($macro:ident) => {
-        $macro![
+        $macro! {
             /// This enum describes the different types of alignment of text along the horizontal axis of a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextHorizontalAlignment {
@@ -684,6 +684,6 @@ macro_rules! for_each_enums {
                 /// This variant is reported when the operating system is none of the above.
                 Other,
             }
-        ];
+        }
     };
 }

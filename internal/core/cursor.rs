@@ -16,13 +16,13 @@ pub enum MouseCursorInner {
     CustomMouseCursor {
         /// Image backing for this cursor.
         image: crate::graphics::Image,
-        /// X pixel coordinate of the image relative to where the cursor is, starting from the left.
+        /// X pixel coordinate of the hotspot from the left edge of the image.
         ///
-        /// If this value is negative, the hotspot is horizontally centered in the image.
+        /// The value is clamped to the image bounds.
         hotspot_x: i32,
-        /// Y pixel coordinate of the image relative to where the cursor is, starting from the top.
+        /// Y pixel coordinate of the hotspot from the top edge of the image.
         ///
-        /// If this value is negative, the hotspot is vertically centered in the image.
+        /// The value is clamped to the image bounds.
         hotspot_y: i32,
     },
 }
@@ -33,32 +33,13 @@ impl Default for MouseCursorInner {
     }
 }
 
-/// Bindings for cbindgen
-#[cfg(feature = "ffi")]
-pub mod ffi {
-    #![allow(unsafe_code)]
-
-    use super::*;
-
-    #[unsafe(no_mangle)]
-    /// Returns true if \a a is equal to \a b; otherwise returns false.
-    pub extern "C" fn slint_mouse_cursor_inner_eq(
-        a: &MouseCursorInner,
-        b: &MouseCursorInner,
-    ) -> bool {
-        a == b
-    }
-
-    /// Clone `src` into the uninitialized memory at `out`.
-    ///
-    /// # Safety
-    /// `out` must be valid for writes of `MouseCursorInner` and must not currently
-    /// hold an initialized `MouseCursorInner` (otherwise the previous value is leaked).
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_mouse_cursor_inner_clone(
-        out: *mut MouseCursorInner,
-        src: &MouseCursorInner,
-    ) {
-        unsafe { core::ptr::write(out, src.clone()) }
-    }
+/// Maps a custom cursor's hotspot from the source image into a buffer rendered at
+/// `rendered_size` pixels, clamped to stay inside it.
+pub fn scaled_hotspot(hotspot: i32, source_size: u32, rendered_size: u32) -> u32 {
+    let scaled = if source_size == 0 {
+        0
+    } else {
+        hotspot as i64 * rendered_size as i64 / source_size as i64
+    };
+    scaled.clamp(0, rendered_size.saturating_sub(1) as i64) as u32
 }

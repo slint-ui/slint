@@ -197,6 +197,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
             native_popup: Cell::new(false),
             simulate_native_drag: Cell::new(false),
             native_drag: Default::default(),
+            window_move_requests: Default::default(),
             #[cfg(supports_headless)]
             renderer_name: self.renderer_name.clone(),
             #[cfg(supports_headless)]
@@ -299,6 +300,7 @@ pub struct TestingWindow {
     /// Payload and allowed actions recorded by `start_drag` while simulating a native drag,
     /// so the receive-side helpers can build the drop they deliver to a target window.
     native_drag: RefCell<Option<(i_slint_core::data_transfer::DataTransfer, AllowedDragActions)>>,
+    window_move_requests: Cell<usize>,
     /// Remembered for child popups, so they pick the same rasterizer.
     #[cfg(supports_headless)]
     renderer_name: Option<SharedString>,
@@ -317,6 +319,11 @@ impl TestingWindow {
     #[allow(dead_code)] // Used by various tests
     pub fn mouse_cursor(&self) -> i_slint_core::cursor::MouseCursorInner {
         self.mouse_cursor.borrow().clone()
+    }
+
+    /// Number of interactive window moves requested via `WindowMoveArea`.
+    pub fn window_move_request_count(&self) -> usize {
+        self.window_move_requests.get()
     }
 
     #[allow(dead_code)]
@@ -398,6 +405,10 @@ impl WindowAdapterInternal for TestingWindow {
         true
     }
 
+    fn start_window_move(&self) {
+        self.window_move_requests.set(self.window_move_requests.get() + 1);
+    }
+
     fn set_mouse_cursor(&self, cursor: i_slint_core::cursor::MouseCursorInner) {
         self.mouse_cursor.replace(cursor);
     }
@@ -440,6 +451,7 @@ impl WindowAdapterInternal for TestingWindow {
                 native_popup: self.native_popup.clone(),
                 simulate_native_drag: self.simulate_native_drag.clone(),
                 native_drag: Default::default(),
+                window_move_requests: Default::default(),
                 #[cfg(supports_headless)]
                 renderer_name: self.renderer_name.clone(),
                 #[cfg(supports_headless)]

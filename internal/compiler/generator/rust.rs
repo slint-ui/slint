@@ -17,6 +17,7 @@ use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
+use crate::llr::lower_expression::lower_constant_expression;
 use crate::llr::{
     self, ArrayOutput, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression,
     ParentScope, TypeResolutionContext as _,
@@ -205,14 +206,14 @@ pub fn generate(
             .collect::<Vec<_>>()
     };
 
-    let (structs_and_enums_ids, inner_module) =
-        generate_types(&doc.used_types.borrow().structs_and_enums);
-
     let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
     if llr.public_components.is_empty() {
         return Ok(Default::default());
     }
+
+    let (structs_and_enums_ids, inner_module) =
+        generate_types(&doc.used_types.borrow().structs_and_enums, &llr);
 
     let sub_compos = llr
         .used_sub_components
@@ -295,13 +296,16 @@ pub(super) fn generate_module_header() -> TokenStream {
 }
 
 /// Generate the struct and enums. Return a vector of names to import and a token stream with the inner module
-pub fn generate_types(used_types: &[Type]) -> (Vec<Ident>, TokenStream) {
+pub fn generate_types(
+    used_types: &[Type],
+    unit: &llr::CompilationUnit,
+) -> (Vec<Ident>, TokenStream) {
     let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = used_types
         .iter()
         .filter_map(|ty| match ty {
             Type::Struct(s) => match s.as_ref() {
-                Struct { fields, name: struct_name @ StructName::User { name, .. } } => {
-                    Some((ident(name), generate_struct(struct_name, fields)))
+                the_struct @ Struct { name: StructName::User { name, .. }, .. } => {
+                    Some((ident(name), generate_struct(the_struct, unit)))
                 }
                 _ => None,
             },
@@ -704,12 +708,17 @@ fn generate_shared_globals(
     }
 }
 
-fn generate_struct(name: &StructName, fields: &BTreeMap<SmolStr, Type>) -> TokenStream {
-    let component_id = struct_name_to_tokens(name).unwrap();
-    let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) =
-        fields.iter().map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap())).unzip();
+fn generate_struct(the_struct: &Struct, unit: &llr::CompilationUnit) -> TokenStream {
+    let component_id = struct_name_to_tokens(&the_struct.name).unwrap();
+    let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) = the_struct
+        .fields
+        .iter()
+        .map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap()))
+        .unzip();
 
-    let StructName::User { name, node } = name else { unreachable!("generating non-user struct") };
+    let StructName::User { name, node } = &the_struct.name else {
+        unreachable!("generating non-user struct")
+    };
 
     let attributes =
         node.parent().and_then(crate::parser::syntax_nodes::StructDeclaration::new).map(|node| {
@@ -728,12 +737,47 @@ fn generate_struct(name: &StructName, fields: &BTreeMap<SmolStr, Type>) -> Token
             quote! { #(#attrs)* }
         });
 
+    // With user-declared field default values, `Default` cannot be derived anymore
+    let default_impl = (!the_struct.field_defaults.is_empty()).then(|| {
+        // Constant expressions cannot access the globals; make sure a bug in that
+        // assumption breaks the build of the generated code with a clear message
+        let ctx = EvaluationContext::new_const(
+            unit,
+            RustGeneratorContext {
+                global_access: quote!(compile_error!("no global access in a constant expression")),
+            },
+        );
+        let (field_names, field_values): (Vec<_>, Vec<_>) = the_struct
+            .fields
+            .keys()
+            .map(|field_name| {
+                let value = match the_struct.field_defaults.get(field_name) {
+                    Some(expr) => {
+                        let value = compile_expression(&lower_constant_expression(expr), &ctx);
+                        quote!(#value as _)
+                    }
+                    None => quote!(::core::default::Default::default()),
+                };
+                (ident(field_name), value)
+            })
+            .unzip();
+        quote! {
+            impl ::core::default::Default for #component_id {
+                fn default() -> Self {
+                    Self { #(#field_names: #field_values,)* }
+                }
+            }
+        }
+    });
+    let default_derive = default_impl.is_none().then(|| quote!(Default,));
+
     quote! {
         #attributes
-        #[derive(Default, PartialEq, Debug, Clone)]
+        #[derive(#default_derive PartialEq, Debug, Clone)]
         pub struct #component_id {
             #(pub #declared_property_vars : #declared_property_types),*
         }
+        #default_impl
     }
 }
 
@@ -2728,6 +2772,24 @@ fn generate_repeated_component(
                             }
                         }
                     });
+                // A column FlexboxLayout calls this with its real container width
+                // so a height-for-width instance wraps to the same height as an
+                // equivalent static cell (instead of the preferred-width single
+                // line that `flexbox_layout_item_info` returns). The expression
+                // reads the `flex_cross_width` local (matches FLEX_CROSS_WIDTH_LOCAL).
+                let at_cross_width_body = root_sc
+                    .layout_info_v_at_cross_width_for_repeated
+                    .as_ref()
+                    .map(|e| {
+                        let v_info = compile_expression(&e.borrow(), &ctx);
+                        quote! { info.constraint = #v_info; }
+                    })
+                    .unwrap_or_else(|| {
+                        quote! {
+                            info.constraint =
+                                self.layout_item_info(sp::Orientation::Vertical, sp::None).constraint;
+                        }
+                    });
                 quote! {
                     fn flexbox_layout_item_info(
                         self: ::core::pin::Pin<&Self>,
@@ -2739,6 +2801,17 @@ fn generate_repeated_component(
                         let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
                         #v_constrained
                         info.constraint = self.layout_item_info(o, child_index).constraint;
+                        info
+                    }
+                    #[allow(unused_variables)]
+                    fn flexbox_layout_item_info_at_cross_width(
+                        self: ::core::pin::Pin<&Self>,
+                        flex_cross_width: f32,
+                    ) -> sp::FlexboxLayoutItemInfo {
+                        #[allow(unused)]
+                        let _self = self.as_ref();
+                        let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
+                        #at_cross_width_body
                         info
                     }
                 }
@@ -3342,12 +3415,14 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             cells_v_variable,
             repeater_indices_var_name,
             elements,
+            repeated_cross_width,
             sub_expression,
         } => generate_with_flexbox_layout_item_info(
             cells_h_variable,
             cells_v_variable,
             repeater_indices_var_name.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
+            repeated_cross_width.as_deref(),
             sub_expression,
             ctx,
         ),
@@ -3357,11 +3432,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             repeater_indices,
             measure_cells,
             default_cells,
+            cells_variables,
         } => generate_solve_flexbox_layout_with_measure(
             data,
             repeater_indices,
             measure_cells,
             default_cells,
+            cells_variables.as_ref(),
             ctx,
         ),
 
@@ -3632,16 +3709,38 @@ fn compile_array_index_assignment(expr: &Expression, ctx: &EvaluationContext) ->
 
 #[inline(never)]
 fn compile_binary_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::BinaryExpression { lhs, rhs, op } = expr else { unreachable!() };
-    let lhs_ty = lhs.ty(ctx);
-    let lhs = compile_expression_to_value_no_parenthesis(lhs, ctx);
+    // Long chains of binary operators, such as `a && b && c && ...`, nest on the
+    // left side. Iterate that spine instead of recursing into it, so that the
+    // stack depth stays bounded no matter how long the chain is.
+    let mut spine = Vec::new();
+    let mut node = expr;
+    while let Expression::BinaryExpression { lhs, rhs, op } = node {
+        spine.push((rhs, *op));
+        node = lhs;
+    }
+    let mut result = compile_expression_to_value_no_parenthesis(node, ctx);
+    let mut result_ty = node.ty(ctx);
+    for (rhs, op) in spine.into_iter().rev() {
+        result = compile_binary_operator(result, &result_ty, rhs, op, ctx);
+        result_ty = llr::binary_expression_ty(op, || result_ty);
+    }
+    result
+}
+
+fn compile_binary_operator(
+    lhs: TokenStream,
+    lhs_ty: &Type,
+    rhs: &Expression,
+    op: char,
+    ctx: &EvaluationContext,
+) -> TokenStream {
     let rhs = compile_expression_to_value_no_parenthesis(rhs, ctx);
 
-    if lhs_ty.as_unit_product().is_some() && (*op == '=' || *op == '!') {
-        let maybe_negate = if *op == '!' { quote!(!) } else { quote!() };
+    if lhs_ty.as_unit_product().is_some() && (op == '=' || op == '!') {
+        let maybe_negate = if op == '!' { quote!(!) } else { quote!() };
         quote!(#maybe_negate sp::ApproxEq::<f64>::approx_eq(&(#lhs as f64), &(#rhs as f64)))
     } else {
-        let (conv1, conv2) = match crate::expression_tree::operator_class(*op) {
+        let (conv1, conv2) = match crate::expression_tree::operator_class(op) {
             OperatorClass::ArithmeticOp => match lhs_ty {
                 Type::String => (None, Some(quote!(.as_str()))),
                 Type::Struct { .. } => (None, None),
@@ -3673,7 +3772,7 @@ fn compile_binary_expression(expr: &Expression, ctx: &EvaluationContext) -> Toke
             '&' => quote!(&&),
             '|' => quote!(||),
             _ => proc_macro2::TokenTree::Punct(proc_macro2::Punct::new(
-                *op,
+                op,
                 proc_macro2::Spacing::Alone,
             ))
             .into(),
@@ -5178,10 +5277,14 @@ fn generate_with_flexbox_layout_item_info(
     cells_v_variable: &str,
     repeated_indices_var_name: Option<&str>,
     elements: &[Either<(Expression, Expression), llr::LayoutRepeatedElement>],
+    repeated_cross_width: Option<&Expression>,
     sub_expression: &Expression,
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let repeated_indices_var_name = repeated_indices_var_name.map(ident);
+    // Container width forwarded to repeated cells' vertical query (column flex),
+    // so a height-for-width instance wraps to the real width like a static cell.
+    let cross_width = repeated_cross_width.map(|w| compile_expression(w, ctx));
     let mut fixed_count = 0usize;
     let mut repeated_count_code = quote!();
     let mut push_code = Vec::new();
@@ -5209,14 +5312,23 @@ fn generate_with_flexbox_layout_item_info(
                     ctx,
                 );
                 let repeater_id = format_ident!("repeater{}", usize::from(repeater.repeater_index));
+                // For a column flex, measure each instance's vertical info at the
+                // container width; otherwise use its preferred-width default.
+                let v_push = if let Some(w) = &cross_width {
+                    quote!(sub_comp.as_pin_ref().flexbox_layout_item_info_at_cross_width((#w) as f32))
+                } else {
+                    quote!(
+                        sub_comp
+                            .as_pin_ref()
+                            .flexbox_layout_item_info(sp::Orientation::Vertical, None)
+                    )
+                };
                 let loop_code = quote!(for i in 0.._self.#repeater_id.len() {
                     if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                         items_vec_h.push(
                             sub_comp.as_pin_ref().flexbox_layout_item_info(sp::Orientation::Horizontal, None),
                         );
-                        items_vec_v.push(
-                            sub_comp.as_pin_ref().flexbox_layout_item_info(sp::Orientation::Vertical, None),
-                        );
+                        items_vec_v.push(#v_push);
                     } else {
                         // Not-yet-instantiated slot: push placeholder cells so the cell
                         // count stays in sync with the repeater length written above.
@@ -5267,6 +5379,7 @@ fn generate_solve_flexbox_layout_with_measure(
     repeater_indices: &Expression,
     measure_cells: &[Either<(Expression, Expression), llr::LayoutRepeatedElement>],
     default_cells: &[Either<(Expression, Expression), llr::LayoutRepeatedElement>],
+    cells_variables: Option<&(SmolStr, SmolStr)>,
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let data = compile_expression(data, ctx);
@@ -5275,52 +5388,127 @@ fn generate_solve_flexbox_layout_with_measure(
     let known_h_ident = ident("measure_known_h");
 
     // Height-for-width / width-for-height: recompute the perpendicular info at
-    // the dimension taffy assigned.
-    let mut v_arms = Vec::new();
-    let mut h_arms = Vec::new();
-    for (i, item) in measure_cells.iter().enumerate() {
-        if let Either::Left((h_info, v_info)) = item {
-            let idx = proc_macro2::Literal::usize_unsuffixed(i);
-            let v = compile_expression(v_info, ctx);
-            let h = compile_expression(h_info, ctx);
-            v_arms.push(quote!(#idx => ({ #v }).preferred_bounded(),));
-            h_arms.push(quote!(#idx => ({ #h }).preferred_bounded(),));
+    // the dimension taffy assigned. Without a repeater the cell index is known at
+    // compile time, so match on it (O(1) dispatch). With a repeater the count is
+    // only known at runtime: walk the elements, advancing `cursor` by 1 per static
+    // cell and by the repeater's instance count per repeater, until `index`'s range
+    // is found.
+    let (v_body, h_body) = if cells_variables.is_none() {
+        let mut v_arms = Vec::new();
+        let mut h_arms = Vec::new();
+        for (i, item) in measure_cells.iter().enumerate() {
+            if let Either::Left((h_info, v_info)) = item {
+                let idx = proc_macro2::Literal::usize_unsuffixed(i);
+                let v = compile_expression(v_info, ctx);
+                let h = compile_expression(h_info, ctx);
+                v_arms.push(quote!(#idx => return (w, ({ #v }).preferred_bounded()),));
+                h_arms.push(quote!(#idx => return (({ #h }).preferred_bounded(), h),));
+            }
         }
-        // Repeater cells (the `Right` case) are not emitted; they fall through
-        // to the preferred default below.
-    }
+        (quote!(match index { #(#v_arms)* _ => {} }), quote!(match index { #(#h_arms)* _ => {} }))
+    } else {
+        let mut v_steps = Vec::new();
+        let mut h_steps = Vec::new();
+        for item in measure_cells {
+            match item {
+                Either::Left((h_info, v_info)) => {
+                    let v = compile_expression(v_info, ctx);
+                    let h = compile_expression(h_info, ctx);
+                    v_steps.push(quote!(
+                        if index == cursor { return (w, ({ #v }).preferred_bounded()); }
+                        cursor += 1;
+                    ));
+                    h_steps.push(quote!(
+                        if index == cursor { return (({ #h }).preferred_bounded(), h); }
+                        cursor += 1;
+                    ));
+                }
+                Either::Right(repeater) => {
+                    let repeater_id =
+                        format_ident!("repeater{}", usize::from(repeater.repeater_index));
+                    v_steps.push(quote!(
+                        {
+                            let len = _self.#repeater_id.len();
+                            if index >= cursor && index < cursor + len {
+                                if let Some(sub_comp) = _self.#repeater_id.instance_at(index - cursor) {
+                                    return (w, sub_comp
+                                        .as_pin_ref()
+                                        .flexbox_layout_item_info_at_cross_width(w)
+                                        .constraint
+                                        .preferred_bounded());
+                                }
+                                return (w, h);
+                            }
+                            cursor += len;
+                        }
+                    ));
+                    // No width-for-height accessor on a repeated instance: keep its default.
+                    h_steps.push(quote!(cursor += _self.#repeater_id.len();));
+                }
+            }
+        }
+        // The final `cursor += …` is a dead write; `let _ = cursor;` consumes it
+        // to avoid an `unused_assignments` warning in the generated code.
+        (
+            quote!(let mut cursor = 0usize; #(#v_steps)* let _ = cursor;),
+            quote!(let mut cursor = 0usize; #(#h_steps)* let _ = cursor;),
+        )
+    };
 
-    // Preferred (default-constraint) size per cell, returned when taffy asks
-    // for a dimension without a known cross-axis size (mirrors the plain
-    // `solve_flexbox_layout` measure).
-    let mut def_w = Vec::new();
-    let mut def_h = Vec::new();
-    for item in default_cells {
-        if let Either::Left((h_info, v_info)) = item {
-            let h = compile_expression(h_info, ctx);
-            let v = compile_expression(v_info, ctx);
-            def_w.push(quote!(({ #h }).preferred_bounded(),));
-            def_h.push(quote!(({ #v }).preferred_bounded(),));
+    // Preferred size per cell, returned when taffy asks for a dimension without
+    // a known cross-axis size (mirrors the plain `solve_flexbox_layout` measure).
+    // With a repeater, read the flat cell arrays; otherwise inline the constants.
+    let (defaults_decl, default_w, default_h) = match cells_variables {
+        Some((cells_h, cells_v)) => {
+            let cells_h = ident(cells_h);
+            let cells_v = ident(cells_v);
+            (
+                quote!(
+                    let pref_h_cells = #cells_h.as_slice();
+                    let pref_v_cells = #cells_v.as_slice();
+                ),
+                quote!(pref_h_cells.get(index).map_or(0f32, |c| c.constraint.preferred_bounded())),
+                quote!(pref_v_cells.get(index).map_or(0f32, |c| c.constraint.preferred_bounded())),
+            )
         }
-    }
+        None => {
+            let mut def_w = Vec::new();
+            let mut def_h = Vec::new();
+            for item in default_cells {
+                if let Either::Left((h_info, v_info)) = item {
+                    let h = compile_expression(h_info, ctx);
+                    let v = compile_expression(v_info, ctx);
+                    def_w.push(quote!(({ #h }).preferred_bounded(),));
+                    def_h.push(quote!(({ #v }).preferred_bounded(),));
+                }
+            }
+            (
+                quote!(
+                    let pref_w: &[f32] = &[#(#def_w)*];
+                    let pref_h: &[f32] = &[#(#def_h)*];
+                ),
+                quote!(pref_w.get(index).copied().unwrap_or(0f32)),
+                quote!(pref_h.get(index).copied().unwrap_or(0f32)),
+            )
+        }
+    };
 
     quote! { {
-        let pref_w: &[f32] = &[#(#def_w)*];
-        let pref_h: &[f32] = &[#(#def_h)*];
+        #defaults_decl
         let mut measure = |index: usize, known_w: Option<f32>, known_h: Option<f32>| -> (f32, f32) {
-            let w = known_w.unwrap_or_else(|| pref_w.get(index).copied().unwrap_or(0f32));
-            let h = known_h.unwrap_or_else(|| pref_h.get(index).copied().unwrap_or(0f32));
+            let w = known_w.unwrap_or_else(|| #default_w);
+            let h = known_h.unwrap_or_else(|| #default_h);
             if known_w.is_some() && known_h.is_none() {
                 let #known_w_ident = w;
                 let _ = #known_w_ident;
-                let nh = match index { #(#v_arms)* _ => h };
-                return (w, nh);
+                #v_body
+                return (w, h);
             }
             if known_h.is_some() && known_w.is_none() {
                 let #known_h_ident = h;
                 let _ = #known_h_ident;
-                let nw = match index { #(#h_arms)* _ => w };
-                return (nw, h);
+                #h_body
+                return (w, h);
             }
             (w, h)
         };

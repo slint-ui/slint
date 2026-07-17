@@ -14,7 +14,7 @@ use i_slint_renderer_femtovg::{FemtoVGOpenGLRendererExt, opengl};
 use i_slint_renderer_femtovg::{FemtoVGRenderer, FemtoVGRendererExt};
 
 use winit::event_loop::ActiveEventLoop;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", supports_opengl))]
 use winit::platform::web::WindowExtWebSys;
 
 use super::WinitCompatibleRenderer;
@@ -56,6 +56,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         &self,
         active_event_loop: &ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
+        _window_adapter_weak: std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         let (winit_window, opengl_context) = glcontext::OpenGLContext::new_context(
@@ -167,13 +168,13 @@ impl GlutinFemtoVGRenderer {
     }
 }
 
-#[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
+#[cfg(feature = "renderer-femtovg-wgpu")]
 pub struct WGPUFemtoVGRenderer {
     renderer: FemtoVGRenderer<i_slint_renderer_femtovg::wgpu::WGPUBackend>,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
 }
 
-#[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
+#[cfg(feature = "renderer-femtovg-wgpu")]
 impl WGPUFemtoVGRenderer {
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
@@ -191,7 +192,7 @@ impl WGPUFemtoVGRenderer {
     }
 }
 
-#[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
+#[cfg(feature = "renderer-femtovg-wgpu")]
 impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
     fn render(&self, window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError> {
         // Use the Ext entry point so we get the `DrawOutcome` back without changing
@@ -211,6 +212,7 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
         &self,
         active_event_loop: &ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
+        window_adapter_weak: std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
         let transparent = window_attributes.transparent;
         let winit_window = Arc::new(active_event_loop.create_window(window_attributes).map_err(
@@ -222,17 +224,88 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
             },
         )?);
 
-        use crate::winit_compat::WindowSurfaceSizeExt;
-        let size = winit_window.surface_size();
+        let requested_graphics_api = self.requested_graphics_api.clone();
+        let window_handle = Box::new(winit_window.clone())
+            as Box<dyn i_slint_core::graphics::wgpu_29::wgpu::DisplayAndWindowHandle>;
+        let winit_window_for_size = winit_window.clone();
 
-        self.renderer.set_surface(
-            Box::new(winit_window.clone())
-                as Box<dyn i_slint_core::graphics::wgpu_29::wgpu::DisplayAndWindowHandle>,
-            crate::winitwindowadapter::physical_size_to_slint(&size),
-            self.requested_graphics_api.clone(),
-            transparent,
+        let context = {
+            let window_adapter = window_adapter_weak.upgrade().ok_or_else(|| {
+                PlatformError::from("Cannot initialize wgpu: window adapter is destroyed")
+            })?;
+            use i_slint_core::platform::WindowAdapter;
+            i_slint_core::window::WindowInner::from_pub(window_adapter.window()).context().clone()
+        };
+
+        // On native we want a real GPU adapter, not an ANGLE/GL one (the WGPU
+        // FemtoVG renderer is meant to use modern backends). On WASM we *want*
+        // the GL backend to be available, so wgpu's
+        // `new_instance_with_webgpu_detection` can fall through to WebGL when no
+        // WebGPU adapter is reachable (e.g. headless Chromium on CI).
+        #[cfg(not(target_arch = "wasm32"))]
+        let backends_to_avoid = i_slint_core::graphics::wgpu_29::wgpu::Backends::GL;
+        #[cfg(target_arch = "wasm32")]
+        let backends_to_avoid = i_slint_core::graphics::wgpu_29::wgpu::Backends::empty();
+
+        i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface_then(
+            &context,
+            window_handle,
+            requested_graphics_api,
+            backends_to_avoid,
+            move |instance, adapter, device, queue, surface| {
+                finalize_wgpu_init(
+                    &window_adapter_weak,
+                    &winit_window_for_size,
+                    instance,
+                    adapter,
+                    device,
+                    queue,
+                    surface,
+                    transparent,
+                )?;
+                #[cfg(target_arch = "wasm32")]
+                i_slint_core::debug_log!("Slint: Using FemtoVG WGPU renderer");
+                Ok(())
+            },
         )?;
 
         Ok(winit_window)
     }
+}
+
+#[cfg(feature = "renderer-femtovg-wgpu")]
+fn finalize_wgpu_init(
+    window_adapter_weak: &std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
+    winit_window: &Arc<winit::window::Window>,
+    instance: i_slint_core::graphics::wgpu_29::wgpu::Instance,
+    adapter: i_slint_core::graphics::wgpu_29::wgpu::Adapter,
+    device: i_slint_core::graphics::wgpu_29::wgpu::Device,
+    queue: i_slint_core::graphics::wgpu_29::wgpu::Queue,
+    surface: i_slint_core::graphics::wgpu_29::wgpu::Surface<'static>,
+    transparent: bool,
+) -> Result<(), PlatformError> {
+    let Some(window_adapter) = window_adapter_weak.upgrade() else {
+        return Ok(());
+    };
+
+    let this = (window_adapter.renderer() as &dyn std::any::Any)
+        .downcast_ref::<WGPUFemtoVGRenderer>()
+        .unwrap();
+
+    use crate::winit_compat::WindowSurfaceSizeExt;
+    let slint_size =
+        crate::winitwindowadapter::physical_size_to_slint(&winit_window.surface_size());
+    this.renderer.configure_surface_from_init_result(
+        instance,
+        adapter,
+        device,
+        queue,
+        surface,
+        slint_size,
+        transparent,
+    );
+
+    use i_slint_core::platform::WindowAdapter;
+    window_adapter.request_redraw();
+    Ok(())
 }

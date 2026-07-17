@@ -20,7 +20,7 @@ use i_slint_compiler::expression_tree::{
     BuiltinFunction, Callable, EasingCurve, Expression, MinMaxOp, MouseCursorInner,
     Path as ExprPath, PathElement as ExprPathElement,
 };
-use i_slint_compiler::langtype::Type;
+use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::api::ToSharedString;
@@ -253,19 +253,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 _ => Value::Void,
             }
         }
-        Expression::Cast { from, to } => {
-            let value = eval_expression(from, local_context);
-            match (value, to) {
-                (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
-                (Value::Number(n), Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
-                }
-                (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
-                (Value::Brush(brush), Type::Color) => brush.color().into(),
-                (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
-                (v, _) => v,
-            }
-        }
+        Expression::Cast { from, to } => cast_value(eval_expression(from, local_context), to),
         Expression::CodeBlock(sub) => {
             let mut v = Value::Void;
             for e in sub {
@@ -365,21 +353,17 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::UnaryOp { sub, op } => {
             let sub = eval_expression(sub, local_context);
-            match (sub, op) {
-                (Value::Number(a), '+') => Value::Number(a),
-                (Value::Number(a), '-') => Value::Number(-a),
-                (Value::Bool(a), '!') => Value::Bool(!a),
-                (sub, op) => panic!("unsupported {op} {sub:?}"),
-            }
+            eval_unary_op(sub, *op).unwrap_or_else(|sub| panic!("unsupported {op} {sub:?}"))
         }
         Expression::ImageReference { resource_ref, nine_slice, .. } => {
             let mut image = match resource_ref {
                 i_slint_compiler::expression_tree::ImageReference::None => Ok(Default::default()),
-                i_slint_compiler::expression_tree::ImageReference::DataUri(data) => {
-                    i_slint_compiler::data_uri::decode_data_uri(data)
+                i_slint_compiler::expression_tree::ImageReference::DataUri(data_uri) => {
+                    i_slint_compiler::data_uri::decode_data_uri(data_uri)
                         .ok()
                         .and_then(|(data, extension)| {
-                            corelib::graphics::load_image_from_dynamic_data(&data, &extension).ok()
+                            corelib::graphics::load_image_from_data_uri(data_uri, &data, &extension)
+                                .ok()
                         })
                         .ok_or_else(Default::default)
                 }
@@ -2282,8 +2266,8 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
             {
                 return false;
             }
-            for (k, v) in &s.fields {
-                str.0.entry(k.clone()).or_insert_with(|| default_value_for_type(v));
+            for k in s.fields.keys() {
+                str.0.entry(k.clone()).or_insert_with(|| default_value_for_struct_field(s, k));
             }
             true
         }
@@ -2598,8 +2582,8 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::Callback { .. } => Value::Void,
         Type::Struct(s) => Value::Struct(
             s.fields
-                .iter()
-                .map(|(n, t)| (n.to_string(), default_value_for_type(t)))
+                .keys()
+                .map(|n| (n.to_string(), default_value_for_struct_field(s, n)))
                 .collect::<Struct>(),
         ),
         Type::Array(_) | Type::Model => Value::Model(Default::default()),
@@ -2625,6 +2609,77 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             panic!("There can't be such property")
         }
         Type::StyledText => Value::StyledText(Default::default()),
+    }
+}
+
+/// Create a value for the default of a struct field:
+/// the user-declared default value (`struct Foo { bar: int = 42 }`) if there is one,
+/// otherwise the default value for the field's type.
+pub fn default_value_for_struct_field(
+    s: &i_slint_compiler::langtype::Struct,
+    field_name: &str,
+) -> Value {
+    match s.field_defaults.get(field_name) {
+        Some(expr) => eval_constant_expression(expr),
+        None => default_value_for_type(
+            s.fields.get(field_name).expect("default value requested for unknown struct field"),
+        ),
+    }
+}
+
+/// Convert a value to the given type, as [`Expression::Cast`] does
+fn cast_value(value: Value, to: &Type) -> Value {
+    match (value, to) {
+        (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
+        (Value::Number(n), Type::String) => {
+            Value::String(i_slint_core::string::shared_string_from_number(n))
+        }
+        (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
+        (Value::Brush(brush), Type::Color) => brush.color().into(),
+        (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
+        (v, _) => v,
+    }
+}
+
+/// Apply a unary operator to a value; returns the unmodified value as the error
+/// for unsupported combinations
+fn eval_unary_op(sub: Value, op: char) -> Result<Value, Value> {
+    match (sub, op) {
+        (Value::Number(a), '+') => Ok(Value::Number(a)),
+        (Value::Number(a), '-') => Ok(Value::Number(-a)),
+        (Value::Bool(a), '!') => Ok(Value::Bool(!a)),
+        (sub, _) => Err(sub),
+    }
+}
+
+/// Evaluate a constant expression as stored in [`i_slint_compiler::langtype::Struct::field_defaults`],
+/// which needs no evaluation context.
+/// Mirrors [`eval_expression`] for the corresponding expressions.
+fn eval_constant_expression(expr: &ConstantExpression) -> Value {
+    match expr {
+        ConstantExpression::StringLiteral(s) => Value::String(s.as_str().into()),
+        ConstantExpression::NumberLiteral(n, _unit) => Value::Number(*n),
+        ConstantExpression::BoolLiteral(b) => Value::Bool(*b),
+        ConstantExpression::EnumerationValue(value) => {
+            Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
+        }
+        ConstantExpression::Cast { from, to } => cast_value(eval_constant_expression(from), to),
+        ConstantExpression::UnaryOp { sub, op } => {
+            // The resolver only accepts the unary operators on matching operand types
+            eval_unary_op(eval_constant_expression(sub), *op)
+                .unwrap_or_else(|sub| panic!("unsupported {op} {sub:?}"))
+        }
+        ConstantExpression::Struct { values, .. } => Value::Struct(
+            values
+                .iter()
+                .map(|(k, v)| (k.to_string(), eval_constant_expression(v)))
+                .collect::<Struct>(),
+        ),
+        ConstantExpression::Array { values, .. } => {
+            Value::Model(ModelRc::new(corelib::model::SharedVectorModel::from(
+                values.iter().map(eval_constant_expression).collect::<SharedVector<_>>(),
+            )))
+        }
     }
 }
 

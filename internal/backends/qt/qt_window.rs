@@ -6,7 +6,7 @@
 use cpp::*;
 use i_slint_common::sharedfontique::HashedBlob;
 use i_slint_core::DataTransfer;
-use i_slint_core::cursor::MouseCursorInner;
+use i_slint_core::cursor::{MouseCursorInner, scaled_hotspot};
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
@@ -2591,6 +2591,15 @@ impl WindowAdapterInternal for QtWindow {
         true
     }
 
+    fn start_window_move(&self) {
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*"] {
+            if (QWindow *window = widget_ptr->window()->windowHandle()) {
+                window->startSystemMove();
+            }
+        }}
+    }
+
     fn register_item_tree(&self, _: ItemTreeRefPin) {
         self.tree_structure_changed.replace(true);
     }
@@ -2624,52 +2633,65 @@ impl WindowAdapterInternal for QtWindow {
 
     fn set_mouse_cursor(&self, cursor: MouseCursorInner) {
         let widget_ptr = self.widget_ptr();
-        if let MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } = cursor {
-            let pixmap: qttypes::QPixmap =
-                crate::qt_window::image_to_pixmap((&image).into(), None).unwrap_or_default();
-            cpp! {unsafe [widget_ptr as "QWidget*", pixmap as "QPixmap", hotspot_x as "int", hotspot_y as "int"] {
-                widget_ptr->setCursor(QCursor{pixmap, hotspot_x, hotspot_y});
-            }};
-            return;
-        }
-
-        if let MouseCursorInner::BuiltIn(cursor) = cursor {
-            //unidirectional resize cursors are replaced with bidirectional ones
-            let cursor_shape = match cursor {
-                BuiltInMouseCursor::Default => key_generated::Qt_CursorShape_ArrowCursor,
-                BuiltInMouseCursor::None => key_generated::Qt_CursorShape_BlankCursor,
-                BuiltInMouseCursor::Help => key_generated::Qt_CursorShape_WhatsThisCursor,
-                BuiltInMouseCursor::Pointer => key_generated::Qt_CursorShape_PointingHandCursor,
-                BuiltInMouseCursor::Progress => key_generated::Qt_CursorShape_BusyCursor,
-                BuiltInMouseCursor::Wait => key_generated::Qt_CursorShape_WaitCursor,
-                BuiltInMouseCursor::Crosshair => key_generated::Qt_CursorShape_CrossCursor,
-                BuiltInMouseCursor::Text => key_generated::Qt_CursorShape_IBeamCursor,
-                BuiltInMouseCursor::Alias => key_generated::Qt_CursorShape_DragLinkCursor,
-                BuiltInMouseCursor::Copy => key_generated::Qt_CursorShape_DragCopyCursor,
-                BuiltInMouseCursor::Move => key_generated::Qt_CursorShape_DragMoveCursor,
-                BuiltInMouseCursor::NoDrop => key_generated::Qt_CursorShape_ForbiddenCursor,
-                BuiltInMouseCursor::NotAllowed => key_generated::Qt_CursorShape_ForbiddenCursor,
-                BuiltInMouseCursor::Grab => key_generated::Qt_CursorShape_OpenHandCursor,
-                BuiltInMouseCursor::Grabbing => key_generated::Qt_CursorShape_ClosedHandCursor,
-                BuiltInMouseCursor::ColResize => key_generated::Qt_CursorShape_SplitHCursor,
-                BuiltInMouseCursor::RowResize => key_generated::Qt_CursorShape_SplitVCursor,
-                BuiltInMouseCursor::NResize => key_generated::Qt_CursorShape_SizeVerCursor,
-                BuiltInMouseCursor::EResize => key_generated::Qt_CursorShape_SizeHorCursor,
-                BuiltInMouseCursor::SResize => key_generated::Qt_CursorShape_SizeVerCursor,
-                BuiltInMouseCursor::WResize => key_generated::Qt_CursorShape_SizeHorCursor,
-                BuiltInMouseCursor::NeResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
-                BuiltInMouseCursor::NwResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
-                BuiltInMouseCursor::SeResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
-                BuiltInMouseCursor::SwResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
-                BuiltInMouseCursor::EwResize => key_generated::Qt_CursorShape_SizeHorCursor,
-                BuiltInMouseCursor::NsResize => key_generated::Qt_CursorShape_SizeVerCursor,
-                BuiltInMouseCursor::NeswResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
-                BuiltInMouseCursor::NwseResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
-                _ => key_generated::Qt_CursorShape_ArrowCursor,
-            };
-            cpp! {unsafe [widget_ptr as "QWidget*", cursor_shape as "Qt::CursorShape"] {
-                widget_ptr->setCursor(QCursor{cursor_shape});
-            }};
+        match cursor {
+            MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                let source_size = image.size();
+                let image_inner: &ImageInner = (&image).into();
+                // Rasterize scalable sources at scale_factor so SVG cursors are crisp on high-DPI.
+                let target_size = LogicalSize::from_untyped(source_size.cast())
+                    * ScaleFactor::new(self.window.scale_factor());
+                let pixmap_size = image_inner.is_svg().then(|| target_size.cast());
+                let pixmap: qttypes::QPixmap =
+                    image_to_pixmap(image_inner, pixmap_size).unwrap_or_default();
+                // Map the hotspot into the rendered pixmap and clamp it inside (QCursor would
+                // otherwise center a negative).
+                let rendered = pixmap.size();
+                let hotspot_x = scaled_hotspot(hotspot_x, source_size.width, rendered.width) as i32;
+                let hotspot_y =
+                    scaled_hotspot(hotspot_y, source_size.height, rendered.height) as i32;
+                cpp! {unsafe [widget_ptr as "QWidget*", pixmap as "QPixmap", hotspot_x as "int", hotspot_y as "int"] {
+                    widget_ptr->setCursor(QCursor{pixmap, hotspot_x, hotspot_y});
+                }};
+            }
+            MouseCursorInner::BuiltIn(cursor) => {
+                //unidirectional resize cursors are replaced with bidirectional ones
+                let cursor_shape = match cursor {
+                    BuiltInMouseCursor::Default => key_generated::Qt_CursorShape_ArrowCursor,
+                    BuiltInMouseCursor::None => key_generated::Qt_CursorShape_BlankCursor,
+                    BuiltInMouseCursor::Help => key_generated::Qt_CursorShape_WhatsThisCursor,
+                    BuiltInMouseCursor::Pointer => key_generated::Qt_CursorShape_PointingHandCursor,
+                    BuiltInMouseCursor::Progress => key_generated::Qt_CursorShape_BusyCursor,
+                    BuiltInMouseCursor::Wait => key_generated::Qt_CursorShape_WaitCursor,
+                    BuiltInMouseCursor::Crosshair => key_generated::Qt_CursorShape_CrossCursor,
+                    BuiltInMouseCursor::Text => key_generated::Qt_CursorShape_IBeamCursor,
+                    BuiltInMouseCursor::Alias => key_generated::Qt_CursorShape_DragLinkCursor,
+                    BuiltInMouseCursor::Copy => key_generated::Qt_CursorShape_DragCopyCursor,
+                    BuiltInMouseCursor::Move => key_generated::Qt_CursorShape_DragMoveCursor,
+                    BuiltInMouseCursor::NoDrop => key_generated::Qt_CursorShape_ForbiddenCursor,
+                    BuiltInMouseCursor::NotAllowed => key_generated::Qt_CursorShape_ForbiddenCursor,
+                    BuiltInMouseCursor::Grab => key_generated::Qt_CursorShape_OpenHandCursor,
+                    BuiltInMouseCursor::Grabbing => key_generated::Qt_CursorShape_ClosedHandCursor,
+                    BuiltInMouseCursor::ColResize => key_generated::Qt_CursorShape_SplitHCursor,
+                    BuiltInMouseCursor::RowResize => key_generated::Qt_CursorShape_SplitVCursor,
+                    BuiltInMouseCursor::NResize => key_generated::Qt_CursorShape_SizeVerCursor,
+                    BuiltInMouseCursor::EResize => key_generated::Qt_CursorShape_SizeHorCursor,
+                    BuiltInMouseCursor::SResize => key_generated::Qt_CursorShape_SizeVerCursor,
+                    BuiltInMouseCursor::WResize => key_generated::Qt_CursorShape_SizeHorCursor,
+                    BuiltInMouseCursor::NeResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
+                    BuiltInMouseCursor::NwResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+                    BuiltInMouseCursor::SeResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+                    BuiltInMouseCursor::SwResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
+                    BuiltInMouseCursor::EwResize => key_generated::Qt_CursorShape_SizeHorCursor,
+                    BuiltInMouseCursor::NsResize => key_generated::Qt_CursorShape_SizeVerCursor,
+                    BuiltInMouseCursor::NeswResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
+                    BuiltInMouseCursor::NwseResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+                    _ => key_generated::Qt_CursorShape_ArrowCursor,
+                };
+                cpp! {unsafe [widget_ptr as "QWidget*", cursor_shape as "Qt::CursorShape"] {
+                    widget_ptr->setCursor(QCursor{cursor_shape});
+                }};
+            }
+            _ => {}
         }
     }
 

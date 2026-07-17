@@ -282,6 +282,140 @@ impl ItemConsts for KeyBinding {
     > = KeyBinding::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
+/// The implementation of the `WindowMoveArea` element
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
+pub struct WindowMoveArea {
+    pub enabled: Property<bool>,
+    pressed: Cell<bool>,
+    pressed_position: Cell<LogicalPoint>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for WindowMoveArea {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
+    fn layout_info(
+        self: Pin<&Self>,
+        _: Orientation,
+        _cross_axis_constraint: Coord,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        event: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursorInner,
+    ) -> InputEventFilterResult {
+        if !self.enabled() {
+            self.pressed.set(false);
+            return InputEventFilterResult::ForwardAndIgnore;
+        }
+        super::drag_n_drop::press_drag_filter(&self.pressed, &self.pressed_position, event)
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        event: &MouseEvent,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursorInner,
+    ) -> InputEventResult {
+        match event {
+            MouseEvent::Pressed { .. } => InputEventResult::EventAccepted,
+            MouseEvent::Exit | MouseEvent::Released { .. } => {
+                self.pressed.set(false);
+                InputEventResult::EventIgnored
+            }
+            MouseEvent::Moved { position, .. } => {
+                if !self.pressed.get() || !self.enabled() {
+                    return InputEventResult::EventIgnored;
+                }
+                if super::drag_n_drop::exceeds_drag_threshold(
+                    self.pressed_position.get(),
+                    *position,
+                ) {
+                    self.pressed.set(false);
+                    if let Some(internal) = window_adapter.internal(crate::InternalToken) {
+                        internal.start_window_move();
+                    }
+                }
+                InputEventResult::EventAccepted
+            }
+            MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                InputEventResult::EventIgnored
+            }
+            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => InputEventResult::EventIgnored,
+        }
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        _: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
+        RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect(
+        self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        mut geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry.size = LogicalSize::zero();
+        geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
+}
+
+impl ItemConsts for WindowMoveArea {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        WindowMoveArea,
+        CachedRenderingData,
+    > = WindowMoveArea::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]

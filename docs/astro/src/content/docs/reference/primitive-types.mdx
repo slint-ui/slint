@@ -391,6 +391,9 @@ For example: `@image-url("data:image/png;base64,iVBORw0KGgo...")`.
 Supported format are SVG, and formats supported by the [`image` crate](https://crates.io/crates/image):
 AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP.
 
+On the web, the browser decodes images, so every format the browser supports works.
+Compressed SVG (`.svgz`) is the exception: browsers don't render it.
+
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">
 In Rust, properties or struct fields of the image type are mapped to <LangRefLink lang="rust-slint" relpath="struct.Image">`slint::Image`</LangRefLink>.
@@ -398,6 +401,7 @@ In Rust, properties or struct fields of the image type are mapped to <LangRefLin
 By default, only PNG, JPEG, and SVG are supported.
 Enable the `image-default-formats` Cargo feature to support the other formats listed above,
 which comes at a cost of increased binary size and compilation time.
+This feature has no effect on the web, where the browser decodes images.
 :::
 </TabItem>
 <TabItem label="C++" icon="seti:cpp">
@@ -514,7 +518,7 @@ TouchArea {
 
 #### Custom shape
 
-To set a custom mouse cursor, provide a `image` and a hotspot. The hotspot determines how the image is positioned relative to the underlying cursor.
+To set a custom mouse cursor, provide an `image` and a hotspot. The hotspot is the point in the image, given in image pixels from the top-left corner, that is aligned with the actual pointer position. It is clamped to the image bounds.
 
 ```slint
 TouchArea {

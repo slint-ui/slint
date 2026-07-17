@@ -55,7 +55,7 @@ use i_slint_core::{Brush, Color, ImageInner, StaticTextures};
 use num_traits::Float;
 use num_traits::NumCast;
 
-pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
+pub use draw_functions::{PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel};
 
 type PhysicalLength = euclid::Length<i16, PhysicalPx>;
 type PhysicalRect = euclid::Rect<i16, PhysicalPx>;

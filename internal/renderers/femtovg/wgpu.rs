@@ -183,7 +183,23 @@ impl GraphicsBackend for WGPUBackend {
             return Ok(BeginRendering::Acquired(WGPUWindowSurface::Snapshot(snapshot_output)));
         }
         let surface = self.surface.borrow();
-        let surface = surface.as_ref().unwrap();
+        let Some(surface) = surface.as_ref() else {
+            // The surface is set up asynchronously on WASM and may not be ready for the
+            // first redraw(s). Skip this frame instead of erroring, so the caller re-arms
+            // a redraw rather than treating it as a fatal error (which tears down the
+            // winit event loop).
+            return Ok(BeginRendering::Skipped(DrawOutcome::Skipped));
+        };
+        // The surface may have been stored without an initial
+        // `surface.configure()` call when the canvas had zero area at the
+        // time the async wgpu init future resolved (see
+        // `configure_surface_from_init_result`). On WebGPU,
+        // get_current_texture() panics in that state; skip the frame here and
+        // wait for the first non-zero resize to configure the surface.
+        if !self.surface_config.borrow().as_ref().is_some_and(|cfg| cfg.width > 0 && cfg.height > 0)
+        {
+            return Ok(BeginRendering::Skipped(DrawOutcome::Skipped));
+        }
         let frame = match surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(t) => t,
             wgpu::CurrentSurfaceTexture::Occluded => {
@@ -305,6 +321,8 @@ impl GraphicsBackend for WGPUBackend {
 }
 
 impl FemtoVGRenderer<WGPUBackend> {
+    /// Synchronously initialize the WGPU surface. This uses the blocking init path
+    /// and works on all platforms except WASM.
     pub fn set_surface(
         &self,
         surface_target: impl Into<i_slint_core::graphics::wgpu_29::SurfaceTarget>,
@@ -320,6 +338,30 @@ impl FemtoVGRenderer<WGPUBackend> {
                 wgpu::Backends::GL,
             )?;
 
+        self.configure_surface_from_init_result(
+            instance,
+            adapter,
+            device,
+            queue,
+            surface,
+            size,
+            transparent,
+        );
+        Ok(())
+    }
+
+    /// Configure the renderer with pre-initialized WGPU objects. This is used by both the
+    /// synchronous `set_surface` path and the async WASM initialization path.
+    pub fn configure_surface_from_init_result(
+        &self,
+        instance: wgpu::Instance,
+        adapter: wgpu::Adapter,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        surface: wgpu::Surface<'static>,
+        size: PhysicalWindowSize,
+        transparent: bool,
+    ) {
         let mut surface_config =
             surface.get_default_config(&adapter, size.width, size.height).unwrap();
 
@@ -346,7 +388,14 @@ impl FemtoVGRenderer<WGPUBackend> {
             }
         }
 
-        surface.configure(&device, &surface_config);
+        // Skip the initial surface.configure() when the window has zero
+        // area — wgpu requires both dimensions to be non-zero. This happens
+        // on WASM when the async wgpu init future resolves before the
+        // browser has laid out the canvas. The subsequent resize event will
+        // re-configure with the real size.
+        if size.width > 0 && size.height > 0 {
+            surface.configure(&device, &surface_config);
+        }
 
         *self.graphics_backend.instance.borrow_mut() = Some(instance.clone());
         *self.graphics_backend.device.borrow_mut() = Some(device.clone());
@@ -363,7 +412,6 @@ impl FemtoVGRenderer<WGPUBackend> {
 
         let canvas = Rc::new(RefCell::new(femtovg_canvas));
         self.reset_canvas(canvas);
-        Ok(())
     }
 }
 

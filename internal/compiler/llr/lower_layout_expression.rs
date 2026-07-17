@@ -408,32 +408,53 @@ pub(super) fn solve_flexbox_layout(
             ("cells_v", fld.cells_v.ty(ctx), fld.cells_v),
         ],
     );
+    // Forward the container width to repeated cells so a column flex re-measures
+    // each height-for-width instance at the real width (parity with static cells,
+    // which use the same `width_override`). `None` for a row flex.
+    let repeated_cross_width = container_width_for_cells
+        .as_ref()
+        .map(|e| Box::new(super::lower_expression::lower_expression(e, ctx)));
+    // Only height-for-width-capable cells benefit from re-measuring;
+    // a flexbox without any keeps the cheaper plain solve.
+    let needs_measure = layout.elems.iter().any(|li| {
+        let elem = &li.item.element;
+        is_height_for_width_cell(elem)
+            || elem.borrow().inherited_layout_info_h_with_constraint().is_some()
+    });
     match fld.compute_cells {
-        Some((cells_h_var, cells_v_var, elements)) => llr_Expression::WithFlexboxLayoutItemInfo {
-            cells_h_variable: cells_h_var,
-            cells_v_variable: cells_v_var,
-            repeater_indices_var_name: Some("repeated_indices".into()),
-            elements,
-            sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
-                function: "solve_flexbox_layout".into(),
-                arguments: vec![
-                    data,
-                    llr_Expression::ReadLocalVariable {
-                        name: "repeated_indices".into(),
-                        ty: Type::Array(Type::Int32.into()),
-                    },
-                ],
-                return_ty: Type::LayoutCache,
-            }),
-        },
+        Some((cells_h_var, cells_v_var, elements)) => {
+            let repeated_indices = || llr_Expression::ReadLocalVariable {
+                name: "repeated_indices".into(),
+                ty: Type::Array(Type::Int32.into()),
+            };
+            // With a repeater, the cell defaults come from the flat cell arrays
+            // the enclosing `WithFlexboxLayoutItemInfo` just built, so no
+            // `default_cells`.
+            let sub_expression = if needs_measure {
+                llr_Expression::SolveFlexboxLayoutWithMeasure {
+                    data: Box::new(data),
+                    repeater_indices: Box::new(repeated_indices()),
+                    measure_cells: measure_cells_for(layout, ctx),
+                    default_cells: vec![],
+                    cells_variables: Some((cells_h_var.clone().into(), cells_v_var.clone().into())),
+                }
+            } else {
+                llr_Expression::ExtraBuiltinFunctionCall {
+                    function: "solve_flexbox_layout".into(),
+                    arguments: vec![data, repeated_indices()],
+                    return_ty: Type::LayoutCache,
+                }
+            };
+            llr_Expression::WithFlexboxLayoutItemInfo {
+                cells_h_variable: cells_h_var,
+                cells_v_variable: cells_v_var,
+                repeater_indices_var_name: Some("repeated_indices".into()),
+                elements,
+                repeated_cross_width,
+                sub_expression: Box::new(sub_expression),
+            }
+        }
         None => {
-            // Only height-for-width-capable cells benefit from re-measuring;
-            // a flexbox without any keeps the cheaper plain solve.
-            let needs_measure = layout.elems.iter().any(|li| {
-                let elem = &li.item.element;
-                is_height_for_width_cell(elem)
-                    || elem.borrow().inherited_layout_info_h_with_constraint().is_some()
-            });
             if !needs_measure {
                 return llr_Expression::ExtraBuiltinFunctionCall {
                     function: "solve_flexbox_layout".into(),
@@ -441,45 +462,6 @@ pub(super) fn solve_flexbox_layout(
                     return_ty: Type::LayoutCache,
                 };
             }
-            // Static cells only: emit a generated measure callback so the
-            // cross-axis size of height-for-width cells is recomputed at the
-            // width/height taffy assigns, instead of the cell's preferred
-            // size (parity with the interpreter).
-            let measure_cells = layout
-                .elems
-                .iter()
-                .map(|li| {
-                    let elem = &li.item.element;
-                    let v_constraint = is_height_for_width_cell(elem).then(|| {
-                        crate::expression_tree::Expression::ReadLocalVariable {
-                            name: "measure_known_w".into(),
-                            ty: Type::LogicalLength,
-                        }
-                    });
-                    let v_info = get_layout_info(
-                        elem,
-                        ctx,
-                        &li.item.constraints,
-                        Orientation::Vertical,
-                        v_constraint,
-                    );
-                    let h_constraint =
-                        elem.borrow().inherited_layout_info_h_with_constraint().is_some().then(
-                            || crate::expression_tree::Expression::ReadLocalVariable {
-                                name: "measure_known_h".into(),
-                                ty: Type::LogicalLength,
-                            },
-                        );
-                    let h_info = get_layout_info(
-                        elem,
-                        ctx,
-                        &li.item.constraints,
-                        Orientation::Horizontal,
-                        h_constraint,
-                    );
-                    Either::Left((h_info, v_info))
-                })
-                .collect();
             // Preferred (default-constraint) info per cell, matching the cells
             // carried by `data`. Returned by the measure callback when taffy
             // asks for a dimension without a known cross-axis size, so the
@@ -523,11 +505,69 @@ pub(super) fn solve_flexbox_layout(
             llr_Expression::SolveFlexboxLayoutWithMeasure {
                 data: Box::new(data),
                 repeater_indices: Box::new(empty_int32_slice()),
-                measure_cells,
+                measure_cells: measure_cells_for(layout, ctx),
                 default_cells,
+                cells_variables: None,
             }
         }
     }
+}
+
+/// Per-element measure inputs for `SolveFlexboxLayoutWithMeasure`: the cell's
+/// `(h_info, v_info)` measured at the dimension taffy assigns, read from the
+/// `measure_known_w` / `measure_known_h` locals. A repeated element becomes a
+/// `Right`: its instances are only known at solve time, so the generated
+/// callback queries the instance directly.
+fn measure_cells_for(
+    layout: &crate::layout::FlexboxLayout,
+    ctx: &mut ExpressionLoweringCtx,
+) -> Vec<Either<(llr_Expression, llr_Expression), LayoutRepeatedElement>> {
+    layout
+        .elems
+        .iter()
+        .map(|li| {
+            let elem = &li.item.element;
+            if elem.borrow().repeated.is_some() {
+                let repeater_index =
+                    match ctx.mapping.element_mapping.get(&elem.clone().into()).unwrap() {
+                        LoweredElement::Repeated { repeated_index } => *repeated_index,
+                        _ => panic!("repeated flexbox element not lowered as Repeated"),
+                    };
+                return Either::Right(LayoutRepeatedElement {
+                    repeater_index,
+                    row_child_templates: None,
+                });
+            }
+            let v_constraint = is_height_for_width_cell(elem).then(|| {
+                crate::expression_tree::Expression::ReadLocalVariable {
+                    name: "measure_known_w".into(),
+                    ty: Type::LogicalLength,
+                }
+            });
+            let v_info = get_layout_info(
+                elem,
+                ctx,
+                &li.item.constraints,
+                Orientation::Vertical,
+                v_constraint,
+            );
+            let h_constraint =
+                elem.borrow().inherited_layout_info_h_with_constraint().is_some().then(|| {
+                    crate::expression_tree::Expression::ReadLocalVariable {
+                        name: "measure_known_h".into(),
+                        ty: Type::LogicalLength,
+                    }
+                });
+            let h_info = get_layout_info(
+                elem,
+                ctx,
+                &li.item.constraints,
+                Orientation::Horizontal,
+                h_constraint,
+            );
+            Either::Left((h_info, v_info))
+        })
+        .collect()
 }
 
 pub(super) fn compute_flexbox_layout_info(
@@ -670,6 +710,8 @@ fn compute_flexbox_layout_info_for_direction(
                     cells_v_variable: cells_v_var,
                     repeater_indices_var_name: None,
                     elements,
+                    // Info computation, not a solve: no container width to forward.
+                    repeated_cross_width: None,
                     sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
                         function: "flexbox_layout_info_cross_axis".into(),
                         arguments,
@@ -701,6 +743,8 @@ fn compute_flexbox_layout_info_for_direction(
                     cells_v_variable: cells_v_var,
                     repeater_indices_var_name: None,
                     elements,
+                    // Info computation, not a solve: no container width to forward.
+                    repeated_cross_width: None,
                     sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
                         function: "flexbox_layout_info_main_axis".into(),
                         arguments: vec![
@@ -1202,6 +1246,8 @@ fn flexbox_unwrapped_main_expr(
                 cells_v_variable,
                 repeater_indices_var_name: None,
                 elements,
+                // Info computation, not a solve: no container width to forward.
+                repeated_cross_width: None,
                 sub_expression: Box::new(call),
             }
         }
@@ -1503,8 +1549,8 @@ fn grid_layout_input_data(
 }
 
 pub(super) fn grid_layout_input_data_ty() -> Type {
-    Type::Struct(Rc::new(Struct {
-        fields: IntoIterator::into_iter([
+    Type::Struct(Rc::new(Struct::new(
+        IntoIterator::into_iter([
             (SmolStr::new_static("new_row"), Type::Bool),
             (SmolStr::new_static("row"), Type::Int32),
             (SmolStr::new_static("col"), Type::Int32),
@@ -1512,8 +1558,8 @@ pub(super) fn grid_layout_input_data_ty() -> Type {
             (SmolStr::new_static("colspan"), Type::Int32),
         ])
         .collect(),
-        name: BuiltinStruct::GridLayoutInputData.into(),
-    }))
+        BuiltinStruct::GridLayoutInputData,
+    )))
 }
 
 fn generate_layout_padding_and_spacing(
@@ -1910,7 +1956,8 @@ pub fn get_layout_info_v_constrained_for_repeated(
     }
     // Use the preferred width as the cross-axis constraint, the same default
     // static height-for-width cells use. This is a single-line-height
-    // approximation; measuring at the real column width is a follow-up commit.
+    // approximation; a column flex re-measures at the real container width via
+    // `get_layout_info_v_at_cross_width_for_repeated`.
     //
     // The h-constraint may be absent even when the v one exists; fall back to
     // unbounded then.
@@ -1920,5 +1967,30 @@ pub fn get_layout_info_v_constrained_for_repeated(
             crate::expression_tree::Unit::Px,
         )
     });
+    Some(get_layout_info(element, ctx, constraints, Orientation::Vertical, Some(width_constraint)))
+}
+
+/// Name of the local that carries the cross-axis (container) width into the
+/// generated `flexbox_layout_item_info_at_cross_width` method body.
+pub const FLEX_CROSS_WIDTH_LOCAL: &str = "flex_cross_width";
+
+/// Like [`get_layout_info_v_constrained_for_repeated`], but measures at the
+/// width passed in the [`FLEX_CROSS_WIDTH_LOCAL`] local instead of the
+/// element's preferred width. A column FlexboxLayout supplies its real
+/// container width here at solve time, so a repeated height-for-width instance
+/// gets the same wrapped height as an equivalent static cell. Returns `None`
+/// when the element has no constrained vertical layout-info.
+pub fn get_layout_info_v_at_cross_width_for_repeated(
+    ctx: &mut ExpressionLoweringCtx,
+    element: &ElementRc,
+    constraints: &crate::layout::LayoutConstraints,
+) -> Option<llr_Expression> {
+    if !element.borrow().has_inherited_layout_info_v_with_constraint() {
+        return None;
+    }
+    let width_constraint = crate::expression_tree::Expression::ReadLocalVariable {
+        name: FLEX_CROSS_WIDTH_LOCAL.into(),
+        ty: Type::LogicalLength,
+    };
     Some(get_layout_info(element, ctx, constraints, Orientation::Vertical, Some(width_constraint)))
 }

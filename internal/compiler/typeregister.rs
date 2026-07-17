@@ -104,8 +104,8 @@ pub struct BuiltinTypes {
 
 impl BuiltinTypes {
     fn new() -> Self {
-        let layout_info_type = Rc::new(Struct {
-            fields: ["min", "max", "preferred"]
+        let layout_info_type = Rc::new(Struct::new(
+            ["min", "max", "preferred"]
                 .iter()
                 .map(|s| (SmolStr::new_static(s), Type::LogicalLength))
                 .chain(
@@ -114,38 +114,38 @@ impl BuiltinTypes {
                         .map(|s| (SmolStr::new_static(s), Type::Float32)),
                 )
                 .collect(),
-            name: BuiltinStruct::LayoutInfo.into(),
-        });
+            BuiltinStruct::LayoutInfo,
+        ));
         let enums = BuiltinEnums::new();
         let flex_align_self_type = Type::Enumeration(enums.FlexboxLayoutAlignSelf.clone());
         Self {
             enums,
-            logical_point_type: Rc::new(Struct {
-                fields: IntoIterator::into_iter([
+            logical_point_type: Rc::new(Struct::new(
+                IntoIterator::into_iter([
                     (SmolStr::new_static("x"), Type::LogicalLength),
                     (SmolStr::new_static("y"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: BuiltinStruct::LogicalPosition.into(),
-            }),
-            logical_size_type: Rc::new(Struct {
-                fields: IntoIterator::into_iter([
+                BuiltinStruct::LogicalPosition,
+            )),
+            logical_size_type: Rc::new(Struct::new(
+                IntoIterator::into_iter([
                     (SmolStr::new_static("width"), Type::LogicalLength),
                     (SmolStr::new_static("height"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: BuiltinStruct::LogicalSize.into(),
-            }),
-            font_metrics_type: Type::Struct(Rc::new(Struct {
-                fields: IntoIterator::into_iter([
+                BuiltinStruct::LogicalSize,
+            )),
+            font_metrics_type: Type::Struct(Rc::new(Struct::new(
+                IntoIterator::into_iter([
                     (SmolStr::new_static("ascent"), Type::LogicalLength),
                     (SmolStr::new_static("descent"), Type::LogicalLength),
                     (SmolStr::new_static("x-height"), Type::LogicalLength),
                     (SmolStr::new_static("cap-height"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: BuiltinStruct::FontMetrics.into(),
-            })),
+                BuiltinStruct::FontMetrics,
+            ))),
             noarg_callback_type: Type::Callback(Rc::new(Function {
                 return_type: Type::Void,
                 args: Vec::new(),
@@ -157,29 +157,26 @@ impl BuiltinTypes {
                 arg_names: Vec::new(),
             })),
             layout_info_type: layout_info_type.clone(),
-            state_info_type: Rc::new(Struct {
-                fields: IntoIterator::into_iter([
+            state_info_type: Rc::new(Struct::new(
+                IntoIterator::into_iter([
                     (SmolStr::new_static("current-state"), Type::Int32),
                     (SmolStr::new_static("previous-state"), Type::Int32),
                     (SmolStr::new_static("change-time"), Type::Duration),
                 ])
                 .collect(),
-                name: BuiltinStruct::StateInfo.into(),
-            }),
-            path_element_type: Type::Struct(Rc::new(Struct {
-                fields: Default::default(),
-                name: BuiltinStruct::PathElement.into(),
-            })),
-            layout_item_info_type: Type::Struct(Rc::new(Struct {
-                fields: IntoIterator::into_iter([(
-                    "constraint".into(),
-                    layout_info_type.clone().into(),
-                )])
-                .collect(),
-                name: BuiltinStruct::LayoutItemInfo.into(),
-            })),
-            flexbox_layout_item_info_type: Type::Struct(Rc::new(Struct {
-                fields: IntoIterator::into_iter([
+                BuiltinStruct::StateInfo,
+            )),
+            path_element_type: Type::Struct(Rc::new(Struct::new(
+                Default::default(),
+                BuiltinStruct::PathElement,
+            ))),
+            layout_item_info_type: Type::Struct(Rc::new(Struct::new(
+                IntoIterator::into_iter([("constraint".into(), layout_info_type.clone().into())])
+                    .collect(),
+                BuiltinStruct::LayoutItemInfo,
+            ))),
+            flexbox_layout_item_info_type: Type::Struct(Rc::new(Struct::new(
+                IntoIterator::into_iter([
                     ("constraint".into(), layout_info_type.into()),
                     ("flex-grow".into(), Type::Float32),
                     ("flex-shrink".into(), Type::Float32),
@@ -188,18 +185,18 @@ impl BuiltinTypes {
                     ("flex-order".into(), Type::Int32),
                 ])
                 .collect(),
-                name: BuiltinStruct::FlexboxLayoutItemInfo.into(),
-            })),
-            gridlayout_input_data_type: Type::Struct(Rc::new(Struct {
-                fields: IntoIterator::into_iter([
+                BuiltinStruct::FlexboxLayoutItemInfo,
+            ))),
+            gridlayout_input_data_type: Type::Struct(Rc::new(Struct::new(
+                IntoIterator::into_iter([
                     ("row".into(), Type::Int32),
                     ("column".into(), Type::Int32),
                     ("rowspan".into(), Type::Int32),
                     ("colspan".into(), Type::Int32),
                 ])
                 .collect(),
-                name: BuiltinStruct::GridLayoutInputData.into(),
-            })),
+                BuiltinStruct::GridLayoutInputData,
+            ))),
         }
     }
 }
@@ -865,12 +862,12 @@ pub mod builtin_structs {
                 pub fn new() -> Self {
                     $(
                     #[allow(non_snake_case)]
-                    let $Name = Rc::new(Struct{
-                        fields: BTreeMap::from([
+                    let $Name = Rc::new(Struct::new(
+                        BTreeMap::from([
                             $((stringify!($field).replace_smolstr("_", "-"), map_type!($field_type, $field_type))),*
                         ]),
-                        name: BuiltinStruct::$Name.into(),
-                    });
+                        BuiltinStruct::$Name,
+                    ));
                     )*
 
                     Self {
