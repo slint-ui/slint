@@ -3,6 +3,10 @@
 
 use cfg_aliases::cfg_aliases;
 
+#[allow(
+    semicolon_in_expressions_from_macros,
+    reason = "cfg_aliases 0.2.1 has not been updated to resolve this lint"
+)]
 fn main() {
     // Setup cfg aliases
     cfg_aliases! {

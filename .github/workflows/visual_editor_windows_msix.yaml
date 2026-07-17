@@ -1,0 +1,162 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Visual Editor Windows MSIX
+
+on:
+  workflow_dispatch:
+    inputs:
+      save_if:
+        description: "Condition to save the cache"
+        required: false
+        type: boolean
+        default: true
+
+  pull_request:
+    branches:
+      - visual-editor
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: false
+  SLINT_BUILD_NUMBER: ${{ github.run_number }}
+  SLINT_VISUAL_EDITOR_MSIX_PATH_PREFIX: tools/lsp/slintvisualeditor_
+  SLINT_VISUAL_EDITOR_MSIX_PATH_SUFFIX: .0_x64.msix
+  SLINT_VISUAL_EDITOR_MSIX_UNSIGNED_PATH_SUFFIX: .0_x64_unsigned.msix
+  SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD: slint-ci-self-signed
+
+jobs:
+  msix:
+    name: Build self-signed MSIX
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env: {}
+    steps:
+      - uses: actions/checkout@v6
+
+      # Installing stable toolchain isn't necessary on `windows-latest`
+
+      # For `cargo -Zscript`
+      - uses: ./.github/actions/setup-rust
+        with:
+          key: visual-editor-windows-msix
+          toolchain: nightly
+          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
+
+      - uses: microsoft/setup-WinAppCli@v0.1
+
+      - name: Build app for Windows
+        shell: pwsh
+        run: |
+          cargo +stable build `
+            --manifest-path tools/lsp/Cargo.toml `
+            --target x86_64-pc-windows-msvc `
+            --bin slint-visual-editor `
+            --profile package-release `
+            --no-default-features `
+            --features backend-winit,renderer-skia
+
+      - name: Create self-signed test certificate
+        id: test_certificate
+        shell: pwsh
+        timeout-minutes: 2
+        run: |
+          Write-Host "Creating self-signed code-signing certificate"
+          $pfxPath = Join-Path $env:RUNNER_TEMP "slint-visual-editor-self-signed.pfx"
+          $cerPath = Join-Path $env:GITHUB_WORKSPACE "slint-visual-editor-self-signed.cer"
+          $password = ConvertTo-SecureString -String $env:SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD -Force -AsPlainText
+          $cert = New-SelfSignedCertificate `
+            -Type Custom `
+            -Subject "CN=sixtyfps" `
+            -KeyAlgorithm RSA `
+            -KeyLength 2048 `
+            -KeyExportPolicy Exportable `
+            -KeySpec Signature `
+            -KeyUsage DigitalSignature `
+            -FriendlyName "Slint Visual Editor CI Test Certificate" `
+            -CertStoreLocation "Cert:\CurrentUser\My" `
+            -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3")
+
+          Write-Host "Exporting signing certificate"
+          Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $password
+          Export-Certificate -Cert $cert -FilePath $cerPath
+
+          "pfx_path=$pfxPath" >> $env:GITHUB_OUTPUT
+          "cer_path=$cerPath" >> $env:GITHUB_OUTPUT
+
+      - name: Import self-signed test certificate
+        shell: pwsh
+        timeout-minutes: 2
+        run: |
+          Write-Host "Importing signing certificate to Root"
+          Import-Certificate `
+            -FilePath ${{ steps.test_certificate.outputs.cer_path }} `
+            -CertStoreLocation "Cert:\CurrentUser\Root"
+
+      - name: Get cargo version
+        id: get_cargo_version
+        run: |
+          $cargoversion = cargo metadata --manifest-path tools/lsp/Cargo.toml --offline --format-version 1 --no-deps |
+            ConvertFrom-Json |
+            select -exp packages |
+            where name -eq "slint-lsp" |
+            select -exp version
+          "cargo_version=$cargoversion" >> $env:GITHUB_OUTPUT
+
+      - name: Package app as MSIX
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force tools/lsp/dist
+          New-Item -ItemType Directory -Force tools/lsp/dist/Assets
+          Copy-Item `
+            $(ls tools/lsp/packaging/windows-appx/SlintVisualEditor-Logo-*.png | % {$_.FullName}) `
+            tools/lsp/dist/Assets/
+          Copy-Item target/x86_64-pc-windows-msvc/package-release/slint-visual-editor.exe tools/lsp/dist/slint-visual-editor.exe
+          Set-Location tools/lsp
+          cargo +nightly -Zscript -q ../../scripts/handlebars.rs `
+            -v cargo.version=${{ steps.get_cargo_version.outputs.cargo_version }} `
+            -i Package.appxmanifest.hbs `
+            -o Package.appxmanifest
+          winapp pack ./dist
+
+      - name: Sign MSIX with self-signed test certificate
+        id: sign_msix
+        shell: pwsh
+        timeout-minutes: 2
+        run: |
+          $signtool = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signtool) {
+            throw "signtool.exe was not found in the Windows SDK."
+          }
+          $cargoversion = "${{ steps.get_cargo_version.outputs.cargo_version }}"
+          $slintvisualeditor_msixpath = "$env:SLINT_VISUAL_EDITOR_MSIX_PATH_PREFIX$cargoversion$env:SLINT_VISUAL_EDITOR_MSIX_PATH_SUFFIX"
+          $slintvisualeditor_unsignedmsixpath = "$env:SLINT_VISUAL_EDITOR_MSIX_PATH_PREFIX$cargoversion$env:SLINT_VISUAL_EDITOR_MSIX_UNSIGNED_PATH_SUFFIX"
+
+          cp $slintvisualeditor_msixpath $slintvisualeditor_unsignedmsixpath
+
+          Write-Host "Signing $slintvisualeditor_msixpath with $signtool"
+
+          echo "slint_visual_editor_msix_path=$slintvisualeditor_msixpath" >> $env:GITHUB_OUTPUT
+          echo "slint_visual_editor_unsigned_msix_path=$slintvisualeditor_unsignedmsixpath" >> $env:GITHUB_OUTPUT
+
+          & $signtool sign `
+            /fd SHA256 `
+            /f "${{ steps.test_certificate.outputs.pfx_path }}" `
+            /p "$env:SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD" `
+            "$slintvisualeditor_msixpath"
+
+          & $signtool verify /pa /v "$slintvisualeditor_msixpath"
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: slint-visual-editor-windows-msix
+          path: |
+            ${{ steps.sign_msix.outputs.slint_visual_editor_msix_path }}
+            ${{ steps.sign_msix.outputs.slint_visual_editor_unsigned_msix_path }}
+            ${{ steps.test_certificate.outputs.cer_path }}
+          if-no-files-found: error

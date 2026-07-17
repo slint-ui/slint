@@ -114,7 +114,7 @@ fn replace_file(from: &Path, to: &Path) -> std::io::Result<()> {
     const MOVEFILE_WRITE_THROUGH: u32 = 0x8;
 
     #[link(name = "kernel32")]
-    extern "system" {
+    unsafe extern "system" {
         fn MoveFileExW(
             lpExistingFileName: *const u16,
             lpNewFileName: *const u16,
