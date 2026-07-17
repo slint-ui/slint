@@ -43,6 +43,21 @@ on:
                 required: false
                 type: boolean
                 default: true
+            test_workspace:
+                description: 'Test the root workspace (library and tool crates)'
+                required: false
+                type: boolean
+                default: true
+            test_integration:
+                description: 'Run the integration tests (tests/ workspace)'
+                required: false
+                type: boolean
+                default: true
+            build_examples:
+                description: 'Build the examples and demos workspaces'
+                required: false
+                type: boolean
+                default: true
             timeout_minutes:
                 description: 'Timeout in minutes'
                 required: false
@@ -111,6 +126,7 @@ jobs:
               # Ignore rust_version for stable/nightly to test with latest dependencies
               run: cargo update ${{ (inputs.rust_version == 'stable' || inputs.rust_version == 'nightly') && '--ignore-rust-version' || '' }}
             - name: Run tests
+              if: inputs.test_workspace
               # The excluded crates are the root-workspace members that need a
               # dedicated toolchain (node/python/cpp) and are covered by their own
               # ci.yaml jobs. Crates moved into the examples/demos/tests workspaces
@@ -120,18 +136,19 @@ jobs:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run tests (qt)
-              if: runner.os != 'Windows' && inputs.run_qt
+              if: runner.os != 'Windows' && inputs.run_qt && inputs.test_workspace
               run: "cargo test --locked --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc qt:: -- --test-threads=1"
               shell: bash
             # The integration tests now live in their own workspace (tests/Cargo.toml).
             # The C++/Node/Python drivers and doctests are run by dedicated jobs in ci.yaml.
             - name: Run integration tests
+              if: inputs.test_integration
               run: "cargo test --locked --verbose --all-features --workspace --timings --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} --exclude doctests --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python -- --skip=qt::"
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run integration tests (qt)
-              if: runner.os != 'Windows' && inputs.run_qt
+              if: runner.os != 'Windows' && inputs.run_qt && inputs.test_integration
               run: "cargo test --locked --verbose --all-features --workspace --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} --exclude doctests --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python qt:: -- --test-threads=1"
               shell: bash
             # The examples and demos are also their own workspaces. The mcu/uefi
@@ -139,13 +156,15 @@ jobs:
             # bevy and servo have heavy dependencies and dedicated workflows
             # (bevy_examples.yaml, servo_example.yaml), so they are excluded here.
             - name: Build examples
+              if: inputs.build_examples
               run: "cargo test --locked --verbose --all-features --workspace --timings --manifest-path examples/Cargo.toml ${{ inputs.extra_args }} --exclude mcu-board-support --exclude bevy-example --exclude bevy-hosts-slint --exclude bevy-hosts-slint-gpu --exclude servo-example"
               shell: bash
             - name: Build demos
+              if: inputs.build_examples
               run: "cargo test --locked --verbose --all-features --workspace --timings --manifest-path demos/Cargo.toml ${{ inputs.extra_args }} --exclude printerdemo_mcu"
               shell: bash
             - name: live-preview for rust test
-              if: runner.os == 'macOS'
+              if: runner.os == 'macOS' && inputs.test_integration
               env:
                 SLINT_LIVE_PREVIEW: 1
               run: cargo test --locked --verbose --all-features --manifest-path tests/Cargo.toml --features slint/live-preview -p test-driver-rust -- --skip=_qt::t
