@@ -11,6 +11,7 @@
 //! Widths and columns count characters, not bytes — byte counting would make
 //! non-ASCII string literals overflow spuriously.
 
+pub mod build_document;
 pub mod cost;
 pub mod doc;
 pub mod search;
