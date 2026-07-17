@@ -145,10 +145,6 @@ fn resolve_implement_statement(
     }
 }
 
-/// Filter out conflicting `implement` statements across the combined self+child list, emitting
-/// diagnostics for each conflict. Two statements conflict if they target the same interface, or if
-/// they introduce properties/callbacks/functions with the same name. In that case we keep the first
-/// one and filter out the rest.
 fn filter_conflicting_implement_statements(
     diag: &mut BuildDiagnostics,
     statements: Vec<ImplementedInterface>,
@@ -189,9 +185,6 @@ fn filter_conflicting_implement_statements(
         .collect()
 }
 
-/// Gather the `implement` statements on the element, resolve their interfaces, run the unified
-/// conflict check across self- and child-targeted statements, and partition the survivors. Emits
-/// diagnostics for invalid or conflicting statements.
 pub(super) fn get_implemented_interfaces(
     e: &Element,
     node: &syntax_nodes::Element,
@@ -217,8 +210,6 @@ pub(super) fn get_implemented_interfaces(
     (self_interfaces, child_implements)
 }
 
-/// `implement` statements are only supported on the root element for now. Emits a diagnostic for
-/// each one found on a non-root element.
 pub(super) fn disallow_implement_in_non_root(
     node: &syntax_nodes::Element,
     tr: &TypeRegister,
@@ -483,8 +474,6 @@ pub(super) fn validate_function_implementations(
     }
 }
 
-/// Apply the child-targeted `implement` statements, forwarding each interface's members from the
-/// element onto the named child (today's `uses`). Emits diagnostics for invalid statements.
 pub(super) fn apply_child_implement_statements(
     e: &ElementRc,
     child_implements: Vec<ImplementedInterface>,
