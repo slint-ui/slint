@@ -133,8 +133,20 @@ Granularity: the penalty is assessed **once per group decision**, against the
 input multilineness of the group's span — not per gap. Per-gap counting would
 change semantics: a list where the author broke 1 of 4 gaps would resolve
 flat (1 flip beats 3 flips), whereas today any input newline in the measure
-span breaks the whole group. `InputSoftline` stops being a special atom under
-this design: it is simply a single-gap group carrying a deviation penalty.
+span breaks the whole group.
+
+**Decided: `InputSoftline` stays outside the search entirely.** It keeps its
+literal meaning — a newline iff the input had one at this boundary — and is
+resolved at document-build time into a *fixed* decision, exactly as today.
+The width search never adds a break at such a boundary (and note that the
+search never *removes* input newlines anywhere: joining two lines cannot
+reduce overflow, and height ranks below deviation — so the only question
+was ever whether overflow may add breaks here, and the answer is no). This
+keeps the atom's role crisp — "the author owns this break", which is what
+its error-recovery uses need — and keeps `InputSoftline` gaps out of the
+choice-point count. A rule that *wants* a width-breakable, input-preferred
+boundary needs no new atom: a measured softline whose span is just that gap
+produces exactly that behavior through the ordinary group machinery.
 
 Idempotency, which today rests on an informal argument, becomes provable —
 for the core case: **untainted resolutions**, given the flatten rule from
@@ -221,9 +233,13 @@ Two engine obligations come with this:
 - **Any fixed newline inside a group's span removes the single-line
   variant** at document-build time: a line comment (flattening would
   swallow the rest of the line into it), an own-line comment (R1 forces
-  its newline), a `Hardline`, a verbatim newline in a gap no rule engaged,
-  or a multi-line block comment or `Leaf` range. This is a constraint (one
-  branch deleted), not a condition, and is invisible to rules.
+  its newline), a `Hardline`, an `InputSoftline` whose boundary had an
+  input newline (when it survives the flat variant's tier merge), or a
+  multi-line block comment or `Leaf` range. This is a constraint (one
+  branch deleted), not a condition, and is invisible to rules. (These are
+  the only fixed-newline sources: the engine resolves *every* gap, and a
+  gap no rule touched defaults to a single space — input newlines there
+  are not preserved.)
 
 ### `separated_by` (the sugar)
 
@@ -234,13 +250,21 @@ The trailing-separator idiom is pervasive, so it gets a one-line helper:
 call.node(SyntaxKind::Expression).separated_by(SyntaxKind::Comma);
 ```
 
-which expands to the primitives above: the separator boundaries join the
-rule's group, the last item gets `Literal(",").if_multiline(group)`, and an
-input trailing separator token gets `delete().if_single_line(group)`.
-Because it expands to conditional atoms, correlation correctness and the
-idempotency argument are inherited, proven once. Plain separator *spacing*
-(`Antispace` before, softline after) is not this helper's job — the global
-Tier-1 `Comma` token rule already does that.
+which expands to the primitives above: the helper computes an **explicit
+group span** from the first to the last item (grammar nodes may fuse a list
+and a body into one node — `Function` holds both its parameters and its
+code block — so the rule's context node is often the wrong span), attaches
+the group's separator softlines itself, gives the last item
+`Literal(",").if_multiline(group)`, and gives an input trailing separator
+token `delete().if_single_line(group)`. Because it expands to conditional
+atoms, correlation correctness and the idempotency argument are inherited,
+proven once.
+
+The helper deliberately assumes nothing about what the global punctuation
+rules do, and this design assumes nothing about *which* lists use the
+helper. How any particular construct breaks — as one atomic group, per
+input newlines, or not at all — is the ruleset's business; the algorithm
+only ever sees groups and fixed decisions.
 
 `separated_by` always manages the trailing separator; there is no
 `with_trailing()` builder and no no-trailing twin. That is justified by a
@@ -259,10 +283,11 @@ The two exceptions are exactly the lists that would never call the helper: a
 handful of short names that realistically never break (`animate`, already
 the explicit-span escape-hatch case) and a call-shaped list expressible with
 plain atoms if we ever want it to break. A helper *without* trailing
-management would have no customers, since spacing is the global comma rule's
-job. If a list ever wants group-coherent spacing without trailing insertion
-(conceivable style call for gradient stops), a second function is added
-then — the same deferral policy the main design applies to `first()`/`last()`.
+management would have little to add — a rule can attach group softlines
+with plain atoms. If a list ever wants group-coherent spacing without
+trailing insertion (conceivable style call for gradient stops), a second
+function is added then — the same deferral policy the main design applies
+to `first()`/`last()`.
 
 ### Rejected alternative: per-variant rule closures
 
@@ -353,7 +378,7 @@ annotate (unchanged)
   ──▶ linearize (unchanged)
   ──▶ NEW: build the choice document
         — per-gap resolution (tier merge, Antispace, comment sub-gaps,
-          engagement) moves INTO this step, run once per (gap, variant)
+          defaults) moves INTO this step, run once per (gap, variant)
   ──▶ NEW: resolve = search for the cheapest variant assignment
   ──▶ emit FormatPlan (as today, but reading group decisions from the search)
   ──▶ render (unchanged)
@@ -361,9 +386,10 @@ annotate (unchanged)
 
 ### Why per-gap resolution moves inside document construction
 
-The base design resolves every gap once, in one linear pass. Under the
-search, that pass would need the group decisions — which do not exist yet.
-Three concrete dependencies force the per-variant split:
+The engine resolves every gap once, in one linear pass (a gap no rule
+touched resolves to the default: a single space, nothing at a document
+edge). Under the search, that pass would need the group decisions — which
+do not exist yet. Two concrete dependencies force the per-variant split:
 
 1. **Conditional deletes change which atoms meet in a gap.** A deleted
    token's own atoms are discarded, and the following gap sources its
@@ -376,23 +402,25 @@ Three concrete dependencies force the per-variant split:
    whitespace and comment in the output differs per variant — and comment
    position affects line width, so none of this can wait until plan
    emission.
-3. **Engagement is per variant.** A gap whose only atom is
-   `Literal(",").if_multiline(…)` is engaged in that variant and verbatim
-   in the other.
 
 So the builder calls `resolve_gap(gap, variant)`: today's merge machinery —
 tier-first/strength-second, Antispace cancellation, sub-gap splitting,
-R1–R3 anchoring — with the controlling group's variant substituted for the
-softline measurement. It returns the gap's document sequence (whitespace
-and comment `Text` docs, in routed order). `InputSoftline` keeps its
-abstention semantics for free: in the single-line variant it abstains and
-the remaining atoms merge exactly as they do today.
+R1–R3 anchoring, the default — with the controlling group's variant
+substituted for the softline measurement. It returns the gap's document
+sequence (whitespace and comment `Text` docs, in routed order) instead of
+pushing instructions directly, which is the main refactor to the existing
+`resolve_gap`/`route_atom` code: the strength computation in `route_atom`'s
+softline arms is exactly where the variant substitution goes.
+`InputSoftline` is not part of the search (see the author-intent section):
+`resolve_gap` resolves it from the input in every variant, exactly as
+today — an input newline yields a fixed `Newline` doc, otherwise the atom
+abstains and the remaining atoms or the default decide.
 
 ### Which group controls a gap
 
-Atoms with *different* spans can meet in one gap (the tier-1 comma softline
-measures its context node; a tier-3 rule's softline may carry a hand-built
-span). The controlling group is decided the way today's merge would decide
+Atoms with *different* spans can meet in one gap (a token-tier rule's
+softline measures the token's parent node; a node-tier rule's softline may
+carry a hand-built span). The controlling group is decided the way today's merge would decide
 it, so the two designs agree wherever they overlap:
 
 - The winning **tier** at a gap does not depend on any variant, so it is
@@ -413,7 +441,8 @@ it, so the two designs agree wherever they overlap:
 
 ```rust
 /// Identity of one correlated choice. One per distinct span used by
-/// softlines / conditional atoms. Spans must nest or be disjoint.
+/// measured softlines / conditional atoms (InputSoftline resolves to a
+/// fixed decision instead). Spans must nest or be disjoint.
 struct GroupId(u32);
 enum Variant { SingleLine, Multiline }
 
@@ -474,7 +503,8 @@ enum Doc {
     /// width would compute garbage columns and taint spuriously.
     Text { source: SlotOrLiteral, width: u32 },
     /// A line break — either fixed (R1 comment newlines, Hardline, the
-    /// verbatim newlines of unengaged gaps and Leaf ranges) or emitted by
+    /// verbatim newlines inside Leaf ranges and multi-line block
+    /// comments) or emitted by
     /// a group's multiline body. The indent is baked in at build time:
     /// indent atoms are never conditional (enforced in the dynamic-rules
     /// section), so a running counter over the boundaries fixes every
@@ -519,8 +549,8 @@ enum MeasureSet {
 ### Building the document
 
 Input: the token slots and atom stores from phase 1, and the set of groups
-(every distinct span carried by a softline or conditional atom, plus one
-single-gap group per `InputSoftline`). The groups' spans form a forest by
+(every distinct span carried by a measured softline or conditional atom —
+`InputSoftline` creates no group). The groups' spans form a forest by
 nesting; tokens and gaps hang off the group that controls them (see "Which
 group controls a gap" above).
 
@@ -576,10 +606,10 @@ fn build_body(group, variant) -> DocId {
 /// The single-line body: like build_body(SingleLine), but inner groups are
 /// forced single-line recursively. Returns None if the built body contains
 /// ANY Newline doc, of whatever origin: a line comment, an own-line comment
-/// (R1 forces its newline), a Hardline, a verbatim newline in an unengaged
-/// gap, a multi-line block comment or Leaf range, or an inner group that
-/// itself cannot flatten. Checking the BUILT body for Newline docs is
-/// mechanical — there is no case list to keep in sync.
+/// (R1 forces its newline), a Hardline, an InputSoftline that fired, a
+/// multi-line block comment or Leaf range, or an inner group that itself
+/// cannot flatten. Checking the BUILT body for Newline docs is mechanical —
+/// there is no case list to keep in sync.
 fn build_flat(group) -> Option<DocId>
 ```
 
@@ -727,6 +757,45 @@ fn emit_plan(decisions) -> FormatPlan {
     // literal "number of groups that flip the author's layout" wording.)
 }
 ```
+
+### Mapping onto the existing code (`engine.rs`)
+
+The sketch above deliberately reuses the implementation's names where the
+concepts line up. The concrete deltas to the shipped engine:
+
+- **`resolve()` is today a fused single pass**: it walks the slots, handles
+  `Leaf`/`Delete` markers, pushes `Instruction`s directly, and threads a
+  mutable `i32` indentation counter; `resolve_gap` likewise writes
+  instructions straight into the output vector. The build → search → emit
+  split refactors this into three passes: a builder that calls
+  `resolve_gap(gap, variant)` and gets *decisions / doc fragments* back
+  (no instruction pushing), the search, and an emitter that replays the
+  winning decisions into exactly today's instruction sequence. Inside
+  `route_atom`, only the three softline arms change (variant substitution
+  instead of input measurement); the Antispace, indentation and blank-line
+  bookkeeping stays as is.
+- **Indent levels are transiently negative** — the counter is an `i32`,
+  clamped only at emission (`(*indentation_level).max(0)`).
+  `Doc::Newline { indent_width }` must bake the *clamped* level, converted
+  to columns (level × indent unit).
+- **`Literal` and `delete()` are engine-complete but unused by the shipped
+  ruleset** (`#[allow(dead_code)]`, exercised only by the engine tests). So
+  conditional atoms have no shipped-rule migration burden — and the
+  existing four-quadrant trailing-comma test
+  (`trailing_comma_managed_across_all_four_quadrants`), whose rules use the
+  annotation-time `if is_multiline` pattern this design replaces, is a
+  ready-made acceptance test: same expected outputs, with the decision
+  made by the search instead of the input measure.
+- **The debug-only `IdempotencyGuard` is the home for the new
+  assertions.** "A chosen SingleLine variant renders without newlines"
+  generalizes its current Hardline-inside-single-line-softline-span check.
+  The guard must become variant-aware: today it classifies spans by
+  measuring the *input*, which stops being the decision procedure once the
+  search decides — it should read the search's decisions instead.
+- **Eof is a real slot**, and the Document rule lands the file-final
+  `Hardline` in the gap before it. The document builder must include that
+  gap; the Eof token itself enters the document as a zero-width `Text`,
+  harmless to the search.
 
 ### Notes for the implementer
 
