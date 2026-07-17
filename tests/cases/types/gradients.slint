@@ -3,7 +3,7 @@
 
 // Verify that this compiles with all generators
 
-component Test inherits Rectangle {
+export component Test inherits Rectangle {
     background: @linear-gradient(45deg, #ff9a9e 0%, #fad0c4 99%, #fad0c4 100%);
     in-out property <color> foo: #a23;
     in-out property <brush> bar: @linear-gradient(1.2rad, foo.darker(0.5), foo.brighter(0.5), );
