@@ -16,10 +16,10 @@ use crate::langtype::{
 use crate::langtype::{ElementType, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
-use crate::parser;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
 use crate::typeregister::TypeRegister;
+use crate::{parser, reject_experimental_feature};
 use itertools::Either;
 use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 use std::cell::{Cell, OnceCell, Ref, RefCell, RefMut};
@@ -495,23 +495,6 @@ pub struct Component {
 
     /// True if this component is imported from an external library.
     pub from_library: Cell<bool>,
-}
-
-/// True (and a diagnostic emitted) if the given experimental feature should be rejected: such
-/// features are only permitted when either the compiler's experimental flag is enabled, or the
-/// file is exposing internal types (e.g. the standard widgets library).
-fn reject_experimental_feature(
-    diag: &mut BuildDiagnostics,
-    tr: &TypeRegister,
-    feature: &str,
-    source: &dyn Spanned,
-) -> bool {
-    if !diag.enable_experimental && !tr.expose_internal_types {
-        diag.push_error(format!("'{feature}' is an experimental feature"), source);
-        true
-    } else {
-        false
-    }
 }
 
 impl Component {
