@@ -11,15 +11,14 @@ use alloc::vec::Vec;
 use core::cell::Cell;
 use core::cell::RefCell;
 use core::num::NonZeroUsize;
+pub(crate) mod delay;
 pub mod easings;
 pub(crate) mod handle;
+pub(crate) mod parallel;
 pub(crate) mod physics;
 pub(crate) mod physics_simulation;
+pub(crate) mod sequential;
 pub(crate) mod tween;
-
-// pub(crate) mod delay;
-// pub(crate) mod parallel;
-// pub(crate) mod sequential;
 
 /// Represent an instant, in milliseconds since the AnimationDriver's initial_instant
 #[repr(transparent)]
