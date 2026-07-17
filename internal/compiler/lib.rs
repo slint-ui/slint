@@ -415,3 +415,21 @@ pub async fn load_root_file_with_raw_type_loader(
 
     (path, diagnostics, loader, raw_type_loader)
 }
+
+/// Returns true and emits an error if experimental features should be disabled.
+///
+/// Some experimental features are used internally which is why this function also checks
+/// `TypeRegister::expose_internal_types`.
+fn reject_experimental_feature(
+    diagnostics: &mut diagnostics::BuildDiagnostics,
+    type_register: &typeregister::TypeRegister,
+    feature: &str,
+    source: &dyn diagnostics::Spanned,
+) -> bool {
+    if !diagnostics.enable_experimental && !type_register.expose_internal_types {
+        diagnostics.push_error(format!("'{feature}' is an experimental feature"), source);
+        true
+    } else {
+        false
+    }
+}

@@ -17,10 +17,10 @@ use crate::langtype::{ElementType, Function, PropertyLookupResult, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
     Element, ElementRc, PropertyDeclaration, QualifiedTypeName, find_element_by_id,
-    reject_experimental_feature,
 };
 use crate::parser;
 use crate::parser::{SyntaxKind, syntax_nodes};
+use crate::reject_experimental_feature;
 use crate::typeregister::TypeRegister;
 
 enum InterfaceUseMode {
