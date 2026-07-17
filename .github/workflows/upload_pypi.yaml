@@ -44,7 +44,7 @@ jobs:
                       container: "ghcr.io/slint-ui/slint/armv7-unknown-linux-gnueabihf"
         runs-on: ${{ matrix.platform.runner }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
               if: runner.os == 'Linux'
             - uses: actions/setup-python@v6
@@ -86,12 +86,12 @@ jobs:
     ios_binaries:
         runs-on: macos-14
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: "aarch64-apple-ios aarch64-apple-ios-sim"
             - name: Build iOS wheels
-              uses: pypa/cibuildwheel@v4.0.0
+              uses: pypa/cibuildwheel@v4.1.0
               with:
                   package-dir: api/python/slint
                   output-dir: wheelhouse
@@ -110,7 +110,7 @@ jobs:
         name: Build source package
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - name: Build source package
               uses: PyO3/maturin-action@v1
               with:
@@ -133,7 +133,7 @@ jobs:
         needs: [build_binaries, ios_binaries, build_source_package]
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: actions/setup-python@v6
               with:
                 python-version: '3.12'

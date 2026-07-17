@@ -78,7 +78,7 @@ jobs:
                 # Pruning docker images could free up another 3GB
                 # sudo docker image prune --all --force
                 df -h
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ilammy/msvc-dev-cmd@v1
