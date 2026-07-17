@@ -298,3 +298,30 @@ if sys.platform != "win32":
 
         slint.run_event_loop(run())
         assert handler_called[0]
+
+    def test_sigint_raises_keyboard_interrupt() -> None:
+        # Without any explicit add_signal_handler, Ctrl-C (SIGINT) delivered
+        # while the loop is parked idle in the native wait must be turned into a
+        # KeyboardInterrupt that propagates out of run_event_loop(), rather than
+        # being swallowed (which forces callers/harnesses to escalate to
+        # SIGQUIT and crash the process).
+        import os
+        import signal
+        import threading
+        import time
+
+        def deliver_sigint_later() -> None:
+            time.sleep(0.2)
+            os.kill(os.getpid(), signal.SIGINT)
+
+        def watchdog() -> None:
+            time.sleep(5)
+            native.invoke_from_event_loop(slint.quit_event_loop)
+
+        async def run() -> None:
+            threading.Thread(target=deliver_sigint_later, daemon=True).start()
+            threading.Thread(target=watchdog, daemon=True).start()
+            await asyncio.Event().wait()
+
+        with pytest.raises(KeyboardInterrupt):
+            slint.run_event_loop(run())
