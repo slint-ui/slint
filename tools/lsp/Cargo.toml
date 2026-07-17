@@ -28,6 +28,10 @@ path = "main.rs"
 name = "slint-editor"
 path = "editor_main.rs"
 
+[[example]]
+name = "fmt-corpus"
+path = "fmt-corpus/main.rs"
+
 [lib]
 # lib is there only for the web
 crate-type = ["cdylib"]
