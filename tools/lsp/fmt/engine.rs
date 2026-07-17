@@ -10,12 +10,15 @@ use crate::fmt::atoms::{
     Annotations, Atom, AtomInstance, AtomSink, FormatPlan, INDENT, Instruction, Marker, Tier,
     Whitespace,
 };
-use crate::fmt::width::Variant;
+use crate::fmt::width::build_document::build_document;
+use crate::fmt::width::search::Resolver;
+use crate::fmt::width::{GroupId, Variant};
 use crate::fmt::writer::TokenWriter;
 use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 pub fn is_trivia(kind: SyntaxKind) -> bool {
     matches!(kind, SyntaxKind::Whitespace | SyntaxKind::Comment)
@@ -534,17 +537,58 @@ enum Strength {
 }
 
 /// How the measured softlines (`SpacedSoftline`/`EmptySoftline`) resolve
-/// during one gap resolution: measured on the input layout — the shipped
-/// pipeline — or substituted with a group's chosen variant, which is how the
-/// width search resolves a gap once per variant. `InputSoftline` is
-/// unaffected: it keeps its literal input meaning in both modes.
+/// during one gap resolution: measured on the input layout, or substituted
+/// with a group's chosen variant (how the width search resolves a gap once per
+/// variant). `InputSoftline` is unaffected: it keeps its literal input meaning
+/// in both modes.
 #[derive(Debug, Clone, Copy)]
 pub enum SoftlineMode {
     FromInput,
-    // Not used by the shipped pipeline yet; exercised by the engine tests
-    // until the width search is wired in.
-    #[allow(dead_code)]
     Decided(Variant),
+}
+
+/// How each gap's measured softlines are resolved when emitting the plan.
+pub(crate) enum GapModes<'a> {
+    /// Every gap measured from the input — the behavior before the width
+    /// search, kept for callers (the engine's own tests) that do not run it.
+    // Only the tests construct this; the shipped pipeline always decides.
+    #[cfg_attr(not(test), allow(dead_code))]
+    FromInput,
+    /// Group-controlled gaps follow the width search's per-group decisions;
+    /// gaps no group controls stay input-measured.
+    Decided {
+        /// The innermost group controlling each gap, indexed by slot.
+        gap_controller: &'a [Option<GroupId>],
+        /// The variant the search chose for each group it decided.
+        decisions: &'a HashMap<GroupId, Variant>,
+        /// Groups whose single-line body was dropped (a newline forbids
+        /// flattening), so an undecided one resolves multiline.
+        flatten_forbidden: &'a HashSet<GroupId>,
+    },
+}
+
+impl GapModes<'_> {
+    /// The mode for the gap before `slot_index`. An undecided group was either
+    /// inlined into an ancestor's chosen flat body (so it renders single-line)
+    /// or never had a single-line body at all (so it renders multiline).
+    fn mode_for(&self, slot_index: usize) -> SoftlineMode {
+        let GapModes::Decided { gap_controller, decisions, flatten_forbidden } = self else {
+            return SoftlineMode::FromInput;
+        };
+        match gap_controller[slot_index] {
+            None => SoftlineMode::FromInput,
+            Some(group) => {
+                let variant = decisions.get(&group).copied().unwrap_or_else(|| {
+                    if flatten_forbidden.contains(&group) {
+                        Variant::Multiline
+                    } else {
+                        Variant::SingleLine
+                    }
+                });
+                SoftlineMode::Decided(variant)
+            }
+        }
+    }
 }
 
 /// Phase 2: collapse the collected atoms into concrete instructions.
@@ -556,7 +600,12 @@ pub enum SoftlineMode {
 /// the comments and resolved per sub-gap (see [`resolve_gap`]).
 ///
 /// [`leaf`]: Selection::leaf
-pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> FormatPlan {
+pub fn resolve(
+    slots: &[TokenSlot],
+    annotations: &Annotations,
+    source: &str,
+    modes: &GapModes,
+) -> FormatPlan {
     let boundary_atoms = &annotations.boundary;
     let leaf_ranges = normalize_leaf_ranges(&annotations.markers);
     // Which leaf range (if any) each slot's token sits inside.
@@ -636,6 +685,7 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
             indentation_level += net_indentation(append_atoms) + net_indentation(prepend_atoms);
             instructions.push(Instruction::KeepGap { slot: slot_index });
         } else {
+            let mode = modes.mode_for(slot_index);
             let resolution = resolve_gap(
                 slot,
                 slot_index,
@@ -647,7 +697,7 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
                 },
                 source,
                 indentation_level,
-                SoftlineMode::FromInput,
+                mode,
             );
             indentation_level = resolution.indentation_level;
             // Leaf-internal gaps are exempt from the guard: their atoms are
@@ -658,6 +708,7 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
                 &resolution.instructions,
                 slot.token.text_range().start(),
                 source,
+                mode,
             );
             instructions.extend(resolution.instructions);
         }
@@ -690,18 +741,25 @@ struct IdempotencyGuard {
 
 #[cfg(debug_assertions)]
 impl IdempotencyGuard {
-    /// Record one resolved gap: the softline spans its atoms measured as
-    /// single-line, and whether a `Hardline` produced a newline here.
+    /// Record one resolved gap: the softline spans that resolved single-line,
+    /// and whether a `Hardline` produced a newline here. A span resolves
+    /// single-line by decision under the width search, or by input measurement
+    /// otherwise — the same test the gap itself used.
     fn record_gap<'atoms>(
         &mut self,
         atoms: impl Iterator<Item = &'atoms AtomInstance> + Clone,
         gap_instructions: &[Instruction],
         position: TextSize,
         source: &str,
+        mode: SoftlineMode,
     ) {
         for instance in atoms.clone() {
             if let Atom::SpacedSoftline(span) | Atom::EmptySoftline(span) = instance.atom {
-                if !source[span].contains('\n') {
+                let single_line = match mode {
+                    SoftlineMode::Decided(variant) => variant == Variant::SingleLine,
+                    SoftlineMode::FromInput => !source[span].contains('\n'),
+                };
+                if single_line {
                     self.single_line_softline_spans.push(span);
                 }
             }
@@ -1123,7 +1181,18 @@ pub fn format_document_with_rules(
     let sink = AtomSink::default();
     annotate(document, &linearization.slots, rules, &sink, &source);
     apply_ignore_directives(&linearization.slots, &sink);
-    let plan = resolve(&linearization.slots, &sink.finish(), &source);
+    let annotations = sink.finish();
+
+    // Build the choice document, let the width search pick a variant per group,
+    // then emit the plan replaying those decisions.
+    let built = build_document(&linearization.slots, &annotations, &source);
+    let decisions = Resolver::new(Rc::new(built.arena)).resolve_widths(built.root);
+    let modes = GapModes::Decided {
+        gap_controller: &built.gap_controller,
+        decisions: &decisions,
+        flatten_forbidden: &built.flatten_forbidden,
+    };
+    let plan = resolve(&linearization.slots, &annotations, &source, &modes);
     crate::fmt::render::render(&plan, &linearization, writer)
 }
 
@@ -1377,7 +1446,7 @@ mod tests {
         let linearization = linearize(&document);
         let sink = AtomSink::default();
         annotate(&document, &linearization.slots, rules, &sink, source);
-        let plan = resolve(&linearization.slots, &sink.finish(), source);
+        let plan = resolve(&linearization.slots, &sink.finish(), source, &GapModes::FromInput);
         (linearization, plan)
     }
 
@@ -2054,19 +2123,21 @@ mod tests {
     }
 
     #[test]
-    #[cfg(debug_assertions)]
-    #[should_panic(expected = "idempotency violation")]
-    fn hardline_inside_a_single_line_softline_span_is_caught() {
-        // The call is single-line, so `empty_softline()` measures its span as
-        // single-line — yet a Hardline forces a newline strictly inside that
-        // span. On the next run the span would be multiline, so the debug
-        // guard must reject this ruleset.
+    fn a_hardline_forces_its_softline_group_multiline() {
+        // A Hardline strictly inside a call's `empty_softline` span used to be
+        // an idempotency hazard: the span measured single-line yet gained a
+        // newline, so the next run would see it multiline. The width search
+        // removes the hazard — a body whose flat layout contains a newline has
+        // no single-line variant, so the group is forced multiline and the
+        // output is stable across runs.
         let mut rules = FormatRules::default();
         rules.node(SyntaxKind::FunctionCallExpression, |call| {
             call.token(SyntaxKind::LParent).append(call.empty_softline());
             call.token(SyntaxKind::Comma).append(Atom::Hardline);
         });
-        format_with("component A { x: test(a, b); }", &rules);
+        let once = format_with("component A { x: test(a, b); }", &rules);
+        assert!(once.contains("(\n"), "the call is forced multiline: {once:?}");
+        assert_eq!(format_with(&once, &rules), once, "and the layout is idempotent");
     }
 
     #[test]

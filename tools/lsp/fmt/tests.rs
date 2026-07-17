@@ -418,7 +418,10 @@ component FooBar {
         s1 when true: {
             vv: 0;
             in { animate vv { duration: 400ms; } }
-            out { animate /*...*/ vv { duration: 400ms; } animate dd { duration: 100ms + 400ms; easing: ease-out; } }
+            out {
+                animate /*...*/ vv { duration: 400ms; }
+                animate dd { duration: 100ms + 400ms; easing: ease-out; }
+            }
         }
     ]
 }
@@ -532,7 +535,9 @@ component ABC {
 }
 "#,
         r#"component ABC {
-    in-out property <[string]> large: ["first string", "second string", "third string", "fourth string", "fifth string"];
+    in-out property <[string]> large: [
+        "first string", "second string", "third string", "fourth string", "fifth string"
+    ];
     in property <[int]> model: [
         1,
         2
@@ -540,6 +545,56 @@ component ABC {
 }
 "#,
     );
+}
+
+#[test]
+fn width_breaks_a_long_single_line_body() {
+    // The one-line body is over 100 columns, so it breaks at the element's
+    // brace softlines — one property per line.
+    assert_formatting(
+        "component LongLine { in property <int> alpha: 1; in property <int> beta: 2; in property <int> gamma: 3; }",
+        r#"component LongLine {
+    in property <int> alpha: 1;
+    in property <int> beta: 2;
+    in property <int> gamma: 3;
+}
+"#,
+    );
+}
+
+#[test]
+fn width_keeps_a_short_body_multiline() {
+    // The body fits on one line, but the author wrote it multiline; deviation
+    // from the input costs more than the extra height, so it stays multiline.
+    assert_formatting(
+        r#"component Short {
+    in property <int> a: 1;
+}
+"#,
+        r#"component Short {
+    in property <int> a: 1;
+}
+"#,
+    );
+}
+
+#[test]
+fn width_leaves_fitting_single_line_code_untouched() {
+    // Well within 100 columns and single-line in the input, so it stays put.
+    assert_formatting(
+        "component Short { in property <int> a: 1; }",
+        r#"component Short { in property <int> a: 1; }
+"#,
+    );
+}
+
+#[test]
+fn width_keeps_the_author_layout_when_no_break_helps() {
+    // The string literal alone pushes the line past the computation width, so
+    // no layout fits; the search falls back to the author's single line rather
+    // than breaking pointlessly.
+    let hopeless = "component Wide { in property <string> s: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"; }";
+    assert_formatting(hopeless, &format!("{hopeless}\n"));
 }
 
 #[test]
@@ -579,8 +634,18 @@ export component MainWindow inherits Window {
     in property <[TileData]> memory-tiles: [
         { image: @image-url("icons/at.png"), image-visible: false, solved: false, },
         { image: @image-url("icons/at.png"), image-visible: false, solved: false, },
-        { image: @image-url("icons/at.png"), image-visible: false, solved: false, some_other_property: 12345 },
-        { image: @image-url("icons/at.png"), image-visible: false, solved: false, some_other_property: 12345 },
+        {
+            image: @image-url("icons/at.png"),
+            image-visible: false,
+            solved: false,
+            some_other_property: 12345
+        },
+        {
+            image: @image-url("icons/at.png"),
+            image-visible: false,
+            solved: false,
+            some_other_property: 12345
+        },
         { image: @image-url("icons/balance-scale.png") },
     ];
 }
@@ -1060,7 +1125,10 @@ fn changed() {
 fn access_member() {
     assert_formatting(
         "component X { expr: 42   .log(x) + 41 . log(y) + foo . bar +  21.0.log(0) + 54.   .log(8) ; x: 42px.max(42px . min (0.px)); }",
-        r#"component X { expr: 42 .log(x) + 41 .log(y) + foo.bar + 21.0.log(0) + 54..log(8); x: 42px.max(42px.min(0.px)); }
+        r#"component X {
+    expr: 42 .log(x) + 41 .log(y) + foo.bar + 21.0.log(0) + 54..log(8);
+    x: 42px.max(42px.min(0.px));
+}
 "#,
     );
 }
@@ -1161,7 +1229,9 @@ fn single_import_space() {
 
     assert_formatting(
         r#"import {Foooooooooooooooooooooooooooooooo as FooooooooooooooooooooooooooooooooBar} from "./here.slint";"#,
-        r#"import { Foooooooooooooooooooooooooooooooo as FooooooooooooooooooooooooooooooooBar } from "./here.slint";
+        r#"import {
+    Foooooooooooooooooooooooooooooooo as FooooooooooooooooooooooooooooooooBar
+} from "./here.slint";
 "#,
     );
 }

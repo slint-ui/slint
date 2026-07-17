@@ -27,7 +27,7 @@ use crate::fmt::engine::{
 };
 use crate::fmt::render::shift_continuation_lines;
 use i_slint_compiler::parser::{SyntaxKind, TextRange};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// One group: a measure span, the run of token slots it covers, and its place
 /// in the forest.
@@ -188,6 +188,9 @@ pub struct BuiltDocument {
     /// Indexed by slot: the group whose chosen variant resolves the gap
     /// before that slot, or `None` for a gap no group controls.
     pub gap_controller: Vec<Option<GroupId>>,
+    /// Groups with no single-line body (a newline forbids flattening), so
+    /// they never became a choice — the emitter resolves them multiline.
+    pub flatten_forbidden: HashSet<GroupId>,
 }
 
 /// Build the choice document from the engine's annotated token slots.
@@ -199,7 +202,20 @@ pub fn build_document(
     let forest = GroupForest::build(slots, annotations, source);
     let mut builder = DocumentBuilder::new(slots, annotations, source, &forest);
     let root = builder.build_root();
-    BuiltDocument { arena: builder.arena, root, gap_controller: builder.gap_controller }
+    // Every group is built once through the all-multiline expansion, so the
+    // flat-body memo has an entry per group; the `None`s are flatten-forbidden.
+    let flatten_forbidden = builder
+        .flat_body
+        .iter()
+        .filter(|(_, body)| body.is_none())
+        .map(|(&group, _)| group)
+        .collect();
+    BuiltDocument {
+        arena: builder.arena,
+        root,
+        gap_controller: builder.gap_controller,
+        flatten_forbidden,
+    }
 }
 
 /// Walks the group forest and turns each token, gap and group into a [`Doc`].
