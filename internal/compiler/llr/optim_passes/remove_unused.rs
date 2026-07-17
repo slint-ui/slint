@@ -7,6 +7,7 @@ use typed_index_collections::TiVec;
 struct Mapping {
     prop_mapping: TiVec<PropertyIdx, Option<PropertyIdx>>,
     callback_mapping: TiVec<CallbackIdx, Option<CallbackIdx>>,
+    function_mapping: TiVec<FunctionIdx, Option<FunctionIdx>>,
 }
 
 impl Mapping {
@@ -14,7 +15,8 @@ impl Mapping {
         match member {
             LocalMemberIndex::Property(p) => self.prop_mapping[*p].is_some(),
             LocalMemberIndex::Callback(c) => self.callback_mapping[*c].is_some(),
-            _ => true,
+            LocalMemberIndex::Function(f) => self.function_mapping[*f].is_some(),
+            LocalMemberIndex::Native { .. } => true,
         }
     }
 }
@@ -31,7 +33,7 @@ pub fn remove_unused(root: &mut CompilationUnit) {
         sc_mappings: root
             .sub_components
             .iter_mut()
-            .map(|sc| create_mapping(&mut sc.properties, &mut sc.callbacks))
+            .map(|sc| create_mapping(&mut sc.properties, &mut sc.callbacks, &mut sc.functions))
             .collect(),
         glob_mappings: root
             .globals
@@ -39,7 +41,7 @@ pub fn remove_unused(root: &mut CompilationUnit) {
             .map(|g| {
                 clean_vec(&mut g.const_properties, &g.properties);
                 clean_vec(&mut g.prop_analysis, &g.properties);
-                create_mapping(&mut g.properties, &mut g.callbacks)
+                create_mapping(&mut g.properties, &mut g.callbacks, &mut g.functions)
             })
             .collect(),
     };
@@ -83,42 +85,39 @@ pub fn remove_unused(root: &mut CompilationUnit) {
     }
     for (idx, g) in root.globals.iter_mut_enumerated() {
         g.init_values.retain(|x, _| mappings.glob_mappings[idx].keep(x));
+        g.animations.retain(|x, _| mappings.glob_mappings[idx].keep(x));
     }
 
+    macro_rules! remap_index {
+        ($method:ident, $idx:ty, $field:ident) => {
+            fn $method(
+                &mut self,
+                p: &mut $idx,
+                scope: &EvaluationScope,
+                _state: &visitor::VisitorState,
+            ) {
+                *p = match scope {
+                    EvaluationScope::SubComponent(sub_component_idx, _) => {
+                        self.sc_mappings[*sub_component_idx].$field[*p]
+                    }
+                    EvaluationScope::Global(global_idx) => {
+                        self.glob_mappings[*global_idx].$field[*p]
+                    }
+                    EvaluationScope::Const => {
+                        panic!("member reference in a constant expression")
+                    }
+                }
+                .unwrap();
+            }
+        };
+    }
     impl visitor::Visitor for &RemoveUnusedMappings {
-        fn visit_property_idx(
-            &mut self,
-            p: &mut PropertyIdx,
-            scope: &EvaluationScope,
-            _state: &visitor::VisitorState,
-        ) {
-            match scope {
-                EvaluationScope::SubComponent(sub_component_idx, _) => {
-                    // Debugging hint: if this unwrap fails, check if count_property_use() didn't
-                    // forget to visit something, leading to the property being removed
-                    *p = self.sc_mappings[*sub_component_idx].prop_mapping[*p].unwrap();
-                }
-                EvaluationScope::Global(global_idx) => {
-                    *p = self.glob_mappings[*global_idx].prop_mapping[*p].unwrap();
-                }
-            }
-        }
-
-        fn visit_callback_idx(
-            &mut self,
-            p: &mut CallbackIdx,
-            scope: &EvaluationScope,
-            _state: &visitor::VisitorState,
-        ) {
-            match scope {
-                EvaluationScope::SubComponent(sub_component_idx, _) => {
-                    *p = self.sc_mappings[*sub_component_idx].callback_mapping[*p].unwrap();
-                }
-                EvaluationScope::Global(global_idx) => {
-                    *p = self.glob_mappings[*global_idx].callback_mapping[*p].unwrap();
-                }
-            }
-        }
+        // All three remap an index through the mapping of the enclosing scope. If one of the
+        // unwraps fails, count_property_use() forgot to visit something, so a member that is
+        // still referenced was removed.
+        remap_index!(visit_property_idx, PropertyIdx, prop_mapping);
+        remap_index!(visit_callback_idx, CallbackIdx, callback_mapping);
+        remap_index!(visit_function_idx, FunctionIdx, function_mapping);
     }
     let mut visitor = &mappings;
     visitor::visit_compilation_unit(root, &state, &mut visitor);
@@ -127,10 +126,12 @@ pub fn remove_unused(root: &mut CompilationUnit) {
 fn create_mapping(
     properties: &mut TiVec<PropertyIdx, Property>,
     callbacks: &mut TiVec<CallbackIdx, Callback>,
+    functions: &mut TiVec<FunctionIdx, Function>,
 ) -> Mapping {
     Mapping {
         prop_mapping: create_vec_mapping(properties, |p| p.use_count.get() > 0),
         callback_mapping: create_vec_mapping(callbacks, |c| c.use_count.get() > 0),
+        function_mapping: create_vec_mapping(functions, |f| f.use_count.get() > 0),
     }
 }
 
@@ -307,6 +308,7 @@ mod visitor {
             grid_layout_input_for_repeated,
             flexbox_layout_item_info_for_repeated,
             layout_info_v_constrained_for_repeated,
+            layout_info_v_at_cross_width_for_repeated,
             is_repeated_row: _,
             grid_layout_children,
             accessible_prop,
@@ -402,6 +404,9 @@ mod visitor {
         if let Some(e) = layout_info_v_constrained_for_repeated {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
+        if let Some(e) = layout_info_v_at_cross_width_for_repeated {
+            visit_expression(e.get_mut(), &scope, state, visitor);
+        }
         for child in grid_layout_children {
             visit_expression(child.layout_info_h.get_mut(), &scope, state, visitor);
             visit_expression(child.layout_info_v.get_mut(), &scope, state, visitor);
@@ -428,6 +433,7 @@ mod visitor {
             callbacks: _,
             functions,
             init_values,
+            animations,
             change_callbacks,
             const_properties: _,
             public_properties,
@@ -451,6 +457,15 @@ mod visitor {
             .map(|(mut k, mut v)| {
                 visit_member_index(&mut k, &scope, state, visitor);
                 visit_binding_expression(&mut v, &scope, state, visitor);
+                (k, v)
+            })
+            .collect();
+
+        *animations = std::mem::take(animations)
+            .into_iter()
+            .map(|(mut k, mut v)| {
+                visit_member_index(&mut k, &scope, state, visitor);
+                visit_expression(&mut v, &scope, state, visitor);
                 (k, v)
             })
             .collect();
@@ -491,12 +506,12 @@ mod visitor {
     }
 
     pub fn visit_function(
-        Function { name: _, ret_ty: _, args: _, code }: &mut Function,
+        Function { name: _, ret_ty: _, args: _, code, use_count: _ }: &mut Function,
         scope: &EvaluationScope,
         state: &VisitorState,
         visitor: &mut (impl Visitor + ?Sized),
     ) {
-        visit_expression(code, scope, state, visitor);
+        visit_expression(code.get_mut(), scope, state, visitor);
     }
 
     pub fn visit_expression(
@@ -509,6 +524,7 @@ mod visitor {
             let p = match expr {
                 Expression::PropertyReference(p) => p,
                 Expression::CallBackCall { callback, .. } => callback,
+                Expression::FunctionCall { function, .. } => function,
                 Expression::PropertyAssignment { property, .. } => property,
                 Expression::LayoutCacheAccess { layout_cache_prop, .. } => layout_cache_prop,
                 Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => layout_cache_prop,
@@ -589,6 +605,112 @@ mod visitor {
                 visitor.visit_callback_idx(c, scope, state);
             }
             LocalMemberIndex::Native { .. } => {}
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// Compile `source`, lower it to the LLR (which runs the optimization passes
+    /// including [`remove_unused`]), and return every declared property name
+    /// across all sub-components. The names are prefixed by the element path, so
+    /// callers match with `contains`.
+    fn lowered_property_names(source: &str) -> std::collections::HashSet<String> {
+        let mut config =
+            crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        config.style = Some("fluent".into());
+        let mut diags = crate::diagnostics::BuildDiagnostics::default();
+        let doc_node =
+            crate::parser::parse(source.into(), Some(std::path::Path::new("t.slint")), &mut diags);
+        let (doc, diag, _) =
+            spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config.clone()));
+        assert!(!diag.has_errors(), "compile error: {:#?}", diag.to_string_vec());
+        let unit = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &config);
+        unit.sub_components
+            .iter()
+            .flat_map(|sc| sc.properties.iter().map(|p| p.name.to_string()))
+            .collect()
+    }
+
+    /// The property values below all depend on the `ext` input so they are not
+    /// constant-folded away by the object-tree passes, and therefore actually
+    /// exercise the LLR optimization passes.
+    const SOURCE: &str = r#"
+export component Foo inherits Window {
+    in property <int> ext: 1;
+    in property <int> ext2: 2;
+
+    // KEPT: exposed in the public API.
+    out property <int> kept_public: ext + 1;
+
+    // REMOVED: read only from one other binding, so it is inlined into it and
+    // the reader is itself unused.
+    property <int> gone_inlined: ext * 2;
+    property <int> gone_reader: gone_inlined + 3;
+
+    // REMOVED: cheap enough to inline into each of its two (unused) readers.
+    property <int> gone_shared: ext * 3;
+    property <int> gone_shared_a: gone_shared + 1;
+    property <int> gone_shared_b: gone_shared + 2;
+
+    // KEPT: binding too expensive to inline, and read from two places.
+    property <int> kept_expensive: ext * ext2 + ext2 * ext + ext * ext2;
+    out property <int> exp_a: kept_expensive + 1;
+    out property <int> exp_b: kept_expensive + 2;
+
+    // REMOVED: only read from a timer's interval, which is inlined.
+    property <duration> gone_timer: ext * 1ms;
+
+    // REMOVED: read from a function that is called exactly once. The function is
+    // inlined into its caller, and the property is then inlined and removed.
+    property <int> gone_single_call: ext * 5;
+    pure function called_once() -> int { gone_single_call }
+    out property <int> single_reader: called_once();
+
+    // REMOVED: read only from a function's body. The function itself is not
+    // inlined (it is called from two places), but the property is inlined into
+    // the body, so it becomes unused.
+    property <int> gone_multi_call: ext * 6;
+    pure function called_twice() -> int { gone_multi_call }
+    out property <int> reader_a: called_twice();
+    out property <int> reader_b: called_twice();
+
+    // KEPT: has a change callback.
+    property <int> kept_with_change_callback: ext * 7;
+    changed kept_with_change_callback => {}
+
+    // REMOVED: read only from a callback handler, which is inlined into like a
+    // binding.
+    property <int> gone_callback: ext * 8;
+    callback do_it(int);
+    do_it(v) => { debug(gone_callback + v); }
+
+    Timer { interval: gone_timer; running: true; triggered => { do_it(1); } }
+}
+"#;
+
+    #[test]
+    fn unused_properties_are_removed_and_used_ones_kept() {
+        let names = lowered_property_names(SOURCE);
+        for gone in [
+            "gone-inlined",
+            "gone-reader",
+            "gone-shared",
+            "gone-timer",
+            "gone-single-call",
+            "gone-multi-call",
+            "gone-callback",
+        ] {
+            assert!(
+                !names.iter().any(|n| n.contains(gone)),
+                "property {gone} should have been removed, got {names:?}"
+            );
+        }
+        for kept in ["kept-public", "kept-expensive", "kept-with-change-callback"] {
+            assert!(
+                names.iter().any(|n| n.contains(kept)),
+                "property {kept} should have been kept, got {names:?}"
+            );
         }
     }
 }

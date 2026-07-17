@@ -166,8 +166,23 @@ impl<'de> serde::Deserialize<'de> for SharedString {
     where
         D: serde::Deserializer<'de>,
     {
-        let string: alloc::borrow::Cow<str> = serde::Deserialize::deserialize(deserializer)?;
-        Ok(SharedString::from(string.as_ref()))
+        struct SharedStringVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for SharedStringVisitor {
+            type Value = SharedString;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a borrowed or owned string")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(SharedString::from(v))
+            }
+        }
+        deserializer.deserialize_str(SharedStringVisitor)
     }
 }
 

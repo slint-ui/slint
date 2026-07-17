@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore binop
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     in-out property<{a: string, b: int}> foo: {a : "444", b: 12 };
     in-out property<{a: string, b: int}> obj_conversion: { b: 12, a : 444, c: "nothing" };
     in-out property<{a: string, b: int}> obj_conversion2: { a: "hello" };

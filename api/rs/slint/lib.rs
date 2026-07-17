@@ -430,6 +430,20 @@ pub fn update_all_translations() {
 pub mod platform {
     pub use i_slint_core::platform::*;
 
+    /// Set the Slint platform abstraction.
+    ///
+    /// If the platform abstraction was already set this will return `Err`.
+    pub fn set_platform(
+        platform: alloc::boxed::Box<dyn Platform + 'static>,
+    ) -> Result<(), SetPlatformError> {
+        i_slint_core::platform::set_platform(platform)?;
+        // Custom platforms bypass the backend selector, so start the embedded testing/MCP
+        // backends here to match applications that go through it.
+        #[cfg(any(feature = "mcp", feature = "system-testing"))]
+        i_slint_backend_selector::init_testing_backends();
+        Ok(())
+    }
+
     /// This module contains the [`femtovg_renderer::FemtoVGRenderer`] and related types.
     ///
     /// It is only enabled when the `renderer-femtovg` Slint feature is enabled.

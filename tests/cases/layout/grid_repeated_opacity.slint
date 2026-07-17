@@ -1,0 +1,56 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for #12442: a conditional opacity (or visible) binding on a
+// repeated GridLayout child injects a wrapper element as the repeated root.
+// That wrapper must take over the grid-cell role, otherwise the generated code
+// (and interpreter) reference a `grid_layout_input_for_repeated` accessor on a
+// component that doesn't have it.
+
+export component TestCase inherits Window {
+    width: 300phx;
+    height: 300phx;
+    in-out property <bool> cond: false;
+
+    GridLayout {
+        spacing: 0px;
+        padding: 0px;
+        // Repeated cells whose root gets wrapped: opacity injects an Opacity,
+        // visible injects a Clip. Both must keep the grid-cell role.
+        Row { for x in [0, 1, 2]: Rectangle { opacity: cond ? 1 : 0.4; } }
+        Row { for x in [0, 1, 2]: Rectangle { visible: cond; } }
+        // Repeated Row whose cells carry a conditional opacity.
+        for r in [0, 1]: Row {
+            Rectangle { opacity: cond ? 1 : 0.3; }
+            Rectangle { }
+            Rectangle { }
+        }
+        // Static row with a wrapped cell, used to assert the resulting geometry.
+        Row {
+            c0 := Rectangle { }
+            c1 := Rectangle { }
+            c2 := Rectangle { }
+        }
+    }
+
+    out property <bool> test: c0.x == 0phx && c1.x == 100phx && c2.x == 200phx
+        && c0.y == 240phx && c0.width == 100phx && c0.height == 60phx;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

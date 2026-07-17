@@ -14,7 +14,7 @@ component SubElem inherits Rectangle {
     in-out property <string> binding: hello2;
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     in-out property <string> public_alias: "ABC";
 
     sub_alias := SubElem {

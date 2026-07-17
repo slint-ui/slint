@@ -4,7 +4,7 @@
 // Const propagation must not fold away the non-pure calls next to statically
 // known operands, or else counter stops incrementing.
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     in-out property <int> counter;
     function bump() -> bool { counter += 1; return true; }
     function bump_num() -> float { counter += 1; return 2; }

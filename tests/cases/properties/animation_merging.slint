@@ -13,7 +13,7 @@ component NotAnimatedObject inherits Rectangle {
     in-out property <int> animated_prop: value;
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     in-out property <int> value : 1000;
     in-out property <int> o1_val: o1.animated_prop;
     in-out property <int> o2_val: o2.animated_prop;

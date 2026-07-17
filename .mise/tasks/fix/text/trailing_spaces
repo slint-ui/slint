@@ -4,6 +4,8 @@
 
 #MISE description="Run trailing WS fix on all files"
 
+# cSpell: ignore OSTYPE INPLACE
+
 set -e
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -12,7 +14,7 @@ else
     SED_INPLACE="sed -i"
 fi
 
-if test -f .git/HEAD ; then
+if git rev-parse --git-dir >/dev/null 2>&1 ; then
     git grep -I -l -O"$SED_INPLACE \"s/[[:space:]]*$//\"" -e '' -- ':!*.patch'
 else
     while IFS= read -r -d '' -u 9

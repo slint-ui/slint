@@ -23,7 +23,7 @@
 #[macro_export]
 macro_rules! for_each_enums {
     ($macro:ident) => {
-        $macro![
+        $macro! {
             /// This enum describes the different types of alignment of text along the horizontal axis of a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextHorizontalAlignment {
@@ -197,11 +197,11 @@ macro_rules! for_each_enums {
                 Forward,
             }
 
-            /// This enum represents different types of mouse cursors. It's a subset of the mouse cursors available in CSS.
+            /// Represents different types of mouse cursors. It's a subset of the mouse cursors available in CSS.
             /// For details and pictograms see the [MDN Documentation for cursor](https://developer.mozilla.org/en-US/docs/Web/CSS/cursor#values).
             /// Depending on the backend and used OS unidirectional resize cursors may be replaced with bidirectional ones.
             #[non_exhaustive]
-            enum MouseCursor {
+            enum BuiltInMouseCursor {
                 /// The systems default cursor.
                 Default,
                 /// No cursor is displayed.
@@ -684,6 +684,6 @@ macro_rules! for_each_enums {
                 /// This variant is reported when the operating system is none of the above.
                 Other,
             }
-        ];
+        }
     };
 }

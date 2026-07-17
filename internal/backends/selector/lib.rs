@@ -163,8 +163,10 @@ pub fn parse_backend_env_var(backend_config: &str) -> (&str, &str) {
     })
 }
 
+/// Start the system-testing and MCP servers if their features are enabled.
+/// Also called by the bindings that install a platform with `set_platform()`, bypassing the selector.
 #[cfg(any(feature = "system-testing", feature = "mcp"))]
-pub(crate) fn init_testing_backends() {
+pub fn init_testing_backends() {
     #[cfg(feature = "system-testing")]
     if let Err(e) = i_slint_backend_testing::systest::init() {
         i_slint_core::debug_log!("System testing init failed: {e:?}");

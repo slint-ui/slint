@@ -8,7 +8,7 @@ component PanelButton inherits HorizontalLayout {
     button := Button { }
 }
 
-component TestCase inherits Window {
+export component TestCase inherits Window {
     in-out property <bool> test: pb.preferred-height == control.preferred-height;
     pb := PanelButton {  button-text: "button1";  }
     control := Text { x:0;y:0; text: "button1"; }

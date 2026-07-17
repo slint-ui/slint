@@ -1,0 +1,11 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Braces in expression position are object literals, so a code block cannot be
+// used as a field default value
+
+struct WithBlock {
+    a: int = { 42 },
+//             ><error{Syntax error: expected Identifier}
+//             ><^error{Syntax error: expected ':'}
+}

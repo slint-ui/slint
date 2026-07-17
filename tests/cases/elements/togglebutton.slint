@@ -3,7 +3,7 @@
 
 import { Button } from "std-widgets.slint";
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     in-out property <bool> checked <=> tb.checked;
 
     tb := Button {

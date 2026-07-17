@@ -16,7 +16,7 @@ export global PubGlob  {
     pure public function beh(a: int, b: int) -> int { a + b + 10 }
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
 
     in-out property <int> c: 100000;
     private property <int> one: 1 + Math.round((root.x / 1px) - (root.y / 1px));

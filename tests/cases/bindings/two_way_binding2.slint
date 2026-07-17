@@ -12,7 +12,7 @@ component OtherComp inherits Rectangle {
     in-out property some_value_alias <=> some_value;
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
 
     in-out property <string> text1: "Hello";
     in-out property <string> text2: "Blah";

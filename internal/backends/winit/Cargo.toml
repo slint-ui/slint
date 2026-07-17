@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore adwaita copypasta webbrowser zbus
+# cSpell: ignore adwaita arboard webbrowser zbus
 [package]
 name = "i-slint-backend-winit"
 description = "Winit backend for Slint"
@@ -25,7 +25,8 @@ wayland = [
   "winit/wayland-csd-adwaita",
   "glutin?/wayland",
   "glutin-winit?/wayland",
-  "copypasta/wayland",
+  "dep:arboard",
+  "arboard/wayland-data-control",
   "i-slint-renderer-skia?/wayland",
   "softbuffer?/wayland",
   "softbuffer?/wayland-dlopen",
@@ -37,7 +38,7 @@ x11 = [
   "glutin?/glx",
   "glutin-winit?/x11",
   "glutin-winit?/glx",
-  "copypasta/x11",
+  "dep:arboard",
   "i-slint-renderer-skia?/x11",
   "softbuffer?/x11",
   "softbuffer?/x11-dlopen",
@@ -109,7 +110,8 @@ glutin-winit = { version = "0.5", optional = true, default-features = false, fea
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 accesskit = { version = "0.24", optional = true }
 accesskit_winit = { version = "0.33", optional = true, default-features = false, features = ["accesskit_unix", "async-io", "rwh_06"] }
-copypasta = { version = "0.10", default-features = false }
+# The browser decodes images on the web; decode with the image and resvg crates elsewhere.
+i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
 
 [target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")))'.dependencies]
 winit-wayland = { git = "https://github.com/rust-windowing/winit.git", rev = "c4afadbf", optional = true }
@@ -117,15 +119,19 @@ winit-x11 = { git = "https://github.com/rust-windowing/winit.git", rev = "c4afad
 # Use same version and executor as accesskit
 zbus = { version = "5.14.0", default-features = false, features = ["async-io"] }
 futures = { version = "0.3.31" }
+# Clipboard, activated by the x11/wayland features. X11 support is built-in;
+# Wayland support (data-control protocol) comes with "arboard/wayland-data-control".
+arboard = { version = "3.6", default-features = false, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # To disable macOS automatic shortcut translation
 objc2 = { workspace = true }
 # For GL rendering
-objc2-app-kit = { version = "0.3.2", features = ["NSColor", "NSView", "objc2-core-foundation"] }
-objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSRunLoop", "NSObjCRuntime", "NSUserDefaults"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSColor", "NSView", "NSResponder", "objc2-core-foundation", "objc2-quartz-core"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSOperation", "NSRunLoop", "NSObjCRuntime", "NSUserDefaults"] }
 objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["CADisplayLink"] }
 block2 = "0.6.2"
+arboard = { version = "3.6", default-features = false }
 
 [target.'cfg(all(target_vendor = "apple", not(target_os = "macos")))'.dependencies]
 # Enable Skia by default on Apple platforms with iOS, etc. (but not macOS). See also enable_skia_renderer in build.rs
@@ -141,6 +147,7 @@ block2 = "0.6.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { workspace = true, features = ["Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm"] }
+arboard = { version = "3.6", default-features = false }
 
 [build-dependencies]
 cfg_aliases = { workspace = true }

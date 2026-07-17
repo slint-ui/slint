@@ -159,6 +159,12 @@ pub struct CompilerConfiguration {
     /// It will also be set as a const scale factor on the `slint::Window`.
     pub const_scale_factor: Option<f32>,
 
+    /// Whether image sizes are known when a compiled component is instantiated.
+    /// This is false when the generated code may run on the web, where the browser
+    /// decodes images asynchronously and the size updates once an image is loaded,
+    /// so that expressions using an image size stay in bindings.
+    pub const_image_sizes: bool,
+
     /// expose the accessible role and properties
     pub accessibility: bool,
 
@@ -247,6 +253,14 @@ impl CompilerConfiguration {
             .and_then(|x| x.parse::<f32>().ok())
             .filter(|f| *f > 0.);
 
+        let const_image_sizes = match std::env::var("CARGO_CFG_TARGET_FAMILY") {
+            // Set by cargo when running in a build script (slint-build): the target is known.
+            Ok(target_family) => !target_family.split(',').any(|f| f == "wasm"),
+            // The target is unknown (slint! macro, C++). The interpreter compiles for the
+            // architecture it runs on; otherwise assume the code may run on the web.
+            Err(_) => output_format == OutputFormat::Interpreter && !cfg!(target_family = "wasm"),
+        };
+
         let enable_experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
 
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
@@ -274,6 +288,7 @@ impl CompilerConfiguration {
             resource_url_mapper: None,
             inline_all_elements,
             const_scale_factor,
+            const_image_sizes,
             accessibility: true,
             enable_experimental,
             translation_domain: None,
@@ -343,6 +358,7 @@ pub async fn compile_syntax_node(
         &mut diagnostics,
         &type_registry,
         ignore_missing_font_files,
+        &loader.symbol_counters,
     );
 
     if !diagnostics.has_errors() {

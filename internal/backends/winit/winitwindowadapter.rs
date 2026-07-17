@@ -16,6 +16,7 @@ use euclid::approxeq::ApproxEq;
 
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
+use i_slint_core::cursor::{MouseCursorInner, scaled_hotspot};
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 use i_slint_core::renderer::DrawOutcome;
 use winit::event_loop::ActiveEventLoop;
@@ -31,7 +32,7 @@ use crate::renderer::WinitCompatibleRenderer;
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
 use corelib::item_tree::{ItemTreeRef, ItemTreeRefPin};
-use corelib::items::{ColorScheme, MouseCursor};
+use corelib::items::{BuiltInMouseCursor, ColorScheme};
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
 
@@ -43,6 +44,7 @@ use corelib::platform::{PlatformError, WindowEvent};
 use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::{Coord, graphics::*};
 use i_slint_core::{self as corelib};
+use winit::cursor::CustomCursorSource;
 use winit::window::{WindowAttributes, WindowButtons};
 
 pub(crate) fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
@@ -350,6 +352,8 @@ pub struct WinitWindowAdapter {
     /// Winit's window_icon API has no way of checking if the window icon is
     /// the same as a previously set one, so keep track of that here.
     window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
+
+    pub(crate) custom_cursor_source: Cell<Option<CustomCursorSource>>,
 }
 
 impl WinitWindowAdapter {
@@ -390,6 +394,7 @@ impl WinitWindowAdapter {
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
             window_icon_cache_key: Default::default(),
+            custom_cursor_source: Cell::new(None),
         });
 
         self_rc.shared_backend_data.register_inactive_window((self_rc.clone()) as _);
@@ -1424,43 +1429,80 @@ impl WindowAdapter for WinitWindowAdapter {
 }
 
 impl WindowAdapterInternal for WinitWindowAdapter {
-    fn set_mouse_cursor(&self, cursor: MouseCursor) {
+    fn start_window_move(&self) {
+        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
+            let _ = winit_window.drag_window();
+        }
+    }
+
+    fn set_mouse_cursor(&self, cursor: MouseCursorInner) {
         use winit::cursor::CursorIcon;
-        let winit_cursor = match cursor {
-            MouseCursor::Default => CursorIcon::Default,
-            MouseCursor::None => CursorIcon::Default,
-            MouseCursor::Help => CursorIcon::Help,
-            MouseCursor::Pointer => CursorIcon::Pointer,
-            MouseCursor::Progress => CursorIcon::Progress,
-            MouseCursor::Wait => CursorIcon::Wait,
-            MouseCursor::Crosshair => CursorIcon::Crosshair,
-            MouseCursor::Text => CursorIcon::Text,
-            MouseCursor::Alias => CursorIcon::Alias,
-            MouseCursor::Copy => CursorIcon::Copy,
-            MouseCursor::Move => CursorIcon::Move,
-            MouseCursor::NoDrop => CursorIcon::NoDrop,
-            MouseCursor::NotAllowed => CursorIcon::NotAllowed,
-            MouseCursor::Grab => CursorIcon::Grab,
-            MouseCursor::Grabbing => CursorIcon::Grabbing,
-            MouseCursor::ColResize => CursorIcon::ColResize,
-            MouseCursor::RowResize => CursorIcon::RowResize,
-            MouseCursor::NResize => CursorIcon::NResize,
-            MouseCursor::EResize => CursorIcon::EResize,
-            MouseCursor::SResize => CursorIcon::SResize,
-            MouseCursor::WResize => CursorIcon::WResize,
-            MouseCursor::NeResize => CursorIcon::NeResize,
-            MouseCursor::NwResize => CursorIcon::NwResize,
-            MouseCursor::SeResize => CursorIcon::SeResize,
-            MouseCursor::SwResize => CursorIcon::SwResize,
-            MouseCursor::EwResize => CursorIcon::EwResize,
-            MouseCursor::NsResize => CursorIcon::NsResize,
-            MouseCursor::NeswResize => CursorIcon::NeswResize,
-            MouseCursor::NwseResize => CursorIcon::NwseResize,
-            _ => CursorIcon::Default,
+        let winit_cursor = match &cursor {
+            MouseCursorInner::BuiltIn(cursor) => Some(match cursor {
+                BuiltInMouseCursor::Default => CursorIcon::Default,
+                BuiltInMouseCursor::None => CursorIcon::Default,
+                BuiltInMouseCursor::Help => CursorIcon::Help,
+                BuiltInMouseCursor::Pointer => CursorIcon::Pointer,
+                BuiltInMouseCursor::Progress => CursorIcon::Progress,
+                BuiltInMouseCursor::Wait => CursorIcon::Wait,
+                BuiltInMouseCursor::Crosshair => CursorIcon::Crosshair,
+                BuiltInMouseCursor::Text => CursorIcon::Text,
+                BuiltInMouseCursor::Alias => CursorIcon::Alias,
+                BuiltInMouseCursor::Copy => CursorIcon::Copy,
+                BuiltInMouseCursor::Move => CursorIcon::Move,
+                BuiltInMouseCursor::NoDrop => CursorIcon::NoDrop,
+                BuiltInMouseCursor::NotAllowed => CursorIcon::NotAllowed,
+                BuiltInMouseCursor::Grab => CursorIcon::Grab,
+                BuiltInMouseCursor::Grabbing => CursorIcon::Grabbing,
+                BuiltInMouseCursor::ColResize => CursorIcon::ColResize,
+                BuiltInMouseCursor::RowResize => CursorIcon::RowResize,
+                BuiltInMouseCursor::NResize => CursorIcon::NResize,
+                BuiltInMouseCursor::EResize => CursorIcon::EResize,
+                BuiltInMouseCursor::SResize => CursorIcon::SResize,
+                BuiltInMouseCursor::WResize => CursorIcon::WResize,
+                BuiltInMouseCursor::NeResize => CursorIcon::NeResize,
+                BuiltInMouseCursor::NwResize => CursorIcon::NwResize,
+                BuiltInMouseCursor::SeResize => CursorIcon::SeResize,
+                BuiltInMouseCursor::SwResize => CursorIcon::SwResize,
+                BuiltInMouseCursor::EwResize => CursorIcon::EwResize,
+                BuiltInMouseCursor::NsResize => CursorIcon::NsResize,
+                BuiltInMouseCursor::NeswResize => CursorIcon::NeswResize,
+                BuiltInMouseCursor::NwseResize => CursorIcon::NwseResize,
+                _ => CursorIcon::Default,
+            }),
+            MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                // Render scalable sources (SVG) at the display resolution so the cursor stays crisp.
+                let scale = self.window().scale_factor();
+                let source_size = image.size();
+                let target_size = IntSize::new(
+                    (source_size.width as f32 * scale) as u32,
+                    (source_size.height as f32 * scale) as u32,
+                );
+                if let Some(rgba8) = image.to_rgba8_with_target_size(target_size) {
+                    let (width, height) = (rgba8.width(), rgba8.height());
+                    // winit rejects a hotspot that lies outside the image, so clamp it inside.
+                    let source = CustomCursorSource::from_rgba(
+                        rgba8.as_bytes().to_vec(),
+                        width as u16,
+                        height as u16,
+                        scaled_hotspot(*hotspot_x, source_size.width, width) as u16,
+                        scaled_hotspot(*hotspot_y, source_size.height, height) as u16,
+                    );
+
+                    // Custom cursors have to be set during the event loop
+                    self.custom_cursor_source.set(source.ok());
+                }
+                None
+            }
+            _ => None,
         };
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
-            winit_window.set_cursor_visible(cursor != MouseCursor::None);
-            winit_window.set_cursor(winit_cursor.into());
+            winit_window
+                .set_cursor_visible(cursor != MouseCursorInner::BuiltIn(BuiltInMouseCursor::None));
+
+            if let Some(cursor) = winit_cursor {
+                winit_window.set_cursor(cursor.into());
+            }
         }
     }
 

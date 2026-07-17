@@ -159,7 +159,11 @@ impl DrmOutput {
                     std::process::exit(1);
                 }
                 let mode_index: usize =
-                    mode_str.parse().map_err(|_| format!("Invalid mode index {mode_str}"))?;
+                    mode_str.parse().map_err(|_| {
+                        format!(
+                            "Invalid SLINT_DRM_MODE value '{mode_str}': expected a mode index or 'list' to list the available modes"
+                        )
+                    })?;
                 modes_and_index.nth(mode_index).map_or_else(
                     || Err(format!("Mode index is out of bounds: {mode_index}")),
                     |(_, mode)| Ok(mode),

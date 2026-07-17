@@ -17,6 +17,7 @@ use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
+use crate::llr::lower_expression::lower_constant_expression;
 use crate::llr::{
     self, ArrayOutput, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression,
     ParentScope, TypeResolutionContext as _,
@@ -90,6 +91,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Color => Some(quote!(sp::Color)),
         Type::DataTransfer => Some(quote!(sp::DataTransfer)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
+        Type::MouseCursor => Some(quote!(sp::MouseCursorInner)),
         Type::ComponentFactory => Some(quote!(slint::ComponentFactory)),
         Type::Duration => Some(quote!(i64)),
         Type::Angle => Some(quote!(f32)),
@@ -136,6 +138,7 @@ fn rust_property_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     match ty {
         Type::LogicalLength => Some(quote!(sp::LogicalLength)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
+        Type::MouseCursor => Some(quote!(sp::MouseCursorInner)),
         _ => rust_primitive_type(ty),
     }
 }
@@ -203,14 +206,14 @@ pub fn generate(
             .collect::<Vec<_>>()
     };
 
-    let (structs_and_enums_ids, inner_module) =
-        generate_types(&doc.used_types.borrow().structs_and_enums);
-
     let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
     if llr.public_components.is_empty() {
         return Ok(Default::default());
     }
+
+    let (structs_and_enums_ids, inner_module) =
+        generate_types(&doc.used_types.borrow().structs_and_enums, &llr);
 
     let sub_compos = llr
         .used_sub_components
@@ -293,13 +296,16 @@ pub(super) fn generate_module_header() -> TokenStream {
 }
 
 /// Generate the struct and enums. Return a vector of names to import and a token stream with the inner module
-pub fn generate_types(used_types: &[Type]) -> (Vec<Ident>, TokenStream) {
+pub fn generate_types(
+    used_types: &[Type],
+    unit: &llr::CompilationUnit,
+) -> (Vec<Ident>, TokenStream) {
     let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = used_types
         .iter()
         .filter_map(|ty| match ty {
             Type::Struct(s) => match s.as_ref() {
-                Struct { fields, name: struct_name @ StructName::User { name, .. } } => {
-                    Some((ident(name), generate_struct(struct_name, fields)))
+                the_struct @ Struct { name: StructName::User { name, .. }, .. } => {
+                    Some((ident(name), generate_struct(the_struct, unit)))
                 }
                 _ => None,
             },
@@ -702,12 +708,17 @@ fn generate_shared_globals(
     }
 }
 
-fn generate_struct(name: &StructName, fields: &BTreeMap<SmolStr, Type>) -> TokenStream {
-    let component_id = struct_name_to_tokens(name).unwrap();
-    let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) =
-        fields.iter().map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap())).unzip();
+fn generate_struct(the_struct: &Struct, unit: &llr::CompilationUnit) -> TokenStream {
+    let component_id = struct_name_to_tokens(&the_struct.name).unwrap();
+    let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) = the_struct
+        .fields
+        .iter()
+        .map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap()))
+        .unzip();
 
-    let StructName::User { name, node } = name else { unreachable!("generating non-user struct") };
+    let StructName::User { name, node } = &the_struct.name else {
+        unreachable!("generating non-user struct")
+    };
 
     let attributes =
         node.parent().and_then(crate::parser::syntax_nodes::StructDeclaration::new).map(|node| {
@@ -726,12 +737,47 @@ fn generate_struct(name: &StructName, fields: &BTreeMap<SmolStr, Type>) -> Token
             quote! { #(#attrs)* }
         });
 
+    // With user-declared field default values, `Default` cannot be derived anymore
+    let default_impl = (!the_struct.field_defaults.is_empty()).then(|| {
+        // Constant expressions cannot access the globals; make sure a bug in that
+        // assumption breaks the build of the generated code with a clear message
+        let ctx = EvaluationContext::new_const(
+            unit,
+            RustGeneratorContext {
+                global_access: quote!(compile_error!("no global access in a constant expression")),
+            },
+        );
+        let (field_names, field_values): (Vec<_>, Vec<_>) = the_struct
+            .fields
+            .keys()
+            .map(|field_name| {
+                let value = match the_struct.field_defaults.get(field_name) {
+                    Some(expr) => {
+                        let value = compile_expression(&lower_constant_expression(expr), &ctx);
+                        quote!(#value as _)
+                    }
+                    None => quote!(::core::default::Default::default()),
+                };
+                (ident(field_name), value)
+            })
+            .unzip();
+        quote! {
+            impl ::core::default::Default for #component_id {
+                fn default() -> Self {
+                    Self { #(#field_names: #field_values,)* }
+                }
+            }
+        }
+    });
+    let default_derive = default_impl.is_none().then(|| quote!(Default,));
+
     quote! {
         #attributes
-        #[derive(Default, PartialEq, Debug, Clone)]
+        #[derive(#default_derive PartialEq, Debug, Clone)]
         pub struct #component_id {
             #(pub #declared_property_vars : #declared_property_types),*
         }
+        #default_impl
     }
 }
 
@@ -1106,6 +1152,61 @@ fn public_api(
     }
 
     quote!(#(#property_and_callback_accessors)*)
+}
+
+/// Maximum number of statements in a generated `init`-like function body.
+/// rustc's per-function-body work scales super-linearly, so bigger bodies are
+/// split into chunk functions. Measured on a large project, the build time
+/// stops improving below 128 statements per chunk.
+const INIT_CHUNK_SIZE: usize = 128;
+
+/// When `stmts` is bigger than [`INIT_CHUNK_SIZE`], move the statements into
+/// `{prefix}_chunk_{i}` functions (added to `chunk_fns`) and return the calls
+/// to them. Each statement must only use the names bound by `params` and
+/// `prologue` (`quote!` is not hygienic, so the exact names matter).
+///
+/// When `fallible` is set the chunks return `Result` and are called with `?`,
+/// so `init`'s statements can use the `?` operator (e.g. for font registration).
+fn emit_in_chunks(
+    prefix: &str,
+    stmts: Vec<TokenStream>,
+    params: &TokenStream,
+    args: &TokenStream,
+    prologue: &TokenStream,
+    fallible: bool,
+    chunk_fns: &mut Vec<TokenStream>,
+) -> Vec<TokenStream> {
+    if stmts.len() <= INIT_CHUNK_SIZE {
+        return stmts;
+    }
+    let (ret, ok, question) = if fallible {
+        (
+            quote!(-> ::core::result::Result<(), slint::PlatformError>),
+            quote!(::core::result::Result::Ok(())),
+            quote!(?),
+        )
+    } else {
+        (quote!(), quote!(), quote!())
+    };
+    stmts
+        .chunks(INIT_CHUNK_SIZE)
+        .enumerate()
+        .map(|(i, chunk)| {
+            let name = format_ident!("{prefix}_chunk_{i}");
+            // inline(never) stops the MIR inliner from re-merging the chunks
+            // into one huge function.
+            chunk_fns.push(quote!(
+                #[inline(never)]
+                fn #name(#params) #ret {
+                    #![allow(unused)]
+                    #prologue
+                    #(#chunk)*
+                    #ok
+                }
+            ));
+            quote!(Self::#name(#args)#question;)
+        })
+        .collect()
 }
 
 /// Generate the rust code for the given component.
@@ -1598,8 +1699,9 @@ fn generate_sub_component(
             let running = compile_expression(&tmr.running.borrow(), &ctx);
             let callback = compile_expression(&tmr.triggered.borrow(), &ctx);
             quote!(
-                if #running {
-                    let interval = ::core::time::Duration::from_millis(#interval as u64);
+                let millis = if #running { (#interval) as i64 } else { -1 };
+                if millis >= 0 {
+                    let interval = ::core::time::Duration::from_millis(millis as u64);
                     if !self.#ident.running() || interval != self.#ident.interval() {
                         let self_weak = self.self_weak.get().unwrap().clone();
                         self.#ident.start(sp::TimerMode::Repeated, interval, move || {
@@ -1622,6 +1724,26 @@ fn generate_sub_component(
             }
         )
     });
+
+    let mut chunk_fns = Vec::new();
+    let init = emit_in_chunks(
+        "init",
+        init,
+        &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>, tree_index: u32, tree_index_of_first_child: u32),
+        &quote!(self_rc.clone(), tree_index, tree_index_of_first_child),
+        &quote!(let _self = self_rc.as_pin_ref();),
+        true,
+        &mut chunk_fns,
+    );
+    let user_init_code = emit_in_chunks(
+        "user_init",
+        user_init_code,
+        &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>),
+        &quote!(self_rc.clone()),
+        &quote!(let _self = self_rc.as_pin_ref();),
+        false,
+        &mut chunk_fns,
+    );
 
     let pin_macro = if pinned_drop { quote!(#[pin_drop]) } else { quote!(#[pin]) };
 
@@ -1681,6 +1803,8 @@ fn generate_sub_component(
                 let _self = self_rc.as_pin_ref();
                 #(#user_init_code)*
             }
+
+            #(#chunk_fns)*
 
             fn visit_dynamic_children(
                 self: ::core::pin::Pin<&Self>,
@@ -1818,10 +1942,10 @@ fn generate_functions(functions: &[llr::Function], ctx: &EvaluationContext) -> V
         .map(|f| {
             let mut ctx2 = ctx.clone();
             ctx2.argument_types = &f.args;
-            let tokens_for_expression = compile_expression(&f.code, &ctx2);
+            let tokens_for_expression = compile_expression(&f.code.borrow(), &ctx2);
             let as_ = if f.ret_ty == Type::Void {
                 Some(quote!(;))
-            } else if f.code.ty(&ctx2) == Type::Invalid {
+            } else if f.code.borrow().ty(&ctx2) == Type::Invalid {
                 // Don't cast if the Rust code is the never type, as with return statements inside a block, the
                 // type of the return expression is `()` instead of `!`.
                 None
@@ -1938,6 +2062,17 @@ fn generate_global(
         }
     }));
 
+    let mut chunk_fns = Vec::new();
+    let init = emit_in_chunks(
+        "init",
+        init,
+        &quote!(self_rc: ::core::pin::Pin<sp::Rc<Self>>),
+        &quote!(self_rc.clone()),
+        &quote!(let _self = self_rc.as_ref();),
+        false,
+        &mut chunk_fns,
+    );
+
     let pub_token = if compiler_config.library_name.is_some() && !global.is_builtin {
         global_exports.push(quote! (#inner_component_id));
         quote!(pub)
@@ -2011,6 +2146,8 @@ fn generate_global(
                     let _self = self_rc.as_ref();
                     #(#init)*
                 }
+
+                #(#chunk_fns)*
 
                 #(#declared_functions)*
             }
@@ -2635,6 +2772,24 @@ fn generate_repeated_component(
                             }
                         }
                     });
+                // A column FlexboxLayout calls this with its real container width
+                // so a height-for-width instance wraps to the same height as an
+                // equivalent static cell (instead of the preferred-width single
+                // line that `flexbox_layout_item_info` returns). The expression
+                // reads the `flex_cross_width` local (matches FLEX_CROSS_WIDTH_LOCAL).
+                let at_cross_width_body = root_sc
+                    .layout_info_v_at_cross_width_for_repeated
+                    .as_ref()
+                    .map(|e| {
+                        let v_info = compile_expression(&e.borrow(), &ctx);
+                        quote! { info.constraint = #v_info; }
+                    })
+                    .unwrap_or_else(|| {
+                        quote! {
+                            info.constraint =
+                                self.layout_item_info(sp::Orientation::Vertical, sp::None).constraint;
+                        }
+                    });
                 quote! {
                     fn flexbox_layout_item_info(
                         self: ::core::pin::Pin<&Self>,
@@ -2646,6 +2801,17 @@ fn generate_repeated_component(
                         let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
                         #v_constrained
                         info.constraint = self.layout_item_info(o, child_index).constraint;
+                        info
+                    }
+                    #[allow(unused_variables)]
+                    fn flexbox_layout_item_info_at_cross_width(
+                        self: ::core::pin::Pin<&Self>,
+                        flex_cross_width: f32,
+                    ) -> sp::FlexboxLayoutItemInfo {
+                        #[allow(unused)]
+                        let _self = self.as_ref();
+                        let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
+                        #at_cross_width_body
                         info
                     }
                 }
@@ -3065,155 +3231,69 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
     if produces_owned_value(expr) { compiled_expr } else { quote!((#compiled_expr).clone()) }
 }
 
+impl quote::ToTokens for crate::expression_tree::ImageReference {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let tks = match self {
+            crate::expression_tree::ImageReference::None => {
+                quote!(sp::Image::default())
+            }
+            crate::expression_tree::ImageReference::Path(path) => {
+                let path = path.as_str();
+                quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
+            }
+            crate::expression_tree::ImageReference::Url(url) => {
+                let url = url.as_str();
+                // URL image references only work on the web, where the browser fetches them.
+                quote!({
+                    #[cfg(target_arch = "wasm32")]
+                    { sp::load_as_html_image(#url).unwrap_or_default() }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    { sp::Image::default() }
+                })
+            }
+            crate::expression_tree::ImageReference::DataUri(_) => {
+                unreachable!("data: URIs are embedded before code generation")
+            }
+            crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
+                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
+                let format = proc_macro2::Literal::byte_string(extension.as_bytes());
+                quote!(sp::load_image_from_embedded_data(#symbol.into(), sp::Slice::from_slice(#format)))
+            }
+            crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
+                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
+                quote!(
+                    sp::Image::from(sp::ImageInner::StaticTextures(&#symbol))
+                )
+            }
+        };
+        tokens.extend(tks);
+    }
+}
+
 /// Compile `expr` to a Rust expression which may potentially return a reference.
+///
+/// The body of every non-trivial match arm lives in its own `#[inline(never)]`
+/// helper function: this function recurses for nested expressions, and with all
+/// arm bodies inlined, its stack frame in unoptimized builds becomes so large
+/// that deeply nested expressions overflow the stack.
 fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     match expr {
         Expression::StringLiteral(s) => {
             let s = s.as_str();
             quote!(sp::SharedString::from(#s))
         }
-        Expression::KeysLiteral(keys) => {
-                let key = &*keys.key;
-                let alt = keys.modifiers.alt;
-                let control = keys.modifiers.control;
-                let shift = keys.modifiers.shift;
-                let meta = keys.modifiers.meta;
-                let ignore_shift = keys.ignore_shift;
-                let ignore_alt = keys.ignore_alt;
-
-                quote!(
-                    sp::make_keys(
-                        #key.into(),
-                        {
-                            let mut modifiers = sp::KeyboardModifiers::default();
-                            modifiers.alt = #alt;
-                            modifiers.control = #control;
-                            modifiers.shift = #shift;
-                            modifiers.meta = #meta;
-                            modifiers
-                        },
-                        #ignore_shift,
-                        #ignore_alt))
-        },
+        Expression::KeysLiteral(..) => compile_keys_literal(expr),
         Expression::NumberLiteral(n) => {
             if n.is_nan() {
                 quote!(f64::NAN)
             } else if n.is_infinite() {
-                if *n > 0. {
-                    quote!(f64::INFINITY)
-                } else {
-                    quote!(f64::NEG_INFINITY)
-                }
+                if *n > 0. { quote!(f64::INFINITY) } else { quote!(f64::NEG_INFINITY) }
             } else {
                 quote!(#n)
             }
         }
         Expression::BoolLiteral(b) => quote!(#b),
-        Expression::Cast { from, to } => {
-            let f = compile_expression(from, ctx);
-            match (from.ty(ctx), to) {
-                (Type::Float32, Type::Int32) => {
-                    quote!(((#f) as i32))
-                }
-                (from, Type::String) if from.as_unit_product().is_some() => {
-                    quote!(sp::shared_string_from_number((#f) as f64))
-                }
-                (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    quote!(sp::ModelRc::new(#f.max(::core::default::Default::default()) as usize))
-                }
-                (Type::Float32, Type::Color) => {
-                    quote!(sp::Color::from_argb_encoded((#f) as u32))
-                }
-                (Type::Color, Type::Brush) => {
-                    quote!(slint::Brush::SolidColor(#f))
-                }
-                (Type::Brush, Type::Color) => {
-                    quote!(#f.color())
-                }
-                (Type::Struct(lhs), Type::Struct(rhs)) => {
-                    debug_assert_eq!(
-                        lhs.fields, rhs.fields,
-                        "cast of struct with deferent fields should be handled before llr"
-                    );
-                    match (&lhs.name, &rhs.name) {
-                        (StructName::None, targetstruct) if targetstruct.is_some() => {
-                            // Convert from an anonymous struct to a named one
-                            let fields = lhs.fields.iter().enumerate().map(|(index, (name, _))| {
-                                let index = proc_macro2::Literal::usize_unsuffixed(index);
-                                let name = ident(name);
-                                quote!(the_struct.#name = (obj.#index).clone() as _;)
-                            });
-                            let id = struct_name_to_tokens(targetstruct).unwrap();
-                            quote!({ let obj = #f; let mut the_struct = #id::default(); #(#fields)* the_struct })
-                        }
-                        (sourcestruct, StructName::None) if sourcestruct.is_some() => {
-                            // Convert from a named struct to an anonymous one
-                            let fields = lhs.fields.keys().map(|name| ident(name));
-                            quote!({ let obj = #f; (#(obj.#fields,)*) })
-                        }
-                        _ => f,
-                    }
-                }
-                (Type::Array(..), Type::PathData)
-                    if matches!(
-                        from.as_ref(),
-                        Expression::Array { element_ty: Type::Struct { .. }, .. }
-                    ) =>
-                {
-                    let path_elements = match from.as_ref() {
-                        Expression::Array { element_ty: _, values, output: _ } => values
-                            .iter()
-                            .map(|path_elem_expr|
-                                // Close{} is a struct with no fields in markup, and PathElement::Close has no fields
-                                if matches!(path_elem_expr, Expression::Struct { ty, .. } if ty.fields.is_empty()) {
-                                    quote!(sp::PathElement::Close)
-                                } else {
-                                    compile_expression(path_elem_expr, ctx)
-                                }
-                            ),
-                        _ => {
-                            unreachable!()
-                        }
-                    };
-                    quote!(sp::PathData::Elements(sp::SharedVector::<_>::from_slice(&[#((#path_elements).into()),*])))
-                }
-                (Type::Struct { .. }, Type::PathData)
-                    if matches!(from.as_ref(), Expression::Struct { .. }) =>
-                {
-                    let (events, points) = match from.as_ref() {
-                        Expression::Struct { ty: _, values } => (
-                            compile_expression(&values["events"], ctx),
-                            compile_expression(&values["points"], ctx),
-                        ),
-                        _ => {
-                            unreachable!()
-                        }
-                    };
-                    quote!(sp::PathData::Events(sp::SharedVector::<_>::from_slice(&#events), sp::SharedVector::<_>::from_slice(&#points)))
-                }
-                (Type::String, Type::PathData) => {
-                    quote!(sp::PathData::Commands(#f))
-                }
-                (Type::Enumeration(e), Type::String) => {
-                    let cases = e.values.iter().enumerate().map(|(idx, v)| {
-                        let c = compile_expression(
-                            &Expression::EnumerationValue(EnumerationValue {
-                                value: idx,
-                                enumeration: e.clone(),
-                            }),
-                            ctx,
-                        );
-                        let v = v.as_str();
-                        quote!(#c => sp::SharedString::from(#v))
-                    });
-                    quote!(match #f { #(#cases,)*  _ => sp::SharedString::default() })
-                }
-                (_, Type::Void) => {
-                    quote!({#f;})
-                }
-                _ => f,
-            }
-        }
+        Expression::Cast { .. } => compile_cast(expr, ctx),
         Expression::PropertyReference(nr) => {
             let access = access_member(nr, ctx);
             let prop_type = ctx.property_ty(nr);
@@ -3222,41 +3302,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::BuiltinFunctionCall { function, arguments } => {
             compile_builtin_function_call(function.clone(), arguments, ctx)
         }
-        Expression::CallBackCall { callback, arguments } => {
-            let f = access_member(callback, ctx);
-            let tracker = access_callback_tracker(callback, ctx);
-            let register_dep = tracker.map(|t| {
-                quote!(#t.get();)
-            });
-            let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
-            if expr.ty(ctx) == Type::Void {
-                f.then(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)); }))
-            } else {
-                f.map_or_default(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)) }))
-            }
-        }
-        Expression::FunctionCall { function, arguments } => {
-            let a = arguments.iter().map(|a| compile_expression(a, ctx));
-            let f = access_member(function, ctx);
-            if expr.ty(ctx) == Type::Void {
-                f.then(|f| quote!(#f( #(#a as _),*)))
-            } else {
-                f.map_or_default(|f| quote!(#f( #(#a as _),*)))
-            }
-        }
-        Expression::ItemMemberFunctionCall { function } => {
-            let fun = access_member(function, ctx);
-            let item_rc = access_item_rc(function, ctx);
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            fun.map_or_default(|fun| quote!(#fun(#window_adapter_tokens, #item_rc)))
-        }
-        Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
-            let f = ident(function);
-            let a = arguments.iter().map(|a| {
-                let arg = compile_expression(a, ctx);
-                if matches!(a.ty(ctx), Type::Struct { .. }) { quote!(&#arg) } else { arg }
-            });
-            quote! { sp::#f(#(#a as _),*) }
+        Expression::CallBackCall { .. } => compile_callback_call(expr, ctx),
+        Expression::FunctionCall { .. } => compile_function_call(expr, ctx),
+        Expression::ItemMemberFunctionCall { .. } => compile_item_member_function_call(expr, ctx),
+        Expression::ExtraBuiltinFunctionCall { .. } => {
+            compile_extra_builtin_function_call(expr, ctx)
         }
         Expression::FunctionParameterReference { index } => {
             let i = proc_macro2::Literal::usize_unsuffixed(*index);
@@ -3270,116 +3320,20 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
             _ => panic!("Expression::StructFieldAccess's base expression is not an Object type"),
         },
-        Expression::ArrayIndex { array, index } => {
-            debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
-            let base_e = compile_expression(array, ctx);
-            let index_e = compile_expression(index, ctx);
-            quote!(match &#base_e { x => {
-                let index = (#index_e) as usize;
-                x.row_data_tracked(index).unwrap_or_default()
-            }})
-        }
-        Expression::CodeBlock(sub) => {
-            let mut body = TokenStream::new();
-            for (i, e) in sub.iter().enumerate() {
-                body.extend(compile_expression_no_parenthesis(e, ctx));
-                if i + 1 < sub.len() && !matches!(e, Expression::StoreLocalVariable { .. }) {
-                    body.extend(quote!(;));
-                }
-            }
-            quote!({ #body })
-        }
+        Expression::ArrayIndex { .. } => compile_array_index(expr, ctx),
+        Expression::CodeBlock(..) => compile_code_block(expr, ctx),
         Expression::PropertyAssignment { property, value } => {
             let value = compile_expression(value, ctx);
             property_set_value_tokens(property, value, ctx)
         }
-        Expression::ModelDataAssignment { level, value } => {
-            let value = compile_expression(value, ctx);
-            let mut path = quote!(_self);
-            let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else {
-                unreachable!()
-            };
-            let mut repeater_index = None;
-            for _ in 0..=*level {
-                let x = par.unwrap();
-                par = x.parent;
-                repeater_index = x.repeater_index;
-                sc = x.sub_component;
-                path = quote!(#path.parent.upgrade().unwrap());
-            }
-            let repeater_index = repeater_index.unwrap();
-            let sub_component = &ctx.compilation_unit.sub_components[sc];
-            let local_reference = sub_component.repeated[repeater_index].index_prop.unwrap().into();
-            let index_prop =
-                llr::MemberReference::Relative { parent_level: *level, local_reference };
-            let index_access = access_member(&index_prop, ctx).get_property();
-            let repeater = access_component_field_offset(
-                &inner_component_id(sub_component),
-                &format_ident!("repeater{}", usize::from(repeater_index)),
-            );
-            quote!(#repeater.apply_pin(#path.as_pin_ref()).model_set_row_data(#index_access as _, #value as _))
-        }
-        Expression::ArrayIndexAssignment { array, index, value } => {
-            debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
-            let base_e = compile_expression(array, ctx);
-            let index_e = compile_expression(index, ctx);
-            let value_e = compile_expression(value, ctx);
-            quote!((#base_e).set_row_data(#index_e as isize as usize, #value_e as _))
-        }
+        Expression::ModelDataAssignment { .. } => compile_model_data_assignment(expr, ctx),
+        Expression::ArrayIndexAssignment { .. } => compile_array_index_assignment(expr, ctx),
         Expression::SliceIndexAssignment { slice_name, index, value } => {
             let slice_ident = ident(slice_name);
             let value_e = compile_expression(value, ctx);
             quote!(#slice_ident[#index] = #value_e)
         }
-        Expression::BinaryExpression { lhs, rhs, op } => {
-            let lhs_ty = lhs.ty(ctx);
-            let lhs = compile_expression_to_value_no_parenthesis(lhs, ctx);
-            let rhs = compile_expression_to_value_no_parenthesis(rhs, ctx);
-
-            if lhs_ty.as_unit_product().is_some() && (*op == '=' || *op == '!') {
-                let maybe_negate = if *op == '!' { quote!(!) } else { quote!() };
-                quote!(#maybe_negate sp::ApproxEq::<f64>::approx_eq(&(#lhs as f64), &(#rhs as f64)))
-            } else {
-                let (conv1, conv2) = match crate::expression_tree::operator_class(*op) {
-                    OperatorClass::ArithmeticOp => match lhs_ty {
-                        Type::String => (None, Some(quote!(.as_str()))),
-                        Type::Struct { .. } => (None, None),
-                        _ => (Some(quote!(as f64)), Some(quote!(as f64))),
-                    },
-                    OperatorClass::ComparisonOp
-                        if matches!(
-                            lhs_ty,
-                            Type::Int32
-                                | Type::Float32
-                                | Type::Duration
-                                | Type::PhysicalLength
-                                | Type::LogicalLength
-                                | Type::Angle
-                                | Type::Percent
-                                | Type::Rem
-                        ) =>
-                    {
-                        (Some(quote!(as f64)), Some(quote!(as f64)))
-                    }
-                    _ => (None, None),
-                };
-
-                let op = match op {
-                    '=' => quote!(==),
-                    '!' => quote!(!=),
-                    '≤' => quote!(<=),
-                    '≥' => quote!(>=),
-                    '&' => quote!(&&),
-                    '|' => quote!(||),
-                    _ => proc_macro2::TokenTree::Punct(proc_macro2::Punct::new(
-                        *op,
-                        proc_macro2::Spacing::Alone,
-                    ))
-                    .into(),
-                };
-                quote!( (((#lhs) #conv1 ) #op ((#rhs) #conv2)) )
-            }
-        }
+        Expression::BinaryExpression { .. } => compile_binary_expression(expr, ctx),
         Expression::UnaryOp { sub, op } => {
             let sub = compile_expression(sub, ctx);
             if *op == '+' {
@@ -3389,130 +3343,10 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
             quote!( (#op #sub) )
         }
-        Expression::ImageReference { resource_ref, nine_slice } => {
-            let image = match resource_ref {
-                crate::expression_tree::ImageReference::None => {
-                    quote!(sp::Image::default())
-                }
-                crate::expression_tree::ImageReference::Path(path) => {
-                    let path = path.as_str();
-                    quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
-                }
-                crate::expression_tree::ImageReference::Url(url) => {
-                    let url = url.as_str();
-                    // URL image references only work on the web, where the browser fetches them.
-                    quote!({
-                        #[cfg(target_arch = "wasm32")]
-                        { sp::load_as_html_image(#url).unwrap_or_default() }
-                        #[cfg(not(target_arch = "wasm32"))]
-                        { sp::Image::default() }
-                    })
-                }
-                crate::expression_tree::ImageReference::DataUri(_) => {
-                    unreachable!("data: URIs are embedded before code generation")
-                }
-                crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
-                    let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
-                    let format = proc_macro2::Literal::byte_string(extension.as_bytes());
-                    quote!(sp::load_image_from_embedded_data(#symbol.into(), sp::Slice::from_slice(#format)))
-                }
-                crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
-                    let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
-                    quote!(
-                        sp::Image::from(sp::ImageInner::StaticTextures(&#symbol))
-                    )
-                }
-            };
-            match &nine_slice {
-                Some([a, b, c, d]) => {
-                    quote! {{ let mut image = #image; image.set_nine_slice_edges(#a, #b, #c, #d); image }}
-                }
-                None => image,
-            }
-        }
-        Expression::Condition { condition, true_expr, false_expr } => {
-            let condition_code = compile_expression_no_parenthesis(condition, ctx);
-            let true_code = compile_expression(true_expr, ctx);
-            let false_code = compile_expression_no_parenthesis(false_expr, ctx);
-            let semi = if false_expr.ty(ctx) == Type::Void { quote!(;) } else { quote!(as _) };
-            quote!(
-                if #condition_code {
-                    (#true_code) #semi
-                } else {
-                    #false_code
-                }
-            )
-        }
-        Expression::Array { values, element_ty, output } => {
-            let val = values.iter().map(|e| compile_expression_to_value(e, ctx));
-            match output {
-                ArrayOutput::Model => {
-                    let rust_element_ty = rust_primitive_type(element_ty).unwrap();
-                    quote!(sp::ModelRc::new(
-                        sp::VecModel::<#rust_element_ty>::from(
-                            sp::vec![#(#val as _),*]
-                        )
-                    ))
-                }
-                ArrayOutput::Slice => quote!(sp::Slice::from_slice(&[#(#val),*])),
-                ArrayOutput::Vector => quote!(sp::vec![#(#val as _),*]),
-            }
-        }
-        Expression::Struct { ty, values } => {
-            if ty.name.is_some() {
-                let name_tokens = struct_name_to_tokens(&ty.name).unwrap();
-                // A struct literal can only be used when all the fields are public, there
-                // is no hidden field (like euclid's `_unit`), and the struct is not
-                // `#[non_exhaustive]`. That holds for the generated user structs and for
-                // the listed builtin structs.
-                use crate::langtype::BuiltinStruct as BS;
-                let supports_struct_literal = match &ty.name {
-                    StructName::User { .. } => true,
-                    StructName::Builtin(b) => {
-                        b.is_layout_data()
-                            || matches!(
-                                b,
-                                BS::LayoutInfo
-                                    | BS::LayoutItemInfo
-                                    | BS::FlexboxLayoutItemInfo
-                                    | BS::Padding
-                                    | BS::PropertyAnimation
-                                    | BS::StateInfo
-                            )
-                    }
-                    StructName::None => false,
-                };
-                if supports_struct_literal {
-                    let (keys, elem): (Vec<_>, Vec<_>) = ty
-                        .fields
-                        .keys()
-                        .filter(|k| values.contains_key(*k))
-                        .map(|k| (ident(k), compile_expression_to_value(&values[k], ctx)))
-                        .unzip();
-                    let default_rest = (keys.len() != ty.fields.len())
-                        .then(|| quote!(..::core::default::Default::default()));
-                    quote!(#name_tokens{#(#keys: #elem as _,)* #default_rest})
-                } else {
-                    let elem = ty.fields.keys().map(|k| values.get(k).map(|e| compile_expression_to_value(e, ctx)));
-                    let keys = ty.fields.keys().map(|k| ident(k));
-                    quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys = #elem as _;)* the_struct})
-                }
-            } else {
-                let elem = ty.fields.keys().map(|k| values.get(k).map(|e| compile_expression_to_value(e, ctx)));
-                let as_ = ty.fields.values().map(|t| {
-                    if t.as_unit_product().is_some() {
-                        // number needs to be converted to the right things because intermediate
-                        // result might be f64 and that's usually not what the type of the tuple is in the end
-                        let t = rust_primitive_type(t).unwrap();
-                        quote!(as #t)
-                    } else {
-                        quote!()
-                    }
-                });
-                // This will produce a tuple
-                quote!((#((#elem).clone() #as_,)*))
-            }
-        }
+        Expression::ImageReference { .. } => compile_image_reference(expr),
+        Expression::Condition { .. } => compile_condition(expr, ctx),
+        Expression::Array { .. } => compile_array(expr, ctx),
+        Expression::Struct { .. } => compile_struct(expr, ctx),
 
         Expression::StoreLocalVariable { name, value } => {
             let value = compile_expression_to_value_no_parenthesis(value, ctx);
@@ -3523,6 +3357,19 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let name = ident(name);
             quote!(#name)
         }
+        Expression::MouseCursor(cursor) => match cursor {
+            llr::MouseCursorInner::BuiltIn(expression) => {
+                let expression = compile_expression(expression, ctx);
+                quote!(sp::MouseCursorInner::BuiltIn(#expression.clone()))
+            }
+            llr::MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                let image = compile_expression(image, ctx);
+                let hotspot_x = compile_expression(hotspot_x, ctx);
+                let hotspot_y = compile_expression(hotspot_y, ctx);
+
+                quote!(sp::MouseCursorInner::CustomMouseCursor { image: #image.clone(), hotspot_x: #hotspot_x.clone() as i32, hotspot_y: #hotspot_y.clone() as i32 })
+            }
+        },
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => {
             quote!(sp::EasingCurve::CubicBezier([#a, #b, #c, #d]))
         }
@@ -3531,56 +3378,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let ident = format_ident!("{e:?}");
             quote!(sp::EasingCurve::#ident)
         }
-        Expression::LinearGradient { angle, stops } => {
-            let angle = compile_expression(angle, ctx);
-            let stops = stops.iter().map(|(color, stop)| {
-                let color = compile_expression(color, ctx);
-                let position = compile_expression(stop, ctx);
-                quote!(sp::GradientStop{ color: #color, position: #position as _ })
-            });
-            quote!(slint::Brush::LinearGradient(
-                sp::LinearGradientBrush::new(#angle as _, [#(#stops),*])
-            ))
-        }
-        Expression::RadialGradient { center, radius, stops } => {
-            let stops = stops.iter().map(|(color, stop)| {
-                let color = compile_expression(color, ctx);
-                let position = compile_expression(stop, ctx);
-                quote!(sp::GradientStop{ color: #color, position: #position as _ })
-            });
-            let brush_expr = quote!(sp::RadialGradientBrush::new_circle([#(#stops),*]));
-            let brush_expr = if let Some((cx, cy)) = center {
-                let cx = compile_expression(cx, ctx);
-                let cy = compile_expression(cy, ctx);
-                quote!(#brush_expr.with_center(#cx as f32, #cy as f32))
-            } else {
-                brush_expr
-            };
-            let brush_expr = if let Some(r) = radius {
-                let r = compile_expression(r, ctx);
-                quote!(#brush_expr.with_radius(#r as f32))
-            } else {
-                brush_expr
-            };
-            quote!(slint::Brush::RadialGradient(#brush_expr))
-        }
-        Expression::ConicGradient { from_angle, center, stops } => {
-            let from_angle = compile_expression(from_angle, ctx);
-            let stops = stops.iter().map(|(color, stop)| {
-                let color = compile_expression(color, ctx);
-                let position = compile_expression(stop, ctx);
-                quote!(sp::GradientStop{ color: #color, position: #position as _ })
-            });
-            let brush_expr = quote!(sp::ConicGradientBrush::new(#from_angle as _, [#(#stops),*]));
-            let brush_expr = if let Some((cx, cy)) = center {
-                let cx = compile_expression(cx, ctx);
-                let cy = compile_expression(cy, ctx);
-                quote!(#brush_expr.with_center(#cx as f32, #cy as f32))
-            } else {
-                brush_expr
-            };
-            quote!(slint::Brush::ConicGradient(#brush_expr))
-        }
+        Expression::LinearGradient { .. } => compile_linear_gradient(expr, ctx),
+        Expression::RadialGradient { .. } => compile_radial_gradient(expr, ctx),
+        Expression::ConicGradient { .. } => compile_conic_gradient(expr, ctx),
         Expression::EnumerationValue(value) => {
             let base_ident = ident(&value.enumeration.name);
             let value_ident = ident(&value.to_pascal_case());
@@ -3590,47 +3390,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 quote!(sp::#base_ident::#value_ident)
             }
         }
-        Expression::LayoutCacheAccess {
-            layout_cache_prop,
-            index,
-            repeater_index,
-            entries_per_item,
-        } => {
-            access_member(layout_cache_prop, ctx).map_or_default(|cache| {
-                if let Some(ri) = repeater_index {
-                    let offset = compile_expression(ri, ctx);
-                    quote!({
-                        let cache = #cache.get();
-                        *cache.get((cache[#index] as usize) + #offset as usize * #entries_per_item).unwrap_or(&(0 as _))
-                    })
-                } else {
-                    quote!(#cache.get()[#index])
-                }
-            })
-        }
-        Expression::GridRepeaterCacheAccess {
-            layout_cache_prop,
-            index,
-            repeater_index,
-            stride,
-            child_offset,
-            inner_repeater_index,
-            entries_per_item,
-        } => access_member(layout_cache_prop, ctx).map_or_default(|cache| {
-            let offset = compile_expression(repeater_index, ctx);
-            let stride_val = compile_expression(stride, ctx);
-            let inner_offset = inner_repeater_index.as_ref().map(|inner_ri| {
-                let inner_offset = compile_expression(inner_ri, ctx);
-                quote!(+ #inner_offset as usize * #entries_per_item)
-            });
-
-            quote!({
-                let cache = #cache.get();
-                let base = cache[#index] as usize;
-                let data_idx = base + #offset as usize * (#stride_val as usize) + #child_offset #inner_offset;
-                *cache.get(data_idx).unwrap_or(&(0 as _))
-            })
-        }),
+        Expression::LayoutCacheAccess { .. } => compile_layout_cache_access(expr, ctx),
+        Expression::GridRepeaterCacheAccess { .. } => compile_grid_repeater_cache_access(expr, ctx),
         Expression::WithLayoutItemInfo {
             cells_variable,
             repeater_indices_var_name,
@@ -3653,12 +3414,14 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             cells_v_variable,
             repeater_indices_var_name,
             elements,
+            repeated_cross_width,
             sub_expression,
         } => generate_with_flexbox_layout_item_info(
             cells_h_variable,
             cells_v_variable,
             repeater_indices_var_name.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
+            repeated_cross_width.as_deref(),
             sub_expression,
             ctx,
         ),
@@ -3691,46 +3454,594 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             ctx,
         ),
 
-        Expression::MinMax { ty, op, lhs, rhs } => {
-            let lhs = compile_expression(lhs, ctx);
-            let t = rust_primitive_type(ty);
-            let (lhs, rhs) = match t {
-                Some(t) => {
-                    let rhs = compile_expression(rhs, ctx);
-                    (quote!((#lhs as #t)), quote!(#rhs as #t))
-                }
-                None => {
-                    let rhs = compile_expression_no_parenthesis(rhs, ctx);
-                    (lhs, rhs)
-                }
-            };
-            match op {
-                MinMaxOp::Min => {
-                    quote!(#lhs.min(#rhs))
-                }
-                MinMaxOp::Max => {
-                    quote!(#lhs.max(#rhs))
-                }
-            }
-        }
+        Expression::MinMax { .. } => compile_min_max(expr, ctx),
         Expression::EmptyComponentFactory => quote!(slint::ComponentFactory::default()),
         Expression::EmptyDataTransfer => quote!(slint::DataTransfer::default()),
-        Expression::TranslationReference { format_args, string_index, plural } => {
-            let args = compile_expression(format_args, ctx);
-            match plural {
-                Some(plural) => {
-                    let plural = compile_expression(plural, ctx);
-                    quote!(sp::translate_from_bundle_with_plural(
-                        &self::_SLINT_TRANSLATED_STRINGS_PLURALS[#string_index],
-                        &self::_SLINT_TRANSLATED_PLURAL_RULES,
-                        sp::Slice::<sp::SharedString>::from(#args).as_slice(),
-                        #plural as _
-                    ))
+        Expression::TranslationReference { .. } => compile_translation_reference(expr, ctx),
+    }
+}
+
+#[inline(never)]
+fn compile_keys_literal(expr: &Expression) -> TokenStream {
+    let Expression::KeysLiteral(keys) = expr else { unreachable!() };
+    let key = &*keys.key;
+    let alt = keys.modifiers.alt;
+    let control = keys.modifiers.control;
+    let shift = keys.modifiers.shift;
+    let meta = keys.modifiers.meta;
+    let ignore_shift = keys.ignore_shift;
+    let ignore_alt = keys.ignore_alt;
+
+    quote!(
+        sp::make_keys(
+            #key.into(),
+            {
+                let mut modifiers = sp::KeyboardModifiers::default();
+                modifiers.alt = #alt;
+                modifiers.control = #control;
+                modifiers.shift = #shift;
+                modifiers.meta = #meta;
+                modifiers
+            },
+            #ignore_shift,
+            #ignore_alt))
+}
+
+#[inline(never)]
+fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::Cast { from, to } = expr else { unreachable!() };
+    let f = compile_expression(from, ctx);
+    match (from.ty(ctx), to) {
+        (Type::Float32, Type::Int32) => {
+            quote!(((#f) as i32))
+        }
+        (from, Type::String) if from.as_unit_product().is_some() => {
+            quote!(sp::shared_string_from_number((#f) as f64))
+        }
+        (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
+            quote!(sp::ModelRc::new(#f.max(::core::default::Default::default()) as usize))
+        }
+        (Type::Float32, Type::Color) => {
+            quote!(sp::Color::from_argb_encoded((#f) as u32))
+        }
+        (Type::Color, Type::Brush) => {
+            quote!(slint::Brush::SolidColor(#f))
+        }
+        (Type::Brush, Type::Color) => {
+            quote!(#f.color())
+        }
+        (Type::Struct(lhs), Type::Struct(rhs)) => {
+            debug_assert_eq!(
+                lhs.fields, rhs.fields,
+                "cast of struct with deferent fields should be handled before llr"
+            );
+            match (&lhs.name, &rhs.name) {
+                (StructName::None, targetstruct) if targetstruct.is_some() => {
+                    // Convert from an anonymous struct to a named one
+                    let fields = lhs.fields.iter().enumerate().map(|(index, (name, _))| {
+                        let index = proc_macro2::Literal::usize_unsuffixed(index);
+                        let name = ident(name);
+                        quote!(the_struct.#name = (obj.#index).clone() as _;)
+                    });
+                    let id = struct_name_to_tokens(targetstruct).unwrap();
+                    quote!({ let obj = #f; let mut the_struct = #id::default(); #(#fields)* the_struct })
                 }
-                None => {
-                    quote!(sp::translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice()))
+                (sourcestruct, StructName::None) if sourcestruct.is_some() => {
+                    // Convert from a named struct to an anonymous one
+                    let fields = lhs.fields.keys().map(|name| ident(name));
+                    quote!({ let obj = #f; (#(obj.#fields,)*) })
                 }
+                _ => f,
             }
+        }
+        (Type::Array(..), Type::PathData)
+            if matches!(
+                from.as_ref(),
+                Expression::Array { element_ty: Type::Struct { .. }, .. }
+            ) =>
+        {
+            let path_elements = match from.as_ref() {
+                Expression::Array { element_ty: _, values, output: _ } => values
+                    .iter()
+                    .map(|path_elem_expr|
+                        // Close{} is a struct with no fields in markup, and PathElement::Close has no fields
+                        if matches!(path_elem_expr, Expression::Struct { ty, .. } if ty.fields.is_empty()) {
+                            quote!(sp::PathElement::Close)
+                        } else {
+                            compile_expression(path_elem_expr, ctx)
+                        }
+                    ),
+                _ => {
+                    unreachable!()
+                }
+            };
+            quote!(sp::PathData::Elements(sp::SharedVector::<_>::from_slice(&[#((#path_elements).into()),*])))
+        }
+        (Type::Struct { .. }, Type::PathData)
+            if matches!(from.as_ref(), Expression::Struct { .. }) =>
+        {
+            let (events, points) = match from.as_ref() {
+                Expression::Struct { ty: _, values } => (
+                    compile_expression(&values["events"], ctx),
+                    compile_expression(&values["points"], ctx),
+                ),
+                _ => {
+                    unreachable!()
+                }
+            };
+            quote!(sp::PathData::Events(sp::SharedVector::<_>::from_slice(&#events), sp::SharedVector::<_>::from_slice(&#points)))
+        }
+        (Type::String, Type::PathData) => {
+            quote!(sp::PathData::Commands(#f))
+        }
+        (Type::Enumeration(e), Type::String) => {
+            let cases = e.values.iter().enumerate().map(|(idx, v)| {
+                let c = compile_expression(
+                    &Expression::EnumerationValue(EnumerationValue {
+                        value: idx,
+                        enumeration: e.clone(),
+                    }),
+                    ctx,
+                );
+                let v = v.as_str();
+                quote!(#c => sp::SharedString::from(#v))
+            });
+            quote!(match #f { #(#cases,)*  _ => sp::SharedString::default() })
+        }
+        (_, Type::Void) => {
+            quote!({#f;})
+        }
+        _ => f,
+    }
+}
+
+#[inline(never)]
+fn compile_callback_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::CallBackCall { callback, arguments } = expr else { unreachable!() };
+    let f = access_member(callback, ctx);
+    let tracker = access_callback_tracker(callback, ctx);
+    let register_dep = tracker.map(|t| quote!(#t.get();));
+    let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    if expr.ty(ctx) == Type::Void {
+        f.then(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)); }))
+    } else {
+        f.map_or_default(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)) }))
+    }
+}
+
+#[inline(never)]
+fn compile_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::FunctionCall { function, arguments } = expr else { unreachable!() };
+    let a = arguments.iter().map(|a| compile_expression(a, ctx));
+    let f = access_member(function, ctx);
+    if expr.ty(ctx) == Type::Void {
+        f.then(|f| quote!(#f( #(#a as _),*)))
+    } else {
+        f.map_or_default(|f| quote!(#f( #(#a as _),*)))
+    }
+}
+
+#[inline(never)]
+fn compile_item_member_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::ItemMemberFunctionCall { function } = expr else { unreachable!() };
+    let fun = access_member(function, ctx);
+    let item_rc = access_item_rc(function, ctx);
+    let window_adapter_tokens = access_window_adapter_field(ctx);
+    fun.map_or_default(|fun| quote!(#fun(#window_adapter_tokens, #item_rc)))
+}
+
+#[inline(never)]
+fn compile_extra_builtin_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } = expr else {
+        unreachable!()
+    };
+    let f = ident(function);
+    let a = arguments.iter().map(|a| {
+        let arg = compile_expression(a, ctx);
+        if matches!(a.ty(ctx), Type::Struct { .. }) { quote!(&#arg) } else { arg }
+    });
+    quote! { sp::#f(#(#a as _),*) }
+}
+
+#[inline(never)]
+fn compile_array_index(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::ArrayIndex { array, index } = expr else { unreachable!() };
+    debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
+    let base_e = compile_expression(array, ctx);
+    let index_e = compile_expression(index, ctx);
+    quote!(match &#base_e { x => {
+        let index = (#index_e) as usize;
+        x.row_data_tracked(index).unwrap_or_default()
+    }})
+}
+
+#[inline(never)]
+fn compile_code_block(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::CodeBlock(sub) = expr else { unreachable!() };
+    let mut body = TokenStream::new();
+    for (i, e) in sub.iter().enumerate() {
+        body.extend(compile_expression_no_parenthesis(e, ctx));
+        if i + 1 < sub.len() && !matches!(e, Expression::StoreLocalVariable { .. }) {
+            body.extend(quote!(;));
+        }
+    }
+    quote!({ #body })
+}
+
+#[inline(never)]
+fn compile_model_data_assignment(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::ModelDataAssignment { level, value } = expr else { unreachable!() };
+    let value = compile_expression(value, ctx);
+    let mut path = quote!(_self);
+    let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else { unreachable!() };
+    let mut repeater_index = None;
+    for _ in 0..=*level {
+        let x = par.unwrap();
+        par = x.parent;
+        repeater_index = x.repeater_index;
+        sc = x.sub_component;
+        path = quote!(#path.parent.upgrade().unwrap());
+    }
+    let repeater_index = repeater_index.unwrap();
+    let sub_component = &ctx.compilation_unit.sub_components[sc];
+    let local_reference = sub_component.repeated[repeater_index].index_prop.unwrap().into();
+    let index_prop = llr::MemberReference::Relative { parent_level: *level, local_reference };
+    let index_access = access_member(&index_prop, ctx).get_property();
+    let repeater = access_component_field_offset(
+        &inner_component_id(sub_component),
+        &format_ident!("repeater{}", usize::from(repeater_index)),
+    );
+    quote!(#repeater.apply_pin(#path.as_pin_ref()).model_set_row_data(#index_access as _, #value as _))
+}
+
+#[inline(never)]
+fn compile_array_index_assignment(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::ArrayIndexAssignment { array, index, value } = expr else { unreachable!() };
+    debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
+    let base_e = compile_expression(array, ctx);
+    let index_e = compile_expression(index, ctx);
+    let value_e = compile_expression(value, ctx);
+    quote!((#base_e).set_row_data(#index_e as isize as usize, #value_e as _))
+}
+
+#[inline(never)]
+fn compile_binary_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    // Long chains of binary operators, such as `a && b && c && ...`, nest on the
+    // left side. Iterate that spine instead of recursing into it, so that the
+    // stack depth stays bounded no matter how long the chain is.
+    let mut spine = Vec::new();
+    let mut node = expr;
+    while let Expression::BinaryExpression { lhs, rhs, op } = node {
+        spine.push((rhs, *op));
+        node = lhs;
+    }
+    let mut result = compile_expression_to_value_no_parenthesis(node, ctx);
+    let mut result_ty = node.ty(ctx);
+    for (rhs, op) in spine.into_iter().rev() {
+        result = compile_binary_operator(result, &result_ty, rhs, op, ctx);
+        result_ty = llr::binary_expression_ty(op, || result_ty);
+    }
+    result
+}
+
+fn compile_binary_operator(
+    lhs: TokenStream,
+    lhs_ty: &Type,
+    rhs: &Expression,
+    op: char,
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let rhs = compile_expression_to_value_no_parenthesis(rhs, ctx);
+
+    if lhs_ty.as_unit_product().is_some() && (op == '=' || op == '!') {
+        let maybe_negate = if op == '!' { quote!(!) } else { quote!() };
+        quote!(#maybe_negate sp::ApproxEq::<f64>::approx_eq(&(#lhs as f64), &(#rhs as f64)))
+    } else {
+        let (conv1, conv2) = match crate::expression_tree::operator_class(op) {
+            OperatorClass::ArithmeticOp => match lhs_ty {
+                Type::String => (None, Some(quote!(.as_str()))),
+                Type::Struct { .. } => (None, None),
+                _ => (Some(quote!(as f64)), Some(quote!(as f64))),
+            },
+            OperatorClass::ComparisonOp
+                if matches!(
+                    lhs_ty,
+                    Type::Int32
+                        | Type::Float32
+                        | Type::Duration
+                        | Type::PhysicalLength
+                        | Type::LogicalLength
+                        | Type::Angle
+                        | Type::Percent
+                        | Type::Rem
+                ) =>
+            {
+                (Some(quote!(as f64)), Some(quote!(as f64)))
+            }
+            _ => (None, None),
+        };
+
+        let op = match op {
+            '=' => quote!(==),
+            '!' => quote!(!=),
+            '≤' => quote!(<=),
+            '≥' => quote!(>=),
+            '&' => quote!(&&),
+            '|' => quote!(||),
+            _ => proc_macro2::TokenTree::Punct(proc_macro2::Punct::new(
+                op,
+                proc_macro2::Spacing::Alone,
+            ))
+            .into(),
+        };
+        quote!( (((#lhs) #conv1 ) #op ((#rhs) #conv2)) )
+    }
+}
+
+#[inline(never)]
+fn compile_image_reference(expr: &Expression) -> TokenStream {
+    let Expression::ImageReference { resource_ref, nine_slice } = expr else { unreachable!() };
+    match &nine_slice {
+        Some([a, b, c, d]) => {
+            quote! {{ let mut image = #resource_ref; image.set_nine_slice_edges(#a, #b, #c, #d); image }}
+        }
+        None => quote!(#resource_ref),
+    }
+}
+
+#[inline(never)]
+fn compile_condition(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::Condition { condition, true_expr, false_expr } = expr else { unreachable!() };
+    let condition_code = compile_expression_no_parenthesis(condition, ctx);
+    let true_code = compile_expression(true_expr, ctx);
+    let false_code = compile_expression_no_parenthesis(false_expr, ctx);
+    let semi = if false_expr.ty(ctx) == Type::Void { quote!(;) } else { quote!(as _) };
+    quote!(
+        if #condition_code {
+            (#true_code) #semi
+        } else {
+            #false_code
+        }
+    )
+}
+
+#[inline(never)]
+fn compile_array(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::Array { values, element_ty, output } = expr else { unreachable!() };
+    let val = values.iter().map(|e| compile_expression_to_value(e, ctx));
+    match output {
+        ArrayOutput::Model => {
+            let rust_element_ty = rust_primitive_type(element_ty).unwrap();
+            quote!(sp::ModelRc::new(
+                sp::VecModel::<#rust_element_ty>::from(
+                    sp::vec![#(#val as _),*]
+                )
+            ))
+        }
+        ArrayOutput::Slice => quote!(sp::Slice::from_slice(&[#(#val),*])),
+        ArrayOutput::Vector => quote!(sp::vec![#(#val as _),*]),
+    }
+}
+
+#[inline(never)]
+fn compile_struct(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::Struct { ty, values } = expr else { unreachable!() };
+    if ty.name.is_some() {
+        let name_tokens = struct_name_to_tokens(&ty.name).unwrap();
+        // A struct literal can only be used when all the fields are public, there
+        // is no hidden field (like euclid's `_unit`), and the struct is not
+        // `#[non_exhaustive]`. That holds for the generated user structs and for
+        // the listed builtin structs.
+        use crate::langtype::BuiltinStruct as BS;
+        let supports_struct_literal = match &ty.name {
+            StructName::User { .. } => true,
+            StructName::Builtin(b) => {
+                b.is_layout_data()
+                    || matches!(
+                        b,
+                        BS::LayoutInfo
+                            | BS::LayoutItemInfo
+                            | BS::FlexboxLayoutItemInfo
+                            | BS::Padding
+                            | BS::PropertyAnimation
+                            | BS::StateInfo
+                    )
+            }
+            StructName::None => false,
+        };
+        if supports_struct_literal {
+            let (keys, elem): (Vec<_>, Vec<_>) = ty
+                .fields
+                .keys()
+                .filter(|k| values.contains_key(*k))
+                .map(|k| (ident(k), compile_expression_to_value(&values[k], ctx)))
+                .unzip();
+            let default_rest = (keys.len() != ty.fields.len())
+                .then(|| quote!(..::core::default::Default::default()));
+            quote!(#name_tokens{#(#keys: #elem as _,)* #default_rest})
+        } else {
+            let elem = ty
+                .fields
+                .keys()
+                .map(|k| values.get(k).map(|e| compile_expression_to_value(e, ctx)));
+            let keys = ty.fields.keys().map(|k| ident(k));
+            quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys = #elem as _;)* the_struct})
+        }
+    } else {
+        let elem =
+            ty.fields.keys().map(|k| values.get(k).map(|e| compile_expression_to_value(e, ctx)));
+        let as_ = ty.fields.values().map(|t| {
+            if t.as_unit_product().is_some() {
+                // number needs to be converted to the right things because intermediate
+                // result might be f64 and that's usually not what the type of the tuple is in the end
+                let t = rust_primitive_type(t).unwrap();
+                quote!(as #t)
+            } else {
+                quote!()
+            }
+        });
+        // This will produce a tuple
+        quote!((#((#elem).clone() #as_,)*))
+    }
+}
+
+#[inline(never)]
+fn compile_linear_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::LinearGradient { angle, stops } = expr else { unreachable!() };
+    let angle = compile_expression(angle, ctx);
+    let stops = stops.iter().map(|(color, stop)| {
+        let color = compile_expression(color, ctx);
+        let position = compile_expression(stop, ctx);
+        quote!(sp::GradientStop{ color: #color, position: #position as _ })
+    });
+    quote!(slint::Brush::LinearGradient(
+        sp::LinearGradientBrush::new(#angle as _, [#(#stops),*])
+    ))
+}
+
+#[inline(never)]
+fn compile_radial_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::RadialGradient { center, radius, stops } = expr else { unreachable!() };
+    let stops = stops.iter().map(|(color, stop)| {
+        let color = compile_expression(color, ctx);
+        let position = compile_expression(stop, ctx);
+        quote!(sp::GradientStop{ color: #color, position: #position as _ })
+    });
+    let brush_expr = quote!(sp::RadialGradientBrush::new_circle([#(#stops),*]));
+    let brush_expr = if let Some((cx, cy)) = center {
+        let cx = compile_expression(cx, ctx);
+        let cy = compile_expression(cy, ctx);
+        quote!(#brush_expr.with_center(#cx as f32, #cy as f32))
+    } else {
+        brush_expr
+    };
+    let brush_expr = if let Some(r) = radius {
+        let r = compile_expression(r, ctx);
+        quote!(#brush_expr.with_radius(#r as f32))
+    } else {
+        brush_expr
+    };
+    quote!(slint::Brush::RadialGradient(#brush_expr))
+}
+
+#[inline(never)]
+fn compile_conic_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::ConicGradient { from_angle, center, stops } = expr else { unreachable!() };
+    let from_angle = compile_expression(from_angle, ctx);
+    let stops = stops.iter().map(|(color, stop)| {
+        let color = compile_expression(color, ctx);
+        let position = compile_expression(stop, ctx);
+        quote!(sp::GradientStop{ color: #color, position: #position as _ })
+    });
+    let brush_expr = quote!(sp::ConicGradientBrush::new(#from_angle as _, [#(#stops),*]));
+    let brush_expr = if let Some((cx, cy)) = center {
+        let cx = compile_expression(cx, ctx);
+        let cy = compile_expression(cy, ctx);
+        quote!(#brush_expr.with_center(#cx as f32, #cy as f32))
+    } else {
+        brush_expr
+    };
+    quote!(slint::Brush::ConicGradient(#brush_expr))
+}
+
+#[inline(never)]
+fn compile_layout_cache_access(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::LayoutCacheAccess {
+        layout_cache_prop,
+        index,
+        repeater_index,
+        entries_per_item,
+    } = expr
+    else {
+        unreachable!()
+    };
+    access_member(layout_cache_prop, ctx).map_or_default(|cache| {
+        if let Some(ri) = repeater_index {
+            let offset = compile_expression(ri, ctx);
+            quote!({
+                let cache = #cache.get();
+                *cache.get((cache[#index] as usize) + #offset as usize * #entries_per_item).unwrap_or(&(0 as _))
+            })
+        } else {
+            quote!(#cache.get()[#index])
+        }
+    })
+}
+
+#[inline(never)]
+fn compile_grid_repeater_cache_access(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::GridRepeaterCacheAccess {
+        layout_cache_prop,
+        index,
+        repeater_index,
+        stride,
+        child_offset,
+        inner_repeater_index,
+        entries_per_item,
+    } = expr
+    else {
+        unreachable!()
+    };
+    access_member(layout_cache_prop, ctx).map_or_default(|cache| {
+        let offset = compile_expression(repeater_index, ctx);
+        let stride_val = compile_expression(stride, ctx);
+        let inner_offset = inner_repeater_index.as_ref().map(|inner_ri| {
+            let inner_offset = compile_expression(inner_ri, ctx);
+            quote!(+ #inner_offset as usize * #entries_per_item)
+        });
+
+        quote!({
+            let cache = #cache.get();
+            let base = cache[#index] as usize;
+            let data_idx = base + #offset as usize * (#stride_val as usize) + #child_offset #inner_offset;
+            *cache.get(data_idx).unwrap_or(&(0 as _))
+        })
+    })
+}
+
+#[inline(never)]
+fn compile_min_max(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::MinMax { ty, op, lhs, rhs } = expr else { unreachable!() };
+    let lhs = compile_expression(lhs, ctx);
+    let t = rust_primitive_type(ty);
+    let (lhs, rhs) = match t {
+        Some(t) => {
+            let rhs = compile_expression(rhs, ctx);
+            (quote!((#lhs as #t)), quote!(#rhs as #t))
+        }
+        None => {
+            let rhs = compile_expression_no_parenthesis(rhs, ctx);
+            (lhs, rhs)
+        }
+    };
+    match op {
+        MinMaxOp::Min => {
+            quote!(#lhs.min(#rhs))
+        }
+        MinMaxOp::Max => {
+            quote!(#lhs.max(#rhs))
+        }
+    }
+}
+
+#[inline(never)]
+fn compile_translation_reference(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::TranslationReference { format_args, string_index, plural } = expr else {
+        unreachable!()
+    };
+    let args = compile_expression(format_args, ctx);
+    match plural {
+        Some(plural) => {
+            let plural = compile_expression(plural, ctx);
+            quote!(sp::translate_from_bundle_with_plural(
+                &self::_SLINT_TRANSLATED_STRINGS_PLURALS[#string_index],
+                &self::_SLINT_TRANSLATED_PLURAL_RULES,
+                sp::Slice::<sp::SharedString>::from(#args).as_slice(),
+                #plural as _
+            ))
+        }
+        None => {
+            quote!(sp::translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice()))
         }
     }
 }
@@ -4963,10 +5274,14 @@ fn generate_with_flexbox_layout_item_info(
     cells_v_variable: &str,
     repeated_indices_var_name: Option<&str>,
     elements: &[Either<(Expression, Expression), llr::LayoutRepeatedElement>],
+    repeated_cross_width: Option<&Expression>,
     sub_expression: &Expression,
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let repeated_indices_var_name = repeated_indices_var_name.map(ident);
+    // Container width forwarded to repeated cells' vertical query (column flex),
+    // so a height-for-width instance wraps to the real width like a static cell.
+    let cross_width = repeated_cross_width.map(|w| compile_expression(w, ctx));
     let mut fixed_count = 0usize;
     let mut repeated_count_code = quote!();
     let mut push_code = Vec::new();
@@ -4994,14 +5309,23 @@ fn generate_with_flexbox_layout_item_info(
                     ctx,
                 );
                 let repeater_id = format_ident!("repeater{}", usize::from(repeater.repeater_index));
+                // For a column flex, measure each instance's vertical info at the
+                // container width; otherwise use its preferred-width default.
+                let v_push = if let Some(w) = &cross_width {
+                    quote!(sub_comp.as_pin_ref().flexbox_layout_item_info_at_cross_width((#w) as f32))
+                } else {
+                    quote!(
+                        sub_comp
+                            .as_pin_ref()
+                            .flexbox_layout_item_info(sp::Orientation::Vertical, None)
+                    )
+                };
                 let loop_code = quote!(for i in 0.._self.#repeater_id.len() {
                     if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                         items_vec_h.push(
                             sub_comp.as_pin_ref().flexbox_layout_item_info(sp::Orientation::Horizontal, None),
                         );
-                        items_vec_v.push(
-                            sub_comp.as_pin_ref().flexbox_layout_item_info(sp::Orientation::Vertical, None),
-                        );
+                        items_vec_v.push(#v_push);
                     } else {
                         // Not-yet-instantiated slot: push placeholder cells so the cell
                         // count stays in sync with the repeater length written above.

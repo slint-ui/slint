@@ -135,12 +135,6 @@ inline slint::LogicalSize from_slint_value(const slint::interpreter::Value &val,
                                 float(s.get_field("height").value().to_number().value()) });
 }
 
-template<typename T>
-T from_slint_value(const slint::interpreter::Value &v)
-{
-    return from_slint_value(v, static_cast<const T *>(nullptr));
-}
-
 class LiveReloadingComponent
 {
     const cbindgen_private::LiveReloadingComponentInner *inner;
@@ -287,7 +281,41 @@ public:
         }
         return {};
     }
+    static slint::interpreter::Value
+    value_from_mouse_cursor_inner(const slint::cbindgen_private::MouseCursorInner &cursor)
+    {
+        return slint::interpreter::Value(
+                cbindgen_private::slint_interpreter_value_new_mouse_cursor_inner(&cursor));
+    }
+    static slint::cbindgen_private::MouseCursorInner
+    mouse_cursor_inner_from_value(const slint::interpreter::Value &value)
+    {
+        if (auto *p =
+                    cbindgen_private::slint_interpreter_value_to_mouse_cursor_inner(value.inner)) {
+            return *p;
+        }
+        return {};
+    }
 };
+
+inline slint::interpreter::Value
+into_slint_value(const slint::cbindgen_private::MouseCursorInner &val)
+{
+    return private_api::live_preview::LiveReloadingComponent::value_from_mouse_cursor_inner(val);
+}
+
+inline slint::cbindgen_private::MouseCursorInner
+from_slint_value(const slint::interpreter::Value &val,
+                 const slint::cbindgen_private::MouseCursorInner *)
+{
+    return private_api::live_preview::LiveReloadingComponent::mouse_cursor_inner_from_value(val);
+}
+
+template<typename T>
+T from_slint_value(const slint::interpreter::Value &v)
+{
+    return from_slint_value(v, static_cast<const T *>(nullptr));
+}
 
 class LiveReloadModelWrapperBase : public private_api::ModelChangeListener
 {

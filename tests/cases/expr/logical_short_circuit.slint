@@ -3,7 +3,7 @@
 
 // && and || short circuit: the rhs must not run once the lhs decides the result.
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     in-out property <int> counter;
     function bump() -> bool { counter += 1; return true; }
     function dynamic_and(v: bool) -> bool { return v && bump(); }

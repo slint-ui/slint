@@ -15,13 +15,14 @@ pub fn count_property_use(root: &CompilationUnit) {
     // 1. the public properties
     for c in &root.public_components {
         let root_ctx = EvaluationContext::new_sub_component(root, c.item_tree.root, (), None);
-        for p in c.public_properties.iter().filter(|p| !p.prop.is_function()) {
+        for p in c.public_properties.iter() {
+            // A public function can be called from native code, so it is a root.
             visit_property(&p.prop, &root_ctx);
         }
     }
     for (idx, g) in root.globals.iter_enumerated().filter(|(_, g)| g.exported) {
         let ctx = EvaluationContext::new_global(root, idx, ());
-        for p in g.public_properties.iter().filter(|p| !p.prop.is_function()) {
+        for p in g.public_properties.iter() {
             visit_property(&p.prop, &ctx);
         }
     }
@@ -78,6 +79,9 @@ pub fn count_property_use(root: &CompilationUnit) {
         if let Some(e) = &sc.layout_info_v_constrained_for_repeated {
             e.borrow().visit_property_references(ctx, &mut visit_property);
         }
+        if let Some(e) = &sc.layout_info_v_at_cross_width_for_repeated {
+            e.borrow().visit_property_references(ctx, &mut visit_property);
+        }
         for child in &sc.grid_layout_children {
             child.layout_info_h.borrow().visit_property_references(ctx, &mut visit_property);
             child.layout_info_v.borrow().visit_property_references(ctx, &mut visit_property);
@@ -105,10 +109,8 @@ pub fn count_property_use(root: &CompilationUnit) {
             }
         }
 
-        // 8.functions (TODO: only visit used function)
-        for f in &sc.functions {
-            f.code.visit_property_references(ctx, &mut visit_property);
-        }
+        // Function bodies are visited on demand from visit_property when a call to
+        // them is found, so that an unreachable function keeps nothing alive.
 
         // 9. change callbacks
         for (p, e) in &sc.change_callbacks {
@@ -137,10 +139,6 @@ pub fn count_property_use(root: &CompilationUnit) {
 
     for (idx, g) in root.globals.iter_enumerated() {
         let ctx = EvaluationContext::new_global(root, idx, ());
-        // TODO: only visit used function
-        for f in &g.functions {
-            f.code.visit_property_references(&ctx, &mut visit_property);
-        }
 
         for (p, e) in &g.change_callbacks {
             visit_property(&LocalMemberReference::from(*p).into(), &ctx);
@@ -169,6 +167,16 @@ fn visit_property(pr: &MemberReference, ctx: &EvaluationContext) {
         if c == 0 {
             let ctx2 = map.map_context(ctx);
             visit_binding_expression(binding, &ctx2);
+        }
+    }
+    // A reference to a function is a call: count it and, the first time, visit
+    // its body so an unreachable function doesn't keep its property reads alive.
+    if let Some((function, map)) = ctx.function_info(pr) {
+        let c = function.use_count.get();
+        function.use_count.set(c + 1);
+        if c == 0 {
+            let ctx2 = map.map_context(ctx);
+            function.code.borrow().visit_property_references(&ctx2, &mut visit_property);
         }
     }
 }

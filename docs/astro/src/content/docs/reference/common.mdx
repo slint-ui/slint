@@ -265,7 +265,7 @@ It defines coordinates (x,y) relative to the enclosing Window or PopupWindow, bu
 ## Miscellaneous
 
 ### cache-rendering-hint
-<SlintProperty typeName="bool" propName="cache-rendering-hint" default="false" >
+<SlintProperty typeName="bool" propName="cache-rendering-hint" defaultValue="false" >
 When set to `true`, this provides a hint to the renderer to cache the contents of the element
 and all the children into an intermediate cached layer. For complex sub-trees that rarely
 change this may speed up the rendering, at the expense of increased memory consumption.
@@ -358,39 +358,39 @@ The role of the element. This property is mandatory to be able to use any other 
 </SlintProperty>
 
 ### accessible-checkable
-<SlintProperty typeName="bool" propName="accessible-checkable" default="false">
+<SlintProperty typeName="bool" propName="accessible-checkable" defaultValue="false">
 Whether the element is can be checked or not.
 </SlintProperty>
 
 ### accessible-checked
-<SlintProperty typeName="bool" propName="accessible-checked" default="false">
+<SlintProperty typeName="bool" propName="accessible-checked" defaultValue="false">
 Whether the element is checked or not. This maps to the "checked" state of checkboxes, radio buttons, and other widgets.
 </SlintProperty>
 
 ### accessible-description
-<SlintProperty typeName="string" propName="accessible-description" default='""'>
+<SlintProperty typeName="string" propName="accessible-description" defaultValue='""'>
 The description for the current element.
 </SlintProperty>
 
 ### accessible-enabled
-<SlintProperty typeName="bool" propName="accessible-enabled" default="true">
+<SlintProperty typeName="bool" propName="accessible-enabled" defaultValue="true">
 Whether the element is enabled or not. This maps to the "enabled" state of most widgets. (default value: `true`)
 </SlintProperty>
 
 ### accessible-expandable
-<SlintProperty typeName="bool" propName="accessible-expandable" default="false">
+<SlintProperty typeName="bool" propName="accessible-expandable" defaultValue="false">
 Whether the element can be expanded or not. For example, a `ComboBox` widget should set this to true,
 as its selection can be changed via an expandable popup.
 </SlintProperty>
 
 ### accessible-expanded
-<SlintProperty typeName="bool" propName="accessible-expanded" default="false">
+<SlintProperty typeName="bool" propName="accessible-expanded" defaultValue="false">
 Whether the element is expanded or not. Applies to combo boxes, menu items,
 tree view items and other widgets.
 </SlintProperty>
 
 ### accessible-id
-<SlintProperty typeName="string" propName="accessible-id" default='""'>
+<SlintProperty typeName="string" propName="accessible-id" defaultValue='""'>
 A unique identifier for the element, used to identify widgets for automation and testing purposes.
 This property can be set to any string value and is particularly useful when writing automated tests or
 when using accessibility tools to uniquely identify specific widgets in your application.
@@ -407,7 +407,7 @@ for i in 5: Rectangle {
 </SlintProperty>
 
 ### accessible-label
-<SlintProperty typeName="string" propName="accessible-label" default='""'>
+<SlintProperty typeName="string" propName="accessible-label" defaultValue='""'>
 The label for an interactive element. (default value: empty for most elements, or the value of the `text` property for Text elements)
 </SlintProperty>
 
@@ -417,45 +417,45 @@ The orientation of the element when it makes sense, such as a `Slider` or a `Scr
 technologies can use this to inform the user whether the widget is laid out horizontally or vertically.
 </SlintProperty>
 
-### accessible-live
-<SlintProperty typeName="enum" enumName="AccessibleLive">
+### accessible-live-region
+<SlintProperty typeName="enum" propName="accessible-live-region" enumName="AccessibleLiveness">
 Marks the element as a live region whose textual content should be announced by assistive
 technologies when it changes. Use `polite` for non-urgent updates and `assertive` for updates that
 should interrupt the user. The default `off` disables live announcements.
 </SlintProperty>
 
 ### accessible-value-maximum
-<SlintProperty typeName="float" propName="accessible-value-maximum" default="0">
+<SlintProperty typeName="float" propName="accessible-value-maximum" defaultValue="0">
 The maximum value of the item. This is used for example by spin boxes.
 </SlintProperty>
 
 ### accessible-value-minimum
-<SlintProperty typeName="float" propName="accessible-value-minimum" default="0">
+<SlintProperty typeName="float" propName="accessible-value-minimum" defaultValue="0">
 The minimum value of the item.
 </SlintProperty>
 
 ### accessible-value-step
-<SlintProperty typeName="float" propName="accessible-value-step" default="0">
+<SlintProperty typeName="float" propName="accessible-value-step" defaultValue="0">
 The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
 </SlintProperty>
 
 ### accessible-value
-<SlintProperty typeName="string" propName="accessible-value" default='""'>
+<SlintProperty typeName="string" propName="accessible-value" defaultValue='""'>
 The current value of the item.
 </SlintProperty>
 
 ### accessible-placeholder-text
-<SlintProperty typeName="string" propName="accessible-placeholder-text" default='""'>
+<SlintProperty typeName="string" propName="accessible-placeholder-text" defaultValue='""'>
 A placeholder text to use when the item's value is empty. Applies to text elements.
 </SlintProperty>
 
 ### accessible-read-only
-<SlintProperty typeName="bool" propName="accessible-read-only" default="false">
+<SlintProperty typeName="bool" propName="accessible-read-only" defaultValue="false">
 Whether the element's content can be edited. This maps to the "read-only" state of line edit and text edit widgets.
 </SlintProperty>
 
 ### accessible-item-selectable
-<SlintProperty typeName="bool" propName="accessible-value" >
+<SlintProperty typeName="bool" propName="accessible-item-selectable" >
 Whether the element can be selected or not.
 </SlintProperty>
 

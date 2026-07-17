@@ -6,10 +6,12 @@
 */
 #![warn(missing_docs)]
 
+use crate::cursor::MouseCursorInner;
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 use crate::items::{
-    AllowedDragActions, DropEvent, ItemRef, MouseCursor, OperatingSystemType, TextCursorDirection,
+    AllowedDragActions, BuiltInMouseCursor, DropEvent, ItemRef, OperatingSystemType,
+    TextCursorDirection,
 };
 pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers, PointerEventButton};
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
@@ -118,6 +120,12 @@ impl MouseEvent {
             MouseEvent::Moved { touch_finger_id, .. } => *touch_finger_id,
             _ => 0,
         }
+    }
+
+    /// Whether the event originates from a touch screen rather than a mouse.
+    pub fn is_from_touch(&self) -> bool {
+        // touch events carry the finger id + 1, events from a mouse carry 0
+        self.touch_finger_id() != 0
     }
 
     /// The position of the cursor for this event, if any
@@ -1263,7 +1271,7 @@ pub struct MouseInputState {
     pub(crate) drop_target: Option<ItemWeak>,
     delayed: Option<(crate::timers::Timer, MouseEvent)>,
     delayed_exit_items: Vec<ItemWeak>,
-    pub(crate) cursor: MouseCursor,
+    pub(crate) cursor: MouseCursorInner,
 }
 
 impl MouseInputState {
@@ -1467,7 +1475,7 @@ pub(crate) fn send_exit_events(
     window_adapter: &Rc<dyn WindowAdapter>,
 ) {
     // Note that exit events can't actually change the cursor from default so we'll ignore the result
-    let cursor = &mut MouseCursor::Default;
+    let cursor = &mut MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default);
 
     for it in core::mem::take(&mut new_input_state.delayed_exit_items) {
         let Some(item) = it.upgrade() else { continue };
@@ -1545,7 +1553,7 @@ pub fn process_mouse_input(
         drag_data: mouse_input_state.drag_data.clone(),
         drag_source: mouse_input_state.drag_source.clone(),
         drop_target: mouse_input_state.drop_target.clone(),
-        cursor: mouse_input_state.cursor,
+        cursor: mouse_input_state.cursor.clone(),
         ..Default::default()
     };
     let r = send_mouse_event_to_item(

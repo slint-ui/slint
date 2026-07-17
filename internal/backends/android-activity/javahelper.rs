@@ -409,7 +409,13 @@ impl JavaHelper {
                 r.contains(i_slint_core::lengths::logical_point_from_api(data.cursor_rect_origin))
             });
             let anchor_visible = data.clip_rect.map_or(true, |r| {
-                r.contains(i_slint_core::lengths::logical_point_from_api(data.anchor_point))
+                // anchor_point is `origin + cursor_size` for handle placement; check the
+                // anchor cursor's origin so we don't spuriously fail on the clip rect's edge.
+                let anchor_origin =
+                    i_slint_core::lengths::logical_point_from_api(data.anchor_point)
+                        - i_slint_core::lengths::logical_size_from_api(data.cursor_rect_size)
+                            .to_vector();
+                r.contains(anchor_origin)
             });
 
             // Add 2*cur_size.width to the y position to be a bit under the cursor

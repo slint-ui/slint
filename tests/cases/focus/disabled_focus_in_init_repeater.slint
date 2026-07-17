@@ -5,7 +5,7 @@
 // when a repeater (`for`) was present, because the focus walk stepped into the
 // not-yet-instantiated repeater subtree.
 
-component TestCase inherits Window {
+export component TestCase inherits Window {
     property <[int]> model;
     for item in model: Rectangle { }
     fs := FocusScope {

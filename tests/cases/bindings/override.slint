@@ -8,7 +8,7 @@ component Compo inherits Text {
     text: "hello";
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     in-out property <string> text: "ignore_me";
     c := Compo {
         x:0;y:0;

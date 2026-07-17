@@ -6,7 +6,8 @@
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
-    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MinMaxOp, Unit,
+    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MinMaxOp,
+    MouseCursorInner, Unit,
 };
 use crate::langtype::Type;
 use crate::parser::NodeOrToken;
@@ -99,6 +100,48 @@ pub fn lower_macro(
         }
         BuiltinMacroFunction::ArrayInsert => {
             array_insert_macro(n, sub_expr.collect(), diag, symbol_counters)
+        }
+        BuiltinMacroFunction::CustomMouseCursor => {
+            let mut has_error = None;
+            let hotspot_type_error = "The last two arguments to custom cursor must be an integer";
+
+            // Take the next argument if it passes `valid`, otherwise record an error.
+            let mut next_arg =
+                |valid: fn(&Type) -> bool, type_error: &'static str| match sub_expr.next() {
+                    Some((e, _)) if valid(&e.ty()) => e,
+                    Some(_) => {
+                        has_error.get_or_insert((n.to_source_location(), type_error));
+                        Expression::Invalid
+                    }
+                    None => {
+                        has_error.get_or_insert((n.to_source_location(), "Not enough arguments"));
+                        Expression::Invalid
+                    }
+                };
+
+            let image = next_arg(
+                |t| matches!(t, Type::Image),
+                "The first argument to custom cursor must be image",
+            );
+            let hotspot_x = next_arg(|t| t.can_convert(&Type::Int32), hotspot_type_error);
+            let hotspot_y = next_arg(|t| t.can_convert(&Type::Int32), hotspot_type_error);
+
+            let expr = Expression::MouseCursor(MouseCursorInner::CustomMouseCursor {
+                image: Box::new(image),
+                hotspot_x: Box::new(hotspot_x),
+                hotspot_y: Box::new(hotspot_y),
+            });
+            if let Some((_, n)) = sub_expr.next() {
+                has_error.get_or_insert((
+                    n.to_source_location(),
+                    "Too many arguments for custom cursor",
+                ));
+            }
+            if let Some((n, msg)) = has_error {
+                diag.push_error(msg.into(), &n);
+            }
+
+            expr
         }
     }
 }
@@ -520,6 +563,7 @@ fn to_debug_string(
         | Type::Brush
         | Type::Image
         | Type::Easing
+        | Type::MouseCursor
         | Type::StyledText
         | Type::Array(_)
         | Type::DataTransfer => {

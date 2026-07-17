@@ -307,6 +307,7 @@ fn lower_sub_component(
         grid_layout_input_for_repeated: None,
         flexbox_layout_item_info_for_repeated: None,
         layout_info_v_constrained_for_repeated: None,
+        layout_info_v_at_cross_width_for_repeated: None,
         is_repeated_row: component
             .root_element
             .borrow()
@@ -359,7 +360,8 @@ fn lower_sub_component(
                     ret_ty: function.return_type.clone(),
                     args: function.args.clone(),
                     // will be replaced later
-                    code: super::Expression::CodeBlock(Vec::new()),
+                    code: super::Expression::CodeBlock(Vec::new()).into(),
+                    use_count: Default::default(),
                 });
                 index.into()
             } else if let Type::Callback(callback) = &x.property_type {
@@ -488,8 +490,9 @@ fn lower_sub_component(
                 unreachable!()
             };
 
-            sub_component.functions[function_index].code =
-                super::lower_expression::lower_expression(&binding.expression, &mut ctx);
+            sub_component.functions[function_index]
+                .code
+                .replace(super::lower_expression::lower_expression(&binding.expression, &mut ctx));
 
             return;
         }
@@ -671,6 +674,13 @@ fn lower_sub_component(
             );
         }
         sub_component.layout_info_v_constrained_for_repeated = v_constrained.map(Into::into);
+        sub_component.layout_info_v_at_cross_width_for_repeated =
+            super::lower_layout_expression::get_layout_info_v_at_cross_width_for_repeated(
+                &mut ctx,
+                root_elem,
+                &component.root_constraints.borrow(),
+            )
+            .map(Into::into);
     }
 
     if let Some(grid_layout_cell) = component.root_element.borrow().grid_layout_cell.as_ref() {
@@ -807,7 +817,7 @@ fn lower_geometry(
         values
             .insert(f.into(), super::Expression::PropertyReference(ctx.map_property_reference(v)));
     }
-    super::Expression::Struct { ty: Rc::new(Struct { fields, name: StructName::None }), values }
+    super::Expression::Struct { ty: Rc::new(Struct::new(fields, StructName::None)), values }
 }
 
 fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::PropertyAnalysis {
@@ -946,7 +956,8 @@ fn lower_global(
                 ret_ty: function.return_type.clone(),
                 args: function.args.clone(),
                 // will be replaced later
-                code: super::Expression::CodeBlock(Vec::new()),
+                code: super::Expression::CodeBlock(Vec::new()).into(),
+                use_count: Default::default(),
             });
             state.global_properties.insert(
                 nr.clone(),
@@ -1027,6 +1038,7 @@ fn lower_global(
     GlobalComponent {
         name: global.root_element.borrow().id.clone(),
         init_values: BTreeMap::new(),
+        animations: BTreeMap::new(),
         properties,
         callbacks,
         functions,
@@ -1054,27 +1066,34 @@ fn lower_global_expressions(
 
     for (prop, binding) in &global.root_element.borrow().bindings {
         assert!(binding.borrow().two_way_bindings.is_empty());
-        assert!(binding.borrow().animation.is_none());
         let expression =
             super::lower_expression::lower_expression(&binding.borrow().expression, &mut ctx);
+        let animation = binding
+            .borrow()
+            .animation
+            .as_ref()
+            .map(|a| super::lower_expression::lower_animation(a, &mut ctx));
 
         let nr = NamedReference::new(&global.root_element, prop.clone());
         let member_index = match &ctx.state.global_properties[&nr] {
             MemberReference::Global {
                 member: LocalMemberIndex::Function(function_index), ..
             } => {
-                lowered.functions[*function_index].code = expression;
+                lowered.functions[*function_index].code.replace(expression);
                 continue;
             }
             MemberReference::Global { member, .. } => member.clone(),
             _ => unreachable!(),
         };
+        if let Some(Animation::Static(animation)) = animation.as_ref() {
+            lowered.animations.insert(member_index.clone(), animation.clone());
+        }
         let is_constant = binding.borrow().analysis.as_ref().is_some_and(|a| a.is_const);
         lowered.init_values.insert(
             member_index,
             BindingExpression {
                 expression: expression.into(),
-                animation: None,
+                animation,
                 is_constant,
                 is_state_info: false,
                 use_count: 0.into(),

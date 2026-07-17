@@ -14,7 +14,7 @@ use crate::{SharedString, SharedVector};
 use super::{IntRect, IntSize};
 use crate::items::{ImageFit, ImageHorizontalAlignment, ImageTiling, ImageVerticalAlignment};
 
-#[cfg(feature = "image-decoders")]
+#[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
 pub mod cache;
 #[cfg(target_arch = "wasm32")]
 mod htmlimage;
@@ -296,7 +296,7 @@ pub struct CachedPath {
     last_modified: u32,
 }
 
-#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "image-decoders", not(target_arch = "wasm32")))]
 impl CachedPath {
     fn new<P: AsRef<std::path::Path>>(path: P) -> Self {
         let path_str = path.as_ref().to_string_lossy().as_ref().into();
@@ -565,49 +565,75 @@ impl ImageInner {
     /// which could lead to bad behavior. This constructor should be called from within
     /// `ImageCache::lookup_image_in_cache_or_create`, or `ImageCacheKey::Invalid` should be
     /// supplied.
-    #[cfg(feature = "image-decoders")]
+    #[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
     pub(crate) fn load_from_data_with_cache_key(
         cache_key: ImageCacheKey,
         data: Slice<'_, u8>,
         format: Slice<'_, u8>,
     ) -> Option<Self> {
-        #[cfg(feature = "svg")]
-        if format.as_slice() == b"svg" || format.as_slice() == b"svgz" {
-            return Some(ImageInner::Svg(vtable::VRc::new(
-                svg::load_from_data(data.as_slice(), cache_key).map_or_else(
-                    |svg_err| {
-                        crate::debug_log!("Error loading SVG: {}", svg_err);
-                        None
-                    },
-                    Some,
-                )?,
-            )));
+        // On the web, let the browser decode the image instead of shipping decoders in the binary.
+        #[cfg(target_arch = "wasm32")]
+        {
+            let _ = cache_key;
+            let mime_type = core::str::from_utf8(format.as_slice())
+                .ok()
+                .and_then(image_mime_type_from_extension)
+                .unwrap_or_else(|| {
+                    if data.starts_with(b"<?xml") || data.starts_with(b"<svg") {
+                        "image/svg+xml"
+                    } else {
+                        // An empty type makes the browser sniff the format from the data.
+                        ""
+                    }
+                });
+            if mime_type == "image/svg+xml" && data.starts_with(&[0x1f, 0x8b]) {
+                crate::debug_log!("Compressed SVG (.svgz) is not supported on the web");
+                return None;
+            }
+            return htmlimage::HTMLImage::new_from_data(data.as_slice(), mime_type)
+                .map(|html_image| ImageInner::HTMLImage(vtable::VRc::new(html_image)));
         }
 
-        let format = std::str::from_utf8(format.as_slice())
-            .ok()
-            .and_then(image::ImageFormat::from_extension);
-        let maybe_image = if let Some(format) = format {
-            image::load_from_memory_with_format(data.as_slice(), format)
-        } else {
-            image::load_from_memory(data.as_slice())
-        };
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            #[cfg(feature = "svg")]
+            if format.as_slice() == b"svg" || format.as_slice() == b"svgz" {
+                return Some(ImageInner::Svg(vtable::VRc::new(
+                    svg::load_from_data(data.as_slice(), cache_key).map_or_else(
+                        |svg_err| {
+                            crate::debug_log!("Error loading SVG: {}", svg_err);
+                            None
+                        },
+                        Some,
+                    )?,
+                )));
+            }
 
-        match maybe_image {
-            Ok(image) => Some(ImageInner::EmbeddedImage {
-                cache_key,
-                buffer: dynamic_image_to_shared_image_buffer(image),
-            }),
-            Err(decode_err) => {
-                crate::debug_log!("Error decoding embedded image: {}", decode_err);
-                None
+            let format = std::str::from_utf8(format.as_slice())
+                .ok()
+                .and_then(image::ImageFormat::from_extension);
+            let maybe_image = if let Some(format) = format {
+                image::load_from_memory_with_format(data.as_slice(), format)
+            } else {
+                image::load_from_memory(data.as_slice())
+            };
+
+            match maybe_image {
+                Ok(image) => Some(ImageInner::EmbeddedImage {
+                    cache_key,
+                    buffer: dynamic_image_to_shared_image_buffer(image),
+                }),
+                Err(decode_err) => {
+                    crate::debug_log!("Error decoding embedded image: {}", decode_err);
+                    None
+                }
             }
         }
     }
 }
 
 /// Convert `image::DynamicImage` to `SharedImageBuffer`
-#[cfg(feature = "image-decoders")]
+#[cfg(all(feature = "image-decoders", not(target_arch = "wasm32")))]
 fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> SharedImageBuffer {
     use rgb::AsPixels;
 
@@ -775,13 +801,15 @@ impl std::error::Error for LoadImageError {}
 pub struct Image(pub(crate) ImageInner);
 
 impl Image {
-    #[cfg(feature = "image-decoders")]
+    #[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
     /// Load an Image from a path to a file containing an image.
     ///
     /// Supported formats are SVG, PNG and JPEG.
     /// Enable support for additional formats supported by the [`image` crate](https://crates.io/crates/image) (
     /// AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP)
     /// by enabling the `image-default-formats` cargo feature.
+    ///
+    /// This function always fails on the web, where there is no file system.
     pub fn load_from_path(path: &std::path::Path) -> Result<Self, LoadImageError> {
         self::cache::IMAGE_CACHE.with(|global_cache| {
             let path: SharedString = path.to_str().ok_or(LoadImageError(()))?.into();
@@ -831,7 +859,24 @@ impl Image {
     /// Returns the pixel buffer for the Image if available in RGBA format.
     /// Returns None if the pixels cannot be obtained, for example when the image was created from borrowed OpenGL textures.
     pub fn to_rgba8(&self) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
-        self.0.render_to_buffer(None).map(|image| match image {
+        self.render_to_rgba8(None)
+    }
+
+    /// Same as [`Self::to_rgba8`], but scalable sources (such as SVGs) are rasterized to
+    /// `target_size` (in physical pixels) instead of their intrinsic size.
+    /// Returns None if the pixels cannot be obtained.
+    pub fn to_rgba8_with_target_size(
+        &self,
+        target_size: IntSize,
+    ) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+        self.render_to_rgba8(Some(target_size.cast_unit()))
+    }
+
+    fn render_to_rgba8(
+        &self,
+        target_size: Option<euclid::Size2D<u32, PhysicalPx>>,
+    ) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+        self.0.render_to_buffer(target_size).map(|image| match image {
             SharedImageBuffer::RGB8(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
                 width: buffer.width,
                 height: buffer.height,
@@ -952,12 +997,24 @@ impl Image {
     }
 
     /// Creates a new Image from the specified buffer, which contains SVG raw data.
-    #[cfg(feature = "svg")]
+    ///
+    /// On the web, the browser renders the SVG, and compressed SVG data (svgz) is not supported.
+    #[cfg(any(feature = "svg", target_arch = "wasm32"))]
     pub fn load_from_svg_data(buffer: &[u8]) -> Result<Self, LoadImageError> {
-        let cache_key = ImageCacheKey::Invalid;
-        Ok(Image(ImageInner::Svg(vtable::VRc::new(
-            svg::load_from_data(buffer, cache_key).map_err(|_| LoadImageError(()))?,
-        ))))
+        // On the web, the browser decodes the SVG.
+        #[cfg(target_arch = "wasm32")]
+        {
+            htmlimage::HTMLImage::new_from_data(buffer, "image/svg+xml")
+                .map(|html_image| Image(ImageInner::HTMLImage(vtable::VRc::new(html_image))))
+                .ok_or(LoadImageError(()))
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let cache_key = ImageCacheKey::Invalid;
+            Ok(Image(ImageInner::Svg(vtable::VRc::new(
+                svg::load_from_data(buffer, cache_key).map_err(|_| LoadImageError(()))?,
+            ))))
+        }
     }
 
     /// Sets the nine-slice edges of the image.
@@ -1016,21 +1073,59 @@ impl Image {
     }
 }
 
-#[cfg(feature = "image-decoders")]
-/// Load an Image from a path to a file containing an image.
-///
-/// Supported formats are SVG, PNG and JPEG.
-/// Enable support for additional formats supported by the [`image` crate](https://crates.io/crates/image) (
-/// AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP)
-/// by enabling the `image-default-formats` cargo feature.
-pub fn load_image_from_dynamic_data(bytes: &[u8], format: &str) -> Result<Image, LoadImageError> {
-    ImageInner::load_from_data_with_cache_key(
-        ImageCacheKey::Invalid,
-        bytes.into(),
-        format.as_bytes().into(),
-    )
-    .map(Image)
-    .ok_or(Default::default())
+#[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+/// Load an image from the decoded payload of a data URI.
+/// This is called by the interpreter.
+pub fn load_image_from_data_uri(
+    uri: &str,
+    bytes: &[u8],
+    format: &str,
+) -> Result<Image, LoadImageError> {
+    // The browser loads images asynchronously, so every evaluation of the same data URI
+    // must share one image and its loading state: cache under the URI.
+    #[cfg(target_arch = "wasm32")]
+    {
+        self::cache::IMAGE_CACHE.with(|global_cache| {
+            global_cache
+                .borrow_mut()
+                .load_image_from_data_uri(uri, bytes, format)
+                .ok_or(LoadImageError(()))
+        })
+    }
+    // Native decoding is synchronous; don't fill the cache with one-shot images.
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = uri;
+        ImageInner::load_from_data_with_cache_key(
+            ImageCacheKey::Invalid,
+            bytes.into(),
+            format.as_bytes().into(),
+        )
+        .map(Image)
+        .ok_or(Default::default())
+    }
+}
+
+/// Returns the MIME type for an image file extension, or None if the extension is unknown.
+/// The extension is matched ASCII case-insensitively and given without the leading dot.
+pub fn image_mime_type_from_extension(extension: &str) -> Option<&'static str> {
+    for (ext, mime) in [
+        ("png", "image/png"),
+        ("jpg", "image/jpeg"),
+        ("jpeg", "image/jpeg"),
+        ("svg", "image/svg+xml"),
+        ("svgz", "image/svg+xml"),
+        ("gif", "image/gif"),
+        ("webp", "image/webp"),
+        ("bmp", "image/bmp"),
+        ("ico", "image/x-icon"),
+        ("avif", "image/avif"),
+    ] {
+        if extension.eq_ignore_ascii_case(ext) {
+            return Some(mime);
+        }
+    }
+    None
 }
 
 /// This enum describes the origin to use when rendering a borrowed OpenGL texture.
@@ -1108,7 +1203,7 @@ impl BorrowedOpenGLTextureBuilder {
 /// references that are URLs rather than file-system paths; it is not general
 /// network image loading.
 /// This is called by the interpreter and the generated code.
-#[cfg(all(target_arch = "wasm32", feature = "image-decoders"))]
+#[cfg(all(target_arch = "wasm32", feature = "std"))]
 pub fn load_as_html_image(url: &str) -> Result<Image, LoadImageError> {
     self::cache::IMAGE_CACHE.with(|global_cache| {
         global_cache.borrow_mut().load_as_html_image(url).ok_or(LoadImageError(()))
@@ -1117,7 +1212,7 @@ pub fn load_as_html_image(url: &str) -> Result<Image, LoadImageError> {
 
 /// Load an image from an image embedded in the binary.
 /// This is called by the generated code.
-#[cfg(feature = "image-decoders")]
+#[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
 pub fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'_, u8>) -> Image {
     self::cache::IMAGE_CACHE.with(|global_cache| {
         global_cache.borrow_mut().load_image_from_embedded_data(data, format).unwrap_or_default()
@@ -1441,7 +1536,9 @@ pub(crate) mod ffi {
         a: u8,
     }
 
-    #[cfg(feature = "image-decoders")]
+    // Keep the cfg free of target_arch: cbindgen maps target_arch = wasm32 to a C macro and
+    // would guard the declaration, but the C++ API is native only and relies on it being there.
+    #[cfg(all(feature = "std", feature = "image-decoders"))]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_image_load_from_path(path: &SharedString, image: *mut Image) {
         unsafe {
@@ -1452,7 +1549,7 @@ pub(crate) mod ffi {
         }
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(all(feature = "std", feature = "image-decoders"))]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_image_load_from_embedded_data(
         data: Slice<'static, u8>,

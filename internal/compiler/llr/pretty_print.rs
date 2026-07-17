@@ -100,7 +100,7 @@ impl PrettyPrinter<'_> {
                 f.name,
                 f.args.iter().map(|t| DisplayType(t).to_string()).join(", "),
                 DisplayType(&f.ret_ty),
-                DisplayExpression(&f.code, &ctx)
+                DisplayExpression(&f.code.borrow(), &ctx)
             )?;
         }
         for twb in &sc.two_way_bindings {
@@ -323,6 +323,20 @@ impl PrettyPrinter<'_> {
                 _ => unreachable!(),
             }
         }
+        for (p, animation) in &global.animations {
+            self.indent()?;
+            match p {
+                LocalMemberIndex::Property(p) => {
+                    writeln!(
+                        self.writer,
+                        "animate {} {{ {} }}",
+                        global.properties[*p].name,
+                        DisplayExpression(animation, &ctx),
+                    )?;
+                }
+                _ => unreachable!(),
+            }
+        }
 
         for (p, e) in &global.change_callbacks {
             self.indent()?;
@@ -341,7 +355,7 @@ impl PrettyPrinter<'_> {
                 f.name,
                 f.args.iter().map(ToString::to_string).join(", "),
                 f.ret_ty,
-                DisplayExpression(&f.code, &ctx)
+                DisplayExpression(&f.code.borrow(), &ctx)
             )?;
         }
         self.indentation -= 1;
@@ -536,6 +550,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 values.iter().map(|(k, v)| format!("{}: {}", k, e(v))).join(", ")
             ),
             Expression::EasingCurve(x) => write!(f, "{x:?}"),
+            Expression::MouseCursor(x) => write!(f, "{x:?}"),
             Expression::LinearGradient { angle, stops } => write!(
                 f,
                 "@linear-gradient({}, {})",

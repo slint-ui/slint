@@ -28,38 +28,36 @@ export component EditorUi inherits Window {
         height: root.titlebar-height;
         background: #3a3a3c;
 
-        if Platform.os == OperatingSystemType.macos: TouchArea {
-            pointer-event(e) => {
-                if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
-                    Api.request-window-drag();
-                }
-            }
-        }
+        WindowMoveArea {
+            // The custom title bar only exists on macOS; elsewhere the
+            // window keeps its native decorations.
+            enabled: Platform.os == OperatingSystemType.macos;
 
-        HorizontalLayout {
-            padding-left: 8px;
-            padding-right: 8px;
-            alignment: start;
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 8px;
+                alignment: start;
 
-            VerticalLayout {
-                alignment: center;
+                VerticalLayout {
+                    alignment: center;
 
-                // Fake toolbar button.
-                Rectangle {
-                    width: 64px;
-                    height: 22px;
-                    border-radius: 5px;
-                    background: touch.pressed ? #5a5a5e : #505054;
+                    // Fake toolbar button.
+                    Rectangle {
+                        width: 64px;
+                        height: 22px;
+                        border-radius: 5px;
+                        background: touch.pressed ? #5a5a5e : #505054;
 
-                    Text {
-                        text: "Run";
-                        color: #ffffff;
-                        font-size: 12px;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
+                        Text {
+                            text: "Run";
+                            color: #ffffff;
+                            font-size: 12px;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        touch := TouchArea { }
                     }
-
-                    touch := TouchArea { }
                 }
             }
         }

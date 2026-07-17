@@ -8,7 +8,7 @@ component SubElement inherits Rectangle {
     sub := Text { x:0;y:0; text: "sub"; }
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     // This binding allow the test to set the style's default color so that we can compare it
     in-out property<color> binding_to_default_text_color: Palette.foreground;
 

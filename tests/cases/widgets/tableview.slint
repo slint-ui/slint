@@ -3,7 +3,7 @@
 
 import { StandardTableView } from "std-widgets.slint";
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     callback set-current-row(int);
 
     out property <int> row-count: list.rows.length;

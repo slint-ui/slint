@@ -830,6 +830,7 @@ impl RendererSealed for SoftwareRenderer {
             .unwrap_or_default();
         }
 
+        let max_lines = text_item.line_limit();
         let string = match &content {
             PlainOrStyledText::Plain(string) => alloc::borrow::Cow::Borrowed(string.as_str()),
             PlainOrStyledText::Styled(styled_text) => {
@@ -844,6 +845,7 @@ impl RendererSealed for SoftwareRenderer {
                     &string,
                     max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
                     text_wrap,
+                    max_lines,
                 )
             }
             fonts::Font::PixelFont(pf) => {
@@ -852,6 +854,7 @@ impl RendererSealed for SoftwareRenderer {
                     &string,
                     max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
                     text_wrap,
+                    max_lines,
                 )
             }
         };
@@ -894,7 +897,7 @@ impl RendererSealed for SoftwareRenderer {
                 let mut buf = [0u8, 0u8, 0u8, 0u8];
                 let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
                 let (longest_line_width, height) =
-                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap);
+                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap, None);
                 (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
                     .cast()
             }
@@ -902,7 +905,7 @@ impl RendererSealed for SoftwareRenderer {
                 let mut buf = [0u8, 0u8, 0u8, 0u8];
                 let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
                 let (longest_line_width, height) =
-                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap);
+                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap, None);
                 (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
                     .cast()
             }
@@ -1017,6 +1020,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 visual_representation.map_byte_offset_from_visual_text_to_actual_text(
@@ -1045,6 +1049,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 visual_representation.map_byte_offset_from_visual_text_to_actual_text(
@@ -1108,6 +1113,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 let cursor_position = paragraph.cursor_pos_for_byte_offset(byte_offset);
@@ -1142,6 +1148,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 let cursor_position = paragraph.cursor_pos_for_byte_offset(byte_offset);
@@ -2804,6 +2811,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
 
         let (horizontal_alignment, vertical_alignment) = text.alignment();
+        let max_lines = text.line_limit();
 
         match &font {
             fonts::Font::PixelFont(pf) => {
@@ -2818,6 +2826,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text.wrap(),
                     overflow: text.overflow(),
                     single_line: false,
+                    max_lines,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
@@ -2835,6 +2844,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text.wrap(),
                     overflow: text.overflow(),
                     single_line: false,
+                    max_lines,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
@@ -2906,6 +2916,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: text_input.single_line(),
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
@@ -2976,6 +2987,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: text_input.single_line(),
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
@@ -3243,6 +3255,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: Default::default(),
                     overflow: Default::default(),
                     single_line: false,
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, clip, Default::default(), color, None);
@@ -3260,6 +3273,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: Default::default(),
                     overflow: Default::default(),
                     single_line: false,
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, clip, Default::default(), color, None);
@@ -3328,8 +3342,16 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         Some(brush.color())
     }
 
-    fn fill_rectangle(&mut self, mut physical_rect: sharedparley::PhysicalRect, color: Color) {
-        if color.alpha() == 0 {
+    fn fill_rectangle(
+        &mut self,
+        mut physical_rect: sharedparley::PhysicalRect,
+        color: Color,
+        radius: sharedparley::PhysicalLength,
+        border: Option<sharedparley::RectangleBorder<Color>>,
+    ) {
+        let has_visible_border =
+            border.as_ref().is_some_and(|b| b.width.get() > 0.0 && b.brush.alpha() > 0);
+        if color.alpha() == 0 && !has_visible_border {
             return;
         }
 
@@ -3337,13 +3359,30 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             (self.current_state.offset.to_vector().cast() * self.scale_factor).cast();
 
         physical_rect.origin += global_offset;
-        let physical_rect = physical_rect.cast().transformed(self.rotation);
-
-        let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
-            physical_rect.cast(),
+        let clip = physical_rect.cast().transformed(self.rotation);
+        let mut args = target_pixel_buffer::DrawRectangleArgs::from_rect(
+            clip.cast(),
             Brush::SolidColor(color),
         );
-        self.processor.process_rectangle(&args, physical_rect);
+
+        if radius.get() > 0.0 {
+            let r = radius.get().min(args.width / 2.0).min(args.height / 2.0);
+            args.top_left_radius = r;
+            args.top_right_radius = r;
+            args.bottom_right_radius = r;
+            args.bottom_left_radius = r;
+        }
+
+        if let Some(sharedparley::RectangleBorder { brush: border_color, width: border_width }) =
+            border
+            && border_width.get() > 0.0
+            && border_color.alpha() > 0
+        {
+            args.border_width = border_width.get();
+            args.border = Brush::SolidColor(border_color);
+        }
+
+        self.processor.process_rectangle(&args, clip);
     }
 
     fn draw_glyph_run(

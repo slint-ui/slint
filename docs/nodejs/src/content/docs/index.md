@@ -33,7 +33,7 @@ pnpm -C api/node run build
 
 To use Slint with Node.js, ensure the following programs are installed:
 
-  * **[Node.js](https://nodejs.org/download/release/)** (v24 or newer)
+  * **[Node.js](https://nodejs.org/download/release/)** (v20 or newer)
   * **[npm](https://www.npmjs.com/)**
 
 To use Slint with Deno, ensure the following programs are installed:
@@ -431,7 +431,7 @@ import * as slint from "slint-ui";
 let ui = slint.loadFile(new URL("ui/my-component.slint", import.meta.url));
 let component = new ui.MyComponent();
 
-component.Logic.to_upper_case = (str) => {
+component.Logic.to_uppercase = (str) => {
     return str.toUpperCase();
 };
 ```

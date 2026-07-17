@@ -97,7 +97,7 @@ is detected. This might also change at runtime, for example if the user attaches
 keyboard is visible (in this case, the operating system might hide the virtual keyboard by itself). In any case, if there
 is a non-floating virtual keyboard visible, Slint exposes this to the application.
 
-You can detect if the keyboard is shown by checking whether `virtual-keyboard-width * virtual-keyboard-height` is
+You can detect if the keyboard is shown by checking whether `virtual-keyboard-size.width * virtual-keyboard-size.height` is
 greater than 0.
 
 Some virtual keyboards are translucent, which means that the area below the keyboard can be visible to some extend. So,

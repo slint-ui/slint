@@ -4,7 +4,7 @@
 // C++ live preview: interpreted models don't write back
 //ignore: cpp-live-preview
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 300phx;
     in-out property<[{name: string, account: string, score: float}]> model: [

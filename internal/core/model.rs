@@ -403,6 +403,15 @@ impl<M: Model> Model for Rc<M> {
     fn set_row_data(&self, row: usize, data: Self::Data) {
         (**self).set_row_data(row, data)
     }
+    fn push_row(&self, data: Self::Data) {
+        (**self).push_row(data)
+    }
+    fn remove_row(&self, row: isize) {
+        (**self).remove_row(row)
+    }
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        (**self).insert_row(row, data)
+    }
 }
 
 /// A [`Model`] backed by a `Vec<T>`, using interior mutability.
@@ -605,14 +614,14 @@ impl<T: Clone + 'static> Model for SharedVectorModel<T> {
     }
 
     fn remove_row(&self, row: isize) {
-        if row >= 0 {
+        if row >= 0 && row < self.row_count() as isize {
             self.array.borrow_mut().remove(row as usize);
             self.notify.row_removed(row as usize, 1);
         }
     }
 
     fn insert_row(&self, row: isize, data: Self::Data) {
-        if row >= 0 {
+        if row >= 0 && row <= self.row_count() as isize {
             self.array.borrow_mut().insert(row as usize, data);
             self.notify.row_added(row as usize, 1);
         }
@@ -997,6 +1006,39 @@ mod tests {
         assert!(!tracker.is_dirty());
         model.set_vec(vec![1, 2, 3]);
         assert!(tracker.is_dirty());
+    }
+
+    #[test]
+    fn test_shared_vector_model_bounds() {
+        let model: Rc<SharedVectorModel<i32>> =
+            Rc::new(SharedVectorModel::from(SharedVector::from_slice(&[1, 2, 3])));
+        let handle = ModelRc::from(model.clone());
+        let tracker = Box::pin(<crate::properties::PropertyTracker>::default());
+        let count = || {
+            tracker.as_ref().evaluate(|| {
+                handle.model_tracker().track_row_count_changes();
+                handle.row_count()
+            })
+        };
+        assert_eq!(count(), 3);
+        assert!(!tracker.is_dirty());
+
+        // Out-of-range operations do nothing and must not notify the views.
+        model.remove_row(3);
+        model.remove_row(-1);
+        model.insert_row(4, 42);
+        model.insert_row(-1, 42);
+        assert!(!tracker.is_dirty());
+        assert_eq!(model.row_count(), 3);
+        assert_eq!(model.row_data(2), Some(3));
+
+        // In-range operations change the data and notify.
+        model.insert_row(3, 4);
+        assert!(tracker.is_dirty());
+        assert_eq!(count(), 4);
+        model.remove_row(0);
+        assert_eq!(model.row_count(), 3);
+        assert_eq!(model.row_data(0), Some(2));
     }
 
     #[test]

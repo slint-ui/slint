@@ -417,6 +417,7 @@ fn gen_corelib(
         "BorderRectangle",
         "DragArea",
         "DropArea",
+        "WindowMoveArea",
         "ImageItem",
         "ClippedImage",
         "TouchArea",
@@ -456,7 +457,7 @@ fn gen_corelib(
         "TextWrap",
         "ImageFit",
         "FillRule",
-        "MouseCursor",
+        "MouseCursorInner",
         "InputType",
         "StandardButtonKind",
         "DialogButtonRole",
@@ -928,6 +929,49 @@ fn gen_corelib(
         .export
         .pre_body
         .insert("SystemTrayIconDataBox".to_owned(), "struct SystemTrayIconData;".into());
+    // cbindgen only derives the special member functions and equality for tagged enums in the
+    // separate special-config pass, not for the types generated here, so they are provided by
+    // hand. The `CustomMouseCursor` variant holds a non-trivial `Image`, so the active union
+    // member must be copied, compared and destroyed according to the tag.
+    config.export.body.insert(
+        "MouseCursorInner".to_owned(),
+        "    constexpr MouseCursorInner() : tag(Tag::BuiltIn), built_in{} {}
+    explicit MouseCursorInner(BuiltInMouseCursor cursor) : tag(Tag::BuiltIn), built_in{cursor} {}
+    explicit MouseCursorInner(Image image, int hotspot_x, int hotspot_y) : tag(Tag::CustomMouseCursor), custom_mouse_cursor{image, hotspot_x, hotspot_y} {}
+    MouseCursorInner(const MouseCursorInner &other) : tag(other.tag) {
+        switch (tag) {
+            case Tag::BuiltIn: new (&built_in) BuiltIn_Body(other.built_in); break;
+            case Tag::CustomMouseCursor: new (&custom_mouse_cursor) CustomMouseCursor_Body(other.custom_mouse_cursor); break;
+        }
+    }
+    MouseCursorInner &operator=(const MouseCursorInner &other) {
+        if (this != &other) {
+            this->~MouseCursorInner();
+            new (this) MouseCursorInner(other);
+        }
+        return *this;
+    }
+    ~MouseCursorInner() {
+        if (tag == Tag::CustomMouseCursor) {
+            custom_mouse_cursor.~CustomMouseCursor_Body();
+        }
+    }
+    bool operator==(const MouseCursorInner &other) const {
+        if (tag != other.tag) {
+            return false;
+        }
+        switch (tag) {
+            case Tag::BuiltIn:
+                return built_in._0 == other.built_in._0;
+            case Tag::CustomMouseCursor:
+                return custom_mouse_cursor.image == other.custom_mouse_cursor.image
+                    && custom_mouse_cursor.hotspot_x == other.custom_mouse_cursor.hotspot_x
+                    && custom_mouse_cursor.hotspot_y == other.custom_mouse_cursor.hotspot_y;
+        }
+        return false;
+    }
+        ".into()
+    );
 
     cbindgen::Builder::new()
         .with_config(config)
