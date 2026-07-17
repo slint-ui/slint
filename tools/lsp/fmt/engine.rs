@@ -10,6 +10,7 @@ use crate::fmt::atoms::{
     Annotations, Atom, AtomInstance, AtomSink, FormatPlan, INDENT, Instruction, Marker, Tier,
     Whitespace,
 };
+use crate::fmt::width::Variant;
 use crate::fmt::writer::TokenWriter;
 use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize,
@@ -532,6 +533,20 @@ enum Strength {
     Newline,
 }
 
+/// How the measured softlines (`SpacedSoftline`/`EmptySoftline`) resolve
+/// during one gap resolution: measured on the input layout — the shipped
+/// pipeline — or substituted with a group's chosen variant, which is how the
+/// width search resolves a gap once per variant. `InputSoftline` is
+/// unaffected: it keeps its literal input meaning in both modes.
+#[derive(Debug, Clone, Copy)]
+pub enum SoftlineMode {
+    FromInput,
+    // Not used by the shipped pipeline yet; exercised by the engine tests
+    // until the width search is wired in.
+    #[allow(dead_code)]
+    Decided(Variant),
+}
+
 /// Phase 2: collapse the collected atoms into concrete instructions.
 ///
 /// Every gap is resolved: a rule's atoms decide the whitespace where they
@@ -615,15 +630,13 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
             }
         }
 
-        #[cfg(debug_assertions)]
-        let gap_instructions_start = instructions.len();
         if leaf_internal {
             // A leaf emits its interior verbatim. Indentation still accrues so
             // a balanced brace pair inside it keeps the running level exact.
             indentation_level += net_indentation(append_atoms) + net_indentation(prepend_atoms);
             instructions.push(Instruction::KeepGap { slot: slot_index });
         } else {
-            resolve_gap(
+            let resolution = resolve_gap(
                 slot,
                 slot_index,
                 append_atoms,
@@ -633,21 +646,20 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
                     end: slot.token.kind() == SyntaxKind::Eof,
                 },
                 source,
-                &mut indentation_level,
-                &mut instructions,
+                indentation_level,
+                SoftlineMode::FromInput,
             );
-        }
-
-        // Leaf-internal gaps are exempt from the guard: their atoms were
-        // suppressed above, so nothing was emitted.
-        #[cfg(debug_assertions)]
-        if !leaf_internal {
+            indentation_level = resolution.indentation_level;
+            // Leaf-internal gaps are exempt from the guard: their atoms are
+            // suppressed, so nothing was emitted.
+            #[cfg(debug_assertions)]
             idempotency_guard.record_gap(
                 append_atoms.iter().chain(prepend_atoms),
-                &instructions[gap_instructions_start..],
+                &resolution.instructions,
                 slot.token.text_range().start(),
                 source,
             );
+            instructions.extend(resolution.instructions);
         }
 
         if !leaf_internal {
@@ -811,20 +823,25 @@ fn route_atom(
     newline_target: usize,
     input_softline_whitespace: &str,
     source: &str,
+    mode: SoftlineMode,
     sub_gaps: &mut [SubGapAtoms],
 ) {
+    let softline_breaks = |measure_span: TextRange| match mode {
+        SoftlineMode::FromInput => source[measure_span].contains('\n'),
+        SoftlineMode::Decided(variant) => variant == Variant::Multiline,
+    };
     let strength = match instance.atom {
         Atom::Space => Strength::Space,
         Atom::Hardline => Strength::Newline,
         Atom::SpacedSoftline(measure_span) => {
-            if source[measure_span].contains('\n') {
+            if softline_breaks(measure_span) {
                 Strength::Newline
             } else {
                 Strength::Space
             }
         }
         Atom::EmptySoftline(measure_span) => {
-            if source[measure_span].contains('\n') {
+            if softline_breaks(measure_span) {
                 Strength::Newline
             } else {
                 Strength::Nothing
@@ -887,6 +904,13 @@ struct DocumentEdges {
     end: bool,
 }
 
+/// The outcome of resolving one gap: its whitespace and comment
+/// instructions, and the indentation level after the gap's indent atoms.
+struct GapResolution {
+    instructions: Vec<Instruction>,
+    indentation_level: i32,
+}
+
 fn resolve_gap(
     slot: &TokenSlot,
     slot_index: usize,
@@ -894,13 +918,13 @@ fn resolve_gap(
     prepend_atoms: &[AtomInstance],
     edges: DocumentEdges,
     source: &str,
-    indentation_level: &mut i32,
-    instructions: &mut Vec<Instruction>,
-) {
+    mut indentation_level: i32,
+    mode: SoftlineMode,
+) -> GapResolution {
     let structure = slot.split_gap();
     let comment_count = structure.comments.len();
     let expected_level_after =
-        *indentation_level + net_indentation(append_atoms) + net_indentation(prepend_atoms);
+        indentation_level + net_indentation(append_atoms) + net_indentation(prepend_atoms);
 
     // Hanging comments: the maximal prefix with no newline before them.
     let trailing_count = (0..comment_count)
@@ -916,6 +940,7 @@ fn resolve_gap(
             trailing_count,
             slot.whitespace_text(structure.sub_gaps[trailing_count]),
             source,
+            mode,
             &mut sub_gaps,
         );
     }
@@ -926,14 +951,16 @@ fn resolve_gap(
             comment_count,
             slot.whitespace_text(structure.sub_gaps[comment_count]),
             source,
+            mode,
             &mut sub_gaps,
         );
     }
 
+    let mut instructions = Vec::with_capacity(comment_count * 2 + 1);
     for (index, sub_gap) in sub_gaps.iter().enumerate() {
         let whitespace_index = structure.sub_gaps[index];
         let whitespace = slot.whitespace_text(whitespace_index);
-        *indentation_level += sub_gap.indentation_delta;
+        indentation_level += sub_gap.indentation_delta;
 
         let decision: Whitespace = if comment_count > 0 && whitespace.contains('\n') {
             // A comment-adjacent boundary with an input newline keeps it
@@ -944,7 +971,7 @@ fn resolve_gap(
                 indentation_level: if before_column_zero_comment {
                     0
                 } else {
-                    (*indentation_level).max(0) as u32
+                    indentation_level.max(0) as u32
                 },
             }
         } else {
@@ -977,7 +1004,7 @@ fn resolve_gap(
                 Strength::Space => Whitespace::Space,
                 Strength::Newline => Whitespace::Newline {
                     blank_line: sub_gap.allow_blank_lines && whitespace_has_blank_line(whitespace),
-                    indentation_level: (*indentation_level).max(0) as u32,
+                    indentation_level: indentation_level.max(0) as u32,
                 },
             }
         };
@@ -1014,9 +1041,10 @@ fn resolve_gap(
     }
 
     debug_assert_eq!(
-        *indentation_level, expected_level_after,
+        indentation_level, expected_level_after,
         "sub-gap routing must apply every indentation delta exactly once"
     );
+    GapResolution { instructions, indentation_level }
 }
 
 /// The column (in bytes) at which `offset` sits on its line. Bytes equal
@@ -1791,6 +1819,64 @@ mod tests {
             format_with("component A { Text{}\nImage{} }", &rules),
             "component A { Text { }\nImage { } }"
         );
+    }
+
+    #[test]
+    fn decided_mode_substitutes_the_variant_for_measured_softlines() {
+        // A decided variant overrides the input measurement entirely, in both
+        // directions: it must break a single-line span it is told to and, the
+        // width search's primary job, flatten a multiline one it is told to.
+        // Each source's span covers the whole source.
+        let single_line = "hello";
+        let multiline = "a\nb";
+        for (source, spaced_from_input, empty_from_input) in [
+            (single_line, Strength::Space, Strength::Nothing),
+            (multiline, Strength::Newline, Strength::Newline),
+        ] {
+            let span = TextRange::up_to(TextSize::of(source));
+            let cases = [
+                (SoftlineMode::FromInput, spaced_from_input, empty_from_input),
+                (SoftlineMode::Decided(Variant::SingleLine), Strength::Space, Strength::Nothing),
+                (SoftlineMode::Decided(Variant::Multiline), Strength::Newline, Strength::Newline),
+            ];
+            for (mode, spaced, empty) in cases {
+                for (atom, expected) in
+                    [(Atom::SpacedSoftline(span), spaced), (Atom::EmptySoftline(span), empty)]
+                {
+                    let mut sub_gaps = vec![SubGapAtoms::default()];
+                    route_atom(
+                        &AtomInstance { atom, tier: Tier::Node },
+                        0,
+                        0,
+                        "",
+                        source,
+                        mode,
+                        &mut sub_gaps,
+                    );
+                    // A measured softline always records a tier-bearing
+                    // decision, even the `Nothing` an EmptySoftline resolves
+                    // to (unlike InputSoftline, which abstains).
+                    assert_eq!(
+                        sub_gaps[0].decisions,
+                        [(Tier::Node, expected)],
+                        "{source:?} {mode:?}"
+                    );
+                }
+            }
+        }
+
+        // InputSoftline keeps its literal input meaning in every mode: no
+        // input newline, no decision.
+        for mode in [
+            SoftlineMode::FromInput,
+            SoftlineMode::Decided(Variant::SingleLine),
+            SoftlineMode::Decided(Variant::Multiline),
+        ] {
+            let mut sub_gaps = vec![SubGapAtoms::default()];
+            let instance = AtomInstance { atom: Atom::InputSoftline, tier: Tier::Node };
+            route_atom(&instance, 0, 0, " ", single_line, mode, &mut sub_gaps);
+            assert!(sub_gaps[0].decisions.is_empty());
+        }
     }
 
     /// Element indentation + a multiline-aware States block, plus the global

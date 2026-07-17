@@ -29,6 +29,7 @@ mod fmt {
     pub mod engine;
     pub mod render;
     pub mod rules;
+    pub mod width;
     pub mod writer;
 }
 
