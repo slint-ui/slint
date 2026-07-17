@@ -13,7 +13,8 @@
 #![allow(dead_code)]
 
 use super::cost::Cost;
-use super::{GroupId, Variant};
+use super::doc::{Doc, DocId, DocumentArena};
+use super::{COMPUTATION_WIDTH, GroupId, Variant};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -107,6 +108,12 @@ impl Measure {
             decisions: prefix.decisions.clone().append(suffix.decisions.clone()),
         }
     }
+
+    /// Record one group's decision on this candidate.
+    fn record_decision(&mut self, group: GroupId, variant: Variant) {
+        self.decisions =
+            std::mem::take(&mut self.decisions).append(DecisionList::Decision(group, variant));
+    }
 }
 
 /// A lazily computed measure. Tainted branches of the search must not do any
@@ -146,6 +153,16 @@ impl LazyMeasure {
         *self.0.borrow_mut() = LazyState::Forced(measure.clone());
         measure
     }
+
+    /// A lazy measure that transforms this one — without forcing anything
+    /// now. This is the laziness-preserving shape every tainted-branch
+    /// adjustment must use.
+    pub fn map(
+        self: Rc<LazyMeasure>,
+        transform: impl FnOnce(Measure) -> Measure + 'static,
+    ) -> Rc<LazyMeasure> {
+        LazyMeasure::new(move || transform(self.force()))
+    }
 }
 
 /// The surviving candidates of one (sub-document, start column).
@@ -156,9 +173,34 @@ impl LazyMeasure {
 /// suffix may need. `Tainted` is the single greedy fallback once the search
 /// blew past the computation width; it carries no optimality claim and must
 /// stay unevaluated (see [`LazyMeasure`]).
+#[derive(Clone)]
 pub enum MeasureSet {
     Set(Vec<Measure>),
     Tainted(Rc<LazyMeasure>),
+}
+
+impl MeasureSet {
+    /// Record this group's decision on every candidate, adding the deviation
+    /// penalty when this is the branch that flips the author's layout. The
+    /// penalty must land before the branch is first merged against its
+    /// sibling — pruning compares the two with the penalty already in place.
+    /// Operates on this branch's own copies; the child body's memo entry
+    /// stays untouched and shared.
+    fn decided(self, group: GroupId, variant: Variant, penalized: bool) -> MeasureSet {
+        let decide = move |mut measure: Measure| {
+            if penalized {
+                measure.cost = measure.cost + Cost::DEVIATION;
+            }
+            measure.record_decision(group, variant);
+            measure
+        };
+        match self {
+            MeasureSet::Set(measures) => {
+                MeasureSet::Set(measures.into_iter().map(decide).collect())
+            }
+            MeasureSet::Tainted(lazy) => MeasureSet::Tainted(lazy.map(decide)),
+        }
+    }
 }
 
 /// Reduce candidates to their Pareto frontier.
@@ -206,6 +248,183 @@ pub fn merge(left: MeasureSet, right: MeasureSet) -> MeasureSet {
         | (MeasureSet::Tainted(_), MeasureSet::Set(measures)) => MeasureSet::Set(measures),
         (left @ MeasureSet::Tainted(_), MeasureSet::Tainted(_)) => left,
     }
+}
+
+/// The search itself: finds the cheapest assignment of a variant to every
+/// group of a choice document.
+pub struct Resolver {
+    /// Shared with the tainted thunks, which resolve greedily on demand.
+    arena: Rc<DocumentArena>,
+    /// Memoized per (doc, start column). Untainted columns are bounded by
+    /// the computation width and sub-documents are shared, so the table
+    /// stays linear in the document.
+    memo: HashMap<(DocId, u32), MeasureSet>,
+}
+
+impl Resolver {
+    pub fn new(arena: Rc<DocumentArena>) -> Resolver {
+        Resolver { arena, memo: HashMap::new() }
+    }
+
+    /// The winning variant per group. A group can be absent from the map:
+    /// its choice was never explicit (flattening forbidden), or it sat
+    /// inside an ancestor's chosen single-line body — the emitter's lookup
+    /// rule covers both.
+    pub fn resolve_widths(&mut self, root: DocId) -> HashMap<GroupId, Variant> {
+        match self.resolve(root, 0) {
+            // Frontier costs ascend strictly: the optimum is the first entry.
+            MeasureSet::Set(measures) => measures[0].decisions.flatten_to_map(),
+            // Every layout blew past the computation width. Force the greedy
+            // fallback — best effort, still valid.
+            MeasureSet::Tainted(lazy) => lazy.force().decisions.flatten_to_map(),
+        }
+    }
+
+    fn resolve(&mut self, doc: DocId, column: u32) -> MeasureSet {
+        if let Some(known) = self.memo.get(&(doc, column)) {
+            return known.clone();
+        }
+        let arena = self.arena.clone();
+        let result = match arena.get(doc) {
+            &Doc::Text { width } => leaf_set(text_measure(column, width)),
+            &Doc::Newline { indent_width } => leaf_set(newline_measure(indent_width)),
+            Doc::Concat(parts) => self.resolve_concat(parts, column),
+            &Doc::Choice { group, single_line, multiline, penalized } => {
+                let flat = self.resolve(single_line, column).decided(
+                    group,
+                    Variant::SingleLine,
+                    penalized == Variant::SingleLine,
+                );
+                let broken = self.resolve(multiline, column).decided(
+                    group,
+                    Variant::Multiline,
+                    penalized == Variant::Multiline,
+                );
+                // The input-matching (unpenalized) side goes left: merge
+                // keeps the left side when both are tainted, so a hopeless
+                // overflow degrades to the author's layout.
+                match penalized {
+                    Variant::SingleLine => merge(broken, flat),
+                    Variant::Multiline => merge(flat, broken),
+                }
+            }
+        };
+        self.memo.insert((doc, column), result.clone());
+        result
+    }
+
+    fn resolve_concat(&mut self, parts: &[DocId], column: u32) -> MeasureSet {
+        let mut result = MeasureSet::Set(vec![empty_measure(column)]);
+        for (index, part) in parts.iter().enumerate() {
+            match result {
+                MeasureSet::Set(prefixes) => result = self.concat_measures(prefixes, *part),
+                MeasureSet::Tainted(lazy) => {
+                    // Once the prefix is tainted, bundle every remaining part
+                    // into the one thunk: the work happens only if this
+                    // branch is the last resort, and forcing must not
+                    // recurse per part.
+                    let remaining: Vec<DocId> = parts[index..].to_vec();
+                    let arena = self.arena.clone();
+                    result = MeasureSet::Tainted(
+                        lazy.map(move |prefix| greedy_concat(&arena, prefix, &remaining)),
+                    );
+                    break;
+                }
+            }
+        }
+        result
+    }
+
+    /// Resolve `right` once per distinct prefix end column and merge the
+    /// per-prefix outcomes. Merging (rather than collecting) is what keeps
+    /// one prefix's tainted suffix from tainting the others; the whole
+    /// concat taints only when every prefix's suffix did.
+    fn concat_measures(&mut self, prefixes: Vec<Measure>, right: DocId) -> MeasureSet {
+        let mut merged: Option<MeasureSet> = None;
+        // Frontier order — cheapest first — makes the cheapest prefix the
+        // "left" side of every merge, which is also the tie-break winner.
+        for prefix in prefixes {
+            let combined = match self.resolve(right, prefix.last_line_width) {
+                MeasureSet::Set(suffixes) => MeasureSet::Set(dedup(
+                    suffixes.iter().map(|suffix| Measure::combine(&prefix, suffix)).collect(),
+                )),
+                // Nothing is forced here: the suffix stays lazy inside the
+                // combined thunk.
+                MeasureSet::Tainted(lazy) => {
+                    MeasureSet::Tainted(lazy.map(move |suffix| Measure::combine(&prefix, &suffix)))
+                }
+            };
+            merged = Some(match merged {
+                None => combined,
+                Some(others) => merge(others, combined),
+            });
+        }
+        merged.expect("a frontier is never empty")
+    }
+}
+
+/// Greedy resolution for tainted branches: take the author's variant at
+/// every choice — no frontier, no optimality claim, just a valid layout.
+/// Runs only when a tainted thunk is forced, and only the `decisions` of the
+/// forced result are ever consumed — a tainted measure's cost and width are
+/// never compared against anything.
+fn resolve_greedy(arena: &DocumentArena, doc: DocId, column: u32) -> Measure {
+    match arena.get(doc) {
+        &Doc::Text { width } => text_measure(column, width),
+        &Doc::Newline { indent_width } => newline_measure(indent_width),
+        Doc::Concat(parts) => greedy_concat(arena, empty_measure(column), parts),
+        &Doc::Choice { group, single_line, multiline, penalized } => {
+            let (variant, body) = match penalized {
+                // The penalized variant deviates from the input; greedy
+                // keeps the author's layout.
+                Variant::SingleLine => (Variant::Multiline, multiline),
+                Variant::Multiline => (Variant::SingleLine, single_line),
+            };
+            let mut measure = resolve_greedy(arena, body, column);
+            measure.record_decision(group, variant);
+            measure
+        }
+    }
+}
+
+/// Greedily resolve `parts` as the continuation of `measure`. Runs only
+/// inside forced tainted thunks.
+fn greedy_concat(arena: &DocumentArena, mut measure: Measure, parts: &[DocId]) -> Measure {
+    for part in parts {
+        let suffix = resolve_greedy(arena, *part, measure.last_line_width);
+        measure = Measure::combine(&measure, &suffix);
+    }
+    measure
+}
+
+/// The frontier of a single leaf measure — or the tainted fallback when the
+/// leaf already ends past the computation width.
+fn leaf_set(measure: Measure) -> MeasureSet {
+    if measure.last_line_width > COMPUTATION_WIDTH {
+        MeasureSet::Tainted(LazyMeasure::new(move || measure))
+    } else {
+        MeasureSet::Set(vec![measure])
+    }
+}
+
+fn text_measure(column: u32, width: u32) -> Measure {
+    Measure {
+        last_line_width: column + width,
+        cost: Cost::text(column, width),
+        decisions: DecisionList::Empty,
+    }
+}
+
+fn newline_measure(indent_width: u32) -> Measure {
+    Measure {
+        last_line_width: indent_width,
+        cost: Cost::newline(indent_width),
+        decisions: DecisionList::Empty,
+    }
+}
+
+fn empty_measure(column: u32) -> Measure {
+    Measure { last_line_width: column, cost: Cost::ZERO, decisions: DecisionList::Empty }
 }
 
 #[cfg(test)]
@@ -388,5 +607,202 @@ mod tests {
         let once = DecisionList::Decision(GroupId(1), Variant::SingleLine);
         let twice = once.clone().append(once);
         twice.flatten_to_map();
+    }
+
+    /// A choice document builder for resolver tests.
+    struct DocBuilder(DocumentArena);
+
+    impl DocBuilder {
+        fn new() -> DocBuilder {
+            DocBuilder(DocumentArena::default())
+        }
+
+        fn text(&mut self, width: u32) -> DocId {
+            self.0.alloc(Doc::Text { width })
+        }
+
+        fn newline(&mut self, indent_width: u32) -> DocId {
+            self.0.alloc(Doc::Newline { indent_width })
+        }
+
+        fn concat(&mut self, parts: Vec<DocId>) -> DocId {
+            self.0.alloc(Doc::Concat(parts))
+        }
+
+        fn choice(
+            &mut self,
+            group: u32,
+            single_line: DocId,
+            multiline: DocId,
+            penalized: Variant,
+        ) -> DocId {
+            self.0.alloc(Doc::Choice { group: GroupId(group), single_line, multiline, penalized })
+        }
+
+        fn resolve(self, root: DocId) -> HashMap<GroupId, Variant> {
+            Resolver::new(Rc::new(self.0)).resolve_widths(root)
+        }
+    }
+
+    /// `group{ Text(flat_width) | Text(first) Newline(indent) Text(second) }`
+    /// — the canonical one-group document.
+    fn one_group_document(
+        builder: &mut DocBuilder,
+        group: u32,
+        penalized: Variant,
+        flat_width: u32,
+        broken_widths: (u32, u32, u32),
+    ) -> DocId {
+        let single_line = builder.text(flat_width);
+        let (first, indent, second) = broken_widths;
+        let first = builder.text(first);
+        let indent = builder.newline(indent);
+        let second = builder.text(second);
+        let multiline = builder.concat(vec![first, indent, second]);
+        builder.choice(group, single_line, multiline, penalized)
+    }
+
+    #[test]
+    fn author_layout_wins_while_everything_fits() {
+        // Input was single-line and it fits: stays single-line.
+        let mut builder = DocBuilder::new();
+        let root = one_group_document(&mut builder, 1, Variant::Multiline, 50, (10, 4, 10));
+        assert_eq!(builder.resolve(root)[&GroupId(1)], Variant::SingleLine);
+
+        // Input was multiline: stays multiline even though collapsing would
+        // save two lines — deviation ranks above height.
+        let mut builder = DocBuilder::new();
+        let root = one_group_document(&mut builder, 1, Variant::SingleLine, 50, (10, 4, 10));
+        assert_eq!(builder.resolve(root)[&GroupId(1)], Variant::Multiline);
+    }
+
+    #[test]
+    fn overflow_overrides_the_author_layout() {
+        // Input was single-line but no longer fits: the search breaks it.
+        let mut builder = DocBuilder::new();
+        let root =
+            one_group_document(&mut builder, 1, Variant::Multiline, PAGE_WIDTH + 20, (60, 4, 60));
+        assert_eq!(builder.resolve(root)[&GroupId(1)], Variant::Multiline);
+    }
+
+    #[test]
+    fn hopeless_overflow_keeps_the_author_layout() {
+        // Both variants blow past the computation width; the tainted
+        // fallback must keep the input-matching side, in both directions.
+        for (penalized, expected) in
+            [(Variant::Multiline, Variant::SingleLine), (Variant::SingleLine, Variant::Multiline)]
+        {
+            let mut builder = DocBuilder::new();
+            let root = one_group_document(&mut builder, 1, penalized, 200, (150, 0, 150));
+            assert_eq!(builder.resolve(root)[&GroupId(1)], expected);
+        }
+    }
+
+    #[test]
+    fn a_tainted_suffix_for_one_prefix_does_not_taint_the_others() {
+        // The flat prefix ends at column 100, so the 30-wide suffix taints
+        // there (130 > 125) — but the broken prefix ends at column 12 and
+        // keeps a real frontier. A concat that tainted as a whole would fall
+        // back to greedy and wrongly answer SingleLine.
+        let mut builder = DocBuilder::new();
+        let group = one_group_document(&mut builder, 1, Variant::Multiline, 100, (10, 2, 10));
+        let suffix = builder.text(30);
+        let root = builder.concat(vec![group, suffix]);
+        assert_eq!(builder.resolve(root)[&GroupId(1)], Variant::Multiline);
+    }
+
+    #[test]
+    fn greedy_fallback_keeps_the_author_layout_for_nested_groups() {
+        // The outer group is hopeless in both variants, so the greedy
+        // fallback walks its multiline body — and must take the author's
+        // variant at the nested choice it finds there, recording it.
+        let mut builder = DocBuilder::new();
+        let inner = one_group_document(&mut builder, 2, Variant::SingleLine, 10, (5, 4, 5));
+        let outer_single = builder.text(200);
+        let outer_first = builder.text(150);
+        let outer_newline = builder.newline(0);
+        let outer_multi = builder.concat(vec![outer_first, outer_newline, inner]);
+        let root = builder.choice(1, outer_single, outer_multi, Variant::SingleLine);
+
+        let decisions = builder.resolve(root);
+        assert_eq!(decisions[&GroupId(1)], Variant::Multiline);
+        assert_eq!(decisions[&GroupId(2)], Variant::Multiline);
+    }
+
+    #[test]
+    fn a_line_ending_exactly_at_the_computation_width_is_not_tainted() {
+        // Taint starts strictly past the computation width. The flat variant
+        // ends exactly at W — overflowing the page width but still inside
+        // the search — while the broken variant taints outright, so the
+        // untainted flat side must win. Tainting at exactly W instead would
+        // degrade to the fallback's answer, the input layout: Multiline.
+        let mut builder = DocBuilder::new();
+        let root = one_group_document(
+            &mut builder,
+            1,
+            Variant::SingleLine,
+            COMPUTATION_WIDTH,
+            (COMPUTATION_WIDTH + 25, 0, 10),
+        );
+        assert_eq!(builder.resolve(root)[&GroupId(1)], Variant::SingleLine);
+    }
+
+    #[test]
+    fn a_suffix_can_make_the_search_pay_for_a_shorter_line() {
+        // The group alone fits single-line (and that is cheapest there), but
+        // the suffix pushes the flat layout past the page width. Only a
+        // frontier that kept the pricier short-last-line candidate finds the
+        // multiline answer.
+        let mut builder = DocBuilder::new();
+        let group = one_group_document(&mut builder, 1, Variant::Multiline, 80, (10, 2, 10));
+        let suffix = builder.text(30);
+        let root = builder.concat(vec![group, suffix]);
+        assert_eq!(builder.resolve(root)[&GroupId(1)], Variant::Multiline);
+    }
+
+    #[test]
+    fn a_group_inside_a_chosen_single_line_body_stays_undecided() {
+        // The inner choice exists only inside the outer multiline body; when
+        // the outer group flattens, the inner group is implicitly flattened
+        // and must be absent from the decision map (the emitter's lookup
+        // rule fills it in).
+        let mut builder = DocBuilder::new();
+        let inner = one_group_document(&mut builder, 2, Variant::Multiline, 10, (5, 4, 5));
+        let outer_single = builder.text(20);
+        let outer_first = builder.text(5);
+        let outer_newline = builder.newline(4);
+        let outer_multi = builder.concat(vec![outer_first, outer_newline, inner]);
+        let root = builder.choice(1, outer_single, outer_multi, Variant::Multiline);
+
+        let decisions = builder.resolve(root);
+        assert_eq!(decisions[&GroupId(1)], Variant::SingleLine);
+        assert!(!decisions.contains_key(&GroupId(2)));
+    }
+
+    #[test]
+    fn tagging_a_shared_body_does_not_leak_into_other_choices() {
+        // Two choices share one single-line body doc, resolved at the same
+        // column — the second resolution is a memo hit. The recorded
+        // decisions must still be per-choice (a leaked tag would make
+        // `flatten_to_map` see a group decided twice).
+        fn multiline_body(builder: &mut DocBuilder) -> DocId {
+            let first = builder.text(1);
+            let newline = builder.newline(0);
+            let second = builder.text(1);
+            builder.concat(vec![first, newline, second])
+        }
+
+        let mut builder = DocBuilder::new();
+        let shared_body = builder.text(30);
+        let first_multi = multiline_body(&mut builder);
+        let second_multi = multiline_body(&mut builder);
+        let first = builder.choice(1, shared_body, first_multi, Variant::Multiline);
+        let second = builder.choice(2, shared_body, second_multi, Variant::Multiline);
+        let between = builder.newline(0);
+        let root = builder.concat(vec![first, between, second]);
+
+        let decisions = builder.resolve(root);
+        assert_eq!(decisions[&GroupId(1)], Variant::SingleLine);
+        assert_eq!(decisions[&GroupId(2)], Variant::SingleLine);
     }
 }

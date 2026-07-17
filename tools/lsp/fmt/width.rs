@@ -12,6 +12,7 @@
 //! non-ASCII string literals overflow spuriously.
 
 pub mod cost;
+pub mod doc;
 pub mod search;
 
 /// The line width the formatter tries to stay within. Characters beyond this
