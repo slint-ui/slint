@@ -12,6 +12,7 @@
 //! non-ASCII string literals overflow spuriously.
 
 pub mod cost;
+pub mod search;
 
 /// The line width the formatter tries to stay within. Characters beyond this
 /// column make a layout increasingly expensive.
