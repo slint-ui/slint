@@ -50,7 +50,21 @@ fn break_braced_body(selection: &Selection, open: SyntaxKind, close: SyntaxKind)
         if matches!(child.kind(), SyntaxKind::Semicolon | SyntaxKind::Comma) {
             continue;
         }
-        selection.at(child.clone()).prepend(AllowBlankLines).prepend(selection.spaced_softline());
+        match child {
+            NodeOrToken::Node(_) => {
+                selection
+                    .at(child.clone())
+                    .prepend(AllowBlankLines)
+                    .prepend(selection.spaced_softline());
+            }
+            // A stray token child is error recovery: source the grammar
+            // could not place. Keep the input's line structure instead of
+            // inventing breaks (InputSoftline abstains where the input had
+            // no newline).
+            NodeOrToken::Token(_) => {
+                selection.at(child.clone()).prepend(InputSoftline);
+            }
+        }
     }
 }
 
@@ -85,9 +99,24 @@ pub fn make_rules() -> FormatRules {
         });
     }
     // A member-access or qualified-name dot hugs both neighbors
-    // (`self.foo`, `MyModule.Widget`).
+    // (`self.foo`, `MyModule.Widget`) — except after a bare integer, where
+    // gluing would change the expression: `42.log(x)` re-lexes as `42.` `log`.
     rules.token(SyntaxKind::Dot, |dot| {
-        dot.prepend(Antispace).append(Antispace);
+        dot.append(Antispace);
+        for item in dot.iter() {
+            let previous_significant_token = std::iter::successors(
+                item.as_token().and_then(|token| token.prev_token()),
+                |token| token.prev_token(),
+            )
+            .find(|token| !matches!(token.kind(), SyntaxKind::Whitespace | SyntaxKind::Comment));
+            let dot_would_extend_the_number = previous_significant_token.is_some_and(|token| {
+                token.kind() == SyntaxKind::NumberLiteral
+                    && token.text().bytes().all(|byte| byte.is_ascii_digit())
+            });
+            if !dot_would_extend_the_number {
+                dot.at(item.clone()).prepend(Antispace);
+            }
+        }
     });
     // `@` binds to the builtin that follows it: `@image-url`, `@children`.
     rules.token(SyntaxKind::At, |at| {
@@ -111,11 +140,24 @@ pub fn make_rules() -> FormatRules {
     rules.node(SyntaxKind::Document, |document| {
         let children: Vec<NodeOrToken> = document.children().iter().cloned().collect();
         for child in children.iter().skip(1) {
-            document.at(child.clone()).prepend(AllowBlankLines).prepend(Hardline);
+            match child {
+                NodeOrToken::Node(_) => {
+                    document.at(child.clone()).prepend(AllowBlankLines).prepend(Hardline);
+                }
+                // A stray token child is error recovery: source the grammar
+                // could not place. Keep the input's line structure instead
+                // of inventing breaks (InputSoftline abstains where the
+                // input had no newline).
+                NodeOrToken::Token(_) => {
+                    document.at(child.clone()).prepend(InputSoftline);
+                }
+            }
         }
         // The file ends with exactly one newline. Appending to the last item
         // lands the newline in the gap before Eof (Eof itself is not
-        // selectable); an empty document has no item and stays empty.
+        // selectable). A document with no significant item — empty, or
+        // holding only comments — has nothing to append to and keeps its
+        // trailing trivia as written.
         if let Some(last_child) = children.last() {
             document.at(last_child.clone()).append(Hardline);
         }
@@ -252,460 +294,4 @@ pub fn format_document_query(
     writer: &mut impl TokenWriter,
 ) -> std::io::Result<()> {
     format_document_with_rules(&document, &make_rules(), writer)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::fmt::writer::FileWriter;
-    use i_slint_compiler::diagnostics::BuildDiagnostics;
-
-    fn format_once(source: &str) -> String {
-        let document = i_slint_compiler::parser::parse(
-            String::from(source),
-            None,
-            &mut BuildDiagnostics::default(),
-        );
-        let document = syntax_nodes::Document::new(document).unwrap();
-        let mut output = Vec::new();
-        format_document_query(document, &mut FileWriter { file: &mut output }).unwrap();
-        String::from_utf8(output).unwrap()
-    }
-
-    /// Assert the formatted output, and that formatting is idempotent
-    /// (formatting the output again changes nothing).
-    /// The document rule ends every file with one newline;
-    /// the helper appends it so the expected strings can focus on the construct under test.
-    #[track_caller]
-    fn assert_formatting_query(unformatted: &str, formatted: &str) {
-        let formatted = format!("{formatted}\n");
-        assert_eq!(format_once(unformatted), formatted);
-        assert_eq!(format_once(&formatted), formatted, "formatting is not idempotent");
-    }
-
-    #[test]
-    fn colon_and_semicolon_spacing_fires() {
-        // The colon and semicolon rules space the punctuation; every other
-        // boundary takes the default single space (the doubled space before
-        // `y` collapses to one).
-        assert_formatting_query("component A { x :1 ;  y:2; }", "component A { x: 1; y: 2; }");
-    }
-
-    #[test]
-    fn antispace_deletes_even_an_input_newline() {
-        // Input newlines only survive where a rule asks for them
-        // (InputSoftline); a bare Antispace boundary collapses completely.
-        assert_formatting_query("component A { x: 1\n; }", "component A {\n    x: 1;\n}");
-    }
-
-    #[test]
-    fn single_line_states_stay_single_line() {
-        assert_formatting_query(
-            "component A { states [ s1 when b: { c: 1; } ] }",
-            "component A { states [ s1 when b: { c: 1; } ] }",
-        );
-    }
-
-    #[test]
-    fn multiline_states_normalize() {
-        assert_formatting_query(
-            "component A {
-    states [ s1 when b : {c: 1;} s2 : {
-} ]
-}",
-            "component A {
-    states [
-        s1 when b: { c: 1; }
-        s2: {
-        }
-    ]
-}",
-        );
-    }
-
-    #[test]
-    fn blank_lines_between_states_cap_at_one() {
-        assert_formatting_query(
-            "component A {
-    states [
-        s1: { }
-
-
-
-        s2: { }
-    ]
-}",
-            "component A {
-    states [
-        s1: { }
-
-        s2: { }
-    ]
-}",
-        );
-    }
-
-    #[test]
-    fn empty_states_block() {
-        assert_formatting_query("component A { states [] }", "component A { states [ ] }");
-        // A multiline empty block keeps one newline; the bracket pair's
-        // IndentStart/IndentEnd cancel out in the same gap.
-        assert_formatting_query(
-            "component A { states [
-] }",
-            "component A {
-    states [
-    ]
-}",
-        );
-    }
-
-    #[test]
-    fn trailing_comment_stays_on_state_line() {
-        assert_formatting_query(
-            "component A {
-    states [
-        s1: { } // trail
-            s2: { }
-    ]
-}",
-            "component A {
-    states [
-        s1: { } // trail
-        s2: { }
-    ]
-}",
-        );
-    }
-
-    #[test]
-    fn own_line_comment_reindents() {
-        assert_formatting_query(
-            "component A {
-    states [
-        s1: { }
-  // note
-        s2: { }
-    ]
-}",
-            "component A {
-    states [
-        s1: { }
-        // note
-        s2: { }
-    ]
-}",
-        );
-    }
-
-    #[test]
-    fn column_zero_comment_keeps_column_zero() {
-        // The compiler's syntax tests use column-0 comments whose internal
-        // spacing points at columns on the line above; they must not be
-        // re-indented.
-        assert_formatting_query(
-            "component A {
-    states [
-        s1: { }
-//  ^error{x}
-        s2: { }
-    ]
-}",
-            "component A {
-    states [
-        s1: { }
-//  ^error{x}
-        s2: { }
-    ]
-}",
-        );
-    }
-
-    #[test]
-    fn blank_line_above_own_line_comment_survives_capped() {
-        assert_formatting_query(
-            "component A {
-    states [
-        s1: { }
-
-
-        // note
-        s2: { }
-    ]
-}",
-            "component A {
-    states [
-        s1: { }
-
-        // note
-        s2: { }
-    ]
-}",
-        );
-    }
-
-    #[test]
-    fn hanging_comment_on_lbrace() {
-        // The `{`'s newline transfers past the hanging comment; the alignment
-        // before it takes the default single space.
-        assert_formatting_query(
-            "component A {
-    states [
-        s1: {  // note
-            c: 1;
-        }
-    ]
-}",
-            "component A {
-    states [
-        s1: { // note
-            c: 1;
-        }
-    ]
-}",
-        );
-    }
-
-    #[test]
-    fn own_line_comment_before_rbrace_at_inner_level() {
-        // The `}`'s IndentEnd anchors after the comment: the comment sits at
-        // the body level, the brace at the state level.
-        assert_formatting_query(
-            "component A {
-    states [
-        s1: {
-            c: 1;
-          // done
-        }
-    ]
-}",
-            "component A {
-    states [
-        s1: {
-            c: 1;
-            // done
-        }
-    ]
-}",
-        );
-    }
-
-    #[test]
-    fn own_line_comment_before_rbracket_at_inner_level() {
-        assert_formatting_query(
-            "component A {
-    states [
-        s1: { }
-            // end
-    ]
-}",
-            "component A {
-    states [
-        s1: { }
-        // end
-    ]
-}",
-        );
-    }
-
-    #[test]
-    fn block_comment_before_colon_glues_right() {
-        // The colon's Antispace applies after the hanging comment — the
-        // accepted gluing behavior.
-        assert_formatting_query("component A { x /* c */ : 1; }", "component A { x /* c */: 1; }");
-    }
-
-    #[test]
-    fn multiple_own_line_comments_each_reindent() {
-        assert_formatting_query(
-            "component A {
-    states [
-        s1: { }
-    // a
-            // b
-        s2: { }
-    ]
-}",
-            "component A {
-    states [
-        s1: { }
-        // a
-        // b
-        s2: { }
-    ]
-}",
-        );
-    }
-
-    #[test]
-    fn hanging_comment_pair_stays_inline() {
-        // Hanging comments (no newline before them) keep their line; the
-        // spacing around them takes the default single space.
-        assert_formatting_query(
-            "component A {
-    states [
-        s1: { } /* a */ /* b */
-        s2: { }
-    ]
-}",
-            "component A {
-    states [
-        s1: { } /* a */ /* b */
-        s2: { }
-    ]
-}",
-        );
-    }
-
-    #[test]
-    fn file_leading_comment_stays_on_its_line() {
-        assert_formatting_query(
-            "// header
-component A { x: 1; }
-",
-            "// header
-component A { x: 1; }",
-        );
-    }
-
-    #[test]
-    fn trailing_file_comment_stays_on_its_line() {
-        assert_formatting_query(
-            "component A { x :1; }
-// tail
-",
-            "component A { x: 1; }
-// tail",
-        );
-    }
-
-    #[test]
-    fn blank_between_own_line_comments_survives() {
-        assert_formatting_query(
-            "component A {
-    states [
-        s1: { }
-        // a
-
-
-        // b
-        s2: { }
-    ]
-}",
-            "component A {
-    states [
-        s1: { }
-        // a
-
-        // b
-        s2: { }
-    ]
-}",
-        );
-    }
-
-    #[test]
-    fn never_move_comment_off_its_line() {
-        // The colon's appended Space meets an own-line comment: the comment
-        // keeps its own line instead of being hoisted up to `x:`.
-        assert_formatting_query(
-            "component A {
-    x:
-    // why
-    1;
-}",
-            "component A {
-    x:
-    // why
-    1;
-}",
-        );
-    }
-
-    #[test]
-    fn block_comment_continuation_lines_shift() {
-        // Re-indenting the comment from column 2 to column 8 shifts its
-        // second line by the same +6, preserving internal alignment.
-        assert_formatting_query(
-            "component A {
-    states [
-        s1: { }
-  /* long
-     note */
-        s2: { }
-    ]
-}",
-            "component A {
-    states [
-        s1: { }
-        /* long
-           note */
-        s2: { }
-    ]
-}",
-        );
-    }
-
-    #[test]
-    fn ignore_directive_keeps_the_next_binding_verbatim() {
-        // The binding flagged with the directive keeps its odd spacing; the
-        // one after it formats normally.
-        assert_formatting_query(
-            "component A {
-    // slint-fmt:ignore
-    x   :1;
-    y :2;
-}",
-            "component A {
-    // slint-fmt:ignore
-    x   :1;
-    y: 2;
-}",
-        );
-    }
-
-    #[test]
-    fn rust_attr_interior_is_left_verbatim() {
-        // The odd spacing around the colon inside `@rust-attr(...)` is
-        // preserved (it is the opaque-Rust leaf), while everything outside the
-        // leaf — the attribute punctuation and the struct field's colon —
-        // takes the ruleset's formatting.
-        assert_formatting_query(
-            "@rust-attr(a : b)
-struct S { foo :int }",
-            "@rust-attr (a : b) struct S { foo: int }",
-        );
-    }
-
-    #[test]
-    fn string_template_interpolation_is_left_verbatim() {
-        // The colon of the ternary interpolated into the template stays
-        // verbatim; the binding's own colon is respaced.
-        assert_formatting_query(
-            "component A { x :\"a\\{ c ? d : e }f\"; }",
-            "component A { x: \"a\\{ c ? d : e }f\"; }",
-        );
-    }
-
-    #[test]
-    fn states_nested_in_elements_indent_by_depth() {
-        // Nested element bodies break too; the states content lands at the
-        // right depth (level 3: two elements + the states bracket).
-        assert_formatting_query(
-            "component A {
-    inner := Rectangle {
-        states [ s1: { c: 1; }
-            s2: { } ]
-    }
-}",
-            "component A {
-    inner := Rectangle {
-        states [
-            s1: { c: 1; }
-            s2: { }
-        ]
-    }
-}",
-        );
-    }
 }

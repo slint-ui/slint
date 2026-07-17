@@ -10,6 +10,8 @@ pub mod engine;
 pub mod fmt;
 pub mod render;
 pub mod rules;
+#[cfg(test)]
+mod tests;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tool;
 pub mod writer;
