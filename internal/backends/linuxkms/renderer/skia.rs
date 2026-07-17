@@ -157,8 +157,23 @@ impl SkiaRendererAdapter {
         let display =
             crate::display::swdisplay::new(device_opener, SKIA_SUPPORTED_DRM_FOURCC_FORMATS)?;
 
+        // Both environment variables are fixed for the lifetime of the process;
+        // read them once instead of on every frame.
+        let use_shadow_buffer = display.is_write_combined_memory()
+            && std::env::var_os("SLINT_KMS_NO_SHADOW_BUFFER").is_none();
+        let rotated = std::env::var("SLINT_KMS_ROTATION").ok().is_some_and(|rot_str| {
+            !matches!(rot_str.as_str().try_into(), Ok(RenderingRotation::NoRotation))
+        });
+
         let skia_software_surface: i_slint_renderer_skia::software_surface::SoftwareSurface =
-            DrmDumbBufferAccess { display: display.clone() }.into();
+            DrmDumbBufferAccess {
+                display: display.clone(),
+                use_shadow_buffer,
+                rotated,
+                shadow_buffer: Default::default(),
+                dirty_history: Default::default(),
+            }
+            .into();
 
         let (width, height) = display.size();
         let size = i_slint_core::api::PhysicalSize::new(width, height);
@@ -232,12 +247,28 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaRendererAdapter 
 }
 struct DrmDumbBufferAccess {
     display: Arc<dyn crate::display::swdisplay::SoftwareBufferDisplay>,
+    /// True when the display's buffer is in write-combined memory and
+    /// `SLINT_KMS_NO_SHADOW_BUFFER` is not set.
+    use_shadow_buffer: bool,
+    /// The dirty regions in `dirty_history` are in (pre-rotation) logical window
+    /// coordinates. When the screen is rotated, their rectangles don't correspond
+    /// to rows in the dumb buffer; the full frame is copied instead.
+    rotated: bool,
+    /// Blending reads back destination pixels, which is an order of magnitude
+    /// slower on write-combined dumb buffer mappings than on regular (cached)
+    /// memory. Render into this shadow buffer instead and copy the damaged
+    /// rows into the dumb buffer. `SLINT_KMS_NO_SHADOW_BUFFER` disables this.
+    shadow_buffer: std::cell::RefCell<Vec<u8>>,
+    /// Dirty regions of the previously rendered frames, most recent first. Used
+    /// to compute the region that needs to be copied into a dumb buffer of a
+    /// given age.
+    dirty_history: std::cell::RefCell<[Option<DirtyRegion>; 3]>,
 }
 
 impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAccess {
     fn with_buffer(
         &self,
-        _window: &Window,
+        window: &Window,
         size: PhysicalWindowSize,
         render_callback: &mut dyn FnMut(
             std::num::NonZeroU32,
@@ -257,68 +288,129 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAcce
         };
 
         self.display.map_back_buffer(&mut |pixels, age, format| {
-            render_callback(
-                width,
-                height,
-                match format {
-                    drm::buffer::DrmFourcc::Xrgb8888 => skia_safe::ColorType::BGRA8888,
+            let color_type = drm_format_to_skia_color_type(format)?;
 
-                    // Note: We use AlphaType::Opaque in software_surface. Might need fixing if
-                    // we want to support Argb8888 proper.
-                    drm::buffer::DrmFourcc::Argb8888 => skia_safe::ColorType::BGRA8888,
+            if !self.use_shadow_buffer {
+                render_callback(width, height, color_type, age, pixels)?;
+                return Ok(());
+            }
 
-                    drm::buffer::DrmFourcc::Rgba8888 => skia_safe::ColorType::RGBA8888,
+            let mut shadow = self.shadow_buffer.borrow_mut();
+            // The shadow buffer always holds the full previously rendered frame,
+            // so from the renderer's perspective its age is 1 (0 on creation).
+            let shadow_age = if shadow.len() == pixels.len() { 1 } else { 0 };
+            shadow.resize(pixels.len(), 0);
 
-                    drm::buffer::DrmFourcc::Bgra8888 => skia_safe::ColorType::BGRA8888,
+            let dirty_region =
+                render_callback(width, height, color_type, shadow_age, shadow.as_mut_slice())?;
 
-                    drm::buffer::DrmFourcc::Rgb565 => skia_safe::ColorType::RGB565,
+            // The dumb buffer contains the frame from `age` presents ago, so it
+            // needs the union of the damage of all frames rendered since then.
+            // Fall back to a full copy when that's unknown.
+            let mut history = self.dirty_history.borrow_mut();
+            let region_to_copy = match (&dirty_region, age) {
+                (Some(dirty), 1..=3) if shadow_age == 1 && !self.rotated => {
+                    let mut region = Some(dirty.clone());
+                    for previous in history.iter().take(age as usize - 1) {
+                        region = region
+                            .zip(previous.as_ref())
+                            .map(|(region, previous)| region.union(previous));
+                    }
+                    region
+                }
+                _ => None,
+            };
 
-                    drm::buffer::DrmFourcc::Bgr565 => skia_safe::ColorType::RGB565,
+            match &region_to_copy {
+                Some(region) => {
+                    let scale_factor =
+                        i_slint_core::lengths::ScaleFactor::new(window.scale_factor());
+                    let width = width.get() as usize;
+                    let height = height.get() as usize;
+                    let stride = pixels.len() / height;
+                    let bytes_per_pixel = stride / width;
+                    for logical in region.iter() {
+                        let physical = (logical.to_rect() * scale_factor).round_out();
+                        let x0 = (physical.min_x().max(0.) as usize).min(width);
+                        let x1 = (physical.max_x().max(0.) as usize).min(width);
+                        let y0 = (physical.min_y().max(0.) as usize).min(height);
+                        let y1 = (physical.max_y().max(0.) as usize).min(height);
+                        for y in y0..y1 {
+                            let span = y * stride + x0 * bytes_per_pixel
+                                ..y * stride + x1 * bytes_per_pixel;
+                            pixels[span.clone()].copy_from_slice(&shadow[span]);
+                        }
+                    }
+                }
+                None => pixels.copy_from_slice(&shadow),
+            }
 
-                    drm::buffer::DrmFourcc::Argb4444 => skia_safe::ColorType::ARGB4444,
+            history.rotate_right(1);
+            history[0] = dirty_region;
 
-                    drm::buffer::DrmFourcc::Abgr4444 => skia_safe::ColorType::ARGB4444,
-
-                    drm::buffer::DrmFourcc::Rgba4444 => skia_safe::ColorType::ARGB4444,
-
-                    drm::buffer::DrmFourcc::Bgra4444 => skia_safe::ColorType::ARGB4444,
-
-                    drm::buffer::DrmFourcc::C8 => skia_safe::ColorType::Gray8,
-
-                    drm::buffer::DrmFourcc::R8 => skia_safe::ColorType::R8UNorm,
-
-                    drm::buffer::DrmFourcc::R16 => skia_safe::ColorType::Unknown,
-
-                    drm::buffer::DrmFourcc::Gr88 => skia_safe::ColorType::R8G8UNorm,
-
-                    drm::buffer::DrmFourcc::Rg88 => skia_safe::ColorType::R8G8UNorm,
-
-                    drm::buffer::DrmFourcc::Gr1616 => skia_safe::ColorType::R16G16UNorm,
-
-                    drm::buffer::DrmFourcc::Rg1616 => skia_safe::ColorType::R16G16UNorm,
-
-                    drm::buffer::DrmFourcc::Xrgb2101010 => skia_safe::ColorType::RGB101010x,
-
-                    drm::buffer::DrmFourcc::Argb2101010 => skia_safe::ColorType::RGBA1010102,
-
-                    drm::buffer::DrmFourcc::Abgr2101010 => skia_safe::ColorType::BGRA1010102,
-
-                    drm::buffer::DrmFourcc::Rgba1010102 => skia_safe::ColorType::RGBA1010102,
-
-                    drm::buffer::DrmFourcc::Bgra1010102 => skia_safe::ColorType::BGRA1010102,
-
-                    drm::buffer::DrmFourcc::Rgbx1010102 => skia_safe::ColorType::RGB101010x,
-
-                    drm::buffer::DrmFourcc::Bgrx1010102 => skia_safe::ColorType::BGR101010x,
-                    _ => return Err(format!(
-                        "Unsupported frame buffer format {format} used with skia software renderer"
-                    )
-                    .into()),
-                },
-                age,
-                pixels,
-            )?;
             Ok(())
         })
     }
+}
+
+fn drm_format_to_skia_color_type(
+    format: drm::buffer::DrmFourcc,
+) -> Result<skia_safe::ColorType, i_slint_core::platform::PlatformError> {
+    Ok(match format {
+        drm::buffer::DrmFourcc::Xrgb8888 => skia_safe::ColorType::BGRA8888,
+
+        // Note: We use AlphaType::Opaque in software_surface. Might need fixing if
+        // we want to support Argb8888 proper.
+        drm::buffer::DrmFourcc::Argb8888 => skia_safe::ColorType::BGRA8888,
+
+        drm::buffer::DrmFourcc::Rgba8888 => skia_safe::ColorType::RGBA8888,
+
+        drm::buffer::DrmFourcc::Bgra8888 => skia_safe::ColorType::BGRA8888,
+
+        drm::buffer::DrmFourcc::Rgb565 => skia_safe::ColorType::RGB565,
+
+        drm::buffer::DrmFourcc::Bgr565 => skia_safe::ColorType::RGB565,
+
+        drm::buffer::DrmFourcc::Argb4444 => skia_safe::ColorType::ARGB4444,
+
+        drm::buffer::DrmFourcc::Abgr4444 => skia_safe::ColorType::ARGB4444,
+
+        drm::buffer::DrmFourcc::Rgba4444 => skia_safe::ColorType::ARGB4444,
+
+        drm::buffer::DrmFourcc::Bgra4444 => skia_safe::ColorType::ARGB4444,
+
+        drm::buffer::DrmFourcc::C8 => skia_safe::ColorType::Gray8,
+
+        drm::buffer::DrmFourcc::R8 => skia_safe::ColorType::R8UNorm,
+
+        drm::buffer::DrmFourcc::R16 => skia_safe::ColorType::Unknown,
+
+        drm::buffer::DrmFourcc::Gr88 => skia_safe::ColorType::R8G8UNorm,
+
+        drm::buffer::DrmFourcc::Rg88 => skia_safe::ColorType::R8G8UNorm,
+
+        drm::buffer::DrmFourcc::Gr1616 => skia_safe::ColorType::R16G16UNorm,
+
+        drm::buffer::DrmFourcc::Rg1616 => skia_safe::ColorType::R16G16UNorm,
+
+        drm::buffer::DrmFourcc::Xrgb2101010 => skia_safe::ColorType::RGB101010x,
+
+        drm::buffer::DrmFourcc::Argb2101010 => skia_safe::ColorType::RGBA1010102,
+
+        drm::buffer::DrmFourcc::Abgr2101010 => skia_safe::ColorType::BGRA1010102,
+
+        drm::buffer::DrmFourcc::Rgba1010102 => skia_safe::ColorType::RGBA1010102,
+
+        drm::buffer::DrmFourcc::Bgra1010102 => skia_safe::ColorType::BGRA1010102,
+
+        drm::buffer::DrmFourcc::Rgbx1010102 => skia_safe::ColorType::RGB101010x,
+
+        drm::buffer::DrmFourcc::Bgrx1010102 => skia_safe::ColorType::BGR101010x,
+        _ => {
+            return Err(format!(
+                "Unsupported frame buffer format {format} used with skia software renderer"
+            )
+            .into());
+        }
+    })
 }
