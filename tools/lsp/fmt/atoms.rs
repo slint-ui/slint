@@ -47,6 +47,8 @@ pub enum Atom {
     /// spacing atoms it makes no whitespace decision (the gap's whitespace is
     /// resolved independently) but it does engage the gap. Used to inject a
     /// trailing comma into a list that broke across lines.
+    // Not used by the shipped ruleset yet; exercised by the engine tests.
+    #[allow(dead_code)]
     Literal(String),
 }
 

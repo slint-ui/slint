@@ -3,14 +3,12 @@
 
 // cSpell: ignore inplace
 /*!
-    Work in progress for a formatter.
+    The `format` subcommand: formats `.slint` files,
+    and the Slint fragments embedded in `.rs` and `.md` files.
     Use like this to format a file:
     ```sh
         cargo run --bin slint-lsp -- format -i some_file.slint
     ```
-
-    The [`writer::TokenWriter`] trait is meant to be able to support the LSP later as the
-    LSP wants just the edits, not the full file
 */
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
@@ -18,7 +16,7 @@ use i_slint_compiler::parser::{SyntaxNode, syntax_nodes};
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
-use super::{fmt, writer};
+use super::{rules, writer};
 
 pub fn run(files: &[std::path::PathBuf], inplace: bool) -> std::io::Result<()> {
     for path in files {
@@ -121,14 +119,7 @@ fn process_file(
 
 fn visit_node(node: SyntaxNode, file: &mut impl Write) -> std::io::Result<()> {
     if let Some(doc) = syntax_nodes::Document::new(node) {
-        let mut writer = writer::FileWriter { file };
-        // Experimental: the query-based formatter (see API_DESIGN.md),
-        // opt-in until it can replace the imperative one below.
-        if std::env::var_os("SLINT_FMT_QUERY").is_some() {
-            super::rules::format_document_query(doc, &mut writer)
-        } else {
-            fmt::format_document(doc, &mut writer)
-        }
+        rules::format_document_query(doc, &mut writer::FileWriter { file })
     } else {
         Err(std::io::Error::other("Not a Document"))
     }

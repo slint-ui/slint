@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::common::DocumentCache;
-use crate::fmt::{fmt, writer};
+use crate::fmt::{rules, writer};
 use crate::util::text_range_to_lsp_range;
 use dissimilar::Chunk;
 use i_slint_compiler::parser::{SyntaxToken, TextRange, TextSize};
@@ -43,7 +43,7 @@ pub fn format_document(
     let doc = doc.node.as_ref()?;
 
     let mut writer = StringWriter { text: String::new() };
-    fmt::format_document(doc.clone(), &mut writer).ok()?;
+    rules::format_document_query(doc.clone(), &mut writer).ok()?;
 
     let original: String = doc.text().into();
     let diff = dissimilar::diff(&original, &writer.text);
@@ -106,7 +106,7 @@ mod tests {
     #[test]
     fn test_formatting() {
         let edits = get_formatting_edits(
-            "component Bar inherits Text { nope := Rectangle {} property <string> red; }",
+            "component Bar inherits Text {\nnope := Rectangle {}\nproperty <string> red;\n}",
         )
         .unwrap();
 
@@ -122,15 +122,12 @@ mod tests {
             };
         }
 
-        let expected = [
-            text_edit!(0, 29, 0, 29, "\n   "),
-            text_edit!(0, 49, 0, 50, " }\n\n   "),
-            text_edit!(0, 73, 0, 75, "\n}\n"),
+        let expected = vec![
+            text_edit!(1, 0, 1, 0, "    "),
+            text_edit!(2, 0, 2, 0, "    "),
+            text_edit!(3, 1, 3, 1, "\n"),
         ];
 
-        assert_eq!(edits.len(), expected.len());
-        for (actual, expected) in edits.iter().zip(expected.iter()) {
-            assert_eq!(actual, expected);
-        }
+        assert_eq!(edits, expected);
     }
 }

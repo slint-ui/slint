@@ -15,6 +15,8 @@ pub trait TokenWriter {
     fn with_new_content(&mut self, token: SyntaxToken, contents: &str) -> std::io::Result<()>;
 
     /// Write contents and then the token to the writer.
+    // Only called by the old imperative formatter; remove together with it.
+    #[allow(dead_code)]
     fn insert_before(&mut self, token: SyntaxToken, contents: &str) -> std::io::Result<()>;
 
     /// Just write the given string to the writer.

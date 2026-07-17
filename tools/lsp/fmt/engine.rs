@@ -32,6 +32,8 @@ pub struct TokenSlot {
 
 impl TokenSlot {
     /// Total number of newlines in the gap's whitespace.
+    // Not used by the shipped ruleset yet; exercised by the engine tests.
+    #[allow(dead_code)]
     pub fn gap_newlines(&self) -> usize {
         self.gap_before
             .iter()
@@ -42,6 +44,8 @@ impl TokenSlot {
 
     /// Whether the gap contains at least one blank line (a whitespace token
     /// with two or more newlines).
+    // Not used by the shipped ruleset yet; exercised by the engine tests.
+    #[allow(dead_code)]
     pub fn has_blank_line(&self) -> bool {
         self.gap_before.iter().any(|token| {
             token.kind() == SyntaxKind::Whitespace && whitespace_has_blank_line(token.text())
@@ -322,6 +326,8 @@ impl<'a> Selection<'a> {
     /// over its significant-token span — the same measurement the softline
     /// constructors below use, so annotation-time conditions and softline
     /// resolution can never disagree.
+    // Not used by the shipped ruleset yet; exercised by the engine tests.
+    #[allow(dead_code)]
     pub fn is_multiline(&self) -> bool {
         self.source[self.measure_span()].contains('\n')
     }
@@ -401,6 +407,8 @@ impl<'a> Selection<'a> {
     /// deletes a comma and injects a replacement elsewhere must attach the
     /// injected [`Atom::Literal`] to a *surviving* neighbor (e.g. append it to
     /// the last argument), not to the deleted token.
+    // Not used by the shipped ruleset yet; exercised by the engine tests.
+    #[allow(dead_code)]
     pub fn delete(&self) -> &Self {
         self.mark(Marker::Delete)
     }
@@ -454,6 +462,8 @@ impl FormatRules {
     /// Because Wildcard sits above Token, a wildcard `Space` next to a
     /// punctuation token would beat the token rules' `Antispace` and
     /// re-space every `:`/`;`/`,` in the document.
+    // Not used by the shipped ruleset yet; exercised by the engine tests.
+    #[allow(dead_code)]
     pub fn any_node(&mut self, rule: impl Fn(&Selection) + 'static) {
         self.wildcard_rules.push(Box::new(rule));
     }
@@ -613,21 +623,15 @@ pub fn resolve(slots: &[TokenSlot], annotations: &Annotations, source: &str) -> 
             indentation_level += net_indentation(append_atoms) + net_indentation(prepend_atoms);
             instructions.push(Instruction::KeepGap { slot: slot_index });
         } else {
-            // The default when no rule decides the boundary: a single space
-            // between two tokens, nothing at the document edges (before the
-            // first token, or before the terminating Eof) where there is no
-            // adjacency to space.
-            let default = if last_surviving.is_none() || slot.token.kind() == SyntaxKind::Eof {
-                Strength::Nothing
-            } else {
-                Strength::Space
-            };
             resolve_gap(
                 slot,
                 slot_index,
                 append_atoms,
                 prepend_atoms,
-                default,
+                DocumentEdges {
+                    start: last_surviving.is_none(),
+                    end: slot.token.kind() == SyntaxKind::Eof,
+                },
                 source,
                 &mut indentation_level,
                 &mut instructions,
@@ -876,12 +880,19 @@ fn route_atom(
 /// A comment that starts at column 0 in the input additionally keeps
 /// indentation level 0 (compiler syntax tests rely on the columns of such
 /// comments).
+/// Whether a slot's gap touches a document edge: the gap before the first
+/// significant token (`start`), the gap before the terminating Eof (`end`).
+struct DocumentEdges {
+    start: bool,
+    end: bool,
+}
+
 fn resolve_gap(
     slot: &TokenSlot,
     slot_index: usize,
     append_atoms: &[AtomInstance],
     prepend_atoms: &[AtomInstance],
-    default: Strength,
+    edges: DocumentEdges,
     source: &str,
     indentation_level: &mut i32,
     instructions: &mut Vec<Instruction>,
@@ -938,8 +949,15 @@ fn resolve_gap(
             }
         } else {
             let strength = if sub_gap.decisions.is_empty() && sub_gap.antispace_tier.is_none() {
-                // No rule decided this boundary: apply the default.
-                default
+                // No rule decided this boundary: a single space between two
+                // adjacent items, nothing at a document edge where there is
+                // no adjacency to space. In a gap with comments only the
+                // edge-touching sub-gap is the edge; the others — between
+                // the significant token and a hanging comment, or between
+                // two comments — have real adjacency and keep the space.
+                let at_document_edge =
+                    (edges.start && index == 0) || (edges.end && index == comment_count);
+                if at_document_edge { Strength::Nothing } else { Strength::Space }
             } else {
                 let merged = sub_gap.decisions.iter().copied().max();
                 match merged {
@@ -1624,6 +1642,20 @@ mod tests {
         assert_eq!(
             format_with("component A { x   :1; }", &colon_and_semicolon_rules()),
             "component A { x: 1; }"
+        );
+    }
+
+    #[test]
+    fn document_edge_default_spares_comment_adjacency() {
+        // The nothing-at-the-document-edge default is scoped to the
+        // edge-touching sub-gap. A hanging comment before Eof and a leading
+        // comment before the first token sit at real adjacencies inside the
+        // edge gaps: they keep their single space.
+        let rules = FormatRules::default();
+        assert_eq!(format_with("component A { } // tail", &rules), "component A { } // tail");
+        assert_eq!(
+            format_with("/* header */ component A { }", &rules),
+            "/* header */ component A { }"
         );
     }
 

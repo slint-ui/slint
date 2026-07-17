@@ -113,6 +113,12 @@ pub fn make_rules() -> FormatRules {
         for child in children.iter().skip(1) {
             document.at(child.clone()).prepend(AllowBlankLines).prepend(Hardline);
         }
+        // The file ends with exactly one newline. Appending to the last item
+        // lands the newline in the gap before Eof (Eof itself is not
+        // selectable); an empty document has no item and stays empty.
+        if let Some(last_child) = children.last() {
+            document.at(last_child.clone()).append(Hardline);
+        }
     });
 
     // Brace-delimited bodies — elements (`Foo { ... }`, including component,
@@ -268,10 +274,13 @@ mod tests {
 
     /// Assert the formatted output, and that formatting is idempotent
     /// (formatting the output again changes nothing).
+    /// The document rule ends every file with one newline;
+    /// the helper appends it so the expected strings can focus on the construct under test.
     #[track_caller]
     fn assert_formatting_query(unformatted: &str, formatted: &str) {
+        let formatted = format!("{formatted}\n");
         assert_eq!(format_once(unformatted), formatted);
-        assert_eq!(format_once(formatted), formatted, "formatting is not idempotent");
+        assert_eq!(format_once(&formatted), formatted, "formatting is not idempotent");
     }
 
     #[test]
@@ -566,8 +575,7 @@ component A { x: 1; }",
 // tail
 ",
             "component A { x: 1; }
-// tail
-",
+// tail",
         );
     }
 
