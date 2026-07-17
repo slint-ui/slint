@@ -328,7 +328,7 @@ A := B { c:   [
         r#"A := B {
     c: [
         1,
-        2
+        2,
     ];
 }
 "#,
@@ -515,7 +515,7 @@ component ABC {
 "#,
         r#"component ABC {
     in-out property <[int]> ar: [1,];
-    in-out property <[int]> ar: [1, 2, 3, 4, 5,];
+    in-out property <[int]> ar: [1, 2, 3, 4, 5];
     in-out property <[int]> ar2: [1, 2, 3, 4, 5];
 }
 "#,
@@ -540,7 +540,7 @@ component ABC {
     ];
     in property <[int]> model: [
         1,
-        2
+        2,
     ];
 }
 "#,
@@ -584,6 +584,111 @@ fn width_leaves_fitting_single_line_code_untouched() {
     assert_formatting(
         "component Short { in property <int> a: 1; }",
         r#"component Short { in property <int> a: 1; }
+"#,
+    );
+}
+
+#[test]
+fn width_breaks_a_long_call_at_its_parentheses() {
+    // The call pushes the line past 100 columns; opening the parens alone
+    // brings everything under it, so the arguments stay on one line and no
+    // trailing comma appears.
+    assert_formatting(
+        "component A { init => { root.dispatch-everything(first-longish-argument, second-longish-argument, third-longish-argument); } }",
+        r#"component A {
+    init => {
+        root.dispatch-everything(
+            first-longish-argument, second-longish-argument, third-longish-argument
+        );
+    }
+}
+"#,
+    );
+}
+
+#[test]
+fn width_breaks_a_longer_call_one_argument_per_line() {
+    // Even with the parens open the arguments overflow, so the argument list
+    // breaks too — one per line, with a trailing comma.
+    assert_formatting(
+        "component A { init => { root.dispatch-everything(first-extremely-long-argument-name, second-extremely-long-argument-name, third-extremely-long-argument-name); } }",
+        r#"component A {
+    init => {
+        root.dispatch-everything(
+            first-extremely-long-argument-name,
+            second-extremely-long-argument-name,
+            third-extremely-long-argument-name,
+        );
+    }
+}
+"#,
+    );
+}
+
+#[test]
+fn width_breaks_a_long_callback_declaration_parameter_list() {
+    assert_formatting(
+        "component A { callback data-changed(section-index: int, row-index: int, column-index: int, changed-value: string); }",
+        r#"component A {
+    callback data-changed(
+        section-index: int, row-index: int, column-index: int, changed-value: string
+    );
+}
+"#,
+    );
+}
+
+#[test]
+fn a_multiline_argument_breaks_the_whole_argument_list() {
+    // A newline inside one argument counts as the author breaking the list,
+    // so every argument goes on its own line and the trailing comma appears —
+    // the last multiline argument is not hugged against the parens (a
+    // deliberate departure from e.g. Prettier).
+    assert_formatting(
+        r#"component A {
+    init => {
+        root.configure({
+            alpha: 1,
+        }, other-argument);
+    }
+}
+"#,
+        r#"component A {
+    init => {
+        root.configure(
+            {
+                alpha: 1,
+            },
+            other-argument,
+        );
+    }
+}
+"#,
+    );
+}
+
+#[test]
+fn a_multiline_body_keeps_the_parameter_list_inline() {
+    // The parens form their own group, measured on the parameter list alone —
+    // the body's newlines must not force them open.
+    assert_formatting(
+        r#"component A {
+    function compute(alpha: int, beta: int) -> int {
+        return alpha + beta;
+    }
+    moved(position-x, position-y) => {
+        root.x = position-x;
+    }
+}
+"#,
+        r#"component A {
+    function compute(alpha: int, beta: int) -> int {
+        return alpha + beta;
+    }
+    moved(position-x, position-y) => {
+        root.x = position-x;
+    }
+}
 "#,
     );
 }

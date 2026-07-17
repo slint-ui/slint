@@ -546,10 +546,9 @@ impl<'a> DocumentBuilder<'a> {
         }
     }
 
-    /// The invariants a deleted token must satisfy for the builder to match the
-    /// emitter, since the builder does not replay the emitter's carrying of a
-    /// dropped token's atoms across the collapsed gap. The trailing-separator
-    /// idiom satisfies all of these; a rule that breaks one is a bug.
+    /// The invariants a deleted token must satisfy for the builder to match
+    /// the emitter. The trailing-separator idiom satisfies all of these; a
+    /// rule that breaks one is a bug.
     #[cfg(debug_assertions)]
     fn debug_assert_deletable(&self, slot: usize, region_group: Option<GroupId>) {
         // The deleted token's variant must be this region's, so builder and
@@ -573,16 +572,21 @@ impl<'a> DocumentBuilder<'a> {
                 "a conditional delete must be gated by the group whose region holds the token"
             );
         }
-        // The emitter carries the previous surviving token's append atoms past
-        // a dropped token and discards the dropped token's own; the builder
-        // does neither, so both must be empty.
-        let (before, _) = gap_atoms(self.slots, self.annotations, slot);
-        let own_start = self.slots[slot].token.text_range().start();
-        let own_appends = self.annotations.boundary.after.get(&own_start);
+        // The emitter carries the previous surviving token's append atoms
+        // past a dropped token to the next surviving gap; the builder drops
+        // them with the collapsed gap — so they must be empty. The dropped
+        // token's *own* append atoms agree: both sides place them in the next
+        // surviving gap.
+        let (before, own_prepends) = gap_atoms(self.slots, self.annotations, slot);
         debug_assert!(before.is_empty(), "append atoms before a deleted token would be lost");
+        // The dropped token's prepend atoms collapse with its gap unapplied;
+        // an indent atom among them would be counted by the builder's
+        // deletion-unaware indent precomputation but never by the emitter.
         debug_assert!(
-            own_appends.is_none_or(|atoms| atoms.is_empty()),
-            "a deleted token's own append atoms would be miscounted"
+            own_prepends
+                .iter()
+                .all(|instance| !matches!(instance.atom, Atom::IndentStart | Atom::IndentEnd)),
+            "a deleted token's prepend indent atoms would skew the indent"
         );
     }
 

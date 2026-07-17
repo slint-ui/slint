@@ -12,7 +12,7 @@
 use super::atoms::Atom::*;
 use super::engine::{FormatRules, Selection, format_document_with_rules};
 use super::writer::TokenWriter;
-use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, syntax_nodes};
+use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, TextRange, syntax_nodes};
 
 /// The positions of the `open`/`close` delimiter pair among `children`, when
 /// both are present in order.
@@ -66,6 +66,37 @@ fn break_braced_body(selection: &Selection, open: SyntaxKind, close: SyntaxKind)
             }
         }
     }
+}
+
+/// Break the comma-separated list delimited by `open`/`close` (call
+/// arguments, declared parameters, array elements). Delimiters and items are
+/// two separate groups: a moderately wide list can break at the delimiters
+/// alone, keeping its items on one line — the trailing comma appears only
+/// when the item list itself breaks. The delimiter span, not the node's,
+/// forms the group: the node often also holds a body whose newlines must not
+/// force the delimiters open.
+fn break_delimited_list(
+    selection: &Selection,
+    open: SyntaxKind,
+    close: SyntaxKind,
+    items: Selection,
+) {
+    let children: Vec<NodeOrToken> = selection.children().iter().cloned().collect();
+    let Some((open_index, close_index)) = delimiter_positions(&children, open, close) else {
+        return;
+    };
+    let span = TextRange::new(
+        children[open_index].text_range().start(),
+        children[close_index].text_range().end(),
+    );
+    selection.at(children[open_index].clone()).append(IndentStart).append(EmptySoftline(span));
+    selection.at(children[close_index].clone()).prepend(IndentEnd).prepend(EmptySoftline(span));
+    items.separated_by(SyntaxKind::Comma);
+}
+
+/// [`break_delimited_list`] for a `(...)` list.
+fn break_parenthesized_list(selection: &Selection, items: Selection) {
+    break_delimited_list(selection, SyntaxKind::LParent, SyntaxKind::RParent, items);
 }
 
 pub fn make_rules() -> FormatRules {
@@ -238,16 +269,30 @@ pub fn make_rules() -> FormatRules {
     });
 
     // Array literals stay tight inline (`[1, 2, 3]`) and break one element
-    // per line when multiline; the commas carry the inter-element breaks.
+    // per line when multiline or too wide.
     rules.node(SyntaxKind::Array, |array| {
-        let children: Vec<NodeOrToken> = array.children().iter().cloned().collect();
-        let Some((open_index, close_index)) =
-            delimiter_positions(&children, SyntaxKind::LBracket, SyntaxKind::RBracket)
-        else {
-            return;
-        };
-        array.at(children[open_index].clone()).append(IndentStart).append(array.empty_softline());
-        array.at(children[close_index].clone()).prepend(IndentEnd).prepend(array.empty_softline());
+        break_delimited_list(
+            array,
+            SyntaxKind::LBracket,
+            SyntaxKind::RBracket,
+            array.node(SyntaxKind::Expression),
+        );
+    });
+
+    // Argument and parameter lists break one item per line when multiline or
+    // too wide.
+    rules.node(SyntaxKind::FunctionCallExpression, |call| {
+        // The first Expression child is the callee; the rest are arguments.
+        break_parenthesized_list(call, call.node(SyntaxKind::Expression).skip(1));
+    });
+    rules.node(SyntaxKind::CallbackConnection, |connection| {
+        break_parenthesized_list(connection, connection.node(SyntaxKind::DeclaredIdentifier));
+    });
+    rules.node(SyntaxKind::CallbackDeclaration, |callback| {
+        break_parenthesized_list(callback, callback.node(SyntaxKind::CallbackDeclarationParameter));
+    });
+    rules.node(SyntaxKind::Function, |function| {
+        break_parenthesized_list(function, function.node(SyntaxKind::ArgumentDeclaration));
     });
 
     // `states [ ... ]`

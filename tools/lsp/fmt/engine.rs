@@ -17,6 +17,7 @@ use crate::fmt::writer::TokenWriter;
 use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize,
 };
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
@@ -313,6 +314,11 @@ impl<'a> Selection<'a> {
         self.items.iter()
     }
 
+    /// The selection without its first `count` items.
+    pub fn skip(&self, count: usize) -> Selection<'a> {
+        self.derived(self.items.iter().skip(count).cloned().collect())
+    }
+
     /// A selection of one arbitrary node or token, inheriting this
     /// selection's rule context (measure span for softlines), tier, and
     /// sink. This is the escape hatch back from plain rowan navigation.
@@ -423,10 +429,9 @@ impl<'a> Selection<'a> {
     /// trailing comma when a list collapses onto one line. A delete inside a
     /// leaf range is ignored (the leaf keeps its interior verbatim).
     ///
-    /// A deleted token's own boundary atoms are discarded, so a rule that
-    /// deletes a comma and injects a replacement elsewhere must attach the
-    /// injected [`Atom::Literal`] to a *surviving* neighbor (e.g. append it to
-    /// the last argument), not to the deleted token.
+    /// A deleted token's prepend atoms collapse with its gap; its append
+    /// atoms carry to the next surviving gap, where they act exactly as if
+    /// the token had survived.
     // Not used by the shipped ruleset yet; exercised by the engine tests.
     #[allow(dead_code)]
     pub fn delete(&self) -> &Self {
@@ -465,8 +470,6 @@ impl<'a> Selection<'a> {
     /// often holds more than the list (a `Function` holds its parameters and
     /// its body). Fewer than two items are left untouched: there is nothing
     /// to separate, and a single item's trailing separator stays as written.
-    // Not used by the shipped ruleset yet; exercised by the engine tests.
-    #[allow(dead_code)]
     pub fn separated_by(&self, separator: SyntaxKind) -> &Self {
         let separator_text = match separator {
             SyntaxKind::Comma => ",",
@@ -778,9 +781,12 @@ pub fn resolve(
     let mut indentation_level: i32 = 0;
     // The most recent token that was actually emitted. A deleted token does
     // not become one, so its predecessor's appended atoms carry across it to
-    // the next surviving gap — the deleted token's own trivia and atoms
-    // collapse away.
+    // the next surviving gap — the deleted token's own trivia collapses away.
     let mut last_surviving: Option<usize> = None;
+    // A deleted token's own append atoms carry to the next surviving gap:
+    // they act in the same physical gap either way, so the width search can
+    // count them without knowing the deleting group's choice.
+    let mut carried_appends: Vec<AtomInstance> = Vec::new();
 
     #[cfg(debug_assertions)]
     let mut idempotency_guard = IdempotencyGuard::default();
@@ -807,6 +813,9 @@ pub fn resolve(
                 });
             }
             instructions.push(Instruction::DeleteToken { slot: slot_index });
+            if let Some(atoms) = boundary_atoms.after.get(&slot.token.text_range().start()) {
+                carried_appends.extend(atoms.iter().cloned());
+            }
             continue;
         }
 
@@ -815,9 +824,15 @@ pub fn resolve(
         // meet here. They are kept apart because they route to different
         // sub-gaps when the gap contains comments.
         let no_atoms: &[AtomInstance] = &[];
-        let append_atoms = last_surviving
+        let surviving_appends = last_surviving
             .and_then(|index| boundary_atoms.after.get(&slots[index].token.text_range().start()))
             .map_or(no_atoms, Vec::as_slice);
+        let append_atoms: Cow<[AtomInstance]> = if carried_appends.is_empty() {
+            Cow::Borrowed(surviving_appends)
+        } else {
+            Cow::Owned(surviving_appends.iter().cloned().chain(carried_appends.drain(..)).collect())
+        };
+        let append_atoms = &*append_atoms;
         let prepend_atoms = boundary_atoms
             .before
             .get(&slot.token.text_range().start())

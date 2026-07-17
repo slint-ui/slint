@@ -175,8 +175,10 @@ Whitespace already has its conditional mechanism (the softline *is* how a
 group controls whitespace), and unconditional indent atoms are what make
 every potential newline's indent computable before the search — the
 resolver's memo key depends on it. Debug assertions guard the boundary: a
-conditionally deleted token must not carry `IndentStart`/`IndentEnd`, and a
-`Literal`'s text must not contain a newline.
+deleted token must not carry *prepend* indent atoms (they would collapse
+with its gap while the indent precomputation still counts them; its append
+atoms are sound — they carry to the next surviving gap), and a `Literal`'s
+text must not contain a newline.
 
 Implementation note — **extents, not raw spans**: a list's trailing
 separator sits textually *after* the group's measure span (the span ends at
@@ -309,9 +311,12 @@ that pass would need the group decisions — which do not exist yet. Two
 dependencies force the per-variant split:
 
 1. **Conditional deletes change which atoms meet in a gap.** A deleted
-   token's own atoms are discarded, and the following gap sources its
-   append-side atoms from the last *emitted* token. With
-   `delete_if_single_line`, which token that is depends on the variant.
+   token's prepend atoms collapse with its gap, and the previous surviving
+   token's appends carry past it to the next surviving gap. With
+   `delete_if_single_line`, which gap those atoms land in depends on the
+   variant. (The deleted token's *own* append atoms carry too, so they land
+   in the same physical gap either way — that is what lets the builder count
+   them without knowing the variant.)
 2. **Comment routing (R2) routes by resolved strength.** In the multiline
    variant a group's newline transfers past a trailing comment (`{ // note`
    keeps the comment hanging); in the single-line variant the space stays

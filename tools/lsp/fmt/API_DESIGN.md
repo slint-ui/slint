@@ -102,15 +102,12 @@ Per gap, in one linear pass over the slots:
    verbatim.
 2. `Delete`d tokens emit nothing (they still pass the writer once, as empty
    content) and their gap's whitespace collapses. The two surrounding gaps
-   *merge* without any physical restructuring: the deleted token's own atoms
-   are discarded, and the next surviving gap sources its append-side atoms
-   from the last *emitted* token rather than the immediate predecessor. So the
-   trailing-comma pattern splits across two boundaries — `delete()` the comma
-   token (single-line), or append a `Literal(",")` to the last argument
-   (multiline); the injected literal must live on a surviving token, never on
-   the deleted one, since the deleted token's atoms are dropped. The
-   surrounding spacing still comes out right. (A comment inside a deleted
-   token's gap is kept verbatim rather than collapsed.)
+   *merge* without any physical restructuring: the deleted token's prepend
+   atoms collapse with its gap, while its append atoms *carry* to the next
+   surviving gap — together with the last emitted token's appends — where
+   they act exactly as if the token had survived. The surrounding spacing
+   still comes out right. (A comment inside a deleted token's gap is kept
+   verbatim rather than collapsed.)
 3. The gap is split at comments into sub-gaps, and atoms are anchored to
    sub-gaps (see "Comments split gaps" below). A comment-free gap is the
    degenerate single-sub-gap case.
