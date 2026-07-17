@@ -1833,8 +1833,7 @@ mod tests {
         rules.node(SyntaxKind::FunctionCallExpression, |call| {
             let multiline = call.is_multiline();
             let children: Vec<NodeOrToken> = call.children().iter().cloned().collect();
-            let Some(open) =
-                children.iter().position(|child| child.kind() == SyntaxKind::LParent)
+            let Some(open) = children.iter().position(|child| child.kind() == SyntaxKind::LParent)
             else {
                 return;
             };

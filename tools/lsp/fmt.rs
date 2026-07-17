@@ -8,12 +8,12 @@
 pub mod atoms;
 #[allow(dead_code)]
 pub mod engine;
+#[allow(clippy::module_inception)]
+pub mod fmt;
 #[allow(dead_code)]
 pub mod render;
 #[allow(dead_code)]
 pub mod rules;
-#[allow(clippy::module_inception)]
-pub mod fmt;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tool;
 pub mod writer;
