@@ -560,7 +560,7 @@ impl ItemTreeDescription<'_> {
         self.original.id.as_str()
     }
 
-    #[cfg(feature="internal")]
+    #[cfg(feature = "internal")]
     pub(crate) fn compiled_globals(&self) -> Option<Rc<CompiledGlobalCollection>> {
         self.compiled_globals.clone()
     }
