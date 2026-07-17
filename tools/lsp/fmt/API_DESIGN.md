@@ -1,9 +1,10 @@
 # Query-Based Formatter — API Design
 
-Status: **design agreed, not yet implemented**
+Status: **implemented** — the engine and ruleset live in this directory,
+and the old imperative formatter they replace is deleted.
 
-This document describes the target architecture and API for rewriting the Slint
-formatter (`tools/lsp/fmt/fmt.rs`) as a rule/atom engine in the style of
+This document describes the architecture and API for rewriting the Slint
+formatter (the old `tools/lsp/fmt/fmt.rs`) as a rule/atom engine in the style of
 [Topiary](https://topiary.tweag.io/), but operating on Slint's own rowan-based
 syntax tree (`internal/compiler/parser.rs`) instead of a tree-sitter grammar.
 
@@ -124,7 +125,9 @@ Per gap, in one linear pass over the slots:
    deliberately override a global rule's resolved newline.) A boundary no
    atom decided takes the **default**: a single space between two tokens, and
    nothing at the document edges (before the first token and before the
-   terminating Eof, where there is no adjacency to space). The formatter
+   terminating Eof, where there is no adjacency to space). In an edge gap
+   with comments, only the edge-touching sub-gap is the edge; the sub-gaps
+   next to the comments have real adjacency and default to a space. The formatter
    therefore reformats every gap — there is no keep-the-input fallback — so
    running it over a file shows exactly what the ruleset does and does not yet
    cover.
@@ -565,7 +568,7 @@ tools/lsp/fmt/
   engine.rs     — tree walk, rule dispatch, linearization, comment core, resolution
   render.rs     — FormatPlan realization through TokenWriter
   rules.rs      — the Slint ruleset (FormatRules construction; reads like slint.scm)
-  fmt.rs        — old imperative formatter; kept until parity, then deleted
+  tests.rs      — end-to-end tests, ported from the old imperative formatter
 ```
 
 ## Verification plan / open questions

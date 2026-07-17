@@ -3,11 +3,6 @@
 
 pub mod atoms;
 pub mod engine;
-// The old imperative formatter: dead code, kept only until its tests are
-// ported to the query-based formatter.
-#[allow(dead_code)]
-#[allow(clippy::module_inception)]
-pub mod fmt;
 pub mod render;
 pub mod rules;
 #[cfg(test)]

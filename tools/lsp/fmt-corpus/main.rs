@@ -21,8 +21,8 @@
 // `#[path]` on an inline module sets the base directory its unattributed
 // children resolve in, so this reaches the real `tools/lsp/fmt/*.rs` files
 // without copying them. Only the modules the formatter's entry point
-// actually needs are included; `fmt::fmt` (the old imperative formatter) and
-// `fmt::tool` (the LSP's CLI glue) are intentionally left out.
+// actually needs are included; `fmt::tool` (the LSP's CLI glue) is
+// intentionally left out.
 #[path = "../fmt"]
 mod fmt {
     pub mod atoms;

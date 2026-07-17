@@ -14,11 +14,6 @@ pub trait TokenWriter {
     /// Write just contents into the writer (replacing token).
     fn with_new_content(&mut self, token: SyntaxToken, contents: &str) -> std::io::Result<()>;
 
-    /// Write contents and then the token to the writer.
-    // Only called by the old imperative formatter; remove together with it.
-    #[allow(dead_code)]
-    fn insert_before(&mut self, token: SyntaxToken, contents: &str) -> std::io::Result<()>;
-
     /// Just write the given string to the writer.
     ///
     /// Useful for inserting tokens which are not required,
@@ -40,11 +35,6 @@ impl<W: Write> TokenWriter for FileWriter<'_, W> {
 
     fn with_new_content(&mut self, _token: SyntaxToken, contents: &str) -> std::io::Result<()> {
         self.file.write_all(contents.as_bytes())
-    }
-
-    fn insert_before(&mut self, token: SyntaxToken, contents: &str) -> std::io::Result<()> {
-        self.file.write_all(contents.as_bytes())?;
-        self.file.write_all(token.text().as_bytes())
     }
 
     fn insert_content(&mut self, contents: &str) -> std::io::Result<()> {
