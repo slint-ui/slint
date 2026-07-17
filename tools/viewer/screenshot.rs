@@ -10,7 +10,10 @@ use std::cell::Cell;
 use std::path::Path;
 use std::rc::Rc;
 
-use crate::{Cli, Error, Result, extract_component, init_compiler, poll_ready, setup_instance};
+use crate::{
+    Cli, Error, Result, extract_component, init_compiler, poll_ready, reject_non_window_component,
+    setup_instance,
+};
 
 /// Build the best headless renderer compiled into the viewer. Skia's software
 /// rasterizer is preferred when available; otherwise we fall back to Slint's
@@ -62,6 +65,7 @@ pub fn take_screenshot(args: &Cli) -> Result<()> {
     let Some(c) = extract_component(&result, args) else {
         std::process::exit(1);
     };
+    reject_non_window_component(&c);
 
     let component = c.create()?;
     setup_instance(&component, &args.on, args.load_data.as_deref())?;
