@@ -629,3 +629,141 @@ export component TestCase inherits Window {
         "the navigator renders the Settings screen"
     );
 }
+
+// The presentation-agnostic proof: an int-index chrome that mimics Material's
+// `BaseNavigation` (`items` / `current_index` / `index_changed` / `select`)
+// drives the enum-typed navigator through the int-index adapter, both ways.
+// `IntChrome` copies that contract verbatim (only `select` is public so the test
+// can trigger a "tap"; Material's is protected and fired by item clicks). The
+// two adapter members are consumed exactly as native Material wiring would:
+//   current_index  <- current-route-index   (the bar reflects the route)
+//   index_changed(i) => navigate-index(i)    (a tap navigates)
+// Nothing about the `navigator { Route... }` block is chrome-specific, so std
+// chrome (PR A8) binds the same two members with zero change to the routes.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_int_chrome_binding() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+    let code = r#"
+enum Route { Home, Details, Settings }
+global NavProbe { in-out property <string> active; }
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "home"; } }
+component DetailsScreen inherits Rectangle { init => { NavProbe.active = "details"; } }
+component SettingsScreen inherits Rectangle { init => { NavProbe.active = "settings"; } }
+
+// Mirrors Material's BaseNavigation int API (items/current_index/index_changed/select).
+component IntChrome {
+    in property <[string]> items;
+    in-out property <int> current_index;
+    callback index_changed(index: int);
+    public function select(index: int) {
+        if (index < 0 || index >= root.items.length) {
+            return;
+        }
+        root.current_index = index;
+        root.index_changed(index);
+    }
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <Route> current-route: Route.Home;
+    out property <string> active: NavProbe.active;
+
+    // Adapter members are synthesized after expression resolution, so they are a
+    // native/runtime surface, not source-referenceable. The test copies
+    // current-route-index into `chrome-index` and forwards index_changed out, then
+    // binds both to the adapter through the runtime API, as native code does.
+    in property <int> chrome-index;
+    out property <int> chrome-index-out: chrome.current_index;
+    callback chrome-index-changed(index: int);
+
+    chrome := IntChrome {
+        items: ["Home", "Details", "Settings"];
+        current_index: root.chrome-index;              // display <- current-route-index
+        index_changed(i) => { root.chrome-index-changed(i); }  // tap forwarded out
+    }
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Details: DetailsScreen { }
+        Route.Settings: SettingsScreen { }
+    }
+    // Simulate an item tap (Material fires select() from a NavigationItem click).
+    public function tap(index: int) { chrome.select(index); }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
+    let settle = || i_slint_backend_testing::mock_elapsed_time(100);
+
+    // The tap binding: index_changed(i) => navigate-index(i). Wired once, exactly
+    // as native Material code binds NavigationBar.index_changed to the adapter.
+    let weak = instance.as_weak();
+    instance
+        .set_callback("chrome-index-changed", move |args| {
+            let i: i32 = args[0].clone().try_into().unwrap();
+            weak.unwrap().invoke("navigate-index", &[Value::from(i as f64)]).unwrap();
+            Value::Void
+        })
+        .unwrap();
+
+    // The display binding: current_index <- current-route-index. Pushed after each
+    // route change (native code does the same via set_bar_index).
+    let mirror = |instance: &crate::ComponentInstance| {
+        let idx = instance.get_property("current-route-index").unwrap();
+        instance.set_property("chrome-index", idx).unwrap();
+        settle();
+    };
+
+    // Display side: moving the route moves the chrome's current_index.
+    mirror(&instance);
+    assert_eq!(instance.get_property("chrome-index-out").unwrap(), Value::from(0.), "Home -> 0");
+    instance.set_property("current-route", route("Details")).unwrap();
+    mirror(&instance);
+    assert_eq!(instance.get_property("chrome-index-out").unwrap(), Value::from(1.), "Details -> 1");
+    instance.set_property("current-route", route("Settings")).unwrap();
+    mirror(&instance);
+    assert_eq!(
+        instance.get_property("chrome-index-out").unwrap(),
+        Value::from(2.),
+        "Settings -> 2"
+    );
+
+    // Tap side: chrome.select(i) fires index_changed -> navigate-index(i) -> route.
+    instance.invoke("tap", &[Value::from(0.)]).unwrap();
+    mirror(&instance);
+    assert_eq!(instance.get_property("current-route").unwrap(), route("Home"), "tap 0 -> Home");
+    assert_eq!(instance.get_property("chrome-index-out").unwrap(), Value::from(0.), "bar shows 0");
+
+    instance.invoke("tap", &[Value::from(2.)]).unwrap();
+    mirror(&instance);
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Settings"),
+        "tap 2 -> Settings"
+    );
+    assert_eq!(instance.get_property("chrome-index-out").unwrap(), Value::from(2.), "bar shows 2");
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("settings"))
+    );
+
+    // Out-of-range tap is a no-op in the mimic's guard (same as BaseNavigation.select).
+    instance.invoke("tap", &[Value::from(9.)]).unwrap();
+    mirror(&instance);
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Settings"),
+        "out-of-range tap is a no-op"
+    );
+}

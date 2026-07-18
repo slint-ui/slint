@@ -11,7 +11,7 @@
 # artifacts are reused. Developers working on the material library can load
 # both workspaces at once via `rust-analyzer.linkedProjects`.
 [workspace]
-members = ['examples/gallery']
+members = ['examples/gallery', 'examples/navigation']
 
 resolver = "3"
 
