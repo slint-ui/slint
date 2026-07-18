@@ -1150,6 +1150,16 @@ pub struct NavigatorRoute {
     pub component: ElementRc,
 }
 
+impl Element {
+    /// Read-only view of the resolved `navigator` route table declared on this
+    /// element, in declaration order (empty when there is no `navigator`).
+    /// Provided as an accessor so tooling reads the authoritative table without
+    /// touching the lowering in `from_navigator_node`.
+    pub fn navigator_routes(&self) -> &[NavigatorRoute] {
+        &self.navigator_routes
+    }
+}
+
 pub type ElementRc = Rc<RefCell<Element>>;
 pub type ElementWeak = Weak<RefCell<Element>>;
 
