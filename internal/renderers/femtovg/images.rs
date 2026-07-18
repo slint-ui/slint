@@ -188,7 +188,7 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     )
                     .unwrap()
             }
-            #[cfg(all(not(target_arch = "wasm32"), feature = "unstable-wgpu-29"))]
+            #[cfg(feature = "unstable-wgpu-29")]
             ImageInner::WGPUTexture(i_slint_core::graphics::WGPUTexture::WGPU29Texture(
                 texture,
             )) => {
