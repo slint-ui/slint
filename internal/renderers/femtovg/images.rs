@@ -18,6 +18,9 @@ pub trait TextureImporter
 where
     Self: femtovg::Renderer + Sized,
 {
+    /// Whether enlarging an SVG HTMLImageElement affects what gets uploaded (wasm only).
+    const SUPPORTS_HTML_SVG_UPSCALE: bool = true;
+
     #[cfg(not(target_family = "wasm"))]
     fn convert_opengl_texture(opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture;
 
@@ -39,6 +42,8 @@ impl TextureImporter for femtovg::renderer::OpenGl {
 
 #[cfg(feature = "wgpu-29")]
 impl TextureImporter for femtovg::renderer::WGPURenderer {
+    const SUPPORTS_HTML_SVG_UPSCALE: bool = false;
+
     #[cfg(not(target_family = "wasm"))]
     fn convert_opengl_texture(_opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture {
         todo!()
@@ -145,7 +150,9 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     // pre-multiplied alpha. It's possible that this is not generally applicable, but it
                     // is the case for SVGs.
                     let image_flags = if html_image.is_svg() {
-                        if let Some(target_size) = target_size_for_scalable_source {
+                        if let Some(target_size) = target_size_for_scalable_source
+                            .filter(|_| R::SUPPORTS_HTML_SVG_UPSCALE)
+                        {
                             let dom_element = &html_image.dom_element;
                             dom_element.set_width(target_size.width);
                             dom_element.set_height(target_size.height);
