@@ -693,9 +693,21 @@ fn flexbox_layout_data(
             cells_h.extend(component_vec.iter().map(|x| {
                 x.as_pin_ref().flexbox_layout_item_info(to_runtime(Orientation::Horizontal), None)
             }));
-            cells_v.extend(component_vec.iter().map(|x| {
-                x.as_pin_ref().flexbox_layout_item_info(to_runtime(Orientation::Vertical), None)
-            }));
+            // A height-for-width repeated instance (e.g. a component forwarding a
+            // wrapped Text's min-height) must not have its vertical info read here at
+            // the still-unsolved width — that would cycle, just like the static branch
+            // warns below. Defer it to the second pass, which measures at the width
+            // constraint and copies the flex props from cells_h. Other repeated cells
+            // are safe to measure now.
+            let rep_root =
+                layout_elem.item.element.borrow().base_type.as_component().root_element.clone();
+            if rep_root.borrow().inherited_layout_info_v_with_constraint().is_some() {
+                cells_v.resize_with(cells_v.len() + component_vec.len(), Default::default);
+            } else {
+                cells_v.extend(component_vec.iter().map(|x| {
+                    x.as_pin_ref().flexbox_layout_item_info(to_runtime(Orientation::Vertical), None)
+                }));
+            }
             static_children.resize_with(static_children.len() + component_vec.len(), || None);
             repeater_instance_vecs.push(component_vec);
         } else {
@@ -802,13 +814,31 @@ fn flexbox_layout_data(
                             .try_into()
                             .unwrap()
                     };
+                    // Apply only the constraints not already merged into the cell's
+                    // own layout-info (see the static branch below): an inherited
+                    // forwarded min/max/preferred-height is in the value above, and
+                    // re-reading it unconstrained would reintroduce a height-for-width
+                    // loop through the flex solve.
+                    let effective = layout_elem
+                        .item
+                        .constraints
+                        .to_apply(&layout_elem.item.element, Orientation::Vertical);
                     fill_layout_info_constraints(
                         &mut layout_info_v,
-                        &layout_elem.item.constraints,
+                        &effective,
                         Orientation::Vertical,
                         &instance_expr_eval,
                     );
-                    cells_v[cell_idx].constraint = layout_info_v;
+                    // cells_v was deferred in the first pass; take the flex props
+                    // from cells_h (they are orientation-independent).
+                    cells_v[cell_idx] = core_layout::FlexboxLayoutItemInfo {
+                        constraint: layout_info_v,
+                        flex_grow: cells_h[cell_idx].flex_grow,
+                        flex_shrink: cells_h[cell_idx].flex_shrink,
+                        flex_basis: cells_h[cell_idx].flex_basis,
+                        flex_align_self: cells_h[cell_idx].flex_align_self,
+                        flex_order: cells_h[cell_idx].flex_order,
+                    };
                 }
                 cell_idx += 1;
             }
@@ -822,9 +852,18 @@ fn flexbox_layout_data(
                 Orientation::Vertical,
                 Some(width_constraint),
             );
+            // Apply only the constraints not already merged into the cell's own
+            // layout-info: an inherited intrinsic min/max/preferred-height is in
+            // the value above, and re-reading it unconstrained would reintroduce
+            // a height-for-width loop through the flex solve. Locally-set overrides
+            // (`WrapCol { min-height: 70px }`) are kept.
+            let effective = layout_elem
+                .item
+                .constraints
+                .to_apply(&layout_elem.item.element, Orientation::Vertical);
             fill_layout_info_constraints(
                 &mut layout_info_v,
-                &layout_elem.item.constraints,
+                &effective,
                 Orientation::Vertical,
                 expr_eval,
             );

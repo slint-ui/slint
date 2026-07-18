@@ -725,6 +725,7 @@ impl Snapshotter {
                 .map(|lc| lc.snapshot(self)),
             fixed_width: layout_constraints.fixed_width,
             fixed_height: layout_constraints.fixed_height,
+            local: layout_constraints.local.clone(),
         }
     }
 

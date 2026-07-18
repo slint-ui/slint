@@ -2569,6 +2569,24 @@ impl Element {
         None
     }
 
+    /// Whether this element's `layoutinfo-{orientation}` already incorporates its
+    /// own explicit min/max/preferred/stretch constraints. True for elements with
+    /// a `layoutinfo-*` property (layouts, sub-components) or an inherited
+    /// `layoutinfo-*-with-constraint` function (a component forwarding a
+    /// height-for-width layout).
+    ///
+    /// A parent layout must then NOT re-apply the cell's explicit constraints on
+    /// top of the measured info — they are already included, and re-reading them
+    /// unconstrained can reintroduce a height-for-width binding loop. Only native
+    /// items (no `layoutinfo-*`) need their constraints applied separately.
+    pub fn layout_info_includes_own_constraints(&self, orientation: Orientation) -> bool {
+        self.layout_info_prop(orientation).is_some()
+            || match orientation {
+                Orientation::Vertical => self.inherited_layout_info_v_with_constraint().is_some(),
+                Orientation::Horizontal => self.inherited_layout_info_h_with_constraint().is_some(),
+            }
+    }
+
     /// Returns the element's name as specified in the markup, not normalized.
     pub fn original_name(&self) -> SmolStr {
         self.debug

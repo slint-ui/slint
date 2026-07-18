@@ -198,6 +198,27 @@ pub struct LayoutConstraints {
     pub vertical_stretch: Option<NamedReference>,
     pub fixed_width: bool,
     pub fixed_height: bool,
+    /// For each constraint, whether it is set directly on the element (an
+    /// override) rather than inherited from a base component. Inherited layout
+    /// constraints are already baked into an element's own `layoutinfo-*`, so a
+    /// parent layout that measured the cell through its layout-info must not
+    /// re-apply them (double-count / height-for-width loop); locally-set ones
+    /// must be applied. See [`Self::to_apply`].
+    pub local: LayoutConstraintLocality,
+}
+
+/// Which [`LayoutConstraints`] are set directly on the element (depth 0) rather
+/// than inherited from a base component.
+#[derive(Debug, Default, Clone)]
+pub struct LayoutConstraintLocality {
+    pub min_width: bool,
+    pub max_width: bool,
+    pub min_height: bool,
+    pub max_height: bool,
+    pub preferred_width: bool,
+    pub preferred_height: bool,
+    pub horizontal_stretch: bool,
+    pub vertical_stretch: bool,
 }
 
 /// The [`LayoutConstraints`] fields along one orientation.
@@ -231,6 +252,23 @@ impl LayoutConstraints {
             vertical_stretch: binding_reference(element, "vertical-stretch"),
             fixed_width: false,
             fixed_height: false,
+            local: LayoutConstraintLocality {
+                // min/max-{width,height} may be derived from a local fixed
+                // `width`/`height` binding (see below), which is just as local
+                // an override as an explicit min/max constraint.
+                min_width: is_local_binding(element, "min-width")
+                    || is_local_binding(element, "width"),
+                max_width: is_local_binding(element, "max-width")
+                    || is_local_binding(element, "width"),
+                min_height: is_local_binding(element, "min-height")
+                    || is_local_binding(element, "height"),
+                max_height: is_local_binding(element, "max-height")
+                    || is_local_binding(element, "height"),
+                preferred_width: is_local_binding(element, "preferred-width"),
+                preferred_height: is_local_binding(element, "preferred-height"),
+                horizontal_stretch: is_local_binding(element, "horizontal-stretch"),
+                vertical_stretch: is_local_binding(element, "vertical-stretch"),
+            },
         };
         let mut apply_size_constraint =
             |prop: &'static str,
@@ -295,6 +333,50 @@ impl LayoutConstraints {
                     || self.vertical_stretch.is_some()
             }
         }
+    }
+
+    /// The constraints a parent layout should apply on top of a cell's measured
+    /// layout-info for `orientation`. Native items (whose layout-info doesn't
+    /// merge their constraints) keep everything. For elements whose `layoutinfo-*`
+    /// already includes their intrinsic constraints, only locally-set overrides
+    /// are kept — inherited constraints are already in the measured value, and
+    /// re-reading them unconstrained can reintroduce a height-for-width loop.
+    pub fn to_apply(&self, element: &ElementRc, orientation: Orientation) -> Self {
+        if !element.borrow().layout_info_includes_own_constraints(orientation) {
+            return self.clone();
+        }
+        let mut c = self.clone();
+        match orientation {
+            Orientation::Horizontal => {
+                if !self.local.min_width {
+                    c.min_width = None;
+                }
+                if !self.local.max_width {
+                    c.max_width = None;
+                }
+                if !self.local.preferred_width {
+                    c.preferred_width = None;
+                }
+                if !self.local.horizontal_stretch {
+                    c.horizontal_stretch = None;
+                }
+            }
+            Orientation::Vertical => {
+                if !self.local.min_height {
+                    c.min_height = None;
+                }
+                if !self.local.max_height {
+                    c.max_height = None;
+                }
+                if !self.local.preferred_height {
+                    c.preferred_height = None;
+                }
+                if !self.local.vertical_stretch {
+                    c.vertical_stretch = None;
+                }
+            }
+        }
+        c
     }
 
     pub fn for_orientation(&self, orientation: Orientation) -> OrientationConstraints<'_> {
@@ -559,6 +641,13 @@ fn find_binding<R>(
 /// Return a named reference to a property if a binding is set on that property
 pub fn binding_reference(element: &ElementRc, name: &'static str) -> Option<NamedReference> {
     find_binding(element, name, |_, _, _| NamedReference::new(element, SmolStr::new_static(name)))
+}
+
+/// Whether `name`'s binding is set directly on `element` (depth 0) rather than
+/// inherited from a base component. Must be evaluated while the binding is still
+/// present (i.e. when building [`LayoutConstraints`]); later passes may move it.
+fn is_local_binding(element: &ElementRc, name: &str) -> bool {
+    find_binding(element, name, |_, _, depth| depth == 0) == Some(true)
 }
 
 fn init_fake_property(
