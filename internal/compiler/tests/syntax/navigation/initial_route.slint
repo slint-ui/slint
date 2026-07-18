@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The current-route initializer picks the entry screen. Any enum value is a
+// valid initial route, and the conditional mapping stays the same.
+
+enum Route {
+    Home,
+    Details,
+    Settings,
+}
+
+component Screen inherits Rectangle { }
+
+export component StartOnDetails {
+    in-out property <Route> current-route: Route.Details;
+
+    if current-route == Route.Home : Screen { }
+    if current-route == Route.Details : Screen { }
+    if current-route == Route.Settings : Screen { }
+}
+
+export component StartOnSettings {
+    in-out property <Route> current-route: Route.Settings;
+
+    if current-route == Route.Home : Screen { }
+    if current-route == Route.Details : Screen { }
+    if current-route == Route.Settings : Screen { }
+}

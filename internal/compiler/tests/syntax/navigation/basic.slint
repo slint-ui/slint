@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The navigation convention: enum Route + current-route + conditional
+// children + assignment. This shape is expected to compile cleanly.
+
+enum Route {
+    Home,
+    Details,
+    Settings,
+}
+
+component HomeScreen inherits Rectangle {
+    callback show-details();
+    TouchArea { clicked => { root.show-details(); } }
+}
+
+component DetailsScreen inherits Rectangle {
+    callback back();
+    TouchArea { clicked => { root.back(); } }
+}
+
+component SettingsScreen inherits Rectangle {
+    callback back();
+    TouchArea { clicked => { root.back(); } }
+}
+
+export component App {
+    in-out property <Route> current-route: Route.Home;
+
+    if current-route == Route.Home : HomeScreen {
+        show-details => { root.current-route = Route.Details; }
+    }
+    if current-route == Route.Details : DetailsScreen {
+        back => { root.current-route = Route.Home; }
+    }
+    if current-route == Route.Settings : SettingsScreen {
+        back => { root.current-route = Route.Home; }
+    }
+}
