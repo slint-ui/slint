@@ -4,7 +4,8 @@
 //! Data structures common between LSP and previewer
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
-use i_slint_compiler::object_tree::Document;
+use i_slint_compiler::langtype::ElementType;
+use i_slint_compiler::object_tree::{Document, ElementRc};
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
@@ -79,6 +80,38 @@ impl CompilerConfiguration {
 
         (result, self.open_import_callback)
     }
+}
+
+/// One resolved entry of a `navigator` route table: which destination
+/// component a route enum value maps to, plus where that component is declared.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NavigatorRouteEntry {
+    /// The route enum value name, e.g. `Home` for `Route.Home`.
+    pub route_name: String,
+    /// The destination component's name. Empty when the destination did not
+    /// resolve to a component (a diagnostic was already reported).
+    pub destination_component: String,
+    /// Where the destination component is declared. `None` when it did not
+    /// resolve or has no source node.
+    pub destination_uri: Option<Url>,
+    /// Byte offset of the destination component's declaration.
+    pub destination_offset: Option<TextSize>,
+}
+
+/// The authoritative route table for one `navigator`: the component that
+/// declares it (the entry/root) and its resolved routes, in declaration order.
+/// This is the compiler-resolved route -> destination mapping. It is not the
+/// screen-to-screen edge graph, which the flow-map derives separately.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NavigatorTable {
+    /// The component that declares the `navigator`.
+    pub entry_component: String,
+    /// Where that component is declared.
+    pub entry_uri: Option<Url>,
+    /// Byte offset of the entry component's declaration.
+    pub entry_offset: Option<TextSize>,
+    /// The resolved routes, in declaration order.
+    pub routes: Vec<NavigatorRouteEntry>,
 }
 
 /// A cache of loaded documents
@@ -480,6 +513,96 @@ impl DocumentCache {
     pub fn all_paths_to_watch(&self) -> HashSet<PathBuf> {
         self.type_loader.all_files_to_watch()
     }
+
+    /// Return the navigator route tables declared in `text_document_uri`.
+    ///
+    /// For every component that contains a `navigator`, this yields its
+    /// entry/root and the compiler-resolved route table: each route enum value
+    /// mapped to its destination component and that component's location. This
+    /// is the authoritative route -> screen mapping only. It is not the
+    /// screen-to-screen edge graph, which the flow-map derives separately from
+    /// assignment detection.
+    ///
+    /// Reuses the `inner_components` walk that `element_at_document_and_offset`
+    /// relies on, so it sees the same un-inlined object tree.
+    pub fn navigator_tables(&self, text_document_uri: &Url) -> Vec<NavigatorTable> {
+        // Location of a component's declaration, from its source node.
+        fn component_location(
+            node: &Option<syntax_nodes::Component>,
+        ) -> (Option<Url>, Option<TextSize>) {
+            let Some(node) = node else { return (None, None) };
+            match file_to_uri(node.source_file.path()) {
+                Some(uri) => (Some(uri), Some(node.text_range().start())),
+                None => (None, None),
+            }
+        }
+
+        // Collect elements holding a navigator route table. A navigator is
+        // usually on the root element, but may be nested, so walk children too.
+        fn collect(element: &ElementRc, out: &mut Vec<ElementRc>) {
+            let elem = element.borrow();
+            if !elem.navigator_routes().is_empty() {
+                out.push(element.clone());
+            }
+            for child in &elem.children {
+                collect(child, out);
+            }
+        }
+
+        let Some(document) = self.get_document(text_document_uri) else {
+            return Vec::new();
+        };
+
+        let mut tables = Vec::new();
+        for component in &document.inner_components {
+            let mut navigator_elements = Vec::new();
+            collect(&component.root_element, &mut navigator_elements);
+            if navigator_elements.is_empty() {
+                continue;
+            }
+
+            let (entry_uri, entry_offset) = component_location(&component.node);
+            for element in &navigator_elements {
+                let element = element.borrow();
+                let routes = element
+                    .navigator_routes()
+                    .iter()
+                    .map(|route| {
+                        // The last segment of the qualified enum value, e.g.
+                        // `Home` from `Route.Home`.
+                        let route_name = route
+                            .route
+                            .text()
+                            .to_string()
+                            .rsplit('.')
+                            .next()
+                            .unwrap_or_default()
+                            .trim()
+                            .to_string();
+                        let destination = route.component.borrow();
+                        let (destination_component, dest_node) = match &destination.base_type {
+                            ElementType::Component(c) => (c.id.to_string(), c.node.clone()),
+                            _ => (String::new(), None),
+                        };
+                        let (destination_uri, destination_offset) = component_location(&dest_node);
+                        NavigatorRouteEntry {
+                            route_name,
+                            destination_component,
+                            destination_uri,
+                            destination_offset,
+                        }
+                    })
+                    .collect();
+                tables.push(NavigatorTable {
+                    entry_component: component.id.to_string(),
+                    entry_uri: entry_uri.clone(),
+                    entry_offset,
+                    routes,
+                });
+            }
+        }
+        tables
+    }
 }
 
 #[cfg(test)]
@@ -558,5 +681,63 @@ mod tests {
         assert_eq!(base_type_at_position(&dc, &url, 27, 4), Some("VerticalBox".to_string()));
         assert_eq!(base_type_at_position(&dc, &url, 28, 8), Some("Text".to_string()));
         assert_eq!(base_type_at_position(&dc, &url, 51, 4), Some("VerticalBox".to_string()));
+    }
+
+    #[test]
+    fn test_navigator_tables() {
+        use i_slint_compiler::diagnostics::BuildDiagnostics;
+
+        // A component that declares a navigator over two routes, each resolving
+        // to a component in the same document.
+        let content = r#"
+enum Route { A, B }
+component A inherits Rectangle { }
+component B inherits Rectangle { }
+export component App inherits Window {
+    in-out property <Route> current-route: Route.A;
+    navigator (current-route) {
+        Route.A: A { }
+        Route.B: B { }
+    }
+}
+"#;
+
+        let mut dc = crate::language::test::empty_document_cache_with_experimental();
+        spin_on::spin_on(dc.preload_builtins());
+        let path =
+            if cfg!(target_family = "windows") { "c://foo/nav.slint" } else { "/foo/nav.slint" };
+        let url = Url::from_file_path(path).unwrap();
+
+        // The type-loader load path does not derive the experimental flag from
+        // the compiler config, so set it on the diagnostics to compile the
+        // experimental `navigator`.
+        let mut diag = BuildDiagnostics::default();
+        diag.enable_experimental = true;
+        let _ = spin_on::spin_on(dc.load_url(&url, Some(1), content.to_string(), &mut diag));
+        assert!(
+            !diag.has_errors(),
+            "unexpected errors: {:?}",
+            diag.iter().map(|d| d.message().to_string()).collect::<Vec<_>>()
+        );
+
+        let tables = dc.navigator_tables(&url);
+        assert_eq!(tables.len(), 1, "expected exactly one navigator table");
+        let table = &tables[0];
+        assert_eq!(table.entry_component, "App");
+        assert_eq!(table.entry_uri.as_ref(), Some(&url));
+
+        // The authoritative route table: Route.A -> A, Route.B -> B, in order.
+        let routes: Vec<(&str, &str)> = table
+            .routes
+            .iter()
+            .map(|r| (r.route_name.as_str(), r.destination_component.as_str()))
+            .collect();
+        assert_eq!(routes, vec![("A", "A"), ("B", "B")]);
+
+        // Destinations point at real declarations in this document.
+        for route in &table.routes {
+            assert_eq!(route.destination_uri.as_ref(), Some(&url));
+            assert!(route.destination_offset.is_some(), "missing offset for {}", route.route_name);
+        }
     }
 }
