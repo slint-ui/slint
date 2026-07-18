@@ -352,7 +352,7 @@ declare_syntax! {
         /// `id := Element { ... }`
         SubElement -> [ Element ],
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
-                     *CallbackDeclaration, *ConditionalElement, *MatchElement, *Function, *SubElement,
+                     *CallbackDeclaration, *ConditionalElement, *MatchElement, *Navigator, *Function, *SubElement,
                      *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
                      *TwoWayBinding, *States, *Transitions, *ImplementStatement, ?ChildrenPlaceholder ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
@@ -364,6 +364,11 @@ declare_syntax! {
         MatchCase -> [ Expression, ?SubElement ],
         /// *: Elem { }
         WildcardMatchCase -> [ ?SubElement ],
+        /// navigator (current-route) { Route.Home: HomeScreen { } }
+        /// The Expression is the current-route binding.
+        Navigator -> [ Expression, *Route ],
+        /// Route.Home: HomeScreen { }
+        Route -> [ Expression, ?SubElement ],
         CallbackDeclaration -> [ DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
         // `foo: type` or just `type`
         CallbackDeclarationParameter -> [ ?DeclaredIdentifier, Type],
