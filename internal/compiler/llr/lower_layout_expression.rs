@@ -1786,6 +1786,11 @@ pub fn get_layout_info(
         )
     };
 
+    // Apply only the cell's locally-set constraints on top of the measured
+    // layout-info: an inherited intrinsic min/max/preferred is already included
+    // in `layout_info`, and re-reading it unconstrained would reintroduce a
+    // height-for-width loop through the layout solve.
+    let constraints = constraints.to_apply(elem, orientation);
     if constraints.has_explicit_restrictions(orientation) {
         let store = llr_Expression::StoreLocalVariable {
             name: "layout_info".into(),
