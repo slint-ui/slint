@@ -49,6 +49,17 @@ pub fn empty_document_cache() -> common::DocumentCache {
     common::DocumentCache::new(config)
 }
 
+/// Create an empty `DocumentCache` with experimental features enabled, so
+/// experimental constructs like `navigator` compile in tests.
+pub fn empty_document_cache_experimental() -> common::DocumentCache {
+    let config = crate::common::document_cache::CompilerConfiguration {
+        style: Some("fluent".to_string()),
+        enable_experimental: true,
+        ..Default::default()
+    };
+    common::DocumentCache::new(config)
+}
+
 /// Create a `DocumentCache` with one document loaded into it.
 pub fn loaded_document_cache(
     content: String,
