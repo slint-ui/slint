@@ -150,8 +150,8 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     // pre-multiplied alpha. It's possible that this is not generally applicable, but it
                     // is the case for SVGs.
                     let image_flags = if html_image.is_svg() {
-                        if let Some(target_size) = target_size_for_scalable_source
-                            .filter(|_| R::SUPPORTS_HTML_SVG_UPSCALE)
+                        if let Some(target_size) =
+                            target_size_for_scalable_source.filter(|_| R::SUPPORTS_HTML_SVG_UPSCALE)
                         {
                             let dom_element = &html_image.dom_element;
                             dom_element.set_width(target_size.width);
