@@ -47,6 +47,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 property_declarations: std::mem::take(&mut original_elem.property_declarations),
                 named_references: Default::default(),
                 repeated: None,
+                navigator_routes: Default::default(),
                 is_component_placeholder: false,
                 debug: original_elem.debug.clone(),
                 enclosing_component: Default::default(),

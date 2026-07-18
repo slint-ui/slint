@@ -877,6 +877,12 @@ pub struct Element {
 
     /// This element is part of a `for <xxx> in <model>`:
     pub repeated: Option<RepeatedElementInfo>,
+    /// The resolved `navigator` route table declared on this element, in
+    /// declaration order. Each route's destination is also present among
+    /// `children` as a conditional element. Kept here so later passes and the
+    /// LSP can recover the route -> component graph. Empty for elements without
+    /// a `navigator`.
+    pub navigator_routes: Vec<NavigatorRoute>,
     /// This element is a placeholder to embed an Component at
     pub is_component_placeholder: bool,
 
@@ -1128,6 +1134,20 @@ pub struct RepeatedElementInfo {
     pub is_conditional_element: bool,
     /// When the for is the delegate of a ListView
     pub is_listview: Option<ListViewInfo>,
+}
+
+#[derive(Debug, Clone)]
+/// One entry of a `navigator` route table: a route enum value mapped to its
+/// resolved destination. Populated by `from_navigator_node` in declaration
+/// order and kept on the enclosing element for later tooling (LSP graph).
+pub struct NavigatorRoute {
+    /// The route enum value expression (e.g. `Route.Home`), kept uncompiled so
+    /// tooling can recover its name and source location.
+    pub route: syntax_nodes::Expression,
+    /// The resolved destination element. Its `base_type` is the resolved
+    /// component (guaranteed to be an `ElementType::Component`, else a
+    /// diagnostic was reported and this is `ElementType::Error`).
+    pub component: ElementRc,
 }
 
 pub type ElementRc = Rc<RefCell<Element>>;
@@ -1889,6 +1909,23 @@ impl Element {
                     )
                 }
                 r.borrow_mut().children.extend(rep);
+            } else if se.kind() == SyntaxKind::Navigator {
+                let mut sub_child_insertion_point = None;
+                let rep = Element::from_navigator_node(
+                    se.into(),
+                    &r,
+                    &mut sub_child_insertion_point,
+                    is_legacy_syntax,
+                    diag,
+                    tr,
+                );
+                if let Some(ChildrenInsertionPoint { node: se, .. }) = sub_child_insertion_point {
+                    diag.push_error(
+                        "The @children placeholder cannot appear in a navigator".into(),
+                        &se,
+                    )
+                }
+                r.borrow_mut().children.extend(rep);
             } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
                 #[cfg(feature = "slint-sc")]
                 diag.slint_sc_error("The @children placeholder is", &se);
@@ -2188,6 +2225,80 @@ impl Element {
             e.borrow_mut().repeated = Some(rei);
             cases.push(e);
         }
+        cases
+    }
+
+    /// Build the object tree for a `navigator` route table. Mirrors
+    /// `from_match_node`: each `Route.X: XScreen { }` becomes a conditional
+    /// child whose model is `<navigator-expr> == <Route.X>`, so `XScreen` is
+    /// instantiated only when the current route equals `Route.X`.
+    ///
+    /// It also resolves each destination to a component (the closed-set check)
+    /// and records the resolved route -> component mapping on `parent` for
+    /// later tooling (see `Element::navigator_routes`).
+    fn from_navigator_node(
+        node: syntax_nodes::Navigator,
+        parent: &ElementRc,
+        component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
+        is_in_legacy_component: bool,
+        diag: &mut BuildDiagnostics,
+        tr: &TypeRegister,
+    ) -> Vec<ElementRc> {
+        // Experimental gate first, like `from_match_node`. Without it a
+        // non-experimental compile rejects `navigator` and builds nothing, so
+        // the construct stays invisible to non-experimental compiles.
+        if !diag.enable_experimental {
+            diag.push_error("navigator is an experimental feature".into(), &node);
+            return Vec::new();
+        }
+        let parent_type = parent.borrow().base_type.clone();
+        let expr = node.Expression();
+        let mut cases: Vec<ElementRc> = Vec::new();
+        let mut routes: Vec<NavigatorRoute> = Vec::new();
+        for route in node.Route() {
+            let Some(sub_element) = route.SubElement() else {
+                continue;
+            };
+            // Conditional child: shown only when the route matches, exactly as
+            // `from_match_node` builds its cases.
+            let rei = RepeatedElementInfo {
+                model: Expression::BinaryExpression {
+                    lhs: Box::new(Expression::Uncompiled(expr.clone().into())),
+                    rhs: Box::new(Expression::Uncompiled(route.Expression().into())),
+                    op: '=',
+                },
+                model_data_id: SmolStr::default(),
+                index_id: SmolStr::default(),
+                is_conditional_element: true,
+                is_listview: None,
+            };
+            let e = Element::from_sub_element_node(
+                sub_element.clone(),
+                parent_type.clone(),
+                component_child_insertion_point,
+                is_in_legacy_component,
+                diag,
+                tr,
+            );
+            // Closed-set check: a destination must resolve to a component.
+            // `ElementType::Error` means `from_sub_element_node` already
+            // reported an unknown name, so we don't double-report.
+            match &e.borrow().base_type {
+                ElementType::Component(_) | ElementType::Error => {}
+                other => {
+                    diag.push_error(
+                        format!(
+                            "navigator route destination must be a component, but '{other}' is not"
+                        ),
+                        &sub_element,
+                    );
+                }
+            }
+            e.borrow_mut().repeated = Some(rei);
+            routes.push(NavigatorRoute { route: route.Expression(), component: e.clone() });
+            cases.push(e);
+        }
+        parent.borrow_mut().navigator_routes = routes;
         cases
     }
 
