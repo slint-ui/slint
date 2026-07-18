@@ -117,6 +117,38 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
                     prop_nr.name() == nr.name() && Rc::ptr_eq(&prop_nr.element(), &target)
                 })
                 .unwrap_or(false);
+            // A forwarded scalar constraint (`min-height: inner.min-height`) reads
+            // the target's implicit min/preferred/max-height, which is its
+            // layoutinfo-v at the *unconstrained* width. Thread the cross-axis
+            // width through the target's parametrized function instead.
+            let constraint_field = match nr.name().as_str() {
+                "min-height" => Some("min"),
+                "preferred-height" => Some("preferred"),
+                "max-height" => Some("max"),
+                "vertical-stretch" => Some("stretch"),
+                _ => None,
+            };
+            if let Some(field) = constraint_field {
+                if let Some(constrained_nr) =
+                    target.borrow().inherited_layout_info_v_with_constraint()
+                {
+                    *sub = Expression::StructFieldAccess {
+                        base: Expression::FunctionCall {
+                            function: Callable::Function(
+                                crate::namedreference::NamedReference::new(
+                                    &target,
+                                    constrained_nr.name().clone(),
+                                ),
+                            ),
+                            arguments: vec![width_param.clone()],
+                            source_location: None,
+                        }
+                        .into(),
+                        name: field.into(),
+                    };
+                }
+                return;
+            }
             if !is_vertical_layout_info {
                 return;
             }
@@ -350,7 +382,9 @@ pub fn synthesize_layoutinfo_v_with_constraint(component: &Rc<Component>) {
         if !has_v_cross || already_synthesized {
             return has_v_cross;
         }
-        let Some(v_nr) = v_nr_clone else { return has_v_cross };
+        let Some(v_nr) = v_nr_clone else {
+            return has_v_cross;
+        };
         let Some(v_binding) = elem.borrow().bindings.get(v_nr.name()).map(|b| b.borrow().clone())
         else {
             return has_v_cross;

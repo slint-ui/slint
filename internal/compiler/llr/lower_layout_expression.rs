@@ -888,6 +888,19 @@ fn flexbox_layout_data(
     // body); otherwise fall back to the element's own preferred
     // horizontal size. Cells that are not height-for-width get `None`.
     let cell_v_constraint = |elem: &ElementRc| -> Option<crate::expression_tree::Expression> {
+        // A component that forwards a height-for-width layout (e.g. `min-height:
+        // inner.min-height` over a wrapped Text) has a `layoutinfo-v-with-constraint`
+        // but is not a builtin height-for-width cell. It must dispatch via that
+        // function instead of reading its own width — which would cycle through the
+        // flex solve. Mirror of `cell_h_constraint`.
+        if elem.borrow().inherited_layout_info_v_with_constraint().is_some() {
+            return Some(width_override.cloned().unwrap_or_else(|| {
+                crate::expression_tree::Expression::NumberLiteral(
+                    f32::MAX as f64,
+                    crate::expression_tree::Unit::Px,
+                )
+            }));
+        }
         if !is_height_for_width_cell(elem) {
             return None;
         }
