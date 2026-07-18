@@ -280,3 +280,94 @@ export component TestCase {
     instance.invoke("close-a", &[]).unwrap();
     assert_eq!(instance.get_property("a-open").unwrap(), Value::from(false), "a after close");
 }
+
+// The milestone test: a `navigator` renders the destination component for the
+// current route, and re-renders when the route changes. Each destination
+// records its name in a global on `init`, so the observed value tells us which
+// route's screen is currently instantiated. Requires `enable_experimental`,
+// which is only reachable through the `internal` compiler configuration API.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_shows_current_route() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+    let code = r#"
+enum Route { Home, Settings }
+global NavProbe { in-out property <string> active; }
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "home"; } }
+component SettingsScreen inherits Rectangle { init => { NavProbe.active = "settings"; } }
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <Route> current-route: Route.Home;
+    out property <string> active: NavProbe.active;
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Settings: SettingsScreen { }
+    }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
+
+    // The initial route renders its screen.
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("home")),
+        "Route.Home renders HomeScreen"
+    );
+
+    // Switching the current route renders the other screen.
+    instance.set_property("current-route", route("Settings")).unwrap();
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("settings")),
+        "Route.Settings renders SettingsScreen"
+    );
+
+    // And back to the first route.
+    instance.set_property("current-route", route("Home")).unwrap();
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("home")),
+        "Route.Home renders HomeScreen again"
+    );
+}
+
+// Without `enable_experimental`, `navigator` is rejected at object-tree
+// lowering with the experimental-feature diagnostic. `Compiler::default()`
+// does not enable experimental features.
+#[test]
+fn navigator_requires_experimental() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+    let code = r#"
+enum Route { Home }
+component HomeScreen inherits Rectangle { }
+export component TestCase inherits Window {
+    in-out property <Route> current-route: Route.Home;
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+    }
+}
+"#;
+    let compiler = Compiler::default();
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(result.has_errors(), "navigator must be rejected without experimental");
+    assert!(
+        result.diagnostics().any(|d| d.message().contains("navigator is an experimental feature")),
+        "expected the experimental-feature diagnostic, got: {:?}",
+        result.diagnostics().map(|d| d.message().to_owned()).collect::<Vec<_>>()
+    );
+}

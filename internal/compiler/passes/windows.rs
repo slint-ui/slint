@@ -50,6 +50,7 @@ pub fn ensure_window(
         property_declarations: Default::default(),
         named_references: Default::default(),
         repeated: Default::default(),
+        navigator_routes: Default::default(),
         states: Default::default(),
         transitions: Default::default(),
         child_of_layout: false,

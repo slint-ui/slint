@@ -399,6 +399,7 @@ fn duplicate_element_with_mapping(
             .map(|x| duplicate_element_with_mapping(x, mapping, root_component, priority_delta))
             .collect(),
         repeated: elem.repeated.clone(),
+        navigator_routes: elem.navigator_routes.clone(),
         is_component_placeholder: elem.is_component_placeholder,
         debug: elem.debug.clone(),
         enclosing_component: Rc::downgrade(root_component),
