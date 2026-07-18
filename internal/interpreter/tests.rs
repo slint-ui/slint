@@ -370,3 +370,77 @@ export component TestCase inherits Window {
         result.diagnostics().map(|d| d.message().to_owned()).collect::<Vec<_>>()
     );
 }
+
+// The back-stack: `navigate(route)` pushes the current route before switching,
+// `back()` restores the previous route (no-op at the root), and `can-go-back`
+// reflects whether the stack is non-empty. The `active` global still tells us
+// which screen is instantiated, so we assert on the rendered route.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_back_stack() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+    let code = r#"
+enum Route { Home, Details, Settings }
+global NavProbe { in-out property <string> active; }
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "home"; } }
+component DetailsScreen inherits Rectangle { init => { NavProbe.active = "details"; } }
+component SettingsScreen inherits Rectangle { init => { NavProbe.active = "settings"; } }
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <Route> current-route: Route.Home;
+    out property <string> active: NavProbe.active;
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Details: DetailsScreen { }
+        Route.Settings: SettingsScreen { }
+    }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
+    let rendered = |instance: &crate::ComponentInstance| {
+        i_slint_backend_testing::mock_elapsed_time(100);
+        instance.get_property("active").unwrap()
+    };
+
+    // Root: nothing to go back to.
+    assert_eq!(rendered(&instance), Value::from(SharedString::from("home")));
+    assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(false), "root");
+
+    // navigate(Home -> Details -> Settings): the stack fills up.
+    instance.invoke("navigate", &[route("Details")]).unwrap();
+    assert_eq!(rendered(&instance), Value::from(SharedString::from("details")));
+    assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(true), "after Details");
+
+    instance.invoke("navigate", &[route("Settings")]).unwrap();
+    assert_eq!(rendered(&instance), Value::from(SharedString::from("settings")));
+    assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(true), "after Settings");
+
+    // back() twice unwinds Settings -> Details -> Home.
+    instance.invoke("back", &[]).unwrap();
+    assert_eq!(rendered(&instance), Value::from(SharedString::from("details")), "back to Details");
+    assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(true), "one left");
+
+    instance.invoke("back", &[]).unwrap();
+    assert_eq!(rendered(&instance), Value::from(SharedString::from("home")), "back to Home");
+    assert_eq!(
+        instance.get_property("can-go-back").unwrap(),
+        Value::from(false),
+        "back at the root"
+    );
+
+    // back() at the root is a no-op.
+    instance.invoke("back", &[]).unwrap();
+    assert_eq!(rendered(&instance), Value::from(SharedString::from("home")), "no-op at root");
+    assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(false), "still root");
+}

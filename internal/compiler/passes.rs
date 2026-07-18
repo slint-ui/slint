@@ -35,6 +35,7 @@ mod lower_accessibility;
 mod lower_component_container;
 mod lower_layout;
 mod lower_menus;
+mod lower_navigator;
 mod lower_platform;
 mod lower_popups;
 mod lower_property_to_element;
@@ -120,6 +121,9 @@ pub async fn run_passes(
     lower_tooltips::lower_tooltips(doc, type_loader, diag).await;
     lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
     lower_radiogroup::lower_radiogroup(doc, type_loader, diag).await;
+    // Runs after resolve (route models are typed) and before inlining, so the
+    // synthesized navigate/back/can-go-back propagate like any declared member.
+    lower_navigator::lower_navigator(doc, diag);
     lower_menus::lower_menus(doc, type_loader, diag).await;
     lower_component_container::lower_component_container(doc, type_loader, diag);
     collect_subcomponents::collect_subcomponents(doc);
