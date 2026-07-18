@@ -444,3 +444,79 @@ export component TestCase inherits Window {
     assert_eq!(rendered(&instance), Value::from(SharedString::from("home")), "no-op at root");
     assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(false), "still root");
 }
+
+// The int-index adapter: `current-route-index` reports the ordinal of the
+// current route in declaration order, and `navigate-index(i)` navigates to the
+// route at that ordinal. This is what int-index chrome (current_index /
+// index_changed) binds to, so it must agree with the route enum both ways.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_index_adapter() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, Value};
+    let code = r#"
+enum Route { Home, Details, Settings }
+global NavProbe { in-out property <string> active; }
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "home"; } }
+component DetailsScreen inherits Rectangle { init => { NavProbe.active = "details"; } }
+component SettingsScreen inherits Rectangle { init => { NavProbe.active = "settings"; } }
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <Route> current-route: Route.Home;
+    out property <string> active: NavProbe.active;
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Details: DetailsScreen { }
+        Route.Settings: SettingsScreen { }
+    }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
+    let index = |instance: &crate::ComponentInstance| {
+        i_slint_backend_testing::mock_elapsed_time(100);
+        instance.get_property("current-route-index").unwrap()
+    };
+
+    // Setting the route enum drives current-route-index to the declared ordinal.
+    assert_eq!(index(&instance), Value::from(0.), "Home is ordinal 0");
+    instance.set_property("current-route", route("Details")).unwrap();
+    assert_eq!(index(&instance), Value::from(1.), "Details is ordinal 1");
+    instance.set_property("current-route", route("Settings")).unwrap();
+    assert_eq!(index(&instance), Value::from(2.), "Settings is ordinal 2");
+
+    // navigate-index(i) drives the route enum the other way (and the index with it).
+    instance.invoke("navigate-index", &[Value::from(2.)]).unwrap();
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Settings"),
+        "navigate-index(2) selects Settings"
+    );
+    assert_eq!(index(&instance), Value::from(2.));
+
+    instance.invoke("navigate-index", &[Value::from(0.)]).unwrap();
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Home"),
+        "navigate-index(0) selects Home"
+    );
+    assert_eq!(index(&instance), Value::from(0.));
+
+    // Out-of-range is a no-op: the route (and index) stay put.
+    instance.invoke("navigate-index", &[Value::from(9.)]).unwrap();
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Home"),
+        "out-of-range navigate-index is a no-op"
+    );
+    assert_eq!(index(&instance), Value::from(0.));
+}
