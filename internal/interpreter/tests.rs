@@ -520,3 +520,112 @@ export component TestCase inherits Window {
     );
     assert_eq!(index(&instance), Value::from(0.));
 }
+
+// PR A8: a std-widgets navigation presentation (a Button-row tab bar) driving
+// the navigator through its int-index adapter. The tab bar is a plain std
+// `Button` row that exposes `current-index` / `selected(int)`; the host bridges
+// those to the navigator's `current-route-index` / `navigate-index` (the adapter
+// is synthesized after resolve, so it is reachable from the host rather than
+// from .slint). This guards that the std presentation compiles with the
+// navigator and that both directions of the binding hold: the highlight source
+// follows the current route, and activating a tab moves the current route.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_std_chrome_index_binding() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+    let code = r#"
+import { Button, HorizontalBox, VerticalBox } from "std-widgets.slint";
+
+enum Route { Home, Details, Settings }
+global NavProbe { in-out property <string> active; }
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "home"; } }
+component DetailsScreen inherits Rectangle { init => { NavProbe.active = "details"; } }
+component SettingsScreen inherits Rectangle { init => { NavProbe.active = "settings"; } }
+
+// The std presentation: a Button row whose active segment follows current-index.
+component NavBar inherits HorizontalBox {
+    in property <[string]> titles;
+    in property <int> current-index;
+    callback selected(index: int);
+    for title[index] in titles: Button {
+        text: title;
+        primary: index == root.current-index;
+        clicked => { root.selected(index); }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+    in-out property <Route> current-route: Route.Home;
+    out property <string> active: NavProbe.active;
+    // The chrome inputs the host bridges to the navigator adapter.
+    in property <int> nav-index;
+    callback nav-select(index: int);
+
+    NavBar {
+        titles: ["Home", "Details", "Settings"];
+        current-index: root.nav-index;
+        selected(index) => { root.nav-select(index); }
+    }
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Details: DetailsScreen { }
+        Route.Settings: SettingsScreen { }
+    }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
+    let settle = || i_slint_backend_testing::mock_elapsed_time(100);
+
+    // The host feeds the tab bar's highlight from the adapter. Setting the route
+    // (as an in-screen action would) moves current-route-index, which is what
+    // the chrome's current-index binds to.
+    settle();
+    instance.set_property("current-route", route("Details")).unwrap();
+    settle();
+    let highlight = instance.get_property("current-route-index").unwrap();
+    assert_eq!(highlight, Value::from(1.), "highlight source follows the current route");
+    instance.set_property("nav-index", highlight).unwrap();
+    settle();
+    assert_eq!(
+        instance.get_property("nav-index").unwrap(),
+        Value::from(1.),
+        "the tab bar's current-index reflects the current route"
+    );
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("details")),
+        "the navigator renders the Details screen"
+    );
+
+    // Activating a tab: the chrome's `selected(int)` is routed to navigate-index,
+    // which moves the current route (and its rendered screen).
+    instance.invoke("navigate-index", &[Value::from(2.)]).unwrap();
+    settle();
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Settings"),
+        "activating the Settings tab navigates by ordinal"
+    );
+    assert_eq!(
+        instance.get_property("current-route-index").unwrap(),
+        Value::from(2.),
+        "the highlight source moves with the activated tab"
+    );
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("settings")),
+        "the navigator renders the Settings screen"
+    );
+}
