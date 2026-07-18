@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The navigation edge is an assignment to current-route inside a callback.
+// Several assignment forms are exercised here and all compile cleanly.
+
+enum Route {
+    Home,
+    Details,
+    Settings,
+}
+
+export component App {
+    in-out property <Route> current-route: Route.Home;
+
+    // Assignment triggered by an element callback.
+    TouchArea {
+        clicked => { root.current-route = Route.Details; }
+    }
+
+    // Assignment inside a declared callback handler.
+    callback open-settings();
+    open-settings => { current-route = Route.Settings; }
+
+    // Assignment inside a function.
+    function go-home() {
+        current-route = Route.Home;
+    }
+}
