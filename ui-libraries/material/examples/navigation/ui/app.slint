@@ -1,0 +1,92 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// PR A8b: bind Material's int-index navigation chrome to the `navigator`
+// construct through its adapter. Material's `NavigationBar` (int `current_index`
+// / `index_changed`) is unchanged; only what feeds it changes. The SAME
+// `navigator { Route... }` block would drive std-widgets chrome (PR A8) with no
+// change to the route declarations, because both bind the same two adapter
+// members: `current-route-index` and `navigate-index`.
+
+import { MaterialWindow, NavigationBar, FilledButton, MaterialText } from "../../../src/material.slint";
+
+// The navigation convention: one enum value per screen.
+enum Route {
+    Home,
+    Details,
+    Settings,
+}
+
+component HomeScreen inherits Rectangle {
+    callback go(index: int);
+    VerticalLayout {
+        alignment: center;
+        spacing: 12px;
+        padding-bottom: 96px; // leave room for the pinned NavigationBar
+        MaterialText { text: "Home"; horizontal-alignment: center; }
+        FilledButton { text: "Go to Details"; clicked => { root.go(1); } }
+        FilledButton { text: "Open Settings"; clicked => { root.go(2); } }
+    }
+}
+
+component DetailsScreen inherits Rectangle {
+    callback go(index: int);
+    VerticalLayout {
+        alignment: center;
+        spacing: 12px;
+        padding-bottom: 96px;
+        MaterialText { text: "Details"; horizontal-alignment: center; }
+        FilledButton { text: "Back to Home"; clicked => { root.go(0); } }
+    }
+}
+
+component SettingsScreen inherits Rectangle {
+    callback go(index: int);
+    VerticalLayout {
+        alignment: center;
+        spacing: 12px;
+        padding-bottom: 96px;
+        MaterialText { text: "Settings"; horizontal-alignment: center; }
+        FilledButton { text: "Back to Home"; clicked => { root.go(0); } }
+    }
+}
+
+export component App inherits MaterialWindow {
+    preferred-width: 400px;
+    preferred-height: 640px;
+    title: "Slint Navigation - Material";
+
+    // The navigator's route property (the adapter's enum target).
+    in-out property <Route> current-route: Route.Home;
+
+    // Mirror of the adapter's `current-route-index`. Rust keeps this in sync
+    // after every navigation; the bar's `current_index` binds to it below.
+    in-out property <int> bar-index;
+
+    // Every navigation request funnels here so Rust routes it through the
+    // adapter's `navigate-index`. Bar taps and in-screen buttons both call it.
+    callback request-index(index: int);
+
+    // The route model: one destination per route, in declaration order. This is
+    // the presentation-agnostic surface; swapping the chrome below never touches it.
+    navigator (current-route) {
+        Route.Home: HomeScreen { go(i) => { root.request-index(i); } }
+        Route.Details: DetailsScreen { go(i) => { root.request-index(i); } }
+        Route.Settings: SettingsScreen { go(i) => { root.request-index(i); } }
+    }
+
+    // Material's int-index chrome, one item per route in declaration order.
+    NavigationBar {
+        y: root.height - self.height;
+        width: 100%;
+        items: [
+            { text: "Home" },
+            { text: "Details" },
+            { text: "Settings" },
+        ];
+        // Display: the bar reflects the current route (via current-route-index).
+        current_index: root.bar-index;
+        // Tap: navigating the bar navigates the route (via navigate-index).
+        index_changed(i) => { root.request-index(i); }
+    }
+}
