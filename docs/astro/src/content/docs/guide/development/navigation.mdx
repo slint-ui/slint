@@ -1,0 +1,85 @@
+---
+title: Navigation
+description: The convention for moving between screens with an enum route and a current-route property.
+---
+
+Slint has no dedicated navigation element yet. Multi-screen apps are built from a
+small, stable convention: an `enum` of routes, a `current-route` property, and one
+conditional child per route. This page describes that convention.
+
+This is the interim pattern that the visual editor's flow map understands, so
+following it exactly lets tooling read the screens and the transitions between them.
+
+## The convention
+
+The pattern is made of four parts.
+
+1. A user-declared `enum Route` with one value per screen.
+2. A root component with `in-out property <Route> current-route`, set to the initial screen.
+3. One conditional child per route, mapping a route to its screen: `if current-route == Route.Home : HomeScreen { ... }`.
+4. Navigation by assigning the route property: `current-route = Route.Details;`.
+
+```slint
+import { Button, VerticalBox } from "std-widgets.slint";
+
+enum Route {
+    Home,
+    Details,
+    Settings,
+}
+
+component HomeScreen inherits VerticalBox {
+    callback show-details();
+    callback show-settings();
+    Text { text: "Home"; }
+    Button { text: "Go to Details"; clicked => { root.show-details(); } }
+    Button { text: "Open Settings"; clicked => { root.show-settings(); } }
+}
+
+component DetailsScreen inherits VerticalBox {
+    callback back();
+    Text { text: "Details"; }
+    Button { text: "Back to Home"; clicked => { root.back(); } }
+}
+
+component SettingsScreen inherits VerticalBox {
+    callback back();
+    Text { text: "Settings"; }
+    Button { text: "Back to Home"; clicked => { root.back(); } }
+}
+
+export component App inherits Window {
+    // The current screen. Assigning this property navigates.
+    in-out property <Route> current-route: Route.Home;
+
+    // One conditional child per route maps a route to its screen.
+    if current-route == Route.Home : HomeScreen {
+        show-details => { root.current-route = Route.Details; }
+        show-settings => { root.current-route = Route.Settings; }
+    }
+    if current-route == Route.Details : DetailsScreen {
+        back => { root.current-route = Route.Home; }
+    }
+    if current-route == Route.Settings : SettingsScreen {
+        back => { root.current-route = Route.Home; }
+    }
+}
+```
+
+## How it reads
+
+- The `enum Route` is the set of screens.
+- `current-route` is the active screen, and its initializer is the entry screen.
+- Each `if current-route == Route.X : Screen { ... }` is the route-to-screen mapping.
+- Each `current-route = Route.Y;` assignment is a transition from the enclosing screen to `Route.Y`.
+
+Keeping a screen in its own component and wiring its callbacks in the root, next to the
+matching conditional child, keeps each transition close to the screen it starts from.
+
+## Scope
+
+The convention tracks a single `current-route` only. There is no back-stack: returning
+to a previous screen is just another assignment, as in the `back` callbacks above. A
+history stack is a separate concern and is not part of this convention.
+
+A runnable version of this example lives in `examples/navigation` in the Slint repository.

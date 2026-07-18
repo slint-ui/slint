@@ -1,0 +1,79 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button, VerticalBox } from "std-widgets.slint";
+
+// The navigation convention: one enum value per screen.
+enum Route {
+    Home,
+    Details,
+    Settings,
+}
+
+component HomeScreen inherits VerticalBox {
+    callback show-details();
+    callback show-settings();
+
+    Text {
+        text: "Home";
+        font-size: 24px;
+        horizontal-alignment: center;
+    }
+    Button {
+        text: "Go to Details";
+        clicked => { root.show-details(); }
+    }
+    Button {
+        text: "Open Settings";
+        clicked => { root.show-settings(); }
+    }
+}
+
+component DetailsScreen inherits VerticalBox {
+    callback back();
+
+    Text {
+        text: "Details";
+        font-size: 24px;
+        horizontal-alignment: center;
+    }
+    Button {
+        text: "Back to Home";
+        clicked => { root.back(); }
+    }
+}
+
+component SettingsScreen inherits VerticalBox {
+    callback back();
+
+    Text {
+        text: "Settings";
+        font-size: 24px;
+        horizontal-alignment: center;
+    }
+    Button {
+        text: "Back to Home";
+        clicked => { root.back(); }
+    }
+}
+
+export component App inherits Window {
+    preferred-width: 360px;
+    preferred-height: 240px;
+    title: "Slint Navigation";
+
+    // The current screen. Assigning this property navigates.
+    in-out property <Route> current-route: Route.Home;
+
+    // One conditional child per route maps a route to its screen.
+    if current-route == Route.Home : HomeScreen {
+        show-details => { root.current-route = Route.Details; }
+        show-settings => { root.current-route = Route.Settings; }
+    }
+    if current-route == Route.Details : DetailsScreen {
+        back => { root.current-route = Route.Home; }
+    }
+    if current-route == Route.Settings : SettingsScreen {
+        back => { root.current-route = Route.Home; }
+    }
+}
