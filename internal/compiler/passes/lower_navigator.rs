@@ -140,6 +140,60 @@ fn lower_one(elem: &ElementRc, diag: &mut BuildDiagnostics) {
 
     let can_go_back = non_empty();
 
+    // Int-index adapter for chrome that speaks `current_index: int` /
+    // `index_changed(int)` rather than the route enum. Each route case's
+    // resolved model is `route_ref == Route.X`, so its rhs is that route's enum
+    // value; collected in declaration order these map ordinal <-> route.
+    let route_values: Vec<Expression> = elem
+        .borrow()
+        .navigator_routes
+        .iter()
+        .filter_map(|r| {
+            match r.component.borrow().repeated.as_ref().map(|rep| rep.model.clone()) {
+                Some(Expression::BinaryExpression { rhs, .. }) => Some(*rhs),
+                _ => None,
+            }
+        })
+        .collect();
+
+    // current-route-index: ordinal of the current route, else -1. Lowered as an
+    // if-chain `current == route0 ? 0 : current == route1 ? 1 : ... : -1`.
+    let current_route_index = route_values.iter().enumerate().rev().fold(
+        Expression::NumberLiteral(-1., Unit::None),
+        |otherwise, (i, route_value)| Expression::Condition {
+            condition: Box::new(Expression::BinaryExpression {
+                lhs: Box::new(route_ref.clone()),
+                rhs: Box::new(route_value.clone()),
+                op: '=',
+            }),
+            true_expr: Box::new(Expression::NumberLiteral(i as f64, Unit::None)),
+            false_expr: Box::new(otherwise),
+        },
+    );
+
+    // navigate-index(index): navigate to the route at that ordinal using the same
+    // push-then-set logic as navigate(); an out-of-range index is a no-op.
+    let index_param = || Expression::FunctionParameterReference { index: 0, ty: Type::Int32 };
+    let navigate_index_body = route_values.iter().enumerate().rev().fold(
+        Expression::CodeBlock(vec![]),
+        |otherwise, (i, route_value)| Expression::Condition {
+            condition: Box::new(Expression::BinaryExpression {
+                lhs: Box::new(index_param()),
+                rhs: Box::new(Expression::NumberLiteral(i as f64, Unit::None)),
+                op: '=',
+            }),
+            true_expr: Box::new(Expression::CodeBlock(vec![
+                Expression::FunctionCall {
+                    function: Callable::Builtin(BuiltinFunction::ArrayPush),
+                    arguments: vec![back_stack(), route_ref.clone()],
+                    source_location: None,
+                },
+                assign_route(route_value.clone()),
+            ])),
+            false_expr: Box::new(otherwise),
+        },
+    );
+
     let mut e = elem.borrow_mut();
     e.property_declarations.insert(
         SmolStr::new_static("navigate"),
@@ -185,4 +239,35 @@ fn lower_one(elem: &ElementRc, diag: &mut BuildDiagnostics) {
         },
     );
     e.bindings.insert(SmolStr::new_static("can-go-back"), RefCell::new(can_go_back.into()));
+
+    e.property_declarations.insert(
+        SmolStr::new_static("current-route-index"),
+        PropertyDeclaration {
+            property_type: Type::Int32,
+            visibility: PropertyVisibility::Output,
+            expose_in_public_api: true,
+            ..Default::default()
+        },
+    );
+    e.bindings.insert(
+        SmolStr::new_static("current-route-index"),
+        RefCell::new(current_route_index.into()),
+    );
+
+    e.property_declarations.insert(
+        SmolStr::new_static("navigate-index"),
+        PropertyDeclaration {
+            property_type: Type::Function(Rc::new(Function {
+                return_type: Type::Void,
+                args: vec![Type::Int32],
+                arg_names: vec![SmolStr::new_static("index")],
+            })),
+            visibility: PropertyVisibility::Public,
+            pure: Some(false),
+            expose_in_public_api: true,
+            ..Default::default()
+        },
+    );
+    e.bindings
+        .insert(SmolStr::new_static("navigate-index"), RefCell::new(navigate_index_body.into()));
 }
