@@ -1,12 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Synthesize the navigator back-stack.
+//! Implement the navigator's public members (declared early by
+//! `from_navigator_node`) and add its private back-stack.
 //!
 //! `from_navigator_node` records the resolved route table on the enclosing
-//! element (`Element::navigator_routes`); navigation itself is just assigning
-//! the route property. This pass adds, on that same element, a back-stack plus
-//! the surface for going back:
+//! element (`Element::navigator_routes`) and declares the public members
+//! (`current-route-index`, `can-go-back`, `navigate`, `navigate-index`, `back`)
+//! up front, so .slint chrome can bind to them. Navigation itself is just
+//! assigning the route property. This pass fills in those members' bodies and
+//! adds, on the same element, the private back-stack that backs them:
 //!
 //!   navigate(route): push the current route, then switch to `route`
 //!   back():          restore and drop the top of the back-stack (no-op if empty)
@@ -22,7 +25,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BuiltinFunction, Callable, Expression, NamedReference, Unit};
-use crate::langtype::{Function, Type};
+use crate::langtype::Type;
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::cell::RefCell;
@@ -194,79 +197,16 @@ fn lower_one(elem: &ElementRc, diag: &mut BuildDiagnostics) {
         },
     );
 
+    // The public members were declared early (before resolve) by
+    // `from_navigator_node` so .slint chrome can bind to them; here we only fill
+    // in their bodies/bindings, now that the route table is resolved.
     let mut e = elem.borrow_mut();
-    e.property_declarations.insert(
-        SmolStr::new_static("navigate"),
-        PropertyDeclaration {
-            property_type: Type::Function(Rc::new(Function {
-                return_type: Type::Void,
-                args: vec![route_ty.clone()],
-                arg_names: vec![SmolStr::new_static("route")],
-            })),
-            visibility: PropertyVisibility::Public,
-            pure: Some(false),
-            // Synthesized after check_public_api; opt into the public surface so
-            // callers can invoke it and remove_unused_properties keeps it.
-            expose_in_public_api: true,
-            ..Default::default()
-        },
-    );
     e.bindings.insert(SmolStr::new_static("navigate"), RefCell::new(navigate_body.into()));
-
-    e.property_declarations.insert(
-        SmolStr::new_static("back"),
-        PropertyDeclaration {
-            property_type: Type::Function(Rc::new(Function {
-                return_type: Type::Void,
-                args: vec![],
-                arg_names: vec![],
-            })),
-            visibility: PropertyVisibility::Public,
-            pure: Some(false),
-            expose_in_public_api: true,
-            ..Default::default()
-        },
-    );
     e.bindings.insert(SmolStr::new_static("back"), RefCell::new(back_body.into()));
-
-    e.property_declarations.insert(
-        SmolStr::new_static("can-go-back"),
-        PropertyDeclaration {
-            property_type: Type::Bool,
-            visibility: PropertyVisibility::Output,
-            expose_in_public_api: true,
-            ..Default::default()
-        },
-    );
     e.bindings.insert(SmolStr::new_static("can-go-back"), RefCell::new(can_go_back.into()));
-
-    e.property_declarations.insert(
-        SmolStr::new_static("current-route-index"),
-        PropertyDeclaration {
-            property_type: Type::Int32,
-            visibility: PropertyVisibility::Output,
-            expose_in_public_api: true,
-            ..Default::default()
-        },
-    );
     e.bindings.insert(
         SmolStr::new_static("current-route-index"),
         RefCell::new(current_route_index.into()),
-    );
-
-    e.property_declarations.insert(
-        SmolStr::new_static("navigate-index"),
-        PropertyDeclaration {
-            property_type: Type::Function(Rc::new(Function {
-                return_type: Type::Void,
-                args: vec![Type::Int32],
-                arg_names: vec![SmolStr::new_static("index")],
-            })),
-            visibility: PropertyVisibility::Public,
-            pure: Some(false),
-            expose_in_public_api: true,
-            ..Default::default()
-        },
     );
     e.bindings
         .insert(SmolStr::new_static("navigate-index"), RefCell::new(navigate_index_body.into()));

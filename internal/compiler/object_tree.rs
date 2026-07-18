@@ -2323,8 +2323,63 @@ impl Element {
             routes.push(NavigatorRoute { route: route.Expression(), component: e.clone() });
             cases.push(e);
         }
+        // Declare the navigator's public members now, before expression
+        // resolution, so widget chrome can bind to them from .slint (e.g.
+        // `current-index <- nav.current-route-index`). The lower_navigator pass
+        // fills in their bodies later, once the route table is resolved. Same
+        // shape as an interface function: the declaration is in scope now, the
+        // implementation comes later.
+        if !routes.is_empty() {
+            Self::declare_navigator_members(parent, &routes, tr);
+        }
         parent.borrow_mut().navigator_routes = routes;
         cases
+    }
+
+    /// Declare the navigator's public members (the surface widget chrome binds
+    /// to) up front. Only the signatures are known here; `lower_navigator`
+    /// supplies the bindings/bodies after the route table is resolved.
+    fn declare_navigator_members(elem: &ElementRc, routes: &[NavigatorRoute], tr: &TypeRegister) {
+        // navigate(route) is enum-typed; recover the route enum from a route
+        // case (`Route.X`), whose first path segment names the enum.
+        let route_ty = routes.iter().find_map(|r| {
+            let name =
+                QualifiedTypeName::from_node(r.route.QualifiedName()?).members.into_iter().next()?;
+            let ty = tr.lookup(&name);
+            matches!(ty, Type::Enumeration(_)).then_some(ty)
+        });
+        let func = |args: Vec<Type>, arg_names: Vec<SmolStr>| {
+            Type::Function(Rc::new(Function { return_type: Type::Void, args, arg_names }))
+        };
+
+        let mut e = elem.borrow_mut();
+        let mut declare = |name, property_type, visibility, pure| {
+            e.property_declarations.insert(
+                SmolStr::new_static(name),
+                PropertyDeclaration { property_type, visibility, pure, ..Default::default() },
+            );
+        };
+        // Read surface for chrome: ordinal of the current route and whether the
+        // back-stack has anything to pop.
+        declare("current-route-index", Type::Int32, PropertyVisibility::Output, None);
+        declare("can-go-back", Type::Bool, PropertyVisibility::Output, None);
+        // Navigation entry points. navigate-index(int) is the index-based surface
+        // chrome (Material's NavigationBar, a std nav bar) drives.
+        declare("back", func(vec![], vec![]), PropertyVisibility::Public, Some(false));
+        declare(
+            "navigate-index",
+            func(vec![Type::Int32], vec![SmolStr::new_static("index")]),
+            PropertyVisibility::Public,
+            Some(false),
+        );
+        if let Some(route_ty) = route_ty {
+            declare(
+                "navigate",
+                func(vec![route_ty], vec![SmolStr::new_static("route")]),
+                PropertyVisibility::Public,
+                Some(false),
+            );
+        }
     }
 
     /// Return the type of a property in this element or its base, along with the final name, in case

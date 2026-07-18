@@ -768,3 +768,128 @@ export component TestCase inherits Window {
         "out-of-range tap is a no-op"
     );
 }
+
+// PR #13: the navigator's public members are declared before expression
+// resolution, so widget chrome binds to them INLINE in .slint (not from the
+// host language). This is the same IntChrome contract as
+// navigator_int_chrome_binding, but the two adapter members are wired in .slint:
+//   current-index: root.current-route-index       (the bar reflects the route)
+//   index-changed(i) => root.navigate-index(i)     (a tap navigates)
+// and can-go-back is read in a .slint binding too. Before #13 these members did
+// not exist at resolve time, so this binding failed with "does not have a
+// property 'current-route-index'" and had to be done from Rust.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_inline_chrome_binding() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+    let code = r#"
+enum Route { Home, Details, Settings }
+global NavProbe { in-out property <string> active; }
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "home"; } }
+component DetailsScreen inherits Rectangle { init => { NavProbe.active = "details"; } }
+component SettingsScreen inherits Rectangle { init => { NavProbe.active = "settings"; } }
+
+// Int-index chrome, same contract as Material's BaseNavigation: the host feeds
+// the highlighted index in, a tap fires index-changed out.
+component IntChrome {
+    in property <[string]> items;
+    in property <int> current-index;
+    callback index-changed(index: int);
+    public function select(index: int) {
+        if (index < 0 || index >= root.items.length) {
+            return;
+        }
+        root.index-changed(index);
+    }
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <Route> current-route: Route.Home;
+    out property <string> active: NavProbe.active;
+
+    // The #13 proof: the chrome binds the navigator's synthesized members
+    // directly in .slint. These mirrors let the test observe the bound values.
+    out property <int> chrome-index: chrome.current-index;
+    out property <bool> chrome-can-back: root.can-go-back;
+
+    chrome := IntChrome {
+        items: ["Home", "Details", "Settings"];
+        current-index: root.current-route-index;            // display <- current-route-index
+        index-changed(i) => { root.navigate-index(i); }     // tap -> navigate-index
+    }
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Details: DetailsScreen { }
+        Route.Settings: SettingsScreen { }
+    }
+    // Simulate an item tap (Material fires select() from a NavigationItem click).
+    public function tap(index: int) { chrome.select(index); }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
+    let settle = || i_slint_backend_testing::mock_elapsed_time(100);
+
+    // Read side, all in .slint: the bar's current-index follows current-route-index.
+    settle();
+    assert_eq!(instance.get_property("chrome-index").unwrap(), Value::from(0.), "Home -> 0");
+    assert_eq!(instance.get_property("chrome-can-back").unwrap(), Value::from(false), "root");
+
+    instance.set_property("current-route", route("Details")).unwrap();
+    settle();
+    assert_eq!(
+        instance.get_property("chrome-index").unwrap(),
+        Value::from(1.),
+        "the bar's current-index reflects the route, bound in .slint"
+    );
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("details"))
+    );
+
+    // Write side, all in .slint: tap -> select -> index-changed -> navigate-index.
+    instance.invoke("tap", &[Value::from(2.)]).unwrap();
+    settle();
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Settings"),
+        "a .slint-wired tap navigates by ordinal"
+    );
+    assert_eq!(instance.get_property("chrome-index").unwrap(), Value::from(2.), "bar shows 2");
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("settings"))
+    );
+    // navigate-index pushed the previous route, so can-go-back (bound in .slint) is true.
+    assert_eq!(
+        instance.get_property("chrome-can-back").unwrap(),
+        Value::from(true),
+        "can-go-back reflects the push, read in a .slint binding"
+    );
+
+    // Another tap moves it back to the first route.
+    instance.invoke("tap", &[Value::from(0.)]).unwrap();
+    settle();
+    assert_eq!(instance.get_property("current-route").unwrap(), route("Home"), "tap 0 -> Home");
+    assert_eq!(instance.get_property("chrome-index").unwrap(), Value::from(0.), "bar shows 0");
+
+    // Out-of-range tap is a no-op (the chrome's own guard).
+    instance.invoke("tap", &[Value::from(9.)]).unwrap();
+    settle();
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Home"),
+        "out-of-range tap is a no-op"
+    );
+}
