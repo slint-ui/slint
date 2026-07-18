@@ -232,6 +232,7 @@ opt-level = 3
 
 [profile.package-release]
 inherits = "release"
+incremental = false
 lto = "fat"
 strip = "symbols"
 codegen-units = 1

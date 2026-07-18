@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=1.0
+Type=Application
+Terminal=false
+Exec=/app/bin/slint-visual-editor
+Name=Slint Visual Editor
+Icon=org.sixtyfps.SlintVisualEditor
+X-AppImage-Name=Slint Visual Editor

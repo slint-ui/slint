@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Copyright 2026 SixtyFPS GmbH -->
+<component type="desktop-application">
+    <id>org.sixtyfps.SlintVisualEditor</id>
+
+    <name>Slint Visual Editor</name>
+    <summary>Visual editor for Slint files</summary>
+
+    <categories>
+        <category>Development</category>
+    </categories>
+
+    <keywords>
+        <keyword>development</keyword>
+    </keywords>
+
+    <!-- Developer currently does not exist -->
+    <developer id="org.sixtyfps">
+        <name>SixtyFPS</name>
+    </developer>
+
+    <icon type="stock">org.sixtyfps.SlintVisualEditor</icon>
+
+    <metadata_license>MIT</metadata_license>
+    <project_license
+    >LicenseRef-proprietary=https://github.com/slint-ui/slint/blob/master/LICENSE.md</project_license>
+
+    <description>
+        <p>Slint Visual Editor</p>
+    </description>
+
+    <url type="homepage">https://slint.dev/</url>
+
+    <launchable
+        type="desktop-id"
+    >org.sixtyfps.SlintVisualEditor.desktop</launchable>
+    <screenshots>
+    </screenshots>
+
+    <releases>
+        <release version="1.0" date="2026-07-07">
+            <description translatable="no">
+            </description>
+        </release>
+    </releases>
+</component>
