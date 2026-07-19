@@ -90,6 +90,13 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 {
                     parse_function(&mut *p);
                 }
+                // Experimental: `route` members declare a navigation contract.
+                // Parsed unconditionally; the experimental gate and the
+                // interface-only restriction are applied at object-tree lowering
+                // (see Element::from_node / Component::from_node).
+                SyntaxKind::Identifier if p.peek().as_str() == "route" => {
+                    parse_route_declaration(&mut *p);
+                }
                 SyntaxKind::Identifier | SyntaxKind::Star if p.peek().as_str() == "animate" => {
                     parse_property_animation(&mut *p);
                 }
@@ -896,5 +903,43 @@ fn parse_function(p: &mut impl Parser) {
         parse_code_block(&mut *p);
     } else if !p.test(SyntaxKind::Semicolon) {
         p.error("Expected function body or semicolon");
+    }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,RouteDeclaration
+/// route Home;
+/// route Details(id: int);
+/// route Details(id: int, name: string);
+/// route Details(id: int,);
+/// ```
+fn parse_route_declaration(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "route");
+    let mut p = p.start_node(SyntaxKind::RouteDeclaration);
+    p.expect(SyntaxKind::Identifier); // "route"
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    // Optional typed parameters, reusing the function argument grammar. The
+    // params are parsed and typed but not yet consumed by this slice.
+    if p.test(SyntaxKind::LParent) {
+        while p.peek().kind() != SyntaxKind::RParent {
+            let mut p_arg = p.start_node(SyntaxKind::ArgumentDeclaration);
+            {
+                let mut p = p_arg.start_node(SyntaxKind::DeclaredIdentifier);
+                p.expect(SyntaxKind::Identifier);
+            }
+            p_arg.expect(SyntaxKind::Colon);
+            parse_type(&mut *p_arg);
+            drop(p_arg);
+            if !p.test(SyntaxKind::Comma) {
+                break;
+            }
+        }
+        p.expect(SyntaxKind::RParent);
+    }
+    if !p.test(SyntaxKind::Semicolon) {
+        p.error("Expected ';' after route declaration");
     }
 }

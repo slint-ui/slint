@@ -451,6 +451,27 @@ impl InitCode {
     }
 }
 
+/// One `route` member of a navigation contract (an `interface`'s `route`
+/// declarations). Collected in declaration order by `Component::from_node`.
+#[derive(Debug, Clone)]
+pub struct ContractRoute {
+    /// The route name (the `DeclaredIdentifier`, e.g. `Home`).
+    pub name: SmolStr,
+    /// Typed parameters declared with the route (e.g. `id: int`). Parsed and
+    /// typed here; not yet consumed by this slice.
+    pub params: Vec<(SmolStr, Type)>,
+}
+
+/// A versionable navigation boundary declared as the `route` members of an
+/// `interface`. Reuses the existing `interface`/export machinery so the contract
+/// exports and imports across files like any other interface type. Later slices
+/// (mount / capability) consume this table.
+#[derive(Debug, Clone, Default)]
+pub struct NavigationContract {
+    /// The declared routes, in source order.
+    pub routes: Vec<ContractRoute>,
+}
+
 /// A component is a type in the language which can be instantiated,
 /// Or is materialized for repeated expression.
 #[derive(Default, Debug)]
@@ -495,6 +516,12 @@ pub struct Component {
 
     /// True if this component is imported from an external library.
     pub from_library: Cell<bool>,
+
+    /// The navigation contract declared by an `interface`'s `route` members, if
+    /// any. Kept apart from the interface's property/callback/function members so
+    /// `implements` iteration never sees routes (see object_tree/interfaces.rs).
+    /// Populated in `Component::from_node`; consumed by later navigation slices.
+    pub navigation_contract: RefCell<Option<NavigationContract>>,
 }
 
 impl Component {
@@ -546,7 +573,43 @@ impl Component {
             }
         });
         interfaces::apply_uses_statement(&c.root_element, node.UsesSpecifier(), tr, diag);
+        // An `interface`'s `route` members form a navigation contract. Collected
+        // here, on the Component, rather than into the interface's normal member
+        // lists so `implements` iteration is unaffected. Only reached under the
+        // experimental flag, since `is_interface()` requires the (experimental)
+        // `interface` keyword; misplaced/ungated `route` members are diagnosed in
+        // `Element::from_node`.
+        if c.is_interface() {
+            let routes = node
+                .Element()
+                .RouteDeclaration()
+                .filter_map(|route| {
+                    let name = parser::identifier_text(&route.DeclaredIdentifier())?;
+                    let params = route
+                        .ArgumentDeclaration()
+                        .filter_map(|a| {
+                            Some((
+                                parser::identifier_text(&a.DeclaredIdentifier())?,
+                                type_from_node(a.Type(), diag, tr),
+                            ))
+                        })
+                        .collect();
+                    Some(ContractRoute { name, params })
+                })
+                .collect::<Vec<_>>();
+            if !routes.is_empty() {
+                *c.navigation_contract.borrow_mut() = Some(NavigationContract { routes });
+            }
+        }
         c
+    }
+
+    /// Read-only view of the navigation contract declared by this component's
+    /// `route` members, if it is an `interface` declaring any. Mirrors
+    /// `Element::navigator_routes` as the authoritative accessor for tooling and
+    /// later navigation slices, kept separate from the interface's members.
+    pub fn navigation_contract(&self) -> Option<NavigationContract> {
+        self.navigation_contract.borrow().clone()
     }
 
     /// This component is a global component introduced with the "global" keyword
@@ -1259,6 +1322,22 @@ impl Element {
             tr.empty_type()
         };
         let is_interface = base_type == ElementType::Interface;
+        // `route` members declare a navigation contract; they are experimental
+        // and valid only in an `interface` body. Valid routes are collected onto
+        // the Component in `Component::from_node`; here we only reject misuse.
+        for route in node.RouteDeclaration() {
+            if !diag.enable_experimental && !tr.expose_internal_types {
+                diag.push_error(
+                    "navigation 'route' members are an experimental feature".into(),
+                    &route,
+                );
+            } else if !is_interface {
+                diag.push_error(
+                    "'route' members are only allowed inside an 'interface'".into(),
+                    &route,
+                );
+            }
+        }
         // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
         let qualified_id = (!id.is_empty()).then(|| id.clone());
         if let ElementType::Component(c) = &base_type {

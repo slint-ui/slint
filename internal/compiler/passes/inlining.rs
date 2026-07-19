@@ -488,6 +488,7 @@ fn duplicate_sub_component(
         private_properties: Default::default(),
         inherits_popup_window: core::cell::Cell::new(false),
         from_library: core::cell::Cell::new(false),
+        navigation_contract: component_to_duplicate.navigation_contract.clone(),
     };
 
     let new_component = Rc::new(new_component);

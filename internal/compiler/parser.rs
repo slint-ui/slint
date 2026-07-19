@@ -352,7 +352,7 @@ declare_syntax! {
         /// `id := Element { ... }`
         SubElement -> [ Element ],
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
-                     *CallbackDeclaration, *ConditionalElement, *MatchElement, *Navigator, *Function, *SubElement,
+                     *CallbackDeclaration, *ConditionalElement, *MatchElement, *Navigator, *Function, *RouteDeclaration, *SubElement,
                      *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
                      *TwoWayBinding, *States, *Transitions, ?ChildrenPlaceholder ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
@@ -369,6 +369,8 @@ declare_syntax! {
         Navigator -> [ Expression, *Route ],
         /// Route.Home: HomeScreen { }
         Route -> [ Expression, ?SubElement ],
+        /// `route Home;` or `route Details(id: int);`  a navigation contract member of an interface
+        RouteDeclaration -> [ DeclaredIdentifier, *ArgumentDeclaration ],
         CallbackDeclaration -> [ DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
         // `foo: type` or just `type`
         CallbackDeclarationParameter -> [ ?DeclaredIdentifier, Type],

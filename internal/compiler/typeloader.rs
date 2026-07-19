@@ -391,6 +391,9 @@ impl Snapshotter {
                 root_constraints,
                 root_element,
                 from_library: core::cell::Cell::new(false),
+                navigation_contract: RefCell::new(
+                    component.navigation_contract.borrow().clone(),
+                ),
             }
         });
         self.keep_alive.push((component.clone(), result.clone()));
@@ -2043,6 +2046,155 @@ export component App inherits Window {
         diag.iter().any(|d| d.message().contains("navigator is an experimental feature")),
         "navigator should be rejected when experimental is disabled"
     );
+}
+
+/// Load `source` under the given experimental flag and return the loaded
+/// document alongside its diagnostics, mirroring the LSP load path.
+#[cfg(test)]
+fn load_source_for_contract_test(
+    source: &str,
+    enable_experimental: bool,
+) -> (TypeLoader, PathBuf, BuildDiagnostics) {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.enable_experimental = enable_experimental;
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let mut diag = BuildDiagnostics::default();
+    let path = PathBuf::from("/foo/contract.slint");
+    spin_on::spin_on(loader.load_file(&path, &path, source.into(), false, &mut diag));
+    (loader, path, diag)
+}
+
+#[test]
+fn test_navigation_contract_populated() {
+    // An interface's `route` members are collected into a NavigationContract on
+    // the Component, with names and typed params, under the experimental flag.
+    let source = r#"
+export interface AppNavV1 {
+    route Home;
+    route Details(id: int);
+}
+"#;
+    let (loader, path, diag) = load_source_for_contract_test(source, true);
+    assert!(!diag.has_errors(), "contract rejected: {:?}", diag.to_string_vec());
+
+    let doc = loader.get_document(&path).unwrap();
+    let interface = doc
+        .inner_components
+        .iter()
+        .find(|c| c.id == "AppNavV1")
+        .expect("interface component missing");
+    let contract = interface.navigation_contract().expect("navigation contract not populated");
+    assert_eq!(contract.routes.len(), 2);
+    assert_eq!(contract.routes[0].name, "Home");
+    assert!(contract.routes[0].params.is_empty());
+    assert_eq!(contract.routes[1].name, "Details");
+    assert_eq!(contract.routes[1].params.len(), 1);
+    assert_eq!(contract.routes[1].params[0].0, "id");
+    // The param type is parsed and typed even though this slice does not use it.
+    assert_eq!(contract.routes[1].params[0].1.to_string(), "int");
+}
+
+#[test]
+fn test_route_outside_interface_rejected() {
+    // `route` members are only meaningful in an interface body.
+    let source = r#"
+export component App inherits Rectangle {
+    route Home;
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d.message().contains("only allowed inside an 'interface'")),
+        "route outside an interface should be rejected: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+#[test]
+fn test_navigation_contract_requires_experimental() {
+    // A contract (an interface with routes) is rejected without experimental.
+    let source = r#"
+export interface AppNavV1 {
+    route Home;
+}
+"#;
+    let (loader, path, diag) = load_source_for_contract_test(source, false);
+    assert!(diag.has_errors(), "contract must be rejected without experimental");
+    assert!(
+        diag.iter().any(|d| d.message().contains("experimental")),
+        "expected an experimental-feature diagnostic: {:?}",
+        diag.to_string_vec()
+    );
+    // No contract is collected when the interface itself is rejected.
+    if let Some(doc) = loader.get_document(&path) {
+        assert!(
+            doc.inner_components.iter().all(|c| c.navigation_contract().is_none()),
+            "no contract should be collected without experimental"
+        );
+    }
+}
+
+#[test]
+fn test_navigation_contract_cross_file_import() {
+    // The contract exports/imports across files via the existing interface
+    // machinery: declared in one file, imported and resolved in another. Real
+    // files on disk so the importer resolves the relative import.
+    let dir = std::env::temp_dir().join(format!("slint_nav_contract_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let nav_path = dir.join("nav.slint");
+    let main_path = dir.join("main.slint");
+    std::fs::write(
+        &nav_path,
+        r#"
+export interface AppNavV1 {
+    route Home;
+    route Details(id: int);
+}
+"#,
+    )
+    .unwrap();
+    let main_source = r#"
+import { AppNavV1 } from "nav.slint";
+export component App inherits Rectangle { }
+"#;
+    std::fs::write(&main_path, main_source).unwrap();
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.enable_experimental = true;
+
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    assert!(!build_diagnostics.has_errors());
+
+    let mut diag = BuildDiagnostics::default();
+    spin_on::spin_on(loader.load_file(
+        &main_path,
+        &main_path,
+        main_source.into(),
+        false,
+        &mut diag,
+    ));
+
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(!diag.has_errors(), "cross-file interface import failed: {:?}", diag.to_string_vec());
+
+    // The imported interface resolved, carrying its contract across the file
+    // boundary.
+    let nav_doc = loader.get_document(&nav_path).expect("exporting document not loaded");
+    let interface = nav_doc
+        .inner_components
+        .iter()
+        .find(|c| c.id == "AppNavV1")
+        .expect("imported interface missing");
+    let contract = interface.navigation_contract().expect("contract missing after import");
+    assert_eq!(contract.routes.len(), 2);
+    assert_eq!(contract.routes[0].name, "Home");
+    assert_eq!(contract.routes[1].name, "Details");
 }
 
 #[test]
