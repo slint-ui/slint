@@ -2349,6 +2349,125 @@ export component App implements AppNavV1 inherits Window {
     assert!(!diag.has_errors(), "extra navigator route rejected: {:?}", diag.to_string_vec());
 }
 
+// A shared same-file integrator: `Shell` mounts `ModuleA` (which covers
+// `AppNavV1`) as a route destination. Reused across the mount tests.
+#[cfg(test)]
+const MOUNT_TEST_SOURCE: &str = r#"
+interface AppNavV1 {
+    route Home;
+    route Details;
+}
+enum ModuleRoute { Home, Details }
+component ModHome inherits Rectangle { }
+component ModDetails inherits Rectangle { }
+component ModuleA implements AppNavV1 inherits Rectangle {
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+        ModuleRoute.Details: ModDetails { }
+    }
+}
+enum ShellRoute { Home, ModuleA }
+component HomeScreen inherits Rectangle { }
+export component Shell inherits Window {
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleA: mount ModuleA via AppNavV1 { }
+    }
+}
+"#;
+
+#[test]
+fn test_federated_mount_resolves_and_records_edge() {
+    // A conforming mount compiles, desugars to a direct instantiation of the
+    // module, and records a federated-mount edge distinct from a plain screen.
+    let (loader, path, diag) = load_source_for_contract_test(MOUNT_TEST_SOURCE, true);
+    assert!(!diag.has_errors(), "conforming mount rejected: {:?}", diag.to_string_vec());
+
+    let doc = loader.get_document(&path).unwrap();
+    let shell = doc.inner_components.iter().find(|c| c.id == "Shell").expect("Shell missing");
+    let root = shell.root_element.borrow();
+    let routes = root.navigator_routes();
+    assert_eq!(routes.len(), 2);
+
+    // The plain screen has no mount edge.
+    let home = routes.iter().find(|r| r.route.text().to_string().contains("Home")).unwrap();
+    assert!(home.mount.is_none());
+
+    // The mounted route records the edge and desugars to a direct ModuleA
+    // instantiation (its destination base type is the ModuleA component).
+    let mounted = routes.iter().find(|r| r.mount.is_some()).expect("no mount edge recorded");
+    let edge = mounted.mount.as_ref().unwrap();
+    assert_eq!(edge.impl_name, "ModuleA");
+    assert_eq!(edge.contract_name, "AppNavV1");
+    assert_eq!(
+        mounted.component.borrow().base_type.to_string(),
+        "ModuleA",
+        "mount must desugar to a direct instantiation of the module"
+    );
+}
+
+#[test]
+fn test_federated_mount_non_conforming_rejected() {
+    // ModuleA's navigator omits `Details`, so it does not satisfy `AppNavV1` at
+    // the mount site.
+    let source = r#"
+interface AppNavV1 {
+    route Home;
+    route Details;
+}
+enum ModuleRoute { Home }
+component ModHome inherits Rectangle { }
+component ModuleA inherits Rectangle {
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+    }
+}
+enum ShellRoute { Home }
+export component Shell inherits Window {
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: mount ModuleA via AppNavV1 { }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d
+            .message()
+            .contains("mount of 'ModuleA' does not satisfy contract 'AppNavV1'")),
+        "non-conforming mount should be a diagnostic: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+#[test]
+fn test_federated_mount_non_contract_rejected() {
+    // `Plain` is an interface with no routes, so it is not a navigation contract
+    // and cannot be a mount boundary.
+    let source = r#"
+interface Plain {
+    in property <int> value;
+}
+component ModuleA inherits Rectangle { }
+enum ShellRoute { Home }
+export component Shell inherits Window {
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: mount ModuleA via Plain { }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d.message().contains("'Plain' is not a navigation contract")),
+        "non-contract mount should be a diagnostic: {:?}",
+        diag.to_string_vec()
+    );
+}
+
 #[test]
 fn test_dependency_loading_from_rust() {
     let test_source_path: PathBuf =

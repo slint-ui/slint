@@ -344,6 +344,71 @@ export component TestCase inherits Window {
     );
 }
 
+// A federated `mount Impl via Contract` route destination renders the mounted
+// module directly (no ComponentContainer indirection): switching the shell's
+// route to the mounted case instantiates `ModuleA`, whose screen records itself
+// in a global. Same observation approach as `navigator_shows_current_route`.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_mount_renders_module() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+    let code = r#"
+interface AppNavV1 {
+    route Home;
+}
+global NavProbe { in-out property <string> active; }
+enum ModuleRoute { Home }
+component ModHome inherits Rectangle { init => { NavProbe.active = "module-home"; } }
+component ModuleA implements AppNavV1 inherits Rectangle {
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+    }
+}
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "shell-home"; } }
+enum ShellRoute { Home, ModuleA }
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    out property <string> active: NavProbe.active;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleA: mount ModuleA via AppNavV1 { }
+    }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("ShellRoute".into(), v.into());
+
+    // The initial route renders the shell's own screen.
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("shell-home")),
+        "ShellRoute.Home renders HomeScreen"
+    );
+
+    // Switching to the mounted route renders the module's own screen, proving the
+    // mount instantiated ModuleA directly as the route destination.
+    instance.set_property("current", route("ModuleA")).unwrap();
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("module-home")),
+        "ShellRoute.ModuleA mounts and renders ModuleA"
+    );
+}
+
 // Without `enable_experimental`, `navigator` is rejected at object-tree
 // lowering with the experimental-feature diagnostic. `Compiler::default()`
 // does not enable experimental features.

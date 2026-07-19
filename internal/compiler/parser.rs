@@ -367,8 +367,12 @@ declare_syntax! {
         /// navigator (current-route) { Route.Home: HomeScreen { } }
         /// The Expression is the current-route binding.
         Navigator -> [ Expression, *Route ],
-        /// Route.Home: HomeScreen { }
-        Route -> [ Expression, ?SubElement ],
+        /// Route.Home: HomeScreen { }  or  Route.ModuleA: mount ModuleA via AppNavV1 { }
+        Route -> [ Expression, ?SubElement, ?MountDestination ],
+        /// `mount ModuleA via AppNavV1 { }`  a build-time federated mount destination.
+        /// The SubElement is the mounted implementation (desugars to a direct
+        /// instantiation); the QualifiedName is the navigation contract it must satisfy.
+        MountDestination -> [ SubElement, QualifiedName ],
         /// `route Home;` or `route Details(id: int);`  a navigation contract member of an interface
         /// An optional `@uri("...")` prefix declares the route's deep-link URI.
         RouteDeclaration -> [ DeclaredIdentifier, *ArgumentDeclaration, *AtUri ],

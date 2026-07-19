@@ -16,8 +16,8 @@ use crate::expression_tree::{BindingExpression, Callable, Expression};
 use crate::langtype::{ElementType, Function, PropertyLookupResult, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
-    Component, Element, ElementRc, PropertyDeclaration, QualifiedTypeName, find_element_by_id,
-    recurse_elem, visit_named_references_in_expression,
+    Component, Element, ElementRc, NavigationContract, PropertyDeclaration, QualifiedTypeName,
+    find_element_by_id, recurse_elem, visit_named_references_in_expression,
 };
 use crate::parser;
 use crate::parser::{SyntaxKind, syntax_nodes};
@@ -499,6 +499,63 @@ fn navigator_route_name(route: &syntax_nodes::Expression) -> SmolStr {
     route.text().to_string().rsplit('.').next().unwrap_or_default().trim().into()
 }
 
+/// The set of route names covered by the first `navigator` found in `root`'s
+/// element tree (one navigator per component by convention), or `None` when the
+/// tree declares no navigator. Shared by interface conformance (A9.3) and
+/// federated mount (A10.1) so both judge contract coverage identically.
+fn navigator_route_names(root: &ElementRc) -> Option<HashSet<SmolStr>> {
+    let mut names: Option<HashSet<SmolStr>> = None;
+    recurse_elem(root, &(), &mut |elem, _| {
+        if names.is_none() {
+            let elem = elem.borrow();
+            let routes = elem.navigator_routes();
+            if !routes.is_empty() {
+                names = Some(routes.iter().map(|r| navigator_route_name(&r.route)).collect());
+            }
+        }
+    });
+    names
+}
+
+/// Verify a build-time federated mount: `impl_root` (the mounted component's
+/// root) must cover every route of `contract` by name. Reuses the same
+/// route-coverage rule as `implements` conformance (A9.3), but reports at the
+/// mount site with mount-flavored errors. Returns true when the mount conforms.
+pub(super) fn validate_mount_conformance(
+    impl_name: &str,
+    impl_root: &ElementRc,
+    contract_name: &str,
+    contract: &NavigationContract,
+    mount_site: &dyn crate::diagnostics::Spanned,
+    diag: &mut BuildDiagnostics,
+) -> bool {
+    let Some(names) = navigator_route_names(impl_root) else {
+        // A component with no navigator cannot satisfy a navigation contract.
+        diag.push_error(
+            format!(
+                "mount of '{impl_name}' does not satisfy contract '{contract_name}': it declares no navigator"
+            ),
+            mount_site,
+        );
+        return false;
+    };
+    // Every contract route must be covered by name. Extra routes are allowed:
+    // a module may keep internal routes beyond its public contract.
+    let missing: Vec<&str> =
+        contract.routes.iter().map(|r| r.name.as_str()).filter(|n| !names.contains(*n)).collect();
+    if !missing.is_empty() {
+        diag.push_error(
+            format!(
+                "mount of '{impl_name}' does not satisfy contract '{contract_name}': missing route(s) {}",
+                missing.join(", ")
+            ),
+            mount_site,
+        );
+        return false;
+    }
+    true
+}
+
 /// Verify that a component implementing a navigation-contract interface covers
 /// every contract route in its `navigator`. Contract routes live on the
 /// interface's `NavigationContract`, kept apart from its property/callback/
@@ -529,21 +586,9 @@ pub(super) fn validate_navigation_contract_conformance(
         return;
     }
 
-    // Find the implementing component's navigator: the first element in the tree
-    // with a non-empty route table (one navigator per component by convention).
-    let mut navigator_route_names: Option<HashSet<SmolStr>> = None;
-    recurse_elem(root, &(), &mut |elem, _| {
-        if navigator_route_names.is_none() {
-            let elem = elem.borrow();
-            let routes = elem.navigator_routes();
-            if !routes.is_empty() {
-                navigator_route_names =
-                    Some(routes.iter().map(|r| navigator_route_name(&r.route)).collect());
-            }
-        }
-    });
-
-    let Some(navigator_route_names) = navigator_route_names else {
+    // Find the implementing component's navigator route names (one navigator per
+    // component by convention).
+    let Some(navigator_route_names) = navigator_route_names(root) else {
         // Implementing a nav contract without any navigator cannot satisfy it.
         diag.push_error(
             format!(

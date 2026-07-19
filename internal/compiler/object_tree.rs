@@ -1246,6 +1246,25 @@ pub struct NavigatorRoute {
     /// component (guaranteed to be an `ElementType::Component`, else a
     /// diagnostic was reported and this is `ElementType::Error`).
     pub component: ElementRc,
+    /// Set when this route is a build-time federated mount
+    /// (`mount Impl via Contract`); distinguishes a mounted sub-graph from a
+    /// plain screen for tooling. `None` for a plain route destination.
+    pub mount: Option<FederatedMount>,
+}
+
+/// Records that a route destination is a build-time federated mount: an
+/// independently-built module's component (`impl_name`), verified at this
+/// integration site to satisfy a named navigation contract (`contract_name`).
+/// Metadata only; the destination is still a direct instantiation of the module.
+#[derive(Debug, Clone)]
+pub struct FederatedMount {
+    /// The mounted implementation component's name (e.g. `ModuleA`).
+    pub impl_name: SmolStr,
+    /// The navigation contract it was verified against (e.g. `AppNavV1`).
+    pub contract_name: SmolStr,
+    /// The contract's `@version`, if declared. The contract name encodes the
+    /// version boundary; this is available metadata, not a compat check.
+    pub contract_version: Option<u32>,
 }
 
 impl Element {
@@ -2384,9 +2403,22 @@ impl Element {
         let mut cases: Vec<ElementRc> = Vec::new();
         let mut routes: Vec<NavigatorRoute> = Vec::new();
         for route in node.Route() {
-            let Some(sub_element) = route.SubElement() else {
-                continue;
-            };
+            // A destination is either a plain sub-element (`Route.X: Screen { }`)
+            // or a federated mount (`Route.X: mount Impl via Contract { }`). Both
+            // desugar to a conditional child that instantiates the destination
+            // component directly; a mount additionally verifies conformance and
+            // records the integration edge. The mounted implementation lives
+            // inside the MountDestination's SubElement, so both forms resolve
+            // their destination the same way.
+            let mount_node = route.MountDestination();
+            let (site, sub_element): (SyntaxNode, syntax_nodes::SubElement) =
+                if let Some(mount_node) = &mount_node {
+                    (mount_node.clone().into(), mount_node.SubElement())
+                } else if let Some(sub_element) = route.SubElement() {
+                    (sub_element.clone().into(), sub_element)
+                } else {
+                    continue;
+                };
             // Conditional child: shown only when the route matches, exactly as
             // `from_match_node` builds its cases.
             let rei = RepeatedElementInfo {
@@ -2401,7 +2433,7 @@ impl Element {
                 is_listview: None,
             };
             let e = Element::from_sub_element_node(
-                sub_element.clone(),
+                sub_element,
                 parent_type.clone(),
                 component_child_insertion_point,
                 is_in_legacy_component,
@@ -2418,12 +2450,18 @@ impl Element {
                         format!(
                             "navigator route destination must be a component, but '{other}' is not"
                         ),
-                        &sub_element,
+                        &site,
                     );
                 }
             }
+            // Integration-site verification: the mounted component must satisfy
+            // the named contract. Records the verified edge, or `None` if the
+            // route is a plain screen or conformance failed.
+            let mount = mount_node.and_then(|mount_node| {
+                Self::verify_federated_mount(&mount_node, &e, &parent_type, tr, diag)
+            });
             e.borrow_mut().repeated = Some(rei);
-            routes.push(NavigatorRoute { route: route.Expression(), component: e.clone() });
+            routes.push(NavigatorRoute { route: route.Expression(), component: e.clone(), mount });
             cases.push(e);
         }
         // Declare the navigator's public members now, before expression
@@ -2437,6 +2475,66 @@ impl Element {
         }
         parent.borrow_mut().navigator_routes = routes;
         cases
+    }
+
+    /// Verify a federated mount destination at its integration site: the mounted
+    /// component (`dest`) must satisfy the navigation contract named after `via`.
+    /// Returns the recorded mount edge when it conforms, or `None` (after a
+    /// diagnostic) otherwise. Reuses the A9.3 route-coverage machinery so a mount
+    /// and an `implements` are judged the same way.
+    fn verify_federated_mount(
+        mount_node: &syntax_nodes::MountDestination,
+        dest: &ElementRc,
+        parent_type: &ElementType,
+        tr: &TypeRegister,
+        diag: &mut BuildDiagnostics,
+    ) -> Option<FederatedMount> {
+        // The mounted implementation. `Error` means its name failed to resolve
+        // and was already reported by `from_sub_element_node`.
+        let impl_comp = match &dest.borrow().base_type {
+            ElementType::Component(c) => c.clone(),
+            _ => return None,
+        };
+        // Resolve the contract named after `via` to a navigation-contract
+        // interface. The contract name encodes the version boundary.
+        let contract_node = mount_node.QualifiedName();
+        let contract_name = QualifiedTypeName::from_node(contract_node.clone()).to_smolstr();
+        let contract_comp = match parent_type.lookup_type_for_child_element(&contract_name, tr) {
+            Ok(ElementType::Component(c)) if c.is_interface() => c,
+            Ok(_) => {
+                diag.push_error(
+                    format!("mount contract '{contract_name}' is not an interface"),
+                    &contract_node,
+                );
+                return None;
+            }
+            Err(err) => {
+                diag.push_error(err, &contract_node);
+                return None;
+            }
+        };
+        let Some(contract) = contract_comp.navigation_contract().filter(|c| !c.routes.is_empty())
+        else {
+            diag.push_error(
+                format!("'{contract_name}' is not a navigation contract: it declares no routes"),
+                &contract_node,
+            );
+            return None;
+        };
+        let impl_name = impl_comp.id.clone();
+        interfaces::validate_mount_conformance(
+            &impl_name,
+            &impl_comp.root_element,
+            &contract_name,
+            &contract,
+            mount_node,
+            diag,
+        )
+        .then(|| FederatedMount {
+            impl_name,
+            contract_name,
+            contract_version: contract.version,
+        })
     }
 
     /// Declare the navigator's public members (the surface widget chrome binds

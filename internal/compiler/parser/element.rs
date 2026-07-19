@@ -427,6 +427,11 @@ fn parse_route(p: &mut impl Parser) {
             p.consume();
         }
     }
+    // A federated mount destination: `mount Impl via Contract { }`.
+    if p.peek().as_str() == "mount" {
+        parse_mount_destination(&mut *p);
+        return;
+    }
     if p.peek().kind() == SyntaxKind::LBrace {
         // empty route
         p.expect(SyntaxKind::LBrace);
@@ -438,6 +443,34 @@ fn parse_route(p: &mut impl Parser) {
         return;
     }
     parse_sub_element(&mut *p);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,MountDestination
+/// mount ModuleA via AppNavV1 { }
+/// mount M via C {}
+/// ```
+fn parse_mount_destination(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "mount");
+    let mut p = p.start_node(SyntaxKind::MountDestination);
+    p.expect(SyntaxKind::Identifier); // "mount"
+    // The mounted implementation, wrapped as a SubElement so the desugar reuses
+    // the plain-route path and produces a direct instantiation of it.
+    {
+        let mut sub = p.start_node(SyntaxKind::SubElement);
+        let mut el = sub.start_node(SyntaxKind::Element);
+        parse_qualified_name(&mut *el);
+    }
+    if p.peek().as_str() != "via" {
+        p.error("Expected 'via <Contract>' after 'mount <Impl>'");
+    } else {
+        p.consume(); // "via"
+    }
+    // The navigation contract the mounted implementation must satisfy.
+    parse_qualified_name(&mut *p);
+    // Trailing braces are part of the mount site; empty in this slice.
+    p.expect(SyntaxKind::LBrace);
+    p.expect(SyntaxKind::RBrace);
 }
 
 #[cfg_attr(test, parser_test)]
