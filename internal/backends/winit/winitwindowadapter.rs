@@ -887,7 +887,14 @@ impl WinitWindowAdapter {
                 let b = ((colorref >> 16) & 0xFF) as u8;
                 Color::from_argb_u8(255, r, g, b)
             } else if #[cfg(target_os = "macos")] {
+                use objc2::ClassType;
                 use objc2_app_kit::{NSColor, NSColorType};
+                // controlAccentColor is only available on macOS 10.14 and later.
+                // Probe for it so that older systems fall back to the default palette
+                // instead of aborting with an unrecognized-selector exception.
+                if !NSColor::class().responds_to(objc2::sel!(controlAccentColor)) {
+                    return Color::default();
+                }
                 let color = NSColor::controlAccentColor();
                 color.colorUsingType(NSColorType::ComponentBased).map(|c| {
                     let r = c.redComponent() as f32;
