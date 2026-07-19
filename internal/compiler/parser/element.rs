@@ -457,19 +457,32 @@ fn parse_route(p: &mut impl Parser) {
 /// mount M via C {}
 /// mount ModuleA via AppNavV1 { open-settings => {} }
 /// mount ModuleA via AppNavV1 { play-media(url) => { root.x = url; } }
+/// mount extern via AppNavV1 { component-factory: root.f; }
+/// mount extern via C {}
 /// ```
 fn parse_mount_destination(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "mount");
     let mut p = p.start_node(SyntaxKind::MountDestination);
     p.expect(SyntaxKind::Identifier); // "mount"
+    // `extern` (soft keyword) marks an external cross-process destination: no
+    // statically-known impl. The destination resolves to a `ComponentContainer`
+    // the host fills at runtime; the Element carries no base name, which is how
+    // object_tree tells an external mount from a local one.
+    let external = p.peek().as_str() == "extern";
+    if external {
+        p.consume(); // "extern"
+    }
     // The mounted implementation is a normal instantiation `Impl { <bindings> }`,
     // wrapped as a SubElement so the mount-block bindings flow onto it through the
     // ordinary binding path (they satisfy the module's capability needs). The
     // `via <Contract>` clause is nested in a MountVia node inside the Element so
-    // the base name and the trailing bindings stay contiguous.
+    // the base name and the trailing bindings stay contiguous. An external mount
+    // omits the base name; its block binds `component-factory` on the container.
     let mut sub = p.start_node(SyntaxKind::SubElement);
     let mut el = sub.start_node(SyntaxKind::Element);
-    parse_qualified_name(&mut *el); // the mounted implementation
+    if !external {
+        parse_qualified_name(&mut *el); // the mounted implementation
+    }
     {
         let mut via = el.start_node(SyntaxKind::MountVia);
         if via.peek().as_str() != "via" {

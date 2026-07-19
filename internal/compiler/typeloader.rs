@@ -2399,7 +2399,8 @@ fn test_federated_mount_resolves_and_records_edge() {
     // instantiation (its destination base type is the ModuleA component).
     let mounted = routes.iter().find(|r| r.mount.is_some()).expect("no mount edge recorded");
     let edge = mounted.mount.as_ref().unwrap();
-    assert_eq!(edge.impl_name, "ModuleA");
+    assert!(!edge.is_external(), "a local mount is not external");
+    assert_eq!(edge.impl_name.as_deref(), Some("ModuleA"));
     assert_eq!(edge.contract_name, "AppNavV1");
     assert_eq!(
         mounted.component.borrow().base_type.to_string(),
@@ -2563,7 +2564,7 @@ export component ModuleA implements AppNavV1 inherits Rectangle {
 
     let mounted = routes.iter().find(|r| r.mount.is_some()).expect("no mount edge recorded");
     let edge = mounted.mount.as_ref().unwrap();
-    assert_eq!(edge.impl_name, "ModuleA");
+    assert_eq!(edge.impl_name.as_deref(), Some("ModuleA"));
     assert_eq!(edge.contract_name, "AppNavV1");
     // The mount desugars to a direct instantiation of the imported module.
     assert_eq!(
@@ -2707,7 +2708,7 @@ export component Shell inherits Window {
     let root = shell.root_element.borrow();
     let mounted =
         root.navigator_routes().iter().find(|r| r.mount.is_some()).expect("no mount edge recorded");
-    assert_eq!(mounted.mount.as_ref().unwrap().impl_name, "ModuleA");
+    assert_eq!(mounted.mount.as_ref().unwrap().impl_name.as_deref(), Some("ModuleA"));
     // The mount-block handlers land as bindings on the module instantiation.
     let dest = mounted.component.borrow();
     assert!(dest.bindings.contains_key("open-settings"));
@@ -2750,6 +2751,82 @@ export component Shell inherits Window {
             "mount of 'ModuleA' does not bind required capability 'open-settings' (from 'AppServices')"
         )),
         "unbound need should be a diagnostic: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+// A12: an external cross-process mount. `ModuleB` is not in this build; the shell
+// declares the boundary against `AppNavV1` statically and supplies a
+// ComponentFactory the host sets at runtime.
+#[cfg(test)]
+const EXTERNAL_MOUNT_TEST_SOURCE: &str = r#"
+interface AppNavV1 {
+    route Home;
+}
+enum ShellRoute { Home, ModuleB }
+component HomeScreen inherits Rectangle { }
+export component Shell inherits Window {
+    in property <component-factory> module-b-factory;
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleB: mount extern via AppNavV1 {
+            component-factory: root.module-b-factory;
+        }
+    }
+}
+"#;
+
+#[test]
+fn test_external_mount_records_external_edge() {
+    // A conforming external mount compiles, desugars to a ComponentContainer route
+    // destination, and records an EXTERNAL federated-mount edge: no impl name, the
+    // declared contract, and the container as the runtime slot.
+    let (loader, path, diag) = load_source_for_contract_test(EXTERNAL_MOUNT_TEST_SOURCE, true);
+    assert!(!diag.has_errors(), "external mount rejected: {:?}", diag.to_string_vec());
+
+    let doc = loader.get_document(&path).unwrap();
+    let shell = doc.inner_components.iter().find(|c| c.id == "Shell").expect("Shell missing");
+    let root = shell.root_element.borrow();
+    let routes = root.navigator_routes();
+    assert_eq!(routes.len(), 2);
+
+    let mounted = routes.iter().find(|r| r.mount.is_some()).expect("no mount edge recorded");
+    let edge = mounted.mount.as_ref().unwrap();
+    assert!(edge.is_external(), "the edge must be external");
+    assert_eq!(edge.impl_name, None, "an external mount has no compile-time impl");
+    assert_eq!(edge.contract_name, "AppNavV1");
+    // The destination is the ComponentContainer the host fills at runtime, and it
+    // carries the component-factory transport binding.
+    let dest = mounted.component.borrow();
+    assert_eq!(dest.base_type.to_string(), "ComponentContainer");
+    assert!(dest.bindings.contains_key("component-factory"));
+}
+
+#[test]
+fn test_external_mount_missing_factory_rejected() {
+    // An external mount with no component-factory has no runtime transport for the
+    // host component, so the seam cannot be filled: a compile error.
+    let source = r#"
+interface AppNavV1 {
+    route Home;
+}
+enum ShellRoute { Home, ModuleB }
+component HomeScreen inherits Rectangle { }
+export component Shell inherits Window {
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleB: mount extern via AppNavV1 { }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d
+            .message()
+            .contains("external mount via 'AppNavV1' requires a 'component-factory'")),
+        "missing factory should be a diagnostic: {:?}",
         diag.to_string_vec()
     );
 }

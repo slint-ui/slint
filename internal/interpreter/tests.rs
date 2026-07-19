@@ -573,6 +573,91 @@ export component TestCase inherits Window {
     );
 }
 
+// A12: an external cross-process mount. The shell declares the boundary statically
+// against `AppNavV1` and exposes a `component-factory` the host sets at runtime;
+// the destination is a ComponentContainer. `ModuleB` is a *separately compiled*
+// component (its own compilation, its own global namespace), delivered through the
+// factory the same way a host process would. Observing across the seam via a shared
+// global is impossible by design (separate compilations), so we observe the seam
+// directly: the runtime invokes the host factory to fill the route slot only once
+// the external route is active. That the factory returns a real embedded instance
+// is what renders the host component in the slot.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_external_mount_invokes_host_factory() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, Value};
+    use i_slint_core::component_factory::ComponentFactory;
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    // The host module: opaque to the shell at build time, its own compilation.
+    let host_code = r#"
+export component ModuleB inherits Rectangle { background: red; }
+"#;
+    let mut host_compiler = Compiler::default();
+    host_compiler.set_style("fluent".into());
+    let host_result =
+        spin_on::spin_on(host_compiler.build_from_source(host_code.into(), Default::default()));
+    assert!(!host_result.has_errors(), "{:?}", host_result.diagnostics().collect::<Vec<_>>());
+    let host_def = host_result.component("ModuleB").unwrap();
+
+    // The shell: declares the external boundary and the runtime transport property.
+    let code = r#"
+interface AppNavV1 {
+    route Home;
+}
+component HomeScreen inherits Rectangle { }
+enum ShellRoute { Home, ModuleB }
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in property <component-factory> module-b-factory;
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleB: mount extern via AppNavV1 {
+            component-factory: root.module-b-factory;
+        }
+    }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    // The host factory records when the runtime asks it to build a component, and
+    // returns a real embedded instance to render in the route slot.
+    let invoked = Rc::new(Cell::new(false));
+    let invoked_in_factory = invoked.clone();
+    let factory = ComponentFactory::new(move |ctx| {
+        invoked_in_factory.set(true);
+        host_def.create_embedded(ctx).ok()
+    });
+    instance.set_property("module-b-factory", Value::ComponentFactory(factory)).unwrap();
+
+    // While the external route is inactive the container has nothing to build.
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert!(!invoked.get(), "the host factory is not invoked while the external route is inactive");
+
+    // Activating the external route drives the container to build the host
+    // component through the supplied factory: contract edge + container + factory
+    // transport are wired end-to-end.
+    instance
+        .set_property("current", Value::EnumerationValue("ShellRoute".into(), "ModuleB".into()))
+        .unwrap();
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert!(
+        invoked.get(),
+        "activating the external route builds the host component via the factory"
+    );
+}
+
 // Without `enable_experimental`, `navigator` is rejected at object-tree
 // lowering with the experimental-feature diagnostic. `Compiler::default()`
 // does not enable experimental features.
