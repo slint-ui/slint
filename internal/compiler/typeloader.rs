@@ -2468,6 +2468,139 @@ export component Shell inherits Window {
     );
 }
 
+// The contract shared by the cross-file mount tests. Declared once, exported,
+// and imported by both the module and the integrator.
+#[cfg(test)]
+const XFILE_CONTRACT_SOURCE: &str = r#"
+export interface AppNavV1 {
+    route Home;
+    route Details;
+}
+"#;
+
+// Lay out the real multi-team split on disk: contract, module, and integrator
+// each in their own file, wired by relative imports. Loads the integrator like
+// the LSP would (its imports pull in the module and the contract), reusing the
+// same on-disk approach as `test_navigation_contract_cross_file_import`.
+// Returns the loader, the integrator path, and its diagnostics. `tag` keeps
+// concurrent tests in distinct temp dirs.
+#[cfg(test)]
+fn load_cross_file_mount_test(
+    tag: &str,
+    module_a_source: &str,
+) -> (TypeLoader, PathBuf, BuildDiagnostics) {
+    let dir = std::env::temp_dir().join(format!("slint_nav_xmount_{}_{}", std::process::id(), tag));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("contract.slint"), XFILE_CONTRACT_SOURCE).unwrap();
+    std::fs::write(dir.join("module-a.slint"), module_a_source).unwrap();
+
+    let main_path = dir.join("main.slint");
+    let main_source = r#"
+import { ModuleA } from "module-a.slint";
+import { AppNavV1 } from "contract.slint";
+enum ShellRoute { Home, ModuleA }
+component HomeScreen inherits Rectangle { }
+export component Shell inherits Window {
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleA: mount ModuleA via AppNavV1 { }
+    }
+}
+"#;
+    std::fs::write(&main_path, main_source).unwrap();
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.enable_experimental = true;
+
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    assert!(!build_diagnostics.has_errors());
+
+    let mut diag = BuildDiagnostics::default();
+    spin_on::spin_on(loader.load_file(
+        &main_path,
+        &main_path,
+        main_source.into(),
+        false,
+        &mut diag,
+    ));
+
+    let _ = std::fs::remove_dir_all(&dir);
+    (loader, main_path, diag)
+}
+
+#[test]
+fn test_federated_mount_cross_file_resolves_and_records_edge() {
+    // The real multi-team layout: contract, module (impl), and integrator each
+    // in a separate file. The imported `ModuleA` is built as part of its own
+    // document, so its `navigator_routes` are already populated when the
+    // integrator's mount verification runs. This proves the same edge is
+    // recorded cross-file as same-file, with zero production-code change.
+    let module_a_source = r#"
+import { AppNavV1 } from "contract.slint";
+enum ModuleRoute { Home, Details }
+component ModHome inherits Rectangle { }
+component ModDetails inherits Rectangle { }
+export component ModuleA implements AppNavV1 inherits Rectangle {
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+        ModuleRoute.Details: ModDetails { }
+    }
+}
+"#;
+    let (loader, path, diag) = load_cross_file_mount_test("ok", module_a_source);
+    assert!(!diag.has_errors(), "cross-file conforming mount rejected: {:?}", diag.to_string_vec());
+
+    let doc = loader.get_document(&path).unwrap();
+    let shell = doc.inner_components.iter().find(|c| c.id == "Shell").expect("Shell missing");
+    let root = shell.root_element.borrow();
+    let routes = root.navigator_routes();
+    assert_eq!(routes.len(), 2);
+
+    let mounted = routes.iter().find(|r| r.mount.is_some()).expect("no mount edge recorded");
+    let edge = mounted.mount.as_ref().unwrap();
+    assert_eq!(edge.impl_name, "ModuleA");
+    assert_eq!(edge.contract_name, "AppNavV1");
+    // The mount desugars to a direct instantiation of the imported module.
+    assert_eq!(
+        mounted.component.borrow().base_type.to_string(),
+        "ModuleA",
+        "cross-file mount must desugar to a direct instantiation of the imported module"
+    );
+}
+
+#[test]
+fn test_federated_mount_cross_file_non_conforming_rejected() {
+    // `ModuleA` (in its own file) omits `Details`, so it does not satisfy the
+    // imported `AppNavV1`. The A10.1 conformance error is raised at the
+    // integrator's mount site, across the file boundary.
+    // The module does not declare `implements`, so its only failure is at the
+    // integrator's mount site (mirroring the same-file negative test). This
+    // isolates the cross-file mount check: the error must originate there.
+    let module_a_source = r#"
+enum ModuleRoute { Home }
+component ModHome inherits Rectangle { }
+export component ModuleA inherits Rectangle {
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_cross_file_mount_test("bad", module_a_source);
+    assert!(
+        diag.iter().any(|d| d
+            .message()
+            .contains("mount of 'ModuleA' does not satisfy contract 'AppNavV1'")),
+        "cross-file non-conforming mount should be a diagnostic: {:?}",
+        diag.to_string_vec()
+    );
+}
+
 #[test]
 fn test_dependency_loading_from_rust() {
     let test_source_path: PathBuf =

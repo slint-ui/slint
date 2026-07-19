@@ -2482,6 +2482,12 @@ impl Element {
     /// Returns the recorded mount edge when it conforms, or `None` (after a
     /// diagnostic) otherwise. Reuses the A9.3 route-coverage machinery so a mount
     /// and an `implements` are judged the same way.
+    ///
+    /// Cross-file is covered by resolution alone (A10.2): both `Impl` and
+    /// `Contract` may arrive via imports. The importer's `tr` already carries
+    /// imported types, so `lookup_type_for_child_element` resolves them; and an
+    /// import is a fully-loaded dependency, so the imported `Impl`'s
+    /// `navigator_routes` are already populated when this runs.
     fn verify_federated_mount(
         mount_node: &syntax_nodes::MountDestination,
         dest: &ElementRc,

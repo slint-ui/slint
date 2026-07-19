@@ -409,6 +409,94 @@ export component TestCase inherits Window {
     );
 }
 
+// The cross-file counterpart of `navigator_mount_renders_module`: the contract
+// and the mounted module live in their own files, imported by the integrator.
+// Proves the mount desugars, verifies, and renders the imported module the same
+// as the same-file case. Uses real files so relative imports resolve; skipped
+// on wasm, which has no filesystem.
+#[cfg(all(feature = "internal", not(target_arch = "wasm32")))]
+#[test]
+fn navigator_mount_cross_file_renders_module() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+
+    let dir = std::env::temp_dir().join(format!("slint_nav_xmount_interp_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("contract.slint"),
+        r#"
+export interface AppNavV1 {
+    route Home;
+}
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("module-a.slint"),
+        r#"
+import { AppNavV1 } from "contract.slint";
+export global NavProbe { in-out property <string> active; }
+enum ModuleRoute { Home }
+component ModHome inherits Rectangle { init => { NavProbe.active = "module-home"; } }
+export component ModuleA implements AppNavV1 inherits Rectangle {
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+    }
+}
+"#,
+    )
+    .unwrap();
+    let main_path = dir.join("main.slint");
+    let code = r#"
+import { ModuleA } from "module-a.slint";
+import { AppNavV1 } from "contract.slint";
+import { NavProbe } from "module-a.slint";
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "shell-home"; } }
+enum ShellRoute { Home, ModuleA }
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    out property <string> active: NavProbe.active;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleA: mount ModuleA via AppNavV1 { }
+    }
+}
+"#;
+
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), main_path));
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("ShellRoute".into(), v.into());
+
+    // The initial route renders the shell's own screen.
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("shell-home")),
+        "ShellRoute.Home renders HomeScreen"
+    );
+
+    // The mounted route renders the imported module's screen, proving the
+    // cross-file mount instantiated ModuleA directly as the route destination.
+    instance.set_property("current", route("ModuleA")).unwrap();
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("module-home")),
+        "ShellRoute.ModuleA mounts and renders the imported ModuleA"
+    );
+}
+
 // Without `enable_experimental`, `navigator` is rejected at object-tree
 // lowering with the experimental-feature diagnostic. `Compiler::default()`
 // does not enable experimental features.
