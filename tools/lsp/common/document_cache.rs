@@ -708,12 +708,14 @@ export component App inherits Window {
             if cfg!(target_family = "windows") { "c://foo/nav.slint" } else { "/foo/nav.slint" };
         let url = Url::from_file_path(path).unwrap();
 
-        // The type-loader load path does not derive the experimental flag from
-        // the compiler config, so set it on the diagnostics to compile the
-        // experimental `navigator`.
+        // The normal load path derives the experimental flag from the compiler
+        // config (enabled by empty_document_cache_experimental), so a default
+        // BuildDiagnostics is enough to compile the experimental `navigator`.
         let mut diag = BuildDiagnostics::default();
-        diag.enable_experimental = true;
+        assert!(!diag.enable_experimental, "the diag must start without the flag");
         let _ = spin_on::spin_on(dc.load_url(&url, Some(1), content.to_string(), &mut diag));
+        // Proof the load path propagated the config flag onto the diagnostics.
+        assert!(diag.enable_experimental, "load path did not propagate enable_experimental");
         assert!(
             !diag.has_errors(),
             "unexpected errors: {:?}",

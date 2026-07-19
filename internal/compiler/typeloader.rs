@@ -1587,6 +1587,13 @@ impl TypeLoader {
         is_builtin: bool,
         import_stack: &HashSet<PathBuf>,
     ) -> (PathBuf, Document) {
+        // Mirror lib.rs `prepare_for_compile`: the main compile path sets this on the
+        // diagnostics up front, but LSP/live-editor loads reach the type loader with a
+        // fresh BuildDiagnostics that never got the flag. This is the single funnel every
+        // load entry point flows through, so propagate the config here.
+        let enable_experimental = state.borrow().tl.compiler_config.enable_experimental;
+        state.borrow_mut().diag.enable_experimental = enable_experimental;
+
         let dependency_registry =
             Rc::new(RefCell::new(TypeRegister::new(&state.borrow().tl.global_type_registry)));
         dependency_registry.borrow_mut().expose_internal_types =
@@ -1983,6 +1990,59 @@ fn test_dependency_loading() {
     for file in imported_files {
         assert!(loader.get_document(&file).is_none(), "{} is still loaded", file.display());
     }
+}
+
+// The experimental `navigator` compiles through the normal type-loader load
+// path only when the config enables experimental, and is rejected otherwise.
+// Guards the LSP/live-editor load path, which reaches the loader with a fresh
+// BuildDiagnostics that never got the flag from the config.
+#[test]
+fn test_load_navigator_experimental_from_config() {
+    let source = r#"
+enum Route { A, B }
+component A inherits Rectangle { }
+component B inherits Rectangle { }
+export component App inherits Window {
+    in-out property <Route> current-route: Route.A;
+    navigator (current-route) {
+        Route.A: A { }
+        Route.B: B { }
+    }
+}
+"#;
+
+    let load = |enable_experimental: bool| {
+        let mut compiler_config =
+            CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        compiler_config.style = Some("fluent".into());
+        compiler_config.enable_experimental = enable_experimental;
+
+        let mut build_diagnostics = BuildDiagnostics::default();
+        let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+        assert!(!build_diagnostics.has_errors());
+
+        // The caller-provided diagnostics start without the flag, exactly like
+        // the LSP load path; the loader must derive it from the config.
+        let mut diag = BuildDiagnostics::default();
+        assert!(!diag.enable_experimental);
+        let path = PathBuf::from("/foo/nav.slint");
+        spin_on::spin_on(loader.load_file(&path, &path, source.into(), false, &mut diag));
+        diag
+    };
+
+    let diag = load(true);
+    assert!(diag.enable_experimental, "the config flag must reach the diagnostics");
+    assert!(
+        !diag.iter().any(|d| d.message().contains("experimental")),
+        "navigator rejected with experimental enabled: {:?}",
+        diag.iter().map(|d| d.message().to_string()).collect::<Vec<_>>()
+    );
+
+    let diag = load(false);
+    assert!(
+        diag.iter().any(|d| d.message().contains("navigator is an experimental feature")),
+        "navigator should be rejected when experimental is disabled"
+    );
 }
 
 #[test]
