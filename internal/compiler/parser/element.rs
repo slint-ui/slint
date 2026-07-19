@@ -95,7 +95,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 // interface-only restriction are applied at object-tree lowering
                 // (see Element::from_node / Component::from_node).
                 SyntaxKind::Identifier if p.peek().as_str() == "route" => {
-                    parse_route_declaration(&mut *p);
+                    parse_route_declaration(&mut *p, None);
                 }
                 SyntaxKind::Identifier | SyntaxKind::Star if p.peek().as_str() == "animate" => {
                     parse_property_animation(&mut *p);
@@ -187,18 +187,39 @@ pub fn parse_element_content(p: &mut impl Parser) {
                     }
                 }
             },
-            SyntaxKind::At => {
-                let checkpoint = p.checkpoint();
-                p.consume();
-                if p.peek().as_str() == "children" {
-                    let mut p =
-                        p.start_node_at(checkpoint.clone(), SyntaxKind::ChildrenPlaceholder);
-                    p.consume()
-                } else {
+            SyntaxKind::At => match p.nth(1).as_str() {
+                "children" => {
+                    let checkpoint = p.checkpoint();
+                    p.consume(); // "@"
+                    let mut p = p.start_node_at(checkpoint, SyntaxKind::ChildrenPlaceholder);
+                    p.consume() // "children"
+                }
+                // Experimental: `@version(n)` sets the navigation contract version.
+                // Collected in Component::from_node; misuse outside an interface is
+                // diagnosed there.
+                "version" => {
+                    parse_navigation_attribute(&mut *p, "version", SyntaxKind::AtVersion);
+                }
+                // Experimental: `@uri("...")` prefixes a `route` with its deep-link
+                // URI. Wrap the attribute and the route into one RouteDeclaration.
+                "uri" => {
+                    let checkpoint = p.checkpoint();
+                    parse_navigation_attribute(&mut *p, "uri", SyntaxKind::AtUri);
+                    while p.peek().as_str() == "@" && p.nth(1).as_str() == "uri" {
+                        parse_navigation_attribute(&mut *p, "uri", SyntaxKind::AtUri);
+                    }
+                    if p.peek().as_str() == "route" {
+                        parse_route_declaration(&mut *p, Some(checkpoint));
+                    } else {
+                        p.error("Parse error: Expected 'route' after @uri");
+                    }
+                }
+                _ => {
+                    p.consume(); // "@"
                     p.test(SyntaxKind::Identifier);
                     p.error("Parse error: Expected @children")
                 }
-            }
+            },
             _ => {
                 if !had_parse_error {
                     p.error("Parse error");
@@ -913,9 +934,11 @@ fn parse_function(p: &mut impl Parser) {
 /// route Details(id: int, name: string);
 /// route Details(id: int,);
 /// ```
-fn parse_route_declaration(p: &mut impl Parser) {
+/// The optional `checkpoint` lets a preceding `@uri(...)` attribute be wrapped
+/// into the RouteDeclaration node (mirrors struct/enum + `@rust-attr`).
+fn parse_route_declaration<P: Parser>(p: &mut P, checkpoint: Option<P::Checkpoint>) {
     debug_assert_eq!(p.peek().as_str(), "route");
-    let mut p = p.start_node(SyntaxKind::RouteDeclaration);
+    let mut p = p.start_node_at(checkpoint, SyntaxKind::RouteDeclaration);
     p.expect(SyntaxKind::Identifier); // "route"
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
@@ -942,4 +965,38 @@ fn parse_route_declaration(p: &mut impl Parser) {
     if !p.test(SyntaxKind::Semicolon) {
         p.error("Expected ';' after route declaration");
     }
+}
+
+/// Parse a navigation attribute `@name(<literal>)`, wrapping the argument tokens
+/// in `kind`. Mirrors `parse_rustattr` so the read-out reuses `attr.text()`. The
+/// caller has verified the attribute name at `nth(1)`.
+fn parse_navigation_attribute(p: &mut impl Parser, name: &str, kind: SyntaxKind) -> bool {
+    debug_assert_eq!(p.peek().as_str(), "@");
+    p.consume(); // "@"
+    p.consume(); // attribute name
+    if !p.expect(SyntaxKind::LParent) {
+        return false;
+    }
+    {
+        let mut p = p.start_node(kind);
+        let mut level = 1;
+        loop {
+            match p.peek().kind() {
+                SyntaxKind::LParent => level += 1,
+                SyntaxKind::RParent => {
+                    level -= 1;
+                    if level == 0 {
+                        break;
+                    }
+                }
+                SyntaxKind::Eof => {
+                    p.error(format!("unmatched parentheses in @{name}"));
+                    return false;
+                }
+                _ => {}
+            }
+            p.consume()
+        }
+    }
+    p.expect(SyntaxKind::RParent)
 }

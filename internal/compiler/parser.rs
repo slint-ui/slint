@@ -354,7 +354,7 @@ declare_syntax! {
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
                      *CallbackDeclaration, *ConditionalElement, *MatchElement, *Navigator, *Function, *RouteDeclaration, *SubElement,
                      *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
-                     *TwoWayBinding, *States, *Transitions, ?ChildrenPlaceholder ],
+                     *TwoWayBinding, *States, *Transitions, ?ChildrenPlaceholder, *AtVersion ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , SubElement],
@@ -370,7 +370,8 @@ declare_syntax! {
         /// Route.Home: HomeScreen { }
         Route -> [ Expression, ?SubElement ],
         /// `route Home;` or `route Details(id: int);`  a navigation contract member of an interface
-        RouteDeclaration -> [ DeclaredIdentifier, *ArgumentDeclaration ],
+        /// An optional `@uri("...")` prefix declares the route's deep-link URI.
+        RouteDeclaration -> [ DeclaredIdentifier, *ArgumentDeclaration, *AtUri ],
         CallbackDeclaration -> [ DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
         // `foo: type` or just `type`
         CallbackDeclarationParameter -> [ ?DeclaredIdentifier, Type],
@@ -481,6 +482,10 @@ declare_syntax! {
         EnumValue -> [],
         /// `@rust-attr(...)`
         AtRustAttr -> [],
+        /// `@version(n)`: the navigation contract version, on an `interface`.
+        AtVersion -> [],
+        /// `@uri("...")`: a route's deep-link URI, on a `route` declaration.
+        AtUri -> [],
         /// `uses { Foo from Bar, Baz from Qux }`
         UsesSpecifier -> [ *UsesIdentifier ],
         /// `Interface.Foo from bar`

@@ -460,6 +460,9 @@ pub struct ContractRoute {
     /// Typed parameters declared with the route (e.g. `id: int`). Parsed and
     /// typed here; not yet consumed by this slice.
     pub params: Vec<(SmolStr, Type)>,
+    /// The deep-link URI declared with `@uri("...")`, if any. Metadata only; the
+    /// runtime navigate-payload plumbing is a later slice.
+    pub uri: Option<SmolStr>,
 }
 
 /// A versionable navigation boundary declared as the `route` members of an
@@ -470,6 +473,9 @@ pub struct ContractRoute {
 pub struct NavigationContract {
     /// The declared routes, in source order.
     pub routes: Vec<ContractRoute>,
+    /// The compile-time contract version from `@version(n)`. Absent means the
+    /// default version 1. Metadata only; no conformance checking in this slice.
+    pub version: Option<u32>,
 }
 
 /// A component is a type in the language which can be instantiated,
@@ -594,11 +600,40 @@ impl Component {
                             ))
                         })
                         .collect();
-                    Some(ContractRoute { name, params })
+                    // `@uri("...")`: unescape the string literal argument. Last
+                    // one wins if repeated. Metadata only in this slice.
+                    let uri = route.AtUri().last().and_then(|attr| {
+                        let raw = attr.text().to_string();
+                        match crate::literals::unescape_string(raw.trim()) {
+                            Some(s) => Some(s),
+                            None => {
+                                diag.push_error(
+                                    "@uri expects a string literal argument".into(),
+                                    &attr,
+                                );
+                                None
+                            }
+                        }
+                    });
+                    Some(ContractRoute { name, params, uri })
                 })
                 .collect::<Vec<_>>();
-            if !routes.is_empty() {
-                *c.navigation_contract.borrow_mut() = Some(NavigationContract { routes });
+            // `@version(n)`: an interface-level integer literal. Last one wins.
+            let version = node.Element().AtVersion().last().and_then(|attr| {
+                let raw = attr.text().to_string();
+                match raw.trim().parse::<u32>() {
+                    Ok(v) => Some(v),
+                    Err(_) => {
+                        diag.push_error(
+                            "@version expects an integer literal argument".into(),
+                            &attr,
+                        );
+                        None
+                    }
+                }
+            });
+            if !routes.is_empty() || version.is_some() {
+                *c.navigation_contract.borrow_mut() = Some(NavigationContract { routes, version });
             }
         }
         c

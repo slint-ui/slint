@@ -2096,6 +2096,70 @@ export interface AppNavV1 {
 }
 
 #[test]
+fn test_navigation_contract_attributes() {
+    // `@version(n)` on the interface and `@uri("...")` per route are parsed and
+    // stored as metadata on the contract (PR A9.2). `@version` attaches in the
+    // interface body (document-level attachment is awkward, see A9.2 report).
+    let source = r#"
+export interface AppNavV1 {
+    @version(2)
+    @uri("app://home") route Home;
+    @uri("app://details/{id}") route Details(id: int);
+}
+"#;
+    let (loader, path, diag) = load_source_for_contract_test(source, true);
+    assert!(!diag.has_errors(), "contract with attributes rejected: {:?}", diag.to_string_vec());
+
+    let doc = loader.get_document(&path).unwrap();
+    let interface = doc
+        .inner_components
+        .iter()
+        .find(|c| c.id == "AppNavV1")
+        .expect("interface component missing");
+    let contract = interface.navigation_contract().expect("navigation contract not populated");
+    assert_eq!(contract.version, Some(2));
+    assert_eq!(contract.routes.len(), 2);
+    assert_eq!(contract.routes[0].name, "Home");
+    assert_eq!(contract.routes[0].uri.as_deref(), Some("app://home"));
+    assert_eq!(contract.routes[1].name, "Details");
+    assert_eq!(contract.routes[1].uri.as_deref(), Some("app://details/{id}"));
+}
+
+#[test]
+fn test_navigation_contract_default_version() {
+    // Absent `@version` means no explicit version (the documented default is 1).
+    let source = r#"
+export interface AppNavV1 {
+    route Home;
+}
+"#;
+    let (loader, path, diag) = load_source_for_contract_test(source, true);
+    assert!(!diag.has_errors(), "contract rejected: {:?}", diag.to_string_vec());
+    let doc = loader.get_document(&path).unwrap();
+    let interface =
+        doc.inner_components.iter().find(|c| c.id == "AppNavV1").expect("interface missing");
+    let contract = interface.navigation_contract().expect("contract not populated");
+    assert_eq!(contract.version, None);
+}
+
+#[test]
+fn test_navigation_contract_version_non_integer_rejected() {
+    // A non-integer `@version` argument is a clear diagnostic.
+    let source = r#"
+export interface AppNavV1 {
+    @version("x")
+    route Home;
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d.message().contains("@version expects an integer literal")),
+        "non-integer @version should be rejected: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+#[test]
 fn test_route_outside_interface_rejected() {
     // `route` members are only meaningful in an interface body.
     let source = r#"
