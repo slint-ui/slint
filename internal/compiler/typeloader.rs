@@ -2260,6 +2260,96 @@ export component App inherits Rectangle { }
 }
 
 #[test]
+fn test_navigation_contract_conformance_ok() {
+    // A component whose navigator covers every contract route (by name) conforms.
+    // The contract route `Details(id: int)` has a param; the navigator route is a
+    // bare enum value: only route-name coverage is checked in this slice.
+    let source = r#"
+export interface AppNavV1 {
+    route Home;
+    route Details(id: int);
+}
+enum Route { Home, Details }
+component HomeScreen inherits Rectangle { }
+component DetailsScreen inherits Rectangle { }
+export component App implements AppNavV1 inherits Window {
+    in-out property <Route> current-route: Route.Home;
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Details: DetailsScreen { }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(!diag.has_errors(), "conformant component rejected: {:?}", diag.to_string_vec());
+}
+
+#[test]
+fn test_navigation_contract_conformance_missing_route() {
+    // The navigator omits `Route.Details`, so it does not cover the contract.
+    let source = r#"
+export interface AppNavV1 {
+    route Home;
+    route Details(id: int);
+}
+enum Route { Home, Details }
+component HomeScreen inherits Rectangle { }
+export component App implements AppNavV1 inherits Window {
+    in-out property <Route> current-route: Route.Home;
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d.message().contains("its navigator has no route for 'Details'")),
+        "missing route should be a diagnostic: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+#[test]
+fn test_navigation_contract_conformance_no_navigator() {
+    // A component implementing a nav contract but declaring no navigator at all.
+    let source = r#"
+export interface AppNavV1 {
+    route Home;
+}
+export component App implements AppNavV1 inherits Window { }
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d.message().contains("declares no navigator")),
+        "missing navigator should be a diagnostic: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+#[test]
+fn test_navigation_contract_conformance_extra_routes_allowed() {
+    // A navigator route not in the contract (`Route.Debug`) is allowed: a module
+    // may keep internal routes beyond its public contract.
+    let source = r#"
+export interface AppNavV1 {
+    route Home;
+}
+enum Route { Home, Debug }
+component HomeScreen inherits Rectangle { }
+component DebugScreen inherits Rectangle { }
+export component App implements AppNavV1 inherits Window {
+    in-out property <Route> current-route: Route.Home;
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Debug: DebugScreen { }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(!diag.has_errors(), "extra navigator route rejected: {:?}", diag.to_string_vec());
+}
+
+#[test]
 fn test_dependency_loading_from_rust() {
     let test_source_path: PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();

@@ -4,7 +4,7 @@
 //! Module containing interfaces related types and functions.
 
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt::Display;
 use std::rc::Rc;
 
@@ -17,7 +17,7 @@ use crate::langtype::{ElementType, Function, PropertyLookupResult, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
     Component, Element, ElementRc, PropertyDeclaration, QualifiedTypeName, find_element_by_id,
-    visit_named_references_in_expression,
+    recurse_elem, visit_named_references_in_expression,
 };
 use crate::parser;
 use crate::parser::{SyntaxKind, syntax_nodes};
@@ -488,6 +488,82 @@ pub(super) fn validate_function_implementations(
                     function_declaration.return_type,
                     function_impl.return_type,
                 ),
+            );
+        }
+    }
+}
+
+/// The route name is the last `.`-segment of the qualified enum value, e.g.
+/// `Home` from `Route.Home`. Mirrors the extraction in the LSP document cache.
+fn navigator_route_name(route: &syntax_nodes::Expression) -> SmolStr {
+    route.text().to_string().rsplit('.').next().unwrap_or_default().trim().into()
+}
+
+/// Verify that a component implementing a navigation-contract interface covers
+/// every contract route in its `navigator`. Contract routes live on the
+/// interface's `NavigationContract`, kept apart from its property/callback/
+/// function members, so this check is additive to the validation above.
+///
+/// Only route-name coverage is checked in this slice: the navigator's routes are
+/// bare enum values, so param-type conformance is deferred until the navigator
+/// carries typed params.
+pub(super) fn validate_navigation_contract_conformance(
+    root: &ElementRc,
+    implemented_interface: &Option<ImplementedInterface>,
+    diag: &mut BuildDiagnostics,
+) {
+    let Some(ImplementedInterface { interface, implements_specifier, interface_name }) =
+        implemented_interface
+    else {
+        return;
+    };
+
+    // The contract lives on the interface's Component. No contract means the
+    // interface is a plain interface with nothing to conform to here.
+    let Some(contract) =
+        interface.borrow().enclosing_component.upgrade().and_then(|c| c.navigation_contract())
+    else {
+        return;
+    };
+    if contract.routes.is_empty() {
+        return;
+    }
+
+    // Find the implementing component's navigator: the first element in the tree
+    // with a non-empty route table (one navigator per component by convention).
+    let mut navigator_route_names: Option<HashSet<SmolStr>> = None;
+    recurse_elem(root, &(), &mut |elem, _| {
+        if navigator_route_names.is_none() {
+            let elem = elem.borrow();
+            let routes = elem.navigator_routes();
+            if !routes.is_empty() {
+                navigator_route_names =
+                    Some(routes.iter().map(|r| navigator_route_name(&r.route)).collect());
+            }
+        }
+    });
+
+    let Some(navigator_route_names) = navigator_route_names else {
+        // Implementing a nav contract without any navigator cannot satisfy it.
+        diag.push_error(
+            format!(
+                "component implements navigation contract '{interface_name}' but declares no navigator"
+            ),
+            &implements_specifier.QualifiedName(),
+        );
+        return;
+    };
+
+    // Every contract route must be covered by name. Extra navigator routes are
+    // allowed: a module may keep internal routes beyond its public contract.
+    for route in &contract.routes {
+        if !navigator_route_names.contains(&route.name) {
+            diag.push_error(
+                format!(
+                    "component implements '{interface_name}' but its navigator has no route for '{}'",
+                    route.name
+                ),
+                &implements_specifier.QualifiedName(),
             );
         }
     }

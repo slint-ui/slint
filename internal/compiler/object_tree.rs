@@ -2142,6 +2142,10 @@ impl Element {
 
         interfaces::apply_default_property_values(&r, &implemented_interface);
         interfaces::validate_function_implementations(&r.borrow(), &implemented_interface, diag);
+        // Checked here, not right after `implements` is resolved above: a
+        // navigator fills its route table while the host element's children are
+        // built (the loop above), so the table is only populated at this point.
+        interfaces::validate_navigation_contract_conformance(&r, &implemented_interface, diag);
 
         r
     }
