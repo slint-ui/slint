@@ -2407,8 +2407,10 @@ impl Element {
         // navigate(route) is enum-typed; recover the route enum from a route
         // case (`Route.X`), whose first path segment names the enum.
         let route_ty = routes.iter().find_map(|r| {
-            let name =
-                QualifiedTypeName::from_node(r.route.QualifiedName()?).members.into_iter().next()?;
+            let name = QualifiedTypeName::from_node(r.route.QualifiedName()?)
+                .members
+                .into_iter()
+                .next()?;
             let ty = tr.lookup(&name);
             matches!(ty, Type::Enumeration(_)).then_some(ty)
         });
