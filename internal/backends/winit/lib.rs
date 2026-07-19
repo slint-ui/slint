@@ -687,25 +687,35 @@ const DEFAULT_CURSOR_FLASH_CYCLE: core::time::Duration = core::time::Duration::f
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 fn prefers_non_blinking_text_insertion_indicator() -> Option<bool> {
-    use core::ffi::{c_char, c_void};
-
-    #[link(name = "Accessibility", kind = "framework")]
-    unsafe extern "C" {}
+    use core::ffi::{c_char, c_int, c_void};
 
     unsafe extern "C" {
+        fn dlopen(path: *const c_char, mode: c_int) -> *mut c_void;
         fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
     }
 
     type AxPrefersNonBlinkingTextInsertionIndicator =
         unsafe extern "C" fn() -> objc2::runtime::Bool;
 
-    // AXPrefersNonBlinkingTextInsertionIndicator is available starting with macOS 15 and iOS 18.
-    // Look it up dynamically so older systems don't fail to load because of a strong symbol
-    // reference. On older systems dlsym returns null, so the accessibility setting is
-    // unavailable and we keep the existing cursor blink behavior.
-    let symbol = unsafe {
-        dlsym((-2isize) as *mut c_void, c"AXPrefersNonBlinkingTextInsertionIndicator".as_ptr())
+    // AXPrefersNonBlinkingTextInsertionIndicator is available starting with macOS 15 and iOS 18,
+    // and the Accessibility framework itself only exists since macOS 11 and iOS 14.
+    // Load both dynamically: a `#[link]` attribute would emit a strong load command that makes
+    // dyld abort before main() on older systems. When the framework or the symbol is
+    // unavailable, the accessibility setting is unavailable and we keep the existing cursor
+    // blink behavior.
+    const RTLD_LAZY: c_int = 0x1;
+    let framework = unsafe {
+        dlopen(
+            c"/System/Library/Frameworks/Accessibility.framework/Accessibility".as_ptr(),
+            RTLD_LAZY,
+        )
     };
+    if framework.is_null() {
+        return None;
+    }
+
+    let symbol =
+        unsafe { dlsym(framework, c"AXPrefersNonBlinkingTextInsertionIndicator".as_ptr()) };
     if symbol.is_null() {
         return None;
     }
