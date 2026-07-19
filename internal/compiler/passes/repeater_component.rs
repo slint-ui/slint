@@ -48,6 +48,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 named_references: Default::default(),
                 repeated: None,
                 navigator_routes: Default::default(),
+                needed_capabilities: Default::default(),
                 is_component_placeholder: false,
                 debug: original_elem.debug.clone(),
                 enclosing_component: Default::default(),

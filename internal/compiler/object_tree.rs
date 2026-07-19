@@ -478,6 +478,19 @@ pub struct NavigationContract {
     pub version: Option<u32>,
 }
 
+/// A capability a component declares it requires from its host via `needs
+/// <Interface>` (A11): the interface named and the member names (callbacks/
+/// functions) pulled onto the component as unbound members. The federated-mount
+/// verifier requires each member be bound at the integration site.
+#[derive(Debug, Clone)]
+pub struct NeededCapability {
+    /// The capability interface named by the `needs` specifier.
+    pub interface_name: SmolStr,
+    /// The interface members declared unbound on the component, to be bound by
+    /// the host. In interface declaration order.
+    pub members: Vec<SmolStr>,
+}
+
 /// A component is a type in the language which can be instantiated,
 /// Or is materialized for repeated expression.
 #[derive(Default, Debug)]
@@ -645,6 +658,13 @@ impl Component {
     /// later navigation slices, kept separate from the interface's members.
     pub fn navigation_contract(&self) -> Option<NavigationContract> {
         self.navigation_contract.borrow().clone()
+    }
+
+    /// The capabilities this component declares via `needs` on its root, if any.
+    /// Read by the federated-mount verifier to require each be bound at the mount
+    /// site. Empty when the component needs nothing from its host.
+    pub fn needed_capabilities(&self) -> Vec<NeededCapability> {
+        self.root_element.borrow().needed_capabilities.clone()
     }
 
     /// This component is a global component introduced with the "global" keyword
@@ -981,6 +1001,10 @@ pub struct Element {
     /// LSP can recover the route -> component graph. Empty for elements without
     /// a `navigator`.
     pub navigator_routes: Vec<NavigatorRoute>,
+    /// Capabilities this element declares via `needs <Interface>` (A11). Populated
+    /// when the element is a component root; read by the federated-mount verifier
+    /// off the mounted component's root. Empty for elements with no `needs`.
+    pub needed_capabilities: Vec<NeededCapability>,
     /// This element is a placeholder to embed an Component at
     pub is_component_placeholder: bool,
 
@@ -1690,6 +1714,13 @@ impl Element {
         }
 
         interfaces::apply_callbacks(&mut r, &implemented_interface, diag);
+
+        // A11: `needs <Interface>` declares the interface's callbacks/functions as
+        // unbound members on this element, to be bound by the host at the mount
+        // site. Same "declare on the component, bind at instantiation" mechanism
+        // as an interface callback, minus a local body.
+        let needed_interfaces = interfaces::get_needed_interfaces(&r, &node, tr, diag);
+        r.needed_capabilities = interfaces::apply_needs(&mut r, &needed_interfaces, diag);
 
         for func in node.Function() {
             #[cfg(feature = "slint-sc")]
@@ -2502,8 +2533,17 @@ impl Element {
             _ => return None,
         };
         // Resolve the contract named after `via` to a navigation-contract
-        // interface. The contract name encodes the version boundary.
-        let contract_node = mount_node.QualifiedName();
+        // interface. The `via <Contract>` clause is nested in the mounted
+        // instantiation's Element (A11), so the mount-block bindings stay
+        // contiguous with the base name. The contract name encodes the version
+        // boundary.
+        let Some(contract_node) =
+            mount_node.SubElement().Element().MountVia().map(|via| via.QualifiedName())
+        else {
+            // The parser always emits a MountVia for a mount; missing it means a
+            // malformed mount that was already diagnosed.
+            return None;
+        };
         let contract_name = QualifiedTypeName::from_node(contract_node.clone()).to_smolstr();
         let contract_comp = match parent_type.lookup_type_for_child_element(&contract_name, tr) {
             Ok(ElementType::Component(c)) if c.is_interface() => c,
@@ -2528,19 +2568,60 @@ impl Element {
             return None;
         };
         let impl_name = impl_comp.id.clone();
-        interfaces::validate_mount_conformance(
+        let conforms = interfaces::validate_mount_conformance(
             &impl_name,
             &impl_comp.root_element,
             &contract_name,
             &contract,
             mount_node,
             diag,
-        )
-        .then(|| FederatedMount {
+        );
+        // A11: every capability the mounted module `needs` must be bound in the
+        // mount block. The block's callback handlers land as bindings on `dest`
+        // through the ordinary binding path, so an unbound need is simply a
+        // missing binding here.
+        let all_bound =
+            Self::verify_mount_capabilities(&impl_name, &impl_comp, dest, mount_node, diag);
+        (conforms && all_bound).then(|| FederatedMount {
             impl_name,
             contract_name,
             contract_version: contract.version,
         })
+    }
+
+    /// Verify that the mount block binds every capability the mounted module
+    /// declares via `needs`. Each need is a callback/function declared unbound on
+    /// the module's root; the mount block binds it as a handler, which lands as a
+    /// binding on the instantiation `dest`. A need with no binding is a compile
+    /// error at the mount site. Returns true when all needs are bound.
+    fn verify_mount_capabilities(
+        impl_name: &SmolStr,
+        impl_comp: &Rc<Component>,
+        dest: &ElementRc,
+        mount_node: &syntax_nodes::MountDestination,
+        diag: &mut BuildDiagnostics,
+    ) -> bool {
+        let needs = impl_comp.needed_capabilities();
+        if needs.is_empty() {
+            return true;
+        }
+        let dest = dest.borrow();
+        let mut all_bound = true;
+        for cap in &needs {
+            for member in &cap.members {
+                if !dest.bindings.contains_key(member) {
+                    diag.push_error(
+                        format!(
+                            "mount of '{impl_name}' does not bind required capability '{member}' (from '{}')",
+                            cap.interface_name
+                        ),
+                        mount_node,
+                    );
+                    all_bound = false;
+                }
+            }
+        }
+        all_bound
     }
 
     /// Declare the navigator's public members (the surface widget chrome binds

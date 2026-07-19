@@ -97,6 +97,12 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::Identifier if p.peek().as_str() == "route" => {
                     parse_route_declaration(&mut *p, None);
                 }
+                // Experimental: `needs <Capability>;` declares a capability the
+                // component requires from its host (A11). Parsed unconditionally;
+                // the experimental gate is applied at object-tree lowering.
+                SyntaxKind::Identifier if p.peek().as_str() == "needs" => {
+                    parse_needs_specifier(&mut *p);
+                }
                 SyntaxKind::Identifier | SyntaxKind::Star if p.peek().as_str() == "animate" => {
                     parse_property_animation(&mut *p);
                 }
@@ -449,28 +455,48 @@ fn parse_route(p: &mut impl Parser) {
 /// ```test,MountDestination
 /// mount ModuleA via AppNavV1 { }
 /// mount M via C {}
+/// mount ModuleA via AppNavV1 { open-settings => {} }
+/// mount ModuleA via AppNavV1 { play-media(url) => { root.x = url; } }
 /// ```
 fn parse_mount_destination(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "mount");
     let mut p = p.start_node(SyntaxKind::MountDestination);
     p.expect(SyntaxKind::Identifier); // "mount"
-    // The mounted implementation, wrapped as a SubElement so the desugar reuses
-    // the plain-route path and produces a direct instantiation of it.
+    // The mounted implementation is a normal instantiation `Impl { <bindings> }`,
+    // wrapped as a SubElement so the mount-block bindings flow onto it through the
+    // ordinary binding path (they satisfy the module's capability needs). The
+    // `via <Contract>` clause is nested in a MountVia node inside the Element so
+    // the base name and the trailing bindings stay contiguous.
+    let mut sub = p.start_node(SyntaxKind::SubElement);
+    let mut el = sub.start_node(SyntaxKind::Element);
+    parse_qualified_name(&mut *el); // the mounted implementation
     {
-        let mut sub = p.start_node(SyntaxKind::SubElement);
-        let mut el = sub.start_node(SyntaxKind::Element);
-        parse_qualified_name(&mut *el);
+        let mut via = el.start_node(SyntaxKind::MountVia);
+        if via.peek().as_str() != "via" {
+            via.error("Expected 'via <Contract>' after 'mount <Impl>'");
+        } else {
+            via.consume(); // "via"
+        }
+        parse_qualified_name(&mut *via); // the navigation contract to satisfy
     }
-    if p.peek().as_str() != "via" {
-        p.error("Expected 'via <Contract>' after 'mount <Impl>'");
-    } else {
-        p.consume(); // "via"
+    if !el.expect(SyntaxKind::LBrace) {
+        return;
     }
-    // The navigation contract the mounted implementation must satisfy.
+    parse_element_content(&mut *el);
+    el.expect(SyntaxKind::RBrace);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,NeedsSpecifier
+/// needs AppServices;
+/// needs Fully.Qualified.Services;
+/// ```
+fn parse_needs_specifier(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "needs");
+    let mut p = p.start_node(SyntaxKind::NeedsSpecifier);
+    p.expect(SyntaxKind::Identifier); // "needs"
     parse_qualified_name(&mut *p);
-    // Trailing braces are part of the mount site; empty in this slice.
-    p.expect(SyntaxKind::LBrace);
-    p.expect(SyntaxKind::RBrace);
+    p.expect(SyntaxKind::Semicolon);
 }
 
 #[cfg_attr(test, parser_test)]

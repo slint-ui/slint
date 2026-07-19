@@ -16,8 +16,8 @@ use crate::expression_tree::{BindingExpression, Callable, Expression};
 use crate::langtype::{ElementType, Function, PropertyLookupResult, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
-    Component, Element, ElementRc, NavigationContract, PropertyDeclaration, QualifiedTypeName,
-    find_element_by_id, recurse_elem, visit_named_references_in_expression,
+    Component, Element, ElementRc, NavigationContract, NeededCapability, PropertyDeclaration,
+    QualifiedTypeName, find_element_by_id, recurse_elem, visit_named_references_in_expression,
 };
 use crate::parser;
 use crate::parser::{SyntaxKind, syntax_nodes};
@@ -323,6 +323,122 @@ fn apply_interface_property_declaration(
     }
 
     e.property_declarations.insert(unresolved_prop_name.clone(), prop_decl.clone());
+}
+
+/// A `needs <Interface>` specifier and the capability interface it resolves to.
+pub(super) struct NeededInterface {
+    needs_specifier: syntax_nodes::NeedsSpecifier,
+    interface: ElementRc,
+    interface_name: SmolStr,
+}
+
+/// Resolve the `needs` specifiers declared on `node` to capability interfaces,
+/// emitting diagnostics for anything that is not an interface. Experimental-gated
+/// exactly like `uses`. Mirrors `get_implemented_interface`'s lookup, but a
+/// component may need several capabilities, so this returns a list.
+pub(super) fn get_needed_interfaces(
+    e: &Element,
+    node: &syntax_nodes::Element,
+    tr: &TypeRegister,
+    diag: &mut BuildDiagnostics,
+) -> Vec<NeededInterface> {
+    let specifiers: Vec<syntax_nodes::NeedsSpecifier> = node.NeedsSpecifier().collect();
+    if specifiers.is_empty() {
+        return Vec::new();
+    }
+
+    #[cfg(feature = "slint-sc")]
+    for specifier in &specifiers {
+        diag.slint_sc_error("'needs' is", specifier);
+    }
+
+    if !diag.enable_experimental && !tr.expose_internal_types {
+        for specifier in &specifiers {
+            diag.push_error("'needs' is an experimental feature".into(), specifier);
+        }
+        return Vec::new();
+    }
+
+    let mut needed = Vec::new();
+    for needs_specifier in specifiers {
+        let interface_name =
+            QualifiedTypeName::from_node(needs_specifier.QualifiedName()).to_smolstr();
+        match e.base_type.lookup_type_for_child_element(&interface_name, tr) {
+            Ok(ElementType::Component(c)) if c.is_interface() => {
+                c.used.set(true);
+                needed.push(NeededInterface {
+                    needs_specifier,
+                    interface: c.root_element.clone(),
+                    interface_name,
+                });
+            }
+            Ok(_) => diag.push_error(
+                format!("Cannot use '{interface_name}' as a capability. It is not an interface"),
+                &needs_specifier.QualifiedName(),
+            ),
+            Err(err) => diag.push_error(err, &needs_specifier.QualifiedName()),
+        }
+    }
+    needed
+}
+
+/// Declare each capability member (callback/function) of the `needed` interfaces
+/// as an unbound member on `e`, and return the recorded needs for the mount
+/// verifier. "Unbound" means the declaration is added with no local binding, so
+/// the host binds it at the mount site. Reuses the same conflict-checked insert
+/// shape as `implements`, minus the requirement to provide a local body.
+pub(super) fn apply_needs(
+    e: &mut Element,
+    needed: &[NeededInterface],
+    diag: &mut BuildDiagnostics,
+) -> Vec<NeededCapability> {
+    let mut capabilities = Vec::new();
+    for NeededInterface { needs_specifier, interface, interface_name } in needed {
+        let mut members = Vec::new();
+        for (name, prop_decl) in interface.borrow().property_declarations.iter().filter(|(_, d)| {
+            matches!(d.property_type, Type::Callback { .. } | Type::Function { .. })
+        }) {
+            if apply_needed_member(e, name, prop_decl, needs_specifier, interface_name, diag) {
+                members.push(name.clone());
+            }
+        }
+        capabilities.push(NeededCapability { interface_name: interface_name.clone(), members });
+    }
+    capabilities
+}
+
+/// Declare a single capability member on `e` as an unbound declaration. Returns
+/// true when the member was declared, false on a conflict with an existing local
+/// member of the same name (a diagnostic is emitted in that case).
+fn apply_needed_member(
+    e: &mut Element,
+    name: &SmolStr,
+    prop_decl: &PropertyDeclaration,
+    needs_specifier: &syntax_nodes::NeedsSpecifier,
+    interface_name: &SmolStr,
+    diag: &mut BuildDiagnostics,
+) -> bool {
+    if matches!(prop_decl.property_type, Type::Invalid) {
+        return false;
+    }
+
+    let lookup_result = e.lookup_property(name);
+    if lookup_result.property_type != Type::Invalid && lookup_result.is_local_to_component {
+        diag.push_error(
+            format!(
+                "Conflict with '{interface_name}' which declares a capability member '{name}' with the same name"
+            ),
+            &needs_specifier.QualifiedName(),
+        );
+        return false;
+    }
+
+    // Point the declaration at the `needs` specifier for later diagnostics, since
+    // the member has no declaration of its own on this element.
+    let mut prop_decl = prop_decl.clone();
+    prop_decl.node = Some(needs_specifier.QualifiedName().into());
+    e.property_declarations.insert(name.clone(), prop_decl);
+    true
 }
 
 /// Apply default property values defined in the interface to the element.

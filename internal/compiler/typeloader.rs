@@ -2602,6 +2602,159 @@ export component ModuleA inherits Rectangle {
 }
 
 #[test]
+fn test_needs_declares_capability_members() {
+    // A11: `needs <Interface>` pulls the interface's callbacks onto the component
+    // as unbound members. They are then declared (present in property_declarations)
+    // and callable from the component body, and recorded for the mount verifier.
+    let source = r#"
+interface AppServices {
+    callback open-settings();
+    callback play-media(string);
+}
+interface AppNavV1 {
+    route Home;
+}
+enum ModuleRoute { Home }
+component ModHome inherits Rectangle { }
+export component ModuleA implements AppNavV1 inherits Rectangle {
+    needs AppServices;
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    TouchArea { clicked => { root.open-settings(); } }
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+    }
+}
+"#;
+    let (loader, path, diag) = load_source_for_contract_test(source, true);
+    assert!(!diag.has_errors(), "needs declaration rejected: {:?}", diag.to_string_vec());
+
+    let doc = loader.get_document(&path).unwrap();
+    let module = doc.inner_components.iter().find(|c| c.id == "ModuleA").expect("ModuleA missing");
+    let root = module.root_element.borrow();
+    // The capability callbacks are declared on the component.
+    assert!(root.property_declarations.contains_key("open-settings"));
+    assert!(root.property_declarations.contains_key("play-media"));
+
+    // The needs are recorded for the mount verifier.
+    let caps = module.needed_capabilities();
+    assert_eq!(caps.len(), 1);
+    assert_eq!(caps[0].interface_name, "AppServices");
+    assert!(caps[0].members.contains(&"open-settings".into()));
+    assert!(caps[0].members.contains(&"play-media".into()));
+}
+
+#[test]
+fn test_needs_requires_experimental() {
+    // `needs` is experimental-gated exactly like `uses`.
+    let source = r#"
+interface AppServices {
+    callback open-settings();
+}
+export component ModuleA inherits Rectangle {
+    needs AppServices;
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, false);
+    assert!(
+        diag.iter().any(|d| d.message().contains("'needs' is an experimental feature")),
+        "needs should be rejected without the experimental flag: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+#[test]
+fn test_mount_binds_needed_capabilities() {
+    // A11: a mount block that binds every capability the module needs compiles and
+    // still records the mount edge.
+    let source = r#"
+interface AppServices {
+    callback open-settings();
+    callback play-media(string);
+}
+interface AppNavV1 {
+    route Home;
+    route Details;
+}
+enum ModuleRoute { Home, Details }
+component ModHome inherits Rectangle { }
+component ModDetails inherits Rectangle { }
+component ModuleA implements AppNavV1 inherits Rectangle {
+    needs AppServices;
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+        ModuleRoute.Details: ModDetails { }
+    }
+}
+enum ShellRoute { Home, ModuleA }
+component HomeScreen inherits Rectangle { }
+export component Shell inherits Window {
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleA: mount ModuleA via AppNavV1 {
+            open-settings => { }
+            play-media(url) => { }
+        }
+    }
+}
+"#;
+    let (loader, path, diag) = load_source_for_contract_test(source, true);
+    assert!(!diag.has_errors(), "mount binding all needs rejected: {:?}", diag.to_string_vec());
+
+    let doc = loader.get_document(&path).unwrap();
+    let shell = doc.inner_components.iter().find(|c| c.id == "Shell").expect("Shell missing");
+    let root = shell.root_element.borrow();
+    let mounted =
+        root.navigator_routes().iter().find(|r| r.mount.is_some()).expect("no mount edge recorded");
+    assert_eq!(mounted.mount.as_ref().unwrap().impl_name, "ModuleA");
+    // The mount-block handlers land as bindings on the module instantiation.
+    let dest = mounted.component.borrow();
+    assert!(dest.bindings.contains_key("open-settings"));
+    assert!(dest.bindings.contains_key("play-media"));
+}
+
+#[test]
+fn test_mount_unbound_need_rejected() {
+    // A11: the mount omits `open-settings`, so a required capability is unbound.
+    let source = r#"
+interface AppServices {
+    callback open-settings();
+    callback play-media(string);
+}
+interface AppNavV1 {
+    route Home;
+}
+enum ModuleRoute { Home }
+component ModHome inherits Rectangle { }
+component ModuleA implements AppNavV1 inherits Rectangle {
+    needs AppServices;
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+    }
+}
+enum ShellRoute { Home }
+export component Shell inherits Window {
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: mount ModuleA via AppNavV1 {
+            play-media(url) => { }
+        }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d.message().contains(
+            "mount of 'ModuleA' does not bind required capability 'open-settings' (from 'AppServices')"
+        )),
+        "unbound need should be a diagnostic: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+#[test]
 fn test_dependency_loading_from_rust() {
     let test_source_path: PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();

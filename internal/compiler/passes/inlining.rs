@@ -400,6 +400,7 @@ fn duplicate_element_with_mapping(
             .collect(),
         repeated: elem.repeated.clone(),
         navigator_routes: elem.navigator_routes.clone(),
+        needed_capabilities: elem.needed_capabilities.clone(),
         is_component_placeholder: elem.is_component_placeholder,
         debug: elem.debug.clone(),
         enclosing_component: Rc::downgrade(root_component),

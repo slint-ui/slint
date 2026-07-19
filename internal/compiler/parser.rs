@@ -354,7 +354,7 @@ declare_syntax! {
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
                      *CallbackDeclaration, *ConditionalElement, *MatchElement, *Navigator, *Function, *RouteDeclaration, *SubElement,
                      *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
-                     *TwoWayBinding, *States, *Transitions, ?ChildrenPlaceholder, *AtVersion ],
+                     *TwoWayBinding, *States, *Transitions, ?ChildrenPlaceholder, *AtVersion, ?MountVia, *NeedsSpecifier ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , SubElement],
@@ -369,10 +369,15 @@ declare_syntax! {
         Navigator -> [ Expression, *Route ],
         /// Route.Home: HomeScreen { }  or  Route.ModuleA: mount ModuleA via AppNavV1 { }
         Route -> [ Expression, ?SubElement, ?MountDestination ],
-        /// `mount ModuleA via AppNavV1 { }`  a build-time federated mount destination.
-        /// The SubElement is the mounted implementation (desugars to a direct
-        /// instantiation); the QualifiedName is the navigation contract it must satisfy.
-        MountDestination -> [ SubElement, QualifiedName ],
+        /// `mount ModuleA via AppNavV1 { open-settings => {} }`  a build-time federated mount.
+        /// The SubElement is the mounted implementation, a normal instantiation whose body
+        /// binds the module's capability needs. The `via <Contract>` clause is nested in the
+        /// Element as a MountVia so the mount-block bindings flow onto the instantiation
+        /// through the ordinary binding path (A11).
+        MountDestination -> [ SubElement ],
+        /// `via AppNavV1`  the navigation contract a mount must satisfy. Nested inside the
+        /// mounted instantiation's Element so its base name and bindings stay contiguous.
+        MountVia -> [ QualifiedName ],
         /// `route Home;` or `route Details(id: int);`  a navigation contract member of an interface
         /// An optional `@uri("...")` prefix declares the route's deep-link URI.
         RouteDeclaration -> [ DeclaredIdentifier, *ArgumentDeclaration, *AtUri ],
@@ -496,6 +501,8 @@ declare_syntax! {
         UsesIdentifier -> [QualifiedName, DeclaredIdentifier],
         /// `implements Interface.Foo`
         ImplementsSpecifier -> [ QualifiedName ],
+        /// `needs AppServices;`  a capability the component requires from its host (A11).
+        NeedsSpecifier -> [ QualifiedName ],
     }
 }
 

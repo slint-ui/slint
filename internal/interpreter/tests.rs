@@ -409,6 +409,82 @@ export component TestCase inherits Window {
     );
 }
 
+// A11: a mounted module that `needs` a capability invokes it from inside itself,
+// and the integrator's binding at the mount site actually runs. ModuleA declares
+// `needs AppServices` and calls `play-media` from its own init; the shell binds
+// `play-media` to write a global. Observing that global proves the capability
+// wiring is end-to-end: the module's call reaches the integrator's expression.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_mount_binds_capability_end_to_end() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+    let code = r#"
+interface AppServices {
+    callback open-settings();
+    callback play-media(string);
+}
+interface AppNavV1 {
+    route Home;
+}
+global CapProbe { in-out property <string> played; }
+enum ModuleRoute { Home }
+component ModHome inherits Rectangle { }
+component ModuleA implements AppNavV1 inherits Rectangle {
+    needs AppServices;
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    // The module invokes a capability it does not implement itself.
+    init => { root.play-media("song.mp3"); }
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+    }
+}
+component HomeScreen inherits Rectangle { }
+enum ShellRoute { Home, ModuleA }
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    out property <string> played: CapProbe.played;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleA: mount ModuleA via AppNavV1 {
+            open-settings => { }
+            play-media(url) => { CapProbe.played = url; }
+        }
+    }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    // Before the module is mounted, nothing has invoked the capability.
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("played").unwrap(),
+        Value::from(SharedString::from("")),
+        "capability not invoked before the module is mounted"
+    );
+
+    // Mounting the module runs its init, which calls the bound capability; the
+    // integrator's handler writes the argument through to the global.
+    instance
+        .set_property("current", Value::EnumerationValue("ShellRoute".into(), "ModuleA".into()))
+        .unwrap();
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("played").unwrap(),
+        Value::from(SharedString::from("song.mp3")),
+        "the module's capability call runs the integrator's bound expression"
+    );
+}
+
 // The cross-file counterpart of `navigator_mount_renders_module`: the contract
 // and the mounted module live in their own files, imported by the integrator.
 // Proves the mount desugars, verifies, and renders the imported module the same
