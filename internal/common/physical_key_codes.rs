@@ -2,6 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Shared physical key names used by `@physical-keys(...)`.
+//!
+//! Currently these names are based on the US keyboard key names.
+//!
+//! This is currently in the shape:
+//!
+//!     Slint # Winit
+//!
+//! See the comment in key_codes.rs for the usage of this macro.
 
 #[macro_export]
 macro_rules! for_each_physical_keys {
