@@ -349,7 +349,7 @@ fn physical_key_string_to_code(string: &str) -> Option<muda::accelerator::Code> 
     });
 
     macro_rules! key_string_to_code_impl {
-        ($($name:ident # $code:ident # $_xkb:literal;)*) => {
+        ($($name:ident # $code:ident # $_xkb:literal # $_win:literal # $($_mac:literal)?;)*) => {
             match string {
                 $(stringify!($name) => Some(Code::$code),)*
                 _ => None,
