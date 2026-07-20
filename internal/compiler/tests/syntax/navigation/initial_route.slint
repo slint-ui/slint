@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // The current-route initializer picks the entry screen. Any enum value is a
-// valid initial route, and the conditional mapping stays the same.
+// valid initial route; the navigator maps the same set of routes either way.
 
 enum Route {
     Home,
@@ -15,15 +15,19 @@ component Screen inherits Rectangle { }
 export component StartOnDetails {
     in-out property <Route> current-route: Route.Details;
 
-    if current-route == Route.Home : Screen { }
-    if current-route == Route.Details : Screen { }
-    if current-route == Route.Settings : Screen { }
+    navigator (current-route) {
+        Route.Home: Screen { }
+        Route.Details: Screen { }
+        Route.Settings: Screen { }
+    }
 }
 
 export component StartOnSettings {
     in-out property <Route> current-route: Route.Settings;
 
-    if current-route == Route.Home : Screen { }
-    if current-route == Route.Details : Screen { }
-    if current-route == Route.Settings : Screen { }
+    navigator (current-route) {
+        Route.Home: Screen { }
+        Route.Details: Screen { }
+        Route.Settings: Screen { }
+    }
 }
