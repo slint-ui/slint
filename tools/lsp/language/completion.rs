@@ -80,6 +80,8 @@ pub(crate) fn completion_at(
         .and_then(|caps| caps.snippet_support)
         .unwrap_or(false);
 
+    let enable_experimental = document_cache.compiler_configuration().enable_experimental;
+
     if token.kind() == SyntaxKind::StringLiteral {
         if matches!(node.kind(), SyntaxKind::ImportSpecifier | SyntaxKind::AtImageUrl) {
             return complete_path_in_string(
@@ -108,10 +110,17 @@ pub(crate) fn completion_at(
 
         let with_snippets = snippet_support && !is_followed_by_brace(&token);
         return resolve_element_scope(element, document_cache, with_snippets).map(|mut r| {
-            let is_global = node
-                .parent()
+            let parent = node.parent();
+            let is_global = parent
+                .as_ref()
                 .and_then(|n| n.child_text(SyntaxKind::Identifier))
                 .is_some_and(|k| k == "global");
+            let is_interface = parent
+                .as_ref()
+                .and_then(|n| n.child_text(SyntaxKind::Identifier))
+                .is_some_and(|k| k == "interface");
+            let is_root_element =
+                parent.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Component);
 
             // add keywords
             r.extend(
@@ -160,6 +169,17 @@ pub(crate) fn completion_at(
                 );
             }
 
+            if is_root_element && !is_global && !is_interface && enable_experimental {
+                r.push(
+                    CompletionItem::new_simple("implement".to_string(), String::new())
+                        .with_kind(CompletionItemKind::KEYWORD)
+                        .with_insert_text(
+                            "implement ${1:Interface} <=> ${2:self};",
+                            snippet_support,
+                        ),
+                );
+            }
+
             if !is_global && snippet_support {
                 add_components_to_import(&token, document_cache, &mut r);
             }
@@ -193,6 +213,16 @@ pub(crate) fn completion_at(
         return with_lookup_ctx(document_cache, node, Some(offset), |ctx| {
             resolve_expression_scope(ctx, document_cache, snippet_support)
         })?;
+    } else if let Some(implement_statement) = syntax_nodes::ImplementStatement::new(node.clone()) {
+        if !enable_experimental {
+            return None;
+        }
+        if let Some(double_arrow) = implement_statement.child_token(SyntaxKind::DoubleArrow)
+            && offset >= double_arrow.text_range().end()
+        {
+            return resolve_implement_target_scope(node);
+        }
+        return None;
     } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
         if token.kind() == SyntaxKind::Whitespace || token.kind() == SyntaxKind::FatArrow {
             let ident = n.child_token(SyntaxKind::Identifier)?;
@@ -274,7 +304,7 @@ pub(crate) fn completion_at(
                     .into_iter()
                     .filter_map(|(k, t)| {
                         match t {
-                            ElementType::Component(c) if !c.is_global() => (),
+                            ElementType::Component(c) if !c.is_global() && !c.is_interface() => (),
                             ElementType::Builtin(b) if !b.is_internal && !b.is_global => (),
                             _ => return None,
                         };
@@ -291,6 +321,17 @@ pub(crate) fn completion_at(
                 }
 
                 return Some(result);
+            }
+            SyntaxKind::ImplementStatement => {
+                if !enable_experimental {
+                    return None;
+                }
+                return resolve_implement_interface_name_scope(
+                    &q,
+                    &token,
+                    document_cache,
+                    snippet_support,
+                );
             }
             SyntaxKind::Type => {
                 return resolve_type_scope(token, document_cache);
@@ -431,6 +472,12 @@ pub(crate) fn completion_at(
         let parent = node.parent()?;
         if parent.kind() == SyntaxKind::PropertyChangedCallback {
             return properties_for_changed_callbacks(parent, document_cache);
+        }
+        if parent.kind() == SyntaxKind::ImplementStatement {
+            if !enable_experimental {
+                return None;
+            }
+            return resolve_implement_target_scope(node);
         }
     } else if node.kind() == SyntaxKind::PropertyChangedCallback
         && offset > node.child_token(SyntaxKind::Identifier)?.text_range().end()
@@ -701,7 +748,7 @@ fn resolve_element_scope(
         if accepts_children {
             result.extend(tr.all_elements().into_iter().filter_map(|(k, t)| {
                 match t {
-                    ElementType::Component(c) if !c.is_global() => (),
+                    ElementType::Component(c) if !c.is_global() && !c.is_interface() => (),
                     ElementType::Builtin(b) if !b.is_internal && !b.is_global => (),
                     _ => return None,
                 };
@@ -1002,6 +1049,104 @@ fn complete_path_in_string(
     )
 }
 
+fn resolve_implement_interface_name_scope(
+    node: &SyntaxNode,
+    token: &SyntaxToken,
+    document_cache: &common::DocumentCache,
+    snippet_support: bool,
+) -> Option<Vec<CompletionItem>> {
+    let global_type_register = document_cache.global_type_registry();
+    let type_register = node
+        .source_file()
+        .and_then(|source_file| document_cache.get_document_for_source_file(source_file))
+        .map(|document| &document.local_registry)
+        .unwrap_or(&global_type_register);
+
+    let mut result = type_register
+        .all_elements()
+        .into_iter()
+        .filter_map(|(key, element_type)| {
+            matches!(&element_type, ElementType::Component(component) if component.is_interface())
+                .then(|| {
+                    let mut completion =
+                        CompletionItem::new_simple(key.to_string(), "interface".into());
+                    completion.kind = Some(CompletionItemKind::INTERFACE);
+                    completion
+                })
+        })
+        .collect::<Vec<_>>();
+
+    drop(global_type_register);
+
+    if snippet_support {
+        add_interfaces_to_import(token, document_cache, &mut result);
+    }
+
+    Some(result)
+}
+
+fn resolve_implement_target_scope(node: SyntaxNode) -> Option<Vec<CompletionItem>> {
+    let root_element_node = {
+        let mut candidate = node;
+        loop {
+            if candidate.kind() == SyntaxKind::Element {
+                break candidate;
+            }
+            candidate = candidate.parent()?;
+        }
+    };
+    let root_element = syntax_nodes::Element::new(root_element_node)?;
+
+    let mut result = vec![
+        CompletionItem::new_simple("self".into(), String::new())
+            .with_kind(CompletionItemKind::KEYWORD),
+    ];
+    collect_child_ids(&root_element, &mut result);
+    Some(result)
+}
+
+fn collect_child_ids(element: &syntax_nodes::Element, result: &mut Vec<CompletionItem>) {
+    for sub_element in element.SubElement() {
+        if let Some(id) = sub_element.child_token(SyntaxKind::Identifier) {
+            result.push(
+                CompletionItem::new_simple(id.text().to_string(), "element".into())
+                    .with_kind(CompletionItemKind::CLASS),
+            );
+        }
+        collect_child_ids(&sub_element.Element(), result);
+    }
+}
+
+fn add_interfaces_to_import(
+    token: &SyntaxToken,
+    document_cache: &common::DocumentCache,
+    result: &mut Vec<CompletionItem>,
+) {
+    let available_types: HashSet<_> =
+        result.iter().map(|completion| completion.label.clone()).collect();
+    build_component_import_statements_edits(
+        token,
+        document_cache,
+        &mut |component: &common::ComponentInformation| {
+            component.is_interface
+                && component.is_exported
+                && !available_types.contains(&component.name)
+        },
+        &mut |exported_name, file, the_import| {
+            result.push(CompletionItem {
+                label: format!("{exported_name} (import from \"{file}\")"),
+                insert_text: Some(exported_name.to_string()),
+                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                filter_text: Some(exported_name.to_string()),
+                kind: Some(CompletionItemKind::INTERFACE),
+                detail: Some(format!("(import from \"{file}\")")),
+                additional_text_edits: Some(vec![the_import]),
+                ..Default::default()
+            });
+        },
+    );
+}
+
 /// Add the components that are available when adding import to the `result`
 ///
 /// `available_types`  are the component which are already available and need no
@@ -1017,6 +1162,7 @@ fn add_components_to_import(
         document_cache,
         &mut |component: &common::ComponentInformation| {
             !component.is_global
+                && !component.is_interface
                 && component.is_exported
                 && !available_types.contains(&component.name)
         },
@@ -1334,10 +1480,22 @@ mod tests {
 
     /// Given a source text containing the unicode emoji `🔺`, the emoji will be removed and then an autocompletion request will be done as if the cursor was there
     fn get_completions(file: &str) -> Option<Vec<CompletionItem>> {
+        get_completions_impl(file, false)
+    }
+
+    fn get_completions_experimental(file: &str) -> Option<Vec<CompletionItem>> {
+        get_completions_impl(file, true)
+    }
+
+    fn get_completions_impl(file: &str, enable_experimental: bool) -> Option<Vec<CompletionItem>> {
         const CURSOR_EMOJI: char = '🔺';
         let offset = (file.find(CURSOR_EMOJI).unwrap() as u32).into();
         let source = file.replace(CURSOR_EMOJI, "");
-        let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source);
+        let (mut dc, uri, _) = if enable_experimental {
+            crate::language::test::loaded_document_cache_with_experimental(source)
+        } else {
+            crate::language::test::loaded_document_cache(source)
+        };
 
         let doc = dc.get_document(&uri).unwrap();
         let token = crate::language::token_at_offset(doc.node.as_ref().unwrap(), offset)?;
@@ -2374,6 +2532,39 @@ mod tests {
         main_file_name: &str,
         main_file_with_cursor: &str,
     ) -> Option<Vec<CompletionItem>> {
+        get_completions_multi_file_with(
+            crate::language::test::empty_document_cache(),
+            types_file_name,
+            types_content,
+            main_file_name,
+            main_file_with_cursor,
+        )
+    }
+
+    /// Same as [`get_completions_multi_file`], but with experimental features enabled — needed
+    /// to exercise `interface` declarations and `implement` statements.
+    fn get_completions_multi_file_experimental(
+        types_file_name: &str,
+        types_content: &str,
+        main_file_name: &str,
+        main_file_with_cursor: &str,
+    ) -> Option<Vec<CompletionItem>> {
+        get_completions_multi_file_with(
+            crate::language::test::empty_document_cache_with_experimental(),
+            types_file_name,
+            types_content,
+            main_file_name,
+            main_file_with_cursor,
+        )
+    }
+
+    fn get_completions_multi_file_with(
+        mut dc: common::DocumentCache,
+        types_file_name: &str,
+        types_content: &str,
+        main_file_name: &str,
+        main_file_with_cursor: &str,
+    ) -> Option<Vec<CompletionItem>> {
         use i_slint_compiler::diagnostics::BuildDiagnostics;
         use lsp_types::Url;
 
@@ -2381,7 +2572,6 @@ mod tests {
         let main_content = main_file_with_cursor.replace(CURSOR_EMOJI, "");
         let cursor_offset = (main_file_with_cursor.find(CURSOR_EMOJI).unwrap() as u32).into();
 
-        let mut dc = crate::language::test::empty_document_cache();
         spin_on::spin_on(dc.preload_builtins());
         let mut diagnostics = BuildDiagnostics::default();
 
@@ -2477,5 +2667,233 @@ export component TestWindow inherits Window {
             !results.iter().any(|ci| ci.label == "MyPoint (import from \"types.slint\")"),
             "unexpected import-suggestion for already-imported type"
         );
+    }
+
+    #[test]
+    fn implement_keyword_in_root_element() {
+        let sources = ["component Foo { 🔺 }", "export component Foo { 🔺 }"];
+        for source in sources {
+            let completions = get_completions_experimental(source).unwrap();
+            completions
+                .iter()
+                .find(|completion| completion.label == "implement")
+                .unwrap_or_else(|| panic!("no 'implement' completion for {source:?}"));
+        }
+    }
+
+    #[test]
+    fn implement_keyword_in_global_or_interface_or_none_root_element() {
+        let sources =
+            ["global Foo { 🔺 }", "interface Foo { 🔺 }", "component Foo { Rectangle { 🔺 } }"];
+        for source in sources {
+            let Some(completions) = get_completions_experimental(source) else { continue };
+            assert!(
+                !completions.iter().any(|completion| completion.label == "implement"),
+                "completion for {source:?} contains 'implement'"
+            );
+        }
+    }
+
+    #[test]
+    fn implement_interface_name() {
+        let source = r#"
+            interface MyInterface { property <int> x; }
+            component NotAnInterface { }
+            component Foo {
+                implement M🔺
+            }
+        "#;
+        let results = get_completions_experimental(source).unwrap();
+        let completion =
+            results.iter().find(|completion| completion.label == "MyInterface").unwrap();
+        assert_eq!(completion.kind, Some(CompletionItemKind::INTERFACE));
+        assert!(!results.iter().any(|completion| completion.label == "NotAnInterface"));
+    }
+
+    #[test]
+    fn implement_interface_name_suggests_import() {
+        let types_content = r#"export interface MyInterface { property <int> x; }
+"#;
+        let main_content = r#"component Foo {
+    implement M🔺
+}
+"#;
+        let results = get_completions_multi_file_experimental(
+            "types.slint",
+            types_content,
+            "main.slint",
+            main_content,
+        )
+        .unwrap();
+
+        assert_completion_found(
+            &CompletionItem {
+                label: "MyInterface (import from \"types.slint\")".into(),
+                insert_text: Some("MyInterface".into()),
+                filter_text: Some("MyInterface".into()),
+                additional_text_edits: Some(vec![TextEdit {
+                    range: Range::new(Position::new(0, 0), Position::new(0, 0)),
+                    new_text: "import { MyInterface } from \"types.slint\";\n".into(),
+                }]),
+                ..Default::default()
+            },
+            &results,
+        );
+    }
+
+    #[test]
+    fn implement_interface_name_no_import_suggestion_when_already_imported() {
+        let types_content = r#"export interface MyInterface { property <int> x; }
+"#;
+        let main_content = r#"import { MyInterface } from "types.slint";
+component Foo {
+    implement MyI🔺
+}
+"#;
+        let results = get_completions_multi_file_experimental(
+            "types.slint",
+            types_content,
+            "main.slint",
+            main_content,
+        )
+        .unwrap();
+
+        assert_completion_found(
+            &CompletionItem { label: "MyInterface".into(), ..Default::default() },
+            &results,
+        );
+        assert!(
+            !results.iter().any(|ci| ci.label == "MyInterface (import from \"types.slint\")"),
+            "unexpected import-suggestion for already-imported interface"
+        );
+    }
+
+    #[test]
+    fn implement_target() {
+        let sources = [
+            r#"
+                interface MyInterface { property <int> x; }
+                component Foo {
+                    bar := Rectangle {}
+                    for i in [1, 2, 3]: repeated-child := Rectangle { }
+                    if true: conditional-child := Rectangle { inner-child := Text {} }
+                    implement MyInterface <=> 🔺
+                }
+            "#,
+            r#"
+                interface MyInterface { property <int> x; }
+                component Foo {
+                    bar := Rectangle {}
+                    for i in [1, 2, 3]: repeated-child := Rectangle { }
+                    if true: conditional-child := Rectangle { inner-child := Text {} }
+                    implement MyInterface <=> 🔺;
+                }
+            "#,
+            r#"
+                interface MyInterface { property <int> x; }
+                component Foo {
+                    bar := Rectangle {}
+                    for i in [1, 2, 3]: repeated-child := Rectangle { }
+                    if true: conditional-child := Rectangle { inner-child := Text {} }
+                    implement MyInterface <=> b🔺
+                }
+            "#,
+            r#"
+                interface MyInterface { property <int> x; }
+                component Foo {
+                    bar := Rectangle {}
+                    for i in [1, 2, 3]: repeated-child := Rectangle { }
+                    if true: conditional-child := Rectangle { inner-child := Text {} }
+                    implement MyInterface <=> b🔺;
+                }
+            "#,
+            r#"
+                interface MyInterface { property <int> x; }
+                component Foo {
+                    implement MyInterface <=> 🔺;
+                    bar := Rectangle {}
+                    for i in [1, 2, 3]: repeated-child := Rectangle { }
+                    if true: conditional-child := Rectangle { inner-child := Text {} }
+                }
+            "#,
+            r#"
+                interface MyInterface { property <int> x; }
+                component Foo {
+                    implement MyInterface <=> b🔺;
+                    bar := Rectangle {}
+                    for i in [1, 2, 3]: repeated-child := Rectangle { }
+                    if true: conditional-child := Rectangle { inner-child := Text {} }
+                }
+            "#,
+        ];
+        for source in sources {
+            let results = get_completions_experimental(source).unwrap();
+            results.iter().find(|completion| completion.label == "self").unwrap();
+            results.iter().find(|completion| completion.label == "bar").unwrap();
+            assert!(!results.iter().any(|completion| completion.label == "repeated-child"));
+            assert!(!results.iter().any(|completion| completion.label == "conditional-child"));
+            assert!(!results.iter().any(|completion| completion.label == "inner-child"));
+        }
+    }
+
+    #[test]
+    fn implement_interface_name_does_not_repeat() {
+        // Interface name fully typed but the double-arrow not typed yet: the trailing whitespace
+        // is owned by `ImplementStatement` directly (the `DeclaredIdentifier` node for the
+        // target hasn't started yet), but re-suggesting interface names here would be wrong —
+        // the name is already complete, so there's nothing sensible to complete before `<=>`.
+        let source = r#"
+            interface MyInterface { property <int> x; }
+            component Foo {
+                implement MyInterface 🔺;
+            }
+        "#;
+        assert!(get_completions_experimental(source).is_none());
+    }
+
+    #[test]
+    fn implement_completions_require_experimental() {
+        let results: Vec<CompletionItem> = get_completions("component Foo { 🔺 }").unwrap();
+        assert!(!results.iter().any(|completion| completion.label == "implement"));
+        assert!(get_completions("component Foo { implement M🔺 }").is_none());
+
+        let results = get_completions("component Foo { implement 🔺; }").unwrap();
+        assert!(!results.iter().any(|completion| completion.label == "implement"));
+
+        assert!(
+            get_completions("component Foo { bar := Rectangle {} implement Foo <=> b🔺; }")
+                .is_none()
+        );
+        assert!(
+            get_completions("component Foo { bar := Rectangle {} implement Foo <=> 🔺; }")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn implement_unterminated_input() {
+        for source in [
+            // Nothing typed after the double-arrow, cut off at EOF, no `;`, no closing braces.
+            "component Foo { bar := Rectangle {} implement MyInterface <=> 🔺",
+            // Same, but with the component/element properly closed.
+            "component Foo { bar := Rectangle {} implement MyInterface <=> 🔺 }",
+            // Partial target typed, cut off at EOF.
+            "component Foo { bar := Rectangle {} implement MyInterface <=> ba🔺",
+        ] {
+            let results = get_completions_experimental(source).unwrap();
+            results.iter().find(|completion| completion.label == "self").unwrap();
+            results.iter().find(|completion| completion.label == "bar").unwrap();
+        }
+
+        // Interface name position, cut off at EOF.
+        for source in ["component Foo { implement MyInterface🔺", "component Foo { implement My🔺"]
+        {
+            let results = get_completions_experimental(source).unwrap();
+            assert!(results.is_empty(), "expected no completions for {source:?}, got {results:?}");
+        }
+
+        // Nothing typed after `implement` at all, cut off at EOF.
+        let results = get_completions_experimental("component Foo { implement 🔺").unwrap();
+        assert!(results.iter().any(|completion| completion.label == "property"));
     }
 }
