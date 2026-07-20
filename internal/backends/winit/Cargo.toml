@@ -112,6 +112,8 @@ accesskit = { version = "0.24", optional = true }
 accesskit_winit = { version = "0.33", optional = true, default-features = false, features = ["accesskit_unix", "async-io", "rwh_06"] }
 # The browser decodes images on the web; decode with the image and resvg crates elsewhere.
 i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
+# For encoding drag-and-drop image payloads
+image = { workspace = true }
 
 [target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")))'.dependencies]
 winit-wayland = { git = "https://github.com/rust-windowing/winit.git", rev = "156433eb912a62a1a07da0f9bbaa2d775270c788", optional = true }

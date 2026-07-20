@@ -115,36 +115,58 @@ fn icon_to_winit(
     icon: corelib::graphics::Image,
     size: euclid::Size2D<Coord, PhysicalPx>,
 ) -> Option<winit::icon::Icon> {
-    let image_inner: &ImageInner = (&icon).into();
-
-    let pixel_buffer = image_inner.render_to_buffer(Some(size.cast()))?;
-
-    // This could become a method in SharedPixelBuffer...
-    let rgba_pixels: Vec<u8> = match &pixel_buffer {
-        SharedImageBuffer::RGB8(pixels) => pixels
-            .as_bytes()
-            .chunks(3)
-            .flat_map(|rgb| IntoIterator::into_iter([rgb[0], rgb[1], rgb[2], 255]))
-            .collect(),
-        SharedImageBuffer::RGBA8(pixels) => pixels.as_bytes().to_vec(),
-        SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels
-            .as_bytes()
-            .chunks(4)
-            .flat_map(|rgba| {
-                let alpha = rgba[3] as u32;
-                IntoIterator::into_iter(rgba)
-                    .take(3)
-                    .map(move |component| (*component as u32 * alpha / 255) as u8)
-                    .chain(std::iter::once(alpha as u8))
-            })
-            .collect(),
-    };
+    let pixel_buffer = icon.to_rgba8_with_target_size(corelib::graphics::IntSize::new(
+        size.width as u32,
+        size.height as u32,
+    ))?;
 
     Some(
-        winit::icon::RgbaIcon::new(rgba_pixels, pixel_buffer.width(), pixel_buffer.height())
-            .ok()?
-            .into(),
+        winit::icon::RgbaIcon::new(
+            pixel_buffer.as_bytes().to_vec(),
+            pixel_buffer.width(),
+            pixel_buffer.height(),
+        )
+        .ok()?
+        .into(),
     )
+}
+
+/// The image of an outgoing drag, rendered to RGBA pixels ready for PNG encoding.
+/// Not available on wasm, where winit has no drag-and-drop and the PNG encoder
+/// would only grow the binary.
+#[cfg(not(target_arch = "wasm32"))]
+fn drag_image_payload(
+    request: &DragRequest,
+) -> Option<corelib::graphics::SharedPixelBuffer<corelib::graphics::Rgba8Pixel>> {
+    request.data().image().ok()?.to_rgba8()
+}
+#[cfg(target_arch = "wasm32")]
+fn drag_image_payload(
+    _request: &DragRequest,
+) -> Option<corelib::graphics::SharedPixelBuffer<corelib::graphics::Rgba8Pixel>> {
+    None
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn encode_png(
+    pixel_buffer: &corelib::graphics::SharedPixelBuffer<corelib::graphics::Rgba8Pixel>,
+) -> Option<Vec<u8>> {
+    let mut png = Vec::new();
+    image::ImageEncoder::write_image(
+        image::codecs::png::PngEncoder::new(&mut png),
+        pixel_buffer.as_bytes(),
+        pixel_buffer.width(),
+        pixel_buffer.height(),
+        image::ExtendedColorType::Rgba8,
+    )
+    .ok()?;
+    Some(png)
+}
+#[cfg(target_arch = "wasm32")]
+fn encode_png(
+    _pixel_buffer: &corelib::graphics::SharedPixelBuffer<corelib::graphics::Rgba8Pixel>,
+) -> Option<Vec<u8>> {
+    None
 }
 
 fn window_is_resizable(
@@ -1441,15 +1463,36 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         let Some(winit_window) = self.winit_window() else {
             return false;
         };
-        // Only plain text is sent natively for now; without it, fall back to the in-window drag.
-        let Some(text) = request.data().plain_text().ok().filter(|t| !t.is_empty()) else {
+        // Plain text and images are sent natively for now; without either, fall back
+        // to the in-window drag.
+        let text = request.data().plain_text().ok().filter(|t| !t.is_empty()).map(String::from);
+        let image = drag_image_payload(request);
+        if text.is_none() && image.is_none() {
             return false;
-        };
-        let data = winit::data_transfer::DataTransferSendBuilder::new(text.to_string())
-            .with_type(winit::data_transfer::TypeHint::Plaintext, |text: &String, _| {
-                Some(text.clone())
-            })
-            .build();
+        }
+        /// The source of truth for the outgoing drag, converted on demand to the
+        /// type the receiving application picks.
+        #[derive(Debug)]
+        struct SendState {
+            text: Option<String>,
+            image: Option<corelib::graphics::SharedPixelBuffer<corelib::graphics::Rgba8Pixel>>,
+        }
+        let has_text = text.is_some();
+        let has_image = image.is_some();
+        let mut builder =
+            winit::data_transfer::DataTransferSendBuilder::new(SendState { text, image });
+        if has_text {
+            builder.add_type(winit::data_transfer::TypeHint::Plaintext, |state: &SendState, _| {
+                state.text.clone()
+            });
+        }
+        if has_image {
+            builder.add_type(
+                winit::data_transfer::TypeHint::Image { extension_hint: Some("png") },
+                |state: &SendState, _| encode_png(state.image.as_ref()?),
+            );
+        }
+        let data = builder.build();
         let allowed = request.allowed_actions();
         let mut actions = Vec::new();
         if allowed.move_ {
