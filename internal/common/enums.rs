@@ -612,6 +612,32 @@ macro_rules! for_each_enums {
                 AlwaysOn,
             }
 
+            #[non_exhaustive]
+            enum PopupGravity {
+                None,
+                Top,
+                Bottom,
+                Left,
+                Right,
+                TopLeft,
+                BottomLeft,
+                TopRight,
+                BottomRight,
+            }
+
+            #[non_exhaustive]
+            enum PopupAnchorLocation {
+                None,
+                Top,
+                Bottom,
+                Left,
+                Right,
+                TopLeft,
+                BottomLeft,
+                TopRight,
+                BottomRight,
+            }
+
             // This enum describes the close behavior of `PopupWindow`
             #[non_exhaustive]
             enum PopupClosePolicy {

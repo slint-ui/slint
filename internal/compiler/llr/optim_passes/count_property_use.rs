@@ -125,7 +125,8 @@ pub fn count_property_use(root: &CompilationUnit) {
                 (),
                 Some(&parent_ctx),
             );
-            popup.position.borrow().visit_property_references(&popup_ctx, &mut visit_property)
+            popup.position.borrow().visit_property_references(&popup_ctx, &mut visit_property);
+            visit_property(&popup.anchor, &popup_ctx);
         }
         // 11. timer
         for timer in &sc.timers {

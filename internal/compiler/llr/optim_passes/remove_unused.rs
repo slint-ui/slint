@@ -355,6 +355,7 @@ mod visitor {
         for p in popup_windows {
             let popup_scope = EvaluationScope::SubComponent(p.item_tree.root, None);
             visit_expression(p.position.get_mut(), &popup_scope, state, visitor);
+            visit_member_reference(&mut p.anchor, &popup_scope, state, visitor);
         }
         for t in timers {
             visit_expression(t.interval.get_mut(), &scope, state, visitor);

@@ -24,7 +24,7 @@ use i_slint_core::item_tree::{
     VisitChildrenResult,
 };
 use i_slint_core::items::{
-    AccessibleRole, ItemRef, ItemVTable, PopupClosePolicy, PropertyAnimation,
+    AccessibleRole, ItemRef, ItemVTable, PopupAnchor, PopupClosePolicy, PropertyAnimation,
 };
 use i_slint_core::layout::{LayoutInfo, LayoutItemInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalRect};
@@ -2859,9 +2859,14 @@ pub fn show_popup(
         } else {
             Box::new(|_| {})
         };
+    // The interpreter doesn't yet track the `anchor` property dynamically (see the Rust
+    // codegen path in generator/rust.rs for the compiled equivalent); native Wayland
+    // positioning of interpreted popups is a follow-up.
+    let access_anchor = Box::new(|| PopupAnchor::default());
     let popup_id = WindowInner::from_pub(parent_window_adapter.window()).show_popup(
         &vtable::VRc::into_dyn(inst.clone()),
         access_position,
+        access_anchor,
         close_policy,
         parent_item,
         window_kind,

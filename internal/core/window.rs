@@ -18,7 +18,7 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
+use crate::items::{InputType, ItemRef, MenuEntry, MouseCursor, PopupAnchor, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
@@ -167,6 +167,10 @@ pub trait WindowAdapter {
     ) -> Result<raw_window_handle_06::DisplayHandle<'_>, raw_window_handle_06::HandleError> {
         Err(raw_window_handle_06::HandleError::NotSupported)
     }
+
+    /// Re-implement this to apply the popup's anchor/gravity/constraint-adjustment
+    /// positioner data to the native window (currently only Wayland acts on this).
+    fn set_position_anchor(&self, _anchor: &crate::items::PopupAnchor) {}
 }
 
 /// What a `DragArea` offers to start a native (OS-level) drag, passed to
@@ -516,6 +520,10 @@ pub struct PopupWindow {
     /// Called during re-evaluation of the position tracker to re-subscribe to dependencies.
     /// IMPORTANT: This position is relative to the parent
     position_access: Box<dyn Fn() -> LogicalPosition>,
+    /// Callback that returns the current anchor/gravity/constraint-adjustment positioner data,
+    /// re-evaluated alongside `position_access` so that native backends (currently Wayland) can
+    /// re-apply it when a dependency of the `anchor` property changes.
+    anchor_access: Box<dyn Fn() -> PopupAnchor>,
     /// Keeps the parent component's `PopupWindow::is-open` property in sync. Provided to
     /// [`WindowInner::show_popup`], invoked with `true` when the popup is shown and with `false` when
     /// this `PopupWindow` is dropped (see the `Drop` impl below). It is a no-op for popups whose
@@ -1640,12 +1648,17 @@ impl WindowInner {
             PopupWindowLocation::TopLevel(adapter) => {
                 // The size is already tracked in the windowadapter
                 let mut new_position: Option<LogicalPosition> = None;
+                let mut new_anchor: Option<PopupAnchor> = None;
                 popup.properties_tracker.as_ref().evaluate_as_dependency_root(|| {
                     (popup.position_access)(); // Dummy access to track position changes
                     new_position = Some(LogicalPosition::from_euclid(offset));
+                    new_anchor = Some((popup.anchor_access)());
                 });
                 if let Some(pos) = new_position {
                     adapter.window().set_position(pos);
+                }
+                if let Some(anchor) = new_anchor {
+                    adapter.set_position_anchor(&anchor);
                 }
             }
         }
@@ -1839,10 +1852,14 @@ impl WindowInner {
     /// popup: it is invoked immediately with `true`, and again with `false` when the popup is closed
     /// through any path (the `Drop` impl of [`PopupWindow`] handles the `false`). Pass a no-op closure
     /// for popups (such as menus) that do not expose `is-open`.
+    ///
+    /// `popup_access_anchor` provides the positioner data (anchor rect, gravity, constraint
+    /// adjustment) that native backends supporting it (currently Wayland) use to place the popup.
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,
         popup_access_position: Box<dyn Fn() -> LogicalPosition>,
+        popup_access_anchor: Box<dyn Fn() -> PopupAnchor>,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
         window_kind: WindowKind,
@@ -2008,6 +2025,7 @@ impl WindowInner {
             parent_item: parent_item.downgrade(),
             window_kind,
             position_access: popup_access_position,
+            anchor_access: popup_access_anchor,
             is_open_setter,
             properties_tracker,
         });
@@ -2590,9 +2608,12 @@ pub mod ffi {
                 user_data: is_open_setter_user_data,
             };
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            // The C++ generator does not yet expose the `anchor` property over this ABI, so
+            // popups shown from C++ use the default (unset) positioner data for now.
             WindowInner::from_pub(window_adapter.window()).show_popup(
                 popup,
                 Box::new(move || with_user_data.call()),
+                Box::new(PopupAnchor::default),
                 close_policy,
                 parent_item,
                 window_kind,

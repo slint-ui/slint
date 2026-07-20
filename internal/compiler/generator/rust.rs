@@ -3816,6 +3816,10 @@ fn compile_builtin_function_call(
                     Some(&parent_ctx),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
+                let anchor = compile_expression(
+                    &llr::Expression::PropertyReference(popup.anchor.clone()),
+                    &popup_ctx,
+                );
                 let close_policy = compile_expression(close_policy, ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 let window_kind = if popup.is_tooltip {
@@ -3878,11 +3882,16 @@ fn compile_builtin_function_call(
                         let access_position = sp::Box::new(move || {
                             let _self = popup_instance_vrc_for_position.as_pin_ref(); #position
                         });
+                        let popup_instance_vrc_for_anchor = popup_instance_vrc.clone();
+                        let access_anchor = sp::Box::new(move || {
+                            let _self = popup_instance_vrc_for_anchor.as_pin_ref(); #anchor
+                        });
 
                         #is_open_self_weak_decl
                         let popup_id = window.show_popup(
                             &sp::VRc::into_dyn(popup_instance.into()),
                             access_position,
+                            access_anchor,
                             #close_policy,
                             parent_item,
                             #window_kind,
@@ -3978,9 +3987,11 @@ fn compile_builtin_function_call(
             let slint_show = quote! {
                 #close_popup
                 let access_position = sp::Box::new(move || position);
+                let access_anchor = sp::Box::new(|| sp::PopupAnchor::default());
                 let id = sp::WindowInner::from_pub(window_adapter.window()).show_popup(
                     &sp::VRc::into_dyn(popup_instance.into()),
                     access_position,
+                    access_anchor,
                     sp::PopupClosePolicy::CloseOnClickOutside,
                     #context_menu_rc,
                     sp::WindowKind::Menu,

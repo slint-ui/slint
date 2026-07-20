@@ -1165,6 +1165,7 @@ fn call_builtin_function(
                 let id = window.show_popup(
                     &vtable::VRc::into_dyn(inst.clone()),
                     Box::new(move || position),
+                    Box::new(|| corelib::items::PopupAnchor::default()),
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
                     WindowKind::Menu,

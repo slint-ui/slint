@@ -899,11 +899,13 @@ fn lower_popup_component(
         ],
     );
 
+    let anchor = sc.mapping.map_property_reference(&popup.anchor, ctx.state);
+
     let item_tree = ItemTree {
         tree: make_tree(ctx.state, &popup.component.root_element, &sc, &[]),
         root: ctx.state.push_sub_component(sc),
     };
-    PopupWindow { item_tree, position: position.into(), is_tooltip: popup.is_tooltip }
+    PopupWindow { item_tree, position: position.into(), is_tooltip: popup.is_tooltip, anchor }
 }
 
 fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionLoweringCtx) -> Timer {

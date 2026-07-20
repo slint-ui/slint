@@ -557,11 +557,11 @@ impl TypeRegister {
                     BuiltinPropertyInfo::from(BuiltinFunction::ClosePopupWindow),
                 );
 
-                popup.properties.get_mut("close-on-click").unwrap().property_visibility =
-                    PropertyVisibility::Constexpr;
-
-                popup.properties.get_mut("close-policy").unwrap().property_visibility =
-                    PropertyVisibility::Constexpr;
+                const CONSTANT_PROPERTIES: &[&'static str] = &["close-on-click", "close-policy"];
+                for property in CONSTANT_PROPERTIES {
+                    popup.properties.get_mut(*property).unwrap().property_visibility =
+                        PropertyVisibility::Constexpr;
+                }
             }
             _ => unreachable!(),
         };
@@ -836,9 +836,12 @@ pub mod builtin_structs {
         ($pub_type:ident, DataTransfer) => { Type::DataTransfer };
         ($pub_type:ident, LogicalPosition) => { Type::Struct(logical_point_type()) };
         ($pub_type:ident, LogicalSize) => { Type::Struct(logical_size_type()) };
-        // builtin structs
+        // builtin structs — each struct that is a field type of another builtin struct needs an arm here
         ($pub_type:ident, KeyboardModifiers) => {
             // Note, this references the local variable in the BuiltinStructs constructor
+            Type::Struct($pub_type.clone())
+        };
+        ($pub_type:ident, ConstraintAdjustment) => {
             Type::Struct($pub_type.clone())
         };
         // builtin enums
