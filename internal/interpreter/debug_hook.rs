@@ -317,6 +317,7 @@ export component Win inherits Window {
             );
         }
         // Sanity: the Rectangle actually filled the 300x200 window (so we know we compared real sizes).
-        assert!((with[0].2 - 300.0).abs() < 0.5 && (with[0].3 - 200.0).abs() < 0.5);
+        assert!((with[0].2 - 300.0).abs() < 0.5);
+        assert!((with[0].3 - 200.0).abs() < 0.5);
     }
 }
