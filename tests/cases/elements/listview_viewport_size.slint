@@ -9,8 +9,13 @@ export component TestCaseFixedViewPort inherits Window  {
 
     out property listview-viewport-height <=> listview.viewport-height;
     out property listview-viewport-width <=> listview.viewport-width;
+    out property<length> listview-viewport-offset_y <=> listview.viewport_y;
 
     out property <bool> test: listview.viewport-width == 30000px && listview.viewport-height == 1000px;
+
+    public function scroll-to-end() {
+        listview.viewport-y = -30000px;
+    }
 
     listview := ListView {
         viewport-width: 30000px;
@@ -45,6 +50,7 @@ export component TestCaseFlexibleViewPort inherits Window  {
 
     out property listview-viewport-height <=> listview.viewport-height;
     out property listview-viewport-width <=> listview.viewport-width;
+
 
     out property <bool> test: listview.viewport-width == 1500px && listview.viewport-height == 800px;
 
@@ -97,6 +103,10 @@ let instance = TestCaseFixedViewPort::new().unwrap();
 assert!(instance.get_test());
 assert_eq!(instance.get_listview_viewport_height(), 1000.);
 assert_eq!(instance.get_listview_viewport_width(), 30000.);
+
+// Test if scrolling to end of listview
+instance.invoke_scroll_to_end();
+assert_eq!(instance.get_listview_viewport_offset_y(), -30000.);
 
 let instance = TestCaseFlexibleViewPort::new().unwrap();
 assert!(instance.get_test());

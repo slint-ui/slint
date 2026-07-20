@@ -244,7 +244,7 @@ fn update_visible_instances(
     let last_item_bottom = first_item_y + element_height * ops.len() as Coord;
 
     let (mut new_offset, mut new_offset_y) = if first_item_y > -vp_y + one_and_a_half_screen
-        || last_item_bottom + element_height < -vp_y
+        || (viewport_height.is_some() && last_item_bottom + element_height < -vp_y)
     {
         // Jumping more than 1.5 screens: random seek.
         ops.splice(0, ops.len(), 0);
