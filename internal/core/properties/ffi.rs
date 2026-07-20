@@ -331,6 +331,7 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
                 (anim, start_instant)
             },
             dirty_time: Cell::new(crate::animations::current_tick()),
+            carried_velocity: Cell::new(0.0),
         });
         handle.0.mark_dirty();
     }
@@ -570,6 +571,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         mark_dirty: ChangeTracker::mark_dirty,
         intercept_set: |_, _| false,
         intercept_set_binding: |_, _| false,
+        velocity: |_| None,
     };
 
     ct.clear();

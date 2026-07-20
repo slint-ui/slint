@@ -82,11 +82,29 @@ pub(super) struct PropertyValueAnimationData<T> {
 
 impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
     pub fn new(from_value: T, to_value: Option<T>, details: PropertyAnimation) -> Self {
-        let start_time = crate::animations::current_tick();
+        Self::new_with_velocity(from_value, to_value, details, 0.0)
+    }
 
-        // A spring with duration <= 0 (and no mass/stiffness/damping override) can't be simulated;
-        // fall back to `None` so it settles immediately
-        let spring = matches!(details.easing, crate::animations::EasingCurve::Spring)
+    /// Used to carry velocity over across a retarget.
+    pub fn new_with_velocity(
+        from_value: T,
+        to_value: Option<T>,
+        details: PropertyAnimation,
+        initial_velocity: f32,
+    ) -> Self {
+        let start_time = crate::animations::current_tick();
+        let spring = Self::compute_spring(&details, &from_value, &to_value, initial_velocity);
+        Self { from_value, to_value, details, start_time, state: AnimationState::Delaying, spring }
+    }
+
+    /// A spring with duration <= 0 (and no mass/stiffness/damping override) can't be simulated
+    fn compute_spring(
+        details: &PropertyAnimation,
+        from_value: &T,
+        to_value: &Option<T>,
+        initial_velocity: f32,
+    ) -> Option<SpringRegime> {
+        matches!(details.easing, crate::animations::EasingCurve::Spring)
             .then(|| {
                 let (w_n, zeta) = if details.mass > 0. {
                     Some(
@@ -109,20 +127,13 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                     None
                 }?;
 
-                // -1 so that the spring knows to go to 0
-                Some(SpringRegime::new(-1.0, 0.0, w_n, zeta))
+                // -1 so that the spring knows to go to 0; re-express the carried-over velocity
+                // (in property units/sec) in the spring's -1..=0-relative units.
+                let delta = from_value.scalar_delta(to_value);
+                let v0 = if delta != 0.0 { initial_velocity / delta } else { 0.0 };
+                Some(SpringRegime::new(-1.0, v0, w_n, zeta))
             })
-            .flatten();
-
-        Self {
-            from_value,
-            to_value,
-            details,
-            start_time,
-            state: AnimationState::Delaying,
-            map: None,
-            spring,
-        }
+            .flatten()
     }
 
     pub fn with_map(mut self, map: fn(T) -> T) -> Self {
@@ -135,6 +146,19 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
             Some(map) => map(value),
             None => value,
         }
+    }
+
+    /// The current velocity (in property units per second) of a live spring animation
+    fn current_velocity(&self) -> Option<f32> {
+        if !matches!(self.state, AnimationState::Animating { .. }) {
+            return None;
+        }
+        let spring = self.spring.as_ref()?;
+        let elapsed_secs =
+            crate::animations::current_tick().duration_since(self.start_time).as_millis() as f32
+                / 1000.0;
+        let (_, rel_vel) = spring.evaluate(elapsed_secs);
+        Some(rel_vel * self.from_value.scalar_delta(&self.to_value))
     }
 
     /// Single iteration of the animation
@@ -261,6 +285,7 @@ pub(super) struct AnimatedBindingCallable<T, A> {
     pub(super) compute_animation_details: A,
     /// Tick captured by `mark_dirty`
     pub(super) dirty_time: Cell<crate::animations::Instant>,
+    pub(crate) carried_velocity: Cell<f32>,
 }
 
 pub(super) type AnimationDetail = (PropertyAnimation, Option<crate::animations::Instant>);
@@ -313,6 +338,12 @@ unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> Bi
                         animation_data.start_time = start_time;
                     }
                     animation_data.details = details;
+                    animation_data.spring = PropertyValueAnimationData::<T>::compute_spring(
+                        &animation_data.details,
+                        &animation_data.from_value,
+                        &animation_data.to_value,
+                        self.carried_velocity.get(),
+                    );
                 }
 
                 self.state.set(AnimatedBindingState::Animating);
@@ -334,9 +365,15 @@ unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> Bi
         }
         let original_dirty = self.original_binding.access(|b| b.unwrap().dirty.get());
         if original_dirty {
+            self.carried_velocity
+                .set(self.animation_data.borrow().current_velocity().unwrap_or(0.0));
             self.state.set(AnimatedBindingState::ShouldStart);
             self.dirty_time.set(crate::animations::current_tick());
         }
+    }
+
+    fn velocity(self: Pin<&Self>) -> Option<f32> {
+        self.animation_data.borrow().current_velocity()
     }
 }
 
@@ -349,11 +386,21 @@ pub trait InterpolatedPropertyValue: PartialEq + Default + 'static {
     /// easing curves it may over- or undershoot though.
     #[must_use]
     fn interpolate(&self, target_value: &Self, t: f32) -> Self;
+
+    /// Returns `target_value - self` as a scalar.
+    /// Types with no natural single-scalar notion of velocity keep the default `0.0`
+    fn scalar_delta(&self, _target_value: &Self) -> f32 {
+        0.0
+    }
 }
 
 impl InterpolatedPropertyValue for f32 {
     fn interpolate(&self, target_value: &Self, t: f32) -> Self {
         self + t * (target_value - self)
+    }
+
+    fn scalar_delta(&self, target_value: &Self) -> f32 {
+        target_value - self
     }
 }
 
@@ -361,11 +408,19 @@ impl InterpolatedPropertyValue for i32 {
     fn interpolate(&self, target_value: &Self, t: f32) -> Self {
         self + (t * (target_value - self) as f32).round() as i32
     }
+
+    fn scalar_delta(&self, target_value: &Self) -> f32 {
+        (target_value - self) as f32
+    }
 }
 
 impl InterpolatedPropertyValue for i64 {
     fn interpolate(&self, target_value: &Self, t: f32) -> Self {
         self + (t * (target_value - self) as f32).round() as Self
+    }
+
+    fn scalar_delta(&self, target_value: &Self) -> f32 {
+        (target_value - self) as f32
     }
 }
 
@@ -374,11 +429,45 @@ impl InterpolatedPropertyValue for u8 {
         ((*self as f32) + (t * ((*target_value as f32) - (*self as f32)))).round().clamp(0., 255.)
             as u8
     }
+
+    fn scalar_delta(&self, target_value: &Self) -> f32 {
+        (*target_value as f32) - (*self as f32)
+    }
 }
 
 impl InterpolatedPropertyValue for LogicalLength {
     fn interpolate(&self, target_value: &Self, t: f32) -> Self {
         LogicalLength::new(self.get().interpolate(&target_value.get(), t))
+    }
+
+    fn scalar_delta(&self, target_value: &Self) -> f32 {
+        (target_value.get() - self.get()) as f32
+    }
+}
+
+/// Binding installed by `Property::set_animated_value`.
+/// A type so a retarget can report the current velocity
+struct AnimatedValueBinding<T> {
+    animation_data: RefCell<PropertyValueAnimationData<T>>,
+}
+
+unsafe impl<T: InterpolatedPropertyValue + Clone + 'static> BindingCallable<T>
+    for AnimatedValueBinding<T>
+{
+    fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
+        let (val, finished) = self.animation_data.borrow_mut().compute_interpolated_value();
+        *value = val;
+        if finished {
+            BindingResult::RemoveBinding
+        } else {
+            crate::animations::CURRENT_ANIMATION_DRIVER
+                .with(|driver| driver.set_has_active_animations());
+            BindingResult::KeepBinding
+        }
+    }
+
+    fn velocity(self: Pin<&Self>) -> Option<f32> {
+        self.animation_data.borrow().current_velocity()
     }
 }
 
@@ -423,10 +512,13 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         animation_data: PropertyAnimation,
         map: Option<fn(T) -> T>,
     ) {
-        let mut d = properties_animations::PropertyValueAnimationData::new(
+        // Carry over the outgoing binding's velocity
+        let carried_velocity = self.handle.current_velocity().unwrap_or(0.0);
+        let mut d = properties_animations::PropertyValueAnimationData::new_with_velocity(
             self.get(),
             Some(value),
             animation_data,
+            carried_velocity
         );
         if let Some(map) = map {
             d = d.with_map(map);
@@ -435,17 +527,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         // Safety: the BindingCallable will cast its argument to T
         unsafe {
             self.handle.set_binding(
-                move |val: &mut T| {
-                    let (value, finished) = d.borrow_mut().compute_interpolated_value();
-                    *val = value;
-                    if finished {
-                        BindingResult::RemoveBinding
-                    } else {
-                        crate::animations::CURRENT_ANIMATION_DRIVER
-                            .with(|driver| driver.set_has_active_animations());
-                        BindingResult::KeepBinding
-                    }
-                },
+                binding,
                 #[cfg(slint_debug_property)]
                 self.debug_name.borrow().as_str(),
             );
@@ -509,6 +591,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
             animation_data: RefCell::new(animation_data),
             compute_animation_details,
             dirty_time: Cell::new(crate::animations::current_tick()),
+            carried_velocity: Cell::new(0.0),
         };
 
         // Safety: the `AnimatedBindingCallable`'s type match the property type
@@ -1311,5 +1394,162 @@ mod animation_tests {
             .with(|driver| driver.update_animations(start_time + 2 * DURATION + DURATION / 2));
 
         assert_eq!(get_prop_value(&compo.width), 300);
+    }
+
+    #[test]
+    fn spring_retarget_carries_velocity() {
+        // A retarget mid-flight must carry the outgoing spring's velocity into the new one,
+        // instead of restarting it at rest (which would produce a visible "pop").
+        let compo = Component::new_test_component();
+
+        let spring_details = PropertyAnimation {
+            duration: 1000,
+            bounce: 0.0,
+            easing: crate::animations::EasingCurve::Spring,
+            ..PropertyAnimation::default()
+        };
+
+        compo.width.set(0);
+        let start_time = crate::animations::current_tick();
+        set_animated_value(&compo.width, 1000, spring_details.clone());
+
+        // Let the spring run for a while so it picks up meaningful velocity.
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(300))
+        });
+        let before_a = get_prop_value(&compo.width) as f32;
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(310))
+        });
+        let before_b = get_prop_value(&compo.width) as f32;
+        let slope_before = before_b - before_a; // units per 10ms, just prior to the retarget
+
+        // Retarget to a new value while the spring is still moving.
+        set_animated_value(&compo.width, 2000, spring_details);
+        assert_eq!(
+            get_prop_value(&compo.width) as f32,
+            before_b,
+            "retarget must not snap the value"
+        );
+
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(320))
+        });
+        let after = get_prop_value(&compo.width) as f32;
+        let slope_after = after - before_b; // units per 10ms, just after the retarget
+
+        // With velocity carried over, the slope right after the retarget should be close to the
+        // slope right before it (same order of magnitude, same direction). Without the fix, the
+        // new spring starts at rest (v0 == 0), so `slope_after` would be near zero here.
+        assert!(slope_before > 0.5, "sanity check: spring should be moving before retarget");
+        assert!(
+            slope_after > slope_before * 0.5,
+            "velocity was not carried over: slope_before={slope_before}, slope_after={slope_after}"
+        );
+    }
+
+    #[test]
+    fn spring_retarget_via_binding_carries_velocity() {
+        let compo = Component::new_test_component();
+
+        let spring_details = PropertyAnimation {
+            duration: 1000,
+            bounce: 0.0,
+            easing: crate::animations::EasingCurve::Spring,
+            ..PropertyAnimation::default()
+        };
+
+        let w = PinWeak::downgrade(compo.clone());
+        let details = spring_details.clone();
+        compo.width.set_animated_binding(
+            move || {
+                let compo = w.upgrade().unwrap();
+                get_prop_value(&compo.feed_property)
+            },
+            move || (details.clone(), None),
+        );
+
+        // Establish the dependency and a baseline value (the very first read never animates).
+        compo.feed_property.set(0);
+        assert_eq!(get_prop_value(&compo.width), 0);
+
+        let start_time = crate::animations::current_tick();
+        compo.feed_property.set(1000);
+        assert_eq!(get_prop_value(&compo.width), 0);
+
+        // Let the spring run for a while so it picks up meaningful velocity.
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(300))
+        });
+        let before_a = get_prop_value(&compo.width) as f32;
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(310))
+        });
+        let before_b = get_prop_value(&compo.width) as f32;
+        let slope_before = before_b - before_a; // units per 10ms, just prior to the retarget
+
+        // Retarget mid-flight by changing the value the animated binding reads.
+        compo.feed_property.set(2000);
+        assert_eq!(
+            get_prop_value(&compo.width) as f32,
+            before_b,
+            "retarget must not snap the value"
+        );
+
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(320))
+        });
+        let after = get_prop_value(&compo.width) as f32;
+        let slope_after = after - before_b; // units per 10ms, just after the retarget
+
+        assert!(slope_before > 0.5, "sanity check: spring should be moving before retarget");
+        assert!(
+            slope_after > slope_before * 0.5,
+            "velocity was not carried over through the binding-triggered retarget path: slope_before={slope_before}, slope_after={slope_after}"
+        );
+    }
+
+    #[test]
+    fn spring_continuous_retarget_keeps_advancing() {
+        let compo = Component::new_test_component();
+
+        let spring_details = PropertyAnimation {
+            mass: 1.0,
+            stiffness: 2.0,
+            damping: 0.7,
+            easing: crate::animations::EasingCurve::Spring,
+            ..PropertyAnimation::default()
+        };
+
+        let w = PinWeak::downgrade(compo.clone());
+        let details = spring_details.clone();
+        compo.width.set_animated_binding(
+            move || {
+                let compo = w.upgrade().unwrap();
+                get_prop_value(&compo.feed_property)
+            },
+            move || (details.clone(), None),
+        );
+
+        compo.feed_property.set(0);
+        assert_eq!(get_prop_value(&compo.width), 0);
+
+        let start_time = crate::animations::current_tick();
+        let mut mouse_x = 0i32;
+        let mut final_width = 0f32;
+        for frame in 1..=200 {
+            mouse_x += 5; // simulate a steady mouse drag, 5px per frame
+            compo.feed_property.set(mouse_x);
+            let t = start_time + core::time::Duration::from_millis(frame * 16);
+            crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.update_animations(t));
+            // Read the property every frame, like a renderer would when painting each frame --
+            // this is what actually drives `evaluate()` (property evaluation is lazy).
+            final_width = get_prop_value(&compo.width) as f32;
+        }
+
+        assert!(
+            final_width > 500.0,
+            "spring should have tracked the continuously-moving target by now, got {final_width}"
+        );
     }
 }
