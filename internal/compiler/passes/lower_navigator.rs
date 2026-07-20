@@ -84,9 +84,7 @@ fn lower_one(elem: &ElementRc, diag: &mut BuildDiagnostics) {
     // whose push/remove are silently no-ops.
     elem.borrow_mut().bindings.insert(
         SmolStr::new_static(BACK_STACK),
-        RefCell::new(
-            Expression::Array { element_ty: route_ty.clone(), values: vec![] }.into(),
-        ),
+        RefCell::new(Expression::Array { element_ty: route_ty.clone(), values: vec![] }.into()),
     );
 
     let back_stack = || Expression::PropertyReference(NamedReference::new(elem, BACK_STACK.into()));
@@ -151,11 +149,9 @@ fn lower_one(elem: &ElementRc, diag: &mut BuildDiagnostics) {
         .borrow()
         .navigator_routes
         .iter()
-        .filter_map(|r| {
-            match r.component.borrow().repeated.as_ref().map(|rep| rep.model.clone()) {
-                Some(Expression::BinaryExpression { rhs, .. }) => Some(*rhs),
-                _ => None,
-            }
+        .filter_map(|r| match r.component.borrow().repeated.as_ref().map(|rep| rep.model.clone()) {
+            Some(Expression::BinaryExpression { rhs, .. }) => Some(*rhs),
+            _ => None,
         })
         .collect();
 

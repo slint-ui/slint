@@ -281,7 +281,7 @@ export component TestCase {
     assert_eq!(instance.get_property("a-open").unwrap(), Value::from(false), "a after close");
 }
 
-// The milestone test: a `navigator` renders the destination component for the
+// A `navigator` renders the destination component for the
 // current route, and re-renders when the route changes. Each destination
 // records its name in a global on `init`, so the observed value tells us which
 // route's screen is currently instantiated. Requires `enable_experimental`,
@@ -522,7 +522,7 @@ export component TestCase inherits Window {
     assert_eq!(index(&instance), Value::from(0.));
 }
 
-// PR A8: a std-widgets navigation presentation (a Button-row tab bar) driving
+// A std-widgets navigation presentation (a Button-row tab bar) driving
 // the navigator through its int-index adapter. The tab bar is a plain std
 // `Button` row that exposes `current-index` / `selected(int)`; the host bridges
 // those to the navigator's `current-route-index` / `navigate-index` (the adapter
@@ -640,7 +640,7 @@ export component TestCase inherits Window {
 //   current_index  <- current-route-index   (the bar reflects the route)
 //   index_changed(i) => navigate-index(i)    (a tap navigates)
 // Nothing about the `navigator { Route... }` block is chrome-specific, so std
-// chrome (PR A8) binds the same two members with zero change to the routes.
+// chrome binds the same two members with zero change to the routes.
 #[cfg(feature = "internal")]
 #[test]
 fn navigator_int_chrome_binding() {
@@ -769,13 +769,13 @@ export component TestCase inherits Window {
     );
 }
 
-// PR #13: the navigator's public members are declared before expression
+// The navigator's public members are declared before expression
 // resolution, so widget chrome binds to them INLINE in .slint (not from the
 // host language). This is the same IntChrome contract as
 // navigator_int_chrome_binding, but the two adapter members are wired in .slint:
 //   current-index: root.current-route-index       (the bar reflects the route)
 //   index-changed(i) => root.navigate-index(i)     (a tap navigates)
-// and can-go-back is read in a .slint binding too. Before #13 these members did
+// and can-go-back is read in a .slint binding too. If these members did
 // not exist at resolve time, so this binding failed with "does not have a
 // property 'current-route-index'" and had to be done from Rust.
 #[cfg(feature = "internal")]
@@ -810,7 +810,7 @@ export component TestCase inherits Window {
     in-out property <Route> current-route: Route.Home;
     out property <string> active: NavProbe.active;
 
-    // The #13 proof: the chrome binds the navigator's synthesized members
+    // The chrome binds the navigator's synthesized members
     // directly in .slint. These mirrors let the test observe the bound values.
     out property <int> chrome-index: chrome.current-index;
     out property <bool> chrome-can-back: root.can-go-back;

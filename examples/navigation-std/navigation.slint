@@ -3,17 +3,12 @@
 
 import { Button, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
-// The navigation convention: one enum value per screen.
 enum Route {
     Home,
     Details,
     Settings,
 }
 
-// A segmented navigation bar built from std-widgets `Button`s. std-widgets has
-// no public tab-bar/segmented control, so this binds a plain Button row to the
-// navigator's int-index adapter: the highlighted segment follows `current-index`
-// and clicking one asks to navigate by ordinal via `selected`.
 component NavBar inherits HorizontalBox {
     in property <[string]> titles;
     in property <int> current-index;
@@ -21,7 +16,6 @@ component NavBar inherits HorizontalBox {
 
     for title[index] in titles: Button {
         text: title;
-        // Highlight the active segment; purely driven by current-index.
         primary: index == root.current-index;
         clicked => { root.selected(index); }
     }
@@ -59,13 +53,8 @@ export component App inherits Window {
     preferred-height: 300px;
     title: "Slint Navigation (std-widgets)";
 
-    // The current screen. Assigning this property navigates.
     in-out property <Route> current-route: Route.Home;
 
-    // The navigator's int-index adapter (current-route-index / navigate-index)
-    // is synthesized after expression resolution, so it cannot be referenced
-    // from .slint. main.rs bridges it to these two members instead: it writes
-    // the highlighted segment here and reacts to a selection by ordinal.
     in property <int> nav-index;
     callback nav-select(index: int);
 
@@ -79,8 +68,6 @@ export component App inherits Window {
         selected(index) => { root.nav-select(index); }
     }
 
-    // The navigator is a direct child of the root Window, so its adapter
-    // members land on the root's public API where main.rs can reach them.
     navigator (current-route) {
         Route.Home: HomeScreen {
             y: 48px;
