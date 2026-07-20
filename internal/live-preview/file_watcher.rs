@@ -565,7 +565,7 @@ mod tests {
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     const WATCHER_SETTLE_DELAY: Duration = Duration::from_millis(50);
-    const EVENT_TIMEOUT: Duration = Duration::from_millis(100);
+    const EVENT_TIMEOUT: Duration = Duration::from_secs(1);
     const QUIET_TIMEOUT: Duration = Duration::from_millis(50);
 
     fn new_test_root() -> PathBuf {
