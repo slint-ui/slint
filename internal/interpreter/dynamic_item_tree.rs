@@ -9,7 +9,7 @@ use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::expression_tree::{Expression, NamedReference, TwoWayBinding};
 use i_slint_compiler::langtype::{BuiltinStruct, StructName, Type};
-use i_slint_compiler::object_tree::{ElementRc, ElementWeak, TransitionDirection};
+use i_slint_compiler::object_tree::{ElementRc, ElementWeak, TransitionDirection, ZOrder};
 use i_slint_compiler::{CompilerConfiguration, generator, object_tree, parser};
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use i_slint_core::accessibility::{
@@ -145,6 +145,20 @@ impl RepeatedItemTree for ErasedItemTreeBox {
 
     fn init(&self) {
         self.run_setup_code();
+    }
+
+    fn z_order(self: Pin<&Self>) -> Option<f32> {
+        generativity::make_guard!(guard);
+        let s = self.unerase(guard);
+        let parent = s.description.original.parent_element()?;
+        let z_order = parent.borrow().z_order.clone();
+        let Some(ZOrder::PerInstance(nr)) = z_order else { return None };
+        Some(
+            crate::eval::load_property(s.borrow_instance(), &nr.element(), nr.name())
+                .ok()
+                .and_then(|v| v.try_into().ok())
+                .unwrap_or(0.0),
+        )
     }
 
     fn listview_layout(self: Pin<&Self>, offset_y: &mut LogicalLength) -> LogicalLength {
@@ -494,6 +508,9 @@ pub struct ItemTreeDescription<'id> {
     /// The collection of compiled globals
     compiled_globals: Option<Rc<CompiledGlobalCollection>>,
 
+    /// For tree nodes with dynamic z-ordering: maps tree_index to per-child z info.
+    z_order_info: HashMap<u32, Vec<ZOrder>>,
+
     /// The type loader, which will be available only on the top-most `ItemTreeDescription`.
     /// All other `ItemTreeDescription`s have `None` here.
     #[cfg(feature = "internal-highlight")]
@@ -805,6 +822,52 @@ extern "C" fn visit_children_item(
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let comp_rc = instance_ref.self_weak().get().unwrap().upgrade().unwrap();
+
+    // The sorted entries of the children when this node has dynamic z-ordering.
+    // Repeated children with per-instance z are expanded to one entry per instance.
+    let sorted = (index >= 0)
+        .then(|| instance_ref.description.z_order_info.get(&(index as u32)))
+        .flatten()
+        .map(|z_children| {
+            use i_slint_core::item_tree::ZSortedChild;
+            let mut entries: Vec<ZSortedChild> = Vec::with_capacity(z_children.len());
+            for (k, z_order) in z_children.iter().enumerate() {
+                let child_offset = k as u32;
+                match z_order {
+                    ZOrder::Constant(z) => {
+                        entries.push(ZSortedChild { z: *z, child_offset, instance: u32::MAX })
+                    }
+                    ZOrder::Dynamic(nr) => {
+                        let z = eval::load_property(instance_ref, &nr.element(), nr.name())
+                            .ok()
+                            .and_then(|v| v.try_into().ok())
+                            .unwrap_or(0.0);
+                        entries.push(ZSortedChild { z, child_offset, instance: u32::MAX })
+                    }
+                    ZOrder::PerInstance(_) => {
+                        let tree = get_item_tree(component);
+                        let ItemTreeNode::Item { children_index, .. } = tree[index as usize] else {
+                            unreachable!()
+                        };
+                        let ItemTreeNode::DynamicTree { index: rep_index, .. } =
+                            tree[(children_index + child_offset) as usize]
+                        else {
+                            unreachable!()
+                        };
+                        generativity::make_guard!(guard);
+                        let rep_in_comp =
+                            instance_ref.description.repeater[rep_index as usize].unerase(guard);
+                        let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
+                        repeater.for_each_instance_z(&mut |instance, z| {
+                            entries.push(ZSortedChild { z, child_offset, instance })
+                        });
+                    }
+                }
+            }
+            i_slint_core::item_tree::sort_z_entries(&mut entries);
+            entries
+        });
+
     i_slint_core::item_tree::visit_item_tree(
         instance_ref.instance,
         &vtable::VRc::into_dyn(comp_rc),
@@ -812,7 +875,7 @@ extern "C" fn visit_children_item(
         index,
         order,
         v,
-        |_, order, visitor, index| {
+        |_, order, visitor, index, instance| {
             if index as usize >= instance_ref.description.repeater.len() {
                 // Do nothing: We are ComponentContainer and Our parent already did all the work!
                 VisitChildrenResult::CONTINUE
@@ -820,9 +883,10 @@ extern "C" fn visit_children_item(
                 generativity::make_guard!(guard);
                 let rep_in_comp = instance_ref.description.repeater[index as usize].unerase(guard);
                 let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
-                repeater.visit(order, visitor)
+                repeater.visit_maybe_instance(instance, order, visitor)
             }
         },
+        sorted.as_deref(),
     )
 }
 
@@ -1402,6 +1466,20 @@ pub(crate) fn generate_item_tree<'id>(
         drop_in_place,
         dealloc,
     };
+    // Build z_order_info from original elements
+    let mut z_order_info: HashMap<u32, Vec<ZOrder>> = HashMap::new();
+    for (idx, elem_rc) in builder.original_elements.iter().enumerate() {
+        let elem = elem_rc.borrow();
+        if elem.has_dynamic_z_order() {
+            let child_z_orders = elem
+                .children
+                .iter()
+                .map(|child| child.borrow().z_order.clone().unwrap_or(ZOrder::Constant(0.0)))
+                .collect();
+            z_order_info.insert(idx as u32, child_z_orders);
+        }
+    }
+
     let t = ItemTreeDescription {
         ct: t,
         dynamic_type: builder.type_builder.build(),
@@ -1424,6 +1502,7 @@ pub(crate) fn generate_item_tree<'id>(
         timers,
         popup_ids: std::cell::RefCell::new(HashMap::new()),
         popup_menu_description: builder.popup_menu_description,
+        z_order_info,
         #[cfg(feature = "internal-highlight")]
         type_loader: std::cell::OnceCell::new(),
         #[cfg(feature = "internal-highlight")]

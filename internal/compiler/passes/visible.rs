@@ -88,6 +88,8 @@ pub fn handle_visible(
                     }
                 } else if has_visible_binding(&child) {
                     let new_child = create_visibility_element(&child, &native_clip);
+                    // The injected element takes the child's place among the z-sorted siblings
+                    new_child.borrow_mut().z_order = child.borrow_mut().z_order.take();
                     new_child.borrow_mut().children.push(child);
                     child = new_child;
                 }

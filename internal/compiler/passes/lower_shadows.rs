@@ -271,6 +271,8 @@ pub fn lower_shadow_properties(
                 )
             {
                 shadow_elem.geometry_props.clone_from(&child.borrow().geometry_props);
+                // Sort the shadow with the same z as its element; the stable sort keeps it beneath
+                shadow_elem.z_order = child.borrow().z_order.clone();
                 elem.borrow_mut().children.push(ElementRc::new(shadow_elem.into()));
             }
 

@@ -914,6 +914,13 @@ fn lower_repeated_component(
     let container_item_index =
         parent_index.and_then(|pii| sub_component.items.position(|i| i.index_in_tree == pii));
 
+    let dynamic_z = match &e.z_order {
+        Some(object_tree::ZOrder::PerInstance(nr)) => {
+            Some(sc.mapping.map_property_reference(nr, ctx.state))
+        }
+        _ => None,
+    };
+
     let tree = make_tree(ctx.state, &component.root_element, &sc, &[]);
     let root = ctx.state.push_sub_component(sc);
     // Register the repeated component in the mapping so it can be looked up
@@ -924,6 +931,7 @@ fn lower_repeated_component(
         sub_tree: ItemTree { tree, root },
         index_prop: (!repeated.is_conditional_element).then_some(PropertyIdx::REPEATER_INDEX),
         data_prop: (!repeated.is_conditional_element).then_some(PropertyIdx::REPEATER_DATA),
+        dynamic_z,
         index_in_tree: *e.item_index.get().unwrap(),
         listview,
         container_item_index,
@@ -1186,6 +1194,68 @@ fn make_tree(
     let e = element.borrow();
     let children = e.children.iter().map(|c| make_tree(state, c, component, sub_component_path));
     let repeater_count = component.mapping.repeater_count;
+
+    // Check if this element has dynamic z-ordering. If so, build the z expressions
+    // from each child's z_order field.
+    let zero = || ZSource::Expression(super::Expression::NumberLiteral(0.).into());
+    let z_sort_order_property = if e.has_dynamic_z_order() {
+        use crate::object_tree::ZOrder;
+        let mut z_sources: Vec<ZSource> = Vec::with_capacity(e.children.len());
+        for child in e.children.iter() {
+            let child_z = child.borrow().z_order.clone();
+            match child_z {
+                Some(ZOrder::Constant(val)) => {
+                    z_sources.push(ZSource::Expression(
+                        super::Expression::NumberLiteral(val as f64).into(),
+                    ));
+                }
+                Some(ZOrder::PerInstance(_)) => {
+                    let Some(LoweredElement::Repeated { repeated_index }) =
+                        component.mapping.element_mapping.get(&ByAddress(child.clone()))
+                    else {
+                        unreachable!("PerInstance z is only set on repeated elements")
+                    };
+                    z_sources.push(ZSource::RepeaterInstances {
+                        sub_component_path: sub_component_path.to_vec(),
+                        repeater_index: *repeated_index,
+                    });
+                }
+                Some(ZOrder::Dynamic(ref nr)) => {
+                    match component.mapping.map_property_reference(nr, state) {
+                        MemberReference::Relative { parent_level: 0, local_reference } => {
+                            // Store the path from the tree root so that consumers don't
+                            // need the node's sub_component_path to resolve the reference.
+                            let mut full_path = sub_component_path.to_vec();
+                            full_path.extend_from_slice(&local_reference.sub_component_path);
+                            z_sources.push(ZSource::Expression(
+                                super::Expression::PropertyReference(
+                                    LocalMemberReference {
+                                        sub_component_path: full_path,
+                                        reference: local_reference.reference,
+                                    }
+                                    .into(),
+                                )
+                                .into(),
+                            ));
+                        }
+                        global @ MemberReference::Global { .. } => {
+                            z_sources.push(ZSource::Expression(
+                                super::Expression::PropertyReference(global).into(),
+                            ));
+                        }
+                        // The z property was redirected out of the item tree by a two-way
+                        // binding crossing a repeater boundary. Not supported.
+                        _ => z_sources.push(zero()),
+                    }
+                }
+                None => z_sources.push(zero()),
+            }
+        }
+        Some(z_sources)
+    } else {
+        None
+    };
+
     match component.mapping.element_mapping.get(&ByAddress(element.clone())).unwrap() {
         LoweredElement::SubComponent { sub_component_index } => {
             let sub_component = e.sub_component().unwrap();
@@ -1200,7 +1270,24 @@ fn make_tree(
                 state.sub_component(sub_component),
                 &new_sub_component_path,
             );
+            // The node's children are the sub-component's own children followed by the
+            // children of the instantiating element. Both the sub-component root and the
+            // instantiating element can have dynamic z-ordering, so merge the z sources,
+            // padding the side without dynamic z with constant 0.
+            let inner_count = tree_node.children.len();
             tree_node.children.extend(children);
+            if z_sort_order_property.is_some() || tree_node.z_sort_order_property.is_some() {
+                let mut merged = tree_node
+                    .z_sort_order_property
+                    .take()
+                    .unwrap_or_else(|| (0..inner_count).map(|_| zero()).collect());
+                let outer_count = tree_node.children.len() - inner_count;
+                merged.extend(
+                    z_sort_order_property
+                        .unwrap_or_else(|| (0..outer_count).map(|_| zero()).collect()),
+                );
+                tree_node.z_sort_order_property = Some(merged);
+            }
             tree_node.is_accessible |= !e.accessibility_props.0.is_empty();
             tree_node
         }
@@ -1209,18 +1296,21 @@ fn make_tree(
             sub_component_path: sub_component_path.into(),
             item_index: itertools::Either::Left(*item_index),
             children: children.collect(),
+            z_sort_order_property,
         },
         LoweredElement::Repeated { repeated_index } => TreeNode {
             is_accessible: false,
             sub_component_path: sub_component_path.into(),
             item_index: itertools::Either::Right(usize::from(*repeated_index) as u32),
             children: Vec::new(),
+            z_sort_order_property: None,
         },
         LoweredElement::ComponentPlaceholder { repeated_index } => TreeNode {
             is_accessible: false,
             sub_component_path: sub_component_path.into(),
             item_index: itertools::Either::Right(*repeated_index + repeater_count),
             children: Vec::new(),
+            z_sort_order_property: None,
         },
     }
 }

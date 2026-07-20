@@ -27,7 +27,7 @@ pub fn count_property_use(root: &CompilationUnit) {
         }
     }
 
-    root.for_each_sub_components(&mut |sc, ctx| {
+    root.for_each_sub_components(&mut |_, sc, ctx| {
         // 2. the native items and bindings of properties
         for (_, expr) in &sc.property_init {
             let c = expr.use_count.get();
@@ -64,6 +64,16 @@ pub fn count_property_use(root: &CompilationUnit) {
                 // prevent optimizing model properties
                 let p = &root.sub_components[r.sub_tree.root].properties[*idx];
                 p.use_count.set(2);
+            }
+            if let Some(z_idx) = &r.dynamic_z {
+                let parent_ctx = ParentScope::new(ctx, Some(idx));
+                let rep_ctx = EvaluationContext::new_sub_component(
+                    root,
+                    r.sub_tree.root,
+                    (),
+                    Some(&parent_ctx),
+                );
+                visit_property(z_idx, &rep_ctx);
             }
         }
 
@@ -153,6 +163,11 @@ pub fn count_property_use(root: &CompilationUnit) {
         visit_property(&p.activated, &ctx);
     }
 
+    // The z-order expressions are evaluated on every children visit
+    root.for_each_z_order_expression(&mut |e, ctx| {
+        e.borrow().visit_property_references(ctx, &mut visit_property)
+    });
+
     clean_unused_bindings(root);
 }
 
@@ -193,7 +208,7 @@ fn visit_binding_expression(binding: &BindingExpression, ctx: &EvaluationContext
 
 /// Bindings which have a use_count of zero can be cleared so that we won't ever visit them later.
 fn clean_unused_bindings(root: &CompilationUnit) {
-    root.for_each_sub_components(&mut |sc, _| {
+    root.for_each_sub_components(&mut |_, sc, _| {
         for (_, e) in &sc.property_init {
             if e.use_count.get() == 0 {
                 e.expression.replace(Expression::CodeBlock(Vec::new()));

@@ -791,6 +791,20 @@ pub struct GeometryProps {
     pub height: NamedReference,
 }
 
+/// The z-order of a child element within a parent that has dynamic z-ordering.
+#[derive(Clone, Debug)]
+pub enum ZOrder {
+    /// z is a compile-time constant (used for repeater/conditional children).
+    Constant(f32),
+    /// z is bound to a runtime expression (NamedReference to the child's z property).
+    Dynamic(NamedReference),
+    /// The child is a repeated element (`for` or `if`) whose instances each have
+    /// their own z value: they are expanded and sorted individually among the
+    /// parent's children. The NamedReference is the z property within the repeated
+    /// component, evaluated per instance.
+    PerInstance(NamedReference),
+}
+
 impl GeometryProps {
     pub fn new(element: &ElementRc) -> Self {
         Self {
@@ -879,6 +893,11 @@ pub struct Element {
     pub repeated: Option<RepeatedElementInfo>,
     /// This element is a placeholder to embed an Component at
     pub is_component_placeholder: bool,
+
+    /// Z-order of this element within a parent whose children are dynamically z-ordered.
+    /// Stored on the child so it remains consistent when the children vector is reordered
+    /// or moved to another parent.
+    pub z_order: Option<ZOrder>,
 
     pub states: Vec<State>,
     pub transitions: Vec<Transition>,
@@ -2441,6 +2460,11 @@ impl Element {
             .unwrap_or_else(|| self.id.clone())
     }
 
+    /// Whether the children of this element are dynamically sorted by their z value
+    pub fn has_dynamic_z_order(&self) -> bool {
+        self.children.iter().any(|c| c.borrow().z_order.is_some())
+    }
+
     /// Return true if the binding is set, either on this element or in a base
     ///
     /// If `need_explicit` is true, then only consider binding set in the code, not the ones set
@@ -3180,6 +3204,14 @@ pub fn visit_all_named_references_in_element(
         elem.borrow_mut().geometry_props = Some(geometry_props);
     }
 
+    let z_order = elem.borrow_mut().z_order.take();
+    if let Some(mut zo) = z_order {
+        if let ZOrder::Dynamic(ref mut nr) | ZOrder::PerInstance(ref mut nr) = zo {
+            vis(nr);
+        }
+        elem.borrow_mut().z_order = Some(zo);
+    }
+
     // visit two way bindings
     for expr in elem.borrow().bindings.values() {
         for twb in &mut expr.borrow_mut().two_way_bindings {
@@ -3699,6 +3731,8 @@ pub fn adjust_geometry_for_injected_parent(injected_parent: &ElementRc, old_elem
     let mut old_elem_mut = old_elem.borrow_mut();
     injected_parent_mut.default_fill_parent = std::mem::take(&mut old_elem_mut.default_fill_parent);
     injected_parent_mut.geometry_props.clone_from(&old_elem_mut.geometry_props);
+    // The injected element takes the old element's place among the z-sorted siblings
+    injected_parent_mut.z_order = old_elem_mut.z_order.take();
     drop(injected_parent_mut);
     old_elem_mut.geometry_props.as_mut().unwrap().x =
         NamedReference::new(injected_parent, SmolStr::new_static("dummy"));

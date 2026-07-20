@@ -392,6 +392,10 @@ pub struct RepeatedElement {
     pub index_prop: Option<PropertyIdx>,
     /// Within the sub_tree's root component. None for `if`
     pub data_prop: Option<PropertyIdx>,
+    /// The z of each instance, evaluated in the context of the repeated component.
+    /// When set, the instances are expanded and sorted individually among the
+    /// siblings of the repeated element during item tree traversal.
+    pub dynamic_z: Option<MemberReference>,
     pub sub_tree: ItemTree,
     /// The index of the item node in the parent tree
     pub index_in_tree: u32,
@@ -436,6 +440,27 @@ pub struct TreeNode {
     pub item_index: itertools::Either<ItemInstanceIdx, u32>,
     pub children: Vec<TreeNode>,
     pub is_accessible: bool,
+    /// If set, this node's children have dynamic z-ordering.
+    /// Each entry corresponds to a child (by index) and gives its z value.
+    /// The code generator will evaluate these on every children visit and sort the
+    /// children accordingly.
+    pub z_sort_order_property: Option<Vec<ZSource>>,
+}
+
+/// The z value of a child in a dynamically z-ordered parent
+#[derive(Debug, Clone)]
+pub enum ZSource {
+    /// The z value of the child. The expression must be side-effect free and only
+    /// reference globals or properties of the item tree root's sub-component
+    /// (never a parent item tree).
+    Expression(MutExpression),
+    /// The child is a repeated element whose instances are expanded and sorted
+    /// individually, each by its own z value.
+    RepeaterInstances {
+        /// Path from the tree root's sub-component to the sub-component holding the repeater
+        sub_component_path: Vec<SubComponentInstanceIdx>,
+        repeater_index: RepeatedElementIdx,
+    },
 }
 
 impl TreeNode {
@@ -661,17 +686,17 @@ impl CompilationUnit {
 
     pub fn for_each_sub_components<'a>(
         &'a self,
-        visitor: &mut dyn FnMut(&'a SubComponent, &EvaluationContext<'_>),
+        visitor: &mut dyn FnMut(SubComponentIdx, &'a SubComponent, &EvaluationContext<'_>),
     ) {
         fn visit_component<'a>(
             root: &'a CompilationUnit,
             c: SubComponentIdx,
-            visitor: &mut dyn FnMut(&'a SubComponent, &EvaluationContext<'_>),
+            visitor: &mut dyn FnMut(SubComponentIdx, &'a SubComponent, &EvaluationContext<'_>),
             parent: Option<&ParentScope<'_>>,
         ) {
             let ctx = EvaluationContext::new_sub_component(root, c, (), parent);
             let sc = &root.sub_components[c];
-            visitor(sc, &ctx);
+            visitor(c, sc, &ctx);
             for (idx, r) in sc.repeated.iter_enumerated() {
                 visit_component(
                     root,
@@ -707,7 +732,7 @@ impl CompilationUnit {
         &'a self,
         visitor: &mut dyn FnMut(&'a super::MutExpression, &EvaluationContext<'_>),
     ) {
-        self.for_each_sub_components(&mut |sc, ctx| {
+        self.for_each_sub_components(&mut |_, sc, ctx| {
             for e in &sc.pre_init_code {
                 visitor(e, ctx);
             }
@@ -792,6 +817,54 @@ fn visit_function_bodies<'a>(
             fn_ctx.argument_types = &f.args;
             visitor(&f.code, &fn_ctx);
         }
+        self.for_each_z_order_expression(visitor);
+    }
+
+    /// Visit the z-order expressions of all item tree nodes.
+    /// The context passed to the visitor is the one of the item tree's root sub-component,
+    /// which is the frame the expressions are resolved in.
+    pub fn for_each_z_order_expression<'a>(
+        &'a self,
+        visitor: &mut dyn FnMut(&'a MutExpression, &EvaluationContext<'_>),
+    ) {
+        fn visit_tree<'a>(
+            node: &'a TreeNode,
+            ctx: &EvaluationContext<'_>,
+            visitor: &mut dyn FnMut(&'a MutExpression, &EvaluationContext<'_>),
+        ) {
+            for e in node.z_sort_order_property.iter().flatten() {
+                if let ZSource::Expression(e) = e {
+                    visitor(e, ctx);
+                }
+            }
+            for child in &node.children {
+                visit_tree(child, ctx, visitor);
+            }
+        }
+        // Every item tree, by its root sub-component
+        let mut trees: HashMap<SubComponentIdx, &TreeNode> = HashMap::new();
+        for c in &self.public_components {
+            trees.insert(c.item_tree.root, &c.item_tree.tree);
+        }
+        if let Some(p) = &self.popup_menu {
+            trees.insert(p.item_tree.root, &p.item_tree.tree);
+        }
+        for sc in self.sub_components.iter() {
+            for r in &sc.repeated {
+                trees.insert(r.sub_tree.root, &r.sub_tree.tree);
+            }
+            for p in &sc.popup_windows {
+                trees.insert(p.item_tree.root, &p.item_tree.tree);
+            }
+        }
+        // Visit with the context from `for_each_sub_components` because it has the
+        // repeater parent scopes set up, which is needed to resolve expressions that
+        // are inlined into the z expressions
+        self.for_each_sub_components(&mut |idx, _, ctx| {
+            if let Some(tree) = trees.get(&idx) {
+                visit_tree(tree, ctx, visitor);
+            }
+        });
     }
 }
 
