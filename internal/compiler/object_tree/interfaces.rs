@@ -501,8 +501,8 @@ fn navigator_route_name(route: &syntax_nodes::Expression) -> SmolStr {
 
 /// The set of route names covered by the first `navigator` found in `root`'s
 /// element tree (one navigator per component by convention), or `None` when the
-/// tree declares no navigator. Shared by interface conformance (A9.3) and
-/// federated mount (A10.1) so both judge contract coverage identically.
+/// tree declares no navigator. Shared by interface conformance and
+/// federated mount so both judge contract coverage identically.
 fn navigator_route_names(root: &ElementRc) -> Option<HashSet<SmolStr>> {
     let mut names: Option<HashSet<SmolStr>> = None;
     recurse_elem(root, &(), &mut |elem, _| {
@@ -519,7 +519,7 @@ fn navigator_route_names(root: &ElementRc) -> Option<HashSet<SmolStr>> {
 
 /// Verify a build-time federated mount: `impl_root` (the mounted component's
 /// root) must cover every route of `contract` by name. Reuses the same
-/// route-coverage rule as `implements` conformance (A9.3), but reports at the
+/// route-coverage rule as `implements` conformance, but reports at the
 /// mount site with mount-flavored errors. Returns true when the mount conforms.
 pub(super) fn validate_mount_conformance(
     impl_name: &str,
