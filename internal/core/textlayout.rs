@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cspell:ignore longestword nlongestword
+
 // cSpell: ignore sharedparley
 //! module for basic text layout
 //!
@@ -90,6 +92,47 @@ impl<Font: AbstractFont> TextLayout<'_, Font> {
         }
 
         (max_line_width, self.font.height() * line_count.into())
+    }
+
+    // The min- and max-content width: the width of the widest chunk that cannot be broken
+    // up (the longest word), and the width the text takes without wrapping. Both are
+    // measured from a single shaping pass.
+    //
+    // `max_lines` drops the paragraphs that are not drawn, from both widths, so the minimum
+    // never asks for room that a word on a dropped line would need.
+    pub fn content_widths(
+        &self,
+        text: &str,
+        max_lines: Option<usize>,
+    ) -> (Font::Length, Font::Length)
+    where
+        Font::Length: core::fmt::Debug,
+    {
+        let shape_buffer = ShapeBuffer::new(self, text);
+
+        // Fragments end at line break opportunities, and their width excludes the
+        // trailing whitespace, so the widest one is the longest word.
+        let mut min = Font::Length::zero();
+        let mut lines = 0;
+        for fragment in fragments::TextFragmentIterator::new(text, &shape_buffer) {
+            if max_lines.is_some_and(|max_lines| lines >= max_lines) {
+                break;
+            }
+            min = euclid::approxord::max(min, fragment.width);
+            if fragment.trailing_mandatory_break {
+                lines += 1;
+            }
+        }
+
+        // Without wrapping every paragraph is one line, so this is the max-content width.
+        let mut max = Font::Length::zero();
+        for line in
+            TextLineBreaker::<Font>::new(text, &shape_buffer, None, max_lines, TextWrap::NoWrap)
+        {
+            max = euclid::approxord::max(max, line.text_width);
+        }
+
+        (min, max)
     }
 }
 
@@ -927,4 +970,69 @@ fn test_byte_offset() {
 
     assert_eq!(paragraph.byte_offset_for_position((45., 10.)), end_offset);
     assert_eq!(paragraph.byte_offset_for_position((0., 20.)), end_offset);
+}
+
+#[test]
+fn test_content_widths() {
+    // FixedTestFont: every glyph is 10 pixels wide.
+    let font = FixedTestFont;
+    let layout = TextLayout { font: &font, letter_spacing: None };
+    let min = |text| layout.content_widths(text, None).0;
+
+    // The longest word wins. The space after it is not part of its width,
+    // otherwise this would be 80.
+    assert_eq!(min("a bb longest cc"), 70.);
+    // A single word: the whole string.
+    assert_eq!(min("Hello"), 50.);
+    // Equal words.
+    assert_eq!(min("Hello World"), 50.);
+    // Whitespace at the end of the string doesn't count either.
+    assert_eq!(min("Hello World   "), 50.);
+    // Mandatory breaks are break opportunities too.
+    assert_eq!(min("short\nlongestword"), 110.);
+    assert_eq!(min(""), 0.);
+    assert_eq!(min("   "), 0.);
+    // A no-break space is not a break opportunity, so both words are one chunk.
+    assert_eq!(min("aa\u{00a0}bb cc"), 50.);
+    // Without spaces there is nowhere to break, so the minimum is the whole string.
+    assert_eq!(min("abcdefgh"), 80.);
+
+    // The max-content width is the width of the text on a single line.
+    assert_eq!(layout.content_widths("a bb longest cc", None).1, 150.);
+    assert_eq!(layout.content_widths("short\nlongestword", None).1, 110.);
+}
+
+#[test]
+fn test_content_widths_max_lines() {
+    let font = FixedTestFont;
+    let layout = TextLayout { font: &font, letter_spacing: None };
+
+    // Only the first line is drawn, so neither width may account for the second one.
+    let (min, max) = layout.content_widths("short\nlongestword", Some(1));
+    assert_eq!(max, 50.);
+    assert_eq!(min, 50.);
+
+    // The minimum still comes from the words of the lines that are kept.
+    let (min, max) = layout.content_widths("aa bb\nlongestword", Some(1));
+    assert_eq!(max, 50.);
+    assert_eq!(min, 20.);
+
+    // Without a limit both lines count again.
+    let (min, max) = layout.content_widths("aa bb\nlongestword", None);
+    assert_eq!(max, 110.);
+    assert_eq!(min, 110.);
+}
+
+#[test]
+fn test_content_widths_min_never_exceeds_max() {
+    let font = FixedTestFont;
+    let layout = TextLayout { font: &font, letter_spacing: None };
+    // A minimum above the preferred width makes preferred_bounded() clamp the preferred
+    // width back up, silently widening the item.
+    for text in ["", "   ", "Hello", "a bb longest cc", "short\nlongestword", "aa\u{00a0}bb cc"] {
+        for max_lines in [None, Some(1), Some(2)] {
+            let (min, max) = layout.content_widths(text, max_lines);
+            assert!(min <= max, "min {min} > max {max} for {text:?} with {max_lines:?}");
+        }
+    }
 }
