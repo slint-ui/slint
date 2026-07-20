@@ -614,7 +614,8 @@ macro_rules! for_each_enums {
 
             #[non_exhaustive]
             enum PopupGravity {
-                None,
+                BottomRight, // As first to make it the default
+                Center,
                 Top,
                 Bottom,
                 Left,
@@ -622,17 +623,16 @@ macro_rules! for_each_enums {
                 TopLeft,
                 BottomLeft,
                 TopRight,
-                BottomRight,
             }
 
             #[non_exhaustive]
             enum PopupAnchorLocation {
-                None,
+                TopLeft, // As first to make it the default
+                Center,
                 Top,
                 Bottom,
                 Left,
                 Right,
-                TopLeft,
                 BottomLeft,
                 TopRight,
                 BottomRight,

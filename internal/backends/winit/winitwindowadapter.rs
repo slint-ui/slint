@@ -1920,7 +1920,7 @@ fn canvas_has_explicit_size_set(canvas: &web_sys::HtmlCanvasElement) -> bool {
 #[cfg(feature = "wayland")]
 fn anchor_to_winit(value: PopupAnchorLocation) -> winit_wayland::PopupAnchor {
     match value {
-        PopupAnchorLocation::None => winit_wayland::PopupAnchor::None,
+        PopupAnchorLocation::Center => winit_wayland::PopupAnchor::None,
         PopupAnchorLocation::Top => winit_wayland::PopupAnchor::Top,
         PopupAnchorLocation::Bottom => winit_wayland::PopupAnchor::Bottom,
         PopupAnchorLocation::Left => winit_wayland::PopupAnchor::Left,
@@ -1939,7 +1939,7 @@ fn anchor_to_winit(value: PopupAnchorLocation) -> winit_wayland::PopupAnchor {
 #[cfg(feature = "wayland")]
 fn gravity_to_winit(value: PopupGravity) -> winit_wayland::PopupGravity {
     match value {
-        PopupGravity::None => winit_wayland::PopupGravity::None,
+        PopupGravity::Center => winit_wayland::PopupGravity::None,
         PopupGravity::Top => winit_wayland::PopupGravity::Top,
         PopupGravity::Bottom => winit_wayland::PopupGravity::Bottom,
         PopupGravity::Left => winit_wayland::PopupGravity::Left,
