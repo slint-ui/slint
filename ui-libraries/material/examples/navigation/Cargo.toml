@@ -1,9 +1,6 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
-# PR A8b: proves Material's navigation chrome binds to the experimental
-# `navigator` construct. `navigator` is experimental, so the compile is enabled
-# via build.rs (see there); no change to Material's int-based API is required.
 [package]
 name = "material-navigation"
 version.workspace = true

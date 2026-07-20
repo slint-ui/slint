@@ -1,11 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// The navigator's public members (navigate, back, can-go-back, navigate-index,
-// current-route-index) are exercised from every language binding. Driving by the
-// integer adapter keeps the assertions int/bool; one navigate(enum) call checks
-// the enum-argument path.
-
 export enum Route {
     Home,
     Details,
