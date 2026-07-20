@@ -302,7 +302,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     physical_key: &winit::keyboard::PhysicalKey,
                 ) -> SharedString {
                     macro_rules! winit_physical_key_to_name {
-                        ($($name:ident # $code:ident;)*) => {
+                        ($($name:ident # $code:ident # $_xkb:literal;)*) => {
                             #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
                             match physical_key {
                                 $(winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::$code) => stringify!($name).into(),)*
