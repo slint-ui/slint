@@ -488,7 +488,7 @@ impl Expression {
                     SyntaxKind::AtPhysicalKeys => {
                         #[cfg(feature = "slint-sc")]
                         ctx.diag.slint_sc_error("@physical-keys() expressions are", &node);
-                        Some(Self::from_at_physical_keys_node(node.into(), ctx))
+                        return Self::from_at_physical_keys_node(node.into(), ctx);
                     }
                     SyntaxKind::QualifiedName => {
                         #[cfg(feature = "slint-sc")]
@@ -2168,7 +2168,9 @@ impl Expression {
 
 use i_slint_common::key_codes::{ShiftBehavior, lookup_key_name};
 
-fn with_physical_key_map<R>(fun: impl FnOnce(&HashMap<&'static str, &'static str>) -> R) -> R {
+fn with_physical_key_map<R>(
+    fun: impl FnOnce(&std::collections::HashMap<&'static str, &'static str>) -> R,
+) -> R {
     macro_rules! generate_physical_key_map {
         [ $($name:ident # $code:ident;)* ] => {
             {
@@ -2178,7 +2180,7 @@ fn with_physical_key_map<R>(fun: impl FnOnce(&HashMap<&'static str, &'static str
     }
 
     thread_local! {
-        pub static PHYSICAL_KEY_MAP: HashMap<&'static str, &'static str> =
+        pub static PHYSICAL_KEY_MAP: std::collections::HashMap< &'static str, &'static str>  =
             for_each_physical_keys!(generate_physical_key_map).into_iter().collect();
     }
 

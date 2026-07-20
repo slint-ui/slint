@@ -3294,7 +3294,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let s = s.as_str();
             quote!(sp::SharedString::from(#s))
         }
-        Expression::KeysLiteral(..) => compile_keys_literal(expr),
+        Expression::KeysLiteral(keys) => compile_keys_literal(&keys),
         Expression::NumberLiteral(n) => {
             if n.is_nan() {
                 quote!(f64::NAN)
@@ -3476,7 +3476,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
 }
 
 #[inline(never)]
-fn compile_keys_literal(expr: &Expression) -> TokenStream {
+fn compile_keys_literal(keys: &crate::langtype::Keys) -> TokenStream {
     let key = &*keys.key;
     let alt = keys.modifiers.alt;
     let control = keys.modifiers.control;
