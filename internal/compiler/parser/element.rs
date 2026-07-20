@@ -54,6 +54,8 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// changed foo => {}
 /// match (foo) { 1: Elem { } }
 /// match bar.property { 1: Elem { } }
+/// navigator (current-route) { Route.Home: Sub { } }
+/// navigator current-route { Route.Home: Sub { } }
 /// ```
 pub fn parse_element_content(p: &mut impl Parser) {
     let mut had_parse_error = false;
