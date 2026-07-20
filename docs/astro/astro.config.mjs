@@ -264,6 +264,10 @@ export default defineConfig({
                                                   slug: "guide/experimental/match-elements",
                                               },
                                               {
+                                                  label: "Named Slots",
+                                                  slug: "guide/experimental/named-slots",
+                                              },
+                                              {
                                                   label: "Deprecated Properties",
                                                   slug: "guide/experimental/deprecated",
                                               },
