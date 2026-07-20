@@ -412,6 +412,20 @@ pub(crate) fn completion_at(
                 .with_insert_text(ins_tex, snippet_support)
         })
         .collect();
+        if enable_experimental {
+            r.extend(
+                [
+                    ("interface", "interface ${1:Interface} {\n    $0\n}"),
+                    ("export interface", "export interface ${1:ExportedInterface} {\n    $0\n}"),
+                ]
+                .iter()
+                .map(|(keyword, insert_text)| {
+                    CompletionItem::new_simple(keyword.to_string(), String::new())
+                        .with_kind(CompletionItemKind::KEYWORD)
+                        .with_insert_text(insert_text, snippet_support)
+                }),
+            );
+        }
         if let Some(component) =
             token.prev_sibling_or_token().and_then(|x| x.into_node()).and_then(|n| match n.kind() {
                 SyntaxKind::Component => Some(n),
@@ -2895,5 +2909,51 @@ component Foo {
         // Nothing typed after `implement` at all, cut off at EOF.
         let results = get_completions_experimental("component Foo { implement 🔺").unwrap();
         assert!(results.iter().any(|completion| completion.label == "property"));
+    }
+
+    #[test]
+    fn interface_keyword_requires_experimental() {
+        let sources = ["🔺", "component Foo {}\n🔺"];
+        for source in sources {
+            let results = get_completions_experimental(source).unwrap();
+            assert!(
+                results.iter().any(|completion| completion.label == "interface"),
+                "no 'interface' completion for {source:?}"
+            );
+
+            let results = get_completions(source).unwrap();
+            assert!(
+                !results.iter().any(|completion| completion.label == "interface"),
+                "completion for {source:?} contains 'interface' without experimental features"
+            );
+        }
+    }
+
+    #[test]
+    fn export_interface_keyword_requires_experimental() {
+        let source = "🔺";
+
+        let results = get_completions_experimental(source).unwrap();
+        results.iter().find(|completion| completion.label == "export interface").unwrap();
+
+        let results = get_completions(source).unwrap();
+        assert!(!results.iter().any(|completion| completion.label == "export interface"));
+    }
+
+    #[test]
+    fn interface_keyword_snippet() {
+        let results = get_completions_experimental("🔺").unwrap();
+        let completion = results.iter().find(|completion| completion.label == "interface").unwrap();
+        assert_eq!(
+            completion.insert_text.as_deref(),
+            Some("interface ${1:Interface} {\n    $0\n}")
+        );
+
+        let completion =
+            results.iter().find(|completion| completion.label == "export interface").unwrap();
+        assert_eq!(
+            completion.insert_text.as_deref(),
+            Some("export interface ${1:ExportedInterface} {\n    $0\n}")
+        );
     }
 }
