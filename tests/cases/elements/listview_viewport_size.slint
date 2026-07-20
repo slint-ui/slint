@@ -1,0 +1,120 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView  } from "std-widgets.slint";
+
+export component TestCaseFixedViewPort inherits Window  {
+    width: 400px;
+    height: 540px;
+
+    out property listview-viewport-height <=> listview.viewport-height;
+    out property listview-viewport-width <=> listview.viewport-width;
+
+    out property <bool> test: listview.viewport-width == 30000px && listview.viewport-height == 1000px;
+
+    listview := ListView {
+        viewport-width: 30000px;
+        viewport-height: 1000px;
+        for data in [
+            { text: "Blue", color: #0000ff, bg: #eeeeee},
+            { text: "Red", color: #ff0000, bg: #eeeeee},
+            { text: "Green", color: #00ff00, bg: #eeeeee},
+            { text: "Yellow", color: #ffff00, bg: #222222 },
+            { text: "Black", color: #000000, bg: #eeeeee },
+            { text: "White", color: #ffffff, bg: #222222 },
+            { text: "Magenta", color: #ff00ff, bg: #eeeeee },
+            { text: "Cyan", color: #00ffff, bg: #222222 },
+        ] : delegate := Rectangle {
+            height: 100px;
+            background: @linear-gradient(90deg, data.bg,data.bg.brighter(0.5));
+            HorizontalLayout {
+                text_Name := Text {
+                    text: data.text;
+                    color: data.color;
+                    font_size: 20px ;
+                    min-width: 1500px;
+                }
+            }
+        }
+    }
+}
+
+export component TestCaseFlexibleViewPort inherits Window  {
+    width: 400px;
+    height: 540px;
+
+    out property listview-viewport-height <=> listview.viewport-height;
+    out property listview-viewport-width <=> listview.viewport-width;
+
+    out property <bool> test: listview.viewport-width == 1500px && listview.viewport-height == 800px;
+
+    listview := ListView {
+        for data in [
+            { text: "Blue", color: #0000ff, bg: #eeeeee},
+            { text: "Red", color: #ff0000, bg: #eeeeee},
+            { text: "Green", color: #00ff00, bg: #eeeeee},
+            { text: "Yellow", color: #ffff00, bg: #222222 },
+            { text: "Black", color: #000000, bg: #eeeeee },
+            { text: "White", color: #ffffff, bg: #222222 },
+            { text: "Magenta", color: #ff00ff, bg: #eeeeee },
+            { text: "Cyan", color: #00ffff, bg: #222222 },
+        ] : delegate := Rectangle {
+            height: 100px;
+            background: @linear-gradient(90deg, data.bg,data.bg.brighter(0.5));
+            HorizontalLayout {
+                text_Name := Text {
+                    text: data.text;
+                    color: data.color;
+                    font_size: 20px ;
+                    min-width: 1500px;
+                }
+            }
+        }
+    }
+}
+
+/*
+
+// The viewport width is explicitly set to 30000 and the height to 1000px, so these values ??should be maintained
+
+```cpp
+auto handle = TestCaseFixedViewPort::create();
+const TestCaseFixedViewPort &instance = *handle;
+assert(instance.get_test());
+assert_eq(instance.get_listview_viewport_height(), 1000.);
+assert_eq(instance.get_listview_viewport_width(), 30000.);
+
+auto handle2 = TestCaseFlexibleViewPort::create();
+const TestCaseFlexibleViewPort &instance2 = *handle2;
+assert(instance2.get_test());
+assert_eq(instance2.get_listview_viewport_height(), 800.);
+assert_eq(instance2.get_listview_viewport_width(), 1500.);
+
+```
+
+```rust
+let instance = TestCaseFixedViewPort::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_listview_viewport_height(), 1000.);
+assert_eq!(instance.get_listview_viewport_width(), 30000.);
+
+let instance = TestCaseFlexibleViewPort::new().unwrap();
+assert!(instance.get_test());
+
+assert_eq!(instance.get_listview_viewport_height(), 800.);
+assert_eq!(instance.get_listview_viewport_width(), 1500.);
+```
+
+```js
+var instance = new slint.TestCaseFixedViewPort({});
+assert(instance.test);
+assert.equal(instance.listview_viewport_height, 1000.);
+assert.equal(instance.listview_viewport_width, 30000.);
+
+var instance = new slint.TestCaseFlexibleViewPort({});
+assert(instance.test);
+assert.equal(instance.listview_viewport_height, 800.);
+assert.equal(instance.listview_viewport_width, 1500.);
+```
+
+*/
