@@ -136,8 +136,6 @@ pub fn parse_element_content(p: &mut impl Parser) {
                         }
                     }
                 }
-                // Experimental: parsed unconditionally like `match`; the experimental
-                // gate is applied at object-tree lowering (see from_match_node).
                 SyntaxKind::Identifier | SyntaxKind::LParent
                     if p.peek().as_str() == "navigator" =>
                 {
