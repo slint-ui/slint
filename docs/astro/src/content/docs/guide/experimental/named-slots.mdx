@@ -1,0 +1,119 @@
+---
+title: Named Slots
+description: Experimental named slots for multiple content insertion points.
+---
+
+A `slot` is a named insertion point where a component renders content supplied by its user.
+It generalizes the built-in `@children` placeholder: instead of a single anonymous block of children, a component can declare several slots and place each one at a distinct location in its own layout.
+
+> **Note**: named slots are experimental and subject to change.
+> Tracking issue: [slint-ui/slint#6258](https://github.com/slint-ui/slint/issues/6258).
+
+## Declaring a slot
+
+Use the `slot` keyword inside a component to declare a slot, then render it at the desired location by writing the slot's name as an empty element.
+
+```slint no-test
+export component Base inherits Rectangle {
+    slot header;
+    slot footer;
+
+    VerticalLayout {
+        header {}      // render site for the `header` slot
+        @children      // the default slot
+        footer {}      // render site for the `footer` slot
+    }
+}
+```
+
+A declared slot must be rendered exactly once.
+`@children` continues to work as before and represents the default, unnamed slot.
+
+## Assigning a slot
+
+The user of a component fills a slot with the `<<` operator, naming the slot on the left and the content on the right.
+Content that is not assigned to a named slot goes to `@children`, as usual.
+
+```slint no-test
+export component App inherits Rectangle {
+    Base {
+        header << Rectangle { background: blue; }
+        Text { text: "Main Content"; }   // goes to @children
+        footer << Rectangle { background: gray; }
+    }
+}
+```
+
+Assigning a slot is optional.
+An unassigned slot renders nothing.
+
+## Referencing a slot
+
+The name bound to a slot is a regular element reference, so its properties can be read like any other element.
+
+```slint no-test
+export component App inherits Rectangle {
+    Base {
+        header << Rectangle { height: 8px; }
+        out property <length> header-y: header.absolute-position.y;
+    }
+}
+```
+
+## Forwarding a slot
+
+A component can forward one of its own slots to a slot of a child component, again with the `<<` operator.
+This lets a wrapper expose a nested component's slots as its own.
+
+```slint no-test
+export component SlotHost inherits Rectangle {
+    slot host-header;
+    VerticalLayout {
+        host-header {}
+        @children
+    }
+}
+
+export component Outer inherits Rectangle {
+    slot header;
+    SlotHost {
+        host-header << header;   // forward Outer's `header` into SlotHost's `host-header`
+        @children
+    }
+}
+```
+
+## Full example
+
+```slint no-test
+export component Card inherits Rectangle {
+    slot header;
+    slot footer;
+
+    VerticalLayout {
+        header {}
+        @children
+        footer {}
+    }
+}
+
+export component App inherits Window {
+    Card {
+        header << Text { text: "Title"; }
+        Text { text: "Body content"; }
+        footer << Text { text: "Footer"; }
+    }
+}
+```
+
+## Current limitations
+
+The named slot feature is in its early stages. The following restrictions apply:
+
+- The name `children` is reserved for the default slot. Use `@children` to render it.
+
+- A declared slot must be rendered exactly once, and it may not be placed inside a `for`, `if`, or `match` element.
+
+- A slot cannot be placed inside a `PopupWindow` or a `ComponentContainer`.
+
+- Slot assignment and forwarding are only valid on components, and each slot may be assigned at most once.

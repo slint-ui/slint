@@ -245,6 +245,10 @@ export default defineConfig({
                                                   label: "Match Elements",
                                                   slug: "guide/experimental/match-elements",
                                               },
+                                              {
+                                                  label: "Named Slots",
+                                                  slug: "guide/experimental/named-slots",
+                                              },
                                           ],
                                       },
                                   ]
