@@ -281,11 +281,8 @@ export component TestCase {
     assert_eq!(instance.get_property("a-open").unwrap(), Value::from(false), "a after close");
 }
 
-// A `navigator` renders the destination component for the
-// current route, and re-renders when the route changes. Each destination
-// records its name in a global on `init`, so the observed value tells us which
-// route's screen is currently instantiated. Requires `enable_experimental`,
-// which is only reachable through the `internal` compiler configuration API.
+// Each destination records its name in `NavProbe.active` on `init`, so `active`
+// tells us which route's screen is currently instantiated.
 #[cfg(feature = "internal")]
 #[test]
 fn navigator_shows_current_route() {
@@ -318,7 +315,6 @@ export component TestCase inherits Window {
 
     let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
 
-    // The initial route renders its screen.
     i_slint_backend_testing::mock_elapsed_time(100);
     assert_eq!(
         instance.get_property("active").unwrap(),
@@ -326,7 +322,6 @@ export component TestCase inherits Window {
         "Route.Home renders HomeScreen"
     );
 
-    // Switching the current route renders the other screen.
     instance.set_property("current-route", route("Settings")).unwrap();
     i_slint_backend_testing::mock_elapsed_time(100);
     assert_eq!(
@@ -335,7 +330,6 @@ export component TestCase inherits Window {
         "Route.Settings renders SettingsScreen"
     );
 
-    // And back to the first route.
     instance.set_property("current-route", route("Home")).unwrap();
     i_slint_backend_testing::mock_elapsed_time(100);
     assert_eq!(
@@ -345,9 +339,6 @@ export component TestCase inherits Window {
     );
 }
 
-// Without `enable_experimental`, `navigator` is rejected at object-tree
-// lowering with the experimental-feature diagnostic. `Compiler::default()`
-// does not enable experimental features.
 #[test]
 fn navigator_requires_experimental() {
     i_slint_backend_testing::init_no_event_loop();
@@ -372,10 +363,6 @@ export component TestCase inherits Window {
     );
 }
 
-// The back-stack: `navigate(route)` pushes the current route before switching,
-// `back()` restores the previous route (no-op at the root), and `can-go-back`
-// reflects whether the stack is non-empty. The `active` global still tells us
-// which screen is instantiated, so we assert on the rendered route.
 #[cfg(feature = "internal")]
 #[test]
 fn navigator_back_stack() {
@@ -414,11 +401,9 @@ export component TestCase inherits Window {
         instance.get_property("active").unwrap()
     };
 
-    // Root: nothing to go back to.
     assert_eq!(rendered(&instance), Value::from(SharedString::from("home")));
     assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(false), "root");
 
-    // navigate(Home -> Details -> Settings): the stack fills up.
     instance.invoke("navigate", &[route("Details")]).unwrap();
     assert_eq!(rendered(&instance), Value::from(SharedString::from("details")));
     assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(true), "after Details");
@@ -427,7 +412,6 @@ export component TestCase inherits Window {
     assert_eq!(rendered(&instance), Value::from(SharedString::from("settings")));
     assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(true), "after Settings");
 
-    // back() twice unwinds Settings -> Details -> Home.
     instance.invoke("back", &[]).unwrap();
     assert_eq!(rendered(&instance), Value::from(SharedString::from("details")), "back to Details");
     assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(true), "one left");
@@ -440,16 +424,13 @@ export component TestCase inherits Window {
         "back at the root"
     );
 
-    // back() at the root is a no-op.
     instance.invoke("back", &[]).unwrap();
     assert_eq!(rendered(&instance), Value::from(SharedString::from("home")), "no-op at root");
     assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(false), "still root");
 }
 
-// The int-index adapter: `current-route-index` reports the ordinal of the
-// current route in declaration order, and `navigate-index(i)` navigates to the
-// route at that ordinal. This is what int-index chrome (current_index /
-// index_changed) binds to, so it must agree with the route enum both ways.
+// The int-index adapter (`current-route-index` / `navigate-index`) must agree
+// with the route enum both ways.
 #[cfg(feature = "internal")]
 #[test]
 fn navigator_index_adapter() {
@@ -488,14 +469,12 @@ export component TestCase inherits Window {
         instance.get_property("current-route-index").unwrap()
     };
 
-    // Setting the route enum drives current-route-index to the declared ordinal.
     assert_eq!(index(&instance), Value::from(0.), "Home is ordinal 0");
     instance.set_property("current-route", route("Details")).unwrap();
     assert_eq!(index(&instance), Value::from(1.), "Details is ordinal 1");
     instance.set_property("current-route", route("Settings")).unwrap();
     assert_eq!(index(&instance), Value::from(2.), "Settings is ordinal 2");
 
-    // navigate-index(i) drives the route enum the other way (and the index with it).
     instance.invoke("navigate-index", &[Value::from(2.)]).unwrap();
     assert_eq!(
         instance.get_property("current-route").unwrap(),
@@ -512,7 +491,6 @@ export component TestCase inherits Window {
     );
     assert_eq!(index(&instance), Value::from(0.));
 
-    // Out-of-range is a no-op: the route (and index) stay put.
     instance.invoke("navigate-index", &[Value::from(9.)]).unwrap();
     assert_eq!(
         instance.get_property("current-route").unwrap(),
@@ -522,14 +500,9 @@ export component TestCase inherits Window {
     assert_eq!(index(&instance), Value::from(0.));
 }
 
-// A std-widgets navigation presentation (a Button-row tab bar) driving
-// the navigator through its int-index adapter. The tab bar is a plain std
-// `Button` row that exposes `current-index` / `selected(int)`; the host bridges
-// those to the navigator's `current-route-index` / `navigate-index` (the adapter
-// is synthesized after resolve, so it is reachable from the host rather than
-// from .slint). This guards that the std presentation compiles with the
-// navigator and that both directions of the binding hold: the highlight source
-// follows the current route, and activating a tab moves the current route.
+// A std-widgets Button-row tab bar driving the navigator through its int-index
+// adapter. The adapter is synthesized after resolve, so the host bridges it to
+// the tab bar's `current-index` / `selected(int)`.
 #[cfg(feature = "internal")]
 #[test]
 fn navigator_std_chrome_index_binding() {
@@ -589,9 +562,6 @@ export component TestCase inherits Window {
     let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
     let settle = || i_slint_backend_testing::mock_elapsed_time(100);
 
-    // The host feeds the tab bar's highlight from the adapter. Setting the route
-    // (as an in-screen action would) moves current-route-index, which is what
-    // the chrome's current-index binds to.
     settle();
     instance.set_property("current-route", route("Details")).unwrap();
     settle();
@@ -610,8 +580,6 @@ export component TestCase inherits Window {
         "the navigator renders the Details screen"
     );
 
-    // Activating a tab: the chrome's `selected(int)` is routed to navigate-index,
-    // which moves the current route (and its rendered screen).
     instance.invoke("navigate-index", &[Value::from(2.)]).unwrap();
     settle();
     assert_eq!(
@@ -631,16 +599,8 @@ export component TestCase inherits Window {
     );
 }
 
-// The presentation-agnostic proof: an int-index chrome that mimics Material's
-// `BaseNavigation` (`items` / `current_index` / `index_changed` / `select`)
-// drives the enum-typed navigator through the int-index adapter, both ways.
-// `IntChrome` copies that contract verbatim (only `select` is public so the test
-// can trigger a "tap"; Material's is protected and fired by item clicks). The
-// two adapter members are consumed exactly as native Material wiring would:
-//   current_index  <- current-route-index   (the bar reflects the route)
-//   index_changed(i) => navigate-index(i)    (a tap navigates)
-// Nothing about the `navigator { Route... }` block is chrome-specific, so std
-// chrome binds the same two members with zero change to the routes.
+// An int-index chrome mimicking Material's `BaseNavigation` drives the navigator
+// through the adapter, both ways, bound from the host.
 #[cfg(feature = "internal")]
 #[test]
 fn navigator_int_chrome_binding() {
@@ -707,8 +667,7 @@ export component TestCase inherits Window {
     let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
     let settle = || i_slint_backend_testing::mock_elapsed_time(100);
 
-    // The tap binding: index_changed(i) => navigate-index(i). Wired once, exactly
-    // as native Material code binds NavigationBar.index_changed to the adapter.
+    // index_changed(i) => navigate-index(i), wired as native Material code would.
     let weak = instance.as_weak();
     instance
         .set_callback("chrome-index-changed", move |args| {
@@ -718,15 +677,13 @@ export component TestCase inherits Window {
         })
         .unwrap();
 
-    // The display binding: current_index <- current-route-index. Pushed after each
-    // route change (native code does the same via set_bar_index).
+    // current_index <- current-route-index, pushed after each route change.
     let mirror = |instance: &crate::ComponentInstance| {
         let idx = instance.get_property("current-route-index").unwrap();
         instance.set_property("chrome-index", idx).unwrap();
         settle();
     };
 
-    // Display side: moving the route moves the chrome's current_index.
     mirror(&instance);
     assert_eq!(instance.get_property("chrome-index-out").unwrap(), Value::from(0.), "Home -> 0");
     instance.set_property("current-route", route("Details")).unwrap();
@@ -740,7 +697,6 @@ export component TestCase inherits Window {
         "Settings -> 2"
     );
 
-    // Tap side: chrome.select(i) fires index_changed -> navigate-index(i) -> route.
     instance.invoke("tap", &[Value::from(0.)]).unwrap();
     mirror(&instance);
     assert_eq!(instance.get_property("current-route").unwrap(), route("Home"), "tap 0 -> Home");
@@ -759,7 +715,6 @@ export component TestCase inherits Window {
         Value::from(SharedString::from("settings"))
     );
 
-    // Out-of-range tap is a no-op in the mimic's guard (same as BaseNavigation.select).
     instance.invoke("tap", &[Value::from(9.)]).unwrap();
     mirror(&instance);
     assert_eq!(
@@ -769,15 +724,9 @@ export component TestCase inherits Window {
     );
 }
 
-// The navigator's public members are declared before expression
-// resolution, so widget chrome binds to them INLINE in .slint (not from the
-// host language). This is the same IntChrome contract as
-// navigator_int_chrome_binding, but the two adapter members are wired in .slint:
-//   current-index: root.current-route-index       (the bar reflects the route)
-//   index-changed(i) => root.navigate-index(i)     (a tap navigates)
-// and can-go-back is read in a .slint binding too. If these members did
-// not exist at resolve time, so this binding failed with "does not have a
-// property 'current-route-index'" and had to be done from Rust.
+// The navigator's public members are declared before expression resolution, so
+// chrome can bind them INLINE in .slint (current-route-index, navigate-index,
+// can-go-back) rather than from the host, as navigator_int_chrome_binding does.
 #[cfg(feature = "internal")]
 #[test]
 fn navigator_inline_chrome_binding() {
@@ -841,7 +790,6 @@ export component TestCase inherits Window {
     let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
     let settle = || i_slint_backend_testing::mock_elapsed_time(100);
 
-    // Read side, all in .slint: the bar's current-index follows current-route-index.
     settle();
     assert_eq!(instance.get_property("chrome-index").unwrap(), Value::from(0.), "Home -> 0");
     assert_eq!(instance.get_property("chrome-can-back").unwrap(), Value::from(false), "root");
@@ -858,7 +806,6 @@ export component TestCase inherits Window {
         Value::from(SharedString::from("details"))
     );
 
-    // Write side, all in .slint: tap -> select -> index-changed -> navigate-index.
     instance.invoke("tap", &[Value::from(2.)]).unwrap();
     settle();
     assert_eq!(
@@ -871,20 +818,17 @@ export component TestCase inherits Window {
         instance.get_property("active").unwrap(),
         Value::from(SharedString::from("settings"))
     );
-    // navigate-index pushed the previous route, so can-go-back (bound in .slint) is true.
     assert_eq!(
         instance.get_property("chrome-can-back").unwrap(),
         Value::from(true),
         "can-go-back reflects the push, read in a .slint binding"
     );
 
-    // Another tap moves it back to the first route.
     instance.invoke("tap", &[Value::from(0.)]).unwrap();
     settle();
     assert_eq!(instance.get_property("current-route").unwrap(), route("Home"), "tap 0 -> Home");
     assert_eq!(instance.get_property("chrome-index").unwrap(), Value::from(0.), "bar shows 0");
 
-    // Out-of-range tap is a no-op (the chrome's own guard).
     instance.invoke("tap", &[Value::from(9.)]).unwrap();
     settle();
     assert_eq!(

@@ -875,7 +875,7 @@ pub struct Element {
 
     /// This element is part of a `for <xxx> in <model>`:
     pub repeated: Option<RepeatedElementInfo>,
-    /// The resolved `navigator` route table, in declaration order (empty if none).
+    /// The resolved `navigator` route table, in declaration order.
     pub navigator_routes: Vec<NavigatorRoute>,
     /// This element is a placeholder to embed an Component at
     pub is_component_placeholder: bool,
@@ -1131,12 +1131,9 @@ pub struct RepeatedElementInfo {
 }
 
 #[derive(Debug, Clone)]
-/// One entry of a `navigator` route table: a route enum value mapped to its
-/// resolved destination component.
+/// One `navigator` route: an uncompiled route enum value and its resolved component.
 pub struct NavigatorRoute {
-    /// The route enum value expression (e.g. `Route.Home`), kept uncompiled.
     pub route: syntax_nodes::Expression,
-    /// The resolved destination component (`ElementType::Error` on failure).
     pub component: ElementRc,
 }
 
@@ -2241,9 +2238,7 @@ impl Element {
         cases
     }
 
-    /// Lower a `navigator`: each `Route.X: XScreen {}` becomes a conditional child
-    /// (`<navigator-expr> == Route.X`), resolved to a component and recorded on
-    /// `parent` as `navigator_routes`.
+    /// Lower a `navigator`: each route becomes a conditional child and is recorded on `parent`.
     fn from_navigator_node(
         node: syntax_nodes::Navigator,
         parent: &ElementRc,
@@ -2284,7 +2279,6 @@ impl Element {
                 tr,
             );
             match &e.borrow().base_type {
-                // Error: already diagnosed by from_sub_element_node.
                 ElementType::Component(_) | ElementType::Error => {}
                 other => {
                     diag.push_error(
@@ -2299,8 +2293,7 @@ impl Element {
             routes.push(NavigatorRoute { route: route.Expression(), component: e.clone() });
             cases.push(e);
         }
-        // Declare the public members before expression resolution so .slint chrome
-        // can bind them; lower_navigator fills in their bodies later.
+        // Members must be declared before expression resolution so chrome can bind them.
         if !routes.is_empty() {
             Self::declare_navigator_members(parent, &routes, tr);
         }
@@ -2308,10 +2301,9 @@ impl Element {
         cases
     }
 
-    /// Declare the navigator's public members (signatures only; `lower_navigator`
-    /// fills the bodies once the route table is resolved).
+    /// Declare the navigator's public members; `lower_navigator` fills the bodies later.
     fn declare_navigator_members(elem: &ElementRc, routes: &[NavigatorRoute], tr: &TypeRegister) {
-        // Recover the route enum from a route case (`Route.X`) for navigate(route).
+        // Recover the route enum from a route case for navigate(route).
         let route_ty = routes.iter().find_map(|r| {
             let name = QualifiedTypeName::from_node(r.route.QualifiedName()?)
                 .members

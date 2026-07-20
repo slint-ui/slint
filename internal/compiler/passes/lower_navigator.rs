@@ -1,16 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Implement the navigator's public members and add its private back-stack.
+//! Fill in the navigator's public member bodies and add its private back-stack.
 //!
-//! `from_navigator_node` records the resolved route table on the enclosing
-//! element (`Element::navigator_routes`) and declares the public members
-//! (`current-route-index`, `can-go-back`, `navigate`, `navigate-index`, `back`)
-//! up front.
-//!
-//!   navigate(route): push the current route, then switch to `route`
-//!   back():          restore and drop the top of the back-stack (no-op if empty)
-//!   can-go-back:     true while the back-stack is non-empty
+//! Runs after the route table and member signatures are set up by `from_navigator_node`.
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BuiltinFunction, Callable, Expression, NamedReference, Unit};

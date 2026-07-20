@@ -365,7 +365,6 @@ declare_syntax! {
         /// *: Elem { }
         WildcardMatchCase -> [ ?SubElement ],
         /// navigator (current-route) { Route.Home: HomeScreen { } }
-        /// The Expression is the current-route binding.
         Navigator -> [ Expression, *Route ],
         /// Route.Home: HomeScreen { }
         Route -> [ Expression, ?SubElement ],
