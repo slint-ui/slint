@@ -351,9 +351,10 @@ cpp! {{
             QString text =  event->text();
             int key = event->key();
             quint32 scan_code = event->nativeScanCode();
+            quint32 virtual_key = event->nativeVirtualKey();
             bool repeat = event->isAutoRepeat();
-            rust!(Slint_keyPress [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", scan_code: u32 as "quint32", repeat: bool as "bool"] {
-                rust_window.key_event(key, text.clone(), scan_code, false, repeat);
+            rust!(Slint_keyPress [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", scan_code: u32 as "quint32", virtual_key: u32 as "quint32", repeat: bool as "bool"] {
+                rust_window.key_event(key, text.clone(), scan_code, virtual_key, false, repeat);
             });
         }
         void keyReleaseEvent(QKeyEvent *event) override {
@@ -367,8 +368,9 @@ cpp! {{
             QString text =  event->text();
             int key = event->key();
             quint32 scan_code = event->nativeScanCode();
-            rust!(Slint_keyRelease [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", scan_code: u32 as "quint32"] {
-                rust_window.key_event(key, text.clone(), scan_code, true, false);
+            quint32 virtual_key = event->nativeVirtualKey();
+            rust!(Slint_keyRelease [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", scan_code: u32 as "quint32", virtual_key: u32 as "quint32"] {
+                rust_window.key_event(key, text.clone(), scan_code, virtual_key, true, false);
             });
         }
 
@@ -2208,6 +2210,7 @@ impl QtWindow {
         key: i32,
         text: qttypes::QString,
         scan_code: u32,
+        virtual_key: u32,
         released: bool,
         repeat: bool,
     ) {
@@ -2216,7 +2219,7 @@ impl QtWindow {
 
         let mut key_event = KeyEvent::default();
         key_event.text = qt_key_to_string(key as key_generated::Qt_Key, text);
-        key_event.physical_key = native_scan_code_to_physical_key(scan_code);
+        key_event.physical_key = native_code_to_physical_key(scan_code, virtual_key);
         key_event.repeat = repeat;
 
         let event_type =
@@ -2945,20 +2948,50 @@ mod key_codes {
 
 /// On X11 and Wayland the native scan code is the XKB keycode.
 #[cfg(target_os = "linux")]
-fn native_scan_code_to_physical_key(scan_code: u32) -> SharedString {
-    macro_rules! xkb_keycode_to_physical_key {
-        ($($name:ident # $_winit:ident # $xkb:literal;)*) => {
+fn native_code_to_physical_key(scan_code: u32, _virtual_key: u32) -> SharedString {
+    macro_rules! xkb_key_code_to_physical_key {
+        ($($name:ident # $_w:ident # $xkb:literal # $_win:literal # $($_mac:literal)?;)*) => {
             match scan_code {
                 $($xkb => stringify!($name).into(),)*
-                _ => SharedString::default(),
+                _ => Default::default()
             }
         };
     }
-    i_slint_common::for_each_physical_keys!(xkb_keycode_to_physical_key)
+    i_slint_common::for_each_physical_keys!(xkb_key_code_to_physical_key)
 }
 
-#[cfg(not(target_os = "linux"))]
-fn native_scan_code_to_physical_key(_scan_code: u32) -> SharedString {
+/// Qt reports extended keys with bit 8 set; Chromium's table uses 0xe0-prefixed scan codes.
+#[cfg(target_os = "windows")]
+fn native_code_to_physical_key(scan_code: u32, _virtual_key: u32) -> SharedString {
+    // Rewrite Qt's extended-key flag (bit 8) into the table's 0xe0 prefix, e.g. 0x14d -> 0xe04d.
+    let scan_code = if scan_code & 0x100 != 0 { (scan_code - 0x100) | 0xe000 } else { scan_code };
+    macro_rules! scan_code_to_physical_key {
+        ($($name:ident # $_w:ident # $_xkb:literal # $win:literal # $($_mac:literal)?;)*) => {
+            match scan_code {
+                $($win => stringify!($name).into(),)*
+                _ => Default::default(),
+            }
+        };
+    }
+    i_slint_common::for_each_physical_keys!(scan_code_to_physical_key)
+}
+
+/// Uses the macOS virtual key
+#[cfg(target_os = "macos")]
+fn native_code_to_physical_key(_scan_code: u32, virtual_key: u32) -> SharedString {
+    macro_rules! virtual_key_to_physical_key {
+        ($($name:ident # $_w:ident # $_xkb:literal # $_win:literal # $($mac:literal)?;)*) => {
+            match virtual_key {
+                $($($mac => stringify!($name).into(),)?)*
+                _ => Default::default(),
+            }
+        };
+    }
+    i_slint_common::for_each_physical_keys!(virtual_key_to_physical_key)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+fn native_code_to_physical_key(_scan_code: u32, _virtual_key: u32) -> SharedString {
     SharedString::default()
 }
 
@@ -3081,16 +3114,39 @@ fn qt_password_character() -> char {
 
 #[cfg(all(test, target_os = "linux"))]
 mod tests {
-    use super::native_scan_code_to_physical_key;
+    use super::native_code_to_physical_key;
 
     #[test]
     fn xkb_scan_codes_map_to_physical_keys() {
-        // On X11 and Wayland Qt's native scan code is the XKB keycode (evdev + 8).
-        assert_eq!(native_scan_code_to_physical_key(38), "A");
-        assert_eq!(native_scan_code_to_physical_key(10), "Digit1");
-        assert_eq!(native_scan_code_to_physical_key(113), "LeftArrow");
-        assert_eq!(native_scan_code_to_physical_key(202), "F24");
-        // Unmapped scan codes report no physical key.
-        assert_eq!(native_scan_code_to_physical_key(0), "");
+        assert_eq!(native_code_to_physical_key(38, 0), "A");
+        assert_eq!(native_code_to_physical_key(10, 0), "Digit1");
+        assert_eq!(native_code_to_physical_key(113, 0), "LeftArrow");
+        assert_eq!(native_code_to_physical_key(202, 0), "F24");
+        assert_eq!(native_code_to_physical_key(0, 0), "");
+    }
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod tests {
+    use super::native_code_to_physical_key;
+
+    #[test]
+    fn windows_scan_codes_map_to_physical_keys() {
+        assert_eq!(native_code_to_physical_key(0x001e, 0), "A");
+        assert_eq!(native_code_to_physical_key(0x0002, 0), "Digit1");
+        assert_eq!(native_code_to_physical_key(0x014d, 0), "RightArrow");
+        assert_eq!(native_code_to_physical_key(0, 0), "");
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use super::native_code_to_physical_key;
+
+    #[test]
+    fn macos_virtual_keys_map_to_physical_keys() {
+        assert_eq!(native_code_to_physical_key(1, 0x00), "A");
+        assert_eq!(native_code_to_physical_key(1, 0x7b), "LeftArrow");
+        assert_eq!(native_code_to_physical_key(1, 0x99), "");
     }
 }
