@@ -1470,26 +1470,16 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         if text.is_none() && image.is_none() {
             return false;
         }
-        /// The source of truth for the outgoing drag, converted on demand to the
-        /// type the receiving application picks.
-        #[derive(Debug)]
-        struct SendState {
-            text: Option<String>,
-            image: Option<corelib::graphics::SharedPixelBuffer<corelib::graphics::Rgba8Pixel>>,
-        }
-        let has_text = text.is_some();
-        let has_image = image.is_some();
-        let mut builder =
-            winit::data_transfer::DataTransferSendBuilder::new(SendState { text, image });
-        if has_text {
-            builder.add_type(winit::data_transfer::TypeHint::Plaintext, |state: &SendState, _| {
-                state.text.clone()
+        let mut builder = winit::data_transfer::DataTransferSendBuilder::new(());
+        if let Some(text) = text {
+            builder.add_type(winit::data_transfer::TypeHint::Plaintext, move |_, _| {
+                Some(text.clone())
             });
         }
-        if has_image {
+        if let Some(image) = image {
             builder.add_type(
                 winit::data_transfer::TypeHint::Image { extension_hint: Some("png") },
-                |state: &SendState, _| encode_png(state.image.as_ref()?),
+                move |_, _| encode_png(&image),
             );
         }
         let data = builder.build();
