@@ -9283,6 +9283,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "navigation-federated"
+version = "1.18.0"
+dependencies = [
+ "slint",
+]
+
+[[package]]
 name = "navigation-std"
 version = "1.18.0"
 dependencies = [

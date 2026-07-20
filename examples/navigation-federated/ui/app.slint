@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { FeatureNav, HostServices } from "contract.slint";
+import { MediaFeature } from "media.slint";
+import { SettingsFeature } from "settings.slint";
+import { Button, VerticalBox } from "std-widgets.slint";
+
+enum Shell {
+    Home,
+    Media,
+    Settings,
+}
+
+component HomeScreen inherits VerticalBox {
+    callback open-media();
+    callback open-settings();
+    Text { text: "Federated App"; font-size: 26px; horizontal-alignment: center; }
+    Button { text: "Open Media"; clicked => { root.open-media(); } }
+    Button { text: "Open Settings"; clicked => { root.open-settings(); } }
+}
+
+export component App inherits Window {
+    preferred-width: 360px;
+    preferred-height: 480px;
+    title: "Slint Federated Navigation";
+
+    in-out property <Shell> current: Shell.Home;
+
+    navigator (current) {
+        Shell.Home: HomeScreen {
+            open-media => { root.navigate(Shell.Media); }
+            open-settings => { root.navigate(Shell.Settings); }
+        }
+        Shell.Media: mount MediaFeature via FeatureNav {
+            log(message) => { debug(message); }
+            go-home => { root.navigate(Shell.Home); }
+        }
+        Shell.Settings: mount SettingsFeature via FeatureNav {
+            log(message) => { debug(message); }
+            go-home => { root.navigate(Shell.Home); }
+        }
+    }
+}

@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { FeatureNav, HostServices } from "contract.slint";
+import { Button, CheckBox, VerticalBox } from "std-widgets.slint";
+
+enum SettingsRoute {
+    Main,
+}
+
+component SettingsPage inherits VerticalBox {
+    callback home();
+    Text { text: "Settings"; font-size: 22px; horizontal-alignment: center; }
+    CheckBox { text: "Dark mode"; }
+    Button { text: "Back to home"; clicked => { root.home(); } }
+}
+
+export component SettingsFeature implements FeatureNav inherits Rectangle {
+    needs HostServices;
+
+    in-out property <SettingsRoute> current-route: SettingsRoute.Main;
+
+    init => { root.log("settings: mounted"); }
+
+    navigator (current-route) {
+        SettingsRoute.Main: SettingsPage {
+            home => { root.go-home(); }
+        }
+    }
+}

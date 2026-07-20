@@ -74,6 +74,14 @@ fn simplify_expression(
             simplify_single_statement_code_block(expr, ga, cache)
         }
         Expression::FunctionCall { .. } => simplify_function_call(expr, ga, cache),
+        // The lhs of an assignment is a target (lvalue) and must not be folded to
+        // a constant value; only the rhs may be simplified. An assignment is never
+        // a constant itself.
+        Expression::SelfAssignment { rhs, .. } => {
+            // Only fold the rhs; the lhs is an assignment target, not a constant.
+            simplify_expression(rhs, ga, cache);
+            false
+        }
         Expression::ElementReference { .. } => false,
         Expression::LayoutCacheAccess { .. } => false,
         Expression::OrganizeGridLayout { .. } => false,

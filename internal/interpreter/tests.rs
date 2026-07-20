@@ -338,6 +338,296 @@ export component TestCase inherits Window {
     );
 }
 
+// A `mount Impl via Contract` route renders the mounted module directly (no
+// ComponentContainer indirection), observed via a global the module's screen writes.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_mount_renders_module() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+    let code = r#"
+interface AppNavV1 {
+    route Home;
+}
+global NavProbe { in-out property <string> active; }
+enum ModuleRoute { Home }
+component ModHome inherits Rectangle { init => { NavProbe.active = "module-home"; } }
+component ModuleA implements AppNavV1 inherits Rectangle {
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+    }
+}
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "shell-home"; } }
+enum ShellRoute { Home, ModuleA }
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    out property <string> active: NavProbe.active;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleA: mount ModuleA via AppNavV1 { }
+    }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("ShellRoute".into(), v.into());
+
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("shell-home")),
+        "ShellRoute.Home renders HomeScreen"
+    );
+
+    instance.set_property("current", route("ModuleA")).unwrap();
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("module-home")),
+        "ShellRoute.ModuleA mounts and renders ModuleA"
+    );
+}
+
+// A mounted module that `needs` a capability invokes it from its own init; the
+// shell's binding at the mount site runs, proving end-to-end capability wiring.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_mount_binds_capability_end_to_end() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+    let code = r#"
+interface AppServices {
+    callback open-settings();
+    callback play-media(string);
+}
+interface AppNavV1 {
+    route Home;
+}
+global CapProbe { in-out property <string> played; }
+enum ModuleRoute { Home }
+component ModHome inherits Rectangle { }
+component ModuleA implements AppNavV1 inherits Rectangle {
+    needs AppServices;
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    // The module invokes a capability it does not implement itself.
+    init => { root.play-media("song.mp3"); }
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+    }
+}
+component HomeScreen inherits Rectangle { }
+enum ShellRoute { Home, ModuleA }
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    out property <string> played: CapProbe.played;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleA: mount ModuleA via AppNavV1 {
+            open-settings => { }
+            play-media(url) => { CapProbe.played = url; }
+        }
+    }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("played").unwrap(),
+        Value::from(SharedString::from("")),
+        "capability not invoked before the module is mounted"
+    );
+
+    instance
+        .set_property("current", Value::EnumerationValue("ShellRoute".into(), "ModuleA".into()))
+        .unwrap();
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("played").unwrap(),
+        Value::from(SharedString::from("song.mp3")),
+        "the module's capability call runs the integrator's bound expression"
+    );
+}
+
+// Cross-file counterpart of `navigator_mount_renders_module`: contract and module
+// in their own files. Uses real files so imports resolve; skipped on wasm.
+#[cfg(all(feature = "internal", not(target_arch = "wasm32")))]
+#[test]
+fn navigator_mount_cross_file_renders_module() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+
+    let dir = std::env::temp_dir().join(format!("slint_nav_xmount_interp_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("contract.slint"),
+        r#"
+export interface AppNavV1 {
+    route Home;
+}
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("module-a.slint"),
+        r#"
+import { AppNavV1 } from "contract.slint";
+export global NavProbe { in-out property <string> active; }
+enum ModuleRoute { Home }
+component ModHome inherits Rectangle { init => { NavProbe.active = "module-home"; } }
+export component ModuleA implements AppNavV1 inherits Rectangle {
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+    }
+}
+"#,
+    )
+    .unwrap();
+    let main_path = dir.join("main.slint");
+    let code = r#"
+import { ModuleA } from "module-a.slint";
+import { AppNavV1 } from "contract.slint";
+import { NavProbe } from "module-a.slint";
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "shell-home"; } }
+enum ShellRoute { Home, ModuleA }
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    out property <string> active: NavProbe.active;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleA: mount ModuleA via AppNavV1 { }
+    }
+}
+"#;
+
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), main_path));
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("ShellRoute".into(), v.into());
+
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("shell-home")),
+        "ShellRoute.Home renders HomeScreen"
+    );
+
+    instance.set_property("current", route("ModuleA")).unwrap();
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("module-home")),
+        "ShellRoute.ModuleA mounts and renders the imported ModuleA"
+    );
+}
+
+// An external mount: `ModuleB` is separately compiled and delivered through a
+// host-supplied `component-factory`. Since the two compilations share no global,
+// the seam is observed directly: the factory is invoked only once the external
+// route is active.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_external_mount_invokes_host_factory() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, Value};
+    use i_slint_core::component_factory::ComponentFactory;
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    // The host module: its own compilation, opaque to the shell at build time.
+    let host_code = r#"
+export component ModuleB inherits Rectangle { background: red; }
+"#;
+    let mut host_compiler = Compiler::default();
+    host_compiler.set_style("fluent".into());
+    let host_result =
+        spin_on::spin_on(host_compiler.build_from_source(host_code.into(), Default::default()));
+    assert!(!host_result.has_errors(), "{:?}", host_result.diagnostics().collect::<Vec<_>>());
+    let host_def = host_result.component("ModuleB").unwrap();
+
+    let code = r#"
+interface AppNavV1 {
+    route Home;
+}
+component HomeScreen inherits Rectangle { }
+enum ShellRoute { Home, ModuleB }
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in property <component-factory> module-b-factory;
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleB: mount extern via AppNavV1 {
+            component-factory: root.module-b-factory;
+        }
+    }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    // The factory records when it is invoked and returns an embedded instance.
+    let invoked = Rc::new(Cell::new(false));
+    let invoked_in_factory = invoked.clone();
+    let factory = ComponentFactory::new(move |ctx| {
+        invoked_in_factory.set(true);
+        host_def.create_embedded(ctx).ok()
+    });
+    instance.set_property("module-b-factory", Value::ComponentFactory(factory)).unwrap();
+
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert!(!invoked.get(), "the host factory is not invoked while the external route is inactive");
+
+    // Activating the external route drives the container to build via the factory.
+    instance
+        .set_property("current", Value::EnumerationValue("ShellRoute".into(), "ModuleB".into()))
+        .unwrap();
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert!(
+        invoked.get(),
+        "activating the external route builds the host component via the factory"
+    );
+}
+
+// Without `enable_experimental`, `navigator` is rejected at object-tree
+// lowering with the experimental-feature diagnostic. `Compiler::default()`
+// does not enable experimental features.
 #[test]
 fn navigator_requires_experimental() {
     i_slint_backend_testing::init_no_event_loop();

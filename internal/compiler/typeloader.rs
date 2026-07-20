@@ -391,6 +391,7 @@ impl Snapshotter {
                 root_constraints,
                 root_element,
                 from_library: core::cell::Cell::new(false),
+                navigation_contract: RefCell::new(component.navigation_contract.borrow().clone()),
             }
         });
         self.keep_alive.push((component.clone(), result.clone()));
@@ -2042,6 +2043,746 @@ export component App inherits Window {
     assert!(
         diag.iter().any(|d| d.message().contains("navigator is an experimental feature")),
         "navigator should be rejected when experimental is disabled"
+    );
+}
+
+/// Load `source` under the given experimental flag and return the loaded
+/// document alongside its diagnostics, mirroring the LSP load path.
+#[cfg(test)]
+fn load_source_for_contract_test(
+    source: &str,
+    enable_experimental: bool,
+) -> (TypeLoader, PathBuf, BuildDiagnostics) {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.enable_experimental = enable_experimental;
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let mut diag = BuildDiagnostics::default();
+    let path = PathBuf::from("/foo/contract.slint");
+    spin_on::spin_on(loader.load_file(&path, &path, source.into(), false, &mut diag));
+    (loader, path, diag)
+}
+
+#[test]
+fn test_navigation_contract_populated() {
+    // Interface `route` members become a NavigationContract with typed params.
+    let source = r#"
+export interface AppNavV1 {
+    route Home;
+    route Details(id: int);
+}
+"#;
+    let (loader, path, diag) = load_source_for_contract_test(source, true);
+    assert!(!diag.has_errors(), "contract rejected: {:?}", diag.to_string_vec());
+
+    let doc = loader.get_document(&path).unwrap();
+    let interface = doc
+        .inner_components
+        .iter()
+        .find(|c| c.id == "AppNavV1")
+        .expect("interface component missing");
+    let contract = interface.navigation_contract().expect("navigation contract not populated");
+    assert_eq!(contract.routes.len(), 2);
+    assert_eq!(contract.routes[0].name, "Home");
+    assert!(contract.routes[0].params.is_empty());
+    assert_eq!(contract.routes[1].name, "Details");
+    assert_eq!(contract.routes[1].params.len(), 1);
+    assert_eq!(contract.routes[1].params[0].0, "id");
+    assert_eq!(contract.routes[1].params[0].1.to_string(), "int");
+}
+
+#[test]
+fn test_navigation_contract_attributes() {
+    // `@version(n)` and per-route `@uri("...")` are parsed into contract metadata.
+    let source = r#"
+export interface AppNavV1 {
+    @version(2)
+    @uri("app://home") route Home;
+    @uri("app://details/{id}") route Details(id: int);
+}
+"#;
+    let (loader, path, diag) = load_source_for_contract_test(source, true);
+    assert!(!diag.has_errors(), "contract with attributes rejected: {:?}", diag.to_string_vec());
+
+    let doc = loader.get_document(&path).unwrap();
+    let interface = doc
+        .inner_components
+        .iter()
+        .find(|c| c.id == "AppNavV1")
+        .expect("interface component missing");
+    let contract = interface.navigation_contract().expect("navigation contract not populated");
+    assert_eq!(contract.version, Some(2));
+    assert_eq!(contract.routes.len(), 2);
+    assert_eq!(contract.routes[0].name, "Home");
+    assert_eq!(contract.routes[0].uri.as_deref(), Some("app://home"));
+    assert_eq!(contract.routes[1].name, "Details");
+    assert_eq!(contract.routes[1].uri.as_deref(), Some("app://details/{id}"));
+}
+
+#[test]
+fn test_navigation_contract_default_version() {
+    // Absent `@version` means no explicit version (the documented default is 1).
+    let source = r#"
+export interface AppNavV1 {
+    route Home;
+}
+"#;
+    let (loader, path, diag) = load_source_for_contract_test(source, true);
+    assert!(!diag.has_errors(), "contract rejected: {:?}", diag.to_string_vec());
+    let doc = loader.get_document(&path).unwrap();
+    let interface =
+        doc.inner_components.iter().find(|c| c.id == "AppNavV1").expect("interface missing");
+    let contract = interface.navigation_contract().expect("contract not populated");
+    assert_eq!(contract.version, None);
+}
+
+#[test]
+fn test_navigation_contract_version_non_integer_rejected() {
+    let source = r#"
+export interface AppNavV1 {
+    @version("x")
+    route Home;
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d.message().contains("@version expects an integer literal")),
+        "non-integer @version should be rejected: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+#[test]
+fn test_route_outside_interface_rejected() {
+    let source = r#"
+export component App inherits Rectangle {
+    route Home;
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d.message().contains("only allowed inside an 'interface'")),
+        "route outside an interface should be rejected: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+#[test]
+fn test_navigation_contract_requires_experimental() {
+    let source = r#"
+export interface AppNavV1 {
+    route Home;
+}
+"#;
+    let (loader, path, diag) = load_source_for_contract_test(source, false);
+    assert!(diag.has_errors(), "contract must be rejected without experimental");
+    assert!(
+        diag.iter().any(|d| d.message().contains("experimental")),
+        "expected an experimental-feature diagnostic: {:?}",
+        diag.to_string_vec()
+    );
+    if let Some(doc) = loader.get_document(&path) {
+        assert!(
+            doc.inner_components.iter().all(|c| c.navigation_contract().is_none()),
+            "no contract should be collected without experimental"
+        );
+    }
+}
+
+#[test]
+fn test_navigation_contract_cross_file_import() {
+    // Real files on disk so the importer resolves the relative import.
+    let dir = std::env::temp_dir().join(format!("slint_nav_contract_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let nav_path = dir.join("nav.slint");
+    let main_path = dir.join("main.slint");
+    std::fs::write(
+        &nav_path,
+        r#"
+export interface AppNavV1 {
+    route Home;
+    route Details(id: int);
+}
+"#,
+    )
+    .unwrap();
+    let main_source = r#"
+import { AppNavV1 } from "nav.slint";
+export component App inherits Rectangle { }
+"#;
+    std::fs::write(&main_path, main_source).unwrap();
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.enable_experimental = true;
+
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    assert!(!build_diagnostics.has_errors());
+
+    let mut diag = BuildDiagnostics::default();
+    spin_on::spin_on(loader.load_file(
+        &main_path,
+        &main_path,
+        main_source.into(),
+        false,
+        &mut diag,
+    ));
+
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(!diag.has_errors(), "cross-file interface import failed: {:?}", diag.to_string_vec());
+
+    let nav_doc = loader.get_document(&nav_path).expect("exporting document not loaded");
+    let interface = nav_doc
+        .inner_components
+        .iter()
+        .find(|c| c.id == "AppNavV1")
+        .expect("imported interface missing");
+    let contract = interface.navigation_contract().expect("contract missing after import");
+    assert_eq!(contract.routes.len(), 2);
+    assert_eq!(contract.routes[0].name, "Home");
+    assert_eq!(contract.routes[1].name, "Details");
+}
+
+#[test]
+fn test_navigation_contract_conformance_ok() {
+    // Navigator covers every contract route by name (params aren't checked yet).
+    let source = r#"
+export interface AppNavV1 {
+    route Home;
+    route Details(id: int);
+}
+enum Route { Home, Details }
+component HomeScreen inherits Rectangle { }
+component DetailsScreen inherits Rectangle { }
+export component App implements AppNavV1 inherits Window {
+    in-out property <Route> current-route: Route.Home;
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Details: DetailsScreen { }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(!diag.has_errors(), "conformant component rejected: {:?}", diag.to_string_vec());
+}
+
+#[test]
+fn test_navigation_contract_conformance_missing_route() {
+    // The navigator omits `Route.Details`, so it does not cover the contract.
+    let source = r#"
+export interface AppNavV1 {
+    route Home;
+    route Details(id: int);
+}
+enum Route { Home, Details }
+component HomeScreen inherits Rectangle { }
+export component App implements AppNavV1 inherits Window {
+    in-out property <Route> current-route: Route.Home;
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d.message().contains("its navigator has no route for 'Details'")),
+        "missing route should be a diagnostic: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+#[test]
+fn test_navigation_contract_conformance_no_navigator() {
+    let source = r#"
+export interface AppNavV1 {
+    route Home;
+}
+export component App implements AppNavV1 inherits Window { }
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d.message().contains("declares no navigator")),
+        "missing navigator should be a diagnostic: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+#[test]
+fn test_navigation_contract_conformance_extra_routes_allowed() {
+    // A navigator route outside the contract is allowed.
+    let source = r#"
+export interface AppNavV1 {
+    route Home;
+}
+enum Route { Home, Debug }
+component HomeScreen inherits Rectangle { }
+component DebugScreen inherits Rectangle { }
+export component App implements AppNavV1 inherits Window {
+    in-out property <Route> current-route: Route.Home;
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Debug: DebugScreen { }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(!diag.has_errors(), "extra navigator route rejected: {:?}", diag.to_string_vec());
+}
+
+// Shared same-file integrator: `Shell` mounts `ModuleA` (covers `AppNavV1`).
+#[cfg(test)]
+const MOUNT_TEST_SOURCE: &str = r#"
+interface AppNavV1 {
+    route Home;
+    route Details;
+}
+enum ModuleRoute { Home, Details }
+component ModHome inherits Rectangle { }
+component ModDetails inherits Rectangle { }
+component ModuleA implements AppNavV1 inherits Rectangle {
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+        ModuleRoute.Details: ModDetails { }
+    }
+}
+enum ShellRoute { Home, ModuleA }
+component HomeScreen inherits Rectangle { }
+export component Shell inherits Window {
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleA: mount ModuleA via AppNavV1 { }
+    }
+}
+"#;
+
+#[test]
+fn test_federated_mount_resolves_and_records_edge() {
+    // A conforming mount desugars to a direct module instantiation and records an edge.
+    let (loader, path, diag) = load_source_for_contract_test(MOUNT_TEST_SOURCE, true);
+    assert!(!diag.has_errors(), "conforming mount rejected: {:?}", diag.to_string_vec());
+
+    let doc = loader.get_document(&path).unwrap();
+    let shell = doc.inner_components.iter().find(|c| c.id == "Shell").expect("Shell missing");
+    let root = shell.root_element.borrow();
+    let routes = root.navigator_routes();
+    assert_eq!(routes.len(), 2);
+
+    let home = routes.iter().find(|r| r.route.text().to_string().contains("Home")).unwrap();
+    assert!(home.mount.is_none());
+
+    let mounted = routes.iter().find(|r| r.mount.is_some()).expect("no mount edge recorded");
+    let edge = mounted.mount.as_ref().unwrap();
+    assert!(!edge.is_external(), "a local mount is not external");
+    assert_eq!(edge.impl_name.as_deref(), Some("ModuleA"));
+    assert_eq!(edge.contract_name, "AppNavV1");
+    assert_eq!(
+        mounted.component.borrow().base_type.to_string(),
+        "ModuleA",
+        "mount must desugar to a direct instantiation of the module"
+    );
+}
+
+#[test]
+fn test_federated_mount_non_conforming_rejected() {
+    // ModuleA's navigator omits `Details`, so it does not satisfy `AppNavV1`.
+    let source = r#"
+interface AppNavV1 {
+    route Home;
+    route Details;
+}
+enum ModuleRoute { Home }
+component ModHome inherits Rectangle { }
+component ModuleA inherits Rectangle {
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+    }
+}
+enum ShellRoute { Home }
+export component Shell inherits Window {
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: mount ModuleA via AppNavV1 { }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d
+            .message()
+            .contains("mount of 'ModuleA' does not satisfy contract 'AppNavV1'")),
+        "non-conforming mount should be a diagnostic: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+#[test]
+fn test_federated_mount_non_contract_rejected() {
+    // `Plain` is an interface with no routes, so it is not a mount boundary.
+    let source = r#"
+interface Plain {
+    in property <int> value;
+}
+component ModuleA inherits Rectangle { }
+enum ShellRoute { Home }
+export component Shell inherits Window {
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: mount ModuleA via Plain { }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d.message().contains("'Plain' is not a navigation contract")),
+        "non-contract mount should be a diagnostic: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+// The contract shared by the cross-file mount tests.
+#[cfg(test)]
+const XFILE_CONTRACT_SOURCE: &str = r#"
+export interface AppNavV1 {
+    route Home;
+    route Details;
+}
+"#;
+
+// Contract, module, and integrator each in their own file, wired by relative
+// imports, loaded like the LSP would. `tag` keeps concurrent tests in distinct dirs.
+#[cfg(test)]
+fn load_cross_file_mount_test(
+    tag: &str,
+    module_a_source: &str,
+) -> (TypeLoader, PathBuf, BuildDiagnostics) {
+    let dir = std::env::temp_dir().join(format!("slint_nav_xmount_{}_{}", std::process::id(), tag));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("contract.slint"), XFILE_CONTRACT_SOURCE).unwrap();
+    std::fs::write(dir.join("module-a.slint"), module_a_source).unwrap();
+
+    let main_path = dir.join("main.slint");
+    let main_source = r#"
+import { ModuleA } from "module-a.slint";
+import { AppNavV1 } from "contract.slint";
+enum ShellRoute { Home, ModuleA }
+component HomeScreen inherits Rectangle { }
+export component Shell inherits Window {
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleA: mount ModuleA via AppNavV1 { }
+    }
+}
+"#;
+    std::fs::write(&main_path, main_source).unwrap();
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.enable_experimental = true;
+
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    assert!(!build_diagnostics.has_errors());
+
+    let mut diag = BuildDiagnostics::default();
+    spin_on::spin_on(loader.load_file(
+        &main_path,
+        &main_path,
+        main_source.into(),
+        false,
+        &mut diag,
+    ));
+
+    let _ = std::fs::remove_dir_all(&dir);
+    (loader, main_path, diag)
+}
+
+#[test]
+fn test_federated_mount_cross_file_resolves_and_records_edge() {
+    // The imported `ModuleA` is built in its own document, so its routes are
+    // populated before the integrator's mount verification runs.
+    let module_a_source = r#"
+import { AppNavV1 } from "contract.slint";
+enum ModuleRoute { Home, Details }
+component ModHome inherits Rectangle { }
+component ModDetails inherits Rectangle { }
+export component ModuleA implements AppNavV1 inherits Rectangle {
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+        ModuleRoute.Details: ModDetails { }
+    }
+}
+"#;
+    let (loader, path, diag) = load_cross_file_mount_test("ok", module_a_source);
+    assert!(!diag.has_errors(), "cross-file conforming mount rejected: {:?}", diag.to_string_vec());
+
+    let doc = loader.get_document(&path).unwrap();
+    let shell = doc.inner_components.iter().find(|c| c.id == "Shell").expect("Shell missing");
+    let root = shell.root_element.borrow();
+    let routes = root.navigator_routes();
+    assert_eq!(routes.len(), 2);
+
+    let mounted = routes.iter().find(|r| r.mount.is_some()).expect("no mount edge recorded");
+    let edge = mounted.mount.as_ref().unwrap();
+    assert_eq!(edge.impl_name.as_deref(), Some("ModuleA"));
+    assert_eq!(edge.contract_name, "AppNavV1");
+    assert_eq!(
+        mounted.component.borrow().base_type.to_string(),
+        "ModuleA",
+        "cross-file mount must desugar to a direct instantiation of the imported module"
+    );
+}
+
+#[test]
+fn test_federated_mount_cross_file_non_conforming_rejected() {
+    // `ModuleA` omits `Details` and does not `implements` the contract, so the
+    // conformance error must originate at the integrator's cross-file mount site.
+    let module_a_source = r#"
+enum ModuleRoute { Home }
+component ModHome inherits Rectangle { }
+export component ModuleA inherits Rectangle {
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_cross_file_mount_test("bad", module_a_source);
+    assert!(
+        diag.iter().any(|d| d
+            .message()
+            .contains("mount of 'ModuleA' does not satisfy contract 'AppNavV1'")),
+        "cross-file non-conforming mount should be a diagnostic: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+#[test]
+fn test_needs_declares_capability_members() {
+    // `needs <Interface>` declares the interface's callbacks as unbound members
+    // on the component and records them for the mount verifier.
+    let source = r#"
+interface AppServices {
+    callback open-settings();
+    callback play-media(string);
+}
+interface AppNavV1 {
+    route Home;
+}
+enum ModuleRoute { Home }
+component ModHome inherits Rectangle { }
+export component ModuleA implements AppNavV1 inherits Rectangle {
+    needs AppServices;
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    TouchArea { clicked => { root.open-settings(); } }
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+    }
+}
+"#;
+    let (loader, path, diag) = load_source_for_contract_test(source, true);
+    assert!(!diag.has_errors(), "needs declaration rejected: {:?}", diag.to_string_vec());
+
+    let doc = loader.get_document(&path).unwrap();
+    let module = doc.inner_components.iter().find(|c| c.id == "ModuleA").expect("ModuleA missing");
+    let root = module.root_element.borrow();
+    assert!(root.property_declarations.contains_key("open-settings"));
+    assert!(root.property_declarations.contains_key("play-media"));
+
+    let caps = module.needed_capabilities();
+    assert_eq!(caps.len(), 1);
+    assert_eq!(caps[0].interface_name, "AppServices");
+    assert!(caps[0].members.contains(&"open-settings".into()));
+    assert!(caps[0].members.contains(&"play-media".into()));
+}
+
+#[test]
+fn test_needs_requires_experimental() {
+    // `needs` is experimental-gated exactly like `uses`.
+    let source = r#"
+interface AppServices {
+    callback open-settings();
+}
+export component ModuleA inherits Rectangle {
+    needs AppServices;
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, false);
+    assert!(
+        diag.iter().any(|d| d.message().contains("'needs' is an experimental feature")),
+        "needs should be rejected without the experimental flag: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+#[test]
+fn test_mount_binds_needed_capabilities() {
+    // A mount block that binds every needed capability compiles and records the edge.
+    let source = r#"
+interface AppServices {
+    callback open-settings();
+    callback play-media(string);
+}
+interface AppNavV1 {
+    route Home;
+    route Details;
+}
+enum ModuleRoute { Home, Details }
+component ModHome inherits Rectangle { }
+component ModDetails inherits Rectangle { }
+component ModuleA implements AppNavV1 inherits Rectangle {
+    needs AppServices;
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+        ModuleRoute.Details: ModDetails { }
+    }
+}
+enum ShellRoute { Home, ModuleA }
+component HomeScreen inherits Rectangle { }
+export component Shell inherits Window {
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleA: mount ModuleA via AppNavV1 {
+            open-settings => { }
+            play-media(url) => { }
+        }
+    }
+}
+"#;
+    let (loader, path, diag) = load_source_for_contract_test(source, true);
+    assert!(!diag.has_errors(), "mount binding all needs rejected: {:?}", diag.to_string_vec());
+
+    let doc = loader.get_document(&path).unwrap();
+    let shell = doc.inner_components.iter().find(|c| c.id == "Shell").expect("Shell missing");
+    let root = shell.root_element.borrow();
+    let mounted =
+        root.navigator_routes().iter().find(|r| r.mount.is_some()).expect("no mount edge recorded");
+    assert_eq!(mounted.mount.as_ref().unwrap().impl_name.as_deref(), Some("ModuleA"));
+    // Mount-block handlers land as bindings on the module instantiation.
+    let dest = mounted.component.borrow();
+    assert!(dest.bindings.contains_key("open-settings"));
+    assert!(dest.bindings.contains_key("play-media"));
+}
+
+#[test]
+fn test_mount_unbound_need_rejected() {
+    // The mount omits `open-settings`, leaving a required capability unbound.
+    let source = r#"
+interface AppServices {
+    callback open-settings();
+    callback play-media(string);
+}
+interface AppNavV1 {
+    route Home;
+}
+enum ModuleRoute { Home }
+component ModHome inherits Rectangle { }
+component ModuleA implements AppNavV1 inherits Rectangle {
+    needs AppServices;
+    in-out property <ModuleRoute> current-route: ModuleRoute.Home;
+    navigator (current-route) {
+        ModuleRoute.Home: ModHome { }
+    }
+}
+enum ShellRoute { Home }
+export component Shell inherits Window {
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: mount ModuleA via AppNavV1 {
+            play-media(url) => { }
+        }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d.message().contains(
+            "mount of 'ModuleA' does not bind required capability 'open-settings' (from 'AppServices')"
+        )),
+        "unbound need should be a diagnostic: {:?}",
+        diag.to_string_vec()
+    );
+}
+
+// An external mount: `ModuleB` is not in this build; the shell declares the
+// boundary against `AppNavV1` and supplies a ComponentFactory set at runtime.
+#[cfg(test)]
+const EXTERNAL_MOUNT_TEST_SOURCE: &str = r#"
+interface AppNavV1 {
+    route Home;
+}
+enum ShellRoute { Home, ModuleB }
+component HomeScreen inherits Rectangle { }
+export component Shell inherits Window {
+    in property <component-factory> module-b-factory;
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleB: mount extern via AppNavV1 {
+            component-factory: root.module-b-factory;
+        }
+    }
+}
+"#;
+
+#[test]
+fn test_external_mount_records_external_edge() {
+    // A conforming external mount desugars to a ComponentContainer and records an
+    // external edge (no impl name, the declared contract).
+    let (loader, path, diag) = load_source_for_contract_test(EXTERNAL_MOUNT_TEST_SOURCE, true);
+    assert!(!diag.has_errors(), "external mount rejected: {:?}", diag.to_string_vec());
+
+    let doc = loader.get_document(&path).unwrap();
+    let shell = doc.inner_components.iter().find(|c| c.id == "Shell").expect("Shell missing");
+    let root = shell.root_element.borrow();
+    let routes = root.navigator_routes();
+    assert_eq!(routes.len(), 2);
+
+    let mounted = routes.iter().find(|r| r.mount.is_some()).expect("no mount edge recorded");
+    let edge = mounted.mount.as_ref().unwrap();
+    assert!(edge.is_external(), "the edge must be external");
+    assert_eq!(edge.impl_name, None, "an external mount has no compile-time impl");
+    assert_eq!(edge.contract_name, "AppNavV1");
+    let dest = mounted.component.borrow();
+    assert_eq!(dest.base_type.to_string(), "ComponentContainer");
+    assert!(dest.bindings.contains_key("component-factory"));
+}
+
+#[test]
+fn test_external_mount_missing_factory_rejected() {
+    // An external mount with no component-factory has no runtime transport: a compile error.
+    let source = r#"
+interface AppNavV1 {
+    route Home;
+}
+enum ShellRoute { Home, ModuleB }
+component HomeScreen inherits Rectangle { }
+export component Shell inherits Window {
+    in-out property <ShellRoute> current: ShellRoute.Home;
+    navigator (current) {
+        ShellRoute.Home: HomeScreen { }
+        ShellRoute.ModuleB: mount extern via AppNavV1 { }
+    }
+}
+"#;
+    let (_loader, _path, diag) = load_source_for_contract_test(source, true);
+    assert!(
+        diag.iter().any(|d| d
+            .message()
+            .contains("external mount via 'AppNavV1' requires a 'component-factory'")),
+        "missing factory should be a diagnostic: {:?}",
+        diag.to_string_vec()
     );
 }
 

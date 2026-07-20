@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { FeatureNav, HostServices } from "contract.slint";
+import { Button, VerticalBox } from "std-widgets.slint";
+
+enum MediaRoute {
+    Main,
+    Player,
+}
+
+component Library inherits VerticalBox {
+    callback play();
+    callback home();
+    Text { text: "Media"; font-size: 22px; horizontal-alignment: center; }
+    Button { text: "Play"; clicked => { root.play(); } }
+    Button { text: "Back to home"; clicked => { root.home(); } }
+}
+
+component Player inherits VerticalBox {
+    in property <bool> can-go-back;
+    callback go-back();
+    Text { text: "Now Playing"; font-size: 22px; horizontal-alignment: center; }
+    Button { text: "Stop"; enabled: can-go-back; clicked => { root.go-back(); } }
+}
+
+export component MediaFeature implements FeatureNav inherits Rectangle {
+    needs HostServices;
+
+    in-out property <MediaRoute> current-route: MediaRoute.Main;
+
+    init => { root.log("media: mounted"); }
+
+    navigator (current-route) {
+        MediaRoute.Main: Library {
+            play => { root.navigate(MediaRoute.Player); }
+            home => { root.go-home(); }
+        }
+        MediaRoute.Player: Player {
+            can-go-back: root.can-go-back;
+            go-back => { root.back(); }
+        }
+    }
+}

@@ -352,9 +352,9 @@ declare_syntax! {
         /// `id := Element { ... }`
         SubElement -> [ Element ],
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
-                     *CallbackDeclaration, *ConditionalElement, *MatchElement, *Navigator, *Function, *SubElement,
+                     *CallbackDeclaration, *ConditionalElement, *MatchElement, *Navigator, *Function, *RouteDeclaration, *SubElement,
                      *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
-                     *TwoWayBinding, *States, *Transitions, ?ChildrenPlaceholder ],
+                     *TwoWayBinding, *States, *Transitions, ?ChildrenPlaceholder, *AtVersion, ?MountVia, *NeedsSpecifier ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , SubElement],
@@ -366,8 +366,14 @@ declare_syntax! {
         WildcardMatchCase -> [ ?SubElement ],
         /// navigator (current-route) { Route.Home: HomeScreen { } }
         Navigator -> [ Expression, *Route ],
-        /// Route.Home: HomeScreen { }
-        Route -> [ Expression, ?SubElement ],
+        /// Route.Home: HomeScreen { }  or  Route.ModuleA: mount ModuleA via AppNavV1 { }
+        Route -> [ Expression, ?SubElement, ?MountDestination ],
+        /// mount ModuleA via AppNavV1 { open-settings => {} }
+        MountDestination -> [ SubElement ],
+        /// via AppNavV1
+        MountVia -> [ QualifiedName ],
+        /// route Home;  or  route Details(id: int);  with an optional @uri("...") prefix
+        RouteDeclaration -> [ DeclaredIdentifier, *ArgumentDeclaration, *AtUri ],
         CallbackDeclaration -> [ DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
         // `foo: type` or just `type`
         CallbackDeclarationParameter -> [ ?DeclaredIdentifier, Type],
@@ -478,12 +484,18 @@ declare_syntax! {
         EnumValue -> [],
         /// `@rust-attr(...)`
         AtRustAttr -> [],
+        /// `@version(n)`: the navigation contract version, on an `interface`.
+        AtVersion -> [],
+        /// `@uri("...")`: a route's deep-link URI, on a `route` declaration.
+        AtUri -> [],
         /// `uses { Foo from Bar, Baz from Qux }`
         UsesSpecifier -> [ *UsesIdentifier ],
         /// `Interface.Foo from bar`
         UsesIdentifier -> [QualifiedName, DeclaredIdentifier],
         /// `implements Interface.Foo`
         ImplementsSpecifier -> [ QualifiedName ],
+        /// `needs AppServices;`  a capability the component requires from its host.
+        NeedsSpecifier -> [ QualifiedName ],
     }
 }
 
