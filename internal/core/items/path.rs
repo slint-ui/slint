@@ -11,7 +11,7 @@ Lookup the [`crate::items`] module documentation.
 use super::{
     FillRule, Item, ItemConsts, ItemRc, ItemRendererRef, LineCap, LineJoin, RenderingResult,
 };
-use crate::graphics::{Brush, PathData, PathDataIterator};
+use crate::graphics::{Brush, FittedPath, PathData, PathDataIterator};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
@@ -28,8 +28,10 @@ use crate::lengths::{
 use crate::rtti::*;
 use crate::window::WindowAdapter;
 use crate::{Coord, Property};
+use alloc::boxed::Box;
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
+use core::cell::RefCell;
 use core::pin::Pin;
 use euclid::Point2D;
 use euclid::num::Zero;
@@ -56,6 +58,7 @@ pub struct Path {
     pub clip: Property<bool>,
     pub anti_alias: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
+    fitted_cache: PathFittedCacheBox,
 }
 
 impl Item for Path {
@@ -194,31 +197,96 @@ impl Path {
         (offset, elements_iter).into()
     }
 
+    /// Returns the path and measurements as long as none of the properties are dirty
+    fn cached_fitted_path(self: Pin<&Self>, self_rc: &ItemRc) -> Option<Rc<FittedPath>> {
+        if let Some(new_data) =
+            self.fitted_cache.tracker.as_ref().evaluate_if_dirty(|| self.build_fitted_path(self_rc))
+        {
+            *self.fitted_cache.data.borrow_mut() = new_data.clone();
+            new_data
+        } else {
+            self.fitted_cache.data.borrow().clone()
+        }
+    }
+
+    fn build_fitted_path(self: Pin<&Self>, self_rc: &ItemRc) -> Option<Rc<FittedPath>> {
+        let (_, elements_iter) = self.fitted_path_events(self_rc)?;
+        Some(Rc::new(elements_iter.to_fitted_path()))
+    }
+
     pub fn point_at_percent(
         self: Pin<&Self>,
         self_rc: &ItemRc,
         percent: f32,
     ) -> Point2D<f32, LogicalPx> {
-        if let Some((_, path)) = self.fitted_path_events(self_rc) {
-            let pos = path.position_at(percent);
-            if let Some(pos) = pos { Point2D::new(pos.x, pos.y) } else { Point2D::default() }
-        } else {
-            Point2D::default()
-        }
+        self.cached_fitted_path(self_rc)
+            .and_then(|fitted| fitted.position_at(percent))
+            .map(|pos| Point2D::new(pos.x, pos.y))
+            .unwrap_or_default()
     }
     pub fn angle_at_percent(self: Pin<&Self>, self_rc: &ItemRc, percent: f32) -> f32 {
-        if let Some((_, path)) = self.fitted_path_events(self_rc) {
-            let angle = path.angle_at(percent);
-            angle.unwrap_or(0.0)
-        } else {
-            0.0
-        }
+        self.cached_fitted_path(self_rc).and_then(|fitted| fitted.angle_at(percent)).unwrap_or(0.0)
     }
 }
 
 impl ItemConsts for Path {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Path, CachedRenderingData> =
         Path::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
+pub struct PathFittedCacheInner {
+    data: RefCell<Option<Rc<FittedPath>>>,
+    /// Tracks the properties read while building data to rebuild data when the cache is
+    /// invalidated
+    tracker: Pin<Box<crate::properties::PropertyTracker>>,
+}
+
+impl Default for PathFittedCacheInner {
+    fn default() -> Self {
+        Self { data: Default::default(), tracker: Box::pin(Default::default()) }
+    }
+}
+
+/// Opaque box holding the cached path
+#[repr(C)]
+pub struct PathFittedCacheBox(core::ptr::NonNull<PathFittedCacheInner>);
+
+impl Default for PathFittedCacheBox {
+    fn default() -> Self {
+        PathFittedCacheBox(Box::leak(Box::<PathFittedCacheInner>::default()).into())
+    }
+}
+impl Drop for PathFittedCacheBox {
+    fn drop(&mut self) {
+        // Safety: self.0 was constructed from a Box::leak in PathFittedCacheBox::default
+        drop(unsafe { Box::from_raw(self.0.as_ptr()) });
+    }
+}
+impl core::ops::Deref for PathFittedCacheBox {
+    type Target = PathFittedCacheInner;
+    fn deref(&self) -> &Self::Target {
+        // Safety: initialized in PathFittedCacheBox::default
+        unsafe { self.0.as_ref() }
+    }
+}
+
+/// # Safety
+/// This must be called using a non-null pointer pointing to a chunk of memory big enough to
+/// hold a PathFittedCacheBox
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_path_fitted_cache_init(cache: *mut PathFittedCacheBox) {
+    unsafe { core::ptr::write(cache, PathFittedCacheBox::default()) };
+}
+
+/// # Safety
+/// This must be called using a non-null pointer pointing to an initialized PathFittedCacheBox
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_path_fitted_cache_free(cache: *mut PathFittedCacheBox) {
+    unsafe {
+        core::ptr::drop_in_place(cache);
+    }
 }
 
 #[cfg(feature = "ffi")]
