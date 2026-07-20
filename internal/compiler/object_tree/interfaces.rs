@@ -79,8 +79,6 @@ pub(super) struct ImplementedInterface {
     binding: ImplementBinding,
 }
 
-/// Resolve a single `implement` statement's interface. Emits diagnostics if the interface could not
-/// be found, or was not actually an interface.
 fn resolve_implement_statement(
     e: &Element,
     node: syntax_nodes::ImplementStatement,
@@ -226,8 +224,6 @@ pub(super) fn disallow_implement_in_non_root(
     }
 }
 
-/// Apply the properties declared in the interfaces to the element, emitting diagnostics if there are any conflicts.
-/// Existing property declarations are permitted, provided they match the declaration from the interface.
 pub(super) fn apply_properties(
     e: &mut Element,
     implemented_interfaces: &[ImplementedInterface],
@@ -252,8 +248,6 @@ pub(super) fn apply_properties(
     }
 }
 
-/// Apply the callbacks declared in the interfaces to the element, emitting diagnostics if there are any conflicts.
-/// Existing callback declarations are permitted, provided they match the declaration from the interface.
 pub(super) fn apply_callbacks(
     e: &mut Element,
     implemented_interfaces: &[ImplementedInterface],
@@ -278,8 +272,6 @@ pub(super) fn apply_callbacks(
     }
 }
 
-/// Apply a [PropertyDeclaration] from an interface to the element, emitting diagnostics if there are any conflicts. An
-/// existing declaration with the same name is permitted, provided it matches the declaration from the interface.
 fn apply_interface_property_declaration(
     e: &mut Element,
     unresolved_prop_name: &SmolStr,
@@ -327,12 +319,9 @@ fn apply_interface_property_declaration(
 
         match property_matches_interface(&lookup_result, prop_decl) {
             Ok(()) => {
-                // The property already exists and matches the interface declaration, so we don't need to do anything.
                 return;
             }
             Err(error) => {
-                // Attempt to find a node for the existing property for better diagnostics. If the property is not local
-                // to the component, we fall back to pointing at the implement statement below.
                 if let Some(local_property_node) = find_conflicting_node(e, unresolved_prop_name) {
                     diag.push_error(
                         format!("Conflict with '{}' which {}", interface_name, error),
@@ -357,7 +346,6 @@ fn apply_interface_property_declaration(
     e.property_declarations.insert(unresolved_prop_name.clone(), prop_decl.clone());
 }
 
-/// Validate that the functions declared in the interface are correctly implemented in the element. Emits diagnostics if not.
 pub(super) fn validate_function_implementations(
     e: &Element,
     implemented_interfaces: &[ImplementedInterface],
@@ -568,7 +556,6 @@ pub(super) fn apply_child_implement_statements(
     }
 }
 
-/// Check that the given element implements the given interface. Emits a diagnostic if the interface is not implemented.
 fn element_implements_interface(
     element: &ElementRc,
     interface: &ElementRc,
@@ -599,7 +586,6 @@ fn element_implements_interface(
     valid
 }
 
-/// Check that the given property matches the declaration from the interface. Emits a diagnostic if it doesn't match.
 fn property_matches_interface(
     property: &PropertyLookupResult,
     interface_declaration: &PropertyDeclaration,
@@ -630,15 +616,12 @@ fn property_matches_interface(
     }
 }
 
-/// Apply the function from the interface to the element, creating a forwarding bindings to the function on the child
-/// element. Emits diagnostics if there are conflicting functions.
 fn apply_uses_statement_function_binding(
     e: &ElementRc,
     child: &ElementRc,
     name: &SmolStr,
     func: &Rc<Function>,
 ) -> Option<RefCell<BindingExpression>> {
-    // Create forwarding call expression: child.function_name(arg0, arg1, ...)
     let args_expr: Vec<Expression> = func
         .args
         .iter()
@@ -646,14 +629,12 @@ fn apply_uses_statement_function_binding(
         .map(|(i, ty)| Expression::FunctionParameterReference { index: i, ty: ty.clone() })
         .collect();
 
-    // Use Callable::Function with a NamedReference to the child's function
     let call_expr = Expression::FunctionCall {
         function: Callable::Function(NamedReference::new(child, name.clone())),
         arguments: args_expr,
         source_location: None,
     };
 
-    // The function body is just the forwarding call. CodeBlock handles the return implicitly for the last expression
     let body = Expression::CodeBlock(vec![call_expr]);
     e.borrow_mut().bindings.insert(name.clone(), RefCell::new(BindingExpression::from(body)))
 }
