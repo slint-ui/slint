@@ -178,6 +178,8 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ColorToStyledText => ALLOC_COST,
         BuiltinFunction::OpenUrl => isize::MAX,
         BuiltinFunction::MacosBringAllWindowsToFront => isize::MAX,
+        BuiltinFunction::PointAtPercent => PROPERTY_ACCESS_COST,
+        BuiltinFunction::AngleAtPercent => PROPERTY_ACCESS_COST,
     }
 }
 

@@ -21,7 +21,8 @@ use crate::item_rendering::CachedRenderingData;
 use crate::items::ImageFit;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalRect, LogicalSize, LogicalVector, RectLengths,
+    LogicalBorderRadius, LogicalLength, LogicalPx, LogicalRect, LogicalSize, LogicalVector,
+    RectLengths,
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -30,6 +31,7 @@ use crate::{Coord, Property};
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
+use euclid::Point2D;
 use euclid::num::Zero;
 use i_slint_core_macros::*;
 
@@ -191,9 +193,52 @@ impl Path {
         );
         (offset, elements_iter).into()
     }
+
+    pub fn point_at_percent(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        percent: f32,
+    ) -> Point2D<f32, LogicalPx> {
+        if let Some((_, path)) = self.fitted_path_events(self_rc) {
+            let pos = path.position_at(percent);
+            if let Some(pos) = pos { Point2D::new(pos.x, pos.y) } else { Point2D::default() }
+        } else {
+            Point2D::default()
+        }
+    }
+    pub fn angle_at_percent(self: Pin<&Self>, self_rc: &ItemRc, percent: f32) -> f32 {
+        if let Some((_, path)) = self.fitted_path_events(self_rc) {
+            let angle = path.angle_at(percent);
+            angle.unwrap_or(0.0)
+        } else {
+            0.0
+        }
+    }
 }
 
 impl ItemConsts for Path {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Path, CachedRenderingData> =
         Path::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_path_point_at_percent(
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+    percent: f32,
+) -> crate::lengths::LogicalPoint {
+    let self_rc = ItemRc::new(self_component.clone(), self_index);
+    self_rc.downcast::<Path>().unwrap().as_pin_ref().point_at_percent(&self_rc, percent)
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_path_angle_at_percent(
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+    percent: f32,
+) -> f32 {
+    let self_rc = ItemRc::new(self_component.clone(), self_index);
+    self_rc.downcast::<Path>().unwrap().as_pin_ref().angle_at_percent(&self_rc, percent)
 }

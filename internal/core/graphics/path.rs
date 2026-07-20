@@ -204,6 +204,9 @@ impl<EventIt: Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path
 {
 }
 
+/// The default tolerance used when flattening curves for path length/position measurements.
+const PATH_MEASURE_TOLERANCE: f32 = 0.1;
+
 /// PathDataIterator is a data structure that acts as starting point for iterating
 /// through the low-level events of a path. If the path was constructed from said
 /// events, then it is a very thin abstraction. If the path was created from higher-level
@@ -268,6 +271,55 @@ impl PathDataIterator {
                 fit_style,
             );
         }
+    }
+
+    fn to_lyon_path(&self) -> lyon_path::Path {
+        let mut builder = lyon_path::Path::builder();
+        for event in self.iter() {
+            match event {
+                lyon_path::Event::Begin { at } => {
+                    builder.begin(at);
+                }
+                lyon_path::Event::Line { to, .. } => {
+                    builder.line_to(to);
+                }
+                lyon_path::Event::Quadratic { ctrl, to, .. } => {
+                    builder.quadratic_bezier_to(ctrl, to);
+                }
+                lyon_path::Event::Cubic { ctrl1, ctrl2, to, .. } => {
+                    builder.cubic_bezier_to(ctrl1, ctrl2, to);
+                }
+                lyon_path::Event::End { close, .. } => {
+                    builder.end(close);
+                }
+            }
+        }
+        builder.build()
+    }
+
+    fn sample_at(&self, percent: f32) -> Option<(lyon_path::math::Point, lyon_path::math::Vector)> {
+        use lyon_algorithms::measure::{PathMeasurements, SampleType};
+
+        let percent = percent.clamp(0., 1.);
+        let path = self.to_lyon_path();
+        let measurements = PathMeasurements::from_path(&path, PATH_MEASURE_TOLERANCE);
+        if measurements.length() <= 0. {
+            return None;
+        }
+        let mut sampler = measurements.create_sampler(&path, SampleType::Normalized);
+        let sample = sampler.sample(percent);
+        Some((sample.position(), sample.tangent()))
+    }
+
+    /// Returns the position of the point located at `percent` along the path
+    pub fn position_at(&self, percent: f32) -> Option<lyon_path::math::Point> {
+        self.sample_at(percent).map(|(position, _)| position)
+    }
+
+    /// Returns the angle, in degrees, of the path's tangent at `percent` (0.0..=1.0) along the
+    /// path
+    pub fn angle_at(&self, percent: f32) -> Option<f32> {
+        self.sample_at(percent).map(|(_, tangent)| tangent.angle_from_x_axis().to_degrees())
     }
 }
 
