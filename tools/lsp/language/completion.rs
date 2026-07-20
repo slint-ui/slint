@@ -1482,7 +1482,7 @@ fn at_key_like_completions(ctx: &mut LookupCtx, physical: bool) -> Vec<Completio
     };
     if physical {
         macro_rules! add_physical_key_completions {
-            ($($name:ident # $code:ident;)*) => {
+            ($($name:ident # $code:ident # $_xkb:literal;)*) => {
                 $(push_key(stringify!($name));)*
             };
         }
