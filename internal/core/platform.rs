@@ -446,6 +446,17 @@ pub struct WindowKeyEvent {
     pub event: KeyEvent,
 }
 
+impl WindowKeyEvent {
+    /// Construct a new WindowKeyEvent with the given type and key event
+    ///
+    /// Note: The KeyEvent::modifiers are ignored when processing the event and are overwritten with
+    /// the current modifier state tracked by the window!
+    pub fn new(event_type: WindowKeyEventType, event: KeyEvent) -> Self {
+        // The WindowKeyEvent struct needs a constructor function, as it is #[non_exhaustive].
+        Self { event_type, event }
+    }
+}
+
 impl WindowEvent {
     /// The position of the cursor for this event, if any
     pub fn position(&self) -> Option<LogicalPosition> {

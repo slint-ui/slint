@@ -2172,7 +2172,7 @@ fn with_physical_key_map<R>(
     fun: impl FnOnce(&std::collections::HashMap<&'static str, &'static str>) -> R,
 ) -> R {
     macro_rules! generate_physical_key_map {
-        [ $($name:ident # $code:ident;)* ] => {
+        [ $($name:ident # $code:ident # $_xkb:literal;)* ] => {
             {
                 [$( (stringify!($name), stringify!($name)) ),*]
             }

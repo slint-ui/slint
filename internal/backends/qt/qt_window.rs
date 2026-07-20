@@ -32,7 +32,7 @@ use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     PhysicalPx, ScaleFactor, logical_size_from_api,
 };
-use i_slint_core::platform::{PlatformError, WindowEvent};
+use i_slint_core::platform::{PlatformError, WindowEvent, WindowKeyEvent, WindowKeyEventType};
 use i_slint_core::string::ToSharedString;
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::window::{
@@ -350,9 +350,10 @@ cpp! {{
                 return;
             QString text =  event->text();
             int key = event->key();
+            quint32 scan_code = event->nativeScanCode();
             bool repeat = event->isAutoRepeat();
-            rust!(Slint_keyPress [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", repeat: bool as "bool"] {
-                rust_window.key_event(key, text.clone(), false, repeat);
+            rust!(Slint_keyPress [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", scan_code: u32 as "quint32", repeat: bool as "bool"] {
+                rust_window.key_event(key, text.clone(), scan_code, false, repeat);
             });
         }
         void keyReleaseEvent(QKeyEvent *event) override {
@@ -365,8 +366,9 @@ cpp! {{
 
             QString text =  event->text();
             int key = event->key();
-            rust!(Slint_keyRelease [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString"] {
-                rust_window.key_event(key, text.clone(), true, false);
+            quint32 scan_code = event->nativeScanCode();
+            rust!(Slint_keyRelease [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", scan_code: u32 as "quint32"] {
+                rust_window.key_event(key, text.clone(), scan_code, true, false);
             });
         }
 
@@ -2201,20 +2203,27 @@ impl QtWindow {
             .unwrap_or(key_generated::Qt_DropAction_IgnoreAction)
     }
 
-    fn key_event(&self, key: i32, text: qttypes::QString, released: bool, repeat: bool) {
+    fn key_event(
+        &self,
+        key: i32,
+        text: qttypes::QString,
+        scan_code: u32,
+        released: bool,
+        repeat: bool,
+    ) {
         i_slint_core::animations::update_animations();
         let text: String = text.into();
 
-        let text = qt_key_to_string(key as key_generated::Qt_Key, text);
+        let mut key_event = KeyEvent::default();
+        key_event.text = qt_key_to_string(key as key_generated::Qt_Key, text);
+        key_event.physical_key = native_scan_code_to_physical_key(scan_code);
+        key_event.repeat = repeat;
 
-        let event = if released {
-            WindowEvent::KeyReleased { text }
-        } else if repeat {
-            WindowEvent::KeyPressRepeated { text }
-        } else {
-            WindowEvent::KeyPressed { text }
-        };
-        self.window.dispatch_event(event);
+        let event_type =
+            if released { WindowKeyEventType::Released } else { WindowKeyEventType::Pressed };
+
+        let event = WindowKeyEvent::new(event_type, key_event);
+        self.window.dispatch_event(WindowEvent::Key(event));
 
         timer_event();
     }
@@ -2934,6 +2943,25 @@ mod key_codes {
     i_slint_common::for_each_keys!(define_qt_key_to_string_fn);
 }
 
+/// On X11 and Wayland the native scan code is the XKB keycode.
+#[cfg(target_os = "linux")]
+fn native_scan_code_to_physical_key(scan_code: u32) -> SharedString {
+    macro_rules! xkb_keycode_to_physical_key {
+        ($($name:ident # $_winit:ident # $xkb:literal;)*) => {
+            match scan_code {
+                $($xkb => stringify!($name).into(),)*
+                _ => SharedString::default(),
+            }
+        };
+    }
+    i_slint_common::for_each_physical_keys!(xkb_keycode_to_physical_key)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn native_scan_code_to_physical_key(_scan_code: u32) -> SharedString {
+    SharedString::default()
+}
+
 fn qt_key_to_string(key: key_generated::Qt_Key, event_text: String) -> SharedString {
     // First try to see if we received one of the non-ascii keys that we have
     // a special representation for. If that fails, try to use the provided
@@ -3049,4 +3077,20 @@ fn qt_password_character() -> char {
         return qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr);
     }} as u32)
     .unwrap_or('●')
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::native_scan_code_to_physical_key;
+
+    #[test]
+    fn xkb_scan_codes_map_to_physical_keys() {
+        // On X11 and Wayland Qt's native scan code is the XKB keycode (evdev + 8).
+        assert_eq!(native_scan_code_to_physical_key(38), "A");
+        assert_eq!(native_scan_code_to_physical_key(10), "Digit1");
+        assert_eq!(native_scan_code_to_physical_key(113), "LeftArrow");
+        assert_eq!(native_scan_code_to_physical_key(202), "F24");
+        // Unmapped scan codes report no physical key.
+        assert_eq!(native_scan_code_to_physical_key(0), "");
+    }
 }
