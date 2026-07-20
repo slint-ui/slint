@@ -170,6 +170,7 @@ impl ChangeTracker {
                 mark_dirty: ChangeTracker::mark_dirty,
                 intercept_set: |_, _| false,
                 intercept_set_binding: |_, _| false,
+                velocity: |_| None,
             };
         }
         let holder = BindingHolder {
