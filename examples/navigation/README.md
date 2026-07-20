@@ -1,17 +1,32 @@
 # Navigation
 
-A minimal multi-screen app that demonstrates the Slint navigation convention using
-only stable language features.
+A minimal multi-screen app built with the experimental `navigator` construct.
 
-The convention:
+```slint
+navigator (current-route) {
+    Route.Home: HomeScreen { }
+    Route.Details: DetailsScreen { }
+    Route.Settings: SettingsScreen { }
+}
+```
 
-- A user-declared `enum Route`, one value per screen.
-- A root component with `in-out property <Route> current-route`.
-- One conditional child per route: `if current-route == Route.Home : HomeScreen { ... }`.
-- Navigation by assigning the route property: `current-route = Route.Details;`.
+- The set of screens is a compiler-resolved route table; the active screen is the
+  `current-route` property you drive at runtime.
+- The navigator adds a history API to the declaring component: `navigate(route)`,
+  `back()`, and `can-go-back`. This example uses them for the back buttons.
 
-The visual editor's flow map understands this shape. See the docs page
-"Navigation" under Guide > App Development for the full description.
+For the std-widgets and Material presentations of the same route model, see the
+`navigation-std` example. The full description is on the docs page "Navigation"
+under Guide > App Development.
+
+## Experimental features
+
+`navigator` is experimental. `build.rs` enables it for the `slint!` macro that
+compiles `navigation.slint`:
+
+```rust
+println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+```
 
 Run it with:
 

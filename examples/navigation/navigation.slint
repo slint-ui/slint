@@ -3,7 +3,6 @@
 
 import { Button, VerticalBox } from "std-widgets.slint";
 
-// The navigation convention: one enum value per screen.
 enum Route {
     Home,
     Details,
@@ -30,7 +29,8 @@ component HomeScreen inherits VerticalBox {
 }
 
 component DetailsScreen inherits VerticalBox {
-    callback back();
+    in property <bool> can-go-back;
+    callback go-back();
 
     Text {
         text: "Details";
@@ -38,13 +38,15 @@ component DetailsScreen inherits VerticalBox {
         horizontal-alignment: center;
     }
     Button {
-        text: "Back to Home";
-        clicked => { root.back(); }
+        text: "Back";
+        enabled: can-go-back;
+        clicked => { root.go-back(); }
     }
 }
 
 component SettingsScreen inherits VerticalBox {
-    callback back();
+    in property <bool> can-go-back;
+    callback go-back();
 
     Text {
         text: "Settings";
@@ -52,8 +54,9 @@ component SettingsScreen inherits VerticalBox {
         horizontal-alignment: center;
     }
     Button {
-        text: "Back to Home";
-        clicked => { root.back(); }
+        text: "Back";
+        enabled: can-go-back;
+        clicked => { root.go-back(); }
     }
 }
 
@@ -62,18 +65,20 @@ export component App inherits Window {
     preferred-height: 240px;
     title: "Slint Navigation";
 
-    // The current screen. Assigning this property navigates.
     in-out property <Route> current-route: Route.Home;
 
-    // One conditional child per route maps a route to its screen.
-    if current-route == Route.Home : HomeScreen {
-        show-details => { root.current-route = Route.Details; }
-        show-settings => { root.current-route = Route.Settings; }
-    }
-    if current-route == Route.Details : DetailsScreen {
-        back => { root.current-route = Route.Home; }
-    }
-    if current-route == Route.Settings : SettingsScreen {
-        back => { root.current-route = Route.Home; }
+    navigator (current-route) {
+        Route.Home: HomeScreen {
+            show-details => { root.navigate(Route.Details); }
+            show-settings => { root.navigate(Route.Settings); }
+        }
+        Route.Details: DetailsScreen {
+            can-go-back: root.can-go-back;
+            go-back => { root.back(); }
+        }
+        Route.Settings: SettingsScreen {
+            can-go-back: root.can-go-back;
+            go-back => { root.back(); }
+        }
     }
 }
