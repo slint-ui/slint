@@ -375,8 +375,7 @@ fn parse_wildcard_case(p: &mut impl Parser) {
 fn parse_navigation(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "navigator");
     let mut p = p.start_node(SyntaxKind::Navigator);
-    p.expect(SyntaxKind::Identifier); // "navigator"
-    // The current-route binding.
+    p.expect(SyntaxKind::Identifier);
     parse_expression(&mut *p);
     if !p.test(SyntaxKind::LBrace) {
         p.error("Expected '{' to start routes");
