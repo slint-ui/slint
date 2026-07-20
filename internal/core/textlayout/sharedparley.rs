@@ -222,6 +222,9 @@ struct LayoutWithoutLineBreaksBuilder {
     stroke: Option<TextStrokeStyle>,
     scale_factor: ScaleFactor,
     pixel_size: LogicalLength,
+    /// When false, overlong words are not broken up. Only used to measure the
+    /// min-content width (the longest word), never to lay text out for display.
+    overflow_wrap_anywhere: bool,
 }
 
 impl LayoutWithoutLineBreaksBuilder {
@@ -236,7 +239,14 @@ impl LayoutWithoutLineBreaksBuilder {
             .and_then(|font_request| font_request.pixel_size)
             .unwrap_or(DEFAULT_FONT_SIZE);
 
-        Self { font_request, text_wrap, stroke, scale_factor, pixel_size }
+        Self {
+            font_request,
+            text_wrap,
+            stroke,
+            scale_factor,
+            pixel_size,
+            overflow_wrap_anywhere: true,
+        }
     }
 
     fn ranged_builder<'a>(
@@ -314,10 +324,14 @@ impl LayoutWithoutLineBreaksBuilder {
             TextWrap::WordWrap => parley::style::WordBreak::Normal,
             TextWrap::CharWrap => parley::style::WordBreak::BreakAll,
         }));
-        builder.push_default(parley::StyleProperty::OverflowWrap(match self.text_wrap {
-            TextWrap::NoWrap => parley::style::OverflowWrap::Normal,
-            TextWrap::WordWrap | TextWrap::CharWrap => parley::style::OverflowWrap::Anywhere,
-        }));
+        builder.push_default(parley::StyleProperty::OverflowWrap(
+            match (self.text_wrap, self.overflow_wrap_anywhere) {
+                (TextWrap::NoWrap, _) | (_, false) => parley::style::OverflowWrap::Normal,
+                (TextWrap::WordWrap | TextWrap::CharWrap, true) => {
+                    parley::style::OverflowWrap::Anywhere
+                }
+            },
+        ));
         if self.text_wrap == TextWrap::NoWrap {
             // Parley 0.9 removed the width parameter from `Layout::align()` and instead
             // uses the `max_advance` set by `break_all_lines()` as the alignment container
@@ -1837,6 +1851,53 @@ pub fn text_size(
         },
     );
     Some(PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor)
+}
+
+/// The content widths of the text. See [`crate::renderer::ContentWidths`].
+pub fn text_content_widths(
+    renderer: &dyn RendererSealed,
+    text_item: Pin<&dyn crate::item_rendering::RenderString>,
+    item_rc: &crate::item_tree::ItemRc,
+) -> Option<crate::renderer::ContentWidths> {
+    let scale_factor = renderer.scale_factor()?;
+
+    // See text_size(): evaluate properties before borrowing font_context.
+    let font_request = text_item.font_request(item_rc);
+    let text = text_item.text();
+
+    let ctx = renderer.slint_context()?;
+    let mut font_ctx = ctx.font_context().borrow_mut();
+
+    // WordWrap gives WordBreak::Normal, so `min` becomes the longest word. Content widths
+    // are intrinsic to the text, so they don't depend on the item's actual wrap mode.
+    let mut layout_builder = LayoutWithoutLineBreaksBuilder::new(
+        Some(font_request),
+        TextWrap::WordWrap,
+        None,
+        scale_factor,
+    );
+    // Without this, parley may break anywhere to keep overlong words from overflowing,
+    // which makes the min-content width a single character instead of the longest word.
+    layout_builder.overflow_wrap_anywhere = false;
+
+    let paragraphs_without_linebreaks =
+        create_text_paragraphs(&layout_builder, &mut font_ctx, text, None, Color::default());
+
+    // No line breaking needed: parley derives the content widths from the break
+    // opportunities. Paragraphs stack vertically, so both widths are the widest.
+    // Without wrapping each paragraph is one line, so a line limit drops the paragraphs
+    // that are not drawn, from both widths.
+    let (min, max) = paragraphs_without_linebreaks
+        .iter()
+        .take(text_item.line_limit().unwrap_or(usize::MAX))
+        .fold((0., 0.), |(min, max), p| {
+            let w = p.layout.calculate_content_widths();
+            (f32::max(min, w.min), f32::max(max, w.max))
+        });
+    Some(crate::renderer::ContentWidths {
+        min: PhysicalLength::new(min) / scale_factor,
+        max: PhysicalLength::new(max) / scale_factor,
+    })
 }
 
 pub fn char_size(

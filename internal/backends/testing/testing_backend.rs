@@ -515,6 +515,8 @@ impl RendererSealed for TestingWindow {
                     i_slint_core::styled_text::get_raw_text(&s).into_owned()
                 }
             };
+            // Whitespace-separated words rather than real line breaking, and byte lengths
+            // rather than character counts, to match text_size() above.
             let max_lines = text_item.line_limit().unwrap_or(usize::MAX);
             let (max_line_len, num_lines) = text
                 .lines()
@@ -526,6 +528,34 @@ impl RendererSealed for TestingWindow {
         } else {
             sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap, None)
                 .unwrap_or_default()
+        }
+    }
+
+    fn text_content_widths(
+        &self,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
+    ) -> Option<i_slint_core::renderer::ContentWidths> {
+        let font_request = text_item.font_request(item_rc);
+        if is_fixed_test_font(&font_request.family) {
+            let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
+            let text: String = match text_item.text() {
+                i_slint_core::item_rendering::PlainOrStyledText::Plain(s) => s.to_string(),
+                i_slint_core::item_rendering::PlainOrStyledText::Styled(s) => {
+                    i_slint_core::styled_text::get_raw_text(&s).into_owned()
+                }
+            };
+            let max_lines = text_item.line_limit().unwrap_or(usize::MAX);
+            let lines = text.lines().take(max_lines);
+            let longest_word =
+                lines.clone().flat_map(str::split_whitespace).map(str::len).max().unwrap_or(0);
+            let longest_line = lines.map(str::len).max().unwrap_or(0);
+            Some(i_slint_core::renderer::ContentWidths {
+                min: LogicalLength::new(longest_word as f32 * pixel_size),
+                max: LogicalLength::new(longest_line as f32 * pixel_size),
+            })
+        } else {
+            sharedparley::text_content_widths(self, text_item, item_rc)
         }
     }
 

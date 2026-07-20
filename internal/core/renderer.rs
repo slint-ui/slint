@@ -26,6 +26,17 @@ pub enum DrawOutcome {
     Skipped,
 }
 
+/// The content widths of a text, as used for its layout constraints.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ContentWidths {
+    /// The width of the widest chunk that cannot be broken up: the longest word for
+    /// word-wrap. A wrapping text cannot be laid out narrower than this without breaking
+    /// words apart.
+    pub min: LogicalLength,
+    /// The width the text takes without wrapping.
+    pub max: LogicalLength,
+}
+
 /// This trait represents a Renderer that can render a slint scene.
 ///
 /// This trait is [sealed](https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed),
@@ -48,6 +59,20 @@ pub trait RendererSealed {
         max_width: Option<LogicalLength>,
         text_wrap: TextWrap,
     ) -> LogicalSize;
+
+    /// Returns the content widths of the text, or None if the renderer can't measure them,
+    /// in which case the caller falls back to `text_size` without a lower bound.
+    ///
+    /// These are intrinsic to the text and don't depend on its `wrap` mode: `min` is the
+    /// longest word, `max` is the unwrapped width.
+    fn text_content_widths(
+        &self,
+        text_item: Pin<&dyn crate::item_rendering::RenderString>,
+        item_rc: &crate::item_tree::ItemRc,
+    ) -> Option<ContentWidths> {
+        let _ = (text_item, item_rc);
+        None
+    }
 
     /// Returns the size of the individual character in logical pixels.
     fn char_size(
