@@ -875,11 +875,7 @@ pub struct Element {
 
     /// This element is part of a `for <xxx> in <model>`:
     pub repeated: Option<RepeatedElementInfo>,
-    /// The resolved `navigator` route table declared on this element, in
-    /// declaration order. Each route's destination is also present among
-    /// `children` as a conditional element. Kept here so later passes and the
-    /// LSP can recover the route -> component graph. Empty for elements without
-    /// a `navigator`.
+    /// The resolved `navigator` route table, in declaration order (empty if none).
     pub navigator_routes: Vec<NavigatorRoute>,
     /// This element is a placeholder to embed an Component at
     pub is_component_placeholder: bool,
@@ -1136,23 +1132,15 @@ pub struct RepeatedElementInfo {
 
 #[derive(Debug, Clone)]
 /// One entry of a `navigator` route table: a route enum value mapped to its
-/// resolved destination. Populated by `from_navigator_node` in declaration
-/// order and kept on the enclosing element for later tooling (LSP graph).
+/// resolved destination component.
 pub struct NavigatorRoute {
-    /// The route enum value expression (e.g. `Route.Home`), kept uncompiled so
-    /// tooling can recover its name and source location.
+    /// The route enum value expression (e.g. `Route.Home`), kept uncompiled.
     pub route: syntax_nodes::Expression,
-    /// The resolved destination element. Its `base_type` is the resolved
-    /// component (guaranteed to be an `ElementType::Component`, else a
-    /// diagnostic was reported and this is `ElementType::Error`).
+    /// The resolved destination component (`ElementType::Error` on failure).
     pub component: ElementRc,
 }
 
 impl Element {
-    /// Read-only view of the resolved `navigator` route table declared on this
-    /// element, in declaration order (empty when there is no `navigator`).
-    /// Provided as an accessor so tooling reads the authoritative table without
-    /// touching the lowering in `from_navigator_node`.
     pub fn navigator_routes(&self) -> &[NavigatorRoute] {
         &self.navigator_routes
     }
@@ -2253,14 +2241,9 @@ impl Element {
         cases
     }
 
-    /// Build the object tree for a `navigator` route table. Mirrors
-    /// `from_match_node`: each `Route.X: XScreen { }` becomes a conditional
-    /// child whose model is `<navigator-expr> == <Route.X>`, so `XScreen` is
-    /// instantiated only when the current route equals `Route.X`.
-    ///
-    /// It also resolves each destination to a component (the closed-set check)
-    /// and records the resolved route -> component mapping on `parent` for
-    /// later tooling (see `Element::navigator_routes`).
+    /// Lower a `navigator`: each `Route.X: XScreen {}` becomes a conditional child
+    /// (`<navigator-expr> == Route.X`), resolved to a component and recorded on
+    /// `parent` as `navigator_routes`.
     fn from_navigator_node(
         node: syntax_nodes::Navigator,
         parent: &ElementRc,
@@ -2269,9 +2252,6 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> Vec<ElementRc> {
-        // Experimental gate first, like `from_match_node`. Without it a
-        // non-experimental compile rejects `navigator` and builds nothing, so
-        // the construct stays invisible to non-experimental compiles.
         if !diag.enable_experimental {
             diag.push_error("navigator is an experimental feature".into(), &node);
             return Vec::new();
@@ -2284,8 +2264,6 @@ impl Element {
             let Some(sub_element) = route.SubElement() else {
                 continue;
             };
-            // Conditional child: shown only when the route matches, exactly as
-            // `from_match_node` builds its cases.
             let rei = RepeatedElementInfo {
                 model: Expression::BinaryExpression {
                     lhs: Box::new(Expression::Uncompiled(expr.clone().into())),
@@ -2305,10 +2283,8 @@ impl Element {
                 diag,
                 tr,
             );
-            // Closed-set check: a destination must resolve to a component.
-            // `ElementType::Error` means `from_sub_element_node` already
-            // reported an unknown name, so we don't double-report.
             match &e.borrow().base_type {
+                // Error: already diagnosed by from_sub_element_node.
                 ElementType::Component(_) | ElementType::Error => {}
                 other => {
                     diag.push_error(
@@ -2323,12 +2299,8 @@ impl Element {
             routes.push(NavigatorRoute { route: route.Expression(), component: e.clone() });
             cases.push(e);
         }
-        // Declare the navigator's public members now, before expression
-        // resolution, so widget chrome can bind to them from .slint (e.g.
-        // `current-index <- nav.current-route-index`). The lower_navigator pass
-        // fills in their bodies later, once the route table is resolved. Same
-        // shape as an interface function: the declaration is in scope now, the
-        // implementation comes later.
+        // Declare the public members before expression resolution so .slint chrome
+        // can bind them; lower_navigator fills in their bodies later.
         if !routes.is_empty() {
             Self::declare_navigator_members(parent, &routes, tr);
         }
@@ -2336,12 +2308,10 @@ impl Element {
         cases
     }
 
-    /// Declare the navigator's public members (the surface widget chrome binds
-    /// to) up front. Only the signatures are known here; `lower_navigator`
-    /// supplies the bindings/bodies after the route table is resolved.
+    /// Declare the navigator's public members (signatures only; `lower_navigator`
+    /// fills the bodies once the route table is resolved).
     fn declare_navigator_members(elem: &ElementRc, routes: &[NavigatorRoute], tr: &TypeRegister) {
-        // navigate(route) is enum-typed; recover the route enum from a route
-        // case (`Route.X`), whose first path segment names the enum.
+        // Recover the route enum from a route case (`Route.X`) for navigate(route).
         let route_ty = routes.iter().find_map(|r| {
             let name = QualifiedTypeName::from_node(r.route.QualifiedName()?)
                 .members
@@ -2361,12 +2331,8 @@ impl Element {
                 PropertyDeclaration { property_type, visibility, pure, ..Default::default() },
             );
         };
-        // Read surface for chrome: ordinal of the current route and whether the
-        // back-stack has anything to pop.
         declare("current-route-index", Type::Int32, PropertyVisibility::Output, None);
         declare("can-go-back", Type::Bool, PropertyVisibility::Output, None);
-        // Navigation entry points. navigate-index(int) is the index-based surface
-        // chrome (Material's NavigationBar, a std nav bar) drives.
         declare("back", func(vec![], vec![]), PropertyVisibility::Public, Some(false));
         declare(
             "navigate-index",
