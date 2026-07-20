@@ -78,7 +78,7 @@ cfg_aliases = { version = "0.2.2" }
 derive_more = { version = "2.0.0", default-features = false, features = ["deref", "deref_mut", "into", "from", "add", "add_assign", "mul", "not", "display"] }
 glow = { version = "0.17" }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
-wgpu-29 = { package = "wgpu", version = "29", default-features = false }
+wgpu-30 = { package = "wgpu", version = "30", default-features = false }
 
 # WARNING: keep every `[profile.*]` setting below identical to the root
 # workspace's Cargo.toml. cargo keys its build cache on the profile, so any

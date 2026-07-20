@@ -179,7 +179,7 @@ impl WGPUFemtoVGRenderer {
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
-        if !i_slint_core::graphics::wgpu_29::any_wgpu29_adapters_with_gpu(
+        if !i_slint_core::graphics::wgpu_30::any_wgpu30_adapters_with_gpu(
             shared_backend_data.requested_graphics_api.clone(),
         ) {
             return Err(PlatformError::from("WGPU: No GPU adapters found"));
@@ -226,7 +226,7 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
 
         let requested_graphics_api = self.requested_graphics_api.clone();
         let window_handle = Box::new(winit_window.clone())
-            as Box<dyn i_slint_core::graphics::wgpu_29::wgpu::DisplayAndWindowHandle>;
+            as Box<dyn i_slint_core::graphics::wgpu_30::wgpu::DisplayAndWindowHandle>;
         let winit_window_for_size = winit_window.clone();
 
         let context = {
@@ -243,11 +243,11 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
         // `new_instance_with_webgpu_detection` can fall through to WebGL when no
         // WebGPU adapter is reachable (e.g. headless Chromium on CI).
         #[cfg(not(target_arch = "wasm32"))]
-        let backends_to_avoid = i_slint_core::graphics::wgpu_29::wgpu::Backends::GL;
+        let backends_to_avoid = i_slint_core::graphics::wgpu_30::wgpu::Backends::GL;
         #[cfg(target_arch = "wasm32")]
-        let backends_to_avoid = i_slint_core::graphics::wgpu_29::wgpu::Backends::empty();
+        let backends_to_avoid = i_slint_core::graphics::wgpu_30::wgpu::Backends::empty();
 
-        i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface_then(
+        i_slint_core::graphics::wgpu_30::init_instance_adapter_device_queue_surface_then(
             &context,
             window_handle,
             requested_graphics_api,
@@ -277,11 +277,11 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
 fn finalize_wgpu_init(
     window_adapter_weak: &std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
     winit_window: &Arc<winit::window::Window>,
-    instance: i_slint_core::graphics::wgpu_29::wgpu::Instance,
-    adapter: i_slint_core::graphics::wgpu_29::wgpu::Adapter,
-    device: i_slint_core::graphics::wgpu_29::wgpu::Device,
-    queue: i_slint_core::graphics::wgpu_29::wgpu::Queue,
-    surface: i_slint_core::graphics::wgpu_29::wgpu::Surface<'static>,
+    instance: i_slint_core::graphics::wgpu_30::wgpu::Instance,
+    adapter: i_slint_core::graphics::wgpu_30::wgpu::Adapter,
+    device: i_slint_core::graphics::wgpu_30::wgpu::Device,
+    queue: i_slint_core::graphics::wgpu_30::wgpu::Queue,
+    surface: i_slint_core::graphics::wgpu_30::wgpu::Surface<'static>,
     transparent: bool,
 ) -> Result<(), PlatformError> {
     let Some(window_adapter) = window_adapter_weak.upgrade() else {

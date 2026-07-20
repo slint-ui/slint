@@ -144,16 +144,17 @@ raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", feature
 unicode-segmentation = { version = "1.12.0" }
 icu_normalizer = { version = "2", default-features = false, features = ["compiled_data"] }
 
-glow = { version = "0.17" }
+glow = { version = "0.18" }
 tikv-jemallocator = { version = "0.7" }
-wgpu-28 = { package = "wgpu", version = "28", default-features = false }
 wgpu-29 = { package = "wgpu", version = "29.0.4", default-features = false }
+wgpu-30 = { package = "wgpu", version = "30", default-features = false }
 # Version floor only: the Metal surface code (renderer-skia) calls
 # wgpu-hal's `metal::Queue::as_raw`, which was added in wgpu-hal 29.0.4.
 # wgpu 29.0.4 only requires wgpu-hal "^29.0.1", so without this floor a
 # downstream build (which does not see our Cargo.lock) could resolve an
 # older 29.0.x wgpu-hal and fail to compile.
 wgpu-hal-29 = { package = "wgpu-hal", version = "29.0.4", default-features = false }
+wgpu-hal-30 = { package = "wgpu-hal", version = "30", default-features = false }
 input = { version = "0.10.0", default-features = false }
 tr = { version = "0.1", default-features = false }
 fontique = { version = "0.11.0" }

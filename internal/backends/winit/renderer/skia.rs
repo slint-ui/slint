@@ -76,22 +76,22 @@ impl WinitSkiaRenderer {
         }))
     }
 
-    #[cfg(feature = "unstable-wgpu-28")]
-    pub fn new_wgpu_28_suspended(
-        shared_backend_data: &Rc<crate::SharedBackendData>,
-    ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
-        Ok(Box::new(Self {
-            renderer: SkiaRenderer::default_wgpu_28(&shared_backend_data.skia_context),
-            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
-        }))
-    }
-
     #[cfg(feature = "unstable-wgpu-29")]
     pub fn new_wgpu_29_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
         Ok(Box::new(Self {
             renderer: SkiaRenderer::default_wgpu_29(&shared_backend_data.skia_context),
+            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+        }))
+    }
+
+    #[cfg(feature = "unstable-wgpu-30")]
+    pub fn new_wgpu_30_suspended(
+        shared_backend_data: &Rc<crate::SharedBackendData>,
+    ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
+        Ok(Box::new(Self {
+            renderer: SkiaRenderer::default_wgpu_30(&shared_backend_data.skia_context),
             requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
         }))
     }
@@ -142,10 +142,10 @@ impl WinitSkiaRenderer {
                                 .into(),
                         );
                     }
-                    #[cfg(feature = "unstable-wgpu-28")]
-                    RequestedGraphicsAPI::WGPU28(..) => Ok(Self::new_wgpu_28_suspended),
                     #[cfg(feature = "unstable-wgpu-29")]
                     RequestedGraphicsAPI::WGPU29(..) => Ok(Self::new_wgpu_29_suspended),
+                    #[cfg(feature = "unstable-wgpu-30")]
+                    RequestedGraphicsAPI::WGPU30(..) => Ok(Self::new_wgpu_30_suspended),
                 }
             }
             None => Ok(Self::new_suspended),

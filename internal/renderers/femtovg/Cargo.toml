@@ -18,11 +18,11 @@ path = "lib.rs"
 [features]
 default = []
 opengl = []
-# wgpu-29 enables the wgpu backend for internal use (e.g. linuxkms DRM rendering).
-# unstable-wgpu-29 additionally exposes public API integration (GraphicsAPI, texture import).
-wgpu = ["wgpu-29"]
-wgpu-29 = ["dep:wgpu-29", "femtovg/wgpu", "i-slint-core/wgpu-29"]
-unstable-wgpu-29 = ["wgpu-29", "i-slint-core/unstable-wgpu-29"]
+# wgpu-30 enables the wgpu backend for internal use (e.g. linuxkms DRM rendering).
+# unstable-wgpu-30 additionally exposes public API integration (GraphicsAPI, texture import).
+wgpu = ["wgpu-30"]
+wgpu-30 = ["dep:wgpu-30", "femtovg/wgpu", "i-slint-core/wgpu-30"]
+unstable-wgpu-30 = ["wgpu-30", "i-slint-core/unstable-wgpu-30"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontique", "shared-parley"] }
@@ -35,13 +35,13 @@ cfg-if = "1"
 derive_more = { workspace = true }
 lyon_path = { workspace = true }
 pin-weak = "1"
-femtovg = { version = "0.25.1", default-features = false, features = ["swash"] }
+femtovg = { version = "0.26", default-features = false, features = ["swash"] }
 imgref = { version = "1.6.1" }
 rgb = { version = "0.8.27" }
 
 glow = { workspace = true }
 
-wgpu-29 = { workspace = true, optional = true, default-features = true }
+wgpu-30 = { workspace = true, optional = true, default-features = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
@@ -49,7 +49,7 @@ wasm-bindgen = { version = "0.2" }
 # Enable wgpu-core's WebGL2 backend so the wgpu init helper can fall back to
 # it transparently when no BROWSER_WEBGPU adapter is available (e.g. in
 # headless Chromium without a usable WebGPU device).
-wgpu-29 = { workspace = true, optional = true, features = ["webgl"] }
+wgpu-30 = { workspace = true, optional = true, features = ["webgl"] }
 
 # The browser decodes images on the web; decode with the image and resvg crates elsewhere.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

@@ -7,7 +7,7 @@ use windows::Win32::Graphics::Dxgi::Common::{
     DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
 };
 
-use wgpu_28 as wgpu;
+use wgpu_30 as wgpu;
 
 /// # Safety
 /// `resource` must be a valid D3D12 resource for the lifetime of the returned Surface.

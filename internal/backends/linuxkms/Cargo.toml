@@ -20,12 +20,12 @@ path = "lib.rs"
 
 [features]
 renderer-skia = ["renderer-skia-opengl"]
-renderer-skia-vulkan = ["unstable-wgpu-29"]
-unstable-wgpu-28 = ["i-slint-renderer-skia/wgpu-28", "drm", "dep:memmap2"]
+renderer-skia-vulkan = ["unstable-wgpu-30"]
 unstable-wgpu-29 = ["i-slint-renderer-skia/wgpu-29", "drm", "dep:memmap2"]
+unstable-wgpu-30 = ["i-slint-renderer-skia/wgpu-30", "drm", "dep:memmap2", "dep:wgpu-30"]
 renderer-skia-opengl = ["i-slint-renderer-skia/opengl", "drm", "gbm", "glutin", "raw-window-handle", "dep:memmap2"]
 renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "drm", "gbm", "glutin", "raw-window-handle"]
-renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "drm"]
+renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "drm", "dep:wgpu-30"]
 renderer-software = ["i-slint-renderer-software/std", "drm", "dep:bytemuck", "dep:memmap2"]
 libseat = ["dep:libseat"]
 
@@ -37,6 +37,10 @@ i-slint-common = { workspace = true, features = ["default"] }
 i-slint-renderer-skia = { workspace = true, features = ["default", "kms"], optional = true }
 i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional = true }
 i-slint-renderer-software = { workspace = true, optional = true }
+# Direct dependency only to enable wgpu's `drm` feature, which gates
+# `SurfaceTargetUnsafe::Drm` as of wgpu 30; the code uses the re-export
+# through i-slint-core.
+wgpu-30 = { workspace = true, optional = true, features = ["drm"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 input = { workspace = true, default-features = true }

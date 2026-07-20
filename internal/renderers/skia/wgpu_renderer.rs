@@ -9,9 +9,20 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::window::WindowAdapter;
 
+// When multiple wgpu versions are enabled, the renderer is compiled against the newest one,
+// consistent with the wgpu version selection in the winit and linuxkms backends.
+#[cfg(feature = "wgpu-30")]
+use wgpu_30 as wgpu;
+
+#[cfg(all(feature = "wgpu-29", not(feature = "wgpu-30")))]
 use wgpu_29 as wgpu;
 
+#[cfg(feature = "wgpu-30")]
+use crate::wgpu_30_surface::{Backend, WGPUSurface};
+
+#[cfg(all(feature = "wgpu-29", not(feature = "wgpu-30")))]
 use crate::wgpu_29_surface::{Backend, WGPUSurface};
+
 use crate::{SkiaRenderer, SkiaSharedContext};
 
 /// Use the Skia renderer with WGPU when implementing a custom Slint platform where you want the
@@ -21,9 +32,13 @@ use crate::{SkiaRenderer, SkiaSharedContext};
 /// This is the Skia equivalent of `FemtoVGWGPURenderer`, offering superior font rendering
 /// quality through platform-native text rasterizers.
 ///
+/// The wgpu types used by this renderer follow the newest enabled `unstable-wgpu-*` feature:
+/// wgpu 30 when `unstable-wgpu-30` is enabled, wgpu 29 otherwise.
+///
 /// Rendering notifier callbacks registered via
 /// [`Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier)
-/// will receive [`GraphicsAPI::WGPU29`](i_slint_core::api::GraphicsAPI::WGPU29) with the
+/// will receive [`GraphicsAPI::WGPU30`](i_slint_core::api::GraphicsAPI::WGPU30) (respectively
+/// [`GraphicsAPI::WGPU29`](i_slint_core::api::GraphicsAPI::WGPU29)) with the
 /// renderer's instance, device, and queue.
 pub struct SkiaWGPURenderer {
     renderer: SkiaRenderer,
@@ -37,7 +52,8 @@ impl SkiaWGPURenderer {
     /// The `adapter` is needed to determine the GPU backend and create the Skia graphics context.
     ///
     /// The wgpu resources are also provided to rendering notifier callbacks via
-    /// [`GraphicsAPI::WGPU29`](i_slint_core::api::GraphicsAPI::WGPU29).
+    /// [`GraphicsAPI::WGPU30`](i_slint_core::api::GraphicsAPI::WGPU30) (respectively
+    /// [`GraphicsAPI::WGPU29`](i_slint_core::api::GraphicsAPI::WGPU29)).
     pub fn new(
         instance: wgpu::Instance,
         adapter: wgpu::Adapter,
