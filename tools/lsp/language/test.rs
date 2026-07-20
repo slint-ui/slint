@@ -49,6 +49,16 @@ pub fn empty_document_cache() -> common::DocumentCache {
     common::DocumentCache::new(config)
 }
 
+/// Create an empty `DocumentCache` with experimental features enabled.
+pub fn empty_document_cache_with_experimental() -> common::DocumentCache {
+    let config = crate::common::document_cache::CompilerConfiguration {
+        style: Some("fluent".to_string()),
+        enable_experimental: true,
+        ..Default::default()
+    };
+    common::DocumentCache::new(config)
+}
+
 /// Create a `DocumentCache` with one document loaded into it.
 pub fn loaded_document_cache(
     content: String,
@@ -60,8 +70,20 @@ pub fn loaded_document_cache_with_file_name(
     content: String,
     file_name: &str,
 ) -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
-    let mut dc = empty_document_cache();
+    load_content_with_document_cache(empty_document_cache(), content, file_name)
+}
 
+pub fn loaded_document_cache_with_experimental(
+    content: String,
+) -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
+    load_content_with_document_cache(empty_document_cache_with_experimental(), content, "bar.slint")
+}
+
+fn load_content_with_document_cache(
+    mut dc: common::DocumentCache,
+    content: String,
+    file_name: &str,
+) -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
     // Pre-load std-widgets.slint:
     spin_on::spin_on(dc.preload_builtins());
 
