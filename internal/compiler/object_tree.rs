@@ -2854,6 +2854,9 @@ impl Element {
         if !diag.enable_experimental {
             diag.push_error("match statements are an experimental feature".into(), &node);
         }
+        if node.MatchCase().next().is_none() && node.WildcardMatchCase().is_none() {
+            diag.push_error("Expected at least one case".into(), &node);
+        }
         let mut cases: Vec<ElementRc> = Vec::new();
         let expr = node.Expression();
         for case in node.MatchCase() {

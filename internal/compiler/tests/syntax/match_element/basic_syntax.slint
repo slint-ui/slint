@@ -35,3 +35,13 @@ export component Baz {
         *: Rectangle { }
     }
 }
+
+export component EmptyMatchElement {
+    in-out property <int> xx: 0;
+    match xx {
+//  >error{Expected at least one case}
+
+    }
+//  <error{Expected at least one case}
+    in-out property <int> yy: 20;
+}
