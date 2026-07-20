@@ -80,15 +80,15 @@ pub(super) struct ImplementedInterface {
 }
 
 fn resolve_implement_statement(
-    e: &Element,
+    element: &Element,
     node: syntax_nodes::ImplementStatement,
-    tr: &TypeRegister,
-    diag: &mut BuildDiagnostics,
+    type_register: &TypeRegister,
+    diagnostics: &mut BuildDiagnostics,
 ) -> Option<ImplementedInterface> {
     #[cfg(feature = "slint-sc")]
-    diag.slint_sc_error("'implement' is", &node);
+    diagnostics.slint_sc_error("'implement' is", &node);
 
-    if reject_experimental_feature(diag, tr, "implement", &node) {
+    if reject_experimental_feature(diagnostics, type_register, "implement", &node) {
         return None;
     }
 
@@ -101,17 +101,17 @@ fn resolve_implement_statement(
         "root" => Some("the root element; use 'self' instead"),
         _ => None,
     } {
-        diag.push_error(
+        diagnostics.push_error(
             format!("Cannot implement an interface based on {}", target),
             &node.DeclaredIdentifier(),
         );
         return None;
     }
 
-    match e.base_type.lookup_type_for_child_element(&interface_name, tr) {
+    match element.base_type.lookup_type_for_child_element(&interface_name, type_register) {
         Ok(ElementType::Component(c)) => {
             if !c.is_interface() {
-                diag.push_error(
+                diagnostics.push_error(
                     format!("Cannot implement {}. It is not an interface", interface_name),
                     &qualified_name,
                 );
@@ -132,22 +132,22 @@ fn resolve_implement_statement(
             // element's own base type. `tr.lookup_element` ignores that context and, for such
             // names, fails with a more specific diagnostic instead - reuse it here when it
             // applies, rather than the generic "not an interface" message.
-            let message = match tr.lookup_element(&interface_name) {
+            let message = match type_register.lookup_element(&interface_name) {
                 Err(context_restricted_message) => context_restricted_message,
                 Ok(_) => format!("Cannot implement {}. It is not an interface", interface_name),
             };
-            diag.push_error(message, &qualified_name);
+            diagnostics.push_error(message, &qualified_name);
             None
         }
         Err(err) => {
-            diag.push_error(err, &qualified_name);
+            diagnostics.push_error(err, &qualified_name);
             None
         }
     }
 }
 
 fn filter_conflicting_implement_statements(
-    diag: &mut BuildDiagnostics,
+    diagnostics: &mut BuildDiagnostics,
     statements: Vec<ImplementedInterface>,
 ) -> Vec<ImplementedInterface> {
     let mut seen_interfaces: Vec<ElementRc> = Vec::new();
@@ -158,7 +158,7 @@ fn filter_conflicting_implement_statements(
             // Interface identity is the resolved interface's root element, not the syntactic name,
             // so this also catches the same interface implemented twice under different aliases.
             if seen_interfaces.iter().any(|seen| Rc::ptr_eq(seen, &stmt.interface)) {
-                diag.push_error(
+                diagnostics.push_error(
                     format!("'{}' is implemented multiple times", stmt.interface_name),
                     &stmt.node,
                 );
@@ -169,7 +169,7 @@ fn filter_conflicting_implement_statements(
             let mut valid = true;
             for (prop_name, _) in stmt.interface.borrow().property_declarations.iter() {
                 if let Some(existing_interface) = seen_interface_api.get(prop_name) {
-                    diag.push_error(
+                    diagnostics.push_error(
                         format!(
                             "'{}' occurs in '{}' and '{}'",
                             prop_name, stmt.interface_name, existing_interface
@@ -187,17 +187,17 @@ fn filter_conflicting_implement_statements(
 }
 
 pub(super) fn get_implemented_interfaces(
-    e: &Element,
+    element: &Element,
     node: &syntax_nodes::Element,
-    tr: &TypeRegister,
-    diag: &mut BuildDiagnostics,
+    type_register: &TypeRegister,
+    diagnostics: &mut BuildDiagnostics,
 ) -> (Vec<ImplementedInterface>, Vec<ImplementedInterface>) {
     let resolved: Vec<ImplementedInterface> = node
         .ImplementStatement()
-        .filter_map(|stmt| resolve_implement_statement(e, stmt, tr, diag))
+        .filter_map(|stmt| resolve_implement_statement(element, stmt, type_register, diagnostics))
         .collect();
 
-    let filtered = filter_conflicting_implement_statements(diag, resolved);
+    let filtered = filter_conflicting_implement_statements(diagnostics, resolved);
 
     let mut self_interfaces = Vec::new();
     let mut child_implements = Vec::new();
@@ -213,21 +213,21 @@ pub(super) fn get_implemented_interfaces(
 
 pub(super) fn disallow_implement_in_non_root(
     node: &syntax_nodes::Element,
-    tr: &TypeRegister,
-    diag: &mut BuildDiagnostics,
+    type_register: &TypeRegister,
+    diagnostics: &mut BuildDiagnostics,
 ) {
     for stmt in node.ImplementStatement() {
-        if reject_experimental_feature(diag, tr, "implement", &stmt) {
+        if reject_experimental_feature(diagnostics, type_register, "implement", &stmt) {
             continue;
         }
-        diag.push_error("'implement' is only allowed in the root element".into(), &stmt);
+        diagnostics.push_error("'implement' is only allowed in the root element".into(), &stmt);
     }
 }
 
 pub(super) fn apply_properties(
-    e: &mut Element,
+    element: &mut Element,
     implemented_interfaces: &[ImplementedInterface],
-    diag: &mut BuildDiagnostics,
+    diagnostics: &mut BuildDiagnostics,
 ) {
     for ImplementedInterface { interface, node, interface_name, .. } in implemented_interfaces {
         for (unresolved_prop_name, prop_decl) in
@@ -237,21 +237,21 @@ pub(super) fn apply_properties(
             })
         {
             apply_interface_property_declaration(
-                e,
+                element,
                 unresolved_prop_name,
                 prop_decl,
                 node,
                 interface_name,
-                diag,
+                diagnostics,
             );
         }
     }
 }
 
 pub(super) fn apply_callbacks(
-    e: &mut Element,
+    element: &mut Element,
     implemented_interfaces: &[ImplementedInterface],
-    diag: &mut BuildDiagnostics,
+    diagnostics: &mut BuildDiagnostics,
 ) {
     for ImplementedInterface { interface, node, interface_name, .. } in implemented_interfaces {
         for (unresolved_prop_name, prop_decl) in
@@ -261,33 +261,33 @@ pub(super) fn apply_callbacks(
             })
         {
             apply_interface_property_declaration(
-                e,
+                element,
                 unresolved_prop_name,
                 prop_decl,
                 node,
                 interface_name,
-                diag,
+                diagnostics,
             );
         }
     }
 }
 
 fn apply_interface_property_declaration(
-    e: &mut Element,
+    element: &mut Element,
     unresolved_prop_name: &SmolStr,
-    prop_decl: &PropertyDeclaration,
+    prop_declaration: &PropertyDeclaration,
     node: &syntax_nodes::ImplementStatement,
     interface_name: &SmolStr,
-    diag: &mut BuildDiagnostics,
+    diagnostics: &mut BuildDiagnostics,
 ) {
-    if matches!(prop_decl.property_type, Type::Invalid) {
+    if matches!(prop_declaration.property_type, Type::Invalid) {
         // The interface's own declaration is invalid (e.g. an unknown property type). A diagnostic
         // was already emitted when the interface was parsed, so there is nothing meaningful to apply
         // or conflict-check here.
         return;
     }
 
-    let lookup_result = e.lookup_property(unresolved_prop_name);
+    let lookup_result = element.lookup_property(unresolved_prop_name);
 
     fn find_conflicting_node(
         e: &mut Element,
@@ -298,16 +298,16 @@ fn apply_interface_property_declaration(
 
     if lookup_result.property_type != Type::Invalid {
         if lookup_result.is_local_to_component {
-            let property_type_name = match prop_decl.property_type {
+            let property_type_name = match prop_declaration.property_type {
                 Type::Callback { .. } => "callback",
                 Type::Function { .. } => "function",
                 _ => "property",
             };
 
-            let local_property_node = find_conflicting_node(e, unresolved_prop_name)
+            let local_property_node = find_conflicting_node(element, unresolved_prop_name)
                 .expect("Expected local property to have a syntax node");
 
-            diag.push_error(
+            diagnostics.push_error(
                 format!(
                     "Conflict with '{}' which declares a {} with the same name",
                     interface_name, property_type_name
@@ -317,13 +317,15 @@ fn apply_interface_property_declaration(
             return;
         }
 
-        match property_matches_interface(&lookup_result, prop_decl) {
+        match property_matches_interface(&lookup_result, prop_declaration) {
             Ok(()) => {
                 return;
             }
             Err(error) => {
-                if let Some(local_property_node) = find_conflicting_node(e, unresolved_prop_name) {
-                    diag.push_error(
+                if let Some(local_property_node) =
+                    find_conflicting_node(element, unresolved_prop_name)
+                {
+                    diagnostics.push_error(
                         format!("Conflict with '{}' which {}", interface_name, error),
                         &local_property_node,
                     );
@@ -336,20 +338,20 @@ fn apply_interface_property_declaration(
     if let Err(message) = validate_property_declaration_for_interface(
         InterfaceUseMode::Implements,
         &lookup_result,
-        &e.base_type,
+        &element.base_type,
         &interface_name,
     ) {
-        diag.push_error(message, &node.QualifiedName());
+        diagnostics.push_error(message, &node.QualifiedName());
         return;
     }
 
-    e.property_declarations.insert(unresolved_prop_name.clone(), prop_decl.clone());
+    element.property_declarations.insert(unresolved_prop_name.clone(), prop_declaration.clone());
 }
 
 pub(super) fn validate_function_implementations(
-    e: &Element,
+    element: &Element,
     implemented_interfaces: &[ImplementedInterface],
-    diag: &mut BuildDiagnostics,
+    diagnostics: &mut BuildDiagnostics,
 ) {
     for ImplementedInterface { interface, node, interface_name, .. } in implemented_interfaces {
         for (function_name, function_property_decl) in interface
@@ -367,7 +369,7 @@ pub(super) fn validate_function_implementations(
             let push_interface_error =
                 |diag: &mut BuildDiagnostics, is_local_to_component, error| {
                     if is_local_to_component {
-                        let source = e
+                        let source = element
                             .property_declarations
                             .get(function_name)
                             .and_then(|decl| decl.node.clone())
@@ -381,10 +383,10 @@ pub(super) fn validate_function_implementations(
                     }
                 };
 
-            let found_function = e.lookup_property(function_name);
+            let found_function = element.lookup_property(function_name);
             let function_impl = match found_function.property_type {
                 Type::Invalid => {
-                    diag.push_error(
+                    diagnostics.push_error(
                         format!("Missing implementation of function '{}'", function_name),
                         &node.QualifiedName(),
                     );
@@ -393,7 +395,7 @@ pub(super) fn validate_function_implementations(
                 Type::Function(function) => Some(function.clone()),
                 _ => {
                     push_interface_error(
-                        diag,
+                        diagnostics,
                         found_function.is_local_to_component,
                         format!(
                             "Cannot override '{}' from interface '{}'",
@@ -407,7 +409,7 @@ pub(super) fn validate_function_implementations(
 
             match (function_property_decl.pure, found_function.declared_pure) {
                 (Some(true), Some(false)) | (Some(true), None) => push_interface_error(
-                    diag,
+                    diagnostics,
                     found_function.is_local_to_component,
                     format!(
                         "Implementation of pure function '{}' from interface '{}' cannot be impure",
@@ -421,7 +423,7 @@ pub(super) fn validate_function_implementations(
 
             if function_property_decl.visibility != found_function.property_visibility {
                 push_interface_error(
-                    diag,
+                    diagnostics,
                     found_function.is_local_to_component,
                     format!(
                         "Incorrect visibility for implementation of '{}' from interface '{}'. Expected '{}'",
@@ -436,7 +438,7 @@ pub(super) fn validate_function_implementations(
                 };
 
                 push_interface_error(
-                    diag,
+                    diagnostics,
                     found_function.is_local_to_component,
                     format!(
                         "Incorrect arguments for implementation of '{}' from interface '{}'. Expected ({}) but got ({})",
@@ -450,7 +452,7 @@ pub(super) fn validate_function_implementations(
 
             if function_impl.return_type != function_declaration.return_type {
                 push_interface_error(
-                    diag,
+                    diagnostics,
                     found_function.is_local_to_component,
                     format!(
                         "Incorrect return type for implementation of '{}' from interface '{}'. Expected '{}' but got '{}'",
@@ -466,17 +468,18 @@ pub(super) fn validate_function_implementations(
 }
 
 pub(super) fn apply_child_implement_statements(
-    e: &ElementRc,
+    element: &ElementRc,
     child_implements: Vec<ImplementedInterface>,
-    diag: &mut BuildDiagnostics,
+    diagnostics: &mut BuildDiagnostics,
 ) {
     for ImplementedInterface { node, interface, interface_name, binding } in child_implements {
         debug_assert_ne!(binding, ImplementBinding::OnSelf);
         let ImplementBinding::OnChild(child_id) = binding else {
             continue;
         };
-        let Some(child) = find_element_by_id(e, &child_id) else {
-            diag.push_error(format!("'{}' does not exist", child_id), &node.DeclaredIdentifier());
+        let Some(child) = find_element_by_id(element, &child_id) else {
+            diagnostics
+                .push_error(format!("'{}' does not exist", child_id), &node.DeclaredIdentifier());
             continue;
         };
 
@@ -486,20 +489,20 @@ pub(super) fn apply_child_implement_statements(
             &child_id,
             &interface_name,
             &node,
-            diag,
+            diagnostics,
         ) {
             continue;
         }
 
         for (name, prop_decl) in interface.borrow().property_declarations.iter() {
-            let lookup_result = e.borrow().base_type.lookup_property(name);
+            let lookup_result = element.borrow().base_type.lookup_property(name);
             if let Err(message) = validate_property_declaration_for_interface(
                 InterfaceUseMode::Uses,
                 &lookup_result,
-                &e.borrow().base_type,
+                &element.borrow().base_type,
                 &interface_name,
             ) {
-                diag.push_error(message, &node.QualifiedName());
+                diagnostics.push_error(message, &node.QualifiedName());
                 continue;
             }
 
@@ -509,7 +512,7 @@ pub(super) fn apply_child_implement_statements(
             prop_decl.node = Some(node.QualifiedName().into());
 
             if let Some(existing_property) =
-                e.borrow_mut().property_declarations.insert(name.clone(), prop_decl.clone())
+                element.borrow_mut().property_declarations.insert(name.clone(), prop_decl.clone())
             {
                 let source = existing_property
                     .node
@@ -521,7 +524,7 @@ pub(super) fn apply_child_implement_statements(
                         parser::NodeOrToken::Token,
                     );
 
-                diag.push_error(
+                diagnostics.push_error(
                     format!("Cannot override '{}' from '{}'", name, interface_name),
                     &source,
                 );
@@ -530,9 +533,9 @@ pub(super) fn apply_child_implement_statements(
 
             let existing_binding = match &prop_decl.property_type {
                 Type::Function(func) => {
-                    apply_uses_statement_function_binding(e, &child, name, func)
+                    apply_uses_statement_function_binding(element, &child, name, func)
                 }
-                _ => e.borrow_mut().bindings.insert(
+                _ => element.borrow_mut().bindings.insert(
                     name.clone(),
                     BindingExpression::new_two_way(
                         NamedReference::new(&child, name.clone()).into(),
@@ -547,9 +550,9 @@ pub(super) fn apply_child_implement_statements(
                     name, interface_name
                 );
                 if let Some(location) = &existing_binding.borrow().span {
-                    diag.push_error(message, location);
+                    diagnostics.push_error(message, location);
                 } else {
-                    diag.push_error(message, &node.QualifiedName());
+                    diagnostics.push_error(message, &node.QualifiedName());
                 }
             }
         }
@@ -562,13 +565,13 @@ fn element_implements_interface(
     child_id: &SmolStr,
     interface_name: &SmolStr,
     node: &syntax_nodes::ImplementStatement,
-    diag: &mut BuildDiagnostics,
+    diagnostics: &mut BuildDiagnostics,
 ) -> bool {
     let mut valid = true;
     let mut check = |property_name: &SmolStr, property_declaration: &PropertyDeclaration| {
         let lookup_result = element.borrow().lookup_property(property_name);
         if let Err(e) = property_matches_interface(&lookup_result, property_declaration) {
-            diag.push_error(
+            diagnostics.push_error(
                 format!(
                     "'{}' does not implement '{}' from '{}' - {}",
                     child_id, property_name, interface_name, e
@@ -617,12 +620,12 @@ fn property_matches_interface(
 }
 
 fn apply_uses_statement_function_binding(
-    e: &ElementRc,
+    element: &ElementRc,
     child: &ElementRc,
     name: &SmolStr,
-    func: &Rc<Function>,
+    function: &Rc<Function>,
 ) -> Option<RefCell<BindingExpression>> {
-    let args_expr: Vec<Expression> = func
+    let args_expr: Vec<Expression> = function
         .args
         .iter()
         .enumerate()
@@ -636,5 +639,5 @@ fn apply_uses_statement_function_binding(
     };
 
     let body = Expression::CodeBlock(vec![call_expr]);
-    e.borrow_mut().bindings.insert(name.clone(), RefCell::new(BindingExpression::from(body)))
+    element.borrow_mut().bindings.insert(name.clone(), RefCell::new(BindingExpression::from(body)))
 }
