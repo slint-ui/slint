@@ -340,6 +340,11 @@ fn parse_match_element(p: &mut impl Parser) {
     if !p.test(SyntaxKind::LBrace) {
         p.error("Expected '{' to start cases");
     }
+    if p.peek().kind() == SyntaxKind::RBrace {
+        p.error("Expected at least one case");
+        p.consume();
+        return;
+    }
     if p.peek().kind() == SyntaxKind::Star {
         p.error("Expected at least one case before wildcard case");
         {
