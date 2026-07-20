@@ -297,16 +297,31 @@ impl PathDataIterator {
         builder.build()
     }
 
-    fn sample_at(&self, percent: f32) -> Option<(lyon_path::math::Point, lyon_path::math::Vector)> {
-        use lyon_algorithms::measure::{PathMeasurements, SampleType};
+    /// Builds the lyon path together with its length measurements
+    pub fn to_fitted_path(&self) -> FittedPath {
+        use lyon_algorithms::measure::PathMeasurements;
 
-        let percent = percent.clamp(0., 1.);
         let path = self.to_lyon_path();
         let measurements = PathMeasurements::from_path(&path, PATH_MEASURE_TOLERANCE);
-        if measurements.length() <= 0. {
+        FittedPath { path, measurements }
+    }
+}
+
+/// A path and measurements so they don't need to be recalculated every call to sample
+pub struct FittedPath {
+    path: lyon_path::Path,
+    measurements: lyon_algorithms::measure::PathMeasurements,
+}
+
+impl FittedPath {
+    fn sample_at(&self, percent: f32) -> Option<(lyon_path::math::Point, lyon_path::math::Vector)> {
+        use lyon_algorithms::measure::SampleType;
+
+        let percent = percent.clamp(0., 1.);
+        if self.measurements.length() <= 0. {
             return None;
         }
-        let mut sampler = measurements.create_sampler(&path, SampleType::Normalized);
+        let mut sampler = self.measurements.create_sampler(&self.path, SampleType::Normalized);
         let sample = sampler.sample(percent);
         Some((sample.position(), sample.tangent()))
     }
