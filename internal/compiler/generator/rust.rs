@@ -4904,6 +4904,40 @@ fn compile_builtin_function_call(
             let color = a.next().unwrap();
             quote!(sp::color_to_styled_text(#color))
         }
+        BuiltinFunction::PointAtPercent => {
+            if let [Expression::PropertyReference(pr), percent] = arguments {
+                let item_rc = access_item_rc(pr, ctx);
+                let percent = compile_expression(percent, ctx);
+                quote!({
+                    let item_rc = #item_rc;
+                    sp::logical_position_to_api(
+                        item_rc
+                            .downcast::<sp::Path>()
+                            .unwrap()
+                            .as_pin_ref()
+                            .point_at_percent(&item_rc, #percent as f32),
+                    )
+                })
+            } else {
+                panic!("internal error: invalid args to PointAtPercent {arguments:?}")
+            }
+        }
+        BuiltinFunction::AngleAtPercent => {
+            if let [Expression::PropertyReference(pr), percent] = arguments {
+                let item_rc = access_item_rc(pr, ctx);
+                let percent = compile_expression(percent, ctx);
+                quote!({
+                    let item_rc = #item_rc;
+                    item_rc
+                        .downcast::<sp::Path>()
+                        .unwrap()
+                        .as_pin_ref()
+                        .angle_at_percent(&item_rc, #percent as f32)
+                })
+            } else {
+                panic!("internal error: invalid args to AngleAtPercent {arguments:?}")
+            }
+        }
     }
 }
 

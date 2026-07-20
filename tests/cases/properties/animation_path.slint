@@ -1,0 +1,148 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    path := Path {
+        width: 100px;
+        height: 100px;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 100;
+        viewbox-height: 100;
+        stroke-width: 0px;
+        commands: "M0,0 L0,100 L100,100";
+    }
+
+    in-out property <float> t: 0;
+    animate t {
+        duration: 2000ms;
+    }
+
+    out property <float> px: path.point-at-percent(t).x / 1px;
+    out property <float> py: path.point-at-percent(t).y / 1px;
+    out property <angle> angle: path.angle-at-percent(t);
+}
+
+/*
+
+```rust
+fn assert_almost_eq(value: f32, expected: f32) {
+    assert!(expected - 0.05 <= value && value <= expected + 0.05, "Expected {value} to be close to {expected} (+-0.05)");
+}
+
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_px(), 0.0);
+assert_eq!(instance.get_py(), 0.0);
+assert_almost_eq(instance.get_angle(), 90.0);
+
+instance.set_t(1.0);
+// no time has elapsed yet
+assert_eq!(instance.get_px(), 0.0);
+assert_eq!(instance.get_py(), 0.0);
+assert_almost_eq(instance.get_angle(), 90.0);
+
+// At 25% expect to be at (0, 50)
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_px(), 0.0);
+assert_eq!(instance.get_py(), 50.0);
+assert_almost_eq(instance.get_angle(), 90.0);
+
+// At 50% expect to be at (0, 100)
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_px(), 0.0);
+assert_eq!(instance.get_py(), 100.0);
+assert_almost_eq(instance.get_angle(), 90.0);
+
+// At 75% expect to be at (50, 100)
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_px(), 50.0);
+assert_eq!(instance.get_py(), 100.0);
+assert_almost_eq(instance.get_angle(), 0.0);
+
+// At 100% expect to be at (100, 100)
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_px(), 100.0);
+assert_eq!(instance.get_py(), 100.0);
+assert_almost_eq(instance.get_angle(), 0.0);
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_px(), 0.0);
+assert_eq(instance.get_py(), 0.0);
+assert(std::abs(instance.get_angle() - 90.0) < 0.05);
+
+instance.set_t(1.0);
+// no time has elapsed yet
+assert_eq(instance.get_px(), 0.0);
+assert_eq(instance.get_py(), 0.0);
+assert(std::abs(instance.get_angle() - 90.0) < 0.05);
+
+// At 25% expect to be at (0, 50)
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_px(), 0.0);
+assert_eq(instance.get_py(), 50.0);
+assert(std::abs(instance.get_angle() - 90.0) < 0.05);
+
+// At 50% expect to be at (0, 100)
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_px(), 0.0);
+assert_eq(instance.get_py(), 100.0);
+assert(std::abs(instance.get_angle() - 90.0) < 0.05);
+
+// At 75% expect to be at (50, 100)
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_px(), 50.0);
+assert_eq(instance.get_py(), 100.0);
+assert(std::abs(instance.get_angle() - 0.0) < 0.05);
+
+// At 100% expect to be at (100, 100)
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_px(), 100.0);
+assert_eq(instance.get_py(), 100.0);
+assert(std::abs(instance.get_angle() - 0.0) < 0.05);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.px, 0.0);
+assert.equal(instance.py, 0.0);
+assert(Math.abs(instance.angle - 90.0) < 0.05);
+
+instance.t = 1.0;
+// no time has elapsed yet
+assert.equal(instance.px, 0.0);
+assert.equal(instance.py, 0.0);
+assert(Math.abs(instance.angle - 90.0) < 0.05);
+
+// At 25% expect to be at (0, 50)
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.px, 0.0);
+assert.equal(instance.py, 50.0);
+assert(Math.abs(instance.angle - 90.0) < 0.05);
+
+// At 50% expect to be at (0, 100)
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.px, 0.0);
+assert.equal(instance.py, 100.0);
+assert(Math.abs(instance.angle - 90.0) < 0.05);
+
+// At 75% expect to be at (50, 100)
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.px, 50.0);
+assert.equal(instance.py, 100.0);
+assert(Math.abs(instance.angle - 0.0) < 0.05);
+
+// At 100% expect to be at (100, 100)
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.px, 100.0);
+assert.equal(instance.py, 100.0);
+assert(Math.abs(instance.angle - 0.0) < 0.05);
+```
+
+*/

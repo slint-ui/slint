@@ -2491,6 +2491,12 @@ export component Path {
 
     Close { }
 
+    /// Returns the point at the given percent along the path
+    function point-at-percent(percent: float) -> Point {}
+
+    /// Returns the angle at the given percent along the path
+    function angle-at-percent(percent: float) -> angle {}
+
     //-default_size_binding:expands_to_parent_geometry
 }
 

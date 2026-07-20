@@ -1943,6 +1943,71 @@ fn call_builtin_function(
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
             Value::StyledText(corelib::styled_text::color_to_styled_text(color))
         }
+        BuiltinFunction::PointAtPercent => {
+            let component = local_context.component_instance;
+
+            if let Expression::ElementReference(item) = &arguments[0] {
+                generativity::make_guard!(guard);
+
+                let item = item.upgrade().unwrap();
+                let enclosing_component = enclosing_component_for_element(&item, component, guard);
+                let description = enclosing_component.description;
+
+                let item_info = &description.items[item.borrow().id.as_str()];
+
+                let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+
+                let item_rc = corelib::items::ItemRc::new(
+                    vtable::VRc::into_dyn(item_comp),
+                    item_info.item_index(),
+                );
+
+                let percent: f32 =
+                    eval_expression(&arguments[1], local_context).try_into().unwrap();
+
+                item_rc
+                    .downcast::<corelib::items::Path>()
+                    .unwrap()
+                    .as_pin_ref()
+                    .point_at_percent(&item_rc, percent)
+                    .to_untyped()
+                    .into()
+            } else {
+                panic!("internal error: argument to PointAtPercent must be an element")
+            }
+        }
+        BuiltinFunction::AngleAtPercent => {
+            let component = local_context.component_instance;
+
+            if let Expression::ElementReference(item) = &arguments[0] {
+                generativity::make_guard!(guard);
+
+                let item = item.upgrade().unwrap();
+                let enclosing_component = enclosing_component_for_element(&item, component, guard);
+                let description = enclosing_component.description;
+
+                let item_info = &description.items[item.borrow().id.as_str()];
+
+                let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+
+                let item_rc = corelib::items::ItemRc::new(
+                    vtable::VRc::into_dyn(item_comp),
+                    item_info.item_index(),
+                );
+
+                let percent: f32 =
+                    eval_expression(&arguments[1], local_context).try_into().unwrap();
+
+                item_rc
+                    .downcast::<corelib::items::Path>()
+                    .unwrap()
+                    .as_pin_ref()
+                    .angle_at_percent(&item_rc, percent)
+                    .into()
+            } else {
+                panic!("internal error: argument to AngleAtPercent must be an element")
+            }
+        }
     }
 }
 

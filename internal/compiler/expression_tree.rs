@@ -138,6 +138,8 @@ pub enum BuiltinFunction {
     /// because `parse_interpolated` takes `StyledText` arguments.
     ColorToStyledText,
     DecimalSeparator,
+    PointAtPercent,
+    AngleAtPercent,
 }
 
 #[derive(Debug, Clone)]
@@ -318,6 +320,8 @@ declare_builtin_function_types!(
     ColorToStyledText: (Type::Color) -> Type::StyledText
     OpenUrl: (Type::String) -> Type::Bool,
     MacosBringAllWindowsToFront: () -> Type::Void,
+    PointAtPercent: (Type::ElementReference, Type::Float32) -> typeregister::logical_point_type().into(),
+    AngleAtPercent: (Type::ElementReference, Type::Float32) -> Type::Angle,
 );
 
 impl Default for BuiltinFunctionTypes {
@@ -435,6 +439,8 @@ impl BuiltinFunction {
             BuiltinFunction::ColorToStyledText => true,
             BuiltinFunction::OpenUrl => false,
             BuiltinFunction::MacosBringAllWindowsToFront => false,
+            BuiltinFunction::PointAtPercent => true,
+            BuiltinFunction::AngleAtPercent => true,
         }
     }
 
@@ -529,6 +535,8 @@ impl BuiltinFunction {
             BuiltinFunction::ColorToStyledText => true,
             BuiltinFunction::OpenUrl => false,
             BuiltinFunction::MacosBringAllWindowsToFront => false,
+            BuiltinFunction::PointAtPercent => true,
+            BuiltinFunction::AngleAtPercent => true,
         }
     }
 }

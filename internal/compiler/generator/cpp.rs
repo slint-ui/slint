@@ -5440,6 +5440,28 @@ fn compile_builtin_function_call(
             let color = a.next().unwrap();
             format!("slint::private_api::color_to_styled_text({})", color)
         }
+        BuiltinFunction::PointAtPercent => {
+            if let [llr::Expression::PropertyReference(pr), percent] = arguments {
+                let item_rc = access_item_rc(pr, ctx);
+                let percent = compile_expression(percent, ctx);
+                format!(
+                    "slint::LogicalPosition(slint::cbindgen_private::slint_path_point_at_percent(&{item_rc}, static_cast<float>({percent})))"
+                )
+            } else {
+                panic!("internal error: invalid args to PointAtPercent {arguments:?}")
+            }
+        }
+        BuiltinFunction::AngleAtPercent => {
+            if let [llr::Expression::PropertyReference(pr), percent] = arguments {
+                let item_rc = access_item_rc(pr, ctx);
+                let percent = compile_expression(percent, ctx);
+                format!(
+                    "slint::cbindgen_private::slint_path_angle_at_percent(&{item_rc}, static_cast<float>({percent}))"
+                )
+            } else {
+                panic!("internal error: invalid args to AngleAtPercent {arguments:?}")
+            }
+        }
     }
 }
 
