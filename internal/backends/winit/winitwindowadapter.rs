@@ -1479,7 +1479,7 @@ impl WindowAdapter for WinitWindowAdapter {
         {
             use winit::dpi::{LogicalPosition, LogicalSize};
 
-            let anchor_position = LogicalPosition::new(anchor.x as i32, anchor.y as i32);
+            let offset = LogicalPosition::new(anchor.x as i32, anchor.y as i32);
             let anchor_size = LogicalSize::new(anchor.width as i32, anchor.height as i32);
             let winit_window_or_none = self.winit_window_or_none.borrow_mut();
             match *winit_window_or_none {
@@ -1487,7 +1487,10 @@ impl WindowAdapter for WinitWindowAdapter {
                     use winit_wayland::PopupExtWayland;
                     window.set_gravity(gravity_to_winit(anchor.gravity));
                     window.set_anchor(anchor_to_winit(anchor.location));
-                    window.set_anchor_rect(anchor_position, anchor_size);
+                    if let Some((position, _)) = window.get_anchor_rect() {
+                        window.set_anchor_rect(position, anchor_size);
+                    }
+                    window.set_positioner_offset(offset);
                     window.set_constraint_adjustment(constraint_adjustment_to_winit(
                         &anchor.constraint_adjustment_x,
                         &anchor.constraint_adjustment_y,
@@ -1500,12 +1503,20 @@ impl WindowAdapter for WinitWindowAdapter {
                         .display_server_protocol
                         .is_some_and(|s| s == DisplayServerProtocol::Wayland)
                     {
+                        use winit::dpi::{LogicalPosition, Position};
+
+                        let anchor_position = window_attributes
+                            .borrow()
+                            .position
+                            .unwrap_or_else(|| Position::new(LogicalPosition::new(0., 0.)));
+
                         let attribs =
                             window_attributes.borrow().clone().with_platform_attributes(Box::new(
                                 winit_wayland::WindowAttributesWayland::default()
                                     .with_anchor(anchor_to_winit(anchor.location))
                                     .with_gravity(gravity_to_winit(anchor.gravity))
                                     .with_anchor_rect(anchor_position, anchor_size)
+                                    .with_positioner_offset(offset)
                                     .with_constraint_adjustment(constraint_adjustment_to_winit(
                                         &anchor.constraint_adjustment_x,
                                         &anchor.constraint_adjustment_y,

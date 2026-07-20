@@ -184,7 +184,9 @@ macro_rules! for_each_builtin_structs {
             #[non_exhaustive]
             struct PopupAnchor {
                 location: PopupAnchorLocation,
+                // The position of the popup relative to the anchor point in x direction
                 x: Coord,
+                // The position of the popup relative to the anchor point in y direction
                 y: Coord,
                 width: Coord,
                 height: Coord,

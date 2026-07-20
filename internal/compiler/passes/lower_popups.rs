@@ -292,7 +292,10 @@ fn materialize_anchor_property(elem: &ElementRc) {
         elem.borrow_mut()
             .property_declarations
             .entry(SmolStr::new_static(ANCHOR_PROPERTY_NAME))
-            .or_insert_with(|| PropertyDeclaration { property_type: anchor_type, ..Default::default() });
+            .or_insert_with(|| PropertyDeclaration {
+                property_type: anchor_type,
+                ..Default::default()
+            });
     }
 }
 
