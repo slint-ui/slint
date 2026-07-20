@@ -68,7 +68,10 @@ Both grid and box layouts use the same core algorithm in `layout_items()`:
 2. Calculate total size needed
 
 3. If total > available space:
-   → Shrink items proportionally (respecting min constraints)
+   → Shrink items weighted by their stretch factors, respecting min constraints.
+     With no stretch factor set anywhere, each item gives up the same number of
+     pixels, so a small item runs out long before a large one. Items that reach
+     their min are frozen and the rest is re-split over the others.
 
 4. If total < available space:
    → Grow items proportionally based on stretch factors

@@ -598,6 +598,14 @@ impl RendererSealed for FemtoVGWGPURenderer {
         self.0.text_size(text_item, item_rc, max_width, text_wrap)
     }
 
+    fn text_content_widths(
+        &self,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
+        item_rc: &i_slint_core::items::ItemRc,
+    ) -> Option<i_slint_core::renderer::ContentWidths> {
+        self.0.text_content_widths(text_item, item_rc)
+    }
+
     fn char_size(
         &self,
         text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,

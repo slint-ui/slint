@@ -861,6 +861,36 @@ impl RendererSealed for SoftwareRenderer {
         (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
     }
 
+    // Mirrors the condition in text_size(): only the parley path reports content widths.
+    // With a bitmap font this returns None, so both widths keep coming from text_size()
+    // and stay consistent with what is rendered.
+    #[cfg(feature = "systemfonts")]
+    fn text_content_widths(
+        &self,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
+        text_wrap: TextWrap,
+    ) -> Option<i_slint_core::renderer::ContentWidths> {
+        if parley_disabled() {
+            return None;
+        }
+        let scale_factor = self.scale_factor()?;
+        let font_request = text_item.font_request(item_rc);
+        let slint_ctx = self.slint_context()?;
+        // Drop the font context borrow before sharedparley takes it again.
+        let is_vector_font = {
+            let mut font_ctx = slint_ctx.font_context().borrow_mut();
+            matches!(
+                fonts::match_font(&font_request, scale_factor, &mut font_ctx),
+                fonts::Font::VectorFont(_)
+            )
+        };
+        if !is_vector_font {
+            return None;
+        }
+        sharedparley::text_content_widths(self, text_item, item_rc, text_wrap)
+    }
+
     fn char_size(
         &self,
         text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,

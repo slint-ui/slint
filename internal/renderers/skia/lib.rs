@@ -894,6 +894,14 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         .unwrap_or_default()
     }
 
+    fn text_content_widths(
+        &self,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
+        item_rc: &ItemRc,
+    ) -> Option<i_slint_core::renderer::ContentWidths> {
+        sharedparley::text_content_widths(self, text_item, item_rc)
+    }
+
     fn char_size(
         &self,
         text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
