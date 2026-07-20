@@ -140,7 +140,7 @@ fn lower_one(elem: &ElementRc, diag: &mut BuildDiagnostics) {
 
     let can_go_back = non_empty();
 
-    // Int-index adapter for chrome that speaks `current_index: int` /
+    // Int-index adapter that relies on `current_index: int` /
     // `index_changed(int)` rather than the route enum. Each route case's
     // resolved model is `route_ref == Route.X`, so its rhs is that route's enum
     // value; collected in declaration order these map ordinal <-> route.
