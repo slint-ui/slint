@@ -18,7 +18,10 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{InputType, ItemRef, MenuEntry, MouseCursor, PopupAnchor, PopupClosePolicy};
+use crate::items::{
+    ConstraintAdjustment, InputType, ItemRef, MenuEntry, MouseCursor, PopupAnchor,
+    PopupAnchorLocation, PopupClosePolicy, PopupGravity,
+};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
@@ -1610,19 +1613,21 @@ impl WindowInner {
                             h
                         };
 
-                        let clip_region = Some(LogicalRect::new(
+                        let clip_region = LogicalRect::new(
                             LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
                             self.window_adapter()
                                 .size()
                                 .to_logical(self.scale_factor())
                                 .to_euclid(),
-                        ));
+                        );
 
+                        let anchor = (popup.anchor_access)();
+                        let anchor_offset = LogicalPoint::new(anchor.x, anchor.y);
                         let new_region_clipped = popup::place_popup(
-                            popup::Placement::Fixed(LogicalRect::new(
-                                offset,
-                                crate::lengths::LogicalSize::new(width, height),
-                            )),
+                            anchor,
+                            offset,
+                            anchor_offset,
+                            crate::lengths::LogicalSize::new(width, height),
                             &clip_region,
                         );
 
@@ -1965,13 +1970,15 @@ impl WindowInner {
         // because we weren't able to create a dedicated popup adapter (for example if the backend does not support it).
         let (location, properties_tracker) =
             if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
-                // Tooltips may extend past the window (e.g. above/left of the anchor); do not clamp.
-                let clip_region = Some(LogicalRect::new(
+                let clip_region = LogicalRect::new(
                     LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
                     self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
-                ));
+                );
                 let rect = popup::place_popup(
-                    popup::Placement::Fixed(LogicalRect::new(position, size)),
+                    popup_access_anchor(),
+                    position,
+                    LogicalPoint::zero(),
+                    size,
                     &clip_region,
                 );
                 self.window_adapter().request_redraw();

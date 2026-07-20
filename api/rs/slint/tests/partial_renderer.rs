@@ -1570,3 +1570,139 @@ fn partial_rendering_popup_position_size_change() {
         }
     }
 }
+
+#[test]
+fn partial_rendering_popup_anchor_placement() {
+    slint::slint! {
+        global MyProperty {
+            in-out property<length> anchor-x: 200px;
+            in-out property<length> anchor-y: 250px;
+            in-out property<length> anchor-width: 50px;
+            in-out property<length> anchor-height: 20px;
+            in-out property<bool> flip-enabled: false;
+        }
+
+        export component Ui inherits Window {
+            width: 600px;
+            height: 600px;
+            background: red;
+
+            callback show_popup();
+            show_popup() => {
+                popup.show();
+            }
+
+            callback change_anchor();
+            change_anchor() => {
+                debug("Changing anchor properties");
+                MyProperty.anchor-x = 550px;
+                MyProperty.flip-enabled = true;
+            }
+
+            popup := PopupWindow {
+                // `x`/`y` position the anchor rectangle relative to the parent; `anchor.x`/`.y`
+                // are a separate offset from the anchor point, left at zero here since this test
+                // is only exercising the anchor rectangle's placement and the constraint
+                // adjustments, not the extra offset.
+                x: MyProperty.anchor-x;
+                y: MyProperty.anchor-y;
+                width: 100px;
+                height: 80px;
+                close-policy: PopupClosePolicy.no-auto-close;
+                anchor: {
+                    location: PopupAnchorLocation.bottom-right,
+                    x: 0px,
+                    y: 0px,
+                    width: MyProperty.anchor-width,
+                    height: MyProperty.anchor-height,
+                    gravity: PopupGravity.bottom-right,
+                    constraint-adjustment-x: { slide: false, flip: MyProperty.flip-enabled, resize: false },
+                    constraint-adjustment-y: { slide: false, flip: MyProperty.flip-enabled, resize: false },
+                };
+
+                changed anchor => {
+                    debug("Anchor changed");
+                }
+
+                Rectangle {
+                    background: blue;
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    const WINDOW_WIDTH: usize = 600;
+    const WINDOW_HEIGHT: usize = 600;
+    const RGB_COLOR_WINDOW: (u8, u8, u8) = (255, 0, 0);
+    const RGB_COLOR_POPUP: (u8, u8, u8) = (0, 0, 255);
+
+    let ui = Ui::new().unwrap();
+    // Required otherwise the buffer gets not initialized
+    window.set_size(slint::PhysicalSize::new(WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+
+    let get_pixel_values = |pixel_index: usize| {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        let data = buf.as_bytes();
+        let offset = pixel_index * BYTES_PER_PIXEL;
+        (data[offset], data[offset + 1], data[offset + 2])
+    };
+
+    let assert_popup_region = |x: usize, y: usize, w: usize, h: usize| {
+        for v_pixel in 0..WINDOW_HEIGHT {
+            for h_pixel in 0..WINDOW_WIDTH {
+                let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
+                if h_pixel >= x && h_pixel < x + w && v_pixel >= y && v_pixel < y + h {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(
+                        rgb, RGB_COLOR_POPUP,
+                        "Wrong color at pixel ({h_pixel}, {v_pixel}). Expected popup color."
+                    );
+                } else {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(
+                        rgb, RGB_COLOR_WINDOW,
+                        "Wrong color at pixel ({h_pixel}, {v_pixel}). Expected window color."
+                    );
+                }
+            }
+        }
+    };
+
+    {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        assert_eq!(buf.as_bytes().len(), WINDOW_WIDTH * WINDOW_HEIGHT * BYTES_PER_PIXEL);
+        for pixel_idx in 0..(WINDOW_WIDTH * WINDOW_HEIGHT) {
+            let rgb = get_pixel_values(pixel_idx);
+            assert_eq!(rgb, RGB_COLOR_WINDOW, "Wrong color at pixel index pixel_idx");
+        }
+    }
+
+    ui.invoke_show_popup();
+    assert!(window.draw_if_needed());
+
+    // With `location: bottom-right` and `gravity: bottom-right`, the popup's top-left corner is
+    // placed at the anchor rect's bottom-right corner: (200+50, 250+20) = (250, 270).
+    assert_popup_region(250, 270, 100, 80);
+
+    ui.invoke_change_anchor();
+    // The anchor properties change trigger a tracker with a timer we have to process before the next draw.
+    slint::platform::update_timers_and_animations();
+
+    assert!(window.draw_if_needed());
+
+    // Moving the anchor rect to x=550 makes the anchor point (its bottom-right corner) land at
+    // x=600, so the 100px-wide popup would overflow the 600px-wide window. With `flip` enabled
+    // it mirrors to the other side of the anchor rect instead: origin.x = 550 - 100 = 450. The
+    // y axis still fits within the window, so it is unaffected and origin.y stays at 270.
+    assert_popup_region(450, 270, 100, 80);
+}
