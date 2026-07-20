@@ -1,0 +1,129 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The navigator's public members (navigate, back, can-go-back, navigate-index,
+// current-route-index) are exercised from every language binding. Driving by the
+// integer adapter keeps the assertions int/bool; one navigate(enum) call checks
+// the enum-argument path.
+
+export enum Route {
+    Home,
+    Details,
+    Settings,
+}
+
+component HomeScreen inherits Rectangle { }
+component DetailsScreen inherits Rectangle { }
+component SettingsScreen inherits Rectangle { }
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    in-out property <Route> current-route: Route.Home;
+
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Details: DetailsScreen { }
+        Route.Settings: SettingsScreen { }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_current_route_index(), 0);
+assert!(!instance.get_can_go_back());
+
+instance.invoke_navigate_index(1);
+assert_eq!(instance.get_current_route_index(), 1);
+assert!(instance.get_can_go_back());
+
+instance.invoke_navigate_index(2);
+assert_eq!(instance.get_current_route_index(), 2);
+
+instance.invoke_back();
+assert_eq!(instance.get_current_route_index(), 1);
+
+instance.invoke_back();
+assert_eq!(instance.get_current_route_index(), 0);
+assert!(!instance.get_can_go_back());
+
+instance.invoke_navigate(Route::Settings);
+assert_eq!(instance.get_current_route_index(), 2);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_current_route_index(), 0);
+assert(!instance.get_can_go_back());
+
+instance.invoke_navigate_index(1);
+assert_eq(instance.get_current_route_index(), 1);
+assert(instance.get_can_go_back());
+
+instance.invoke_navigate_index(2);
+assert_eq(instance.get_current_route_index(), 2);
+
+instance.invoke_back();
+assert_eq(instance.get_current_route_index(), 1);
+
+instance.invoke_back();
+assert_eq(instance.get_current_route_index(), 0);
+assert(!instance.get_can_go_back());
+
+instance.invoke_navigate(Route::Settings);
+assert_eq(instance.get_current_route_index(), 2);
+```
+
+```js
+var instance = new slint.TestCase();
+
+assert.equal(instance.current_route_index, 0);
+assert(!instance.can_go_back);
+
+instance.navigate_index(1);
+assert.equal(instance.current_route_index, 1);
+assert(instance.can_go_back);
+
+instance.navigate_index(2);
+assert.equal(instance.current_route_index, 2);
+
+instance.back();
+assert.equal(instance.current_route_index, 1);
+
+instance.back();
+assert.equal(instance.current_route_index, 0);
+assert(!instance.can_go_back);
+
+instance.navigate("Settings");
+assert.equal(instance.current_route_index, 2);
+```
+
+```python
+instance = TestCase()
+
+assert instance.current_route_index == 0
+assert not instance.can_go_back
+
+instance.navigate_index(1)
+assert instance.current_route_index == 1
+assert instance.can_go_back
+
+instance.navigate_index(2)
+assert instance.current_route_index == 2
+
+instance.back()
+assert instance.current_route_index == 1
+
+instance.back()
+assert instance.current_route_index == 0
+assert not instance.can_go_back
+
+instance.navigate(Route.Settings)
+assert instance.current_route_index == 2
+```
+*/
