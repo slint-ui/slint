@@ -33,7 +33,7 @@ use super::PhysicalSize;
 use super::images::{Texture, TextureCacheKey};
 use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, font_cache};
 
-type FemtovgBoxShadowCache<R> = BoxShadowCache<ItemGraphicsCacheEntry<R>>;
+pub(super) type FemtovgBoxShadowCache<R> = BoxShadowCache<ItemGraphicsCacheEntry<R>>;
 
 pub use femtovg::Canvas;
 pub type CanvasRc<R> = Rc<RefCell<Canvas<R>>>;
@@ -88,7 +88,7 @@ pub struct GLItemRenderer<'a, R: femtovg::Renderer + TextureImporter> {
     graphics_cache: &'a ItemGraphicsCache<R>,
     layer_cache: &'a LayerCache<R>,
     texture_cache: &'a RefCell<super::images::TextureCache<R>>,
-    box_shadow_cache: FemtovgBoxShadowCache<R>,
+    box_shadow_cache: &'a FemtovgBoxShadowCache<R>,
     canvas: CanvasRc<R>,
     // Textures from layering or tiling that were scheduled for rendering where we can't delete the femtovg::ImageId yet
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
@@ -1153,6 +1153,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         graphics_cache: &'a ItemGraphicsCache<R>,
         layer_cache: &'a LayerCache<R>,
         texture_cache: &'a RefCell<super::images::TextureCache<R>>,
+        box_shadow_cache: &'a FemtovgBoxShadowCache<R>,
         text_layout_cache: &'a sharedparley::TextLayoutCache,
         window: &'a i_slint_core::api::Window,
         width: u32,
@@ -1163,7 +1164,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             graphics_cache,
             layer_cache,
             texture_cache,
-            box_shadow_cache: Default::default(),
+            box_shadow_cache,
             canvas: canvas.clone(),
             textures_to_delete_after_flush: Default::default(),
             window,
