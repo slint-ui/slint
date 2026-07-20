@@ -230,6 +230,18 @@ impl EventLoopState {
     }
 }
 
+/// Decode the encoded image bytes of an incoming drag, without going through the
+/// image cache.
+fn decode_dropped_image(
+    bytes: &[u8],
+    extension_hint: Option<&str>,
+) -> Option<corelib::graphics::Image> {
+    corelib::graphics::load_image_from_dynamic_data(
+        bytes.into(),
+        extension_hint.unwrap_or_default().as_bytes().into(),
+    )
+}
+
 /// Map a winit drag action to Slint's `DragAction`. A `None` (e.g. unknown) action becomes
 /// `DragAction::None`.
 fn dnd_action_to_slint(action: Option<winit::event_loop::DndAction>) -> corelib::items::DragAction {
@@ -698,6 +710,10 @@ impl winit::application::ApplicationHandler for EventLoopState {
                 // the valid actions to the OS, once it arrives (in `DataTransferReceived` below).
                 let _ =
                     event_loop.fetch_data_transfer(id, &winit::data_transfer::TypeHint::Plaintext);
+                let _ = event_loop.fetch_data_transfer(
+                    id,
+                    &winit::data_transfer::TypeHint::Image { extension_hint: None },
+                );
                 if let Some(position) = position {
                     let pos = position.to_logical(runtime_window.scale_factor() as f64);
                     self.cursor_pos = euclid::point2(pos.x, pos.y);
@@ -722,13 +738,47 @@ impl winit::application::ApplicationHandler for EventLoopState {
                 self.shared_backend_data.incoming_transfers.borrow_mut().remove(&id);
             }
             WindowEvent::DataTransferReceived { id, value, .. } => {
-                if let Ok(text) = value.try_as_string() {
-                    self.shared_backend_data
-                        .incoming_transfers
-                        .borrow_mut()
-                        .entry(id)
-                        .or_default()
-                        .set_plain_text(text.into());
+                // Every type fetched in `DragEntered` arrives in its own event and
+                // accumulates on the same transfer, so a drag offering several
+                // representations delivers them all. Dispatch on the value's type rather
+                // than probing each `try_as_*` accessor: those don't all check the type,
+                // e.g. on X11 `try_as_string` on a URI list returns the raw `file://` lines.
+                let received = match value.type_().hint() {
+                    Some(winit::data_transfer::TypeHint::Plaintext) => {
+                        match value.try_as_string() {
+                            Ok(text) => {
+                                self.shared_backend_data
+                                    .incoming_transfers
+                                    .borrow_mut()
+                                    .entry(id)
+                                    .or_default()
+                                    .set_plain_text(text.into());
+                                true
+                            }
+                            Err(_) => false,
+                        }
+                    }
+                    Some(winit::data_transfer::TypeHint::Image { extension_hint }) => {
+                        match value
+                            .try_as_bytes()
+                            .ok()
+                            .and_then(|bytes| decode_dropped_image(&bytes, extension_hint))
+                        {
+                            Some(image) => {
+                                self.shared_backend_data
+                                    .incoming_transfers
+                                    .borrow_mut()
+                                    .entry(id)
+                                    .or_default()
+                                    .set_image(image);
+                                true
+                            }
+                            None => false,
+                        }
+                    }
+                    _ => false,
+                };
+                if received {
                     // The payload is now available: evaluate the DropAreas at the current
                     // position and report the valid actions to the OS.
                     self.dispatch_and_report_incoming(

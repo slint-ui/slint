@@ -7120,6 +7120,7 @@ dependencies = [
  "i-slint-renderer-femtovg",
  "i-slint-renderer-skia",
  "i-slint-renderer-software",
+ "image",
  "imgref",
  "lyon_path",
  "muda",

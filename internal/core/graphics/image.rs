@@ -1219,6 +1219,35 @@ pub fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'_,
     })
 }
 
+/// Load an image from encoded data that only lives temporarily, such as the payload
+/// of a drag-and-drop operation. Unlike [`load_image_from_embedded_data`], the image
+/// is not added to the image cache.
+#[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+pub fn load_image_from_dynamic_data(data: Slice<'_, u8>, format: Slice<'_, u8>) -> Option<Image> {
+    ImageInner::load_from_data_with_cache_key(ImageCacheKey::Invalid, data, format).map(Image)
+}
+
+#[cfg(all(feature = "image-decoders", not(target_arch = "wasm32")))]
+#[test]
+fn test_load_image_from_dynamic_data() {
+    // A 1x1 red PNG
+    let png: &[u8] = &[
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2,
+        0, 0, 0, 144, 119, 83, 222, 0, 0, 0, 12, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 0, 0,
+        3, 1, 1, 0, 201, 254, 146, 239, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+    ];
+    let image = load_image_from_dynamic_data(png.into(), Slice::from_slice(b"png")).unwrap();
+    assert_eq!(image.size(), IntSize::new(1, 1));
+    assert_eq!(image.to_rgb8().unwrap().as_slice(), &[Rgb8Pixel::new(255, 0, 0)]);
+    // The format is sniffed from the data when no format hint is supplied.
+    let image = load_image_from_dynamic_data(png.into(), Slice::from_slice(b"")).unwrap();
+    assert_eq!(image.size(), IntSize::new(1, 1));
+    assert!(
+        load_image_from_dynamic_data(Slice::from_slice(b"not an image"), Slice::from_slice(b""))
+            .is_none()
+    );
+}
+
 #[test]
 fn test_image_size_from_buffer_without_backend() {
     {
