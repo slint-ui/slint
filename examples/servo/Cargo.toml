@@ -51,10 +51,10 @@ wio = "0.2"
 ash = "0.38.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-29"] }
+slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-30"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-29", "renderer-femtovg-wgpu"] }
+slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-30", "renderer-femtovg-wgpu"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 objc2 = "0.6.3"

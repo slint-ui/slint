@@ -455,7 +455,7 @@ pub mod platform {
         #[cfg(feature = "renderer-femtovg")]
         pub use i_slint_renderer_femtovg::FemtoVGOpenGLRenderer as FemtoVGRenderer;
         /// Use this type to render to a WGPU texture using FemtoVG.
-        #[cfg(feature = "unstable-wgpu-29")]
+        #[cfg(feature = "unstable-wgpu-30")]
         pub use i_slint_renderer_femtovg::FemtoVGWGPURenderer;
         #[cfg(feature = "renderer-femtovg")]
         pub use i_slint_renderer_femtovg::opengl::OpenGLInterface;
@@ -465,7 +465,7 @@ pub mod platform {
     ///
     /// It is only enabled when the `renderer-skia` Slint feature is enabled.
     #[cfg(all(
-        feature = "unstable-wgpu-29",
+        any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"),
         any(
             feature = "renderer-skia",
             feature = "renderer-skia-opengl",
@@ -538,20 +538,6 @@ mod compile_fail_tests;
 #[cfg(doc)]
 pub mod docs;
 
-#[cfg(feature = "unstable-wgpu-28")]
-pub mod wgpu_28 {
-    //! WGPU 28.x specific types and re-exports.
-    //!
-    //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
-    //!         as new major WGPU releases become available.
-    //!
-    //! See the [`wgpu_29`](crate::wgpu_29) module documentation for usage; the only difference is the
-    //! WGPU major version (28 vs 29) and the corresponding feature/selector/API names (`unstable-wgpu-28`,
-    //! [`slint::BackendSelector::require_wgpu_28()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_28()),
-    //! [`slint::GraphicsAPI::WGPU28`](i_slint_core::api::GraphicsAPI::WGPU28)).
-    pub use i_slint_core::graphics::wgpu_28::api::*;
-}
-
 #[cfg(feature = "unstable-wgpu-29")]
 pub mod wgpu_29 {
     //! WGPU 29.x specific types and re-exports.
@@ -559,15 +545,31 @@ pub mod wgpu_29 {
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major WGPU releases become available.
     //!
+    //! This module exists for interoperability with ecosystems that are still on WGPU 29.x, such as bevy 0.19.
+    //!
+    //! See the [`wgpu_30`](crate::wgpu_30) module documentation for usage; the only difference is the
+    //! WGPU major version (29 vs 30) and the corresponding feature/selector/API names (`unstable-wgpu-29`,
+    //! [`slint::BackendSelector::require_wgpu_29()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_29()),
+    //! [`slint::GraphicsAPI::WGPU29`](i_slint_core::api::GraphicsAPI::WGPU29)).
+    pub use i_slint_core::graphics::wgpu_29::api::*;
+}
+
+#[cfg(feature = "unstable-wgpu-30")]
+pub mod wgpu_30 {
+    //! WGPU 30.x specific types and re-exports.
+    //!
+    //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
+    //!         as new major WGPU releases become available.
+    //!
     //! Use the types in this module in combination with other APIs to integrate external, WGPU-based rendering engines
     //! into a UI with Slint.
     //!
-    //! First, ensure that WGPU is used for rendering with Slint by using [`slint::BackendSelector::require_wgpu_29()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_29()).
+    //! First, ensure that WGPU is used for rendering with Slint by using [`slint::BackendSelector::require_wgpu_30()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_30()).
     //! This function accepts a pre-configured WGPU setup or configuration hints such as required features or memory limits.
     //!
     //! For rendering, it's crucial that you're using the same [`wgpu::Device`] and [`wgpu::Queue`] for allocating textures or submitting commands as Slint. Obtain the same queue
     //! by either using [`WGPUConfiguration::Manual`] to make Slint use an existing WGPU configuration, or use [`slint::Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier())
-    //! to let Slint invoke a callback that provides access device, queue, etc. in [`slint::GraphicsAPI::WGPU29`](i_slint_core::api::GraphicsAPI::WGPU29).
+    //! to let Slint invoke a callback that provides access device, queue, etc. in [`slint::GraphicsAPI::WGPU30`](i_slint_core::api::GraphicsAPI::WGPU30).
     //!
     //! To integrate rendering content into a scene shared with a Slint UI, use either [`slint::Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier()) to render an underlay
     //! or overlay, or integrate externally produced [`wgpu::Texture`]s using [`slint::Image::try_from<wgpu::Texture>()`](i_slint_core::graphics::Image::try_from).
@@ -576,13 +578,13 @@ pub mod wgpu_29 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.18", features = ["unstable-wgpu-29"] }
+    //! slint = { version = "~1.18", features = ["unstable-wgpu-30"] }
     //! ```
     //!
     //! `main.rs`:
     //!```rust,no_run
     //!
-    //! use slint::wgpu_29::wgpu;
+    //! use slint::wgpu_30::wgpu;
     //! use wgpu::util::DeviceExt;
     //!
     //!slint::slint!{
@@ -601,14 +603,14 @@ pub mod wgpu_29 {
     //!}
     //!fn main() -> Result<(), Box<dyn std::error::Error>> {
     //!    slint::BackendSelector::new()
-    //!        .require_wgpu_29(slint::wgpu_29::WGPUConfiguration::default())
+    //!        .require_wgpu_30(slint::wgpu_30::WGPUConfiguration::default())
     //!        .select()?;
     //!    let app = HelloWorld::new()?;
     //!
     //!    let app_weak = app.as_weak();
     //!
     //!    app.window().set_rendering_notifier(move |state, graphics_api| {
-    //!        let (Some(app), slint::RenderingState::RenderingSetup, slint::GraphicsAPI::WGPU29{ device, queue, ..}) = (app_weak.upgrade(), state, graphics_api) else {
+    //!        let (Some(app), slint::RenderingState::RenderingSetup, slint::GraphicsAPI::WGPU30{ device, queue, ..}) = (app_weak.upgrade(), state, graphics_api) else {
     //!            return;
     //!        };
     //!
@@ -646,7 +648,7 @@ pub mod wgpu_29 {
     //!}
     //!```
     //!
-    pub use i_slint_core::graphics::wgpu_29::api::*;
+    pub use i_slint_core::graphics::wgpu_30::api::*;
 }
 
 #[cfg(feature = "unstable-winit-030")]

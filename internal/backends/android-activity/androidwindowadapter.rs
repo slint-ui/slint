@@ -178,12 +178,12 @@ impl AndroidWindowAdapter {
         Rc::<Self>::new_cyclic(|w| Self {
             app,
             window: Window::new(w.clone()),
-            #[cfg(not(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29")))]
+            #[cfg(not(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30")))]
             renderer: SkiaRenderer::default(&SkiaSharedContext::default()),
-            #[cfg(all(feature = "unstable-wgpu-28", not(feature = "unstable-wgpu-29")))]
-            renderer: SkiaRenderer::default_wgpu_28(&SkiaSharedContext::default()),
-            #[cfg(feature = "unstable-wgpu-29")]
+            #[cfg(all(feature = "unstable-wgpu-29", not(feature = "unstable-wgpu-30")))]
             renderer: SkiaRenderer::default_wgpu_29(&SkiaSharedContext::default()),
+            #[cfg(feature = "unstable-wgpu-30")]
+            renderer: SkiaRenderer::default_wgpu_30(&SkiaSharedContext::default()),
             requested_graphics_api: RefCell::new(None),
             event_queue: Default::default(),
             pending_redraw: Default::default(),

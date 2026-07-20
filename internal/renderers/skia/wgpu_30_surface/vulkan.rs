@@ -4,7 +4,7 @@
 use ash::vk::Handle;
 use skia_safe::gpu::vk;
 
-use wgpu_28 as wgpu;
+use wgpu_30 as wgpu;
 
 fn vk_format_and_color_type(
     format: wgpu::TextureFormat,
@@ -171,7 +171,7 @@ pub unsafe fn make_vulkan_context(
             }
         };
 
-        // WGPU 28 is locked to vulkan 1.3 and skia assumes the highest vulkan API version of the
+        // WGPU 29 is locked to vulkan 1.3 and skia assumes the highest vulkan API version of the
         // physical device is chosen, causing it to ask for unsupported features/functions.
         let backend = vk::BackendContext::new_builder(
             vulkan_device.shared_instance().raw_instance().handle().as_raw() as _,

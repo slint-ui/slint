@@ -62,14 +62,14 @@ shared-fontique = ["i-slint-common/shared-fontique"]
 
 raw-window-handle-06 = ["dep:raw-window-handle-06"]
 
-# The wgpu-{28,29} feature enables the internal wgpu module (SurfaceTarget, init helpers)
+# The wgpu-{29,30} feature enables the internal wgpu module (SurfaceTarget, init helpers)
 # without exposing public API types (GraphicsAPI::WGPU*, WGPUTexture, WGPUConfiguration).
-# The unstable-wgpu-{28,29} feature additionally enables those public API types.
-wgpu-28 = ["dep:wgpu-28"]
+# The unstable-wgpu-{29,30} feature additionally enables those public API types.
 wgpu-29 = ["dep:wgpu-29"]
+wgpu-30 = ["dep:wgpu-30"]
 
-unstable-wgpu-28 = ["wgpu-28"]
 unstable-wgpu-29 = ["wgpu-29"]
+unstable-wgpu-30 = ["wgpu-30"]
 
 ## If enabled, calls of `debug()` in `.slint` files use to the [`log::debug!()`] macro
 ## of the [log](https://crates.io/crates/log) crate instead of just `println!()`.
@@ -145,8 +145,8 @@ chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 skrifa = { workspace = true, optional = true }
 swash = { workspace = true, optional = true, features = ["scale"] }
 
-wgpu-28 = { workspace = true, optional = true }
 wgpu-29 = { workspace = true, optional = true }
+wgpu-30 = { workspace = true, optional = true }
 
 tr = { workspace = true, optional = true }
 

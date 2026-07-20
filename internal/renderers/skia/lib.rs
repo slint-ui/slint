@@ -59,13 +59,13 @@ pub mod vulkan_surface;
 #[cfg(any(not(target_vendor = "apple"), target_os = "macos"))]
 pub mod opengl_surface;
 
-#[cfg(feature = "wgpu-28")]
-pub mod wgpu_28_surface;
 #[cfg(feature = "wgpu-29")]
 pub mod wgpu_29_surface;
-#[cfg(feature = "wgpu-29")]
+#[cfg(feature = "wgpu-30")]
+pub mod wgpu_30_surface;
+#[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
 mod wgpu_renderer;
-#[cfg(feature = "wgpu-29")]
+#[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
 pub use wgpu_renderer::SkiaWGPURenderer;
 
 use i_slint_core::items::{ItemRc, TextWrap};
@@ -394,9 +394,9 @@ impl SkiaRenderer {
         }
     }
 
-    #[cfg(feature = "unstable-wgpu-28")]
-    /// Creates a new SkiaRenderer that will always use Skia's WGPU 28.x renderer.
-    pub fn default_wgpu_28(context: &SkiaSharedContext) -> Self {
+    #[cfg(feature = "unstable-wgpu-30")]
+    /// Creates a new SkiaRenderer that will always use Skia's WGPU 30.x renderer.
+    pub fn default_wgpu_30(context: &SkiaSharedContext) -> Self {
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
@@ -413,7 +413,7 @@ impl SkiaRenderer {
                               display_handle,
                               size,
                               requested_graphics_api| {
-                wgpu_28_surface::WGPUSurface::new(
+                wgpu_30_surface::WGPUSurface::new(
                     context,
                     window_handle,
                     display_handle,
@@ -1123,7 +1123,7 @@ pub trait Surface {
         None
     }
 
-    #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
+    #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
     fn import_wgpu_texture(
         &self,
         _canvas: &skia_safe::Canvas,

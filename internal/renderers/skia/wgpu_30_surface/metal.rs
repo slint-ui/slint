@@ -1,11 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use foreign_types::ForeignType;
-
+use objc2::rc::Retained;
+use objc2::runtime::ProtocolObject;
+use objc2_metal::{MTLCommandQueue, MTLTexture};
 use skia_safe::gpu::mtl;
 
-use wgpu_28 as wgpu;
+use wgpu_30 as wgpu;
 
 /// # Safety
 /// `metal_handle` must be a valid Metal texture handle for the lifetime of the returned Surface.
@@ -42,7 +43,8 @@ pub unsafe fn make_metal_surface(
     // into Skia's internal BackendRenderTarget via wrap_metal_texture.
     unsafe {
         let metal_texture = texture.as_hal::<wgpu::wgc::api::Metal>()?;
-        let handle = metal_texture.raw_handle().as_ptr() as mtl::Handle;
+        let handle =
+            metal_texture.raw_handle() as *const ProtocolObject<dyn MTLTexture> as mtl::Handle;
         let size = texture.size();
         let color_type = match texture.format() {
             wgpu::TextureFormat::Bgra8Unorm => skia_safe::ColorType::BGRA8888,
@@ -61,8 +63,9 @@ pub unsafe fn import_metal_texture(
     unsafe {
         let metal_texture = texture.as_hal::<wgpu::wgc::api::Metal>();
 
-        let texture_info =
-            mtl::TextureInfo::new(metal_texture.unwrap().raw_handle().as_ptr() as mtl::Handle);
+        let texture_info = mtl::TextureInfo::new(metal_texture.unwrap().raw_handle()
+            as *const ProtocolObject<dyn MTLTexture>
+            as mtl::Handle);
         let size = texture.size();
 
         let backend_texture = skia_safe::gpu::backend_textures::make_mtl(
@@ -101,10 +104,13 @@ pub fn make_metal_context(
             let metal_device_raw = metal_device.raw_device();
 
             maybe_metal_queue.map(|metal_queue| {
-                let metal_queue_raw = &*metal_queue.as_raw().lock();
+                // Share wgpu's command queue with Skia, so that Metal's per-queue hazard tracking
+                // orders wgpu's texture writes before Skia samples them.
+                let metal_queue_raw: *const ProtocolObject<dyn MTLCommandQueue> =
+                    metal_queue.as_raw();
                 mtl::BackendContext::new(
-                    metal_device_raw.as_ptr() as mtl::Handle,
-                    metal_queue_raw.as_ptr() as mtl::Handle,
+                    Retained::as_ptr(metal_device_raw) as mtl::Handle,
+                    metal_queue_raw as mtl::Handle,
                 )
             })
         })?
