@@ -25,7 +25,7 @@ fn path_from_bytes(bytes: &[u8]) -> std::path::PathBuf {
     }
     #[cfg(not(unix))]
     {
-        String::from_utf8_lossy(bytes).as_ref().into()
+        alloc::string::String::from_utf8_lossy(bytes).as_ref().into()
     }
 }
 #[cfg(feature = "std")]
