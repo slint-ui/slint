@@ -5,10 +5,13 @@
 
 # Alpine sysroot with the target libraries for the clang cross-build below.
 # Alpine 3.22 ships musl 1.2, matching the musllinux_1_2 Python wheel tag.
+# apk reads configuration from inside --root: give it this image's pinned
+# repositories and the all-architectures index signing keys.
 FROM alpine:3.22 AS sysroot
-RUN mkdir /sysroot && \
+RUN mkdir -p /sysroot/etc/apk/keys && \
+    cp /usr/share/apk/keys/*.pub /sysroot/etc/apk/keys/ && \
+    cp /etc/apk/repositories /sysroot/etc/apk/ && \
     apk add --root /sysroot --initdb --no-scripts --no-cache --arch x86_64 \
-        --keys-dir /etc/apk/keys --repositories-file /etc/apk/repositories \
         g++ musl-dev fontconfig-dev freetype-dev libxkbcommon-dev libinput-dev eudev-dev mesa-dev
 
 FROM ghcr.io/slint-ui/cross-x86_64-base:1.0
