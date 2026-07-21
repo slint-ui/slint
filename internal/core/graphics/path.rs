@@ -7,10 +7,12 @@ This module contains path related types and functions for the run-time library.
 
 use crate::debug_log;
 use crate::items::{ImageFit, PathEvent};
+use crate::lengths::{LogicalPx, LogicalVector};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use auto_enums::auto_enum;
 use const_field_offset::FieldOffsets;
+use euclid::Point2D;
 use i_slint_core_macros::*;
 
 #[repr(C)]
@@ -204,9 +206,6 @@ impl<EventIt: Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path
 {
 }
 
-/// The default tolerance used when flattening curves for path length/position measurements.
-const PATH_MEASURE_TOLERANCE: f32 = 0.1;
-
 /// PathDataIterator is a data structure that acts as starting point for iterating
 /// through the low-level events of a path. If the path was constructed from said
 /// events, then it is a very thin abstraction. If the path was created from higher-level
@@ -274,67 +273,47 @@ impl PathDataIterator {
     }
 
     fn to_lyon_path(&self) -> lyon_path::Path {
-        let mut builder = lyon_path::Path::builder();
-        for event in self.iter() {
-            match event {
-                lyon_path::Event::Begin { at } => {
-                    builder.begin(at);
-                }
-                lyon_path::Event::Line { to, .. } => {
-                    builder.line_to(to);
-                }
-                lyon_path::Event::Quadratic { ctrl, to, .. } => {
-                    builder.quadratic_bezier_to(ctrl, to);
-                }
-                lyon_path::Event::Cubic { ctrl1, ctrl2, to, .. } => {
-                    builder.cubic_bezier_to(ctrl1, ctrl2, to);
-                }
-                lyon_path::Event::End { close, .. } => {
-                    builder.end(close);
-                }
-            }
+        match &self.it {
+            LyonPathIteratorVariant::FromPath(path) => path.clone().transformed(&self.transform),
+            LyonPathIteratorVariant::FromEvents(..) => self.iter().collect(),
         }
-        builder.build()
     }
 
     /// Builds the lyon path together with its length measurements
-    pub fn to_fitted_path(&self) -> FittedPath {
+    pub fn to_fitted_path(&self, offset: LogicalVector) -> FittedPath {
         use lyon_algorithms::measure::PathMeasurements;
 
         let path = self.to_lyon_path();
-        let measurements = PathMeasurements::from_path(&path, PATH_MEASURE_TOLERANCE);
-        FittedPath { path, measurements }
+        // the number of path segments is proportional to 1/sqrt(tolerance)
+        // Tolerance is the distance between the curve and the approximation
+        // in the paths element coordinates (without the offset applied yet)
+        let measurements = PathMeasurements::from_path(&path, 1e-3);
+        FittedPath { path, offset, measurements }
     }
 }
 
 /// A path and measurements so they don't need to be recalculated every call to sample
 pub struct FittedPath {
     path: lyon_path::Path,
+    offset: LogicalVector,
     measurements: lyon_algorithms::measure::PathMeasurements,
 }
 
 impl FittedPath {
-    fn sample_at(&self, percent: f32) -> Option<(lyon_path::math::Point, lyon_path::math::Vector)> {
+    /// Samples the fitted path at a given percent. Returns None if the path length is 0
+    pub fn sample_at(&self, percent: f32) -> Option<(Point2D<f32, LogicalPx>, f32)> {
         use lyon_algorithms::measure::SampleType;
 
-        let percent = percent.clamp(0., 1.);
+        // rem_euclid maps 1.0 to 0.0 so if the path isn't closed this would otherwise error
+        let percent = if percent == 1.0 { 1.0 } else { percent.rem_euclid(1.) };
         if self.measurements.length() <= 0. {
             return None;
         }
         let mut sampler = self.measurements.create_sampler(&self.path, SampleType::Normalized);
         let sample = sampler.sample(percent);
-        Some((sample.position(), sample.tangent()))
-    }
-
-    /// Returns the position of the point located at `percent` along the path
-    pub fn position_at(&self, percent: f32) -> Option<lyon_path::math::Point> {
-        self.sample_at(percent).map(|(position, _)| position)
-    }
-
-    /// Returns the angle, in degrees, of the path's tangent at `percent` (0.0..=1.0) along the
-    /// path
-    pub fn angle_at(&self, percent: f32) -> Option<f32> {
-        self.sample_at(percent).map(|(_, tangent)| tangent.angle_from_x_axis().to_degrees())
+        let pos = Point2D::new(sample.position().x, sample.position().y);
+        let angle = sample.tangent().angle_from_x_axis().to_degrees();
+        Some((pos + self.offset, angle))
     }
 }
 

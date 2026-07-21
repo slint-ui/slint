@@ -58,7 +58,8 @@ pub struct Path {
     pub clip: Property<bool>,
     pub anti_alias: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
-    fitted_cache: PathFittedCacheBox,
+    fitted_path: FittedPathBox,
+    tracker: crate::properties::PropertyTracker,
 }
 
 impl Item for Path {
@@ -197,35 +198,27 @@ impl Path {
         (offset, elements_iter).into()
     }
 
-    /// Returns the path and measurements as long as none of the properties are dirty
-    fn cached_fitted_path(self: Pin<&Self>, self_rc: &ItemRc) -> Option<Rc<FittedPath>> {
-        if let Some(new_data) =
-            self.fitted_cache.tracker.as_ref().evaluate_if_dirty(|| self.build_fitted_path(self_rc))
-        {
-            *self.fitted_cache.data.borrow_mut() = new_data.clone();
-            new_data
-        } else {
-            self.fitted_cache.data.borrow().clone()
-        }
-    }
-
-    fn build_fitted_path(self: Pin<&Self>, self_rc: &ItemRc) -> Option<Rc<FittedPath>> {
-        let (_, elements_iter) = self.fitted_path_events(self_rc)?;
-        Some(Rc::new(elements_iter.to_fitted_path()))
-    }
-
-    pub fn point_at_percent(
+    fn sample_at(
         self: Pin<&Self>,
         self_rc: &ItemRc,
         percent: f32,
-    ) -> Point2D<f32, LogicalPx> {
-        self.cached_fitted_path(self_rc)
-            .and_then(|fitted| fitted.position_at(percent))
-            .map(|pos| Point2D::new(pos.x, pos.y))
-            .unwrap_or_default()
+    ) -> Option<(Point2D<f32, LogicalPx>, f32)> {
+        if let Some(new_path) =
+            Path::FIELD_OFFSETS.tracker().apply_pin(self).evaluate_if_dirty(|| {
+                let (offset, elements_iter) = self.fitted_path_events(self_rc)?;
+                Some(elements_iter.to_fitted_path(offset))
+            })
+        {
+            *self.fitted_path.borrow_mut() = new_path;
+        }
+        self.fitted_path.borrow().as_ref()?.sample_at(percent)
     }
-    pub fn angle_at_percent(self: Pin<&Self>, self_rc: &ItemRc, percent: f32) -> f32 {
-        self.cached_fitted_path(self_rc).and_then(|fitted| fitted.angle_at(percent)).unwrap_or(0.0)
+
+    pub fn point_at(self: Pin<&Self>, self_rc: &ItemRc, percent: f32) -> Point2D<f32, LogicalPx> {
+        self.sample_at(self_rc, percent).map(|(pos, _)| pos).unwrap_or_default()
+    }
+    pub fn angle_at(self: Pin<&Self>, self_rc: &ItemRc, percent: f32) -> f32 {
+        self.sample_at(self_rc, percent).map(|(_, tangent)| tangent).unwrap_or_default()
     }
 }
 
@@ -234,56 +227,45 @@ impl ItemConsts for Path {
         Path::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
-pub struct PathFittedCacheInner {
-    data: RefCell<Option<Rc<FittedPath>>>,
-    /// Tracks the properties read while building data to rebuild data when the cache is
-    /// invalidated
-    tracker: Pin<Box<crate::properties::PropertyTracker>>,
-}
+struct FittedPathInner(RefCell<Option<FittedPath>>);
 
-impl Default for PathFittedCacheInner {
-    fn default() -> Self {
-        Self { data: Default::default(), tracker: Box::pin(Default::default()) }
-    }
-}
-
-/// Opaque box holding the cached path
+/// Opaque box holding the FittedPath
 #[repr(C)]
-pub struct PathFittedCacheBox(core::ptr::NonNull<PathFittedCacheInner>);
+pub struct FittedPathBox(core::ptr::NonNull<FittedPathInner>);
 
-impl Default for PathFittedCacheBox {
+impl Default for FittedPathBox {
     fn default() -> Self {
-        PathFittedCacheBox(Box::leak(Box::<PathFittedCacheInner>::default()).into())
+        FittedPathBox(Box::leak(Box::new(FittedPathInner(Default::default()))).into())
     }
 }
-impl Drop for PathFittedCacheBox {
+impl Drop for FittedPathBox {
     fn drop(&mut self) {
-        // Safety: self.0 was constructed from a Box::leak in PathFittedCacheBox::default
+        // Safety: self.0 was constructed from a Box::leak in FittedPathBox::default
         drop(unsafe { Box::from_raw(self.0.as_ptr()) });
     }
 }
-impl core::ops::Deref for PathFittedCacheBox {
-    type Target = PathFittedCacheInner;
+impl core::ops::Deref for FittedPathBox {
+    type Target = RefCell<Option<FittedPath>>;
     fn deref(&self) -> &Self::Target {
-        // Safety: initialized in PathFittedCacheBox::default
-        unsafe { self.0.as_ref() }
+        // Safety: initialized in FittedPathBox::default
+        unsafe { &self.0.as_ref().0 }
     }
 }
 
 /// # Safety
 /// This must be called using a non-null pointer pointing to a chunk of memory big enough to
-/// hold a PathFittedCacheBox
+/// hold a FittedPathBox
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_path_fitted_cache_init(cache: *mut PathFittedCacheBox) {
-    unsafe { core::ptr::write(cache, PathFittedCacheBox::default()) };
+pub unsafe extern "C" fn slint_path_fitted_cache_init(cache: *mut FittedPathBox) {
+    unsafe { core::ptr::write(cache, FittedPathBox::default()) };
 }
 
 /// # Safety
-/// This must be called using a non-null pointer pointing to an initialized PathFittedCacheBox
+/// This must be called using a non-null pointer pointing to an initialized FittedPathBox
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_path_fitted_cache_free(cache: *mut PathFittedCacheBox) {
+pub unsafe extern "C" fn slint_path_fitted_cache_free(cache: *mut FittedPathBox) {
     unsafe {
         core::ptr::drop_in_place(cache);
     }
@@ -291,22 +273,22 @@ pub unsafe extern "C" fn slint_path_fitted_cache_free(cache: *mut PathFittedCach
 
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_path_point_at_percent(
+pub unsafe extern "C" fn slint_path_point_at(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
     percent: f32,
 ) -> crate::lengths::LogicalPoint {
     let self_rc = ItemRc::new(self_component.clone(), self_index);
-    self_rc.downcast::<Path>().unwrap().as_pin_ref().point_at_percent(&self_rc, percent)
+    self_rc.downcast::<Path>().unwrap().as_pin_ref().point_at(&self_rc, percent)
 }
 
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_path_angle_at_percent(
+pub unsafe extern "C" fn slint_path_angle_at(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
     percent: f32,
 ) -> f32 {
     let self_rc = ItemRc::new(self_component.clone(), self_index);
-    self_rc.downcast::<Path>().unwrap().as_pin_ref().angle_at_percent(&self_rc, percent)
+    self_rc.downcast::<Path>().unwrap().as_pin_ref().angle_at(&self_rc, percent)
 }
