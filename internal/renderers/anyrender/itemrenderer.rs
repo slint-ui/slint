@@ -123,6 +123,12 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             return;
         }
 
+        // Save the original element bounds for gradient positioning. The CSS
+        // model positions gradients relative to the border box (full element),
+        // but adjust_rect_and_border_for_inner_drawing shrinks the geometry,
+        // which would shift the gradient center inward.
+        let brush_size = to_kurbo_size(geometry.size);
+
         let border_color = rect.border_color();
         let opaque_border = border_color.is_opaque();
         let mut border_width = if border_color.is_transparent() {
@@ -157,12 +163,10 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             (background_shape, border_shape)
         };
 
-        let shape_size = to_kurbo_size(geometry.size);
-
         let transform = self.current_state.transform;
         self.fill_with_brush(
             rect.background(),
-            shape_size,
+            brush_size,
             transform,
             peniko::Fill::default(),
             &background_shape,
@@ -171,7 +175,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         if border_width.get() > 0.0 {
             self.stroke_with_brush(
                 border_color,
-                shape_size,
+                brush_size,
                 transform,
                 &kurbo::Stroke::new(border_width.get() as f64),
                 &border_shape,
