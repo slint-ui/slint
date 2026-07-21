@@ -24,7 +24,7 @@ FROM ubuntu:26.04
 # build (Skia has no prebuilt musl binaries). zstd is for the rust-cache
 # action when this image is used as a job container.
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes clang lld pkg-config ninja-build python3 git curl ca-certificates zstd && \
+    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes clang lld gcc libclang-dev pkg-config libfontconfig-dev ninja-build python3 git curl ca-certificates zstd && \
     # The skia-bindings build clones git repos into the mounted, differently
     # owned cargo home (see Dockerfile.x86_64-unknown-linux-gnu).
     git config --global safe.directory '*'
@@ -45,6 +45,13 @@ ENV PATH=/opt/no-gxx:$PATH
 ARG CROSS="--target=aarch64-unknown-linux-musl --sysroot=/alpine-sysroot"
 ARG CXX_INCLUDES="-I/alpine-sysroot/cxx-include -I/alpine-sysroot/cxx-include/aarch64-alpine-linux-musl"
 
+# The link flags live in a linker wrapper rather than in the rustflags: tools
+# like napi overwrite RUSTFLAGS, which takes precedence over the
+# CARGO_TARGET_*_RUSTFLAGS variable and would drop them. lld links the
+# foreign-architecture output.
+RUN printf '#!/bin/sh\nexec clang %s -B/alpine-sysroot/gcc-lib -L/alpine-sysroot/gcc-lib -fuse-ld=lld "$@"\n' "$CROSS" > /usr/local/bin/aarch64-unknown-linux-musl-clang && \
+    chmod +x /usr/local/bin/aarch64-unknown-linux-musl-clang
+
 # skia-bindings' Yocto-style cross setup: the sysroot plus full compiler
 # command lines for the gn build. Stock clang doesn't detect the GCC
 # installation inside a sysroot for Alpine triples, so the libstdc++ paths are
@@ -59,7 +66,7 @@ ENV CXX_aarch64_unknown_linux_musl=clang++
 ENV CFLAGS_aarch64_unknown_linux_musl="$CROSS"
 ENV CXXFLAGS_aarch64_unknown_linux_musl="$CROSS $CXX_INCLUDES"
 ENV BINDGEN_EXTRA_CLANG_ARGS_aarch64_unknown_linux_musl="$CROSS $CXX_INCLUDES"
-ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=clang
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-unknown-linux-musl-clang
 # crt-static is off: build scripts must dlopen libclang, and the published
-# artifacts are shared libraries. lld links the foreign-architecture output.
-ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS="-C target-feature=-crt-static -C link-arg=--target=aarch64-unknown-linux-musl -C link-arg=--sysroot=/alpine-sysroot -C link-arg=-B/alpine-sysroot/gcc-lib -C link-arg=-L/alpine-sysroot/gcc-lib -C link-arg=-fuse-ld=lld"
+# artifacts are shared libraries.
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS="-C target-feature=-crt-static"
