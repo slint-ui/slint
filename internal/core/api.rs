@@ -23,7 +23,7 @@ pub use crate::input::Keys;
 pub use crate::sharedvector::SharedVector;
 pub use crate::{format, string::SharedString, string::ToSharedString};
 
-/// Result of dispatching a window event through Slint's runtime with [Window::dispatch_event_with_result].
+/// Result of dispatching a window event through Slint's runtime with [`Window::dispatch_event_with_result`].
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum WindowEventDispatchResult {
