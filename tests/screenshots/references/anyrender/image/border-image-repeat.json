@@ -36,7 +36,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 0,
+          "image": 1,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -50,7 +50,7 @@
         0.0,
         0.0,
         1.0,
-        -9.0,
+        -4.0,
         0.0
       ],
       "fill": "NonZero",
@@ -69,7 +69,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 0,
+          "image": 2,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -83,7 +83,7 @@
         0.0,
         0.0,
         1.0,
-        -15.0,
+        0.0,
         0.0
       ],
       "fill": "NonZero",
@@ -102,7 +102,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 0,
+          "image": 3,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -117,7 +117,7 @@
         0.0,
         1.0,
         0.0,
-        -11.0
+        -6.0
       ],
       "fill": "NonZero",
       "shape": "M0,0 L5,0 L5,54 L0,54 Z",
@@ -135,7 +135,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 0,
+          "image": 4,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -149,8 +149,8 @@
         0.0,
         0.0,
         1.0,
-        -9.0,
-        -11.0
+        -4.0,
+        -6.0
       ],
       "fill": "NonZero",
       "shape": "M0,0 L22,0 L22,54 L0,54 Z",
@@ -168,7 +168,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 0,
+          "image": 5,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -182,8 +182,8 @@
         0.0,
         0.0,
         1.0,
-        -15.0,
-        -11.0
+        0.0,
+        -6.0
       ],
       "fill": "NonZero",
       "shape": "M0,0 L5,0 L5,54 L0,54 Z",
@@ -201,7 +201,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 0,
+          "image": 6,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -216,7 +216,7 @@
         0.0,
         1.0,
         0.0,
-        -15.0
+        0.0
       ],
       "fill": "NonZero",
       "shape": "M0,0 L5,0 L5,5 L0,5 Z",
@@ -234,7 +234,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 0,
+          "image": 7,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -248,8 +248,8 @@
         0.0,
         0.0,
         1.0,
-        -9.0,
-        -15.0
+        -4.0,
+        0.0
       ],
       "fill": "NonZero",
       "shape": "M0,0 L22,0 L22,5 L0,5 Z",
@@ -267,7 +267,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 0,
+          "image": 8,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -281,8 +281,8 @@
         0.0,
         0.0,
         1.0,
-        -15.0,
-        -15.0
+        0.0,
+        0.0
       ],
       "fill": "NonZero",
       "shape": "M0,0 L5,0 L5,5 L0,5 Z",
@@ -300,7 +300,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 1,
+          "image": 9,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -333,7 +333,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 1,
+          "image": 10,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -347,7 +347,7 @@
         0.0,
         0.0,
         1.0,
-        -5.5,
+        0.0,
         0.0
       ],
       "fill": "NonZero",
@@ -366,7 +366,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 1,
+          "image": 11,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -380,7 +380,7 @@
         0.0,
         0.0,
         1.0,
-        -15.0,
+        0.0,
         0.0
       ],
       "fill": "NonZero",
@@ -399,7 +399,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 1,
+          "image": 12,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -414,7 +414,7 @@
         0.0,
         1.0833,
         0.0,
-        -6.5
+        0.0
       ],
       "fill": "NonZero",
       "shape": "M0,0 L5,0 L5,52 L0,52 Z",
@@ -432,7 +432,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 1,
+          "image": 13,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -446,8 +446,8 @@
         0.0,
         0.0,
         1.0833,
-        -5.5,
-        -6.5
+        0.0,
+        0.0
       ],
       "fill": "NonZero",
       "shape": "M0,0 L22,0 L22,52 L0,52 Z",
@@ -465,7 +465,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 1,
+          "image": 14,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -479,8 +479,8 @@
         0.0,
         0.0,
         1.0833,
-        -15.0,
-        -6.5
+        0.0,
+        0.0
       ],
       "fill": "NonZero",
       "shape": "M0,0 L5,0 L5,52 L0,52 Z",
@@ -498,7 +498,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 1,
+          "image": 15,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -513,7 +513,7 @@
         0.0,
         1.0,
         0.0,
-        -14.0
+        0.0
       ],
       "fill": "NonZero",
       "shape": "M0,0 L5,0 L5,6 L0,6 Z",
@@ -531,7 +531,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 1,
+          "image": 16,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -545,8 +545,8 @@
         0.0,
         0.0,
         1.0,
-        -5.5,
-        -14.0
+        0.0,
+        0.0
       ],
       "fill": "NonZero",
       "shape": "M0,0 L22,0 L22,6 L0,6 Z",
@@ -564,7 +564,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 1,
+          "image": 17,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -578,8 +578,8 @@
         0.0,
         0.0,
         1.0,
-        -15.0,
-        -14.0
+        0.0,
+        0.0
       ],
       "fill": "NonZero",
       "shape": "M0,0 L5,0 L5,6 L0,6 Z",

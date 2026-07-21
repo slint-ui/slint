@@ -292,31 +292,42 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         }
 
         for fit in fits {
-            let mut image_brush = peniko::ImageBrush::new(image_data.clone()).with_quality(quality);
-
             // Clip rect coordinates in image data space
             let clip_x = fit.clip_rect.origin.x as f64 * ratio_x;
             let clip_y = fit.clip_rect.origin.y as f64 * ratio_y;
             let clip_w = fit.clip_rect.size.width as f64 * ratio_x;
             let clip_h = fit.clip_rect.size.height as f64 * ratio_y;
 
-            let brush_transform = if let Some(tiled_offset) = fit.tiled {
-                image_brush = image_brush.with_extend(peniko::Extend::Repeat);
+            let (image_brush, brush_transform) = if let Some(tiled_offset) = fit.tiled {
+                // Extend::Repeat wraps the entire brush image, but the tile
+                // is only the clip_rect portion of the source, so crop it
+                // out (like the skia renderer's make_subset).
+                let Some(tile) = crop_image_data(&image_data, clip_x, clip_y, clip_w, clip_h)
+                else {
+                    continue;
+                };
+                let image_brush = peniko::ImageBrush::new(tile)
+                    .with_quality(quality)
+                    .with_extend(peniko::Extend::Repeat);
 
                 // Scale from image data pixels to target pixels
                 let scale_x = fit.source_to_target_x as f64 / ratio_x;
                 let scale_y = fit.source_to_target_y as f64 / ratio_y;
 
-                kurbo::Affine::translate((
-                    -(tiled_offset.x as f64 * ratio_x + clip_x),
-                    -(tiled_offset.y as f64 * ratio_y + clip_y),
+                let brush_transform = kurbo::Affine::translate((
+                    -(tiled_offset.x as f64 * ratio_x),
+                    -(tiled_offset.y as f64 * ratio_y),
                 ))
-                .then_scale_non_uniform(scale_x, scale_y)
+                .then_scale_non_uniform(scale_x, scale_y);
+                (image_brush, brush_transform)
             } else {
-                kurbo::Affine::translate((-clip_x, -clip_y)).then_scale_non_uniform(
-                    fit.size.width as f64 / clip_w,
-                    fit.size.height as f64 / clip_h,
-                )
+                let image_brush = peniko::ImageBrush::new(image_data.clone()).with_quality(quality);
+                let brush_transform = kurbo::Affine::translate((-clip_x, -clip_y))
+                    .then_scale_non_uniform(
+                        fit.size.width as f64 / clip_w,
+                        fit.size.height as f64 / clip_h,
+                    );
+                (image_brush, brush_transform)
             };
 
             let shape = kurbo::Rect::new(0., 0., fit.size.width as f64, fit.size.height as f64);
@@ -1155,6 +1166,48 @@ fn load_image(
         #[allow(unreachable_patterns)]
         _ => None,
     }
+}
+
+/// Extract a sub-rectangle of an RGBA8 image into its own [`peniko::ImageData`],
+/// for use as a repeating tile — [`peniko::Extend::Repeat`] wraps the whole
+/// brush image, so the tile must be exactly the image.
+///
+/// The coordinates are in image-data space and are clamped to the image
+/// bounds; returns `None` for a degenerate (empty) tile.
+fn crop_image_data(
+    image: &peniko::ImageData,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Option<peniko::ImageData> {
+    let x = (x.round().max(0.) as u32).min(image.width);
+    let y = (y.round().max(0.) as u32).min(image.height);
+    let width = (width.round().max(0.) as u32).min(image.width - x);
+    let height = (height.round().max(0.) as u32).min(image.height - y);
+    if width == 0 || height == 0 {
+        return None;
+    }
+    if x == 0 && y == 0 && width == image.width && height == image.height {
+        return Some(image.clone());
+    }
+
+    debug_assert!(matches!(image.format, peniko::ImageFormat::Rgba8));
+    let src = image.data.data();
+    let stride = image.width as usize * 4;
+    let mut out = Vec::with_capacity(width as usize * height as usize * 4);
+    for row in y..y + height {
+        let start = row as usize * stride + x as usize * 4;
+        out.extend_from_slice(&src[start..start + width as usize * 4]);
+    }
+
+    Some(peniko::ImageData {
+        data: peniko::Blob::new(Arc::new(out)),
+        format: image.format,
+        alpha_type: image.alpha_type,
+        width,
+        height,
+    })
 }
 
 fn image_buffer_to_peniko_image(buffer: &SharedImageBuffer) -> Option<peniko::ImageData> {
