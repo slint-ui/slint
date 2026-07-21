@@ -495,6 +495,34 @@ pub struct Component {
 
     /// True if this component is imported from an external library.
     pub from_library: Cell<bool>,
+
+    /// The navigation contract declared by an `interface`'s `route` members, if
+    /// any. Kept apart from the interface's property/callback/function members so
+    /// interface conformance never sees routes (see object_tree/interfaces.rs).
+    pub navigation_contract: RefCell<Option<NavigationContract>>,
+}
+
+/// One `route` member of a navigation contract (an `interface`'s `route`
+/// declarations). Collected in declaration order by `Component::from_node`.
+#[derive(Debug, Clone)]
+pub struct ContractRoute {
+    /// The route name (the `DeclaredIdentifier`, e.g. `Home`).
+    pub name: SmolStr,
+    /// Typed parameters declared with the route (e.g. `id: int`).
+    pub params: Vec<(SmolStr, Type)>,
+    /// The deep-link URI declared with `@uri("...")`, if any.
+    pub uri: Option<SmolStr>,
+}
+
+/// A versionable navigation boundary declared as the `route` members of an
+/// `interface`. Reuses the `interface`/export machinery so the contract exports
+/// and imports across files like any other interface type.
+#[derive(Debug, Clone, Default)]
+pub struct NavigationContract {
+    /// The declared routes, in source order.
+    pub routes: Vec<ContractRoute>,
+    /// The compile-time contract version from `@version(n)`; absent means 1.
+    pub version: Option<u32>,
 }
 
 impl Component {
@@ -544,7 +572,68 @@ impl Component {
                 *qualified_id = format_smolstr!("{}::{}", c.id, qualified_id);
             }
         });
+        // An `interface`'s `route` members form a navigation contract. Collected
+        // on the Component (not into the interface's member lists) so interface
+        // conformance is unaffected. Only reached under the experimental flag,
+        // since `is_interface()` requires the `interface` keyword; misplaced or
+        // ungated `route` members are diagnosed in `Element::from_node`.
+        if c.is_interface() {
+            let routes = node
+                .Element()
+                .RouteDeclaration()
+                .filter_map(|route| {
+                    let name = parser::identifier_text(&route.DeclaredIdentifier())?;
+                    let params = route
+                        .ArgumentDeclaration()
+                        .filter_map(|a| {
+                            Some((
+                                parser::identifier_text(&a.DeclaredIdentifier())?,
+                                type_from_node(a.Type(), diag, tr),
+                            ))
+                        })
+                        .collect();
+                    // `@uri("...")`: unescape the string literal; last wins.
+                    let uri = route.AtUri().last().and_then(|attr| {
+                        let raw = attr.text().to_string();
+                        match crate::literals::unescape_string(raw.trim()) {
+                            Some(s) => Some(s),
+                            None => {
+                                diag.push_error(
+                                    "@uri expects a string literal argument".into(),
+                                    &attr,
+                                );
+                                None
+                            }
+                        }
+                    });
+                    Some(ContractRoute { name, params, uri })
+                })
+                .collect::<Vec<_>>();
+            // `@version(n)`: an interface-level integer literal; last wins.
+            let version = node.Element().AtVersion().last().and_then(|attr| {
+                let raw = attr.text().to_string();
+                match raw.trim().parse::<u32>() {
+                    Ok(v) => Some(v),
+                    Err(_) => {
+                        diag.push_error(
+                            "@version expects an integer literal argument".into(),
+                            &attr,
+                        );
+                        None
+                    }
+                }
+            });
+            if !routes.is_empty() || version.is_some() {
+                *c.navigation_contract.borrow_mut() = Some(NavigationContract { routes, version });
+            }
+        }
         c
+    }
+
+    /// Read-only view of the navigation contract declared by this component's
+    /// `route` members, if it is an `interface` declaring any.
+    pub fn navigation_contract(&self) -> Option<NavigationContract> {
+        self.navigation_contract.borrow().clone()
     }
 
     /// This component is a global component introduced with the "global" keyword
@@ -1250,6 +1339,22 @@ impl Element {
             tr.empty_type()
         };
         let is_interface = base_type == ElementType::Interface;
+        // `route` members declare a navigation contract; they are experimental
+        // and valid only in an `interface` body. Valid routes are collected onto
+        // the Component in `Component::from_node`; here we only reject misuse.
+        for route in node.RouteDeclaration() {
+            if !diag.enable_experimental && !tr.expose_internal_types {
+                diag.push_error(
+                    "navigation 'route' members are an experimental feature".into(),
+                    &route,
+                );
+            } else if !is_interface {
+                diag.push_error(
+                    "'route' members are only allowed inside an 'interface'".into(),
+                    &route,
+                );
+            }
+        }
         // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
         let qualified_id = (!id.is_empty()).then(|| id.clone());
         if let ElementType::Component(c) = &base_type {
@@ -2028,6 +2133,9 @@ impl Element {
 
         interfaces::validate_function_implementations(&r.borrow(), &implemented_interfaces, diag);
         interfaces::apply_child_implement_statements(&r, child_implements, diag);
+        // Late (after children built, so the navigator route table is populated):
+        // a component implementing a navigation contract must cover its routes.
+        interfaces::validate_navigation_contract_conformance(&r, &implemented_interfaces, diag);
 
         r
     }

@@ -4,7 +4,7 @@
 //! Module containing interfaces related types and functions.
 
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt::Display;
 use std::rc::Rc;
 
@@ -16,7 +16,7 @@ use crate::expression_tree::{BindingExpression, Callable, Expression};
 use crate::langtype::{ElementType, Function, PropertyLookupResult, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
-    Element, ElementRc, PropertyDeclaration, QualifiedTypeName, find_element_by_id,
+    Element, ElementRc, PropertyDeclaration, QualifiedTypeName, find_element_by_id, recurse_elem,
 };
 use crate::parser;
 use crate::parser::{SyntaxKind, syntax_nodes};
@@ -640,4 +640,72 @@ fn apply_uses_statement_function_binding(
 
     let body = Expression::CodeBlock(vec![call_expr]);
     element.borrow_mut().bindings.insert(name.clone(), RefCell::new(BindingExpression::from(body)))
+}
+
+/// Last `.`-segment of a qualified enum value, e.g. `Home` from `Route.Home`.
+fn navigator_route_name(route: &syntax_nodes::Expression) -> SmolStr {
+    route.text().to_string().rsplit('.').next().unwrap_or_default().trim().into()
+}
+
+/// Route names of the first `navigator` in `root` (one per component by
+/// convention), or `None` if none.
+fn navigator_route_names(root: &ElementRc) -> Option<HashSet<SmolStr>> {
+    let mut names: Option<HashSet<SmolStr>> = None;
+    recurse_elem(root, &(), &mut |elem, _| {
+        if names.is_none() {
+            let elem = elem.borrow();
+            let routes = elem.navigator_routes();
+            if !routes.is_empty() {
+                names = Some(routes.iter().map(|r| navigator_route_name(&r.route)).collect());
+            }
+        }
+    });
+    names
+}
+
+/// Verify each self-implemented navigation-contract interface has its routes
+/// covered by this component's navigator. Only route-name coverage is checked;
+/// param-type conformance is deferred. A contract implemented `<=> child` is not
+/// reached here (it lands in the child-implements list) and is not yet supported.
+pub(super) fn validate_navigation_contract_conformance(
+    root: &ElementRc,
+    implemented_interfaces: &[ImplementedInterface],
+    diag: &mut BuildDiagnostics,
+) {
+    for implemented in implemented_interfaces {
+        let Some(contract) = implemented
+            .interface
+            .borrow()
+            .enclosing_component
+            .upgrade()
+            .and_then(|c| c.navigation_contract())
+        else {
+            continue;
+        };
+        if contract.routes.is_empty() {
+            continue;
+        }
+        let interface_name = &implemented.interface_name;
+        let Some(names) = navigator_route_names(root) else {
+            diag.push_error(
+                format!(
+                    "component implements navigation contract '{interface_name}' but declares no navigator"
+                ),
+                &implemented.node.QualifiedName(),
+            );
+            continue;
+        };
+        // Extra navigator routes are allowed; only missing contract routes error.
+        for route in &contract.routes {
+            if !names.contains(&route.name) {
+                diag.push_error(
+                    format!(
+                        "component implements '{interface_name}' but its navigator has no route for '{}'",
+                        route.name
+                    ),
+                    &implemented.node.QualifiedName(),
+                );
+            }
+        }
+    }
 }

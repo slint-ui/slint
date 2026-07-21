@@ -352,9 +352,9 @@ declare_syntax! {
         /// `id := Element { ... }`
         SubElement -> [ Element ],
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
-                     *CallbackDeclaration, *ConditionalElement, *MatchElement, *Navigator, *Function, *SubElement,
+                     *CallbackDeclaration, *ConditionalElement, *MatchElement, *Navigator, *Function, *RouteDeclaration, *SubElement,
                      *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
-                     *TwoWayBinding, *States, *Transitions, *ImplementStatement, ?ChildrenPlaceholder ],
+                     *TwoWayBinding, *States, *Transitions, *ImplementStatement, ?ChildrenPlaceholder, *AtVersion ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , SubElement],
@@ -368,6 +368,8 @@ declare_syntax! {
         Navigator -> [ Expression, *Route ],
         /// Route.Home: HomeScreen { }
         Route -> [ Expression, ?SubElement ],
+        /// A route member of a navigation contract: `route Main;` or `@uri("...") route Details(id: int);`
+        RouteDeclaration -> [ DeclaredIdentifier, *ArgumentDeclaration, *AtUri ],
         CallbackDeclaration -> [ DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
         // `foo: type` or just `type`
         CallbackDeclarationParameter -> [ ?DeclaredIdentifier, Type],
@@ -480,6 +482,10 @@ declare_syntax! {
         EnumValue -> [],
         /// `@rust-attr(...)`
         AtRustAttr -> [],
+        /// `@version(n)` on a navigation contract interface
+        AtVersion -> [],
+        /// `@uri("...")` on a contract route
+        AtUri -> [],
     }
 }
 

@@ -363,6 +363,67 @@ export component TestCase inherits Window {
     );
 }
 
+// A navigation contract is an `interface` carrying `route` members; a component
+// conforms with master's `implement <Contract> <=> self;` statement, and its
+// navigator must cover every contract route.
+#[cfg(feature = "internal")]
+#[test]
+fn navigation_contract_conformance() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+
+    let build = |code: &str| {
+        let mut compiler = Compiler::default();
+        compiler.set_style("fluent".into());
+        compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+        spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()))
+    };
+
+    // Covers the contract route -> compiles.
+    let ok = r#"
+export interface FeatureNav {
+    @version(1)
+    @uri("app://feature") route Main;
+}
+enum MediaRoute { Main, Player }
+component Library inherits Rectangle { }
+component PlayerScreen inherits Rectangle { }
+export component MediaFeature inherits Rectangle {
+    implement FeatureNav <=> self;
+    in-out property <MediaRoute> current-route: MediaRoute.Main;
+    navigator (current-route) {
+        MediaRoute.Main: Library { }
+        MediaRoute.Player: PlayerScreen { }
+    }
+}
+"#;
+    let result = build(ok);
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+
+    // Navigator does not cover the contract route -> conformance error.
+    let missing = r#"
+export interface FeatureNav {
+    route Main;
+}
+enum MediaRoute { Other }
+component OtherScreen inherits Rectangle { }
+export component MediaFeature inherits Rectangle {
+    implement FeatureNav <=> self;
+    in-out property <MediaRoute> current-route: MediaRoute.Other;
+    navigator (current-route) {
+        MediaRoute.Other: OtherScreen { }
+    }
+}
+"#;
+    let result = build(missing);
+    assert!(result.has_errors(), "missing contract route must be rejected");
+    assert!(
+        result.diagnostics().any(|d| d.message().contains("no route for 'Main'")),
+        "expected the conformance diagnostic, got: {:?}",
+        result.diagnostics().map(|d| d.message().to_owned()).collect::<Vec<_>>()
+    );
+}
+
 #[cfg(feature = "internal")]
 #[test]
 fn navigator_back_stack() {

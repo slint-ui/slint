@@ -391,6 +391,7 @@ impl Snapshotter {
                 root_constraints,
                 root_element,
                 from_library: core::cell::Cell::new(false),
+                navigation_contract: Default::default(),
             }
         });
         self.keep_alive.push((component.clone(), result.clone()));
