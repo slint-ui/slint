@@ -23,35 +23,24 @@ use crate::parser::{SyntaxKind, syntax_nodes};
 use crate::reject_experimental_feature;
 use crate::typeregister::TypeRegister;
 
-enum InterfaceUseMode {
-    Implements,
-    Uses,
-}
-
 fn validate_property_declaration_for_interface(
-    mode: InterfaceUseMode,
     result: &PropertyLookupResult,
     base_type: &ElementType,
     interface_name: &dyn Display,
 ) -> Result<(), String> {
-    let usage = match mode {
-        InterfaceUseMode::Implements => "implement",
-        InterfaceUseMode::Uses => "use",
-    };
-
     match result.property_type {
         Type::Invalid => Ok(()),
         Type::Callback { .. } => Err(format!(
-            "Cannot {} interface '{}' because '{}' conflicts with an existing callback in '{}'",
-            usage, interface_name, result.resolved_name, base_type
+            "Cannot implement interface '{}' because '{}' conflicts with an existing callback in '{}'",
+            interface_name, result.resolved_name, base_type
         )),
         Type::Function { .. } => Err(format!(
-            "Cannot {} interface '{}' because '{}' conflicts with an existing function in '{}'",
-            usage, interface_name, result.resolved_name, base_type
+            "Cannot implement interface '{}' because '{}' conflicts with an existing function in '{}'",
+            interface_name, result.resolved_name, base_type
         )),
         _ => Err(format!(
-            "Cannot {} interface '{}' because '{}' conflicts with an existing property in '{}'",
-            usage, interface_name, result.resolved_name, base_type
+            "Cannot implement interface '{}' because '{}' conflicts with an existing property in '{}'",
+            interface_name, result.resolved_name, base_type
         )),
     }
 }
@@ -277,7 +266,6 @@ fn validate_interface_member_implementation(
 
     if !lookup_result.is_local_to_component {
         if let Err(message) = validate_property_declaration_for_interface(
-            InterfaceUseMode::Implements,
             &lookup_result,
             &element.base_type,
             &interface_name,
@@ -451,7 +439,6 @@ pub(super) fn apply_child_implement_statements(
         for (name, prop_decl) in interface.borrow().property_declarations.iter() {
             let lookup_result = element.borrow().base_type.lookup_property(name);
             if let Err(message) = validate_property_declaration_for_interface(
-                InterfaceUseMode::Uses,
                 &lookup_result,
                 &element.borrow().base_type,
                 &interface_name,
