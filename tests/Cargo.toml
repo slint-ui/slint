@@ -53,6 +53,7 @@ i-slint-backend-testing = { version = "=1.18.0", path = "../internal/backends/te
 i-slint-backend-winit = { version = "=1.18.0", path = "../internal/backends/winit", default-features = false }
 i-slint-compiler = { version = "=1.18.0", path = "../internal/compiler", default-features = false }
 i-slint-core = { version = "=1.18.0", path = "../internal/core", default-features = false }
+i-slint-renderer-anyrender = { version = "=1.18.0", path = "../internal/renderers/anyrender", default-features = false }
 # Keep the default `softbuffer` backend enabled: in the monolithic workspace
 # `--all-features` enabled a skia backend (skia was a member), but here skia is
 # only a dependency, so without a backend `skia_windowed` is unset and the
