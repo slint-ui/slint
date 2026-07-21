@@ -375,16 +375,10 @@ fn fix_percent_size(
         if let Expression::Condition { true_expr, false_expr, .. } = expression
             && true_expr.ty() != false_expr.ty()
         {
-            // The lower_states pass generates a Condition for properties set inside states.
-            // Unlike with ternary expressions, the typesystem doesn't ensure that both branches
-            // have the same type in this case. Thus one side can be a percentage, while the
-            // other can be a length. This conversion of percents to lengths can't happen before
-            // states lowering because it depends on inlining, and unlowered can't be
-            // easily inlined because states effectively form a single enum per component,
-            // whereas inlined ones would need to get a separate enum instead of being included
-            // into the enum of the component being inlined into. Because of this we handle the
-            // mismatched types here and recurse on them to convert all branches that are
-            // percentages and leave alone the ones that are already lengths.
+            // The lower_states pass can generate a Condition with mixed types of percents and
+            // lengths. The conversion of percents to lengths here can't happen before states
+            // lowering because it depends on inlining and states before lowering can't easily be
+            // inlined because they effectively form a single enum per component.
             inner(true_expr, span, parent, property, diag, symbol_counters)
                 && inner(false_expr, span, parent, property, diag, symbol_counters)
         } else {
