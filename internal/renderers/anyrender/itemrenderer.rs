@@ -332,10 +332,18 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
 
             let shape = kurbo::Rect::new(0., 0., fit.size.width as f64, fit.size.height as f64);
 
-            let transform = self
+            let mut transform = self
                 .current_state
                 .transform
                 .then_translate(kurbo::Vec2::new(fit.offset.x as f64, fit.offset.y as f64));
+
+            // With bilinear sampling, a fractional tile phase blends
+            // adjacent texels across every tile seam and washes out the
+            // pattern. The skia renderer rounds its tile shader matrix to
+            // integer translations, too.
+            if fit.tiled.is_some() {
+                transform = snap_translation_to_pixel_grid(transform);
+            }
 
             self.scene.fill(
                 peniko::Fill::default(),
@@ -1066,6 +1074,18 @@ fn phys_rounded_rect(rect: PhysicalRect, radius: PhysicalBorderRadius) -> kurbo:
             radius.bottom_left as f64,
         ),
     )
+}
+
+/// Snap the translation of `transform` to whole device pixels, if it is a
+/// pure translation (no scale, rotation, or skew). Returns the transform
+/// unchanged otherwise.
+fn snap_translation_to_pixel_grid(transform: kurbo::Affine) -> kurbo::Affine {
+    let [a, b, c, d, e, f] = transform.as_coeffs();
+    if a == 1. && b == 0. && c == 0. && d == 1. {
+        kurbo::Affine::new([a, b, c, d, e.round(), f.round()])
+    } else {
+        transform
+    }
 }
 
 pub(crate) fn to_peniko_color(color: Color) -> peniko::Color {
