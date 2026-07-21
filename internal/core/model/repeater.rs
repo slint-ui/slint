@@ -962,16 +962,12 @@ mod ffi {
         ops: &mut RepeaterInstanceOpsVTable,
         state: &mut RepeaterLayoutState,
         row_count: usize,
-        viewport_width: *const Property<LogicalLength>,
-        viewport_height: *const Property<LogicalLength>,
+        viewport_width: Option<Pin<&Property<LogicalLength>>>,
+        viewport_height: Option<Pin<&Property<LogicalLength>>>,
         viewport_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
     ) -> bool {
-        let viewport_width =
-            unsafe { viewport_width.as_ref() }.map(|p| unsafe { Pin::new_unchecked(p) });
-        let viewport_height =
-            unsafe { viewport_height.as_ref() }.map(|p| unsafe { Pin::new_unchecked(p) });
         update_visible_instances(
             ops,
             state,
