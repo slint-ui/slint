@@ -1,0 +1,127 @@
+[
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            1.0,
+            0.8784,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L64,0 L64,64 L0,64 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        12.0,
+        12.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L16,0 L16,16 L0,16 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        16.0,
+        16.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            1.0,
+            0.8784,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L64,0 L64,64 L0,64 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        84.0,
+        12.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            1.0,
+            0.8784,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,12 C0,5.3726 5.3726,0 12,0 L52,0 C58.6274,0 64,5.3726 64,12 L64,52 C64,58.6274 58.6274,64 52,64 L12,64 C5.3726,64 0,58.6274 0,52 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        12.0,
+        84.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            1.0,
+            0.8784,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,8 C0,3.5817 3.5817,0 8,0 L56,0 C60.4183,0 64,3.5817 64,8 L64,56 C64,60.4183 60.4183,64 56,64 L8,64 C3.5817,64 0,60.4183 0,56 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        84.0,
+        84.0
+      ]
+    }
+  }
+]
