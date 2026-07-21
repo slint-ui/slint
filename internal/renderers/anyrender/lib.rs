@@ -4,6 +4,9 @@
 //! Slint renderer scaffolding generic over an [`anyrender`] backend.
 //!
 //! This crate provides:
+//! - [`AnyrenderItemRenderer`]: a Slint
+//!   [`ItemRenderer`](i_slint_core::item_rendering::ItemRenderer) generic
+//!   over any [`anyrender::PaintScene`] sink.
 //! - [`SlintWindowRenderer`]: a small extension on top of
 //!   [`anyrender::WindowRenderer`] adding the fallible operations Slint
 //!   needs (a per-frame render with a base color and a `Result`-returning
@@ -14,8 +17,18 @@
 
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
+use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::{Rgba8Pixel, SharedPixelBuffer};
+use i_slint_core::lengths::PhysicalPx;
 use i_slint_core::platform::PlatformError;
+
+pub(crate) type PhysicalLength = euclid::Length<f32, PhysicalPx>;
+pub(crate) type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
+pub(crate) type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
+
+mod itemrenderer;
+
+pub use itemrenderer::AnyrenderItemRenderer;
 
 /// Slint-side extension to [`anyrender::WindowRenderer`].
 ///
