@@ -2949,15 +2949,9 @@ mod key_codes {
 /// On X11 and Wayland the native scan code is the XKB keycode.
 #[cfg(target_os = "linux")]
 fn native_code_to_physical_key(scan_code: u32, _virtual_key: u32) -> SharedString {
-    macro_rules! xkb_key_code_to_physical_key {
-        ($($name:ident # $_w:ident # $xkb:literal # $_win:literal # $($_mac:literal)?;)*) => {
-            match scan_code {
-                $($xkb => stringify!($name).into(),)*
-                _ => Default::default()
-            }
-        };
-    }
-    i_slint_common::for_each_physical_keys!(xkb_key_code_to_physical_key)
+    i_slint_common::physical_key_codes::physical_key_name_from_xkb(scan_code)
+        .unwrap_or_default()
+        .into()
 }
 
 /// Qt reports extended keys with bit 8 set; Chromium's table uses 0xe0-prefixed scan codes.
