@@ -42,6 +42,17 @@ jobs:
                     - runner: ubuntu-22.04
                       target: armv7
                       container: "ghcr.io/slint-ui/slint/armv7-unknown-linux-gnueabihf"
+                    # musl wheels: cross-compiled in the musl cross containers
+                    # against their Alpine sysroot. maturin applies the
+                    # musllinux tag directly, so no auditwheel repair step.
+                    - runner: ubuntu-22.04
+                      target: x86_64-unknown-linux-musl
+                      container: "ghcr.io/slint-ui/slint/x86_64-unknown-linux-musl"
+                      manylinux: musllinux_1_2
+                    - runner: ubuntu-22.04
+                      target: aarch64-unknown-linux-musl
+                      container: "ghcr.io/slint-ui/slint/aarch64-unknown-linux-musl"
+                      manylinux: musllinux_1_2
         runs-on: ${{ matrix.platform.runner }}
         steps:
             - uses: actions/checkout@v7
@@ -51,6 +62,8 @@ jobs:
               with:
                 python-version: '3.12'
             - uses: ./.github/actions/setup-rust
+              with:
+                  key: ${{ matrix.platform.target }}
             - name: Build a binary wheel
               uses: PyO3/maturin-action@v1
               with:
@@ -58,12 +71,13 @@ jobs:
                   target: ${{ matrix.platform.target }}
                   args: --release --out wheelhouse --find-interpreter --auditwheel skip
                   container: ${{ matrix.platform.container }}
+                  manylinux: ${{ matrix.platform.manylinux }}
             # Don't vendor shared libraries: a bundled libgbm crashes on
             # gbm_create_device (slint-ui/slint#12522). `--exclude '*'` keeps
             # them as DT_NEEDED from the host while still applying the manylinux
             # tag; grafting nothing, it also works for the cross-built wheels.
             - name: Repair wheel without bundling libraries
-              if: runner.os == 'Linux'
+              if: ${{ runner.os == 'Linux' && !contains(matrix.platform.target, 'musl') }}
               working-directory: api/python/slint
               run: |
                   python3 -m pip install auditwheel patchelf
@@ -89,8 +103,9 @@ jobs:
                   target: ${{ matrix.platform.target }}
                   args: --release --out wheelhouse --find-interpreter --auditwheel skip
                   container: ${{ matrix.platform.container }}
+                  manylinux: ${{ matrix.platform.manylinux }}
             - name: Repair wheel without bundling libraries (slint-dev)
-              if: runner.os == 'Linux'
+              if: ${{ runner.os == 'Linux' && !contains(matrix.platform.target, 'musl') }}
               working-directory: api/python/slint-dev
               run: |
                   python3 -m pip install auditwheel patchelf
