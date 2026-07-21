@@ -34,7 +34,7 @@ mod key_bindings;
 mod lower_absolute_coordinates;
 mod lower_accessibility;
 mod lower_component_container;
-mod lower_layout;
+pub(crate) mod lower_layout;
 mod lower_menus;
 mod lower_platform;
 mod lower_popups;

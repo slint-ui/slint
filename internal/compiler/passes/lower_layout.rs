@@ -21,7 +21,7 @@ use std::rc::Rc;
 /// Add a `pure function layoutinfo-v-with-constraint(width: length) -> LayoutInfo`
 /// to `elem` with the given `body`. The body reads
 /// `FunctionParameterReference { index: 0 }` for the width.
-fn synthesize_layoutinfo_v_with_constraint_on(
+pub(crate) fn synthesize_layoutinfo_v_with_constraint_on(
     elem: &ElementRc,
     span: crate::diagnostics::SourceLocation,
     body: Expression,
@@ -137,7 +137,7 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
 }
 
 /// Mirror of [`synthesize_layoutinfo_v_with_constraint_on`] for the horizontal axis.
-fn synthesize_layoutinfo_h_with_constraint_on(
+pub(crate) fn synthesize_layoutinfo_h_with_constraint_on(
     elem: &ElementRc,
     span: crate::diagnostics::SourceLocation,
     body: Expression,
