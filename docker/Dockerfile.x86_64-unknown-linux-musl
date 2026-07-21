@@ -14,19 +14,17 @@ RUN mkdir -p /sysroot/etc/apk/keys && \
     apk add --root /sysroot --initdb --no-scripts --no-cache --arch x86_64 \
         g++ musl-dev fontconfig-dev freetype-dev libxkbcommon-dev libinput-dev eudev-dev mesa-dev
 
-FROM ghcr.io/slint-ui/cross-x86_64-base:1.0
+# Ubuntu 26.04 for its clang 21: Alpine's libstdc++ 14 headers need a recent
+# clang, and its git is new enough for the Skia source build.
+FROM ubuntu:26.04
 
 # clang cross-compiles against the Alpine sysroot; ninja and python3 are for
 # the Skia source build (Skia has no prebuilt musl binaries). zstd is for the
 # rust-cache action when this image is used as a job container.
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes clang ninja-build python3 curl zstd
-
-# Work around the Skia source build requiring a newer git version (see
-# Dockerfile.x86_64-unknown-linux-gnu for the details).
-RUN DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes software-properties-common && \
-    add-apt-repository -y ppa:git-core/ppa && \
-    apt-get install --assume-yes git && \
+    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes clang ninja-build python3 git curl ca-certificates zstd && \
+    # The skia-bindings build clones git repos into the mounted, differently
+    # owned cargo home (see Dockerfile.x86_64-unknown-linux-gnu).
     git config --global safe.directory '*'
 
 # The cxx-include/gcc-lib symlinks give the ENV below a GCC-version-independent
