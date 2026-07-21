@@ -18,6 +18,11 @@ publish = false
 path = "main.rs"
 name = "test-driver-screenshot"
 
+[[bin]]
+path = "replay-anyrender.rs"
+name = "replay-anyrender"
+required-features = ["anyrender"]
+
 [features]
 default = ["skia", "software", "software-embed-assets"]
 # The default software driver renders without pre-rendering resources at compile time: vector fonts
