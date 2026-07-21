@@ -1106,8 +1106,11 @@ impl PropertyAnalysis {
 #[derive(Debug, Clone)]
 pub struct ListViewInfo {
     pub viewport_y: NamedReference,
-    // The viewport height and width are optional the value is only set if the user set it explicitly
+    /// `None` when the user explicitly sets `viewport-height` on the ListView;
+    /// `Some` when the ListView computes it from the content.
     pub viewport_height: Option<NamedReference>,
+    /// `None` when the user explicitly sets `viewport-width` on the ListView;
+    /// `Some` when the ListView computes it from the content.
     pub viewport_width: Option<NamedReference>,
     /// The ListView's inner visible height (not counting eventual scrollbar)
     pub listview_height: NamedReference,
@@ -2079,19 +2082,8 @@ impl Element {
 
             let lvi = ListViewInfo {
                 viewport_y: NamedReference::new(parent, SmolStr::new_static("viewport-y")),
-                viewport_height: if !viewport_height_is_explicitly_set {
-                    Some(NamedReference::new(
-                        parent,
-                        SmolStr::new_static("viewport-height"),
-                    ))
-                } else {
-                    None
-                },
-                viewport_width: if !viewport_width_is_explicitly_set {
-                    Some(NamedReference::new(parent, SmolStr::new_static("viewport-width")))
-                } else {
-                    None
-                },
+                viewport_height: (!viewport_height_is_explicitly_set).then(|| NamedReference::new(parent, SmolStr::new_static("viewport-height"))),
+                viewport_width: (!viewport_width_is_explicitly_set).then(|| NamedReference::new(parent, SmolStr::new_static("viewport-width"))),
                 listview_height: NamedReference::new(parent, SmolStr::new_static("visible-height")),
                 listview_width: NamedReference::new(parent, SmolStr::new_static("visible-width")),
             };
