@@ -57,8 +57,8 @@ public:
              typename R = std::invoke_result_t<Visitor, ElementHandle>>
         requires((std::is_constructible_v<bool, R> && std::is_default_constructible_v<R>)
                  || std::is_void_v<R>)
-    static auto visit_elements(const ComponentHandle<T> &component,
-                               Visitor visitor) -> std::invoke_result_t<Visitor, ElementHandle>
+    static auto visit_elements(const ComponentHandle<T> &component, Visitor visitor)
+            -> std::invoke_result_t<Visitor, ElementHandle>
     {
         // using R = std::invoke_result_t<Visitor, ElementHandle>;
         auto vrc = component.into_dyn();

@@ -32,17 +32,17 @@ using Point2D = Point<T>;
 struct LogicalPosition : public Point<float>
 {
     /// Explicitly convert a Point<float> to a LogicalPosition
-    explicit LogicalPosition(const Point<float> p) : Point<float>(p) {};
+    explicit LogicalPosition(const Point<float> p) : Point<float>(p) { };
     /// Default construct a LogicalPosition in the origin
-    LogicalPosition() : Point<float> { 0., 0. } {};
+    LogicalPosition() : Point<float> { 0., 0. } { };
 };
 /// A position in physical pixel coordinates
 struct PhysicalPosition : public Point<int32_t>
 {
     /// Explicitly convert a Point<int32_t> to a LogicalPosition
-    explicit PhysicalPosition(const Point<int32_t> p) : Point<int32_t>(p) {};
+    explicit PhysicalPosition(const Point<int32_t> p) : Point<int32_t>(p) { };
     /// Default construct a PhysicalPosition in the origin
-    PhysicalPosition() : Point<int32_t> { 0, 0 } {};
+    PhysicalPosition() : Point<int32_t> { 0, 0 } { };
 };
 
 }
