@@ -114,8 +114,8 @@ public:
         slices.reserve(paths.size());
         for (const auto &path : paths) {
             const auto &b = bytes.emplace_back(path.u8string());
-            slices.push_back(private_api::make_slice(
-                    reinterpret_cast<const uint8_t *>(b.data()), b.size()));
+            slices.push_back(
+                    private_api::make_slice(reinterpret_cast<const uint8_t *>(b.data()), b.size()));
         }
         cbindgen_private::types::slint_data_transfer_set_file_paths(
                 this, private_api::make_slice(slices.data(), slices.size()));
@@ -177,8 +177,8 @@ public:
         std::vector<std::filesystem::path> paths;
         paths.reserve(out.size());
         for (const auto &bytes : out) {
-            paths.emplace_back(std::u8string_view(
-                    reinterpret_cast<const char8_t *>(bytes.begin()), bytes.size()));
+            paths.emplace_back(std::u8string_view(reinterpret_cast<const char8_t *>(bytes.begin()),
+                                                  bytes.size()));
         }
         return paths;
     }
