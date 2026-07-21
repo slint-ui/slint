@@ -14,7 +14,9 @@ use i_slint_core::item_rendering::{
     CachedRenderingData, ItemRenderer, RenderBorderRectangle, RenderImage, RenderRectangle,
     RenderText,
 };
-use i_slint_core::items::{self, ImageFit, ImageRendering, ItemRc, Opacity, RenderingResult};
+use i_slint_core::items::{
+    self, FillRule, ImageFit, ImageRendering, ItemRc, Opacity, RenderingResult,
+};
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     PhysicalBorderRadius, RectLengths, ScaleFactor, logical_size_from_api,
@@ -374,19 +376,139 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         sharedparley::draw_text_input(self, text_input, self_rc, size, None);
     }
 
-    #[allow(unused_variables)]
     fn draw_path(&mut self, path: Pin<&items::Path>, item_rc: &ItemRc, size: LogicalSize) {
-        todo!()
+        let Some((offset, path_events)) = path.fitted_path_events(item_rc) else {
+            return;
+        };
+
+        let sf = self.scale_factor;
+
+        let mut bezpath = kurbo::BezPath::new();
+        for event in path_events.iter() {
+            match event {
+                lyon_path::Event::Begin { at } => {
+                    let p = LogicalPoint::from_untyped(at) * sf;
+                    bezpath.move_to((p.x as f64, p.y as f64));
+                }
+                lyon_path::Event::Line { to, .. } => {
+                    let p = LogicalPoint::from_untyped(to) * sf;
+                    bezpath.line_to((p.x as f64, p.y as f64));
+                }
+                lyon_path::Event::Quadratic { ctrl, to, .. } => {
+                    let c = LogicalPoint::from_untyped(ctrl) * sf;
+                    let p = LogicalPoint::from_untyped(to) * sf;
+                    bezpath.quad_to((c.x as f64, c.y as f64), (p.x as f64, p.y as f64));
+                }
+                lyon_path::Event::Cubic { ctrl1, ctrl2, to, .. } => {
+                    let c1 = LogicalPoint::from_untyped(ctrl1) * sf;
+                    let c2 = LogicalPoint::from_untyped(ctrl2) * sf;
+                    let p = LogicalPoint::from_untyped(to) * sf;
+                    bezpath.curve_to(
+                        (c1.x as f64, c1.y as f64),
+                        (c2.x as f64, c2.y as f64),
+                        (p.x as f64, p.y as f64),
+                    );
+                }
+                lyon_path::Event::End { close, .. } => {
+                    if close {
+                        bezpath.close_path();
+                    }
+                }
+            }
+        }
+
+        let phys_offset = offset * sf;
+        let transform = self
+            .current_state
+            .transform
+            .then_translate(kurbo::Vec2::new(phys_offset.x as f64, phys_offset.y as f64));
+
+        let brush_size = to_kurbo_size(size * sf);
+
+        let fill_rule = match path.fill_rule() {
+            FillRule::Evenodd => peniko::Fill::EvenOdd,
+            _ => peniko::Fill::NonZero,
+        };
+        self.fill_with_brush(path.fill(), brush_size, transform, fill_rule, &bezpath);
+
+        let stroke_brush = path.stroke();
+        if !stroke_brush.is_transparent() {
+            let stroke_width = (path.stroke_width() * sf).get() as f64;
+            let cap = match path.stroke_line_cap() {
+                items::LineCap::Round => kurbo::Cap::Round,
+                items::LineCap::Square => kurbo::Cap::Square,
+                _ => kurbo::Cap::Butt,
+            };
+            let join = match path.stroke_line_join() {
+                items::LineJoin::Round => kurbo::Join::Round,
+                items::LineJoin::Bevel => kurbo::Join::Bevel,
+                _ => kurbo::Join::Miter,
+            };
+            let stroke = kurbo::Stroke::new(stroke_width).with_caps(cap).with_join(join);
+            self.stroke_with_brush(stroke_brush, brush_size, transform, &stroke, &bezpath);
+        }
     }
 
-    #[allow(unused_variables)]
     fn draw_box_shadow(
         &mut self,
         box_shadow: Pin<&items::BoxShadow>,
         _item_rc: &ItemRc,
         size: LogicalSize,
     ) {
-        todo!()
+        let color = box_shadow.color();
+        if color.alpha() == 0 {
+            return;
+        }
+        if box_shadow.inset() {
+            // anyrender's box-shadow primitive only draws drop shadows.
+            return;
+        }
+
+        let sf = self.scale_factor;
+        let offset = LogicalPoint::from_lengths(box_shadow.offset_x(), box_shadow.offset_y()) * sf;
+        let spread = (box_shadow.spread() * sf).get() as f64;
+        let blur = (box_shadow.blur() * sf).get().max(0.) as f64;
+        let phys_size = size * sf;
+
+        let rect = kurbo::Rect::new(
+            offset.x as f64 - spread,
+            offset.y as f64 - spread,
+            offset.x as f64 + phys_size.width as f64 + spread,
+            offset.y as f64 + phys_size.height as f64 + spread,
+        );
+        if rect.is_zero_area() {
+            return;
+        }
+
+        // anyrender's box-shadow primitive supports a single uniform corner
+        // radius; approximate per-corner radii with their average.
+        let radius = box_shadow.logical_border_radius() * sf;
+        let radius = (radius.top_left + radius.top_right + radius.bottom_right + radius.bottom_left)
+            as f64
+            / 4.
+            + spread;
+
+        if blur == 0. {
+            // No blur: a plain rounded rectangle fill matches exactly.
+            let shape = kurbo::RoundedRect::from_rect(rect, radius);
+            self.scene.fill(
+                peniko::Fill::default(),
+                self.current_state.transform,
+                peniko::BrushRef::Solid(to_peniko_color(color)),
+                None,
+                &shape,
+            );
+        } else {
+            // The CSS drop-shadow convention Slint follows: the Gaussian's
+            // standard deviation is half the blur radius.
+            self.scene.draw_box_shadow(
+                self.current_state.transform,
+                rect,
+                to_peniko_color(color),
+                radius,
+                blur / 2.,
+            );
+        }
     }
 
     fn visit_opacity(
