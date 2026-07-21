@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export interface FeatureNav {
+    route Main;
+}
+
+enum InnerRoute { Main, Detail }
+
+component InnerMain inherits Rectangle { callback go(); }
+component InnerDetail inherits Rectangle { callback go-back(); }
+
+component Feature inherits Rectangle {
+    implement FeatureNav <=> self;
+    in-out property <InnerRoute> current-route: InnerRoute.Main;
+    navigator (current-route) {
+        InnerRoute.Main: InnerMain { go => { root.navigate(InnerRoute.Detail); } }
+        InnerRoute.Detail: InnerDetail { go-back => { root.back(); } }
+    }
+}
+
+enum Shell { Home, Feature }
+
+component HomeScreen inherits Rectangle { }
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    in-out property <Shell> current: Shell.Home;
+
+    navigator (current) {
+        Shell.Home: HomeScreen { }
+        Shell.Feature: mount Feature via FeatureNav { }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_current_route_index(), 0);
+instance.invoke_navigate_index(1);
+assert_eq!(instance.get_current_route_index(), 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_current_route_index(), 0);
+instance.invoke_navigate_index(1);
+assert_eq(instance.get_current_route_index(), 1);
+```
+
+```js
+var instance = new slint.TestCase();
+assert.equal(instance.current_route_index, 0);
+instance.navigate_index(1);
+assert.equal(instance.current_route_index, 1);
+```
+
+```python
+instance = TestCase()
+assert instance.current_route_index == 0
+instance.navigate_index(1)
+assert instance.current_route_index == 1
+```
+*/

@@ -170,6 +170,13 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::Identifier if p.peek().as_str() == "implement" => {
                     parse_implement_statement(&mut *p);
                 }
+                // Contract route member; the experimental gate is applied at lowering.
+                SyntaxKind::Identifier if p.peek().as_str() == "route" => {
+                    parse_route_declaration(&mut *p, None);
+                }
+                SyntaxKind::Identifier if p.peek().as_str() == "needs" => {
+                    parse_needs_specifier(&mut *p);
+                }
                 _ => {
                     if p.peek().as_str() == "changed" {
                         // Try to recover some errors
@@ -183,18 +190,34 @@ pub fn parse_element_content(p: &mut impl Parser) {
                     }
                 }
             },
-            SyntaxKind::At => {
-                let checkpoint = p.checkpoint();
-                p.consume();
-                if p.peek().as_str() == "children" {
-                    let mut p =
-                        p.start_node_at(checkpoint.clone(), SyntaxKind::ChildrenPlaceholder);
-                    p.consume()
-                } else {
+            SyntaxKind::At => match p.nth(1).as_str() {
+                "children" => {
+                    let checkpoint = p.checkpoint();
+                    p.consume(); // "@"
+                    let mut p = p.start_node_at(checkpoint, SyntaxKind::ChildrenPlaceholder);
+                    p.consume() // "children"
+                }
+                "version" => {
+                    parse_navigation_attribute(&mut *p, "version", SyntaxKind::AtVersion);
+                }
+                "uri" => {
+                    let checkpoint = p.checkpoint();
+                    parse_navigation_attribute(&mut *p, "uri", SyntaxKind::AtUri);
+                    while p.peek().as_str() == "@" && p.nth(1).as_str() == "uri" {
+                        parse_navigation_attribute(&mut *p, "uri", SyntaxKind::AtUri);
+                    }
+                    if p.peek().as_str() == "route" {
+                        parse_route_declaration(&mut *p, Some(checkpoint));
+                    } else {
+                        p.error("Parse error: Expected 'route' after @uri");
+                    }
+                }
+                _ => {
+                    p.consume(); // "@"
                     p.test(SyntaxKind::Identifier);
                     p.error("Parse error: Expected @children")
                 }
-            }
+            },
             _ => {
                 if !had_parse_error {
                     p.error("Parse error");
@@ -220,6 +243,79 @@ fn parse_sub_element(p: &mut impl Parser) -> bool {
         p.expect(SyntaxKind::ColonEqual);
     }
     parse_element(&mut *p)
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,RouteDeclaration
+/// route Home;
+/// route Details(id: int);
+/// route Details(id: int, name: string);
+/// route Details(id: int,);
+/// ```
+/// The optional `checkpoint` lets a preceding `@uri(...)` attribute be wrapped
+/// into the RouteDeclaration node (mirrors struct/enum + `@rust-attr`).
+fn parse_route_declaration<P: Parser>(p: &mut P, checkpoint: Option<P::Checkpoint>) {
+    debug_assert_eq!(p.peek().as_str(), "route");
+    let mut p = p.start_node_at(checkpoint, SyntaxKind::RouteDeclaration);
+    p.expect(SyntaxKind::Identifier); // "route"
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    // Optional typed parameters, reusing the function argument grammar.
+    if p.test(SyntaxKind::LParent) {
+        while p.peek().kind() != SyntaxKind::RParent {
+            let mut p_arg = p.start_node(SyntaxKind::ArgumentDeclaration);
+            {
+                let mut p = p_arg.start_node(SyntaxKind::DeclaredIdentifier);
+                p.expect(SyntaxKind::Identifier);
+            }
+            p_arg.expect(SyntaxKind::Colon);
+            parse_type(&mut *p_arg);
+            drop(p_arg);
+            if !p.test(SyntaxKind::Comma) {
+                break;
+            }
+        }
+        p.expect(SyntaxKind::RParent);
+    }
+    if !p.test(SyntaxKind::Semicolon) {
+        p.error("Expected ';' after route declaration");
+    }
+}
+
+/// Parse a navigation attribute `@name(<literal>)`, wrapping the argument tokens
+/// in `kind`. Mirrors `parse_rustattr` so the read-out reuses `attr.text()`. The
+/// caller has verified the attribute name at `nth(1)`.
+fn parse_navigation_attribute(p: &mut impl Parser, name: &str, kind: SyntaxKind) -> bool {
+    debug_assert_eq!(p.peek().as_str(), "@");
+    p.consume(); // "@"
+    p.consume(); // attribute name
+    if !p.expect(SyntaxKind::LParent) {
+        return false;
+    }
+    {
+        let mut p = p.start_node(kind);
+        let mut level = 1;
+        loop {
+            match p.peek().kind() {
+                SyntaxKind::LParent => level += 1,
+                SyntaxKind::RParent => {
+                    level -= 1;
+                    if level == 0 {
+                        break;
+                    }
+                }
+                SyntaxKind::Eof => {
+                    p.error(format!("unmatched parentheses in @{name}"));
+                    return false;
+                }
+                _ => {}
+            }
+            p.consume()
+        }
+    }
+    p.expect(SyntaxKind::RParent)
 }
 
 #[cfg_attr(test, parser_test)]
@@ -401,6 +497,11 @@ fn parse_route(p: &mut impl Parser) {
             p.consume();
         }
     }
+    // A federated mount destination: `mount Impl via Contract { }`.
+    if p.peek().as_str() == "mount" {
+        parse_mount_destination(&mut *p);
+        return;
+    }
     if p.peek().kind() == SyntaxKind::LBrace {
         // empty route
         p.expect(SyntaxKind::LBrace);
@@ -412,6 +513,61 @@ fn parse_route(p: &mut impl Parser) {
         return;
     }
     parse_sub_element(&mut *p);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,MountDestination
+/// mount ModuleA via AppNavV1 { }
+/// mount M via C {}
+/// mount ModuleA via AppNavV1 { open-settings => {} }
+/// mount extern via AppNavV1 { component-factory: root.f; }
+/// mount extern via C {}
+/// ```
+fn parse_mount_destination(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "mount");
+    let mut p = p.start_node(SyntaxKind::MountDestination);
+    p.expect(SyntaxKind::Identifier); // "mount"
+    // `extern` (soft keyword) marks an external destination: no base name, so
+    // object_tree can tell it from a local mount.
+    let external = p.peek().as_str() == "extern";
+    if external {
+        p.consume(); // "extern"
+    }
+    // The impl is a normal `Impl { <bindings> }` wrapped as a SubElement so the
+    // mount-block bindings flow through the ordinary binding path; `via <Contract>`
+    // nests in a MountVia node.
+    let mut sub = p.start_node(SyntaxKind::SubElement);
+    let mut el = sub.start_node(SyntaxKind::Element);
+    if !external {
+        parse_qualified_name(&mut *el); // the mounted implementation
+    }
+    {
+        let mut via = el.start_node(SyntaxKind::MountVia);
+        if via.peek().as_str() != "via" {
+            via.error("Expected 'via <Contract>' after 'mount <Impl>'");
+        } else {
+            via.consume(); // "via"
+        }
+        parse_qualified_name(&mut *via); // the navigation contract to satisfy
+    }
+    if !el.expect(SyntaxKind::LBrace) {
+        return;
+    }
+    parse_element_content(&mut *el);
+    el.expect(SyntaxKind::RBrace);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,NeedsSpecifier
+/// needs AppServices;
+/// needs Fully.Qualified.Services;
+/// ```
+fn parse_needs_specifier(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "needs");
+    let mut p = p.start_node(SyntaxKind::NeedsSpecifier);
+    p.expect(SyntaxKind::Identifier); // "needs"
+    parse_qualified_name(&mut *p);
+    p.expect(SyntaxKind::Semicolon);
 }
 
 #[cfg_attr(test, parser_test)]

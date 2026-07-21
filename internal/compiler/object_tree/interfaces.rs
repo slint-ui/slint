@@ -4,7 +4,7 @@
 //! Module containing interfaces related types and functions.
 
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt::Display;
 use std::rc::Rc;
 
@@ -16,7 +16,8 @@ use crate::expression_tree::{BindingExpression, Callable, Expression};
 use crate::langtype::{ElementType, Function, PropertyLookupResult, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
-    Element, ElementRc, PropertyDeclaration, QualifiedTypeName, find_element_by_id,
+    Element, ElementRc, NavigationContract, NeededCapability, PropertyDeclaration,
+    QualifiedTypeName, find_element_by_id, recurse_elem,
 };
 use crate::parser;
 use crate::parser::{SyntaxKind, syntax_nodes};
@@ -640,4 +641,211 @@ fn apply_uses_statement_function_binding(
 
     let body = Expression::CodeBlock(vec![call_expr]);
     element.borrow_mut().bindings.insert(name.clone(), RefCell::new(BindingExpression::from(body)))
+}
+
+pub(super) struct NeededInterface {
+    needs_specifier: syntax_nodes::NeedsSpecifier,
+    interface: ElementRc,
+    interface_name: SmolStr,
+}
+
+/// Resolve the `needs` specifiers on `node` to capability interfaces.
+pub(super) fn get_needed_interfaces(
+    e: &Element,
+    node: &syntax_nodes::Element,
+    tr: &TypeRegister,
+    diag: &mut BuildDiagnostics,
+) -> Vec<NeededInterface> {
+    let specifiers: Vec<syntax_nodes::NeedsSpecifier> = node.NeedsSpecifier().collect();
+    if specifiers.is_empty() {
+        return Vec::new();
+    }
+
+    #[cfg(feature = "slint-sc")]
+    for specifier in &specifiers {
+        diag.slint_sc_error("'needs' is", specifier);
+    }
+
+    if !diag.enable_experimental && !tr.expose_internal_types {
+        for specifier in &specifiers {
+            diag.push_error("'needs' is an experimental feature".into(), specifier);
+        }
+        return Vec::new();
+    }
+
+    let mut needed = Vec::new();
+    for needs_specifier in specifiers {
+        let interface_name =
+            QualifiedTypeName::from_node(needs_specifier.QualifiedName()).to_smolstr();
+        match e.base_type.lookup_type_for_child_element(&interface_name, tr) {
+            Ok(ElementType::Component(c)) if c.is_interface() => {
+                c.used.set(true);
+                needed.push(NeededInterface {
+                    needs_specifier,
+                    interface: c.root_element.clone(),
+                    interface_name,
+                });
+            }
+            Ok(_) => diag.push_error(
+                format!("Cannot use '{interface_name}' as a capability. It is not an interface"),
+                &needs_specifier.QualifiedName(),
+            ),
+            Err(err) => diag.push_error(err, &needs_specifier.QualifiedName()),
+        }
+    }
+    needed
+}
+
+/// Declare each needed interface's members as unbound on `e` (the host binds them
+/// at the mount site) and return the recorded needs for the mount verifier.
+pub(super) fn apply_needs(
+    e: &mut Element,
+    needed: &[NeededInterface],
+    diag: &mut BuildDiagnostics,
+) -> Vec<NeededCapability> {
+    let mut capabilities = Vec::new();
+    for NeededInterface { needs_specifier, interface, interface_name } in needed {
+        let mut members = Vec::new();
+        for (name, prop_decl) in interface.borrow().property_declarations.iter().filter(|(_, d)| {
+            matches!(d.property_type, Type::Callback { .. } | Type::Function { .. })
+        }) {
+            if apply_needed_member(e, name, prop_decl, needs_specifier, interface_name, diag) {
+                members.push(name.clone());
+            }
+        }
+        capabilities.push(NeededCapability { interface_name: interface_name.clone(), members });
+    }
+    capabilities
+}
+
+/// Declare one capability member as unbound; false on a name conflict (diagnostic emitted).
+fn apply_needed_member(
+    e: &mut Element,
+    name: &SmolStr,
+    prop_decl: &PropertyDeclaration,
+    needs_specifier: &syntax_nodes::NeedsSpecifier,
+    interface_name: &SmolStr,
+    diag: &mut BuildDiagnostics,
+) -> bool {
+    if matches!(prop_decl.property_type, Type::Invalid) {
+        return false;
+    }
+
+    let lookup_result = e.lookup_property(name);
+    if lookup_result.property_type != Type::Invalid && lookup_result.is_local_to_component {
+        diag.push_error(
+            format!(
+                "Conflict with '{interface_name}' which declares a capability member '{name}' with the same name"
+            ),
+            &needs_specifier.QualifiedName(),
+        );
+        return false;
+    }
+
+    // No declaration of its own: point diagnostics at the `needs` specifier.
+    let mut prop_decl = prop_decl.clone();
+    prop_decl.node = Some(needs_specifier.QualifiedName().into());
+    e.property_declarations.insert(name.clone(), prop_decl);
+    true
+}
+
+/// Last `.`-segment of a qualified enum value, e.g. `Home` from `Route.Home`.
+fn navigator_route_name(route: &syntax_nodes::Expression) -> SmolStr {
+    route.text().to_string().rsplit('.').next().unwrap_or_default().trim().into()
+}
+
+/// Route names of the first `navigator` in `root` (one per component by
+/// convention), or `None` if none.
+fn navigator_route_names(root: &ElementRc) -> Option<HashSet<SmolStr>> {
+    let mut names: Option<HashSet<SmolStr>> = None;
+    recurse_elem(root, &(), &mut |elem, _| {
+        if names.is_none() {
+            let elem = elem.borrow();
+            let routes = elem.navigator_routes();
+            if !routes.is_empty() {
+                names = Some(routes.iter().map(|r| navigator_route_name(&r.route)).collect());
+            }
+        }
+    });
+    names
+}
+
+/// Verify a federated mount: `impl_root` must cover every `contract` route by name.
+pub(super) fn validate_mount_conformance(
+    impl_name: &str,
+    impl_root: &ElementRc,
+    contract_name: &str,
+    contract: &NavigationContract,
+    mount_site: &dyn crate::diagnostics::Spanned,
+    diag: &mut BuildDiagnostics,
+) -> bool {
+    let Some(names) = navigator_route_names(impl_root) else {
+        diag.push_error(
+            format!(
+                "mount of '{impl_name}' does not satisfy contract '{contract_name}': it declares no navigator"
+            ),
+            mount_site,
+        );
+        return false;
+    };
+    // Extra routes are allowed; only missing contract routes are an error.
+    let missing: Vec<&str> =
+        contract.routes.iter().map(|r| r.name.as_str()).filter(|n| !names.contains(*n)).collect();
+    if !missing.is_empty() {
+        diag.push_error(
+            format!(
+                "mount of '{impl_name}' does not satisfy contract '{contract_name}': missing route(s) {}",
+                missing.join(", ")
+            ),
+            mount_site,
+        );
+        return false;
+    }
+    true
+}
+
+/// Verify each self-implemented navigation-contract interface has its routes
+/// covered by this component's navigator (route-name coverage only; param-type
+/// conformance and `<=> child` contracts are deferred).
+pub(super) fn validate_navigation_contract_conformance(
+    root: &ElementRc,
+    implemented_interfaces: &[ImplementedInterface],
+    diag: &mut BuildDiagnostics,
+) {
+    for implemented in implemented_interfaces {
+        let Some(contract) = implemented
+            .interface
+            .borrow()
+            .enclosing_component
+            .upgrade()
+            .and_then(|c| c.navigation_contract())
+        else {
+            continue;
+        };
+        if contract.routes.is_empty() {
+            continue;
+        }
+        let interface_name = &implemented.interface_name;
+        let Some(names) = navigator_route_names(root) else {
+            diag.push_error(
+                format!(
+                    "component implements navigation contract '{interface_name}' but declares no navigator"
+                ),
+                &implemented.node.QualifiedName(),
+            );
+            continue;
+        };
+        // Extra navigator routes are allowed; only missing contract routes error.
+        for route in &contract.routes {
+            if !names.contains(&route.name) {
+                diag.push_error(
+                    format!(
+                        "component implements '{interface_name}' but its navigator has no route for '{}'",
+                        route.name
+                    ),
+                    &implemented.node.QualifiedName(),
+                );
+            }
+        }
+    }
 }

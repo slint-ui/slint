@@ -400,6 +400,7 @@ fn duplicate_element_with_mapping(
             .collect(),
         repeated: elem.repeated.clone(),
         navigator_routes: elem.navigator_routes.clone(),
+        needed_capabilities: elem.needed_capabilities.clone(),
         is_component_placeholder: elem.is_component_placeholder,
         debug: elem.debug.clone(),
         enclosing_component: Rc::downgrade(root_component),
@@ -488,6 +489,7 @@ fn duplicate_sub_component(
         private_properties: Default::default(),
         inherits_popup_window: core::cell::Cell::new(false),
         from_library: core::cell::Cell::new(false),
+        navigation_contract: Default::default(),
     };
 
     let new_component = Rc::new(new_component);

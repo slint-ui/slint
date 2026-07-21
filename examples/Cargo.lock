@@ -6047,6 +6047,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d758ba1b47b00caf47f24925c0074ecb20d6dfcffe7f6d53395c0465674841a"
 
 [[package]]
+name = "generativity"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2c81fb5260e37854d09d5c87183309fd8c555b75289427884b25660bc87a85e"
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7192,6 +7198,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "i-slint-backend-qt"
+version = "1.18.0"
+dependencies = [
+ "const-field-offset",
+ "i-slint-common",
+ "i-slint-core",
+ "i-slint-core-macros",
+ "vtable",
+]
+
+[[package]]
 name = "i-slint-backend-selector"
 version = "1.18.0"
 dependencies = [
@@ -7199,6 +7216,7 @@ dependencies = [
  "cfg_aliases",
  "i-slint-backend-android-activity",
  "i-slint-backend-linuxkms",
+ "i-slint-backend-qt",
  "i-slint-backend-testing",
  "i-slint-backend-winit",
  "i-slint-common",
@@ -9370,6 +9388,15 @@ name = "navigation"
 version = "1.18.0"
 dependencies = [
  "slint",
+]
+
+[[package]]
+name = "navigation-federated"
+version = "1.18.0"
+dependencies = [
+ "slint",
+ "slint-interpreter",
+ "spin_on",
 ]
 
 [[package]]
@@ -14306,6 +14333,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "slint-interpreter"
+version = "1.18.0"
+dependencies = [
+ "derive_more",
+ "generativity",
+ "i-slint-backend-selector",
+ "i-slint-backend-winit",
+ "i-slint-common",
+ "i-slint-compiler",
+ "i-slint-core",
+ "i-slint-core-macros",
+ "itertools 0.14.0",
+ "lyon_path",
+ "once_cell",
+ "smol_str 0.3.6",
+ "unicode-segmentation",
+ "vtable",
+ "web-sys",
+]
+
+[[package]]
 name = "slint-macros"
 version = "1.18.0"
 dependencies = [
@@ -15137,7 +15185,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.4",
  "windows-sys 0.61.2",
