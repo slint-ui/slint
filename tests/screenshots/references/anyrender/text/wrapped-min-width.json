@@ -1,0 +1,355 @@
+[
+  {
+    "PushClipLayer": {
+      "clip": "M0,0 C0,0 0,0 0,0 L60,0 C60,0 60,0 60,0 L60,64 C60,64 60,64 60,64 L0,64 C0,64 0,64 0,64 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "GlyphRun": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.502,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "brush_alpha": 1.0,
+      "embolden": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "font_data": {
+        "index": 0,
+        "resource_id": 0
+      },
+      "font_size": 10.0,
+      "glyph_transform": null,
+      "glyphs": [
+        {
+          "id": 88,
+          "x": 0.0,
+          "y": 10.69
+        },
+        {
+          "id": 88,
+          "x": 7.86,
+          "y": 10.69
+        },
+        {
+          "id": 88,
+          "x": 15.72,
+          "y": 10.69
+        },
+        {
+          "id": 88,
+          "x": 23.58,
+          "y": 10.69
+        },
+        {
+          "id": 1,
+          "x": 31.44,
+          "y": 10.69
+        }
+      ],
+      "hint": false,
+      "normalized_coords": [],
+      "style": {
+        "Fill": "NonZero"
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "GlyphRun": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.502,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "brush_alpha": 1.0,
+      "embolden": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "font_data": {
+        "index": 0,
+        "resource_id": 0
+      },
+      "font_size": 10.0,
+      "glyph_transform": null,
+      "glyphs": [
+        {
+          "id": 88,
+          "x": 0.0,
+          "y": 24.31
+        },
+        {
+          "id": 88,
+          "x": 7.86,
+          "y": 24.31
+        },
+        {
+          "id": 88,
+          "x": 15.72,
+          "y": 24.31
+        },
+        {
+          "id": 88,
+          "x": 23.58,
+          "y": 24.31
+        },
+        {
+          "id": 1,
+          "x": 31.44,
+          "y": 24.31
+        }
+      ],
+      "hint": false,
+      "normalized_coords": [],
+      "style": {
+        "Fill": "NonZero"
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "GlyphRun": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.502,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "brush_alpha": 1.0,
+      "embolden": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "font_data": {
+        "index": 0,
+        "resource_id": 0
+      },
+      "font_size": 10.0,
+      "glyph_transform": null,
+      "glyphs": [
+        {
+          "id": 88,
+          "x": 0.0,
+          "y": 37.93
+        },
+        {
+          "id": 88,
+          "x": 7.86,
+          "y": 37.93
+        },
+        {
+          "id": 88,
+          "x": 15.72,
+          "y": 37.93
+        },
+        {
+          "id": 88,
+          "x": 23.58,
+          "y": 37.93
+        }
+      ],
+      "hint": false,
+      "normalized_coords": [],
+      "style": {
+        "Fill": "NonZero"
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "PopLayer",
+  {
+    "PushClipLayer": {
+      "clip": "M0,0 C0,0 0,0 0,0 L4,0 C4,0 4,0 4,0 L4,64 C4,64 4,64 4,64 L0,64 C0,64 0,64 0,64 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        60.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "GlyphRun": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_alpha": 1.0,
+      "embolden": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "font_data": {
+        "index": 0,
+        "resource_id": 0
+      },
+      "font_size": 10.0,
+      "glyph_transform": null,
+      "glyphs": [
+        {
+          "id": 74,
+          "x": 0.0,
+          "y": 10.69
+        }
+      ],
+      "hint": false,
+      "normalized_coords": [],
+      "style": {
+        "Fill": "NonZero"
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        60.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "GlyphRun": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_alpha": 1.0,
+      "embolden": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "font_data": {
+        "index": 0,
+        "resource_id": 0
+      },
+      "font_size": 10.0,
+      "glyph_transform": null,
+      "glyphs": [
+        {
+          "id": 74,
+          "x": 0.0,
+          "y": 24.31
+        }
+      ],
+      "hint": false,
+      "normalized_coords": [],
+      "style": {
+        "Fill": "NonZero"
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        60.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "GlyphRun": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_alpha": 1.0,
+      "embolden": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "font_data": {
+        "index": 0,
+        "resource_id": 0
+      },
+      "font_size": 10.0,
+      "glyph_transform": null,
+      "glyphs": [
+        {
+          "id": 74,
+          "x": 0.0,
+          "y": 37.93
+        }
+      ],
+      "hint": false,
+      "normalized_coords": [],
+      "style": {
+        "Fill": "NonZero"
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        60.0,
+        0.0
+      ]
+    }
+  },
+  "PopLayer"
+]

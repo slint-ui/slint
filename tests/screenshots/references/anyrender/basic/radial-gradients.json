@@ -1,0 +1,807 @@
+[
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Radial": {
+              "end_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "end_radius": 1.0,
+              "start_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "start_radius": 0.0
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.0
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            }
+          ]
+        }
+      },
+      "brush_transform": [
+        19.2296,
+        0.0,
+        0.0,
+        19.2296,
+        10.6667,
+        16.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,32 L0,32 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "PushLayer": {
+      "alpha": 0.5,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcOver",
+        "mix": "Normal"
+      },
+      "clip": "M0,0 L1000000000,0 L1000000000,1000000000 L0,1000000000 Z",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Radial": {
+              "end_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "end_radius": 1.0,
+              "start_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "start_radius": 0.0
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  0.1961,
+                  0.8039,
+                  0.1961,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.1
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.5
+            }
+          ]
+        }
+      },
+      "brush_transform": [
+        19.2296,
+        0.0,
+        0.0,
+        19.2296,
+        10.6667,
+        16.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,32 L0,32 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "PopLayer",
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Radial": {
+              "end_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "end_radius": 1.0,
+              "start_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "start_radius": 0.0
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.1
+            },
+            {
+              "color": {
+                "components": [
+                  0.1333,
+                  0.2,
+                  0.6,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.35
+            },
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.85
+            }
+          ]
+        }
+      },
+      "brush_transform": [
+        19.2296,
+        0.0,
+        0.0,
+        19.2296,
+        10.6667,
+        16.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,32 L0,32 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        21.3333,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Radial": {
+              "end_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "end_radius": 1.0,
+              "start_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "start_radius": 0.0
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.0
+            },
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.5
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.502,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.5
+            }
+          ]
+        }
+      },
+      "brush_transform": [
+        19.2296,
+        0.0,
+        0.0,
+        19.2296,
+        10.6667,
+        16.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,32 L0,32 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        42.6667,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Radial": {
+              "end_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "end_radius": 1.0,
+              "start_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "start_radius": 0.0
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  0.6784,
+                  0.8471,
+                  0.902,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.0
+            },
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            }
+          ]
+        }
+      },
+      "brush_transform": [
+        19.2296,
+        0.0,
+        0.0,
+        19.2296,
+        10.6667,
+        16.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,32 L0,32 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        32.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Radial": {
+              "end_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "end_radius": 1.0,
+              "start_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "start_radius": 0.0
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.502,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.0
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.5
+            },
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.502,
+                  0.498
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            }
+          ]
+        }
+      },
+      "brush_transform": [
+        19.2296,
+        0.0,
+        0.0,
+        19.2296,
+        10.6667,
+        16.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,32 L0,32 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        32.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Radial": {
+              "end_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "end_radius": 1.0,
+              "start_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "start_radius": 0.0
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.0
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.3
+            },
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  1.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.3
+            },
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  1.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.6
+            },
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.6
+            },
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            }
+          ]
+        }
+      },
+      "brush_transform": [
+        19.2296,
+        0.0,
+        0.0,
+        19.2296,
+        10.6667,
+        16.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,32 L0,32 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        21.3333,
+        32.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Radial": {
+              "end_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "end_radius": 1.0,
+              "start_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "start_radius": 0.0
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.0
+            },
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.01
+            },
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.5
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            }
+          ]
+        }
+      },
+      "brush_transform": [
+        19.2296,
+        0.0,
+        0.0,
+        19.2296,
+        10.6667,
+        16.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,32 L0,32 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        42.6667,
+        32.0
+      ]
+    }
+  }
+]

@@ -1,0 +1,241 @@
+[
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0159,
+        0.0,
+        0.0,
+        0.9846,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L64,0 L64,25.6 L0,25.6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        3.2
+      ]
+    }
+  },
+  {
+    "PushClipLayer": {
+      "clip": "M0,0 C0,0 0,0 0,0 L14,0 C14,0 14,0 14,0 L14,6 C14,6 14,6 14,6 L0,6 C0,6 0,6 0,6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "GlyphRun": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0667,
+            0.1333,
+            0.2,
+            0.6667
+          ]
+        }
+      },
+      "brush_alpha": 1.0,
+      "embolden": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "font_data": {
+        "index": 0,
+        "resource_id": 0
+      },
+      "font_size": 4.0,
+      "glyph_transform": null,
+      "glyphs": [
+        {
+          "id": 18,
+          "x": 0.0,
+          "y": 4.276
+        },
+        {
+          "id": 23,
+          "x": 2.288,
+          "y": 4.276
+        },
+        {
+          "id": 22,
+          "x": 4.576,
+          "y": 4.276
+        },
+        {
+          "id": 89,
+          "x": 6.864,
+          "y": 4.276
+        },
+        {
+          "id": 23,
+          "x": 8.98,
+          "y": 4.276
+        },
+        {
+          "id": 23,
+          "x": 11.268,
+          "y": 4.276
+        }
+      ],
+      "hint": false,
+      "normalized_coords": [],
+      "style": {
+        "Fill": "NonZero"
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "PopLayer",
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 1,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        0.1939,
+        0.0,
+        0.0,
+        0.1939,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L64,0 L64,25.6 L0,25.6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        35.2
+      ]
+    }
+  },
+  {
+    "PushClipLayer": {
+      "clip": "M0,0 C0,0 0,0 0,0 L16,0 C16,0 16,0 16,0 L16,6 C16,6 16,6 16,6 L0,6 C0,6 0,6 0,6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        32.0
+      ]
+    }
+  },
+  {
+    "GlyphRun": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.2,
+            0.1333,
+            0.0667,
+            0.6667
+          ]
+        }
+      },
+      "brush_alpha": 1.0,
+      "embolden": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "font_data": {
+        "index": 0,
+        "resource_id": 0
+      },
+      "font_size": 4.0,
+      "glyph_transform": null,
+      "glyphs": [
+        {
+          "id": 20,
+          "x": 0.0,
+          "y": 4.276
+        },
+        {
+          "id": 20,
+          "x": 2.288,
+          "y": 4.276
+        },
+        {
+          "id": 17,
+          "x": 4.576,
+          "y": 4.276
+        },
+        {
+          "id": 89,
+          "x": 6.864,
+          "y": 4.276
+        },
+        {
+          "id": 18,
+          "x": 8.98,
+          "y": 4.276
+        },
+        {
+          "id": 20,
+          "x": 11.268,
+          "y": 4.276
+        },
+        {
+          "id": 19,
+          "x": 13.556,
+          "y": 4.276
+        }
+      ],
+      "hint": false,
+      "normalized_coords": [],
+      "style": {
+        "Fill": "NonZero"
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        32.0
+      ]
+    }
+  },
+  "PopLayer"
+]

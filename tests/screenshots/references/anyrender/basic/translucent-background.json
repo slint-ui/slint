@@ -1,0 +1,232 @@
+[
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.2667,
+            0.8667,
+            0.5333,
+            0.8
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L22.92,0 L22.92,32.84 L0,32.84 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        5.33,
+        5.33
+      ]
+    }
+  },
+  {
+    "PushLayer": {
+      "alpha": 0.8,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcOver",
+        "mix": "Normal"
+      },
+      "clip": "M0,0 L1000000000,0 L1000000000,1000000000 L0,1000000000 Z",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.2667,
+            0.8667,
+            0.5333,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L22.92,0 L22.92,32.84 L0,32.84 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        31.75,
+        5.33
+      ]
+    }
+  },
+  "PopLayer",
+  {
+    "PushClipLayer": {
+      "clip": "M0,0 C0,0 0,0 0,0 L22.92,0 C22.92,0 22.92,0 22.92,0 L22.92,17 C22.92,17 22.92,17 22.92,17 L0,17 C0,17 0,17 0,17 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        5.33,
+        41.67
+      ]
+    }
+  },
+  {
+    "GlyphRun": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.6,
+            0.6667,
+            0.2,
+            0.502
+          ]
+        }
+      },
+      "brush_alpha": 1.0,
+      "embolden": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "font_data": {
+        "index": 0,
+        "resource_id": 0
+      },
+      "font_size": 12.0,
+      "glyph_transform": null,
+      "glyphs": [
+        {
+          "id": 41,
+          "x": 0.0,
+          "y": 12.828
+        },
+        {
+          "id": 74,
+          "x": 8.892,
+          "y": 12.828
+        },
+        {
+          "id": 2,
+          "x": 11.988,
+          "y": 12.828
+        }
+      ],
+      "hint": false,
+      "normalized_coords": [],
+      "style": {
+        "Fill": "NonZero"
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        5.33,
+        41.67
+      ]
+    }
+  },
+  "PopLayer",
+  {
+    "PushLayer": {
+      "alpha": 0.5,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcOver",
+        "mix": "Normal"
+      },
+      "clip": "M0,0 L1000000000,0 L1000000000,1000000000 L0,1000000000 Z",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "PushClipLayer": {
+      "clip": "M0,0 C0,0 0,0 0,0 L22.92,0 C22.92,0 22.92,0 22.92,0 L22.92,17 C22.92,17 22.92,17 22.92,17 L0,17 C0,17 0,17 0,17 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        31.75,
+        41.67
+      ]
+    }
+  },
+  {
+    "GlyphRun": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.6,
+            0.6667,
+            0.2,
+            1.0
+          ]
+        }
+      },
+      "brush_alpha": 1.0,
+      "embolden": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "font_data": {
+        "index": 0,
+        "resource_id": 0
+      },
+      "font_size": 12.0,
+      "glyph_transform": null,
+      "glyphs": [
+        {
+          "id": 41,
+          "x": 0.0,
+          "y": 12.828
+        },
+        {
+          "id": 74,
+          "x": 8.892,
+          "y": 12.828
+        },
+        {
+          "id": 2,
+          "x": 11.988,
+          "y": 12.828
+        }
+      ],
+      "hint": false,
+      "normalized_coords": [],
+      "style": {
+        "Fill": "NonZero"
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        31.75,
+        41.67
+      ]
+    }
+  },
+  "PopLayer",
+  "PopLayer"
+]

@@ -1,0 +1,465 @@
+[
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M4,4 C4,4 4,4 4,4 L28,4 C28,4 28,4 28,4 L28,28 C28,28 28,28 28,28 L4,28 C4,28 4,28 4,28 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Stroke": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Linear": {
+              "end": {
+                "x": 12.0,
+                "y": 0.0
+              },
+              "start": {
+                "x": 12.0,
+                "y": 24.0
+              }
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.0
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            }
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M4,4 C4,4 4,4 4,4 L28,4 C28,4 28,4 28,4 L28,28 C28,28 28,28 28,28 L4,28 C4,28 4,28 4,28 Z",
+      "style": {
+        "dash_offset": 0.0,
+        "dash_pattern": [],
+        "end_cap": "Round",
+        "join": "Round",
+        "miter_limit": 4.0,
+        "start_cap": "Round",
+        "width": 8.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M4,4.01 C4,4.0045 4.0045,4 4.01,4 L27.99,4 C27.9955,4 28,4.0045 28,4.01 L28,27.99 C28,27.9955 27.9955,28 27.99,28 L4.01,28 C4.0045,28 4,27.9955 4,27.99 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        32.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Stroke": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Linear": {
+              "end": {
+                "x": 24.0,
+                "y": 12.0
+              },
+              "start": {
+                "x": 0.0,
+                "y": 12.0
+              }
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.0
+            },
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  1.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.5
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            }
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M4,4.01 C4,4.0045 4.0045,4 4.01,4 L27.99,4 C27.9955,4 28,4.0045 28,4.01 L28,27.99 C28,27.9955 27.9955,28 27.99,28 L4.01,28 C4.0045,28 4,27.9955 4,27.99 Z",
+      "style": {
+        "dash_offset": 0.0,
+        "dash_pattern": [],
+        "end_cap": "Round",
+        "join": "Round",
+        "miter_limit": 4.0,
+        "start_cap": "Round",
+        "width": 8.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        32.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M4,4.01 C4,4.0045 4.0045,4 4.01,4 L27.99,4 C27.9955,4 28,4.0045 28,4.01 L28,27.99 C28,27.9955 27.9955,28 27.99,28 L4.01,28 C4.0045,28 4,27.9955 4,27.99 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        32.0
+      ]
+    }
+  },
+  {
+    "Stroke": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Sweep": {
+              "center": {
+                "x": 12.0,
+                "y": 12.0
+              },
+              "end_angle": 6.2832,
+              "start_angle": 0.0
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.0
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.502,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.3333
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.6667
+            },
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            }
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M4,4.01 C4,4.0045 4.0045,4 4.01,4 L27.99,4 C27.9955,4 28,4.0045 28,4.01 L28,27.99 C28,27.9955 27.9955,28 27.99,28 L4.01,28 C4.0045,28 4,27.9955 4,27.99 Z",
+      "style": {
+        "dash_offset": 0.0,
+        "dash_pattern": [],
+        "end_cap": "Round",
+        "join": "Round",
+        "miter_limit": 4.0,
+        "start_cap": "Round",
+        "width": 8.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        32.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M4,8 C4,5.7909 5.7909,4 8,4 L24,4 C26.2091,4 28,5.7909 28,8 L28,24 C28,26.2091 26.2091,28 24,28 L8,28 C5.7909,28 4,26.2091 4,24 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        32.0,
+        32.0
+      ]
+    }
+  },
+  {
+    "Stroke": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Radial": {
+              "end_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "end_radius": 1.0,
+              "start_center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "start_radius": 0.0
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.0
+            },
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            }
+          ]
+        }
+      },
+      "brush_transform": [
+        16.9706,
+        0.0,
+        0.0,
+        16.9706,
+        12.0,
+        12.0
+      ],
+      "shape": "M4,8 C4,5.7909 5.7909,4 8,4 L24,4 C26.2091,4 28,5.7909 28,8 L28,24 C28,26.2091 26.2091,28 24,28 L8,28 C5.7909,28 4,26.2091 4,24 Z",
+      "style": {
+        "dash_offset": 0.0,
+        "dash_pattern": [],
+        "end_cap": "Round",
+        "join": "Round",
+        "miter_limit": 4.0,
+        "start_cap": "Round",
+        "width": 8.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        32.0,
+        32.0
+      ]
+    }
+  }
+]
