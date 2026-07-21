@@ -805,9 +805,8 @@ pub(super) fn validate_mount_conformance(
 }
 
 /// Verify each self-implemented navigation-contract interface has its routes
-/// covered by this component's navigator. Only route-name coverage is checked;
-/// param-type conformance is deferred. A contract implemented `<=> child` is not
-/// reached here (it lands in the child-implements list) and is not yet supported.
+/// covered by this component's navigator (route-name coverage only; param-type
+/// conformance and `<=> child` contracts are deferred).
 pub(super) fn validate_navigation_contract_conformance(
     root: &ElementRc,
     implemented_interfaces: &[ImplementedInterface],

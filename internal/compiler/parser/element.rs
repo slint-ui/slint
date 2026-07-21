@@ -527,19 +527,15 @@ fn parse_mount_destination(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "mount");
     let mut p = p.start_node(SyntaxKind::MountDestination);
     p.expect(SyntaxKind::Identifier); // "mount"
-    // `extern` (soft keyword) marks an external cross-process destination: no
-    // statically-known impl. The destination resolves to a `ComponentContainer`
-    // the host fills at runtime; the Element carries no base name, which is how
-    // object_tree tells an external mount from a local one.
+    // `extern` (soft keyword) marks an external destination: no base name, so
+    // object_tree can tell it from a local mount.
     let external = p.peek().as_str() == "extern";
     if external {
         p.consume(); // "extern"
     }
-    // The mounted implementation is a normal instantiation `Impl { <bindings> }`,
-    // wrapped as a SubElement so the mount-block bindings flow onto it through the
-    // ordinary binding path. `via <Contract>` is nested in a MountVia node so the
-    // base name and the trailing bindings stay contiguous. An external mount omits
-    // the base name; its block binds `component-factory` on the container.
+    // The impl is a normal `Impl { <bindings> }` wrapped as a SubElement so the
+    // mount-block bindings flow through the ordinary binding path; `via <Contract>`
+    // nests in a MountVia node.
     let mut sub = p.start_node(SyntaxKind::SubElement);
     let mut el = sub.start_node(SyntaxKind::Element);
     if !external {

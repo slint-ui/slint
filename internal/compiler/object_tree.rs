@@ -584,11 +584,9 @@ impl Component {
                 *qualified_id = format_smolstr!("{}::{}", c.id, qualified_id);
             }
         });
-        // An `interface`'s `route` members form a navigation contract. Collected
-        // on the Component (not into the interface's member lists) so interface
-        // conformance is unaffected. Only reached under the experimental flag,
-        // since `is_interface()` requires the `interface` keyword; misplaced or
-        // ungated `route` members are diagnosed in `Element::from_node`.
+        // An interface's `route` members form a navigation contract, collected on
+        // the Component (not its member lists) so conformance never sees routes.
+        // Misplaced/ungated routes are diagnosed in `Element::from_node`.
         if c.is_interface() {
             let routes = node
                 .Element()
@@ -1708,10 +1706,8 @@ impl Element {
 
         interfaces::apply_callbacks(&mut r, &implemented_interfaces, diag);
 
-        // `needs <Interface>` declares the interface's callbacks/functions as
-        // unbound members on this element, to be bound by the host at the mount
-        // site. Same "declare on the component, bind at instantiation" mechanism
-        // as an interface callback, minus a local body.
+        // `needs <Interface>` declares its callbacks as unbound members here, bound
+        // by the host at the mount site.
         let needed_interfaces = interfaces::get_needed_interfaces(&r, &node, tr, diag);
         r.needed_capabilities = interfaces::apply_needs(&mut r, &needed_interfaces, diag);
 
@@ -2465,11 +2461,8 @@ impl Element {
                     );
                 }
             }
-            // Integration-site verification. A local mount verifies the mounted
-            // component against the contract and records the edge. An external
-            // mount only records the declared contract edge and checks that a
-            // `component-factory` is supplied; the absent impl is not conformance
-            // checked here. `None` for a plain screen or on failure.
+            // A local mount verifies the impl against the contract; an external one
+            // only checks a `component-factory` is bound. `None` for a plain screen.
             let mount = mount_node.and_then(|mount_node| {
                 if external {
                     Self::verify_external_mount(&mount_node, &e, &parent_type, tr, diag)
@@ -2571,11 +2564,8 @@ impl Element {
         Some((contract_name, contract))
     }
 
-    /// Verify an external cross-process mount at its integration site. Unlike a
-    /// local mount there is no compile-time impl to conformance-check: the contract
-    /// is the declared expectation the host's runtime component must honor. We
-    /// verify only that (1) the boundary contract resolves and (2) a
-    /// `component-factory` is supplied (the runtime transport).
+    /// Verify an external mount: the contract resolves and a `component-factory`
+    /// is bound. There is no compile-time impl to conformance-check.
     fn verify_external_mount(
         mount_node: &syntax_nodes::MountDestination,
         dest: &ElementRc,
@@ -2585,8 +2575,7 @@ impl Element {
     ) -> Option<FederatedMount> {
         let (contract_name, contract) =
             Self::resolve_mount_contract(mount_node, parent_type, tr, diag)?;
-        // The runtime transport: the host sets this ComponentFactory-typed property
-        // at runtime, and the container renders whatever component it produces.
+        // The host sets this factory at runtime; without it the seam has nothing.
         if !dest.borrow().bindings.contains_key("component-factory") {
             diag.push_error(
                 format!("external mount via '{contract_name}' requires a 'component-factory'"),
@@ -2598,8 +2587,7 @@ impl Element {
     }
 
     /// Build an external mount's destination: a `ComponentContainer` the host fills
-    /// at runtime. No compile-time impl and no base name, so the container is looked
-    /// up directly and the mount block's bindings attached through the normal path.
+    /// at runtime. No base name, so the container is looked up directly.
     fn from_external_mount_node(
         element_node: &syntax_nodes::Element,
         tr: &TypeRegister,
@@ -2624,8 +2612,8 @@ impl Element {
         }
         .make_rc();
         apply_default_type_properties(&mut r.borrow_mut());
-        // Attach the block's `component-factory` binding through the shared path so
-        // unknown-property and type checks run as they would for a normal body.
+        // Attach the block's bindings through the shared path so the usual
+        // unknown-property and type checks run.
         r.borrow_mut().parse_bindings(
             element_node.Binding().filter_map(|b| {
                 Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
