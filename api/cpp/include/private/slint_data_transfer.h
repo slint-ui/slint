@@ -8,10 +8,14 @@
 
 #ifndef SLINT_FEATURE_FREESTANDING
 #    include <any>
+#    include <filesystem>
+#    include <span>
+#    include <vector>
 #endif
 
 #include "private/slint_image.h"
 #include "private/slint_string.h"
+#include "private/slint_sharedvector.h"
 #include "private/slint_data_transfer_internal.h"
 
 namespace slint {
@@ -99,6 +103,36 @@ public:
         cbindgen_private::types::slint_data_transfer_set_image(this, &image.data);
     }
 
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
+    /// Sets the list of local file paths transferred by this `DataTransfer`,
+    /// overwriting any previously set list. An empty list clears the file paths.
+    void set_file_paths(std::span<const std::filesystem::path> paths)
+    {
+        std::vector<cbindgen_private::Slice<uint8_t>> slices;
+        slices.reserve(paths.size());
+#ifdef _WIN32
+        std::vector<std::u8string> bytes;
+        bytes.reserve(paths.size());
+        for (const auto &path : paths) {
+            const auto &b = bytes.emplace_back(path.u8string());
+            slices.push_back({ const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(b.data())),
+                               b.size() });
+        }
+#else
+        for (const auto &path : paths) {
+            const auto &native = path.native();
+            slices.push_back(
+                    { const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(native.data())),
+                      native.size() });
+        }
+#endif
+        cbindgen_private::types::slint_data_transfer_set_file_paths(
+                this,
+                cbindgen_private::Slice<cbindgen_private::Slice<uint8_t>> { slices.data(),
+                                                                            slices.size() });
+    }
+#endif
+
     /// Returns `true` if this data transfer advertises a plain text representation.
     bool has_plain_text() const
     {
@@ -108,8 +142,16 @@ public:
     /// Returns `true` if this data transfer advertises an image representation.
     bool has_image() const { return cbindgen_private::types::slint_data_transfer_has_image(this); }
 
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
+    /// Returns `true` if this data transfer advertises a list of file paths.
+    bool has_file_paths() const
+    {
+        return cbindgen_private::types::slint_data_transfer_has_file_paths(this);
+    }
+#endif
+
     /// Returns `true` if this `DataTransfer` carries no data: no plain text, no image,
-    /// and no user data.
+    /// no file paths, and no user data.
     bool is_empty() const { return cbindgen_private::types::slint_data_transfer_is_empty(this); }
 
     /// Returns the plain text representation of this `DataTransfer`, or `std::nullopt` if no
@@ -133,6 +175,30 @@ public:
         }
         return std::nullopt;
     }
+
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
+    /// Returns the list of local file paths transferred by this `DataTransfer`, or
+    /// `std::nullopt` if no file paths are available.
+    std::optional<std::vector<std::filesystem::path>> file_paths() const
+    {
+        SharedVector<SharedVector<uint8_t>> out;
+        if (!cbindgen_private::types::slint_data_transfer_file_paths(this, &out)) {
+            return std::nullopt;
+        }
+        std::vector<std::filesystem::path> paths;
+        paths.reserve(out.size());
+        for (const auto &bytes : out) {
+#ifdef _WIN32
+            paths.emplace_back(std::u8string_view(
+                    reinterpret_cast<const char8_t *>(bytes.begin()), bytes.size()));
+#else
+            paths.emplace_back(std::string_view(reinterpret_cast<const char *>(bytes.begin()),
+                                                bytes.size()));
+#endif
+        }
+        return paths;
+    }
+#endif
 
 #if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
     /// Overload of `set_user_data()` for callers that already hold a `std::any`.

@@ -8,7 +8,38 @@ use core::ffi::c_void;
 
 use super::DataTransfer;
 use crate::SharedString;
+#[cfg(feature = "std")]
+use crate::SharedVector;
 use crate::api::Image;
+#[cfg(feature = "std")]
+use crate::slice::Slice;
+
+/// Convert the FFI byte representation of a path (native path bytes on Unix,
+/// UTF-8 elsewhere) to a `PathBuf`, and back.
+#[cfg(feature = "std")]
+fn path_from_bytes(bytes: &[u8]) -> std::path::PathBuf {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        std::ffi::OsStr::from_bytes(bytes).into()
+    }
+    #[cfg(not(unix))]
+    {
+        String::from_utf8_lossy(bytes).as_ref().into()
+    }
+}
+#[cfg(feature = "std")]
+fn path_to_bytes(path: &std::path::Path) -> SharedVector<u8> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        path.as_os_str().as_bytes().into()
+    }
+    #[cfg(not(unix))]
+    {
+        path.to_string_lossy().as_bytes().into()
+    }
+}
 
 /// Opaque placeholder used by C++ to reserve storage with the same size and
 /// alignment as Rust's `DataTransfer`. The actual `DataTransfer` contains
@@ -84,6 +115,19 @@ pub extern "C" fn slint_data_transfer_set_image(d: &mut DataTransfer, image: &Im
     d.set_image(image.clone());
 }
 
+/// Set the file path list of `d`. Each path is a byte slice holding the
+/// platform's native path bytes on Unix, and UTF-8 elsewhere.
+///
+/// An empty `paths` clears the previously-set file paths instead of storing it.
+#[cfg(feature = "std")]
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_data_transfer_set_file_paths(
+    d: &mut DataTransfer,
+    paths: Slice<Slice<u8>>,
+) {
+    d.set_file_paths_vec(paths.iter().map(|path| path_from_bytes(path.as_slice())).collect());
+}
+
 /// Returns `true` if `d` advertises a plain text representation.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_data_transfer_has_plain_text(d: &DataTransfer) -> bool {
@@ -96,7 +140,15 @@ pub extern "C" fn slint_data_transfer_has_image(d: &DataTransfer) -> bool {
     d.has_image()
 }
 
-/// Returns `true` if `d` carries no data: no plain text, no image, and no user data.
+/// Returns `true` if `d` advertises a list of file paths.
+#[cfg(feature = "std")]
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_data_transfer_has_file_paths(d: &DataTransfer) -> bool {
+    d.has_file_paths()
+}
+
+/// Returns `true` if `d` carries no data: no plain text, no image, no file paths,
+/// and no user data.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_data_transfer_is_empty(d: &DataTransfer) -> bool {
     d.is_empty()
@@ -129,6 +181,26 @@ pub extern "C" fn slint_data_transfer_image(d: &DataTransfer, out: &mut Image) -
             true
         }
         Err(_) => false,
+    }
+}
+
+/// If `d` has a list of file paths, write them into `out` and return `true`.
+/// Otherwise leave `out` unchanged and return `false`. Each path is a byte
+/// vector holding the platform's native path bytes on Unix, and UTF-8 elsewhere.
+///
+/// `out` must point to an initialized `SharedVector<SharedVector<u8>>`.
+#[cfg(feature = "std")]
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_data_transfer_file_paths(
+    d: &DataTransfer,
+    out: &mut SharedVector<SharedVector<u8>>,
+) -> bool {
+    match d.inner.as_ref().and_then(|inner| inner.file_paths.as_ref()) {
+        Some(paths) => {
+            *out = paths.iter().map(|path| path_to_bytes(path)).collect();
+            true
+        }
+        None => false,
     }
 }
 
