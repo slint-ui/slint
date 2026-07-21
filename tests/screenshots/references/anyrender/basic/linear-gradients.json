@@ -491,22 +491,6 @@
               "color": {
                 "components": [
                   1.0,
-                  0.0,
-                  0.0,
-                  1.0
-                ],
-                "cs": "Srgb",
-                "flags": {
-                  "missing": 0,
-                  "name": 0
-                }
-              },
-              "offset": 0.0
-            },
-            {
-              "color": {
-                "components": [
-                  1.0,
                   1.0,
                   1.0,
                   1.0
