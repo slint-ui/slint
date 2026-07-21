@@ -25,7 +25,7 @@ fn path_from_bytes(bytes: &[u8]) -> std::path::PathBuf {
     }
     #[cfg(not(unix))]
     {
-        alloc::string::String::from_utf8_lossy(bytes).as_ref().into()
+        alloc::string::String::from_utf8_lossy(bytes).into_owned().into()
     }
 }
 #[cfg(feature = "std")]
@@ -195,12 +195,12 @@ pub extern "C" fn slint_data_transfer_file_paths(
     d: &DataTransfer,
     out: &mut SharedVector<SharedVector<u8>>,
 ) -> bool {
-    match d.inner.as_ref().and_then(|inner| inner.file_paths.as_ref()) {
-        Some(paths) => {
-            *out = paths.iter().map(|path| path_to_bytes(path)).collect();
+    match d.file_paths() {
+        Ok(paths) => {
+            *out = paths.map(path_to_bytes).collect();
             true
         }
-        None => false,
+        Err(_) => false,
     }
 }
 

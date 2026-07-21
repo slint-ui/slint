@@ -702,7 +702,7 @@ fn gen_corelib(
                 "slint_data_transfer_clear_user_data",
             ],
             "slint_data_transfer_internal.h",
-            "namespace slint { struct DataTransfer; struct SharedString; template<typename T> struct SharedVector; }",
+            "#include \"private/slint_sharedvector.h\"\nnamespace slint { struct DataTransfer; struct SharedString; }",
         ),
         (
             vec!["MouseEvent", "TouchPhase"],

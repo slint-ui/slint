@@ -108,28 +108,17 @@ public:
     /// overwriting any previously set list. An empty list clears the file paths.
     void set_file_paths(std::span<const std::filesystem::path> paths)
     {
-        std::vector<cbindgen_private::Slice<uint8_t>> slices;
-        slices.reserve(paths.size());
-#    ifdef _WIN32
         std::vector<std::u8string> bytes;
         bytes.reserve(paths.size());
+        std::vector<cbindgen_private::Slice<uint8_t>> slices;
+        slices.reserve(paths.size());
         for (const auto &path : paths) {
             const auto &b = bytes.emplace_back(path.u8string());
-            slices.push_back({ const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(b.data())),
-                               b.size() });
+            slices.push_back(private_api::make_slice(
+                    reinterpret_cast<const uint8_t *>(b.data()), b.size()));
         }
-#    else
-        for (const auto &path : paths) {
-            const auto &native = path.native();
-            slices.push_back(
-                    { const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(native.data())),
-                      native.size() });
-        }
-#    endif
         cbindgen_private::types::slint_data_transfer_set_file_paths(
-                this,
-                cbindgen_private::Slice<cbindgen_private::Slice<uint8_t>> { slices.data(),
-                                                                            slices.size() });
+                this, private_api::make_slice(slices.data(), slices.size()));
     }
 #endif
 
@@ -188,13 +177,8 @@ public:
         std::vector<std::filesystem::path> paths;
         paths.reserve(out.size());
         for (const auto &bytes : out) {
-#    ifdef _WIN32
-            paths.emplace_back(std::u8string_view(reinterpret_cast<const char8_t *>(bytes.begin()),
-                                                  bytes.size()));
-#    else
-            paths.emplace_back(
-                    std::string_view(reinterpret_cast<const char *>(bytes.begin()), bytes.size()));
-#    endif
+            paths.emplace_back(std::u8string_view(
+                    reinterpret_cast<const char8_t *>(bytes.begin()), bytes.size()));
         }
         return paths;
     }

@@ -285,11 +285,8 @@ impl DataTransfer {
     /// no file paths, and no user data. A `DataTransfer` constructed via
     /// [`Default::default`] is empty.
     pub fn is_empty(&self) -> bool {
-        #[cfg(feature = "std")]
-        if self.has_file_paths() {
-            return false;
-        }
-        !self.has_plain_text() && !self.has_image() && self.user_data.is_none()
+        // `release_empty_inner` keeps `inner` at `None` whenever it stores nothing.
+        self.inner.is_none() && self.user_data.is_none()
     }
 
     /// Set the application-internal data represented by this [`DataTransfer`].
