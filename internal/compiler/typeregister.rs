@@ -594,8 +594,8 @@ impl TypeRegister {
             ElementType::Builtin(b) => {
                 let path = Rc::get_mut(b).unwrap();
                 for (name, func) in [
-                    ("point-at-percent", BuiltinFunction::PointAtPercent),
-                    ("angle-at-percent", BuiltinFunction::AngleAtPercent),
+                    ("point-at-percent", BuiltinFunction::PointAt),
+                    ("angle-at-percent", BuiltinFunction::AngleAt),
                 ] {
                     let existing_docs = path.properties.get(name).and_then(|p| p.docs.clone());
                     let mut info = BuiltinPropertyInfo::from(func);

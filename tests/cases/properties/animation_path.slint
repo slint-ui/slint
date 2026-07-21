@@ -2,18 +2,23 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component TestCase inherits Window {
-    width: 100px;
+    width: 200px;
     height: 100px;
 
+    // viewbox-x/y is non-zero and the viewbox is stretched non-uniformly relative to the
+    // element (200x100 element vs 25x50 viewbox, via `fit: fill`) so that point-at-percent/
+    // angle-at-percent are exercised in the Path element's own coordinate space rather than
+    // in raw viewbox coordinates (which would give different, non-round numbers below).
     path := Path {
-        width: 100px;
+        width: 200px;
         height: 100px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 100;
-        viewbox-height: 100;
+        viewbox-x: 5;
+        viewbox-y: 3;
+        viewbox-width: 25;
+        viewbox-height: 50;
+        fit: fill;
         stroke-width: 0px;
-        commands: "M0,0 L0,100 L100,100";
+        commands: "M5,3 L5,53 L17.5,53";
     }
 
     in-out property <float> t: 0;
@@ -44,25 +49,25 @@ assert_eq!(instance.get_px(), 0.0);
 assert_eq!(instance.get_py(), 0.0);
 assert_almost_eq(instance.get_angle(), 90.0);
 
-// At 25% expect to be at (0, 50)
+// At 25% expect to be at (0, 50) in element coordinates, not the raw viewbox point (5, 28)
 slint_testing::mock_elapsed_time(500);
 assert_eq!(instance.get_px(), 0.0);
 assert_eq!(instance.get_py(), 50.0);
 assert_almost_eq(instance.get_angle(), 90.0);
 
-// At 50% expect to be at (0, 100)
+// At 50% expect to be at (0, 100) in element coordinates, not the raw viewbox point (5, 53)
 slint_testing::mock_elapsed_time(500);
 assert_eq!(instance.get_px(), 0.0);
 assert_eq!(instance.get_py(), 100.0);
 assert_almost_eq(instance.get_angle(), 90.0);
 
-// At 75% expect to be at (50, 100)
+// At 75% expect to be at (50, 100) in element coordinates, not the raw viewbox point (11.25, 53)
 slint_testing::mock_elapsed_time(500);
 assert_eq!(instance.get_px(), 50.0);
 assert_eq!(instance.get_py(), 100.0);
 assert_almost_eq(instance.get_angle(), 0.0);
 
-// At 100% expect to be at (100, 100)
+// At 100% expect to be at (100, 100) in element coordinates, not the raw viewbox point (17.5, 53)
 slint_testing::mock_elapsed_time(500);
 assert_eq!(instance.get_px(), 100.0);
 assert_eq!(instance.get_py(), 100.0);
@@ -83,25 +88,25 @@ assert_eq(instance.get_px(), 0.0);
 assert_eq(instance.get_py(), 0.0);
 assert(std::abs(instance.get_angle() - 90.0) < 0.05);
 
-// At 25% expect to be at (0, 50)
+// At 25% expect to be at (0, 50) in element coordinates, not the raw viewbox point (5, 28)
 slint_testing::mock_elapsed_time(500);
 assert_eq(instance.get_px(), 0.0);
 assert_eq(instance.get_py(), 50.0);
 assert(std::abs(instance.get_angle() - 90.0) < 0.05);
 
-// At 50% expect to be at (0, 100)
+// At 50% expect to be at (0, 100) in element coordinates, not the raw viewbox point (5, 53)
 slint_testing::mock_elapsed_time(500);
 assert_eq(instance.get_px(), 0.0);
 assert_eq(instance.get_py(), 100.0);
 assert(std::abs(instance.get_angle() - 90.0) < 0.05);
 
-// At 75% expect to be at (50, 100)
+// At 75% expect to be at (50, 100) in element coordinates, not the raw viewbox point (11.25, 53)
 slint_testing::mock_elapsed_time(500);
 assert_eq(instance.get_px(), 50.0);
 assert_eq(instance.get_py(), 100.0);
 assert(std::abs(instance.get_angle() - 0.0) < 0.05);
 
-// At 100% expect to be at (100, 100)
+// At 100% expect to be at (100, 100) in element coordinates, not the raw viewbox point (17.5, 53)
 slint_testing::mock_elapsed_time(500);
 assert_eq(instance.get_px(), 100.0);
 assert_eq(instance.get_py(), 100.0);
@@ -120,25 +125,25 @@ assert.equal(instance.px, 0.0);
 assert.equal(instance.py, 0.0);
 assert(Math.abs(instance.angle - 90.0) < 0.05);
 
-// At 25% expect to be at (0, 50)
+// At 25% expect to be at (0, 50) in element coordinates, not the raw viewbox point (5, 28)
 slintlib.private_api.mock_elapsed_time(500);
 assert.equal(instance.px, 0.0);
 assert.equal(instance.py, 50.0);
 assert(Math.abs(instance.angle - 90.0) < 0.05);
 
-// At 50% expect to be at (0, 100)
+// At 50% expect to be at (0, 100) in element coordinates, not the raw viewbox point (5, 53)
 slintlib.private_api.mock_elapsed_time(500);
 assert.equal(instance.px, 0.0);
 assert.equal(instance.py, 100.0);
 assert(Math.abs(instance.angle - 90.0) < 0.05);
 
-// At 75% expect to be at (50, 100)
+// At 75% expect to be at (50, 100) in element coordinates, not the raw viewbox point (11.25, 53)
 slintlib.private_api.mock_elapsed_time(500);
 assert.equal(instance.px, 50.0);
 assert.equal(instance.py, 100.0);
 assert(Math.abs(instance.angle - 0.0) < 0.05);
 
-// At 100% expect to be at (100, 100)
+// At 100% expect to be at (100, 100) in element coordinates, not the raw viewbox point (17.5, 53)
 slintlib.private_api.mock_elapsed_time(500);
 assert.equal(instance.px, 100.0);
 assert.equal(instance.py, 100.0);

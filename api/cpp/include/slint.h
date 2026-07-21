@@ -597,11 +597,11 @@ cbindgen_private::Flickable::~Flickable()
 
 cbindgen_private::Path::Path()
 {
-    slint_path_fitted_cache_init(&fitted_cache);
+    slint_path_fitted_cache_init(&fitted_path);
 }
 cbindgen_private::Path::~Path()
 {
-    slint_path_fitted_cache_free(&fitted_cache);
+    slint_path_fitted_cache_free(&fitted_path);
 }
 
 cbindgen_private::SystemTrayIcon::SystemTrayIcon()

@@ -1943,7 +1943,7 @@ fn call_builtin_function(
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
             Value::StyledText(corelib::styled_text::color_to_styled_text(color))
         }
-        BuiltinFunction::PointAtPercent => {
+        BuiltinFunction::PointAt => {
             let component = local_context.component_instance;
 
             if let Expression::ElementReference(item) = &arguments[0] {
@@ -1969,14 +1969,14 @@ fn call_builtin_function(
                     .downcast::<corelib::items::Path>()
                     .unwrap()
                     .as_pin_ref()
-                    .point_at_percent(&item_rc, percent)
+                    .point_at(&item_rc, percent)
                     .to_untyped()
                     .into()
             } else {
-                panic!("internal error: argument to PointAtPercent must be an element")
+                panic!("internal error: argument to PointAt must be an element")
             }
         }
-        BuiltinFunction::AngleAtPercent => {
+        BuiltinFunction::AngleAt => {
             let component = local_context.component_instance;
 
             if let Expression::ElementReference(item) = &arguments[0] {
@@ -2002,10 +2002,10 @@ fn call_builtin_function(
                     .downcast::<corelib::items::Path>()
                     .unwrap()
                     .as_pin_ref()
-                    .angle_at_percent(&item_rc, percent)
+                    .angle_at(&item_rc, percent)
                     .into()
             } else {
-                panic!("internal error: argument to AngleAtPercent must be an element")
+                panic!("internal error: argument to AngleAt must be an element")
             }
         }
     }

@@ -4904,7 +4904,7 @@ fn compile_builtin_function_call(
             let color = a.next().unwrap();
             quote!(sp::color_to_styled_text(#color))
         }
-        BuiltinFunction::PointAtPercent => {
+        BuiltinFunction::PointAt => {
             if let [Expression::PropertyReference(pr), percent] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
                 let percent = compile_expression(percent, ctx);
@@ -4915,14 +4915,14 @@ fn compile_builtin_function_call(
                             .downcast::<sp::Path>()
                             .unwrap()
                             .as_pin_ref()
-                            .point_at_percent(&item_rc, #percent as f32),
+                            .point_at(&item_rc, #percent as f32),
                     )
                 })
             } else {
-                panic!("internal error: invalid args to PointAtPercent {arguments:?}")
+                panic!("internal error: invalid args to PointAt {arguments:?}")
             }
         }
-        BuiltinFunction::AngleAtPercent => {
+        BuiltinFunction::AngleAt => {
             if let [Expression::PropertyReference(pr), percent] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
                 let percent = compile_expression(percent, ctx);
@@ -4932,10 +4932,10 @@ fn compile_builtin_function_call(
                         .downcast::<sp::Path>()
                         .unwrap()
                         .as_pin_ref()
-                        .angle_at_percent(&item_rc, #percent as f32)
+                        .angle_at(&item_rc, #percent as f32)
                 })
             } else {
-                panic!("internal error: invalid args to AngleAtPercent {arguments:?}")
+                panic!("internal error: invalid args to AngleAt {arguments:?}")
             }
         }
     }
