@@ -121,7 +121,8 @@ macro_rules! for_each_physical_keys {
 /// Maps an XKB keycode (the evdev keycode plus 8) to a Slint physical key name.
 ///
 /// This is what X11, Wayland, and libinput-based backends report as the native key code.
-#[cfg(target_os = "linux")]
+/// On Android the evdev scan code (plus 8) matches this too.
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn physical_key_name_from_xkb(keycode: u32) -> Option<&'static str> {
     macro_rules! xkb_to_name {
         ($($name:ident # $_winit:ident # $xkb:literal # $_win:literal # $($_mac:literal)?;)*) => {

@@ -17,7 +17,8 @@ use i_slint_core::api::{
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, TouchPhase};
 use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::{
-    Key, PointerEventButton, WindowAdapter, WindowEvent, WindowProperties,
+    Key, PointerEventButton, WindowAdapter, WindowEvent, WindowKeyEvent, WindowKeyEventType,
+    WindowProperties,
 };
 use i_slint_core::timers::{Timer, TimerMode};
 use i_slint_core::window::{InputMethodRequest, WindowInner};
@@ -680,16 +681,27 @@ fn button_for_event(
 }
 
 fn map_key_event(key_event: &android_activity::input::KeyEvent) -> Option<WindowEvent> {
-    let text = map_key_code(key_event.key_code())?;
-    let repeat = key_event.repeat_count() > 0;
-    match key_event.action() {
-        KeyAction::Down if repeat => Some(WindowEvent::KeyPressRepeated { text }),
-        KeyAction::Down => Some(WindowEvent::KeyPressed { text }),
-        KeyAction::Up => Some(WindowEvent::KeyReleased { text }),
-        KeyAction::Multiple if repeat => Some(WindowEvent::KeyPressRepeated { text }),
-        KeyAction::Multiple => Some(WindowEvent::KeyPressed { text }),
-        _ => None,
+    let mut slint_event = KeyEvent::default();
+    slint_event.text = map_key_code(key_event.key_code())?;
+    slint_event.physical_key = physical_key_name(key_event.scan_code());
+    slint_event.repeat = key_event.repeat_count() > 0;
+    let event_type = match key_event.action() {
+        KeyAction::Down | KeyAction::Multiple => WindowKeyEventType::Pressed,
+        KeyAction::Up => WindowKeyEventType::Released,
+        _ => return None,
+    };
+    let slint_event = WindowKeyEvent::new(event_type, slint_event);
+    Some(WindowEvent::Key(slint_event))
+}
+
+// The Android scan code is the evdev key code, which maps to XKB with a fixed offset of 8.
+fn physical_key_name(scan_code: i32) -> SharedString {
+    if scan_code <= 0 {
+        return SharedString::default();
     }
+    i_slint_common::physical_key_codes::physical_key_name_from_xkb(scan_code as u32 + 8)
+        .unwrap_or_default()
+        .into()
 }
 
 fn map_key_code(code: android_activity::input::Keycode) -> Option<SharedString> {
