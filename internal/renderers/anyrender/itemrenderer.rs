@@ -2,25 +2,38 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::pin::Pin;
+use std::sync::Arc;
 
 use anyrender::PaintScene;
 use i_slint_core::graphics::euclid;
+use i_slint_core::graphics::{
+    Image, ImageCacheKey, IntRect, IntSize, OpaqueImage, OpaqueImageVTable, SharedImageBuffer,
+    SharedPixelBuffer,
+};
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemRenderer, RenderBorderRectangle, RenderImage, RenderRectangle,
     RenderText,
 };
-use i_slint_core::items::{self, ItemRc, Opacity, RenderingResult};
+use i_slint_core::items::{self, ImageFit, ImageRendering, ItemRc, Opacity, RenderingResult};
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     PhysicalBorderRadius, RectLengths, ScaleFactor, logical_size_from_api,
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
-use i_slint_core::{Brush, Color, SharedString};
+use i_slint_core::{Brush, Color, ImageInner, SharedString};
 
 use super::{PhysicalLength, PhysicalRect, PhysicalSize};
 
 /// anyrender's `push_layer` always clips; there is no "no clip", so layers
 /// that should not clip use a rectangle larger than any real scene.
+///
+/// Only safe for non-destructive compose modes: vello_cpu <= 0.0.9 mishandles
+/// layers with destructive compose modes (`SrcIn`, `DestOut`) whose bounds
+/// greatly exceed the viewport — everything beyond the first 256px wide-tile
+/// column is lost. Bound such layers to the area they affect instead. Fixed
+/// upstream by the frontend rewrite (linebender/vello#1701), but bounding
+/// destructive layers stays worthwhile on fixed versions too: it spares
+/// vello_cpu from compositing the entire surface.
 const UNCLIPPED: kurbo::Rect = kurbo::Rect::new(0., 0., 1e9, 1e9);
 
 #[derive(Clone, Copy)]
@@ -187,7 +200,6 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         );
     }
 
-    #[allow(unused_variables)]
     fn draw_image(
         &mut self,
         image: Pin<&dyn RenderImage>,
@@ -195,7 +207,152 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        todo!()
+        if size.width <= 0. || size.height <= 0. {
+            return;
+        }
+
+        let tiling = image.tiling();
+        let image_fit =
+            if tiling != Default::default() { ImageFit::Preserve } else { image.image_fit() };
+
+        let source = image.source();
+        let Some(image_data) =
+            load_image(source.clone(), &|| image.target_size(), image_fit, self.scale_factor)
+        else {
+            return;
+        };
+
+        let source_size = source.size();
+        if source_size.is_empty() {
+            return;
+        }
+
+        let dest_size = size * self.scale_factor;
+
+        let image_inner: &ImageInner = (&source).into();
+        let mut nine_slice_fits;
+        let mut single_fit;
+        let fits: &mut dyn Iterator<Item = i_slint_core::graphics::FitResult> =
+            if let ImageInner::NineSlice(nine) = image_inner {
+                nine_slice_fits = i_slint_core::graphics::fit9slice(
+                    source_size.cast(),
+                    nine.1,
+                    dest_size,
+                    self.scale_factor,
+                    image.alignment(),
+                    tiling,
+                );
+                &mut nine_slice_fits
+            } else {
+                single_fit = std::iter::once(i_slint_core::graphics::fit(
+                    image_fit,
+                    dest_size,
+                    image
+                        .source_clip()
+                        .unwrap_or_else(|| euclid::Rect::from_size(source_size.cast())),
+                    self.scale_factor,
+                    image.alignment(),
+                    tiling,
+                ));
+                &mut single_fit
+            };
+
+        let quality = match image.rendering() {
+            ImageRendering::Pixelated => peniko::ImageQuality::Low,
+            _ => peniko::ImageQuality::Medium,
+        };
+
+        // Ratio to convert from source coordinates to image data coordinates.
+        // This differs from 1.0 for SVGs which are rendered at a different resolution.
+        let ratio_x = image_data.width as f64 / source_size.width as f64;
+        let ratio_y = image_data.height as f64 / source_size.height as f64;
+
+        let colorize_brush = image.colorize();
+        let has_colorize = !colorize_brush.is_transparent();
+        let dest_rect = to_kurbo_size(dest_size).to_rect();
+        if has_colorize {
+            // Isolate the image in a compositing group so SrcIn only affects the image.
+            // The layers are bounded to the image's rect: the image only draws within
+            // it, and destructive compose modes must not use an unbounded layer (see
+            // the UNCLIPPED comment).
+            self.scene.push_layer(
+                peniko::BlendMode::default(),
+                1.0,
+                self.current_state.transform,
+                &dest_rect,
+                None,
+                None,
+            );
+        }
+
+        for fit in fits {
+            let mut image_brush = peniko::ImageBrush::new(image_data.clone()).with_quality(quality);
+
+            // Clip rect coordinates in image data space
+            let clip_x = fit.clip_rect.origin.x as f64 * ratio_x;
+            let clip_y = fit.clip_rect.origin.y as f64 * ratio_y;
+            let clip_w = fit.clip_rect.size.width as f64 * ratio_x;
+            let clip_h = fit.clip_rect.size.height as f64 * ratio_y;
+
+            let brush_transform = if let Some(tiled_offset) = fit.tiled {
+                image_brush = image_brush.with_extend(peniko::Extend::Repeat);
+
+                // Scale from image data pixels to target pixels
+                let scale_x = fit.source_to_target_x as f64 / ratio_x;
+                let scale_y = fit.source_to_target_y as f64 / ratio_y;
+
+                kurbo::Affine::translate((
+                    -(tiled_offset.x as f64 * ratio_x + clip_x),
+                    -(tiled_offset.y as f64 * ratio_y + clip_y),
+                ))
+                .then_scale_non_uniform(scale_x, scale_y)
+            } else {
+                kurbo::Affine::translate((-clip_x, -clip_y)).then_scale_non_uniform(
+                    fit.size.width as f64 / clip_w,
+                    fit.size.height as f64 / clip_h,
+                )
+            };
+
+            let shape = kurbo::Rect::new(0., 0., fit.size.width as f64, fit.size.height as f64);
+
+            let transform = self
+                .current_state
+                .transform
+                .then_translate(kurbo::Vec2::new(fit.offset.x as f64, fit.offset.y as f64));
+
+            self.scene.fill(
+                peniko::Fill::default(),
+                transform,
+                peniko::BrushRef::Image(image_brush.as_ref()),
+                Some(brush_transform),
+                &shape,
+            );
+        }
+
+        if has_colorize {
+            // Apply colorize: push a SrcIn layer and fill with the colorize brush.
+            // SrcIn keeps the image's alpha but replaces the color.
+            let src_in_blend = peniko::BlendMode::new(peniko::Mix::Normal, peniko::Compose::SrcIn);
+            if let Some((brush, brush_transform)) = self.brush(colorize_brush, dest_rect.size()) {
+                self.scene.push_layer(
+                    src_in_blend,
+                    1.0,
+                    self.current_state.transform,
+                    &dest_rect,
+                    None,
+                    None,
+                );
+                self.scene.fill(
+                    peniko::Fill::default(),
+                    self.current_state.transform,
+                    peniko::BrushRef::from(&brush),
+                    brush_transform,
+                    &dest_rect,
+                );
+                self.scene.pop_layer(); // pop SrcIn layer
+            }
+            self.scene.pop_layer(); // pop isolation layer
+        }
     }
 
     fn draw_text(
@@ -300,13 +457,33 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         self.scale_factor.get()
     }
 
-    #[allow(unused_variables)]
     fn draw_cached_pixmap(
         &mut self,
         _item_rc: &ItemRc,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
-        todo!()
+        // This renderer keeps no persistent per-item graphics cache, so the
+        // pixmap is re-uploaded on every call. anyrender backends can still
+        // deduplicate by blob identity within a frame.
+        let transform = self.current_state.transform;
+        let scene = &mut *self.scene;
+        update_fn(&mut |width, height, data| {
+            let image_data = peniko::ImageData {
+                data: peniko::Blob::new(Arc::new(data.to_vec())),
+                format: peniko::ImageFormat::Rgba8,
+                alpha_type: peniko::ImageAlphaType::AlphaPremultiplied,
+                width,
+                height,
+            };
+            let image_brush = peniko::ImageBrush::new(image_data);
+            scene.fill(
+                peniko::Fill::default(),
+                transform,
+                peniko::BrushRef::Image(image_brush.as_ref()),
+                None,
+                &kurbo::Rect::new(0., 0., width as f64, height as f64),
+            );
+        });
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
@@ -319,9 +496,26 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         );
     }
 
-    #[allow(unused_variables)]
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
-        todo!()
+        let Some(image_data) = load_image(
+            image.clone(),
+            &|| LogicalSize::from_untyped(image.size().cast()),
+            ImageFit::Fill,
+            self.scale_factor,
+        ) else {
+            return;
+        };
+
+        let shape = kurbo::Rect::new(0., 0., image_data.width as f64, image_data.height as f64);
+
+        let image_brush = peniko::ImageBrush::new(image_data);
+        self.scene.fill(
+            peniko::Fill::default(),
+            self.current_state.transform,
+            peniko::BrushRef::Image(image_brush.as_ref()),
+            None,
+            &shape,
+        );
     }
 
     fn window(&self) -> &i_slint_core::window::WindowInner {
@@ -635,4 +829,150 @@ fn phys_rounded_rect(rect: PhysicalRect, radius: PhysicalBorderRadius) -> kurbo:
 pub(crate) fn to_peniko_color(color: Color) -> peniko::Color {
     let color = color.to_argb_u8();
     peniko::Color::from_rgba8(color.red, color.green, color.blue, color.alpha)
+}
+
+struct AnyrenderCachedImage {
+    image_data: peniko::ImageData,
+    size: IntSize,
+    cache_key: ImageCacheKey,
+}
+
+i_slint_core::OpaqueImageVTable_static! {
+    static ANYRENDER_CACHED_IMAGE_VT for AnyrenderCachedImage
+}
+
+impl OpaqueImage for AnyrenderCachedImage {
+    fn size(&self) -> IntSize {
+        self.size
+    }
+
+    fn cache_key(&self) -> ImageCacheKey {
+        self.cache_key.clone()
+    }
+}
+
+fn load_image(
+    image: Image,
+    target_size_fn: &dyn Fn() -> LogicalSize,
+    image_fit: ImageFit,
+    scale_factor: ScaleFactor,
+) -> Option<peniko::ImageData> {
+    let image_inner: &ImageInner = (&image).into();
+    match image_inner {
+        ImageInner::None => None,
+        ImageInner::EmbeddedImage { buffer, cache_key } => {
+            let image_data = image_buffer_to_peniko_image(buffer)?;
+            i_slint_core::graphics::cache::replace_cached_image(
+                cache_key.clone(),
+                ImageInner::BackendStorage(vtable::VRc::into_dyn(vtable::VRc::new(
+                    AnyrenderCachedImage {
+                        image_data: image_data.clone(),
+                        size: IntSize::new(image_data.width, image_data.height),
+                        cache_key: cache_key.clone(),
+                    },
+                ))),
+            );
+            Some(image_data)
+        }
+        ImageInner::Svg(svg) => {
+            // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
+            let svg_size = svg.size();
+            let fit = i_slint_core::graphics::fit(
+                image_fit,
+                target_size_fn() * scale_factor,
+                IntRect::from_size(svg_size.cast()),
+                scale_factor,
+                Default::default(), // We only care about the size, so alignments don't matter
+                Default::default(),
+            );
+            let target_size = PhysicalSize::new(
+                svg_size.cast::<f32>().width * fit.source_to_target_x,
+                svg_size.cast::<f32>().height * fit.source_to_target_y,
+            );
+            let pixels = match svg.render(Some(target_size.cast())).ok()? {
+                SharedImageBuffer::RGB8(_) => unreachable!(),
+                SharedImageBuffer::RGBA8(_) => unreachable!(),
+                SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,
+            };
+
+            let width = pixels.width();
+            let height = pixels.height();
+
+            let data = peniko::Blob::new(Arc::new(PixelBufferWrap(pixels)));
+
+            Some(peniko::ImageData {
+                data,
+                format: peniko::ImageFormat::Rgba8,
+                alpha_type: peniko::ImageAlphaType::AlphaPremultiplied,
+                width,
+                height,
+            })
+        }
+        ImageInner::StaticTextures(_) => {
+            let buffer = image_inner.render_to_buffer(None)?;
+            image_buffer_to_peniko_image(&buffer)
+        }
+        ImageInner::BackendStorage(x) => {
+            vtable::VRc::borrow(x).downcast::<AnyrenderCachedImage>().map(|x| x.image_data.clone())
+        }
+        ImageInner::NineSlice(n) => {
+            load_image(n.image(), target_size_fn, ImageFit::Preserve, scale_factor)
+        }
+        // Remaining variants hold live GPU resources (borrowed GL textures,
+        // wgpu textures behind the unstable-wgpu-* features) that this
+        // backend-agnostic renderer cannot import.
+        #[allow(unreachable_patterns)]
+        _ => None,
+    }
+}
+
+fn image_buffer_to_peniko_image(buffer: &SharedImageBuffer) -> Option<peniko::ImageData> {
+    let (data, format, alpha_type) = match buffer {
+        SharedImageBuffer::RGB8(shared_pixel_buffer) => {
+            let rgba: Vec<u8> = shared_pixel_buffer
+                .as_bytes()
+                .chunks_exact(3)
+                .flat_map(|rgb| [rgb[0], rgb[1], rgb[2], 255])
+                .collect();
+            let width = shared_pixel_buffer.width();
+            let height = shared_pixel_buffer.height();
+            return Some(peniko::ImageData {
+                data: peniko::Blob::new(Arc::new(rgba)),
+                format: peniko::ImageFormat::Rgba8,
+                alpha_type: peniko::ImageAlphaType::Alpha,
+                width,
+                height,
+            });
+        }
+        SharedImageBuffer::RGBA8(shared_pixel_buffer) => (
+            Arc::new(PixelBufferWrap(shared_pixel_buffer.clone()))
+                as Arc<dyn AsRef<[u8]> + Send + Sync>,
+            peniko::ImageFormat::Rgba8,
+            peniko::ImageAlphaType::Alpha,
+        ),
+        SharedImageBuffer::RGBA8Premultiplied(shared_pixel_buffer) => (
+            Arc::new(PixelBufferWrap(shared_pixel_buffer.clone()))
+                as Arc<dyn AsRef<[u8]> + Send + Sync>,
+            peniko::ImageFormat::Rgba8,
+            peniko::ImageAlphaType::AlphaPremultiplied,
+        ),
+    };
+
+    Some(peniko::ImageData {
+        data: peniko::Blob::new(data),
+        format,
+        alpha_type,
+        width: buffer.width(),
+        height: buffer.height(),
+    })
+}
+
+struct PixelBufferWrap<Pixel>(SharedPixelBuffer<Pixel>);
+impl<Pixel: Clone + rgb::Pod> AsRef<[u8]> for PixelBufferWrap<Pixel>
+where
+    [Pixel]: rgb::ComponentBytes<u8>,
+{
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
 }
