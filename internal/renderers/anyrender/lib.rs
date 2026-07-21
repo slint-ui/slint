@@ -42,8 +42,10 @@ pub(crate) type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
 pub(crate) type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
 
 mod itemrenderer;
+mod recording;
 
 pub use itemrenderer::AnyrenderItemRenderer;
+pub use recording::RecordingWindowRenderer;
 
 /// Slint-side extension to [`anyrender::WindowRenderer`].
 ///
