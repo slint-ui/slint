@@ -459,16 +459,33 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         if color.alpha() == 0 {
             return;
         }
-        if box_shadow.inset() {
-            // anyrender's box-shadow primitive only draws drop shadows.
-            return;
-        }
 
         let sf = self.scale_factor;
         let offset = LogicalPoint::from_lengths(box_shadow.offset_x(), box_shadow.offset_y()) * sf;
         let spread = (box_shadow.spread() * sf).get() as f64;
         let blur = (box_shadow.blur() * sf).get().max(0.) as f64;
         let phys_size = size * sf;
+
+        // anyrender's box-shadow primitive supports a single uniform corner
+        // radius; approximate per-corner radii with their average.
+        let radius = box_shadow.logical_border_radius() * sf;
+        let base_radius =
+            (radius.top_left + radius.top_right + radius.bottom_right + radius.bottom_left) as f64
+                / 4.;
+
+        if box_shadow.inset() {
+            self.draw_inset_shadow(
+                color,
+                kurbo::Vec2::new(offset.x as f64, offset.y as f64),
+                spread,
+                blur,
+                base_radius,
+                to_kurbo_size(phys_size),
+            );
+            return;
+        }
+
+        let radius = base_radius + spread;
 
         let rect = kurbo::Rect::new(
             offset.x as f64 - spread,
@@ -479,14 +496,6 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         if rect.is_zero_area() {
             return;
         }
-
-        // anyrender's box-shadow primitive supports a single uniform corner
-        // radius; approximate per-corner radii with their average.
-        let radius = box_shadow.logical_border_radius() * sf;
-        let radius = (radius.top_left + radius.top_right + radius.bottom_right + radius.bottom_left)
-            as f64
-            / 4.
-            + spread;
 
         if blur == 0. {
             // No blur: a plain rounded rectangle fill matches exactly.
@@ -783,6 +792,83 @@ impl<'a, S: PaintScene> GlyphRenderer for AnyrenderItemRenderer<'a, S> {
 }
 
 impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
+    /// Draw an inset shadow: the border box filled with the shadow color,
+    /// minus the blurred interior rectangle (inset by `spread`, translated
+    /// by `offset`). Relies on the linearity of the Gaussian —
+    /// blur(complement of rect) = 1 − blur(rect) — by filling the clipped
+    /// border box with the shadow color and punching out the blurred
+    /// interior through a DestOut layer. The clip layer isolates the
+    /// punch-out so content drawn before the shadow is unaffected.
+    fn draw_inset_shadow(
+        &mut self,
+        color: Color,
+        offset: kurbo::Vec2,
+        spread: f64,
+        blur: f64,
+        base_radius: f64,
+        size: kurbo::Size,
+    ) {
+        let border_rect = kurbo::Rect::new(0., 0., size.width, size.height);
+        if border_rect.is_zero_area() {
+            return;
+        }
+        let border_shape = kurbo::RoundedRect::from_rect(border_rect, base_radius);
+
+        // The shadow must not paint outside the item.
+        self.scene.push_clip_layer(self.current_state.transform, &border_shape);
+        self.scene.fill(
+            peniko::Fill::default(),
+            self.current_state.transform,
+            peniko::BrushRef::Solid(to_peniko_color(color)),
+            None,
+            &border_rect,
+        );
+
+        let interior = kurbo::Rect::new(
+            offset.x + spread,
+            offset.y + spread,
+            offset.x + size.width - spread,
+            offset.y + size.height - spread,
+        );
+        if interior.width() > 0. && interior.height() > 0. {
+            let interior_radius = (base_radius - spread).max(0.);
+            // Bounded to the border box (the outer clip limits the shadow to it
+            // anyway): destructive compose modes must not use an unbounded layer
+            // (see the UNCLIPPED comment).
+            self.scene.push_layer(
+                peniko::BlendMode::new(peniko::Mix::Normal, peniko::Compose::DestOut),
+                1.0,
+                self.current_state.transform,
+                &border_rect,
+                None,
+                None,
+            );
+            // Punch out at full strength so the interior is completely
+            // clear of shadow, regardless of the shadow color's alpha.
+            let opaque = peniko::color::palette::css::BLACK;
+            if blur == 0. {
+                self.scene.fill(
+                    peniko::Fill::default(),
+                    self.current_state.transform,
+                    peniko::BrushRef::Solid(opaque),
+                    None,
+                    &kurbo::RoundedRect::from_rect(interior, interior_radius),
+                );
+            } else {
+                self.scene.draw_box_shadow(
+                    self.current_state.transform,
+                    interior,
+                    opaque,
+                    interior_radius,
+                    blur / 2.,
+                );
+            }
+            self.scene.pop_layer();
+        }
+
+        self.scene.pop_layer();
+    }
+
     /// Push a compositing layer that does not clip its content.
     fn push_unclipped_layer(&mut self, blend: peniko::BlendMode, alpha: f32) {
         self.scene.push_layer(blend, alpha, kurbo::Affine::IDENTITY, &UNCLIPPED, None, None);
