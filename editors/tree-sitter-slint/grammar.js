@@ -279,7 +279,7 @@ module.exports = grammar({
         $.function_definition,
         $.if_statement,
         $.implement_statement,
-        $.match_statement,
+        $.match_element,
         $.property,
         $.property_assignment,
         $.slot_declaration,
@@ -398,7 +398,7 @@ module.exports = grammar({
 
     for_range: ($) => choice($.value_list, $.expression),
 
-    match_statement: ($) =>
+    match_element: ($) =>
       seq("match",
         field("value", $.expression),
         "{",
