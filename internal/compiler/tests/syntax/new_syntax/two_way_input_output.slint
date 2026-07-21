@@ -28,7 +28,7 @@ export component C1 {
     b:= Button {
         clicked => {
             in = !in;
-//          >      <error{Assignment on a in property}
+//          >      <error{Assignment on an in property}
             out = !out;
 //          >        <error{Cannot modify a property that is linked to a read-only property}
             inout = !inout;
@@ -38,7 +38,7 @@ export component C1 {
             self.enabled = !self.enabled;
             self.checked = !self.checked;
             self.pressed = !self.pressed;
-//          >                          <error{Assignment on a out property}
+//          >                          <error{Assignment on an out property}
 
         }
     }
@@ -61,7 +61,7 @@ export component C1 {
     b:= Button {
         clicked => {
             in = !in;
-//          >      <error{Assignment on a in property}
+//          >      <error{Assignment on an in property}
             out = !out;
             inout = !inout;
             priv = !priv;
@@ -71,7 +71,7 @@ export component C1 {
 //          >                          <error{Cannot modify a property that is linked to a read-only property}
             self.checked = !self.checked;
             self.pressed = !self.pressed;
-//          >                          <error{Assignment on a out property}
+//          >                          <error{Assignment on an out property}
 
         }
     }
@@ -93,7 +93,7 @@ export component C3 {
     b:= Button {
         clicked => {
             in = !in;
-//          >      <error{Assignment on a in property}
+//          >      <error{Assignment on an in property}
             out = !out;
             inout = !inout;
             priv = !priv;
@@ -102,7 +102,7 @@ export component C3 {
             self.checked = !self.checked;
 //          >                          <error{Cannot modify a property that is linked to a read-only property}
             self.pressed = !self.pressed;
-//          >                          <error{Assignment on a out property}
+//          >                          <error{Assignment on an out property}
         }
     }
 }
@@ -155,7 +155,7 @@ export component C7 {
             self.enabled = !self.enabled;
             self.checked = !self.checked;
             self.pressed = !self.pressed;
-//          >                          <error{Assignment on a out property}
+//          >                          <error{Assignment on an out property}
         }
     }
     Button {
@@ -168,7 +168,7 @@ export component C7 {
             self.enabled = !self.enabled;
             self.checked = !self.checked;
             self.pressed = !self.pressed;
-//          >                          <error{Assignment on a out property}
+//          >                          <error{Assignment on an out property}
         }
     }
     Button { checked <=> b2.pressed;  }
@@ -179,7 +179,7 @@ export component C7 {
             self.enabled = !self.enabled;
             self.checked = !self.checked;
             self.pressed = !self.pressed;
-//          >                          <error{Assignment on a out property}
+//          >                          <error{Assignment on an out property}
         }
     }
     Button {
@@ -232,7 +232,7 @@ export component C9 {
             out = !out;
 //          >        <error{Cannot modify a property that is linked to a read-only property}
             in = !in;
-//          >      <error{Assignment on a in property}
+//          >      <error{Assignment on an in property}
             inout = !inout;
             priv = !priv;
 //          >          <error{Cannot modify a property that is linked to a read-only property}
@@ -261,7 +261,7 @@ export component C10 {
             inout4 = !inout4;
             out = !out;
             in = !in;
-//          >      <error{Assignment on a in property}
+//          >      <error{Assignment on an in property}
             inout = !inout;
             priv = !priv;
         }
@@ -288,7 +288,7 @@ export component C11 {
             priv4 = !priv4;
             out = !out;
             in = !in;
-//          >      <error{Assignment on a in property}
+//          >      <error{Assignment on an in property}
             inout = !inout;
             priv = !priv;
         }
