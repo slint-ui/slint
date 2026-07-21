@@ -1386,7 +1386,7 @@ impl Element {
                     error_on(&cb, "an 'init' callback")
                 }
             });
-            node.MatchElement().for_each(|n| error_on(&n, "match statements"));
+            node.MatchElement().for_each(|n| error_on(&n, "match elements"));
             node.SlotDeclaration().for_each(|n| error_on(&n, "slots"));
 
             if parent_type == ElementType::Interface {
@@ -2669,7 +2669,7 @@ impl Element {
         tr: &TypeRegister,
     ) -> Vec<ElementRc> {
         if !diag.enable_experimental {
-            diag.push_error("match statements are an experimental feature".into(), &node);
+            diag.push_error("match elements are an experimental feature".into(), &node);
         }
         let mut cases: Vec<ElementRc> = Vec::new();
         let expr = node.Expression();
