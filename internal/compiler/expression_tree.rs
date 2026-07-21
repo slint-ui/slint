@@ -1835,7 +1835,7 @@ impl Expression {
                     true
                 } else {
                     ctx.diag.push_error(
-                        format!("{what} on a {} property", lookup.property_visibility),
+                        format!("{what} on an {} property", lookup.property_visibility),
                         node,
                     );
                     false
