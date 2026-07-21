@@ -174,6 +174,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::Identifier if p.peek().as_str() == "route" => {
                     parse_route_declaration(&mut *p, None);
                 }
+                SyntaxKind::Identifier if p.peek().as_str() == "needs" => {
+                    parse_needs_specifier(&mut *p);
+                }
                 _ => {
                     if p.peek().as_str() == "changed" {
                         // Try to recover some errors
@@ -494,6 +497,11 @@ fn parse_route(p: &mut impl Parser) {
             p.consume();
         }
     }
+    // A federated mount destination: `mount Impl via Contract { }`.
+    if p.peek().as_str() == "mount" {
+        parse_mount_destination(&mut *p);
+        return;
+    }
     if p.peek().kind() == SyntaxKind::LBrace {
         // empty route
         p.expect(SyntaxKind::LBrace);
@@ -505,6 +513,65 @@ fn parse_route(p: &mut impl Parser) {
         return;
     }
     parse_sub_element(&mut *p);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,MountDestination
+/// mount ModuleA via AppNavV1 { }
+/// mount M via C {}
+/// mount ModuleA via AppNavV1 { open-settings => {} }
+/// mount extern via AppNavV1 { component-factory: root.f; }
+/// mount extern via C {}
+/// ```
+fn parse_mount_destination(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "mount");
+    let mut p = p.start_node(SyntaxKind::MountDestination);
+    p.expect(SyntaxKind::Identifier); // "mount"
+    // `extern` (soft keyword) marks an external cross-process destination: no
+    // statically-known impl. The destination resolves to a `ComponentContainer`
+    // the host fills at runtime; the Element carries no base name, which is how
+    // object_tree tells an external mount from a local one.
+    let external = p.peek().as_str() == "extern";
+    if external {
+        p.consume(); // "extern"
+    }
+    // The mounted implementation is a normal instantiation `Impl { <bindings> }`,
+    // wrapped as a SubElement so the mount-block bindings flow onto it through the
+    // ordinary binding path. `via <Contract>` is nested in a MountVia node so the
+    // base name and the trailing bindings stay contiguous. An external mount omits
+    // the base name; its block binds `component-factory` on the container.
+    let mut sub = p.start_node(SyntaxKind::SubElement);
+    let mut el = sub.start_node(SyntaxKind::Element);
+    if !external {
+        parse_qualified_name(&mut *el); // the mounted implementation
+    }
+    {
+        let mut via = el.start_node(SyntaxKind::MountVia);
+        if via.peek().as_str() != "via" {
+            via.error("Expected 'via <Contract>' after 'mount <Impl>'");
+        } else {
+            via.consume(); // "via"
+        }
+        parse_qualified_name(&mut *via); // the navigation contract to satisfy
+    }
+    if !el.expect(SyntaxKind::LBrace) {
+        return;
+    }
+    parse_element_content(&mut *el);
+    el.expect(SyntaxKind::RBrace);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,NeedsSpecifier
+/// needs AppServices;
+/// needs Fully.Qualified.Services;
+/// ```
+fn parse_needs_specifier(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "needs");
+    let mut p = p.start_node(SyntaxKind::NeedsSpecifier);
+    p.expect(SyntaxKind::Identifier); // "needs"
+    parse_qualified_name(&mut *p);
+    p.expect(SyntaxKind::Semicolon);
 }
 
 #[cfg_attr(test, parser_test)]

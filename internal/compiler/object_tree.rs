@@ -525,6 +525,18 @@ pub struct NavigationContract {
     pub version: Option<u32>,
 }
 
+/// The record of one `needs <Interface>`: the interface named and the member
+/// names (callbacks/functions) pulled onto the component as unbound members. The
+/// federated-mount verifier requires each be bound at the integration site.
+#[derive(Debug, Clone)]
+pub struct NeededCapability {
+    /// The capability interface named by the `needs` specifier.
+    pub interface_name: SmolStr,
+    /// The interface members declared unbound on the component, to be bound by
+    /// the host. In interface declaration order.
+    pub members: Vec<SmolStr>,
+}
+
 impl Component {
     pub fn from_node(
         node: syntax_nodes::Component,
@@ -634,6 +646,13 @@ impl Component {
     /// `route` members, if it is an `interface` declaring any.
     pub fn navigation_contract(&self) -> Option<NavigationContract> {
         self.navigation_contract.borrow().clone()
+    }
+
+    /// The capabilities this component declares via `needs` on its root, if any.
+    /// Read by the federated-mount verifier to require each be bound at the mount
+    /// site. Empty when the component needs nothing from its host.
+    pub fn needed_capabilities(&self) -> Vec<NeededCapability> {
+        self.root_element.borrow().needed_capabilities.clone()
     }
 
     /// This component is a global component introduced with the "global" keyword
@@ -966,6 +985,10 @@ pub struct Element {
     pub repeated: Option<RepeatedElementInfo>,
     /// The resolved `navigator` route table, in declaration order.
     pub navigator_routes: Vec<NavigatorRoute>,
+    /// Capabilities this element declares via `needs <Interface>`. Populated
+    /// when the element is a component root; read by the federated-mount verifier
+    /// off the mounted component's root. Empty for elements with no `needs`.
+    pub needed_capabilities: Vec<NeededCapability>,
     /// This element is a placeholder to embed an Component at
     pub is_component_placeholder: bool,
 
@@ -1224,6 +1247,28 @@ pub struct RepeatedElementInfo {
 pub struct NavigatorRoute {
     pub route: syntax_nodes::Expression,
     pub component: ElementRc,
+    /// Set when this route is a build-time federated mount
+    /// (`mount Impl via Contract`); distinguishes a mounted sub-graph from a
+    /// plain screen for tooling. `None` for a plain route destination.
+    pub mount: Option<FederatedMount>,
+}
+
+/// A route destination that is a federated mount against a named navigation
+/// contract. Metadata only. `impl_name = None` marks an external mount whose
+/// implementation is host-supplied at runtime rather than in this build.
+#[derive(Debug, Clone)]
+pub struct FederatedMount {
+    /// The mounted component's name, or `None` for an external mount.
+    pub impl_name: Option<SmolStr>,
+    pub contract_name: SmolStr,
+    /// The contract's `@version`, if declared. Metadata, not a compat check.
+    pub contract_version: Option<u32>,
+}
+
+impl FederatedMount {
+    pub fn is_external(&self) -> bool {
+        self.impl_name.is_none()
+    }
 }
 
 impl Element {
@@ -1662,6 +1707,13 @@ impl Element {
         }
 
         interfaces::apply_callbacks(&mut r, &implemented_interfaces, diag);
+
+        // `needs <Interface>` declares the interface's callbacks/functions as
+        // unbound members on this element, to be bound by the host at the mount
+        // site. Same "declare on the component, bind at instantiation" mechanism
+        // as an interface callback, minus a local body.
+        let needed_interfaces = interfaces::get_needed_interfaces(&r, &node, tr, diag);
+        r.needed_capabilities = interfaces::apply_needs(&mut r, &needed_interfaces, diag);
 
         for func in node.Function() {
             #[cfg(feature = "slint-sc")]
@@ -2364,9 +2416,18 @@ impl Element {
         let mut cases: Vec<ElementRc> = Vec::new();
         let mut routes: Vec<NavigatorRoute> = Vec::new();
         for route in node.Route() {
-            let Some(sub_element) = route.SubElement() else {
-                continue;
-            };
+            // A destination is a plain sub-element, a local mount, or an external
+            // (cross-process) mount; each desugars to a conditional child.
+            let mount_node = route.MountDestination();
+            let external = mount_node.as_ref().is_some_and(Self::mount_is_external);
+            let (site, sub_element): (SyntaxNode, syntax_nodes::SubElement) =
+                if let Some(mount_node) = &mount_node {
+                    (mount_node.clone().into(), mount_node.SubElement())
+                } else if let Some(sub_element) = route.SubElement() {
+                    (sub_element.clone().into(), sub_element)
+                } else {
+                    continue;
+                };
             let rei = RepeatedElementInfo {
                 model: Expression::BinaryExpression {
                     lhs: Box::new(Expression::Uncompiled(expr.clone().into())),
@@ -2378,27 +2439,46 @@ impl Element {
                 is_conditional_element: true,
                 is_listview: None,
             };
-            let e = Element::from_sub_element_node(
-                sub_element.clone(),
-                parent_type.clone(),
-                component_child_insertion_point,
-                is_in_legacy_component,
-                diag,
-                tr,
-            );
+            // External mounts build a ComponentContainer directly; others resolve
+            // their base name.
+            let e = if external {
+                Self::from_external_mount_node(&sub_element.Element(), tr, diag)
+            } else {
+                Element::from_sub_element_node(
+                    sub_element,
+                    parent_type.clone(),
+                    component_child_insertion_point,
+                    is_in_legacy_component,
+                    diag,
+                    tr,
+                )
+            };
             match &e.borrow().base_type {
                 ElementType::Component(_) | ElementType::Error => {}
+                ElementType::Builtin(b) if external && b.name == "ComponentContainer" => {}
                 other => {
                     diag.push_error(
                         format!(
                             "navigator route destination must be a component, but '{other}' is not"
                         ),
-                        &sub_element,
+                        &site,
                     );
                 }
             }
+            // Integration-site verification. A local mount verifies the mounted
+            // component against the contract and records the edge. An external
+            // mount only records the declared contract edge and checks that a
+            // `component-factory` is supplied; the absent impl is not conformance
+            // checked here. `None` for a plain screen or on failure.
+            let mount = mount_node.and_then(|mount_node| {
+                if external {
+                    Self::verify_external_mount(&mount_node, &e, &parent_type, tr, diag)
+                } else {
+                    Self::verify_federated_mount(&mount_node, &e, &parent_type, tr, diag)
+                }
+            });
             e.borrow_mut().repeated = Some(rei);
-            routes.push(NavigatorRoute { route: route.Expression(), component: e.clone() });
+            routes.push(NavigatorRoute { route: route.Expression(), component: e.clone(), mount });
             cases.push(e);
         }
         // Members must be declared before expression resolution so chrome can bind them.
@@ -2407,6 +2487,186 @@ impl Element {
         }
         parent.borrow_mut().navigator_routes = routes;
         cases
+    }
+
+    /// Verify a federated mount: the mounted component must satisfy the contract
+    /// named after `via`. Returns the mount edge, or `None` after a diagnostic.
+    fn verify_federated_mount(
+        mount_node: &syntax_nodes::MountDestination,
+        dest: &ElementRc,
+        parent_type: &ElementType,
+        tr: &TypeRegister,
+        diag: &mut BuildDiagnostics,
+    ) -> Option<FederatedMount> {
+        // `Error` means the name failed to resolve, already reported upstream.
+        let impl_comp = match &dest.borrow().base_type {
+            ElementType::Component(c) => c.clone(),
+            _ => return None,
+        };
+        let (contract_name, contract) =
+            Self::resolve_mount_contract(mount_node, parent_type, tr, diag)?;
+        let impl_name = impl_comp.id.clone();
+        let conforms = interfaces::validate_mount_conformance(
+            &impl_name,
+            &impl_comp.root_element,
+            &contract_name,
+            &contract,
+            mount_node,
+            diag,
+        );
+        let all_bound =
+            Self::verify_mount_capabilities(&impl_name, &impl_comp, dest, mount_node, diag);
+        (conforms && all_bound).then(|| FederatedMount {
+            impl_name: Some(impl_name),
+            contract_name,
+            contract_version: contract.version,
+        })
+    }
+
+    /// True for `mount extern via C { ... }`: the `extern` soft keyword sits as a
+    /// direct token of the MountDestination (a local mount has none).
+    fn mount_is_external(mount_node: &syntax_nodes::MountDestination) -> bool {
+        mount_node.children_with_tokens().any(|n| {
+            n.as_token().is_some_and(|t| t.kind() == SyntaxKind::Identifier && t.text() == "extern")
+        })
+    }
+
+    /// Resolve the contract named after `via` to a navigation-contract interface.
+    /// Shared by local and external mounts.
+    fn resolve_mount_contract(
+        mount_node: &syntax_nodes::MountDestination,
+        parent_type: &ElementType,
+        tr: &TypeRegister,
+        diag: &mut BuildDiagnostics,
+    ) -> Option<(SmolStr, NavigationContract)> {
+        let Some(contract_node) =
+            mount_node.SubElement().Element().MountVia().map(|via| via.QualifiedName())
+        else {
+            // Missing MountVia means a malformed mount, already diagnosed.
+            return None;
+        };
+        let contract_name = QualifiedTypeName::from_node(contract_node.clone()).to_smolstr();
+        let contract_comp = match parent_type.lookup_type_for_child_element(&contract_name, tr) {
+            Ok(ElementType::Component(c)) if c.is_interface() => c,
+            Ok(_) => {
+                diag.push_error(
+                    format!("mount contract '{contract_name}' is not an interface"),
+                    &contract_node,
+                );
+                return None;
+            }
+            Err(err) => {
+                diag.push_error(err, &contract_node);
+                return None;
+            }
+        };
+        let Some(contract) = contract_comp.navigation_contract().filter(|c| !c.routes.is_empty())
+        else {
+            diag.push_error(
+                format!("'{contract_name}' is not a navigation contract: it declares no routes"),
+                &contract_node,
+            );
+            return None;
+        };
+        Some((contract_name, contract))
+    }
+
+    /// Verify an external cross-process mount at its integration site. Unlike a
+    /// local mount there is no compile-time impl to conformance-check: the contract
+    /// is the declared expectation the host's runtime component must honor. We
+    /// verify only that (1) the boundary contract resolves and (2) a
+    /// `component-factory` is supplied (the runtime transport).
+    fn verify_external_mount(
+        mount_node: &syntax_nodes::MountDestination,
+        dest: &ElementRc,
+        parent_type: &ElementType,
+        tr: &TypeRegister,
+        diag: &mut BuildDiagnostics,
+    ) -> Option<FederatedMount> {
+        let (contract_name, contract) =
+            Self::resolve_mount_contract(mount_node, parent_type, tr, diag)?;
+        // The runtime transport: the host sets this ComponentFactory-typed property
+        // at runtime, and the container renders whatever component it produces.
+        if !dest.borrow().bindings.contains_key("component-factory") {
+            diag.push_error(
+                format!("external mount via '{contract_name}' requires a 'component-factory'"),
+                mount_node,
+            );
+            return None;
+        }
+        Some(FederatedMount { impl_name: None, contract_name, contract_version: contract.version })
+    }
+
+    /// Build an external mount's destination: a `ComponentContainer` the host fills
+    /// at runtime. No compile-time impl and no base name, so the container is looked
+    /// up directly and the mount block's bindings attached through the normal path.
+    fn from_external_mount_node(
+        element_node: &syntax_nodes::Element,
+        tr: &TypeRegister,
+        diag: &mut BuildDiagnostics,
+    ) -> ElementRc {
+        let base_type = tr.lookup_builtin_element("ComponentContainer").unwrap_or_else(|| {
+            debug_assert!(false, "ComponentContainer builtin missing");
+            ElementType::Error
+        });
+        let r = Element {
+            id: SmolStr::default(),
+            base_type: base_type.clone(),
+            debug: vec![ElementDebugInfo {
+                qualified_id: None,
+                element_hash: 0,
+                type_name: base_type.type_name().unwrap_or_default().to_string(),
+                node: element_node.clone(),
+                layout: None,
+                element_boundary: false,
+            }],
+            ..Default::default()
+        }
+        .make_rc();
+        apply_default_type_properties(&mut r.borrow_mut());
+        // Attach the block's `component-factory` binding through the shared path so
+        // unknown-property and type checks run as they would for a normal body.
+        r.borrow_mut().parse_bindings(
+            element_node.Binding().filter_map(|b| {
+                Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
+            }),
+            false,
+            diag,
+        );
+        r
+    }
+
+    /// Verify that the mount block binds every capability the mounted module
+    /// declares via `needs`. A need with no binding is a compile error at the
+    /// mount site. Returns true when all needs are bound.
+    fn verify_mount_capabilities(
+        impl_name: &SmolStr,
+        impl_comp: &Rc<Component>,
+        dest: &ElementRc,
+        mount_node: &syntax_nodes::MountDestination,
+        diag: &mut BuildDiagnostics,
+    ) -> bool {
+        let needs = impl_comp.needed_capabilities();
+        if needs.is_empty() {
+            return true;
+        }
+        let dest = dest.borrow();
+        let mut all_bound = true;
+        for cap in &needs {
+            for member in &cap.members {
+                if !dest.bindings.contains_key(member) {
+                    diag.push_error(
+                        format!(
+                            "mount of '{impl_name}' does not bind required capability '{member}' (from '{}')",
+                            cap.interface_name
+                        ),
+                        mount_node,
+                    );
+                    all_bound = false;
+                }
+            }
+        }
+        all_bound
     }
 
     /// Declare the navigator's public members; `lower_navigator` fills the bodies later.

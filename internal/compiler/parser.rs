@@ -354,7 +354,7 @@ declare_syntax! {
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
                      *CallbackDeclaration, *ConditionalElement, *MatchElement, *Navigator, *Function, *RouteDeclaration, *SubElement,
                      *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
-                     *TwoWayBinding, *States, *Transitions, *ImplementStatement, ?ChildrenPlaceholder, *AtVersion ],
+                     *TwoWayBinding, *States, *Transitions, *ImplementStatement, ?ChildrenPlaceholder, *AtVersion, ?MountVia, *NeedsSpecifier ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , SubElement],
@@ -366,10 +366,16 @@ declare_syntax! {
         WildcardMatchCase -> [ ?SubElement ],
         /// navigator (current-route) { Route.Home: HomeScreen { } }
         Navigator -> [ Expression, *Route ],
-        /// Route.Home: HomeScreen { }
-        Route -> [ Expression, ?SubElement ],
+        /// Route.Home: HomeScreen { }  or  Route.Media: mount MediaFeature via FeatureNav { }
+        Route -> [ Expression, ?SubElement, ?MountDestination ],
         /// A route member of a navigation contract: `route Main;` or `@uri("...") route Details(id: int);`
         RouteDeclaration -> [ DeclaredIdentifier, *ArgumentDeclaration, *AtUri ],
+        /// The `mount Impl via Contract { ... }` destination of a route.
+        MountDestination -> [ SubElement ],
+        /// `via Contract` inside a mount destination.
+        MountVia -> [ QualifiedName ],
+        /// `needs Capability;` on a module, requiring host-bound callbacks.
+        NeedsSpecifier -> [ QualifiedName ],
         CallbackDeclaration -> [ DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
         // `foo: type` or just `type`
         CallbackDeclarationParameter -> [ ?DeclaredIdentifier, Type],

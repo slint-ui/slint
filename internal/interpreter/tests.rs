@@ -424,6 +424,163 @@ export component MediaFeature inherits Rectangle {
     );
 }
 
+// A shell mounts a feature via a contract (`mount Impl via Contract`), binding
+// the capabilities the feature `needs`; an external mount supplies a runtime
+// `component-factory` instead of a compile-time impl.
+#[cfg(feature = "internal")]
+#[test]
+fn navigation_federated_mount() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+
+    let build = |code: &str| {
+        let mut compiler = Compiler::default();
+        compiler.set_style("fluent".into());
+        compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+        spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()))
+    };
+
+    let feature = r#"
+export interface FeatureNav { route Main; }
+export interface HostServices { callback log(string); }
+enum InnerRoute { Main, Detail }
+component InnerMain inherits Rectangle { }
+component InnerDetail inherits Rectangle { }
+export component Feature inherits Rectangle {
+    implement FeatureNav <=> self;
+    needs HostServices;
+    in-out property <InnerRoute> current-route: InnerRoute.Main;
+    navigator (current-route) {
+        InnerRoute.Main: InnerMain { }
+        InnerRoute.Detail: InnerDetail { }
+    }
+}
+enum Shell { Home, Feature }
+component HomeScreen inherits Rectangle { }
+"#;
+
+    // Local mount that binds the needed capability -> compiles.
+    let ok = format!(
+        r#"{feature}
+export component App inherits Window {{
+    in-out property <Shell> current: Shell.Home;
+    navigator (current) {{
+        Shell.Home: HomeScreen {{ }}
+        Shell.Feature: mount Feature via FeatureNav {{
+            log(message) => {{ debug(message); }}
+        }}
+    }}
+}}
+"#
+    );
+    let result = build(&ok);
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+
+    // Local mount that does NOT bind the needed capability -> error.
+    let unbound = format!(
+        r#"{feature}
+export component App inherits Window {{
+    in-out property <Shell> current: Shell.Home;
+    navigator (current) {{
+        Shell.Home: HomeScreen {{ }}
+        Shell.Feature: mount Feature via FeatureNav {{ }}
+    }}
+}}
+"#
+    );
+    let result = build(&unbound);
+    assert!(result.has_errors(), "unbound capability must be rejected");
+    assert!(
+        result
+            .diagnostics()
+            .any(|d| d.message().contains("does not bind required capability 'log'")),
+        "expected the capability diagnostic, got: {:?}",
+        result.diagnostics().map(|d| d.message().to_owned()).collect::<Vec<_>>()
+    );
+
+    // External mount without a component-factory -> error.
+    let extern_missing = r#"
+export interface FeatureNav { route Main; }
+enum Shell { Home, Plugin }
+component HomeScreen inherits Rectangle { }
+export component App inherits Window {
+    in-out property <Shell> current: Shell.Home;
+    navigator (current) {
+        Shell.Home: HomeScreen { }
+        Shell.Plugin: mount extern via FeatureNav { }
+    }
+}
+"#;
+    let result = build(extern_missing);
+    assert!(result.has_errors(), "external mount without component-factory must be rejected");
+    assert!(
+        result.diagnostics().any(|d| d.message().contains("requires a 'component-factory'")),
+        "expected the external-mount diagnostic, got: {:?}",
+        result.diagnostics().map(|d| d.message().to_owned()).collect::<Vec<_>>()
+    );
+
+    // External mount supplying a component-factory -> compiles.
+    let extern_ok = r#"
+export interface FeatureNav { route Main; }
+enum Shell { Home, Plugin }
+component HomeScreen inherits Rectangle { }
+export component App inherits Window {
+    in property <component-factory> plugin-factory;
+    in-out property <Shell> current: Shell.Home;
+    navigator (current) {
+        Shell.Home: HomeScreen { }
+        Shell.Plugin: mount extern via FeatureNav { component-factory: root.plugin-factory; }
+    }
+}
+"#;
+    let result = build(extern_ok);
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+}
+
+// A navigator whose route property is internal (a non-root sub-component) must
+// still be writable by navigate()/back(); regression for the route being wrongly
+// classified constant (which panicked "Constant property being changed").
+#[cfg(feature = "internal")]
+#[test]
+fn navigation_internal_route_is_writable() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, Value};
+    let code = r#"
+enum Route { Main, Detail }
+component Screen inherits Rectangle { }
+component Feature inherits Rectangle {
+    in-out property <Route> route: Route.Main;
+    public function push() { root.navigate(Route.Detail); }
+    public function pop() { root.back(); }
+    navigator (route) {
+        Route.Main: Screen { }
+        Route.Detail: Screen { }
+    }
+}
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    feature := Feature { }
+    out property <int> index: feature.current-route-index;
+    public function push() { feature.push(); }
+    public function pop() { feature.pop(); }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let instance = result.component("TestCase").unwrap().create().unwrap();
+
+    let idx = || instance.get_property("index").unwrap();
+    assert_eq!(idx(), Value::Number(0.));
+    instance.invoke("push", &[]).unwrap();
+    assert_eq!(idx(), Value::Number(1.));
+    instance.invoke("pop", &[]).unwrap();
+    assert_eq!(idx(), Value::Number(0.));
+}
+
 #[cfg(feature = "internal")]
 #[test]
 fn navigator_back_stack() {
