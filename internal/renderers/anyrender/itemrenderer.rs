@@ -11,10 +11,11 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::items::{self, ItemRc, Opacity, RenderingResult};
 use i_slint_core::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalRect, LogicalSize, LogicalVector,
-    PhysicalBorderRadius, RectLengths, ScaleFactor,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    PhysicalBorderRadius, RectLengths, ScaleFactor, logical_size_from_api,
 };
-use i_slint_core::{Brush, Color};
+use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
+use i_slint_core::{Brush, Color, SharedString};
 
 use super::{PhysicalLength, PhysicalRect, PhysicalSize};
 
@@ -33,6 +34,7 @@ pub struct AnyrenderItemRenderer<'a, S: PaintScene> {
     window: &'a i_slint_core::api::Window,
     scale_factor: ScaleFactor,
     scene: &'a mut S,
+    text_layout_cache: &'a sharedparley::TextLayoutCache,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
 }
@@ -43,8 +45,16 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
         width: u32,
         height: u32,
         window: &'a i_slint_core::api::Window,
+        text_layout_cache: &'a sharedparley::TextLayoutCache,
     ) -> Self {
-        Self::new_with_initial_transform(scene, width, height, window, kurbo::Affine::IDENTITY)
+        Self::new_with_initial_transform(
+            scene,
+            width,
+            height,
+            window,
+            text_layout_cache,
+            kurbo::Affine::IDENTITY,
+        )
     }
 
     /// Like [`new`](Self::new) but starts with a non-identity transform,
@@ -55,6 +65,7 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
         width: u32,
         height: u32,
         window: &'a i_slint_core::api::Window,
+        text_layout_cache: &'a sharedparley::TextLayoutCache,
         initial_transform: kurbo::Affine,
     ) -> Self {
         let scale_factor = ScaleFactor::new(window.scale_factor());
@@ -62,6 +73,7 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
             window,
             scale_factor,
             scene,
+            text_layout_cache,
             state_stack: vec![],
             current_state: RenderState {
                 clip_rect: LogicalRect::from_size(
@@ -197,7 +209,6 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         todo!()
     }
 
-    #[allow(unused_variables)]
     fn draw_text(
         &mut self,
         text: Pin<&dyn RenderText>,
@@ -205,17 +216,16 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        todo!()
+        sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
     }
 
-    #[allow(unused_variables)]
     fn draw_text_input(
         &mut self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         self_rc: &i_slint_core::items::ItemRc,
         size: LogicalSize,
     ) {
-        todo!()
+        sharedparley::draw_text_input(self, text_input, self_rc, size, self.text_layout_cache);
     }
 
     #[allow(unused_variables)]
@@ -296,9 +306,14 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         todo!()
     }
 
-    #[allow(unused_variables)]
     fn draw_string(&mut self, string: &str, color: Color) {
-        todo!()
+        sharedparley::draw_text(
+            self,
+            std::pin::pin!((SharedString::from(string), Brush::from(color))),
+            None,
+            logical_size_from_api(self.window.size().to_logical(self.scale_factor().get())),
+            None,
+        );
     }
 
     #[allow(unused_variables)]
@@ -341,6 +356,95 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         }
     }
 }
+
+#[derive(Clone)]
+pub struct GlyphBrush {
+    peniko_brush: peniko::Brush,
+    brush_transform: Option<kurbo::Affine>,
+    style: peniko::Style,
+}
+
+impl<'a, S: PaintScene> GlyphRenderer for AnyrenderItemRenderer<'a, S> {
+    type PlatformBrush = GlyphBrush;
+
+    fn platform_text_fill_brush(
+        &mut self,
+        brush: Brush,
+        size: LogicalSize,
+    ) -> Option<Self::PlatformBrush> {
+        let (peniko_brush, brush_transform) = self.brush(brush, self.size(size))?;
+        Some(GlyphBrush {
+            peniko_brush,
+            brush_transform,
+            style: peniko::Style::Fill(peniko::Fill::default()),
+        })
+    }
+
+    fn platform_brush_for_color(
+        &mut self,
+        color: &i_slint_core::Color,
+    ) -> Option<Self::PlatformBrush> {
+        self.platform_text_fill_brush(Brush::SolidColor(*color), LogicalSize::default())
+    }
+
+    fn platform_text_stroke_brush(
+        &mut self,
+        stroke_brush: Brush,
+        physical_stroke_width: f32,
+        size: LogicalSize,
+    ) -> Option<Self::PlatformBrush> {
+        let (peniko_brush, brush_transform) = self.brush(stroke_brush, self.size(size))?;
+
+        Some(GlyphBrush {
+            peniko_brush,
+            brush_transform,
+            style: peniko::Style::Stroke(kurbo::Stroke::new(physical_stroke_width as f64)),
+        })
+    }
+
+    fn draw_glyph_run(
+        &mut self,
+        font: &parley::FontData,
+        font_size: PhysicalLength,
+        normalized_coords: &[i16],
+        _synthesis: &fontique::Synthesis,
+        brush: Self::PlatformBrush,
+        y_offset: sharedparley::PhysicalLength,
+        glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
+    ) {
+        let transform = self
+            .current_state
+            .transform
+            .then_translate(kurbo::Vec2::new(0., y_offset.get() as f64));
+        let glyphs: Vec<_> =
+            glyphs_it.map(|g| anyrender::Glyph { id: g.id, x: g.x, y: g.y }).collect();
+        self.scene.draw_glyphs(
+            font,
+            font_size.get(),
+            false,
+            normalized_coords,
+            kurbo::Vec2::ZERO,
+            peniko::StyleRef::from(&brush.style),
+            peniko::BrushRef::from(&brush.peniko_brush),
+            1.0,
+            transform,
+            None,
+            glyphs.into_iter(),
+        );
+    }
+
+    fn fill_rectangle(
+        &mut self,
+        physical_rect: sharedparley::PhysicalRect,
+        brush: Self::PlatformBrush,
+        radius: sharedparley::PhysicalLength,
+        border: Option<sharedparley::RectangleBorder<Self::PlatformBrush>>,
+    ) {
+        let shape = RectShape::uniform(to_kurbo_rect(physical_rect), radius.get() as f64);
+        self.fill_and_stroke(&shape, brush, border);
+    }
+}
+
 impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
     /// Push a compositing layer that does not clip its content.
     fn push_unclipped_layer(&mut self, blend: peniko::BlendMode, alpha: f32) {
@@ -384,6 +488,35 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
                 transform,
                 peniko::BrushRef::from(&brush),
                 brush_transform,
+                shape,
+            );
+        }
+    }
+
+    /// Fill `shape` with `brush`, then stroke the same shape with `border`
+    /// if one is given.
+    fn fill_and_stroke(
+        &mut self,
+        shape: &impl kurbo::Shape,
+        brush: GlyphBrush,
+        border: Option<sharedparley::RectangleBorder<GlyphBrush>>,
+    ) {
+        self.scene.fill(
+            peniko::Fill::default(),
+            self.current_state.transform,
+            peniko::BrushRef::from(&brush.peniko_brush),
+            brush.brush_transform,
+            shape,
+        );
+
+        if let Some(border) = border
+            && border.width.get() > 0.
+        {
+            self.scene.stroke(
+                &kurbo::Stroke::new(border.width.get() as f64),
+                self.current_state.transform,
+                peniko::BrushRef::from(&border.brush.peniko_brush),
+                border.brush.brush_transform,
                 shape,
             );
         }
