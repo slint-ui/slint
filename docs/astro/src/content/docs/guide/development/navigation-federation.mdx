@@ -1,0 +1,158 @@
+---
+title: Federated Navigation
+description: Compose an app from independently-authored parts using navigation contracts, mounts, and host capabilities.
+---
+
+Large apps are often built by several teams, each owning a feature and shipping
+on its own release cycle. Federation lets each team declare its screens and the
+contract at its boundary, and lets an integration layer compose them into one
+app, without any team editing another's code.
+
+It builds on the [`navigator`](navigation) construct: each part runs its own
+navigator internally, and the integrator mounts the part at a route.
+
+:::caution[Experimental]
+These constructs are experimental. Build with
+`SLINT_ENABLE_EXPERIMENTAL_FEATURES=1` (or set `enable_experimental` in the
+compiler configuration) to use them.
+:::
+
+## The navigation contract
+
+A contract is an `interface` that declares the routes a part exposes at its
+boundary. It is the only thing the integrator and the part have to agree on.
+
+```slint
+export interface FeatureNav {
+    @version(1)
+    @uri("app://feature") route Main;
+}
+```
+
+- `route Main;` declares an entry route. A route may take parameters, for
+  example `route Details(id: int);`, for deep links that carry data.
+- `@version(n)` versions the contract, so an integrator can tell which revision
+  a part was built against.
+- `@uri("…")` gives a route a stable deep-link address.
+
+A contract may also declare the capabilities the host provides to a mounted
+part:
+
+```slint
+export interface HostServices {
+    callback log(string);
+    callback go-home();
+}
+```
+
+## Implementing a contract
+
+A part `implements` a contract, which checks at compile time that it covers
+every route the contract declares. It declares the capabilities it `needs` from
+its host, and runs its own navigator internally:
+
+```slint
+import { FeatureNav, HostServices } from "contract.slint";
+
+enum MediaRoute { Main, Player }
+
+export component MediaFeature implements FeatureNav inherits Rectangle {
+    needs HostServices;
+    in-out property <MediaRoute> current-route: MediaRoute.Main;
+
+    init => { root.log("media: mounted"); }
+
+    navigator (current-route) {
+        MediaRoute.Main: Library {
+            play => { root.navigate(MediaRoute.Player); }
+            home => { root.go-home(); }
+        }
+        MediaRoute.Player: Player {
+            go-back => { root.back(); }
+        }
+    }
+}
+```
+
+`needs HostServices` makes `log` and `go-home` usable inside the part as if it
+declared them, but leaves them unbound: the integrator binds them at the mount.
+
+## Mounting a part
+
+The integration shell mounts a part at one of its own routes with
+`mount … via Contract`, and binds the capabilities the part needs right there:
+
+```slint
+import { FeatureNav } from "contract.slint";
+import { MediaFeature } from "media.slint";
+
+enum Shell { Home, Media }
+
+export component App inherits Window {
+    in-out property <Shell> current: Shell.Home;
+
+    navigator (current) {
+        Shell.Home: HomeScreen {
+            open-media => { root.navigate(Shell.Media); }
+        }
+        Shell.Media: mount MediaFeature via FeatureNav {
+            log(message) => { debug(message); }
+            go-home => { root.navigate(Shell.Home); }
+        }
+    }
+}
+```
+
+`mount MediaFeature via FeatureNav` instantiates the part directly and checks it
+against the contract at build time. An unbound `needs` capability is a compile
+error at the mount site, so the integration never ships a part missing a service
+it requires.
+
+## External parts
+
+A part built and shipped on its own cycle is not a compile-time dependency.
+Mount it with `mount extern via Contract` and hand it a `ComponentFactory` at
+runtime:
+
+```slint
+export component App inherits Window {
+    in property <component-factory> plugin-factory;
+    // ...
+    navigator (current) {
+        // ...
+        Shell.Plugin: mount extern via FeatureNav {
+            component-factory: root.plugin-factory;
+        }
+    }
+}
+```
+
+The host supplies the factory. Here it loads the part from source at runtime
+with the interpreter, but it could equally be a separately compiled binary:
+
+```rust
+let factory = slint::ComponentFactory::new(|ctx| {
+    let compiler = slint_interpreter::Compiler::new();
+    let def = spin_on::spin_on(
+        compiler.build_from_source(plugin_source, "plugin.slint".into()),
+    )
+    .component("Plugin")
+    .unwrap();
+    def.create_embedded(ctx).ok()
+});
+app.set_plugin_factory(factory);
+```
+
+The external part renders into the mount's slot; the seam is a
+`ComponentContainer`, so nothing about the shell has to be recompiled when the
+part changes.
+
+## Why federation
+
+The contract is the whole coupling surface. Because it is declared structure
+checked by the compiler, an integration team can compose parts it did not write,
+each part can be versioned and deep-linked, and a part can be swapped, at build
+time or at runtime, without either side reaching into the other's internals.
+
+A runnable version lives in `examples/navigation-federated` in the Slint
+repository.
