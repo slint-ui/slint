@@ -956,37 +956,29 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
             return None;
         }
 
-        fn convert_color_stops<'a>(
-            stops: impl Iterator<Item = &'a i_slint_core::graphics::GradientStop>,
-        ) -> peniko::ColorStops {
-            peniko::ColorStops(
-                stops
-                    .map(|stop| peniko::ColorStop {
-                        offset: stop.position,
-                        color: peniko::color::DynamicColor::from_alpha_color(to_peniko_color(
-                            stop.color,
-                        )),
-                    })
-                    .collect(),
-            )
-        }
-
         Some(match brush {
             Brush::SolidColor(color) => (to_peniko_color(color).into(), None),
             Brush::LinearGradient(gradient) => {
+                let (stops, extent) = sanitize_color_stops(gradient.stops(), true);
                 let (start, end) = i_slint_core::graphics::line_for_angle(
                     gradient.angle(),
                     [shape_size.width as f32, shape_size.height as f32].into(),
                 );
                 let start = to_kurbo_point(start);
-                let end = to_kurbo_point(end);
+                let mut end = to_kurbo_point(end);
+                if extent != 1.0 {
+                    // Stops reached beyond 100%: lengthen the gradient line so
+                    // the normalized offsets cover the same colors.
+                    end = start + (end - start) * extent as f64;
+                }
 
                 let mut peniko_gradient = peniko::Gradient::new_linear(start, end);
-                peniko_gradient.stops = convert_color_stops(gradient.stops());
+                peniko_gradient.stops = stops;
 
                 (peniko_gradient.into(), None)
             }
             Brush::RadialGradient(gradient) => {
+                let (stops, extent) = sanitize_color_stops(gradient.stops(), true);
                 let (center_x, center_y) = gradient.center_or_default_scaled(
                     shape_size.width as f32,
                     shape_size.height as f32,
@@ -997,10 +989,13 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
                     shape_size.height as f32,
                     self.scale_factor.get(),
                 );
+                // Stops reaching beyond 100% grow the circle so the
+                // normalized offsets cover the same colors.
+                let radius = radius * extent;
 
                 let mut peniko_gradient =
                     peniko::Gradient::new_radial(kurbo::Point::new(0., 0.), 1.0);
-                peniko_gradient.stops = convert_color_stops(gradient.stops());
+                peniko_gradient.stops = stops;
 
                 // A unit circle at the origin, scaled to the radius and moved
                 // to the center, so the color stops span [0, radius].
@@ -1013,6 +1008,9 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
                 )
             }
             Brush::ConicGradient(gradient) => {
+                // A sweep gradient's angular range cannot be extended beyond a
+                // full turn, so out-of-range stops are clamped instead.
+                let (stops, _) = sanitize_color_stops(gradient.stops(), false);
                 let (center_x, center_y) = gradient.center_or_default_scaled(
                     shape_size.width as f32,
                     shape_size.height as f32,
@@ -1022,7 +1020,7 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
 
                 let mut peniko_gradient =
                     peniko::Gradient::new_sweep(center, 0., 360f32.to_radians());
-                peniko_gradient.stops = convert_color_stops(gradient.stops());
+                peniko_gradient.stops = stops;
 
                 // Sweep gradients start at 3 o'clock (east); Slint's 0° is at
                 // 12 o'clock, so rotate the brush by -90° around the center.
@@ -1034,6 +1032,125 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
             _ => return None,
         })
     }
+}
+
+/// Massage gradient color stops into the form vello accepts: sorted,
+/// strictly increasing, and with offsets in [0, 1]. vello renders gradients
+/// with out-of-range or non-increasing stop offsets as a solid fill of the
+/// first color instead.
+///
+/// Stops below 0 are replaced by the interpolated color at 0 (the CSS
+/// behavior). For stops beyond 1: with `can_extend`, all offsets are divided
+/// by the maximum and that maximum is returned as the second tuple element,
+/// so the caller can grow the gradient geometry (radius, line) by the same
+/// factor; without it, they are clamped to the interpolated color at 1.
+/// Duplicate offsets — hard color steps — are separated by the smallest
+/// representable amount.
+fn sanitize_color_stops<'a>(
+    stops: impl Iterator<Item = &'a i_slint_core::graphics::GradientStop>,
+    can_extend: bool,
+) -> (peniko::ColorStops, f32) {
+    /// Plain per-channel interpolation between the colors of `a` and `b` at
+    /// `position`, matching how the gradient ramp itself blends.
+    fn color_at(
+        position: f32,
+        a: &i_slint_core::graphics::GradientStop,
+        b: &i_slint_core::graphics::GradientStop,
+    ) -> Color {
+        let t = if b.position > a.position {
+            ((position - a.position) / (b.position - a.position)).clamp(0., 1.)
+        } else {
+            0.
+        };
+        let (ca, cb) = (a.color.to_argb_u8(), b.color.to_argb_u8());
+        let lerp = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t) as u8;
+        Color::from_argb_u8(
+            lerp(ca.alpha, cb.alpha),
+            lerp(ca.red, cb.red),
+            lerp(ca.green, cb.green),
+            lerp(ca.blue, cb.blue),
+        )
+    }
+
+    let mut stops: Vec<i_slint_core::graphics::GradientStop> = stops.cloned().collect();
+    stops.sort_by(|a, b| a.position.total_cmp(&b.position));
+
+    // Replace everything below 0 with the interpolated color at 0.
+    while stops.len() >= 2 && stops[1].position <= 0. {
+        stops.remove(0);
+    }
+    if let [first, second, ..] = stops.as_slice()
+        && first.position < 0.
+    {
+        stops[0] = i_slint_core::graphics::GradientStop {
+            color: color_at(0., first, second),
+            position: 0.,
+        };
+    } else if let [only] = stops.as_slice()
+        && only.position < 0.
+    {
+        stops[0].position = 0.;
+    }
+
+    // Handle stops beyond 1: normalize (the caller extends the geometry) or
+    // clamp to the interpolated color at 1.
+    let mut extent = 1.0f32;
+    if stops.last().is_some_and(|last| last.position > 1.) {
+        if can_extend {
+            extent = stops.last().unwrap().position;
+            for stop in &mut stops {
+                stop.position /= extent;
+            }
+        } else {
+            while stops.len() >= 2 && stops[stops.len() - 2].position >= 1. {
+                stops.pop();
+            }
+            let clamped_last = match stops.as_slice() {
+                [.., second_to_last, last] if last.position > 1. => {
+                    Some(i_slint_core::graphics::GradientStop {
+                        color: color_at(1., second_to_last, last),
+                        position: 1.,
+                    })
+                }
+                [only] if only.position > 1. => {
+                    Some(i_slint_core::graphics::GradientStop { color: only.color, position: 1. })
+                }
+                _ => None,
+            };
+            if let Some(stop) = clamped_last {
+                *stops.last_mut().unwrap() = stop;
+            }
+        }
+    }
+
+    // Make offsets strictly increasing: separate duplicates (hard color
+    // steps) by the smallest representable amount, then push back anything
+    // that got nudged past 1.
+    let mut previous = f32::NEG_INFINITY;
+    for stop in &mut stops {
+        if stop.position <= previous {
+            stop.position = previous.next_up();
+        }
+        previous = stop.position;
+    }
+    let mut next = 1.0f32.next_up();
+    for stop in stops.iter_mut().rev() {
+        if stop.position >= next {
+            stop.position = next.next_down();
+        }
+        next = stop.position;
+    }
+
+    let stops = peniko::ColorStops(
+        stops
+            .iter()
+            .map(|stop| peniko::ColorStop {
+                offset: stop.position,
+                color: peniko::color::DynamicColor::from_alpha_color(to_peniko_color(stop.color)),
+            })
+            .collect(),
+    );
+    (stops, extent)
 }
 
 fn adjust_rect_and_border_for_inner_drawing(
