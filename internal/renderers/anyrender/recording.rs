@@ -22,13 +22,14 @@ use crate::{AnyrenderSlintRenderer, SlintWindowRenderer};
 /// rasterization and has no platform dependencies.
 pub struct RecordingWindowRenderer {
     scene: Scene,
+    base_color: Option<peniko::color::AlphaColor<peniko::color::Srgb>>,
     width: u32,
     height: u32,
 }
 
 impl RecordingWindowRenderer {
     pub fn new() -> Self {
-        Self { scene: Scene::default(), width: 0, height: 0 }
+        Self { scene: Scene::default(), base_color: None, width: 0, height: 0 }
     }
 
     /// Take ownership of the recorded scene, leaving an empty one in place.
@@ -39,6 +40,13 @@ impl RecordingWindowRenderer {
     /// Borrow the recorded scene without consuming it.
     pub fn scene(&self) -> &Scene {
         &self.scene
+    }
+
+    /// The base color of the last recorded frame — the solid window
+    /// background that backends paint underneath the command stream, which
+    /// is not part of the recorded scene itself.
+    pub fn base_color(&self) -> Option<peniko::color::AlphaColor<peniko::color::Srgb>> {
+        self.base_color
     }
 }
 
@@ -93,7 +101,7 @@ impl SlintWindowRenderer for RecordingWindowRenderer {
     fn slint_render<F>(
         &mut self,
         _surface_size: i_slint_core::api::PhysicalSize,
-        _base_color: peniko::color::AlphaColor<peniko::color::Srgb>,
+        base_color: peniko::color::AlphaColor<peniko::color::Srgb>,
         draw: F,
     ) -> Result<(), PlatformError>
     where
@@ -101,6 +109,7 @@ impl SlintWindowRenderer for RecordingWindowRenderer {
     {
         // Reset so each frame's recording is independent of the previous one.
         self.scene = Scene::default();
+        self.base_color = Some(base_color);
         draw(&mut self.scene)
     }
 
