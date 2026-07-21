@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A navigator inside a non-root component: its route property is internal, and
+// navigate()/back() must still be able to write it. Regression for the route
+// being wrongly classified constant (which panicked "Constant property being
+// changed" the first time navigate() ran).
+
+enum Route { Main, Detail }
+
+component Screen inherits Rectangle { }
+
+component Feature inherits Rectangle {
+    in-out property <Route> route: Route.Main;
+    public function push() { root.navigate(Route.Detail); }
+    public function pop() { root.back(); }
+    navigator (route) {
+        Route.Main: Screen { }
+        Route.Detail: Screen { }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    feature := Feature { }
+
+    out property <int> index: feature.current-route-index;
+
+    public function push() { feature.push(); }
+    public function pop() { feature.pop(); }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_index(), 0);
+instance.invoke_push();
+assert_eq!(instance.get_index(), 1);
+instance.invoke_pop();
+assert_eq!(instance.get_index(), 0);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_index(), 0);
+instance.invoke_push();
+assert_eq(instance.get_index(), 1);
+instance.invoke_pop();
+assert_eq(instance.get_index(), 0);
+```
+
+```js
+var instance = new slint.TestCase();
+assert.equal(instance.index, 0);
+instance.push();
+assert.equal(instance.index, 1);
+instance.pop();
+assert.equal(instance.index, 0);
+```
+
+```python
+instance = TestCase()
+assert instance.index == 0
+instance.push()
+assert instance.index == 1
+instance.pop()
+assert instance.index == 0
+```
+*/

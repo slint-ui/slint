@@ -40,14 +40,17 @@ fn lower_one(elem: &ElementRc, diag: &mut BuildDiagnostics) {
         return;
     }
 
-    if !matches!(route_ref, Expression::PropertyReference(_)) {
+    let Expression::PropertyReference(route_nr) = &route_ref else {
         diag.push_error(
             "the navigator route must be a writable property to support navigate() and back()"
                 .into(),
             &*elem.borrow(),
         );
         return;
-    }
+    };
+    // navigate()/back() assign the route, so mark it set. Otherwise a mounted
+    // module (where the route is internal) classifies it constant and panics.
+    route_nr.mark_as_set();
 
     elem.borrow_mut().property_declarations.insert(
         SmolStr::new_static(BACK_STACK),
