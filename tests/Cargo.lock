@@ -5731,6 +5731,7 @@ dependencies = [
  "i-slint-renderer-skia",
  "image",
  "kurbo",
+ "peniko",
  "serde_json",
  "slint",
  "slint-interpreter",

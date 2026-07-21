@@ -103,20 +103,22 @@ pub struct TestCase {
     pub reference_path: PathBuf,
 }
 
-pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
-    let renderer = init_anyrender();
-
-    let source = std::fs::read_to_string(&testcase.absolute_path)?;
+/// Compile and show `absolute_path`, returning the created component (which
+/// must stay alive while rendering).
+fn compile_and_show(
+    absolute_path: &Path,
+) -> Result<slint_interpreter::ComponentInstance, Box<dyn std::error::Error>> {
+    let source = std::fs::read_to_string(absolute_path)?;
     let mut compiler = slint_interpreter::Compiler::default();
     compiler.set_style("fluent".into());
     let compiled =
-        poll_once(compiler.build_from_source(source, testcase.absolute_path.clone())).unwrap();
+        poll_once(compiler.build_from_source(source, absolute_path.to_path_buf())).unwrap();
 
     if compiled.has_errors() {
         compiled.print_diagnostics();
         return Err(format!(
             "build error in {:?} \n {:?}",
-            testcase.absolute_path,
+            absolute_path,
             compiled.diagnostics().collect::<Vec<_>>()
         )
         .into());
@@ -126,13 +128,52 @@ pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
     let component = def.create().unwrap();
     component.show().unwrap();
 
+    Ok(component)
+}
+
+pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
+    let renderer = init_anyrender();
+
+    let component = compile_and_show(&testcase.absolute_path)?;
+
     let scene = renderer.record()?;
+    let base_color = renderer.window_renderer().base_color();
     let size = component.window().size();
     let archive = SceneArchive::from_scene(&scene, &SerializeConfig::new()).map_err(
         |e| -> Box<dyn std::error::Error> { format!("scene serialization failed: {e}").into() },
     )?;
 
-    compare_command_stream(&testcase, &archive, size)?;
+    compare_command_stream(&testcase, &archive, base_color, size)?;
+    Ok(())
+}
+
+/// Render the case through the production anyrender_vello_cpu rasterizer and
+/// compare pixels against `references/vello_cpu/<case>.png`. vello_cpu output
+/// is bit-identical across OSes and architectures, so a single reference set
+/// serves all platforms. `SLINT_CREATE_SCREENSHOTS=1` (re)creates references.
+pub fn run_pixel_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
+    let renderer = init_anyrender();
+
+    let component = compile_and_show(&testcase.absolute_path)?;
+
+    let scene = renderer.record()?;
+    let base_color = renderer.window_renderer().base_color();
+    let size = component.window().size();
+
+    let mut buf = render_scene(&scene, base_color, size);
+    unpremultiply_rgba(&mut buf);
+    let screenshot = i_slint_core::graphics::SharedPixelBuffer::clone_from_slice(
+        &buf,
+        size.width.max(1),
+        size.height.max(1),
+    );
+
+    crate::testing::compare_images(
+        testcase.reference_path.to_str().unwrap(),
+        &screenshot,
+        Default::default(),
+        &Default::default(),
+    )?;
     Ok(())
 }
 
@@ -146,6 +187,7 @@ pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
 fn compare_command_stream(
     testcase: &TestCase,
     archive: &SceneArchive,
+    base_color: Option<peniko::color::AlphaColor<peniko::color::Srgb>>,
     size: PhysicalSize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let reference_path = &testcase.reference_path;
@@ -187,7 +229,7 @@ fn compare_command_stream(
     let actual_scene = archive.to_scene().map_err(|e| -> Box<dyn std::error::Error> {
         format!("could not reconstitute current scene: {e}").into()
     })?;
-    if let Err(e) = render_scene_to_png(&actual_scene, size, &actual_png) {
+    if let Err(e) = render_scene_to_png(&actual_scene, base_color, size, &actual_png) {
         hint.push_str(&format!("\n(failed to render actual PNG: {e})"));
     } else {
         hint.push_str(&format!("\n  actual:   {}", actual_png.display()));
@@ -206,7 +248,9 @@ fn compare_command_stream(
             };
             match golden_archive.to_scene() {
                 Ok(expected_scene) => {
-                    if let Err(e) = render_scene_to_png(&expected_scene, size, &expected_png) {
+                    if let Err(e) =
+                        render_scene_to_png(&expected_scene, base_color, size, &expected_png)
+                    {
                         hint.push_str(&format!("\n(failed to render expected PNG: {e})"));
                     } else {
                         hint.push_str(&format!("\n  expected: {}", expected_png.display()));
@@ -234,11 +278,14 @@ fn compare_command_stream(
     .into())
 }
 
-fn render_scene_to_png(
+/// Rasterize a recorded scene through anyrender_vello_cpu, compositing it on
+/// top of `base_color` (the solid window background, which is not part of the
+/// command stream). Returns premultiplied RGBA8.
+fn render_scene(
     scene: &anyrender::recording::Scene,
+    base_color: Option<peniko::color::AlphaColor<peniko::color::Srgb>>,
     size: PhysicalSize,
-    out_path: &Path,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Vec<u8> {
     use anyrender::ImageRenderer;
     use anyrender_vello_cpu::VelloCpuImageRenderer;
 
@@ -250,18 +297,33 @@ fn render_scene_to_png(
     let scene_clone = scene.clone();
     image_renderer.render_to_vec(
         |painter| {
-            <_ as anyrender::PaintScene>::append_scene(
-                painter,
-                scene_clone,
-                kurbo::Affine::IDENTITY,
-            );
+            use anyrender::PaintScene;
+            if let Some(color) = base_color {
+                painter.fill(
+                    peniko::Fill::NonZero,
+                    kurbo::Affine::IDENTITY,
+                    peniko::BrushRef::Solid(color),
+                    None,
+                    &kurbo::Rect::new(0., 0., width as f64, height as f64),
+                );
+            }
+            painter.append_scene(scene_clone, kurbo::Affine::IDENTITY);
         },
         &mut buf,
     );
+    buf
+}
 
+fn render_scene_to_png(
+    scene: &anyrender::recording::Scene,
+    base_color: Option<peniko::color::AlphaColor<peniko::color::Srgb>>,
+    size: PhysicalSize,
+    out_path: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut buf = render_scene(scene, base_color, size);
     unpremultiply_rgba(&mut buf);
 
-    let img = image::RgbaImage::from_raw(width, height, buf)
+    let img = image::RgbaImage::from_raw(size.width.max(1), size.height.max(1), buf)
         .ok_or("vello_cpu image buffer size mismatch")?;
     if let Some(parent) = out_path.parent() {
         std::fs::create_dir_all(parent)?;
