@@ -180,6 +180,9 @@ impl<Impl: FileWatcherImpl> FileWatcher<Impl> {
     }
 
     /// Replaces the watched path set with `paths`.
+    ///
+    /// Paths must be absolute: they are compared by value against the paths the backend reports
+    /// for events, which are absolute, and relative paths are never resolved against a base.
     pub fn update_watched_paths<I>(&mut self, paths: I) -> Result<(), Impl::Error>
     where
         I: IntoIterator<Item = PathBuf>,
