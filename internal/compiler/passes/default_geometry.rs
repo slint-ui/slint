@@ -372,78 +372,75 @@ fn fix_percent_size(
         diag: &mut BuildDiagnostics,
         symbol_counters: &SymbolCounters,
     ) -> bool {
-        match expression {
-            Expression::Condition { true_expr, false_expr, .. }
-                if true_expr.ty() != false_expr.ty() =>
-            {
-                // The lower_states pass generates a Condition for properties set inside states.
-                // Unlike with ternary expressions, the typesystem doesn't ensure that both branches
-                // have the same type in this case. Thus one side can be a percentage, while the
-                // other can be a length. This conversion of percents to lengths can't happen before
-                // states lowering because it depends on inlining, and unlowered can't be
-                // easily inlined because states effectively form a single enum per component,
-                // whereas inlined ones would need to get a separate enum instead of being included
-                // into the enum of the component being inlined into. Because of this we handle the
-                // mismatched types here and recurse on them to convert all branches that are
-                // percentages and leave alone the ones that are already lengths.
-                inner(true_expr, span, parent, property, diag, symbol_counters)
-                    && inner(false_expr, span, parent, property, diag, symbol_counters)
+        if let Expression::Condition { true_expr, false_expr, .. } = expression
+            && true_expr.ty() != false_expr.ty()
+        {
+            // The lower_states pass generates a Condition for properties set inside states.
+            // Unlike with ternary expressions, the typesystem doesn't ensure that both branches
+            // have the same type in this case. Thus one side can be a percentage, while the
+            // other can be a length. This conversion of percents to lengths can't happen before
+            // states lowering because it depends on inlining, and unlowered can't be
+            // easily inlined because states effectively form a single enum per component,
+            // whereas inlined ones would need to get a separate enum instead of being included
+            // into the enum of the component being inlined into. Because of this we handle the
+            // mismatched types here and recurse on them to convert all branches that are
+            // percentages and leave alone the ones that are already lengths.
+            inner(true_expr, span, parent, property, diag, symbol_counters)
+                && inner(false_expr, span, parent, property, diag, symbol_counters)
+        } else {
+            if expression.ty() != Type::Percent {
+                let Some(parent) = parent.as_ref() else { return false };
+                // Pattern match to check it was already parent.<property>
+                //
+                // Note: do not ignore debug hooks here, the debug hook may overwrite the
+                // expression so it may not fill after all.
+                return matches!(
+                    expression,
+                    Expression::PropertyReference(nr)
+                        if *nr.name() == property && Rc::ptr_eq(&nr.element(), parent),
+                );
             }
-            _ => {
-                if expression.ty() != Type::Percent {
-                    let Some(parent) = parent.as_ref() else { return false };
-                    // Pattern match to check it was already parent.<property>
-                    //
-                    // Note: do not ignore debug hooks here, the debug hook may overwrite the
-                    // expression so it may not fill after all.
-                    return matches!(
-                        expression,
-                        Expression::PropertyReference(nr)
-                            if *nr.name() == property && Rc::ptr_eq(&nr.element(), parent),
-                    );
+            if let Some(mut parent) = parent.clone() {
+                let flickable = parent.borrow().is_flickable_viewport;
+                if parent.borrow().is_flickable_viewport {
+                    // the `%` in a flickable need to refer to the size of the flickable, not
+                    // the size of the viewport
+                    parent = crate::object_tree::find_parent_element(&parent).unwrap_or(parent)
                 }
-                if let Some(mut parent) = parent.clone() {
-                    let flickable = parent.borrow().is_flickable_viewport;
-                    if parent.borrow().is_flickable_viewport {
-                        // the `%` in a flickable need to refer to the size of the flickable, not
-                        // the size of the viewport
-                        parent = crate::object_tree::find_parent_element(&parent).unwrap_or(parent)
-                    }
-                    debug_assert_eq!(
-                        parent.borrow().lookup_property(property).property_type,
-                        Type::LogicalLength
-                    );
-                    // do not ignore debug hooks here, the debug hook may overwrite the expression
-                    // so it may not fill after all.
-                    let fill = matches!(
-                        *expression,
-                        Expression::NumberLiteral(x, _) if (x - 100.).abs() < 0.001,
-                    );
+                debug_assert_eq!(
+                    parent.borrow().lookup_property(property).property_type,
+                    Type::LogicalLength
+                );
+                // do not ignore debug hooks here, the debug hook may overwrite the expression
+                // so it may not fill after all.
+                let fill = matches!(
+                    *expression,
+                    Expression::NumberLiteral(x, _) if (x - 100.).abs() < 0.001,
+                );
 
-                    *expression = Expression::BinaryExpression {
-                        lhs: Box::new(std::mem::take(expression).maybe_convert_to(
-                            Type::Float32,
-                            span,
-                            diag,
-                            symbol_counters,
-                        )),
-                        rhs: Box::new(Expression::PropertyReference(NamedReference::new(
-                            &parent,
-                            SmolStr::new_static(property),
-                        ))),
-                        op: '*',
-                    };
-
-                    // 100% of the outer size of the flickable does not mean the flickable is
-                    // filled. We don't want to trigger the elimination of centering in this case.
-                    fill && !flickable
-                } else {
-                    diag.push_error(
-                        "Cannot find parent property to apply relative length".into(),
+                *expression = Expression::BinaryExpression {
+                    lhs: Box::new(std::mem::take(expression).maybe_convert_to(
+                        Type::Float32,
                         span,
-                    );
-                    false
-                }
+                        diag,
+                        symbol_counters,
+                    )),
+                    rhs: Box::new(Expression::PropertyReference(NamedReference::new(
+                        &parent,
+                        SmolStr::new_static(property),
+                    ))),
+                    op: '*',
+                };
+
+                // 100% of the outer size of the flickable does not mean the flickable is
+                // filled. We don't want to trigger the elimination of centering in this case.
+                fill && !flickable
+            } else {
+                diag.push_error(
+                    "Cannot find parent property to apply relative length".into(),
+                    span,
+                );
+                false
             }
         }
     }
