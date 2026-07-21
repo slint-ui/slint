@@ -12,8 +12,9 @@ use android_activity::{InputStatus, MainEvent, PollEvent};
 use i_slint_core::SharedString;
 use i_slint_core::api::{
     LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, PlatformError, Window,
+    WindowEventDispatchResult,
 };
-use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventResult, KeyEventType, TouchPhase};
+use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, TouchPhase};
 use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::{
     Key, PointerEventButton, WindowAdapter, WindowEvent, WindowProperties,
@@ -274,44 +275,6 @@ impl AndroidWindowAdapter {
         Ok(ControlFlow::Continue(()))
     }
 
-    fn try_dispatch_key_event(&self, ev: WindowEvent) -> KeyEventResult {
-        #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
-        match ev {
-            WindowEvent::KeyPressed { text } => WindowInner::from_pub(&self.window)
-                .process_key_input(InternalKeyEvent {
-                    event_type: KeyEventType::KeyPressed,
-                    key_event: {
-                        let mut key_event = KeyEvent::default();
-                        key_event.text = text;
-                        key_event
-                    },
-                    ..Default::default()
-                }),
-            WindowEvent::KeyPressRepeated { text } => WindowInner::from_pub(&self.window)
-                .process_key_input(InternalKeyEvent {
-                    event_type: KeyEventType::KeyPressed,
-                    key_event: {
-                        let mut key_event = KeyEvent::default();
-                        key_event.text = text;
-                        key_event.repeat = true;
-                        key_event
-                    },
-                    ..Default::default()
-                }),
-            WindowEvent::KeyReleased { text } => WindowInner::from_pub(&self.window)
-                .process_key_input(InternalKeyEvent {
-                    key_event: {
-                        let mut key_event = KeyEvent::default();
-                        key_event.text = text;
-                        key_event
-                    },
-                    event_type: KeyEventType::KeyReleased,
-                    ..Default::default()
-                }),
-            _ => KeyEventResult::EventIgnored,
-        }
-    }
-
     fn process_inputs(&self) -> Result<(), PlatformError> {
         let mut iter =
             self.app.input_events_iter().map_err(|e| PlatformError::Other(e.to_string()))?;
@@ -319,13 +282,14 @@ impl AndroidWindowAdapter {
             let mut result = Ok(());
             let read_input = iter.next(|event| match event {
                 InputEvent::KeyEvent(key_event) => match map_key_event(key_event) {
-                    Some(ev) => {
-                        if self.try_dispatch_key_event(ev) == KeyEventResult::EventAccepted {
-                            InputStatus::Handled
-                        } else {
+                    Some(ev) => match self.window.dispatch_event_with_result(ev) {
+                        Ok(WindowEventDispatchResult::Accepted) => InputStatus::Handled,
+                        Ok(_) => InputStatus::Unhandled,
+                        Err(e) => {
+                            result = Err(e);
                             InputStatus::Unhandled
                         }
-                    }
+                    },
                     None => InputStatus::Unhandled,
                 },
                 InputEvent::MotionEvent(motion_event) => {
