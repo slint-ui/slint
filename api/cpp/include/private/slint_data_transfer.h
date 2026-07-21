@@ -110,7 +110,7 @@ public:
     {
         std::vector<cbindgen_private::Slice<uint8_t>> slices;
         slices.reserve(paths.size());
-#ifdef _WIN32
+#    ifdef _WIN32
         std::vector<std::u8string> bytes;
         bytes.reserve(paths.size());
         for (const auto &path : paths) {
@@ -118,14 +118,14 @@ public:
             slices.push_back({ const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(b.data())),
                                b.size() });
         }
-#else
+#    else
         for (const auto &path : paths) {
             const auto &native = path.native();
             slices.push_back(
                     { const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(native.data())),
                       native.size() });
         }
-#endif
+#    endif
         cbindgen_private::types::slint_data_transfer_set_file_paths(
                 this,
                 cbindgen_private::Slice<cbindgen_private::Slice<uint8_t>> { slices.data(),
@@ -188,13 +188,13 @@ public:
         std::vector<std::filesystem::path> paths;
         paths.reserve(out.size());
         for (const auto &bytes : out) {
-#ifdef _WIN32
-            paths.emplace_back(std::u8string_view(
-                    reinterpret_cast<const char8_t *>(bytes.begin()), bytes.size()));
-#else
-            paths.emplace_back(std::string_view(reinterpret_cast<const char *>(bytes.begin()),
-                                                bytes.size()));
-#endif
+#    ifdef _WIN32
+            paths.emplace_back(std::u8string_view(reinterpret_cast<const char8_t *>(bytes.begin()),
+                                                  bytes.size()));
+#    else
+            paths.emplace_back(
+                    std::string_view(reinterpret_cast<const char *>(bytes.begin()), bytes.size()));
+#    endif
         }
         return paths;
     }
