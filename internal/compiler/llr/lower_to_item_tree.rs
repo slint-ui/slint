@@ -320,8 +320,6 @@ fn lower_sub_component(
         flexbox_layout_item_info_for_repeated: None,
         layout_info_v_constrained_for_repeated: None,
         layout_info_v_at_cross_width_for_repeated: None,
-        layout_info_h_constrained_for_repeated: None,
-        layout_info_h_at_cross_height_for_repeated: None,
         is_repeated_row: component
             .root_element
             .borrow()
@@ -700,16 +698,10 @@ fn lower_sub_component(
                 root_elem,
                 &component.root_constraints.borrow(),
             );
-        let h_constrained =
-            super::lower_layout_expression::get_layout_info_h_constrained_for_repeated(
-                &mut ctx,
-                root_elem,
-                &component.root_constraints.borrow(),
-            );
         // Generate the flex item-info accessor when the element sets flex
-        // properties, or when it needs one of the constrained-axis fixes (a
-        // height-for-width instance in a column flex, or a width-for-height one).
-        if has_flex_binding || v_constrained.is_some() || h_constrained.is_some() {
+        // properties, or when it needs the constrained-vertical fix (a
+        // height-for-width instance in a column flex).
+        if has_flex_binding || v_constrained.is_some() {
             sub_component.flexbox_layout_item_info_for_repeated = Some(
                 super::lower_layout_expression::get_flexbox_layout_item_info_for_repeated(
                     &mut ctx, root_elem,
@@ -720,14 +712,6 @@ fn lower_sub_component(
         sub_component.layout_info_v_constrained_for_repeated = v_constrained.map(Into::into);
         sub_component.layout_info_v_at_cross_width_for_repeated =
             super::lower_layout_expression::get_layout_info_v_at_cross_width_for_repeated(
-                &mut ctx,
-                root_elem,
-                &component.root_constraints.borrow(),
-            )
-            .map(Into::into);
-        sub_component.layout_info_h_constrained_for_repeated = h_constrained.map(Into::into);
-        sub_component.layout_info_h_at_cross_height_for_repeated =
-            super::lower_layout_expression::get_layout_info_h_at_cross_height_for_repeated(
                 &mut ctx,
                 root_elem,
                 &component.root_constraints.borrow(),
