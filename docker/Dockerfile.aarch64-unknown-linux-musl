@@ -24,7 +24,7 @@ FROM ubuntu:26.04
 # build (Skia has no prebuilt musl binaries). zstd is for the rust-cache
 # action when this image is used as a job container.
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes clang lld ninja-build python3 git curl ca-certificates zstd && \
+    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes clang lld pkg-config ninja-build python3 git curl ca-certificates zstd && \
     # The skia-bindings build clones git repos into the mounted, differently
     # owned cargo home (see Dockerfile.x86_64-unknown-linux-gnu).
     git config --global safe.directory '*'
