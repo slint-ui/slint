@@ -1,0 +1,20 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "navigation-federated"
+version = "1.18.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition.workspace = true
+publish = false
+license = "MIT"
+rust-version.workspace = true
+
+[[bin]]
+path = "main.rs"
+name = "navigation-federated"
+
+[dependencies]
+slint = { path = "../../api/rs/slint" }
+slint-interpreter = { path = "../../internal/interpreter" }
+spin_on = { version = "0.1" }

@@ -178,6 +178,10 @@ export default defineConfig({
                                         label: "Navigation",
                                         slug: "guide/development/navigation",
                                     },
+                                    {
+                                        label: "Federated Navigation",
+                                        slug: "guide/development/navigation-federation",
+                                    },
                                     "guide/development/best-practices",
                                     "guide/development/third-party-libraries",
                                 ],

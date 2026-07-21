@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { FeatureNav, HostServices } from "contract.slint";
+import { MediaFeature } from "media.slint";
+import { SettingsFeature } from "settings.slint";
+import { Button, VerticalBox } from "std-widgets.slint";
+
+enum Shell {
+    Home,
+    Media,
+    Settings,
+    Plugin,
+}
+
+component HomeScreen inherits VerticalBox {
+    callback open-media();
+    callback open-settings();
+    callback open-plugin();
+    Text { text: "Federated App"; font-size: 26px; horizontal-alignment: center; }
+    Button { text: "Open Media"; clicked => { root.open-media(); } }
+    Button { text: "Open Settings"; clicked => { root.open-settings(); } }
+    Button { text: "Open Plugin (external)"; clicked => { root.open-plugin(); } }
+}
+
+export component App inherits Window {
+    preferred-width: 360px;
+    preferred-height: 480px;
+    title: "Slint Federated Navigation";
+
+    // Supplied by the host (main.rs) as a ComponentFactory, so the plugin is
+    // delivered at runtime rather than as a compile-time dependency.
+    in property <component-factory> plugin-factory;
+
+    in-out property <Shell> current: Shell.Home;
+
+    // The navigator must be a direct child of the component that declares it.
+    navigator (current) {
+        Shell.Home: HomeScreen {
+            open-media => { root.navigate(Shell.Media); }
+            open-settings => { root.navigate(Shell.Settings); }
+            open-plugin => { root.navigate(Shell.Plugin); }
+        }
+        Shell.Media: mount MediaFeature via FeatureNav {
+            log(message) => { debug(message); }
+            go-home => { root.navigate(Shell.Home); }
+        }
+        Shell.Settings: mount SettingsFeature via FeatureNav {
+            log(message) => { debug(message); }
+            go-home => { root.navigate(Shell.Home); }
+        }
+        Shell.Plugin: mount extern via FeatureNav {
+            component-factory: root.plugin-factory;
+        }
+    }
+
+    // Persistent home control, so the external plugin (which has no capability
+    // wiring back to the shell) can still be exited.
+    if root.current != Shell.Home: Button {
+        text: "⌂ Home";
+        width: 96px;
+        x: parent.width - self.width - 8px;
+        y: 8px;
+        clicked => { root.navigate(Shell.Home); }
+    }
+}
