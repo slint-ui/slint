@@ -2501,11 +2501,17 @@ fn generate_sub_component(
             let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
             let vp_w = listview.viewport_width.as_ref().map_or_else(
                 || "nullptr".to_string(),
-                |w| { let w = access_member(w, &ctx).unwrap(); format!("&{w}") },
+                |w| {
+                    let w = access_member(w, &ctx).unwrap();
+                    format!("&{w}")
+                },
             );
             let vp_h = listview.viewport_height.as_ref().map_or_else(
                 || "nullptr".to_string(),
-                |h| { let h = access_member(h, &ctx).unwrap(); format!("&{h}") },
+                |h| {
+                    let h = access_member(h, &ctx).unwrap();
+                    format!("&{h}")
+                },
             );
 
             children_visitor_cases.push(format!(

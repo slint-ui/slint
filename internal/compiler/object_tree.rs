@@ -2082,8 +2082,10 @@ impl Element {
 
             let lvi = ListViewInfo {
                 viewport_y: NamedReference::new(parent, SmolStr::new_static("viewport-y")),
-                viewport_height: (!viewport_height_is_explicitly_set).then(|| NamedReference::new(parent, SmolStr::new_static("viewport-height"))),
-                viewport_width: (!viewport_width_is_explicitly_set).then(|| NamedReference::new(parent, SmolStr::new_static("viewport-width"))),
+                viewport_height: (!viewport_height_is_explicitly_set)
+                    .then(|| NamedReference::new(parent, SmolStr::new_static("viewport-height"))),
+                viewport_width: (!viewport_width_is_explicitly_set)
+                    .then(|| NamedReference::new(parent, SmolStr::new_static("viewport-width"))),
                 listview_height: NamedReference::new(parent, SmolStr::new_static("visible-height")),
                 listview_width: NamedReference::new(parent, SmolStr::new_static("visible-width")),
             };

@@ -1385,11 +1385,17 @@ fn generate_sub_component(
                 let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
                 let vp_w = listview.viewport_width.as_ref().map_or_else(
                     || quote!(None),
-                    |w| { let w = access_member(w, &ctx).unwrap(); quote!(Some(#w)) },
+                    |w| {
+                        let w = access_member(w, &ctx).unwrap();
+                        quote!(Some(#w))
+                    },
                 );
                 let vp_h = listview.viewport_height.as_ref().map_or_else(
                     || quote!(None),
-                    |h| { let h = access_member(h, &ctx).unwrap(); quote!(Some(#h)) },
+                    |h| {
+                        let h = access_member(h, &ctx).unwrap();
+                        quote!(Some(#h))
+                    },
                 );
 
                 repeated_visit_branch.push(quote!(

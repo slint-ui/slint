@@ -257,7 +257,13 @@ fn analyze_element(
         if let Some(lv) = &repeated.is_listview {
             process_property(&lv.viewport_y.clone().into(), P, context, reverse_aliases, diag);
             if let Some(viewport_height) = &lv.viewport_height {
-                process_property(&viewport_height.clone().into(), P, context, reverse_aliases, diag);
+                process_property(
+                    &viewport_height.clone().into(),
+                    P,
+                    context,
+                    reverse_aliases,
+                    diag,
+                );
             }
             if let Some(viewport_width) = &lv.viewport_width {
                 process_property(&viewport_width.clone().into(), P, context, reverse_aliases, diag);
