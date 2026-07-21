@@ -73,7 +73,7 @@ component IncorrectPropertyVisibility {
 
 export component ChildDoesNotImplementInterfaceProperty1 {
     implement ValidInterface <=> impl;
-//                               >  <error{'impl' does not implement 'value' from 'ValidInterface' - expected visibility: 'input output'}
+//                               >  <error{'impl' does not implement 'value' from 'ValidInterface' - expected visibility: 'in-out'}
     impl := IncorrectPropertyVisibility { }
 }
 
@@ -112,7 +112,7 @@ component IncorrectSpeakType {
 
 export component ChildDoesNotImplementInterfaceCallback {
     implement ValidInterface <=> impl;
-//                               >  <error{'impl' does not implement 'speak' from 'ValidInterface' - expected type: 'callback-> void', visibility: 'input output'}
+//                               >  <error{'impl' does not implement 'speak' from 'ValidInterface' - expected type: 'callback-> void', visibility: 'in-out'}
     impl := IncorrectSpeakType { }
 }
 
