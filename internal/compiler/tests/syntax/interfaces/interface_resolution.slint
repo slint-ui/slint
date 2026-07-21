@@ -1,0 +1,74 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Resolving the interface named in `implement <name> <=> target` and where the statement may appear.
+
+export interface HelloInterface {
+    out property <bool> test;
+}
+
+global MyGlobal { }
+
+export component PlainComponent {
+    out property <bool> test;
+}
+
+// The target must be an interface: a built-in element, a plain component and a global are all rejected.
+export component ImplementBuiltin {
+    implement Rectangle <=> self;
+//            >        <error{Cannot implement Rectangle. It is not an interface}
+}
+
+export component ImplementComponent {
+    implement PlainComponent <=> self;
+//            >             <error{Cannot implement PlainComponent. It is not an interface}
+}
+
+export component ImplementGlobal {
+    implement MyGlobal <=> self;
+//            >       <error{Cannot implement MyGlobal. It is not an interface}
+}
+
+// Unknown interface name.
+export component ImplementUnknown {
+    implement Bar <=> self;
+//            >  <error{Unknown element 'Bar'}
+}
+
+// A name that is only valid inside a specific parent context.
+export component ImplementRow {
+    implement Row <=> self;
+//            >  <error{Row can only be within a GridLayout element}
+}
+
+// The target cannot be `parent` or `root`.
+export component ImplementOnParent {
+    implement HelloInterface <=> parent;
+//                               >    <error{Cannot implement an interface based on a parent element}
+}
+
+export component ImplementOnRoot {
+    implement HelloInterface <=> root;
+//                               >  <error{Cannot implement an interface based on the root element; use 'self' instead}
+}
+
+// `implement` is only allowed in the root element.
+export component ImplementInNonRoot {
+    inner := Rectangle {
+        implement HelloInterface <=> self;
+//      >                                <error{'implement' is only allowed in the root element}
+    }
+}
+
+// Globals cannot implement an interface.
+export global GlobalImplements {
+    implement HelloInterface <=> self;
+//  >                                <error{Globals cannot implement an interface}
+}
+
+// Without an interface name, `implement` is parsed as a property of that name.
+export component NoInterfaceName {
+    implement <=> base;
+//  >       <error{Unknown property implement}
+    base := PlainComponent { }
+}

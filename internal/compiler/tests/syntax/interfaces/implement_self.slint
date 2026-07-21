@@ -1,0 +1,231 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Conformance validation for `implement I <=> self`: the element must itself declare (or inherit)
+// every member of `I` with a matching type, visibility and purity.
+
+interface ValidInterface {
+    in-out property <int> value;
+    callback speak();
+    public function reset();
+}
+
+interface OutOnlyInterface {
+    out property <int> count;
+}
+
+interface Inverter {
+    pure callback invert(bool) -> bool;
+}
+
+interface Calculator {
+    public pure function add(a: int, b: int) -> int;
+    public function format(value: int) -> string;
+    public function reset();
+
+    in-out property <int> value;
+    callback notify();
+}
+
+// A correct self-implementation compiles cleanly, including satisfying a member via a two-way binding.
+export component CorrectImpl {
+    implement ValidInterface <=> self;
+
+    in-out property <int> backing: 24;
+    in-out property <int> value <=> self.backing;
+    callback speak();
+    public function reset() {
+        self.backing = 0;
+    }
+}
+
+export component CorrectCalculator {
+    implement Calculator <=> self;
+
+    in-out property <int> value;
+    callback notify();
+
+    pure public function add(a: int, b: int) -> int {
+        return a + b;
+    }
+    public function format(value: int) -> string {
+        return "Value: " + value;
+    }
+    public function reset() {
+        self.value = 0;
+    }
+}
+
+// Missing members - property, callback and function each report distinctly.
+export component MissingProperty {
+    implement ValidInterface <=> self;
+//            >             <error{Missing 'value' from 'ValidInterface'}
+
+    callback speak();
+    public function reset() {}
+}
+
+export component MissingCallback {
+    implement ValidInterface <=> self;
+//            >             <error{Missing 'speak' from 'ValidInterface'}
+
+    in-out property <int> value;
+    public function reset() {}
+}
+
+export component MissingFunction {
+    implement Calculator <=> self;
+//            >         <error{Missing implementation of function 'add'}
+
+    in-out property <int> value;
+    callback notify();
+
+    public function format(value: int) -> string {
+        return "";
+    }
+    public function reset() {}
+}
+
+// Locally declared members with the wrong type / visibility / purity.
+export component IncorrectPropertyType {
+    implement ValidInterface <=> self;
+
+    in-out property <float> value;
+//  >                            <error{Incorrect implementation of 'value' from 'ValidInterface' - expected type: 'int'}
+    callback speak();
+    public function reset() {}
+}
+
+export component IncorrectCallbackType {
+    implement ValidInterface <=> self;
+
+    in-out property <int> value;
+    callback speak(string);
+//  >                     <error{Incorrect implementation of 'speak' from 'ValidInterface' - expected type: 'callback() -> void'}
+    public function reset() {}
+}
+
+export component IncorrectPropertyVisibility {
+    implement OutOnlyInterface <=> self;
+
+    in-out property <int> count;
+//  >                          <error{Incorrect implementation of 'count' from 'OutOnlyInterface' - expected visibility: 'out'}
+}
+
+export component IncorrectCallbackPurity {
+    implement Inverter <=> self;
+
+    callback invert(bool) -> bool;
+//  >                            <error{Incorrect implementation of 'invert' from 'Inverter' - expected purity declaration: 'true'}
+}
+
+// Function mismatches: purity, visibility, arguments and return type.
+export component ImpureFunction {
+    implement Calculator <=> self;
+
+    in-out property <int> value;
+    callback notify();
+
+    public function add(a: int, b: int) -> int {
+//  >error{Implementation of pure function 'add' from interface 'Calculator' cannot be impure}
+        return a + b;
+    }
+//  <error{Implementation of pure function 'add' from interface 'Calculator' cannot be impure}
+    public function format(value: int) -> string {
+        return "";
+    }
+    public function reset() {}
+}
+
+export component IncorrectFunctionArguments {
+    implement Calculator <=> self;
+
+    in-out property <int> value;
+    callback notify();
+
+    pure public function add(a: int, b: int) -> int {
+        return a + b;
+    }
+    public function format(fmt: string, value: int) -> string {
+//  >error{Incorrect arguments for implementation of 'format' from interface 'Calculator'. Expected (int) but got (string, int)}
+        return "";
+    }
+//  <error{Incorrect arguments for implementation of 'format' from interface 'Calculator'. Expected (int) but got (string, int)}
+    public function reset() {}
+}
+
+export component IncorrectFunctionReturnType {
+    implement Calculator <=> self;
+
+    in-out property <int> value;
+    callback notify();
+
+    pure public function add(a: int, b: int) -> int {
+        return a + b;
+    }
+    public function format(value: int) {
+//  >error{Incorrect return type for implementation of 'format' from interface 'Calculator'. Expected 'string' but got 'void'}
+    }
+//  <error{Incorrect return type for implementation of 'format' from interface 'Calculator'. Expected 'string' but got 'void'}
+    public function reset() {}
+}
+
+export component IncorrectFunctionVisibility {
+    implement Calculator <=> self;
+
+    in-out property <int> value;
+    callback notify();
+
+    pure public function add(a: int, b: int) -> int {
+        return a + b;
+    }
+    public function format(value: int) -> string {
+        return "";
+    }
+    protected function reset() {}
+//  >                           <error{Incorrect visibility for implementation of 'reset' from interface 'Calculator'. Expected 'public'}
+}
+
+// A member name resolving to the wrong kind (function name declared as a property / callback).
+export component CannotOverrideFunction {
+    implement Calculator <=> self;
+
+    in-out property <int> value;
+    callback notify();
+
+    pure public function add(a: int, b: int) -> int {
+        return a + b;
+    }
+    in property <string> format;
+//  >                          <error{Cannot override 'format' from interface 'Calculator'}
+    callback reset();
+//  >               <error{Cannot override 'reset' from interface 'Calculator'}
+}
+
+// Conflicts with an inherited (non-local) member: property, callback and function variants.
+component BaseWithMembers {
+    in-out property <float> value;
+    callback speak(string);
+    public function reset() {}
+    @children
+}
+
+export component DerivedConflicts inherits BaseWithMembers {
+    implement ValidInterface <=> self;
+//            >             <error{Cannot implement interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'BaseWithMembers'}
+//            >             <^error{Cannot implement interface 'ValidInterface' because 'value' conflicts with an existing property in 'BaseWithMembers'}
+}
+
+interface CallbackInterface {
+    callback action();
+}
+
+component BaseWithFunction {
+    public function action() {}
+    @children
+}
+
+export component ImplementFunctionConflict inherits BaseWithFunction {
+    implement CallbackInterface <=> self;
+//            >                <error{Cannot implement interface 'CallbackInterface' because 'action' conflicts with an existing function in 'BaseWithFunction'}
+}

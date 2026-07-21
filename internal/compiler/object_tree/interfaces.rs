@@ -497,18 +497,10 @@ pub(super) fn apply_child_implement_statements(
                     .into(),
                 ),
             };
-
-            if let Some(existing_binding) = existing_binding {
-                let message = format!(
-                    "Cannot override binding for '{}' from interface '{}'",
-                    name, interface_name
-                );
-                if let Some(location) = &existing_binding.borrow().span {
-                    diagnostics.push_error(message, location);
-                } else {
-                    diagnostics.push_error(message, &node.QualifiedName());
-                }
-            }
+            debug_assert!(
+                existing_binding.is_none(),
+                "Duplicate bindings should have been caught earlier"
+            );
         }
     }
 }

@@ -1,0 +1,20 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Parser-level syntax errors for interface declarations.
+// Kept apart from the semantic tests (a syntax error suppresses semantic analysis of the file) and
+// from the `implement`-statement syntax errors (declaration-level parse recovery breaks them).
+
+interface Base {
+    out property <bool> test;
+}
+
+// `:=` is not valid to declare an interface.
+interface ColonEqual := {
+//                   ><error{':=' to declare an interface is not supported. Remove the ':='}
+}
+
+// Interface inheritance is not supported.
+export interface Inherits inherits Base {
+//                                 >  <error{Syntax error: expected '{'}
+}
