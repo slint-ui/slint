@@ -6,7 +6,6 @@ use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
-#[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
 use i_slint_core::items::*;
@@ -1134,9 +1133,10 @@ impl ComponentDefinition {
         Ok(instance)
     }
 
-    /// Creates a new instance of the component and returns a shared handle to it.
-    #[doc(hidden)]
-    #[cfg(feature = "internal")]
+    /// Instantiate the component for embedding, for use inside a `slint::ComponentFactory::new`
+    /// closure. `ctx` is the `FactoryContext` the closure receives. This fills a
+    /// `ComponentContainer` with a dynamically-loaded component, including a navigator's
+    /// `mount extern via` route.
     pub fn create_embedded(&self, ctx: FactoryContext) -> Result<ComponentInstance, PlatformError> {
         self.create_with_options(WindowOptions::Embed {
             parent_item_tree: ctx.parent_item_tree,

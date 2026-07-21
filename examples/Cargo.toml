@@ -23,6 +23,7 @@ members = [
   'mcu-board-support',
   'memory',
   'navigation',
+  'navigation-federated',
   'navigation-std',
   'native-gestures',
   'opengl_texture',

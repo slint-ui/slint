@@ -16,3 +16,5 @@ name = "navigation-federated"
 
 [dependencies]
 slint = { path = "../../api/rs/slint" }
+slint-interpreter = { path = "../../internal/interpreter" }
+spin_on = { version = "0.1" }

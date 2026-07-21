@@ -9,14 +9,23 @@ team assembles.
 
 | File | Owner | Role |
 | --- | --- | --- |
-| `ui/contract.slint` | platform team | the `FeatureNav` navigation contract + `HostServices` capabilities |
+| `ui/contract.slint` | platform team | the `FeatureNav` contract (`@version` / `@uri`) + `HostServices` capabilities |
 | `ui/media.slint` | Media team | `MediaFeature implements FeatureNav`, `needs HostServices`, its own navigator |
 | `ui/settings.slint` | Settings team | `SettingsFeature`, same contract |
-| `ui/app.slint` | integration team | mounts both features at shell routes and binds the capabilities |
+| `ui/app.slint` | integration team | mounts each feature at a shell route and binds the capabilities |
+| `main.rs` | integration team | supplies the external plugin as a `ComponentFactory` |
 
-The features conform to a shared contract and declare what they `needs`; the
-shell `mount`s each `via FeatureNav` and binds the host services. No team edits
-another team's file.
+The example shows every federation seam:
+
+- **build-time mount** — `mount MediaFeature via FeatureNav { ... }` instantiates a
+  compile-time feature and binds the capabilities it `needs`.
+- **external mount** — `mount extern via FeatureNav { component-factory: ... }` mounts
+  a plugin delivered at runtime. `main.rs` builds it via `slint_interpreter` and passes
+  it in as a `slint::ComponentFactory`; it could equally be shipped as its own binary.
+- **versioned, deep-linkable contract** — `@version(1)` and `@uri("app://feature")` on
+  the contract's routes.
+
+No team edits another team's file.
 
 ## Experimental features
 
