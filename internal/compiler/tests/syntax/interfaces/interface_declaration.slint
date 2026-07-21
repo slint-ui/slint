@@ -1,0 +1,106 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Rules for what may appear inside an `interface { }` body, plus the interface declaration grammar.
+
+// An interface may only contain property, callback and function declarations - not sub elements,
+// animations, states, transitions or an `init` callback.
+export interface InvalidContent {
+    out property <int> i;
+
+    Rectangle { }
+//  >           <error{An interface cannot have sub elements}
+    for x in 2: Text { }
+//  >                  <error{An interface cannot have sub elements}
+
+    animate i { duration: 100ms; }
+//  >                            <error{An interface cannot have animations}
+
+    states [
+//  >error{An interface cannot have states}
+    ]
+//  <error{An interface cannot have states}
+
+    transitions [ ]
+//  >             <error{An interface cannot have transitions}
+//  >             <^error{'transitions' block are no longer supported. Use 'in {...}' and 'out {...}' directly in the state definition}
+
+    callback init;
+//  >            <error{An interface cannot have an 'init' callback}
+
+    match i {
+//  >error{An interface cannot have match statements}
+        1: Rectangle { }
+        *: { }
+    }
+//  <error{An interface cannot have match statements}
+
+    init => {
+//  >error{An interface cannot have an 'init' callback}
+        debug("nope");
+    }
+}
+//<<<<error{An interface cannot have an 'init' callback}
+
+// Property visibility: `private` (implicit or explicit) is inaccessible; in/out/in-out are valid.
+export interface PropertyVisibility {
+    property <bool> implicit-private;
+//  >                               <error{'private' properties are inaccessible in an interface}
+    private property <int> explicit-private;
+//  >                                      <error{'private' properties are inaccessible in an interface}
+
+    in property <int> in-property;
+    out property <string> out-property;
+    in-out property <angle> in-out-property;
+    in_out property <angle> in-out-underscore-property;
+}
+
+// Interface properties may not carry a default value.
+export interface DefaultPropertyValues {
+    in property <int> in-property: 42;
+//                                 > <error{Interface properties cannot have default values}
+}
+
+// Interface properties may not carry a default (two-way) binding.
+export interface DefaultPropertyBindings {
+    in property <int> in-property;
+    out property <int> out-property <=> self.in-property;
+//                                  >                   <error{Interface properties cannot have default bindings}
+}
+
+// An interface may not contain a binding statement.
+export interface BindingStatement {
+    in property <int> in-property;
+    out property <int> out-property;
+    out-property: self.in-property;
+//  >                             <error{An interface cannot have bindings}
+}
+
+// An interface may not contain a two-way binding statement.
+export interface TwoWayBindingStatement {
+    in property <int> in-property;
+    out property <int> out-property;
+    out-property <=> self.in-property;
+//  >                                <error{An interface cannot have two-way bindings}
+}
+
+// Functions must be public and must not have a body.
+export interface FunctionDeclarations {
+    function default-private-function();
+//  >                                  <error{Function declarations in an interface must be public}
+    public pure function function-with-body(a: int, b: int) -> int {
+//                                                                 >error{Function declarations in interfaces must not have a body}
+        return a + b;
+    }
+//  <error{Function declarations in interfaces must not have a body}
+}
+
+// An interface may not implement another interface.
+export interface Other {
+    out property <bool> test;
+}
+
+export interface CannotImplementInterface {
+    implement Other <=> self;
+//  >                       <error{Interfaces cannot implement another interface}
+}
