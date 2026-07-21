@@ -33,7 +33,7 @@ export component ComponentWithMismatchedVisibility {
     implement OutOnlyInterface <=> self;
 
     in-out property <int> count;
-//  >                          <error{Incorrect implementation of 'count' from 'OutOnlyInterface' - expected visibility: 'output'}
+//  >                          <error{Incorrect implementation of 'count' from 'OutOnlyInterface' - expected visibility: 'out'}
 }
 
 export interface InterfaceWithDefaultPropertyValues {
