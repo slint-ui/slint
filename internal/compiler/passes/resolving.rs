@@ -113,7 +113,7 @@ fn resolve_expression(
             Expression::DebugHook { expression, .. } => **expression = new_expr,
             _ => *expr = new_expr,
         }
-    // Specifically used to resolve match expressions
+    // Specifically used to resolve match elements
     } else if let Expression::BinaryExpression { lhs, rhs, op } = expr {
         let op = *op;
         let rhs_node =
@@ -168,7 +168,7 @@ fn resolve_expression(
                 } else if is_cast {
                     diag.push_error("Cannot perform type conversion".into(), &node);
                 } else {
-                    diag.push_error("Match expressions must be literal values".into(), &node);
+                    diag.push_error("Cases must be literal values".into(), &node);
                 }
             }
         }
