@@ -99,7 +99,7 @@ component IncorrectCallbackReturnType {
 
 export component ChildDoesNotImplementInterfaceCallback1 {
     implement ValidInterface <=> impl;
-//                               >  <error{'impl' does not implement 'speak' from 'ValidInterface' - expected type: 'callback-> void'}
+//                               >  <error{'impl' does not implement 'speak' from 'ValidInterface' - expected type: 'callback() -> void'}
     impl := IncorrectCallbackReturnType { }
 }
 
@@ -112,7 +112,7 @@ component IncorrectSpeakType {
 
 export component ChildDoesNotImplementInterfaceCallback {
     implement ValidInterface <=> impl;
-//                               >  <error{'impl' does not implement 'speak' from 'ValidInterface' - expected type: 'callback-> void', visibility: 'in-out'}
+//                               >  <error{'impl' does not implement 'speak' from 'ValidInterface' - expected type: 'callback() -> void', visibility: 'in-out'}
     impl := IncorrectSpeakType { }
 }
 
@@ -140,7 +140,7 @@ export component IncorrectArgTypes {
 
 export component ChildDoesNotImplementInterface3 {
     implement FunctionInterface <=> base;
-//                                  >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected type: 'function(int,string) -> bool'}
+//                                  >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected type: 'function(int, string) -> bool'}
     base := IncorrectArgTypes { }
 }
 
@@ -152,7 +152,7 @@ export component IncorrectArgNames {
 
 export component ChildDoesNotImplementInterface4 {
     implement FunctionInterface <=> base;
-//                                  >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected type: 'function(int,string) -> bool'}
+//                                  >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected type: 'function(int, string) -> bool'}
     base := IncorrectArgNames { }
 }
 
@@ -163,7 +163,7 @@ export component IncorrectReturnType {
 
 export component ChildDoesNotImplementInterface5 {
     implement FunctionInterface <=> base;
-//                                  >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected type: 'function(int,string) -> bool'}
+//                                  >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected type: 'function(int, string) -> bool'}
     base := IncorrectReturnType { }
 }
 
