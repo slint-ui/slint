@@ -218,18 +218,27 @@ pub(super) fn validate_properties_and_callbacks(
     diagnostics: &mut BuildDiagnostics,
 ) {
     for ImplementedInterface { interface, node, interface_name, .. } in implemented_interfaces {
+        let mut errors = Vec::new();
         for (member_name, member_declaration) in
             interface.borrow().property_declarations.iter().filter(|(_, property_declaration)| {
                 !matches!(property_declaration.property_type, Type::Function { .. })
             })
         {
-            validate_interface_member_implementation(
+            if let Some(message) = validate_interface_member_implementation(
                 element,
                 member_name,
                 member_declaration,
-                node,
                 interface_name,
                 diagnostics,
+            ) {
+                errors.push(message);
+            };
+        }
+
+        if !errors.is_empty() {
+            diagnostics.push_error(
+                format!("Cannot implement '{interface_name}'.\n{}", errors.join("\n")),
+                &node.QualifiedName(),
             );
         }
     }
@@ -239,54 +248,47 @@ fn validate_interface_member_implementation(
     element: &Element,
     member_name: &SmolStr,
     interface_member: &PropertyDeclaration,
-    implement_node: &syntax_nodes::ImplementStatement,
     interface_name: &SmolStr,
     diagnostics: &mut BuildDiagnostics,
-) {
+) -> Option<String> {
     if matches!(interface_member.property_type, Type::Invalid) {
         // The interface's own declaration is invalid (e.g. an unknown property type). A diagnostic
         // was already emitted when the interface was parsed, so there is nothing meaningful to
         // validate here.
-        return;
+        return None;
     }
 
     let lookup_result = element.lookup_property(member_name);
     if lookup_result.property_type == Type::Invalid {
-        diagnostics.push_error(
-            format!("Missing '{}' from '{}'", member_name, interface_name),
-            &implement_node.QualifiedName(),
-        );
-        return;
+        return Some(format!("Missing '{}' from '{}'", member_name, interface_name));
     }
 
     let Err(conflicts) =
         property_matches_interface(&lookup_result, interface_member, member_name, None)
     else {
-        return;
+        return None;
     };
 
     if !lookup_result.is_local_to_component {
         if let Err(message) =
             check_property_declaration_conflicts(&lookup_result, &element.base_type)
         {
-            diagnostics.push_error(
-                format!("Cannot implement interface '{}'.\n{message}", interface_name),
-                &implement_node.QualifiedName(),
-            );
+            return Some(message);
         }
-        return;
+        return None;
     }
 
-    let error = format!("Cannot implement '{interface_name}'.\n{conflicts}");
     let source = element
         .property_declarations
         .get(member_name)
-        .and_then(|declaration| declaration.node.clone())
-        .map_or_else(
-            || parser::NodeOrToken::Node(implement_node.QualifiedName().into()),
-            parser::NodeOrToken::Node,
-        );
-    diagnostics.push_error(error, &source);
+        .and_then(|declaration| declaration.node.clone());
+
+    if let Some(source) = source {
+        let error = format!("Cannot implement '{interface_name}'.\n{conflicts}");
+        diagnostics.push_error(error, &source);
+        return None;
+    }
+    return Some(conflicts);
 }
 
 pub(super) fn validate_function_implementations(
