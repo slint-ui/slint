@@ -9,7 +9,9 @@
 //! be further inlined as it may expand to a native widget that needs inlining
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference, Unit};
+use crate::expression_tree::{
+    BindingExpression, Callable, Expression, MinMaxOp, NamedReference, Unit,
+};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use smol_str::{SmolStr, format_smolstr};
@@ -94,16 +96,18 @@ fn process_tabwidget(
 ) {
     elem.borrow_mut().base_type = tabwidget_impl;
     let mut children = std::mem::take(&mut elem.borrow_mut().children);
-    let num_tabs = children.len();
+
+    let num_tabs_expr = match children.first().and_then(|c| c.borrow().repeated.clone()) {
+        Some(rep) if children.len() == 1 => Expression::FunctionCall {
+            function: Callable::Builtin(crate::expression_tree::BuiltinFunction::ArrayLength),
+            arguments: vec![rep.model],
+            source_location: None,
+        },
+        _ => Expression::NumberLiteral(children.len() as f64, Unit::None),
+    };
+
     let mut tabs = Vec::new();
-    for child in &mut children {
-        if child.borrow().repeated.is_some() {
-            diag.push_error(
-                "dynamic tabs ('if' or 'for') are currently not supported".into(),
-                &*child.borrow(),
-            );
-            continue;
-        }
+    for (position, child) in children.iter_mut().enumerate() {
         if child.borrow().base_type.to_string() != "Tab" {
             assert!(diag.has_errors());
             continue;
@@ -118,13 +122,18 @@ fn process_tabwidget(
         set_geometry_prop(elem, child, "y", diag);
         set_geometry_prop(elem, child, "width", diag);
         set_geometry_prop(elem, child, "height", diag);
+
+        let index_expr = match &child.borrow().repeated {
+            Some(_) => Expression::RepeaterIndexReference { element: Rc::downgrade(child) },
+            None => Expression::NumberLiteral(position as _, Unit::None),
+        };
         let condition = Expression::BinaryExpression {
             lhs: Expression::PropertyReference(NamedReference::new(
                 elem,
                 SmolStr::new_static("current-index"),
             ))
             .into(),
-            rhs: Expression::NumberLiteral(index as _, Unit::None).into(),
+            rhs: index_expr.clone().into(),
             op: '=',
         };
         let old = child
@@ -168,6 +177,7 @@ fn process_tabwidget(
             id: format_smolstr!("{}-tab{}", elem.borrow().id, index),
             base_type: tab_impl.clone(),
             enclosing_component: elem.borrow().enclosing_component.clone(),
+            repeated: child.borrow().repeated.clone(),
             ..Default::default()
         };
         tab.bindings.insert(
@@ -191,14 +201,10 @@ fn process_tabwidget(
             )
             .into(),
         );
-        tab.bindings.insert(
-            SmolStr::new_static("tab-index"),
-            RefCell::new(Expression::NumberLiteral(index as _, Unit::None).into()),
-        );
-        tab.bindings.insert(
-            SmolStr::new_static("num-tabs"),
-            RefCell::new(Expression::NumberLiteral(num_tabs as _, Unit::None).into()),
-        );
+        tab.bindings
+            .insert(SmolStr::new_static("tab-index"), RefCell::new(index_expr.clone().into()));
+        tab.bindings
+            .insert(SmolStr::new_static("num-tabs"), RefCell::new(num_tabs_expr.clone().into()));
         tabs.push(Element::make_rc(tab));
     }
 
@@ -229,10 +235,10 @@ fn process_tabwidget(
     set_tabbar_geometry_prop(elem, &tabbar, "y");
     set_tabbar_geometry_prop(elem, &tabbar, "width");
     set_tabbar_geometry_prop(elem, &tabbar, "height");
-    tabbar.borrow_mut().bindings.insert(
-        SmolStr::new_static("num-tabs"),
-        RefCell::new(Expression::NumberLiteral(num_tabs as _, Unit::None).into()),
-    );
+    tabbar
+        .borrow_mut()
+        .bindings
+        .insert(SmolStr::new_static("num-tabs"), RefCell::new(num_tabs_expr.into()));
     tabbar.borrow_mut().bindings.insert(
         SmolStr::new_static("current"),
         BindingExpression::new_two_way(
