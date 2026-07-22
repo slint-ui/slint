@@ -326,7 +326,7 @@ export default defineConfig({
                                             {
                                                 autogenerate: {
                                                     directory:
-                                                        "reference/generated/elements",
+                                                        "generated/reference/elements",
                                                 },
                                             },
                                         ],
@@ -337,7 +337,7 @@ export default defineConfig({
                                             {
                                                 autogenerate: {
                                                     directory:
-                                                        "reference/generated/gestures",
+                                                        "generated/reference/gestures",
                                                 },
                                             },
                                         ],
@@ -348,7 +348,7 @@ export default defineConfig({
                                             {
                                                 autogenerate: {
                                                     directory:
-                                                        "reference/generated/drag-and-drop",
+                                                        "generated/reference/drag-and-drop",
                                                 },
                                             },
                                         ],
@@ -407,7 +407,7 @@ export default defineConfig({
                                             {
                                                 autogenerate: {
                                                     directory:
-                                                        "reference/generated/window",
+                                                        "generated/reference/window",
                                                 },
                                             },
                                         ],

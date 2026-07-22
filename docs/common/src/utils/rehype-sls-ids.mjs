@@ -38,10 +38,7 @@ const ID_MARKER = /\s*\{#(sls\.[a-z0-9.\-_]+)\}\s*$/;
 // `content/docs/` so an unrelated directory in the checkout path can't match.
 const SPEC_PATH = /[\\/]content[\\/]docs[\\/](reference[\\/])?language[\\/]/;
 const GENERATED_REFERENCE_PATH =
-    /[\\/]content[\\/]docs[\\/]reference[\\/]generated[\\/]/;
-// Generated into the reference directory but part of the qualification plan,
-// and prose about the identifiers rather than normative content of its own.
-const MATRIX_FILE = /[\\/]traceability-matrix\.md$/;
+    /[\\/]content[\\/]docs[\\/]generated[\\/]reference[\\/]/;
 
 function walk(node, fn, depth = 0) {
     if (node.type === "element") fn(node, depth);
@@ -87,8 +84,7 @@ export default function rehypeSlsIds({
             generatedReferenceRequiresIds &&
             isOwnPage &&
             !isSpec &&
-            GENERATED_REFERENCE_PATH.test(sourcePath) &&
-            !MATRIX_FILE.test(sourcePath);
+            GENERATED_REFERENCE_PATH.test(sourcePath);
         const assignsIds = isSpec || isNormativeReference;
 
         // Draft pages aren't published, so they need no ids.

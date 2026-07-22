@@ -2,11 +2,14 @@
 
 Astro Starlight site for the Slint SC Safety Manual and Qualification Plan.
 
-Hand-written content lives in `src/content/docs/`. The API reference under
-`src/content/docs/reference/generated/` is produced by `slint-doc-generator`
-from items annotated with `\sc` in `internal/compiler/builtins.slint` (and
-later in `internal/common/{enums,builtin_structs}.rs`); that directory is
-gitignored.
+Hand-written content lives in `src/content/docs/`. Everything under
+`src/content/docs/generated/` is produced by `slint-doc-generator` and
+gitignored, with one subdirectory per section of the site: `reference/` holds
+the API reference of the items annotated with `\sc` in
+`internal/compiler/builtins.slint` (and later in
+`internal/common/{enums,builtin_structs}.rs`), `qualification-plan/` the
+traceability matrix. The pages set their own `slug`, so their location under
+`generated/` doesn't affect their URL.
 
 The language specification under `src/content/docs/language/` is also
 gitignored: its canonical source is the main Slint docs
