@@ -1013,20 +1013,13 @@ namespace slint {
         using types::Size;
         using types::MouseEvent;
 
-
-
-        // Define Option here (without the default argument; cbindgen will add
-        // `= void` in a later forward declaration, which is valid C++).
-        template<typename T>
-        struct Option {};
-
+        template<typename T> struct Option;
         // This specialization provides a concrete C++ type for Option types
         template<typename T>
         struct Option<T *> {
             T *ptr = nullptr;
             Option() noexcept = default;
             Option(T *p) noexcept : ptr(p) {}
-            explicit operator bool() const noexcept { return ptr != nullptr; }
         };
     }
     template<typename ModelData> class Model;
