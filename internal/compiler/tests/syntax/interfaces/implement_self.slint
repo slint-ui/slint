@@ -45,8 +45,9 @@ export component CorrectCalculator {
     in-out property <int> value;
     callback notify();
 
-    pure public function add(a: int, b: int) -> int {
-        return a + b;
+    // The function is correct even though the parameter names differ
+    pure public function add(x: int, y: int) -> int {
+        return x + y;
     }
     public function format(value: int) -> string {
         return "Value: " + value;

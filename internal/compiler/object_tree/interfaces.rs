@@ -444,6 +444,19 @@ fn missing_type_description(name: &SmolStr, interface_declaration: &PropertyDecl
     format!("- missing '{name}', {type_description}")
 }
 
+/// [PartialEq] for [Function] means that the argument names must match. That is not required for a valid interface implementation.
+fn function_matches_for_interface(lhs: &Function, rhs: &Function) -> bool {
+    lhs.return_type == rhs.return_type && lhs.args == rhs.args
+}
+
+fn property_type_matches_for_interface(lhs: &Type, rhs: &Type) -> bool {
+    match (lhs, rhs) {
+        (Type::Callback(lhs), Type::Callback(rhs)) => function_matches_for_interface(lhs, rhs),
+        (Type::Function(lhs), Type::Function(rhs)) => function_matches_for_interface(lhs, rhs),
+        _ => lhs == rhs,
+    }
+}
+
 fn property_matches_interface(
     property: &PropertyLookupResult,
     interface_declaration: &PropertyDeclaration,
@@ -459,7 +472,10 @@ fn property_matches_interface(
     let member_name =
         if let Some(child_id) = child_id { format!("{child_id}.{name}") } else { name.to_string() };
 
-    if property.property_type != interface_declaration.property_type {
+    if !property_type_matches_for_interface(
+        &property.property_type,
+        &interface_declaration.property_type,
+    ) {
         let type_description = |property_type: &Type| match property_type {
             Type::Callback(..) => {
                 format!("a '{}'", property_type)
