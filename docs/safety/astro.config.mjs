@@ -103,15 +103,9 @@ export default defineConfig({
                     items: [
                         { label: "Overview", slug: "reference" },
                         {
-                            label: "Elements",
-                            items: [
-                                {
-                                    autogenerate: {
-                                        directory:
-                                            "reference/generated/elements",
-                                    },
-                                },
-                            ],
+                            autogenerate: {
+                                directory: "reference/generated",
+                            },
                         },
                     ],
                 },
