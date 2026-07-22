@@ -15,6 +15,7 @@ amdgpu
 amet
 Amoled
 androideabi
+anyrender
 Appbar
 appicon
 appiconset
@@ -42,6 +43,7 @@ Baselining
 baudrate
 bdata
 Belappetit
+bezpath
 BGRA
 BGRX
 bindgen
@@ -87,6 +89,7 @@ codepoint
 codepoints
 codesign
 codingame
+coeffs
 coldict
 colorspace
 colour
@@ -246,6 +249,7 @@ gltf
 glutin
 glyphclusters
 gnueabihf
+goldens
 grcov
 Grimme
 Grotesk
@@ -308,6 +312,7 @@ kitware
 Klarälvdalens
 kqueue
 ksni
+kurbo
 labore
 laboris
 langtype
@@ -353,6 +358,7 @@ libxrandr
 lightimg
 limax
 linearprogressindicator
+linebender
 linebreaker
 linuxkms
 lipo
@@ -452,6 +458,7 @@ pathlib
 pbjson
 PCLK
 pdoc
+peniko
 picotool
 pixabay
 pixelcolor
@@ -499,6 +506,7 @@ Raleway
 Randriana
 rasterizer
 rasterizes
+rasterizing
 RBUTTONUP
 recompiles
 rects
@@ -610,6 +618,7 @@ targetstruct
 Tdefmt
 tempor
 termcolor
+texels
 texteditor
 textinput
 textinputinterface
@@ -642,6 +651,7 @@ udisksctl
 udivdi
 uintptr
 ullamco
+unclipped
 unfocusable
 unhinted
 unicodes
@@ -653,14 +663,16 @@ unpark
 unparseable
 unpic
 Unpremul
+unpremultiply
 unsendable
 usbc
-userconfig
 usecases
+userconfig
 usize
 usvg
 vbus
 vecmodel
+vello
 veniam
 venv
 verticalbox
