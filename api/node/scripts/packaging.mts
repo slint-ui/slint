@@ -24,6 +24,8 @@ const repoRoot = join(nodeDir, "..", ".."); // repository root
 export const NAPI_TARGETS = [
     "linux-x64-gnu",
     "linux-arm64-gnu",
+    "linux-x64-musl",
+    "linux-arm64-musl",
     "darwin-arm64",
     "win32-x64-msvc",
     "win32-arm64-msvc",
