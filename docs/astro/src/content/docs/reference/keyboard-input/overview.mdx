@@ -106,6 +106,10 @@ As another example, `@keys(Control + Plus)` is equivalent to `@keys(Control + Sh
 
 If you want to match a physical key position instead of the character produced on the current keyboard layout, use `@physical-keys(..)`.
 
+Physical key names reuse familiar `Key` names such as `A`, `Digit1`, `BackQuote`, or `LeftArrow`, but they refer to a physical key location instead of logical text.
+Today these names refer to positions on a U.S. keyboard layout.
+Unlike `@keys(..)`, `@physical-keys(..)` does not currently accept string literals.
+
 ```slint
 export component Example inherits Window {
     forward-focus: scope;
@@ -118,9 +122,6 @@ export component Example inherits Window {
     }
 }
 ```
-
-Physical key names reuse familiar `Key` names such as `A`, `Digit1`, `BackQuote`, or `LeftArrow`, but they refer to a physical key location instead of logical text. Today these names refer to positions on a U.S. keyboard layout.
-Unlike `@keys(..)`, `@physical-keys(..)` does not accept string literals.
 
 ## Key Namespace
 
