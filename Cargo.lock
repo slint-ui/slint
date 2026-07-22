@@ -7476,6 +7476,7 @@ dependencies = [
 name = "slint-sc"
 version = "1.18.0"
 dependencies = [
+ "image",
  "rayon",
  "regex",
  "tempfile",
