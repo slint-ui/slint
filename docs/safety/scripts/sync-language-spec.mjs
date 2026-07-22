@@ -9,7 +9,7 @@
 // that point outside the specification differ per site and are rewritten via
 // LINK_MAP below.
 
-import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,19 +21,30 @@ const here = dirname(fileURLToPath(import.meta.url));
 const source = join(here, "../../astro/src/content/docs/reference/language");
 const target = join(here, "../src/content/docs/language");
 
-rmSync(target, { recursive: true, force: true });
 mkdirSync(target, { recursive: true });
 
+// Write only files whose content changed and remove stale ones, so that a
+// running `astro dev` watcher sees the minimal set of file events instead of
+// the whole directory disappearing and reappearing.
+const wanted = new Set();
 for (const entry of readdirSync(source)) {
     if (!entry.endsWith(".md") && !entry.endsWith(".mdx")) {
-        cpSync(join(source, entry), join(target, entry), { recursive: true });
         continue;
     }
+    wanted.add(entry);
     let content = readFileSync(join(source, entry), "utf-8");
     for (const [from, to] of LINK_MAP) {
         content = content.replaceAll(from, to);
     }
-    writeFileSync(join(target, entry), content);
+    const targetFile = join(target, entry);
+    if (!existsSync(targetFile) || readFileSync(targetFile, "utf-8") !== content) {
+        writeFileSync(targetFile, content);
+    }
+}
+for (const entry of readdirSync(target)) {
+    if (!wanted.has(entry)) {
+        rmSync(join(target, entry), { recursive: true });
+    }
 }
 
 console.log(`Synced language specification from ${source}`);
