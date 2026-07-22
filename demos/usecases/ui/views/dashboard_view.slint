@@ -1,0 +1,146 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ScrollView, GroupBox, Palette, VerticalBox } from "std-widgets.slint";
+import { TitleText, Tile, BarTileModel, BarTiles, BarChart, Value, ValueDisplay } from "../widgets.slint";
+import { Icons } from "../assets.slint";
+
+export global WeatherViewAdapter {
+    in property <image> current-temperature-icon: Icons.cloud;
+    in property <string> current-temperature: "22°";
+    in property <string> current-day: @tr("May 6th 2023");
+    in property <string> current-weather-description: @tr("Very cloudy");
+    in property <[BarTileModel]> week-model: [
+        {
+            title: @tr("Thu"),
+            icon: Icons.cloud,
+            max: 21,
+            min: 18,
+            absolute-max: 21,
+            absolute-min: 15,
+            unit: "°"
+        },
+        {
+            title: @tr("Fri"),
+            icon: Icons.cloud,
+            max: 20,
+            min: 17,
+            absolute-max: 21,
+            absolute-min: 15,
+            unit: "°"
+        },
+        {
+            title: @tr("Sat"),
+            icon: Icons.cloud,
+            max: 18,
+            min: 15,
+            absolute-max: 21,
+            absolute-min: 15,
+            unit: "°"
+        }
+    ];
+}
+
+export global UsageViewAdapter {
+    in property <string> title: @tr("Usage");
+    in property <[Value]> overview-model: [
+        {
+            value: 16.41,
+            title: @tr("Daily"),
+            unit: @tr("kWh"),
+        },
+        {
+            value: 15.23,
+            title: @tr("Weekly"),
+            unit: @tr("kWh"),
+        }
+    ];
+    in property <[float]> model: [
+        10.0,
+        9.0,
+        11.0,
+        12.0,
+        8.0,
+        14.0,
+        9.0,
+        16.0,
+        18.0,
+        12.0,
+        11.0,
+        14.0,
+        12.0,
+        16.0
+    ];
+    in property <float> min: 0.0;
+    in property <float> max: 24.0;
+}
+
+
+
+export global DashboardViewAdapter {
+
+}
+
+export component DashboardView {
+    ScrollView {
+        width: 100%;
+        height: 100%;
+
+        VerticalLayout {
+            padding: 4px;
+            spacing: 4px;
+
+            TitleText {
+                horizontal-alignment: left;
+                text: @tr("Dashboard");
+            }
+
+            GroupBox {
+                title: @tr("Weather");
+
+                HorizontalLayout {
+                    Tile {
+                        value: WeatherViewAdapter.current-temperature;
+                        text: WeatherViewAdapter.current-day;
+                        sub-text: WeatherViewAdapter.current-weather-description;
+                        icon: WeatherViewAdapter.current-temperature-icon;
+                    }
+
+                    BarTiles {
+                        model: WeatherViewAdapter.week-model;
+                        active: true;
+                    }
+
+                    // stretches the empty element
+                    if WeatherViewAdapter.week-model.length == 0 : Rectangle {}
+                }
+            }
+
+            GroupBox {
+                title: @tr("Usage");
+
+                Rectangle {
+                    BarChart {
+                        preferred-width: 100%;
+                        preferred-height: 100%;
+                        model: UsageViewAdapter.model;
+                        min: UsageViewAdapter.min;
+                        max: UsageViewAdapter.max;
+                        active: true;
+                    }
+
+                    VerticalLayout {
+                        alignment: start;
+
+                        ValueDisplay {
+                            model: UsageViewAdapter.overview-model;
+                            transparent-background: true;
+                            alternative-colors: true;
+                            active: true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

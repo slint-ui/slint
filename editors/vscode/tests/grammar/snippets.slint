@@ -1,0 +1,27 @@
+// SYNTAX TEST "source.slint" "Out of context snippets"
+
+
+in property <color> bar;
+// <-- keyword.other.visibility.slint
+// ^^^^^^^^ keyword.other.property.slint
+//          ^  punctuation.brackets.angle.slint
+//           ^^^^^  entity.name.type.property.slint
+//                ^  punctuation.brackets.angle.slint
+//                  ^^^  variable.other.property.slint
+
+  Button {
+//^^^^^^  entity.name.type.element.slint
+//       ^  punctuation.brackets.curly.slint
+    background: blue;
+//  ^^^^^^^^^^  variable.other.property.slint
+    out property <color> bar: Colors.red;
+//  ^^^  keyword.other.visibility.slint
+//      ^^^^^^^^  keyword.other.property.slint
+//               ^  punctuation.brackets.angle.slint
+//                ^^^^^  entity.name.type.property.slint
+//                     ^  punctuation.brackets.angle.slint
+//                       ^^^  variable.other.property.slint
+//                            ^^^^^^  support.class.colors.slint
+//                                   ^^^  support.constant.colors.slint
+}
+// <- source.slint punctuation.brackets.curly.slint

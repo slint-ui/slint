@@ -1,0 +1,128 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+---
+name: Build and test the slintpad and required WASM binaries
+
+on:
+    workflow_dispatch:
+    workflow_call:
+jobs:
+    wasm:
+        env:
+            CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+            CARGO_INCREMENTAL: false
+            # Use fat LTO for the published WASMs to minimize download size.
+            # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+            CARGO_PROFILE_RELEASE_LTO: "fat"
+            CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: pnpm/action-setup@v6.0.9
+              with:
+                version: 10.29.3
+            - uses: actions/setup-node@v7
+              with:
+                node-version: 24
+                package-manager-cache: false
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: wasm32-unknown-unknown
+            - name: Install wasm-pack
+              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+            - name: Compile slint-wasm-interpreter
+              run: wasm-pack build --release --target web -- --features console_error_panic_hook
+              working-directory: api/wasm-interpreter
+
+            - name: Build slint-wasm-lsp
+              env:
+                  SLINT_STYLE: fluent-light
+              run: pnpm build:wasm_lsp-release
+              working-directory: tools/slintpad
+
+            - name: "Upload wasm Artifacts"
+              uses: actions/upload-artifact@v7
+              with:
+                  name: wasm
+                  path: |
+                      api/wasm-interpreter/pkg/
+                      tools/lsp/pkg/
+
+    build-slintpad:
+        needs: [wasm]
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
+              with:
+                node-version: 24
+                package-manager-cache: false
+            - uses: pnpm/action-setup@v6.0.9
+              with:
+                version: 10.29.3
+            - name: Download wasm_lsp Artifacts
+              uses: actions/download-artifact@v8
+              with:
+                  name: wasm
+            - name: Install NPM dependencies
+              run: pnpm install --frozen-lockfile
+              working-directory: tools/slintpad
+            - name: Install playwright dependencies
+              run: pnpm exec playwright install --with-deps
+              working-directory: tools/slintpad
+            - name: Compile slintpad
+              run: pnpm build
+              working-directory: tools/slintpad
+            - name: Smoke-Test slintpad
+              run: pnpm exec playwright test
+              working-directory: tools/slintpad
+            - name: Publish Test Summary Results
+              if: ${{ always() }}
+              working-directory: tools/slintpad
+              run: npx github-actions-ctrf playwright-report/ctrf-report.json
+            - name: "Upload Playwright Report"
+              if: ${{ failure() }}
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slintpad-playwright-report
+                  path: |
+                      tools/slintpad/playwright-report/
+                      tools/slintpad/test-results/
+            - name: "Upload slintpad Artifacts"
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slintpad
+                  path: tools/slintpad/dist/
+
+    # test-slintpad-ff:
+    #   needs: [wasm, build-slintpad]
+    #   runs-on: ubuntu-latest
+    #   container:
+    #     image: cypress/browsers:node16.13.0-chrome95-ff94
+    #     options: --user 1001
+    #
+    #   steps:
+    #     - uses: actions/checkout@v7
+    #     - uses: ./.github/actions/test-slintpad
+    #       with:
+    #         browser: "firefox"
+    #         wasm-binaries: wasm
+    #         slintpad-artifact: slintpad
+    #
+    # test-slintpad-chrome:
+    #   needs: [wasm, build-slintpad]
+    #   runs-on: ubuntu-latest
+    #   container:
+    #     image: cypress/browsers:node16.13.0-chrome95-ff94
+    #     options: --user 1001
+    #
+    #   steps:
+    #     - uses: actions/checkout@v7
+    #     - uses: ./.github/actions/test-slintpad
+    #       with:
+    #         browser: "chrome"
+    #         wasm-binaries: wasm
+    #         slintpad-artifact: slintpad

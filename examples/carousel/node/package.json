@@ -1,0 +1,13 @@
+{
+    "name": "carousel",
+    "version": "1.18.0",
+    "main": "main.js",
+    "type": "module",
+    "dependencies": {
+        "slint-ui": "workspace:*"
+    },
+    "scripts": {
+        "start": "node .",
+        "prestart": "cd ../../../api/node/ && pnpm run build && pnpm compile"
+    }
+}

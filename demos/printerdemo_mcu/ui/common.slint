@@ -1,0 +1,86 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export struct ButtonColors  {
+    base: color,
+    pressed: color,
+    hovered: color,
+}
+
+export global DemoPalette {
+    out property <length> side-bar-width: 48px;
+    out property <length> header-height: 45px;
+    // Color of the home/settings/ink buttons on the left side bar
+    out property <color> header-background: white;
+    out property <color> page-background: #F8FAFC;
+    out property <color> active-page-icon-color: Colors.white;
+    out property <color> inactive-page-icon-color: #90A1B9;
+    out property <color> main-background: #0F172B;
+    out property <color> neutral-box: #BDC0D1;
+    out property <color> text-foreground-color: #473f74;
+    out property <color> secondary-foreground-color: #6C6E7A;
+    out property <color> printer-action-background-color: white;
+    out property <color> status-label-text-color: #6284FF;
+
+    // Color used for the border / outline of items that can be clicked on, such as the
+    // "Print"/"Scan" buttons, the printer queue items (for expansion) or controls such
+    // as the combo box or spin box.
+    out property <color> control-outline-color: #FFBF63;
+    out property <color> control-secondary: #6284FF;
+    out property <color> control-foreground: #122F7B;  // FIXME: the night mode color was not part of the design
+    out property <color> primary-push-button-base: #6284FF;
+    out property <ButtonColors> primary-push-button-colors: {
+        base: root.primary-push-button-base,
+        pressed: root.primary-push-button-base.darker(40%),
+        hovered: root.primary-push-button-base.darker(20%),
+    };
+    out property <color> secondary-push-button-base: #FFBF63;
+    out property <ButtonColors> secondary-push-button-colors: {
+        base: root.secondary-push-button-base,
+        pressed: root.secondary-push-button-base.darker(40%),
+        hovered: root.secondary-push-button-base.darker(20%),
+    };
+    out property <color> push-button-text-color: white;
+    out property <length> base-font-size: 12px;
+    out property <string> medium-font-family: "Inter 24pt Medium";
+    out property <string> regular-font-family: "Inter 24pt";
+}
+
+export enum Pages {
+    home,
+    ink,
+    settings
+}
+
+export enum SubPage {
+    none,
+    copy,
+    copy-position,
+    scan,
+    scan-position,
+}
+
+export struct InkLevel  {
+    color: color,
+    level: float,
+}
+
+export global PrinterState {
+    in-out property <Pages> active-page: Pages.home;
+    in-out property <SubPage> active-subpage: SubPage.none;
+
+    /// Note that this property is overwritten in the .cpp and .rs code.
+    /// The data is only in this file so it looks good in the viewer
+    in-out property <[InkLevel]> ink-levels: [
+        { color: #0ff, level: 60% },
+        { color: #ff0, level: 80% },
+        { color: #f0f, level: 70% },
+        { color: #000, level: 30% },
+    ];
+}
+
+export component Label inherits Text {
+    color: DemoPalette.text-foreground-color;
+    vertical-alignment: center;
+    vertical-stretch: 0;
+}

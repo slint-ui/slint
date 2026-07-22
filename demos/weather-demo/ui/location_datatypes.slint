@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export struct GeoLocationEntry {
+    name: string,
+    state: string,
+    country: string,
+    lat: float,
+    lon: float,
+}
+
+export global GeoLocation {
+    in property <[GeoLocationEntry]> result-list;
+
+    callback search-location(string);
+    callback add-location(GeoLocationEntry);
+}

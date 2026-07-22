@@ -1,0 +1,43 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that a component with a GridLayout can be inlined multiple times
+// without sharing GridLayoutCell data between the copies.
+// Regression test: previously the Rc<RefCell<GridLayoutCell>> was shared
+// after inlining, causing a panic at runtime.
+
+component MyComponent inherits GridLayout {
+    Row {
+        r := Rectangle {
+            colspan: 2;
+            background: red;
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+
+    if true: first := MyComponent { }
+    if true: second := MyComponent { }
+
+    out property <bool> test: true;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

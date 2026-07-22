@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Slider } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    HorizontalLayout {
+        Image {
+           source: @image-url("border-image.png", nine-slice(5));
+           vertical-tiling: repeat;
+           vertical-alignment: bottom;
+           horizontal-tiling: repeat;
+           horizontal-alignment: center;
+        }
+        Image {
+            source: @image-url("border-image.png", nine-slice(6 5));
+            vertical-tiling: round;
+            vertical-alignment: bottom;
+            horizontal-tiling: round;
+            horizontal-alignment: center;
+        }
+     }
+}

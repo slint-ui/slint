@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test the propagation of maximum and minimum size through nested grid layouts
+
+export component TestCase inherits Rectangle {
+    width: 300phx;
+    height: 300phx;
+
+    GridLayout {
+        spacing: 0phx;
+        padding: 0phx;
+        Row {
+            GridLayout {
+                spacing: 0phx;
+                padding: 0phx;
+                rect1 := Rectangle {
+                    background: red;
+                    max_width: 50phx;
+                    min_height: 20phx;
+                    max_height: 20phx;
+                }
+                rect2 := Rectangle {
+                    row: 0;
+                    col: 1;
+                    background: blue;
+                }
+            }
+        }
+    }
+
+    out property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == 50phx && rect1.height == 20phx;
+    out property <bool> rect2_pos_ok: rect2.x == 50phx && rect2.y == 0phx && rect2.width == 250phx && rect2.height == 20phx;
+    out property <bool> test: rect1_pos_ok && rect2_pos_ok;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_rect1_pos_ok());
+assert(instance.get_rect2_pos_ok());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_rect1_pos_ok());
+assert!(instance.get_rect2_pos_ok());
+```
+
+*/

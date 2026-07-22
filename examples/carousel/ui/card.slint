@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "theme.slint";
+import { TitleLabel } from "title_label.slint";
+
+export component Card inherits Rectangle {
+    in property <string> title: "title";
+    in property <bool> is-selected: false;
+    in property <image> image-source <=> image.source;
+
+    callback clicked <=> touch-area.clicked;
+
+    private property <length> spacing: Theme.spacing-medium;
+    private property <length> title-spacing: Theme.spacing-medium;
+    private property <length> title-area-height: Theme.size-small;
+
+    border-radius: Theme.radius-regular;
+    background: Theme.background-regular;
+    width: Theme.size-medium;
+    height: Theme.size-medium;
+    clip: false;
+
+    states [
+        pressed-selected when touch-area.pressed && root.is-selected  : {
+            background: Theme.background-selected-pressed;
+            image.colorize: Theme.foreground-selected-pressed;
+            width: Theme.size-big;
+            height: Theme.size-big;
+            title-label.visible: true;
+        }
+        hover-selected when touch-area.has-hover && root.is-selected  : {
+            background: Theme.background-selected-hover;
+            image.colorize: Theme.foreground-selected-hover;
+            width: Theme.size-big;
+            height: Theme.size-big;
+            title-label.visible: true;
+        }
+        pressed when touch-area.pressed : {
+            background: Theme.background-pressed;
+            image.colorize: Theme.foreground-pressed;
+        }
+
+        hover when touch-area.has-hover: {
+            background: Theme.background-hover;
+            image.colorize: Theme.foreground-hover;
+        }
+        selected when root.is-selected : {
+            background: Theme.background-selected;
+            image.colorize: Theme.foreground-selected;
+            width: Theme.size-big;
+            height: Theme.size-big;
+            title-label.visible: true;
+        }
+     ]
+
+     animate width { duration: Theme.duration-regular; easing: ease-in; }
+     animate height { duration: Theme.duration-regular; easing: ease-in; }
+     animate background { duration: Theme.duration-fast; }
+
+    touch-area := TouchArea {}
+
+    image := Image {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 80%;
+        height: 80%;
+        colorize: Theme.foreground;
+
+        animate colorize { duration: Theme.duration-fast; }
+    }
+
+    // Selection text
+    title-label := TitleLabel {
+        x: (parent.width - self.width) / 2;
+        y: parent.height;
+        text <=> root.title;
+        visible: false;
+        color: Theme.foreground;
+    }
+}

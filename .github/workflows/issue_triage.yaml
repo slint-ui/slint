@@ -1,0 +1,36 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Auto-triage on Comment
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  update_labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check whether we should update the tags
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          has_needs_info=$(echo '${{ toJson(github.event.issue.labels.*.name) }}' | jq 'contains(["needs info"])')
+
+          is_author="${{ github.event.comment.user.login == github.event.issue.user.login }}"
+
+          echo "has_needs_info=$has_needs_info" >> $GITHUB_OUTPUT
+          echo "is_author=$is_author" >> $GITHUB_OUTPUT
+
+      - name: Update labels
+        if: steps.check.outputs.has_needs_info == 'true' && steps.check.outputs.is_author == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api --method DELETE -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/labels/needs%20info
+          gh api --method POST -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/labels -f labels[]='need triaging'

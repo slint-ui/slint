@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export component TestCase inherits Rectangle {
+    height: 100phx;
+    width: 100phx;
+    in-out property <int> clicked;
+    in-out property <bool> condition;
+
+    if true : TouchArea {
+        visible: condition;
+        clicked => { clicked += 1; }
+    }
+
+    HorizontalLayout {
+        for xx in [10] : TouchArea {
+            visible: false;
+            clicked => { clicked += xx; }
+        }
+    }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_mouse_click(&instance, 37., 27.);
+assert_eq(instance.get_clicked(), 0);
+
+instance.set_condition(true);
+slint_testing::send_mouse_click(&instance, 37., 27.);
+assert_eq(instance.get_clicked(), 1);
+
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 37., 27.);
+assert_eq!(instance.get_clicked(), 0);
+
+instance.set_condition(true);
+slint_testing::send_mouse_click(&instance, 37., 27.);
+assert_eq!(instance.get_clicked(), 1);
+
+
+```
+
+*/

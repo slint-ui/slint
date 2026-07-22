@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that percentage sizes in children don't propagate upward
+// and override parent layout constraints (issue #3346).
+
+component Foo {
+    min-height: 20phx;
+    max-height: 40phx;
+    preferred-height: 30phx;
+    HorizontalLayout {
+        alignment: start;
+        rect := Rectangle {
+            background: pink;
+            height: 100%;
+            width: 50phx;
+        }
+    }
+}
+
+export component TestCase inherits Rectangle {
+    width: 200phx;
+    height: 200phx;
+    VerticalLayout {
+        alignment: start;
+        padding: 0phx;
+        spacing: 0phx;
+        foo := Foo {}
+        text := Text {
+            text: "Hello World!";
+            font-size: 24px;
+        }
+    }
+
+    // Foo should respect its own max-height constraint (40phx),
+    // not expand to fill the available space.
+    out property <bool> test: foo.height <= 40phx && foo.height >= 20phx;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

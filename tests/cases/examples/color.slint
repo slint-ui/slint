@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Win inherits Window {
+    in-out property <color> base: #00007F;
+    GridLayout {
+        r := Rectangle {
+            background: base;
+        }
+        Rectangle {
+            background: base.brighter(50%);
+        }
+        Rectangle {
+            background: base.darker(50%);
+        }
+    }
+}

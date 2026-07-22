@@ -1,0 +1,205 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { BaseButton } from "./base_button.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { Icons } from "../icons/icons.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
+import { IconButton } from "icon_button.slint";
+
+export component ActionChip {
+    in property <image> icon <=> base.icon;
+    in property <string> text <=> base.text;
+    in property <bool> enabled <=> base.enabled;
+    in property <string> tooltip <=> base.tooltip;
+    in property <image> avatar_icon <=> base.avatar-icon;
+    in property <color> avatar_background <=> base.avatar_background;
+
+    callback clicked <=> base.clicked;
+
+    forward-focus: base;
+    accessible-role: button;
+    accessible-enabled: root.enabled;
+    accessible-label: root.text == "" ? root.tooltip : root.text;
+    accessible-action-default => { base.clicked(); }
+
+
+    border := Rectangle {
+        border_radius: base.border_radius;
+        border_width: 1px;
+        border_color: MaterialPalette.outline;
+
+        base := BaseButton {
+            min_layout_height: MaterialStyleMetrics.size_32;
+            border_radius: MaterialStyleMetrics.border_radius_8;
+            color: MaterialPalette.on_surface;
+            icon_color: MaterialPalette.primary;
+            spacing: MaterialStyleMetrics.spacing_8;
+            button_padding_left: self.has_icon ? MaterialStyleMetrics.padding_8 : MaterialStyleMetrics.padding_16;
+            button_padding_right:MaterialStyleMetrics.padding_16;
+            button_vertical_padding: MaterialStyleMetrics.padding_6;
+            avatar_size: MaterialStyleMetrics.size_18;
+        }
+    }
+
+    states [
+        disabled when !root.enabled : {
+            base.display_background: false;
+            base.icon_color: MaterialPalette.on_surface;
+        }
+    ]
+}
+
+export component FilterChip {
+    in property <image> icon <=> base.icon;
+    in property <string> text <=> base.text;
+    in property <bool> enabled <=> base.enabled;
+    in property <string> tooltip <=> base.tooltip;
+    in_out property <bool> checked;
+
+    forward-focus: base;
+    accessible-role: button;
+    accessible-enabled: root.enabled;
+    accessible-label: root.text == "" ? root.tooltip : root.text;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => { base.clicked(); }
+
+    border := Rectangle {
+        border_radius: base.border_radius;
+        border_width: 1px;
+        border_color: MaterialPalette.outline;
+
+
+        base := BaseButton {
+            min_layout_height: MaterialStyleMetrics.size_32;
+            border_radius: MaterialStyleMetrics.border_radius_8;
+            color: MaterialPalette.on_surface;
+            icon_color: MaterialPalette.primary;
+            spacing: MaterialStyleMetrics.spacing_8;
+            button_padding_left: self.has_icon ? MaterialStyleMetrics.padding_8 : MaterialStyleMetrics.padding_16;
+            button_padding_right:MaterialStyleMetrics.padding_16;
+            button_vertical_padding: MaterialStyleMetrics.padding_6;
+            avatar_size: MaterialStyleMetrics.size_18;
+
+            clicked => {
+                root.toggle();
+            }
+        }
+
+        states [
+            checked when root.checked : {
+                base.icon: Icons.check;
+                base.icon_color: MaterialPalette.on_secondary_container;
+                base.color: MaterialPalette.on_secondary_container;
+                border.border_width: 0;
+                border.background: MaterialPalette.secondary_container;
+            }
+        ]
+
+        animate width { duration: MaterialAnimations.standard_accelerate_duration; easing: MaterialAnimations.standard_easing; }
+    }
+
+    function toggle() {
+        root.checked = !root.checked;
+    }
+
+    states [
+        disabled when !root.enabled : {
+            base.display_background: false;
+            base.icon_color: MaterialPalette.on_surface;
+        }
+    ]
+}
+
+export component InputChip {
+    in property <image> leading_icon <=> base.icon;
+    in property <image> trailing_icon;
+    in property <image> avatar <=> base.avatar-icon;
+    in property <color> avatar_background <=> base.avatar_background;
+    in property <string> text <=> base.text;
+    in property <bool> enabled <=> base.enabled;
+    in property <string> tooltip <=> base.tooltip;
+    in property <bool> checkable;
+    in_out property <bool> checked;
+
+    property <bool> has_avatar: root.avatar.width > 0 && root.avatar.height > 0;
+
+    callback clicked();
+    callback trailing_icon_clicked();
+
+    forward-focus: base;
+    accessible-role: button;
+    accessible-enabled: root.enabled;
+    accessible-label: root.text == "" ? root.tooltip : root.text;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-action-default => { base.clicked(); }
+
+    border := Rectangle {
+        border_radius: base.border_radius;
+        border_width: 1px;
+        border_color: MaterialPalette.outline;
+        clip: true;
+
+        base := BaseButton {
+            min_layout_height: MaterialStyleMetrics.size_32;
+            border_radius: root.has_avatar ? self.height / 2 : MaterialStyleMetrics.border_radius_8;
+            color: MaterialPalette.on_surface;
+            icon_color: MaterialPalette.primary;
+            spacing: MaterialStyleMetrics.spacing_8;
+            button_padding_left: root.has_avatar ? MaterialStyleMetrics.padding_4 : self.has_icon ? MaterialStyleMetrics.padding_8 : MaterialStyleMetrics.padding_12;
+            button_padding_right: root.trailing_icon.width > 0 && root.trailing_icon.height > 0 ? MaterialStyleMetrics.padding_8 : MaterialStyleMetrics.padding_12;
+            button_vertical_padding: MaterialStyleMetrics.padding_6;
+            avatar_size: MaterialStyleMetrics.size_18;
+
+            if root.trailing_icon.width > 0 && root.trailing_icon.height > 0 : VerticalLayout {
+                alignment: center;
+
+                IconButton {
+                    icon: root.trailing_icon;
+                    inline: true;
+                    enabled: root.enabled;
+
+                    clicked => {
+                        root.trailing_icon_clicked();
+                    }
+                }
+            }
+
+            clicked => {
+                root.clicked();
+                root.toggle();
+            }
+        }
+
+        states [
+            checked when root.checked : {
+                base.icon_color: MaterialPalette.on_secondary_container;
+                base.color: MaterialPalette.on_secondary_container;
+                border.border_width: 0;
+                border.background: MaterialPalette.secondary_container;
+            }
+        ]
+
+        animate width { duration: MaterialAnimations.standard_accelerate_duration; easing: MaterialAnimations.standard_easing; }
+    }
+
+    function toggle() {
+        if !root.checkable {
+            return;
+        }
+
+        root.checked = !root.checked;
+    }
+
+    states [
+        disabled when !root.enabled : {
+            base.display_background: false;
+            base.icon_color: MaterialPalette.on_surface;
+        }
+    ]
+}
+

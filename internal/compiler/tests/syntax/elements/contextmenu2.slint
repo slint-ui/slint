@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component A  {
+    cb := ContextMenuArea {
+        entries: [];
+//      >     <error{Unknown property entries in ContextMenuArea}
+        sub-menu => {
+//      >      <error{'sub-menu' is not a callback in ContextMenuArea}
+            debug("hello");
+        }
+
+        Menu {
+            preferred-height: 45px;
+//          >              <error{Unknown property preferred-height in Menu}
+            entries: [];
+//          >     <error{Unknown property entries in Menu}
+            MenuItem {
+                entries: [];
+//              >     <error{Unknown property entries in MenuItem}
+
+                title: "ok";
+                sub-menu => {}
+//              >      <error{'sub-menu' is not a callback in MenuItem}
+                x: 45px;
+//              ^error{Unknown property x in MenuItem}
+                col: 45;
+//              > <error{Unknown property col in MenuItem}
+            }
+
+            MenuSeparator {
+                entries: [];
+//              >     <error{Unknown property entries in MenuSeparator}
+                title: "ok";
+//              >   <error{Unknown property title in MenuSeparator}
+                width: 45px;
+//              >   <error{Unknown property width in MenuSeparator}
+                MenuItem {}
+//              >       <error{MenuItem can only be within a Menu element}
+                Rectangle {}
+//              >        <error{MenuSeparator cannot have children elements}
+            }
+        }
+        MenuItem {}
+//      >       <error{MenuItem can only be within a Menu element}
+
+        MenuSeparator {}
+//      >            <error{MenuSeparator can only be within a Menu element}
+    }
+
+    TouchArea {
+        clicked => {
+            cb.activated({});
+//             >       <error{Element 'ContextMenuArea' does not have a property 'activated'}
+            debug(cb.entries);
+//                   >     <error{Element 'ContextMenuArea' does not have a property 'entries'}
+        }
+    }
+
+
+    ContextMenuInternal {
+//  >                  <error{Unknown element 'ContextMenuInternal'. (The type exists as an internal type, but cannot be accessed in this scope)}
+    }
+    ContextMenu {}
+//  >          <error{Unknown element 'ContextMenu'}
+}
+

@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore seethru
+export component Test inherits Rectangle {
+    // allow declaring brush properties and assigning colors
+    in-out property<brush> color_brush: blue;
+    // allow to use brighter and darker on a brush
+    in-out property<brush> lighter: true ? color_brush.brighter(50%) : color_brush.darker(50%);
+    // allow to use `transparentize`
+    in-out property<brush> seethru: color_brush.transparentize(30%);
+
+    VerticalLayout {
+        r1 := Rectangle {
+            background: @linear-gradient(1.2rad, red, blue);
+        }
+        r2 := Rectangle {
+            background: r1.background.darker(50%);
+        }
+    }
+    in-out property <color> r2_col: r2.background;
+    in-out property <brush> conditional: false ? Colors.white : true ? r2.background : Colors.green;
+
+    test_circle := Rectangle {
+        background: @radial_gradient(circle, #abc, #123 10%, #fed);
+        property <color> colo: self.background;
+        property <bool> test: self.colo == #abc
+            && self.background.brighter(10%) == @radial_gradient(circle, (#abc).brighter(10%), (#123).brighter(10%) 10%, (#fed).brighter(10%))
+            && self.background != self.colo;
+    }
+
+    out property <bool> test_rgb: rgb(color_brush.red, color_brush.green, color_brush.blue) == color_brush;
+
+    out property<bool> test: lighter == Colors.blue.brighter(50%) && r2_col == Colors.red.darker(50%) && conditional == r2.background && conditional != r2_col
+        && test_circle.test && seethru == color_brush.with_alpha(70%) && (#abc2).transparentize(-100%) == #abc4 && test_rgb;
+}
+
+/*
+```cpp
+auto handle = Test::create();
+const Test &t = *handle;
+assert_eq(t.get_color_brush().color(), slint::Color::from_rgb_uint8(0, 0, 0xff));
+assert(t.get_test());
+
+auto green = slint::Color::from_rgb_uint8(0, 0xff, 0);
+t.set_color_brush(green);
+assert_eq(t.get_color_brush().color(), green);
+
+```
+
+```rust
+let t = Test::new().unwrap();
+assert_eq!(t.get_color_brush().color(), slint::Color::from_rgb_u8(0, 0, 0xff));
+assert!(t.get_test());
+
+let green = slint::Color::from_rgb_u8(0, 0xff, 0);
+t.set_color_brush(green.into());
+assert_eq!(t.get_color_brush().color(), green);
+
+```
+
+```js
+var t = new slint.Test({});
+assert.equal(t.color_brush.toString(), "#0000ff");
+assert(t.test);
+
+let green = "#00ff00";
+t.color_brush = "#00ff00"; // css-color-parser2 can't parse #rrggbbaa yet
+assert.equal(t.color_brush.toString(), green);
+
+```
+*/

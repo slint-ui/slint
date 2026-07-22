@@ -1,0 +1,23 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "opengl_texture"
+version = "1.18.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition.workspace = true
+build = "build.rs"
+license = "MIT"
+publish = false
+
+[[bin]]
+path = "main.rs"
+name = "opengl_texture"
+
+[dependencies]
+slint = { path = "../../api/rs/slint" }
+glow = { workspace = true }
+web-time = { version = "1.0" }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }

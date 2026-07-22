@@ -1,0 +1,109 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+component MyPopup inherits PopupWindow {
+    callback clicked;
+    in property <bool> do-close: false;
+    width: 20px;
+    height: 20px;
+    TouchArea {
+        clicked => {
+            clicked();
+            if do-close {
+                root.close();
+            }
+        }
+    }
+}
+
+component MyPopup2 inherits MyPopup {
+    close-policy: no-auto-close;
+}
+
+export component TestCase {
+    width: 300px;
+    height: 300px;
+
+    property<int>p1_clicked;
+    property<int>p2_clicked;
+    property<int>p3_clicked;
+
+    p1 := MyPopup {
+        x: 10px;
+        y: 10px;
+        clicked => {p1_clicked+=1;}
+    }
+
+    p2 := MyPopup2 {
+        x: 30px;
+        y: 10px;
+        clicked => {p2_clicked+=1;}
+    }
+
+    p3 := MyPopup2 {
+        x: 60px;
+        y: 10px;
+        do-close: true;
+        clicked => {p3_clicked+=1;}
+    }
+
+    public function show_popup(p: int) {
+        if p == 1 {
+            p1.show();
+        } else if p == 2 {
+            p2.show();
+        } else if p == 3 {
+            p3.show();
+        }
+    }
+    public function hide_2() {
+        p2.close();
+    }
+
+    out property <string> value: @tr("p1={} p2={} p3={}", p1_clicked, p2_clicked, p3_clicked);
+
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 15., 15.);
+slint_testing::send_mouse_click(&instance, 35., 15.);
+slint_testing::send_mouse_click(&instance, 65., 15.);
+assert_eq!(instance.get_value(), "p1=0 p2=0 p3=0");
+
+instance.invoke_show_popup(1);
+slint_testing::send_mouse_click(&instance, 15., 15.);
+
+slint_testing::send_mouse_click(&instance, 15., 15.);
+slint_testing::send_mouse_click(&instance, 35., 15.);
+slint_testing::send_mouse_click(&instance, 65., 15.);
+assert_eq!(instance.get_value(), "p1=1 p2=0 p3=0");
+
+
+instance.invoke_show_popup(2);
+slint_testing::send_mouse_click(&instance, 35., 15.);
+slint_testing::send_mouse_click(&instance, 35., 15.);
+slint_testing::send_mouse_click(&instance, 15., 15.);
+slint_testing::send_mouse_click(&instance, 35., 15.);
+slint_testing::send_mouse_click(&instance, 65., 15.);
+assert_eq!(instance.get_value(), "p1=1 p2=3 p3=0");
+
+instance.invoke_hide_2();
+slint_testing::send_mouse_click(&instance, 35., 15.);
+slint_testing::send_mouse_click(&instance, 35., 15.);
+assert_eq!(instance.get_value(), "p1=1 p2=3 p3=0");
+
+instance.invoke_show_popup(3);
+slint_testing::send_mouse_click(&instance, 65., 15.);
+slint_testing::send_mouse_click(&instance, 65., 15.);
+slint_testing::send_mouse_click(&instance, 15., 15.);
+slint_testing::send_mouse_click(&instance, 35., 15.);
+slint_testing::send_mouse_click(&instance, 65., 15.);
+assert_eq!(instance.get_value(), "p1=1 p2=3 p3=1");
+```
+
+
+*/

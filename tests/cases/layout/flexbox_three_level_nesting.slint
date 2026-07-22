@@ -1,0 +1,56 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// 3-level alternating nesting: row > column > row.
+// Exercises that the synthesized `layoutinfo-{v,h}-with-constraint`
+// functions propagate through multiple layers.
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 400px;
+
+    FlexboxLayout {
+        flex-direction: row;
+        spacing: 10px;
+
+        Rectangle { width: 40px; height: 40px; background: red; flex-shrink: 0; }
+
+        FlexboxLayout {
+            flex-direction: column;
+            spacing: 5px;
+
+            r1 := Rectangle { width: 60px; height: 25px; background: green; }
+
+            FlexboxLayout {
+                flex-direction: row;
+                spacing: 4px;
+
+                r2 := Rectangle { width: 20px; height: 30px; background: blue; }
+                r3 := Rectangle { width: 20px; height: 30px; background: yellow; }
+            }
+        }
+    }
+
+    out property <bool> test_r1: r1.width == 60px && r1.height == 25px;
+    out property <bool> test_r2: r2.width == 20px;
+    out property <bool> test_r3: r3.x > r2.x;
+
+    out property <bool> test: test_r1 && test_r2 && test_r3;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

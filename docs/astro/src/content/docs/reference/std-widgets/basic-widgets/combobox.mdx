@@ -1,0 +1,91 @@
+---
+title: ComboBox
+description: ComboBox api.
+---
+
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/std-widget-combobox-example.png" scale="3" imageWidth="110" imageHeight="35"  imageAlt='combobox example'>
+```slint
+import { ComboBox } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 100px;
+    height: 100px;
+    background: transparent;
+    ComboBox {
+        x: 5px; y: 5px;
+        width: 100px;
+        model: ["first", "second", "third"];
+        current-value: "first";
+    }
+}
+```
+</CodeSnippetMD>
+
+A button that, when clicked, opens a popup to select a value.
+
+## Properties
+
+### current-index
+<SlintProperty propName="current-index" typeName="int" defaultValue="0" propertyVisibility="in-out">
+The index of the selected value.
+```slint "current-index: 1;"
+ComboBox {
+    model: ["first", "second", "third"];
+    current-index: 1;
+}
+```
+</SlintProperty>
+
+### current-value
+<SlintProperty propName="current-value" typeName="string" defaultValue='""' propertyVisibility="in-out">
+The currently selected text.
+
+:::caution[Note]
+To change the selection from host code (Rust, C++, JavaScript, Python), write to
+`current-index`. Writes to `current-value` are not supported — they don't change
+the selection. The visible state continues to reflect `model[current-index]`.
+:::
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Defaults to true. When false, the combobox can't be interacted with
+</SlintProperty>
+
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool" propertyVisibility="out">
+Set to true when the combobox has keyboard focus.
+</SlintProperty>
+
+### model
+<SlintProperty propName="model" typeName="[string]" defaultValue="[]">
+The list of possible values
+```slint 'model: ["first", "second", "third"];'
+ComboBox {
+    model: ["first", "second", "third"];
+}
+```
+
+:::note[Note]
+When setting this property, the `ComboBox` will try to preserve the `current-index`.
+If the `current-index` is larger than the new model length, it is set to the last item in the model.
+:::
+
+</SlintProperty>
+
+
+## Callbacks
+
+### selected(string)
+A value was selected from the combo box by the user. The argument is the currently selected value.
+
+```slint {3-5}
+ComboBox {
+    model: ["first", "second", "third"];
+    selected(value) => {
+        debug("Selected value: ", value);
+    }
+}
+```

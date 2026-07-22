@@ -1,0 +1,23 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+name: Home Automation
+options:
+  bundleIdPrefix: dev.slint.demos
+settings:
+  ENABLE_USER_SCRIPT_SANDBOXING: NO
+targets:
+  Home Automation:
+    type: application
+    platform: iOS
+    deploymentTarget: "12.0"
+    info:
+        path: Info.plist
+        properties:
+            UILaunchScreen:
+                - ImageRespectSafeAreaInsets: false
+    sources: []
+    postCompileScripts:
+      - script: |
+          ../../../scripts/build_for_ios_with_cargo.bash home-automation
+        outputFileLists:
+            $TARGET_BUILD_DIR/$EXECUTABLE_PATH

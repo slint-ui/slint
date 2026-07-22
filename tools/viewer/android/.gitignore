@@ -1,0 +1,9 @@
+# cSpell: ignore xxxhdpi jniLibs
+.gradle/
+build/
+local.properties
+app/src/main/jniLibs/
+app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
+*.jks
+*.keystore

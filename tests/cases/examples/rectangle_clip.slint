@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// This should render as a rectangle with a black border and
+// green "fill".
+
+export Test := Window {
+    background: white;
+
+    TouchArea {
+        clicked => { r.clip = !r.clip; }
+    }
+
+    r:= Rectangle {
+        x: 50px;
+        y: 50px;
+        width: 300px;
+        height: 300px;
+        border-radius: 25px;
+        border-width: 20px;
+        border-color: black;
+
+        clip: true;
+
+        Rectangle {
+            x: -20px;
+            y: -20px;
+            width: parent.width + 20px;
+            height: parent.height + 20px;
+            background: green;
+        }
+
+        Text {
+            color: blue;
+            y: 10px;
+            text: "This Text is clipped";
+            font-size: 24px;
+        }
+
+        Rectangle {
+            x: 150px;
+            y: 150px;
+            width: 200px;
+            height: 200px;
+            background: red;
+        }
+
+        Image {
+            source: @image-url("../../../logo/slint-logo-square-light-128x128.png");
+            y: 50px;
+            x: -30px;
+        }
+    }
+}

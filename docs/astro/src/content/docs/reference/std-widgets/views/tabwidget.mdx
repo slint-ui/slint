@@ -1,0 +1,84 @@
+---
+title: TabWidget
+description: TabWidget api.
+---
+
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/std-widgets-tabwidget.png"  imageWidth="200" imageHeight="200"  imageAlt='std-widgets tabwidget example'>
+```slint
+import { TabWidget } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 200px;
+    TabWidget {
+        Tab {
+            title: "First";
+            Rectangle { background: orange; }
+        }
+        Tab {
+            title: "Second";
+            Rectangle { background: pink; }
+        }
+    }
+}
+```
+</CodeSnippetMD>
+
+`TabWidget` is a container for a set of tabs. It can only have `Tab` elements as children and only one tab will be visible at
+a time.
+
+## Properties
+
+### current-index
+<SlintProperty typeName="int" propName="current-index" defaultValue="0">
+The index of the currently visible tab.
+
+```slint "current-index: 1;"
+TabWidget {
+    current-index: 1;
+
+    Tab {
+        title: "First";
+    }
+    Tab {
+        title: "Second";
+    }
+}
+```
+</SlintProperty>
+
+
+### orientation
+<SlintProperty typeName="enum" enumName="Orientation" propName="orientation" defaultValue="horizontal">
+The orientation of the tab bar.
+When set to `vertical`, the tab bar is placed to the left of the content.
+The property must be constant.
+For example:
+```slint
+TabWidget {
+    in property <Orientation> foo;
+    // orientation: foo; // error
+    orientation: Orientation.vertical; //valid
+    Tab {
+        title: "First";
+    }
+}
+```
+</SlintProperty>
+
+## Properties of the `Tab` element
+
+### title
+<SlintProperty typeName="string" propName="title">
+The text written on the tab.
+
+```slint 'title: "First";'
+TabWidget {
+    Tab {
+        title: "First";
+    }
+}
+```
+</SlintProperty>

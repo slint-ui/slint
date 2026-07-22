@@ -1,0 +1,189 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Icon } from "@astrojs/starlight/components";
+
+/** Per-language docs live under …/docs/<subdir>/; the default Slint manual has none. */
+const docsSubdir =
+    Astro.props.docsUrlKind === "node"
+        ? "node"
+        : Astro.props.docsUrlKind === "python"
+          ? "python"
+          : Astro.props.docsUrlKind === "cpp"
+            ? "cpp"
+            : null;
+---
+
+<script define:vars={{ docsSubdir }}>
+/** `versions.json` only lists Slint doc roots; map to …/1.x.y/docs/<subdir>/ for per-language docs. */
+function releaseUrlToLanguageDocsRoot(url) {
+  try {
+    const u = new URL(url);
+    let p = u.pathname.replace(/\/+$/, "");
+    if (p.includes("/docs/slint")) {
+      p = p.replace("/docs/slint", `/docs/${docsSubdir}`);
+    } else if (p.endsWith("/docs")) {
+      p = `${p}/${docsSubdir}`;
+    } else {
+      return url;
+    }
+    u.pathname = p.endsWith("/") ? p : `${p}/`;
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+function versionOptionValue(v) {
+  if (!docsSubdir) {
+    return v.url;
+  }
+  return releaseUrlToLanguageDocsRoot(v.url);
+}
+
+/** If the script runs before the select exists, retry `fetchVersions` once after DOM is ready. */
+let fetchVersionsDeferOnceUsed = false;
+function scheduleFetchVersionsOnceIfSelectMissing() {
+  if (fetchVersionsDeferOnceUsed) return;
+  fetchVersionsDeferOnceUsed = true;
+  if (document.readyState === "loading") {
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        fetchVersions();
+      },
+      { once: true },
+    );
+  } else {
+    requestAnimationFrame(() => {
+      fetchVersions();
+    });
+  }
+}
+
+function populateVersions(versions) {
+  const select = document.getElementById("version-selector");
+  if (!select) {
+    scheduleFetchVersionsOnceIfSelectMissing();
+    return;
+  }
+  const currentUrl = window.location.href;
+  for (const version of versions) {
+    const option = document.createElement("option");
+    option.value = versionOptionValue(version);
+    option.textContent = version.preferred
+      ? version.version
+      : version.name
+        ? "next"
+        : version.version;
+    const isCurrentVersion =
+      currentUrl.includes(version.version) ||
+      (currentUrl.includes("latest") && version.preferred);
+    const isDevelopmentSnapshot =
+      currentUrl.includes("master") && version.name?.includes("development snapshot");
+    if (isCurrentVersion || isDevelopmentSnapshot) {
+      option.selected = true;
+    }
+    select.appendChild(option);
+  }
+  select.addEventListener("change", (e) => {
+    if (e.currentTarget instanceof HTMLSelectElement) {
+      window.location.href = e.currentTarget.value;
+    }
+  });
+}
+async function fetchVersions() {
+  const storedVersions = sessionStorage.getItem("versions");
+  const versions = storedVersions ? JSON.parse(storedVersions) : null;
+  if (versions && versions.length) {
+    populateVersions(versions);
+  } else {
+    try {
+        const response = await fetch('https://releases.slint.dev/versions.json');
+        const fetchedVersions = await response.json();
+        const preferredVersion = fetchedVersions.find((version) => version.preferred) || null;
+        if (fetchedVersions.length) {
+            populateVersions(fetchedVersions);
+            sessionStorage.setItem('versions', JSON.stringify(fetchedVersions));
+        }
+        if (preferredVersion) {
+            const latestVersion = preferredVersion.version;
+            sessionStorage.setItem('version', latestVersion);
+        }
+    } catch (error) {
+        console.error('Failed to load versions.json:', error);
+    }
+  }
+}
+// Fetch versions when the page loads
+fetchVersions();
+</script>
+<div>
+	<label style={`--sl-select-width: ${Astro.props.width}`}>
+		<span class="sr-only">Version</span>
+		<select
+			id="version-selector"
+			aria-label="Select Documentation Version"
+		></select>
+		<Icon name="down-caret" class="icon caret" />
+	</label>
+</div>
+
+<style>
+  label {
+		--sl-label-icon-size: 0.875rem;
+		--sl-caret-size: 1.25rem;
+		--sl-inline-padding: 0.5rem;
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		color: var(--sl-color-gray-1);
+	}
+
+	label:hover {
+		color: var(--sl-color-gray-2);
+	}
+
+	.icon {
+		position: absolute;
+		top: 50%;
+		transform: translateY(-50%);
+		pointer-events: none;
+	}
+
+	.label-icon {
+		font-size: var(--sl-label-icon-size);
+		inset-inline-start: 0;
+	}
+
+	.caret {
+		font-size: var(--sl-caret-size);
+		inset-inline-end: 0;
+	}
+
+	select {
+		border: 0;
+    outline: none;
+		padding-block: 0.625rem;
+		padding-inline: calc(var(--sl-label-icon-size) + var(--sl-inline-padding) + 0.25rem)
+			calc(var(--sl-caret-size) + var(--sl-inline-padding) + 0.25rem);
+		margin-inline: calc(var(--sl-inline-padding) * -1);
+		width: calc(var(--sl-select-width) + var(--sl-inline-padding) * 2);
+		background-color: transparent;
+		text-overflow: ellipsis;
+		color: inherit;
+		cursor: pointer;
+		appearance: none;
+	}
+
+	option {
+		background-color: var(--sl-color-bg-nav);
+		color: var(--sl-color-gray-1);
+	}
+
+	@media (min-width: 50rem) {
+		select {
+			font-size: var(--sl-text-sm);
+		}
+	}
+</style>

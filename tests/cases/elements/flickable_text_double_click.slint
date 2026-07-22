@@ -1,0 +1,113 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test TextInput inside a Flickable: double-click selects a word
+// and the mouse cursor stays as "text" during the Flickable press delay
+
+export component TestCase inherits Window {
+    width: 500phx;
+    height: 500phx;
+
+    flick := Flickable {
+        x: 0phx;
+        y: 0phx;
+        width: 500phx;
+        height: 500phx;
+        viewport-height: 2000phx;
+
+        ti := TextInput {
+            x: 0phx;
+            y: 0phx;
+            width: 200phx;
+            height: 30phx;
+            font-family: "FixedTestFont";
+            font-size: 10phx;
+        }
+    }
+
+    out property <string> test_text <=> ti.text;
+    out property <int> test_cursor_pos: ti.cursor-position-byte-offset;
+    out property <int> test_anchor_pos: ti.anchor-position-byte-offset;
+    out property <bool> has_selection: test_cursor_pos != test_anchor_pos;
+    out property <bool> input_focused: ti.has-focus;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
+use slint::private_unstable_api::re_exports::{MouseCursorInner, BuiltInMouseCursor};
+
+let instance = TestCase::new().unwrap();
+let cursor = || slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor());
+
+assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default));
+
+// Focus the TextInput with a click
+slint_testing::send_mouse_click(&instance, 50.0, 15.0);
+slint_testing::mock_elapsed_time(200);
+assert!(instance.get_input_focused(), "TextInput should be focused");
+assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text), "Cursor should be text after clicking on TextInput");
+
+// Type text
+slint_testing::send_keyboard_string_sequence(&instance, "Hello World");
+assert_eq!(instance.get_test_text(), "Hello World");
+assert!(!instance.get_has_selection(), "No selection after typing");
+
+// Wait to reset click count
+slint_testing::mock_elapsed_time(1000);
+
+// Verify cursor stays "text" during a press while Flickable delays the event
+let position = LogicalPosition::new(25.0, 5.0);
+let button = PointerEventButton::Left;
+instance.window().dispatch_event(WindowEvent::PointerMoved { position });
+assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text), "Cursor should be text after moving over TextInput");
+instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text), "Cursor must stay text during Flickable press delay");
+slint_testing::mock_elapsed_time(50);
+assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text), "Cursor must stay text while delay is pending");
+instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text), "Cursor should be text after release");
+
+// Wait to reset click count, then double-click on "Hello"
+slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 25.0, 5.0);
+slint_testing::mock_elapsed_time(50);
+slint_testing::send_mouse_click(&instance, 25.0, 5.0);
+
+// "Hello" should be selected (offsets 0 to 5)
+assert!(instance.get_has_selection(), "Double-click in Flickable should select a word");
+assert_eq!(instance.get_test_anchor_pos(), 0, "Selection anchor should be at start of 'Hello'");
+assert_eq!(instance.get_test_cursor_pos(), 5, "Selection cursor should be at end of 'Hello'");
+assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text), "Cursor should be text after double-click");
+```
+
+```rust
+use slint::*;
+use i_slint_core::api::WindowEventDispatchResult::*;
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+
+// No element has focus yet, all key events ignored
+let res = window.dispatch_event_with_result(platform::WindowEvent::KeyPressed { text: 'a'.into() });
+assert_eq!(res.unwrap(), Ignored);
+let res = window.dispatch_event_with_result(platform::WindowEvent::KeyPressRepeated { text: 'a'.into() });
+assert_eq!(res.unwrap(), Ignored);
+let res = window.dispatch_event_with_result(platform::WindowEvent::KeyReleased { text: 'a'.into() });
+assert_eq!(res.unwrap(), Ignored);
+
+// Click to focus the TextInput
+slint_testing::send_mouse_click(&instance, 50.0, 15.0);
+assert!(instance.get_input_focused());
+
+// KeyPressed and KeyPressRepeated are accepted by the focused TextInput
+let res = window.dispatch_event_with_result(platform::WindowEvent::KeyPressed { text: 'a'.into() });
+assert_eq!(res.unwrap(), Accepted);
+let res = window.dispatch_event_with_result(platform::WindowEvent::KeyPressRepeated { text: 'a'.into() });
+assert_eq!(res.unwrap(), Accepted);
+
+// KeyReleased is always ignored
+let res = window.dispatch_event_with_result(platform::WindowEvent::KeyReleased { text: 'a'.into() });
+assert_eq!(res.unwrap(), Ignored);
+```
+*/

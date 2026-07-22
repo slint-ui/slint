@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test inherits Window {
+    MenuBar {
+        Menu {
+            MenuItem {
+                shortcut: @keys(Control + N);
+            }
+        }
+    }
+
+    in-out property <bool> conditional;
+    in-out property <[keys]> dynamic;
+
+    ContextMenuArea {
+        Menu {
+            MenuItem {
+                shortcut: @keys(Control + X);
+//                        >                 <error{MenuItem shortcuts are currently only supported in the MenuBar}
+            }
+
+            if conditional: MenuItem {
+                shortcut: @keys(Control + Y);
+//                        >                 <error{MenuItem shortcuts are currently only supported in the MenuBar}
+            }
+
+            for key in dynamic: MenuItem {
+                shortcut: key;
+//                        >  <error{MenuItem shortcuts are currently only supported in the MenuBar}
+            }
+        }
+    }
+}

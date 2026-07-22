@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    width: 600phx;
+    height: 300phx;
+
+    Rectangle {
+        width: 300phx;
+        height: 300phx;
+        border_color: black;
+        border_width: 2px;
+        GridLayout {
+            padding_top: 10phx;
+            padding_left: 20phx;
+            padding_right: 30phx;
+            padding_bottom: 40phx;
+            Row {
+                rect1 := Rectangle {
+                    background: red;
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        width: 300phx;
+        height: 300phx;
+        x: 300phx;
+        border_color: black;
+        border_width: 2px;
+
+        GridLayout {
+            spacing: 1000phx;
+            padding: 25phx;
+            padding_left: 20phx;
+            padding_right: 30phx;
+            Row {
+                rect2 := Rectangle {
+                    background: blue;
+                }
+            }
+        }
+    }
+
+    out property <bool> rect1_pos_ok: rect1.x == 20phx && rect1.y == 10phx && rect1.width == 250phx && rect1.height == 250phx;
+    out property <bool> rect2_pos_ok: rect2.x == 20phx && rect2.y == 25phx && rect2.width == 250phx && rect2.height == 250phx;
+    out property <bool> test: rect1_pos_ok && rect2_pos_ok;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_rect1_pos_ok());
+assert(instance.get_rect2_pos_ok());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_rect1_pos_ok());
+assert!(instance.get_rect2_pos_ok());
+```
+
+*/

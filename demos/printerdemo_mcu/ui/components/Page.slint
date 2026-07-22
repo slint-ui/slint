@@ -1,0 +1,73 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette } from "../common.slint";
+
+export component Page inherits Rectangle {
+    in property <string> header <=> h.text;
+    in property <bool> has-back-button: false;
+    in property header-height <=> page-header.height;
+    in property header-font-size <=> h.font-size;
+
+    callback back;
+
+    TouchArea { } // protect underneath controls
+
+    VerticalLayout {
+        page-header := Rectangle {
+            width: 100%;
+            height: DemoPalette.header-height;
+            background: DemoPalette.header-background;
+
+            if (root.has-back-button): Image {
+                source: @image-url("../images/back.svg");
+                image-fit: contain;
+                colorize: DemoPalette.control-secondary;
+                y: h.y + (h.height - self.height) / 2;
+                x: 5px;
+                width: 14px;
+                height: 24px;
+
+                TouchArea {
+                    pointer-event(ev) => {
+                        if (ev.kind == PointerEventKind.up) {
+                            root.back()
+                        }
+                    }
+                    width: 400%;
+                    height: 200%;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                }
+            }
+
+            h := Text {
+                font-size: 22px;
+                color: DemoPalette.text-foreground-color;
+                x: root.has-back-button ? 30px + 16px : 12px;
+                // font-family: DemoPalette.regular-font-family;
+
+                // Allow clicking on the title as well to get back easier when just
+                // using fingers on a small screen.
+                if (root.has-back-button): TouchArea {
+                    pointer-event(ev) => {
+                        if (ev.kind == PointerEventKind.up) {
+                            root.back()
+                        }
+                    }
+                }
+            }
+
+            separator := Rectangle {
+                y: parent.height - self.height;
+                width: 100%;
+                height: 1px;
+                background: #E2E8F0;
+            }
+        }
+
+        page-content := Rectangle {
+            @children
+        }
+    }
+}

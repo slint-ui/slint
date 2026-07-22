@@ -1,0 +1,19 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+//
+// Manual cross-reference to the Slint language docs (the sibling …/docs/slint/
+// site). Thin wrapper over the shared Link component that injects this site's
+// Slint-docs base and opens the link in a new tab.
+import Link from "@slint/common-files/src/components/Link.astro";
+import { slintDocsBase } from "../python-site-config.mjs";
+
+interface Props {
+    type: string;
+    label?: string;
+}
+
+const { type, label } = Astro.props;
+---
+
+<Link type={type} label={label} docsBase={slintDocsBase()} external code />

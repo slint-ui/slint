@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Issue 7887
+
+export global G {
+    in-out property <string> r;
+}
+
+component MyLayout inherits HorizontalLayout {
+    Rectangle {
+        width: 20phx;
+        background: red;
+    }
+
+    Timer {
+        interval: 1s;
+        triggered => {
+            G.r += "a";
+        }
+    }
+
+    PopupWindow { }
+
+    Timer {
+        interval: 1.3s;
+        triggered => {
+            G.r += "b";
+        }
+    }
+
+    @children
+
+    Timer {
+        interval: 1.6s;
+        triggered => {
+            G.r += "c";
+        }
+    }
+
+    Rectangle {
+        width: 10phx;
+        background: red;
+    }
+}
+
+export component TestCase inherits Window {
+    width: 300phx;
+    height: 200phx;
+
+    MyLayout {
+        rect1 := Rectangle {
+            background: black;
+        }
+    }
+
+    out property xx <=> rect1.x;
+    out property ww <=> rect1.width;
+
+    out property <bool> rect1_pos_ok: rect1.x == 20phx && rect1.width == 300phx - 30phx;
+    out property <bool> test: rect1_pos_ok;
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+slint_testing::mock_elapsed_time(1900);
+assert_eq(instance.global<G>().get_r(), "abc");
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+slint_testing::mock_elapsed_time(1900);
+assert_eq!(instance.global::<G<'_>>().get_r(), "abc");
+```
+*/

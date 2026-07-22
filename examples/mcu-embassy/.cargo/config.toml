@@ -1,0 +1,13 @@
+# Copyright © 2025 David Haig
+# SPDX-License-Identifier: MIT
+
+[target.'cfg(all(target_arch = "arm", target_os = "none"))']
+rustflags = ["-C", "link-arg=--nmagic", "-C", "link-arg=-Tlink.x", "-C", "link-arg=-Tdefmt.x"]
+runner = "probe-rs run --chip STM32U5G9ZJTxQ"
+
+[build]
+target = "thumbv8m.main-none-eabihf"
+
+[env]
+DEFMT_LOG = "info"
+RUST_LOG = "info"

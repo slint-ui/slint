@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { TaskListView, TaskListAdapter } from "./views/task_list_view.slint";
+export { TaskListAdapter }
+
+import { CreateTaskView, CreateTaskAdapter } from "./views/create_task_view.slint";
+export { CreateTaskAdapter }
+
+import { AnimationSettings } from "./widgets/styling.slint";
+
+export global NavigationAdapter {
+    out property <int> current-page;
+
+    public function next-page() {
+        root.current-page += 1;
+    }
+
+    public function previous-page() {
+        root.current-page = max(0, root.current-page - 1);
+    }
+}
+
+export component MainWindow inherits Window {
+    preferred-width: 400px;
+    preferred-height: 600px;
+    title: "Slint todo mvc example";
+
+    Rectangle {
+        x: -(NavigationAdapter.current-page * root.width);
+        width: 2 * root.width;
+
+        if self.x > -root.width : TaskListView {
+            x: 0;
+            width: root.width;
+            height: root.height;
+        }
+
+        if self.x < 0 : CreateTaskView {
+            x: root.width;
+            width: root.width;
+            height: root.height;
+        }
+
+        animate x {
+             duration: AnimationSettings.move-duration;
+             easing: AnimationSettings.move-easing;
+        }
+    }
+}

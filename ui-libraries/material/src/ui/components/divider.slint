@@ -1,0 +1,28 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialPalette } from "../styling/material_palette.slint";
+
+component BaseDivider {
+    Rectangle {
+        background: MaterialPalette.outline_variant;
+    }
+}
+
+export component VerticalDivider {
+    width: 1px;
+
+    BaseDivider {
+        width: 100%;
+        height: 100%;
+    }
+}
+
+export component HorizontalDivider {
+    height: 1px;
+
+    BaseDivider {
+        width: 100%;
+        height: 100%;
+    }
+}

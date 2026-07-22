@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { DialState } from "dial.slint";
+import { Palette } from "../../common.slint";
+
+export component Light {
+
+    function pulseAnimation(duration: duration) -> float {
+        return 1 * (1 - abs(sin(360deg * animation-tick() / duration)));
+    }
+
+    in property <int> index;
+    in property <int> volume;
+    property <angle> gap: (360deg - (DialState.startAngle - DialState.endAngle)) / DialState.totalLights;
+    property <angle> angle: (index * gap) + DialState.startAngle;
+    property <bool> lightOn: index <= volume;
+    property <float> pulse:   index == 0 && lightOn && volume <= 1 ? pulseAnimation(5s) : 1.0;
+
+    x: DialState.elementRadius * angle.cos();
+    y: DialState.elementRadius * angle.sin();
+    width: 0;
+    height: 0;
+
+    states [
+        lightOff when !root.lightOn: {
+            dialLed.opacity: 0;
+        }
+        lightOn when root.lightOn: {
+            dialLed.opacity: pulse;
+            in {
+                animate dialLed.opacity {
+                    duration: 100ms;
+                    easing: ease-in-sine;
+                }
+            }
+            out {
+                animate dialLed.opacity {
+                    duration: 600ms;
+                    easing: ease-out-sine;
+                }
+            }
+        }
+    ]
+    Rectangle {
+
+        Rectangle {
+            width: 5px;
+            height: self.width;
+            border-radius: self.width / 2;
+            background: Palette.door-light-off;
+            opacity: 0.1;
+        }
+
+        dialLed := Image {
+            source: Palette.dark-color-scheme ? @image-url("../../images/led-dark.png") : @image-url("../../images/led.png");
+            width: self.source.width * 0.5 * 1px;
+            height: self.source.height * 0.5 * 1px;
+        }
+    }
+}
+
+export component DialLights {
+    width: 212px;
+    height: 213px;
+    in property <int> volume;
+
+    Rectangle {
+        width: 1px;
+        height: 1px;
+        x: 106px;
+        y: 105px;
+        lightHolder := Rectangle {
+            x: 0px;
+            y: 1px;
+            for i in DialState.totalLights + 1: Light {
+                index: i;
+                volume: root.volume;
+            }
+        }
+    }
+}

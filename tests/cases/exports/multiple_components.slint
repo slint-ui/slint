@@ -1,0 +1,124 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export global G {
+    in property <string> global-property: "Hello";
+}
+
+struct S { val: string }
+
+component Shared {
+    in property <string> n;
+    out property <S> out: {  val: G.global-property + " " + n };
+    for xx in 2 : Rectangle {}
+    out property <bool> test: false;
+}
+
+// This component is both exported and Used
+export component Used inherits Window {
+    in-out property <int> name;
+    for xx in 4 : Rectangle { }
+    out property <bool> test: true;
+}
+
+export component FirstTest inherits Window {
+
+    out property <string> global-prop: G.global-property;
+    out property <string> o: shared.out.val;
+    shared := Shared {
+        n: "Oli";
+    }
+
+    Used {}
+
+    out property <bool> test: true;
+}
+
+export component Z inherits Window {
+    out property <bool> test: true;
+}
+
+export component NotAWindow {
+    out property <bool> test: false;
+}
+
+
+
+export component SecondTest inherits Window {
+    out property <string> global-prop: G.global-property;
+    out property <string> out: shared.out.val;
+
+    shared := Shared {
+        n: "Sim";
+    }
+
+    out property <bool> test: out == "Hello Sim";
+}
+
+
+/*
+```rust
+let instance1 = FirstTest::new().unwrap();
+
+instance1.global::<G<'_>>().set_global_property("Hallo".into());
+
+let instance2 = SecondTest::new().unwrap();
+
+let instance3 = SecondTest::new().unwrap();
+
+instance3.global::<G<'_>>().set_global_property("Bonjour".into());
+
+assert_eq!(instance1.get_o(), "Hallo Oli");
+assert_eq!(instance2.get_out(), "Hello Sim");
+assert_eq!(instance3.get_out(), "Bonjour Sim");
+
+#[allow(unused)]
+pub struct Shared;
+#[allow(unused)]
+pub struct NotAWindow;
+
+```
+
+```cpp
+auto handle1 = FirstTest::create();
+const FirstTest &instance1 = *handle1;
+instance1.global<G>().set_global_property("Hallo");
+
+auto handle2 = SecondTest::create();
+const SecondTest &instance2 = *handle2;
+
+auto handle3 = SecondTest::create();
+const SecondTest &instance3 = *handle3;
+
+instance3.global<G>().set_global_property("Bonjour");
+
+assert_eq(instance1.get_o(), "Hallo Oli");
+assert_eq(instance2.get_out(), "Hello Sim");
+assert_eq(instance3.get_out(), "Bonjour Sim");
+
+struct Shared {};
+struct NotAWindow {};
+```
+
+```js
+let instance1 = new slint.FirstTest();
+instance1.G.global_property = "Hallo";
+
+let instance2 = new slint.SecondTest();
+let instance3 = new slint.SecondTest();
+instance3.G.global_property = "Bonjour";
+
+assert.equal(instance1.o, "Hallo Oli");
+assert.equal(instance2.out, "Hello Sim");
+assert.equal(instance3.out, "Bonjour Sim");
+
+assert.equal(typeof slint.Shared, "undefined");
+assert.equal(typeof slint.NotAWindow, "undefined");
+assert.equal(typeof slint.G, "undefined");
+```
+
+
+
+
+*/
+

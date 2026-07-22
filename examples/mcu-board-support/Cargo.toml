@@ -1,0 +1,290 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+# cSpell: ignore framebuf sitronix xspi
+[package]
+name = "mcu-board-support"
+version = "1.18.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition.workspace = true
+license = "MIT"
+publish = false
+description = "Internal helper that includes support for different MCUs, for use in Slint examples"
+repository = "https://github.com/slint-ui/slint"
+homepage = "https://slint.dev"
+links = "mcu_board_support"                                                                         # just so we can pass metadata to the slint build crate
+
+[lib]
+path = "lib.rs"
+
+[features]
+
+pico-st7789 = [
+  "slint/unsafe-single-threaded",
+  "rp-pico",
+  "embedded-hal",
+  "embedded-hal-nb",
+  "cortex-m-rt",
+  "embedded-alloc",
+  "fugit",
+  "cortex-m",
+  "dep:mipidsi",
+  "defmt",
+  "defmt-rtt",
+  "slint/libm",
+  "embedded-dma",
+  "embedded-graphics",
+  "euclid/libm",
+]
+pico2-st7789 = [
+  "slint/unsafe-single-threaded",
+  "rp235x-hal/binary-info",
+  "rp235x-hal/critical-section-impl",
+  "rp235x-hal/rt",
+  "rp235x-hal/defmt",
+  "embedded-hal",
+  "embedded-hal-nb",
+  "cortex-m-rt",
+  "embedded-alloc",
+  "fugit",
+  "cortex-m",
+  "dep:mipidsi",
+  "defmt",
+  "defmt-rtt",
+  "slint/libm",
+  "embedded-dma",
+  "embedded-graphics",
+  "euclid/libm",
+]
+pico2-touch-lcd-2-8 = [
+  "slint/unsafe-single-threaded",
+  "dep:embassy-executor",
+  "embassy-executor/arch-cortex-m",
+  "embassy-executor/executor-thread",
+  "dep:embassy-time",
+  "embassy-time/tick-hz-1_000_000",
+  "dep:embassy-futures",
+  "dep:embassy-rp",
+  "dep:static_cell",
+  "dep:mipidsi",
+  "dep:defmt-serial",
+  "embedded-hal",
+  "embedded-hal-bus",
+  "embedded-alloc",
+  "cortex-m-rt",
+  "cortex-m",
+  "defmt",
+  "panic-probe",
+  "embedded-graphics",
+  "slint/libm",
+  "euclid/libm",
+  "i-slint-renderer-software/experimental",
+]
+stm32h735g = [
+  "slint/unsafe-single-threaded",
+  "cortex-m/critical-section-single-core",
+  "cortex-m-rt",
+  "embedded-alloc",
+  "embedded-time",
+  "stm32h7xx-hal/stm32h735",
+  "defmt",
+  "defmt-rtt",
+  "embedded-display-controller",
+  "ft5336",
+  "panic-probe",
+  "slint/libm",
+  "getrandom",
+]
+esp32-s3-box-3 = [
+  "slint/unsafe-single-threaded",
+  "esp-hal/esp32s3",
+  "esp-hal/unstable",               # required for PSRAM support
+  "esp-hal/psram",
+  "dep:static_cell",
+  "embedded-hal",
+  "embedded-hal-bus",
+  "esp-alloc",
+  "esp-println/esp32s3",
+  "esp-backtrace/esp32s3",
+  "dep:mipidsi",
+  "embedded-graphics-core",
+  "slint/libm",
+  "gt911",
+  "esp-bootloader-esp-idf/esp32s3",
+]
+esp32-s3-lcd-ev-board = [
+  "slint/unsafe-single-threaded",
+  "esp-hal/esp32s3",
+  "esp-hal/unstable",               # required for PSRAM support
+  "esp-hal/psram",
+  "embedded-hal",
+  "embedded-hal-bus",
+  "esp-alloc",
+  "esp-println/esp32s3",
+  "esp-backtrace/esp32s3",
+  "dep:mipidsi",
+  "embedded-graphics-core",
+  "slint/libm",
+  "dep:embedded-graphics-framebuf",
+]
+esope-sld-c-w-s3 = [
+  "slint/unsafe-single-threaded",
+  "esp-hal/esp32s3",
+  "esp-hal/unstable",               # required for PSRAM support
+  "esp-hal/psram",
+  "embedded-hal",
+  "embedded-hal-bus",
+  "esp-alloc",
+  "esp-println/esp32s3",
+  "esp-backtrace/esp32s3",
+  "dep:mipidsi",
+  "embedded-graphics-core",
+  "slint/libm",
+  "dep:eeprom24x",
+  "dep:embassy-executor",
+  "dep:embassy-sync",
+  "dep:embassy-time",
+  "dep:esp-hal-embassy",
+  "dep:static_cell",
+  "dep:embedded-graphics-framebuf",
+  "dep:sitronix-touch",
+  "esp-bootloader-esp-idf/esp32s3",
+]
+waveshare-esp32-s3-touch-amoled-1-8 = [
+  "slint/unsafe-single-threaded",
+  "esp-hal/esp32s3",
+  "esp-hal/unstable",               # required for PSRAM support
+  "esp-hal/psram",
+  "embedded-hal",
+  "embedded-hal-bus",
+  "esp-alloc",
+  "esp-println/esp32s3",
+  "esp-backtrace/esp32s3",
+  "dep:mipidsi",
+  "embedded-graphics-core",
+  "embedded-graphics",
+  "slint/libm",
+  "dep:static_cell",
+  "dep:embedded-graphics-framebuf",
+  "dep:sh8601-rs",
+  "dep:ft3x68-rs",
+]
+m5stack-cores3 = [
+  "slint/unsafe-single-threaded",
+  "esp-hal/esp32s3",
+  "esp-hal/unstable",               # required for PSRAM support
+  "esp-hal/psram",
+  "embedded-hal",
+  "embedded-hal-bus",
+  "esp-alloc",
+  "esp-println/esp32s3",
+  "esp-backtrace/esp32s3",
+  "dep:mipidsi",
+  "embedded-graphics-core",
+  "embedded-graphics",              # Add for Rgb565 color support
+  "slint/libm",
+  "dep:static_cell",
+  "dep:embedded-graphics-framebuf",
+  "dep:ft3x68-rs",                  # FT6336U touch controller (compatible with FT3x68)
+  "esp-bootloader-esp-idf/esp32s3",
+]
+stm32u5g9j-dk2 = [
+  "embassy-stm32/stm32u5g9zj",
+  "embassy-stm32/time-driver-any",
+  "embassy-stm32/exti",
+  "embassy-stm32/memory-x",
+  "embassy-stm32/unstable-pac",
+  "embassy-stm32/chrono",
+  "embassy-stm32/time",
+  "embassy-stm32/defmt",
+  "embassy-executor/arch-cortex-m",
+  "embassy-executor/executor-interrupt",
+  "embassy-executor/task-arena-size-32768",
+  "embassy-executor/executor-thread",
+  "slint/libm",
+  "slint/unsafe-single-threaded",
+  "defmt",
+  "defmt-rtt",
+  "embedded-alloc",
+  "getrandom",
+  "cortex-m/critical-section-single-core",
+  "cortex-m-rt",
+  "panic-probe",
+  "embassy-time/tick-hz-32_768",
+  "embassy-time/defmt",
+  "embassy-time/defmt-timestamp-uptime",
+  "rand_core",
+  "cortex-m/inline-asm",
+  "cortex-m/critical-section-single-core",
+  "gt911/defmt",
+  "dep:embassy-futures",
+  "i-slint-renderer-software/experimental",
+]
+
+[dependencies]
+slint = { version = "=1.18.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
+i-slint-core = { workspace = true }
+i-slint-core-macros = { version = "=1.18.0", path = "../../internal/core-macros" }
+i-slint-renderer-software = { workspace = true, optional = true }
+
+derive_more = { workspace = true }
+embedded-graphics = { version = "0.8", optional = true }
+once_cell = { version = "1.9", default-features = false, features = ["alloc"] }
+pin-weak = { version = "1", default-features = false }
+rgb = "0.8.27"
+cfg-if = "1"
+
+log = "0.4.27"
+
+embedded-alloc = { version = "0.6", optional = true }
+cortex-m-rt = { version = "0.7", optional = true }
+cortex-m = { version = "0.7.2", optional = true }
+embedded-hal = { version = "1.0.0", optional = true }
+embedded-hal-nb = { version = "1.0.0", optional = true }
+embedded-hal-bus = { version = "0.3.0", optional = true }
+embedded-dma = { version = "0.2.0", optional = true }
+rp-pico = { version = "0.9.0", optional = true }
+rp235x-hal = { version = "0.3.0", default-features = false, optional = true }
+fugit = { version = "0.3.6", optional = true }
+euclid = { version = "0.22", default-features = false, optional = true }
+
+stm32h7xx-hal = { version = "0.16.0", optional = true, features = ["log-rtt", "ltdc", "xspi"] }
+getrandom = { version = "0.2", optional = true, default-features = false, features = ["custom"] }
+embedded-time = { version = "0.12.0", optional = true }
+embedded-display-controller = { version = "0.2.0", optional = true }
+ft5336 = { version = "0.2", optional = true }
+
+# Updated ESP dependencies to match working Embassy project versions
+esp-hal = { version = "=1.0.0-rc.0", optional = true }
+esp-alloc = { version = "0.8.0", optional = true }
+esp-println = { version = "0.15.0", default-features = false, features = ["auto", "log-04"], optional = true }
+esp-backtrace = { version = "0.17.0", optional = true, features = ["esp32s3", "exception-handler", "println"] }
+static_cell = { version = "2.1.0", optional = true }
+esp-bootloader-esp-idf = { version = "0.2.0", optional = true }
+
+mipidsi = { version = "0.9.0", optional = true }
+embedded-graphics-core = { version = "0.4", optional = true }
+embedded-graphics-framebuf = { version = "0.5.0", optional = true }
+eeprom24x = { version = "0.7.2", optional = true }
+
+defmt-rtt = { version = "0.4.0", optional = true }
+defmt = { version = "1.0.0", optional = true }
+defmt-serial = { version = "0.11.0", optional = true }
+panic-probe = { version = "0.3.0", optional = true, features = ["print-defmt"] }
+
+embassy-stm32 = { version = "0.2.0", optional = true }
+embassy-rp = { version = "0.4.0", optional = true, features = ["rp235xa", "time-driver", "critical-section-impl", "binary-info", "defmt", "unstable-pac"] }
+embassy-executor = { version = "0.7.0", optional = true, default-features = false }
+embassy-time = { version = "0.4.0", optional = true }
+embassy-futures = { version = "0.1.1", optional = true }
+embassy-sync = { version = "0.7.0", optional = true }
+esp-hal-embassy = { version = "0.9.0", optional = true, features = ["esp32s3"] }
+gt911 = { version = "0.3.0", optional = true }
+sitronix-touch = { version = "0.0.1", optional = true }
+sh8601-rs = { version = "0.1.6", features = ["waveshare_18_amoled"], optional = true }
+ft3x68-rs = { version = "0.1.2", optional = true }
+
+rand_core = { version = "0.6.3", optional = true }
+
+[build-dependencies]
+cfg-if = "1.0.0"

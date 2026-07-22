@@ -1,0 +1,25 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[build-system]
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "slint-compiler"
+version = "1.18.0b1"
+description = "Slint Compiler"
+authors = [{ name = "Slint Team", email = "info@slint.dev" }]
+classifiers = ["Programming Language :: Rust", "Programming Language :: Python :: Implementation :: CPython"]
+requires-python = ">=3.10"
+
+[project.urls]
+Homepage = "https://slint.dev"
+Documentation = "https://slint.dev/docs"
+Repository = "https://github.com/slint-ui/slint"
+Changelog = "https://github.com/slint-ui/slint/blob/master/CHANGELOG.md"
+Tracker = "https://github.com/slint-ui/slint/issues"
+
+[tool.maturin]
+bindings = "bin"
+manifest-path = "Cargo.toml"

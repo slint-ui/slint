@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TextEdit } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 80px;
+    height: 32px;
+    forward-focus: edit;
+    out property viewport-y <=> edit.viewport-y;
+
+    public function set-selection-offsets(start: int, end: int) {
+        edit.set-selection-offsets(start, end);
+    }
+
+    edit := TextEdit {
+        text: "Abc\nabc\nabc";
+        font-family: "FixedTestFont";
+    }
+}
+
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+
+instance.invoke_set_selection_offsets(11, 11);
+
+slint_testing::send_keyboard_string_sequence(&instance, "a");
+
+let y = instance.get_viewport_y();
+
+slint_testing::send_keyboard_string_sequence(&instance, "b");
+
+assert_eq!(instance.get_viewport_y(), y);
+```
+*/

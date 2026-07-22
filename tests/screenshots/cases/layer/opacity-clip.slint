@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//Test for issue similar to #10037
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+
+    background: red;
+    Rectangle {
+        clip: true;
+        x: 10px;
+        y: -5px;
+        width: 50px;
+        height: 50px;
+
+        clipped-rectangle := Rectangle {
+            x: 2000px;
+            y: -8000px;
+            width: 50px;
+            height: 50px;
+            background: green;
+            opacity: 0.5;
+
+            // The inner rect should be visible, and should be violet as it has an opacity of 0.5
+            inner-rect := Rectangle {
+                x: -2000px + 10px;
+                y: 8000px + 30px;
+                width: 50px;
+                height: 50px;
+                background: blue;
+            }
+        }
+    }
+
+
+}

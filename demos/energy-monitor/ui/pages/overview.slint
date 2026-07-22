@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Page } from "page.slint";
+import { GroupBox, ValueDisplay, Value } from "../widgets/widgets.slint";
+
+export global OverviewAdapter {
+    in property <string> production-title: "Production";
+    in property <string> self-consumption-title: "Self-consumption";
+    in property <[Value]> production-model: [
+        {
+            title: "Daily",
+            value: 12.56,
+            unit: "kWh",
+        },
+        {
+            title: "Weekly",
+            value: 90.28,
+            unit: "kWh",
+        }
+    ];
+    in property <[Value]> self-consumption-model: [
+        {
+            title: "Weekly",
+            value: 54.08,
+            unit: "kWh",
+        },
+        {
+            title: "Monthly",
+            value: 320.18,
+            unit: "kWh",
+        }
+    ];
+}
+
+export component Overview inherits Page {
+    in property <string> production-title <=> OverviewAdapter.production-title;
+    in property <string> self-consumption-title <=>  OverviewAdapter.self-consumption-title;
+    in property <[Value]> production-model <=> OverviewAdapter.production-model;
+    in property <[Value]> self-consumption-model <=> OverviewAdapter.self-consumption-model;
+
+    width: 100%;
+    height: 100%;
+
+    VerticalLayout {
+        spacing: 12px;
+
+        i-production-group := GroupBox {
+            title: root.production-title;
+
+            ValueDisplay {
+                active: root.active;
+                model: root.production-model;
+            }
+        }
+
+        i-self-consumption-group := GroupBox {
+            title: root.self-consumption-title;
+
+            ValueDisplay {
+                active: root.active;
+                alternative-colors: true;
+
+                model: root.self-consumption-model;
+            }
+        }
+    }
+}

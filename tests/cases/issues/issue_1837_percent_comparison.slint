@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Inner inherits Rectangle {
+    in-out property <percent> val;
+    background: val < 50% ? red : blue;
+}
+
+// It seems the indirection is required
+component Outer inherits VerticalLayout {
+    in-out property <percent> val;
+    Inner { val: parent.val;    } // Commenting this line does not produce a compiler error
+
+    Rectangle { background: val < 50% ? green : yellow; }
+
+}
+
+export component AppWindow inherits Window {
+    width: 240px;
+    height: 240px;
+    Outer { val: 50%; }
+}

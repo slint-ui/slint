@@ -1,0 +1,65 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export X := Rectangle {
+//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+    forward-focus: someRect;
+//                 >       <error{Cannot forward focus to unfocusable element}
+
+    callback trigger_focus_change();
+    trigger_focus_change => {
+        someRect.focus();
+//               >   <error{focus() can only be called on focusable elements}
+    }
+
+    indirect_focus_chain_rect := Rectangle {
+       forward-focus: someRect;
+//                    >       <error{Cannot forward focus to unfocusable element}
+    }
+
+    callback trigger_focus_change_2();
+    trigger_focus_change_2 => {
+        indirect_focus_chain_rect.focus();
+    }
+
+    someRect := Rectangle {}
+
+    someFocusScope := FocusScope {}
+    callback activate_focus_scope();
+    activate_focus_scope => {
+        someFocusScope.focus(); // OK!
+    }
+}
+
+
+
+export Y := FocusScope {
+//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+    forward-focus: self;
+//                 >   <error{forward-focus can't refer to itself}
+    x:= X { }
+    key-pressed => {
+        r0.focus();
+        x.focus();
+//        >   <error{focus() can only be called on focusable elements}
+        accept
+    }
+
+    r1:= Rectangle {
+        forward-focus: r2;
+//                     > <error{Cannot forward focus to unfocusable element}
+    }
+    r0:= Rectangle {
+        forward-focus: r1;
+//                     > <error{Cannot forward focus to unfocusable element}
+}
+    r2 := Rectangle {
+        forward-focus: r3;
+//                     > <error{Cannot forward focus to unfocusable element}
+}
+    r3 := Rectangle {
+        forward-focus: r1;
+//                     > <error{Cannot forward focus to unfocusable element}
+}
+}

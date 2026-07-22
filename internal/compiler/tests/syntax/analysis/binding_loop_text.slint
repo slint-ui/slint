@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+global G {
+    in-out property <relative-font-size> size: 5rem;
+}
+
+component OkButton inherits Text {
+    font-size: G.size;  // use rem without access to Window
+}
+
+
+component KoButton inherits Text {
+    font-size: G.size;  // use rem without access to Window
+//             >     <error{The binding for the property 'font-size' is part of a binding loop (root.default-font-size -> b.font-size -> root.default-font-size)}
+}
+
+export component Test inherits Window {
+    Text { font-size: self.font-metrics.ascent; }
+//  >   <error{The binding for the property 'font-metrics' is part of a binding loop (font-size -> font-metrics -> font-size)}
+//                    >                       <^error{The binding for the property 'font-size' is part of a binding loop (font-size -> font-metrics -> font-size)}
+
+    t1 := Text { font-italic: t2.font-metrics.cap-height > 10px; }
+//                            >                                <error{The binding for the property 'font-italic' is part of a binding loop (t2.font-weight -> t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
+//        >   <^error{The binding for the property 'font-metrics' is part of a binding loop (t2.font-weight -> t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
+    t2 := Text { font-weight: t1.font-metrics.descent / 0.5px; }
+//        >   <error{The binding for the property 'font-metrics' is part of a binding loop (t2.font-weight -> t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
+//                            >                              <^error{The binding for the property 'font-weight' is part of a binding loop (t2.font-weight -> t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
+
+    OkButton {}
+
+    b := KoButton {}
+    default-font-size: b.font-size;
+//                     >          <error{The binding for the property 'default-font-size' is part of a binding loop (root.default-font-size -> b.font-size -> root.default-font-size)}
+
+    dialog1 := Window {
+//             >     <warning{Window elements as children do not create separate windows (this may change in the future)↵Consider using a PopupWindow instead}
+        default-font-size: 2rem;
+    }
+}

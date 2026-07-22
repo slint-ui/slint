@@ -1,0 +1,197 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { FloatButton } from "float_button.slint";
+import { Images } from "../images.slint";
+import { Theme } from "../theme.slint";
+
+component ScrollBar {
+    private property <length> ref-width: self.width - 4px;
+
+    in-out property <length> page-size;
+    in-out property <length> value;
+    in-out property <length> maximum;
+    in property <bool> enabled <=> i-ta.enabled;
+
+    min-height: 14px;
+
+    Rectangle {
+        border-width: 1px;
+        border-radius: 6px;
+        border-color: Theme.palette.slint-blue-300;
+
+        i-indicator := Rectangle {
+            x: 2px + (root.ref-width - i-indicator.width) * (-root.value / root.maximum);
+            height: parent.height - 4px;
+            background: Theme.palette.slint-blue-300;
+            width: max(32px, ref-width * root.page-size / (root.maximum + root.page-size));
+            border-radius: parent.border-radius - 2px;
+        }
+    }
+
+    i-ta := TouchArea {
+        property <length> pressed-value;
+
+        width: parent.width;
+        height: parent.height;
+
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                self.pressed-value = -root.value;
+            }
+        }
+        moved => {
+            if (self.enabled && self.pressed) {
+                root.value = -max(0px, min(root.maximum, self.pressed-value + (
+                   (self.mouse-x - self.pressed-x) * (root.maximum / (root.width - i-indicator.width))
+                )));
+            }
+        }
+    }
+}
+
+export component PageContainer {
+    callback clicked <=> i-touch-area.clicked;
+
+    in property <bool> transparent-background: true;
+    out property <length> mouse-x: i-touch-area.mouse-x;
+
+    in property <int> selected;
+    in property <int> index;
+    in property <length> selected-height;
+    in property <length> selected-width;
+    in property <length> selected-h-offset;
+
+    min-width: 320px;
+    min-height: 240px;
+    cache-rendering-hint: true;
+
+    i-rect := Rectangle {
+        height: parent.height;
+        animate opacity { duration: Theme.durations.medium; }
+
+        i-touch-area := TouchArea {}
+
+        Rectangle {
+            border-radius: 6px;
+            background: Theme.palette.dark-deep-blue;
+            opacity: root.transparent-background ? 0.5 : 1.0;
+        }
+
+        Rectangle {
+            y: 10px;
+            height: i-rect.height - 20px;
+
+            @children
+        }
+    }
+
+    states [
+        selected when selected == index : {
+            min-width: selected-width;
+            i-rect.height: selected-height;
+            i-rect.y: (self.height - selected-height) /2 + selected-h-offset;
+            out { animate i-rect.y, i-rect.height { duration: Theme.durations.medium; } }
+            in { animate i-rect.y, i-rect.height { duration: Theme.durations.medium; } }
+            cache-rendering-hint: false;
+        }
+        shrink when selected != -1 : {
+            horizontal-stretch: 0;
+            i-rect.opacity: 0.0;
+        }
+    ]
+
+    animate min-width { duration: Theme.durations.medium; }
+}
+
+export component PageScrollView {
+    in property <int> page-count: 1;
+    out property <int> selection: -1;
+    out property <length> selected-height : root.height - i-layout.spacing;
+    out property <length> selected-width: i-flickable.width - i-layout.spacing * 2;
+    out property <length> selected-h-offset:  (root.height - i-flick-container.height)/2;
+    private property <length> item-width: i-flickable.viewport-width / page-count;
+    private property <length> saved-item-width: item-width;
+
+    public function toggle-selection(idx: int, x: length) {
+        if (selection >= 0) {
+            i-flickable.viewport-x = min(0px, max(i-flickable.width - saved-item-width * page-count , -x + i-flickable.width / 2 - saved-item-width / 2));
+            selection = -1;
+        } else {
+            saved-item-width = item-width;
+            selection = idx;
+            i-flickable.viewport-x = -x + i-layout.spacing;
+        }
+    }
+
+    function scroll-left() {
+        i-flickable.viewport-x = min(i-flickable.viewport-x + item-width, 0);
+    }
+
+    function scroll-right() {
+        i-flickable.viewport-x = max(i-flickable.viewport-x - item-width,  i-flickable.width - i-flickable.viewport-width);
+    }
+
+    VerticalLayout {
+        i-flick-container := Rectangle {
+            z: 1;
+            i-flickable := Flickable {
+                y: 0;
+                height: selection == -1 ? parent.height : selected-height ;
+                animate viewport-x { duration: Theme.durations.medium;  }
+                viewport-height: i-flickable.height;
+                i-layout := HorizontalLayout {
+                    y: (i-flick-container.height - self.height)/2;
+                    height: i-layout.preferred-height;
+                    width:  i-layout.preferred-width;
+                    padding: 20px;
+                    spacing: 20px;
+
+                    @children
+                }
+                interactive: selection == -1;
+            }
+        }
+
+        HorizontalLayout {
+            vertical-stretch: 0;
+            cross-axis-alignment: center;
+            spacing: 25px;
+            padding-left: 25px;
+            padding-right: 25px;
+            opacity: selection != -1 ? 0 : 1;
+            animate opacity { duration: Theme.durations.medium; }
+
+            FloatButton {
+                visible: i-flickable.viewport-x < 0;
+                horizontal-stretch: 0;
+                icon: Images.arrow-left;
+                enabled: selection == -1;
+
+                clicked => {
+                    scroll-left();
+                }
+            }
+
+            ScrollBar {
+                horizontal-stretch: 1;
+                maximum: i-flickable.viewport-width - i-flickable.width;
+                page-size: i-flickable.width;
+                value <=> i-flickable.viewport-x;
+                enabled: selection == -1;
+            }
+
+            FloatButton {
+                visible: i-flickable.viewport-x > i-flickable.width - i-flickable.viewport-width;
+                horizontal-stretch: 0;
+                icon: Images.arrow-right;
+                enabled: selection == -1;
+
+                clicked => {
+                    scroll-right();
+                }
+            }
+        }
+    }
+
+}

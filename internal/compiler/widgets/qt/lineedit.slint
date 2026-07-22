@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common/lineedit-base.slint";
+
+import { LineEditInterface } from "../common/std-widget-interfaces.slint";
+
+export component LineEdit {
+    implement LineEditInterface <=> inner;
+
+    accessible-role: text-input;
+    accessible-enabled: root.enabled;
+    accessible-value <=> text;
+    accessible-placeholder-text: placeholder-text;
+    accessible-read-only: root.read-only;
+    accessible-action-set-value(v) => { text = v; edited(v); }
+
+    forward-focus: inner;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    min-width: max(160px, layout.min-height);
+    min-height: max(32px, layout.min-height);
+
+    native := NativeLineEdit {
+        has-focus <=> root.has-focus;
+        enabled: root.enabled;
+        width: 100%;
+        height: 100%;
+    }
+
+    layout := HorizontalLayout {
+        padding-left: native.native-padding-left;
+        padding-right: native.native-padding-right;
+        padding-top: native.native-padding-top;
+        padding-bottom: native.native-padding-bottom;
+
+        inner := LineEditBase {
+            placeholder-color: self.enabled ? NativeStyleMetrics.placeholder-color : NativeStyleMetrics.placeholder-color-disabled;
+            text-color: self.enabled ? NativeStyleMetrics.textedit-text-color : NativeStyleMetrics.textedit-text-color-disabled;
+            margin: layout.padding-left + layout.padding-right;
+        }
+
+        if !root.text.is-empty && root.input-type != InputType.password && root.enabled && !root.read-only: Rectangle {
+            width: inner.min-height;
+            LineEditClearIcon {
+                width: 100%;
+                height: self.width;
+                image-fit: ImageFit.contain;
+                text: inner.text;
+                source: native.clear-icon;
+                colorize: inner.text-color;
+                clear => {
+                    inner.text = "";
+                    root.edited("");
+                    inner.focus();
+                }
+            }
+        }
+
+        if root.input-type == InputType.password && !root.text.is-empty && root.has-focus: LineEditPasswordIcon {
+            width: self.source.width * 1px;
+            show-password-image: @image-url("_visibility.svg");
+            hide-password-image: @image-url("_visibility_off.svg");
+            colorize: inner.text-color;
+            show-password <=> inner.password-revealed;
+        }
+    }
+}

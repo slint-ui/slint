@@ -1,0 +1,202 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that setting a callback handler from native code triggers
+// re-evaluation of properties that depend on that callback's return value.
+// Regression test for https://github.com/slint-ui/slint/issues/11673
+// and https://github.com/slint-ui/slint/issues/9551
+
+export global Logic {
+    pure callback should-show() -> bool;
+    pure callback compute-value() -> int;
+}
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 100phx;
+
+    // --- Global callback tests ---
+    out property <bool> show-it: Logic.should-show();
+    out property <int> out-value: Logic.compute-value();
+
+    // Test from #11673: conditional element whose visibility depends on a callback
+    if show-it: Rectangle {
+        width: 100phx;
+        height: 100phx;
+        background: red;
+        TouchArea {
+            width: 100%;
+            height: 100%;
+            clicked => { click-count += 1; }
+        }
+    }
+    in-out property <int> click-count: 0;
+
+    // --- Root-level callback tests ---
+    pure callback root-flag() -> bool;
+    pure callback root-compute(int) -> int;
+
+    out property <bool> root-flag-value: root.root-flag();
+    out property <int> root-computed: root.root-compute(7);
+
+    out property <bool> test: !show-it && out-value == 0 && !root-flag-value && root-computed == 0;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// --- Global callbacks ---
+assert_eq(instance.get_show_it(), false);
+assert_eq(instance.get_out_value(), 0);
+
+instance.global<Logic>().on_should_show([] { return true; });
+assert_eq(instance.get_show_it(), true);
+
+instance.global<Logic>().on_compute_value([] { return 42; });
+assert_eq(instance.get_out_value(), 42);
+
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_click_count(), 1);
+
+instance.global<Logic>().on_should_show([] { return false; });
+assert_eq(instance.get_show_it(), false);
+
+instance.global<Logic>().on_compute_value([] { return 100; });
+assert_eq(instance.get_out_value(), 100);
+
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_click_count(), 1);
+
+// --- Root-level callbacks ---
+assert_eq(instance.get_root_flag_value(), false);
+assert_eq(instance.get_root_computed(), 0);
+
+instance.on_root_flag([] { return true; });
+assert_eq(instance.get_root_flag_value(), true);
+
+instance.on_root_compute([](int x) { return x * 3; });
+assert_eq(instance.get_root_computed(), 21);
+
+instance.on_root_flag([] { return false; });
+assert_eq(instance.get_root_flag_value(), false);
+
+instance.on_root_compute([](int x) { return x + 1; });
+assert_eq(instance.get_root_computed(), 8);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+
+// --- Global callbacks ---
+assert_eq!(instance.get_show_it(), false);
+assert_eq!(instance.get_out_value(), 0);
+
+instance.global::<Logic<'_>>().on_should_show(|| true);
+assert_eq!(instance.get_show_it(), true);
+
+instance.global::<Logic<'_>>().on_compute_value(|| 42);
+assert_eq!(instance.get_out_value(), 42);
+
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_click_count(), 1);
+
+instance.global::<Logic<'_>>().on_should_show(|| false);
+assert_eq!(instance.get_show_it(), false);
+
+instance.global::<Logic<'_>>().on_compute_value(|| 100);
+assert_eq!(instance.get_out_value(), 100);
+
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_click_count(), 1);
+
+// --- Root-level callbacks ---
+assert_eq!(instance.get_root_flag_value(), false);
+assert_eq!(instance.get_root_computed(), 0);
+
+instance.on_root_flag(|| true);
+assert_eq!(instance.get_root_flag_value(), true);
+
+instance.on_root_compute(|x| x * 3);
+assert_eq!(instance.get_root_computed(), 21);
+
+instance.on_root_flag(|| false);
+assert_eq!(instance.get_root_flag_value(), false);
+
+instance.on_root_compute(|x| x + 1);
+assert_eq!(instance.get_root_computed(), 8);
+```
+
+```js
+var instance = new slint.TestCase({});
+
+// --- Global callbacks ---
+assert.equal(instance.show_it, false);
+assert.equal(instance.out_value, 0);
+
+instance.Logic.should_show = function() { return true; };
+assert.equal(instance.show_it, true);
+
+instance.Logic.compute_value = function() { return 42; };
+assert.equal(instance.out_value, 42);
+
+instance.Logic.should_show = function() { return false; };
+assert.equal(instance.show_it, false);
+
+instance.Logic.compute_value = function() { return 100; };
+assert.equal(instance.out_value, 100);
+
+// --- Root-level callbacks ---
+assert.equal(instance.root_flag_value, false);
+assert.equal(instance.root_computed, 0);
+
+instance.root_flag = function() { return true; };
+assert.equal(instance.root_flag_value, true);
+
+instance.root_compute = function(x) { return x * 3; };
+assert.equal(instance.root_computed, 21);
+
+instance.root_flag = function() { return false; };
+assert.equal(instance.root_flag_value, false);
+
+instance.root_compute = function(x) { return x + 1; };
+assert.equal(instance.root_computed, 8);
+```
+
+```python
+instance = TestCase()
+
+# --- Global callbacks ---
+assert instance.show_it == False
+assert instance.out_value == 0
+
+instance.Logic.should_show = lambda: True
+assert instance.show_it == True
+
+instance.Logic.compute_value = lambda: 42
+assert instance.out_value == 42
+
+instance.Logic.should_show = lambda: False
+assert instance.show_it == False
+
+instance.Logic.compute_value = lambda: 100
+assert instance.out_value == 100
+
+# --- Root-level callbacks ---
+assert instance.root_flag_value == False
+assert instance.root_computed == 0
+
+instance.root_flag = lambda: True
+assert instance.root_flag_value == True
+
+instance.root_compute = lambda x: x * 3
+assert instance.root_computed == 21
+
+instance.root_flag = lambda: False
+assert instance.root_flag_value == False
+
+instance.root_compute = lambda x: x + 1
+assert instance.root_computed == 8
+```
+*/

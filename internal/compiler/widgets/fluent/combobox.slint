@@ -1,0 +1,150 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { FluentFontSettings, FluentPalette, Icons, FluentSizeSettings } from "styling.slint";
+import { MenuBorder, ListItem, FocusBorder } from "components.slint";
+import { ComboBoxBase } from "../common/combobox-base.slint";
+import { ScrollView } from "./scrollview.slint";
+
+export component ComboBox {
+    in property <[string]> model <=> base.model;
+    in property <bool> enabled <=> base.enabled;
+    out property <bool> has-focus <=> base.has-focus;
+    in-out property <int> current-index <=> base.current-index;
+    in-out property <string> current-value <=> base.current-value;
+
+    callback selected <=> base.selected;
+
+    property <length> popup-padding: 4px;
+    property <length> popup-scroll-y: -max(0, root.current-index - root.visible-items + 1) * FluentSizeSettings.item-height;
+    property <int> visible-items: min(6, model.length);
+
+    min-width: max(160px, layout.min-height);
+    min-height: max(32px, layout.min-height);
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    forward-focus: base;
+
+    accessible-role: combobox;
+    accessible-enabled: root.enabled;
+    accessible-expandable: true;
+    accessible-expanded: base.popup-has-focus;
+    accessible-value <=> root.current-value;
+    accessible-action-expand => { base.show-popup(); }
+
+    states [
+        disabled when !root.enabled : {
+            background.background: FluentPalette.control-disabled;
+            background.border-color: FluentPalette.border;
+            text.color: FluentPalette.text-disabled;
+            icon.colorize: FluentPalette.text-disabled;
+        }
+        pressed when base.pressed : {
+            background.background: FluentPalette.control-alt-tertiary;
+            background.border-color: FluentPalette.border;
+            text.color: FluentPalette.text-secondary;
+            icon.colorize: FluentPalette.text-tertiary;
+        }
+        hover when base.has-hover : {
+            background.background: FluentPalette.control-secondary;
+        }
+    ]
+
+    base := ComboBoxBase {
+        width: 100%;
+        height: 100%;
+
+        show-popup => {
+            popup.show();
+        }
+        close-popup => {
+            popup.close();
+        }
+    }
+
+    background := Rectangle {
+        border-radius: 3px;
+        background: FluentPalette.control-background;
+        border-width: 1px;
+        border-color: FluentPalette.control-border;
+
+        animate border-color { duration: 200ms; }
+
+        layout := HorizontalLayout {
+            padding-left: 11px;
+            padding-right: 11px;
+            spacing: 8px;
+
+            text := Text {
+                horizontal-stretch: 1;
+                horizontal-alignment: left;
+                vertical-alignment: center;
+                color: FluentPalette.control-foreground;
+                text: root.current-value;
+                overflow: elide;
+                accessible-role: none;
+            }
+
+            icon := Image {
+                colorize: FluentPalette.text-secondary;
+                width: 12px;
+                source: Icons.dropdown;
+                y: 2px;
+                accessible-role: none;
+
+                animate colorize { duration: 150ms; }
+            }
+        }
+    }
+
+    // focus border
+    if root.has-focus && root.enabled : FocusBorder {
+        border-radius: background.border-radius;
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        // Position the popup so that the first element is over the popup.
+        // Ideally it should be so that the current element is over the popup.
+        y: -4px;
+        width: root.width;
+        height: root.visible-items * FluentSizeSettings.item-height + 2 * root.popup-padding;
+        close-policy: close-on-click-outside;
+        forward-focus: inner-fs;
+
+        inner-fs := FocusScope {
+            focus-changed-event => {
+                base.popup-has-focus = self.has-focus;
+            }
+
+            key-pressed(event) => {
+                return base.popup-key-handler(event);
+            }
+
+            MenuBorder {
+                ScrollView {
+                    viewport-y: root.popup-scroll-y;
+
+                    VerticalLayout {
+                        alignment: start;
+                        padding: root.popup-padding;
+
+                        for value[index] in root.model : ListItem {
+                            item: { text: value };
+                            is-selected: index == root.current-index;
+                            has-hover: touch-area.has-hover;
+                            pressed: touch-area.pressed;
+
+                            touch-area := TouchArea {
+                                clicked => {
+                                    base.select(index);
+                                    popup.close();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

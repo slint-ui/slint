@@ -1,0 +1,306 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    // Static enabled values
+    in-out property <int> value-with-default: 100;
+    animate value-with-default {
+        duration: 1000ms;
+        // enabled defaults to true
+    }
+
+    in-out property <int> value-disabled: 100;
+    animate value-disabled {
+        duration: 1000ms;
+        enabled: false;
+    }
+
+    in-out property <int> value-enabled: 100;
+    animate value-enabled {
+        duration: 1000ms;
+        enabled: true;
+    }
+
+    // Dynamic enabled value, with the animated property set via setter
+    in-out property <bool> animation-enabled: true;
+    in-out property <int> value-dynamic: 100;
+    animate value-dynamic {
+        duration: 1000ms;
+        enabled: animation-enabled;
+    }
+
+    // Binding-driven case: the animated property is a binding whose
+    // value changes because of another property (issue #348 territory).
+    in-out property <bool> binding-source: false;
+    in-out property <bool> binding-anim-enabled: true;
+    out property <int> value-binding: binding-source ? 200 : 100;
+    animate value-binding {
+        duration: 1000ms;
+        enabled: binding-anim-enabled;
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+
+// --- Static enabled values via setter ---
+assert_eq!(instance.get_value_with_default(), 100);
+assert_eq!(instance.get_value_disabled(), 100);
+assert_eq!(instance.get_value_enabled(), 100);
+
+instance.set_value_with_default(200);
+instance.set_value_disabled(200);
+instance.set_value_enabled(200);
+
+// no time has elapsed yet
+assert_eq!(instance.get_value_with_default(), 100);
+assert_eq!(instance.get_value_disabled(), 200); // disabled: no animation
+assert_eq!(instance.get_value_enabled(), 100);
+
+// Half the animation
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value_with_default(), 150);
+assert_eq!(instance.get_value_disabled(), 200);
+assert_eq!(instance.get_value_enabled(), 150);
+
+// Full animation
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value_with_default(), 200);
+assert_eq!(instance.get_value_disabled(), 200);
+assert_eq!(instance.get_value_enabled(), 200);
+
+// --- Dynamic enabled toggled via setter on the animated property ---
+assert_eq!(instance.get_value_dynamic(), 100);
+
+// enabled=true (initial), value changes via setter -> animates
+instance.set_value_dynamic(300);
+assert_eq!(instance.get_value_dynamic(), 100);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value_dynamic(), 200);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value_dynamic(), 300);
+
+// disable, then set: should jump immediately
+instance.set_animation_enabled(false);
+instance.set_value_dynamic(100);
+assert_eq!(instance.get_value_dynamic(), 100);
+
+// re-enable, then set: should animate again
+instance.set_animation_enabled(true);
+instance.set_value_dynamic(500);
+assert_eq!(instance.get_value_dynamic(), 100);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value_dynamic(), 300);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value_dynamic(), 500);
+
+// --- Binding-driven case ---
+assert_eq!(instance.get_value_binding(), 100);
+
+// enabled=true, flip source -> animates
+instance.set_binding_source(true);
+assert_eq!(instance.get_value_binding(), 100);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value_binding(), 150);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value_binding(), 200);
+
+// disable, flip source -> jumps
+instance.set_binding_anim_enabled(false);
+instance.set_binding_source(false);
+assert_eq!(instance.get_value_binding(), 100);
+
+// re-enable, flip source -> animates
+instance.set_binding_anim_enabled(true);
+instance.set_binding_source(true);
+assert_eq!(instance.get_value_binding(), 100);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value_binding(), 150);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value_binding(), 200);
+
+// --- Mid-flight: setting `enabled` to false during an active animation
+// does not abort the animation, as animation parameters are snapshotted
+// when the animation starts (consistent with `duration`, `easing`, etc.). ---
+instance.set_binding_source(false); // flip back, start a new animation
+assert_eq!(instance.get_value_binding(), 200);
+slint_testing::mock_elapsed_time(250);
+assert_eq!(instance.get_value_binding(), 175); // 1/4 of the way
+
+instance.set_binding_anim_enabled(false); // toggle mid-flight; running animation keeps going
+slint_testing::mock_elapsed_time(250);
+assert_eq!(instance.get_value_binding(), 150);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_value_binding(), 100); // animation completed normally
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// --- Static enabled values via setter ---
+assert_eq(instance.get_value_with_default(), 100);
+assert_eq(instance.get_value_disabled(), 100);
+assert_eq(instance.get_value_enabled(), 100);
+
+instance.set_value_with_default(200);
+instance.set_value_disabled(200);
+instance.set_value_enabled(200);
+
+assert_eq(instance.get_value_with_default(), 100);
+assert_eq(instance.get_value_disabled(), 200);
+assert_eq(instance.get_value_enabled(), 100);
+
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value_with_default(), 150);
+assert_eq(instance.get_value_disabled(), 200);
+assert_eq(instance.get_value_enabled(), 150);
+
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value_with_default(), 200);
+assert_eq(instance.get_value_disabled(), 200);
+assert_eq(instance.get_value_enabled(), 200);
+
+// --- Dynamic enabled toggled via setter on the animated property ---
+assert_eq(instance.get_value_dynamic(), 100);
+
+instance.set_value_dynamic(300);
+assert_eq(instance.get_value_dynamic(), 100);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value_dynamic(), 200);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value_dynamic(), 300);
+
+instance.set_animation_enabled(false);
+instance.set_value_dynamic(100);
+assert_eq(instance.get_value_dynamic(), 100);
+
+instance.set_animation_enabled(true);
+instance.set_value_dynamic(500);
+assert_eq(instance.get_value_dynamic(), 100);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value_dynamic(), 300);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value_dynamic(), 500);
+
+// --- Binding-driven case ---
+assert_eq(instance.get_value_binding(), 100);
+
+instance.set_binding_source(true);
+assert_eq(instance.get_value_binding(), 100);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value_binding(), 150);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value_binding(), 200);
+
+instance.set_binding_anim_enabled(false);
+instance.set_binding_source(false);
+assert_eq(instance.get_value_binding(), 100);
+
+instance.set_binding_anim_enabled(true);
+instance.set_binding_source(true);
+assert_eq(instance.get_value_binding(), 100);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value_binding(), 150);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value_binding(), 200);
+
+// Mid-flight: toggling enabled during a running animation does not abort it.
+instance.set_binding_source(false);
+assert_eq(instance.get_value_binding(), 200);
+slint_testing::mock_elapsed_time(250);
+assert_eq(instance.get_value_binding(), 175);
+
+instance.set_binding_anim_enabled(false);
+slint_testing::mock_elapsed_time(250);
+assert_eq(instance.get_value_binding(), 150);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_value_binding(), 100);
+```
+
+```js
+var instance = new slint.TestCase({});
+
+// --- Static enabled values via setter ---
+assert.equal(instance.value_with_default, 100);
+assert.equal(instance.value_disabled, 100);
+assert.equal(instance.value_enabled, 100);
+
+instance.value_with_default = 200;
+instance.value_disabled = 200;
+instance.value_enabled = 200;
+
+assert.equal(instance.value_with_default, 100);
+assert.equal(instance.value_disabled, 200);
+assert.equal(instance.value_enabled, 100);
+
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value_with_default, 150);
+assert.equal(instance.value_disabled, 200);
+assert.equal(instance.value_enabled, 150);
+
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value_with_default, 200);
+assert.equal(instance.value_disabled, 200);
+assert.equal(instance.value_enabled, 200);
+
+// --- Dynamic enabled toggled via setter on the animated property ---
+assert.equal(instance.value_dynamic, 100);
+
+instance.value_dynamic = 300;
+assert.equal(instance.value_dynamic, 100);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value_dynamic, 200);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value_dynamic, 300);
+
+instance.animation_enabled = false;
+instance.value_dynamic = 100;
+assert.equal(instance.value_dynamic, 100);
+
+instance.animation_enabled = true;
+instance.value_dynamic = 500;
+assert.equal(instance.value_dynamic, 100);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value_dynamic, 300);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value_dynamic, 500);
+
+// --- Binding-driven case ---
+assert.equal(instance.value_binding, 100);
+
+instance.binding_source = true;
+assert.equal(instance.value_binding, 100);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value_binding, 150);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value_binding, 200);
+
+instance.binding_anim_enabled = false;
+instance.binding_source = false;
+assert.equal(instance.value_binding, 100);
+
+instance.binding_anim_enabled = true;
+instance.binding_source = true;
+assert.equal(instance.value_binding, 100);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value_binding, 150);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value_binding, 200);
+
+// Mid-flight: toggling enabled during a running animation does not abort it.
+instance.binding_source = false;
+assert.equal(instance.value_binding, 200);
+slintlib.private_api.mock_elapsed_time(250);
+assert.equal(instance.value_binding, 175);
+
+instance.binding_anim_enabled = false;
+slintlib.private_api.mock_elapsed_time(250);
+assert.equal(instance.value_binding, 150);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.value_binding, 100);
+```
+*/

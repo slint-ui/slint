@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+component Foo inherits Rectangle {
+    public function show() { x.show(); }
+    x := PopupWindow {  }
+}
+
+component Bar inherits Rectangle {
+
+    TouchArea {
+        clicked => { x.show();  f.show(); }
+    }
+
+    Rectangle {
+        Rectangle {
+            Rectangle {
+                x := PopupWindow {}
+            }
+        }
+    }
+
+    f := Foo {}
+}
+

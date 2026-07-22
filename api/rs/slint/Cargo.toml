@@ -1,0 +1,373 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "slint"
+description = "GUI toolkit to efficiently develop fluid graphical user interfaces for embedded devices and desktop applications"
+authors.workspace = true
+documentation.workspace = true
+edition = "2024"
+homepage = "https://slint.rs"
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+categories = ["gui", "rendering::engine", "no-std"]
+
+[lib]
+path = "lib.rs"
+
+[features]
+
+default = [
+  "std",
+  "backend-default",
+  "renderer-femtovg",
+  "renderer-software",
+  "accessibility",
+  "compat-1-2",
+  "system-tray",
+]
+
+## Mandatory feature:
+## This feature is required to keep the compatibility with Slint 1.2
+## Newer patch version may put current functionality behind a new feature
+## that would be enabled by default only if this feature was added.
+## [More info in this blog post](https://slint.dev/blog/rust-adding-default-cargo-feature.html)
+"compat-1-2" = []
+"compat-1-0" = ["compat-1-2", "renderer-software"]
+
+## Enable use of the Rust standard library.
+std = ["i-slint-core/std", "i-slint-renderer-software?/std"]
+
+## Enable the translations using [gettext](https://www.gnu.org/software/gettext/gettext)
+##
+## the `@tr(...)` code from .slint files will be transformed into call to `dgettext`
+## with the crate name as domain name
+##
+## translations must be enabled with the [`init_translations!`] macro
+gettext = ["i-slint-core/gettext-rs"]
+
+## This feature enables floating point arithmetic emulation using the [libm](https://crates.io/crates/libm) crate. Use this
+## in MCU environments where the processor does not support floating point arithmetic.
+libm = ["i-slint-core/libm", "i-slint-renderer-software?/libm"]
+
+## If enabled, calls of `debug()` in `.slint` files use to the [`log::debug!()`](https://docs.rs/log/latest/log/macro.debug.html)
+## macro of the [log](https://crates.io/crates/log) crate instead of just `println!()`.
+log = ["i-slint-core/log"]
+
+## Implement the `serde::Serialize` and `serde::Deserialize` for some of the base types
+## such as `SharedString` and `SharedVector`.
+serde = ["i-slint-core/serde"]
+
+# Deprecated feature, this is now automatically enabled when the `renderer-software` and `std` features are enabled
+software-renderer-systemfonts = ["renderer-software"]
+
+# Enable support for Path element rendering with the software renderer. This is implicitly enabled by the
+# `std` feature, but can be enabled without `std` if you want to use the software renderer in a `#![no_std]` environment and need support for Path elements.
+software-renderer-path = ["i-slint-renderer-software/path"]
+
+## Slint uses internally some `thread_local` state.
+##
+## When the `std` feature is enabled, Slint can use [`std::thread_local!`], but when in a `#![no_std]`
+## environment, we need a replacement. Using this feature, Slint will just use static variable
+## disregarding Rust's Send and Sync safety
+##
+## **Safety** : You must ensure that there is only one single thread that call into the Slint API
+unsafe-single-threaded = ["i-slint-core/unsafe-single-threaded"]
+
+## Enable integration with operating system provided accessibility APIs
+##
+## Enabling this feature will try to expose the tree of UI elements to OS provided accessibility
+## APIs to support screen readers and other assistive technologies.
+accessibility = ["i-slint-backend-selector/accessibility"]
+
+## Enable the `SystemTrayIcon` element. On Linux/BSD this pulls in
+## [`ksni`](https://crates.io/crates/ksni). It is on by default; to drop the
+## tray dependency, disable default features and re-enable the ones you need
+## without `system-tray` (keep the mandatory `compat-1-2`).
+system-tray = ["i-slint-core/system-tray"]
+
+## Enable integration with [raw-window-handle](raw_window_handle_06) version 0.6. This provides a
+## [`Window::window_handle()`] function that returns a struct that implements
+## [HasWindowHandle](raw_window_handle_06::HasWindowHandle) and
+## [HasDisplayHandle](raw_window_handle_06::HasDisplayHandle) implementation.
+raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/raw-window-handle-06"]
+
+## Enable the default image formats from the `image` crate, to support additional image formats in [`Image::load_from_path`]
+## and `@image-url`. When this feature is disabled, only PNG and JPEG are supported. When enabled,
+## the following image formats are supported:
+## AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP.
+## This feature has no effect on the web, where the browser decodes images.
+image-default-formats = ["i-slint-core/image-default-formats"]
+
+## Enable the live preview feature
+##
+## Enable this feature to reload the .slint files at runtime and reload it whenever the files are modified on disk.
+## For this feature to work, it's also required to set the `SLINT_LIVE_PREVIEW` environment variable during
+## application compilation.
+##
+## This is a feature for debugging and development. It's not recommended to add this feature to your Cargo.toml.
+## Instead, use the `--features` command line argument like so when building your app:
+## ```bash
+## SLINT_LIVE_PREVIEW=1 cargo build --features slint/live-preview
+## ```
+live-preview = ["dep:i-slint-live-preview"]
+
+## Enable the embedded MCP (Model Context Protocol) server.
+##
+## When this feature is enabled and the `SLINT_MCP_PORT` environment variable is set
+## at runtime, the application starts an HTTP server implementing the MCP Streamable HTTP
+## transport. This allows MCP clients to inspect and interact with the running UI.
+##
+## This is a developer/debug feature. It is not recommended to enable it in production builds.
+mcp = ["std", "i-slint-backend-selector/mcp"]
+
+## Enable support for controlling the application from a system testing tool.
+##
+## When this feature is enabled and the `SLINT_TEST_SERVER` environment variable is set
+## at runtime, the application connects to the system test server at the given address
+## and permits remote introspection and control of the user interface.
+##
+## This is a developer/testing feature. It is not recommended to enable it in production builds.
+system-testing = ["std", "i-slint-backend-selector/system-testing"]
+
+#! ### Backends
+
+#! Slint needs a backend that will act as liaison between Slint and the OS.
+#! By default, Slint will use the [Winit](https://crates.io/crates/winit) backend
+#! with [FemtoVG](https://crates.io/crates/femtovg).
+#! You can also enable the Qt backend with the `backend-qt` feature.
+#! If you want to use a different backend,
+#! disable the default feature and re-enable the desired backend.
+#! It is also possible to use Slint without a backend if you provide
+#! the platform abstraction yourself with [`platform::set_platform()`].
+#!
+#! If you enable the Winit backend, you need to also include a renderer.
+#! `renderer-femtovg` is the default renderer.
+#!
+#! It is also possible to select the backend and renderer at runtime when several
+#! are enabled, using the `SLINT_BACKEND`  environment variable.
+#!  * `SLINT_BACKEND=Qt` selects the Qt backend
+#!  * `SLINT_BACKEND=winit` selects the winit backend
+#!  * `SLINT_BACKEND=winit-femtovg` selects the winit backend with the FemtoVG renderer
+#!  * `SLINT_BACKEND=winit-skia` selects the winit backend with the skia renderer
+#!  * `SLINT_BACKEND=winit-software` selects the winit backend with the software renderer
+#!
+#! If the selected backend is not available, the default will be used.
+#!
+#! Here are the cargo features controlling the backend:
+
+## The Qt backend feature uses Qt for the windowing system integration and rendering.
+## This backend also provides the `native` style.
+## It requires Qt 5.15 or later to be installed. If Qt is not installed, the
+## backend will not be operational
+backend-qt = ["i-slint-backend-selector/backend-qt", "std", "i-slint-backend-qt"]
+
+## The [winit](https://crates.io/crates/winit) crate is used for the event loop and windowing system integration.
+## It supports Windows, macOS, web browsers, X11 and Wayland. X11 and wayland are only available when
+## compiling for Linux or other Unix-like operating systems. With this feature, both X11 and Wayland are supported.
+## For a smaller build, omit this feature and select one of the other specific `backend-winit-XX` features.
+backend-winit = ["i-slint-backend-selector/backend-winit", "std"]
+
+## Similar to `backend-winit` this enables the winit based event loop but only
+## with support for the X Window System on Unix.
+backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
+
+## Similar to `backend-winit` this enables the winit based event loop but only
+## with support for the Wayland window system on Unix.
+backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
+
+## Alias to a backend and renderer that depends on the platform.
+backend-default = ["i-slint-backend-selector/default"]
+
+# deprecated aliases
+renderer-winit-femtovg = ["renderer-femtovg"]
+renderer-winit-skia = ["renderer-skia"]
+renderer-winit-skia-opengl = ["renderer-skia-opengl"]
+renderer-winit-skia-vulkan = ["renderer-skia-vulkan"]
+renderer-winit-software = ["renderer-software"]
+
+## Render using the [FemtoVG](https://crates.io/crates/femtovg) crate.
+renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "i-slint-renderer-femtovg/opengl", "std"]
+## Render using the [FemtoVG](https://crates.io/crates/femtovg) crate and [WGPU](https://crates.io/crates/wgpu).
+renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu", "i-slint-renderer-femtovg/wgpu", "std"]
+
+## Render using [Skia](https://skia.org/).
+renderer-skia = ["i-slint-backend-selector/renderer-skia", "dep:i-slint-renderer-skia", "std"]
+
+## Same as `renderer-skia`, but Skia will always use OpenGL.
+## Note: This is not supported on iOS. Use `renderer-skia` on iOS to enable Meta based rendering.
+renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "dep:i-slint-renderer-skia", "std"]
+
+## Same as `renderer-skia`, but Skia will always use Vulkan.
+renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "dep:i-slint-renderer-skia", "std"]
+
+## Render using the software renderer.
+renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
+
+## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
+## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead.
+backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
+
+## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
+## windowing system.
+backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
+
+## Use the backend based on the [android-activity](https://docs.rs/android-activity) crate. (Using it's native activity feature)
+backend-android-activity-06 = [
+  "i-slint-backend-android-activity/native-activity",
+  "i-slint-backend-android-activity/aa-06",
+  "i-slint-backend-selector/backend-android-activity",
+]
+
+## **Deprecated** Use previous version of android-activity. This is mutually exclusive with `backend-android-activity-06`.
+backend-android-activity-05 = [
+  "i-slint-backend-android-activity/native-activity",
+  "i-slint-backend-android-activity/aa-05",
+]
+
+## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 29.x.
+##
+## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because WGPU releases new major
+## versions frequently. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
+## by a feature with a similar name but the WGPU version suffix being bumped.
+##
+## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
+## in your `Cargo.toml` when enabling this feature:
+##
+## ```toml
+## slint = { version = "~1.18", features = ["unstable-wgpu-29"] }
+## ```
+unstable-wgpu-29 = [
+  "i-slint-core/unstable-wgpu-29",
+  "i-slint-backend-selector/unstable-wgpu-29",
+  "i-slint-backend-android-activity?/unstable-wgpu-29",
+  "dep:wgpu-29",
+]
+
+## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 30.x.
+##
+## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because WGPU releases new major
+## versions frequently. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
+## by a feature with a similar name but the WGPU version suffix being bumped.
+##
+## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
+## in your `Cargo.toml` when enabling this feature:
+##
+## ```toml
+## slint = { version = "~1.18", features = ["unstable-wgpu-30"] }
+## ```
+unstable-wgpu-30 = [
+  "i-slint-core/unstable-wgpu-30",
+  "i-slint-backend-selector/unstable-wgpu-30",
+  "i-slint-backend-android-activity?/unstable-wgpu-30",
+  "dep:wgpu-30",
+]
+
+## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because winit releases new major
+## versions more frequently than Slint. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
+## by a feature with a similar name but the winit version suffix being bumped.
+##
+## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
+## in your `Cargo.toml` when enabling this feature:
+##
+## ```toml
+## slint = { version = "~1.18", features = ["unstable-winit-030"] }
+## ```
+unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-backend-selector/unstable-winit-030"]
+
+
+## Enable support for exposing [libinput](https://docs.rs/input/latest/input/index.html) related APIs in the LinuxKMS backend.
+##
+## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees. This feature as well as the APIs changed or removed
+## in future minor releases of Slint, likely to be replaced by a feature with a similar name but the input version suffix being bumped.
+##
+## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
+## in your `Cargo.toml` when enabling this feature:
+##
+## ```toml
+## slint = { version = "~1.18", features = ["unstable-libinput-09"] }
+## ```
+unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
+
+## Enable support for exposing [fontique](https://docs.rs/fontique/0.11.0/fontique/) related APIs.
+##
+## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees. This feature as well as the APIs changed or removed
+## in future minor releases of Slint, likely to be replaced by a feature with a similar name but the fontique version suffix being bumped.
+##
+## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
+## in your `Cargo.toml` when enabling this feature:
+##
+## ```toml
+## slint = { version = "~1.18", features = ["unstable-fontique-011"] }
+## ```
+unstable-fontique-011 = ["i-slint-common/shared-fontique"]
+
+[dependencies]
+i-slint-core = { workspace = true }
+slint-macros = { workspace = true }
+i-slint-backend-selector = { workspace = true }
+i-slint-core-macros = { workspace = true }
+i-slint-common = { workspace = true }
+i-slint-renderer-software = { workspace = true, optional = true }
+i-slint-live-preview = { workspace = true, optional = true, features = ["live-component"] }
+
+const-field-offset = { version = "0.2.0", path = "../../../helper_crates/const-field-offset" }
+document-features = { version = "0.2.0", optional = true }
+vtable = { workspace = true }
+
+once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
+pin-weak = { version = "1.1", default-features = false }
+num-traits = { version = "0.2", default-features = false }
+
+raw-window-handle-06 = { workspace = true, optional = true }
+
+unicode-segmentation = { workspace = true }
+
+wgpu-29 = { workspace = true, optional = true }
+wgpu-30 = { workspace = true, optional = true }
+
+i-slint-backend-winit = { workspace = true, optional = true }
+i-slint-renderer-skia = { workspace = true, optional = true }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+# FemtoVG is disabled on android because it doesn't compile without setting RUST_FONTCONFIG_DLOPEN=on
+# end even then wouldn't work because it can't load fonts
+i-slint-renderer-femtovg = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+i-slint-backend-android-activity = { workspace = true, optional = true }
+
+[dev-dependencies]
+slint-build = { path = "../build" }
+# The next can not be a workspace dependency because it may not have a version
+i-slint-backend-testing = { path = "../../../internal/backends/testing", features = ["internal"] }
+i-slint-renderer-skia = { path = "../../../internal/renderers/skia" }
+serde_json = { workspace = true }
+serde = { workspace = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "net", "io-util"] }
+async-compat = { version = "0.2.4" }
+bytemuck = { workspace = true }
+i-slint-renderer-software = { path = "../../../internal/renderers/software", features = ["testing"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# this line is there to add the "enable" feature by default, but only on linux
+i-slint-backend-qt = { workspace = true, features = ["enable"], optional = true }
+
+[package.metadata.docs.rs]
+features = [
+  "document-features",
+  "log",
+  "gettext",
+  "renderer-software",
+  "renderer-femtovg",
+  "raw-window-handle-06",
+  "unstable-wgpu-29",
+  "unstable-wgpu-30",
+  "unstable-winit-030",
+  "unstable-libinput-09",
+  "unstable-fontique-011",
+]
+rustdoc-args = ["--generate-link-to-definition"]

@@ -1,0 +1,189 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+use crate::{ElementHandle, ElementRoot, LayoutKind};
+use i_slint_core::item_tree::ItemTreeRc;
+use i_slint_core::slice::Slice;
+use i_slint_core::window::WindowAdapterRc;
+use i_slint_core::window::WindowInner;
+use i_slint_core::{SharedString, SharedVector};
+use std::os::raw::c_void;
+
+struct RootWrapper<'a>(&'a ItemTreeRc);
+
+impl ElementRoot for RootWrapper<'_> {
+    fn item_tree(&self) -> ItemTreeRc {
+        self.0.clone()
+    }
+}
+
+impl super::Sealed for RootWrapper<'_> {}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_init_backend() {
+    crate::init_integration_test_with_mock_time();
+}
+
+#[cfg(feature = "internal")]
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_configure_test_fonts() {
+    crate::configure_test_fonts();
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_mock_elapsed_time(time_in_ms: u64) {
+    crate::testing_backend::mock_elapsed_time(time_in_ms);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_get_mocked_time() -> u64 {
+    crate::testing_backend::get_mocked_time()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_send_mouse_click(x: f32, y: f32, window_adapter: &WindowAdapterRc) {
+    crate::testing_backend::send_mouse_click(x, y, window_adapter);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_send_keyboard_key_text(
+    text: &SharedString,
+    pressed: bool,
+    window_adapter: &WindowAdapterRc,
+) {
+    crate::testing_backend::send_keyboard_key_text(text, pressed, window_adapter);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_send_keyboard_char(
+    string: &SharedString,
+    pressed: bool,
+    window_adapter: &WindowAdapterRc,
+) {
+    crate::testing_backend::send_keyboard_char(string, pressed, window_adapter);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_send_keyboard_string_sequence(
+    sequence: &SharedString,
+    window_adapter: &WindowAdapterRc,
+) {
+    crate::testing_backend::send_keyboard_string_sequence(sequence, window_adapter);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_use_native_popup(window_adapter: &WindowAdapterRc, native: bool) {
+    window_adapter
+        .internal(i_slint_core::InternalToken)
+        .and_then(|wa| {
+            (wa as &dyn core::any::Any).downcast_ref::<crate::testing_backend::TestingWindow>()
+        })
+        .map(|testing_window| testing_window.use_native_popup(native))
+        .expect("slint_testing_use_native_popup called without testing backend/adapter");
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_active_popup_count(window_adapter: &WindowAdapterRc) -> usize {
+    WindowInner::from_pub(window_adapter.window()).active_popups().len()
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_testing_element_visit_elements(
+    root: &ItemTreeRc,
+    user_data: *mut c_void,
+    visitor: unsafe extern "C" fn(*mut c_void, &ElementHandle) -> bool,
+) -> bool {
+    RootWrapper(root)
+        .root_element()
+        .query_descendants()
+        .match_predicate(move |element| unsafe { visitor(user_data, element) })
+        .find_first()
+        .is_some()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_element_find_by_accessible_label(
+    root: &ItemTreeRc,
+    label: &Slice<u8>,
+    out: &mut SharedVector<ElementHandle>,
+) {
+    let Ok(label) = core::str::from_utf8(label.as_slice()) else { return };
+    out.extend(ElementHandle::find_by_accessible_label(&RootWrapper(root), label))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_element_find_by_element_id(
+    root: &ItemTreeRc,
+    element_id: &Slice<u8>,
+    out: &mut SharedVector<ElementHandle>,
+) {
+    let Ok(element_id) = core::str::from_utf8(element_id.as_slice()) else { return };
+    out.extend(ElementHandle::find_by_element_id(&RootWrapper(root), element_id));
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_element_find_by_element_type_name(
+    root: &ItemTreeRc,
+    type_name: &Slice<u8>,
+    out: &mut SharedVector<ElementHandle>,
+) {
+    let Ok(type_name) = core::str::from_utf8(type_name.as_slice()) else { return };
+    out.extend(ElementHandle::find_by_element_type_name(&RootWrapper(root), type_name));
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_element_id(
+    element: &ElementHandle,
+    out: &mut SharedString,
+) -> bool {
+    if let Some(id) = element.id() {
+        *out = id;
+        true
+    } else {
+        false
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_element_type_name(
+    element: &ElementHandle,
+    out: &mut SharedString,
+) -> bool {
+    if let Some(type_name) = element.type_name() {
+        *out = type_name;
+        true
+    } else {
+        false
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_element_bases(
+    element: &ElementHandle,
+    out: &mut SharedVector<SharedString>,
+) -> bool {
+    if let Some(bases_it) = element.bases() {
+        out.extend(bases_it);
+        true
+    } else {
+        false
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_element_layout_kind(
+    element: &ElementHandle,
+    out: &mut LayoutKind,
+) -> bool {
+    if let Some(kind) = element.layout_kind() {
+        *out = kind;
+        true
+    } else {
+        false
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_set_system_accent_color(argb_encoded: u32) {
+    crate::set_system_accent_color(i_slint_core::Color::from_argb_encoded(argb_encoded));
+}

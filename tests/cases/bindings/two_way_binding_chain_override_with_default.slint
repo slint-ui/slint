@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// When prop2 already carries a regular closure binding (the TextInput
+// default "inner-default"), the RHS struct value should win.
+// The Source sub-component's default is set during its init (before the
+// two-way chain), so there is no late .set() to mask the bug.
+
+export struct Data {
+    name: string,
+    value: int,
+}
+
+component Inner {
+    in-out property <string> text <=> tx.text;
+    tx := TextInput {
+        text: "inner-default";
+    }
+}
+
+component Source {
+    in-out property <Data> val: { name: "correct", value: 42 };
+}
+
+export component TestCase inherits Window {
+    source := Source {}
+    inner := Inner {
+        text <=> source.val.name;
+    }
+
+    out property <string> check_name: source.val.name;
+    out property <string> check_text: inner.text;
+
+    out property <bool> test:
+        source.val.name == "correct"
+        && inner.text == "correct";
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_check_name(), "correct");
+assert_eq!(instance.get_check_text(), "correct");
+assert!(instance.get_test());
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_check_name(), "correct");
+assert_eq(instance.get_check_text(), "correct");
+assert(instance.get_test());
+```
+
+
+```js
+let instance = new slint.TestCase({});
+assert.equal(instance.check_name, "correct");
+assert.equal(instance.check_text, "correct");
+assert(instance.test);
+```
+
+*/

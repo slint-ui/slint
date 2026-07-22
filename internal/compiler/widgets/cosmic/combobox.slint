@@ -1,0 +1,137 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CosmicFontSettings, CosmicPalette, Icons, CosmicSizeSettings } from "styling.slint";
+import { MenuBorder, ListItem, StateLayerBase } from "components.slint";
+import { ComboBoxBase } from "../common/combobox-base.slint";
+import { ScrollView } from "./scrollview.slint";
+
+export component ComboBox {
+    in property <[string]> model <=> base.model;
+    in property <bool> enabled <=> base.enabled;
+    out property <bool> has-focus <=> base.has-focus;
+    in-out property <int> current-index <=> base.current-index;
+    in-out property <string> current-value <=> base.current-value;
+
+    callback selected <=> base.selected;
+
+    property <length> popup-padding: 4px;
+    property <length> popup-scroll-y: -max(0, root.current-index - root.visible-items + 1) * CosmicSizeSettings.item-height;
+    property <int> visible-items: min(6, model.length);
+
+    min-width: max(160px, layout.min-height);
+    min-height: max(32px, layout.min-height);
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    forward-focus: base;
+    accessible-role: combobox;
+    accessible-enabled: root.enabled;
+    accessible-expandable: true;
+    accessible-expanded: base.popup-has-focus;
+    accessible-value <=> root.current-value;
+    accessible-action-expand => { base.show-popup(); }
+
+    states [
+        disabled when !root.enabled : {
+            opacity: 0.5;
+        }
+    ]
+
+    base := ComboBoxBase {
+        width: 100%;
+        height: 100%;
+
+        show-popup => {
+            popup.show();
+        }
+        close-popup => {
+            popup.close();
+        }
+    }
+
+    background := Rectangle {
+        border-radius: 16px;
+        background: CosmicPalette.control-background;
+        border-width: 1px;
+        border-color: CosmicPalette.border;
+
+        layout := HorizontalLayout {
+            padding-left: 16px;
+            padding-right: 16px;
+            spacing: 10px;
+
+            text := Text {
+                horizontal-stretch: 1;
+                horizontal-alignment: left;
+                vertical-alignment: center;
+                color: CosmicPalette.control-foreground;
+                text: root.current-value;
+                overflow: elide;
+                accessible-role: none;
+            }
+
+            Image {
+                y: (parent.height - self.height) / 2;
+                width: 16px;
+                height: 16px;
+                colorize: CosmicPalette.control-foreground;
+                source: Icons.dropdown;
+                accessible-role: none;
+            }
+        }
+
+        StateLayerBase {
+            width: 100%;
+            height: 100%;
+            border-radius: background.border-radius;
+            pressed: base.pressed;
+            has-focus: base.has-focus;
+            has-hover: base.has-hover;
+            enabled: root.enabled;
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        // Position the popup so that the first element is over the popup.
+        // Ideally it should be so that the current element is over the popup.
+        y: root.height + 4px;
+        width: root.width;
+        height: root.visible-items * CosmicSizeSettings.item-height  + 2 * root.popup-padding;
+        close-policy: close-on-click-outside;
+        forward-focus: inner-fs;
+
+        inner-fs := FocusScope {
+            focus-changed-event => {
+                base.popup-has-focus = self.has-focus;
+            }
+            key-pressed(event) => {
+                return base.popup-key-handler(event);
+            }
+
+            MenuBorder {
+                ScrollView {
+                    viewport-y: root.popup-scroll-y;
+                    VerticalLayout {
+                        alignment: start;
+                        padding: root.popup-padding;
+
+                        for value[index] in root.model : ListItem {
+                            item: { text: value };
+                            is-selected: index == root.current-index;
+                            has-hover: touch-area.has-hover;
+                            pressed: touch-area.pressed;
+
+                            touch-area := TouchArea {
+                                clicked => {
+                                    base.select(index);
+                                    popup.close();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

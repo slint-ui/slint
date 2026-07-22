@@ -1,0 +1,82 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test to show the internal `BoxShadow` element. This can be used for manual
+// visual verification and it also serves as a test to ensure that such generated
+// code compiles.
+
+// Shows three colored rectangles with drop shadow in a vertical box layout. The first
+// is manually created, the other two come out of a repeater.
+
+// Additionally, there are three green rectangles at the bottom placed diagonally
+// using equal spacing and manual calculation, using a repeater.
+
+component BlueRect inherits Rectangle {
+    background: blue;
+    border-radius: 10px;
+    drop-shadow-offset-x: 10px;
+    drop-shadow-offset-y: 10px;
+    drop-shadow-color: #00000080;
+    drop-shadow-blur: 5px;
+    opacity: 0.5;
+    clip: true;
+}
+
+export component TestCase inherits Window {
+    width: 800px;
+    height: 600px;
+
+    VerticalLayout {
+        padding: 50px;
+
+        BlueRect {}
+
+        for r[i] in [
+            {color: #0f0 },
+            {color: #f00 },
+        ]: Rectangle {
+            background: r.color;
+            drop-shadow-offset-x: 10px;
+            drop-shadow-offset-y: 10px;
+            drop-shadow-color: #00000080;
+            drop-shadow-blur: 5px;
+        }
+
+        Rectangle {
+            clip: true;
+            border-color: black;
+            border-width: 1px;
+            border-radius: 2px;
+
+            Rectangle {
+                x: parent.width / 2;
+                y: parent.height / 2;
+                width: parent.width / 2;
+                height: parent.height / 4;
+
+                background: blue;
+
+                drop-shadow-offset-x: 10px;
+                drop-shadow-offset-y: 10px;
+                drop-shadow-color: #249a04;
+                drop-shadow-blur: 3px;
+            }
+        }
+    }
+
+    for i in 3: Rectangle {
+        background: green;
+        border-color: black;
+        border-width: 1px;
+
+        x: 100px + i * 50px;
+        y: 300px + i * 30px;
+        width: 30px;
+        height: 20px;
+
+        drop-shadow-offset-x: 5px;
+        drop-shadow-offset-y: 5px;
+        drop-shadow-color: #00000080;
+        drop-shadow-blur: 5px;
+    }
+}

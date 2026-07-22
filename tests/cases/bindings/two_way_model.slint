@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for a bug in which an alias to a model property was not
+// properly set because it was thought as constant
+
+component MenuItem inherits Rectangle {
+    in-out property <length> h <=> val;
+    height: val;
+    in-out property <length> val;
+}
+
+export component TestCase inherits Rectangle {
+    VerticalLayout {
+        for entry[idx] in [
+            { val: 12px },
+        ] : MenuItem {
+            h: entry.val;
+        }
+        Rectangle {}
+    }
+    in-out property <bool> test: root.preferred_height == 12px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

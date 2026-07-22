@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// ROTATION_THRESHOLD=150  - because gradients are very imprecise in rotation
+
+export component TestCase inherits Window {
+    width:  64px;
+    height: 64px;
+
+    background: black;
+
+    GridLayout {
+        Row {
+            Rectangle {
+                background: @linear-gradient(90deg, red, blue);
+                with_opacity := Rectangle {
+                    background: @linear-gradient(0deg, limegreen 10%, transparent 50%);
+                }
+            }
+            Rectangle { background: @linear-gradient(0deg, green, yellow 20%, cyan); }
+            Rectangle { background: @linear-gradient(30deg, orange 20%, pink); }
+        }
+        Row {
+            Rectangle {
+                horizontal-stretch: 2;
+                //colspan: 2;
+                background: @linear-gradient(45deg, lightblue, red);
+                Rectangle { background: @linear-gradient(-45deg, green, transparent, #ff08); }
+            }
+            Rectangle { background: @linear-gradient(128deg, red, white 0%, transparent); }
+            Rectangle { background: @linear-gradient(242deg, white 10%, #239 35%, red 85%); }
+        }
+    }
+
+    init => {
+        // This is a test for the binding part of #3068
+        if (with_opacity.opacity == 1) {
+            with_opacity.opacity = 0.5;
+        }
+    }
+}

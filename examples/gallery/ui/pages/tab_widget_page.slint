@@ -1,0 +1,76 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    Button,
+    GroupBox,
+    TabWidget,
+    VerticalBox,
+    HorizontalBox,
+    CheckBox,
+} from "std-widgets.slint";
+import { GallerySettings } from "../gallery_settings.slint";
+import { Page } from "page.slint";
+
+export component TabWidgetPage inherits Page {
+    title: @tr("TabWidget");
+    description: @tr("TabWidget groups content into tabs. Each tab has a title and content. The widget can be imported from \"std-widgets.slint\".");
+
+    GroupBox {
+        title: @tr("TabWidget");
+
+        TabWidget {
+            Tab {
+                title: @tr("Tab 1");
+
+                VerticalBox {
+                    alignment: start;
+
+                    GroupBox {
+                        title: @tr("Content of tab 1");
+
+                        HorizontalBox {
+                            alignment: start;
+
+                            Button {
+                                text: @tr("Click me");
+                                enabled: GallerySettings.widgets-enabled;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Tab {
+                title: @tr("Tab 2");
+
+                VerticalBox {
+                    alignment: start;
+
+                    GroupBox {
+                        title: @tr("Content of tab 2");
+
+                        VerticalBox {
+                            alignment: start;
+
+                            CheckBox {
+                                text: @tr("Check me");
+                                enabled: GallerySettings.widgets-enabled;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Tab {
+                title: @tr("Tab 3");
+
+                VerticalBox {
+                    Text {
+                        text: @tr("Content of tab 3");
+                    }
+                }
+            }
+        }
+    }
+}

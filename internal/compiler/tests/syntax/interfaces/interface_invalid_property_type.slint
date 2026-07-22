@@ -1,0 +1,24 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An interface that declares a property with an unknown type used to crash the
+// compiler when an implementing component had a conflicting local declaration of
+// the same name (the invalid type hit a match arm guarded by `.expect()`). See
+// the `Unknown type` diagnostic below: the invalid interface property is simply
+// skipped, so compilation reports the error instead of panicking.
+
+export interface InvalidPropertyTypeInterface {
+    in-out property <inv> value;
+//                   > <error{Unknown type 'inv'}
+    callback speak();
+}
+
+export component Impl {
+    in-out property <int> value: 0;
+    callback speak();
+    @children
+}
+
+export component ComponentImplementsInterface inherits Impl {
+    implement InvalidPropertyTypeInterface <=> self;
+}

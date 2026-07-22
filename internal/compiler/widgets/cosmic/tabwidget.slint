@@ -1,0 +1,207 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CosmicPalette, CosmicFontSettings } from "styling.slint";
+import { StateLayerBase } from "components.slint";
+import { TabBarBase } from "../common/tabwidget-base.slint";
+
+export component TabWidgetImpl inherits Rectangle {
+    in property <length> tabbar-preferred-height;
+    in property <length> tabbar-preferred-width;
+    in property <length> content-min-height;
+    in property <length> content-min-width;
+    in property <int> current-index;
+    in property <int> current-focused;
+    in property <Orientation> orientation;
+    out property <length> content-x: orientation==Orientation.horizontal? 0: root.tabbar-preferred-width;
+    out property <length> content-y: orientation==Orientation.horizontal? root.tabbar-preferred-height: 0;
+    out property <length> content-height: orientation==Orientation.horizontal? root.height - root.tabbar-preferred-height: root.height;
+    out property <length> content-width: orientation==Orientation.horizontal? root.width: root.width - root.tabbar-preferred-width;
+    out property <length> tabbar-x;
+    out property <length> tabbar-y;
+    out property <length> tabbar-height: orientation==Orientation.horizontal? root.tabbar-preferred-height: root.height;
+    out property <length> tabbar-width: orientation==Orientation.horizontal? root.width: root.tabbar-preferred-width;
+
+    preferred-width: root.content-min-width;
+    min-width: max(root.content-min-width, root.tabbar-preferred-width);
+    preferred-height: root.content-min-height + root.tabbar-preferred-height;
+    min-height: root.content-min-height + root.tabbar-preferred-height;
+}
+
+export component TabImpl inherits Rectangle {
+    // The currently focused tab
+    in property <int> current-focused;
+    // The index of this tab
+    in property <int> tab-index;
+    // The total number of tabs
+    in property <int> num-tabs;
+    in property <string> title <=> text.text;
+    in property <bool> enabled: true;
+    out property <bool> has-focus: root.current-focused == root.tab-index;
+    // The currently selected tab
+    in-out property <int> current;
+
+    private property <bool> show-left-border: root.tab-index == 0 || root.is-current;
+    private property <bool> show-right-border: root.current != root.tab-index + 1;
+    private property <bool> is-current: root.tab-index == root.current;
+    private property <length> inner-border-radius: 8px;
+
+    min-width: max(32px, text.min-width);
+    min-height: max(44px, text.min-height);
+    horizontal-stretch: 0;
+    vertical-stretch: 1;
+    accessible-role: tab;
+    accessible-enabled: root.enabled;
+    accessible-label: root.title;
+    accessible-item-index: root.tab-index;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.is-current;
+    accessible-action-default => { touch-area.clicked(); }
+
+    Rectangle {
+        y: 0;
+        height: root.height - root.inner-border-radius;
+        clip: true;
+
+        state-layer := StateLayerBase {
+            y: 0;
+            width: 100%;
+            height: root.height;
+            has-hover: touch-area.has-hover;
+            pressed: touch-area.pressed;
+            checked: root.is-current;
+            border-radius: root.inner-border-radius;
+        }
+    }
+
+    Rectangle {
+        y: root.height - self.height;
+        height: root.inner-border-radius;
+        background: state-layer.background;
+    }
+
+    if root.has-focus: Rectangle {
+        Rectangle {
+            y: 0;
+            height: root.height - root.inner-border-radius;
+            clip: true;
+
+            Rectangle {
+                y: 0;
+                height: root.height;
+                border-width: 1px;
+                border-radius: root.inner-border-radius;
+                border-color: CosmicPalette.accent-background;
+            }
+        }
+
+        Rectangle {
+            x: 0;
+            y: root.height - self.height;
+            width: 1px;
+            height: root.inner-border-radius;
+            background: CosmicPalette.accent-background;
+        }
+
+        Rectangle {
+            x: root.width - self.width;
+            y: root.height - self.height;
+            width: 1px;
+            height: root.inner-border-radius;
+            background: CosmicPalette.accent-background;
+        }
+    }
+
+    Rectangle {
+        y: parent.height - self.height;
+        background: CosmicPalette.accent-background;
+        height: root.is-current ? 4px : 1px;
+    }
+
+    touch-area := TouchArea {
+        enabled <=> root.enabled;
+
+        clicked => {
+            root.current = root.tab-index;
+        }
+    }
+
+    layout := HorizontalLayout {
+        text := Text {
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            font-weight: root.is-current ? CosmicFontSettings.body-strong.font-weight : FontWeight.normal;
+            color: root.is-current ? CosmicPalette.accent-background : CosmicPalette.control-foreground;
+            accessible-role: none;
+        }
+    }
+}
+
+component CosmicTabBarBase inherits TabBarBase {
+    // injected properties:
+    // The currently focused tab
+    in-out property <int> current-focused: focus-scope.has-focus ? focus-scope.focused-tab : -1;
+
+    accessible-role: tab-list;
+    accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
+    accessible-item-count: root.num-tabs;
+    preferred-height: 44px;
+
+    if focus-scope.has-focus: Rectangle {
+        y: root.height - self.height;
+        height: 1px;
+        background: CosmicPalette.accent-background;
+    }
+
+    focus-scope := FocusScope {
+        property <int> focused-tab: 0;
+
+        x: 0;
+        // Do not react on clicks
+        width: 0px;
+
+        key-pressed(event) => {
+            if (event.text == "\n") {
+                root.current = root.current-focused;
+                return accept;
+            }
+            if (event.text == Key.LeftArrow) {
+                 self.focused-tab = Math.max(self.focused-tab - 1,  0);
+                 return accept;
+            }
+            if (event.text == Key.RightArrow) {
+                 self.focused-tab = Math.min(self.focused-tab + 1, root.num-tabs - 1);
+                 return accept;
+            }
+            return reject;
+        }
+
+        key-released(event) => {
+            if (event.text == " ") {
+                root.current = root.current-focused;
+                return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+export component TabBarHorizontalImpl inherits CosmicTabBarBase {
+    accessible-orientation: Orientation.horizontal;
+    Flickable {
+        HorizontalLayout {
+            @children
+        }
+    }
+}
+
+export component TabBarVerticalImpl inherits CosmicTabBarBase {
+    accessible-orientation: Orientation.vertical;
+    Flickable {
+        VerticalLayout {
+            @children
+        }
+    }
+}
+
+export component TabWidget inherits TabWidget { }

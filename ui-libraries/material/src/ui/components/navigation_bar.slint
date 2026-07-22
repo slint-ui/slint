@@ -1,0 +1,150 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Badge } from "./badge.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { MaterialText } from "./material_text.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
+import { ExtendedTouchArea } from "./extended_touch_area.slint";
+import { StateLayer, Ripple } from "./state_layer.slint";
+import { Icon } from "./icon.slint";
+import { NavigationItem } from "../items/navigation_item.slint";
+import { BaseNavigationItemTemplate, BaseNavigation } from "./base_navigation.slint";
+
+export component NavigationItemTemplate inherits BaseNavigationItemTemplate {
+    property <bool> has_icon: root.icon.width > 0 && root.icon.height > 0;
+    property <bool> has_selected_icon: root.selected_icon.width > 0 || root.selected_icon.height > 0;
+    property <color> color: MaterialPalette.on_surface;
+
+    in property <length> navitem_padding_top: MaterialStyleMetrics.padding_12;
+    in property <length> navitem_padding_bottom: MaterialStyleMetrics.padding_16;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+    }
+
+    touch_area := ExtendedTouchArea {
+        HorizontalLayout {
+            alignment: center;
+
+            VerticalLayout {
+                alignment: start;
+                spacing: MaterialStyleMetrics.spacing_4;
+                padding_top: root.navitem_padding_top;
+                padding_bottom: root.navitem_padding_bottom;
+
+                HorizontalLayout {
+                    alignment: center;
+
+                    background_layer := Rectangle {
+                        min_width: state_layout.min_width;
+                        min_height: max(MaterialStyleMetrics.size_32, state_layout.min_height);
+                        border_radius: self.height / 2;
+
+                        state_layer := StateLayer {
+                            background: root.color;
+                            border_radius: parent.border_radius;
+                            enabled: true;
+                            has_focus: touch_area.has_focus;
+                            has_hover: touch_area.has_hover;
+                            pressed: touch_area.pressed || touch_area.enter_pressed;
+                            width: 100%;
+                            height: 100%;
+
+                            if touch_area.pressed && !root.selected : Ripple {
+                                width: root.width;
+                                height: root.height;
+                                pressed_x: touch_area.pressed_x;
+                                pressed_y: touch_area.pressed_y;
+                                color: root.color;
+                            }
+
+                            state_layout := HorizontalLayout {
+                                padding_left: MaterialStyleMetrics.padding_20;
+                                padding_right: self.padding_left;
+                                alignment: center;
+
+                                VerticalLayout {
+                                    alignment: center;
+
+                                    if !root.has_icon && !root.has_selected_icon : Rectangle {
+                                        width: 12px;
+                                        height: self.width;
+                                        border_radius: self.width / 2;
+                                        background: root.color;
+                                    }
+
+                                    if root.has_icon || root.has_selected_icon : Icon {
+                                        source: root.icon;
+                                        colorize: root.color;
+
+                                        states [
+                                            selected when root.selected && root.has_selected_icon : {
+                                                source: root.selected_icon;
+                                            }
+                                        ]
+                                    }
+                                }
+                             }
+                        }
+
+                        if root.show_badge || root.badge != "" : Badge {
+                            x: parent.width / 2;
+                            y: 0;
+                            text: root.badge;
+                        }
+                    }
+                }
+
+                label := MaterialText {
+                    text: root.text;
+                    style: MaterialTypography.label_medium;
+                    color: root.color;
+                    horizontal_alignment: center;
+                }
+            }
+        }
+
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    states [
+        selected when root.selected : {
+            background_layer.background: MaterialPalette.secondary_container;
+            state_layer.background: transparent;
+            label.style: MaterialTypography.label_medium_prominent;
+        }
+    ]
+}
+
+export component NavigationBar inherits BaseNavigation {
+    min_height: max(MaterialStyleMetrics.size_80, layout.min_height);
+
+    Rectangle {
+        background: MaterialPalette.surface_container;
+
+        layout := HorizontalLayout {
+            padding_left: MaterialStyleMetrics.padding_8;
+            padding_right: self.padding_left;
+            spacing: MaterialStyleMetrics.spacing_8;
+
+            for item[index] in root.items : NavigationItemTemplate {
+                icon: item.icon;
+                selected_icon: item.selected_icon;
+                text: item.text;
+                index: index;
+                selected: index == root.current_index;
+                show_badge: item.show_badge;
+                badge: item.badge;
+
+                clicked => {
+                    root.select(index);
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,49 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Symmetric to flexbox_nested_perpendicular: outer column, inner row.
+// Both axes' `layoutinfo-{v,h}-with-constraint` mechanisms get exercised
+// in the opposite direction.
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+
+    FlexboxLayout {
+        flex-direction: column;
+        spacing: 10px;
+
+        r1 := Rectangle { width: 50px; height: 50px; background: red; flex-shrink: 0; }
+
+        FlexboxLayout {
+            flex-direction: row;
+            spacing: 5px;
+
+            r2 := Rectangle { width: 30px; height: 80px; background: green; }
+            r3 := Rectangle { width: 30px; height: 80px; background: blue; }
+        }
+    }
+
+    out property <bool> test_r1: r1.width == 50px;
+    out property <bool> test_r2: r2.x == 0px;
+    out property <bool> test_r3: r3.x > r2.x && r3.height == 80px;
+
+    out property <bool> test: test_r1 && test_r2 && test_r3;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

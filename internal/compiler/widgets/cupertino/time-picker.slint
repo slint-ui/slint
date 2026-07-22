@@ -1,0 +1,107 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Time, TimePickerBase } from "../common/time-picker-base.slint";
+import { VerticalBox } from "../common/layout.slint";
+import { Button } from "./button.slint";
+import { CupertinoPalette, CupertinoFontSettings, Icons } from "styling.slint";
+import { MenuBorder } from "./components.slint";
+import { StandardButton } from "../common/standardbutton.slint";
+
+export { Time }
+
+export component TimePickerPopup inherits PopupWindow {
+    in property <bool> use-24-hour-format <=> base.use-24-hour-format;
+    in property <string> title: "Select time";
+    in property <Time> time <=> base.time;
+
+    callback canceled();
+    callback accepted(/* current-time */ Time);
+
+    close-policy: PopupClosePolicy.no-auto-close;
+
+    width: dialog.width;
+    height: dialog.height;
+
+    background-layer := MenuBorder {
+        width: dialog.width;
+        height: dialog.height;
+    }
+
+    dialog := Dialog {
+        padding: 8px;
+
+        base := TimePickerBase {
+            title: root.title;
+            style: {
+                foreground: CupertinoPalette.foreground,
+                vertical-spacing: 8px,
+                horizontal-spacing: 4px,
+                clock-style: {
+                    background: CupertinoPalette.alternate-control-background,
+                    foreground: CupertinoPalette.accent-background,
+                    time-selector-style: {
+                        foreground: CupertinoPalette.foreground,
+                        foreground-selected: CupertinoPalette.accent-foreground,
+                        font-size: CupertinoFontSettings.body-strong.font-size,
+                        font-weight: CupertinoFontSettings.body-strong.font-weight
+                    }
+                },
+                input-style: {
+                    background: CupertinoPalette.alternate-control-background,
+                    background-selected: CupertinoPalette.accent-background,
+                    foreground: CupertinoPalette.foreground,
+                    foreground-selected: CupertinoPalette.foreground,
+                    border-radius: 8px,
+                    font-size: 57pt * 1rem / 16pt,
+                    font-weight: FontWeight.normal
+                },
+                period-selector-style: {
+                    border-radius: 8px,
+                    border-width: 1px,
+                    border-brush: CupertinoPalette.border,
+                    item-style: {
+                        font-size: CupertinoFontSettings.body-strong.font-size,
+                        font-weight: CupertinoFontSettings.body-strong.font-weight,
+                        foreground: CupertinoPalette.foreground,
+                        background-selected: CupertinoPalette.accent-background,
+                        foreground-selected: CupertinoPalette.accent-foreground
+                    }
+                },
+                title-style: {
+                    foreground: CupertinoPalette.foreground,
+                },
+            };
+        }
+
+        Button {
+            icon: base.selection-mode ? Icons.keyboard : Icons.clock;
+            colorize-icon: true;
+            accessible-label: "Toggle input picker";
+            dialog-button-role: action;
+
+            clicked => {
+                base.selection-mode = !base.selection-mode;
+            }
+        }
+
+        StandardButton {
+            kind: cancel;
+
+            clicked => {
+                root.close();
+                root.canceled();
+            }
+        }
+
+        StandardButton {
+            enabled: base.ok-enabled();
+            kind: ok;
+
+            clicked => {
+                root.close();
+                root.accepted(base.get-current-time());
+            }
+        }
+    }
+}

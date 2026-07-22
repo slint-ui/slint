@@ -1,0 +1,143 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Date, Time, LineEdit, TimePickerPopup, DatePickerPopup, VerticalBox, Button } from "std-widgets.slint";
+import { IconButton } from "../widgets/icon_button.slint";
+import { TextButton } from "../widgets/text_button.slint";
+import { Icons, FontSettings, TodoPalette, SpaceSettings } from "../widgets/styling.slint";
+
+export global CreateTaskAdapter {
+    in-out property <Date> due-date: { year: 2024, month: 12, day: 24 };
+    in-out property <Time> due-time: { hour: 12, minute: 45, second: 0 };
+
+    callback create(/* title */ string, /* due-date-time */ int);
+    callback back();
+    pure callback date-string(Date) -> string;
+    pure callback time-string(Time) -> string;
+    pure callback current-date() -> Date;
+    pure callback current-time() -> Time;
+    pure callback time-stamp(/* date */ Date, /* time */ Time) -> int;
+
+    // dummy implementation for live preview
+    date-string(due-date) => {
+        "Sat, Jun 1, 2024"
+    }
+
+    // dummy implementation for live preview
+    time-string(due-time) => {
+        "09:00"
+    }
+}
+
+export component CreateTaskView {
+    VerticalBox {
+        HorizontalLayout {
+            IconButton {
+                icon: Icons.close;
+                accessible-label: @tr("Cancel New Task Creation");
+
+                clicked => {
+                    root.reset();
+                    CreateTaskAdapter.back();
+                }
+            }
+
+            // spacer
+            Rectangle { }
+
+            Button {
+                text: @tr("Create");
+                enabled: title-input.text != "";
+                primary: true;
+
+                clicked => {
+                    root.create();
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: SpaceSettings.default-spacing;
+
+            title-label := Text {
+                text: @tr("Task name");
+                color: TodoPalette.foreground;
+                font-size: FontSettings.body-strong.font-size;
+                font-weight: FontSettings.body-strong.font-weight;
+                horizontal-alignment: left;
+                overflow: elide;
+            }
+
+            title-input := LineEdit {
+                placeholder-text: @tr("Describe your task");
+                accessible-label: title-label.text;
+            }
+        }
+
+        Text {
+            text: @tr("Due date");
+            color: TodoPalette.foreground;
+            font-size: FontSettings.body-strong.font-size;
+            font-weight: FontSettings.body-strong.font-weight;
+            horizontal-alignment: left;
+            overflow: elide;
+        }
+
+        HorizontalLayout {
+            spacing: SpaceSettings.default-spacing;
+
+            TextButton {
+                text: CreateTaskAdapter.date-string(CreateTaskAdapter.due-date);
+
+                clicked => {
+                    date-picker.show();
+                }
+            }
+
+            TextButton {
+                text: CreateTaskAdapter.time-string(CreateTaskAdapter.due-time);
+                horizontal-stretch: 0;
+
+                clicked => {
+                    time-picker.show();
+                }
+            }
+        }
+
+        Rectangle { }
+    }
+
+    date-picker := DatePickerPopup {
+        x: (root.width - 360px) / 2;
+        y: (root.height - 524px) / 2;
+        width: 360px;
+        height: 524px;
+
+        accepted(date) => {
+            CreateTaskAdapter.due-date = date;
+        }
+    }
+
+    time-picker := TimePickerPopup {
+        x: (root.width - 340px) / 2;
+        y: (root.height - 500px) / 2;
+        width: 340px;
+        height: 500px;
+
+        accepted(time) => {
+            CreateTaskAdapter.due-time = time;
+        }
+    }
+
+    function reset() {
+        title-input.text = "";
+        CreateTaskAdapter.due-date = CreateTaskAdapter.current-date();
+        CreateTaskAdapter.due-time = CreateTaskAdapter.current-time();
+    }
+
+    function create() {
+        CreateTaskAdapter.back();
+        CreateTaskAdapter.create(title-input.text, CreateTaskAdapter.time-stamp(CreateTaskAdapter.due-date, CreateTaskAdapter.due-time));
+        root.reset();
+    }
+}

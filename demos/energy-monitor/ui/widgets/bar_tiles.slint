@@ -1,0 +1,141 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { BarBackground } from "bar_chart.slint";
+
+export struct BarTileModel {
+    title: string,
+    icon: image,
+    max: int,
+    min: int,
+    absolute-min: int,
+    absolute-max: int,
+    unit: string,
+}
+
+component ValueLabel {
+    in property <string> text;
+    in property <string> unit;
+
+    HorizontalLayout {
+        Text {
+            color: Theme.palette.white;
+            vertical-stretch: 0;
+            horizontal-alignment: right;
+            text: root.text;
+            font-size: Theme.typo.description-light.size;
+            font-weight: Theme.typo.description-light.weight;
+        }
+
+        Text {
+            color: Theme.palette.white;
+            vertical-stretch: 0;
+            horizontal-alignment: left;
+            text: "°";
+            font-size: Theme.typo.description-light.size;
+            font-weight: Theme.typo.description-light.weight;
+        }
+    }
+}
+
+component BarTile {
+    in property <string> title <=> i-title.text;
+    in property <image> icon <=> i-icon.source;
+    in property <float> max;
+    in property <float> min;
+    in property <string> unit;
+    in property <float> absolute-min;
+    in property <float> absolute-max;
+
+    HorizontalLayout {
+        alignment: center;
+
+        VerticalLayout {
+            spacing: 7px;
+
+            i-title := Text {
+                color: Theme.palette.white;
+                vertical-stretch: 0;
+                horizontal-alignment: center;
+                font-size: Theme.typo.description.size;
+                font-weight: Theme.typo.description.weight;
+            }
+
+            i-icon := Image {
+                height: 20px;
+                vertical-stretch: 0;
+            }
+
+            ValueLabel {
+                text: floor(max);
+                unit: unit;
+            }
+
+            Rectangle {
+                private property <int> range: root.absolute-max - root.absolute-min;
+                private property <length> max-y: self.height * (root.max - root.absolute-min) / range;
+                private property <length> min-y: self.height * (root.min - root.absolute-min) / range;
+
+                vertical-stretch: 1;
+
+                HorizontalLayout {
+                    alignment: center;
+                    y: parent.height - max-y;
+                    height: max-y - min-y;
+
+                    Rectangle {
+                        min_width: 12px;
+                        border-radius: 6px;
+
+                        background: Theme.palette.lemon-green-light-gradient;
+                    }
+                }
+            }
+
+            ValueLabel {
+                text: floor(min);
+                unit: unit;
+            }
+        }
+    }
+}
+
+export component BarTiles {
+    in property <[BarTileModel]> model;
+    in property <bool> active;
+
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    BarBackground {}
+
+    HorizontalLayout {
+        padding-right: 18px;
+        padding-left: 18px;
+        padding-top: 11px;
+        padding-bottom: 11px;
+
+        for tile in model : BarTile {
+            private property <float> display-max: tile.max;
+
+            horizontal-stretch: 1;
+            title: tile.title;
+            icon: tile.icon;
+            min: tile.min;
+            absolute-min: tile.absolute-min;
+            absolute-max: tile.absolute-max;
+            unit: tile.unit;
+
+            states [
+                active when active : {
+                    max: display-max;
+
+                    in {
+                        animate max { duration: Theme.durations.slow; easing: cubic-bezier(0, 0, 0, 1); }
+                    }
+                }
+            ]
+        }
+    }
+}

@@ -1,0 +1,110 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+import { MaterialPalette, Elevation } from "styling.slint";
+import { SliderBase } from "../common/slider-base.slint";
+
+// Allows to select a value from a range of values.
+export component Slider {
+    in property <Orientation> orientation <=> base.orientation;
+    in property <float> maximum <=> base.maximum;
+    in property <bool> enabled <=> base.enabled;
+    in property <float> minimum <=> base.minimum;
+    in property <float> step <=> base.step;
+    out property <bool> has-focus <=> base.has-focus;
+    in-out property <float> value <=> base.value;
+
+    callback changed <=> base.changed;
+    callback released <=> base.released;
+
+    min-width: base.vertical ? 20px : 0px;
+    min-height: base.vertical ? 0px : 20px;
+    accessible-role: slider;
+    accessible-enabled: root.enabled;
+    accessible-orientation: root.orientation;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: min(root.step, (root.maximum - root.minimum) / 100);
+    accessible-action-set-value(v) => {
+        if v.is-float() {
+            base.set-value(v.to-float());
+        }
+    }
+    accessible-action-increment => { base.increment(); }
+    accessible-action-decrement => { base.decrement(); }
+    forward-focus: base;
+
+    states [
+        disabled when !root.enabled : {
+            handle.background: MaterialPalette.control-foreground;
+            handle.drop-shadow-blur: Elevation.level0;
+            track.background: MaterialPalette.control-foreground;
+            background.background: MaterialPalette.control-foreground;
+            root.opacity: 0.38;
+        }
+        pressed when base.handle-pressed || base.has-focus : {
+            state-layer.opacity: 0.12;
+            handle.drop-shadow-blur: Elevation.level0;
+        }
+        hover when base.has-hover : {
+            state-layer.background: MaterialPalette.control-foreground;
+            state-layer.opacity: 0.08;
+        }
+    ]
+
+    background := Rectangle {
+        background: MaterialPalette.control-background-variant;
+        opacity: 0.38;
+        x: base.vertical ? (parent.width - self.width) / 2 : handle.width / 2;
+        y: base.vertical ? handle.height / 2 : (parent.height - self.height) / 2;
+        width: base.vertical ? 4px : parent.width - handle.width;
+        height: base.vertical ? parent.height - handle.height : 4px;
+        border-radius: 2px;
+    }
+
+    track := Rectangle {
+        background: MaterialPalette.accent-background;
+        x: base.vertical ? (parent.width - self.width) / 2 : background.x;
+        y: base.vertical ? handle.y + handle.height / 2 : (parent.height - self.height) / 2;
+        width: base.vertical? background.width : handle.x;
+        height: base.vertical? parent.height - handle.y - handle.height : background.height;
+        border-radius: background.border-radius;
+    }
+
+    state-layer := Rectangle {
+        opacity: 0;
+        background: MaterialPalette.accent-background;
+        x: base.vertical ? (parent.width - self.width) / 2 : handle.x - (self.width - handle.width) / 2;
+        y: base.vertical ? handle.y - (self.height - handle.height) / 2 : (parent.height - self.height) / 2;
+        width: 40px;
+        height: 40px;
+        border-radius: max(self.width, self.height) / 2;
+
+        animate opacity { duration: 250ms; easing: ease; }
+    }
+
+    handle := Rectangle {
+        x: base.vertical ? (parent.width - self.width) / 2 : clamp((parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, parent.width - self.width);
+        y: base.vertical ? clamp((parent.height - self.height) * (root.maximum - root.value) / (root.maximum - root.minimum), 0, parent.height - self.height) : (parent.height - self.height) / 2;
+        background: MaterialPalette.accent-background;
+        width: base.vertical ? root.min-width : root.min-height;
+        height: self.width;
+        border-radius: max(self.width, self.height) / 2;
+        drop-shadow-color: MaterialPalette.shadow;
+        drop-shadow-blur: Elevation.level1;
+        drop-shadow-offset-y: 1px;
+
+        animate drop-shadow-blur { duration: 250ms; easing: ease; }
+    }
+
+    base := SliderBase {
+        width: 100%;
+        height: 100%;
+        handle-x: handle.x;
+        handle-y: handle.y;
+        handle-width: handle.width;
+        handle-height: handle.height;
+    }
+}

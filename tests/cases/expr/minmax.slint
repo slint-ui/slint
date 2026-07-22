@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+ component TestCase inherits Window {
+    in property <int> a;
+    out property <float> t1: max(41, 12, min(100, 12), max(-10000, 0+98.5), -4) + min(a, 0.5);
+    out property <bool> t2: round(10/4) == 3 && floor(10/4) == 2 && ceil(10/4) == 3;
+
+    r := Rectangle {
+        property <int> max: 42;
+        property <int> xx: Math.max(1, 2, 3) + max;
+    }
+    out property <bool> test: t2 && r.xx == 42 + 3 && 88px.max(5px, 45px) == 88px && 88ms.min(5ms, 45ms) == 5ms && 88rem.max(5rem, 45rem) == 88rem;
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_t1(), 98.5);
+assert_eq(instance.get_t2(), true);
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_t1(), 98.5);
+assert_eq!(instance.get_t2(), true);
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.t1, 98.5);
+assert(instance.t2);
+assert(instance.test);
+```
+*/

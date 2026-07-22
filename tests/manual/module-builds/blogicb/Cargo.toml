@@ -1,0 +1,17 @@
+# Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "blogicb"
+links = "blogicb"
+authors = ["Slint Developers <info@slint.dev>"]
+edition.workspace = true
+publish = false
+license = "MIT"
+version.workspace = true
+
+[dependencies]
+slint = { path = "../../../../api/rs/slint" }
+
+[build-dependencies]
+slint-build = { path = "../../../../api/rs/build", features = ["experimental-module-builds"] }

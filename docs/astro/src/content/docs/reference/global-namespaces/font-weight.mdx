@@ -1,0 +1,33 @@
+---
+title: FontWeight
+description: FontWeight Namespace
+---
+
+The **FontWeight** namespace contains constants for various font weights, following the CSS specification.
+
+## Constants
+
+The following constants are available in the **FontWeight** namespace. They are all unitless `float` values.
+
+| Name | Value | Description |
+| ---- | ----- | ----------- |
+| `thin` | `100` | Thin |
+| `extra-light` | `200` | Extra Light |
+| `light` | `300` | Light |
+| `normal` | `400` | Normal |
+| `medium` | `500` | Medium |
+| `semi-bold` | `600` | Semi Bold |
+| `bold` | `700` | Bold |
+| `extra-bold` | `800` | Extra Bold |
+| `black` | `900` | Black |
+
+## Example
+
+```slint
+export component Example inherits Window {
+    Text {
+        text: "Hello World";
+        font-weight: FontWeight.bold;
+    }
+}
+```

@@ -1,0 +1,32 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "_7guis"
+version = "1.18.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition.workspace = true
+publish = false
+license = "MIT"
+rust-version.workspace = true
+
+[[bin]]
+path = "booker.rs"
+name = "booker"
+
+[[bin]]
+path = "crud.rs"
+name = "crud"
+
+[[bin]]
+path = "circledraw.rs"
+name = "circledraw"
+
+[[bin]]
+path = "cells.rs"
+name = "cells"
+
+
+[dependencies]
+slint = { path = "../../api/rs/slint" }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }

@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Python is ignored because include paths aren't forwarded in the generated stubs.
+//ignore: pyi
+
+//include_path: ../../helper_components
+import { ExportedStruct, ExportEnum } from "export_structs.slint";
+export { ExportedStruct as NamedStruct, ExportEnum as NamedEnum  }
+component TestCase inherits Rectangle {
+    in-out property<ExportedStruct> st;
+    in-out property<ExportEnum> en: ExportEnum.Bonjour;
+}
+export { TestCase as NamedTestCase }
+
+/*
+
+```cpp
+auto handle = NamedTestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_en() == NamedEnum::Bonjour);
+```
+
+```rust
+let instance = NamedTestCase::new().unwrap();
+assert_eq!(instance.get_en(), NamedEnum::Bonjour);
+```
+
+*/

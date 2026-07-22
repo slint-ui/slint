@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette, PrinterState, InkLevel, Label, Page } from "common.slint";
+import {
+    HomePage,
+    InkPage,
+    SettingsPage,
+    PrinterSettings,
+} from "./pages/pages.slint";
+import { PrinterQueue } from "./pages/printer_queue.slint";
+import { Sidebar } from "components/sidebar.slint";
+
+// re-export for the native code
+export { PrinterQueue, PrinterSettings, PrinterState, InkLevel }
+
+import "./fonts/Inter-24pt-Regular.ttf";
+import "./fonts/Inter-24pt-Medium.ttf";
+
+export component MainWindow inherits Window {
+    callback quit();
+
+    min-width: 772px;
+    min-height: 504px;
+    title: @tr("Slint printer demo");
+    default-font-family: DemoPalette.medium-weight;
+    default-font-size: DemoPalette.base-font-size;
+
+    Rectangle {
+        border-radius: 24px;
+        clip: true;
+        background: white;
+        HorizontalLayout {
+
+            side-bar := Sidebar { }
+
+            main-view := Rectangle {
+                if PrinterState.active-page == Page.home: home-page := HomePage { }
+
+                if PrinterState.active-page == Page.settings: settings-page := SettingsPage { }
+
+                if PrinterState.active-page == Page.ink: ink-page := InkPage { }
+            }
+        }
+    }
+}

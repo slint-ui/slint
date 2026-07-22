@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InternalScrollView } from "internal-scrollview.slint";
+
+export component ScrollView {
+    in property <bool> enabled <=> internal.enabled;
+    out property <length> visible-width <=> internal.visible-width;
+    out property <length> visible-height <=> internal.visible-height;
+    in-out property <bool> has-focus <=> internal.has-focus;
+    in-out property <length> viewport-width <=> internal.viewport-width;
+    in-out property <length> viewport-height <=> internal.viewport-height;
+    in-out property <length> viewport-x <=> internal.viewport-x;
+    in-out property <length> viewport-y <=> internal.viewport-y;
+    in property <ScrollBarPolicy> vertical-scrollbar-policy <=> internal.vertical-scrollbar-policy;
+    in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> internal.horizontal-scrollbar-policy;
+    in property <bool> mouse-drag-pan-enabled <=> internal.mouse-drag-pan-enabled;
+
+    callback scrolled <=> internal.scrolled;
+
+    min-height: internal.min-height;
+    min-width: internal.min-width;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    preferred-height: 100%;
+    preferred-width: 100%;
+
+    internal := InternalScrollView {
+        @children
+    }
+}

@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { SizeSettings, SpaceSettings, FontSettings, TodoPalette } from "styling.slint";
+import { FocusTouchArea } from "focus_touch_area.slint";
+import { StateLayer } from "./state_layer.slint";
+
+export component TextButton {
+    callback clicked;
+
+    in property <string> text;
+
+    vertical-stretch: 0;
+    forward-focus: touch-area;
+    min-width: content-layer.min-width;
+    min-height: max(content-layer.min-height, SizeSettings.control-height);
+
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => { touch-area.clicked(); }
+
+    touch-area := FocusTouchArea {
+        width: 100%;
+        height: 100%;
+
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    StateLayer {
+        width: 100%;
+        height: 100%;
+        pressed: touch-area.pressed || touch-area.enter-pressed;
+        has-focus: touch-area.has-focus;
+        has-hover: touch-area.has-hover;
+    }
+
+    content-layer := HorizontalLayout {
+        Text {
+            text: root.text;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            font-size: FontSettings.body.font-size;
+            font-weight: FontSettings.body.font-weight;
+            color: TodoPalette.foreground;
+        }
+    }
+}

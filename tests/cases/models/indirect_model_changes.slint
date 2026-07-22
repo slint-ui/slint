@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component IndirectChange {
+    in property <[int]> mod;
+    property <[int]> private: mod;
+
+    init => {
+        private[0] += 1;
+    }
+}
+
+export component TestCase {
+
+    property <[int]> m1: [5];
+    property <[int]> m2: [8];
+    property <[int]> indirect: m2;
+
+    public function up() {
+        indirect[0] += 10;
+    }
+
+    callback up2();
+    up2 => {up()}
+
+    IndirectChange { mod: m1; }
+
+    out property <int> t1: m1[0];
+    out property <int> t2: m2[0];
+
+    out property <bool> test: t1 == 5+1 && t2 == 8;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_t1(), 6);
+assert(instance.get_test());
+instance.invoke_up();
+assert_eq(instance.get_t2(), 18);
+
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_t1(), 6);
+assert!(instance.get_test());
+instance.invoke_up();
+assert_eq!(instance.get_t2(), 18);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.t1, 6);
+assert(instance.test);
+instance.up2();
+assert.equal(instance.t2, 18);
+```
+*/

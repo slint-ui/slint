@@ -1,0 +1,46 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "i-slint-backend-qt"
+description = "Qt rendering backend for Slint"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+links = "i_slint_backend_qt"                   # just so we can pass metadata to the dependencies's build script
+
+[features]
+rtti = ["i-slint-core/rtti"]
+default = ["enable"]
+enable = ["dep:cpp", "dep:lyon_path", "dep:pin-project", "dep:pin-weak", "dep:qttypes", "dep:cpp_build"]
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+i-slint-common = { workspace = true }
+i-slint-core-macros = { workspace = true }
+i-slint-core = { workspace = true, features = ["std", "shared-parley"] }
+
+const-field-offset = { version = "0.2", path = "../../../helper_crates/const-field-offset" }
+vtable = { workspace = true }
+
+cpp = { version = "0.5.5", optional = true }
+lyon_path = { workspace = true, optional = true }
+pin-project = { version = "1", optional = true }
+pin-weak = { version = "1", optional = true }
+qttypes = { version = "0.2.7", default-features = false, optional = true }
+
+# The browser decodes images on the web; decode with the image and resvg crates elsewhere.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
+
+[build-dependencies]
+cpp_build = { version = "0.5.5", optional = true }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

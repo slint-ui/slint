@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { MaterialPalette } from "styling.slint";
+
+export component ProgressIndicator {
+    in property <float> progress;
+    in property <bool> indeterminate;
+
+    min-height: 4px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    accessible-role: progress-indicator;
+    accessible-value: !root.indeterminate ? root.progress : "";
+    accessible-value-minimum: 0.0;
+    accessible-value-maximum: 1.0;
+
+    i-background := Rectangle {
+        background: MaterialPalette.control-background-variant;
+        clip: true;
+
+        i-track := Rectangle {
+            background: MaterialPalette.accent-background;
+            x: !root.indeterminate ? 0px : -parent.width + (parent.width * mod(animation-tick(), 2s) / 1s);
+            y: (parent.height - self.height) / 2;
+            width: !root.indeterminate ?  parent.width * min(1, max(0, root.progress)) : parent.width;
+            border-radius: i-background.border-radius;
+        }
+    }
+}

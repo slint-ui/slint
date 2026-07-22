@@ -1,0 +1,268 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+ TestCase := Rectangle {
+    property<int> top_level: 4;
+    property<int> active_index: 0;
+    property<int> some_prop: 5;
+    property<int> other_prop: 5000;
+    text1 := Text {
+        property<int> foo: 85 + top_level;
+    }
+
+    states [
+        xxx when active_index == 1 : {
+            text1.foo: 3 + 2 * top_level;
+            some_prop: 2000;
+            other_prop: 0;
+        }
+    ]
+
+    transitions [
+        in xxx: {
+            animate some_prop { delay: 5000ms; duration: 100ms; }
+            animate other_prop { delay: 100ms; duration: 1000ms; }
+        }
+        out xxx: {
+            animate text1.foo { delay: 200ms; duration: 300ms; }
+        }
+    ]
+
+    property<int> text1_foo: text1.foo;
+
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_text1_foo(), 89);
+assert_eq!(instance.get_some_prop(), 5);
+assert_eq!(instance.get_other_prop(), 5000);
+
+instance.set_active_index(1);
+assert_eq!(instance.get_text1_foo(), 11);
+assert_eq!(instance.get_some_prop(), 5);
+assert_eq!(instance.get_other_prop(), 5000);
+
+slint_testing::mock_elapsed_time(50); // In delay
+assert_eq!(instance.get_text1_foo(), 11);
+assert_eq!(instance.get_some_prop(), 5);
+assert_eq!(instance.get_other_prop(), 5000);
+
+slint_testing::mock_elapsed_time(50); // some: in delay, other: end of delay
+assert_eq!(instance.get_text1_foo(), 11);
+assert_eq!(instance.get_some_prop(), 5);
+assert_eq!(instance.get_other_prop(), 5000);
+
+slint_testing::mock_elapsed_time(50); // some: in delay, other: in play for 50ms [150ms]
+assert_eq!(instance.get_text1_foo(), 11);
+assert_eq!(instance.get_some_prop(), 5);
+assert!(instance.get_other_prop() < 4760); // should be 4750
+assert!(instance.get_other_prop() > 4740);
+
+slint_testing::mock_elapsed_time(800); // some: in delay, other: in play for 850ms [950ms]
+assert_eq!(instance.get_text1_foo(), 11);
+assert_eq!(instance.get_some_prop(), 5);
+assert!(instance.get_other_prop() < 760); // should be 750
+assert!(instance.get_other_prop() > 740);
+
+slint_testing::mock_elapsed_time(160); // some: in delay, other: ended [111ßms]
+assert_eq!(instance.get_text1_foo(), 11);
+assert_eq!(instance.get_some_prop(), 5);
+assert_eq!(instance.get_other_prop(), 0);
+
+slint_testing::mock_elapsed_time(3840); // some: in delay, other: ended [4950ms]
+assert_eq!(instance.get_text1_foo(), 11);
+assert_eq!(instance.get_some_prop(), 5);
+assert_eq!(instance.get_other_prop(), 0);
+
+slint_testing::mock_elapsed_time(60); // some: in play for 10ms, other: ended [5010ms]
+assert_eq!(instance.get_text1_foo(), 11);
+assert!(instance.get_some_prop() > 202); // should be 204,5
+assert!(instance.get_some_prop() < 207);
+assert_eq!(instance.get_other_prop(), 0);
+
+slint_testing::mock_elapsed_time(100); // some: ended, other: ended [5110ms]
+assert_eq!(instance.get_text1_foo(), 11);
+assert_eq!(instance.get_some_prop(), 2000);
+assert_eq!(instance.get_other_prop(), 0);
+
+instance.set_active_index(2);
+assert_eq!(instance.get_text1_foo(), 11);
+assert_eq!(instance.get_some_prop(), 5);
+assert_eq!(instance.get_other_prop(), 5000);
+
+slint_testing::mock_elapsed_time(50); // In delay
+assert_eq!(instance.get_text1_foo(), 11);
+assert_eq!(instance.get_some_prop(), 5);
+assert_eq!(instance.get_other_prop(), 5000);
+
+slint_testing::mock_elapsed_time(440);
+assert!(instance.get_text1_foo() > 70);
+assert!(instance.get_text1_foo() < 87);
+assert_eq!(instance.get_some_prop(), 5);
+assert_eq!(instance.get_other_prop(), 5000);
+
+slint_testing::mock_elapsed_time(30);
+assert_eq!(instance.get_text1_foo(), 85 + 4);
+assert_eq!(instance.get_some_prop(), 5);
+assert_eq!(instance.get_other_prop(), 5000);
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_text1_foo(), 85 + 4);
+assert_eq(instance.get_some_prop(), 5);
+assert_eq(instance.get_other_prop(), 5000);
+
+instance.set_active_index(1);
+assert_eq(instance.get_text1_foo(), 11);
+assert_eq(instance.get_some_prop(), 5);
+assert_eq(instance.get_other_prop(), 5000);
+
+slint_testing::mock_elapsed_time(50); // In delay
+assert_eq(instance.get_text1_foo(), 11);
+assert_eq(instance.get_some_prop(), 5);
+assert_eq(instance.get_other_prop(), 5000);
+
+slint_testing::mock_elapsed_time(50); // some: in delay, other: end of delay
+assert_eq(instance.get_text1_foo(), 11);
+assert_eq(instance.get_some_prop(), 5);
+assert_eq(instance.get_other_prop(), 5000);
+
+slint_testing::mock_elapsed_time(50); // some: in delay, other: in play for 50ms [150ms]
+assert_eq(instance.get_text1_foo(), 11);
+assert_eq(instance.get_some_prop(), 5);
+assert(instance.get_other_prop() < 4760); // should be 4750
+assert(instance.get_other_prop() > 4740);
+
+slint_testing::mock_elapsed_time(800); // some: in delay, other: in play for 850ms [950ms]
+assert_eq(instance.get_text1_foo(), 11);
+assert_eq(instance.get_some_prop(), 5);
+assert(instance.get_other_prop() < 760); // should be 750
+assert(instance.get_other_prop() > 740);
+
+slint_testing::mock_elapsed_time(160); // some: in delay, other: ended [111ßms]
+assert_eq(instance.get_text1_foo(), 11);
+assert_eq(instance.get_some_prop(), 5);
+assert_eq(instance.get_other_prop(), 0);
+
+slint_testing::mock_elapsed_time(3840); // some: in delay, other: ended [4950ms]
+assert_eq(instance.get_text1_foo(), 11);
+assert_eq(instance.get_some_prop(), 5);
+assert_eq(instance.get_other_prop(), 0);
+
+slint_testing::mock_elapsed_time(60); // some: in play for 10ms, other: ended [5010ms]
+assert_eq(instance.get_text1_foo(), 11);
+assert(instance.get_some_prop() > 202); // should be 204,5
+assert(instance.get_some_prop() < 207);
+assert_eq(instance.get_other_prop(), 0);
+
+slint_testing::mock_elapsed_time(100); // some: ended, other: ended [5110ms]
+assert_eq(instance.get_text1_foo(), 11);
+assert_eq(instance.get_some_prop(), 2000);
+assert_eq(instance.get_other_prop(), 0);
+
+instance.set_active_index(2);
+assert_eq(instance.get_text1_foo(), 11);
+assert_eq(instance.get_some_prop(), 5);
+assert_eq(instance.get_other_prop(), 5000);
+
+slint_testing::mock_elapsed_time(50); // In delay
+assert_eq(instance.get_text1_foo(), 11);
+assert_eq(instance.get_some_prop(), 5);
+assert_eq(instance.get_other_prop(), 5000);
+
+slint_testing::mock_elapsed_time(440);
+assert(instance.get_text1_foo() > 70);
+assert(instance.get_text1_foo() < 87);
+assert_eq(instance.get_some_prop(), 5);
+assert_eq(instance.get_other_prop(), 5000);
+
+slint_testing::mock_elapsed_time(30);
+assert_eq(instance.get_text1_foo(), 85 + 4);
+assert_eq(instance.get_some_prop(), 5);
+assert_eq(instance.get_other_prop(), 5000);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.text1_foo, 85 + 4);
+assert.equal(instance.some_prop, 5);
+assert.equal(instance.other_prop, 5000);
+
+instance.active_index = 1;
+assert.equal(instance.text1_foo, 11);
+assert.equal(instance.some_prop, 5);
+assert.equal(instance.other_prop, 5000);
+
+slintlib.private_api.mock_elapsed_time(50); // In delay
+assert.equal(instance.text1_foo, 11);
+assert.equal(instance.some_prop, 5);
+assert.equal(instance.other_prop, 5000);
+
+slintlib.private_api.mock_elapsed_time(50); // some: in delay, other: end of delay
+assert.equal(instance.text1_foo, 11);
+assert.equal(instance.some_prop, 5);
+assert.equal(instance.other_prop, 5000);
+
+slintlib.private_api.mock_elapsed_time(50); // some: in delay, other: in play for 50ms [150ms]
+assert.equal(instance.text1_foo, 11);
+assert.equal(instance.some_prop, 5);
+assert(instance.other_prop < 4760); // should be 4750
+assert(instance.other_prop > 4740);
+
+slintlib.private_api.mock_elapsed_time(800); // some: in delay, other: in play for 850ms [950ms]
+assert.equal(instance.text1_foo, 11);
+assert.equal(instance.some_prop, 5);
+assert(instance.other_prop < 760); // should be 750
+assert(instance.other_prop > 740);
+
+slintlib.private_api.mock_elapsed_time(160); // some: in delay, other: ended [111ßms]
+assert.equal(instance.text1_foo, 11);
+assert.equal(instance.some_prop, 5);
+assert.equal(instance.other_prop, 0);
+
+slintlib.private_api.mock_elapsed_time(3840); // some: in delay, other: ended [4950ms]
+assert.equal(instance.text1_foo, 11);
+assert.equal(instance.some_prop, 5);
+assert.equal(instance.other_prop, 0);
+
+slintlib.private_api.mock_elapsed_time(60); // some: in play for 10ms, other: ended [5010ms]
+assert.equal(instance.text1_foo, 11);
+assert(instance.some_prop > 202); // should be 204,5
+assert(instance.some_prop < 207);
+assert.equal(instance.other_prop, 0);
+
+slintlib.private_api.mock_elapsed_time(100); // some: ended, other: ended [5110ms]
+assert.equal(instance.text1_foo, 11);
+assert.equal(instance.some_prop, 2000);
+assert.equal(instance.other_prop, 0);
+
+instance.active_index = 2;
+assert.equal(instance.text1_foo, 11);
+assert.equal(instance.some_prop, 5);
+assert.equal(instance.other_prop, 5000);
+
+slintlib.private_api.mock_elapsed_time(50); // In delay
+assert.equal(instance.text1_foo, 11);
+assert.equal(instance.some_prop, 5);
+assert.equal(instance.other_prop, 5000);
+
+slintlib.private_api.mock_elapsed_time(440);
+assert(instance.text1_foo > 70);
+assert(instance.text1_foo < 87);
+assert.equal(instance.some_prop, 5);
+assert.equal(instance.other_prop, 5000);
+
+slintlib.private_api.mock_elapsed_time(30);
+assert.equal(instance.text1_foo, 85 + 4);
+assert.equal(instance.some_prop, 5);
+assert.equal(instance.other_prop, 5000);
+```
+
+*/

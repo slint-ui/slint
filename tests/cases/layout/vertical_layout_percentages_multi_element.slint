@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The spacing and the padding must be considered for the determination of the height of the elements
+
+import { HorizontalBox } from "std-widgets.slint";
+export component TestCase inherits Window {
+    preferred-width: 300px;
+    preferred-height: 300px;
+
+    layout:= VerticalLayout {
+        spacing: 10px; // Between elements
+        padding: 7px;
+        rect:= Rectangle {
+            height: 50%;
+            background: red;
+        }
+
+        rect2:= Rectangle {
+            height: 50%;
+            background: blue;
+        }
+    }
+
+    out property <bool> check_spacing: layout.spacing > 0;
+    out property <bool> check_padding: layout.padding > 0;
+    out property <bool> check_x: rect.x == layout.x + layout.padding;
+    out property <bool> check_y: rect.y == layout.y + layout.padding;
+    out property <bool> check_width: rect.width == root.width - 2 * layout.padding;
+    out property <bool> check_height: rect.height + rect2.height + 2* layout.padding + layout.spacing == root.height;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_check_spacing());
+assert(instance.get_check_padding());
+assert(instance.get_check_x());
+assert(instance.get_check_y());
+assert(instance.get_check_width());
+assert(instance.get_check_height());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_check_spacing());
+assert!(instance.get_check_padding());
+assert!(instance.get_check_x());
+assert!(instance.get_check_y());
+assert!(instance.get_check_width());
+assert!(instance.get_check_height());
+```
+
+
+```js
+var instance = new slint.TestCase();
+assert(instance.check_spacing);
+assert(instance.check_padding);
+assert(instance.check_x);
+assert(instance.check_y);
+assert(instance.check_width);
+assert(instance.check_height);
+```
+*/

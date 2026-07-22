@@ -1,0 +1,48 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "slint-compiler"
+description = "Slint compiler binary"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[[bin]]
+name = "slint-compiler"
+path = "main.rs"
+
+[features]
+renderer-software = ["i-slint-compiler/renderer-software"]
+image-default-formats = ["i-slint-compiler/image-default-formats"]
+jemalloc = ["dep:tikv-jemallocator"]
+sdf-fonts = ["renderer-software", "i-slint-compiler/sdf-fonts"]
+fontconfig-dlopen = ["i-slint-common/fontconfig-dlopen"]
+
+# Code generators and translation support
+bundle-translations = ["i-slint-compiler/bundle-translations"]
+cpp = ["i-slint-compiler/cpp"]
+rust = ["i-slint-compiler/rust"]
+python = ["i-slint-compiler/python"]
+# Safety-critical subset
+slint-sc = ["i-slint-compiler/slint-sc"]
+
+# Keep defaults in sync with defaults applied in api/cpp/CMakeLists.txt for slint-compiler
+default = ["renderer-software", "image-default-formats", "jemalloc", "bundle-translations", "cpp", "rust", "python"]
+
+[dependencies]
+i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics"] }
+i-slint-common = { workspace = true }
+
+clap = { workspace = true }
+proc-macro2 = "1.0.11"
+spin_on = { workspace = true }
+itertools = { workspace = true }
+
+[target.'cfg(not(any(target_os = "openbsd", target_os = "windows", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
+tikv-jemallocator = { workspace = true, optional = true }

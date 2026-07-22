@@ -1,0 +1,76 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+
+
+export component TestCase inherits Rectangle {
+    width: 100phx;
+    height: 100phx;
+
+    in-out property<length> xx: 50phx;
+    in-out property<length> ww <=> first.width;
+
+    first := TouchArea {
+        y:0;
+        x <=> parent.xx;
+        width: 50phx;
+        enabled <=> second.enabled;
+        height: 15phx;
+        clicked => { result += 40; }
+    }
+
+    second := TouchArea {
+        x <=> parent.xx;
+        width <=> ww;
+        height <=> first.height;
+        clicked => { result += 300; }
+        y: 50phx;
+    }
+
+    in-out property <int> result: 5;
+}
+
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 70., 5.);
+slint_testing::send_mouse_click(&instance, 85., 55.);
+assert_eq!(instance.get_result(), 345);
+instance.set_xx(0.);
+slint_testing::send_mouse_click(&instance, 5., 10.);
+slint_testing::send_mouse_click(&instance, 5., 60.);
+assert_eq!(instance.get_result(), 685);
+
+```
+
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 70., 5.);
+slint_testing::send_mouse_click(&instance, 85., 55.);
+assert_eq(instance.get_result(), 345);
+instance.set_xx(0.);
+slint_testing::send_mouse_click(&instance, 5., 10.);
+slint_testing::send_mouse_click(&instance, 5., 60.);
+assert_eq(instance.get_result(), 685);
+```
+
+
+```js
+let instance = new slint.TestCase({});
+slintlib.private_api.send_mouse_click(instance, 70., 5.);
+slintlib.private_api.send_mouse_click(instance, 85., 55.);
+assert.equal(instance.result, 345);
+instance.xx = 0;
+slintlib.private_api.send_mouse_click(instance, 5., 10.);
+slintlib.private_api.send_mouse_click(instance, 5., 60.);
+assert.equal(instance.result, 685);
+```
+
+*/

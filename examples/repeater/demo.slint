@@ -1,0 +1,56 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { ComboBox } from "std-widgets.slint";
+component WaveImage {
+    in property <length> screen-width;
+    in property <length> wave-period: 1000px;
+    in property <length> wave-size: 50px;
+    in property <length> start-x: 0px;
+    in property <duration> random-duration: 0ms;
+    in property <float> scale: 1;
+    property <duration> baseDuration: 1s;
+    property <duration> total-duration: (baseDuration + random-duration);
+    property <length> total-distance: (screen-width + 150px) + start-x.abs();
+
+    // This will start the item off screen and move it to the right. Then loop back.
+    x: -(start-x + 90px) + (total-distance * (animation-tick() / total-duration)).mod(total-distance);
+
+    Image {
+        y: sin(360deg * (root.x / wave-period) ) * wave-size;
+        source: @image-url("../../logo/slint-logo-small-light.png");
+        width: self.source.width * scale * 1px;
+        height: self.source.height * scale * 1px;
+        colorize: #2479f4.mix(white, 1-(scale - 0.3 ));
+    }
+}
+
+export component AppWindow inherits Window {
+    property <[int]> logo-model: [10, 50, 100, 200, 500 ];
+
+    preferred-height: 600px;
+    preferred-width: 1000px;
+
+    // pseudo-random function
+    function random(seed: int) -> float {
+        return (115249 * (seed + 196) * seed).mod(25117) / 25117;
+    }
+
+    cb := ComboBox {
+        x: 10px;
+        y: 10px;
+        model: [10, 50, 100, 200, 500];
+        current-index: 1;
+    }
+
+    // Set up each logo image with random properties
+    for i in logo-model[cb.current-index] : WaveImage {
+        y: root.height * random(i + 1);
+        screen-width: root.width;
+        random-duration: 5000ms + 10000ms * random(i + 20);
+        wave-period: 800px + 200px * random(i);
+        start-x: root.width * random(i);
+        scale: 0.3 + 0.7 * random(i + 5);
+        wave-size: 50px + 50px * random(i + 6);
+    }
+
+}

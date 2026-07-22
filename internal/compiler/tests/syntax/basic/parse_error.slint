@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export SuperSimple := Rectangle {
+//                 ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+    88;
+//  ><error{Parse error}
+    * / - + // no error there as this is already reported in the previous line
+    foo := Rectangle {
+        background: blue + 3
+        x: 45phx;
+//      ^error{Syntax error: expected ';'}
+// FIXME: would be nice if the semicolon error was on the previous line
+    }
+
+    there was already parse error in this scope, so no more
+
+    property <string> xyz = 425;
+//                        ^error{Syntax error: expected ';'}
+
+    Image {
+        * .
+//      ^error{Parse error}
+    }
+  };
+// ^error{Extra semicolon. Remove this semicolon}
+
+struct F {};
+//         ^error{Extra semicolon. Remove this semicolon}
+
+export {F};
+//        ^error{Extra semicolon. Remove this semicolon}

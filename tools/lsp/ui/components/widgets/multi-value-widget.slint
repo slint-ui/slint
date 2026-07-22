@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ChildIndicator, NameLabel, ResettingLineEdit } from "./basics.slint";
+
+import { PropertyValue, PreviewData } from "../../api.slint";
+import { EditorSizeSettings, EditorSpaceSettings } from "../../components/styling.slint";
+
+import { Button } from "std-widgets.slint";
+
+export component MultiValueWidget inherits GridLayout {
+    in property <bool> enabled;
+    in property <PropertyValue> property-value;
+    in property <PreviewData> preview-data;
+    in property <string> property-group-id;
+
+    callback edit-in-table-editor(property-group-id: string, data: PreviewData);
+
+    Row {
+        ChildIndicator {
+            horizontal-stretch: 0;
+            visible: false;
+        }
+
+        Button {
+            text: preview-data.has-setter ? @tr("Edit") : @tr("View");
+            clicked => {
+                root.edit-in-table-editor(root.property-group-id, root.preview-data);
+            }
+        }
+    }
+}

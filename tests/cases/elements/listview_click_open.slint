@@ -1,0 +1,78 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView } from "std-widgets.slint";
+
+component Item inherits Text {
+    in-out property <int> index;
+    text: "I'm item #" + index;
+    Rectangle {
+        border-width: 1px;
+        border-color: red;
+    }
+}
+
+export component TestCase inherits Window {
+    width:  300phx;
+    height: 300phx;
+
+    in-out property <int> last_clicked: -1;
+
+    in-out property <length> item-height: 25phx;
+    in-out property <length> listview-y <=> lv.viewport_y;
+
+    lv := ListView {
+        for i in 200: r := Item {
+            index: i;
+            height: item-height;
+            property <bool> open;
+            HorizontalLayout {
+                TouchArea {
+                    clicked => {
+                        if (open) {
+                            r.height = item-height;
+                            open = false;
+                        } else {
+                            lv.viewport_y = -r.y;
+                            r.height = lv.visible-height;
+                            open = true;
+                        }
+                    }
+                }
+                TouchArea {
+                    clicked => {
+                        root.last-clicked = i;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+// Open the item 6
+slint_testing::send_mouse_click(&instance, 50., 25. * 6. + 10.);
+slint_testing::send_mouse_click(&instance, 250., 10.);
+assert_eq!(instance.get_last_clicked(), 6);
+instance.set_last_clicked(-1);
+slint_testing::send_mouse_click(&instance, 250., 270.);
+assert_eq!(instance.get_last_clicked(), 6);
+
+// Close the item 6
+slint_testing::send_mouse_click(&instance, 50., 160.);
+// Item 6 should stay the first, so in position 3 we have the 9th item
+slint_testing::send_mouse_click(&instance, 250., 25. * 3. + 10.);
+assert_eq!(instance.get_last_clicked(), 9);
+
+// Open the 10th item (position 4)
+slint_testing::send_mouse_click(&instance, 50., 25. * 4. + 10.);
+slint_testing::send_mouse_click(&instance, 250., 10.);
+assert_eq!(instance.get_last_clicked(), 10);
+instance.set_last_clicked(-1);
+slint_testing::send_mouse_click(&instance, 250., 270.);
+assert_eq!(instance.get_last_clicked(), 10);
+```
+*/

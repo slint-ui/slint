@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    in-out property<bool> condition;
+    in-out property<color> extra_color;
+    background: condition ? extra_color : red;
+    in-out property<string> s1 : condition ? "abc" : 123;
+    in-out property<string> s2 : condition ? 123 : "abc";
+
+    in-out property <bool> test: s1 == "123" && s2 == "abc";
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.set_condition(true);
+assert_eq(instance.get_s1(), "abc");
+assert_eq(instance.get_s2(), "123");
+instance.set_condition(false);
+assert_eq(instance.get_s2(), "abc");
+assert_eq(instance.get_s1(), "123");
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.set_condition(true);
+assert_eq!(instance.get_s1(), "abc");
+assert_eq!(instance.get_s2(), "123");
+instance.set_condition(false);
+assert_eq!(instance.get_s2(), "abc");
+assert_eq!(instance.get_s1(), "123");
+```
+
+```js
+var instance = new slint.TestCase({});
+instance.condition = true;
+assert.equal(instance.s1, "abc");
+assert.equal(instance.s2, "123");
+instance.condition = false;
+assert.equal(instance.s1, "123");
+assert.equal(instance.s2, "abc");
+```
+*/

@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { MainScreen } from "components/mainView/mainScreen.slint";
+import { AppState } from "appState.slint";
+import { Api } from "api.slint";
+
+export { Api }
+
+// Running the demo with this file will run it in both portrait and with a UI designed
+// for the Slint software renderer backend.
+export component AppWindow inherits Window {
+    preferred-height: 1024px;
+    preferred-width: 600px;
+
+    MainScreen {
+        door-component-loaded: false;
+        initial-door-state: open;
+    }
+
+    init => {
+        AppState.graphics-accelerator-available = false;
+    }
+
+}

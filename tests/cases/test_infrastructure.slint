@@ -1,0 +1,88 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase { }
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// Check time mocking without event delivery happening:
+auto start_time = slint_testing::get_mocked_time();
+slint_testing::mock_elapsed_time(512);
+assert(slint_testing::get_mocked_time() == start_time + 512);
+slint_testing::mock_elapsed_time(10333);
+auto pre_event1_time = slint_testing::get_mocked_time();
+assert_eq(pre_event1_time, start_time + 512 + 10333);
+
+// Test that the first mouse event keeps time consistent
+slint_testing::send_mouse_click(&instance, 5., 5.);
+auto post_event1_time = slint_testing::get_mocked_time();
+assert(post_event1_time >= pre_event1_time && post_event1_time < pre_event1_time + 100); // allow for a bit of time for event handling...
+
+// Test that a second mouse event keeps time consistent
+slint_testing::send_mouse_click(&instance, 5., 5.);
+auto post_event2_time = slint_testing::get_mocked_time();
+assert(post_event2_time >= post_event1_time && post_event2_time < post_event1_time + 100);
+
+// Test that mocking works after mouse event delivery:
+slint_testing::mock_elapsed_time(500000);
+auto pre_event3_time = slint_testing::get_mocked_time();
+assert(pre_event3_time == post_event2_time + 500000);
+
+// Test that a new event does not break the mocked time again
+slint_testing::send_mouse_click(&instance, 5., 5.);
+auto post_event3_time = slint_testing::get_mocked_time();
+assert(post_event3_time >= pre_event3_time && post_event3_time <= pre_event3_time + 100);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+
+// Check time mocking without event delivery happening:
+let start_time = slint_testing::get_mocked_time();
+slint_testing::mock_elapsed_time(512);
+assert_eq!(slint_testing::get_mocked_time(), start_time + 512, "Mocked time is wrong");
+slint_testing::mock_elapsed_time(10333);
+let pre_event1_time = slint_testing::get_mocked_time();
+assert_eq!(pre_event1_time, start_time + 512 + 10333);
+
+// Test that the first mouse event keeps time consistent
+slint_testing::send_mouse_click(&instance, 5., 5.);
+let post_event1_time = slint_testing::get_mocked_time();
+assert!(post_event1_time >= pre_event1_time && post_event1_time < pre_event1_time + 100); // allow for a bit of time for event handling...
+
+// Test that a second mouse event keeps time consistent
+slint_testing::send_mouse_click(&instance, 5., 5.);
+let post_event2_time = slint_testing::get_mocked_time();
+assert!(post_event2_time >= post_event1_time && post_event2_time < post_event1_time + 100);
+
+// Test that mocking works after mouse event delivery:
+slint_testing::mock_elapsed_time(500000);
+let pre_event3_time = slint_testing::get_mocked_time();
+assert_eq!(pre_event3_time, post_event2_time + 500000);
+
+// Test that a new event does not break the mocked time again
+slint_testing::send_mouse_click(&instance, 5., 5.);
+let post_event3_time = slint_testing::get_mocked_time();
+assert!(post_event3_time >= pre_event3_time && post_event3_time <= pre_event3_time + 100);
+```
+
+```js
+var instance = new slint.TestCase({});
+
+let start_time = slintlib.private_api.get_mocked_time();
+slintlib.private_api.mock_elapsed_time(512);
+assert(slintlib.private_api.get_mocked_time() == start_time + 512);
+slintlib.private_api.mock_elapsed_time(122);
+assert(slintlib.private_api.get_mocked_time() == start_time + 512 + 122);
+slintlib.private_api.mock_elapsed_time(10333);
+assert(slintlib.private_api.get_mocked_time() == start_time + 512 + 122 + 10333);
+
+// FIXME: Sending a mouse event undoes the mock_elapsed_time calls on Node at this time!
+// slintlib.private_api.send_mouse_click(instance, 5., 5.);
+// assert(slintlib.private_api.get_mocked_time() == start_time + 512 + 122 + 10333);
+```
+
+*/

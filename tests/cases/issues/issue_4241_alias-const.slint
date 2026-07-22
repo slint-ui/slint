@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export component SpinBoxBase {
+    in-out property <int> value;
+}
+
+
+export component SpinBox {
+    in-out property <int> value <=> i-base.value;
+    i-base := SpinBoxBase {
+        width: 100%;
+    }
+    TouchArea {
+        clicked => {
+            i-base.value += 1;
+        }
+    }
+}
+
+
+export component TestCase {
+    width: 100px;
+    height: 100px;
+    trials:=SpinBox {
+        value: 5;
+        width: 100%;
+        height: 100%;
+    }
+    t:=Text {
+        text: "Value: "+ trials.value;
+    }
+    out property <string> val: t.text;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_val(), "Value: 5");
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_val(), "Value: 6");
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_val(), "Value: 5");
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_val(), "Value: 6");
+```
+
+```js
+var instance = new slint.TestCase();
+
+assert.equal(instance.val, "Value: 5");
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.val, "Value: 6");
+```
+*/

@@ -1,0 +1,13 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[project]
+name = "python"
+version = "1.14.0"
+description = "Slint Stock Ticker Example for Python"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["aiohttp>=3.12.15", "slint"]
+
+[tool.uv.sources]
+slint = { path = "../../api/python/slint", editable = true }

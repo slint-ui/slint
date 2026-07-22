@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that the
+
+global SomeGlobal  {
+    in-out property <string> intermediate_alias <=> root.intermediate_prop;
+    in-out property <string> intermediate_prop;
+    in-out property <string> text: root.intermediate_prop;
+}
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 100phx;
+    VerticalLayout {
+        padding: 0;
+        spacing: 0;
+        ti := TextInput {
+            property <string> foo <=> SomeGlobal.intermediate_alias;
+            text <=> self.foo;
+            property <bool> bar <=> self.has_focus;
+
+        }
+        t := Text {
+            text <=> SomeGlobal.text;
+        }
+        Rectangle { }
+    }
+
+    in-out property <string> text <=> t.text;
+    in-out property <bool> input_focused: ti.bar;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert!(instance.get_input_focused());
+assert_eq!(instance.get_text(), "");
+slint_testing::send_keyboard_string_sequence(&instance, "Hallo");
+assert_eq!(instance.get_text(), "Hallo");
+```
+*/

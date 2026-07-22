@@ -1,0 +1,108 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { WeatherInfo, WeatherForecastInfo, CityWeatherInfo, CityWeather } from "weather_datatypes.slint";
+import { WindowInfo } from "./ui_utils.slint";
+import { AppPalette } from "./style/styles.slint";
+import { AppText } from "./controls/generic.slint";
+import { WeatherIcon } from "./controls/weather.slint";
+import { DayForecastGraph } from "./forecast_with_graph.slint";
+
+component TileBaseInfo inherits HorizontalLayout {
+    in property<string> city-name;
+    in property<WeatherInfo> current-weather;
+
+    spacing: 15px;
+
+    AppText {
+        font-size: 2.1rem;
+        text: root.city-name;
+    }
+
+    VerticalLayout {
+        horizontal-stretch: 1;
+        alignment: start;
+
+        AppText {
+            min-width: self.preferred-width;
+            font-size: 1.8rem;
+            horizontal-alignment: right;
+
+            text: Math.round(root.current-weather.current_temp) + "°";
+        }
+
+        AppText {
+            font-size: 1.2rem;
+            horizontal-alignment: right;
+
+            text: root.current-weather.description;
+            wrap: word-wrap;
+        }
+    }
+
+    WeatherIcon {
+        icon-type: root.current-weather.icon-type;
+
+        font-size: 3.5rem;
+        vertical-alignment: top;
+    }
+}
+
+export component CityWeatherTile inherits TouchArea {
+    in property<CityWeatherInfo> city-weather-info;
+    in property<bool> alternative-background: false;
+    in property <bool> show-animations: true;
+
+    out property<string> city-name: city-weather-info.city-name;
+    out property<WeatherInfo> current-weather: city-weather-info.current-weather;
+    out property<[WeatherForecastInfo]> forecast-weather: city-weather-info.forecast-weather;
+
+    preferred-height: layout.preferred-height;
+
+    Rectangle {
+        background: root.alternative-background ? white.with-alpha(2.5%) : white.with-alpha(8.5%);
+    }
+
+    layout := VerticalLayout {
+        padding: 15px;
+        spacing: 10px;
+
+        if WindowInfo.is-portrait: VerticalLayout {
+            vertical-stretch: 0;
+            spacing: parent.spacing;
+
+            TileBaseInfo {
+                city-name: root.city-name;
+                current-weather: root.current-weather;
+            }
+
+            DayForecastGraph {
+                min-height: self.preferred-height;
+
+                forecast-weather: root.forecast-weather;
+                show-animations: root.show-animations;
+            }
+        }
+        if !WindowInfo.is-portrait: HorizontalLayout {
+            spacing: 5% * self.width;
+
+            TileBaseInfo {
+                horizontal-stretch: 1;
+                max-width: parent.width * 40%;
+                height: self.preferred-height;
+
+                city-name: root.city-name;
+                current-weather: root.current-weather;
+            }
+
+            Rectangle {
+                min-height: self.preferred-height;
+
+                DayForecastGraph {
+                    forecast-weather: root.forecast-weather;
+                    show-animations: root.show-animations;
+                }
+            }
+        }
+    }
+}

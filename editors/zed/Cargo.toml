@@ -1,0 +1,17 @@
+# Copyright © Luke. D Jones <luke@ljones.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "zed_slint"
+version = "1.18.0"
+edition.workspace = true
+publish = false
+license = "MIT"
+
+[dependencies]
+# Don't update: a newer extension API requires a newer Zed.
+zed_extension_api = "0.6.0"
+
+[lib]
+path = "src/slint.rs"
+crate-type = ["cdylib"]

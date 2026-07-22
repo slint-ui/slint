@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioButtonImplBase, RadioGroupImplBase } from "../common/radiogroup-base.slint";
+
+export component RadioButtonImpl inherits RadioButtonImplBase {
+    private property <brush> dot-color: root.checked ? #2f78ff : transparent;
+
+    min-height: max(28px, layout.min-height);
+
+    states [
+        disabled when !root.enabled || !root.group-enabled: {
+            layout.opacity: 0.5;
+        }
+        pressed when root.pressed: {
+            root.dot-color: root.checked ? #205ed8 : #d0d0d0;
+        }
+    ]
+
+    animate dot-color { duration: 120ms; }
+
+    layout := HorizontalLayout {
+        spacing: 8px;
+
+        Rectangle {
+            width: 16px;
+            height: self.width;
+            y: (parent.height - self.height) / 2;
+            border-radius: self.width / 2;
+            border-width: 1px;
+            border-color: #7a7a7a;
+            background: #f7f7f7;
+
+            Rectangle {
+                width: 8px;
+                height: self.width;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                border-radius: self.width / 2;
+                background: root.dot-color;
+            }
+        }
+
+        if root.text != "": Text {
+            text: root.text;
+            color: #202020;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+
+    if root.has-focus && root.enabled && root.group-enabled: Rectangle {
+        x: -2px;
+        y: -2px;
+        width: parent.width + 4px;
+        height: parent.height + 4px;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: #2f78ff;
+    }
+}
+
+export component RadioGroupImpl inherits RadioGroupImplBase {
+    title-color: root.enabled ? #202020 : #808080;
+}
+
+export component RadioGroup inherits RadioGroup { }

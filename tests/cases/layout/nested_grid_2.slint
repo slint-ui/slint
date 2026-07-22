@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    width: 300phx;
+    height: 300phx;
+
+    GridLayout {
+        padding: 0phx;
+        spacing: 0phx;
+
+        Row {
+            Rectangle {
+                background: orange;
+            }
+        }
+        Row {
+            rect1 := Rectangle {
+                background: red;
+                GridLayout {
+                    padding: 0phx;
+                    spacing: 10px;
+                    Row {
+                        rect2 := Rectangle {
+                            background: green;
+                            max_width: 50phx;
+                            max_height: 50phx;
+                        }
+                        rect3 := Rectangle {
+                            background: black;
+                        }
+                    }
+                }
+            }
+            rect4 := Rectangle {
+                background: blue;
+            }
+        }
+    }
+
+    out property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 250phx && rect1.width == 155phx && rect1.height == 50phx;
+    out property <bool> rect2_pos_ok: rect2.x == 0phx && rect2.y == 0phx && rect2.width == 50phx && rect2.height == 50phx;
+    out property <bool> rect3_pos_ok: rect3.x == 60phx && rect3.y == 0phx && rect3.width == 95phx && rect3.height == 50phx;
+    out property <bool> rect4_pos_ok: rect4.x == 155phx && rect4.y == 250phx && rect4.width == 145phx && rect4.height == 50phx;
+
+    out property <bool> test: rect1_pos_ok && rect2_pos_ok && rect3_pos_ok && rect4_pos_ok;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_rect1_pos_ok());
+assert(instance.get_rect2_pos_ok());
+assert(instance.get_rect3_pos_ok());
+assert(instance.get_rect4_pos_ok());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_rect1_pos_ok());
+assert!(instance.get_rect2_pos_ok());
+assert!(instance.get_rect3_pos_ok());
+assert!(instance.get_rect4_pos_ok());
+```
+
+*/

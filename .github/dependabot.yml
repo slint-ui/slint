@@ -1,0 +1,54 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Please see the documentation for all configuration options:
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    open-pull-requests-limit: 20
+    directory: /
+    schedule:
+      interval: weekly
+      time: "01:00"
+    groups:
+      github-actions:
+        patterns:
+          - "*"  # Group all Actions updates into a single larger pull request
+    ignore:
+      - dependency-name: "lukka/run-cmake"
+
+
+  - package-ecosystem: "npm" # See documentation for possible values
+    open-pull-requests-limit: 20
+    directory: "/" # Location of package manifests
+    schedule:
+      interval: "weekly"
+      time: "01:00"
+    ignore:
+      - dependency-name: "@types/node"
+      - dependency-name: "@types/vscode"
+      - dependency-name: "@codingame/monaco-vscode-configuration-service-override"
+      - dependency-name: "@codingame/monaco-vscode-files-service-override"
+      - dependency-name: "@codingame/monaco-vscode-keybindings-service-override"
+      - dependency-name: "@codingame/monaco-vscode-languages-service-override"
+      - dependency-name: "@codingame/monaco-vscode-model-service-override"
+      - dependency-name: "@codingame/monaco-vscode-storage-service-override"
+      - dependency-name: "@codingame/monaco-vscode-api"
+      - dependency-name: "@codingame/monaco-vscode-editor-api"
+      - dependency-name: "@codingame/monaco-vscode-editor-service-override"
+      - dependency-name: "monaco-editor-wrapper"
+      - dependency-name: "monaco-languageclient"
+      - dependency-name: "vscode-languageserver"
+      - dependency-name: "vscode-languageclient"
+      - dependency-name: "js-yaml"
+      - dependency-name: "tailwindcss"
+
+    groups:
+      npm-major-updates:
+        update-types: ["major"]
+      npm-minor-updates:
+        update-types: ["minor"]
+      npm-patch-updates:
+        update-types: ["patch"]

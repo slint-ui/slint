@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+   width: 100px;
+   height: 100px;
+   in-out property<int> niceness: 33;
+   greeting := TouchArea {
+       clicked => { niceness += 1; }
+       t:= Text {
+           x:0;y:0;
+           text: "Hello world";
+       }
+
+       states [
+            rude when niceness <= 0: {visible: false;}
+            mannered when niceness > 100: {t.text: "Hello, dearest world"; t.font-size: 32px;}
+       ]
+   }
+
+   in-out property <bool> test: greeting.visible;
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_niceness(), 34);
+
+instance.set_niceness(-1);
+assert(!instance.get_test());
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_niceness(), -1);
+
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_niceness(), 34);
+
+instance.set_niceness(-1);
+assert!(!instance.get_test());
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_niceness(), -1);
+```
+
+
+*/

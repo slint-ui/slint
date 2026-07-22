@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export global G {
+    in-out property <int> dummy;
+
+    callback do-something(val: string);
+    do-something(val) => {
+        result += val;
+    }
+    callback do-something-else() -> bool;
+    in-out property <string> result;
+}
+
+export component TestCase inherits Window {
+
+    callback cal1();
+    cal1 => {
+        if G.dummy == 0 {
+            G.do-something("cal");
+        } else {
+            G.do-something-else();
+        }
+    }
+
+    callback cal2() -> int;
+    cal2 => {
+        if G.dummy == 1 {
+            G.do-something("***");
+        } else if G.dummy == 2 {
+            G.do-something-else();
+        } else {
+            return 1;
+        }
+
+        2
+    }
+
+    init => {
+        cal1();
+        G.result += cal2();
+    }
+    in-out property <bool> test: G.result == "cal1";
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/
+
+

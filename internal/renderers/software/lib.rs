@@ -1,0 +1,3472 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore frontmost
+#![doc = include_str!("README.md")]
+#![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![deny(unsafe_code)]
+#![cfg_attr(slint_nightly_test, feature(non_exhaustive_omitted_patterns_lint))]
+#![cfg_attr(slint_nightly_test, warn(non_exhaustive_omitted_patterns))]
+#![no_std]
+#![warn(missing_docs)]
+
+extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std;
+
+mod draw_functions;
+mod fixed;
+mod fonts;
+mod minimal_software_window;
+#[cfg(feature = "path")]
+mod path;
+mod scene;
+
+use self::fonts::GlyphRenderer;
+pub use self::minimal_software_window::MinimalSoftwareWindow;
+use self::scene::*;
+use alloc::rc::{Rc, Weak};
+use alloc::vec::Vec;
+use core::cell::{Cell, RefCell};
+use core::pin::Pin;
+use euclid::Length;
+use fixed::Fixed;
+use i_slint_core::api::PlatformError;
+use i_slint_core::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
+use i_slint_core::graphics::{BorderRadius, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::item_rendering::HasFont;
+use i_slint_core::item_rendering::{
+    CachedRenderingData, ItemRenderer, PlainOrStyledText, RenderBorderRectangle, RenderImage,
+    RenderRectangle,
+};
+use i_slint_core::item_tree::ItemTreeWeak;
+use i_slint_core::items::{ItemRc, TextOverflow, TextWrap};
+use i_slint_core::lengths::{
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    PhysicalPx, PointLengths, RectLengths, ScaleFactor, SizeLengths,
+};
+use i_slint_core::partial_renderer::{DirtyRegion, PartialRenderingState};
+use i_slint_core::renderer::RendererSealed;
+use i_slint_core::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
+use i_slint_core::window::{WindowAdapter, WindowInner};
+use i_slint_core::{Brush, Color, ImageInner, StaticTextures};
+#[allow(unused)]
+use num_traits::Float;
+use num_traits::NumCast;
+
+pub use draw_functions::{PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel};
+
+type PhysicalLength = euclid::Length<i16, PhysicalPx>;
+type PhysicalRect = euclid::Rect<i16, PhysicalPx>;
+type PhysicalSize = euclid::Size2D<i16, PhysicalPx>;
+type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
+type PhysicalBorderRadius = BorderRadius<i16, PhysicalPx>;
+
+pub use i_slint_core::partial_renderer::RepaintBufferType;
+
+/// This enum describes the rotation that should be applied to the contents rendered by the software renderer.
+///
+/// Argument to be passed in [`SoftwareRenderer::set_rendering_rotation`].
+#[non_exhaustive]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
+pub enum RenderingRotation {
+    /// No rotation
+    #[default]
+    NoRotation,
+    /// Rotate 90° to the right
+    Rotate90,
+    /// 180° rotation (upside-down)
+    Rotate180,
+    /// Rotate 90° to the left
+    Rotate270,
+}
+
+impl RenderingRotation {
+    fn is_transpose(self) -> bool {
+        matches!(self, Self::Rotate90 | Self::Rotate270)
+    }
+    fn mirror_width(self) -> bool {
+        matches!(self, Self::Rotate270 | Self::Rotate180)
+    }
+    fn mirror_height(self) -> bool {
+        matches!(self, Self::Rotate90 | Self::Rotate180)
+    }
+    /// Angle of the rotation in degrees
+    pub fn angle(self) -> f32 {
+        match self {
+            RenderingRotation::NoRotation => 0.,
+            RenderingRotation::Rotate90 => 90.,
+            RenderingRotation::Rotate180 => 180.,
+            RenderingRotation::Rotate270 => 270.,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+struct RotationInfo {
+    orientation: RenderingRotation,
+    screen_size: PhysicalSize,
+}
+
+/// Extension trait for euclid type to transpose coordinates (swap x and y, as well as width and height)
+trait Transform {
+    /// Return a copy of Self whose coordinate are swapped (x swapped with y)
+    #[must_use]
+    fn transformed(self, info: RotationInfo) -> Self;
+}
+
+impl<T: Copy + NumCast + core::ops::Sub<Output = T>> Transform for euclid::Point2D<T, PhysicalPx> {
+    fn transformed(mut self, info: RotationInfo) -> Self {
+        if info.orientation.mirror_width() {
+            self.x = T::from(info.screen_size.width).unwrap() - self.x - T::from(1).unwrap()
+        }
+        if info.orientation.mirror_height() {
+            self.y = T::from(info.screen_size.height).unwrap() - self.y - T::from(1).unwrap()
+        }
+        if info.orientation.is_transpose() {
+            core::mem::swap(&mut self.x, &mut self.y);
+        }
+        self
+    }
+}
+
+impl<T: Copy> Transform for euclid::Size2D<T, PhysicalPx> {
+    fn transformed(mut self, info: RotationInfo) -> Self {
+        if info.orientation.is_transpose() {
+            core::mem::swap(&mut self.width, &mut self.height);
+        }
+        self
+    }
+}
+
+impl<T: Copy + NumCast + core::ops::Sub<Output = T>> Transform for euclid::Rect<T, PhysicalPx> {
+    fn transformed(self, info: RotationInfo) -> Self {
+        let one = T::from(1).unwrap();
+        let mut origin = self.origin.transformed(info);
+        let size = self.size.transformed(info);
+        if info.orientation.mirror_width() {
+            origin.y = origin.y - (size.height - one);
+        }
+        if info.orientation.mirror_height() {
+            origin.x = origin.x - (size.width - one);
+        }
+        Self::new(origin, size)
+    }
+}
+
+impl<T: Copy> Transform for BorderRadius<T, PhysicalPx> {
+    fn transformed(self, info: RotationInfo) -> Self {
+        match info.orientation {
+            RenderingRotation::NoRotation => self,
+            RenderingRotation::Rotate90 => {
+                Self::new(self.bottom_left, self.top_left, self.top_right, self.bottom_right)
+            }
+            RenderingRotation::Rotate180 => {
+                Self::new(self.bottom_right, self.bottom_left, self.top_left, self.top_right)
+            }
+            RenderingRotation::Rotate270 => {
+                Self::new(self.top_right, self.bottom_right, self.bottom_left, self.top_left)
+            }
+        }
+    }
+}
+
+/// This trait defines a bi-directional interface between Slint and your code to send lines to your screen, when using
+/// the [`SoftwareRenderer::render_by_line`] function.
+///
+/// * Through the associated `TargetPixel` type Slint knows how to create and manipulate pixels without having to know
+///   the exact device-specific binary representation and operations for blending.
+/// * Through the `process_line` function Slint notifies you when a line can be rendered and provides a callback that
+///   you can invoke to fill a slice of pixels for the given line.
+///
+/// See the [`render_by_line`](SoftwareRenderer::render_by_line) documentation for an example.
+pub trait LineBufferProvider {
+    /// The pixel type of the buffer
+    type TargetPixel: TargetPixel;
+
+    /// Called once per line, you will have to call the render_fn back with the buffer.
+    ///
+    /// The `line` is the y position of the line to be drawn.
+    /// The `range` is the range within the line that is going to be rendered (eg, within the dirty region)
+    /// The `render_fn` function should be called to render the line, passing the buffer
+    /// corresponding to the specified line and range.
+    fn process_line(
+        &mut self,
+        line: usize,
+        range: core::ops::Range<usize>,
+        render_fn: impl FnOnce(&mut [Self::TargetPixel]),
+    );
+}
+
+#[cfg(not(cbindgen))]
+const PHYSICAL_REGION_MAX_SIZE: usize = DirtyRegion::MAX_COUNT;
+// cbindgen can't understand associated const correctly, so hardcode the value
+#[cfg(cbindgen)]
+pub const PHYSICAL_REGION_MAX_SIZE: usize = 3;
+const _: () = {
+    assert!(PHYSICAL_REGION_MAX_SIZE == 3);
+    assert!(DirtyRegion::MAX_COUNT == 3);
+};
+
+/// Represents a rectangular region on the screen, used for partial rendering.
+///
+/// The region may be composed of multiple sub-regions.
+#[derive(Clone, Debug, Default)]
+#[repr(C)]
+pub struct PhysicalRegion {
+    rectangles: [euclid::Box2D<i16, PhysicalPx>; PHYSICAL_REGION_MAX_SIZE],
+    count: usize,
+}
+
+impl PhysicalRegion {
+    fn iter_box(&self) -> impl Iterator<Item = euclid::Box2D<i16, PhysicalPx>> + '_ {
+        (0..self.count).map(|x| self.rectangles[x])
+    }
+
+    fn bounding_rect(&self) -> PhysicalRect {
+        if self.count == 0 {
+            return Default::default();
+        }
+        let mut r = self.rectangles[0];
+        for i in 1..self.count {
+            r = r.union(&self.rectangles[i]);
+        }
+        r.to_rect()
+    }
+
+    /// Returns the size of the bounding box of this region.
+    pub fn bounding_box_size(&self) -> i_slint_core::api::PhysicalSize {
+        let bb = self.bounding_rect();
+        i_slint_core::api::PhysicalSize { width: bb.width() as _, height: bb.height() as _ }
+    }
+    /// Returns the origin of the bounding box of this region.
+    pub fn bounding_box_origin(&self) -> i_slint_core::api::PhysicalPosition {
+        let bb = self.bounding_rect();
+        i_slint_core::api::PhysicalPosition { x: bb.origin.x as _, y: bb.origin.y as _ }
+    }
+
+    /// Returns an iterator over the rectangles in this region.
+    /// Each rectangle is represented by its position and its size.
+    /// They do not overlap.
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (i_slint_core::api::PhysicalPosition, i_slint_core::api::PhysicalSize)> + '_
+    {
+        let mut line_ranges = Vec::<core::ops::Range<i16>>::new();
+        let mut begin_line = 0;
+        let mut end_line = 0;
+        core::iter::from_fn(move || {
+            loop {
+                match line_ranges.pop() {
+                    Some(r) => {
+                        return Some((
+                            i_slint_core::api::PhysicalPosition {
+                                x: r.start as _,
+                                y: begin_line as _,
+                            },
+                            i_slint_core::api::PhysicalSize {
+                                width: r.len() as _,
+                                height: (end_line - begin_line) as _,
+                            },
+                        ));
+                    }
+                    None => {
+                        begin_line = end_line;
+                        end_line = match region_line_ranges(self, begin_line, &mut line_ranges) {
+                            Some(end_line) => end_line,
+                            None => return None,
+                        };
+                        line_ranges.reverse();
+                    }
+                }
+            }
+        })
+    }
+
+    fn intersection(&self, clip: &PhysicalRect) -> PhysicalRegion {
+        let mut res = Self::default();
+        let clip = clip.to_box2d();
+        let mut count = 0;
+        for i in 0..self.count {
+            if let Some(r) = self.rectangles[i].intersection(&clip) {
+                res.rectangles[count] = r;
+                count += 1;
+            }
+        }
+        res.count = count;
+        res
+    }
+}
+
+#[test]
+fn region_iter() {
+    let mut region = PhysicalRegion::default();
+    assert_eq!(region.iter().next(), None);
+    region.rectangles[0] =
+        euclid::Box2D::from_origin_and_size(euclid::point2(1, 1), euclid::size2(2, 3));
+    region.rectangles[1] =
+        euclid::Box2D::from_origin_and_size(euclid::point2(6, 2), euclid::size2(3, 20));
+    region.rectangles[2] =
+        euclid::Box2D::from_origin_and_size(euclid::point2(0, 10), euclid::size2(10, 5));
+    assert_eq!(region.iter().next(), None);
+    region.count = 1;
+    let r = |x, y, width, height| {
+        (
+            i_slint_core::api::PhysicalPosition { x, y },
+            i_slint_core::api::PhysicalSize { width, height },
+        )
+    };
+
+    let mut iter = region.iter();
+    assert_eq!(iter.next(), Some(r(1, 1, 2, 3)));
+    assert_eq!(iter.next(), None);
+    drop(iter);
+
+    region.count = 3;
+    let mut iter = region.iter();
+    assert_eq!(iter.next(), Some(r(1, 1, 2, 1))); // the two first rectangle could have been merged
+    assert_eq!(iter.next(), Some(r(1, 2, 2, 2)));
+    assert_eq!(iter.next(), Some(r(6, 2, 3, 2)));
+    assert_eq!(iter.next(), Some(r(6, 4, 3, 6)));
+    assert_eq!(iter.next(), Some(r(0, 10, 10, 5)));
+    assert_eq!(iter.next(), Some(r(6, 15, 3, 7)));
+    assert_eq!(iter.next(), None);
+}
+
+/// Computes what are the x ranges that intersects the region for specified y line.
+///
+/// This uses a mutable reference to a Vec so that the memory is re-used between calls.
+///
+/// Returns the y position until which this range is valid
+fn region_line_ranges(
+    region: &PhysicalRegion,
+    line: i16,
+    line_ranges: &mut Vec<core::ops::Range<i16>>,
+) -> Option<i16> {
+    line_ranges.clear();
+    let mut next_validity = None::<i16>;
+    for geom in region.iter_box() {
+        if geom.is_empty() {
+            continue;
+        }
+        if geom.y_range().contains(&line) {
+            match &mut next_validity {
+                Some(val) => *val = geom.max.y.min(*val),
+                None => next_validity = Some(geom.max.y),
+            }
+            let mut tmp = Some(geom.x_range());
+            line_ranges.retain_mut(|it| {
+                if let Some(r) = &mut tmp {
+                    if it.end < r.start {
+                        true
+                    } else if it.start <= r.start {
+                        if it.end >= r.end {
+                            tmp = None;
+                            return true;
+                        }
+                        r.start = it.start;
+                        false
+                    } else if it.start <= r.end {
+                        if it.end <= r.end {
+                            false
+                        } else {
+                            it.start = r.start;
+                            tmp = None;
+                            true
+                        }
+                    } else {
+                        core::mem::swap(it, r);
+                        true
+                    }
+                } else {
+                    true
+                }
+            });
+            if let Some(r) = tmp {
+                line_ranges.push(r);
+            }
+            continue;
+        } else if geom.min.y >= line {
+            match &mut next_validity {
+                Some(val) => *val = geom.min.y.min(*val),
+                None => next_validity = Some(geom.min.y),
+            }
+        }
+    }
+    // check that current items are properly sorted
+    debug_assert!(line_ranges.windows(2).all(|x| x[0].end < x[1].start));
+    next_validity
+}
+
+mod target_pixel_buffer;
+
+#[cfg(feature = "experimental")]
+pub use target_pixel_buffer::{
+    DrawRectangleArgs, DrawTextureArgs, TargetPixelBuffer, TexturePixelFormat,
+};
+
+#[cfg(not(feature = "experimental"))]
+use target_pixel_buffer::TexturePixelFormat;
+
+struct TargetPixelSlice<'a, T> {
+    data: &'a mut [T],
+    pixel_stride: usize,
+}
+
+impl<'a, T: TargetPixel> target_pixel_buffer::TargetPixelBuffer for TargetPixelSlice<'a, T> {
+    type TargetPixel = T;
+
+    fn line_slice(&mut self, line_number: usize) -> &mut [Self::TargetPixel] {
+        let offset = line_number * self.pixel_stride;
+        &mut self.data[offset..offset + self.pixel_stride]
+    }
+
+    fn num_lines(&self) -> usize {
+        self.data.len() / self.pixel_stride
+    }
+}
+
+/// A Renderer that do the rendering in software
+///
+/// The renderer can remember what items needs to be redrawn from the previous iteration.
+///
+/// There are two kind of possible rendering
+///  1. Using [`render()`](Self::render()) to render the window in a buffer
+///  2. Using [`render_by_line()`](Self::render()) to render the window line by line. This
+///     is only useful if the device does not have enough memory to render the whole window
+///     in one single buffer
+pub struct SoftwareRenderer {
+    repaint_buffer_type: Cell<RepaintBufferType>,
+    /// This is the area which was dirty on the previous frame.
+    /// Only used if repaint_buffer_type == RepaintBufferType::SwappedBuffers
+    prev_frame_dirty: Cell<DirtyRegion>,
+    partial_rendering_state: PartialRenderingState,
+    maybe_window_adapter: RefCell<Option<Weak<dyn i_slint_core::window::WindowAdapter>>>,
+    rotation: Cell<RenderingRotation>,
+    rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
+    #[cfg(feature = "systemfonts")]
+    text_layout_cache: sharedparley::TextLayoutCache,
+}
+
+impl Default for SoftwareRenderer {
+    fn default() -> Self {
+        Self {
+            partial_rendering_state: Default::default(),
+            prev_frame_dirty: Default::default(),
+            maybe_window_adapter: Default::default(),
+            rotation: Default::default(),
+            rendering_metrics_collector: RenderingMetricsCollector::new("software"),
+            repaint_buffer_type: Default::default(),
+            #[cfg(feature = "systemfonts")]
+            text_layout_cache: Default::default(),
+        }
+    }
+}
+
+#[cfg(feature = "testing")]
+impl SoftwareRenderer {
+    /// Returns a reference to the text layout cache for testing purposes.
+    pub fn text_layout_cache(&self) -> &sharedparley::TextLayoutCache {
+        &self.text_layout_cache
+    }
+}
+
+impl SoftwareRenderer {
+    /// Create a new Renderer
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Create a new SoftwareRenderer.
+    ///
+    /// The `repaint_buffer_type` parameter specify what kind of buffer are passed to [`Self::render`]
+    pub fn new_with_repaint_buffer_type(repaint_buffer_type: RepaintBufferType) -> Self {
+        let self_ = Self::default();
+        self_.repaint_buffer_type.set(repaint_buffer_type);
+        self_
+    }
+
+    /// Change the what kind of buffer is being passed to [`Self::render`]
+    ///
+    /// This may clear the internal caches
+    pub fn set_repaint_buffer_type(&self, repaint_buffer_type: RepaintBufferType) {
+        if self.repaint_buffer_type.replace(repaint_buffer_type) != repaint_buffer_type {
+            self.partial_rendering_state.clear_cache();
+        }
+    }
+
+    /// Returns the kind of buffer that must be passed to  [`Self::render`]
+    pub fn repaint_buffer_type(&self) -> RepaintBufferType {
+        self.repaint_buffer_type.get()
+    }
+
+    /// Set how the window need to be rotated in the buffer.
+    ///
+    /// This is typically used to implement screen rotation in software
+    ///
+    /// **Note:** This only affects rendering. Input events must still be given to
+    /// Slint in logical (un-rotated) coordinates.
+    pub fn set_rendering_rotation(&self, rotation: RenderingRotation) {
+        self.rotation.set(rotation)
+    }
+
+    /// Return the current rotation. See [`Self::set_rendering_rotation()`]
+    pub fn rendering_rotation(&self) -> RenderingRotation {
+        self.rotation.get()
+    }
+
+    /// Render the window to the given frame buffer.
+    ///
+    /// The renderer uses a cache internally and will only render the part of the window
+    /// which are dirty. The `extra_draw_region` is an extra region which will also
+    /// be rendered. (eg: the previous dirty region in case of double buffering)
+    /// This function returns the region that was rendered.
+    ///
+    /// The pixel_stride is the size (in pixels) between two lines in the buffer.
+    /// It is equal `width` if the screen is not rotated, and `height` if the screen is rotated by 90°.
+    /// The buffer needs to be big enough to contain the window, so its size must be at least
+    /// `pixel_stride * height`, or `pixel_stride * width` if the screen is rotated by 90°.
+    ///
+    /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
+    /// in the window frame of reference. It is affected by the screen rotation.
+    pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
+        self.render_buffer_impl(&mut TargetPixelSlice { data: buffer, pixel_stride })
+    }
+
+    /// Render the window to the given frame buffer.
+    ///
+    /// The renderer uses a cache internally and will only render the part of the window
+    /// which are dirty. The `extra_draw_region` is an extra region which will also
+    /// be rendered. (eg: the previous dirty region in case of double buffering)
+    /// This function returns the region that was rendered.
+    ///
+    /// The buffer's line slices need to be wide enough to if the `width` of the screen and the line count the `height`,
+    /// or the `height` and `width` swapped if the screen is rotated by 90°.
+    ///
+    /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
+    /// in the window frame of reference. It is affected by the screen rotation.
+    #[cfg(feature = "experimental")]
+    pub fn render_into_buffer(&self, buffer: &mut impl TargetPixelBuffer) -> PhysicalRegion {
+        self.render_buffer_impl(buffer)
+    }
+
+    fn render_buffer_impl(
+        &self,
+        buffer: &mut impl target_pixel_buffer::TargetPixelBuffer,
+    ) -> PhysicalRegion {
+        let pixels_per_line = buffer.line_slice(0).len();
+        let num_lines = buffer.num_lines();
+        let buffer_pixel_count = num_lines * pixels_per_line;
+
+        let Some(window) = self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
+        else {
+            return Default::default();
+        };
+        let window_inner = WindowInner::from_pub(window.window());
+        #[cfg(feature = "systemfonts")]
+        self.text_layout_cache.clear_cache_if_scale_factor_changed(window.window());
+        let factor = ScaleFactor::new(window_inner.scale_factor());
+        let rotation = self.rotation.get();
+        let (size, background) = if let Some(window_item) =
+            window_inner.window_item().as_ref().map(|item| item.as_pin_ref())
+        {
+            (
+                (LogicalSize::from_lengths(window_item.width(), window_item.height()).cast()
+                    * factor)
+                    .cast(),
+                window_item.background(),
+            )
+        } else if rotation.is_transpose() {
+            (euclid::size2(num_lines as _, pixels_per_line as _), Brush::default())
+        } else {
+            (euclid::size2(pixels_per_line as _, num_lines as _), Brush::default())
+        };
+        if size.is_empty() {
+            return Default::default();
+        }
+        assert!(
+            if rotation.is_transpose() {
+                pixels_per_line >= size.height as usize
+                    && buffer_pixel_count
+                        >= (size.width as usize * pixels_per_line + size.height as usize)
+                            - pixels_per_line
+            } else {
+                pixels_per_line >= size.width as usize
+                    && buffer_pixel_count
+                        >= (size.height as usize * pixels_per_line + size.width as usize)
+                            - pixels_per_line
+            },
+            "buffer of size {} with {pixels_per_line} pixels per line is too small to handle a window of size {size:?}",
+            buffer_pixel_count
+        );
+        let buffer_renderer = SceneBuilder::new(
+            size,
+            factor,
+            window_inner,
+            RenderToBuffer {
+                buffer,
+                dirty_range_cache: Vec::new(),
+                dirty_region: Default::default(),
+                scale_factor: factor,
+            },
+            rotation,
+            #[cfg(feature = "systemfonts")]
+            &self.text_layout_cache,
+        );
+        let mut renderer = self.partial_rendering_state.create_partial_renderer(buffer_renderer);
+        let window_adapter = renderer.window_adapter.clone();
+
+        window_inner
+            .draw_contents(|components, post_render| {
+                let logical_size = (size.cast() / factor).cast();
+
+                match self.repaint_buffer_type.get() {
+                    RepaintBufferType::NewBuffer => {
+                        renderer.dirty_region = LogicalRect::from_size(logical_size).into();
+                        self.partial_rendering_state.clear_cache();
+                    }
+                    RepaintBufferType::ReusedBuffer => {
+                        self.partial_rendering_state.apply_dirty_region(
+                            &mut renderer,
+                            components,
+                            logical_size,
+                            None,
+                        );
+                    }
+                    RepaintBufferType::SwappedBuffers => {
+                        let dirty_region_for_this_frame =
+                            self.partial_rendering_state.apply_dirty_region(
+                                &mut renderer,
+                                components,
+                                logical_size,
+                                Some(self.prev_frame_dirty.take()),
+                            );
+                        self.prev_frame_dirty.set(dirty_region_for_this_frame);
+                    }
+                }
+
+                let rotation = RotationInfo { orientation: rotation, screen_size: size };
+                let screen_rect = PhysicalRect::from_size(size);
+                let mut i = renderer.dirty_region.iter().filter_map(|r| {
+                    (r.cast() * factor)
+                        .to_rect()
+                        .round_out()
+                        .cast()
+                        .intersection(&screen_rect)?
+                        .transformed(rotation)
+                        .into()
+                });
+                let dirty_region = PhysicalRegion {
+                    rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
+                    count: renderer.dirty_region.iter().count(),
+                };
+                drop(i);
+
+                renderer.actual_renderer.processor.dirty_region = dirty_region.clone();
+                if !renderer
+                    .actual_renderer
+                    .processor
+                    .buffer
+                    .fill_background(&background, &dirty_region)
+                {
+                    let mut bg = TargetPixel::background();
+                    // TODO: gradient background
+                    TargetPixel::blend(&mut bg, background.color().into());
+                    renderer.actual_renderer.processor.foreach_ranges(
+                        &dirty_region.bounding_rect(),
+                        |_, buffer, _, _| {
+                            buffer.fill(bg);
+                        },
+                    );
+                }
+
+                let partial = self.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
+                for (component, origin) in components {
+                    if let Some(component) = ItemTreeWeak::upgrade(component) {
+                        i_slint_core::item_rendering::render_component_items(
+                            &component,
+                            if partial { &mut renderer } else { &mut renderer.actual_renderer },
+                            *origin,
+                            &window_adapter,
+                        );
+                    }
+                }
+
+                if partial {
+                    post_render(&mut renderer);
+                } else {
+                    post_render(&mut renderer.actual_renderer);
+                }
+
+                self.measure_frame_rendered(&mut renderer);
+
+                dirty_region
+            })
+            .unwrap_or_default()
+    }
+
+    fn measure_frame_rendered(&self, renderer: &mut dyn ItemRenderer) {
+        if let Some(metrics) = &self.rendering_metrics_collector {
+            let prev_frame_dirty = self.prev_frame_dirty.take();
+            let m = i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics {
+                dirty_region: Some(prev_frame_dirty.clone()),
+                ..Default::default()
+            };
+            self.prev_frame_dirty.set(prev_frame_dirty);
+            metrics.measure_frame_rendered(renderer, m);
+            if metrics.refresh_mode() == RefreshMode::FullSpeed {
+                self.partial_rendering_state.force_screen_refresh();
+            }
+        }
+    }
+
+    /// Render the window, line by line, into the line buffer provided by the [`LineBufferProvider`].
+    ///
+    /// The renderer uses a cache internally and will only render the part of the window
+    /// which are dirty, depending on the dirty tracking policy set in [`SoftwareRenderer::new`]
+    /// This function returns the physical region that was rendered considering the rotation.
+    ///
+    /// The [`LineBufferProvider::process_line()`] function will be called for each line and should
+    ///  provide a buffer to draw into.
+    ///
+    /// As an example, let's imagine we want to render into a plain buffer.
+    /// (You wouldn't normally use `render_by_line` for that because the [`Self::render`] would
+    /// then be more efficient)
+    ///
+    /// ```rust
+    /// # use i_slint_renderer_software::{LineBufferProvider, SoftwareRenderer, Rgb565Pixel};
+    /// # fn xxx<'a>(the_frame_buffer: &'a mut [Rgb565Pixel], display_width: usize, renderer: &SoftwareRenderer) {
+    /// struct FrameBuffer<'a>{ frame_buffer: &'a mut [Rgb565Pixel], stride: usize }
+    /// impl<'a> LineBufferProvider for FrameBuffer<'a> {
+    ///     type TargetPixel = Rgb565Pixel;
+    ///     fn process_line(
+    ///         &mut self,
+    ///         line: usize,
+    ///         range: core::ops::Range<usize>,
+    ///         render_fn: impl FnOnce(&mut [Self::TargetPixel]),
+    ///     ) {
+    ///         let line_begin = line * self.stride;
+    ///         render_fn(&mut self.frame_buffer[line_begin..][range]);
+    ///         // The line has been rendered and there could be code here to
+    ///         // send the pixel to the display
+    ///     }
+    /// }
+    /// renderer.render_by_line(FrameBuffer{ frame_buffer: the_frame_buffer, stride: display_width });
+    /// # }
+    /// ```
+    pub fn render_by_line(&self, line_buffer: impl LineBufferProvider) -> PhysicalRegion {
+        let Some(window) = self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
+        else {
+            return Default::default();
+        };
+        let window_inner = WindowInner::from_pub(window.window());
+        #[cfg(feature = "systemfonts")]
+        self.text_layout_cache.clear_cache_if_scale_factor_changed(window.window());
+        let component_rc = window_inner.component();
+        let component = i_slint_core::item_tree::ItemTreeRc::borrow_pin(&component_rc);
+        if let Some(window_item) = i_slint_core::items::ItemRef::downcast_pin::<
+            i_slint_core::items::WindowItem,
+        >(component.as_ref().get_item_ref(0))
+        {
+            let factor = ScaleFactor::new(window_inner.scale_factor());
+            let size = LogicalSize::from_lengths(window_item.width(), window_item.height()).cast()
+                * factor;
+            render_window_frame_by_line(
+                window_inner,
+                window_item.background(),
+                size.cast(),
+                self,
+                line_buffer,
+            )
+        } else {
+            PhysicalRegion { ..Default::default() }
+        }
+    }
+}
+
+#[doc(hidden)]
+impl RendererSealed for SoftwareRenderer {
+    fn text_size(
+        &self,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
+        max_width: Option<LogicalLength>,
+        text_wrap: TextWrap,
+    ) -> LogicalSize {
+        let Some(scale_factor) = self.scale_factor() else {
+            return LogicalSize::default();
+        };
+        let font_request = text_item.font_request(item_rc);
+        // Evaluate text() before borrowing font_context: the binding can
+        // re-enter text_size for other elements and would panic on a second
+        // borrow_mut().
+        let content = text_item.text();
+        #[cfg(feature = "systemfonts")]
+        let Some(slint_ctx) = self.slint_context() else {
+            return Default::default();
+        };
+        let font = {
+            #[cfg(feature = "systemfonts")]
+            let mut font_ctx = slint_ctx.font_context().borrow_mut();
+            fonts::match_font(
+                &font_request,
+                scale_factor,
+                #[cfg(feature = "systemfonts")]
+                &mut font_ctx,
+            )
+        };
+
+        #[cfg(feature = "systemfonts")]
+        if matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled() {
+            return sharedparley::text_size(
+                self,
+                text_item,
+                item_rc,
+                max_width,
+                text_wrap,
+                Some(&self.text_layout_cache),
+            )
+            .unwrap_or_default();
+        }
+
+        let max_lines = text_item.line_limit();
+        let string = match &content {
+            PlainOrStyledText::Plain(string) => alloc::borrow::Cow::Borrowed(string.as_str()),
+            PlainOrStyledText::Styled(styled_text) => {
+                i_slint_core::styled_text::get_raw_text(styled_text)
+            }
+        };
+        let (longest_line_width, height) = match &font {
+            #[cfg(feature = "systemfonts")]
+            fonts::Font::VectorFont(vf) => {
+                let layout = fonts::text_layout_for_font(vf, &font_request, scale_factor);
+                layout.text_size(
+                    &string,
+                    max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
+                    text_wrap,
+                    max_lines,
+                )
+            }
+            fonts::Font::PixelFont(pf) => {
+                let layout = fonts::text_layout_for_font(pf, &font_request, scale_factor);
+                layout.text_size(
+                    &string,
+                    max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
+                    text_wrap,
+                    max_lines,
+                )
+            }
+        };
+        (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
+    }
+
+    fn char_size(
+        &self,
+        text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
+        ch: char,
+    ) -> LogicalSize {
+        let Some(scale_factor) = self.scale_factor() else {
+            return LogicalSize::default();
+        };
+        let font_request = text_item.font_request(item_rc);
+        #[cfg(feature = "systemfonts")]
+        let Some(slint_ctx) = self.slint_context() else {
+            return Default::default();
+        };
+        let font = {
+            #[cfg(feature = "systemfonts")]
+            let mut font_ctx = slint_ctx.font_context().borrow_mut();
+            fonts::match_font(
+                &font_request,
+                scale_factor,
+                #[cfg(feature = "systemfonts")]
+                &mut font_ctx,
+            )
+        };
+
+        match (font, parley_disabled()) {
+            #[cfg(feature = "systemfonts")]
+            (fonts::Font::VectorFont(_), false) => {
+                let mut font_ctx = slint_ctx.font_context().borrow_mut();
+                sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch).unwrap_or_default()
+            }
+            #[cfg(feature = "systemfonts")]
+            (fonts::Font::VectorFont(vf), true) => {
+                let mut buf = [0u8, 0u8, 0u8, 0u8];
+                let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
+                let (longest_line_width, height) =
+                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap, None);
+                (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
+                    .cast()
+            }
+            (fonts::Font::PixelFont(pf), _) => {
+                let mut buf = [0u8, 0u8, 0u8, 0u8];
+                let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
+                let (longest_line_width, height) =
+                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap, None);
+                (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
+                    .cast()
+            }
+        }
+    }
+
+    fn font_metrics(
+        &self,
+        font_request: i_slint_core::graphics::FontRequest,
+    ) -> i_slint_core::items::FontMetrics {
+        let Some(scale_factor) = self.scale_factor() else {
+            return i_slint_core::items::FontMetrics::default();
+        };
+        #[cfg(feature = "systemfonts")]
+        let Some(slint_ctx) = self.slint_context() else {
+            return Default::default();
+        };
+        #[cfg(feature = "systemfonts")]
+        let mut font_ctx = slint_ctx.font_context().borrow_mut();
+        let font = fonts::match_font(
+            &font_request,
+            scale_factor,
+            #[cfg(feature = "systemfonts")]
+            &mut font_ctx,
+        );
+
+        match (font, parley_disabled()) {
+            #[cfg(feature = "systemfonts")]
+            (fonts::Font::VectorFont(_), false) => {
+                sharedparley::font_metrics(&mut font_ctx, font_request)
+            }
+            #[cfg(feature = "systemfonts")]
+            (fonts::Font::VectorFont(font), true) => {
+                let ascent: LogicalLength = (font.ascent().cast() / scale_factor).cast();
+                let descent: LogicalLength = (font.descent().cast() / scale_factor).cast();
+                let x_height: LogicalLength = (font.x_height().cast() / scale_factor).cast();
+                let cap_height: LogicalLength = (font.cap_height().cast() / scale_factor).cast();
+
+                i_slint_core::items::FontMetrics {
+                    ascent: ascent.get() as _,
+                    descent: descent.get() as _,
+                    x_height: x_height.get() as _,
+                    cap_height: cap_height.get() as _,
+                }
+            }
+            (fonts::Font::PixelFont(font), _) => {
+                let ascent: LogicalLength = (font.ascent().cast() / scale_factor).cast();
+                let descent: LogicalLength = (font.descent().cast() / scale_factor).cast();
+                let x_height: LogicalLength = (font.x_height().cast() / scale_factor).cast();
+                let cap_height: LogicalLength = (font.cap_height().cast() / scale_factor).cast();
+
+                i_slint_core::items::FontMetrics {
+                    ascent: ascent.get() as _,
+                    descent: descent.get() as _,
+                    x_height: x_height.get() as _,
+                    cap_height: cap_height.get() as _,
+                }
+            }
+        }
+    }
+
+    fn text_input_byte_offset_for_position(
+        &self,
+        text_input: Pin<&i_slint_core::items::TextInput>,
+        item_rc: &ItemRc,
+        pos: LogicalPoint,
+    ) -> usize {
+        let Some(scale_factor) = self.scale_factor() else {
+            return 0;
+        };
+        let font_request = text_input.font_request(item_rc);
+        #[cfg(feature = "systemfonts")]
+        let Some(slint_ctx) = self.slint_context() else {
+            return Default::default();
+        };
+        let font = {
+            #[cfg(feature = "systemfonts")]
+            let mut font_ctx = slint_ctx.font_context().borrow_mut();
+            fonts::match_font(
+                &font_request,
+                scale_factor,
+                #[cfg(feature = "systemfonts")]
+                &mut font_ctx,
+            )
+        };
+
+        match (font, parley_disabled()) {
+            #[cfg(feature = "systemfonts")]
+            (fonts::Font::VectorFont(_), false) => {
+                sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos)
+            }
+            #[cfg(feature = "systemfonts")]
+            (fonts::Font::VectorFont(vf), true) => {
+                let visual_representation = text_input.visual_representation(None);
+
+                let width = (text_input.width().cast() * scale_factor).cast();
+                let height = (text_input.height().cast() * scale_factor).cast();
+
+                let pos = (pos.cast() * scale_factor)
+                    .clamp(euclid::point2(0., 0.), euclid::point2(i16::MAX, i16::MAX).cast())
+                    .cast();
+
+                let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
+
+                let paragraph = TextParagraphLayout {
+                    string: &visual_representation.text,
+                    layout,
+                    max_width: width,
+                    max_height: height,
+                    horizontal_alignment: text_input.horizontal_alignment(),
+                    vertical_alignment: text_input.vertical_alignment(),
+                    wrap: text_input.wrap(),
+                    overflow: TextOverflow::Clip,
+                    single_line: false,
+                    max_lines: None,
+                };
+
+                visual_representation.map_byte_offset_from_visual_text_to_actual_text(
+                    paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
+                )
+            }
+            (fonts::Font::PixelFont(pf), _) => {
+                let visual_representation = text_input.visual_representation(None);
+
+                let width = (text_input.width().cast() * scale_factor).cast();
+                let height = (text_input.height().cast() * scale_factor).cast();
+
+                let pos = (pos.cast() * scale_factor)
+                    .clamp(euclid::point2(0., 0.), euclid::point2(i16::MAX, i16::MAX).cast())
+                    .cast();
+
+                let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
+
+                let paragraph = TextParagraphLayout {
+                    string: &visual_representation.text,
+                    layout,
+                    max_width: width,
+                    max_height: height,
+                    horizontal_alignment: text_input.horizontal_alignment(),
+                    vertical_alignment: text_input.vertical_alignment(),
+                    wrap: text_input.wrap(),
+                    overflow: TextOverflow::Clip,
+                    single_line: false,
+                    max_lines: None,
+                };
+
+                visual_representation.map_byte_offset_from_visual_text_to_actual_text(
+                    paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
+                )
+            }
+        }
+    }
+
+    fn text_input_cursor_rect_for_byte_offset(
+        &self,
+        text_input: Pin<&i_slint_core::items::TextInput>,
+        item_rc: &ItemRc,
+        byte_offset: usize,
+    ) -> LogicalRect {
+        let Some(scale_factor) = self.scale_factor() else {
+            return LogicalRect::default();
+        };
+        let font_request = text_input.font_request(item_rc);
+        #[cfg(feature = "systemfonts")]
+        let Some(slint_ctx) = self.slint_context() else {
+            return Default::default();
+        };
+        let font = {
+            #[cfg(feature = "systemfonts")]
+            let mut font_ctx = slint_ctx.font_context().borrow_mut();
+            fonts::match_font(
+                &font_request,
+                scale_factor,
+                #[cfg(feature = "systemfonts")]
+                &mut font_ctx,
+            )
+        };
+
+        match (font, parley_disabled()) {
+            #[cfg(feature = "systemfonts")]
+            (fonts::Font::VectorFont(_), false) => {
+                sharedparley::text_input_cursor_rect_for_byte_offset(
+                    self,
+                    text_input,
+                    item_rc,
+                    byte_offset,
+                )
+            }
+            #[cfg(feature = "systemfonts")]
+            (fonts::Font::VectorFont(vf), true) => {
+                let visual_representation = text_input.visual_representation(None);
+
+                let width = (text_input.width().cast() * scale_factor).cast();
+                let height = (text_input.height().cast() * scale_factor).cast();
+
+                let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
+
+                let paragraph = TextParagraphLayout {
+                    string: &visual_representation.text,
+                    layout,
+                    max_width: width,
+                    max_height: height,
+                    horizontal_alignment: text_input.horizontal_alignment(),
+                    vertical_alignment: text_input.vertical_alignment(),
+                    wrap: text_input.wrap(),
+                    overflow: TextOverflow::Clip,
+                    single_line: false,
+                    max_lines: None,
+                };
+
+                let cursor_position = paragraph.cursor_pos_for_byte_offset(byte_offset);
+                let cursor_height = vf.height();
+
+                (PhysicalRect::new(
+                    PhysicalPoint::from_lengths(cursor_position.0, cursor_position.1),
+                    PhysicalSize::from_lengths(
+                        (text_input.text_cursor_width().cast() * scale_factor).cast(),
+                        cursor_height,
+                    ),
+                )
+                .cast()
+                    / scale_factor)
+                    .cast()
+            }
+            (fonts::Font::PixelFont(pf), _) => {
+                let visual_representation = text_input.visual_representation(None);
+
+                let width = (text_input.width().cast() * scale_factor).cast();
+                let height = (text_input.height().cast() * scale_factor).cast();
+
+                let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
+
+                let paragraph = TextParagraphLayout {
+                    string: &visual_representation.text,
+                    layout,
+                    max_width: width,
+                    max_height: height,
+                    horizontal_alignment: text_input.horizontal_alignment(),
+                    vertical_alignment: text_input.vertical_alignment(),
+                    wrap: text_input.wrap(),
+                    overflow: TextOverflow::Clip,
+                    single_line: false,
+                    max_lines: None,
+                };
+
+                let cursor_position = paragraph.cursor_pos_for_byte_offset(byte_offset);
+                let cursor_height = pf.height();
+
+                (PhysicalRect::new(
+                    PhysicalPoint::from_lengths(cursor_position.0, cursor_position.1),
+                    PhysicalSize::from_lengths(
+                        (text_input.text_cursor_width().cast() * scale_factor).cast(),
+                        cursor_height,
+                    ),
+                )
+                .cast()
+                    / scale_factor)
+                    .cast()
+            }
+        }
+    }
+
+    fn free_graphics_resources(
+        &self,
+        _component: i_slint_core::item_tree::ItemTreeRef,
+        items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
+        #[cfg(feature = "systemfonts")]
+        self.text_layout_cache.component_destroyed(_component);
+        self.partial_rendering_state.free_graphics_resources(items);
+        Ok(())
+    }
+
+    fn mark_dirty_region(&self, region: DirtyRegion) {
+        self.partial_rendering_state.mark_dirty_region(region);
+    }
+
+    fn register_bitmap_font(&self, font_data: &'static i_slint_core::graphics::BitmapFont) {
+        fonts::register_bitmap_font(font_data);
+    }
+
+    #[cfg(feature = "systemfonts")]
+    fn register_font_from_memory(
+        &self,
+        data: &'static [u8],
+    ) -> Result<(), std::boxed::Box<dyn std::error::Error>> {
+        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
+        ctx.font_context().borrow_mut().register_static_font(data);
+        Ok(())
+    }
+
+    #[cfg(all(feature = "systemfonts", not(target_arch = "wasm32")))]
+    fn register_font_from_path(
+        &self,
+        path: &std::path::Path,
+    ) -> Result<(), std::boxed::Box<dyn std::error::Error>> {
+        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
+        self::fonts::systemfonts::register_font_from_path(
+            &mut ctx.font_context().borrow_mut().collection,
+            path,
+        )
+    }
+
+    fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
+        *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
+        #[cfg(feature = "systemfonts")]
+        self.text_layout_cache.clear_all();
+        self.partial_rendering_state.clear_cache();
+    }
+
+    fn window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        self.maybe_window_adapter
+            .borrow()
+            .as_ref()
+            .and_then(|window_adapter| window_adapter.upgrade())
+    }
+
+    fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
+        let Some(window_adapter) =
+            self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
+        else {
+            return Err(
+                "SoftwareRenderer's screenshot called without a window adapter present".into()
+            );
+        };
+
+        let window = window_adapter.window();
+        let size = window.size();
+
+        if size.width == 0 || size.height == 0 {
+            // Nothing to render
+            return Err("take_snapshot() called on window with invalid size".into());
+        };
+
+        // Render into a premultiplied buffer so that windows with a transparent
+        // or semi-transparent background end up with the right alpha in the
+        // snapshot. PremultipliedRgbaColor::background() is (0,0,0,0), so
+        // anything the window doesn't paint stays fully transparent.
+        let mut premul = SharedPixelBuffer::<PremultipliedRgbaColor>::new(size.width, size.height);
+
+        let old_repaint_buffer_type = self.repaint_buffer_type();
+        // ensure that caches are clear
+        self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
+        self.render(premul.make_mut_slice(), size.width as usize);
+        self.set_repaint_buffer_type(old_repaint_buffer_type);
+
+        let mut target_buffer_with_alpha =
+            SharedPixelBuffer::<Rgba8Pixel>::new(premul.width(), premul.height());
+        for (target_pixel, source_pixel) in
+            target_buffer_with_alpha.make_mut_slice().iter_mut().zip(premul.as_slice().iter())
+        {
+            // Un-premultiply: straight RGBA is what the public API exposes (and
+            // what PNG encoders expect). Round half up to keep `255 * a / a == 255`.
+            let a = source_pixel.alpha;
+            if a == 0 {
+                *target_pixel = Rgba8Pixel::new(0, 0, 0, 0);
+            } else {
+                let unp = |c: u8| ((c as u32 * 255 + (a as u32 / 2)) / a as u32).min(255) as u8;
+                *target_pixel = Rgba8Pixel::new(
+                    unp(source_pixel.red),
+                    unp(source_pixel.green),
+                    unp(source_pixel.blue),
+                    a,
+                );
+            }
+        }
+        Ok(target_buffer_with_alpha)
+    }
+
+    fn supports_transformations(&self) -> bool {
+        false
+    }
+}
+
+fn parley_disabled() -> bool {
+    #[cfg(feature = "systemfonts")]
+    {
+        std::env::var("SLINT_SOFTWARE_RENDERER_PARLEY_DISABLED").is_ok()
+    }
+    #[cfg(not(feature = "systemfonts"))]
+    false
+}
+
+fn render_window_frame_by_line(
+    window: &WindowInner,
+    background: Brush,
+    size: PhysicalSize,
+    renderer: &SoftwareRenderer,
+    mut line_buffer: impl LineBufferProvider,
+) -> PhysicalRegion {
+    let mut scene = prepare_scene(window, size, renderer);
+
+    let to_draw_tr = scene.dirty_region.bounding_rect();
+
+    let mut background_color = TargetPixel::background();
+    // FIXME gradient
+    TargetPixel::blend(&mut background_color, background.color().into());
+
+    while scene.current_line < to_draw_tr.origin.y_length() + to_draw_tr.size.height_length() {
+        for r in &scene.current_line_ranges {
+            line_buffer.process_line(
+                scene.current_line.get() as usize,
+                r.start as usize..r.end as usize,
+                |line_buffer| {
+                    let offset = r.start;
+
+                    let items = &scene.items[0..scene.current_items_index];
+                    // A span that opaquely covers the whole range hides
+                    // everything behind it, background included. Draw from the
+                    // frontmost such span and drop the rest.
+                    let first_cover = items.iter().position(|span| {
+                        span.pos.x <= r.start
+                            && span.pos.x + span.size.width >= r.end
+                            && scene.is_guaranteed_opaque(&span.command)
+                    });
+                    let items = match first_cover {
+                        Some(i) => &items[..=i],
+                        None => {
+                            line_buffer.fill(background_color);
+                            items
+                        }
+                    };
+                    for span in items.iter().rev() {
+                        debug_assert!(scene.current_line >= span.pos.y_length());
+                        debug_assert!(
+                            scene.current_line < span.pos.y_length() + span.size.height_length(),
+                        );
+                        if span.pos.x >= r.end {
+                            continue;
+                        }
+                        let begin = r.start.max(span.pos.x);
+                        let end = r.end.min(span.pos.x + span.size.width);
+                        if begin >= end {
+                            continue;
+                        }
+
+                        let extra_left_clip = begin - span.pos.x;
+                        let extra_right_clip = span.pos.x + span.size.width - end;
+                        let range_buffer =
+                            &mut line_buffer[(begin - offset) as usize..(end - offset) as usize];
+
+                        match span.command {
+                            SceneCommand::Rectangle { color } => {
+                                TargetPixel::blend_slice(range_buffer, color);
+                            }
+                            SceneCommand::Texture { texture_index } => {
+                                let texture = &scene.vectors.textures[texture_index as usize];
+                                draw_functions::draw_texture_line(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    texture,
+                                    range_buffer,
+                                    extra_left_clip,
+                                    extra_right_clip,
+                                );
+                            }
+                            SceneCommand::SharedBuffer { shared_buffer_index } => {
+                                let texture = scene.vectors.shared_buffers
+                                    [shared_buffer_index as usize]
+                                    .as_texture();
+                                draw_functions::draw_texture_line(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    &texture,
+                                    range_buffer,
+                                    extra_left_clip,
+                                    extra_right_clip,
+                                );
+                            }
+                            SceneCommand::RoundedRectangle { rectangle_index } => {
+                                let rr =
+                                    &scene.vectors.rounded_rectangles[rectangle_index as usize];
+                                draw_functions::draw_rounded_rectangle_line(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    rr,
+                                    range_buffer,
+                                    extra_left_clip,
+                                    extra_right_clip,
+                                );
+                            }
+                            SceneCommand::LinearGradient { linear_gradient_index } => {
+                                let g =
+                                    &scene.vectors.linear_gradients[linear_gradient_index as usize];
+
+                                draw_functions::draw_linear_gradient(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    g,
+                                    range_buffer,
+                                    extra_left_clip,
+                                );
+                            }
+                            SceneCommand::RadialGradient { radial_gradient_index } => {
+                                let g =
+                                    &scene.vectors.radial_gradients[radial_gradient_index as usize];
+                                draw_functions::draw_radial_gradient(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    g,
+                                    range_buffer,
+                                    extra_left_clip,
+                                    extra_right_clip,
+                                );
+                            }
+                            SceneCommand::ConicGradient { conic_gradient_index } => {
+                                let g =
+                                    &scene.vectors.conic_gradients[conic_gradient_index as usize];
+                                draw_functions::draw_conic_gradient(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    g,
+                                    range_buffer,
+                                    extra_left_clip,
+                                    extra_right_clip,
+                                );
+                            }
+                        }
+                    }
+                },
+            );
+        }
+
+        if scene.current_line < to_draw_tr.origin.y_length() + to_draw_tr.size.height_length() {
+            scene.next_line();
+        }
+    }
+    scene.dirty_region
+}
+
+fn prepare_scene(
+    window: &WindowInner,
+    size: PhysicalSize,
+    software_renderer: &SoftwareRenderer,
+) -> Scene {
+    let factor = ScaleFactor::new(window.scale_factor());
+    let prepare_scene = SceneBuilder::new(
+        size,
+        factor,
+        window,
+        PrepareScene { scale_factor: factor, ..Default::default() },
+        software_renderer.rotation.get(),
+        #[cfg(feature = "systemfonts")]
+        &software_renderer.text_layout_cache,
+    );
+    let mut renderer =
+        software_renderer.partial_rendering_state.create_partial_renderer(prepare_scene);
+    let window_adapter = renderer.window_adapter.clone();
+
+    let mut dirty_region = PhysicalRegion::default();
+    window.draw_contents(|components, post_render| {
+        let logical_size = (size.cast() / factor).cast();
+
+        match software_renderer.repaint_buffer_type.get() {
+            RepaintBufferType::NewBuffer => {
+                // NewBuffer always redraws the full screen, so skip dirty region
+                // tracking to avoid unbounded growth of the partial rendering cache.
+                renderer.dirty_region = LogicalRect::from_size(logical_size).into();
+                software_renderer.partial_rendering_state.clear_cache();
+            }
+            RepaintBufferType::ReusedBuffer => {
+                software_renderer.partial_rendering_state.apply_dirty_region(
+                    &mut renderer,
+                    components,
+                    logical_size,
+                    None,
+                );
+            }
+            RepaintBufferType::SwappedBuffers => {
+                let dirty_region_for_this_frame =
+                    software_renderer.partial_rendering_state.apply_dirty_region(
+                        &mut renderer,
+                        components,
+                        logical_size,
+                        Some(software_renderer.prev_frame_dirty.take()),
+                    );
+                software_renderer.prev_frame_dirty.set(dirty_region_for_this_frame);
+            }
+        }
+
+        let rotation =
+            RotationInfo { orientation: software_renderer.rotation.get(), screen_size: size };
+        let screen_rect = PhysicalRect::from_size(size);
+        let mut i = renderer.dirty_region.iter().filter_map(|r| {
+            (r.cast() * factor)
+                .to_rect()
+                .round_out()
+                .cast()
+                .intersection(&screen_rect)?
+                .transformed(rotation)
+                .into()
+        });
+        dirty_region = PhysicalRegion {
+            rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
+            count: renderer.dirty_region.iter().count(),
+        };
+        drop(i);
+
+        let partial = software_renderer.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
+        for (component, origin) in components {
+            if let Some(component) = ItemTreeWeak::upgrade(component) {
+                i_slint_core::item_rendering::render_component_items(
+                    &component,
+                    if partial { &mut renderer } else { &mut renderer.actual_renderer },
+                    *origin,
+                    &window_adapter,
+                );
+            }
+        }
+
+        if partial {
+            post_render(&mut renderer);
+        } else {
+            post_render(&mut renderer.actual_renderer);
+        }
+    });
+
+    software_renderer.measure_frame_rendered(&mut renderer);
+
+    let prepare_scene = renderer.into_inner();
+
+    /* // visualize dirty regions
+    let mut prepare_scene = prepare_scene;
+    for rect in dirty_region.iter() {
+        prepare_scene.processor.process_rounded_rectangle(
+            euclid::rect(rect.0.x as _, rect.0.y as _, rect.1.width as _, rect.1.height as _),
+            RoundedRectangle {
+                radius: BorderRadius::default(),
+                width: Length::new(1),
+                border_color: Color::from_argb_u8(128, 255, 0, 0).into(),
+                inner_color: PremultipliedRgbaColor::default(),
+                left_clip: Length::default(),
+                right_clip: Length::default(),
+                top_clip: Length::default(),
+                bottom_clip: Length::default(),
+            },
+        )
+    } // */
+
+    Scene::new(prepare_scene.processor.items, prepare_scene.processor.vectors, dirty_region)
+}
+
+trait ProcessScene {
+    fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>);
+    fn process_target_texture(
+        &mut self,
+        texture: &target_pixel_buffer::DrawTextureArgs,
+        clip: PhysicalRect,
+    );
+    fn process_rectangle(&mut self, _: &target_pixel_buffer::DrawRectangleArgs, clip: PhysicalRect);
+
+    fn process_simple_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor);
+    fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle);
+    fn process_linear_gradient(&mut self, geometry: PhysicalRect, gradient: LinearGradientCommand);
+    fn process_radial_gradient(&mut self, geometry: PhysicalRect, gradient: RadialGradientCommand);
+    fn process_conic_gradient(&mut self, geometry: PhysicalRect, gradient: ConicGradientCommand);
+    #[cfg(feature = "path")]
+    fn process_filled_path(
+        &mut self,
+        path_geometry: PhysicalRect,
+        clip_geometry: PhysicalRect,
+        commands: alloc::vec::Vec<path::Command>,
+        color: PremultipliedRgbaColor,
+    );
+    #[cfg(feature = "path")]
+    fn process_stroked_path(
+        &mut self,
+        path_geometry: PhysicalRect,
+        clip_geometry: PhysicalRect,
+        commands: alloc::vec::Vec<path::Command>,
+        color: PremultipliedRgbaColor,
+        stroke_width: f32,
+        stroke_line_cap: i_slint_core::items::LineCap,
+        stroke_line_join: i_slint_core::items::LineJoin,
+        stroke_miter_limit: f32,
+    );
+}
+
+fn process_rectangle_impl(
+    processor: &mut dyn ProcessScene,
+    args: &target_pixel_buffer::DrawRectangleArgs,
+    clip: &PhysicalRect,
+    scale_factor: ScaleFactor,
+) {
+    let geom = args.geometry();
+    let Some(clipped) = geom.intersection(&clip.cast()) else { return };
+    let geom_w = geom.width();
+    let geom_h = geom.height();
+    let to_clipped_center = |cx: f32, cy: f32| {
+        (geom.min_x() + cx - clipped.min_x(), geom.min_y() + cy - clipped.min_y())
+    };
+
+    let color = if let Brush::LinearGradient(g) = &args.background {
+        let angle = g.angle() + args.rotation.angle();
+        let tan = angle.to_radians().tan().abs();
+        let start = if !tan.is_finite() {
+            255.
+        } else {
+            let h = tan * geom.width();
+            255. * h / (h + geom.height())
+        } as u8;
+        let mut angle = angle as i32 % 360;
+        if angle < 0 {
+            angle += 360;
+        }
+        let mut stops = g
+            .stops()
+            .copied()
+            .map(|mut s| {
+                s.color = alpha_color(s.color, args.alpha);
+                s
+            })
+            .peekable();
+        let mut idx = 0;
+        let stop_count = g.stops().count();
+        while let (Some(mut s1), Some(mut s2)) = (stops.next(), stops.peek().copied()) {
+            let mut flags = 0;
+            if (angle % 180) > 90 {
+                flags |= 0b1;
+            }
+            if angle <= 90 || angle > 270 {
+                core::mem::swap(&mut s1, &mut s2);
+                s1.position = 1. - s1.position;
+                s2.position = 1. - s2.position;
+                if idx == 0 {
+                    flags |= 0b100;
+                }
+                if idx == stop_count - 2 {
+                    flags |= 0b010;
+                }
+            } else {
+                if idx == 0 {
+                    flags |= 0b010;
+                }
+                if idx == stop_count - 2 {
+                    flags |= 0b100;
+                }
+            }
+
+            idx += 1;
+
+            let (adjust_left, adjust_right) = if (angle % 180) > 90 {
+                (
+                    (geom.width() * s1.position).floor() as i16,
+                    (geom.width() * (1. - s2.position)).ceil() as i16,
+                )
+            } else {
+                (
+                    (geom.width() * (1. - s2.position)).ceil() as i16,
+                    (geom.width() * s1.position).floor() as i16,
+                )
+            };
+
+            let gr = LinearGradientCommand {
+                color1: s1.color.into(),
+                color2: s2.color.into(),
+                start,
+                flags,
+                top_clip: Length::new(
+                    (clipped.min_y() - geom.min_y() - (geom.height() * s1.position).floor()) as i16,
+                ),
+                bottom_clip: Length::new(
+                    (geom.max_y() - clipped.max_y() - (geom.height() * (1. - s2.position)).ceil())
+                        as i16,
+                ),
+                left_clip: Length::new((clipped.min_x() - geom.min_x()) as i16 - adjust_left),
+                right_clip: Length::new((geom.max_x() - clipped.max_x()) as i16 - adjust_right),
+            };
+
+            let act_rect = clipped.round().cast();
+            let size_y = act_rect.height_length() + gr.top_clip + gr.bottom_clip;
+            let size_x = act_rect.width_length() + gr.left_clip + gr.right_clip;
+            if size_x.get() == 0 || size_y.get() == 0 {
+                // the position are too close to each other
+                // FIXME: For the first or the last, we should draw a plain color to the end
+                continue;
+            }
+
+            processor.process_linear_gradient(act_rect, gr);
+        }
+        Color::default()
+    } else if let Brush::RadialGradient(g) = &args.background {
+        let (cx, cy) = g.center_or_default_scaled(geom_w, geom_h, scale_factor.get());
+        let (center_x, center_y) = to_clipped_center(cx, cy);
+        let radius = g.radius_or_default_scaled(geom_w, geom_h, scale_factor.get());
+
+        let radial_grad = RadialGradientCommand {
+            stops: g
+                .stops()
+                .map(|s| {
+                    let mut stop = *s;
+                    stop.color = alpha_color(stop.color, args.alpha);
+                    stop
+                })
+                .collect(),
+            center_x,
+            center_y,
+            radius,
+        };
+
+        processor.process_radial_gradient(clipped.cast(), radial_grad);
+        Color::default()
+    } else if let Brush::ConicGradient(g) = &args.background {
+        let (cx, cy) = g.center_or_default_scaled(geom_w, geom_h, scale_factor.get());
+        let (center_x, center_y) = to_clipped_center(cx, cy);
+        let conic_grad = ConicGradientCommand {
+            stops: g
+                .stops()
+                .map(|s| {
+                    let mut stop = *s;
+                    stop.color = alpha_color(stop.color, args.alpha);
+                    stop
+                })
+                .collect(),
+            center_x,
+            center_y,
+        };
+
+        processor.process_conic_gradient(clipped.cast(), conic_grad);
+        Color::default()
+    } else {
+        alpha_color(args.background.color(), args.alpha)
+    };
+
+    let mut border_color =
+        PremultipliedRgbaColor::from(alpha_color(args.border.color(), args.alpha));
+    let color = PremultipliedRgbaColor::from(color);
+    let mut border = PhysicalLength::new(args.border_width as _);
+    if border_color.alpha == 0 {
+        border = PhysicalLength::new(0);
+    } else if border_color.alpha < 255 {
+        // Find a color for the border which is an equivalent to blend the background and then the border.
+        // In the end, the resulting of blending the background and the color is
+        // (A + B) + C, where A is the buffer color, B is the background, and C is the border.
+        // which expands to (A*(1-Bα) + B*Bα)*(1-Cα) + C*Cα = A*(1-(Bα+Cα-Bα*Cα)) + B*Bα*(1-Cα) + C*Cα
+        // so let the new alpha be: Nα = Bα+Cα-Bα*Cα, then this is A*(1-Nα) + N*Nα
+        // with N = (B*Bα*(1-Cα) + C*Cα)/Nα
+        // N being the equivalent color of the border that mixes the background and the border
+        // In pre-multiplied space, the formula simplifies further N' = B'*(1-Cα) + C'
+        let b = border_color;
+        let b_alpha_16 = b.alpha as u16;
+        border_color = PremultipliedRgbaColor {
+            red: ((color.red as u16 * (255 - b_alpha_16)) / 255) as u8 + b.red,
+            green: ((color.green as u16 * (255 - b_alpha_16)) / 255) as u8 + b.green,
+            blue: ((color.blue as u16 * (255 - b_alpha_16)) / 255) as u8 + b.blue,
+            alpha: (color.alpha as u16 + b_alpha_16 - (color.alpha as u16 * b_alpha_16) / 255)
+                as u8,
+        }
+    }
+
+    let radius = PhysicalBorderRadius {
+        top_left: args.top_left_radius as _,
+        top_right: args.top_right_radius as _,
+        bottom_right: args.bottom_right_radius as _,
+        bottom_left: args.bottom_left_radius as _,
+        _unit: Default::default(),
+    };
+
+    if !radius.is_zero() {
+        // Add a small value to make sure that the clip is always positive despite floating point shenanigans
+        const E: f32 = 0.00001;
+
+        processor.process_rounded_rectangle(
+            clipped.round().cast(),
+            RoundedRectangle {
+                radius,
+                width: border,
+                border_color,
+                inner_color: color,
+                top_clip: PhysicalLength::new((clipped.min_y() - geom.min_y() + E) as _),
+                bottom_clip: PhysicalLength::new((geom.max_y() - clipped.max_y() + E) as _),
+                left_clip: PhysicalLength::new((clipped.min_x() - geom.min_x() + E) as _),
+                right_clip: PhysicalLength::new((geom.max_x() - clipped.max_x() + E) as _),
+            },
+        );
+        return;
+    }
+
+    if color.alpha > 0
+        && let Some(r) =
+            geom.round().cast().inflate(-border.get(), -border.get()).intersection(clip)
+    {
+        processor.process_simple_rectangle(r, color);
+    }
+
+    if border_color.alpha > 0 {
+        let mut add_border = |r: PhysicalRect| {
+            if let Some(r) = r.intersection(clip) {
+                processor.process_simple_rectangle(r, border_color);
+            }
+        };
+        let b = border.get();
+        let g = geom.round().cast();
+        add_border(euclid::rect(g.min_x(), g.min_y(), g.width(), b));
+        add_border(euclid::rect(g.min_x(), g.min_y() + g.height() - b, g.width(), b));
+        add_border(euclid::rect(g.min_x(), g.min_y() + b, b, g.height() - b - b));
+        add_border(euclid::rect(g.min_x() + g.width() - b, g.min_y() + b, b, g.height() - b - b));
+    }
+}
+
+struct RenderToBuffer<'a, TargetPixelBuffer> {
+    buffer: &'a mut TargetPixelBuffer,
+    dirty_range_cache: Vec<core::ops::Range<i16>>,
+    dirty_region: PhysicalRegion,
+    scale_factor: ScaleFactor,
+}
+
+impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
+    fn foreach_ranges(
+        &mut self,
+        geometry: &PhysicalRect,
+        mut f: impl FnMut(i16, &mut [B::TargetPixel], i16, i16),
+    ) {
+        let mut line = geometry.min_y();
+        while let Some(mut next) =
+            region_line_ranges(&self.dirty_region, line, &mut self.dirty_range_cache)
+        {
+            next = next.min(geometry.max_y());
+            for r in &self.dirty_range_cache {
+                if geometry.origin.x >= r.end {
+                    continue;
+                }
+                let begin = r.start.max(geometry.origin.x);
+                let end = r.end.min(geometry.origin.x + geometry.size.width);
+                if begin >= end {
+                    continue;
+                }
+                let extra_left_clip = begin - geometry.origin.x;
+                let extra_right_clip = geometry.origin.x + geometry.size.width - end;
+
+                let region = PhysicalRect {
+                    origin: PhysicalPoint::new(begin, line),
+                    size: PhysicalSize::new(end - begin, next - line),
+                };
+
+                for l in region.y_range() {
+                    f(
+                        l,
+                        &mut self.buffer.line_slice(l as usize)
+                            [region.min_x() as usize..region.max_x() as usize],
+                        extra_left_clip,
+                        extra_right_clip,
+                    );
+                }
+            }
+            if next == geometry.max_y() {
+                break;
+            }
+            line = next;
+        }
+    }
+
+    fn process_texture_impl(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
+            draw_functions::draw_texture_line(
+                &geometry,
+                PhysicalLength::new(line),
+                &texture,
+                buffer,
+                extra_left_clip,
+                extra_right_clip,
+            );
+        });
+    }
+}
+
+impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<'_, B> {
+    fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
+        self.process_texture_impl(geometry, texture);
+    }
+
+    fn process_target_texture(
+        &mut self,
+        texture: &target_pixel_buffer::DrawTextureArgs,
+        clip: PhysicalRect,
+    ) {
+        if self.buffer.draw_texture(texture, &self.dirty_region.intersection(&clip)) {
+            return;
+        }
+
+        let Some((texture, geometry)) = SceneTexture::from_target_texture(texture, &clip) else {
+            return;
+        };
+
+        self.process_texture_impl(geometry, texture);
+    }
+
+    fn process_rectangle(
+        &mut self,
+        args: &target_pixel_buffer::DrawRectangleArgs,
+        clip: PhysicalRect,
+    ) {
+        if self.buffer.draw_rectangle(args, &self.dirty_region.intersection(&clip)) {
+            return;
+        }
+
+        let scale_factor = self.scale_factor;
+        process_rectangle_impl(self, args, &clip, scale_factor);
+    }
+
+    fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, rr: RoundedRectangle) {
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
+            draw_functions::draw_rounded_rectangle_line(
+                &geometry,
+                PhysicalLength::new(line),
+                &rr,
+                buffer,
+                extra_left_clip,
+                extra_right_clip,
+            );
+        });
+    }
+
+    fn process_simple_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
+        self.foreach_ranges(&geometry, |_line, buffer, _extra_left_clip, _extra_right_clip| {
+            <B::TargetPixel>::blend_slice(buffer, color)
+        });
+    }
+
+    fn process_linear_gradient(&mut self, geometry: PhysicalRect, g: LinearGradientCommand) {
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, _extra_right_clip| {
+            draw_functions::draw_linear_gradient(
+                &geometry,
+                PhysicalLength::new(line),
+                &g,
+                buffer,
+                extra_left_clip,
+            );
+        });
+    }
+    fn process_radial_gradient(&mut self, geometry: PhysicalRect, g: RadialGradientCommand) {
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
+            draw_functions::draw_radial_gradient(
+                &geometry,
+                PhysicalLength::new(line),
+                &g,
+                buffer,
+                extra_left_clip,
+                extra_right_clip,
+            );
+        });
+    }
+    fn process_conic_gradient(&mut self, geometry: PhysicalRect, g: ConicGradientCommand) {
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
+            draw_functions::draw_conic_gradient(
+                &geometry,
+                PhysicalLength::new(line),
+                &g,
+                buffer,
+                extra_left_clip,
+                extra_right_clip,
+            );
+        });
+    }
+
+    #[cfg(feature = "path")]
+    fn process_filled_path(
+        &mut self,
+        path_geometry: PhysicalRect,
+        clip_geometry: PhysicalRect,
+        commands: alloc::vec::Vec<path::Command>,
+        color: PremultipliedRgbaColor,
+    ) {
+        path::render_filled_path(&commands, &path_geometry, &clip_geometry, color, self.buffer);
+    }
+
+    #[cfg(feature = "path")]
+    fn process_stroked_path(
+        &mut self,
+        path_geometry: PhysicalRect,
+        clip_geometry: PhysicalRect,
+        commands: alloc::vec::Vec<path::Command>,
+        color: PremultipliedRgbaColor,
+        stroke_width: f32,
+        stroke_line_cap: i_slint_core::items::LineCap,
+        stroke_line_join: i_slint_core::items::LineJoin,
+        stroke_miter_limit: f32,
+    ) {
+        path::render_stroked_path(
+            &commands,
+            &path_geometry,
+            &clip_geometry,
+            color,
+            stroke_width,
+            stroke_line_cap,
+            stroke_line_join,
+            stroke_miter_limit,
+            self.buffer,
+        );
+    }
+}
+
+#[derive(Default)]
+struct PrepareScene {
+    items: Vec<SceneItem>,
+    vectors: SceneVectors,
+    scale_factor: ScaleFactor,
+}
+
+impl ProcessScene for PrepareScene {
+    fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
+        let texture_index = self.vectors.textures.len() as u16;
+        self.vectors.textures.push(texture);
+        self.items.push(SceneItem {
+            pos: geometry.origin,
+            size: geometry.size,
+            z: self.items.len() as u16,
+            command: SceneCommand::Texture { texture_index },
+        });
+    }
+
+    fn process_target_texture(
+        &mut self,
+        texture: &target_pixel_buffer::DrawTextureArgs,
+        clip: PhysicalRect,
+    ) {
+        let Some((extra, geometry)) = SceneTextureExtra::from_target_texture(texture, &clip) else {
+            return;
+        };
+        match &texture.data {
+            target_pixel_buffer::TextureDataContainer::Static(texture_data) => {
+                let texture_index = self.vectors.textures.len() as u16;
+                let pixel_stride =
+                    (texture_data.byte_stride / texture_data.pixel_format.bpp()) as u16;
+                self.vectors.textures.push(SceneTexture {
+                    data: texture_data.data,
+                    format: texture_data.pixel_format,
+                    pixel_stride,
+                    extra,
+                });
+                self.items.push(SceneItem {
+                    pos: geometry.origin,
+                    size: geometry.size,
+                    z: self.items.len() as u16,
+                    command: SceneCommand::Texture { texture_index },
+                });
+            }
+            target_pixel_buffer::TextureDataContainer::Shared { buffer, source_rect } => {
+                let shared_buffer_index = self.vectors.shared_buffers.len() as u16;
+                self.vectors.shared_buffers.push(SharedBufferCommand {
+                    buffer: buffer.clone(),
+                    source_rect: *source_rect,
+                    extra,
+                });
+                self.items.push(SceneItem {
+                    pos: geometry.origin,
+                    size: geometry.size,
+                    z: self.items.len() as u16,
+                    command: SceneCommand::SharedBuffer { shared_buffer_index },
+                });
+            }
+        }
+    }
+
+    fn process_rectangle(
+        &mut self,
+        args: &target_pixel_buffer::DrawRectangleArgs,
+        clip: PhysicalRect,
+    ) {
+        let scale_factor = self.scale_factor;
+        process_rectangle_impl(self, args, &clip, scale_factor);
+    }
+
+    fn process_simple_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let z = self.items.len() as u16;
+            let pos = geometry.origin;
+            self.items.push(SceneItem { pos, size, z, command: SceneCommand::Rectangle { color } });
+        }
+    }
+
+    fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let rectangle_index = self.vectors.rounded_rectangles.len() as u16;
+            self.vectors.rounded_rectangles.push(data);
+            self.items.push(SceneItem {
+                pos: geometry.origin,
+                size,
+                z: self.items.len() as u16,
+                command: SceneCommand::RoundedRectangle { rectangle_index },
+            });
+        }
+    }
+
+    fn process_linear_gradient(&mut self, geometry: PhysicalRect, gradient: LinearGradientCommand) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let gradient_index = self.vectors.linear_gradients.len() as u16;
+            self.vectors.linear_gradients.push(gradient);
+            self.items.push(SceneItem {
+                pos: geometry.origin,
+                size,
+                z: self.items.len() as u16,
+                command: SceneCommand::LinearGradient { linear_gradient_index: gradient_index },
+            });
+        }
+    }
+    fn process_radial_gradient(&mut self, geometry: PhysicalRect, gradient: RadialGradientCommand) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let radial_gradient_index = self.vectors.radial_gradients.len() as u16;
+            self.vectors.radial_gradients.push(gradient);
+            self.items.push(SceneItem {
+                pos: geometry.origin,
+                size,
+                z: self.items.len() as u16,
+                command: SceneCommand::RadialGradient { radial_gradient_index },
+            });
+        }
+    }
+    fn process_conic_gradient(&mut self, geometry: PhysicalRect, gradient: ConicGradientCommand) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let conic_gradient_index = self.vectors.conic_gradients.len() as u16;
+            self.vectors.conic_gradients.push(gradient);
+            self.items.push(SceneItem {
+                pos: geometry.origin,
+                size,
+                z: self.items.len() as u16,
+                command: SceneCommand::ConicGradient { conic_gradient_index },
+            });
+        }
+    }
+
+    #[cfg(feature = "path")]
+    fn process_filled_path(
+        &mut self,
+        _path_geometry: PhysicalRect,
+        _clip_geometry: PhysicalRect,
+        _commands: alloc::vec::Vec<path::Command>,
+        _color: PremultipliedRgbaColor,
+    ) {
+        // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
+        // Only works with buffer-based rendering (RenderToBuffer)
+    }
+
+    #[cfg(feature = "path")]
+    fn process_stroked_path(
+        &mut self,
+        _path_geometry: PhysicalRect,
+        _clip_geometry: PhysicalRect,
+        _commands: alloc::vec::Vec<path::Command>,
+        _color: PremultipliedRgbaColor,
+        _stroke_width: f32,
+        _stroke_line_cap: i_slint_core::items::LineCap,
+        _stroke_line_join: i_slint_core::items::LineJoin,
+        _stroke_miter_limit: f32,
+    ) {
+        // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
+        // Only works with buffer-based rendering (RenderToBuffer)
+    }
+}
+
+struct SceneBuilder<'a, T> {
+    processor: T,
+    state_stack: Vec<RenderState>,
+    current_state: RenderState,
+    scale_factor: ScaleFactor,
+    window: &'a WindowInner,
+    rotation: RotationInfo,
+    #[cfg(feature = "systemfonts")]
+    text_layout_cache: &'a sharedparley::TextLayoutCache,
+}
+
+impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
+    fn new(
+        screen_size: PhysicalSize,
+        scale_factor: ScaleFactor,
+        window: &'a WindowInner,
+        processor: T,
+        orientation: RenderingRotation,
+        #[cfg(feature = "systemfonts")] text_layout_cache: &'a sharedparley::TextLayoutCache,
+    ) -> Self {
+        Self {
+            processor,
+            state_stack: Vec::new(),
+            current_state: RenderState {
+                alpha: 1.,
+                offset: LogicalPoint::default(),
+                clip: LogicalRect::new(
+                    LogicalPoint::default(),
+                    (screen_size.cast() / scale_factor).cast(),
+                ),
+            },
+            scale_factor,
+            window,
+            rotation: RotationInfo { orientation, screen_size },
+            #[cfg(feature = "systemfonts")]
+            text_layout_cache,
+        }
+    }
+
+    fn should_draw(&self, rect: &LogicalRect) -> bool {
+        !rect.size.is_empty()
+            && self.current_state.alpha > 0.01
+            && self.current_state.clip.intersects(rect)
+    }
+
+    fn draw_image_impl(
+        &mut self,
+        image_inner: &ImageInner,
+        i_slint_core::graphics::FitResult {
+            clip_rect: source_rect,
+            source_to_target_x,
+            source_to_target_y,
+            size: fit_size,
+            offset: image_fit_offset,
+            tiled,
+        }: i_slint_core::graphics::FitResult,
+        colorize: Color,
+    ) {
+        let global_alpha_u16 = (self.current_state.alpha * 255.) as u16;
+        let offset =
+            self.current_state.offset.cast() * self.scale_factor + image_fit_offset.to_vector();
+
+        let physical_clip =
+            (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .round()
+                .cast()
+                .transformed(self.rotation);
+
+        match image_inner {
+            ImageInner::None => (),
+            ImageInner::StaticTextures(StaticTextures {
+                data,
+                textures,
+                size,
+                original_size,
+                ..
+            }) => {
+                let adjust_x = size.width as f32 / original_size.width as f32;
+                let adjust_y = size.height as f32 / original_size.height as f32;
+                let source_to_target_x = source_to_target_x / adjust_x;
+                let source_to_target_y = source_to_target_y / adjust_y;
+                let source_rect =
+                    source_rect.cast::<f32>().scale(adjust_x, adjust_y).round().to_box2d().cast();
+
+                for t in textures.as_slice() {
+                    let t_rect = t.rect.to_box2d();
+                    // That's the source rect in the whole image coordinate
+                    let Some(src_rect) = t_rect.intersection(&source_rect) else { continue };
+
+                    let target_rect = if tiled.is_some() {
+                        euclid::Rect::new(offset, fit_size).round().cast::<i32>()
+                    } else {
+                        // The slice maps onto the fit rect `offset ..= offset + fit_size`;
+                        // this texture only covers `src_rect` of the slice's `source_rect`, so
+                        // inset each edge by the uncovered source amount. Edges reaching the
+                        // slice boundary keep the exact fit rect, so abutting slices share a
+                        // seamless edge (scaling each from its source extent drifted apart).
+                        let inset = |a: i32, b: i32, s2t: f32| (a - b) as f32 * s2t;
+                        euclid::Box2D::<f32, PhysicalPx>::new(
+                            euclid::point2(
+                                offset.x
+                                    + inset(src_rect.min.x, source_rect.min.x, source_to_target_x),
+                                offset.y
+                                    + inset(src_rect.min.y, source_rect.min.y, source_to_target_y),
+                            ),
+                            euclid::point2(
+                                offset.x + fit_size.width
+                                    - inset(source_rect.max.x, src_rect.max.x, source_to_target_x),
+                                offset.y + fit_size.height
+                                    - inset(source_rect.max.y, src_rect.max.y, source_to_target_y),
+                            ),
+                        )
+                        .round()
+                        .to_rect()
+                        .cast::<i32>()
+                    };
+                    let target_rect = target_rect.transformed(self.rotation).round();
+
+                    let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
+                        continue;
+                    };
+
+                    let pixel_stride = t.rect.width() as usize;
+                    let core::ops::Range { start, end } = compute_range_in_buffer(
+                        &PhysicalRect::from_untyped(
+                            &src_rect.to_rect().translate(-t.rect.origin.to_vector()).cast(),
+                        ),
+                        pixel_stride,
+                    );
+                    let bpp = t.format.bpp();
+
+                    let color = if colorize.alpha() > 0 { colorize } else { t.color };
+                    let alpha = if colorize.alpha() > 0 || t.format == TexturePixelFormat::AlphaMap
+                    {
+                        color.alpha() as u16 * global_alpha_u16 / 255
+                    } else {
+                        global_alpha_u16
+                    } as u8;
+
+                    let tiling = tiled.map(|tile_o| {
+                        let src_o = src_rect.min - source_rect.min;
+                        let gap = (src_o) + (source_rect.max - src_rect.max);
+                        target_pixel_buffer::TilingInfo {
+                            offset_x: ((src_o.x as f32 - tile_o.x as f32) * source_to_target_x)
+                                .round() as _,
+                            offset_y: ((src_o.y as f32 - tile_o.y as f32) * source_to_target_y)
+                                .round() as _,
+                            scale_x: 1. / source_to_target_x,
+                            scale_y: 1. / source_to_target_y,
+                            gap_x: (gap.x as f32 * source_to_target_x).round() as _,
+                            gap_y: (gap.y as f32 * source_to_target_y).round() as _,
+                        }
+                    });
+
+                    let t = target_pixel_buffer::DrawTextureArgs {
+                        data: target_pixel_buffer::TextureDataContainer::Static(
+                            target_pixel_buffer::TextureData::new(
+                                &data.as_slice()[t.index..][start * bpp..end * bpp],
+                                t.format,
+                                pixel_stride * bpp,
+                                src_rect.size().cast(),
+                            ),
+                        ),
+                        colorize: (color.alpha() > 0).then_some(color),
+                        alpha,
+                        dst_x: target_rect.origin.x as _,
+                        dst_y: target_rect.origin.y as _,
+                        dst_width: target_rect.size.width as _,
+                        dst_height: target_rect.size.height as _,
+                        rotation: self.rotation.orientation,
+                        tiling,
+                    };
+
+                    self.processor.process_target_texture(&t, clipped_target.cast());
+                }
+            }
+
+            ImageInner::NineSlice(..) => unreachable!(),
+            _ => {
+                let target_rect =
+                    euclid::Rect::new(offset, fit_size).round().cast().transformed(self.rotation);
+                let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
+                    return;
+                };
+
+                let orig = image_inner.size().cast::<f32>();
+                let svg_target_size = if tiled.is_some() {
+                    euclid::size2(orig.width * source_to_target_x, orig.height * source_to_target_y)
+                        .round()
+                        .cast()
+                } else {
+                    target_rect.size.cast()
+                };
+                if let Some(buffer) = image_inner.render_to_buffer(Some(svg_target_size)) {
+                    let buf_size = buffer.size().cast::<f32>();
+
+                    let alpha = if colorize.alpha() > 0 {
+                        colorize.alpha() as u16 * global_alpha_u16 / 255
+                    } else {
+                        global_alpha_u16
+                    } as u8;
+
+                    let tiling = tiled.map(|tile_o| target_pixel_buffer::TilingInfo {
+                        offset_x: (tile_o.x as f32 * -source_to_target_x).round() as _,
+                        offset_y: (tile_o.y as f32 * -source_to_target_y).round() as _,
+                        scale_x: 1. / source_to_target_x,
+                        scale_y: 1. / source_to_target_y,
+                        gap_x: 0,
+                        gap_y: 0,
+                    });
+
+                    let t = target_pixel_buffer::DrawTextureArgs {
+                        data: target_pixel_buffer::TextureDataContainer::Shared {
+                            buffer: SharedBufferData::SharedImage(buffer),
+                            source_rect: PhysicalRect::from_untyped(
+                                &source_rect
+                                    .cast::<f32>()
+                                    .scale(
+                                        buf_size.width / orig.width,
+                                        buf_size.height / orig.height,
+                                    )
+                                    .round()
+                                    .cast(),
+                            ),
+                        },
+                        colorize: (colorize.alpha() > 0).then_some(colorize),
+                        alpha,
+                        dst_x: target_rect.origin.x as _,
+                        dst_y: target_rect.origin.y as _,
+                        dst_width: target_rect.size.width as _,
+                        dst_height: target_rect.size.height as _,
+                        rotation: self.rotation.orientation,
+                        tiling,
+                    };
+
+                    self.processor.process_target_texture(&t, clipped_target.cast());
+                } else {
+                    unimplemented!("The image cannot be rendered")
+                }
+            }
+        };
+    }
+
+    fn draw_text_paragraph<Font>(
+        &mut self,
+        paragraph: &TextParagraphLayout<'_, Font>,
+        physical_clip: euclid::Rect<f32, PhysicalPx>,
+        offset: euclid::Vector2D<f32, PhysicalPx>,
+        color: Color,
+        selection: Option<SelectionInfo>,
+    ) where
+        Font: AbstractFont
+            + i_slint_core::textlayout::TextShaper<Length = PhysicalLength>
+            + GlyphRenderer,
+    {
+        let slint_context = self.window.context();
+        paragraph
+            .layout_lines::<()>(
+                |glyphs, line_x, line_y, _, sel| {
+                    let baseline_y = line_y + paragraph.layout.font.ascent();
+                    if let (Some(sel), Some(selection)) = (sel, &selection) {
+                        let geometry = euclid::rect(
+                            line_x.get() + sel.start.get(),
+                            line_y.get(),
+                            (sel.end - sel.start).get(),
+                            paragraph.layout.font.height().get(),
+                        );
+                        if let Some(clipped_src) = geometry.intersection(&physical_clip.cast()) {
+                            let geometry =
+                                clipped_src.translate(offset.cast()).transformed(self.rotation);
+                            let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
+                                geometry.cast(),
+                                selection.selection_background.into(),
+                            );
+                            self.processor.process_rectangle(&args, geometry);
+                        }
+                    }
+                    let scale_delta = paragraph.layout.font.scale_delta();
+                    for positioned_glyph in glyphs {
+                        let Some(glyph) = paragraph
+                            .layout
+                            .font
+                            .render_glyph(positioned_glyph.glyph_id, slint_context)
+                        else {
+                            continue;
+                        };
+
+                        let gl_x = PhysicalLength::new((-glyph.x).truncate() as i16);
+                        let gl_y = PhysicalLength::new(glyph.y.truncate() as i16);
+                        let target_rect = PhysicalRect::new(
+                            PhysicalPoint::from_lengths(
+                                line_x + positioned_glyph.x - gl_x,
+                                baseline_y - gl_y - glyph.height,
+                            ),
+                            glyph.size(),
+                        )
+                        .cast();
+
+                        let color = match &selection {
+                            Some(s) if s.selection.contains(&positioned_glyph.text_byte_offset) => {
+                                s.selection_color
+                            }
+                            _ => color,
+                        };
+
+                        let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
+                            continue;
+                        };
+
+                        let data = match &glyph.alpha_map {
+                            fonts::GlyphAlphaMap::Static(data) => {
+                                if glyph.sdf {
+                                    let geometry = clipped_target.translate(offset).round();
+                                    let origin =
+                                        (geometry.origin - offset.round()).round().cast::<i16>();
+                                    let off_x = origin.x - target_rect.origin.x as i16;
+                                    let off_y = origin.y - target_rect.origin.y as i16;
+                                    let pixel_stride = glyph.pixel_stride;
+                                    let mut geometry = geometry.cast();
+                                    if geometry.size.width > glyph.width.get() - off_x {
+                                        geometry.size.width = glyph.width.get() - off_x
+                                    }
+                                    if geometry.size.height > glyph.height.get() - off_y {
+                                        geometry.size.height = glyph.height.get() - off_y
+                                    }
+                                    let source_size = geometry.size;
+                                    if source_size.is_empty() {
+                                        continue;
+                                    }
+
+                                    let delta32 = Fixed::<i32, 8>::from_fixed(scale_delta);
+                                    let normalize = |x: Fixed<i32, 8>| {
+                                        if x < Fixed::from_integer(0) {
+                                            x + Fixed::from_integer(1)
+                                        } else {
+                                            x
+                                        }
+                                    };
+                                    let fract_x = normalize(
+                                        (-glyph.x) - Fixed::from_integer(gl_x.get() as _),
+                                    );
+                                    let off_x = delta32 * off_x as i32 + fract_x;
+                                    let fract_y =
+                                        normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
+                                    let off_y = delta32 * off_y as i32 + fract_y;
+                                    let texture = SceneTexture {
+                                        data,
+                                        pixel_stride,
+                                        format: TexturePixelFormat::SignedDistanceField,
+                                        extra: SceneTextureExtra {
+                                            colorize: color,
+                                            // color already is mixed with global alpha
+                                            alpha: color.alpha(),
+                                            rotation: self.rotation.orientation,
+                                            dx: scale_delta,
+                                            dy: scale_delta,
+                                            off_x: Fixed::try_from_fixed(off_x).unwrap(),
+                                            off_y: Fixed::try_from_fixed(off_y).unwrap(),
+                                        },
+                                    };
+                                    self.processor.process_scene_texture(
+                                        geometry.transformed(self.rotation),
+                                        texture,
+                                    );
+                                    continue;
+                                };
+
+                                target_pixel_buffer::TextureDataContainer::Static(
+                                    target_pixel_buffer::TextureData::new(
+                                        data,
+                                        TexturePixelFormat::AlphaMap,
+                                        glyph.pixel_stride as usize,
+                                        euclid::size2(glyph.width.get(), glyph.height.get()).cast(),
+                                    ),
+                                )
+                            }
+                            fonts::GlyphAlphaMap::Shared(data) => {
+                                let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
+                                target_pixel_buffer::TextureDataContainer::Shared {
+                                    buffer: SharedBufferData::AlphaMap {
+                                        data: data.clone(),
+                                        width: glyph.pixel_stride,
+                                    },
+                                    source_rect,
+                                }
+                            }
+                        };
+                        let clipped_target =
+                            clipped_target.translate(offset).round().transformed(self.rotation);
+                        let target_rect =
+                            target_rect.translate(offset).round().transformed(self.rotation);
+                        let t = target_pixel_buffer::DrawTextureArgs {
+                            data,
+                            colorize: Some(color),
+                            // color already is mixed with global alpha
+                            alpha: color.alpha(),
+                            dst_x: target_rect.origin.x as _,
+                            dst_y: target_rect.origin.y as _,
+                            dst_width: target_rect.size.width as _,
+                            dst_height: target_rect.size.height as _,
+                            rotation: self.rotation.orientation,
+                            tiling: None,
+                        };
+
+                        self.processor.process_target_texture(&t, clipped_target.cast());
+                    }
+                    core::ops::ControlFlow::Continue(())
+                },
+                selection.as_ref().map(|s| s.selection.clone()),
+            )
+            .ok();
+    }
+
+    /// Returns the color, mixed with the current_state's alpha
+    fn alpha_color(&self, color: Color) -> Color {
+        if self.current_state.alpha < 1.0 {
+            Color::from_argb_u8(
+                (color.alpha() as f32 * self.current_state.alpha) as u8,
+                color.red(),
+                color.green(),
+                color.blue(),
+            )
+        } else {
+            color
+        }
+    }
+}
+
+fn alpha_color(color: Color, alpha: u8) -> Color {
+    if alpha < 255 {
+        Color::from_argb_u8(
+            ((color.alpha() as u32 * alpha as u32) / 255) as u8,
+            color.red(),
+            color.green(),
+            color.blue(),
+        )
+    } else {
+        color
+    }
+}
+
+struct SelectionInfo {
+    selection_color: Color,
+    selection_background: Color,
+    selection: core::ops::Range<usize>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct RenderState {
+    alpha: f32,
+    offset: LogicalPoint,
+    clip: LogicalRect,
+}
+
+impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilder<'_, T> {
+    fn draw_rectangle(
+        &mut self,
+        rect: Pin<&dyn RenderRectangle>,
+        _: &ItemRc,
+        size: LogicalSize,
+        _cache: &CachedRenderingData,
+    ) {
+        let geom = LogicalRect::from(size);
+        if self.should_draw(&geom) {
+            let geom = (geom.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .transformed(self.rotation);
+
+            let clipped =
+                (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                    * self.scale_factor)
+                    .round()
+                    .cast()
+                    .transformed(self.rotation);
+
+            let mut args =
+                target_pixel_buffer::DrawRectangleArgs::from_rect(geom, rect.background());
+            args.alpha = (self.current_state.alpha * 255.) as u8;
+            args.rotation = self.rotation.orientation;
+            self.processor.process_rectangle(&args, clipped);
+        }
+    }
+
+    fn draw_border_rectangle(
+        &mut self,
+        rect: Pin<&dyn RenderBorderRectangle>,
+        _: &ItemRc,
+        size: LogicalSize,
+        _: &CachedRenderingData,
+    ) {
+        let geom = LogicalRect::from(size);
+        if self.should_draw(&geom) {
+            let geom = (geom.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .transformed(self.rotation);
+
+            let clipped =
+                (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                    * self.scale_factor)
+                    .round()
+                    .cast()
+                    .transformed(self.rotation);
+
+            let radius = (rect.border_radius().cast() * self.scale_factor)
+                .transformed(self.rotation)
+                .min(BorderRadius::from_length(geom.width_length() / 2.))
+                .min(BorderRadius::from_length(geom.height_length() / 2.));
+
+            let border = rect.border_width().cast() * self.scale_factor;
+            let border_color =
+                if border.get() > 0.01 { rect.border_color() } else { Default::default() };
+
+            let args = target_pixel_buffer::DrawRectangleArgs {
+                x: geom.origin.x,
+                y: geom.origin.y,
+                width: geom.size.width,
+                height: geom.size.height,
+                top_left_radius: radius.top_left,
+                top_right_radius: radius.top_right,
+                bottom_right_radius: radius.bottom_right,
+                bottom_left_radius: radius.bottom_left,
+                border_width: border.get(),
+                background: rect.background(),
+                border: border_color,
+                alpha: (self.current_state.alpha * 255.) as u8,
+                rotation: self.rotation.orientation,
+            };
+
+            self.processor.process_rectangle(&args, clipped);
+        }
+    }
+
+    fn draw_window_background(
+        &mut self,
+        rect: Pin<&dyn RenderRectangle>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+        _cache: &CachedRenderingData,
+    ) {
+        // register a dependency for the partial renderer's dirty tracker. The actual rendering is done earlier in the software renderer.
+        let _ = rect.background();
+    }
+
+    fn draw_image(
+        &mut self,
+        image: Pin<&dyn RenderImage>,
+        _: &ItemRc,
+        size: LogicalSize,
+        _: &CachedRenderingData,
+    ) {
+        let geom = LogicalRect::from(size);
+        if self.should_draw(&geom) {
+            let source = image.source();
+
+            let image_inner: &ImageInner = (&source).into();
+            if let ImageInner::NineSlice(nine) = image_inner {
+                let colorize = image.colorize().color();
+                let source_size = source.size();
+                for fit in i_slint_core::graphics::fit9slice(
+                    source_size,
+                    nine.1,
+                    size.cast() * self.scale_factor,
+                    self.scale_factor,
+                    image.alignment(),
+                    image.tiling(),
+                ) {
+                    self.draw_image_impl(&nine.0, fit, colorize);
+                }
+                return;
+            }
+
+            let source_clip = image.source_clip().map_or_else(
+                || euclid::Rect::new(Default::default(), source.size().cast()),
+                |clip| {
+                    clip.intersection(&euclid::Rect::from_size(source.size().cast()))
+                        .unwrap_or_default()
+                },
+            );
+
+            let phys_size = geom.size_length().cast() * self.scale_factor;
+            let fit = i_slint_core::graphics::fit(
+                image.image_fit(),
+                phys_size,
+                source_clip,
+                self.scale_factor,
+                image.alignment(),
+                image.tiling(),
+            );
+            self.draw_image_impl(image_inner, fit, image.colorize().color());
+        }
+    }
+
+    fn draw_text(
+        &mut self,
+        text: Pin<&dyn i_slint_core::item_rendering::RenderText>,
+        self_rc: &ItemRc,
+        size: LogicalSize,
+        _cache: &CachedRenderingData,
+    ) {
+        let font_request = text.font_request(self_rc);
+
+        #[cfg(feature = "systemfonts")]
+        let mut font_ctx = self.window.context().font_context().borrow_mut();
+        let font = fonts::match_font(
+            &font_request,
+            self.scale_factor,
+            #[cfg(feature = "systemfonts")]
+            &mut font_ctx,
+        );
+
+        #[cfg(feature = "systemfonts")]
+        if matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled() {
+            drop(font_ctx);
+            sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
+            return;
+        }
+
+        let content = text.text();
+        let string = match &content {
+            PlainOrStyledText::Plain(string) => alloc::borrow::Cow::Borrowed(string.as_str()),
+            PlainOrStyledText::Styled(styled_text) => {
+                i_slint_core::styled_text::get_raw_text(styled_text)
+            }
+        };
+
+        if string.trim().is_empty() {
+            return;
+        }
+
+        let geom = LogicalRect::from(size);
+        if !self.should_draw(&geom) {
+            return;
+        }
+
+        let color = self.alpha_color(text.color().color());
+        let max_size = (geom.size.cast() * self.scale_factor).cast();
+
+        // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
+        // of its boundaries (that breaks partial rendering and the cast to usize for the item relative coordinate below).
+        // FIXME: we should allow drawing outside of the Text element's boundaries.
+        let physical_clip = if let Some(logical_clip) = self.current_state.clip.intersection(&geom)
+        {
+            logical_clip.cast() * self.scale_factor
+        } else {
+            return; // This should have been caught earlier already
+        };
+        let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
+
+        let (horizontal_alignment, vertical_alignment) = text.alignment();
+        let max_lines = text.line_limit();
+
+        match &font {
+            fonts::Font::PixelFont(pf) => {
+                let layout = fonts::text_layout_for_font(pf, &font_request, self.scale_factor);
+                let paragraph = TextParagraphLayout {
+                    string: &string,
+                    layout,
+                    max_width: max_size.width_length(),
+                    max_height: max_size.height_length(),
+                    horizontal_alignment,
+                    vertical_alignment,
+                    wrap: text.wrap(),
+                    overflow: text.overflow(),
+                    single_line: false,
+                    max_lines,
+                };
+
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
+            }
+            #[cfg(feature = "systemfonts")]
+            fonts::Font::VectorFont(vf) => {
+                let layout = fonts::text_layout_for_font(vf, &font_request, self.scale_factor);
+                let paragraph = TextParagraphLayout {
+                    string: &string,
+                    layout,
+                    max_width: max_size.width_length(),
+                    max_height: max_size.height_length(),
+                    horizontal_alignment,
+                    vertical_alignment,
+                    wrap: text.wrap(),
+                    overflow: text.overflow(),
+                    single_line: false,
+                    max_lines,
+                };
+
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
+            }
+        };
+    }
+
+    fn draw_text_input(
+        &mut self,
+        text_input: Pin<&i_slint_core::items::TextInput>,
+        self_rc: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let font_request = text_input.font_request(self_rc);
+        #[cfg(feature = "systemfonts")]
+        let mut font_ctx = self.window.context().font_context().borrow_mut();
+        let font = fonts::match_font(
+            &font_request,
+            self.scale_factor,
+            #[cfg(feature = "systemfonts")]
+            &mut font_ctx,
+        );
+
+        match (font, parley_disabled()) {
+            #[cfg(feature = "systemfonts")]
+            (fonts::Font::VectorFont(_), false) => {
+                drop(font_ctx);
+                sharedparley::draw_text_input(self, text_input, self_rc, size, None);
+            }
+            #[cfg(feature = "systemfonts")]
+            (fonts::Font::VectorFont(vf), true) => {
+                let geom = LogicalRect::from(size);
+                if !self.should_draw(&geom) {
+                    return;
+                }
+
+                let max_size = (geom.size.cast() * self.scale_factor).cast();
+
+                // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
+                // of its boundaries (that breaks partial rendering and the cast to usize for the item relative coordinate below).
+                // FIXME: we should allow drawing outside of the Text element's boundaries.
+                let physical_clip =
+                    if let Some(logical_clip) = self.current_state.clip.intersection(&geom) {
+                        logical_clip.cast() * self.scale_factor
+                    } else {
+                        return; // This should have been caught earlier already
+                    };
+                let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
+
+                let text_visual_representation = text_input.visual_representation(None);
+                let color = self.alpha_color(text_visual_representation.text_color.color());
+
+                let selection = (!text_visual_representation.selection_range.is_empty()).then_some(
+                    SelectionInfo {
+                        selection_background: self
+                            .alpha_color(text_input.selection_background_color()),
+                        selection_color: self.alpha_color(text_input.selection_foreground_color()),
+                        selection: text_visual_representation.selection_range.clone(),
+                    },
+                );
+
+                let paragraph = TextParagraphLayout {
+                    string: &text_visual_representation.text,
+                    layout: fonts::text_layout_for_font(&vf, &font_request, self.scale_factor),
+                    max_width: max_size.width_length(),
+                    max_height: max_size.height_length(),
+                    horizontal_alignment: text_input.horizontal_alignment(),
+                    vertical_alignment: text_input.vertical_alignment(),
+                    wrap: text_input.wrap(),
+                    overflow: TextOverflow::Clip,
+                    single_line: text_input.single_line(),
+                    max_lines: None,
+                };
+
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
+
+                let cursor_pos_and_height =
+                    text_visual_representation.cursor_position.map(|cursor_offset| {
+                        (paragraph.cursor_pos_for_byte_offset(cursor_offset), vf.height())
+                    });
+
+                if let Some(((cursor_x, cursor_y), cursor_height)) = cursor_pos_and_height {
+                    let cursor_rect = PhysicalRect::new(
+                        PhysicalPoint::from_lengths(cursor_x, cursor_y),
+                        PhysicalSize::from_lengths(
+                            (text_input.text_cursor_width().cast() * self.scale_factor).cast(),
+                            cursor_height,
+                        ),
+                    );
+
+                    if let Some(clipped_src) = cursor_rect.intersection(&physical_clip.cast()) {
+                        let geometry =
+                            clipped_src.translate(offset.cast()).transformed(self.rotation);
+                        let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
+                            geometry.cast(),
+                            self.alpha_color(text_visual_representation.cursor_color).into(),
+                        );
+                        self.processor.process_rectangle(&args, geometry);
+                    }
+                }
+            }
+            (fonts::Font::PixelFont(pf), _) => {
+                let geom = LogicalRect::from(size);
+                if !self.should_draw(&geom) {
+                    return;
+                }
+
+                let max_size = (geom.size.cast() * self.scale_factor).cast();
+
+                // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
+                // of its boundaries (that breaks partial rendering and the cast to usize for the item relative coordinate below).
+                // FIXME: we should allow drawing outside of the Text element's boundaries.
+                let physical_clip =
+                    if let Some(logical_clip) = self.current_state.clip.intersection(&geom) {
+                        logical_clip.cast() * self.scale_factor
+                    } else {
+                        return; // This should have been caught earlier already
+                    };
+                let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
+
+                let text_visual_representation = text_input.visual_representation(None);
+                let color = self.alpha_color(text_visual_representation.text_color.color());
+
+                let selection = (!text_visual_representation.selection_range.is_empty()).then_some(
+                    SelectionInfo {
+                        selection_background: self
+                            .alpha_color(text_input.selection_background_color()),
+                        selection_color: self.alpha_color(text_input.selection_foreground_color()),
+                        selection: text_visual_representation.selection_range.clone(),
+                    },
+                );
+
+                let paragraph = TextParagraphLayout {
+                    string: &text_visual_representation.text,
+                    layout: fonts::text_layout_for_font(&pf, &font_request, self.scale_factor),
+                    max_width: max_size.width_length(),
+                    max_height: max_size.height_length(),
+                    horizontal_alignment: text_input.horizontal_alignment(),
+                    vertical_alignment: text_input.vertical_alignment(),
+                    wrap: text_input.wrap(),
+                    overflow: TextOverflow::Clip,
+                    single_line: text_input.single_line(),
+                    max_lines: None,
+                };
+
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
+
+                let cursor_pos_and_height =
+                    text_visual_representation.cursor_position.map(|cursor_offset| {
+                        (paragraph.cursor_pos_for_byte_offset(cursor_offset), pf.height())
+                    });
+
+                if let Some(((cursor_x, cursor_y), cursor_height)) = cursor_pos_and_height {
+                    let cursor_rect = PhysicalRect::new(
+                        PhysicalPoint::from_lengths(cursor_x, cursor_y),
+                        PhysicalSize::from_lengths(
+                            (text_input.text_cursor_width().cast() * self.scale_factor).cast(),
+                            cursor_height,
+                        ),
+                    );
+
+                    if let Some(clipped_src) = cursor_rect.intersection(&physical_clip.cast()) {
+                        let geometry =
+                            clipped_src.translate(offset.cast()).transformed(self.rotation);
+                        let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
+                            geometry.cast(),
+                            self.alpha_color(text_visual_representation.cursor_color).into(),
+                        );
+                        self.processor.process_rectangle(&args, geometry);
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(all(feature = "std", not(feature = "path")))]
+    fn draw_path(
+        &mut self,
+        _path: Pin<&i_slint_core::items::Path>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) {
+        // Path rendering is disabled without the path feature
+    }
+
+    #[cfg(feature = "path")]
+    fn draw_path(
+        &mut self,
+        path: Pin<&i_slint_core::items::Path>,
+        self_rc: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let geom = LogicalRect::from(size);
+        if !self.should_draw(&geom) {
+            return;
+        }
+
+        // Get the fitted path events from the Path item
+        let Some((offset, path_iterator)) = path.fitted_path_events(self_rc) else {
+            return;
+        };
+
+        let physical_geom_f32 =
+            geom.translate(self.current_state.offset.to_vector()).cast() * self.scale_factor;
+        let physical_geom = physical_geom_f32.round().cast().transformed(self.rotation);
+
+        let rotation = RotationInfo {
+            orientation: self.rotation.orientation,
+            screen_size: physical_geom.size + euclid::size2(1, 1),
+        };
+
+        let offset = offset * self.scale_factor
+            + (physical_geom_f32.origin - physical_geom_f32.round().origin);
+
+        // Convert to zeno commands
+        let zeno_commands =
+            path::convert_path_data_to_zeno(path_iterator, rotation, self.scale_factor, offset);
+
+        let physical_clip =
+            (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .round()
+                .cast::<i16>()
+                .transformed(self.rotation);
+
+        // Clip the geometry - early return if nothing to draw
+        let Some(clipped_geom) = physical_geom.intersection(&physical_clip) else {
+            return;
+        };
+
+        // Draw fill if specified
+        let fill_brush = path.fill();
+        if !fill_brush.is_transparent() {
+            let fill_color = self.alpha_color(fill_brush.color());
+            if fill_color.alpha() > 0 {
+                self.processor.process_filled_path(
+                    physical_geom,
+                    clipped_geom,
+                    zeno_commands.clone(),
+                    fill_color.into(),
+                );
+            }
+        }
+
+        // Draw stroke if specified
+        let stroke_brush = path.stroke();
+        let stroke_width = path.stroke_width();
+        if !stroke_brush.is_transparent() && stroke_width.get() > 0.0 {
+            let stroke_color = self.alpha_color(stroke_brush.color());
+            if stroke_color.alpha() > 0 {
+                let physical_stroke_width = (stroke_width.cast() * self.scale_factor).get();
+                let stroke_line_cap = path.stroke_line_cap();
+                let stroke_line_join = path.stroke_line_join();
+                let stroke_miter_limit = path.stroke_miter_limit();
+                self.processor.process_stroked_path(
+                    physical_geom,
+                    clipped_geom,
+                    zeno_commands,
+                    stroke_color.into(),
+                    physical_stroke_width,
+                    stroke_line_cap,
+                    stroke_line_join,
+                    stroke_miter_limit,
+                );
+            }
+        }
+    }
+
+    fn draw_box_shadow(
+        &mut self,
+        _box_shadow: Pin<&i_slint_core::items::BoxShadow>,
+        _: &ItemRc,
+        _size: LogicalSize,
+    ) {
+        // TODO
+    }
+
+    fn combine_clip(
+        &mut self,
+        other: LogicalRect,
+        _radius: LogicalBorderRadius,
+        _border_width: LogicalLength,
+    ) -> bool {
+        match self.current_state.clip.intersection(&other) {
+            Some(r) => {
+                self.current_state.clip = r;
+                true
+            }
+            None => {
+                self.current_state.clip = LogicalRect::default();
+                false
+            }
+        }
+        // TODO: handle radius and border
+    }
+
+    fn get_current_clip(&self) -> LogicalRect {
+        self.current_state.clip
+    }
+
+    fn translate(&mut self, distance: LogicalVector) {
+        self.current_state.offset += distance;
+        self.current_state.clip = self.current_state.clip.translate(-distance)
+    }
+
+    fn current_transform(&self) -> i_slint_core::lengths::ItemTransform {
+        let v = self.current_state.offset.to_vector().cast::<f32>();
+        i_slint_core::lengths::ItemTransform::translation(v.x, v.y)
+    }
+
+    fn rotate(&mut self, _angle_in_degrees: f32) {
+        // TODO (#6068)
+    }
+
+    fn scale(&mut self, _x_factor: f32, _y_factor: f32) {
+        // TODO
+    }
+
+    fn apply_opacity(&mut self, opacity: f32) {
+        self.current_state.alpha *= opacity;
+    }
+
+    fn save_state(&mut self) {
+        self.state_stack.push(self.current_state);
+    }
+
+    fn restore_state(&mut self) {
+        self.current_state = self.state_stack.pop().unwrap();
+    }
+
+    fn scale_factor(&self) -> f32 {
+        self.scale_factor.0
+    }
+
+    fn draw_cached_pixmap(
+        &mut self,
+        _item: &ItemRc,
+        update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
+    ) {
+        // FIXME: actually cache the pixmap
+        update_fn(&mut |width, height, data| {
+            let img = SharedImageBuffer::RGBA8Premultiplied(SharedPixelBuffer::clone_from_slice(
+                data, width, height,
+            ));
+
+            let physical_clip = (self.current_state.clip.cast() * self.scale_factor).cast();
+            let source_rect = euclid::rect(0, 0, width as _, height as _);
+
+            if let Some(clipped_src) = source_rect.intersection(&physical_clip) {
+                let offset = self.current_state.offset.cast() * self.scale_factor;
+                let geometry = clipped_src.translate(offset.to_vector().cast()).round_in();
+
+                let t = target_pixel_buffer::DrawTextureArgs {
+                    data: target_pixel_buffer::TextureDataContainer::Shared {
+                        buffer: SharedBufferData::SharedImage(img),
+                        source_rect,
+                    },
+                    colorize: None,
+                    alpha: (self.current_state.alpha * 255.) as u8,
+                    dst_x: offset.x as _,
+                    dst_y: offset.y as _,
+                    dst_width: width as _,
+                    dst_height: height as _,
+                    rotation: self.rotation.orientation,
+                    tiling: None,
+                };
+                self.processor
+                    .process_target_texture(&t, geometry.cast().transformed(self.rotation));
+            }
+        });
+    }
+
+    fn draw_string(&mut self, string: &str, color: Color) {
+        let font_request = Default::default();
+        #[cfg(feature = "systemfonts")]
+        let mut font_ctx = self.window.context().font_context().borrow_mut();
+        let font = fonts::match_font(
+            &font_request,
+            self.scale_factor,
+            #[cfg(feature = "systemfonts")]
+            &mut font_ctx,
+        );
+        let clip = self.current_state.clip.cast() * self.scale_factor;
+
+        match (font, parley_disabled()) {
+            #[cfg(feature = "systemfonts")]
+            (fonts::Font::VectorFont(_), false) => {
+                drop(font_ctx);
+                sharedparley::draw_text(
+                    self,
+                    std::pin::pin!((i_slint_core::SharedString::from(string), Brush::from(color))),
+                    None,
+                    self.current_state.clip.size.cast(),
+                    None,
+                );
+            }
+            #[cfg(feature = "systemfonts")]
+            (fonts::Font::VectorFont(vf), true) => {
+                let layout = fonts::text_layout_for_font(&vf, &font_request, self.scale_factor);
+
+                let paragraph = TextParagraphLayout {
+                    string,
+                    layout,
+                    max_width: clip.width_length().cast(),
+                    max_height: clip.height_length().cast(),
+                    horizontal_alignment: Default::default(),
+                    vertical_alignment: Default::default(),
+                    wrap: Default::default(),
+                    overflow: Default::default(),
+                    single_line: false,
+                    max_lines: None,
+                };
+
+                self.draw_text_paragraph(&paragraph, clip, Default::default(), color, None);
+            }
+            (fonts::Font::PixelFont(pf), _) => {
+                let layout = fonts::text_layout_for_font(&pf, &font_request, self.scale_factor);
+
+                let paragraph = TextParagraphLayout {
+                    string,
+                    layout,
+                    max_width: clip.width_length().cast(),
+                    max_height: clip.height_length().cast(),
+                    horizontal_alignment: Default::default(),
+                    vertical_alignment: Default::default(),
+                    wrap: Default::default(),
+                    overflow: Default::default(),
+                    single_line: false,
+                    max_lines: None,
+                };
+
+                self.draw_text_paragraph(&paragraph, clip, Default::default(), color, None);
+            }
+        }
+    }
+
+    fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
+        let image_inner: &ImageInner = (&image).into();
+        let source_size = image.size();
+        if source_size.is_empty() {
+            return;
+        }
+        let target_size = euclid::Size2D::<f32, i_slint_core::lengths::LogicalPx>::from_untyped(
+            source_size.cast(),
+        ) * self.scale_factor;
+        let fit = i_slint_core::graphics::fit(
+            i_slint_core::items::ImageFit::Fill,
+            target_size,
+            i_slint_core::graphics::IntRect::from_size(source_size.cast()),
+            self.scale_factor,
+            Default::default(),
+            Default::default(),
+        );
+        self.draw_image_impl(image_inner, fit, i_slint_core::Color::default());
+    }
+
+    fn window(&self) -> &i_slint_core::window::WindowInner {
+        self.window
+    }
+
+    fn as_any(&mut self) -> Option<&mut dyn core::any::Any> {
+        None
+    }
+}
+
+impl<T: ProcessScene> i_slint_core::item_rendering::ItemRendererFeatures for SceneBuilder<'_, T> {
+    const SUPPORTS_TRANSFORMATIONS: bool = false;
+}
+
+#[cfg(feature = "systemfonts")]
+use i_slint_core::textlayout::sharedparley::{self, fontique};
+
+#[cfg(feature = "systemfonts")]
+impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
+    type PlatformBrush = Color;
+
+    fn platform_brush_for_color(&mut self, color: &Color) -> Option<Self::PlatformBrush> {
+        Some(*color)
+    }
+
+    fn platform_text_fill_brush(
+        &mut self,
+        brush: Brush,
+        _size: LogicalSize,
+    ) -> Option<Self::PlatformBrush> {
+        Some(brush.color())
+    }
+
+    fn platform_text_stroke_brush(
+        &mut self,
+        brush: Brush,
+        _physical_stroke_width: f32,
+        _size: LogicalSize,
+    ) -> Option<Self::PlatformBrush> {
+        Some(brush.color())
+    }
+
+    fn fill_rectangle(
+        &mut self,
+        mut physical_rect: sharedparley::PhysicalRect,
+        color: Color,
+        radius: sharedparley::PhysicalLength,
+        border: Option<sharedparley::RectangleBorder<Color>>,
+    ) {
+        let has_visible_border =
+            border.as_ref().is_some_and(|b| b.width.get() > 0.0 && b.brush.alpha() > 0);
+        if color.alpha() == 0 && !has_visible_border {
+            return;
+        }
+
+        let global_offset =
+            (self.current_state.offset.to_vector().cast() * self.scale_factor).cast();
+
+        physical_rect.origin += global_offset;
+        let clip = physical_rect.cast().transformed(self.rotation);
+        let mut args = target_pixel_buffer::DrawRectangleArgs::from_rect(
+            clip.cast(),
+            Brush::SolidColor(color),
+        );
+
+        if radius.get() > 0.0 {
+            let r = radius.get().min(args.width / 2.0).min(args.height / 2.0);
+            args.top_left_radius = r;
+            args.top_right_radius = r;
+            args.bottom_right_radius = r;
+            args.bottom_left_radius = r;
+        }
+
+        if let Some(sharedparley::RectangleBorder { brush: border_color, width: border_width }) =
+            border
+            && border_width.get() > 0.0
+            && border_color.alpha() > 0
+        {
+            args.border_width = border_width.get();
+            args.border = Brush::SolidColor(border_color);
+        }
+
+        self.processor.process_rectangle(&args, clip);
+    }
+
+    fn draw_glyph_run(
+        &mut self,
+        font: &sharedparley::parley::FontData,
+        font_size: sharedparley::PhysicalLength,
+        normalized_coords: &[i16],
+        _synthesis: &fontique::Synthesis,
+        color: Self::PlatformBrush,
+        y_offset: sharedparley::PhysicalLength,
+        glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
+    ) {
+        let slint_context = self.window.context();
+        let (swash_key, swash_offset) =
+            fonts::systemfonts::get_swash_font_info(&font.data, font.index);
+        let font = fonts::vectorfont::VectorFont::new_from_blob_and_index_with_coords(
+            font.data.clone(),
+            font.index,
+            swash_key,
+            swash_offset,
+            font_size.cast(),
+            normalized_coords,
+        );
+
+        let global_offset =
+            (self.current_state.offset.to_vector().cast() * self.scale_factor).cast();
+
+        for positioned_glyph in glyphs_it {
+            let Some(glyph) = std::num::NonZero::new(positioned_glyph.id as u16)
+                .and_then(|id| font.render_vector_glyph(id, slint_context))
+            else {
+                continue;
+            };
+
+            let glyph_offset: euclid::Vector2D<i16, PhysicalPx> = euclid::Vector2D::from_lengths(
+                euclid::Length::new(positioned_glyph.x),
+                euclid::Length::new(positioned_glyph.y) + y_offset,
+            )
+            .cast();
+
+            let gl_y = PhysicalLength::new(glyph.y.truncate() as i16);
+            let target_rect: PhysicalRect = euclid::Rect::<f32, PhysicalPx>::new(
+                (PhysicalPoint::from_lengths(PhysicalLength::new(0), -gl_y - glyph.height)
+                    + global_offset
+                    + glyph_offset)
+                    .cast()
+                    + euclid::vec2(glyph.glyph_origin_x, 0.0),
+                glyph.size().cast(),
+            )
+            .cast()
+            .transformed(self.rotation);
+
+            let data = {
+                let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
+                target_pixel_buffer::TextureDataContainer::Shared {
+                    buffer: SharedBufferData::AlphaMap {
+                        data: glyph.alpha_map,
+                        width: glyph.pixel_stride,
+                    },
+                    source_rect,
+                }
+            };
+
+            let color = self.alpha_color(color);
+            let physical_clip =
+                (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                    * self.scale_factor)
+                    .round()
+                    .transformed(self.rotation);
+
+            let t = target_pixel_buffer::DrawTextureArgs {
+                data,
+                colorize: Some(color),
+                // color already is mixed with global alpha
+                alpha: color.alpha(),
+                dst_x: target_rect.origin.x as _,
+                dst_y: target_rect.origin.y as _,
+                dst_width: target_rect.size.width as _,
+                dst_height: target_rect.size.height as _,
+                rotation: self.rotation.orientation,
+                tiling: None,
+            };
+
+            self.processor.process_target_texture(&t, physical_clip.cast());
+        }
+    }
+}

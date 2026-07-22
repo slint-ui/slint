@@ -1,0 +1,233 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
+import { TextButton } from "./text_button.slint";
+import { FilledButton } from "./filled_button.slint";
+import { MaterialText } from "./material_text.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
+import { Modal } from "./modal.slint";
+import { Icon } from "./icon.slint";
+import { IconButton } from "./icon_button.slint";
+import { Icons } from "../icons/icons.slint";
+
+export component FullscreenDialog inherits PopupWindow {
+    in property <string> title;
+    in property <[string]> actions;
+
+    callback action_clicked(index: int);
+
+    close_policy: no_auto_close;
+    forward_focus: focus_scope;
+
+    focus_scope := FocusScope {
+        x: 0;
+        width: 0;
+
+        key_pressed(event) => {
+            if event.text == Key.Escape {
+                root.close();
+                return accept;
+            }
+
+            reject
+        }
+    }
+
+    background_layer := Rectangle {
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        background: MaterialPalette.surface;
+
+        VerticalLayout {
+            spacing: MaterialStyleMetrics.spacing_16;
+
+            HorizontalLayout {
+                padding: MaterialStyleMetrics.padding_24;
+                spacing: MaterialStyleMetrics.spacing_16;
+                vertical_stretch: 0;
+
+                IconButton {
+                    icon: Icons.close;
+
+                    clicked => {
+                        root.close();
+                    }
+                }
+
+                MaterialText {
+                    text: root.title;
+                    style: MaterialTypography.headline_small;
+                    color: MaterialPalette.on_surface;
+                    vertical_alignment: center;
+                }
+
+                for action[index] in root.actions : TextButton {
+                    text: action;
+
+                    clicked => {
+                        root.action_clicked(index);
+                    }
+                }
+            }
+
+            @children
+
+        }
+    }
+
+    Timer {
+        interval: 50ms;
+
+        triggered => {
+            background_layer.opacity = 1;
+            self.running = false;
+        }
+    }
+}
+
+export component BaseDialog {
+    in property <string> title;
+    in property <image> icon;
+    in property <[image]> action_button_icons;
+    in property <string> default_action_text;
+    in property <[string]> actions;
+
+    property <bool> has_icon: root.icon.width > 0 && root.icon.height > 0;
+
+    callback default_action_clicked();
+    callback action_button_clicked(index: int);
+    callback action_clicked(index: int);
+    callback close();
+
+    forward_focus: focus_scope;
+
+    focus_scope := FocusScope {
+        x: 0;
+        width: 0;
+
+        key_pressed(event) => {
+            if event.text == Key.Return && root.default_action_text != ""  {
+                root.default_action_clicked();
+                return accept;
+            }
+
+            if event.text == Key.Escape {
+                root.close();
+                return accept;
+            }
+
+            reject
+        }
+    }
+
+    modal := Modal {
+        width: 100%;
+        height: 100%;
+
+        background_layer := Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: layout.min_width;
+            height: layout.min_height;
+            opacity: 0;
+            border_radius: MaterialStyleMetrics.border_radius_28;
+            background: MaterialPalette.surface_container_high;
+
+            TouchArea {
+                layout := VerticalLayout {
+                    padding: MaterialStyleMetrics.padding_24;
+                    spacing: MaterialStyleMetrics.spacing_16;
+
+                    if root.has_icon : Icon {
+                        x: (parent.width - self.width) / 2;
+                        colorize: MaterialPalette.on_surface;
+                        source: root.icon;
+                    }
+
+                    if root.title != "" : MaterialText {
+                        horizontal_alignment: root.has_icon ? center : left;
+                        text: root.title;
+                        style: MaterialTypography.headline_small;
+                        color: MaterialPalette.on_surface;
+                    }
+
+                    @children
+
+                    HorizontalLayout {
+                        spacing: MaterialStyleMetrics.spacing_8;
+
+                        for action_button[index] in root.action_button_icons : IconButton {
+                            icon: action_button;
+
+                            clicked => {
+                                root.action_button_clicked(index);
+                            }
+                        }
+
+                        // Spacer
+                        Rectangle {}
+
+                        for action[index] in root.actions : TextButton {
+                            text: action;
+
+                            clicked => {
+                                root.action_clicked(index);
+                            }
+                        }
+
+                        if root.default_action_text != "" : FilledButton {
+                            text: root.default_action_text;
+
+                            clicked => {
+                                root.default_action_clicked();
+                            }
+                        }
+                    }
+                }
+            }
+
+            animate opacity { duration: MaterialAnimations.opacity_duration; easing: MaterialAnimations.opacity_easing; }
+        }
+
+        clicked => {
+            root.close();
+        }
+    }
+
+    Timer {
+        interval: 50ms;
+
+        triggered => {
+            background_layer.opacity = 1;
+            self.running = false;
+        }
+    }
+}
+
+export component Dialog inherits PopupWindow {
+    in property <string> title <=> base.title;
+    in property <image> icon <=> base.icon;
+    in property <string> default_action_text <=> base.default_action_text;
+    in property <[string]> actions <=> base.actions;
+
+    callback default_action_clicked <=> base.default_action_clicked;
+    callback action_clicked <=> base.action_clicked;
+
+    close_policy: no_auto_close;
+    forward_focus: base;
+
+    base := BaseDialog {
+        width: 100%;
+        height: 100%;
+
+        @children
+
+        close => {
+            root.close();
+        }
+    }
+}

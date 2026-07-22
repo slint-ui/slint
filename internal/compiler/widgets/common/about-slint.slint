@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { StyleMetrics, Palette, ScrollView, Palette } from "std-widgets-impl.slint";
+
+export component AboutSlint {
+    preferred-height: 100%;
+    preferred-width: 100%;
+    min-height: i-layout.min-height;
+    min-width: i-layout.min-width;
+
+    i-layout := VerticalLayout {
+        padding: 12px;
+        spacing: 8px;
+        alignment: start;
+
+        Image {
+            source: Palette.color-scheme == ColorScheme.dark ? @image-url("MadeWithSlint-logo-dark.svg") : @image-url("MadeWithSlint-logo-light.svg");
+            preferred-width: 256px;
+            min-height: 48px;
+            accessible-label: "#MadeWithSlint";
+        }
+
+        Text {
+            text: "Version 1.18.0\nhttps://slint.dev/";
+            font-size: 10px;
+            horizontal-alignment: center;
+        }
+    }
+    TouchArea {
+        clicked => { Platform.open-url("https://slint.dev"); }
+    }
+}

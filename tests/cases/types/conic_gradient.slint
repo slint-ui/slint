@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component TestCase inherits Rectangle {
+    // Basic conic gradient
+    property <brush> basic: @conic-gradient(#ff0000 0deg, #00ff00 120deg, #0000ff 240deg, #ff0000 360deg);
+
+    // Conic gradient with different angle units
+    property <brush> rad_gradient: @conic-gradient(#ff0000 0rad, #00ff00 2.094rad, #0000ff 4.189rad, #ff0000 6.283rad);
+    property <brush> turn_gradient: @conic-gradient(#ff0000 0turn, #00ff00 0.333turn, #0000ff 0.667turn, #ff0000 1turn);
+    property <brush> deg_gradient: @conic-gradient(#ff0000 0deg, #00ff00 120deg, #0000ff 240deg, #ff0000 360deg);
+
+    // Conic gradient with variable colors
+    property <color> start_color: #ff0000;
+    property <color> mid_color: #00ff00;
+    property <color> end_color: #0000ff;
+    property <brush> var_gradient: @conic-gradient(start_color 0deg, mid_color 120deg, end_color 240deg, start_color 360deg);
+
+    // Test angle normalization with large angles
+    property <brush> large_angle: @conic-gradient(#ff0000 0deg, #00ff00 720deg, #0000ff 1440deg);
+
+    // Test conic gradient in Rectangle background
+    Rectangle {
+        width: 100px;
+        height: 100px;
+        background: @conic-gradient(#ff0000 0deg, #ffff00 90deg, #00ff00 180deg, #00ffff 270deg, #ff0000 360deg);
+    }
+
+    // Test brush property value
+    property <brush> test_brush: @conic-gradient(#000000 0deg, #ffffff 180deg, #000000 360deg);
+
+    // Workarounds for negative angles (documented limitation)
+    // Using variables with negative angles works
+    property <angle> neg_angle1: -180deg;
+    property <angle> neg_angle2: -90deg;
+    property <brush> var_negative: @conic-gradient(#ff0000 neg_angle1, #00ff00 neg_angle2, #0000ff 90deg, #ff0000 180deg);
+
+    // Using explicit subtraction works
+    property <brush> negative_workaround: @conic-gradient(#ff0000 0deg - 360deg, #00ff00 0deg - 240deg, #0000ff 0deg - 120deg, #ff0000 0deg);
+}
+
+export { TestCase }

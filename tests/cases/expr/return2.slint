@@ -1,0 +1,158 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore chiptrack
+export global Foo {
+    in-out property<bool> bo: false;
+    public pure function return_bool() -> bool {
+        if (bo) {
+            return true;
+        }
+        false
+    }
+
+    callback cycle_instrument_param_end();
+}
+
+
+// extracted from chiptrack
+export component StepsFocusScope inherits FocusScope {
+    callback root_key_released(KeyEvent) -> EventResult;
+    key_released(e) => {
+        if (e.text == Key.Control) { Foo.cycle_instrument_param_end(); }
+        else {
+            return root_key_released(e);
+        }
+        accept
+    }
+}
+
+
+component Issue4070 {
+    function broken(event: string) -> EventResult {
+        if (event == "a") {  }
+        else if (event == "s") {  }
+        else {
+            debug("returning reject");
+            return reject;
+        }
+        debug("returning accept");
+        accept
+    }
+    out property<bool> test : broken("a") == EventResult.accept;
+}
+
+
+export component TestCase {
+
+    function return_false() -> bool { return false; }
+
+    out property <string> val;
+
+    public function proceed() {
+        if (return-false()) {
+            val += "e";
+            return;
+        }
+        if (!return-false()) {
+            val += "1";
+            if (return-false() == true) {
+                val += "error";
+                return "Nope";
+            } else {
+                val += "2";
+                if (false) {
+                    return;
+                    val += "x";
+                }
+            }
+        }
+        if (Foo.return-bool()) {
+            val += "nope";
+        } else {
+            val += "3";
+            if (!Foo.return-bool()) {
+                val += "4";
+                return;
+                val += "z";
+                "XXX";
+            }
+            val += "y";
+        }
+
+        val += "After";
+        if (true) {
+            return;
+        } else {
+            return;
+        }
+        return;
+
+    }
+
+    i4070 := Issue4070 {}
+
+    out property <bool> test: {
+        if (!i4070.test) {
+            return false;
+        }
+        if (false) {
+            return false;
+        }
+        if (false) {
+            return false;
+        }
+        //true;
+        if (true) {
+            if (false) {
+                return false;
+            }
+            if (true) {
+                return true;
+            } else {
+                return false;
+            }
+            return false;
+        }
+        return false;
+        false;
+    }
+
+    out property <bool> check_ok;
+    public function test-key() -> bool {
+        fs.key-released({text: "hi"}) == EventResult.reject
+    }
+    fs := StepsFocusScope {
+        root-key-released(e) => { check-ok = e.text == "hi"; EventResult.reject }
+    }
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.invoke_proceed();
+assert_eq(instance.get_val(), "1234");
+
+assert_eq(instance.invoke_test_key(), true);
+assert_eq(instance.get_check_ok(), true);
+
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.invoke_proceed();
+assert_eq!(instance.get_val(), "1234");
+
+instance.global::<Foo<'_>>().on_cycle_instrument_param_end(|| panic!("should not happen"));
+assert_eq!(instance.invoke_test_key(), true);
+assert_eq!(instance.get_check_ok(), true);
+
+
+```
+
+
+*/

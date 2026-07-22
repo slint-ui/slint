@@ -1,0 +1,15 @@
+---
+title: Bundle Translations
+description: Embed translated strings into the binary with the SLINT_BUNDLE_TRANSLATIONS target property.
+---
+
+Translations can either be done using `gettext` at runtime, or by bundling all the translated strings
+directly into the binary, by embedding them in the generated C++ code.
+If you want to bundle translations, you need to set the `SLINT_BUNDLE_TRANSLATIONS` target property
+to point to a directory containing translations. The translations must be in the gettext `.po` format.
+
+In the following example, the translation files will be bundled from `lang/<lang>/LC_MESSAGES/my_application.po`
+
+```cmake
+set_property(TARGET my_application PROPERTY SLINT_BUNDLE_TRANSLATIONS "${CMAKE_CURRENT_SOURCE_DIR}/lang")
+```

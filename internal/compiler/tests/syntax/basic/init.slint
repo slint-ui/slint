@@ -1,0 +1,28 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component CallInit {
+    Rectangle {
+        init => {
+            self.x = 0;
+            self.init();
+//          >         <warning{Calling 'init' explicitly does nothing and is deprecated}
+        }
+    }
+    init => {
+        self.init();
+//      >         <warning{Calling 'init' explicitly does nothing and is deprecated}
+    }
+}
+
+export component CallInitFromOutside {
+    r := Rectangle {
+        init => {
+            self.x = 0;
+        }
+    }
+    init => {
+        r.init();
+//      >      <warning{Calling 'init' explicitly does nothing and is deprecated}
+    }
+}

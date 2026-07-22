@@ -1,0 +1,59 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore dumbbuffer
+use std::sync::Arc;
+
+use i_slint_core::platform::PlatformError;
+
+pub trait SoftwareBufferDisplay {
+    fn size(&self) -> (u32, u32);
+    fn map_back_buffer(
+        &self,
+        callback: &mut dyn FnMut(
+            &'_ mut [u8],
+            u8,
+            drm::buffer::DrmFourcc,
+        ) -> Result<(), PlatformError>,
+    ) -> Result<(), PlatformError>;
+    /// Returns true if the buffer handed out by `map_back_buffer` is in
+    /// write-combined or otherwise uncached memory, where CPU reads are an
+    /// order of magnitude slower than reads from regular (cached) memory.
+    /// Renderers that read back destination pixels should then render into a
+    /// regular buffer and copy the result into the mapped buffer.
+    fn is_write_combined_memory(&self) -> bool;
+    fn as_presenter(self: Arc<Self>) -> Arc<dyn super::Presenter>;
+}
+
+mod dumbbuffer;
+mod linuxfb;
+
+pub fn negotiate_format(
+    renderer_formats: &[drm::buffer::DrmFourcc],
+    display_formats: &[drm::buffer::DrmFourcc],
+) -> Option<drm::buffer::DrmFourcc> {
+    renderer_formats
+        .iter()
+        .find(|&&renderer_format| display_formats.contains(&renderer_format))
+        .copied()
+}
+
+pub fn new(
+    device_opener: &crate::DeviceOpener,
+    renderer_formats: &[drm::buffer::DrmFourcc],
+) -> Result<Arc<dyn SoftwareBufferDisplay>, PlatformError> {
+    if std::env::var_os("SLINT_BACKEND_LINUXFB").is_some() {
+        return linuxfb::LinuxFBDisplay::new(device_opener, renderer_formats);
+    }
+    dumbbuffer::DumbBufferDisplay::new(device_opener, renderer_formats).or_else(
+        |dumb_buffer_error| {
+            linuxfb::LinuxFBDisplay::new(device_opener, renderer_formats).map_err(
+                |linuxfb_error| {
+                    PlatformError::Other(format!(
+                        "Could not initialize software display.\nError using DRM dumb buffers: {dumb_buffer_error}\nError using legacy framebuffer: {linuxfb_error}"
+                    ))
+                },
+            )
+        },
+    )
+}

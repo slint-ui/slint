@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// ISSUE #8091
+
+component TopBar inherits VerticalLayout {
+    // padding: 0;  // uncommenting this line make it work
+    height: 56px;
+    ir := Rectangle {
+        background: red;
+
+    }
+    out property <int> ir_h: ir.height / 1px;
+}
+
+export component TestCase inherits Window {
+    preferred-height: 380px;
+    preferred-width: 230px;
+    background: blue;
+    VerticalLayout {
+        tb := TopBar {
+            padding: 16px;
+        }
+
+        Rectangle {
+            background: black;
+        }
+    }
+
+    out property <bool> test: tb.ir_h == 24;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+
+*/

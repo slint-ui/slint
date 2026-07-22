@@ -1,0 +1,113 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CupertinoPalette, CupertinoFontSettings, Icons, CupertinoSizeSettings } from "styling.slint";
+
+export component FocusBorder inherits Rectangle {
+    in property <bool> has-focus;
+
+    background: CupertinoPalette.tertiary-accent-background;
+    opacity: 0;
+
+    animate opacity { duration: 150ms; }
+
+    states [
+        focused when root.has-focus : {
+            opacity: 0.5;
+        }
+     ]
+}
+
+export component MenuBorder inherits Rectangle {
+    drop-shadow-blur: 22px;
+    drop-shadow-color: #00000066;
+    drop-shadow-offset-y: 0.5px;
+    background: CupertinoPalette.background;
+    border-radius: 6px;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: parent.border-radius;
+        background: CupertinoPalette.background;
+
+        @children
+    }
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: parent.border-radius;
+        border-width: 1px;
+        border-color: CupertinoPalette.popup-border;
+    }
+}
+
+export component ListItem {
+    in property <bool> is-selected;
+    in property <StandardListViewItem> item;
+    in property <length> padding-horizontal: 12px;
+    in property <bool> has-focus;
+    in property <bool> has-hover;
+    in property <bool> pressed;
+    in property <int> index;
+    in property <length> pressed-x;
+    in property <length> pressed-y;
+
+    min-width: i-layout.min-width;
+    min-height: max(CupertinoSizeSettings.item-height, i-layout.min-height);
+    vertical-stretch: 0;
+    horizontal-stretch: 1;
+    accessible-role: list-item;
+    accessible-label: root.item.text;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.is-selected;
+    accessible-item-index: root.index;
+
+    states [
+        has-focus when root.has-focus : {
+            i-background.background: CupertinoPalette.tertiary-accent-background;
+        }
+        hover when root.has-hover : {
+            i-background.background: CupertinoPalette.accent-background;
+            i-text.color: CupertinoPalette.accent-foreground;
+            i-icon.colorize: CupertinoPalette.accent-foreground;
+        }
+    ]
+
+    i-layout := VerticalLayout {
+        padding-left: root.padding-horizontal;
+        padding-right: root.padding-horizontal;
+
+        i-background := Rectangle {
+            background: transparent;
+            border-radius: 5px;
+
+            HorizontalLayout {
+                spacing: 4px;
+                padding-left: 4px;
+                padding-right: 4px;
+
+                i-icon := Image {
+                    image-fit: contain;
+                    source: Icons.check-mark;
+                    colorize: CupertinoPalette.foreground;
+                    visible: root.is-selected;
+                    width: 10px;
+                    accessible-role: none;
+                }
+
+                i-text := Text {
+                    text: root.item.text;
+                    color: CupertinoPalette.foreground;
+                    vertical-alignment: center;
+                    horizontal-alignment: left;
+                    overflow: elide;
+                    accessible-role: none;
+                }
+            }
+        }
+    }
+
+    @children
+}

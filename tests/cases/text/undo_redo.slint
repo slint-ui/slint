@@ -1,0 +1,147 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits TextInput {
+    width: 100phx;
+    height: 100phx;
+    single-line: false;
+    in-out property<string> test_text: self.text;
+    in-out property<int> test_cursor_pos: self.cursor_position_byte_offset;
+    in-out property<int> test_anchor_pos: self.anchor_position_byte_offset;
+    in-out property<bool> has_selection: self.test_cursor_pos != self.test_anchor_pos;
+    in-out property<bool> input_focused: self.has_focus;
+
+    callback do_undo();
+    do_undo => { self.undo(); }
+
+    callback do_redo();
+    do_redo => { self.redo(); }
+
+    callback do_select_all();
+    do_select_all => { self.select_all(); }
+}
+
+/*
+```rust
+const BACK_CODE: char = '\u{0008}'; // backspace \b
+
+fn ctrl_key(instance: &TestCase, key: &str, shift: bool) {
+    slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
+    if shift {
+        slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
+    }
+    slint_testing::send_keyboard_string_sequence(instance, key);
+
+    // release
+    slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Control.into(), false);
+    if shift {
+        slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Shift.into(), false);
+    }
+}
+
+let instance = TestCase::new().unwrap();
+slint_testing::send_keyboard_string_sequence(&instance, "First line\nSecond line");
+assert_eq!(instance.get_test_text(), "First line\nSecond line");
+
+// --- undo/redo via public functions ---
+
+instance.invoke_do_undo();
+assert_eq!(instance.get_test_text(), "First line\n");
+instance.invoke_do_undo();
+assert_eq!(instance.get_test_text(), "First line");
+instance.invoke_do_undo();
+assert_eq!(instance.get_test_text(), "");
+
+instance.invoke_do_redo();
+assert_eq!(instance.get_test_text(), "First line");
+instance.invoke_do_redo();
+assert_eq!(instance.get_test_text(), "First line\n");
+instance.invoke_do_redo();
+assert_eq!(instance.get_test_text(), "First line\nSecond line");
+
+// select all -> delete -> undo should restore text + selection
+instance.invoke_do_select_all();
+assert!(instance.get_has_selection());
+
+slint_testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
+assert_eq!(instance.get_test_text(), "");
+assert!(!instance.get_has_selection());
+
+instance.invoke_do_undo();
+assert_eq!(instance.get_test_text(), "First line\nSecond line");
+assert!(instance.get_has_selection());
+
+// --- undo/redo via Ctrl+Z / Ctrl+Shift+Z keyboard shortcuts ---
+
+// clear and type fresh text
+instance.invoke_do_select_all();
+slint_testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
+assert_eq!(instance.get_test_text(), "");
+// undo the delete + select to get back to clean slate
+ctrl_key(&instance, "z", false);
+ctrl_key(&instance, "z", false);
+ctrl_key(&instance, "z", false);
+ctrl_key(&instance, "z", false);
+ctrl_key(&instance, "z", false);
+ctrl_key(&instance, "z", false);
+assert_eq!(instance.get_test_text(), "");
+
+slint_testing::send_keyboard_string_sequence(&instance, "Hello\nWorld");
+assert_eq!(instance.get_test_text(), "Hello\nWorld");
+
+ctrl_key(&instance, "z", false);
+assert_eq!(instance.get_test_text(), "Hello\n");
+ctrl_key(&instance, "z", false);
+assert_eq!(instance.get_test_text(), "Hello");
+ctrl_key(&instance, "z", false);
+assert_eq!(instance.get_test_text(), "");
+
+// Ctrl+Shift+Z (Linux/macOS) + Ctrl+Y (Windows)
+ctrl_key(&instance, "z", true);
+ctrl_key(&instance, "y", false);
+assert_eq!(instance.get_test_text(), "Hello");
+ctrl_key(&instance, "z", true);
+ctrl_key(&instance, "y", false);
+assert_eq!(instance.get_test_text(), "Hello\n");
+ctrl_key(&instance, "z", true);
+ctrl_key(&instance, "y", false);
+assert_eq!(instance.get_test_text(), "Hello\nWorld");
+```
+*/
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_keyboard_string_sequence(&instance, "First line\nSecond line");
+assert_eq(instance.get_test_text(), "First line\nSecond line");
+
+// --- undo/redo via public functions ---
+
+instance.invoke_do_undo();
+assert_eq(instance.get_test_text(), "First line\n");
+instance.invoke_do_undo();
+assert_eq(instance.get_test_text(), "First line");
+instance.invoke_do_undo();
+assert_eq(instance.get_test_text(), "");
+
+instance.invoke_do_redo();
+assert_eq(instance.get_test_text(), "First line");
+instance.invoke_do_redo();
+assert_eq(instance.get_test_text(), "First line\n");
+instance.invoke_do_redo();
+assert_eq(instance.get_test_text(), "First line\nSecond line");
+
+// select all -> delete -> undo should restore text + selection
+instance.invoke_do_select_all();
+assert(instance.get_has_selection());
+
+slint_testing::send_keyboard_string_sequence(&instance, "\x08");
+assert_eq(instance.get_test_text(), "");
+assert(!instance.get_has_selection());
+
+instance.invoke_do_undo();
+assert_eq(instance.get_test_text(), "First line\nSecond line");
+assert(instance.get_has_selection());
+```
+*/

@@ -1,0 +1,11 @@
+Cargo.lock
+/target
+
+# Ignore all package-lock.json files
+**/package-lock.json
+# But keep these specific ones
+!editors/vscode/package-lock.json
+
+.env
+.envrc
+__pycache__

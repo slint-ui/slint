@@ -1,0 +1,190 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//! This file contains a generic implementation of the MenuBar and ContextMenu
+
+import { Palette } from "style-base.slint";
+import { MenuBarItem, MenuBar, MenuFrame, MenuItem } from "menu.slint";
+
+export component PopupMenuImpl inherits Window {
+    in property <[MenuEntry]> entries: [];
+
+    property <int> current-highlight: -1;
+    // `y` position of the currently highlighted menu entry
+    property <length> current-highlight-y-pos;
+    property <int> current-open: -1;
+    property <length> px: 1rem / 14;
+
+    callback sub-menu(menu-entry: MenuEntry) -> [MenuEntry];
+    callback activated(menu-entry: MenuEntry);
+    callback close-popup();
+
+    forward-focus: focus-scope;
+    background: transparent;
+
+    focus-scope := FocusScope {
+        frame := MenuFrame {
+            for entry[index] in entries: MenuItem {
+                entry: entry;
+                is-current: current-highlight == index;
+
+                changed is-current => {
+                    if self.is-current {
+                        current-highlight-y-pos = self.absolute-position.y - root.absolute-position.y;
+                    }
+                }
+
+                set-current => {
+                    focus-scope.focus();
+                    root.current-highlight = index;
+                    open-sub-menu-after-timeout.running = true;
+                }
+
+                clear-current => {
+                    root.current-highlight = -1;
+                }
+
+                activate(entry, y) => {
+                    root.activate(entry, y, index);
+                }
+            }
+        }
+
+        for entry[index] in entries: KeyBinding {
+            keys: entry.shortcut;
+            enabled: entry.enabled;
+            activated => {
+                root.activated(entry);
+            }
+        }
+
+        open-sub-menu-after-timeout := Timer {
+            interval: 500ms;
+            running: false;
+
+            triggered => {
+                self.running = false;
+
+                if current-highlight >= 0 {
+                    if entries[current-highlight].has-sub-menu {
+                        activate(entries[current-highlight], current-highlight-y-pos, current-highlight);
+                    } else {
+                        current-open = -1;
+                        sub-menu.close();
+                    }
+                }
+            }
+        }
+
+        key-pressed(event) => {
+            open-sub-menu-after-timeout.running = false;
+
+            if event.text == Key.UpArrow {
+                if current-highlight < 1 {
+                    current-highlight = entries.length - 1;
+                } else if entries[current-highlight - 1].is_separator {
+                    current-highlight -= 2;
+                } else {
+                    current-highlight -= 1;
+                }
+                return accept;
+            } else if event.text == Key.DownArrow {
+                if current-highlight >= entries.length - 1 {
+                    current-highlight = 0;
+                } else if entries[current-highlight + 1].is_separator {
+                    current-highlight += 2;
+                } else {
+                    current-highlight += 1;
+                }
+                return accept;
+            } else if event.text == Key.Return {
+                if current-highlight >= 0 && current-highlight < entries.length && entries[current-highlight].enabled {
+                    activate(entries[current-highlight], current-highlight-y-pos, current-highlight);
+                }
+                return accept;
+            } else if event.text == Key.RightArrow {
+                if current-highlight >= 0 && current-highlight < entries.length && entries[current-highlight].has-sub-menu && entries[current-highlight].enabled {
+                    activate(entries[current-highlight], current-highlight-y-pos, current-highlight);
+                }
+                return accept;
+            } else if event.text == Key.LeftArrow {
+                // TODO: should close only if this menu is a sub menu
+                root.close-popup();
+            }
+
+            reject
+        }
+    }
+
+    sub-menu := ContextMenuInternal {
+        x: 0; y: 0; width: 0; height: 0;
+
+        sub-menu(entry) => { root.sub-menu(entry); }
+
+        activated(entry) => {
+            current-open = -1;
+            root.activated(entry);
+            root.close-popup();
+        }
+    }
+
+    function activate(entry : MenuEntry, y: length, index: int) {
+        open-sub-menu-after-timeout.running = false;
+        if entry.has-sub-menu {
+            if current-open != index || !sub-menu.is-open() {
+                current-open = index;
+                sub-menu.entries = root.sub-menu(entry);
+                sub-menu.show({
+                    x: root.width,
+                    y: y - sub-menu.absolute-position.y,
+                });
+            }
+        } else {
+            current-open = -1;
+            activated(entry);
+            close-popup();
+        }
+    }
+}
+
+
+export component MenuBarImpl {
+    callback activated(menu-entry: MenuEntry);
+    callback sub-menu(menu-entry: MenuEntry) -> [MenuEntry];
+
+    property <[MenuEntry]> entries;
+    property <bool> menubar-visible: true;
+
+    preferred-width: 100%;
+    height: menubar-visible ? base.min-height : 0px;
+    visible: menubar-visible;
+
+    private property <int> last-open-entry-index : -1;
+
+    base := MenuBar {
+        width: 100%;
+
+        for entry[idx] in entries: e := MenuBarItem {
+            entry: entry;
+
+            clicked => {
+                last-open-entry-index = idx;
+                context-menu.entries = root.sub-menu(entry);
+                context-menu.show({ x: e.x, y: root.height });
+            }
+            hovered => {
+                if last-open-entry-index != idx && context-menu.is-open() {
+                    self.clicked();
+                }
+            }
+        }
+    }
+
+    context-menu := ContextMenuInternal {
+        // Only manual calls to `show` should open the menu, and we shouldn't react to clicks.
+        enabled: false;
+        activated(entry) => { root.activated(entry); self.close(); }
+        sub-menu(entry) => { root.sub-menu(entry); }
+    }
+}
+

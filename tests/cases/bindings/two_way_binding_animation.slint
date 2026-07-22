@@ -1,0 +1,135 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    in-out property <int> xx : 1000;
+
+    animate x {
+        duration: xx * 1ms;
+        easing: ease;
+    }
+
+    in-out property<int> hello: 40;
+    animate hello {
+        duration: 1200ms;
+    }
+
+    in-out property<bool> condition: true;
+    in-out property<int> binding_dep: condition ? 100 : 150;
+    animate binding_dep {
+        duration: 1200ms;
+    }
+
+    t:= Text {
+        x:0;y:0;
+        font_weight <=> binding_dep;
+    }
+    in-out property <int> t1_font: t.font_weight;
+    in-out property alias_hello <=> hello;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_hello(), 40);
+assert_eq!(instance.get_binding_dep(), 100);
+instance.set_condition(false);
+instance.set_hello(60);
+// no time has elapsed yet
+assert_eq!(instance.get_hello(), 40);
+assert_eq!(instance.get_binding_dep(), 100);
+
+// Half the animation
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_hello(), 50);
+assert_eq!(instance.get_binding_dep(), 125);
+
+
+// Remaining half
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_hello(), 60);
+assert_eq!(instance.get_binding_dep(), 150);
+
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_hello(), 60);
+assert_eq!(instance.get_binding_dep(), 150);
+
+// Changing the value and waiting should have effect without
+// querying the value (because te dirty event should cause the animation to start)
+instance.set_condition(true);
+instance.set_hello(30);
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_hello(), 45);
+assert_eq!(instance.get_binding_dep(), 125);
+
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_hello(), 40);
+assert_eq(instance.get_binding_dep(), 100);
+instance.set_condition(false);
+instance.set_hello(60);
+// no time has elapsed yet
+assert_eq(instance.get_hello(), 40);
+assert_eq(instance.get_binding_dep(), 100);
+
+// Half the animation
+slint_testing::mock_elapsed_time(600);
+assert_eq(instance.get_hello(), 50);
+assert_eq(instance.get_binding_dep(), 125);
+
+
+// Remaining half
+slint_testing::mock_elapsed_time(600);
+assert_eq(instance.get_hello(), 60);
+assert_eq(instance.get_binding_dep(), 150);
+
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_hello(), 60);
+assert_eq(instance.get_binding_dep(), 150);
+
+// Changing the value and waiting should have effect without
+// querying the value (because te dirty event should cause the animation to start)
+instance.set_condition(true);
+instance.set_hello(30);
+slint_testing::mock_elapsed_time(600);
+assert_eq(instance.get_hello(), 45);
+assert_eq(instance.get_binding_dep(), 125);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.hello, 40);
+assert.equal(instance.binding_dep, 100);
+instance.condition = false;
+instance.hello = 60;
+// no time has elapsed yet
+assert.equal(instance.hello, 40);
+assert.equal(instance.binding_dep, 100);
+
+// Half the animation
+slintlib.private_api.mock_elapsed_time(600);
+assert.equal(instance.hello, 50);
+assert.equal(instance.binding_dep, 125);
+// Remaining half
+slintlib.private_api.mock_elapsed_time(600);
+assert.equal(instance.hello, 60);
+assert.equal(instance.binding_dep, 150);
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.hello, 60);
+assert.equal(instance.binding_dep, 150);
+
+// Changing the value and waiting should have effect without
+// querying the value (because te dirty event should cause the animation to start)
+instance.condition = true;
+instance.hello = 30;
+slintlib.private_api.mock_elapsed_time(600);
+assert.equal(instance.hello, 45);
+assert.equal(instance.binding_dep, 125);
+
+```
+*/

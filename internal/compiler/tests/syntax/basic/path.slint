@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export TestCase := Rectangle {
+//              ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+    Path {
+        LineTo { x: 100; y: 0; }
+        LineTo { x: 100; y: 0; }
+        LineTo { x: 100; y: 0; }
+        Rectangle {}
+//      >        <error{Rectangle is not allowed within Path. Only ArcTo Close CubicTo LineTo MoveTo QuadraticTo are valid children}
+    }
+
+    LineTo { x: 100; y: 0; }
+//  >     <error{LineTo can only be within a Path element}
+}

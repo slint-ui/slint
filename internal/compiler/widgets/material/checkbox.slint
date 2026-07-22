@@ -1,0 +1,168 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { MaterialPalette, MaterialFontSettings, Icons } from "styling.slint";
+
+// Selection control that can be toggled between checked und unchecked by click.
+export component CheckBox {
+    in property <string> text <=> i-text.text;
+    in property <bool> enabled: true;
+    in property <length> font-size: MaterialFontSettings.title-small.font-size;
+    in property <int> font-weight: MaterialFontSettings.title-small.font-weight;
+    out property <bool> has-focus: i-focus-scope.has-focus;
+    in-out property <bool> checked;
+
+    callback toggled;
+
+    min-height: max(18px, i-layout.min-height);
+    vertical-stretch: 0;
+    accessible-enabled: root.enabled;
+    accessible-label <=> i-text.text;
+    accessible-checkable: true;
+    accessible-checked <=> root.checked;
+    accessible-role: checkbox;
+    accessible-action-default => {
+        if (root.enabled) {
+            root.checked = !root.checked;
+            root.toggled();
+	}
+    }
+    forward-focus: i-focus-scope;
+
+    states [
+        disabled-selected when !root.enabled && root.checked  : {
+            i-container.border-width: 0px;
+            i-container.border-color: transparent;
+            i-container.background: MaterialPalette.accent-background;
+            i-container.opacity: 0.38;
+            i-text.opacity: 0.38;
+            i-text.color: MaterialPalette.accent-background;
+        }
+        disabled when !root.enabled : {
+            i-container.opacity: 0.38;
+            i-text.opacity: 0.38;
+            i-text.color: MaterialPalette.accent-background;
+        }
+        pressed when i-touch-area.pressed && !root.checked : {
+            i-state-layer.opacity: 0.12;
+        }
+        pressed-selected when i-touch-area.pressed && root.checked : {
+            i-state-layer.opacity: 0.12;
+            i-state-layer.background: MaterialPalette.control-foreground;
+            i-container.border-width: 0px;
+            i-container.border-color: transparent;
+            i-container.background: MaterialPalette.accent-background;
+        }
+        hover-selected when i-touch-area.has-hover && root.checked : {
+            i-state-layer.opacity: 0.08;
+            i-container.border-width: 0px;
+            i-container.border-color: transparent;
+            i-container.background: MaterialPalette.accent-background;
+        }
+        hover when i-touch-area.has-hover && !root.checked : {
+            i-state-layer.background: MaterialPalette.control-foreground;
+            i-state-layer.opacity: 0.08;
+        }
+        selected when !i-touch-area.has-hover && root.checked : {
+            i-container.border-width: 0px;
+            i-container.border-color: transparent;
+            i-container.background: MaterialPalette.accent-background;
+        }
+        focused-selected when i-focus-scope.has-focus && root.checked : {
+            i-state-layer.opacity: 0.12;
+        }
+        focused when i-focus-scope.has-focus && !root.checked : {
+            i-state-layer.background: MaterialPalette.control-foreground;
+            i-state-layer.opacity: 0.12;
+        }
+    ]
+
+    i-layout := HorizontalLayout {
+        spacing: 16px;
+
+        VerticalLayout {
+            alignment: center;
+
+            Rectangle {
+                width: 18px;
+                height: 18px;
+
+                i-container := Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 2px;
+                    border-width: 2px;
+                    border-color: MaterialPalette.control-foreground-variant;
+                }
+
+                i-state-layer := Rectangle {
+                    width: 40px;
+                    height: 40px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    opacity: 0;
+                    background: MaterialPalette.accent-background;
+                    border-radius: 20px;
+
+                    animate opacity { duration: 300ms; easing: ease; }
+                }
+
+                if (root.checked) : Image {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    width: 80%;
+                    height: 80%;
+                    source: Icons.check-mark;
+                    colorize: MaterialPalette.accent-foreground;
+                    accessible-role: none;
+
+                    states [
+                        disabled when !root.enabled : {
+                            colorize: MaterialPalette.control-foreground;
+                        }
+                        hover-selected when i-touch-area.has-hover && root.checked : {
+                            colorize: MaterialPalette.accent-foreground;
+                        }
+                    ]
+                }
+            }
+        }
+
+        i-text := Text {
+            color: MaterialPalette.control-foreground;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            vertical-stretch: 1;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
+        }
+    }
+
+    i-touch-area := TouchArea {
+        x: i-layout.padding-left;
+        width: i-layout.width - i-layout.padding-left - i-layout.padding-right;
+        height: 100%;
+        enabled <=> root.enabled;
+
+        clicked => {
+            if (root.enabled) {
+                root.checked = !root.checked;
+                root.toggled();
+            }
+        }
+    }
+
+    i-focus-scope := FocusScope {
+        x:0;
+        width: 0px; // Do not react on clicks
+        enabled <=> root.enabled;
+
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                 i-touch-area.clicked();
+                 return accept;
+            }
+            return reject;
+        }
+    }
+}

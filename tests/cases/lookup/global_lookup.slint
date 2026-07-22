@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+global MyGlobal  {
+    in-out property<int> bar: 5;
+    in-out property<int> foo: 3;
+    callback glob_callback;
+}
+
+component Foo inherits Rectangle {
+    in-out property<int> foo_prop: MyGlobal.foo;
+    for ha in 3: Rectangle {
+        x: (ha + MyGlobal.bar) * 1px;
+    }
+}
+
+export component TestCase inherits Rectangle {
+
+    callback invoke_glob;
+    invoke_glob => {
+        MyGlobal.glob_callback();
+    }
+    Foo {}
+    foo := Foo {}
+    Foo {}
+    in-out property<int> p1: 10 * MyGlobal.bar + 1;
+    in-out property<int> p2: foo.foo_prop;
+
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_p1(), 51);
+assert_eq(instance.get_p2(), 3);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_p1(), 51);
+assert_eq!(instance.get_p2(), 3);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.p1, 51);
+assert.equal(instance.p2, 3);
+```
+*/

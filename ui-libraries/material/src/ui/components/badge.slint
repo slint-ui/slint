@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
+import { MaterialText } from "material_text.slint";
+
+export component Badge {
+    in property <string> text;
+
+    width: max(MaterialStyleMetrics.size_16, label.width + 2 * MaterialStyleMetrics.padding_4);
+    height: max(MaterialStyleMetrics.size_16, label.height);
+
+    background_layer := Rectangle {
+        width: parent.width;
+        height: parent.height;
+        border_radius: self.height / 2;
+        background: MaterialPalette.error;
+    }
+
+    label := MaterialText {
+        text: root.text;
+        color: MaterialPalette.on_error;
+        vertical_alignment: center;
+        horizontal_alignment: center;
+        style: MaterialTypography.label_small;
+    }
+
+    states [
+        small when root.text == "" : {
+            background_layer.width: MaterialStyleMetrics.size_6;
+            background_layer.height: MaterialStyleMetrics.size_6;
+        }
+    ]
+}

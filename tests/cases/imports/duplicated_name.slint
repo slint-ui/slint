@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore Testbutton
+// Python is ignored because include paths aren't forwarded in the generated stubs.
+//ignore: pyi
+
+//include_path: ../../helper_components
+import { ColorButton } from "test_button.slint";
+import { TestButton as TheRealTestButton  } from "re_export.slint";
+
+// ColorButton uses TestButtonImpl
+component TestButtonImpl inherits Rectangle {
+    in-out property <int> abc: 12;
+}
+
+// Testbutton is another name for TestButtonImpl
+component TestButton inherits Rectangle {
+    in-out property <string> abc: "hello";
+}
+
+export component TestCase inherits Rectangle {
+    ColorButton { button_color: red; }
+    TestButtonImpl { abc: 4; }
+    TestButton { abc: "world"; }
+    TheRealTestButton{ button-text: "yo"; }
+}

@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test for manual visual verification of default font properties of Window
+//
+
+export component TestCase inherits Window {
+    width: 800px;
+    height: 600px;
+
+    default-font-family: "Courier New";
+    default-font-size: 48px;
+
+    GridLayout {
+        Text {
+            text: "This text should be shown in 48px Courier New\nIt's a fixed width font so the characters should align";
+        }
+    }
+}

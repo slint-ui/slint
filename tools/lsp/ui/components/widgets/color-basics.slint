@@ -1,0 +1,237 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ResettingLineEdit } from "./basics.slint";
+
+import { Api, ColorData } from "../../api.slint";
+import { EditorSpaceSettings } from "../../components/styling.slint";
+
+import { Palette, Slider } from "std-widgets.slint";
+
+component ColorLineEdit inherits HorizontalLayout {
+    in property <bool> enabled;
+    in property <string> channel: "R";
+    in-out property <float> value;
+
+    callback accepted();
+
+    changed value => {
+        num-value.default-text = Math.floor(root.value);
+        num-value.text = Math.floor(root.value);
+    }
+
+    init => {
+        num-value.default-text = Math.floor(root.value);
+        num-value.text = Math.floor(root.value);
+    }
+
+    out property <bool> has-focus: slide-value.has-focus || num-value.has-focus;
+
+    spacing: EditorSpaceSettings.default-spacing;
+
+    Text {
+        text: channel;
+        vertical-alignment: center;
+        color: Palette.foreground;
+    }
+
+    slide-value := Slider {
+        enabled: root.enabled;
+        minimum: 0;
+        maximum: 255;
+        step: 1;
+        value <=> root.value;
+        horizontal-stretch: 100;
+    }
+
+    num-value := ResettingLineEdit {
+        enabled: root.enabled;
+        input-type: number;
+        width: 5rem;
+
+        private property <float> test-value;
+
+        edited() => {
+            self.test-value = self.text.to-float();
+            if Math.clamp(Math.floor(self.test-value), 0.0, 255.0) == self.text.to-float() {
+                root.value = Math.floor(self.test-value);
+            } else {
+                self.text = self.test-value
+            }
+        }
+
+        accepted() => {
+            root.accepted();
+        }
+    }
+}
+
+export component Preview {
+    in property <brush> background;
+    callback clicked <=> ta.clicked;
+
+    Image {
+        width: 100%;
+        height: 100%;
+        source: @image-url("../../assets/background.svg");
+        vertical-tiling: repeat;
+        horizontal-tiling: repeat;
+        colorize: Palette.alternate-background;
+    }
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+
+        border-width: 1px;
+        border-color: Palette.foreground;
+
+        background: root.background;
+    }
+
+    ta := TouchArea { }
+
+    @children
+}
+
+export component ColorMainContent inherits HorizontalLayout {
+    in-out property <color> current-color;
+
+    in property <bool> enabled;
+
+    out property <bool> has-focus <=> rle.has-focus;
+    out property <ColorData> current-color-data: Api.color-to-data(self.current-color);
+
+
+    callback set-color-binding(text: string);
+    callback test-color-binding(text: string) -> bool;
+    callback color-preview-clicked();
+
+
+    function apply-value() {
+        rle.default-text = current-color-data.text;
+    }
+
+    changed current-color-data => {
+        apply-value();
+    }
+
+    init => {
+        apply-value();
+    }
+
+    spacing: EditorSpaceSettings.default-spacing;
+    alignment: stretch;
+
+    rle := ResettingLineEdit {
+        enabled <=> root.enabled;
+
+        edited(text) => {
+            if text == "" {
+                // allow empty text -- which will delete the property
+                self.can-compile = true;
+                root.current-color = Colors.transparent;
+                root.current-color-data = Api.color-to-data(root.current-color);
+            } else {
+                self.can-compile = test-color-binding(text);
+                if self.can-compile {
+                    root.current-color = Api.string-to-color(text);
+                }
+            }
+        }
+
+        accepted(text) => {
+            root.set-color-binding(text);
+        }
+    }
+
+    color-preview := Preview {
+        width: 20%;
+        height: 30px;
+
+        background: root.current-color;
+
+        clicked => {
+            root.color-preview-clicked();
+        }
+    }
+}
+
+export component RgbaColorSliders inherits VerticalLayout {
+    in-out property <color> current-color;
+
+    in property <bool> enabled;
+
+    out property <bool> has-focus: r.has-focus || g.has-focus || b.has-focus || a.has-focus;
+
+    callback set-color-binding(text: string);
+    callback test-color-binding(text: string) -> bool;
+
+    private property <ColorData> current-color-data;
+
+    private property <color> slider-color: Api.rgba-to-color(r.value, g.value, b.value, a.value);
+
+    changed slider-color => {
+        root.current-color-data = Api.color-to-data(self.slider-color);
+
+        if r.has-focus || g.has-focus || b.has-focus || a.has-focus {
+            root.current-color = slider-color;
+            root.test-color-binding(root.current-color-data.text);
+        }
+    }
+
+    function apply-value() {
+        root.current-color-data = Api.color-to-data(self.current-color);
+
+        r.value = root.current-color-data.r;
+        g.value = root.current-color-data.g;
+        b.value = root.current-color-data.b;
+        a.value = root.current-color-data.a;
+    }
+
+    changed current-color => {
+        apply-value();
+    }
+
+    init => {
+        apply-value();
+    }
+
+    spacing: EditorSpaceSettings.default-spacing;
+
+    r := ColorLineEdit {
+        enabled <=> root.enabled;
+        channel: "R";
+
+        accepted() => {
+            root.set-color-binding(root.current-color-data.text);
+        }
+    }
+
+    g := ColorLineEdit {
+        enabled <=> root.enabled;
+        channel: "G";
+
+        accepted() => {
+            root.set-color-binding(root.current-color-data.text);
+        }
+    }
+
+    b := ColorLineEdit {
+        enabled <=> root.enabled;
+        channel: "B";
+
+        accepted() => {
+            root.set-color-binding(root.current-color-data.text);
+        }
+    }
+
+    a := ColorLineEdit {
+        enabled <=> root.enabled;
+        channel: "A";
+
+        accepted() => {
+            root.set-color-binding(root.current-color-data.text);
+        }
+    }
+}

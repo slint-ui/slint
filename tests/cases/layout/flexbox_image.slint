@@ -1,0 +1,77 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexboxLayout with an Image child (height-for-width behavior).
+// The Image preserves its aspect ratio, so its height depends on its width.
+// Tests two states: wide (image at natural size beside rect) and narrow (image shrunk).
+
+export component TestCase inherits Window {
+
+    property <length> width_wide: 300px;
+    property <length> height_wide: 100px;
+    property <length> width_narrow: 150px;
+    property <length> height_narrow: 200px;
+
+    width: width_wide;
+    height: height_wide;
+
+    FlexboxLayout {
+        spacing: 10px;
+
+        r := Rectangle {
+            width: 100px;
+            height: 50px;
+            background: red;
+            flex-shrink: 0;
+        }
+        // 128x128 square image: aspect ratio means width == height
+        img := Image {
+            source: @image-url("../../../logo/slint-logo-square-light-128x128.png");
+            // Interactive testing, not used by the test framework
+            TouchArea {
+                clicked => {
+                    root.width = root.width == width_narrow ? width_wide : width_narrow;
+                    root.height = root.height == height_narrow ? height_wide : height_narrow;
+                }
+            }
+        }
+    }
+
+    // --- Wide state: image beside rectangle at natural 128px size ---
+    out property <bool> wide_r_ok: r.x == 0px && r.width == 100px;
+    out property <bool> wide_img_ok: img.x == 110px && img.width == 128px;
+    out property <bool> wide_ok: wide_r_ok && wide_img_ok;
+
+    // --- Narrow state: image should shrink ---
+    out property <bool> narrow_img_ok: img.width > 0px && img.width <= 128px;
+    out property <bool> narrow_ok: narrow_img_ok;
+
+    init => {
+        root.init-called = true;
+        if !wide_ok {
+            root.error = "wide state failed: r.x=" + (r.x / 1px) + " img.x=" + (img.x / 1px) + " img.w=" + (img.width / 1px);
+        }
+        root.width = width_narrow;
+        root.height = height_narrow;
+    }
+    out property <string> error;
+    out property <bool> init-called;
+    out property <bool> test: init-called && error == "" && narrow_ok;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

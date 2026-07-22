@@ -1,0 +1,213 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Deploy a consolidated Cloudflare Workers preview for pull requests.
+# All preview sites are served under a single worker with sub-paths:
+#   /docs/   /editor/   /material/
+#
+# Runs as a workflow_run so it has access to repository secrets even for fork PRs.
+name: Deploy Previews for PRs
+
+on:
+    workflow_run:
+        workflows: ["autofix.ci"]
+        types: [completed]
+
+permissions:
+    contents: read
+    deployments: write
+    actions: read
+
+jobs:
+    deploy-preview:
+        if: >-
+            github.event.workflow_run.conclusion == 'success' &&
+            github.event.workflow_run.event == 'pull_request'
+        runs-on: ubuntu-24.04
+        steps:
+            - name: Resolve PR number and head SHA
+              id: pr-info
+              uses: actions/github-script@v9
+              with:
+                script: |
+                    const prs = context.payload.workflow_run.pull_requests;
+                    if (prs && prs.length > 0) {
+                      core.setOutput('pr_number', prs[0].number);
+                      core.setOutput('head_sha', prs[0].head.sha);
+                      return;
+                    }
+                    // Fork PRs may have an empty pull_requests array; search by head SHA.
+                    const headSha = context.payload.workflow_run.head_sha;
+                    const { data: pulls } = await github.rest.pulls.list({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      state: 'open',
+                      sort: 'updated',
+                      direction: 'desc',
+                      per_page: 100,
+                    });
+                    const pr = pulls.find(p => p.head.sha === headSha);
+                    if (!pr) {
+                      core.setFailed(`No open PR found for SHA ${headSha}`);
+                      return;
+                    }
+                    core.setOutput('pr_number', pr.number);
+                    core.setOutput('head_sha', pr.head.sha);
+
+            - uses: pnpm/action-setup@v6.0.9
+              with:
+                version: 10.29.3
+
+            - uses: actions/setup-node@v7
+              with:
+                node-version: 24
+                package-manager-cache: false
+
+            # --- Download artifacts from the triggering CI run ---
+
+            - name: Download docs artifacts
+              id: dl-docs
+              continue-on-error: true
+              uses: actions/download-artifact@v8
+              with:
+                pattern: docs-*
+                merge-multiple: true
+                path: artifacts/docs-parts
+                github-token: ${{ secrets.GITHUB_TOKEN }}
+                run-id: ${{ github.event.workflow_run.id }}
+
+            - name: Download slintpad artifact
+              id: dl-slintpad
+              continue-on-error: true
+              uses: actions/download-artifact@v8
+              with:
+                name: slintpad
+                path: artifacts/slintpad
+                github-token: ${{ secrets.GITHUB_TOKEN }}
+                run-id: ${{ github.event.workflow_run.id }}
+
+            - name: Download material preview artifact
+              id: dl-material
+              continue-on-error: true
+              uses: actions/download-artifact@v8
+              with:
+                name: preview-material
+                path: artifacts/material
+                github-token: ${{ secrets.GITHUB_TOKEN }}
+                run-id: ${{ github.event.workflow_run.id }}
+
+            # --- Assemble all sites under a single directory ---
+
+            - name: Assemble preview site
+              id: assemble
+              env:
+                PR_NUMBER: ${{ steps.pr-info.outputs.pr_number }}
+                DL_SLINTPAD: ${{ steps.dl-slintpad.outcome }}
+                DL_MATERIAL: ${{ steps.dl-material.outcome }}
+              run: |
+                DIST="preview-deploy/dist"
+                mkdir -p "$DIST"
+                printf '%s\n' \
+                  'name = "slint-docs-staging"' \
+                  'compatibility_date = "2026-01-15"' \
+                  'preview_urls = true' \
+                  '[assets]' \
+                  'directory = "./dist"' \
+                  > "preview-deploy/wrangler.toml"
+
+                LINKS=""
+
+                # Assemble docs from sub-artifacts into master/docs/
+                if [ -d artifacts/docs-parts/docs ]; then
+                  mkdir -p "$DIST/master/docs"
+                  cp -R artifacts/docs-parts/docs/. "$DIST/master/docs/"
+                  LINKS="$LINKS<li>Documentation: "
+                  LINKS="$LINKS<a href=\"/master/docs/slint/\">Slint</a>"
+                  LINKS="$LINKS · <a href=\"/master/docs/rust/slint/\">Rust</a>"
+                  LINKS="$LINKS · <a href=\"/master/docs/cpp/\">C++</a>"
+                  LINKS="$LINKS · <a href=\"/master/docs/node/\">Node</a>"
+                  LINKS="$LINKS · <a href=\"/master/docs/python/\">Python</a>"
+                  LINKS="$LINKS · <a href=\"/master/docs/safety/\">Safety</a>"
+                  LINKS="$LINKS</li>"
+                fi
+                if [ "$DL_SLINTPAD" = "success" ]; then
+                  cp -R artifacts/slintpad/. "$DIST/editor/"
+                  LINKS="$LINKS<li><a href=\"/editor/\">SlintPad Editor</a></li>"
+                fi
+                if [ "$DL_MATERIAL" = "success" ]; then
+                  cp -R artifacts/material/. "$DIST/material/"
+                  LINKS="$LINKS<li><a href=\"/material/\">Material Components</a></li>"
+                fi
+
+                if [ -z "$LINKS" ]; then
+                  echo "No preview artifacts found — nothing to deploy."
+                  echo "has_content=false" >> "$GITHUB_OUTPUT"
+                  exit 0
+                fi
+
+                PR_URL="https://github.com/${{ github.repository }}/pull/${PR_NUMBER}"
+                {
+                  echo '<!DOCTYPE html><html lang="en">'
+                  echo "<head><meta charset=\"utf-8\"><title>Slint PR #${PR_NUMBER} Preview</title></head>"
+                  echo "<body><h1>PR #${PR_NUMBER} Preview</h1>"
+                  echo "<p><a href=\"${PR_URL}\">View pull request on GitHub</a></p>"
+                  echo "<ul>${LINKS}</ul>"
+                  echo '</body></html>'
+                } > "$DIST/index.html"
+
+                echo "has_content=true" >> "$GITHUB_OUTPUT"
+
+            # --- Deploy to Cloudflare Workers ---
+
+            - name: Deploy preview
+              if: steps.assemble.outputs.has_content == 'true'
+              id: deploy
+              working-directory: preview-deploy
+              run: |
+                set +e
+                OUTPUT=$(pnpm dlx wrangler@4 versions upload 2>&1)
+                STATUS=$?
+                set -e
+                echo "=== wrangler output ==="
+                echo "$OUTPUT"
+                echo "=== end wrangler output ==="
+                if [ "$STATUS" -ne 0 ]; then
+                  echo "::warning::Preview deploy failed (exit $STATUS)"
+                  exit 0
+                fi
+                PREVIEW_URL=$(echo "$OUTPUT" | grep -oE 'https://[^[:space:]]+\.workers\.dev' | head -1)
+                echo "Preview URL: ${PREVIEW_URL:-<empty>}"
+                echo "url=${PREVIEW_URL}" >> "$GITHUB_OUTPUT"
+              env:
+                CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+                CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
+
+            - name: Create GitHub deployment
+              if: steps.deploy.outputs.url != ''
+              uses: actions/github-script@v9
+              env:
+                PREVIEW_URL: ${{ steps.deploy.outputs.url }}
+                PR_NUMBER: ${{ steps.pr-info.outputs.pr_number }}
+                HEAD_SHA: ${{ steps.pr-info.outputs.head_sha }}
+              with:
+                script: |
+                    const deploymentUrl = (process.env.PREVIEW_URL || '').replace(/\/+$/, '') + '/';
+                    const deployment = await github.rest.repos.createDeployment({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      ref: process.env.HEAD_SHA,
+                      environment: `pr-preview-${process.env.PR_NUMBER}`,
+                      auto_merge: false,
+                      required_contexts: [],
+                      transient_environment: true,
+                    });
+                    if (deployment.data.id) {
+                      await github.rest.repos.createDeploymentStatus({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        deployment_id: deployment.data.id,
+                        state: 'success',
+                        environment_url: deploymentUrl,
+                        log_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                      });
+                    }

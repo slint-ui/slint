@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase  {
+    in property<string> hello: "hello";
+    in property<string> number: "42.56";
+    in property<string> invalid: "132a";
+    in property<string> negative: "-1200000.1";
+    in property<string> empty;
+
+    in-out property<float> number_as_float: number.to_float();
+    in-out property<float> negative_as_float: negative.to_float();
+    in-out property<bool> test_is_float: !hello.is_float() && number.is_float() &&
+         !invalid.is_float() && negative.is_float();
+
+    out property<bool> test: test_is_float &&  42.56001 - number_as_float  < 0.001 && "123".to-float() == 123
+        && "".to-float() == 0 && hello.to-float() == 0 && 0 == invalid.to-float() && empty.to-float() == 0;
+}
+
+
+/*
+
+```cpp
+auto fuzzy_compare = [](float a, float b) { return std::abs(a - b) < 0.00000001; };
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test_is_float());
+assert(fuzzy_compare(instance.get_number_as_float(), 42.56));
+assert(fuzzy_compare(instance.get_negative_as_float(), -1200000.1));
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test_is_float());
+assert_eq!(instance.get_number_as_float(), 42.56);
+assert_eq!(instance.get_negative_as_float(), -1200000.1);
+assert!(instance.get_test());
+```
+
+```js
+function n(a) { return Math.round(a*10000) }
+var instance = new slint.TestCase({});
+assert(instance.test_is_float);
+assert.equal(n(instance.number_as_float), n(42.56));
+assert.equal(n(instance.negative_as_float/1000), n(-1200000.1/1000));
+assert(instance.test);
+```
+
+*/

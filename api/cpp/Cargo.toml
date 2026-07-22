@@ -1,0 +1,91 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "slint-cpp"
+description = "Slint C++ integration"
+authors.workspace = true
+documentation.workspace = true
+edition = "2024"
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+build = "build.rs"
+publish = false
+# prefix used to convey path to generated includes to the C++ test driver
+links = "slint_cpp"
+
+[lib]
+path = "lib.rs"
+crate-type = ["lib", "cdylib", "staticlib"]
+name = "slint_cpp"
+
+# Note, these features need to be kept in sync (along with their defaults) in
+# the C++ crate's CMakeLists.txt as well as cbindgen.rs
+[features]
+interpreter = ["slint-interpreter", "std"]
+live-preview = ["interpreter", "dep:i-slint-live-preview"]
+# Enable some function used by the integration tests
+testing = ["dep:i-slint-backend-testing"]
+
+backend-qt = ["i-slint-backend-selector/backend-qt", "std"]
+backend-winit = ["i-slint-backend-selector/backend-winit", "std"]
+backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
+backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
+backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
+backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
+renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
+renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu"]
+renderer-skia = ["i-slint-backend-selector/renderer-skia", "i-slint-renderer-skia", "raw-window-handle"]
+renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "renderer-skia"]
+renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "renderer-skia"]
+renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
+software-renderer-path = ["i-slint-renderer-software/path"]
+gettext = ["i-slint-core/gettext-rs"]
+accessibility = ["i-slint-backend-selector/accessibility"]
+# Enable the `SystemTrayIcon` element (pulls `ksni` on Linux/BSD).
+system-tray = ["i-slint-core/system-tray"]
+system-testing = ["i-slint-backend-selector/system-testing"]
+mcp = ["std", "i-slint-backend-selector/mcp"]
+
+std = [
+  "i-slint-core/default",
+  "i-slint-core/image-decoders",
+  "i-slint-core/svg",
+  "i-slint-core/image-default-formats",
+  "i-slint-backend-selector",
+  "i-slint-backend-selector/backend-android-activity",
+  "i-slint-renderer-software?/std",
+  "i-slint-core/raw-window-handle-06",
+  "i-slint-backend-selector/raw-window-handle-06",
+  "i-slint-core/tr",
+]
+freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded", "i-slint-renderer-software?/libm"]
+experimental = ["i-slint-renderer-software?/experimental"]
+
+default = ["std", "backend-winit", "renderer-femtovg", "system-tray"]
+
+[dependencies]
+i-slint-backend-selector = { workspace = true, optional = true }
+i-slint-backend-testing = { workspace = true, optional = true, features = ["ffi", "internal"] }
+i-slint-renderer-skia = { workspace = true, features = ["default", "x11", "wayland"], optional = true }
+i-slint-renderer-software = { workspace = true, optional = true }
+i-slint-core = { workspace = true, features = ["ffi"] }
+slint-interpreter = { workspace = true, features = ["ffi", "compat-1-2"], optional = true }
+i-slint-live-preview = { workspace = true, optional = true, features = ["ffi"] }
+raw-window-handle = { version = "0.6", optional = true }
+
+esp-backtrace = { version = "0.17.0", features = ["panic-handler", "println"], optional = true }
+esp-println = { version = "0.15.0", default-features = false, features = ["auto", "log-04"], optional = true }
+unicode-segmentation = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+i-slint-backend-android-activity = { workspace = true, features = ["native-activity", "aa-06"] }
+
+[build-dependencies]
+anyhow = "1.0"
+cbindgen = { workspace = true }
+i-slint-common = { workspace = true, features = ["default"] }
+proc-macro2 = "1.0.11"

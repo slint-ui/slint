@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+import { Slider } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    slider_min_pos := Slider {
+        minimum: 10;
+        maximum: 100;
+    }
+    out property <float> pos-val <=> slider-min-pos.value;
+
+    slider_min_default := Slider {
+        maximum: 100;
+    }
+    out property <float> default-min <=> slider-min-default.minimum;
+    out property <float> default-val <=> slider-min-default.value;
+
+    slider_min_neg := Slider {
+        minimum: -10;
+        maximum: 100;
+    }
+    out property <float> neg-val <=> slider-min-neg.value;
+
+    out property <bool> test: pos-val == 10 && default-min == 0 && default-val == 0 && neg-val == -10;
+}
+
+
+/*
+
+```rust
+
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_pos_val(), 10_f32);
+assert_eq!(instance.get_default_min(), 0_f32);
+assert_eq!(instance.get_default_val(), 0_f32);
+assert_eq!(instance.get_neg_val(), -10_f32);
+
+```
+
+*/

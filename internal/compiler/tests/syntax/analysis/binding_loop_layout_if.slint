@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Wrapper {
+    width: 100%;
+    height: 100%;
+
+    Rectangle {
+//  >        <error{The binding for the property 'layoutinfo-h' is part of a binding loop (layout-cache -> width -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layout-cache)}
+        VerticalLayout {
+//      >             <error{The binding for the property 'layoutinfo-h' is part of a binding loop (layout-cache -> width -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layout-cache)}
+            if root.width > 200px: Rectangle { }
+        }
+    }
+}
+
+component WrapperInherited inherits Rectangle {
+//                                  >        <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> width -> width -> layout-cache -> width -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+    VerticalLayout {
+//  >             <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> width -> width -> layout-cache -> width -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+        if root.width > 200px: Rectangle { }
+    }
+}
+
+export component Test inherits Window {
+//                             >     <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> width -> width -> layout-cache -> width -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+
+    VerticalLayout {
+//  >             <warning{The binding for the property 'width' is part of a binding loop (root.layoutinfo-h -> width -> width -> layout-cache -> width -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  >             <^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> width -> width -> layout-cache -> width -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+        HorizontalLayout {
+//      >               <warning{The binding for the property 'width' is part of a binding loop (root.layoutinfo-h -> width -> width -> layout-cache -> width -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//      >               <^warning{The binding for the property 'layout-cache' is part of a binding loop (root.layoutinfo-h -> width -> width -> layout-cache -> width -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//      >               <^^warning{The binding for the property 'width' is part of a binding loop (root.layoutinfo-h -> width -> width -> layout-cache -> width -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//      >               <^^^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> width -> width -> layout-cache -> width -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//      >               <^^^^error{The binding for the property 'width' is part of a binding loop (layout-cache -> width -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layout-cache)}
+            WrapperInherited { }
+            Wrapper { }
+//          >      <error{The binding for the property 'layoutinfo-h' is part of a binding loop (layout-cache -> width -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layout-cache)}
+        }
+    }
+}

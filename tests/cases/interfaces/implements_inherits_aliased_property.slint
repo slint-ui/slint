@@ -1,0 +1,53 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// When a component implements an interface (`implement I <=> self;`) whose property has a
+// default value AND inherits a base that exposes the same property via an `implement I <=> child;`
+// alias, the interface's default value must not override the alias.
+//
+// `sink.value` defaults to `true`, so if the alias is intact, `value` reads
+// as `true`. If the interface's `false` default clobbered the alias, it reads
+// as `false`.
+
+interface I {
+    in-out property <bool> value;
+}
+
+component Sink {
+    implement I <=> self;
+    value: true;
+}
+
+component Base {
+    implement I <=> sink;
+    sink := Sink { }
+
+    @children
+}
+
+component Derived inherits Base {
+    implement I <=> self;
+}
+
+export component TestCase {
+    out property <bool> test: derived.value;
+    derived := Derived { }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

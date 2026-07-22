@@ -1,0 +1,162 @@
+---
+title: TextEdit
+description: TextEdit api.
+---
+{/* cSpell: ignore Lorem ipsum dolor sit amet consectetur adipisici elit */}
+
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/std-widgets-textedit.png"  imageWidth="200" imageHeight="200"  imageAlt='std-widgets textedit example'>
+```slint playground
+import { TextEdit, VerticalBox } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 200px;
+
+    VerticalBox {
+        TextEdit {
+            font-size: 14px;
+            text: "Lorem ipsum dolor sit amet,\n consectetur adipisici elit";
+        }
+    }
+}
+```
+</CodeSnippetMD>
+
+Similar to <Link type="LineEdit" />, but can be used to enter several lines of text
+
+## Properties
+
+### font-size
+<SlintProperty propName="font-size" typeName="length" >
+The size of the font of the input text.
+</SlintProperty>
+
+### font-family
+<SlintProperty propName="font-family" typeName="string" >
+The name of the font family selected for rendering the text.
+</SlintProperty>
+
+### font-italic
+<SlintProperty propName="font-italic" typeName="bool" defaultValue="false">
+The italic state of the font of the input text
+</SlintProperty>
+
+### text
+<SlintProperty propName="text" typeName="string" propertyVisibility="in-out" >
+The text being edited
+
+```slint 'text: "Initial text";'
+TextEdit {
+    text: "Initial text";
+}
+```
+</SlintProperty>
+
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool" propertyVisibility="out" >
+Set to true when the widget currently has the focus.
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true" >
+When false, nothing can be entered.
+</SlintProperty>
+
+### input-method-hints
+<SlintProperty propName="input-method-hints" typeName="struct" structName="InputMethodHints">
+Hints for the platform's input method (such as a soft keyboard), for example to configure auto-capitalization.
+The input method may take these hints into account, but might also ignore them.
+```slint "input-method-hints: { capitalization: CapitalizationMode.words };"
+TextEdit {
+    input-method-hints: { capitalization: CapitalizationMode.words };
+}
+```
+</SlintProperty>
+
+### read-only
+<SlintProperty propName="read-only" typeName="bool" defaultValue="false" >
+When set to true, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically.
+</SlintProperty>
+
+### wrap
+<SlintProperty propName="wrap" typeName="enum" enumName="TextWrap">
+The way the text wraps (default: word-wrap).
+</SlintProperty>
+
+### horizontal-alignment
+<SlintProperty propName="horizontal-alignment" typeName="enum" enumName='TextHorizontalAlignment' >
+The horizontal alignment of the text.
+</SlintProperty>
+
+### placeholder-text
+<SlintProperty propName="placeholder-text" typeName="string" propertyVisibility="in" >
+A placeholder text being shown when there is no text in the edit field.
+</SlintProperty>
+
+### viewport-width
+<SlintProperty propName="viewport-width" typeName="length" propertyVisibility="in-out">
+The width of the viewport of the text edit.
+</SlintProperty>
+
+### viewport-height
+<SlintProperty propName="viewport-height" typeName="length" propertyVisibility="in-out">
+The height of the viewport of the text edit.
+</SlintProperty>
+
+### viewport-x
+<SlintProperty propName="viewport-x" typeName="length" propertyVisibility="in-out">
+The `x` position of the viewport relative to the text edit. This is usually a negative value.
+</SlintProperty>
+
+### viewport-y
+<SlintProperty propName="viewport-y" typeName="length" propertyVisibility="in-out">
+The `y` position of the viewport relative to the text edit. This is usually a negative value.
+</SlintProperty>
+
+### visible-width
+<SlintProperty propName="visible-width" typeName="length" propertyVisibility="out">
+The width of the visible area of the text edit (not including the scrollbar)
+</SlintProperty>
+
+### visible-height
+<SlintProperty propName="visible-height" typeName="length" propertyVisibility="out">
+The height of the visible area of the text edit (not including the scrollbar)
+</SlintProperty>
+
+## Functions
+
+-   **`focus()`** Call this function to focus the TextEdit and make it receive future keyboard events.
+-   **`clear-focus()`** Call this function to remove keyboard focus from this `TextEdit` if it currently has the focus. See also <Link type="FocusHandling" label="focus handling" />.
+-   **`set-selection-offsets(int, int)`** Selects the text between two UTF-8 offsets.
+-   **`select-all()`** Selects all text.
+-   **`clear-selection()`** Clears the selection. This function takes effect regardless of the `read-only` and `enabled` properties.
+-   **`copy()`** Copies the selected text to the clipboard.
+-   **`cut()`** Copies the selected text to the clipboard and removes it from the editable area. This function takes effect regardless of the `read-only` and `enabled` properties.
+-   **`paste()`** Pastes the text content of the clipboard at the cursor position. This function takes effect regardless of the `read-only` and `enabled` properties.
+
+## Callbacks
+
+### edited(string)
+
+Emitted when the text has changed because the user modified it
+
+```slint {2-4}
+TextEdit {
+    edited(text) => {
+        debug("Edited: ", text);
+    }
+}
+```
+
+### key-pressed(KeyEvent) -> EventResult
+Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct. Use this callback to
+handle keys before `TextEdit` does. Return `accept` to indicate that you've handled the event, or return
+`reject` to let `TextEdit` handle it.
+
+### key-released(KeyEvent) -> EventResult
+Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. Use this callback to
+handle keys before `TextEdit` does. Return `accept` to indicate that you've handled the event, or return
+`reject` to let `TextEdit` handle it.

@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component PathFillRule inherits Window {
+    GridLayout {
+        Row {
+            Text {
+                text: "The rectangle to the right should have a hole in the center";
+            }
+            Path {
+                commands: "M210,0  h90 v90 h-90 z M230,20 v50 h50 v-50 z";
+                fill: black;
+                fill-rule: evenodd;
+                stroke: red;
+                stroke-width: 1px;
+            }
+        }
+        Row {
+            Text {
+                text: "The rectangle to the right should be filled in the center";
+            }
+            Path {
+                commands: "M210,0  h90 v90 h-90 z M230,20 v50 h50 v-50 z";
+                fill: black;
+                fill-rule: nonzero;
+                stroke: red;
+                stroke-width: 1px;
+            }
+        }
+    }
+}

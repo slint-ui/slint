@@ -1,0 +1,93 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export struct TextStyle {
+    font_size: length,
+    font_weight: int
+}
+
+export global MaterialTypography {
+    out property <int> regular: 300;
+    out property <int> medium: 600;
+    out property <int> semibold: 900;
+
+    out property <TextStyle> display_large: {
+        font_size: 57px,
+        font_weight: root.regular
+    };
+
+    out property <TextStyle> display_medium: {
+        font_size: 45px,
+        font_weight: root.regular
+    };
+
+    out property <TextStyle> display_small: {
+        font_size: 36px,
+        font_weight: root.regular
+    };
+
+    out property <TextStyle> headline_large: {
+        font_size: 32px,
+        font_weight: root.regular
+    };
+
+    out property <TextStyle> headline_medium: {
+        font_size: 28px,
+        font_weight: root.regular
+    };
+
+    out property <TextStyle> headline_small: {
+        font_size: 24px,
+        font_weight: root.regular
+    };
+
+    out property <TextStyle> title_large: {
+        font_size: 22px,
+        font_weight: root.regular
+    };
+
+    out property <TextStyle> title_medium: {
+        font_size: 16px,
+        font_weight: root.medium
+    };
+
+    out property <TextStyle> title_small: {
+        font_size: 14px,
+        font_weight: root.medium
+    };
+
+    out property <TextStyle> label_large: {
+        font_size: 14px,
+        font_weight: root.medium
+    };
+
+    out property <TextStyle> label_medium: {
+        font_size: 12px,
+        font_weight: root.medium
+    };
+
+    out property <TextStyle> label_medium_prominent: {
+        font_size: 12px,
+        font_weight: root.semibold
+    };
+
+    out property <TextStyle> label_small: {
+        font_size: 11px,
+        font_weight: root.medium
+    };
+
+    out property <TextStyle> body_large: {
+        font_size: 16px,
+        font_weight: root.regular
+    };
+
+    out property <TextStyle> body_medium: {
+        font_size: 14px,
+        font_weight: root.regular
+    };
+
+    out property <TextStyle> body_small: {
+        font_size: 12px,
+        font_weight: root.regular
+    };
+}

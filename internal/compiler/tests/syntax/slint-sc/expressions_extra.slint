@@ -1,0 +1,28 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Additional expression types rejected in Slint SC mode.
+
+export component Test inherits Window {
+    // @markdown
+    property <string> a: @markdown("hello");
+//  >                                      <error{Property declarations are not supported in Slint SC}
+//            >    <^error{The type 'string' is not supported in Slint SC}
+//                       >                <^^error{@markdown() expressions are not supported in Slint SC}
+//                       >                 <^^^error{Cannot convert styled-text to string}
+    // @keys (used in key-event-filter context)
+    property <string> b: @keys(Return);
+//  >                                 <error{Property declarations are not supported in Slint SC}
+//            >    <^error{The type 'string' is not supported in Slint SC}
+//                       >           <^^error{@keys() expressions are not supported in Slint SC}
+//                       >            <^^^error{Cannot convert keys to string}
+    // self-assignment
+    callback clicked();
+//  >                 <error{Callback declarations are not supported in Slint SC}
+    clicked => { self.a += "x"; }
+//  >error{Callback handlers are not supported in Slint SC}
+//               >           <^error{Self-assignment expressions are not supported in Slint SC}
+//               >     <^^error{Identifier references are not supported in Slint SC}
+//                         > <^^^error{String literals are not supported in Slint SC}
+}
+//<<<<error{Callback handlers are not supported in Slint SC}

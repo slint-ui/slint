@@ -1,0 +1,148 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Assigning to an animated property in `init` (before its binding was ever evaluated)
+// must animate from the binding's initial value, not from the default value.
+
+// The animation should run from x: root.width -> x: root.width - panel.width
+
+export component Sheet inherits Rectangle {
+    in property <length> sheet-width: 50px;
+    out property <length> panel-x: panel.x;
+
+    init => {
+        debug("Sheet init");
+        panel.x = root.width - panel.width;
+    }
+
+    panel := Rectangle {
+        x: root.width;
+        y: 0px;
+        width: root.sheet-width;
+        height: parent.height;
+        background: #062434;
+        border-width: 1px;
+        border-color: blue.with-alpha(20%);
+
+        changed x => {
+            debug("Panel position changed");
+        }
+
+        animate x {
+            duration: 1s;
+            easing: linear;
+        }
+    }
+}
+
+export component TestCase {
+    width: 100px;
+    property <bool> show-rectangle;
+    out property <length> panel-x: -1px;
+    out property <bool> sheet-visible: false;
+
+    callback show-sheet();
+    show-sheet() => {
+        show-rectangle = true;
+    }
+
+    // For manual execution
+    // TouchArea {
+    //     clicked => {
+    //         if !show-rectangle {
+    //             show-rectangle = true;
+    //         }
+    //     }
+    // }
+
+    if show-rectangle: sheet := Sheet {
+        init => {
+            root.sheet-visible = true;
+            debug("Panel instantiated");
+        }
+        changed panel-x => {
+            debug("Sheet: panel x changed");
+            root.panel-x = self.panel-x;
+        }
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_panel_x(), -1.);
+assert_eq!(instance.get_sheet_visible(), false);
+instance.invoke_show_sheet();
+slint_testing::mock_elapsed_time(0); // Required to trigger instantiating the sheet
+assert_eq!(instance.get_sheet_visible(), true);
+
+let wait_time_ms = 10;
+slint_testing::mock_elapsed_time(wait_time_ms); // 0 is not possible because then the animation does not start
+
+assert_eq!(instance.get_panel_x(), 100. - 50. * wait_time_ms as f32 / 1000.);
+
+slint_testing::mock_elapsed_time(500 - wait_time_ms);
+
+assert_eq!(instance.get_sheet_visible(), true);
+assert_eq!(instance.get_panel_x(), 75., "Half of the panel is visible (50px / 2 = 25px). So position is 100px - 25px");
+
+slint_testing::mock_elapsed_time(500);
+
+assert_eq!(instance.get_sheet_visible(), true);
+assert_eq!(instance.get_panel_x(), 50., "Complete panel is visible. So position is 100px - 50px");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_panel_x(), -1.);
+assert_eq(instance.get_sheet_visible(), false);
+instance.invoke_show_sheet();
+slint_testing::mock_elapsed_time(0); // Required to trigger instantiating the sheet
+assert_eq(instance.get_sheet_visible(), true);
+
+int wait_time_ms = 10;
+slint_testing::mock_elapsed_time(wait_time_ms); // 0 is not possible because then the animation does not start
+
+assert_eq(instance.get_panel_x(), 100. - 50. * wait_time_ms / 1000.);
+
+slint_testing::mock_elapsed_time(500 - wait_time_ms);
+
+assert_eq(instance.get_sheet_visible(), true);
+assert_eq(instance.get_panel_x(), 75.); // Half of the panel is visible (50px / 2 = 25px). So position is 100px - 25px
+
+slint_testing::mock_elapsed_time(500);
+
+assert_eq(instance.get_sheet_visible(), true);
+assert_eq(instance.get_panel_x(), 50.); // Complete panel is visible. So position is 100px - 50px
+```
+
+```js
+var instance = new slint.TestCase({});
+
+assert.equal(instance.panel_x, -1.);
+assert.equal(instance.sheet_visible, false);
+instance.show_sheet();
+slintlib.private_api.mock_elapsed_time(0); // Required to trigger instantiating the sheet
+assert.equal(instance.sheet_visible, true);
+
+let wait_time_ms = 10;
+slintlib.private_api.mock_elapsed_time(wait_time_ms); // 0 is not possible because then the animation does not start
+
+assert.equal(instance.panel_x, 100. - 50. * wait_time_ms / 1000.);
+
+slintlib.private_api.mock_elapsed_time(500 - wait_time_ms);
+
+assert.equal(instance.sheet_visible, true);
+assert.equal(instance.panel_x, 75.); // Half of the panel is visible (50px / 2 = 25px). So position is 100px - 25px
+
+slintlib.private_api.mock_elapsed_time(500);
+
+assert.equal(instance.sheet_visible, true);
+assert.equal(instance.panel_x, 50.); // Complete panel is visible. So position is 100px - 50px
+```
+
+*/

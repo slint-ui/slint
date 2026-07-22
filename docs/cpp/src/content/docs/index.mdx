@@ -1,0 +1,33 @@
+---
+title: Slint C++ API
+description: Use Slint from C++ — compile .slint designs ahead of time or load them at run-time, and drive native UI from your C++ application.
+---
+
+import SlintRef from "../../components/SlintRef.astro";
+
+[Slint](https://slint.dev/) is a UI toolkit that supports different programming
+languages. This site documents the C++ API.
+
+The following sections explain how to integrate your `.slint` designs into your
+C++ application. The entry point is the `.slint` file containing the primary
+component you instantiate from C++.
+
+## Two integration options
+
+**Compiled ahead of time.** Compile your Slint designs into C++ code that is
+built into your application. This gives the smallest memory footprint and the
+best performance. The CMake integration (`slint_target_sources`) makes the
+translation automatic; the generated code exposes an API to get and set
+properties, populate data models and handle callbacks. It uses types from the
+[`slint`](api/slint/) namespace, such as `slint::SharedString` and
+`slint::Color`.
+
+**Interpreted at run-time.** Load `.slint` files dynamically at run-time. This
+is slower and uses more memory, but allows more dynamic user interfaces. The
+entry point is `slint::interpreter::ComponentCompiler` in the
+`slint::interpreter` namespace.
+
+## Slint Language Manual
+
+The <SlintRef href="" label="Slint Language Documentation" code={false} /> covers the
+Slint UI description language in detail.

@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// TestCase from #7724
+// compilation shouldn't panic
+
+component Hallo {
+    inner := Rectangle {
+        clip: true;
+        @children
+        Rectangle {}
+    }
+}
+
+component World inherits Hallo {
+    Rectangle {}
+    Rectangle {}
+    Rectangle {}
+}
+
+export component Demo {
+    World { }
+}

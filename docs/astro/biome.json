@@ -1,0 +1,14 @@
+{
+    "root": true,
+    "extends": ["../../biome.json", "../common/biome-starlight-shared.json"],
+    "files": {
+        "includes": [
+            "**",
+            "!**/.astro/**",
+            "**/*.astro",
+            "!**/playwright-report/**",
+            "!**/src/utils/**",
+            "!**/*.svg"
+        ]
+    }
+}

@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Foo {
+    out property <string> test1: Platform.opacity;
+//                                        >     <error{Element 'Platform' does not have a property 'opacity'}
+    out property <Point> test2: Platform.absolute-position;
+//                                       >               <error{Element 'Platform' does not have a property 'absolute-position'}
+    out property <string> test3: Platform.accessible-description;
+//                                        >                    <error{Element 'Platform' does not have a property 'accessible-description'}
+
+    init => {
+        Platform.accessible-action-default();
+//               >                       <error{Element 'Platform' does not have a property 'accessible-action-default'}
+    }
+}

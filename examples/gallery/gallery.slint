@@ -1,0 +1,112 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    AboutPage,
+    ControlsPage,
+    SelectionPage,
+    TabWidgetPage,
+    EasingsPage,
+    ListViewPage,
+    StyledTextPage,
+    TableViewPage,
+    TableViewPageAdapter,
+    InputPage,
+} from "ui/pages/pages.slint";
+import { SideBar } from "ui/side_bar.slint";
+
+export { TableViewPageAdapter }
+export component App inherits Window {
+    preferred-width: 700px;
+    preferred-height: 500px;
+    title: @tr("Slint Widgets Gallery");
+    icon: @image-url("../../logo/slint-logo-small-light.png");
+
+    MenuBar {
+        Menu {
+            title: @tr("MenuBar" => "File");
+            MenuItem {
+                title: @tr("MenuBar" => "Open");
+                shortcut: @keys(Control + O);
+            }
+
+            Menu {
+                title: @tr("MenuBar" => "Open Recent");
+                for x in 10: MenuItem {
+                    title: @tr("MenuBar" => "Recent {}", x + 1);
+                }
+            }
+
+            MenuSeparator { }
+
+            MenuItem {
+                title: @tr("MenuBar" => "Save");
+            }
+
+            Menu {
+                title: @tr("MenuBar" => "Save As");
+                for x in 10: MenuItem {
+                    title: @tr("MenuBar" => "Name {}", x + 1);
+                }
+            }
+
+            MenuSeparator { }
+
+            MenuItem {
+                title: @tr("MenuBar" => "MenuItem with Icon");
+                icon: @image-url("thumbsup.png");
+            }
+
+            MenuItem {
+                title: @tr("MenuBar" => "MenuItem with Checkmark");
+                checkable: true;
+                checked: true;
+            }
+        }
+
+        Menu {
+            title: @tr("MenuBar" => "Edit");
+            MenuItem {
+                title: @tr("MenuBar" => "Copy");
+            }
+
+            MenuItem {
+                title: @tr("MenuBar" => "Paste");
+            }
+        }
+    }
+
+    HorizontalLayout {
+        side-bar := SideBar {
+            accessible-role: navigation;
+            accessible-label: @tr("Sidebar");
+            title: @tr("Slint Widgets Gallery");
+            model: [
+                @tr("Menu" => "Controls"),
+                @tr("Menu" => "Input"),
+                @tr("Menu" => "Selection"),
+                @tr("Menu" => "TabWidget"),
+                @tr("Menu" => "ListView"),
+                @tr("Menu" => "TableView"),
+                @tr("Menu" => "Easings"),
+                @tr("Menu" => "StyledText"),
+                @tr("Menu" => "About")
+            ];
+        }
+
+        VerticalLayout {
+            accessible-role: main;
+            accessible-label: @tr("Content");
+
+            if(side-bar.current-item == 0): ControlsPage { }
+            if(side-bar.current-item == 1): InputPage { }
+            if(side-bar.current-item == 2): SelectionPage { }
+            if(side-bar.current-item == 3): TabWidgetPage { }
+            if(side-bar.current-item == 4): ListViewPage { }
+            if(side-bar.current-item == 5): TableViewPage { }
+            if(side-bar.current-item == 6): EasingsPage { }
+            if(side-bar.current-item == 7): StyledTextPage { }
+            if(side-bar.current-item == 8): AboutPage { }
+        }
+    }
+}

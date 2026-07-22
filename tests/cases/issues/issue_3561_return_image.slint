@@ -1,0 +1,98 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export enum IconType {
+    add,
+    arrow-down-fill,
+    arrow-left-fill,
+    arrow-right-fill,
+    arrow-up-fill,
+    check-small,
+    chevron-left,
+    chevron-right,
+    close,
+    delete,
+    done,
+    edit,
+    expand-more,
+    info,
+    keyboard-arrow-down,
+    keyboard-arrow-up,
+    logout,
+    menu,
+    settings,
+    task,
+    timer,
+}
+
+export component Icon inherits Image {
+    in property<IconType> type;
+
+    function source_from_type() -> image {
+        if (type == IconType.add) {
+            return @image-url("../../../logo/slint-logo-full-dark.png");
+        }
+        else if (type == IconType.chevron_left) {
+            return @image-url("../../../logo/slint-logo-full-dark.svg");
+        }
+        else if (type == IconType.chevron_right) {
+            return @image-url("../../../logo/slint-logo-full-light-large.png");
+        }
+        else if (type == IconType.close) {
+            return @image-url("../../../logo/slint-logo-full-light.png");
+        }
+        else if (type == IconType.delete) {
+            return @image-url("../../../logo/slint-logo-full-light.svg");
+        }
+        else if (type == IconType.edit) {
+            return @image-url("../../../logo/slint-logo-full-whitebg.png");
+        }
+        else if (type == IconType.info) {
+            return @image-url("../../../logo/slint-logo-simple-dark-large.png");
+        }
+        else if (type == IconType.logout) {
+            return @image-url("../../../logo/slint-logo-simple-dark.png");
+        }
+        else if (type == IconType.menu) {
+            return @image-url("../../../logo/slint-logo-simple-dark.svg");
+        }
+        else if (type == IconType.expand-more) {
+            return @image-url("../../../logo/slint-logo-simple-light-large.png");
+        }
+        else if (type == IconType.done) {
+            return @image-url("../../../logo/slint-logo-simple-light.png");
+        }
+        else if (type == IconType.check-small) {
+            return @image-url("../../../logo/slint-logo-simple-light.svg");
+        }
+        else if (type == IconType.keyboard-arrow-down) {
+            return @image-url("../../../logo/slint-logo-simple-whitebg.png");
+        }
+        else if (type == IconType.keyboard-arrow-up) {
+            return @image-url("../../../logo/slint-logo-small-dark-large.png");
+        }
+        else if (type == IconType.arrow-up-fill) {
+            return @image-url("../../../logo/slint-logo-small-dark.png");
+        }
+        else if (type == IconType.arrow-down-fill) {
+            return @image-url("../../../logo/slint-logo-small-dark.svg");
+        }
+        else if (type == IconType.arrow-left-fill) {
+            return @image-url("../../../logo/slint-logo-small-light-large.png");
+        }
+        else if (type == IconType.arrow-right-fill) {
+            return @image-url("../../../logo/slint-logo-small-light.png");
+        }
+        else if (type == IconType.task) {
+            return @image-url("../../../logo/slint-logo-small-light.svg");
+        }
+        else if (type == IconType.timer) {
+            return @image-url("../../../logo/slint-logo-small-whitebg.png");
+        }
+        else {
+            return @image-url("../../../logo/slint-logo-square-dark-128x128.png");
+        }
+    }
+
+    source: source_from_type();
+}

@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+global NotExported  {
+    in-out property<int> prop: 42;
+}
+
+export global ExportedGlobal  {
+    in-out property<int> foo: 44;
+}
+
+export component UseGlobal inherits Rectangle {
+    in-out property<int> used42: NotExported.prop;
+    in-out property<int> used44: ExportedGlobal.foo;
+}

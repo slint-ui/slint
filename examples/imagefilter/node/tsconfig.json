@@ -1,0 +1,11 @@
+{
+    "compilerOptions": {
+        "module": "node16",
+        "target": "esnext",
+        "esModuleInterop": true,
+        "sourceMap": true,
+        "incremental": true,
+        "composite": true,
+        "skipLibCheck": true
+    }
+}

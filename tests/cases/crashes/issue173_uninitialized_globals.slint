@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// This is a test for a crash with the interpreter when evaluating properties
+
+global Settings  {
+    in-out property <bool> test;
+    in-out property <color> some_color;
+    in-out property <string> some_string;
+    in-out property <int> count;
+    in-out property <{aa: bool, bb: int, cc: string}> object;
+}
+
+export component Demo inherits Window {
+    width: 300px;
+    height: 300px;
+
+    title: Settings.some_string;
+
+    r:= Rectangle {
+        background: Settings.test ? Settings.some_color : Settings.some_color;
+    }
+
+    for foo in Settings.count: Rectangle {}
+
+    in-out property <bool> obj: !Settings.object.aa && Settings.object.bb == 0 && Settings.object.cc == "";
+
+    in-out property <bool> test: root.title == "" && r.background == Settings.some_color && Settings.count == 0 && obj;
+
+}

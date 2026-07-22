@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { BarBackground } from "bar_chart.slint";
+
+export component Tile {
+    in property <image> icon <=> i-icon.source;
+    in property <string> value <=> i-value.text;
+    in property <string> text <=> i-text.text;
+    in property <string> sub-text <=> i-sub-text.text;
+
+    horizontal-stretch: 0;
+    vertical-stretch: 1;
+
+    BarBackground {}
+
+    VerticalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        spacing: 11px;
+        alignment: center;
+        cross-axis-alignment: center;
+
+        i-icon := Image {
+            min-width: 52px;
+            height: 43px;
+            colorize: Theme.palette.lemon-green;
+            image-fit: contain;
+        }
+
+        i-value := Text {
+            horizontal-alignment: center;
+            color: Theme.palette.white;
+            font-size: Theme.typo.value-big.size;
+            font-weight: Theme.typo.value-big.weight;
+        }
+
+        VerticalLayout {
+            i-text := Text {
+                horizontal-alignment: center;
+                color: Theme.palette.white;
+                font-size: Theme.typo.description.size;
+                font-weight: Theme.typo.description.weight;
+            }
+
+            i-sub-text := Text {
+                horizontal-alignment: center;
+                color: Theme.palette.lemon-green;
+                font-size: Theme.typo.description-light.size;
+                font-weight: Theme.typo.description-light.weight;
+            }
+        }
+    }
+}

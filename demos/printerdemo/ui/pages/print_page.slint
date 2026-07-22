@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Label, DemoPalette } from "../common.slint";
+import { WidePrinterQueueList } from "./printer_queue.slint";
+import { Page } from "./page.slint";
+
+
+export component PrintPage inherits Page {
+    header: @tr("Print");
+    subtitle: @tr("Printing-Queue");
+
+    queue := WidePrinterQueueList {
+        viewport-width: self.width;
+    }
+}

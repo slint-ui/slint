@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { MaterialPalette, MaterialFontSettings } from "styling.slint";
+import { MenuBarItemBase, MenuBarBase, MenuFrameBase, MenuItemBase } from "../common/menu-base.slint";
+
+export component MenuBarItem {
+    in property <MenuEntry> entry <=> base.entry;
+
+    callback clicked <=> base.clicked;
+    callback hovered <=> base.hovered;
+
+    min-width: base.min-width;
+    min-height: base.min-height;
+
+    base := MenuBarItemBase {
+        horizontal-padding: 12px;
+        top-padding: 8px;
+        bottom-padding: 8px;
+        default-foreground: MaterialPalette.foreground;
+        hover-foreground: MaterialPalette.foreground;
+        pressed-foreground: MaterialPalette.foreground;
+        hover-background: MaterialPalette.surface-container-highest;
+        pressed-background: MaterialPalette.surface-container-highest;
+        font-size: MaterialFontSettings.body-large.font-size;
+        font-weight: MaterialFontSettings.body-large.font-weight;
+    }
+}
+
+export component MenuBar inherits MenuBarBase {
+    horizontal-padding: 4px;
+    spacing: 8px;
+    min-layout-height: 40px;
+}
+
+export component MenuFrame inherits MenuFrameBase {
+    background: MaterialPalette.surface-container;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: MaterialPalette.border;
+    drop-shadow-color: MaterialPalette.shadow;
+    drop-shadow-offset-y: 2px;
+    drop-shadow-blur: 6px;
+    layout-min-width: 200px;
+}
+
+export component MenuItem {
+    in property <bool> is-current <=> base.is-current;
+    in property <MenuEntry> entry <=> base.entry;
+
+    callback set-current <=> base.set-current;
+    callback clear-current <=> base.clear-current;
+    callback activate <=> base.activate;
+
+    min-height: entry.is-separator ? 1px : max(40px, base.min-height);
+    max-height: entry.is-separator ? 1px : base.max-height;
+
+    HorizontalLayout {
+        base := MenuItemBase {
+            default-foreground: MaterialPalette.foreground;
+            alternate-foreground: MaterialPalette.alternate-foreground;
+            current-foreground: MaterialPalette.foreground;
+            current-background: MaterialPalette.surface-container-highest;
+            separator-color: MaterialPalette.border;
+            font-size: MaterialFontSettings.body-large.font-size;
+            font-weight: MaterialFontSettings.body-large.font-weight;
+            horizontal-padding: 12px;
+            vertical-padding: 8px;
+            spacing: 8px;
+            sub-menu-icon: @image-url("_arrow_forward.svg");
+            icon-size: MaterialFontSettings.body-large.font-size;
+        }
+    }
+}

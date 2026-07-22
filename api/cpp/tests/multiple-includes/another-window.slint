@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {Button, AboutSlint} from "std-widgets.slint";
+
+export global Logic {
+    callback decrement(int) -> int;
+}
+
+export struct FooBar {
+    qrs: int, tuv: string
+}
+
+
+export component AnotherWindow inherits Window {
+    preferred-width: 800px;
+    preferred-height: 600px;
+    property <int> count: 100;
+    in property<FooBar> xxx;
+
+    VerticalLayout {
+        AboutSlint {  }
+        Button {
+            text: "Hello";
+            clicked => { count = Logic.decrement(count); }
+        }
+        Text { text: count; }
+    }
+}

@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { SettingsAdapter } from "../pages/menu_page/settings.slint";
+import { Theme } from "../theme.slint";
+
+export component KioskOverlay {
+    preferred-width: 100%;
+    preferred-height: 100%;
+
+    TouchArea {
+        clicked => {
+            SettingsAdapter.kiosk-mode-checked = false;
+        }
+    }
+
+    Rectangle {
+        x: i-text.x - 1px;
+        y: i-text.y - 1px;
+        width: i-text.width + 2px;
+        height: i-text.height + 2px;
+        background: Theme.palette.pure-black;
+        opacity: 0.5;
+    }
+
+    i-text := Text {
+        x: parent.width - self.width - 5px;
+        y: 5px;
+        font-size: Theme.typo.description.size;
+        font-weight: Theme.typo.description.weight;
+        text: "Kiosk";
+        color: Theme.palette.lemon-green;
+        opacity: 0.5;
+    }
+}

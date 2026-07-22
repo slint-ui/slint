@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+TestCase := Rectangle {
+    property <[int]> foo: [1, 2, 3];
+    property <[int]> bar: [1, 2, 3];
+    property <int> first: foo[0];
+
+    callback do() -> bool;
+    do => {
+        if (first != 1) { return false; }
+        // This makes both property share the same underlying model
+        // Even though they are the same contents, we must make sure that
+        // the model are properly shared and everything that depends on them
+        // gets dirty
+        foo = bar;
+        if (first != 1) { return false; }
+        bar[0] = 42;
+        if (first != 42) { return false; }
+        bar[-1] = 18;
+        bar[3] = 89;
+        bar[-30.5] = 78;
+        bar[1.1] = 7552;
+        if (first != 42) { debug(first, "!= 42"); return false; }
+        bar[0.999] = 8;
+        if (first != 8) { debug(first, "!= 8"); return false; }
+        return true;
+    }
+
+    property <bool> test: do();
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.invoke_do());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.invoke_do());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.do());
+```
+*/

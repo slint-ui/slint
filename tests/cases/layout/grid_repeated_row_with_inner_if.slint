@@ -1,0 +1,54 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for multiple inner conditionals inside a repeated Row of GridLayout.
+// There used to be a bug in the interpreter where only the last conditional's count was tracked for auto cell generation,
+// which caused the auto cell to be missing when that conditional was false, and thus all repeated rows to land on the same row.
+// The end marker then ended up on row 1 instead of row 2, which caused the test to fail.
+
+export component TestCase inherits Window {
+    default-font-size: 16px;
+    width: 200phx;
+    height: 200phx;
+
+    // show_a = true:  first conditional shows 1 cell per Row instance.
+    // show_b = false: last conditional shows 0.
+    in property <bool> show_a: true;
+    in property <bool> show_b: false;
+
+    GridLayout {
+        spacing: 0phx;
+        padding: 0phx;
+
+        for _ in 2: Row {
+            if show_a: Rectangle {
+                min-height: 10phx;
+            }
+            if show_b: Rectangle {
+                min-height: 10phx;
+            }
+        }
+
+        end_marker := Rectangle { }
+    }
+
+    out property <int> end_row: end_marker.row;
+    out property <bool> test: end_row == 2;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_end_row(), 2);
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_end_row(), 2);
+assert!(instance.get_test());
+```
+
+*/

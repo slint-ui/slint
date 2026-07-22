@@ -1,0 +1,115 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "std-widgets.slint";
+
+export component TestCase {
+    width: 300px;
+    height: 300px;
+
+    in-out property <bool> popup-created;
+    in-out property <int> click-count;
+    in-out property <int> popup-clicked;
+    out property <length> last-underneath-mouse-x: ta.mouse-x;
+    out property <length> last-underneath-mouse-y: ta.mouse-y;
+
+    context-menu := PopupWindow {
+        x: self.popup-center;
+        y: 10px;
+        width: parent.width - 20px;
+        height: parent.height - 20px;
+
+        property <length> popup-center: 10px;
+
+        Rectangle {
+            border-width: 2px;
+            border-color: Palette.alternate-background;
+        }
+
+        Text {
+            text: "I'm a context menu.";
+        }
+        init => {
+            root.popup-created = true;
+        }
+
+        TouchArea {
+            width: 7px; x: 0px;
+            clicked => {
+                root.popup-clicked += 1;
+            }
+        }
+    }
+
+    ta := TouchArea {
+        clicked => {
+            root.click-count += 1;
+        }
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down && event.button == PointerEventButton.right) {
+                context-menu.show();
+            }
+        }
+    }
+}
+/*
+
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_click_count(), 0);
+assert_eq!(instance.get_popup_created(), false);
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(15.0, 15.0) });
+assert_eq!(instance.get_last_underneath_mouse_x(), 15.);
+assert_eq!(instance.get_last_underneath_mouse_y(), 15.);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+assert_eq!(instance.get_popup_created(), true);
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+
+// Popup is still visible, as it gets the move event instead of the underlying touch area
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(11.0, 11.0) });
+assert_eq!(instance.get_last_underneath_mouse_x(), 15.);
+assert_eq!(instance.get_last_underneath_mouse_y(), 15.);
+
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 0);
+// Subsequent click to verify that it was closed
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_clicked(), 1);
+
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_click_count(), 0);
+assert_eq(instance.get_popup_created(), false);
+
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({15.0, 15.0}));
+assert_eq(instance.get_last_underneath_mouse_x(), 15.);
+assert_eq(instance.get_last_underneath_mouse_y(), 15.);
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+assert_eq(instance.get_popup_created(), true);
+
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+
+// Popup is still visible, as it gets the move event instead of the underlying touch area
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({11.0, 11.0}));
+assert_eq(instance.get_last_underneath_mouse_x(), 15.);
+assert_eq(instance.get_last_underneath_mouse_y(), 15.);
+
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 0);
+// Subsequent click to verify that it was closed
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 1);
+assert_eq(instance.get_popup_clicked(), 1);
+```
+
+*/

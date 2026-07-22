@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore falsevar truevar
+export component TestCase inherits Rectangle {
+    in-out property<bool> truevar: true;
+    in-out property<bool> falsevar: false;
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_truevar());
+assert(!instance.get_falsevar());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_truevar());
+assert!(!instance.get_falsevar());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.truevar);
+assert(!instance.falsevar);
+```
+
+```python
+instance = TestCase()
+assert instance.truevar
+assert not instance.falsevar
+```
+*/

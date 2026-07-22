@@ -1,0 +1,203 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { TabWidget, StandardButton, GridBox, VerticalBox, ListView } from "std-widgets.slint";
+
+
+export component SysInfo inherits Dialog {
+    in-out property os_name <=> os-name.text;
+    in-out property uptime <=> uptime.text;
+    in-out property cpu_count <=> cpu-count.text;
+    in-out property cpu_model <=> cpu-model.text;
+    in-out property cpu_vendor <=> cpu-vendor.text;
+    in-out property <int> mem_size_kb;
+    in-out property <int> buffer_mem_size_kb;
+    in-out property <int> swap_total_kb;
+    in-out property <int> swap_used_kb;
+    in-out property <int> swap_free_kb;
+    in-out property <[{dev: string, mnt: string, total: int, free: int}]> partitions;
+
+    function human-unit(unit : int) -> string {
+        if (unit > 900 * 1000 * 1000) {
+            return "\{round(unit / 1000 / 1000 / 100) / 10} GB";
+        } else if (unit > 900 * 1000) {
+            return "\{round(unit / 1000 / 100) / 10} MB";
+        } else if (unit > 900) {
+            return "\{round(unit / 100) / 10} kB";
+        }
+        return "\{unit} B";
+    }
+
+    title: "System information";
+    preferred-width: 600px;
+    preferred-height: 400px;
+
+    TabWidget {
+        Tab {
+            title: "General";
+
+            GridBox {
+                Row {
+                    Image {
+                        rowspan: 6;
+                        source: @image-url("laptop.svg");
+                        min-width: 128px;
+                    }
+
+                    Text {
+                        col: 1;
+                        text: "Operating System:";
+                        max-width: self.min-width;
+                    }
+                    os-name := Text {}
+                }
+                Row {
+                    Text {
+                        col: 1;
+                        text: "CPU Model:";
+                        max-width: self.min-width;
+                    }
+
+                    cpu-model := Text {}
+                }
+                Row {
+                    Text {
+                        col: 1;
+                        text: "CPU Vendor:";
+                        max-width: self.min-width;
+                    }
+
+                    cpu-vendor := Text {}
+                }
+                Row {
+                    Text {
+                        col: 1;
+                        text: "Number of logical cores:";
+                        max-width: self.min-width;
+                    }
+
+                    cpu-count := Text {}
+                }
+                Row {
+                    Text{
+                        col: 1;
+                        text: "Uptime:";
+                        max-width: self.min-width;
+                    }
+
+                    uptime := Text {}
+                }
+
+                Rectangle {}
+            }
+        }
+
+        Tab {
+            title: "Memory";
+
+            GridBox {
+                Row {
+                    Text {
+                        text: "Installed Memory:";
+                        max-width: self.min-width;
+                    }
+
+                    Text {
+                        text: "\{floor(root.mem_size_kb / (1024*1024))} GiB";
+                    }
+                }
+                Row {
+                    Text {
+                        text: "Buffer/Cache Memory:";
+                        max-width: self.min-width;
+                    }
+
+                    Text {
+                        text: "\{floor(root.buffer_mem_size_kb / (1024*1024))} GiB";
+                    }
+                }
+                Row {
+                    Text {
+                        text: "Swap Total:";
+                        max-width: self.min-width;
+                    }
+
+                    Text {
+                        text: "\{floor(root.swap_total_kb / (1024*1024))} GiB";
+                    }
+                }
+                Row {
+                    Text {
+                        text: "Swap Used:";
+                        max-width: self.min-width;
+                    }
+
+                    Text {
+                        text: "\{floor(root.swap_used_kb / (1024*1024))} GiB";
+                    }
+                }
+                Row {
+                    Text {
+                        text: "Swap Free:";
+                        max-width: self.min-width;
+                    }
+
+                    Text {
+                        text: "\{floor(root.swap_free_kb / (1024*1024))} GiB";
+                    }
+                }
+                Row {
+                    Rectangle {}
+                }
+            }
+        }
+
+        Tab {
+            title: "Partitions";
+
+            VerticalBox {
+                padding: 5px;
+
+                HorizontalLayout {
+                    padding: 5px; spacing: 5px;
+                    t1 := Text { width: 25%; overflow: elide; text: "Device"; }
+                    t2 := Text { width: 25%; overflow: elide; text: "Mount Point"; }
+                    t3 := Text { width: self.preferred-width * 2; text: "Total"; }
+                    t4 := Text { width: t3.width; text: "Free"; }
+                    t5 := Text { horizontal-stretch: 1; text: "Usage"; }
+                }
+
+                ListView {
+                    for disk in root.partitions : HorizontalLayout {
+                        padding: 5px;
+                        spacing: 5px;
+                        accessible-role: list-item;
+
+                        Text { width: t1.width; overflow: elide; text: disk.dev; }
+                        Text { width: t2.width; overflow: elide; text: disk.mnt; }
+                        Text { width: t3.width; text: root.human-unit(disk.total); }
+                        Text { width: t4.width; text: root.human-unit(disk.free); }
+
+                        Rectangle {
+                            min-width: t.min-width + 10px;
+                            background: lightblue;
+
+                            Rectangle {
+                                x:0;
+                                background: lightgray;
+                                width: (1 - (disk.free / disk.total)) * parent.width;
+                            }
+                            t := Text {
+                                y:0;
+                                x: 5px;
+                                text: round(100 - 100 * (disk.free / disk.total)) + "%";
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    StandardButton { kind: close; }
+}

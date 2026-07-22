@@ -1,0 +1,94 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette, PrinterState } from "../common.slint";
+import { Page, Header } from "./page.slint";
+
+export component InkPage inherits Page {
+    header: @tr("Ink Level");
+    header-type: Header.plain;
+
+    property <bool> page-visible: false;
+
+    Timer {
+        interval: 30ms;
+        running: true;
+        triggered => {
+            self.stop();
+            page-visible = true;
+        }
+    }
+
+    HorizontalLayout {
+        spacing: 50px;
+        width: 75%;
+        height: 65%;
+
+        for color-info in PrinterState.ink-levels: Rectangle {
+            ink := Rectangle {
+                width: parent.width;
+                height: parent.height * color-info.level;
+                y: parent.height - self.height;
+                clip: true;
+
+                states [
+                    inactive when !root.page-visible: {
+                        height: 0;
+                        out {
+                            animate height {
+                                duration: 750ms;
+                                easing: ease-in-out;
+                            }
+                        }
+                        in {
+                            animate height {
+                                duration: 200ms;
+                                easing: ease-in;
+                            }
+                        }
+                    }
+                ]
+                Rectangle {
+                    background: color-info.color;
+                    border-radius: self.width / 2;
+                    border-width: 2px;
+                    height: parent.height + parent.y;
+                    y: -parent.y;
+                }
+            }
+
+            Rectangle {
+                property <length> r: (parent.width - self.height) / 2;
+                property <length> y2: max(0phx, max(self.r - self.y, self.y - parent.height + self.r));
+
+                y: max(ink.y - self.height, 0phx);
+                height: 2px;
+                // w = 2*sqrt(r² - (max(0, min(r-y , y-h+r)))²)
+                width: 2 * sqrt((self.r * self.r - self.y2 * self.y2) / (1phx * 1phx)) * 1phx;  // FIXME: it would be nice if sqrt could do proper unit handling
+                x: (parent.width - self.width) / 2;
+                background: DemoPalette.neutral-box;
+            }
+
+            Rectangle {
+                border-radius: self.width / 2;
+                border-color: DemoPalette.neutral-box;
+                border-width: 2px;
+            }
+
+            Rectangle {
+                width: 50%;
+                height: 30px;
+                y: parent.height - self.height - 30px;
+                border-radius: self.height / 2;
+                background: DemoPalette.background.with-alpha(0.9);
+                Text {
+                    text: color-info.level * 100 + "%";
+                    overflow: elide;
+                    color: DemoPalette.text-primary;
+                    font-family: DemoPalette.regular-weight;
+                    font-size: 14px;
+                }
+            }
+        }
+    }
+}

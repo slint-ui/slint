@@ -1,0 +1,125 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { TextField } from "./text_field.slint";
+import { MenuItem } from "../items/menu_item.slint";
+import { Icons } from "../icons/icons.slint";
+import { MenuInner } from "./menu.slint";
+import { StateLayer } from "./state_layer.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { ScrollView } from "./scroll_view.slint";
+
+export component DropDownMenu {
+    in property <string> label <=> text_field.label;
+    in property <bool> enabled <=> text_field.enabled;
+    in property <image> leading_icon <=> text_field.leading_icon;
+    in property <[MenuItem]> items;
+    in_out property <int> current_index: -1;
+
+    callback selected(index: int);
+
+    property <length> item_height: MaterialStyleMetrics.size_56;
+    property <int> max_displayed_items: 6;
+    property <string> text <=> text_field.text;
+
+    min_width: text_field.min_width;
+    min_height: text_field.min_height;
+    forward_focus: text_field; accessible-role: combobox;
+    accessible_enabled: root.enabled;
+    accessible_expandable: true;
+    accessible_value <=> text_field.text;
+    accessible_action_expand => { menu.show(); }
+
+    text_field := TextField {
+        width: 100%;
+        height: 100%;
+        trailing_icon: Icons.arrow_drop_down;
+        read_only: true;
+    }
+
+    state_layer := StateLayer {
+        width: 100%;
+        height: 100%;
+        background: MaterialPalette.on_surface;
+        has_hover: touch_area.has_hover;
+        enabled: root.enabled;
+    }
+
+    touch_area := TouchArea {
+        width: 100%;
+        height: 100%;
+        enabled: root.enabled;
+
+        clicked => {
+            menu.show();
+        }
+    }
+
+    menu := PopupWindow {
+        x: 0;
+        width: root.width;
+        close_policy: close_on_click_outside;
+        forward_focus: inner_text_field;
+
+        VerticalLayout {
+            alignment: start;
+
+            inner_text_field := TextField {
+                width: root.width;
+                leading_icon: root.leading_icon;
+                trailing_icon: Icons.arrow_drop_up;
+                text: root.text;
+                label: root.label;
+                read_only: true;
+
+                leading_icon_clicked => {
+                    menu.close();
+                }
+
+                trailing_icon_clicked => {
+                    menu.close();
+                }
+            }
+
+            Rectangle {
+                width: 100%;
+                height: min(max(root.item_height, items.length * root.item_height), root.max_displayed_items * root.item_height);
+                background: MaterialPalette.surface_container;
+
+                ScrollView {
+                    VerticalLayout {
+                        menu_inner := MenuInner {
+                            current_index: root.current_index;
+                            items: root.items;
+
+                            activated(index) => {
+                                root.update_selection(index);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function update_selection(index: int) {
+        root.update_text(index);
+        root.current_index = index;
+        menu.close();
+        root.selected(index);
+    }
+
+    function update_text(index: int) {
+        if index < 0 || root.current_index >= root.items.length {
+            text_field.text = "";
+            return;
+        }
+
+        text_field.text = root.items[index].text;
+    }
+
+    changed current_index => {
+        root.update_text(root.current_index);
+    }
+}

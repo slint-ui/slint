@@ -1,0 +1,30 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "xtask"
+description = "Development helper tool for the Slint project"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+anyhow = "1.0"
+cargo_metadata = "0.23"
+cbindgen = { workspace = true }
+clap = { workspace = true }
+const_format = "0.2"
+i-slint-common = { workspace = true, features = ["default"] }
+proc-macro2 = "1.0.11"
+regex = "1.4"
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+spdx = { version = "0.13.4", features = ["text"] }
+toml_edit = { workspace = true }
+which = "8.0"
+xshell = "0.2.1"

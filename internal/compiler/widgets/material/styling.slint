@@ -1,0 +1,95 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+import { ColorSchemeSelector } from "color-scheme.slint";
+
+// typo settings
+struct TextStyle { font-size: relative-font-size, font-weight: int}
+
+export global MaterialFontSettings {
+    out property <TextStyle> label-large: { font-size: 14pt * 1rem / 14pt, font-weight: FontWeight.medium };
+    out property <TextStyle> label-medium: { font-size: 12pt * 1rem / 14pt, font-weight: FontWeight.medium };
+    out property <TextStyle> body-large: { font-size: 16pt * 1rem / 14pt, font-weight: FontWeight.normal };
+    out property <TextStyle> body-small: { font-size: 12pt * 1rem / 14pt, font-weight: FontWeight.normal };
+    out property <TextStyle> title-small: { font-size: 14pt * 1rem / 14pt, font-weight: FontWeight.medium };
+    out property <TextStyle> headline-large: { font-size: 32pt * 1rem / 14pt, font-weight: FontWeight.medium };
+}
+
+export global Elevation {
+    out property <length> level0: 0px;
+    out property <length> level1: 1px;
+    out property <length> level2: 2px;
+}
+
+export global MaterialPalette {
+    in-out property <ColorScheme> color-scheme: ColorSchemeSelector.color-scheme;
+    property <bool> dark-color-scheme: {
+        if (color-scheme == ColorScheme.unknown) {
+            return SlintInternal.color-scheme == ColorScheme.dark;
+        }
+        return color-scheme == ColorScheme.dark;
+    }
+
+    pure function accentify(default-color: color) -> color {
+        let accent-color = SlintInternal.accent-color;
+        if (accent-color.alpha > 0) {
+            let default-lch = default-color.to-oklch();
+            let accent-lch = accent-color.to-oklch();
+            return oklch(default-lch.lightness, accent-lch.chroma, accent-lch.hue);
+        }
+        return default-color;
+    }
+
+    // base palette
+    out property <brush> background: !dark-color-scheme ? #f8f3f9 : #2a282d;
+    out property <brush> foreground: !dark-color-scheme ? #1C1B1F : #E6E1E5;
+    out property <brush> alternate-background: !dark-color-scheme ? #FFFBFE : #1C1B1F;
+    out property <brush> alternate-foreground: !dark-color-scheme ? #1C1B1F : #E6E1E5;
+    out property <brush> control-background: !dark-color-scheme ? accentify(#E8DEF8) : accentify(#4A4458);
+    out property <brush> control-foreground: !dark-color-scheme ? accentify(#1E192B) : accentify(#E8DEF8);
+    out property <brush> accent-background: !dark-color-scheme ? accentify(#6750A4) : accentify(#D0BCFF);
+    out property <brush> accent-foreground: !dark-color-scheme ? #FFFFFF : accentify(#371E73);
+    out property <brush> selection-background: accent-background.with-alpha(0.3);
+    out property <brush> selection-foreground: !dark-color-scheme ? #1C1B1F : #E6E1E5;
+    out property <brush> border: !dark-color-scheme ? #79747E : #938F99;
+
+    // additional palette
+    out property <brush> control-background-variant: !dark-color-scheme ? #E7E0EC.darker(0.2) : #49454F;
+    out property <brush> control-foreground-variant: !dark-color-scheme ? #49454E : #CAC4D0;
+    out property <brush> control-background-tint: accent-background;
+    out property <brush> accent-container: !dark-color-scheme ? accentify(#4F378B) : accentify(#4F378B);
+    out property <brush> accent-ripple: !dark-color-scheme ? accentify(#D0BCFF) : accentify(#6750A4);
+    out property <brush> shadow: #000000.with_alpha(0.3);
+    out property <brush> border-variant: !dark-color-scheme ? #C4C7C5 : #444746;
+    out property <brush> foreground-alt: !dark-color-scheme ? #1C1B1F : #E6E1E5;
+    out property <brush> secondary-ripple: !dark-color-scheme ? #fffc : #000000;
+    out property <brush> surface-container: !dark-color-scheme ? #F3EDF7 : #211F26;
+    out property <brush> surface-container-high: !dark-color-scheme ? #ECE6F0 : #2B2930;
+    out property <brush> surface-container-highest: !dark-color-scheme ? #E6E0E9 : #36343B;
+    out property <brush> tertiary-container: !dark-color-scheme ? #FFD8E4 : #633B48;
+    out property <brush> on-tertiary-container: !dark-color-scheme ? #31111D : #FFD8E4;
+
+    out property <brush> state-default: dark-color-scheme ? #E6E0E9 : #1D1B20;
+    out property <brush> state-secondary: accent-background;
+    out property <brush> state-tertiary: dark-color-scheme ? accentify(#381E72) : #FFFFFF;
+}
+
+export global Icons {
+    out property <image> arrow-downward: @image-url("_arrow-downward.svg");
+    out property <image> arrow-drop-down: @image-url("_arrow-drop-down.svg");
+    out property <image> arrow-drop-up: @image-url("_arrow-drop-up.svg");
+    out property <image> arrow-upward: @image-url("_arrow-upward.svg");
+    out property <image> check-mark: @image-url("_check-mark.svg");
+    out property <image> expand-more: @image-url("_expand-more.svg");
+    out property <image> keyboard: @image-url("_keyboard.svg");
+    out property <image> clock: @image-url("_clock.svg");
+    out property <image> arrow-back: @image-url("_arrow_back.svg");
+    out property <image> arrow-forward: @image-url("_arrow_forward.svg");
+    out property <image> edit: @image-url("_edit.svg");
+    out property <image> calendar: @image-url("_calendar.svg");
+}
+
+export global MaterialSizeSettings {
+    out property <length> item-height: 48px;
+}

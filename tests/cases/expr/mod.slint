@@ -1,0 +1,58 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+ export component TestCase inherits Window {
+    out property<int> t1: mod(42, 2);
+    out property<float> t2: mod(18.5, 10);
+    out property<int> t3: mod(153, 10);
+    out property <duration> t4: mod(5432ms, 1s);
+    out property <length> t5: (-28.2px).mod(10px);
+    out property <float> t6: (42).mod(-10);
+    out property <float> t7: (-420).mod(-5.5);
+    in property <int> minus_forty_two: -42;
+    out property <int> t8: minus_forty_two.mod(2);
+
+    out property <bool> test: t1 == 0 && t2 == 8.5 && t3 == 3 && t4 == 432ms && t5 == 1.8px && t6 == 2 && t7 == 3.5 && t8 == 0;
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_t1(), 0);
+assert_eq(instance.get_t2(), 8.5);
+assert_eq(instance.get_t3(),3);
+assert_eq(instance.get_t4(),432);
+assert_eq(instance.get_t5(), 1.8);
+assert_eq(instance.get_t6(), 2.);
+assert_eq(instance.get_t7(), 3.5);
+assert_eq(instance.get_t8(), 0);
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_t1(), 0);
+assert_eq!(instance.get_t2(), 8.5);
+assert_eq!(instance.get_t3(), 3);
+assert_eq!(instance.get_t4(),432);
+assert_eq!(instance.get_t5(), 1.8);
+assert_eq!(instance.get_t6(), 2.);
+assert_eq!(instance.get_t7(), 3.5);
+assert_eq!(instance.get_t8(), 0);
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(Math.abs(instance.t1) < 0.0001);
+assert(Math.abs(instance.t2 - 8.5) < 0.0001);
+assert(Math.abs(instance.t3 - 3) < 0.0001);
+assert(Math.abs(instance.t4 - 432) < 0.0001);
+assert.equal(Math.round(instance.t5 * 1000), 1800);
+assert(Math.abs(instance.t6 - 2.) < 0.0001);
+assert(Math.abs(instance.t7 - 3.5) < 0.0001);
+// `(-42) % 2` is `-0` in IEEE-754; compare absolute value so `-0 === 0`.
+assert(Math.abs(instance.t8) < 0.0001);
+assert(instance.test);
+```
+*/

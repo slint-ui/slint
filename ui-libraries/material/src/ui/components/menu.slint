@@ -1,0 +1,136 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { Elevation } from "elevation.slint";
+import { StateLayerArea } from "./state_layer.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
+import { Icon } from "./icon.slint";
+import { MenuItem } from "../items/menu_item.slint";
+import { MaterialText } from "./material_text.slint";
+import { Icons } from "../icons/icons.slint";
+
+component MenuItemTemplate {
+    in property <image> icon;
+    in property <string> text;
+    in property <string> trailing_text;
+    in property <bool> enabled <=> state_area.enabled;
+    in property <bool> selected;
+
+    callback clicked();
+
+    property <bool> has_icon: root.icon.width > 0 && root.icon.height > 0;
+    property <color> color: MaterialPalette.on_surface;
+    property <color> color_variant: MaterialPalette.on_surface_variant;
+
+    min_height: max(MaterialStyleMetrics.size_56, layout.min_height);
+
+    background_layer := Rectangle {
+        state_area := StateLayerArea {
+            color: root.color;
+
+            layout := HorizontalLayout {
+                padding_left: MaterialStyleMetrics.padding_12;
+                padding_right: self.padding_left;
+                padding_top: MaterialStyleMetrics.padding_8;
+                padding_bottom: self.padding_top;
+                spacing: MaterialStyleMetrics.spacing_12;
+
+                if root.has_icon : VerticalLayout {
+                    alignment: center;
+
+                    Icon {
+                        source: root.icon;
+                        colorize: root.color;
+                    }
+                }
+
+                MaterialText {
+                    horizontal_stretch: 1;
+                    text: root.text;
+                    style: MaterialTypography.body_large;
+                    color: root.color;
+                    vertical_alignment: center;
+                }
+
+                if root.trailing_text != "" : MaterialText {
+                    text: root.trailing_text;
+                    style: MaterialTypography.body_large;
+                    color: root.color_variant;
+                    vertical_alignment: center;
+                }
+            }
+
+            clicked => {
+                root.clicked();
+            }
+        }
+    }
+
+    states [
+        disabled when !root.enabled : {
+            state_area.opacity: MaterialPalette.disable_opacity;
+        }
+        selected when root.selected : {
+            background_layer.background: MaterialPalette.surface_container_highest;
+        }
+    ]
+}
+
+export component MenuInner {
+    in property <[MenuItem]> items;
+    in_out property <int> current_index: -1;
+
+    callback activated(index: int);
+
+    // used to fix clipping of shadows
+    out property <int> elevation: 2;
+
+    menu := Elevation {
+        width: 100%;
+        level: root.elevation;
+        height: layout.min_height + root.elevation * 1px;
+        border_radius: MaterialStyleMetrics.border_radius_4;
+        background: MaterialPalette.surface_container;
+
+        layout := VerticalLayout {
+            width: root.width;
+            padding_top: MaterialStyleMetrics.padding_8;
+            padding_bottom: self.padding_top;
+
+            for item[index] in root.items : MenuItemTemplate {
+                icon: item.icon;
+                text: item.text;
+                trailing_text: item.trailing_text;
+                enabled: item.enabled;
+                selected: index == root.current_index;
+
+                clicked => {
+                    root.activated(index);
+                }
+            }
+        }
+    }
+}
+
+export component PopupMenu inherits PopupWindow {
+    in property <[MenuItem]> items;
+
+    callback activated(index: int);
+
+    width: MaterialStyleMetrics.size_200;
+    close_policy: close_on_click_outside;
+
+    VerticalLayout {
+        padding: inner.elevation * 1px;
+
+        inner := MenuInner {
+            items: root.items;
+
+            activated(index) => {
+                root.activated(index);
+            }
+        }
+    }
+}

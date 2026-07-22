@@ -1,0 +1,430 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+syntax = "proto3";
+
+package proto;
+// Common messages
+
+// Index in generational arena in AUT
+message Handle {
+    uint64 index = 1; // ### should use uint128 if only it were available
+    uint64 generation = 2;
+}
+
+enum ElementAccessibilityAction {
+    Default_ = 0;
+    Increment = 1;
+    Decrement = 2;
+    Expand = 3;
+}
+
+enum PointerEventButton {
+    Left = 0;
+    Right = 1;
+    Middle = 2;
+    Back = 3;
+    Forward = 4;
+    Other = 5;
+}
+
+enum ClickAction {
+    SingleClick = 0;
+    DoubleClick = 1;
+}
+
+message PointerPressEvent {
+    LogicalPosition position = 1;
+    PointerEventButton button = 2;
+}
+
+message PointerReleaseEvent {
+    LogicalPosition position = 1;
+    PointerEventButton button = 2;
+}
+
+message PointerMoveEvent {
+    LogicalPosition position = 1;
+}
+
+message PointerScrolledEvent {
+    LogicalPosition position = 1;
+    float delta_x = 2;
+    float delta_y = 3;
+}
+
+message PointerExitedEvent {
+}
+
+message ScaleFactorChangedEvent {
+    float scale_factor = 1;
+}
+
+message ResizedEvent {
+    LogicalSize size = 1;
+}
+
+message CloseRequestedEvent {
+}
+
+message WindowActiveChangedEvent {
+    bool active = 1;
+}
+
+message KeyPressedEvent {
+    string text = 1;
+}
+
+message KeyPressRepeatedEvent {
+    string text = 1;
+}
+
+message KeyReleasedEvent {
+    string text = 1;
+}
+
+message WindowEvent {
+    oneof event {
+        PointerPressEvent pointer_pressed = 1;
+        PointerReleaseEvent pointer_released = 2;
+        PointerMoveEvent pointer_moved = 3;
+        PointerScrolledEvent pointer_scrolled = 4;
+        PointerExitedEvent pointer_exited = 5;
+        KeyPressedEvent key_pressed = 6;
+        KeyPressRepeatedEvent key_press_repeated = 7;
+        KeyReleasedEvent key_released = 8;
+        ScaleFactorChangedEvent scale_factor_changed = 9;
+        ResizedEvent resized = 10;
+        CloseRequestedEvent close_requested = 11;
+        WindowActiveChangedEvent window_active_changed = 12;
+    }
+}
+
+enum KeyEventType {
+    PressAndRelease = 0;
+    Press = 1;
+    Release = 2;
+}
+
+enum LayoutKind {
+    NotALayout = 0;
+    HorizontalLayout = 1;
+    VerticalLayout = 2;
+    GridLayout = 3;
+    FlexboxLayout = 4;
+}
+
+// Copied from enums.rs - can't be auto-generated :(
+// with one difference: None became Unknown, because None doesn't compile.
+// Upside: AccessKit also uses Unknown :)
+enum AccessibleRole {
+    Unknown = 0;
+    Button = 1;
+    Checkbox = 2;
+    Combobox = 3;
+    List = 4;
+    Slider = 5;
+    Spinbox = 6;
+    Tab = 7;
+    TabList = 8;
+    Text = 9;
+    Table = 10;
+    Tree = 11;
+    ProgressIndicator = 12;
+    TextInput = 13;
+    Switch = 14;
+    ListItem = 15;
+    TabPanel = 16;
+    Groupbox = 17;
+    Image = 18;
+    RadioButton = 19;
+    RadioGroup = 20;
+    Banner = 21;
+    Complementary = 22;
+    ContentInfo = 23;
+    Form = 24;
+    Main = 25;
+    Navigation = 26;
+    Region = 27;
+    Search = 28;
+}
+
+enum RecordedEventResult {
+    // Default; only appears when a deserializer reads a corrupt or
+    // partially-populated RecordedEvent. The recorder never writes this.
+    Unspecified = 0;
+    Accepted = 1;
+    Rejected = 2;
+    Ignored = 3;
+}
+
+message ElementQueryInstruction {
+    oneof instruction {
+        bool match_descendants = 1; // boolean value ignored
+        string match_element_id = 2;
+        string match_element_type_name = 3;
+        string match_element_type_name_or_base = 4;
+        AccessibleRole match_element_accessible_role = 5;
+    }
+}
+
+// Requests
+
+message RequestWindowListMessage {
+}
+
+message RequestWindowProperties {
+    Handle window_handle = 1;
+}
+
+message RequestFindElementsById {
+    Handle window_handle = 1;
+    string elements_id = 2;
+}
+
+message RequestElementProperties {
+    Handle element_handle = 1;
+}
+
+message RequestInvokeElementAccessibilityAction {
+    Handle element_handle = 1;
+    ElementAccessibilityAction action = 2;
+}
+
+message RequestSetElementAccessibleValue {
+    Handle element_handle = 1;
+    string value = 2;
+}
+
+message RequestTakeSnapshot {
+    Handle window_handle = 1;
+    string image_mime_type = 2;
+}
+
+message RequestElementClick {
+    Handle element_handle = 1;
+    ClickAction action = 2;
+    PointerEventButton button = 3;
+}
+
+message RequestElementDrag {
+    Handle element_handle = 1;
+    LogicalPosition target = 2;
+    PointerEventButton button = 3;
+}
+
+message RequestDispatchWindowEvent {
+    Handle window_handle = 1;
+    WindowEvent event = 2;
+}
+
+message RequestDispatchKeyEvent {
+    Handle window_handle = 1;
+    string text = 2;
+    KeyEventType event_type = 3;
+}
+
+message RequestGetElementTree {
+    Handle element_handle = 1;
+    uint32 max_elements = 2;
+}
+
+message RequestQueryElementDescendants {
+    Handle element_handle = 1;
+    repeated ElementQueryInstruction query_stack = 2;
+    bool find_all = 3;
+}
+
+message RequestEventLog {
+    Handle window_handle = 1;
+    uint64 since_sequence = 2;
+    uint64 max_events = 3;
+    bool clear_after_read = 4;
+}
+
+message RequestClearEventLog {
+}
+
+message RequestStartEventRecording {
+}
+
+message RequestStopEventRecording {
+}
+
+message RequestToAUT {
+    oneof msg {
+        RequestWindowListMessage request_window_list = 1;
+        RequestWindowProperties request_window_properties = 2;
+        RequestFindElementsById request_find_elements_by_id = 3;
+        RequestElementProperties request_element_properties = 4;
+        RequestInvokeElementAccessibilityAction request_invoke_element_accessibility_action = 5;
+        RequestSetElementAccessibleValue request_set_element_accessible_value = 6;
+        RequestTakeSnapshot request_take_snapshot = 7;
+        RequestElementClick request_element_click = 8;
+        RequestDispatchWindowEvent request_dispatch_window_event = 9;
+        RequestQueryElementDescendants request_query_element_descendants = 10;
+        RequestElementDrag request_element_drag = 11;
+        RequestDispatchKeyEvent request_dispatch_key_event = 12;
+        RequestGetElementTree request_get_element_tree = 13;
+        RequestEventLog request_event_log = 14;
+        RequestClearEventLog request_clear_event_log = 15;
+        RequestStartEventRecording request_start_event_recording = 16;
+        RequestStopEventRecording request_stop_event_recording = 17;
+    }
+}
+
+// Responses
+
+message ErrorResponse {
+    string message = 1;
+}
+
+message WindowListResponse {
+    repeated Handle window_handles = 1;
+}
+
+message PhysicalSize {
+    uint32 width = 1;
+    uint32 height = 2;
+}
+
+message PhysicalPosition {
+    int32 x = 1;
+    int32 y = 2;
+}
+
+message LogicalSize {
+    float width = 1;
+    float height = 2;
+}
+
+message LogicalPosition {
+    float x = 1;
+    float y = 2;
+}
+
+message WindowPropertiesResponse {
+    bool is_fullscreen = 1;
+    bool is_maximized = 2;
+    bool is_minimized = 3;
+    PhysicalSize size = 4;
+    PhysicalPosition position = 5;
+    Handle root_element_handle = 6;
+    float scale_factor = 7;
+}
+
+message ElementsResponse {
+    repeated Handle element_handles = 1;
+}
+
+message ElementTypeNameAndId {
+    string type_name = 1;
+    string id = 2;
+}
+
+message ElementPropertiesResponse {
+    repeated ElementTypeNameAndId type_names_and_ids = 1;
+    string accessible_label = 2;
+    string accessible_value = 3;
+    float accessible_value_maximum = 4;
+    float accessible_value_minimum = 5;
+    float accessible_value_step = 6;
+    string accessible_description = 7;
+    bool accessible_checked = 8;
+    bool accessible_checkable = 9;
+    LogicalSize size = 10;
+    LogicalPosition absolute_position = 11;
+    AccessibleRole accessible_role = 12;
+    float computed_opacity = 13;
+    string accessible_placeholder_text = 14;
+    bool accessible_enabled = 15;
+    bool accessible_read_only = 16;
+    LayoutKind layout_kind = 17;
+}
+
+message InvokeElementAccessibilityActionResponse {
+}
+
+message SetElementAccessibleValueResponse {
+}
+
+message TakeSnapshotResponse {
+    bytes window_contents_as_encoded_image = 1;
+}
+
+message ElementClickResponse {
+}
+
+message ElementDragResponse {
+}
+
+message DispatchWindowEventResponse {
+}
+
+message DispatchKeyEventResponse {
+}
+
+message GetElementTreeResponse {
+}
+
+message ElementQueryResponse {
+    repeated Handle element_handles = 1;
+}
+
+message RecordedEvent {
+    reserved 4;
+    reserved "source";
+    uint64 sequence = 1;
+    uint64 timestamp_ms = 2;
+    Handle window_handle = 3;
+    WindowEvent event = 5;
+    RecordedEventResult result = 6;
+}
+
+message EventLogResponse {
+    repeated RecordedEvent events = 1;
+    // The next sequence number to use as sinceSequence on the following poll.
+    // Zero when no events have ever been recorded (or after a clear).
+    uint64 next_sequence = 2;
+    uint64 dropped_count = 3;
+    // Number of events skipped because their variant could not be converted to
+    // proto. Non-zero indicates a bug: the conversion code is out of sync with
+    // i_slint_core::platform::WindowEvent / PointerEventButton.
+    uint64 unknown_event_count = 4;
+}
+
+message ClearEventLogResponse {
+}
+
+message StartEventRecordingResponse {
+}
+
+message StopEventRecordingResponse {
+    repeated RecordedEvent events = 1;
+    uint64 dropped_count = 2;
+    // See EventLogResponse.unknown_event_count.
+    uint64 unknown_event_count = 3;
+}
+
+message AUTResponse {
+    oneof msg {
+        ErrorResponse error = 1;
+        WindowListResponse window_list = 2;
+        WindowPropertiesResponse window_properties = 3;
+        ElementsResponse elements = 4;
+        ElementPropertiesResponse element_properties = 5;
+        InvokeElementAccessibilityActionResponse invoke_element_accessibility_action_response = 6;
+        SetElementAccessibleValueResponse set_element_accessible_value_response = 7;
+        TakeSnapshotResponse take_snapshot_response = 8;
+        ElementClickResponse element_click_response = 9;
+        DispatchWindowEventResponse dispatch_window_event_response = 10;
+        ElementQueryResponse element_query_response = 11;
+        ElementDragResponse element_drag_response = 12;
+        DispatchKeyEventResponse dispatch_key_event_response = 13;
+        GetElementTreeResponse get_element_tree_response = 14;
+        EventLogResponse event_log_response = 15;
+        ClearEventLogResponse clear_event_log_response = 16;
+        StartEventRecordingResponse start_event_recording_response = 17;
+        StopEventRecordingResponse stop_event_recording_response = 18;
+    }
+}

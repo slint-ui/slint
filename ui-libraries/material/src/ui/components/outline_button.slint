@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { BaseButton } from "./base_button.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+
+export component OutlineButton {
+    in property <image> icon <=> base.icon;
+    in property <string> text <=> base.text;
+    in property <bool> enabled <=> base.enabled;
+    in property <string> tooltip <=> base.tooltip;
+
+    callback clicked <=> base.clicked;
+
+    accessible-role: button;
+    accessible-enabled: root.enabled;
+    accessible-label: root.text == "" ? root.tooltip : root.text;
+    accessible-action-default => { base.clicked(); }
+
+    base := BaseButton {
+        border_radius: border.border_radius;
+        color: MaterialPalette.primary;
+    }
+
+    border := Rectangle {
+        border_radius: root.height / 2;
+        border_width: 1px;
+        border_color: MaterialPalette.outline;
+        width: 100%;
+        height: 100%;
+    }
+
+    states [
+        disabled when !root.enabled : {
+            base.color: MaterialPalette.on_surface;
+            base.transparent_background: true;
+            border.border_color: MaterialPalette.on_surface;
+            border.opacity: MaterialPalette.state_layer_opacity_hover;
+        }
+    ]
+}

@@ -1,0 +1,89 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
+import { MaterialText } from "./material_text.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
+import { Modal } from "./modal.slint";
+
+export component DrawerHeader {
+    in property <string> title;
+
+    min_height: max(MaterialStyleMetrics.size_56, title_label.min_width);
+
+    title_label := MaterialText {
+        x: MaterialStyleMetrics.padding_16;
+        width: root.width - MaterialStyleMetrics.padding_16;
+        text: root.title;
+        color: MaterialPalette.on_surface_variant;
+        vertical_alignment: center;
+        style: MaterialTypography.title_small;
+    }
+}
+
+export component Drawer {
+    in property <string> title;
+
+    min_width: max(MaterialStyleMetrics.size_360, layout.min_width);
+
+    TouchArea {
+
+        Rectangle {
+            background: MaterialPalette.surface_container_low;
+            border_radius: MaterialStyleMetrics.border_radius_16;
+
+            layout := VerticalLayout {
+                alignment: start;
+                padding: MaterialStyleMetrics.padding_12;
+
+                if root.title != "" : DrawerHeader {
+                    width: 100%;
+                    title: root.title;
+                }
+
+                @children
+            }
+        }
+    }
+}
+
+export component ModalDrawer inherits PopupWindow {
+    in property <bool> position_right;
+    in property <string> title;
+
+    close_policy: no_auto_close;
+
+    modal := Modal {
+        width: 100%;
+        height: 100%;
+
+        drawer := Drawer {
+            x: root.position_right ? parent.width : -self.width;
+            y: 0;
+            height: 100%;
+            title: root.title;
+
+            @children
+
+            animate x {
+                duration: MaterialAnimations.standard_accelerate_duration;
+                easing: MaterialAnimations.standard_easing;
+            }
+        }
+
+        clicked => {
+            root.close();
+        }
+    }
+
+    Timer {
+        interval: 50ms;
+
+        triggered => {
+            drawer.x = root.position_right ? root.width - drawer.width : 0;
+            self.running = false;
+        }
+    }
+}

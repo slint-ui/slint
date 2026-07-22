@@ -1,0 +1,226 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Animation, Style, Palette } from "../common.slint";
+import { Control} from "control.slint";
+import { AppState } from "../appState.slint";
+import { HaText } from "general/haText.slint";
+import { LineEdit } from "std-widgets.slint";
+
+export component ArmButton inherits Rectangle {
+    callback clicked;
+    in property <int> label;
+    in property <bool> enabled;
+    if label != -1: Rectangle {
+        Image {
+            source: ta.pressed ?  @image-url("../images/default-button.png", nine-slice(0 50 0 50)) : @image-url("../images/pressed-button.png", nine-slice(0 50 0 50));
+            width: 100px;
+            height: self.source.height * 1px;
+        }
+
+        HaText {
+            y: 18px;
+            font-size: root.label == -2 ? Style.H1-font-size * 0.6 : Style.H2-font-size;
+            text: root.label == -2 ? "⌫" : root.label;
+            color: Palette.control-alternate-foreground;
+            visible: root.label != -1;
+        }
+
+        ta := TouchArea {
+            enabled: root.label != -1 && root.enabled;
+            clicked => {
+                root.clicked();
+            }
+        }
+    }
+
+}
+
+export component Alarm inherits Control {
+    property <int> current-page: AppState.current-page;
+    property <bool> unlocked: false;
+    property <bool> is-active: false;
+    property <string> passcode;
+    show-label: false;
+
+    clip: AppState.graphics-accelerator-available;
+
+    content := Rectangle {
+        ta := TouchArea {
+            clicked => {
+                AppState.showFullScreen(root.index);
+                if root.full-screen {
+                    root.full-screen = false;
+                }
+            }
+        }
+
+        tile := Rectangle {
+            x: 0;
+            VerticalLayout {
+                visible: !root.full-screen;
+                alignment: center;
+                cross-axis-alignment: center;
+                spacing: 60px;
+                HaText {
+                    text: "Home Alarm \nOff";
+                    horizontal-alignment: center;
+                    font-size: Style.H2-font-size;
+                    color: Palette.hvac-knob-foreground;
+                    font-weight: FontWeight.light;
+                }
+
+                Rectangle {
+                    width: root.width * 0.7;
+                    height: 50px;
+                    Image {
+                        y: 0;
+                        source: ta.pressed ?  @image-url("../images/pressed-button.png", nine-slice(0 50 0 50)) : @image-url("../images/default-button.png", nine-slice(0 50 0 50));
+                        width: parent.width;
+                        height: self.source.height * 1px;
+                    }
+
+                    HaText {
+                        y: 14px;
+                        text: "Arm Alarm";
+                        color: Palette.foreground;
+                        font-size: Style.H3-font-size;
+                    }
+                }
+            }
+
+            pad := Rectangle {
+                width: 200px;
+                states [
+                    isVisible when root.full-screen: {
+                        opacity: 1;
+                        in {
+                            animate opacity {
+                                duration: Animation.full-screen-duration;
+                                easing: ease-in-out-sine;
+                            }
+                        }
+                    }
+                    notVisible when !root.full-screen: {
+                        opacity: 0;
+                        in {
+                            animate opacity {
+                                duration: Animation.full-screen-duration;
+                                easing: ease-in-out-sine;
+                            }
+                        }
+                    }
+                ]
+                x: parent.width / 2 - self.width / 2;
+                if root.full-screen: Rectangle {
+                    y: parent.height * 0.2;
+                    width: 65px * 3 + 2 * 5px;
+                    height: (95px * 5) + (4 * 10px);
+                    container := Rectangle {
+                        y: 0;
+                        border-radius: 10px;
+                        width: 100%;
+                        height: 48px;
+                        background: Palette.alternate-background;
+                        le := LineEdit {
+                            font-size: Style.H1-font-size;
+                            text: root.passcode;
+                            input-type: password;
+                            width: 145px;
+                        }
+
+                        mask := Rectangle {
+                            width: le.width + (9px * 2);
+                            height: container.height - 1px;
+                            x: le.x - 9px;
+                            y: container.y + 1px;
+                            border-width: 9px;
+                            border-color: Palette.lineedit-background;
+                        }
+
+                        Rectangle {
+                            width: (container.width - mask.width) / 2;
+                            height: container.height;
+                            x: container.x;
+                            y: container.y;
+                            border-radius: 5px;
+                            background: Palette.lineedit-background;
+                        }
+
+                        Rectangle {
+                            width: (container.width - mask.width) / 2;
+                            height: container.height;
+                            x: mask.x + mask.width;
+                            y: container.y;
+                            border-radius: 5px;
+                            background: Palette.lineedit-background;
+                        }
+                        // Cover the text input to stop it from receiving touch events
+                        TouchArea { }
+                    }
+
+                    TouchArea {
+                        enabled: root.full-screen;
+                    }
+
+                    for row-model[r] in [
+                        [1, 2, 3],
+                        [4, 5, 6],
+                        [7, 8, 9],
+                        [-1, 0, -2],
+                    ]: Rectangle {
+                        y: (r * 52px) + 52px;
+                        width: 100%;
+                        height: 95px;
+
+                        HorizontalLayout {
+                            spacing: 15px;
+                            for num[c] in row-model: ArmButton {
+                                label: num;
+                                enabled: root.full-screen;
+                                clicked => {
+                                    if passcode.character-count >= 4 || num == -2 {
+                                        root.passcode = "";;
+                                    } else if num >= 0 {
+                                        root.passcode += num;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        HaText {
+            visible: root.full-screen;
+            text: "Enter Code";
+            horizontal-alignment: center;
+            font-size: Style.H2-font-size;
+            color: Palette.hvac-knob-foreground;
+            font-weight: FontWeight.light;
+            x: parent.width / 2 - self.width / 2;
+            y: 50px;
+        }
+    }
+
+    closeButton := Image {
+        opacity: root.full-screen ? 1 : 0;
+        animate opacity {
+            duration: Animation.full-screen-duration;
+            easing: ease-in-out-sine;
+        }
+        source: @image-url("../images/reduce.svg");
+        colorize: white;
+        x: root.width - self.width - self.y;
+        y: 15px;
+        width: 30px;
+        height: 30px;
+        TouchArea {
+            enabled: closeButton.opacity > 0.1;
+            clicked => {
+                root.full-screen = false;
+                AppState.showFullScreen(-1);
+            }
+        }
+    }
+}

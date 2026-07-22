@@ -1,0 +1,171 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialAnimations } from "../styling/material_animations.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { ToolTip } from "./tooltip.slint";
+import { MaterialWindowAdapter } from "./material_window.slint";
+
+export component Ripple {
+    in property <length> border_radius;
+    in property <length> pressed_x;
+    in property <length> pressed_y;
+    in property <color> color;
+    in property <bool> clip_ripple: true;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        border_radius: root.border_radius;
+        clip: root.clip_ripple;
+
+        ripple := Rectangle {
+            x: root.pressed_x  - self.width / 2;
+            y: root.pressed_y  - self.height / 2;
+            height: self.width;
+            border_radius: self.width / 2;
+            opacity: MaterialPalette.state_layer_opacity_press;
+            background: root.color;
+
+            init => {
+                self.width =  root.width * 2 * 1.4142;
+            }
+
+            animate width { duration: MaterialAnimations.ripple_duration; easing: MaterialAnimations.ripple_easing; }
+        }
+    }
+}
+
+export component StateLayer {
+    in property <color> background;
+    in property <length> border_radius;
+    in property <bool> display_background: true;
+    in property <bool> enabled;
+    in property <bool> pressed;
+    in property <bool> has_focus;
+    in property <bool> has_hover;
+
+    property <float> state_layer_opacity;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        opacity: root.state_layer_opacity;
+        background: root.background;
+        border_radius: root.border_radius;
+    }
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        clip: true;
+        border_radius: root.border_radius;
+
+        @children
+    }
+
+    states [
+        disabled when !root.enabled && root.display_background : {
+            root.state_layer_opacity: MaterialPalette.state_layer_opacity_focus;
+        }
+        focus when root.enabled && root.has_focus : {
+            root.state_layer_opacity: MaterialPalette.state_layer_opacity_focus;
+        }
+        pressed when root.enabled && root.pressed : {
+            root.state_layer_opacity: MaterialPalette.state_layer_opacity_press;
+        }
+        hover when root.enabled && root.has_hover && !MaterialWindowAdapter.disable_hover : {
+            root.state_layer_opacity: MaterialPalette.state_layer_opacity_hover;
+        }
+    ]
+
+    animate state_layer_opacity { duration: MaterialAnimations.opacity_duration; easing: MaterialAnimations.opacity_easing; }
+}
+
+export component FocusTouchArea inherits TouchArea {
+    out property <bool> has_focus <=> focus_scope.has_focus;
+    out property <bool> enter_pressed;
+    in property <string> tooltip;
+    in property <length> tooltip_offset;
+
+    callback key_pressed(KeyEvent) -> EventResult;
+
+    forward_focus: focus_scope;
+
+    focus_scope := FocusScope {
+        x: 0;
+        width: 0px;
+        enabled: root.enabled;
+
+        key_pressed(event) => {
+            if !root.enabled {
+                return reject;
+            }
+
+            if (event.text == " " || event.text == "\n") && !root.enter_pressed {
+                root.enter_pressed = true;
+                root.clicked();
+                return accept;
+            }
+
+            root.key_pressed(event)
+        }
+
+        key_released(event) => {
+            if !root.enabled {
+                return reject;
+            }
+
+            if (event.text == " " || event.text == "\n") && root.enter_pressed {
+                root.enter_pressed = false;
+                return accept;
+            }
+
+            reject
+        }
+    }
+
+    @children
+
+
+    if root.tooltip != "" && root.has_hover && !MaterialWindowAdapter.disable_hover && !root.pressed : ToolTip {
+        y: root.tooltip_offset;
+        text: root.tooltip;
+    }
+}
+
+export component StateLayerArea inherits FocusTouchArea {
+    in property <color> color;
+    in property <length> border_radius;
+    in property <bool> transparent_background;
+    in property <bool> display_background: true;
+    in property <bool> clip_ripple: true;
+
+    property <bool> popup_open;
+    property <bool> has_h: root.mouse-x > 0 && root.mouse-x < root.width && root.mouse-y > 0 && root.mouse-y < root.height;
+
+    if !root.enabled || (root.enabled && (root.has_focus || root.pressed || root.enter_pressed || root.has_hover)) : StateLayer {
+        width: 100%;
+        height: 100%;
+        background: root.transparent_background ? transparent : root.color;
+        border_radius: root.border_radius;
+        enabled: root.enabled;
+        pressed: root.pressed || root.enter_pressed;
+        has_focus: root.has_focus;
+        has_hover: root.has_hover;
+        display_background: root.display_background;
+    }
+
+    // ripple
+    if root.enabled && (root.pressed || root.enter_pressed) : Ripple {
+        pressed_x: root.pressed_x;
+        pressed_y: root.pressed_y;
+        width: 100%;
+        height: 100%;
+        border_radius: root.border_radius;
+        color: root.color;
+        clip_ripple: root.clip_ripple;
+    }
+
+    @children
+}

@@ -1,0 +1,22 @@
+// SYNTAX TEST "source.slint" "String parsing test based on #6014"
+
+  export component Test {
+    in property <bool> condition;
+
+    property <string> t1: "Text";
+//                        ^^^^^^ string.quoted.double.slint
+    property <string> t2: "Text \{root.condition ? "\u{2003}" : ""}";
+//                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ string.quoted.double.slint
+//                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ constant.character.escape.untitled.slint
+//                                                 ^^^^^^^^^^ string.quoted.double.slint
+//                                                  ^^^^^^^^ constant.character.escape.untitled.slint
+    property <string> t3: "Test \{  root.condition ? "}" : ""} test";
+//                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ string.quoted.double.slint
+//                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ constant.character.escape.untitled.slint
+//                                  ^^^^ variable.language.special-element.slint
+    property <string> t4: "Test \{root.condition ? "{" : ""} foo ";
+//                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ string.quoted.double.slint
+//                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ constant.character.escape.untitled.slint
+//                                ^^^^ variable.language.special-element.slint
+  }
+

@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SimpleColumn } from "../../layout-helpers.slint";
+import { Api } from "../../../api.slint";
+import { EditorSizeSettings, EditorPalette } from "../../styling.slint";
+import { ScrollView } from "std-widgets.slint";
+import { PickerData } from "../../../windowglobal.slint";
+import { ColorIndicator } from "../brush-helpers.slint";
+
+component RecentIndicator inherits ColorIndicator {
+    width: 16px;
+    in property <string> name;
+    callback clicked <=> ta.clicked;
+
+    border-radius: 4px;
+    border-width: 1px;
+
+    ta := TouchArea { }
+}
+
+export component RecentColorPicker inherits SimpleColumn {
+    in property <[color]> recent-colors;
+
+    Rectangle {
+        width: 100%;
+        height: 1px;
+        background: EditorPalette.divider-color;
+    }
+    Rectangle {
+        height: 8px;
+    }
+    Rectangle {
+        width: 100%;
+        height: 16px;
+
+        for i[index] in root.recent-colors : RecentIndicator {
+            x: EditorSizeSettings.standard-margin + index * 24px;
+            color: i;
+
+            clicked => {
+                PickerData.hue = self.color.to-hsv().hue;
+                PickerData.saturation = self.color.to-hsv().saturation;
+                PickerData.value = self.color.to-hsv().value;
+                PickerData.alpha = self.color.to-hsv().alpha * 100;
+            }
+        }
+
+        for i[index] in 9 : Rectangle {
+            x: EditorSizeSettings.standard-margin + index * 24px;
+            visible: index >= root.recent-colors.length;
+            width: 15px;
+            height: self.width;
+            border-radius: 4px;
+            border-width: 1px;
+            border-color: EditorPalette.text-color.with-alpha(20%);
+        }
+    }
+    Rectangle {
+        height: 8px;
+    }
+}

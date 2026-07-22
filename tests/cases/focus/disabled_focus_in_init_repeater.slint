@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Calling focus() in the init callback of a disabled FocusScope used to crash
+// when a repeater (`for`) was present, because the focus walk stepped into the
+// not-yet-instantiated repeater subtree.
+
+export component TestCase inherits Window {
+    property <[int]> model;
+    for item in model: Rectangle { }
+    fs := FocusScope {
+        enabled: false;
+        init => { self.focus(); }
+    }
+    out property<bool> test: !fs.has-focus;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

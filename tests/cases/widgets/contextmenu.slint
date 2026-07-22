@@ -1,0 +1,178 @@
+
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { AboutSlint, Button } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 700px;
+    height: 700px;
+
+    forward-focus: fs;
+
+    in-out property <string> result;
+    Text {text: result;}
+
+    ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: "Entry1";
+                activated => { debug("Entry1"); result += "Entry1"; }
+            }
+            Menu {
+                title: "Entry2";
+                MenuItem {
+                    title: "New";
+                    activated => { debug("New"); result += "New"; }
+                }
+                Menu {
+                    title: "Open";
+                    MenuItem {
+                        title: "Open 1";
+                        activated => { debug("1"); result += "Open1"; }
+                    }
+                    MenuSeparator {}
+                    MenuSeparator {}
+                    MenuItem {
+                        title: "Open 2";
+                        activated => { debug("2"); result += "Open2"; }
+                    }
+                    MenuSeparator {}
+                }
+            }
+            MenuItem {
+                title: "Entry3";
+                checkable: true;
+                checked <=> checkable-menu-item-checked;
+            }
+        }
+
+        // When this focus scope has the focus, the ContextMenu can handle the Menu key
+        fs := FocusScope {}
+    }
+
+
+    out property <bool> test: true;
+
+    out property <bool> checkable-menu-item-checked;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, platform::Key, LogicalPosition, SharedString};
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+// right click to open the menu
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+// press on entry1
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_result(), "Entry1");
+
+// use the keyboard
+instance.set_result("".into());
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Menu));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::RightArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::UpArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
+assert_eq!(instance.get_result(), "Open2");
+
+// verify that the checked menu item is not checked
+assert!(!instance.get_checkable_menu_item_checked());
+// navigate using the keys to the "Checked" menu item and toggle it
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Menu));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from("\n"));
+// verify that the checked menu item is not checked
+assert!(!instance.get_checkable_menu_item_checked());
+
+// Test that right-click release immediately after opening does not activate (issue #11824).
+// Advance mock time so animation-tick() is not zero.
+slint_testing::mock_elapsed_time(500);
+instance.set_result("".into());
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+// Move to entry and release right button without delay — must NOT activate.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(25.0, 25.0) });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Right });
+assert_eq!(instance.get_result(), "");
+
+// Re-open and verify left-click still activates immediately.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_result(), "Entry1");
+
+// Re-open, wait 300ms, then right-click should activate.
+instance.set_result("".into());
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+slint_testing::mock_elapsed_time(300);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Right });
+assert_eq!(instance.get_result(), "Entry1");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+// right click to open the menu
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+// press on entry1
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({25.0, 25.0}), slint::PointerEventButton::Left);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({25.0, 25.0}), slint::PointerEventButton::Left);
+assert_eq(instance.get_result(), "Entry1");
+
+// use the keyboard
+instance.set_result("");
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::Menu);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::DownArrow);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::DownArrow);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::RightArrow);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::DownArrow);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::DownArrow);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::Return);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::UpArrow);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::Return);
+assert_eq(instance.get_result(), "Open2");
+
+// Test that right-click release immediately after opening does not activate (issue #11824).
+slint_testing::mock_elapsed_time(500);
+instance.set_result("");
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({25.0, 25.0}));
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({25.0, 25.0}), slint::PointerEventButton::Right);
+assert_eq(instance.get_result(), "");
+
+// Re-open and verify left-click still activates immediately.
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({25.0, 25.0}), slint::PointerEventButton::Left);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({25.0, 25.0}), slint::PointerEventButton::Left);
+assert_eq(instance.get_result(), "Entry1");
+
+// Re-open, wait 300ms, then right-click should activate.
+instance.set_result("");
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+slint_testing::mock_elapsed_time(300);
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({25.0, 25.0}), slint::PointerEventButton::Right);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({25.0, 25.0}), slint::PointerEventButton::Right);
+assert_eq(instance.get_result(), "Entry1");
+
+```
+*/

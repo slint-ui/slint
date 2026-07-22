@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+import { Button, TextEdit } from "std-widgets.slint";
+export component TestCase inherits Window {
+    preferred-height: 768px;
+    preferred-width: 1024px;
+    forward-focus: te;
+    VerticalLayout {
+        y: -1 * root.height;
+        width: root.width;
+        Rectangle {
+            height: root.height;
+        }
+        te := TextEdit {
+            height: root.height;
+
+        }
+    }
+    out property <string> text <=> te.text;
+    out property <bool> has-focus <=> te.has-focus;
+}
+
+
+/*
+
+
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_has_focus(), true);
+slint_testing::send_keyboard_string_sequence(&instance, "X");
+slint_testing::send_keyboard_string_sequence(&instance, "Y");
+slint_testing::send_keyboard_string_sequence(&instance, "Z");
+assert_eq!(instance.get_text(), "XYZ");
+assert_eq!(instance.get_has_focus(), true);
+```
+
+*/

@@ -1,0 +1,59 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export component TestCase inherits Rectangle {
+
+    width: 300px;
+    height: 300px;
+
+    property <bool> screen-state;
+    out property <bool> activated;
+
+    if !screen-state:
+        vl := VerticalLayout {
+        if !screen-state:
+            ta1 := TouchArea {
+                clicked => {
+                    screen-state = true;
+                }
+
+        }
+
+        // comment the line below and this page will work
+        re := Rectangle { height: 5px; }
+    }
+
+    if screen-state : ta2 := TouchArea {
+        clicked => { activated = true; }
+    }
+}
+
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert(!instance.get_activated());
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert(instance.get_activated());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert!(!instance.get_activated());
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert!(instance.get_activated());
+```
+
+```js
+var instance = new slint.TestCase();
+slintlib.private_api.send_mouse_click(instance, 95., 5.);
+assert(!instance.activated);
+slintlib.private_api.send_mouse_click(instance, 95., 5.);
+assert(instance.activated);
+```
+*/

@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// FIXME: currently the layout is broken, but at least it shouldn't panic
+
+import { ListView } from "std-widgets.slint";
+
+export struct Box {
+    visible: bool,
+}
+
+export component TestCase inherits Window {
+    in property<[Box]> boxes: [{visible: false}, {visible: true}, {visible: false}, { visible: true }];
+    preferred-width: 150px;
+    preferred-height: 150px;
+    out property<int> val;
+    ListView {
+        for box[i] in root.boxes: Rectangle {
+                height: 25px;
+                visible: box.visible;
+                Text { text: i; }
+                TouchArea { clicked => {val*=10;val+=i;}}
+        }
+    }
+
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 5., 205.);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 5., 205.);
+```
+
+```js
+var instance = new slint.TestCase();
+slintlib.private_api.send_mouse_click(instance, 5., 205.);
+```
+
+*/

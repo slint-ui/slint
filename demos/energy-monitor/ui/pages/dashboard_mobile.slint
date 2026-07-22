@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Page } from "page.slint";
+import { Usage } from "usage.slint";
+import { OverviewAdapter } from "overview.slint";
+import { BalanceAdapter } from "balance.slint";
+import { UsageAdapter } from "usage.slint";
+import { UsageAdapter } from "usage.slint";
+import { ScrollView, GroupBox, BalanceChart, BarChart, ValueDisplay} from "../widgets/widgets.slint";
+import { ValueTile, BalanceTile, BarChartTile } from "dashboard.slint";
+
+export component DashboardMobile inherits Page {
+    ScrollView {
+        VerticalLayout {
+            alignment: start;
+            spacing: 16px;
+
+            ValueTile {
+                title: OverviewAdapter.production-title;
+                model: OverviewAdapter.production-model;
+                active: root.active;
+             }
+
+            ValueTile {
+                title: OverviewAdapter.self-consumption-title;
+                model: OverviewAdapter.self-consumption-model;
+                alternative-colors: true;
+                active: root.active;
+             }
+
+            GroupBox {
+                title: UsageAdapter.title;
+
+                VerticalLayout {
+                    ValueDisplay {
+                        model: UsageAdapter.overview-model;
+                        transparent-background: true;
+                        alternative-colors: true;
+                        active: root.active;
+                    }
+
+                    BarChart {
+                        model: UsageAdapter.model;
+                        min: UsageAdapter.min;
+                        max: UsageAdapter.max;
+                        active: root.active;
+                    }
+                }
+            }
+
+            GroupBox {
+                title: BalanceAdapter.title;
+
+                BalanceChart {
+                    x-axis-model: BalanceAdapter.x-axis-model;
+                    y-axis-model: BalanceAdapter.y-axis-model;
+                    model: BalanceAdapter.model;
+                    min: BalanceAdapter.min;
+                    max: BalanceAdapter.max;
+                    y-unit: BalanceAdapter.y-unit;
+                    active: root.active;
+                    min-height: 200px;
+                }
+            }
+        }
+    }
+}

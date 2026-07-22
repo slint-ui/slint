@@ -1,0 +1,3508 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for #11546: const_propagation performance with large nested structs.
+// A non-exported global with many constant struct properties triggers repeated cloning
+// and simplification of large struct expressions during const propagation.
+// Without the cache fix, this takes minutes to compile; with it, under 2 seconds.
+
+enum TokenMode { m0, m1, m2 }
+struct Variants { v0: color, v1: color, v2: color }
+struct FieldSet {
+    f-0: Variants,
+    f-1: Variants,
+    f-2: Variants,
+    f-3: Variants,
+    f-4: Variants,
+    f-5: Variants,
+    f-6: Variants,
+    f-7: Variants,
+    f-8: Variants,
+    f-9: Variants,
+    f-10: Variants,
+    f-11: Variants,
+}
+struct CatSet {
+    c-0: FieldSet,
+    c-1: FieldSet,
+    c-2: FieldSet,
+    c-3: FieldSet,
+    c-4: FieldSet,
+    c-5: FieldSet,
+    c-6: FieldSet,
+    c-7: FieldSet,
+    c-8: FieldSet,
+    c-9: FieldSet,
+    c-10: FieldSet,
+    c-11: FieldSet,
+    c-12: FieldSet,
+    c-13: FieldSet,
+    c-14: FieldSet,
+    c-15: FieldSet,
+    c-16: FieldSet,
+    c-17: FieldSet,
+    c-18: FieldSet,
+    c-19: FieldSet,
+    c-20: FieldSet,
+    c-21: FieldSet,
+    c-22: FieldSet,
+    c-23: FieldSet,
+    c-24: FieldSet,
+    c-25: FieldSet,
+    c-26: FieldSet,
+    c-27: FieldSet,
+    c-28: FieldSet,
+    c-29: FieldSet,
+}
+struct FlatColors {
+    f-0: color,
+    f-1: color,
+    f-2: color,
+    f-3: color,
+    f-4: color,
+    f-5: color,
+    f-6: color,
+    f-7: color,
+    f-8: color,
+    f-9: color,
+    f-10: color,
+    f-11: color,
+}
+struct FlatCats {
+    c-0: FlatColors,
+    c-1: FlatColors,
+    c-2: FlatColors,
+    c-3: FlatColors,
+    c-4: FlatColors,
+    c-5: FlatColors,
+    c-6: FlatColors,
+    c-7: FlatColors,
+    c-8: FlatColors,
+    c-9: FlatColors,
+    c-10: FlatColors,
+    c-11: FlatColors,
+    c-12: FlatColors,
+    c-13: FlatColors,
+    c-14: FlatColors,
+    c-15: FlatColors,
+    c-16: FlatColors,
+    c-17: FlatColors,
+    c-18: FlatColors,
+    c-19: FlatColors,
+    c-20: FlatColors,
+    c-21: FlatColors,
+    c-22: FlatColors,
+    c-23: FlatColors,
+    c-24: FlatColors,
+    c-25: FlatColors,
+    c-26: FlatColors,
+    c-27: FlatColors,
+    c-28: FlatColors,
+    c-29: FlatColors,
+}
+struct Scheme { cats: FlatCats, bg: color }
+struct AllModes { m0: Scheme, m1: Scheme, m2: Scheme }
+
+global Tokens {
+    out property <FieldSet> fields-c0: {
+        f-0: {
+            v0: #248fdd,
+            v1: #865fab,
+            v2: #69b17a,
+        },
+        f-1: {
+            v0: #cf08eb,
+            v1: #dcddbb,
+            v2: #b6cdfe,
+        },
+        f-2: {
+            v0: #eafadd,
+            v1: #860b2a,
+            v2: #776a29,
+        },
+        f-3: {
+            v0: #55fa1f,
+            v1: #469355,
+            v2: #419375,
+        },
+        f-4: {
+            v0: #e2f66b,
+            v1: #0d0b1e,
+            v2: #636156,
+        },
+        f-5: {
+            v0: #ac2891,
+            v1: #7987dc,
+            v2: #b1bf86,
+        },
+        f-6: {
+            v0: #696aa8,
+            v1: #d1a192,
+            v2: #33df2a,
+        },
+        f-7: {
+            v0: #b254de,
+            v1: #a0f387,
+            v2: #318319,
+        },
+        f-8: {
+            v0: #96920a,
+            v1: #a879ce,
+            v2: #30826c,
+        },
+        f-9: {
+            v0: #e42f40,
+            v1: #5a2195,
+            v2: #0af707,
+        },
+        f-10: {
+            v0: #fa81d5,
+            v1: #60ceb2,
+            v2: #be59a1,
+        },
+        f-11: {
+            v0: #a5e981,
+            v1: #0770fe,
+            v2: #1d5d9f,
+        },
+    };
+    out property <FieldSet> fields-c1: {
+        f-0: {
+            v0: #30d569,
+            v1: #ef03f7,
+            v2: #fdb377,
+        },
+        f-1: {
+            v0: #cd9817,
+            v1: #3bae96,
+            v2: #f75681,
+        },
+        f-2: {
+            v0: #cab135,
+            v1: #686ffd,
+            v2: #9ae719,
+        },
+        f-3: {
+            v0: #8dc23c,
+            v1: #caed62,
+            v2: #b19744,
+        },
+        f-4: {
+            v0: #5b31fe,
+            v1: #1e38a4,
+            v2: #1d8186,
+        },
+        f-5: {
+            v0: #a038b3,
+            v1: #34aaf4,
+            v2: #fce4de,
+        },
+        f-6: {
+            v0: #6f640e,
+            v1: #6bee29,
+            v2: #8962d5,
+        },
+        f-7: {
+            v0: #1de892,
+            v1: #70193a,
+            v2: #0fad88,
+        },
+        f-8: {
+            v0: #4ffa01,
+            v1: #44f1b4,
+            v2: #d27733,
+        },
+        f-9: {
+            v0: #8b8311,
+            v1: #3e3e6e,
+            v2: #c7ad56,
+        },
+        f-10: {
+            v0: #71cff7,
+            v1: #f63823,
+            v2: #d7788c,
+        },
+        f-11: {
+            v0: #569b12,
+            v1: #a3d411,
+            v2: #b0cca9,
+        },
+    };
+    out property <FieldSet> fields-c2: {
+        f-0: {
+            v0: #ca4387,
+            v1: #65cab3,
+            v2: #7d7ea9,
+        },
+        f-1: {
+            v0: #d93239,
+            v1: #a075d8,
+            v2: #21949b,
+        },
+        f-2: {
+            v0: #0572cb,
+            v1: #cbbebf,
+            v2: #02cd43,
+        },
+        f-3: {
+            v0: #66e068,
+            v1: #093e55,
+            v2: #9b2f4e,
+        },
+        f-4: {
+            v0: #76af63,
+            v1: #ed1d3f,
+            v2: #4841e2,
+        },
+        f-5: {
+            v0: #3862f9,
+            v1: #2e1b43,
+            v2: #612741,
+        },
+        f-6: {
+            v0: #f8288b,
+            v1: #f62cf2,
+            v2: #0937a3,
+        },
+        f-7: {
+            v0: #8348d3,
+            v1: #4f03d2,
+            v2: #4e9b38,
+        },
+        f-8: {
+            v0: #8a3ef3,
+            v1: #175ce9,
+            v2: #1b2001,
+        },
+        f-9: {
+            v0: #b5e192,
+            v1: #a9e1ba,
+            v2: #9bac2b,
+        },
+        f-10: {
+            v0: #49d3c9,
+            v1: #2c15d5,
+            v2: #1a5dd7,
+        },
+        f-11: {
+            v0: #00253b,
+            v1: #a47739,
+            v2: #e824cc,
+        },
+    };
+    out property <FieldSet> fields-c3: {
+        f-0: {
+            v0: #c8355c,
+            v1: #b42556,
+            v2: #feb145,
+        },
+        f-1: {
+            v0: #d3eade,
+            v1: #99e9cf,
+            v2: #6f2064,
+        },
+        f-2: {
+            v0: #208932,
+            v1: #a4c7e1,
+            v2: #c3f169,
+        },
+        f-3: {
+            v0: #c771c8,
+            v1: #739637,
+            v2: #07df10,
+        },
+        f-4: {
+            v0: #c134f1,
+            v1: #2e10c8,
+            v2: #684c9c,
+        },
+        f-5: {
+            v0: #856cfb,
+            v1: #b75df3,
+            v2: #14f4d7,
+        },
+        f-6: {
+            v0: #16741c,
+            v1: #bcec54,
+            v2: #8fb09f,
+        },
+        f-7: {
+            v0: #bda154,
+            v1: #2c0b5f,
+            v2: #2420aa,
+        },
+        f-8: {
+            v0: #80d311,
+            v1: #c325c3,
+            v2: #a14d34,
+        },
+        f-9: {
+            v0: #b70d34,
+            v1: #89a82e,
+            v2: #6f198a,
+        },
+        f-10: {
+            v0: #ec6b8a,
+            v1: #5622ce,
+            v2: #35f107,
+        },
+        f-11: {
+            v0: #24481f,
+            v1: #30b630,
+            v2: #f48658,
+        },
+    };
+    out property <FieldSet> fields-c4: {
+        f-0: {
+            v0: #244474,
+            v1: #6d34b7,
+            v2: #42bf1c,
+        },
+        f-1: {
+            v0: #5c9cd2,
+            v1: #5450df,
+            v2: #7fe248,
+        },
+        f-2: {
+            v0: #5b0dff,
+            v1: #189532,
+            v2: #5685fd,
+        },
+        f-3: {
+            v0: #4a9acd,
+            v1: #d5033b,
+            v2: #2e33d0,
+        },
+        f-4: {
+            v0: #776a1f,
+            v1: #37d7f6,
+            v2: #85db24,
+        },
+        f-5: {
+            v0: #553307,
+            v1: #415239,
+            v2: #953e39,
+        },
+        f-6: {
+            v0: #37f552,
+            v1: #5301fd,
+            v2: #ab6f54,
+        },
+        f-7: {
+            v0: #448701,
+            v1: #ce34e0,
+            v2: #588219,
+        },
+        f-8: {
+            v0: #4dc3a7,
+            v1: #66169d,
+            v2: #200252,
+        },
+        f-9: {
+            v0: #7fb8f2,
+            v1: #677af2,
+            v2: #1bb638,
+        },
+        f-10: {
+            v0: #71f1e5,
+            v1: #f8f13a,
+            v2: #a545da,
+        },
+        f-11: {
+            v0: #b24891,
+            v1: #fa6fab,
+            v2: #ee8dfb,
+        },
+    };
+    out property <FieldSet> fields-c5: {
+        f-0: {
+            v0: #78275a,
+            v1: #1d2852,
+            v2: #417f74,
+        },
+        f-1: {
+            v0: #6a0b11,
+            v1: #712f86,
+            v2: #c96366,
+        },
+        f-2: {
+            v0: #b41d66,
+            v1: #a8f6f4,
+            v2: #60e984,
+        },
+        f-3: {
+            v0: #2a89f2,
+            v1: #736953,
+            v2: #1a832b,
+        },
+        f-4: {
+            v0: #3e1992,
+            v1: #413893,
+            v2: #23d025,
+        },
+        f-5: {
+            v0: #437fa2,
+            v1: #47188d,
+            v2: #0c5f1f,
+        },
+        f-6: {
+            v0: #792c11,
+            v1: #cedd6a,
+            v2: #c30109,
+        },
+        f-7: {
+            v0: #a5b90f,
+            v1: #02a771,
+            v2: #f0236f,
+        },
+        f-8: {
+            v0: #f63cf0,
+            v1: #67bb5b,
+            v2: #e0f748,
+        },
+        f-9: {
+            v0: #555b8d,
+            v1: #a976d3,
+            v2: #dc3295,
+        },
+        f-10: {
+            v0: #478393,
+            v1: #a3eb81,
+            v2: #70f978,
+        },
+        f-11: {
+            v0: #907221,
+            v1: #0d4c6b,
+            v2: #9f7ba5,
+        },
+    };
+    out property <FieldSet> fields-c6: {
+        f-0: {
+            v0: #e1c006,
+            v1: #9dd552,
+            v2: #1b76d0,
+        },
+        f-1: {
+            v0: #a07ee6,
+            v1: #3a0774,
+            v2: #1f8bbc,
+        },
+        f-2: {
+            v0: #1fd946,
+            v1: #a84b2e,
+            v2: #a4378f,
+        },
+        f-3: {
+            v0: #af1fa5,
+            v1: #4640e7,
+            v2: #aee91b,
+        },
+        f-4: {
+            v0: #558936,
+            v1: #04a220,
+            v2: #2cf813,
+        },
+        f-5: {
+            v0: #7663fc,
+            v1: #14c7bb,
+            v2: #cf87fc,
+        },
+        f-6: {
+            v0: #bb6df4,
+            v1: #3c41ac,
+            v2: #2bd824,
+        },
+        f-7: {
+            v0: #eaf7ff,
+            v1: #82fcdb,
+            v2: #5fd0f4,
+        },
+        f-8: {
+            v0: #cabd37,
+            v1: #28fa18,
+            v2: #9f1ef3,
+        },
+        f-9: {
+            v0: #63671b,
+            v1: #25415f,
+            v2: #633487,
+        },
+        f-10: {
+            v0: #45023f,
+            v1: #efb359,
+            v2: #3e1d0d,
+        },
+        f-11: {
+            v0: #d14311,
+            v1: #757f5e,
+            v2: #8ad742,
+        },
+    };
+    out property <FieldSet> fields-c7: {
+        f-0: {
+            v0: #cc4a82,
+            v1: #4745c4,
+            v2: #f34a5c,
+        },
+        f-1: {
+            v0: #24d632,
+            v1: #1ac7b5,
+            v2: #be6189,
+        },
+        f-2: {
+            v0: #a0e288,
+            v1: #e3ab80,
+            v2: #ccc722,
+        },
+        f-3: {
+            v0: #d442e7,
+            v1: #7b1bd4,
+            v2: #dd439c,
+        },
+        f-4: {
+            v0: #381f14,
+            v1: #9beadf,
+            v2: #fd6db9,
+        },
+        f-5: {
+            v0: #77e5c6,
+            v1: #3c98a7,
+            v2: #07d9ee,
+        },
+        f-6: {
+            v0: #7507fe,
+            v1: #37b6a8,
+            v2: #220f7c,
+        },
+        f-7: {
+            v0: #6bd044,
+            v1: #45d884,
+            v2: #d30290,
+        },
+        f-8: {
+            v0: #cc17f9,
+            v1: #e12721,
+            v2: #c5806c,
+        },
+        f-9: {
+            v0: #ef70e0,
+            v1: #81fe9b,
+            v2: #f1ef85,
+        },
+        f-10: {
+            v0: #9f62af,
+            v1: #85815d,
+            v2: #bc3b5b,
+        },
+        f-11: {
+            v0: #465c07,
+            v1: #5c2e98,
+            v2: #a58811,
+        },
+    };
+    out property <FieldSet> fields-c8: {
+        f-0: {
+            v0: #dcdde0,
+            v1: #131cb7,
+            v2: #aeb514,
+        },
+        f-1: {
+            v0: #c02c71,
+            v1: #c8553e,
+            v2: #328f98,
+        },
+        f-2: {
+            v0: #d7ae68,
+            v1: #98fd66,
+            v2: #0c0772,
+        },
+        f-3: {
+            v0: #f3ea18,
+            v1: #2e5289,
+            v2: #769b11,
+        },
+        f-4: {
+            v0: #70a20d,
+            v1: #3c1edb,
+            v2: #fe6bd4,
+        },
+        f-5: {
+            v0: #0e19ee,
+            v1: #2d8f71,
+            v2: #1f32e9,
+        },
+        f-6: {
+            v0: #7c8ecb,
+            v1: #185911,
+            v2: #6e9855,
+        },
+        f-7: {
+            v0: #353768,
+            v1: #c6f638,
+            v2: #69be78,
+        },
+        f-8: {
+            v0: #9fb19a,
+            v1: #3a52c3,
+            v2: #9356ce,
+        },
+        f-9: {
+            v0: #7e27ae,
+            v1: #bedc80,
+            v2: #21e2e7,
+        },
+        f-10: {
+            v0: #07b5ec,
+            v1: #f7cff4,
+            v2: #a754fd,
+        },
+        f-11: {
+            v0: #7dfa67,
+            v1: #e97e8a,
+            v2: #38c84c,
+        },
+    };
+    out property <FieldSet> fields-c9: {
+        f-0: {
+            v0: #6c38ec,
+            v1: #a587eb,
+            v2: #abca8a,
+        },
+        f-1: {
+            v0: #b514f3,
+            v1: #6f2f7b,
+            v2: #624a44,
+        },
+        f-2: {
+            v0: #116419,
+            v1: #5c4208,
+            v2: #316986,
+        },
+        f-3: {
+            v0: #d9349d,
+            v1: #2b5d89,
+            v2: #9d5011,
+        },
+        f-4: {
+            v0: #b1ccdf,
+            v1: #eb256d,
+            v2: #e1a31c,
+        },
+        f-5: {
+            v0: #6af08e,
+            v1: #cf81cc,
+            v2: #d9d232,
+        },
+        f-6: {
+            v0: #bbbfe0,
+            v1: #d4c472,
+            v2: #04aa67,
+        },
+        f-7: {
+            v0: #f609e3,
+            v1: #30cef5,
+            v2: #fa2342,
+        },
+        f-8: {
+            v0: #45b02a,
+            v1: #e87f9b,
+            v2: #a3c372,
+        },
+        f-9: {
+            v0: #3533d3,
+            v1: #8bd6a7,
+            v2: #e2e25c,
+        },
+        f-10: {
+            v0: #aa394c,
+            v1: #af0ab2,
+            v2: #16cba8,
+        },
+        f-11: {
+            v0: #492608,
+            v1: #b24eb3,
+            v2: #cf5dd9,
+        },
+    };
+    out property <FieldSet> fields-c10: {
+        f-0: {
+            v0: #6f7bbc,
+            v1: #1f6187,
+            v2: #2cd909,
+        },
+        f-1: {
+            v0: #3f8d83,
+            v1: #2a0ec4,
+            v2: #5e8b5a,
+        },
+        f-2: {
+            v0: #29d8a8,
+            v1: #89e9ee,
+            v2: #0074cd,
+        },
+        f-3: {
+            v0: #a33fc9,
+            v1: #de42d5,
+            v2: #a4f628,
+        },
+        f-4: {
+            v0: #0c8591,
+            v1: #b496b7,
+            v2: #9d256b,
+        },
+        f-5: {
+            v0: #b67170,
+            v1: #62567d,
+            v2: #f1104c,
+        },
+        f-6: {
+            v0: #eb753d,
+            v1: #e6db59,
+            v2: #e0841b,
+        },
+        f-7: {
+            v0: #61ccb4,
+            v1: #061988,
+            v2: #a0bf93,
+        },
+        f-8: {
+            v0: #76b838,
+            v1: #85d97e,
+            v2: #d4235a,
+        },
+        f-9: {
+            v0: #d4ab2c,
+            v1: #2a90c1,
+            v2: #f73939,
+        },
+        f-10: {
+            v0: #20c297,
+            v1: #619bb1,
+            v2: #713ff6,
+        },
+        f-11: {
+            v0: #148733,
+            v1: #492f1d,
+            v2: #d03965,
+        },
+    };
+    out property <FieldSet> fields-c11: {
+        f-0: {
+            v0: #01a7b1,
+            v1: #b32bca,
+            v2: #f6a59f,
+        },
+        f-1: {
+            v0: #a02693,
+            v1: #9545c6,
+            v2: #305e85,
+        },
+        f-2: {
+            v0: #0788bf,
+            v1: #e5fcb6,
+            v2: #108b34,
+        },
+        f-3: {
+            v0: #7b4b90,
+            v1: #07373b,
+            v2: #54336d,
+        },
+        f-4: {
+            v0: #c32bb7,
+            v1: #70845c,
+            v2: #c97017,
+        },
+        f-5: {
+            v0: #61aa19,
+            v1: #adb263,
+            v2: #d2ee48,
+        },
+        f-6: {
+            v0: #6687a7,
+            v1: #c05d6e,
+            v2: #d06ab2,
+        },
+        f-7: {
+            v0: #755810,
+            v1: #0f7592,
+            v2: #a6e550,
+        },
+        f-8: {
+            v0: #b47f03,
+            v1: #ae4697,
+            v2: #59dd1d,
+        },
+        f-9: {
+            v0: #4c5071,
+            v1: #b9d18b,
+            v2: #61b28d,
+        },
+        f-10: {
+            v0: #3c47ba,
+            v1: #4655a8,
+            v2: #2164c3,
+        },
+        f-11: {
+            v0: #d9e64d,
+            v1: #615bf8,
+            v2: #05a2c3,
+        },
+    };
+    out property <FieldSet> fields-c12: {
+        f-0: {
+            v0: #64f894,
+            v1: #2423f0,
+            v2: #17947f,
+        },
+        f-1: {
+            v0: #8b4d89,
+            v1: #5e03e0,
+            v2: #d911e6,
+        },
+        f-2: {
+            v0: #05f1d2,
+            v1: #199a1c,
+            v2: #0f0955,
+        },
+        f-3: {
+            v0: #41a7ea,
+            v1: #c43f71,
+            v2: #2ac495,
+        },
+        f-4: {
+            v0: #70951c,
+            v1: #81c63d,
+            v2: #8beb6a,
+        },
+        f-5: {
+            v0: #5a8e1a,
+            v1: #5fd14e,
+            v2: #d0fef7,
+        },
+        f-6: {
+            v0: #255f9e,
+            v1: #c0412a,
+            v2: #c7e85a,
+        },
+        f-7: {
+            v0: #70621c,
+            v1: #267279,
+            v2: #d98f0b,
+        },
+        f-8: {
+            v0: #0c1c54,
+            v1: #7444fa,
+            v2: #17483b,
+        },
+        f-9: {
+            v0: #4cc5e7,
+            v1: #c4c5a6,
+            v2: #a89969,
+        },
+        f-10: {
+            v0: #b0b198,
+            v1: #43b9ad,
+            v2: #cb6426,
+        },
+        f-11: {
+            v0: #206891,
+            v1: #464b67,
+            v2: #9d5b13,
+        },
+    };
+    out property <FieldSet> fields-c13: {
+        f-0: {
+            v0: #914299,
+            v1: #66acea,
+            v2: #042915,
+        },
+        f-1: {
+            v0: #41c0d3,
+            v1: #f4d31f,
+            v2: #0a030e,
+        },
+        f-2: {
+            v0: #c65908,
+            v1: #b9ff37,
+            v2: #22c2f9,
+        },
+        f-3: {
+            v0: #c745f8,
+            v1: #376c7d,
+            v2: #8513bb,
+        },
+        f-4: {
+            v0: #9cb5b3,
+            v1: #17ba1d,
+            v2: #a12de7,
+        },
+        f-5: {
+            v0: #a23d5c,
+            v1: #3fdb24,
+            v2: #302dcf,
+        },
+        f-6: {
+            v0: #49c589,
+            v1: #33e7e7,
+            v2: #5a1cd5,
+        },
+        f-7: {
+            v0: #35fd7c,
+            v1: #bdaeb2,
+            v2: #410757,
+        },
+        f-8: {
+            v0: #994339,
+            v1: #91bde7,
+            v2: #034acf,
+        },
+        f-9: {
+            v0: #1686cd,
+            v1: #9fcb2b,
+            v2: #f4274d,
+        },
+        f-10: {
+            v0: #c49c60,
+            v1: #46fcbd,
+            v2: #900ace,
+        },
+        f-11: {
+            v0: #e14d29,
+            v1: #10a98d,
+            v2: #e81a2e,
+        },
+    };
+    out property <FieldSet> fields-c14: {
+        f-0: {
+            v0: #76da7d,
+            v1: #78fee8,
+            v2: #14378f,
+        },
+        f-1: {
+            v0: #d1a076,
+            v1: #f36bb0,
+            v2: #4fe5bd,
+        },
+        f-2: {
+            v0: #6dbdb2,
+            v1: #2a3911,
+            v2: #eb396e,
+        },
+        f-3: {
+            v0: #974d8c,
+            v1: #79ad03,
+            v2: #566899,
+        },
+        f-4: {
+            v0: #359079,
+            v1: #a0d13e,
+            v2: #d68c9c,
+        },
+        f-5: {
+            v0: #c91c1f,
+            v1: #5aa83f,
+            v2: #45e7a3,
+        },
+        f-6: {
+            v0: #de3e0c,
+            v1: #7d260d,
+            v2: #c6c02a,
+        },
+        f-7: {
+            v0: #0606c4,
+            v1: #49f959,
+            v2: #986e1c,
+        },
+        f-8: {
+            v0: #85115d,
+            v1: #b1092f,
+            v2: #43b2ef,
+        },
+        f-9: {
+            v0: #af37ef,
+            v1: #9474ca,
+            v2: #b930b6,
+        },
+        f-10: {
+            v0: #111826,
+            v1: #518a71,
+            v2: #eb21b0,
+        },
+        f-11: {
+            v0: #faffd5,
+            v1: #0570e2,
+            v2: #dc994a,
+        },
+    };
+    out property <FieldSet> fields-c15: {
+        f-0: {
+            v0: #c772dc,
+            v1: #c960cc,
+            v2: #13a9d9,
+        },
+        f-1: {
+            v0: #852acd,
+            v1: #c04461,
+            v2: #65488c,
+        },
+        f-2: {
+            v0: #565d34,
+            v1: #ecea48,
+            v2: #69ac42,
+        },
+        f-3: {
+            v0: #5f448d,
+            v1: #856587,
+            v2: #268bf8,
+        },
+        f-4: {
+            v0: #0d5d1a,
+            v1: #8da0fe,
+            v2: #9ddb55,
+        },
+        f-5: {
+            v0: #5c8ef8,
+            v1: #138fd0,
+            v2: #218777,
+        },
+        f-6: {
+            v0: #7446fc,
+            v1: #d50a7b,
+            v2: #7960bd,
+        },
+        f-7: {
+            v0: #9773a9,
+            v1: #5a467c,
+            v2: #b6c59d,
+        },
+        f-8: {
+            v0: #2dd361,
+            v1: #9cc6f6,
+            v2: #060b92,
+        },
+        f-9: {
+            v0: #95b8c5,
+            v1: #597347,
+            v2: #611922,
+        },
+        f-10: {
+            v0: #f45274,
+            v1: #cee29d,
+            v2: #4e4887,
+        },
+        f-11: {
+            v0: #474445,
+            v1: #acdd80,
+            v2: #9dd0e2,
+        },
+    };
+    out property <FieldSet> fields-c16: {
+        f-0: {
+            v0: #9e9c61,
+            v1: #7fe5bb,
+            v2: #9db2d3,
+        },
+        f-1: {
+            v0: #fcaeb0,
+            v1: #f5ad38,
+            v2: #bf574e,
+        },
+        f-2: {
+            v0: #582990,
+            v1: #8ba009,
+            v2: #dfa4bd,
+        },
+        f-3: {
+            v0: #90bdfc,
+            v1: #5ffd10,
+            v2: #999ffa,
+        },
+        f-4: {
+            v0: #c4981e,
+            v1: #16a178,
+            v2: #f6255f,
+        },
+        f-5: {
+            v0: #7f116b,
+            v1: #c816b7,
+            v2: #0e1ba5,
+        },
+        f-6: {
+            v0: #a2f530,
+            v1: #c5f3ff,
+            v2: #915f5b,
+        },
+        f-7: {
+            v0: #9cb59a,
+            v1: #9e0f23,
+            v2: #d92ea5,
+        },
+        f-8: {
+            v0: #034bcb,
+            v1: #f3daa8,
+            v2: #63389f,
+        },
+        f-9: {
+            v0: #333799,
+            v1: #adb661,
+            v2: #76e124,
+        },
+        f-10: {
+            v0: #9f2f19,
+            v1: #3d5460,
+            v2: #896710,
+        },
+        f-11: {
+            v0: #eb388c,
+            v1: #72d014,
+            v2: #eb70bb,
+        },
+    };
+    out property <FieldSet> fields-c17: {
+        f-0: {
+            v0: #b8ad78,
+            v1: #7579c6,
+            v2: #e661d6,
+        },
+        f-1: {
+            v0: #74964a,
+            v1: #f1b6a5,
+            v2: #92c590,
+        },
+        f-2: {
+            v0: #77f64b,
+            v1: #e9db4f,
+            v2: #87e185,
+        },
+        f-3: {
+            v0: #a96dff,
+            v1: #b36f8d,
+            v2: #e739e0,
+        },
+        f-4: {
+            v0: #1f10c3,
+            v1: #04b1cd,
+            v2: #d5129d,
+        },
+        f-5: {
+            v0: #b0d783,
+            v1: #5e2704,
+            v2: #f877d0,
+        },
+        f-6: {
+            v0: #94a1d3,
+            v1: #5ff9d3,
+            v2: #11ac38,
+        },
+        f-7: {
+            v0: #26c0cb,
+            v1: #2c33af,
+            v2: #bed4c9,
+        },
+        f-8: {
+            v0: #1f772a,
+            v1: #87f53c,
+            v2: #41724c,
+        },
+        f-9: {
+            v0: #9cbad4,
+            v1: #1bada5,
+            v2: #0a68fd,
+        },
+        f-10: {
+            v0: #67d09a,
+            v1: #de460a,
+            v2: #20261a,
+        },
+        f-11: {
+            v0: #01b29d,
+            v1: #04b5fd,
+            v2: #54834d,
+        },
+    };
+    out property <FieldSet> fields-c18: {
+        f-0: {
+            v0: #20d356,
+            v1: #793c88,
+            v2: #3e6e6b,
+        },
+        f-1: {
+            v0: #519333,
+            v1: #f2075c,
+            v2: #397842,
+        },
+        f-2: {
+            v0: #126be7,
+            v1: #3915d8,
+            v2: #c45048,
+        },
+        f-3: {
+            v0: #dee101,
+            v1: #5df47b,
+            v2: #629a4c,
+        },
+        f-4: {
+            v0: #d6d77b,
+            v1: #af59cf,
+            v2: #45e4e0,
+        },
+        f-5: {
+            v0: #01a6a2,
+            v1: #c5033d,
+            v2: #8ae7a6,
+        },
+        f-6: {
+            v0: #4605c4,
+            v1: #95256f,
+            v2: #6de231,
+        },
+        f-7: {
+            v0: #e646d9,
+            v1: #3391f6,
+            v2: #dae33d,
+        },
+        f-8: {
+            v0: #bd2236,
+            v1: #1c57e6,
+            v2: #104cd7,
+        },
+        f-9: {
+            v0: #2268a9,
+            v1: #0ff0f7,
+            v2: #9c0d60,
+        },
+        f-10: {
+            v0: #1f8d44,
+            v1: #e8a674,
+            v2: #bfb4fd,
+        },
+        f-11: {
+            v0: #a535ec,
+            v1: #37b871,
+            v2: #dd5b9b,
+        },
+    };
+    out property <FieldSet> fields-c19: {
+        f-0: {
+            v0: #335792,
+            v1: #c16435,
+            v2: #28cc11,
+        },
+        f-1: {
+            v0: #5d0572,
+            v1: #f88e4b,
+            v2: #2fa90c,
+        },
+        f-2: {
+            v0: #8595d8,
+            v1: #b719e1,
+            v2: #3bcb57,
+        },
+        f-3: {
+            v0: #cf8ff4,
+            v1: #c10c54,
+            v2: #c158bc,
+        },
+        f-4: {
+            v0: #e2ef05,
+            v1: #b59dfd,
+            v2: #21c10a,
+        },
+        f-5: {
+            v0: #1a4990,
+            v1: #afe806,
+            v2: #7e37ab,
+        },
+        f-6: {
+            v0: #526740,
+            v1: #900d1f,
+            v2: #22e72e,
+        },
+        f-7: {
+            v0: #d9b11d,
+            v1: #817b13,
+            v2: #8d0143,
+        },
+        f-8: {
+            v0: #b12593,
+            v1: #66a96a,
+            v2: #908ad8,
+        },
+        f-9: {
+            v0: #afd727,
+            v1: #204946,
+            v2: #898252,
+        },
+        f-10: {
+            v0: #da9d6a,
+            v1: #a5db44,
+            v2: #5fd1ac,
+        },
+        f-11: {
+            v0: #c2e3e0,
+            v1: #eaf2b2,
+            v2: #0771be,
+        },
+    };
+    out property <FieldSet> fields-c20: {
+        f-0: {
+            v0: #f77347,
+            v1: #1e8fcf,
+            v2: #77fd9e,
+        },
+        f-1: {
+            v0: #16728a,
+            v1: #44d070,
+            v2: #900d83,
+        },
+        f-2: {
+            v0: #d5c45b,
+            v1: #480b19,
+            v2: #e6466e,
+        },
+        f-3: {
+            v0: #3ce05e,
+            v1: #e3a123,
+            v2: #ead848,
+        },
+        f-4: {
+            v0: #bc41cb,
+            v1: #3ffc22,
+            v2: #25cf0a,
+        },
+        f-5: {
+            v0: #f5c5c9,
+            v1: #7cf3f9,
+            v2: #e56091,
+        },
+        f-6: {
+            v0: #4a2521,
+            v1: #e55488,
+            v2: #44a528,
+        },
+        f-7: {
+            v0: #9db580,
+            v1: #386229,
+            v2: #21f8ef,
+        },
+        f-8: {
+            v0: #af863d,
+            v1: #ec0918,
+            v2: #aa3e65,
+        },
+        f-9: {
+            v0: #9f444d,
+            v1: #f5a286,
+            v2: #b215ec,
+        },
+        f-10: {
+            v0: #eb783e,
+            v1: #d61dc8,
+            v2: #9a188f,
+        },
+        f-11: {
+            v0: #d20d5f,
+            v1: #392da3,
+            v2: #5b6c98,
+        },
+    };
+    out property <FieldSet> fields-c21: {
+        f-0: {
+            v0: #ded256,
+            v1: #ba6525,
+            v2: #7804e9,
+        },
+        f-1: {
+            v0: #6d592c,
+            v1: #dc569c,
+            v2: #1de671,
+        },
+        f-2: {
+            v0: #2fa619,
+            v1: #9e8a7d,
+            v2: #9a1f21,
+        },
+        f-3: {
+            v0: #778feb,
+            v1: #444275,
+            v2: #404254,
+        },
+        f-4: {
+            v0: #9a5f26,
+            v1: #280f47,
+            v2: #7e38f4,
+        },
+        f-5: {
+            v0: #adcdbb,
+            v1: #cdbdbb,
+            v2: #ed35fe,
+        },
+        f-6: {
+            v0: #43ba45,
+            v1: #211022,
+            v2: #8fa8ce,
+        },
+        f-7: {
+            v0: #6b643a,
+            v1: #68bb8f,
+            v2: #d5be62,
+        },
+        f-8: {
+            v0: #a84bc4,
+            v1: #113834,
+            v2: #f543f8,
+        },
+        f-9: {
+            v0: #b59309,
+            v1: #d4d22d,
+            v2: #086233,
+        },
+        f-10: {
+            v0: #3329a2,
+            v1: #9c803f,
+            v2: #5c6f68,
+        },
+        f-11: {
+            v0: #588208,
+            v1: #519db2,
+            v2: #8d1590,
+        },
+    };
+    out property <FieldSet> fields-c22: {
+        f-0: {
+            v0: #b7b556,
+            v1: #513bb8,
+            v2: #f01eba,
+        },
+        f-1: {
+            v0: #865dee,
+            v1: #70b04d,
+            v2: #08c1df,
+        },
+        f-2: {
+            v0: #e10839,
+            v1: #0562d2,
+            v2: #aa2684,
+        },
+        f-3: {
+            v0: #a509e3,
+            v1: #e1db01,
+            v2: #9e3454,
+        },
+        f-4: {
+            v0: #d7937a,
+            v1: #ea06bf,
+            v2: #235bba,
+        },
+        f-5: {
+            v0: #c6d2c4,
+            v1: #0a0610,
+            v2: #d82ddf,
+        },
+        f-6: {
+            v0: #225137,
+            v1: #10fa4c,
+            v2: #75ca7d,
+        },
+        f-7: {
+            v0: #dad488,
+            v1: #d4d991,
+            v2: #cdd054,
+        },
+        f-8: {
+            v0: #807269,
+            v1: #bff22e,
+            v2: #25fe0d,
+        },
+        f-9: {
+            v0: #33825d,
+            v1: #59e3b8,
+            v2: #33fd11,
+        },
+        f-10: {
+            v0: #7507ff,
+            v1: #64478b,
+            v2: #ad3950,
+        },
+        f-11: {
+            v0: #be4ac2,
+            v1: #6f6f24,
+            v2: #3cb243,
+        },
+    };
+    out property <FieldSet> fields-c23: {
+        f-0: {
+            v0: #b4ea0f,
+            v1: #9ffca5,
+            v2: #046577,
+        },
+        f-1: {
+            v0: #66165a,
+            v1: #f0b3ca,
+            v2: #609e89,
+        },
+        f-2: {
+            v0: #4cc978,
+            v1: #452fc8,
+            v2: #de94dc,
+        },
+        f-3: {
+            v0: #b9b189,
+            v1: #04276c,
+            v2: #ccc2b5,
+        },
+        f-4: {
+            v0: #ac13f9,
+            v1: #7baca7,
+            v2: #e2c05b,
+        },
+        f-5: {
+            v0: #64d682,
+            v1: #964ffe,
+            v2: #7621cc,
+        },
+        f-6: {
+            v0: #1544b5,
+            v1: #588b01,
+            v2: #6dc82e,
+        },
+        f-7: {
+            v0: #8e1a8d,
+            v1: #f64cf0,
+            v2: #ba9421,
+        },
+        f-8: {
+            v0: #39e161,
+            v1: #be7f9b,
+            v2: #cca68b,
+        },
+        f-9: {
+            v0: #1bc13e,
+            v1: #617f77,
+            v2: #a66954,
+        },
+        f-10: {
+            v0: #e60ed1,
+            v1: #70d8eb,
+            v2: #7492f3,
+        },
+        f-11: {
+            v0: #04a0ac,
+            v1: #def294,
+            v2: #c2fa72,
+        },
+    };
+    out property <FieldSet> fields-c24: {
+        f-0: {
+            v0: #da0036,
+            v1: #c01093,
+            v2: #b69517,
+        },
+        f-1: {
+            v0: #3cde45,
+            v1: #cbf422,
+            v2: #32a4cb,
+        },
+        f-2: {
+            v0: #96df2c,
+            v1: #6fd1fd,
+            v2: #fdb870,
+        },
+        f-3: {
+            v0: #ab90c7,
+            v1: #d74002,
+            v2: #9a2a71,
+        },
+        f-4: {
+            v0: #a94c9d,
+            v1: #db53b1,
+            v2: #0ae385,
+        },
+        f-5: {
+            v0: #903d97,
+            v1: #fe9242,
+            v2: #69fdf2,
+        },
+        f-6: {
+            v0: #c727cd,
+            v1: #e6b537,
+            v2: #60be56,
+        },
+        f-7: {
+            v0: #cedaa9,
+            v1: #73da02,
+            v2: #1fc69b,
+        },
+        f-8: {
+            v0: #4e7b72,
+            v1: #6d72a7,
+            v2: #0979b5,
+        },
+        f-9: {
+            v0: #c6dfbe,
+            v1: #cc106e,
+            v2: #3a2e9c,
+        },
+        f-10: {
+            v0: #f85df2,
+            v1: #a38852,
+            v2: #3bba45,
+        },
+        f-11: {
+            v0: #4c11d0,
+            v1: #262192,
+            v2: #96c83f,
+        },
+    };
+    out property <FieldSet> fields-c25: {
+        f-0: {
+            v0: #d9babc,
+            v1: #f5fbf7,
+            v2: #358937,
+        },
+        f-1: {
+            v0: #b5ae83,
+            v1: #26769f,
+            v2: #019f5f,
+        },
+        f-2: {
+            v0: #e4589e,
+            v1: #937853,
+            v2: #7164a9,
+        },
+        f-3: {
+            v0: #56bd57,
+            v1: #a7f6cb,
+            v2: #45c659,
+        },
+        f-4: {
+            v0: #30ad1a,
+            v1: #f0119d,
+            v2: #4893de,
+        },
+        f-5: {
+            v0: #25410f,
+            v1: #64ac28,
+            v2: #9d789b,
+        },
+        f-6: {
+            v0: #72f5db,
+            v1: #32657a,
+            v2: #3117ce,
+        },
+        f-7: {
+            v0: #69ab74,
+            v1: #d3f55c,
+            v2: #1b72ca,
+        },
+        f-8: {
+            v0: #0d5481,
+            v1: #48a5c9,
+            v2: #61a9c4,
+        },
+        f-9: {
+            v0: #b1c279,
+            v1: #0de791,
+            v2: #d81908,
+        },
+        f-10: {
+            v0: #ea1d6a,
+            v1: #6325a7,
+            v2: #6bf654,
+        },
+        f-11: {
+            v0: #e57322,
+            v1: #91088c,
+            v2: #6f75a6,
+        },
+    };
+    out property <FieldSet> fields-c26: {
+        f-0: {
+            v0: #e1994a,
+            v1: #905c9b,
+            v2: #bfe1a0,
+        },
+        f-1: {
+            v0: #ff1461,
+            v1: #11328f,
+            v2: #830618,
+        },
+        f-2: {
+            v0: #fb865c,
+            v1: #0f36f1,
+            v2: #4fa45d,
+        },
+        f-3: {
+            v0: #247b36,
+            v1: #44e159,
+            v2: #a16f18,
+        },
+        f-4: {
+            v0: #84c3a2,
+            v1: #792154,
+            v2: #8616b9,
+        },
+        f-5: {
+            v0: #3fdd01,
+            v1: #d060fe,
+            v2: #9b3ce4,
+        },
+        f-6: {
+            v0: #ef1916,
+            v1: #972644,
+            v2: #747693,
+        },
+        f-7: {
+            v0: #2ce121,
+            v1: #90b11b,
+            v2: #8bfc41,
+        },
+        f-8: {
+            v0: #a5ddc6,
+            v1: #d8aa6c,
+            v2: #d061c3,
+        },
+        f-9: {
+            v0: #7859e1,
+            v1: #8c5eec,
+            v2: #9d947a,
+        },
+        f-10: {
+            v0: #0f2e0f,
+            v1: #b55d3c,
+            v2: #5bebd9,
+        },
+        f-11: {
+            v0: #11f06f,
+            v1: #e8846f,
+            v2: #29c17f,
+        },
+    };
+    out property <FieldSet> fields-c27: {
+        f-0: {
+            v0: #096fe4,
+            v1: #ee6002,
+            v2: #32756c,
+        },
+        f-1: {
+            v0: #bbed3b,
+            v1: #c6c550,
+            v2: #9e7ddf,
+        },
+        f-2: {
+            v0: #1ff18e,
+            v1: #0848f3,
+            v2: #4c8417,
+        },
+        f-3: {
+            v0: #a0c7c9,
+            v1: #afd85a,
+            v2: #ba35aa,
+        },
+        f-4: {
+            v0: #a02f35,
+            v1: #951d60,
+            v2: #690615,
+        },
+        f-5: {
+            v0: #24bf15,
+            v1: #a21800,
+            v2: #7f3861,
+        },
+        f-6: {
+            v0: #beb165,
+            v1: #b795ee,
+            v2: #8f3e14,
+        },
+        f-7: {
+            v0: #edd2c7,
+            v1: #87c480,
+            v2: #0c9d54,
+        },
+        f-8: {
+            v0: #865c68,
+            v1: #b2d0ca,
+            v2: #3b44da,
+        },
+        f-9: {
+            v0: #427ac9,
+            v1: #f006c2,
+            v2: #d3926f,
+        },
+        f-10: {
+            v0: #32ac39,
+            v1: #8b11bd,
+            v2: #4e57c1,
+        },
+        f-11: {
+            v0: #57850a,
+            v1: #8784f0,
+            v2: #3fffc9,
+        },
+    };
+    out property <FieldSet> fields-c28: {
+        f-0: {
+            v0: #547934,
+            v1: #1fd707,
+            v2: #6bfb1e,
+        },
+        f-1: {
+            v0: #39de01,
+            v1: #6c717e,
+            v2: #06c650,
+        },
+        f-2: {
+            v0: #b9a6d9,
+            v1: #4f53ab,
+            v2: #228c75,
+        },
+        f-3: {
+            v0: #1b0046,
+            v1: #bf4a08,
+            v2: #59db26,
+        },
+        f-4: {
+            v0: #4d3628,
+            v1: #d35b51,
+            v2: #76c332,
+        },
+        f-5: {
+            v0: #ebfd51,
+            v1: #9c4d46,
+            v2: #a68dee,
+        },
+        f-6: {
+            v0: #157fd3,
+            v1: #4de18c,
+            v2: #073a9f,
+        },
+        f-7: {
+            v0: #0a7d7d,
+            v1: #60ff97,
+            v2: #68d7e8,
+        },
+        f-8: {
+            v0: #7c1191,
+            v1: #dd52c0,
+            v2: #65f62b,
+        },
+        f-9: {
+            v0: #6335be,
+            v1: #794253,
+            v2: #69a852,
+        },
+        f-10: {
+            v0: #0c19a1,
+            v1: #93f27d,
+            v2: #ca1488,
+        },
+        f-11: {
+            v0: #ed25a7,
+            v1: #3272ac,
+            v2: #280c8a,
+        },
+    };
+    out property <FieldSet> fields-c29: {
+        f-0: {
+            v0: #c20ffe,
+            v1: #51f2cd,
+            v2: #9fb79e,
+        },
+        f-1: {
+            v0: #1691ce,
+            v1: #62111b,
+            v2: #2cbcab,
+        },
+        f-2: {
+            v0: #348134,
+            v1: #b7bb56,
+            v2: #f60254,
+        },
+        f-3: {
+            v0: #c2386b,
+            v1: #20ff46,
+            v2: #18fcd3,
+        },
+        f-4: {
+            v0: #ad4111,
+            v1: #220db1,
+            v2: #486b18,
+        },
+        f-5: {
+            v0: #587306,
+            v1: #01b8b3,
+            v2: #07b9d5,
+        },
+        f-6: {
+            v0: #e469e8,
+            v1: #16d8ac,
+            v2: #c598d4,
+        },
+        f-7: {
+            v0: #c635ec,
+            v1: #37fd90,
+            v2: #6f5344,
+        },
+        f-8: {
+            v0: #18503f,
+            v1: #92902f,
+            v2: #b00d29,
+        },
+        f-9: {
+            v0: #1fe7f1,
+            v1: #f8b11f,
+            v2: #a711e9,
+        },
+        f-10: {
+            v0: #86dec1,
+            v1: #550126,
+            v2: #e8bf73,
+        },
+        f-11: {
+            v0: #0ae350,
+            v1: #67dcc7,
+            v2: #1ffed6,
+        },
+    };
+    out property <CatSet> all-cats: {
+        c-0: fields-c0,
+        c-1: fields-c1,
+        c-2: fields-c2,
+        c-3: fields-c3,
+        c-4: fields-c4,
+        c-5: fields-c5,
+        c-6: fields-c6,
+        c-7: fields-c7,
+        c-8: fields-c8,
+        c-9: fields-c9,
+        c-10: fields-c10,
+        c-11: fields-c11,
+        c-12: fields-c12,
+        c-13: fields-c13,
+        c-14: fields-c14,
+        c-15: fields-c15,
+        c-16: fields-c16,
+        c-17: fields-c17,
+        c-18: fields-c18,
+        c-19: fields-c19,
+        c-20: fields-c20,
+        c-21: fields-c21,
+        c-22: fields-c22,
+        c-23: fields-c23,
+        c-24: fields-c24,
+        c-25: fields-c25,
+        c-26: fields-c26,
+        c-27: fields-c27,
+        c-28: fields-c28,
+        c-29: fields-c29,
+    };
+    out property <AllModes> mode: {
+        m0: { cats: {
+            c-0: {
+                f-0: Tokens.all-cats.c-0.f-0.v0,
+                f-1: Tokens.all-cats.c-0.f-1.v0,
+                f-2: Tokens.all-cats.c-0.f-2.v0,
+                f-3: Tokens.all-cats.c-0.f-3.v0,
+                f-4: Tokens.all-cats.c-0.f-4.v0,
+                f-5: Tokens.all-cats.c-0.f-5.v0,
+                f-6: Tokens.all-cats.c-0.f-6.v0,
+                f-7: Tokens.all-cats.c-0.f-7.v0,
+                f-8: Tokens.all-cats.c-0.f-8.v0,
+                f-9: Tokens.all-cats.c-0.f-9.v0,
+                f-10: Tokens.all-cats.c-0.f-10.v0,
+                f-11: Tokens.all-cats.c-0.f-11.v0,
+            },
+            c-1: {
+                f-0: Tokens.all-cats.c-1.f-0.v0,
+                f-1: Tokens.all-cats.c-1.f-1.v0,
+                f-2: Tokens.all-cats.c-1.f-2.v0,
+                f-3: Tokens.all-cats.c-1.f-3.v0,
+                f-4: Tokens.all-cats.c-1.f-4.v0,
+                f-5: Tokens.all-cats.c-1.f-5.v0,
+                f-6: Tokens.all-cats.c-1.f-6.v0,
+                f-7: Tokens.all-cats.c-1.f-7.v0,
+                f-8: Tokens.all-cats.c-1.f-8.v0,
+                f-9: Tokens.all-cats.c-1.f-9.v0,
+                f-10: Tokens.all-cats.c-1.f-10.v0,
+                f-11: Tokens.all-cats.c-1.f-11.v0,
+            },
+            c-2: {
+                f-0: Tokens.all-cats.c-2.f-0.v0,
+                f-1: Tokens.all-cats.c-2.f-1.v0,
+                f-2: Tokens.all-cats.c-2.f-2.v0,
+                f-3: Tokens.all-cats.c-2.f-3.v0,
+                f-4: Tokens.all-cats.c-2.f-4.v0,
+                f-5: Tokens.all-cats.c-2.f-5.v0,
+                f-6: Tokens.all-cats.c-2.f-6.v0,
+                f-7: Tokens.all-cats.c-2.f-7.v0,
+                f-8: Tokens.all-cats.c-2.f-8.v0,
+                f-9: Tokens.all-cats.c-2.f-9.v0,
+                f-10: Tokens.all-cats.c-2.f-10.v0,
+                f-11: Tokens.all-cats.c-2.f-11.v0,
+            },
+            c-3: {
+                f-0: Tokens.all-cats.c-3.f-0.v0,
+                f-1: Tokens.all-cats.c-3.f-1.v0,
+                f-2: Tokens.all-cats.c-3.f-2.v0,
+                f-3: Tokens.all-cats.c-3.f-3.v0,
+                f-4: Tokens.all-cats.c-3.f-4.v0,
+                f-5: Tokens.all-cats.c-3.f-5.v0,
+                f-6: Tokens.all-cats.c-3.f-6.v0,
+                f-7: Tokens.all-cats.c-3.f-7.v0,
+                f-8: Tokens.all-cats.c-3.f-8.v0,
+                f-9: Tokens.all-cats.c-3.f-9.v0,
+                f-10: Tokens.all-cats.c-3.f-10.v0,
+                f-11: Tokens.all-cats.c-3.f-11.v0,
+            },
+            c-4: {
+                f-0: Tokens.all-cats.c-4.f-0.v0,
+                f-1: Tokens.all-cats.c-4.f-1.v0,
+                f-2: Tokens.all-cats.c-4.f-2.v0,
+                f-3: Tokens.all-cats.c-4.f-3.v0,
+                f-4: Tokens.all-cats.c-4.f-4.v0,
+                f-5: Tokens.all-cats.c-4.f-5.v0,
+                f-6: Tokens.all-cats.c-4.f-6.v0,
+                f-7: Tokens.all-cats.c-4.f-7.v0,
+                f-8: Tokens.all-cats.c-4.f-8.v0,
+                f-9: Tokens.all-cats.c-4.f-9.v0,
+                f-10: Tokens.all-cats.c-4.f-10.v0,
+                f-11: Tokens.all-cats.c-4.f-11.v0,
+            },
+            c-5: {
+                f-0: Tokens.all-cats.c-5.f-0.v0,
+                f-1: Tokens.all-cats.c-5.f-1.v0,
+                f-2: Tokens.all-cats.c-5.f-2.v0,
+                f-3: Tokens.all-cats.c-5.f-3.v0,
+                f-4: Tokens.all-cats.c-5.f-4.v0,
+                f-5: Tokens.all-cats.c-5.f-5.v0,
+                f-6: Tokens.all-cats.c-5.f-6.v0,
+                f-7: Tokens.all-cats.c-5.f-7.v0,
+                f-8: Tokens.all-cats.c-5.f-8.v0,
+                f-9: Tokens.all-cats.c-5.f-9.v0,
+                f-10: Tokens.all-cats.c-5.f-10.v0,
+                f-11: Tokens.all-cats.c-5.f-11.v0,
+            },
+            c-6: {
+                f-0: Tokens.all-cats.c-6.f-0.v0,
+                f-1: Tokens.all-cats.c-6.f-1.v0,
+                f-2: Tokens.all-cats.c-6.f-2.v0,
+                f-3: Tokens.all-cats.c-6.f-3.v0,
+                f-4: Tokens.all-cats.c-6.f-4.v0,
+                f-5: Tokens.all-cats.c-6.f-5.v0,
+                f-6: Tokens.all-cats.c-6.f-6.v0,
+                f-7: Tokens.all-cats.c-6.f-7.v0,
+                f-8: Tokens.all-cats.c-6.f-8.v0,
+                f-9: Tokens.all-cats.c-6.f-9.v0,
+                f-10: Tokens.all-cats.c-6.f-10.v0,
+                f-11: Tokens.all-cats.c-6.f-11.v0,
+            },
+            c-7: {
+                f-0: Tokens.all-cats.c-7.f-0.v0,
+                f-1: Tokens.all-cats.c-7.f-1.v0,
+                f-2: Tokens.all-cats.c-7.f-2.v0,
+                f-3: Tokens.all-cats.c-7.f-3.v0,
+                f-4: Tokens.all-cats.c-7.f-4.v0,
+                f-5: Tokens.all-cats.c-7.f-5.v0,
+                f-6: Tokens.all-cats.c-7.f-6.v0,
+                f-7: Tokens.all-cats.c-7.f-7.v0,
+                f-8: Tokens.all-cats.c-7.f-8.v0,
+                f-9: Tokens.all-cats.c-7.f-9.v0,
+                f-10: Tokens.all-cats.c-7.f-10.v0,
+                f-11: Tokens.all-cats.c-7.f-11.v0,
+            },
+            c-8: {
+                f-0: Tokens.all-cats.c-8.f-0.v0,
+                f-1: Tokens.all-cats.c-8.f-1.v0,
+                f-2: Tokens.all-cats.c-8.f-2.v0,
+                f-3: Tokens.all-cats.c-8.f-3.v0,
+                f-4: Tokens.all-cats.c-8.f-4.v0,
+                f-5: Tokens.all-cats.c-8.f-5.v0,
+                f-6: Tokens.all-cats.c-8.f-6.v0,
+                f-7: Tokens.all-cats.c-8.f-7.v0,
+                f-8: Tokens.all-cats.c-8.f-8.v0,
+                f-9: Tokens.all-cats.c-8.f-9.v0,
+                f-10: Tokens.all-cats.c-8.f-10.v0,
+                f-11: Tokens.all-cats.c-8.f-11.v0,
+            },
+            c-9: {
+                f-0: Tokens.all-cats.c-9.f-0.v0,
+                f-1: Tokens.all-cats.c-9.f-1.v0,
+                f-2: Tokens.all-cats.c-9.f-2.v0,
+                f-3: Tokens.all-cats.c-9.f-3.v0,
+                f-4: Tokens.all-cats.c-9.f-4.v0,
+                f-5: Tokens.all-cats.c-9.f-5.v0,
+                f-6: Tokens.all-cats.c-9.f-6.v0,
+                f-7: Tokens.all-cats.c-9.f-7.v0,
+                f-8: Tokens.all-cats.c-9.f-8.v0,
+                f-9: Tokens.all-cats.c-9.f-9.v0,
+                f-10: Tokens.all-cats.c-9.f-10.v0,
+                f-11: Tokens.all-cats.c-9.f-11.v0,
+            },
+            c-10: {
+                f-0: Tokens.all-cats.c-10.f-0.v0,
+                f-1: Tokens.all-cats.c-10.f-1.v0,
+                f-2: Tokens.all-cats.c-10.f-2.v0,
+                f-3: Tokens.all-cats.c-10.f-3.v0,
+                f-4: Tokens.all-cats.c-10.f-4.v0,
+                f-5: Tokens.all-cats.c-10.f-5.v0,
+                f-6: Tokens.all-cats.c-10.f-6.v0,
+                f-7: Tokens.all-cats.c-10.f-7.v0,
+                f-8: Tokens.all-cats.c-10.f-8.v0,
+                f-9: Tokens.all-cats.c-10.f-9.v0,
+                f-10: Tokens.all-cats.c-10.f-10.v0,
+                f-11: Tokens.all-cats.c-10.f-11.v0,
+            },
+            c-11: {
+                f-0: Tokens.all-cats.c-11.f-0.v0,
+                f-1: Tokens.all-cats.c-11.f-1.v0,
+                f-2: Tokens.all-cats.c-11.f-2.v0,
+                f-3: Tokens.all-cats.c-11.f-3.v0,
+                f-4: Tokens.all-cats.c-11.f-4.v0,
+                f-5: Tokens.all-cats.c-11.f-5.v0,
+                f-6: Tokens.all-cats.c-11.f-6.v0,
+                f-7: Tokens.all-cats.c-11.f-7.v0,
+                f-8: Tokens.all-cats.c-11.f-8.v0,
+                f-9: Tokens.all-cats.c-11.f-9.v0,
+                f-10: Tokens.all-cats.c-11.f-10.v0,
+                f-11: Tokens.all-cats.c-11.f-11.v0,
+            },
+            c-12: {
+                f-0: Tokens.all-cats.c-12.f-0.v0,
+                f-1: Tokens.all-cats.c-12.f-1.v0,
+                f-2: Tokens.all-cats.c-12.f-2.v0,
+                f-3: Tokens.all-cats.c-12.f-3.v0,
+                f-4: Tokens.all-cats.c-12.f-4.v0,
+                f-5: Tokens.all-cats.c-12.f-5.v0,
+                f-6: Tokens.all-cats.c-12.f-6.v0,
+                f-7: Tokens.all-cats.c-12.f-7.v0,
+                f-8: Tokens.all-cats.c-12.f-8.v0,
+                f-9: Tokens.all-cats.c-12.f-9.v0,
+                f-10: Tokens.all-cats.c-12.f-10.v0,
+                f-11: Tokens.all-cats.c-12.f-11.v0,
+            },
+            c-13: {
+                f-0: Tokens.all-cats.c-13.f-0.v0,
+                f-1: Tokens.all-cats.c-13.f-1.v0,
+                f-2: Tokens.all-cats.c-13.f-2.v0,
+                f-3: Tokens.all-cats.c-13.f-3.v0,
+                f-4: Tokens.all-cats.c-13.f-4.v0,
+                f-5: Tokens.all-cats.c-13.f-5.v0,
+                f-6: Tokens.all-cats.c-13.f-6.v0,
+                f-7: Tokens.all-cats.c-13.f-7.v0,
+                f-8: Tokens.all-cats.c-13.f-8.v0,
+                f-9: Tokens.all-cats.c-13.f-9.v0,
+                f-10: Tokens.all-cats.c-13.f-10.v0,
+                f-11: Tokens.all-cats.c-13.f-11.v0,
+            },
+            c-14: {
+                f-0: Tokens.all-cats.c-14.f-0.v0,
+                f-1: Tokens.all-cats.c-14.f-1.v0,
+                f-2: Tokens.all-cats.c-14.f-2.v0,
+                f-3: Tokens.all-cats.c-14.f-3.v0,
+                f-4: Tokens.all-cats.c-14.f-4.v0,
+                f-5: Tokens.all-cats.c-14.f-5.v0,
+                f-6: Tokens.all-cats.c-14.f-6.v0,
+                f-7: Tokens.all-cats.c-14.f-7.v0,
+                f-8: Tokens.all-cats.c-14.f-8.v0,
+                f-9: Tokens.all-cats.c-14.f-9.v0,
+                f-10: Tokens.all-cats.c-14.f-10.v0,
+                f-11: Tokens.all-cats.c-14.f-11.v0,
+            },
+            c-15: {
+                f-0: Tokens.all-cats.c-15.f-0.v0,
+                f-1: Tokens.all-cats.c-15.f-1.v0,
+                f-2: Tokens.all-cats.c-15.f-2.v0,
+                f-3: Tokens.all-cats.c-15.f-3.v0,
+                f-4: Tokens.all-cats.c-15.f-4.v0,
+                f-5: Tokens.all-cats.c-15.f-5.v0,
+                f-6: Tokens.all-cats.c-15.f-6.v0,
+                f-7: Tokens.all-cats.c-15.f-7.v0,
+                f-8: Tokens.all-cats.c-15.f-8.v0,
+                f-9: Tokens.all-cats.c-15.f-9.v0,
+                f-10: Tokens.all-cats.c-15.f-10.v0,
+                f-11: Tokens.all-cats.c-15.f-11.v0,
+            },
+            c-16: {
+                f-0: Tokens.all-cats.c-16.f-0.v0,
+                f-1: Tokens.all-cats.c-16.f-1.v0,
+                f-2: Tokens.all-cats.c-16.f-2.v0,
+                f-3: Tokens.all-cats.c-16.f-3.v0,
+                f-4: Tokens.all-cats.c-16.f-4.v0,
+                f-5: Tokens.all-cats.c-16.f-5.v0,
+                f-6: Tokens.all-cats.c-16.f-6.v0,
+                f-7: Tokens.all-cats.c-16.f-7.v0,
+                f-8: Tokens.all-cats.c-16.f-8.v0,
+                f-9: Tokens.all-cats.c-16.f-9.v0,
+                f-10: Tokens.all-cats.c-16.f-10.v0,
+                f-11: Tokens.all-cats.c-16.f-11.v0,
+            },
+            c-17: {
+                f-0: Tokens.all-cats.c-17.f-0.v0,
+                f-1: Tokens.all-cats.c-17.f-1.v0,
+                f-2: Tokens.all-cats.c-17.f-2.v0,
+                f-3: Tokens.all-cats.c-17.f-3.v0,
+                f-4: Tokens.all-cats.c-17.f-4.v0,
+                f-5: Tokens.all-cats.c-17.f-5.v0,
+                f-6: Tokens.all-cats.c-17.f-6.v0,
+                f-7: Tokens.all-cats.c-17.f-7.v0,
+                f-8: Tokens.all-cats.c-17.f-8.v0,
+                f-9: Tokens.all-cats.c-17.f-9.v0,
+                f-10: Tokens.all-cats.c-17.f-10.v0,
+                f-11: Tokens.all-cats.c-17.f-11.v0,
+            },
+            c-18: {
+                f-0: Tokens.all-cats.c-18.f-0.v0,
+                f-1: Tokens.all-cats.c-18.f-1.v0,
+                f-2: Tokens.all-cats.c-18.f-2.v0,
+                f-3: Tokens.all-cats.c-18.f-3.v0,
+                f-4: Tokens.all-cats.c-18.f-4.v0,
+                f-5: Tokens.all-cats.c-18.f-5.v0,
+                f-6: Tokens.all-cats.c-18.f-6.v0,
+                f-7: Tokens.all-cats.c-18.f-7.v0,
+                f-8: Tokens.all-cats.c-18.f-8.v0,
+                f-9: Tokens.all-cats.c-18.f-9.v0,
+                f-10: Tokens.all-cats.c-18.f-10.v0,
+                f-11: Tokens.all-cats.c-18.f-11.v0,
+            },
+            c-19: {
+                f-0: Tokens.all-cats.c-19.f-0.v0,
+                f-1: Tokens.all-cats.c-19.f-1.v0,
+                f-2: Tokens.all-cats.c-19.f-2.v0,
+                f-3: Tokens.all-cats.c-19.f-3.v0,
+                f-4: Tokens.all-cats.c-19.f-4.v0,
+                f-5: Tokens.all-cats.c-19.f-5.v0,
+                f-6: Tokens.all-cats.c-19.f-6.v0,
+                f-7: Tokens.all-cats.c-19.f-7.v0,
+                f-8: Tokens.all-cats.c-19.f-8.v0,
+                f-9: Tokens.all-cats.c-19.f-9.v0,
+                f-10: Tokens.all-cats.c-19.f-10.v0,
+                f-11: Tokens.all-cats.c-19.f-11.v0,
+            },
+            c-20: {
+                f-0: Tokens.all-cats.c-20.f-0.v0,
+                f-1: Tokens.all-cats.c-20.f-1.v0,
+                f-2: Tokens.all-cats.c-20.f-2.v0,
+                f-3: Tokens.all-cats.c-20.f-3.v0,
+                f-4: Tokens.all-cats.c-20.f-4.v0,
+                f-5: Tokens.all-cats.c-20.f-5.v0,
+                f-6: Tokens.all-cats.c-20.f-6.v0,
+                f-7: Tokens.all-cats.c-20.f-7.v0,
+                f-8: Tokens.all-cats.c-20.f-8.v0,
+                f-9: Tokens.all-cats.c-20.f-9.v0,
+                f-10: Tokens.all-cats.c-20.f-10.v0,
+                f-11: Tokens.all-cats.c-20.f-11.v0,
+            },
+            c-21: {
+                f-0: Tokens.all-cats.c-21.f-0.v0,
+                f-1: Tokens.all-cats.c-21.f-1.v0,
+                f-2: Tokens.all-cats.c-21.f-2.v0,
+                f-3: Tokens.all-cats.c-21.f-3.v0,
+                f-4: Tokens.all-cats.c-21.f-4.v0,
+                f-5: Tokens.all-cats.c-21.f-5.v0,
+                f-6: Tokens.all-cats.c-21.f-6.v0,
+                f-7: Tokens.all-cats.c-21.f-7.v0,
+                f-8: Tokens.all-cats.c-21.f-8.v0,
+                f-9: Tokens.all-cats.c-21.f-9.v0,
+                f-10: Tokens.all-cats.c-21.f-10.v0,
+                f-11: Tokens.all-cats.c-21.f-11.v0,
+            },
+            c-22: {
+                f-0: Tokens.all-cats.c-22.f-0.v0,
+                f-1: Tokens.all-cats.c-22.f-1.v0,
+                f-2: Tokens.all-cats.c-22.f-2.v0,
+                f-3: Tokens.all-cats.c-22.f-3.v0,
+                f-4: Tokens.all-cats.c-22.f-4.v0,
+                f-5: Tokens.all-cats.c-22.f-5.v0,
+                f-6: Tokens.all-cats.c-22.f-6.v0,
+                f-7: Tokens.all-cats.c-22.f-7.v0,
+                f-8: Tokens.all-cats.c-22.f-8.v0,
+                f-9: Tokens.all-cats.c-22.f-9.v0,
+                f-10: Tokens.all-cats.c-22.f-10.v0,
+                f-11: Tokens.all-cats.c-22.f-11.v0,
+            },
+            c-23: {
+                f-0: Tokens.all-cats.c-23.f-0.v0,
+                f-1: Tokens.all-cats.c-23.f-1.v0,
+                f-2: Tokens.all-cats.c-23.f-2.v0,
+                f-3: Tokens.all-cats.c-23.f-3.v0,
+                f-4: Tokens.all-cats.c-23.f-4.v0,
+                f-5: Tokens.all-cats.c-23.f-5.v0,
+                f-6: Tokens.all-cats.c-23.f-6.v0,
+                f-7: Tokens.all-cats.c-23.f-7.v0,
+                f-8: Tokens.all-cats.c-23.f-8.v0,
+                f-9: Tokens.all-cats.c-23.f-9.v0,
+                f-10: Tokens.all-cats.c-23.f-10.v0,
+                f-11: Tokens.all-cats.c-23.f-11.v0,
+            },
+            c-24: {
+                f-0: Tokens.all-cats.c-24.f-0.v0,
+                f-1: Tokens.all-cats.c-24.f-1.v0,
+                f-2: Tokens.all-cats.c-24.f-2.v0,
+                f-3: Tokens.all-cats.c-24.f-3.v0,
+                f-4: Tokens.all-cats.c-24.f-4.v0,
+                f-5: Tokens.all-cats.c-24.f-5.v0,
+                f-6: Tokens.all-cats.c-24.f-6.v0,
+                f-7: Tokens.all-cats.c-24.f-7.v0,
+                f-8: Tokens.all-cats.c-24.f-8.v0,
+                f-9: Tokens.all-cats.c-24.f-9.v0,
+                f-10: Tokens.all-cats.c-24.f-10.v0,
+                f-11: Tokens.all-cats.c-24.f-11.v0,
+            },
+            c-25: {
+                f-0: Tokens.all-cats.c-25.f-0.v0,
+                f-1: Tokens.all-cats.c-25.f-1.v0,
+                f-2: Tokens.all-cats.c-25.f-2.v0,
+                f-3: Tokens.all-cats.c-25.f-3.v0,
+                f-4: Tokens.all-cats.c-25.f-4.v0,
+                f-5: Tokens.all-cats.c-25.f-5.v0,
+                f-6: Tokens.all-cats.c-25.f-6.v0,
+                f-7: Tokens.all-cats.c-25.f-7.v0,
+                f-8: Tokens.all-cats.c-25.f-8.v0,
+                f-9: Tokens.all-cats.c-25.f-9.v0,
+                f-10: Tokens.all-cats.c-25.f-10.v0,
+                f-11: Tokens.all-cats.c-25.f-11.v0,
+            },
+            c-26: {
+                f-0: Tokens.all-cats.c-26.f-0.v0,
+                f-1: Tokens.all-cats.c-26.f-1.v0,
+                f-2: Tokens.all-cats.c-26.f-2.v0,
+                f-3: Tokens.all-cats.c-26.f-3.v0,
+                f-4: Tokens.all-cats.c-26.f-4.v0,
+                f-5: Tokens.all-cats.c-26.f-5.v0,
+                f-6: Tokens.all-cats.c-26.f-6.v0,
+                f-7: Tokens.all-cats.c-26.f-7.v0,
+                f-8: Tokens.all-cats.c-26.f-8.v0,
+                f-9: Tokens.all-cats.c-26.f-9.v0,
+                f-10: Tokens.all-cats.c-26.f-10.v0,
+                f-11: Tokens.all-cats.c-26.f-11.v0,
+            },
+            c-27: {
+                f-0: Tokens.all-cats.c-27.f-0.v0,
+                f-1: Tokens.all-cats.c-27.f-1.v0,
+                f-2: Tokens.all-cats.c-27.f-2.v0,
+                f-3: Tokens.all-cats.c-27.f-3.v0,
+                f-4: Tokens.all-cats.c-27.f-4.v0,
+                f-5: Tokens.all-cats.c-27.f-5.v0,
+                f-6: Tokens.all-cats.c-27.f-6.v0,
+                f-7: Tokens.all-cats.c-27.f-7.v0,
+                f-8: Tokens.all-cats.c-27.f-8.v0,
+                f-9: Tokens.all-cats.c-27.f-9.v0,
+                f-10: Tokens.all-cats.c-27.f-10.v0,
+                f-11: Tokens.all-cats.c-27.f-11.v0,
+            },
+            c-28: {
+                f-0: Tokens.all-cats.c-28.f-0.v0,
+                f-1: Tokens.all-cats.c-28.f-1.v0,
+                f-2: Tokens.all-cats.c-28.f-2.v0,
+                f-3: Tokens.all-cats.c-28.f-3.v0,
+                f-4: Tokens.all-cats.c-28.f-4.v0,
+                f-5: Tokens.all-cats.c-28.f-5.v0,
+                f-6: Tokens.all-cats.c-28.f-6.v0,
+                f-7: Tokens.all-cats.c-28.f-7.v0,
+                f-8: Tokens.all-cats.c-28.f-8.v0,
+                f-9: Tokens.all-cats.c-28.f-9.v0,
+                f-10: Tokens.all-cats.c-28.f-10.v0,
+                f-11: Tokens.all-cats.c-28.f-11.v0,
+            },
+            c-29: {
+                f-0: Tokens.all-cats.c-29.f-0.v0,
+                f-1: Tokens.all-cats.c-29.f-1.v0,
+                f-2: Tokens.all-cats.c-29.f-2.v0,
+                f-3: Tokens.all-cats.c-29.f-3.v0,
+                f-4: Tokens.all-cats.c-29.f-4.v0,
+                f-5: Tokens.all-cats.c-29.f-5.v0,
+                f-6: Tokens.all-cats.c-29.f-6.v0,
+                f-7: Tokens.all-cats.c-29.f-7.v0,
+                f-8: Tokens.all-cats.c-29.f-8.v0,
+                f-9: Tokens.all-cats.c-29.f-9.v0,
+                f-10: Tokens.all-cats.c-29.f-10.v0,
+                f-11: Tokens.all-cats.c-29.f-11.v0,
+            },
+        }, bg: #000000 },
+        m1: { cats: {
+            c-0: {
+                f-0: Tokens.all-cats.c-0.f-0.v1,
+                f-1: Tokens.all-cats.c-0.f-1.v1,
+                f-2: Tokens.all-cats.c-0.f-2.v1,
+                f-3: Tokens.all-cats.c-0.f-3.v1,
+                f-4: Tokens.all-cats.c-0.f-4.v1,
+                f-5: Tokens.all-cats.c-0.f-5.v1,
+                f-6: Tokens.all-cats.c-0.f-6.v1,
+                f-7: Tokens.all-cats.c-0.f-7.v1,
+                f-8: Tokens.all-cats.c-0.f-8.v1,
+                f-9: Tokens.all-cats.c-0.f-9.v1,
+                f-10: Tokens.all-cats.c-0.f-10.v1,
+                f-11: Tokens.all-cats.c-0.f-11.v1,
+            },
+            c-1: {
+                f-0: Tokens.all-cats.c-1.f-0.v1,
+                f-1: Tokens.all-cats.c-1.f-1.v1,
+                f-2: Tokens.all-cats.c-1.f-2.v1,
+                f-3: Tokens.all-cats.c-1.f-3.v1,
+                f-4: Tokens.all-cats.c-1.f-4.v1,
+                f-5: Tokens.all-cats.c-1.f-5.v1,
+                f-6: Tokens.all-cats.c-1.f-6.v1,
+                f-7: Tokens.all-cats.c-1.f-7.v1,
+                f-8: Tokens.all-cats.c-1.f-8.v1,
+                f-9: Tokens.all-cats.c-1.f-9.v1,
+                f-10: Tokens.all-cats.c-1.f-10.v1,
+                f-11: Tokens.all-cats.c-1.f-11.v1,
+            },
+            c-2: {
+                f-0: Tokens.all-cats.c-2.f-0.v1,
+                f-1: Tokens.all-cats.c-2.f-1.v1,
+                f-2: Tokens.all-cats.c-2.f-2.v1,
+                f-3: Tokens.all-cats.c-2.f-3.v1,
+                f-4: Tokens.all-cats.c-2.f-4.v1,
+                f-5: Tokens.all-cats.c-2.f-5.v1,
+                f-6: Tokens.all-cats.c-2.f-6.v1,
+                f-7: Tokens.all-cats.c-2.f-7.v1,
+                f-8: Tokens.all-cats.c-2.f-8.v1,
+                f-9: Tokens.all-cats.c-2.f-9.v1,
+                f-10: Tokens.all-cats.c-2.f-10.v1,
+                f-11: Tokens.all-cats.c-2.f-11.v1,
+            },
+            c-3: {
+                f-0: Tokens.all-cats.c-3.f-0.v1,
+                f-1: Tokens.all-cats.c-3.f-1.v1,
+                f-2: Tokens.all-cats.c-3.f-2.v1,
+                f-3: Tokens.all-cats.c-3.f-3.v1,
+                f-4: Tokens.all-cats.c-3.f-4.v1,
+                f-5: Tokens.all-cats.c-3.f-5.v1,
+                f-6: Tokens.all-cats.c-3.f-6.v1,
+                f-7: Tokens.all-cats.c-3.f-7.v1,
+                f-8: Tokens.all-cats.c-3.f-8.v1,
+                f-9: Tokens.all-cats.c-3.f-9.v1,
+                f-10: Tokens.all-cats.c-3.f-10.v1,
+                f-11: Tokens.all-cats.c-3.f-11.v1,
+            },
+            c-4: {
+                f-0: Tokens.all-cats.c-4.f-0.v1,
+                f-1: Tokens.all-cats.c-4.f-1.v1,
+                f-2: Tokens.all-cats.c-4.f-2.v1,
+                f-3: Tokens.all-cats.c-4.f-3.v1,
+                f-4: Tokens.all-cats.c-4.f-4.v1,
+                f-5: Tokens.all-cats.c-4.f-5.v1,
+                f-6: Tokens.all-cats.c-4.f-6.v1,
+                f-7: Tokens.all-cats.c-4.f-7.v1,
+                f-8: Tokens.all-cats.c-4.f-8.v1,
+                f-9: Tokens.all-cats.c-4.f-9.v1,
+                f-10: Tokens.all-cats.c-4.f-10.v1,
+                f-11: Tokens.all-cats.c-4.f-11.v1,
+            },
+            c-5: {
+                f-0: Tokens.all-cats.c-5.f-0.v1,
+                f-1: Tokens.all-cats.c-5.f-1.v1,
+                f-2: Tokens.all-cats.c-5.f-2.v1,
+                f-3: Tokens.all-cats.c-5.f-3.v1,
+                f-4: Tokens.all-cats.c-5.f-4.v1,
+                f-5: Tokens.all-cats.c-5.f-5.v1,
+                f-6: Tokens.all-cats.c-5.f-6.v1,
+                f-7: Tokens.all-cats.c-5.f-7.v1,
+                f-8: Tokens.all-cats.c-5.f-8.v1,
+                f-9: Tokens.all-cats.c-5.f-9.v1,
+                f-10: Tokens.all-cats.c-5.f-10.v1,
+                f-11: Tokens.all-cats.c-5.f-11.v1,
+            },
+            c-6: {
+                f-0: Tokens.all-cats.c-6.f-0.v1,
+                f-1: Tokens.all-cats.c-6.f-1.v1,
+                f-2: Tokens.all-cats.c-6.f-2.v1,
+                f-3: Tokens.all-cats.c-6.f-3.v1,
+                f-4: Tokens.all-cats.c-6.f-4.v1,
+                f-5: Tokens.all-cats.c-6.f-5.v1,
+                f-6: Tokens.all-cats.c-6.f-6.v1,
+                f-7: Tokens.all-cats.c-6.f-7.v1,
+                f-8: Tokens.all-cats.c-6.f-8.v1,
+                f-9: Tokens.all-cats.c-6.f-9.v1,
+                f-10: Tokens.all-cats.c-6.f-10.v1,
+                f-11: Tokens.all-cats.c-6.f-11.v1,
+            },
+            c-7: {
+                f-0: Tokens.all-cats.c-7.f-0.v1,
+                f-1: Tokens.all-cats.c-7.f-1.v1,
+                f-2: Tokens.all-cats.c-7.f-2.v1,
+                f-3: Tokens.all-cats.c-7.f-3.v1,
+                f-4: Tokens.all-cats.c-7.f-4.v1,
+                f-5: Tokens.all-cats.c-7.f-5.v1,
+                f-6: Tokens.all-cats.c-7.f-6.v1,
+                f-7: Tokens.all-cats.c-7.f-7.v1,
+                f-8: Tokens.all-cats.c-7.f-8.v1,
+                f-9: Tokens.all-cats.c-7.f-9.v1,
+                f-10: Tokens.all-cats.c-7.f-10.v1,
+                f-11: Tokens.all-cats.c-7.f-11.v1,
+            },
+            c-8: {
+                f-0: Tokens.all-cats.c-8.f-0.v1,
+                f-1: Tokens.all-cats.c-8.f-1.v1,
+                f-2: Tokens.all-cats.c-8.f-2.v1,
+                f-3: Tokens.all-cats.c-8.f-3.v1,
+                f-4: Tokens.all-cats.c-8.f-4.v1,
+                f-5: Tokens.all-cats.c-8.f-5.v1,
+                f-6: Tokens.all-cats.c-8.f-6.v1,
+                f-7: Tokens.all-cats.c-8.f-7.v1,
+                f-8: Tokens.all-cats.c-8.f-8.v1,
+                f-9: Tokens.all-cats.c-8.f-9.v1,
+                f-10: Tokens.all-cats.c-8.f-10.v1,
+                f-11: Tokens.all-cats.c-8.f-11.v1,
+            },
+            c-9: {
+                f-0: Tokens.all-cats.c-9.f-0.v1,
+                f-1: Tokens.all-cats.c-9.f-1.v1,
+                f-2: Tokens.all-cats.c-9.f-2.v1,
+                f-3: Tokens.all-cats.c-9.f-3.v1,
+                f-4: Tokens.all-cats.c-9.f-4.v1,
+                f-5: Tokens.all-cats.c-9.f-5.v1,
+                f-6: Tokens.all-cats.c-9.f-6.v1,
+                f-7: Tokens.all-cats.c-9.f-7.v1,
+                f-8: Tokens.all-cats.c-9.f-8.v1,
+                f-9: Tokens.all-cats.c-9.f-9.v1,
+                f-10: Tokens.all-cats.c-9.f-10.v1,
+                f-11: Tokens.all-cats.c-9.f-11.v1,
+            },
+            c-10: {
+                f-0: Tokens.all-cats.c-10.f-0.v1,
+                f-1: Tokens.all-cats.c-10.f-1.v1,
+                f-2: Tokens.all-cats.c-10.f-2.v1,
+                f-3: Tokens.all-cats.c-10.f-3.v1,
+                f-4: Tokens.all-cats.c-10.f-4.v1,
+                f-5: Tokens.all-cats.c-10.f-5.v1,
+                f-6: Tokens.all-cats.c-10.f-6.v1,
+                f-7: Tokens.all-cats.c-10.f-7.v1,
+                f-8: Tokens.all-cats.c-10.f-8.v1,
+                f-9: Tokens.all-cats.c-10.f-9.v1,
+                f-10: Tokens.all-cats.c-10.f-10.v1,
+                f-11: Tokens.all-cats.c-10.f-11.v1,
+            },
+            c-11: {
+                f-0: Tokens.all-cats.c-11.f-0.v1,
+                f-1: Tokens.all-cats.c-11.f-1.v1,
+                f-2: Tokens.all-cats.c-11.f-2.v1,
+                f-3: Tokens.all-cats.c-11.f-3.v1,
+                f-4: Tokens.all-cats.c-11.f-4.v1,
+                f-5: Tokens.all-cats.c-11.f-5.v1,
+                f-6: Tokens.all-cats.c-11.f-6.v1,
+                f-7: Tokens.all-cats.c-11.f-7.v1,
+                f-8: Tokens.all-cats.c-11.f-8.v1,
+                f-9: Tokens.all-cats.c-11.f-9.v1,
+                f-10: Tokens.all-cats.c-11.f-10.v1,
+                f-11: Tokens.all-cats.c-11.f-11.v1,
+            },
+            c-12: {
+                f-0: Tokens.all-cats.c-12.f-0.v1,
+                f-1: Tokens.all-cats.c-12.f-1.v1,
+                f-2: Tokens.all-cats.c-12.f-2.v1,
+                f-3: Tokens.all-cats.c-12.f-3.v1,
+                f-4: Tokens.all-cats.c-12.f-4.v1,
+                f-5: Tokens.all-cats.c-12.f-5.v1,
+                f-6: Tokens.all-cats.c-12.f-6.v1,
+                f-7: Tokens.all-cats.c-12.f-7.v1,
+                f-8: Tokens.all-cats.c-12.f-8.v1,
+                f-9: Tokens.all-cats.c-12.f-9.v1,
+                f-10: Tokens.all-cats.c-12.f-10.v1,
+                f-11: Tokens.all-cats.c-12.f-11.v1,
+            },
+            c-13: {
+                f-0: Tokens.all-cats.c-13.f-0.v1,
+                f-1: Tokens.all-cats.c-13.f-1.v1,
+                f-2: Tokens.all-cats.c-13.f-2.v1,
+                f-3: Tokens.all-cats.c-13.f-3.v1,
+                f-4: Tokens.all-cats.c-13.f-4.v1,
+                f-5: Tokens.all-cats.c-13.f-5.v1,
+                f-6: Tokens.all-cats.c-13.f-6.v1,
+                f-7: Tokens.all-cats.c-13.f-7.v1,
+                f-8: Tokens.all-cats.c-13.f-8.v1,
+                f-9: Tokens.all-cats.c-13.f-9.v1,
+                f-10: Tokens.all-cats.c-13.f-10.v1,
+                f-11: Tokens.all-cats.c-13.f-11.v1,
+            },
+            c-14: {
+                f-0: Tokens.all-cats.c-14.f-0.v1,
+                f-1: Tokens.all-cats.c-14.f-1.v1,
+                f-2: Tokens.all-cats.c-14.f-2.v1,
+                f-3: Tokens.all-cats.c-14.f-3.v1,
+                f-4: Tokens.all-cats.c-14.f-4.v1,
+                f-5: Tokens.all-cats.c-14.f-5.v1,
+                f-6: Tokens.all-cats.c-14.f-6.v1,
+                f-7: Tokens.all-cats.c-14.f-7.v1,
+                f-8: Tokens.all-cats.c-14.f-8.v1,
+                f-9: Tokens.all-cats.c-14.f-9.v1,
+                f-10: Tokens.all-cats.c-14.f-10.v1,
+                f-11: Tokens.all-cats.c-14.f-11.v1,
+            },
+            c-15: {
+                f-0: Tokens.all-cats.c-15.f-0.v1,
+                f-1: Tokens.all-cats.c-15.f-1.v1,
+                f-2: Tokens.all-cats.c-15.f-2.v1,
+                f-3: Tokens.all-cats.c-15.f-3.v1,
+                f-4: Tokens.all-cats.c-15.f-4.v1,
+                f-5: Tokens.all-cats.c-15.f-5.v1,
+                f-6: Tokens.all-cats.c-15.f-6.v1,
+                f-7: Tokens.all-cats.c-15.f-7.v1,
+                f-8: Tokens.all-cats.c-15.f-8.v1,
+                f-9: Tokens.all-cats.c-15.f-9.v1,
+                f-10: Tokens.all-cats.c-15.f-10.v1,
+                f-11: Tokens.all-cats.c-15.f-11.v1,
+            },
+            c-16: {
+                f-0: Tokens.all-cats.c-16.f-0.v1,
+                f-1: Tokens.all-cats.c-16.f-1.v1,
+                f-2: Tokens.all-cats.c-16.f-2.v1,
+                f-3: Tokens.all-cats.c-16.f-3.v1,
+                f-4: Tokens.all-cats.c-16.f-4.v1,
+                f-5: Tokens.all-cats.c-16.f-5.v1,
+                f-6: Tokens.all-cats.c-16.f-6.v1,
+                f-7: Tokens.all-cats.c-16.f-7.v1,
+                f-8: Tokens.all-cats.c-16.f-8.v1,
+                f-9: Tokens.all-cats.c-16.f-9.v1,
+                f-10: Tokens.all-cats.c-16.f-10.v1,
+                f-11: Tokens.all-cats.c-16.f-11.v1,
+            },
+            c-17: {
+                f-0: Tokens.all-cats.c-17.f-0.v1,
+                f-1: Tokens.all-cats.c-17.f-1.v1,
+                f-2: Tokens.all-cats.c-17.f-2.v1,
+                f-3: Tokens.all-cats.c-17.f-3.v1,
+                f-4: Tokens.all-cats.c-17.f-4.v1,
+                f-5: Tokens.all-cats.c-17.f-5.v1,
+                f-6: Tokens.all-cats.c-17.f-6.v1,
+                f-7: Tokens.all-cats.c-17.f-7.v1,
+                f-8: Tokens.all-cats.c-17.f-8.v1,
+                f-9: Tokens.all-cats.c-17.f-9.v1,
+                f-10: Tokens.all-cats.c-17.f-10.v1,
+                f-11: Tokens.all-cats.c-17.f-11.v1,
+            },
+            c-18: {
+                f-0: Tokens.all-cats.c-18.f-0.v1,
+                f-1: Tokens.all-cats.c-18.f-1.v1,
+                f-2: Tokens.all-cats.c-18.f-2.v1,
+                f-3: Tokens.all-cats.c-18.f-3.v1,
+                f-4: Tokens.all-cats.c-18.f-4.v1,
+                f-5: Tokens.all-cats.c-18.f-5.v1,
+                f-6: Tokens.all-cats.c-18.f-6.v1,
+                f-7: Tokens.all-cats.c-18.f-7.v1,
+                f-8: Tokens.all-cats.c-18.f-8.v1,
+                f-9: Tokens.all-cats.c-18.f-9.v1,
+                f-10: Tokens.all-cats.c-18.f-10.v1,
+                f-11: Tokens.all-cats.c-18.f-11.v1,
+            },
+            c-19: {
+                f-0: Tokens.all-cats.c-19.f-0.v1,
+                f-1: Tokens.all-cats.c-19.f-1.v1,
+                f-2: Tokens.all-cats.c-19.f-2.v1,
+                f-3: Tokens.all-cats.c-19.f-3.v1,
+                f-4: Tokens.all-cats.c-19.f-4.v1,
+                f-5: Tokens.all-cats.c-19.f-5.v1,
+                f-6: Tokens.all-cats.c-19.f-6.v1,
+                f-7: Tokens.all-cats.c-19.f-7.v1,
+                f-8: Tokens.all-cats.c-19.f-8.v1,
+                f-9: Tokens.all-cats.c-19.f-9.v1,
+                f-10: Tokens.all-cats.c-19.f-10.v1,
+                f-11: Tokens.all-cats.c-19.f-11.v1,
+            },
+            c-20: {
+                f-0: Tokens.all-cats.c-20.f-0.v1,
+                f-1: Tokens.all-cats.c-20.f-1.v1,
+                f-2: Tokens.all-cats.c-20.f-2.v1,
+                f-3: Tokens.all-cats.c-20.f-3.v1,
+                f-4: Tokens.all-cats.c-20.f-4.v1,
+                f-5: Tokens.all-cats.c-20.f-5.v1,
+                f-6: Tokens.all-cats.c-20.f-6.v1,
+                f-7: Tokens.all-cats.c-20.f-7.v1,
+                f-8: Tokens.all-cats.c-20.f-8.v1,
+                f-9: Tokens.all-cats.c-20.f-9.v1,
+                f-10: Tokens.all-cats.c-20.f-10.v1,
+                f-11: Tokens.all-cats.c-20.f-11.v1,
+            },
+            c-21: {
+                f-0: Tokens.all-cats.c-21.f-0.v1,
+                f-1: Tokens.all-cats.c-21.f-1.v1,
+                f-2: Tokens.all-cats.c-21.f-2.v1,
+                f-3: Tokens.all-cats.c-21.f-3.v1,
+                f-4: Tokens.all-cats.c-21.f-4.v1,
+                f-5: Tokens.all-cats.c-21.f-5.v1,
+                f-6: Tokens.all-cats.c-21.f-6.v1,
+                f-7: Tokens.all-cats.c-21.f-7.v1,
+                f-8: Tokens.all-cats.c-21.f-8.v1,
+                f-9: Tokens.all-cats.c-21.f-9.v1,
+                f-10: Tokens.all-cats.c-21.f-10.v1,
+                f-11: Tokens.all-cats.c-21.f-11.v1,
+            },
+            c-22: {
+                f-0: Tokens.all-cats.c-22.f-0.v1,
+                f-1: Tokens.all-cats.c-22.f-1.v1,
+                f-2: Tokens.all-cats.c-22.f-2.v1,
+                f-3: Tokens.all-cats.c-22.f-3.v1,
+                f-4: Tokens.all-cats.c-22.f-4.v1,
+                f-5: Tokens.all-cats.c-22.f-5.v1,
+                f-6: Tokens.all-cats.c-22.f-6.v1,
+                f-7: Tokens.all-cats.c-22.f-7.v1,
+                f-8: Tokens.all-cats.c-22.f-8.v1,
+                f-9: Tokens.all-cats.c-22.f-9.v1,
+                f-10: Tokens.all-cats.c-22.f-10.v1,
+                f-11: Tokens.all-cats.c-22.f-11.v1,
+            },
+            c-23: {
+                f-0: Tokens.all-cats.c-23.f-0.v1,
+                f-1: Tokens.all-cats.c-23.f-1.v1,
+                f-2: Tokens.all-cats.c-23.f-2.v1,
+                f-3: Tokens.all-cats.c-23.f-3.v1,
+                f-4: Tokens.all-cats.c-23.f-4.v1,
+                f-5: Tokens.all-cats.c-23.f-5.v1,
+                f-6: Tokens.all-cats.c-23.f-6.v1,
+                f-7: Tokens.all-cats.c-23.f-7.v1,
+                f-8: Tokens.all-cats.c-23.f-8.v1,
+                f-9: Tokens.all-cats.c-23.f-9.v1,
+                f-10: Tokens.all-cats.c-23.f-10.v1,
+                f-11: Tokens.all-cats.c-23.f-11.v1,
+            },
+            c-24: {
+                f-0: Tokens.all-cats.c-24.f-0.v1,
+                f-1: Tokens.all-cats.c-24.f-1.v1,
+                f-2: Tokens.all-cats.c-24.f-2.v1,
+                f-3: Tokens.all-cats.c-24.f-3.v1,
+                f-4: Tokens.all-cats.c-24.f-4.v1,
+                f-5: Tokens.all-cats.c-24.f-5.v1,
+                f-6: Tokens.all-cats.c-24.f-6.v1,
+                f-7: Tokens.all-cats.c-24.f-7.v1,
+                f-8: Tokens.all-cats.c-24.f-8.v1,
+                f-9: Tokens.all-cats.c-24.f-9.v1,
+                f-10: Tokens.all-cats.c-24.f-10.v1,
+                f-11: Tokens.all-cats.c-24.f-11.v1,
+            },
+            c-25: {
+                f-0: Tokens.all-cats.c-25.f-0.v1,
+                f-1: Tokens.all-cats.c-25.f-1.v1,
+                f-2: Tokens.all-cats.c-25.f-2.v1,
+                f-3: Tokens.all-cats.c-25.f-3.v1,
+                f-4: Tokens.all-cats.c-25.f-4.v1,
+                f-5: Tokens.all-cats.c-25.f-5.v1,
+                f-6: Tokens.all-cats.c-25.f-6.v1,
+                f-7: Tokens.all-cats.c-25.f-7.v1,
+                f-8: Tokens.all-cats.c-25.f-8.v1,
+                f-9: Tokens.all-cats.c-25.f-9.v1,
+                f-10: Tokens.all-cats.c-25.f-10.v1,
+                f-11: Tokens.all-cats.c-25.f-11.v1,
+            },
+            c-26: {
+                f-0: Tokens.all-cats.c-26.f-0.v1,
+                f-1: Tokens.all-cats.c-26.f-1.v1,
+                f-2: Tokens.all-cats.c-26.f-2.v1,
+                f-3: Tokens.all-cats.c-26.f-3.v1,
+                f-4: Tokens.all-cats.c-26.f-4.v1,
+                f-5: Tokens.all-cats.c-26.f-5.v1,
+                f-6: Tokens.all-cats.c-26.f-6.v1,
+                f-7: Tokens.all-cats.c-26.f-7.v1,
+                f-8: Tokens.all-cats.c-26.f-8.v1,
+                f-9: Tokens.all-cats.c-26.f-9.v1,
+                f-10: Tokens.all-cats.c-26.f-10.v1,
+                f-11: Tokens.all-cats.c-26.f-11.v1,
+            },
+            c-27: {
+                f-0: Tokens.all-cats.c-27.f-0.v1,
+                f-1: Tokens.all-cats.c-27.f-1.v1,
+                f-2: Tokens.all-cats.c-27.f-2.v1,
+                f-3: Tokens.all-cats.c-27.f-3.v1,
+                f-4: Tokens.all-cats.c-27.f-4.v1,
+                f-5: Tokens.all-cats.c-27.f-5.v1,
+                f-6: Tokens.all-cats.c-27.f-6.v1,
+                f-7: Tokens.all-cats.c-27.f-7.v1,
+                f-8: Tokens.all-cats.c-27.f-8.v1,
+                f-9: Tokens.all-cats.c-27.f-9.v1,
+                f-10: Tokens.all-cats.c-27.f-10.v1,
+                f-11: Tokens.all-cats.c-27.f-11.v1,
+            },
+            c-28: {
+                f-0: Tokens.all-cats.c-28.f-0.v1,
+                f-1: Tokens.all-cats.c-28.f-1.v1,
+                f-2: Tokens.all-cats.c-28.f-2.v1,
+                f-3: Tokens.all-cats.c-28.f-3.v1,
+                f-4: Tokens.all-cats.c-28.f-4.v1,
+                f-5: Tokens.all-cats.c-28.f-5.v1,
+                f-6: Tokens.all-cats.c-28.f-6.v1,
+                f-7: Tokens.all-cats.c-28.f-7.v1,
+                f-8: Tokens.all-cats.c-28.f-8.v1,
+                f-9: Tokens.all-cats.c-28.f-9.v1,
+                f-10: Tokens.all-cats.c-28.f-10.v1,
+                f-11: Tokens.all-cats.c-28.f-11.v1,
+            },
+            c-29: {
+                f-0: Tokens.all-cats.c-29.f-0.v1,
+                f-1: Tokens.all-cats.c-29.f-1.v1,
+                f-2: Tokens.all-cats.c-29.f-2.v1,
+                f-3: Tokens.all-cats.c-29.f-3.v1,
+                f-4: Tokens.all-cats.c-29.f-4.v1,
+                f-5: Tokens.all-cats.c-29.f-5.v1,
+                f-6: Tokens.all-cats.c-29.f-6.v1,
+                f-7: Tokens.all-cats.c-29.f-7.v1,
+                f-8: Tokens.all-cats.c-29.f-8.v1,
+                f-9: Tokens.all-cats.c-29.f-9.v1,
+                f-10: Tokens.all-cats.c-29.f-10.v1,
+                f-11: Tokens.all-cats.c-29.f-11.v1,
+            },
+        }, bg: #333333 },
+        m2: { cats: {
+            c-0: {
+                f-0: Tokens.all-cats.c-0.f-0.v2,
+                f-1: Tokens.all-cats.c-0.f-1.v2,
+                f-2: Tokens.all-cats.c-0.f-2.v2,
+                f-3: Tokens.all-cats.c-0.f-3.v2,
+                f-4: Tokens.all-cats.c-0.f-4.v2,
+                f-5: Tokens.all-cats.c-0.f-5.v2,
+                f-6: Tokens.all-cats.c-0.f-6.v2,
+                f-7: Tokens.all-cats.c-0.f-7.v2,
+                f-8: Tokens.all-cats.c-0.f-8.v2,
+                f-9: Tokens.all-cats.c-0.f-9.v2,
+                f-10: Tokens.all-cats.c-0.f-10.v2,
+                f-11: Tokens.all-cats.c-0.f-11.v2,
+            },
+            c-1: {
+                f-0: Tokens.all-cats.c-1.f-0.v2,
+                f-1: Tokens.all-cats.c-1.f-1.v2,
+                f-2: Tokens.all-cats.c-1.f-2.v2,
+                f-3: Tokens.all-cats.c-1.f-3.v2,
+                f-4: Tokens.all-cats.c-1.f-4.v2,
+                f-5: Tokens.all-cats.c-1.f-5.v2,
+                f-6: Tokens.all-cats.c-1.f-6.v2,
+                f-7: Tokens.all-cats.c-1.f-7.v2,
+                f-8: Tokens.all-cats.c-1.f-8.v2,
+                f-9: Tokens.all-cats.c-1.f-9.v2,
+                f-10: Tokens.all-cats.c-1.f-10.v2,
+                f-11: Tokens.all-cats.c-1.f-11.v2,
+            },
+            c-2: {
+                f-0: Tokens.all-cats.c-2.f-0.v2,
+                f-1: Tokens.all-cats.c-2.f-1.v2,
+                f-2: Tokens.all-cats.c-2.f-2.v2,
+                f-3: Tokens.all-cats.c-2.f-3.v2,
+                f-4: Tokens.all-cats.c-2.f-4.v2,
+                f-5: Tokens.all-cats.c-2.f-5.v2,
+                f-6: Tokens.all-cats.c-2.f-6.v2,
+                f-7: Tokens.all-cats.c-2.f-7.v2,
+                f-8: Tokens.all-cats.c-2.f-8.v2,
+                f-9: Tokens.all-cats.c-2.f-9.v2,
+                f-10: Tokens.all-cats.c-2.f-10.v2,
+                f-11: Tokens.all-cats.c-2.f-11.v2,
+            },
+            c-3: {
+                f-0: Tokens.all-cats.c-3.f-0.v2,
+                f-1: Tokens.all-cats.c-3.f-1.v2,
+                f-2: Tokens.all-cats.c-3.f-2.v2,
+                f-3: Tokens.all-cats.c-3.f-3.v2,
+                f-4: Tokens.all-cats.c-3.f-4.v2,
+                f-5: Tokens.all-cats.c-3.f-5.v2,
+                f-6: Tokens.all-cats.c-3.f-6.v2,
+                f-7: Tokens.all-cats.c-3.f-7.v2,
+                f-8: Tokens.all-cats.c-3.f-8.v2,
+                f-9: Tokens.all-cats.c-3.f-9.v2,
+                f-10: Tokens.all-cats.c-3.f-10.v2,
+                f-11: Tokens.all-cats.c-3.f-11.v2,
+            },
+            c-4: {
+                f-0: Tokens.all-cats.c-4.f-0.v2,
+                f-1: Tokens.all-cats.c-4.f-1.v2,
+                f-2: Tokens.all-cats.c-4.f-2.v2,
+                f-3: Tokens.all-cats.c-4.f-3.v2,
+                f-4: Tokens.all-cats.c-4.f-4.v2,
+                f-5: Tokens.all-cats.c-4.f-5.v2,
+                f-6: Tokens.all-cats.c-4.f-6.v2,
+                f-7: Tokens.all-cats.c-4.f-7.v2,
+                f-8: Tokens.all-cats.c-4.f-8.v2,
+                f-9: Tokens.all-cats.c-4.f-9.v2,
+                f-10: Tokens.all-cats.c-4.f-10.v2,
+                f-11: Tokens.all-cats.c-4.f-11.v2,
+            },
+            c-5: {
+                f-0: Tokens.all-cats.c-5.f-0.v2,
+                f-1: Tokens.all-cats.c-5.f-1.v2,
+                f-2: Tokens.all-cats.c-5.f-2.v2,
+                f-3: Tokens.all-cats.c-5.f-3.v2,
+                f-4: Tokens.all-cats.c-5.f-4.v2,
+                f-5: Tokens.all-cats.c-5.f-5.v2,
+                f-6: Tokens.all-cats.c-5.f-6.v2,
+                f-7: Tokens.all-cats.c-5.f-7.v2,
+                f-8: Tokens.all-cats.c-5.f-8.v2,
+                f-9: Tokens.all-cats.c-5.f-9.v2,
+                f-10: Tokens.all-cats.c-5.f-10.v2,
+                f-11: Tokens.all-cats.c-5.f-11.v2,
+            },
+            c-6: {
+                f-0: Tokens.all-cats.c-6.f-0.v2,
+                f-1: Tokens.all-cats.c-6.f-1.v2,
+                f-2: Tokens.all-cats.c-6.f-2.v2,
+                f-3: Tokens.all-cats.c-6.f-3.v2,
+                f-4: Tokens.all-cats.c-6.f-4.v2,
+                f-5: Tokens.all-cats.c-6.f-5.v2,
+                f-6: Tokens.all-cats.c-6.f-6.v2,
+                f-7: Tokens.all-cats.c-6.f-7.v2,
+                f-8: Tokens.all-cats.c-6.f-8.v2,
+                f-9: Tokens.all-cats.c-6.f-9.v2,
+                f-10: Tokens.all-cats.c-6.f-10.v2,
+                f-11: Tokens.all-cats.c-6.f-11.v2,
+            },
+            c-7: {
+                f-0: Tokens.all-cats.c-7.f-0.v2,
+                f-1: Tokens.all-cats.c-7.f-1.v2,
+                f-2: Tokens.all-cats.c-7.f-2.v2,
+                f-3: Tokens.all-cats.c-7.f-3.v2,
+                f-4: Tokens.all-cats.c-7.f-4.v2,
+                f-5: Tokens.all-cats.c-7.f-5.v2,
+                f-6: Tokens.all-cats.c-7.f-6.v2,
+                f-7: Tokens.all-cats.c-7.f-7.v2,
+                f-8: Tokens.all-cats.c-7.f-8.v2,
+                f-9: Tokens.all-cats.c-7.f-9.v2,
+                f-10: Tokens.all-cats.c-7.f-10.v2,
+                f-11: Tokens.all-cats.c-7.f-11.v2,
+            },
+            c-8: {
+                f-0: Tokens.all-cats.c-8.f-0.v2,
+                f-1: Tokens.all-cats.c-8.f-1.v2,
+                f-2: Tokens.all-cats.c-8.f-2.v2,
+                f-3: Tokens.all-cats.c-8.f-3.v2,
+                f-4: Tokens.all-cats.c-8.f-4.v2,
+                f-5: Tokens.all-cats.c-8.f-5.v2,
+                f-6: Tokens.all-cats.c-8.f-6.v2,
+                f-7: Tokens.all-cats.c-8.f-7.v2,
+                f-8: Tokens.all-cats.c-8.f-8.v2,
+                f-9: Tokens.all-cats.c-8.f-9.v2,
+                f-10: Tokens.all-cats.c-8.f-10.v2,
+                f-11: Tokens.all-cats.c-8.f-11.v2,
+            },
+            c-9: {
+                f-0: Tokens.all-cats.c-9.f-0.v2,
+                f-1: Tokens.all-cats.c-9.f-1.v2,
+                f-2: Tokens.all-cats.c-9.f-2.v2,
+                f-3: Tokens.all-cats.c-9.f-3.v2,
+                f-4: Tokens.all-cats.c-9.f-4.v2,
+                f-5: Tokens.all-cats.c-9.f-5.v2,
+                f-6: Tokens.all-cats.c-9.f-6.v2,
+                f-7: Tokens.all-cats.c-9.f-7.v2,
+                f-8: Tokens.all-cats.c-9.f-8.v2,
+                f-9: Tokens.all-cats.c-9.f-9.v2,
+                f-10: Tokens.all-cats.c-9.f-10.v2,
+                f-11: Tokens.all-cats.c-9.f-11.v2,
+            },
+            c-10: {
+                f-0: Tokens.all-cats.c-10.f-0.v2,
+                f-1: Tokens.all-cats.c-10.f-1.v2,
+                f-2: Tokens.all-cats.c-10.f-2.v2,
+                f-3: Tokens.all-cats.c-10.f-3.v2,
+                f-4: Tokens.all-cats.c-10.f-4.v2,
+                f-5: Tokens.all-cats.c-10.f-5.v2,
+                f-6: Tokens.all-cats.c-10.f-6.v2,
+                f-7: Tokens.all-cats.c-10.f-7.v2,
+                f-8: Tokens.all-cats.c-10.f-8.v2,
+                f-9: Tokens.all-cats.c-10.f-9.v2,
+                f-10: Tokens.all-cats.c-10.f-10.v2,
+                f-11: Tokens.all-cats.c-10.f-11.v2,
+            },
+            c-11: {
+                f-0: Tokens.all-cats.c-11.f-0.v2,
+                f-1: Tokens.all-cats.c-11.f-1.v2,
+                f-2: Tokens.all-cats.c-11.f-2.v2,
+                f-3: Tokens.all-cats.c-11.f-3.v2,
+                f-4: Tokens.all-cats.c-11.f-4.v2,
+                f-5: Tokens.all-cats.c-11.f-5.v2,
+                f-6: Tokens.all-cats.c-11.f-6.v2,
+                f-7: Tokens.all-cats.c-11.f-7.v2,
+                f-8: Tokens.all-cats.c-11.f-8.v2,
+                f-9: Tokens.all-cats.c-11.f-9.v2,
+                f-10: Tokens.all-cats.c-11.f-10.v2,
+                f-11: Tokens.all-cats.c-11.f-11.v2,
+            },
+            c-12: {
+                f-0: Tokens.all-cats.c-12.f-0.v2,
+                f-1: Tokens.all-cats.c-12.f-1.v2,
+                f-2: Tokens.all-cats.c-12.f-2.v2,
+                f-3: Tokens.all-cats.c-12.f-3.v2,
+                f-4: Tokens.all-cats.c-12.f-4.v2,
+                f-5: Tokens.all-cats.c-12.f-5.v2,
+                f-6: Tokens.all-cats.c-12.f-6.v2,
+                f-7: Tokens.all-cats.c-12.f-7.v2,
+                f-8: Tokens.all-cats.c-12.f-8.v2,
+                f-9: Tokens.all-cats.c-12.f-9.v2,
+                f-10: Tokens.all-cats.c-12.f-10.v2,
+                f-11: Tokens.all-cats.c-12.f-11.v2,
+            },
+            c-13: {
+                f-0: Tokens.all-cats.c-13.f-0.v2,
+                f-1: Tokens.all-cats.c-13.f-1.v2,
+                f-2: Tokens.all-cats.c-13.f-2.v2,
+                f-3: Tokens.all-cats.c-13.f-3.v2,
+                f-4: Tokens.all-cats.c-13.f-4.v2,
+                f-5: Tokens.all-cats.c-13.f-5.v2,
+                f-6: Tokens.all-cats.c-13.f-6.v2,
+                f-7: Tokens.all-cats.c-13.f-7.v2,
+                f-8: Tokens.all-cats.c-13.f-8.v2,
+                f-9: Tokens.all-cats.c-13.f-9.v2,
+                f-10: Tokens.all-cats.c-13.f-10.v2,
+                f-11: Tokens.all-cats.c-13.f-11.v2,
+            },
+            c-14: {
+                f-0: Tokens.all-cats.c-14.f-0.v2,
+                f-1: Tokens.all-cats.c-14.f-1.v2,
+                f-2: Tokens.all-cats.c-14.f-2.v2,
+                f-3: Tokens.all-cats.c-14.f-3.v2,
+                f-4: Tokens.all-cats.c-14.f-4.v2,
+                f-5: Tokens.all-cats.c-14.f-5.v2,
+                f-6: Tokens.all-cats.c-14.f-6.v2,
+                f-7: Tokens.all-cats.c-14.f-7.v2,
+                f-8: Tokens.all-cats.c-14.f-8.v2,
+                f-9: Tokens.all-cats.c-14.f-9.v2,
+                f-10: Tokens.all-cats.c-14.f-10.v2,
+                f-11: Tokens.all-cats.c-14.f-11.v2,
+            },
+            c-15: {
+                f-0: Tokens.all-cats.c-15.f-0.v2,
+                f-1: Tokens.all-cats.c-15.f-1.v2,
+                f-2: Tokens.all-cats.c-15.f-2.v2,
+                f-3: Tokens.all-cats.c-15.f-3.v2,
+                f-4: Tokens.all-cats.c-15.f-4.v2,
+                f-5: Tokens.all-cats.c-15.f-5.v2,
+                f-6: Tokens.all-cats.c-15.f-6.v2,
+                f-7: Tokens.all-cats.c-15.f-7.v2,
+                f-8: Tokens.all-cats.c-15.f-8.v2,
+                f-9: Tokens.all-cats.c-15.f-9.v2,
+                f-10: Tokens.all-cats.c-15.f-10.v2,
+                f-11: Tokens.all-cats.c-15.f-11.v2,
+            },
+            c-16: {
+                f-0: Tokens.all-cats.c-16.f-0.v2,
+                f-1: Tokens.all-cats.c-16.f-1.v2,
+                f-2: Tokens.all-cats.c-16.f-2.v2,
+                f-3: Tokens.all-cats.c-16.f-3.v2,
+                f-4: Tokens.all-cats.c-16.f-4.v2,
+                f-5: Tokens.all-cats.c-16.f-5.v2,
+                f-6: Tokens.all-cats.c-16.f-6.v2,
+                f-7: Tokens.all-cats.c-16.f-7.v2,
+                f-8: Tokens.all-cats.c-16.f-8.v2,
+                f-9: Tokens.all-cats.c-16.f-9.v2,
+                f-10: Tokens.all-cats.c-16.f-10.v2,
+                f-11: Tokens.all-cats.c-16.f-11.v2,
+            },
+            c-17: {
+                f-0: Tokens.all-cats.c-17.f-0.v2,
+                f-1: Tokens.all-cats.c-17.f-1.v2,
+                f-2: Tokens.all-cats.c-17.f-2.v2,
+                f-3: Tokens.all-cats.c-17.f-3.v2,
+                f-4: Tokens.all-cats.c-17.f-4.v2,
+                f-5: Tokens.all-cats.c-17.f-5.v2,
+                f-6: Tokens.all-cats.c-17.f-6.v2,
+                f-7: Tokens.all-cats.c-17.f-7.v2,
+                f-8: Tokens.all-cats.c-17.f-8.v2,
+                f-9: Tokens.all-cats.c-17.f-9.v2,
+                f-10: Tokens.all-cats.c-17.f-10.v2,
+                f-11: Tokens.all-cats.c-17.f-11.v2,
+            },
+            c-18: {
+                f-0: Tokens.all-cats.c-18.f-0.v2,
+                f-1: Tokens.all-cats.c-18.f-1.v2,
+                f-2: Tokens.all-cats.c-18.f-2.v2,
+                f-3: Tokens.all-cats.c-18.f-3.v2,
+                f-4: Tokens.all-cats.c-18.f-4.v2,
+                f-5: Tokens.all-cats.c-18.f-5.v2,
+                f-6: Tokens.all-cats.c-18.f-6.v2,
+                f-7: Tokens.all-cats.c-18.f-7.v2,
+                f-8: Tokens.all-cats.c-18.f-8.v2,
+                f-9: Tokens.all-cats.c-18.f-9.v2,
+                f-10: Tokens.all-cats.c-18.f-10.v2,
+                f-11: Tokens.all-cats.c-18.f-11.v2,
+            },
+            c-19: {
+                f-0: Tokens.all-cats.c-19.f-0.v2,
+                f-1: Tokens.all-cats.c-19.f-1.v2,
+                f-2: Tokens.all-cats.c-19.f-2.v2,
+                f-3: Tokens.all-cats.c-19.f-3.v2,
+                f-4: Tokens.all-cats.c-19.f-4.v2,
+                f-5: Tokens.all-cats.c-19.f-5.v2,
+                f-6: Tokens.all-cats.c-19.f-6.v2,
+                f-7: Tokens.all-cats.c-19.f-7.v2,
+                f-8: Tokens.all-cats.c-19.f-8.v2,
+                f-9: Tokens.all-cats.c-19.f-9.v2,
+                f-10: Tokens.all-cats.c-19.f-10.v2,
+                f-11: Tokens.all-cats.c-19.f-11.v2,
+            },
+            c-20: {
+                f-0: Tokens.all-cats.c-20.f-0.v2,
+                f-1: Tokens.all-cats.c-20.f-1.v2,
+                f-2: Tokens.all-cats.c-20.f-2.v2,
+                f-3: Tokens.all-cats.c-20.f-3.v2,
+                f-4: Tokens.all-cats.c-20.f-4.v2,
+                f-5: Tokens.all-cats.c-20.f-5.v2,
+                f-6: Tokens.all-cats.c-20.f-6.v2,
+                f-7: Tokens.all-cats.c-20.f-7.v2,
+                f-8: Tokens.all-cats.c-20.f-8.v2,
+                f-9: Tokens.all-cats.c-20.f-9.v2,
+                f-10: Tokens.all-cats.c-20.f-10.v2,
+                f-11: Tokens.all-cats.c-20.f-11.v2,
+            },
+            c-21: {
+                f-0: Tokens.all-cats.c-21.f-0.v2,
+                f-1: Tokens.all-cats.c-21.f-1.v2,
+                f-2: Tokens.all-cats.c-21.f-2.v2,
+                f-3: Tokens.all-cats.c-21.f-3.v2,
+                f-4: Tokens.all-cats.c-21.f-4.v2,
+                f-5: Tokens.all-cats.c-21.f-5.v2,
+                f-6: Tokens.all-cats.c-21.f-6.v2,
+                f-7: Tokens.all-cats.c-21.f-7.v2,
+                f-8: Tokens.all-cats.c-21.f-8.v2,
+                f-9: Tokens.all-cats.c-21.f-9.v2,
+                f-10: Tokens.all-cats.c-21.f-10.v2,
+                f-11: Tokens.all-cats.c-21.f-11.v2,
+            },
+            c-22: {
+                f-0: Tokens.all-cats.c-22.f-0.v2,
+                f-1: Tokens.all-cats.c-22.f-1.v2,
+                f-2: Tokens.all-cats.c-22.f-2.v2,
+                f-3: Tokens.all-cats.c-22.f-3.v2,
+                f-4: Tokens.all-cats.c-22.f-4.v2,
+                f-5: Tokens.all-cats.c-22.f-5.v2,
+                f-6: Tokens.all-cats.c-22.f-6.v2,
+                f-7: Tokens.all-cats.c-22.f-7.v2,
+                f-8: Tokens.all-cats.c-22.f-8.v2,
+                f-9: Tokens.all-cats.c-22.f-9.v2,
+                f-10: Tokens.all-cats.c-22.f-10.v2,
+                f-11: Tokens.all-cats.c-22.f-11.v2,
+            },
+            c-23: {
+                f-0: Tokens.all-cats.c-23.f-0.v2,
+                f-1: Tokens.all-cats.c-23.f-1.v2,
+                f-2: Tokens.all-cats.c-23.f-2.v2,
+                f-3: Tokens.all-cats.c-23.f-3.v2,
+                f-4: Tokens.all-cats.c-23.f-4.v2,
+                f-5: Tokens.all-cats.c-23.f-5.v2,
+                f-6: Tokens.all-cats.c-23.f-6.v2,
+                f-7: Tokens.all-cats.c-23.f-7.v2,
+                f-8: Tokens.all-cats.c-23.f-8.v2,
+                f-9: Tokens.all-cats.c-23.f-9.v2,
+                f-10: Tokens.all-cats.c-23.f-10.v2,
+                f-11: Tokens.all-cats.c-23.f-11.v2,
+            },
+            c-24: {
+                f-0: Tokens.all-cats.c-24.f-0.v2,
+                f-1: Tokens.all-cats.c-24.f-1.v2,
+                f-2: Tokens.all-cats.c-24.f-2.v2,
+                f-3: Tokens.all-cats.c-24.f-3.v2,
+                f-4: Tokens.all-cats.c-24.f-4.v2,
+                f-5: Tokens.all-cats.c-24.f-5.v2,
+                f-6: Tokens.all-cats.c-24.f-6.v2,
+                f-7: Tokens.all-cats.c-24.f-7.v2,
+                f-8: Tokens.all-cats.c-24.f-8.v2,
+                f-9: Tokens.all-cats.c-24.f-9.v2,
+                f-10: Tokens.all-cats.c-24.f-10.v2,
+                f-11: Tokens.all-cats.c-24.f-11.v2,
+            },
+            c-25: {
+                f-0: Tokens.all-cats.c-25.f-0.v2,
+                f-1: Tokens.all-cats.c-25.f-1.v2,
+                f-2: Tokens.all-cats.c-25.f-2.v2,
+                f-3: Tokens.all-cats.c-25.f-3.v2,
+                f-4: Tokens.all-cats.c-25.f-4.v2,
+                f-5: Tokens.all-cats.c-25.f-5.v2,
+                f-6: Tokens.all-cats.c-25.f-6.v2,
+                f-7: Tokens.all-cats.c-25.f-7.v2,
+                f-8: Tokens.all-cats.c-25.f-8.v2,
+                f-9: Tokens.all-cats.c-25.f-9.v2,
+                f-10: Tokens.all-cats.c-25.f-10.v2,
+                f-11: Tokens.all-cats.c-25.f-11.v2,
+            },
+            c-26: {
+                f-0: Tokens.all-cats.c-26.f-0.v2,
+                f-1: Tokens.all-cats.c-26.f-1.v2,
+                f-2: Tokens.all-cats.c-26.f-2.v2,
+                f-3: Tokens.all-cats.c-26.f-3.v2,
+                f-4: Tokens.all-cats.c-26.f-4.v2,
+                f-5: Tokens.all-cats.c-26.f-5.v2,
+                f-6: Tokens.all-cats.c-26.f-6.v2,
+                f-7: Tokens.all-cats.c-26.f-7.v2,
+                f-8: Tokens.all-cats.c-26.f-8.v2,
+                f-9: Tokens.all-cats.c-26.f-9.v2,
+                f-10: Tokens.all-cats.c-26.f-10.v2,
+                f-11: Tokens.all-cats.c-26.f-11.v2,
+            },
+            c-27: {
+                f-0: Tokens.all-cats.c-27.f-0.v2,
+                f-1: Tokens.all-cats.c-27.f-1.v2,
+                f-2: Tokens.all-cats.c-27.f-2.v2,
+                f-3: Tokens.all-cats.c-27.f-3.v2,
+                f-4: Tokens.all-cats.c-27.f-4.v2,
+                f-5: Tokens.all-cats.c-27.f-5.v2,
+                f-6: Tokens.all-cats.c-27.f-6.v2,
+                f-7: Tokens.all-cats.c-27.f-7.v2,
+                f-8: Tokens.all-cats.c-27.f-8.v2,
+                f-9: Tokens.all-cats.c-27.f-9.v2,
+                f-10: Tokens.all-cats.c-27.f-10.v2,
+                f-11: Tokens.all-cats.c-27.f-11.v2,
+            },
+            c-28: {
+                f-0: Tokens.all-cats.c-28.f-0.v2,
+                f-1: Tokens.all-cats.c-28.f-1.v2,
+                f-2: Tokens.all-cats.c-28.f-2.v2,
+                f-3: Tokens.all-cats.c-28.f-3.v2,
+                f-4: Tokens.all-cats.c-28.f-4.v2,
+                f-5: Tokens.all-cats.c-28.f-5.v2,
+                f-6: Tokens.all-cats.c-28.f-6.v2,
+                f-7: Tokens.all-cats.c-28.f-7.v2,
+                f-8: Tokens.all-cats.c-28.f-8.v2,
+                f-9: Tokens.all-cats.c-28.f-9.v2,
+                f-10: Tokens.all-cats.c-28.f-10.v2,
+                f-11: Tokens.all-cats.c-28.f-11.v2,
+            },
+            c-29: {
+                f-0: Tokens.all-cats.c-29.f-0.v2,
+                f-1: Tokens.all-cats.c-29.f-1.v2,
+                f-2: Tokens.all-cats.c-29.f-2.v2,
+                f-3: Tokens.all-cats.c-29.f-3.v2,
+                f-4: Tokens.all-cats.c-29.f-4.v2,
+                f-5: Tokens.all-cats.c-29.f-5.v2,
+                f-6: Tokens.all-cats.c-29.f-6.v2,
+                f-7: Tokens.all-cats.c-29.f-7.v2,
+                f-8: Tokens.all-cats.c-29.f-8.v2,
+                f-9: Tokens.all-cats.c-29.f-9.v2,
+                f-10: Tokens.all-cats.c-29.f-10.v2,
+                f-11: Tokens.all-cats.c-29.f-11.v2,
+            },
+        }, bg: #666666 },
+    };
+
+    in-out property <TokenMode> current-mode: m0;
+    out property <Scheme> current: current-mode == TokenMode.m0 ? mode.m0 : current-mode == TokenMode.m1 ? mode.m1 : mode.m2;
+}
+
+component W0 inherits Rectangle {
+    Rectangle { background: Tokens.current.cats.c-0.f-0; }
+    Rectangle { background: Tokens.current.cats.c-1.f-1; }
+    Rectangle { background: Tokens.current.cats.c-2.f-2; }
+    Rectangle { background: Tokens.current.cats.c-3.f-3; }
+    Rectangle { background: Tokens.current.cats.c-4.f-4; }
+    Rectangle { background: Tokens.current.cats.c-5.f-5; }
+    Rectangle { background: Tokens.current.cats.c-6.f-6; }
+    Rectangle { background: Tokens.current.cats.c-7.f-7; }
+    Rectangle { background: Tokens.current.cats.c-8.f-8; }
+    Rectangle { background: Tokens.current.cats.c-9.f-9; }
+    Rectangle { background: Tokens.current.cats.c-10.f-10; }
+    Rectangle { background: Tokens.current.cats.c-11.f-11; }
+    Rectangle { background: Tokens.current.cats.c-12.f-0; }
+    Rectangle { background: Tokens.current.cats.c-13.f-1; }
+    Rectangle { background: Tokens.current.cats.c-14.f-2; }
+    Rectangle { background: Tokens.current.cats.c-15.f-3; }
+    Rectangle { background: Tokens.current.cats.c-16.f-4; }
+    Rectangle { background: Tokens.current.cats.c-17.f-5; }
+    Rectangle { background: Tokens.current.cats.c-18.f-6; }
+    Rectangle { background: Tokens.current.cats.c-19.f-7; }
+    Rectangle { background: Tokens.current.cats.c-20.f-8; }
+    Rectangle { background: Tokens.current.cats.c-21.f-9; }
+    Rectangle { background: Tokens.current.cats.c-22.f-10; }
+    Rectangle { background: Tokens.current.cats.c-23.f-11; }
+    Rectangle { background: Tokens.current.cats.c-24.f-0; }
+}
+
+component W1 inherits Rectangle {
+    Rectangle { background: Tokens.current.cats.c-7.f-3; }
+    Rectangle { background: Tokens.current.cats.c-8.f-4; }
+    Rectangle { background: Tokens.current.cats.c-9.f-5; }
+    Rectangle { background: Tokens.current.cats.c-10.f-6; }
+    Rectangle { background: Tokens.current.cats.c-11.f-7; }
+    Rectangle { background: Tokens.current.cats.c-12.f-8; }
+    Rectangle { background: Tokens.current.cats.c-13.f-9; }
+    Rectangle { background: Tokens.current.cats.c-14.f-10; }
+    Rectangle { background: Tokens.current.cats.c-15.f-11; }
+    Rectangle { background: Tokens.current.cats.c-16.f-0; }
+    Rectangle { background: Tokens.current.cats.c-17.f-1; }
+    Rectangle { background: Tokens.current.cats.c-18.f-2; }
+    Rectangle { background: Tokens.current.cats.c-19.f-3; }
+    Rectangle { background: Tokens.current.cats.c-20.f-4; }
+    Rectangle { background: Tokens.current.cats.c-21.f-5; }
+    Rectangle { background: Tokens.current.cats.c-22.f-6; }
+    Rectangle { background: Tokens.current.cats.c-23.f-7; }
+    Rectangle { background: Tokens.current.cats.c-24.f-8; }
+    Rectangle { background: Tokens.current.cats.c-25.f-9; }
+    Rectangle { background: Tokens.current.cats.c-26.f-10; }
+    Rectangle { background: Tokens.current.cats.c-27.f-11; }
+    Rectangle { background: Tokens.current.cats.c-28.f-0; }
+    Rectangle { background: Tokens.current.cats.c-29.f-1; }
+    Rectangle { background: Tokens.current.cats.c-0.f-2; }
+    Rectangle { background: Tokens.current.cats.c-1.f-3; }
+}
+
+component W2 inherits Rectangle {
+    Rectangle { background: Tokens.current.cats.c-14.f-6; }
+    Rectangle { background: Tokens.current.cats.c-15.f-7; }
+    Rectangle { background: Tokens.current.cats.c-16.f-8; }
+    Rectangle { background: Tokens.current.cats.c-17.f-9; }
+    Rectangle { background: Tokens.current.cats.c-18.f-10; }
+    Rectangle { background: Tokens.current.cats.c-19.f-11; }
+    Rectangle { background: Tokens.current.cats.c-20.f-0; }
+    Rectangle { background: Tokens.current.cats.c-21.f-1; }
+    Rectangle { background: Tokens.current.cats.c-22.f-2; }
+    Rectangle { background: Tokens.current.cats.c-23.f-3; }
+    Rectangle { background: Tokens.current.cats.c-24.f-4; }
+    Rectangle { background: Tokens.current.cats.c-25.f-5; }
+    Rectangle { background: Tokens.current.cats.c-26.f-6; }
+    Rectangle { background: Tokens.current.cats.c-27.f-7; }
+    Rectangle { background: Tokens.current.cats.c-28.f-8; }
+    Rectangle { background: Tokens.current.cats.c-29.f-9; }
+    Rectangle { background: Tokens.current.cats.c-0.f-10; }
+    Rectangle { background: Tokens.current.cats.c-1.f-11; }
+    Rectangle { background: Tokens.current.cats.c-2.f-0; }
+    Rectangle { background: Tokens.current.cats.c-3.f-1; }
+    Rectangle { background: Tokens.current.cats.c-4.f-2; }
+    Rectangle { background: Tokens.current.cats.c-5.f-3; }
+    Rectangle { background: Tokens.current.cats.c-6.f-4; }
+    Rectangle { background: Tokens.current.cats.c-7.f-5; }
+    Rectangle { background: Tokens.current.cats.c-8.f-6; }
+}
+
+component W3 inherits Rectangle {
+    Rectangle { background: Tokens.current.cats.c-21.f-9; }
+    Rectangle { background: Tokens.current.cats.c-22.f-10; }
+    Rectangle { background: Tokens.current.cats.c-23.f-11; }
+    Rectangle { background: Tokens.current.cats.c-24.f-0; }
+    Rectangle { background: Tokens.current.cats.c-25.f-1; }
+    Rectangle { background: Tokens.current.cats.c-26.f-2; }
+    Rectangle { background: Tokens.current.cats.c-27.f-3; }
+    Rectangle { background: Tokens.current.cats.c-28.f-4; }
+    Rectangle { background: Tokens.current.cats.c-29.f-5; }
+    Rectangle { background: Tokens.current.cats.c-0.f-6; }
+    Rectangle { background: Tokens.current.cats.c-1.f-7; }
+    Rectangle { background: Tokens.current.cats.c-2.f-8; }
+    Rectangle { background: Tokens.current.cats.c-3.f-9; }
+    Rectangle { background: Tokens.current.cats.c-4.f-10; }
+    Rectangle { background: Tokens.current.cats.c-5.f-11; }
+    Rectangle { background: Tokens.current.cats.c-6.f-0; }
+    Rectangle { background: Tokens.current.cats.c-7.f-1; }
+    Rectangle { background: Tokens.current.cats.c-8.f-2; }
+    Rectangle { background: Tokens.current.cats.c-9.f-3; }
+    Rectangle { background: Tokens.current.cats.c-10.f-4; }
+    Rectangle { background: Tokens.current.cats.c-11.f-5; }
+    Rectangle { background: Tokens.current.cats.c-12.f-6; }
+    Rectangle { background: Tokens.current.cats.c-13.f-7; }
+    Rectangle { background: Tokens.current.cats.c-14.f-8; }
+    Rectangle { background: Tokens.current.cats.c-15.f-9; }
+}
+
+component W4 inherits Rectangle {
+    Rectangle { background: Tokens.current.cats.c-28.f-0; }
+    Rectangle { background: Tokens.current.cats.c-29.f-1; }
+    Rectangle { background: Tokens.current.cats.c-0.f-2; }
+    Rectangle { background: Tokens.current.cats.c-1.f-3; }
+    Rectangle { background: Tokens.current.cats.c-2.f-4; }
+    Rectangle { background: Tokens.current.cats.c-3.f-5; }
+    Rectangle { background: Tokens.current.cats.c-4.f-6; }
+    Rectangle { background: Tokens.current.cats.c-5.f-7; }
+    Rectangle { background: Tokens.current.cats.c-6.f-8; }
+    Rectangle { background: Tokens.current.cats.c-7.f-9; }
+    Rectangle { background: Tokens.current.cats.c-8.f-10; }
+    Rectangle { background: Tokens.current.cats.c-9.f-11; }
+    Rectangle { background: Tokens.current.cats.c-10.f-0; }
+    Rectangle { background: Tokens.current.cats.c-11.f-1; }
+    Rectangle { background: Tokens.current.cats.c-12.f-2; }
+    Rectangle { background: Tokens.current.cats.c-13.f-3; }
+    Rectangle { background: Tokens.current.cats.c-14.f-4; }
+    Rectangle { background: Tokens.current.cats.c-15.f-5; }
+    Rectangle { background: Tokens.current.cats.c-16.f-6; }
+    Rectangle { background: Tokens.current.cats.c-17.f-7; }
+    Rectangle { background: Tokens.current.cats.c-18.f-8; }
+    Rectangle { background: Tokens.current.cats.c-19.f-9; }
+    Rectangle { background: Tokens.current.cats.c-20.f-10; }
+    Rectangle { background: Tokens.current.cats.c-21.f-11; }
+    Rectangle { background: Tokens.current.cats.c-22.f-0; }
+}
+
+component W5 inherits Rectangle {
+    Rectangle { background: Tokens.current.cats.c-5.f-3; }
+    Rectangle { background: Tokens.current.cats.c-6.f-4; }
+    Rectangle { background: Tokens.current.cats.c-7.f-5; }
+    Rectangle { background: Tokens.current.cats.c-8.f-6; }
+    Rectangle { background: Tokens.current.cats.c-9.f-7; }
+    Rectangle { background: Tokens.current.cats.c-10.f-8; }
+    Rectangle { background: Tokens.current.cats.c-11.f-9; }
+    Rectangle { background: Tokens.current.cats.c-12.f-10; }
+    Rectangle { background: Tokens.current.cats.c-13.f-11; }
+    Rectangle { background: Tokens.current.cats.c-14.f-0; }
+    Rectangle { background: Tokens.current.cats.c-15.f-1; }
+    Rectangle { background: Tokens.current.cats.c-16.f-2; }
+    Rectangle { background: Tokens.current.cats.c-17.f-3; }
+    Rectangle { background: Tokens.current.cats.c-18.f-4; }
+    Rectangle { background: Tokens.current.cats.c-19.f-5; }
+    Rectangle { background: Tokens.current.cats.c-20.f-6; }
+    Rectangle { background: Tokens.current.cats.c-21.f-7; }
+    Rectangle { background: Tokens.current.cats.c-22.f-8; }
+    Rectangle { background: Tokens.current.cats.c-23.f-9; }
+    Rectangle { background: Tokens.current.cats.c-24.f-10; }
+    Rectangle { background: Tokens.current.cats.c-25.f-11; }
+    Rectangle { background: Tokens.current.cats.c-26.f-0; }
+    Rectangle { background: Tokens.current.cats.c-27.f-1; }
+    Rectangle { background: Tokens.current.cats.c-28.f-2; }
+    Rectangle { background: Tokens.current.cats.c-29.f-3; }
+}
+
+component W6 inherits Rectangle {
+    Rectangle { background: Tokens.current.cats.c-12.f-6; }
+    Rectangle { background: Tokens.current.cats.c-13.f-7; }
+    Rectangle { background: Tokens.current.cats.c-14.f-8; }
+    Rectangle { background: Tokens.current.cats.c-15.f-9; }
+    Rectangle { background: Tokens.current.cats.c-16.f-10; }
+    Rectangle { background: Tokens.current.cats.c-17.f-11; }
+    Rectangle { background: Tokens.current.cats.c-18.f-0; }
+    Rectangle { background: Tokens.current.cats.c-19.f-1; }
+    Rectangle { background: Tokens.current.cats.c-20.f-2; }
+    Rectangle { background: Tokens.current.cats.c-21.f-3; }
+    Rectangle { background: Tokens.current.cats.c-22.f-4; }
+    Rectangle { background: Tokens.current.cats.c-23.f-5; }
+    Rectangle { background: Tokens.current.cats.c-24.f-6; }
+    Rectangle { background: Tokens.current.cats.c-25.f-7; }
+    Rectangle { background: Tokens.current.cats.c-26.f-8; }
+    Rectangle { background: Tokens.current.cats.c-27.f-9; }
+    Rectangle { background: Tokens.current.cats.c-28.f-10; }
+    Rectangle { background: Tokens.current.cats.c-29.f-11; }
+    Rectangle { background: Tokens.current.cats.c-0.f-0; }
+    Rectangle { background: Tokens.current.cats.c-1.f-1; }
+    Rectangle { background: Tokens.current.cats.c-2.f-2; }
+    Rectangle { background: Tokens.current.cats.c-3.f-3; }
+    Rectangle { background: Tokens.current.cats.c-4.f-4; }
+    Rectangle { background: Tokens.current.cats.c-5.f-5; }
+    Rectangle { background: Tokens.current.cats.c-6.f-6; }
+}
+
+component W7 inherits Rectangle {
+    Rectangle { background: Tokens.current.cats.c-19.f-9; }
+    Rectangle { background: Tokens.current.cats.c-20.f-10; }
+    Rectangle { background: Tokens.current.cats.c-21.f-11; }
+    Rectangle { background: Tokens.current.cats.c-22.f-0; }
+    Rectangle { background: Tokens.current.cats.c-23.f-1; }
+    Rectangle { background: Tokens.current.cats.c-24.f-2; }
+    Rectangle { background: Tokens.current.cats.c-25.f-3; }
+    Rectangle { background: Tokens.current.cats.c-26.f-4; }
+    Rectangle { background: Tokens.current.cats.c-27.f-5; }
+    Rectangle { background: Tokens.current.cats.c-28.f-6; }
+    Rectangle { background: Tokens.current.cats.c-29.f-7; }
+    Rectangle { background: Tokens.current.cats.c-0.f-8; }
+    Rectangle { background: Tokens.current.cats.c-1.f-9; }
+    Rectangle { background: Tokens.current.cats.c-2.f-10; }
+    Rectangle { background: Tokens.current.cats.c-3.f-11; }
+    Rectangle { background: Tokens.current.cats.c-4.f-0; }
+    Rectangle { background: Tokens.current.cats.c-5.f-1; }
+    Rectangle { background: Tokens.current.cats.c-6.f-2; }
+    Rectangle { background: Tokens.current.cats.c-7.f-3; }
+    Rectangle { background: Tokens.current.cats.c-8.f-4; }
+    Rectangle { background: Tokens.current.cats.c-9.f-5; }
+    Rectangle { background: Tokens.current.cats.c-10.f-6; }
+    Rectangle { background: Tokens.current.cats.c-11.f-7; }
+    Rectangle { background: Tokens.current.cats.c-12.f-8; }
+    Rectangle { background: Tokens.current.cats.c-13.f-9; }
+}
+
+export component TestCase inherits Rectangle {
+    out property <bool> test: Tokens.current.cats.c-0.f-0 != #000000;
+    VerticalLayout {
+        for i in 5: W0 {}
+        for i in 5: W1 {}
+        for i in 5: W2 {}
+        for i in 5: W3 {}
+        for i in 5: W4 {}
+        for i in 5: W5 {}
+        for i in 5: W6 {}
+        for i in 5: W7 {}
+    }
+}

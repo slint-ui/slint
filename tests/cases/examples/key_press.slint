@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component W inherits Window {
+    VerticalLayout {
+        Rectangle { background: field.has_focus ? blue: red;  }
+        field := FocusScope {
+            vertical_stretch: 1;
+            key-pressed(event) => {
+                if (event.text == Key.F1) {
+                    debug("F1");
+                }
+                if (event.text == Key.PageUp) {
+                    debug("PageUp");
+                }
+                if (event.modifiers.control) {
+                    debug("   (control modifier pressed)");
+                }
+                if (event.modifiers.alt) {
+                    debug("   (alt modifier pressed)");
+                }
+                if (event.modifiers.shift) {
+                    debug("   (shift modifier pressed)");
+                }
+                if (event.modifiers.meta) {
+                    debug("   (meta modifier pressed)");
+                }
+                debug(event.text);
+                t.text += event.text;
+                accept
+            }
+            Rectangle { background: yellow; }
+        }
+        t:= Text {
+            text: "> ";
+        }
+    }
+}

@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MenuOverviewAdapter } from "menu_overview.slint";
+import { Settings, SettingsAdapter } from "settings.slint";
+import { Theme } from "../../theme.slint";
+
+export { MenuOverviewAdapter, SettingsAdapter }
+
+export global MenuPageAdapter {
+    in property <[StandardListViewItem]> model: [
+        { text: "Production & Self-consumption"},
+        { text: "Usage"},
+        { text: "Balance"},
+        { text: "Weather"},
+    ];
+    in-out property <int> selected-index;
+}
+
+export component MenuPage {
+    in-out property <int> current-index;
+
+    callback page-changed(/* index */ int);
+    callback close;
+
+    private property <bool> show-settings;
+
+    function back() {
+        current-index = 0;
+    }
+
+    Rectangle {
+        x: -parent.width * current-index;
+        width: 2 * parent.width;
+        clip: true;
+
+        animate x { duration: Theme.durations.fast; }
+
+        if(current-index == 0) : Settings {
+            close => {
+                root.close();
+            }
+
+            width: root.width;
+        }
+    }
+ }

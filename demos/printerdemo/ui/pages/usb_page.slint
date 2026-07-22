@@ -1,0 +1,94 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { PrinterQueue } from "./printer_queue.slint";
+import { Page } from "./page.slint";
+import { SpinBox } from "../components/spinbox.slint";
+import { DropDownMenu } from "../components/drop_down_menu.slint";
+import { IconTextButton } from "../components/icon_text_button.slint";
+import { TextButton } from "../components/text_button.slint";
+import { DemoPalette, Label } from "../common.slint";
+import { VerticalBox } from "std-widgets.slint";
+
+struct File  { name: string, preview: image }
+
+export component UsbPage inherits Page {
+    in property <[File]> files: [
+        { name: "cat.jpg", preview: @image-url("../images/cat.jpg") },
+        { name: "dog.jpg", preview: @image-url("../images/dog.jpg") },
+        { name: "elephant.jpg",preview: @image-url("../images/elephant.jpg") },
+        { name: "snake.jpg", preview: @image-url("../images/snake.jpg") },
+    ];
+
+    in property <[string]> file-names: ["cat.jpg", "dog.jpg", "elephant.jpg", "snake.jpg"];
+
+    header: @tr("USB");
+    subtitle: @tr("Choose Settings");
+
+    HorizontalLayout {
+
+        HorizontalLayout {
+            width: 50%;
+            padding: 20px;
+            Rectangle {
+                border-radius: 16px;
+                clip: true;
+                Image {
+                    height: 100%;
+                    width: 100%;
+                    source: root.files[image-selector.current-index].preview;
+                    image-fit: cover;
+                }
+            }
+        }
+
+        Rectangle {
+            width: 50%;
+
+            VerticalLayout {
+                padding: 20px;
+                spacing: 20px;
+                height: self.preferred-height;
+
+                image-selector := DropDownMenu {
+                    label: @tr("Select File:");
+                    items: root.file-names;
+                }
+
+                SpinBox {
+                    value: 1;
+                    minimum: 1;
+                    label: @tr("Copies");
+                }
+
+                VerticalLayout {
+                    Label {
+                        text: @tr("Color");
+                        color: DemoPalette.text-primary;
+                    }
+                    TextButton {
+                        property <bool> is-color: true;
+                        text: is-color ? @tr("Color") : @tr("Grayscale");
+                        background: is-color ? DemoPalette.color-button-gradient : DemoPalette.grayscale-button-gradient;
+                        height: 50px;
+
+                        clicked => {
+                            is-color = !is-color;
+                        }
+                    }
+                }
+
+                IconTextButton {
+                    icon: @image-url("../images/print.svg");
+                    text: @tr("Start printing");
+                    height: 60px;
+                    icon-color: white;
+                    text-color: white;
+                    clicked => {
+                        PrinterQueue.start-job(root.files[image-selector.current-index].name);
+                    }
+                }
+            }
+        }
+    }
+}

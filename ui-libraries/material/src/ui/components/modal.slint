@@ -1,0 +1,28 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
+
+export component Modal {
+    callback clicked <=> touch_area.clicked;
+
+    background_layer := Rectangle {
+        clip: true;
+
+        touch_area := TouchArea {
+            @children
+        }
+
+        animate background { duration: MaterialAnimations.opacity_duration; easing: MaterialAnimations.opacity_easing; }
+    }
+
+    Timer {
+        interval: 50ms;
+
+        triggered => {
+            background_layer.background = MaterialPalette.background_modal;
+            self.running = false;
+        }
+    }
+}

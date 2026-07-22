@@ -1,0 +1,59 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView } from "std-widgets.slint";
+
+component ShowResult inherits Rectangle {
+    width: 50%;
+    height: 100%;
+
+    VerticalLayout {
+        ListView {
+            for file[idx] in [1,2,3]:Rectangle {
+                height: 20px;
+                // width: parent.width;    // change to this line compiles fine
+                width: 100%;  // An error occurred!!!
+            }
+        }
+    }
+}
+export component TestCase inherits Window {
+    width: 300px;
+    height: 326px;
+
+    HorizontalLayout {
+        width: 100%;
+        height: 100%;
+
+        ShowResult {}
+    }
+
+
+    fli := Flickable {
+        viewport-height: 1000px;
+        viewport-width: 2000px;
+        rec := Rectangle {
+            width: 100%;
+            height: parent.height;
+        }
+    }
+
+    out property <bool> test:
+        rec.width == 300px &&
+        rec.height == 326px;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+*/

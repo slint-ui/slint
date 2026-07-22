@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {Button, AboutSlint} from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    property <int> count;
+
+    preferred-width: 600px;
+    preferred-height: 300px;
+
+    VerticalLayout {
+        AboutSlint { }
+
+        Button {
+            clicked => { count += 1; }
+            text: "Press me";
+        }
+
+        Text { text: count; }
+        Rectangle {  }
+    }
+}

@@ -1,0 +1,90 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Palette } from "std-widgets.slint";
+
+export global WebviewLogic {
+
+    callback loadUrl(url: string);
+    callback theme(scheme: ColorScheme);
+    callback key_event(event: KeyEvent, is_pressed: bool);
+    callback resize(width: physical-length, height: physical-length);
+    callback pointer(event: PointerEvent, x: physical-length, y: physical-length);
+    callback scroll(initial_x: physical-length, initial_y: physical-length, delta_x: length, delta_y: length);
+
+    callback back();
+    callback forward();
+    callback reload();
+
+    in property <image> web_content;
+    in-out property <string> current_url;
+
+    in-out property <length> viewport_width: 1224px;
+    in-out property <length> viewport_height: 768px;
+
+    out property <length> mouse_x;
+    out property <length> mouse_y;
+}
+
+export component Webview {
+
+    out property <string> current_url: WebviewLogic.current_url;
+
+    public function back() {
+        WebviewLogic.back();
+    }
+
+    public function forward() {
+        WebviewLogic.forward();
+    }
+
+    public function reload() {
+        WebviewLogic.reload();
+    }
+
+    public function loadUrl(url: string) {
+        WebviewLogic.loadUrl(url);
+    }
+
+    property <ColorScheme> scheme: Palette.color-scheme;
+    changed scheme => WebviewLogic.theme(scheme);
+
+    focus_scope := FocusScope {
+
+        key-pressed(event) => {
+            WebviewLogic.key_event(event, true);
+            accept
+        }
+        key-released(event) => {
+            WebviewLogic.key_event(event, false);
+            accept
+        }
+
+        TouchArea {
+
+            image := Image {
+                source: WebviewLogic.web_content;
+                width: 100%;
+                height: 100%;
+            }
+
+            changed width => {
+                WebviewLogic.viewport_width = self.width;
+                WebviewLogic.resize(self.width, self.height);
+            }
+            changed height => {
+                WebviewLogic.viewport_height = self.height;
+                WebviewLogic.resize(self.width, self.height);
+            }
+
+            clicked => focus_scope.focus();
+
+            pointer-event(event) => WebviewLogic.pointer(event, self.mouse-x, self.mouse-y);
+
+            scroll-event(event) => {
+                WebviewLogic.scroll(self.mouse-x, self.mouse-y, event.delta-x, event.delta-y);
+                return accept;
+            }
+        }
+    }
+}

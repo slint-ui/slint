@@ -1,0 +1,34 @@
+theme-switcher {
+    align-items: center;
+}
+.theme-selector-light,
+.theme-selector-dark {
+    user-select: none;
+    z-index: 999999;
+    position: relative;
+    cursor: pointer;
+}
+.theme-selector-light:hover,
+.theme-selector-dark:hover {
+    color: var(--sl-color-accent-high);
+}
+:root {
+    .theme-selector-light {
+        display: none;
+    }
+    .theme-selector-dark {
+        display: inline-block;
+    }
+}
+:root[data-theme="light"] {
+    .theme-selector-light {
+        display: inline-block;
+    }
+    .theme-selector-dark {
+        display: none;
+    }
+    .theme-selector-light:hover,
+    .theme-selector-dark:hover {
+        color: var(--sl-color-accent);
+    }
+}

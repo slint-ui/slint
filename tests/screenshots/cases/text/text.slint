@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Skia font rendering is not consistent across platforms
+//ignore:skia
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    VerticalLayout {
+        Text {
+            text: "Hello Everyone";
+            wrap: word-wrap;
+            color: green;
+            font-size: 10px;
+        }
+        Text {
+            // note: j has negative bearing
+            text: "jello";
+            color: #abcd;
+            opacity: 0.9;
+            font-size: 10px;
+            font-weight: FontWeight.bold;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: "Everyone";
+            font-size: 10px;
+            width: 100%;
+            horizontal-alignment: right;
+            font-italic: true;
+        }
+    }
+
+    // Issue #7936
+    Text {
+        text: "s";
+        font-size: 256px;
+        color: red;
+        opacity: 0.1;
+    }
+}

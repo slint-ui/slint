@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//
+// Verifies that pressing modifier keys mid-drag updates `event.proposed-action`
+// and therefore the target's chosen `current-action`, even without mouse motion.
+
+export global Api {
+    pure callback make-data() -> data-transfer;
+}
+
+export component TestCase inherits Window {
+    pure callback make-data <=> Api.make-data;
+
+    width: 100px;
+    height: 200px;
+    out property <DragAction> current-action <=> dropper.current-action;
+
+    VerticalLayout {
+        Rectangle {
+            background: red;
+            DragArea {
+                data: Api.make-data();
+                allow-copy: true;
+                allow-move: true;
+                allow-link: true;
+            }
+        }
+        Rectangle {
+            background: blue;
+            dropper := DropArea {
+                // Echo whatever the runtime proposed from modifier state.
+                can-drop(event) => event.proposed-action;
+                dropped(event) => event.proposed-action;
+            }
+        }
+    }
+}
+
+
+/*
+```rust
+use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
+use slint::private_unstable_api::re_exports::{DragAction, Key};
+
+let instance = TestCase::new().unwrap();
+instance.on_make_data(|| slint::SharedString::from("payload").into());
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(20.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(21.0, 40.0) });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(22.0, 120.0) });
+slint_testing::mock_elapsed_time(20);
+// No modifiers -> first allowed action (move).
+assert_eq!(instance.get_current_action(), DragAction::Move);
+
+// Ctrl pressed without any mouse motion → proposed-action becomes copy.
+instance.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Control.into() });
+assert_eq!(instance.get_current_action(), DragAction::Copy);
+
+// Adding Shift → Ctrl+Shift → link.
+instance.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Shift.into() });
+assert_eq!(instance.get_current_action(), DragAction::Link);
+
+// Release Ctrl → Shift alone → move.
+instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Control.into() });
+assert_eq!(instance.get_current_action(), DragAction::Move);
+
+// Release Shift -> back to the no-modifier default (move).
+instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Shift.into() });
+assert_eq!(instance.get_current_action(), DragAction::Move);
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(22.0, 120.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+// Drag is over: `current-action` resets to `None` (no drag is hovering anywhere).
+assert_eq!(instance.get_current_action(), DragAction::None);
+
+```
+
+*/

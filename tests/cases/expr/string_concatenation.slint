@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+ TestCase := Rectangle {
+    property<int> a:12;
+    property<string> s1: "hello" + a + a;
+    property<string> s2: 10 + "hello" + 5.1;
+    property<string> s3: "x";
+    property<{ a: string }> obj: { a: "a" };
+    property<string> s4: obj.a + "xxx";
+    callback foo;
+    foo => {
+        s3 += a;
+        s3 += s3;
+        obj.a += "yo";
+    }
+
+    property <bool> test: (s1 + s1 + obj.a + obj.a) == "hello1212hello1212aa";
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_s1(), slint::SharedString("hello1212"));
+assert_eq(instance.get_s2(), slint::SharedString("10hello5.1"));
+instance.set_a(42);
+assert_eq(instance.get_s1(), slint::SharedString("hello4242"));
+instance.invoke_foo();
+assert_eq(instance.get_s3(), slint::SharedString("x42x42"));
+assert_eq(instance.get_s4(), slint::SharedString("ayoxxx"));
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_s1(), slint::SharedString::from("hello1212"));
+assert_eq!(instance.get_s2(), slint::SharedString::from("10hello5.1"));
+instance.set_a(42);
+assert_eq!(instance.get_s1(), slint::SharedString::from("hello4242"));
+instance.invoke_foo();
+assert_eq!(instance.get_s3(), slint::SharedString::from("x42x42"));
+assert_eq!(instance.get_s4(), slint::SharedString::from("ayoxxx"));
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.s1, "hello1212");
+assert.equal(instance.s2, "10hello5.1");
+instance.a = 42;
+assert.equal(instance.s1, "hello4242");
+instance.foo();
+assert.equal(instance.s3, "x42x42");
+assert.equal(instance.s4, "ayoxxx");
+```
+*/

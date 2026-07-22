@@ -1,0 +1,160 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cSpell: ignore adwaita arboard webbrowser zbus
+[package]
+name = "i-slint-backend-winit"
+description = "Winit backend for Slint"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+build = "build.rs"
+
+[lib]
+path = "lib.rs"
+
+# Note, these features need to be kept in sync (along with their defaults) in
+# the C++ crate's CMakeLists.txt
+[features]
+wayland = [
+  "winit/wayland",
+  "winit/wayland-csd-adwaita",
+  "glutin?/wayland",
+  "glutin-winit?/wayland",
+  "dep:arboard",
+  "arboard/wayland-data-control",
+  "i-slint-renderer-skia?/wayland",
+  "softbuffer?/wayland",
+  "softbuffer?/wayland-dlopen",
+]
+x11 = [
+  "winit/x11",
+  "glutin?/x11",
+  "glutin?/glx",
+  "glutin-winit?/x11",
+  "glutin-winit?/glx",
+  "dep:arboard",
+  "i-slint-renderer-skia?/x11",
+  "softbuffer?/x11",
+  "softbuffer?/x11-dlopen",
+]
+renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "dep:glutin", "dep:glutin-winit"]
+renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-30"]
+renderer-skia = ["i-slint-renderer-skia"]
+renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
+renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
+renderer-software = [
+  "dep:softbuffer",
+  "dep:imgref",
+  "dep:rgb",
+  "dep:i-slint-renderer-software",
+  "i-slint-renderer-software/std",
+  "dep:bytemuck",
+]
+accessibility = ["dep:accesskit", "dep:accesskit_winit"]
+raw-window-handle-06 = ["i-slint-core/raw-window-handle-06"]
+unstable-wgpu-29 = ["i-slint-core/unstable-wgpu-29", "i-slint-renderer-skia?/unstable-wgpu-29"]
+unstable-wgpu-30 = [
+  "i-slint-core/unstable-wgpu-30",
+  "i-slint-renderer-femtovg?/unstable-wgpu-30",
+  "i-slint-renderer-skia?/unstable-wgpu-30",
+]
+default = []
+
+[dependencies]
+i-slint-core = { workspace = true, features = ["default"] }
+i-slint-core-macros = { workspace = true, features = ["default"] }
+i-slint-common = { workspace = true, features = ["default"] }
+
+cfg-if = "1"
+derive_more = { workspace = true }
+lyon_path = { workspace = true }
+pin-weak = "1"
+scoped-tls-hkt = "0.1"
+strum = { workspace = true }
+winit = { version = "0.30.2", default-features = false, features = ["rwh_06"] }
+raw-window-handle = { version = "0.6", features = ["alloc"] }
+scopeguard = { version = "1.1.0", default-features = false }
+
+# For the FemtoVG renderer
+i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional = true }
+
+# For the Skia renderer
+i-slint-renderer-skia = { workspace = true, features = ["default"], optional = true }
+
+# For the software renderer
+i-slint-renderer-software = { workspace = true, optional = true }
+softbuffer = { workspace = true, optional = true, default-features = false }
+imgref = { version = "1.6.1", optional = true }
+rgb = { version = "0.8.27", optional = true }
+bytemuck = { workspace = true, optional = true, features = ["derive"] }
+webbrowser = "1.2.0"
+
+[target.'cfg(any(target_os = "macos", target_family = "windows"))'.dependencies]
+muda = { version = "0.19.0", optional = true, default-features = false }
+vtable = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { workspace = true, features = ["HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "Event", "KeyboardEvent", "InputEvent", "CompositionEvent", "DomStringMap", "ClipboardEvent", "DataTransfer", "WebGlContextEvent"] }
+wasm-bindgen = { version = "0.2" }
+
+[target.'cfg(all(not(target_arch = "wasm32"), not(all(target_vendor = "apple", not(target_os = "macos")))))'.dependencies]
+glutin = { workspace = true, optional = true, default-features = false, features = ["egl", "wgl"] }
+glutin-winit = { version = "0.5", optional = true, default-features = false, features = ["egl", "wgl"] }
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+accesskit = { version = "0.24", optional = true }
+accesskit_winit = { version = "0.33", optional = true, default-features = false, features = ["accesskit_unix", "async-io", "rwh_06"] }
+# The browser decodes images on the web; decode with the image and resvg crates elsewhere.
+i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
+
+[target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")))'.dependencies]
+# Use same version and executor as accesskit
+zbus = { version = "5.14.0", default-features = false, features = ["async-io"] }
+futures = { version = "0.3.31" }
+# Clipboard, activated by the x11/wayland features. X11 support is built-in;
+# Wayland support (data-control protocol) comes with "arboard/wayland-data-control".
+arboard = { version = "3.6", default-features = false, optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# To disable macOS automatic shortcut translation
+objc2 = { workspace = true }
+# For GL rendering
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSColor", "NSView", "NSResponder", "objc2-core-foundation", "objc2-quartz-core"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSOperation", "NSRunLoop", "NSObjCRuntime", "NSUserDefaults"] }
+objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["CADisplayLink"] }
+block2 = "0.6.2"
+arboard = { version = "3.6", default-features = false }
+
+[target.'cfg(all(target_vendor = "apple", not(target_os = "macos")))'.dependencies]
+# Enable Skia by default on Apple platforms with iOS, etc. (but not macOS). See also enable_skia_renderer in build.rs
+i-slint-renderer-skia = { workspace = true, features = ["default"] }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+objc2 = { workspace = true }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSOperation", "NSGeometry", "NSRunLoop", "objc2-core-foundation"] }
+objc2-ui-kit = { version = "0.3.2", default-features = false, features = ["UIScreen", "UIWindow", "UIView", "UIViewAnimating", "UIViewPropertyAnimator", "UIResponder", "UIInterface", "UIPasteboard", "UITrait", "UITraitCollection", "UIFont", "UIFontDescriptor", "objc2-core-foundation", "objc2-quartz-core", "block2"] }
+objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["CADisplayLink", "CATransaction"] }
+# Match version in objc2
+block2 = "0.6.2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { workspace = true, features = ["Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm"] }
+arboard = { version = "3.6", default-features = false }
+
+[build-dependencies]
+cfg_aliases = { workspace = true }
+
+[dev-dependencies]
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "raw-window-handle-06", "unstable-winit-030"] }
+
+[package.metadata.docs.rs]
+features = ["wayland", "renderer-software", "raw-window-handle-06"]
+rustdoc-args = ["--generate-link-to-definition"]
+
+[[test]]
+name = "menubar_borrow"
+harness = false

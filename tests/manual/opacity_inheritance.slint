@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export TestCase := Window {
+    preferred-width: 800px;
+    preferred-height: 600px;
+    background: white;
+
+    Rectangle {
+        background: purple;
+        height: 50px;
+        Text {
+            text: "This is purple rectangle, for comparison";
+        }
+    }
+
+    Rectangle {
+        opacity: 0.5;
+        width: 200px;
+        height: 100px;
+        y: 50px;
+
+        background: red;
+
+        Text {
+            text: "This rectangle should be rose";
+        }
+
+        Rectangle {
+            background: blue;
+            width: 400px;
+            height: 50px;
+            x: 25px;
+            y: 25px;
+
+            Text {
+                text: "This rectangle should be evenly filled with a blue'ish tint, not purple as well as be wider than the rose rectangle.";
+                color: green;
+                width: 400px;
+                wrap: word-wrap;
+            }
+        }
+    }
+}

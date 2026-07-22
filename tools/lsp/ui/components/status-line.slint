@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { HorizontalBox, Palette } from "std-widgets.slint";
+
+export global StatusLineApi {
+    in-out property <string> help-text;
+}
+
+export component StatusLine {
+    background-layer := Rectangle {
+        background: Palette.alternate-background;
+
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-bottom: 6px;
+            padding-top: 4px;
+            Text {
+                text <=> StatusLineApi.help-text;
+                height: 1.5rem;
+                font-italic: true;
+                font-weight: FontWeight.light;
+                vertical-alignment: TextVerticalAlignment.center;
+            }
+        }
+
+        Rectangle {
+            y: 0;
+            height: 1px;
+
+            background: Palette.border;
+        }
+    }
+}

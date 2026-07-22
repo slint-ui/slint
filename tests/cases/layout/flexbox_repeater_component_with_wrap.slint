@@ -1,0 +1,218 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for two fixes to repeated height-for-width cells (a wrapped
+// Text) in a column FlexboxLayout:
+//  1. It used to panic with "Recursion detected with property .layoutinfo-v":
+//     each repeated instance's vertical info was queried without a cross-axis
+//     constraint, so it read self.width (set by the parent flex cache it was
+//     feeding) and cycled. The repeater path now routes through the synthesized
+//     layoutinfo-v-with-constraint, like static cells do.
+//  2. Once it resolved, a repeated instance was still measured at its preferred
+//     (single-line) width while an identical static cell used the real container
+//     width, so the repeated card was too short and its text overflowed. Each
+//     repeated cell is now re-measured at the container width (see the `matched`
+//     assertion, which is what actually catches this second bug).
+
+// TODO: This regresses under debug hooks (and, more generally, whenever a repeated component in
+// a height-for-width flexbox gets wrapped by opacity/layer/transform lowering — e.g. `opacity:`
+// on the repeated Card). `inject_element_as_repeated_element` splices the wrapper in as the new
+// sub-component root *after* the `layoutinfo-*-with-constraint` routing was wired to the old
+// root, so the height-for-width path is lost and the layout recurses again. The grid variant of
+// this same bug is fixed (grid_layout_cell is re-homed to the wrapper); the flexbox with-constraint
+// re-homing needs deeper work in the routing and is not yet implemented.
+//ignore: interpreter-debug-hooks
+
+component Card inherits Rectangle {
+    in property <string> label;
+    in property <length> pad: 5px;
+    background: #e0e0e0;
+    VerticalLayout {
+        // Uniform padding, incl. horizontal: the height-for-width measurement
+        // must reduce the width constraint by this padding so the wrapped Text
+        // is measured at the width it is laid out at.
+        padding: pad;
+        Text {
+            text: label;
+            wrap: word-wrap;
+            horizontal-alignment: left;
+        }
+    }
+}
+
+// Card2 adds nothing: the wrapped Text (height-for-width) lives in the base, so
+// the synthesized layoutinfo-v-with-constraint is reached through inheritance.
+// Exercises the inherited_layout_info_v_with_constraint path of the fix.
+component Card2 inherits Card { }
+
+export component TestCase inherits Window {
+    width: 320px;
+    height: 820px;
+
+    property <string> long: "A really long card text that will almost certainly need to wrap onto two or more lines when the flex space is tight";
+
+    in property <[string]> labels: [
+        "Short",
+        "A medium-length card text that may or may not wrap",
+        long,
+    ];
+
+    // Single-line reference for the card Text, so the height assertions stay
+    // font-independent (the nodejs backend has no test fonts): each card holds
+    // at least one such line.
+    refLine := Text { x: 0; y: -1000px; text: "Short"; wrap: no-wrap; }
+    out property <length> line-height: refLine.height;
+
+    // Reference: `long` wrapped at 100px — the content width of the padded
+    // repeated card below (200 flex width − 2×40 flex padding − 2×10 card
+    // padding). The card's height must match this (plus its own padding).
+    refPad := Text { x: -3000px; width: 100px; text: long; wrap: word-wrap; }
+
+    FlexboxLayout {
+        x: 0; y: 0; width: 320px; height: 150px;
+        flex-direction: column;
+        spacing: 6px;
+        padding: 0px;
+
+        for s in labels: Card {
+            label: s;
+            flex-shrink: 0;
+            // Regression guard: an explicit vertical constraint on a repeated
+            // height-for-width cell must be evaluated in the *instance's*
+            // context. Its NamedReference points inside the repeated
+            // sub-component, so evaluating it against the outer component panics.
+            // A 1px floor is below the natural height (no geometry change), but
+            // still forces the constraint to be resolved.
+            min-height: 1px;
+        }
+        // Non-repeater anchor whose laid-out position depends on the total
+        // height of the repeated Cards above. Reading anchor.y forces the
+        // flexbox to solve, which is what used to recurse.
+        anchor := Rectangle {
+            background: blue;
+            height: 10px;
+        }
+    }
+
+    // A second flex of inherited-base cards, to cover the inherited path.
+    FlexboxLayout {
+        x: 0; y: 150px; width: 320px; height: 140px;
+        flex-direction: column;
+        spacing: 6px;
+        padding: 0px;
+
+        for s in labels: Card2 {
+            label: s;
+            flex-shrink: 0;
+        }
+        anchor2 := Rectangle { height: 5px; }
+    }
+
+    // Precise measurement flex (zero spacing/padding so adjacent anchors give
+    // exact heights): a static card, a single-line reference card, then two
+    // repeated cards with the same wrapping text. A repeated card must wrap to
+    // the same height as the static one.
+    FlexboxLayout {
+        x: 0; y: 290px; width: 200px; height: 270px;
+        flex-direction: column;
+        spacing: 0px;
+        padding: 0px;
+
+        staticCard := Card { label: long; flex-shrink: 0; }
+        m1 := Rectangle { height: 1px; }
+        refCard := Card { label: "One"; flex-shrink: 0; }
+        m2 := Rectangle { height: 1px; }
+        for s in [long, long]: Card { label: s; flex-shrink: 0; }
+        anchor3 := Rectangle { height: 1px; }
+    }
+
+    // A column flex with repeated non-height-for-width cells (fixed height):
+    // exercises the repeated path when the width override is ignored.
+    FlexboxLayout {
+        x: 0; y: 560px; width: 200px; height: 75px;
+        flex-direction: column;
+        spacing: 0px;
+        padding: 0px;
+
+        b0 := Rectangle { height: 1px; }
+        for k in [0, 1]: Rectangle { height: 30px; flex-shrink: 0; }
+        bAnchor := Rectangle { height: 1px; }
+    }
+
+    // Padded repeated card: the flex has 40px horizontal padding and the card
+    // 10px, so the card's Text is laid out at 200 − 80 − 20 = 100px. Its height
+    // must equal `refPad` (wrapped at 100px) plus the card's own padding —
+    // proving the h4w measurement subtracts BOTH the flex padding and the card
+    // padding for a *repeated* cell. Without the prequel fix the card is
+    // measured wider and comes out too short (`matched`-style checks can't catch
+    // this: a padded static reference would be under-measured the same way).
+    FlexboxLayout {
+        x: 0; y: 635px; width: 200px; height: 180px;
+        flex-direction: column;
+        spacing: 0px;
+        padding-left: 40px;
+        padding-right: 40px;
+
+        pTop := Rectangle { height: 1px; }
+        for s in [long]: Card { label: s; pad: 10px; flex-shrink: 0; }
+        pBot := Rectangle { height: 1px; }
+    }
+
+    // staticCard sits at the top, so its height is the gap up to m1. refCard is
+    // between m1 and m2. The two repeated cards fill between m2 and anchor3.
+    out property <length> static-height: m1.y - staticCard.y;
+    out property <length> ref-height: m2.y - m1.y - 1px;
+    out property <length> repeated-total: anchor3.y - m2.y - 1px;
+
+    // Each repeated card must match the static card. Two instances, so the total
+    // is twice the static height: also covers the per-instance cell bookkeeping.
+    out property <bool> matched: abs(repeated-total - 2 * static-height) < 1px;
+
+    // The two fixed-height repeated cells give 30px each.
+    out property <bool> non-h4w-ok: abs((bAnchor.y - b0.y - 1px) - 60px) < 1px;
+
+    // The padded repeated card wraps to the same height as the reference at the
+    // content width (card padding 10px → +20px). Font-independent: both sides
+    // measure the same text at 100px.
+    out property <length> pad-card-height: pBot.y - pTop.y - 1px;
+    out property <bool> pad-ok: abs(pad-card-height - (refPad.height + 20px)) < 1px;
+
+    // Font-present backends only: the long card must be taller than the
+    // single-line reference, i.e. the text actually wrapped (otherwise `matched`
+    // would hold trivially at the empty-card height on every card).
+    out property <bool> wrapped: static-height > ref-height + 1px;
+
+    // anchor.y sits below the three stacked Cards: each card is at least one
+    // text line tall, so the anchor is well past 3 lines and still inside its
+    // flex (no infinite/overflowing height). anchor2.y > 0 proves the
+    // inherited-base flex solved without recursing too. These plus `matched`
+    // and `non-h4w-ok` are font-independent, so nodejs asserts them.
+    out property <bool> font-independent:
+        anchor.y > 3 * line-height
+        && anchor.y < 150px
+        && anchor2.y > 0px
+        && matched
+        && non-h4w-ok
+        && pad-ok;
+
+    out property <bool> test: font-independent && wrapped;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+// nodejs has no test fonts, so the wrapped Text has zero height and `wrapped`
+// cannot be asserted. Check the font-independent invariants instead.
+var instance = new slint.TestCase();
+assert(instance.font_independent);
+```
+*/

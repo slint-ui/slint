@@ -1,0 +1,11 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "theme.slint";
+
+export component Label inherits Text {
+    font-family: Theme.font-family;
+    font-size: Theme.font-size-regular;
+    font-weight: Theme.font-weight-regular;
+    color: Theme.foreground;
+}

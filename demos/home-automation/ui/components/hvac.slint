@@ -1,0 +1,230 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Animation, Measurements, Palette, Style } from "../common.slint";
+import { Control } from "control.slint";
+import { AppState, Orientation } from "../appState.slint";
+import { HaText } from "general/haText.slint";
+
+enum Mode { increment, decrement }
+component TempAdjustButton inherits Rectangle {
+    in property <Mode> mode: increment;
+    callback clicked <=> ta.clicked;
+    width: 35px;
+    height: self.width;
+    border-radius: self.height / 2;
+    background: ta.pressed ? Palette.accent-background.transparentize(0.9) : Palette.accent-background.transparentize(0.8);
+    Rectangle {
+        width: 0;
+        height: self.width;
+        property <length> icon-size: 18px;
+        Rectangle {
+            border-radius: self.height / 2;
+            width: icon-size;
+            height: 2px;
+            background: Palette.hvac-foreground;
+        }
+
+        if mode == Mode.increment: Rectangle {
+            border-radius: self.width / 2;
+            width: 2px;
+            height: icon-size;
+            background: Palette.hvac-foreground;
+        }
+    }
+
+    ta := TouchArea { }
+}
+
+export component ZoneButton inherits Rectangle {
+    in property <string> zone-name: "Zone 1";
+    in-out property <int> zone-set-point: 22;
+    in property <int> min-temp: 12;
+    in property <int> max-temp: 32;
+    width: 200px;
+    height: 40px;
+    HorizontalLayout {
+        alignment: space-between;
+        HaText {
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            font-size: 10pt;
+            text: root.zone-name;
+            color: Palette.hvac-foreground;
+        }
+
+        HorizontalLayout {
+            width: 50px;
+            spacing: Measurements.zone-button-spacing;
+            alignment: end;
+
+            TempAdjustButton {
+                mode: Mode.decrement;
+                clicked => {
+                    if zone-set-point > min-temp {
+                        zone-set-point = zone-set-point - 1;
+                    }
+                }
+            }
+
+            HaText {
+                width: 60px;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+                font-size: 15pt;
+                text: root.zone-set-point + "°C";
+                color: Palette.hvac-foreground;
+            }
+
+            TempAdjustButton {
+                mode: Mode.increment;
+                clicked => {
+                    if zone-set-point < max-temp {
+                        zone-set-point = zone-set-point + 1;
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component HVAC inherits Control {
+    property <int> current-page: AppState.current-page;
+    property <bool> unlocked: false;
+    property <bool> is-active: false;
+    show-label: false;
+    clip: AppState.graphics-accelerator-available;
+
+    tile := Rectangle {
+        x: 0;
+
+        TouchArea {
+            enabled: !AppState.showing-full-screen && AppState.orientation != Orientation.portrait;
+            clicked => {
+                AppState.showFullScreen(root.index);
+            }
+        }
+
+        dial := Rectangle {
+            property <length> default-x: 0px;
+            x: root.full-screen ? 26px : (root.width - self.height) / 2;
+            border-radius: self.width / 2;
+            background: Palette.hvac-knob-background;
+            border-width: 1px;
+            border-color: Palette.glass-border;
+            width: Math.min(root.width * 0.9, root.height * 0.9);
+            height: self.width;
+
+            animate x {
+                duration: Animation.full-screen-duration / 2;
+                easing: ease-in-out-sine;
+            }
+
+
+            Image {
+                x: dial.width * 3 / 4;
+                y: dial.height / 4;
+                height: 20px;
+                width: 20px;
+                source: @image-url("../images/cold.svg");
+                colorize: Palette.hvac-foreground;
+            }
+
+            VerticalLayout {
+                x: dial.width / 2 - self.preferred-width / 2;
+                alignment: center;
+                spacing: -15px;
+                HaText {
+                    text: "Current";
+                    font-size: Style.hvac-title-font-size;
+                    color: Palette.hvac-knob-foreground;
+                    font-weight: FontWeight.light;
+                    x: parent.width / 2 - self.width / 2;
+                }
+
+                HaText {
+                    text: "22°C";
+                    font-size: 45pt;
+                    color: Palette.hvac-knob-foreground.transparentize(0.5);
+                    font-weight: FontWeight.light;
+                    x: parent.width / 2 - self.width / 2;
+                }
+
+                HaText {
+                    text: "Setpoint: 19°C";
+                    font-size: Style.hvac-title-font-size;
+                    color: Palette.hvac-knob-foreground;
+                    font-weight: FontWeight.light;
+                    x: parent.width / 2 - self.width / 2;
+                }
+            }
+        }
+
+        VerticalLayout {
+            y: root.height / 2 - self.preferred-height / 2;
+            x: Math.max(18px + root.width / 2, root.height);
+            spacing: Measurements.padding;
+            // animate the opacity as it reduces some visual pop when HVAC minimizes to
+            // not be full screen.
+            opacity: root.full-screen ? 1 : 0;
+            animate opacity {
+                duration: Animation.full-screen-duration / 2;
+                easing: ease-in-out-sine;
+            }
+            ZoneButton {
+                zone-name: "Kitchen";
+                zone-set-point: 22;
+            }
+
+            ZoneButton {
+                zone-name: "Living Room";
+                zone-set-point: 22;
+            }
+
+            ZoneButton {
+                zone-name: "Office";
+                zone-set-point: 19;
+            }
+
+            ZoneButton {
+                zone-name: "Master Bedroom";
+                zone-set-point: 17;
+            }
+        }
+
+        Image {
+            visible: AppState.orientation == Orientation.landscape;
+            source: @image-url("../images/enlarge.svg");
+            opacity: root.full-screen ? 0 : 0.6;
+            width: 20px;
+            colorize: Palette.foreground;
+            x: root.width - self.width - self.y;
+            y: 15px;
+            animate opacity {
+                duration: Animation.full-screen-duration;
+                easing: ease-in-out-sine;
+            }
+        }
+
+        closeButton := Image {
+            opacity: root.full-screen ? 1 : 0;
+            animate opacity {
+                duration: Animation.full-screen-duration;
+                easing: ease-in-out-sine;
+            }
+            source: @image-url("../images/reduce.svg");
+            colorize: white;
+            x: root.width - self.width - self.y;
+            y: 15px;
+            width: 30px;
+            height: 30px;
+
+            TouchArea {
+                enabled: closeButton.opacity > 0.1;
+                clicked => {
+                    root.full-screen = false;
+                    AppState.showFullScreen(-1);
+                }
+            }
+        }
+    }
+}

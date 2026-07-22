@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+enum Xyz {
+    hello-hello,
+    HelloHello,
+//  >        <error{Duplicated enum value 'HelloHello'}
+    Abc,
+    Cde,
+    Abc,
+//  > <error{Duplicated enum value 'Abc'}
+    cde,
+//  > <error{Duplicated enum value 'cde'}
+    CDE, // this one is not duplicated
+    Xyz,
+//  > <error{Enum 'Xyz' can't have a value with the same name}
+    c-dE
+//  >  <error{Duplicated enum value 'c-dE'}
+}
+
+
+   enum Empty {}
+// >           <error{Enums must have at least one value}
+
+export component Test {
+    property<Empty> empty;
+    property<Xyz> xyz;
+    property<{ a: Empty, b: Xyz }> xxx: { b: Xyz.c-dE};
+//                                               >  <error{'c-dE' is not a member of the enum Xyz}
+}

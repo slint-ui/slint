@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component PopupWindow inherits Rectangle {}
+component Rectangle inherits Image {}
+component TabWidget inherits Text {}
+component VerticalLayout inherits PopupWindow {}
+
+
+export component TestCase inherits Window {
+    HorizontalLayout {
+        pw := PopupWindow {
+            background: orangered;
+        }
+        Rectangle {
+            colorize: red;
+        }
+        TabWidget {
+            text: "hello";
+            TouchArea { clicked => { parent.text = "world"; } }
+        }
+        VerticalLayout {
+            background: pw.background;
+        }
+    }
+}

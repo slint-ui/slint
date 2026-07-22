@@ -1,0 +1,233 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+import { Slider } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    slider := Slider {
+        minimum: 0;
+        maximum: 100;
+        value: 10;
+        width: 100%;
+        height: 100%;
+        orientation: root.vertical ? Orientation.vertical : Orientation.horizontal;
+    }
+
+    forward-focus: slider;
+    out property <bool> slider-focused <=> slider.has_focus;
+    in-out property <float> value <=> slider.value;
+    in property <float> step <=> slider.step;
+    in-out property <bool> vertical;
+    in-out property <bool> enabled <=> slider.enabled;
+    callback released <=> slider.released;
+    callback changed <=> slider.changed;
+}
+
+/*
+
+
+```rust
+use slint::platform::Key;
+use std::cell::RefCell;
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+instance.set_value(10.);
+
+let edits = Rc::new(RefCell::new(Vec::new()));
+let changes = Rc::new(RefCell::new(Vec::new()));
+
+instance.on_released({
+    let edits = edits.clone();
+    move |val| {
+    edits.borrow_mut().push(val);
+}});
+
+instance.on_changed({
+    let changes = changes.clone();
+    move |val| {
+    changes.borrow_mut().push(val);
+}});
+
+assert!(edits.borrow().is_empty());
+assert!(changes.borrow().is_empty());
+assert!(instance.get_slider_focused());
+
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), false);
+// Send bogus key to verify that it doesn't trigger released
+slint_testing::send_keyboard_char(&instance, 'a', true);
+slint_testing::send_keyboard_char(&instance, 'a', false);
+
+assert_eq!(edits.borrow().clone(), vec![14f32]);
+assert_eq!(changes.borrow().clone(), vec![11f32, 12f32, 13f32, 14f32]);
+
+edits.borrow_mut().clear();
+
+// Reset to center
+instance.set_value(50.);
+
+// Press center and then drag outside
+let mut position = slint::LogicalPosition::new(50., 50.);
+let button = slint::platform::PointerEventButton::Left;
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerPressed { position, button });
+slint_testing::mock_elapsed_time(50);
+for x in (position.x as usize..200).step_by(10) {
+    position.x = x as _;
+    instance.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+}
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerReleased { position, button });
+assert_eq!(edits.borrow().clone(), vec![100f32]);
+
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+instance.set_step(30.);
+slint_testing::send_keyboard_char(&instance, Key::LeftArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::LeftArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::LeftArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::LeftArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::LeftArrow.into(), false);
+
+assert_eq!(edits.borrow().clone(), vec![0f32]);
+assert_eq!(changes.borrow().clone(), vec![70f32, 40f32, 10f32, 0f32]);
+
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+slint_testing::send_keyboard_char(&instance, Key::End.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::End.into(), false);
+slint_testing::send_keyboard_char(&instance, Key::Home.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::Home.into(), false);
+
+assert_eq!(edits.borrow().clone(), vec![100f32, 0f32]);
+assert_eq!(changes.borrow().clone(), vec![100f32, 0f32]);
+
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+let mut slider_search = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::slider");
+let slider_element = slider_search.next().unwrap();
+
+instance.set_value(50.);
+instance.set_step(5.);
+
+// Invoking accessible-action-increment should increment the value by the step
+slider_element.invoke_accessible_increment_action();
+assert_eq!(instance.get_value(), 55f32);
+assert_eq!(changes.borrow().clone(), vec![55f32]);
+
+changes.borrow_mut().clear();
+
+// Invoking accessible-action-decrement should decrement the value by the step
+slider_element.invoke_accessible_decrement_action();
+assert_eq!(instance.get_value(), 50f32);
+assert_eq!(changes.borrow().clone(), vec![50f32]);
+
+changes.borrow_mut().clear();
+
+// Invoking accessible-action-set-value should update the value
+slider_element.set_accessible_value("75");
+assert_eq!(instance.get_value(), 75f32);
+assert_eq!(changes.borrow().clone(), vec![75f32]);
+
+// Test vertical slider
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+instance.set_vertical(true);
+instance.set_value(10.);
+instance.set_step(1.);
+
+// Test vertical keyboard navigation: Up arrow should increment, Down arrow should decrement
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), false);
+
+assert_eq!(edits.borrow().clone(), vec![14f32]);
+assert_eq!(changes.borrow().clone(), vec![11f32, 12f32, 13f32, 14f32]);
+
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+slint_testing::send_keyboard_char(&instance, Key::DownArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::DownArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::DownArrow.into(), false);
+
+assert_eq!(edits.borrow().clone(), vec![12f32]);
+assert_eq!(changes.borrow().clone(), vec![13f32, 12f32]);
+
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+// Test vertical Home/End: Home should go to minimum, End should go to maximum
+slint_testing::send_keyboard_char(&instance, Key::Home.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::Home.into(), false);
+assert_eq!(edits.borrow().clone(), vec![0f32]);
+assert_eq!(changes.borrow().clone(), vec![0f32]);
+
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+slint_testing::send_keyboard_char(&instance, Key::End.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::End.into(), false);
+assert_eq!(edits.borrow().clone(), vec![100f32]);
+assert_eq!(changes.borrow().clone(), vec![100f32]);
+
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+// Test vertical mouse dragging: drag upward beyond top edge should hit maximum
+instance.set_value(50.);
+let mut position = slint::LogicalPosition::new(50., 50.);
+let button = slint::platform::PointerEventButton::Left;
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerPressed { position, button });
+slint_testing::mock_elapsed_time(50);
+
+// Drag upward way beyond the top edge
+for y in (0..=(position.y as usize)).rev().step_by(10) {
+    position.y = y as _;
+    instance.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+}
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerReleased { position, button });
+assert_eq!(edits.borrow().clone(), vec![100f32]);
+
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+// Test dragging downward beyond bottom edge should hit minimum
+instance.set_value(50.);
+position = slint::LogicalPosition::new(50., 50.);
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerPressed { position, button });
+slint_testing::mock_elapsed_time(50);
+
+// Drag downward way beyond the bottom edge
+for y in (position.y as usize..200).step_by(10) {
+    position.y = y as _;
+    instance.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+}
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerReleased { position, button });
+assert_eq!(edits.borrow().clone(), vec![0f32]);
+
+// Test that when disabled, the slider does not change value
+instance.set_value(10.);
+instance.set_enabled(false);
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+assert_eq!(instance.get_value(), 10f32);
+instance.set_enabled(true);
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+assert_eq!(instance.get_value(), 11f32);
+```
+
+*/

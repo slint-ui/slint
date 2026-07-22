@@ -1,0 +1,169 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button } from "std-widgets.slint";
+
+component PopupContainer inherits Rectangle {
+	width: 400px;
+    height: 300px;
+
+	in-out property <int> popup_click_count;
+
+	callback first_reached;
+	callback second_reached;
+
+	property <length> popup_x;
+	property <bool> first_sent: false;
+	property <bool> second_sent: false;
+
+	public function show(second: bool) {
+		popup_x = !second ? 0px : 200px;
+		popup.show();
+	}
+
+	public function close() {
+		popup.close();
+	}
+
+    popup := PopupWindow {
+        x: popup_x;
+		y: 100px;
+		width: 200px;
+		height: 200px;
+		close-policy: no-auto-close;
+
+		Rectangle {
+			background: red;
+		}
+
+		TouchArea {
+			clicked => {
+				popup_click_count += 1;
+
+				if (popup_x == 0px) {
+					if (!first_sent) {
+						first_reached();
+						first_sent = true;
+					}
+				} else {
+					if (!second_sent	) {
+						second_reached();
+						second_sent = true;
+					}
+				}
+			}
+		}
+    }
+}
+
+export component TestCase inherits Window {
+	width: 400px;
+	height: 400px;
+
+	in-out property <int> popup_click_count;
+
+	VerticalLayout {
+		alignment: start;
+
+		HorizontalLayout {
+			Button {
+				text: "Open";
+				clicked => {
+					cnt1.show(false);
+				}
+			}
+		}
+	}
+
+	cnt1 := PopupContainer {
+		x: 0px;
+		y: 100px;
+		popup_click_count <=> popup_click_count;
+
+		first_reached => {
+			cnt1.show(true);
+		}
+
+		second_reached => {
+			cnt2.show(false);
+		}
+	}
+
+	cnt2 := PopupContainer {
+		x: 0px;
+		y: 100px;
+		popup_click_count <=> popup_click_count;
+
+		first_reached => {
+			cnt2.close();
+		}
+	}
+}
+
+/*
+
+```rust
+#[allow(unused)]
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+// open on the left
+slint_testing::send_mouse_click(&instance, 20., 10.);
+
+// use left popup to open on the right
+slint_testing::send_mouse_click(&instance, 10., 210.);
+assert_eq!(instance.get_popup_click_count(), 1);
+
+// no longer open on the left
+slint_testing::send_mouse_click(&instance, 10., 210.);
+assert_eq!(instance.get_popup_click_count(), 1);
+
+// popup is now open on the right
+// open a second popup on the left in the second container
+slint_testing::send_mouse_click(&instance, 210., 210.);
+assert_eq!(instance.get_popup_click_count(), 2);
+
+// second popup is still open on the left
+// close the second popup
+slint_testing::send_mouse_click(&instance, 10., 210.);
+assert_eq!(instance.get_popup_click_count(), 3);
+
+// first popup is still open as multiple of the same "PopupWindow" across different component instances is fine
+slint_testing::send_mouse_click(&instance, 210., 210.);
+assert_eq!(instance.get_popup_click_count(), 4);
+```
+
+```cpp
+auto handle = TestCase::create();
+TestCase &instance = *handle;
+
+// open on the left
+slint_testing::send_mouse_click(&instance, 20., 10.);
+
+// use left popup to open on the right
+slint_testing::send_mouse_click(&instance, 10., 210.);
+assert_eq(instance.get_popup_click_count(), 1);
+
+// no longer open on the left
+slint_testing::send_mouse_click(&instance, 10., 210.);
+assert_eq(instance.get_popup_click_count(), 1);
+
+// popup is now open on the right
+// open a second popup on the left in the second container
+slint_testing::send_mouse_click(&instance, 210., 210.);
+assert_eq(instance.get_popup_click_count(), 2);
+
+// open on the left from the second container
+slint_testing::send_mouse_click(&instance, 380., 10.);
+
+// second popup is still open on the left
+// close the second popup
+slint_testing::send_mouse_click(&instance, 10., 210.);
+assert_eq(instance.get_popup_click_count(), 3);
+
+// first popup is still open as multiple of the same "PopupWindow" across different component instances is fine
+slint_testing::send_mouse_click(&instance, 210., 210.);
+assert_eq(instance.get_popup_click_count(), 4);
+```
+
+*/

@@ -1,0 +1,129 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { CheckBox, Label, DemoPalette } from "../common.slint";
+import { Page, Header } from "./page.slint";
+import { DropDownMenu } from "../components/drop_down_menu.slint";
+
+export global PrinterSettings {
+    callback change-language(int);
+}
+
+export component SettingsPage inherits Page {
+    header: @tr("Settings");
+    header-type: Header.plain;
+
+    GridLayout {
+        padding: DemoPalette.default-margin;
+        spacing: 16px;
+        width: parent.width;
+        height: self.preferred-height;
+        Row {
+            Text {
+                colspan: 4;
+                text: @tr("General");
+                color: DemoPalette.secondary-foreground-color;
+                font-size: DemoPalette.base-font-size * 1.125;
+            }
+        }
+
+        Row {
+            Label {
+                font-size: 18px;
+                text: @tr("TURBO mode");
+            }
+
+            CheckBox {
+                checked: true;
+            }
+
+            Rectangle { }
+
+            Label {
+                text: @tr("Power Management");
+            }
+
+            CheckBox {
+                checked: false;
+                text: @tr("Eco Mode");
+            }
+        }
+
+        Row {
+            Text {
+                colspan: 4;
+                text: @tr("Defaults");
+                color: DemoPalette.secondary-foreground-color;
+                font-size: DemoPalette.base-font-size * 1.125;
+            }
+        }
+
+        Row {
+            Label {
+                text: @tr("Layout");
+            }
+
+            DropDownMenu {
+                items: [@tr("Portrait"), @tr("Landscape")];
+            }
+
+            Rectangle { }
+
+            Label {
+                text: @tr("Paper Tray");
+            }
+
+            DropDownMenu {
+                items: [@tr("Special Tray"), @tr("Tray 1"), @tr("Tray 2")];
+            }
+        }
+
+        Row {
+            Label {
+                text: @tr("Quality");
+            }
+
+            DropDownMenu {
+                items: [@tr("Best"), @tr("Medium"), @tr("Draft")];
+            }
+
+            Rectangle { }
+
+            Label {
+                text: @tr("Language");
+            }
+
+            DropDownMenu {
+                items: [@tr("English"), @tr("French")];
+                selected(index) => {
+                    PrinterSettings.change_language(index);
+                }
+            }
+        }
+
+        Row {
+            Label {
+                text: @tr("Color Mode");
+            }
+
+            DropDownMenu {
+                items: [@tr("Grayscale"), @tr("Color")];
+            }
+
+            Rectangle { }
+
+            Label {
+                text: @tr("Paper Handling");
+            }
+
+            CheckBox {
+                checked: true;
+                text: @tr("Sort Pages");
+            }
+        }
+
+        Row {
+            Rectangle { }
+        }
+    }
+}

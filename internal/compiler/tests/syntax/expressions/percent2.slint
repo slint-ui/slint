@@ -1,0 +1,12 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Foo {
+
+    property <int> abc: 45 %;
+//                         ^error{Unexpected '%'. For the unit, it should be attached to the number. If you're looking for the modulo operator, use the 'Math.mod(x, y)' function}
+
+    property <int> def: abc % 8;
+//                          ^error{Unexpected '%'. For the unit, it should be attached to the number. If you're looking for the modulo operator, use the 'Math.mod(x, y)' function}
+//                            ^^error{Parse error}
+}

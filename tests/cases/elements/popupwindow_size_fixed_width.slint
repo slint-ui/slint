@@ -1,0 +1,89 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A popup with a fixed width but a flexible height. The fixed width must be dissociated from the
+// live window geometry, like for a fixed top-level window (see layout/window_fixed.slint): reading
+// the popup width returns the fixed value even after the window geometry width is changed. This
+// exercises the width branch of the popup layout adjustment, which is only reached when the width
+// (and not the height) is fixed.
+
+export global Properties {
+    in-out property <length> popup-width: -1px;
+    in-out property <bool> do-resize: false;
+}
+
+export component TestCase {
+    callback show_popup();
+    show_popup => {
+        popup.show();
+    }
+
+    width: 600px;
+    height: 400px;
+
+    popup := PopupWindow {
+        width: 100px;
+        min-height: 80px;
+        close-policy: PopupClosePolicy.no-auto-close;
+
+        changed width => {
+            Properties.popup-width = self.width;
+        }
+        init => {
+            Properties.popup-width = self.width;
+        }
+
+        // Imperatively change the window geometry width from inside the popup, mimicking a resize.
+        resize_area := Rectangle {
+            property <bool> trigger: Properties.do-resize;
+            changed trigger => {
+                if self.trigger {
+                    popup.width = 200px;
+                }
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::*;
+
+let instance = TestCase::new().unwrap();
+instance.invoke_show_popup();
+assert_eq!(instance.global::<Properties<'_>>().get_popup_width(), 100.);
+
+instance.global::<Properties<'_>>().set_do_resize(true);
+slint_testing::mock_elapsed_time(100);
+
+// The fixed width is dissociated from the window geometry, so reading the width still returns 100.
+assert_eq!(instance.global::<Properties<'_>>().get_popup_width(), 100.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+instance.invoke_show_popup();
+assert_eq(instance.global<Properties>().get_popup_width(), 100.);
+
+instance.global<Properties>().set_do_resize(true);
+slint_testing::mock_elapsed_time(100);
+
+// The fixed width is dissociated from the window geometry, so reading the width still returns 100.
+assert_eq(instance.global<Properties>().get_popup_width(), 100.);
+```
+
+```js
+var instance = new slint.TestCase({});
+instance.show_popup();
+assert.equal(instance.Properties.popup_width, 100);
+
+instance.Properties.do_resize = true;
+slintlib.private_api.mock_elapsed_time(100);
+
+// The fixed width is dissociated from the window geometry, so reading the width still returns 100.
+assert.equal(instance.Properties.popup_width, 100);
+```
+*/

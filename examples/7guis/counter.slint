@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button, LineEdit, HorizontalBox } from "std-widgets.slint";
+
+export component Counter inherits Window {
+    private property <int> value: 0;
+
+    preferred-height: 30px;
+
+    layout := HorizontalBox {
+        LineEdit {
+            enabled: false;
+            text: root.value;
+        }
+
+        Button {
+            clicked => { root.value += 1; }
+            text: "Count";
+        }
+    }
+}

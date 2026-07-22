@@ -1,0 +1,73 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { VerticalBox } from "std-widgets.slint";
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { SelectionListView, SelectionListViewItem } from "../widgets/selection_list_view.slint";
+export { SelectionListViewItem }
+
+import { ActionButton } from "../widgets/action_button.slint";
+import { Icons } from "../widgets/styling.slint";
+
+export global TaskListAdapter {
+    in-out property <[SelectionListViewItem]> tasks: [
+        // this is only dummy data for the preview
+        { text: "Contribute to Slint", description: "2024/11/11 13:13" },
+        { text: "Open a discussion on GitHub", description: "2024/11/11 13:13" },
+        { text: "Write some documentation", description: "2024/11/11 13:13" }
+    ];
+
+    callback toggle-task-checked(/* index */ int);
+    callback remove-task(/* index */ int);
+    callback show-create-task();
+
+    // this is only a dummy implementation for the preview
+    toggle-task-checked(index) => {
+        root.tasks[index] = {
+            text: root.item(index).text,
+            checked: !root.item(index).checked,
+            description: root.item(index).description
+        };
+    }
+
+    function item(index: int) -> SelectionListViewItem {
+        root.tasks[index]
+    }
+}
+
+export component TaskListView {
+    VerticalBox {
+        padding-top: 0;
+        padding-left: 0;
+        padding-right: 0;
+
+        SelectionListView {
+            width: 100%;
+            model: TaskListAdapter.tasks;
+            accessible-label: @tr("List of Tasks");
+
+            toggle(index) => {
+                TaskListAdapter.toggle-task-checked(index);
+            }
+
+            remove(index) => {
+                TaskListAdapter.remove-task(index);
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+
+            ActionButton {
+                icon: Icons.add;
+                accessible-label: @tr("Create New Task");
+
+                clicked => {
+                    TaskListAdapter.show-create-task();
+                }
+            }
+        }
+    }
+}

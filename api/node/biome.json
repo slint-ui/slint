@@ -1,0 +1,43 @@
+{
+    "root": true,
+    "extends": ["../../biome.json"],
+    "files": {
+        "includes": [
+            "**",
+            "!**/docs/",
+            "!rust-module.d.cts",
+            "!rust-module.cjs",
+            "!rust-module-dev.cjs",
+            "!**/typescript/generated/**"
+        ]
+    },
+    "linter": {
+        "rules": {
+            "complexity": {
+                "useArrowFunction": "off",
+                "noForEach": "off",
+                "noArguments": "off",
+                "noBannedTypes": "off"
+            },
+            "style": {
+                "noNonNullAssertion": "off",
+                "noUnusedTemplateLiteral": "off",
+                "useTemplate": "off",
+                "noInferrableTypes": "off",
+                "noParameterAssign": "off",
+                "useAsConstAssertion": "error",
+                "useDefaultParameterLast": "error",
+                "useEnumInitializers": "error",
+                "useSelfClosingElements": "error",
+                "useSingleVarDeclarator": "error",
+                "useNumberNamespace": "error",
+                "noUselessElse": "error"
+            },
+            "suspicious": {
+                "noExplicitAny": "off",
+                "noAssignInExpressions": "off",
+                "noVar": "off"
+            }
+        }
+    }
+}

@@ -1,0 +1,31 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "slint-macros"
+description = "Macro helper for slint crate"
+authors.workspace = true
+edition = "2024"
+homepage = "https://slint.rs"
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+categories = ["gui", "development-tools"]
+
+[lib]
+proc-macro = true
+path = "lib.rs"
+
+[features]
+default = []
+
+[dependencies]
+i-slint-compiler = { workspace = true, features = ["default", "proc_macro_span", "rust", "display-diagnostics"] }
+proc-macro2 = "1.0.17"
+quote = "1.0"
+spin_on = { workspace = true }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

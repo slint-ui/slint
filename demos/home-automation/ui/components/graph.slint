@@ -1,0 +1,83 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Palette,Measurements } from "../common.slint";
+import { HaText } from "general/haText.slint";
+
+export component Graph {
+    in property <string> name;
+    in property <string> id;
+    in property <bool> full-screen: false;
+    property <[int]> grid: [ 2, 3, 4, 5, 6, 7, 8, 9];
+    property <[int]> values: [0, 1, 2, 3, 4, 5, 6,];
+    tile := Rectangle {
+        clip: true;
+        background: Palette.graph-background;
+        border-radius: Measurements.tile-radius;
+        VerticalLayout {
+            padding: (tile.height > Measurements.small-height-tile) ? 18px : 9px;
+            width: 100%;
+            height: tile.height;
+            VerticalLayout {
+                alignment: start;
+                spacing: 5px;
+
+                HaText {
+                    text: root.name;
+                    font-size: 10pt;
+                    font-weight: FontWeight.normal;
+                    color: Palette.graph-foreground;
+                }
+
+                Rectangle {
+                    height: 10px;
+                }
+            }
+        }
+
+        Rectangle {
+            width: 1px;
+            height: parent.height * 0.6;
+            background: Palette.graph-foreground.transparentize(0.8);
+            x: tile.width * 0.1;
+            y: tile.height * 0.3;
+        }
+
+        for i in grid: Rectangle {
+            width: 1px;
+            height: parent.height * 0.6;
+            background: Palette.graph-foreground.transparentize(0.9);
+            x: tile.width * 0.1 * i;
+            y: tile.height * 0.3;
+        }
+        for i in values: HaText {
+            horizontal-alignment: right;
+            y: tile.height * 0.9 - (tile.height * i / 10);
+            x: tile.width * 0.03;
+            text: i * 20;
+            color: Palette.graph-foreground.transparentize(0.8);
+            font-size: 5pt;
+        }
+        Rectangle {
+            height: 1px;
+            width: parent.width * 0.8;
+            background: Palette.graph-foreground.transparentize(0.8);
+            x: tile.width * 0.1;
+            y: tile.height * 0.9;
+        }
+
+        property <[int]> days: [ 58, 60, 22, 90, 40, 30, 50, 40, 20];
+        property <length> grid-spacing: tile.width * 0.1;
+        property <length> bar-width: grid-spacing * 0.4;
+
+        for index in 8: Rectangle {
+            x: tile.width * 0.1 + (grid-spacing * index) + (grid-spacing - bar-width) / 2;
+            y: tile.height * 0.9 - self.height;
+            border-top-left-radius: self.width / 3;
+            border-top-right-radius: self.border-top-left-radius;
+            width: bar-width;
+            height: (tile.height * 0.6) * days[index] / 100.0;
+            background: Palette.graph-alternate-foreground;
+            opacity: 90%;
+        }
+    }
+}

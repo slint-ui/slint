@@ -1,0 +1,270 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that `Keys` values created from backend code via `from_parts` work
+// correctly with `KeyBinding` elements: construction, property assignment,
+// and actual key-event matching.
+
+export component TestCase inherits Window {
+    in-out property <int> matches: 0;
+
+    // Backend-settable shortcut; defaults to empty (never matches).
+    in-out property <keys> shortcut;
+
+    // A compile-time shortcut for comparison
+    out property <keys> reference-shortcut: @keys(Control + P);
+
+    out property has-focus <=> scope.has-focus;
+
+    forward-focus: scope;
+
+    scope := FocusScope {
+        KeyBinding {
+            keys: root.shortcut;
+            activated => {
+                root.matches += 1;
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::Keys;
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_has_focus());
+assert_eq!(instance.get_matches(), 0);
+
+// from_parts: basic modifier + key
+let ctrl_p = Keys::from_parts(["Control", "P"]).expect("valid shortcut");
+
+// from_parts: named key (Plus)
+let ctrl_plus = Keys::from_parts(["Control", "Plus"]).expect("valid shortcut");
+
+// from_parts: optional modifier
+let ctrl_shift_opt_z = Keys::from_parts(["Control", "Shift?", "Z"]).expect("valid shortcut");
+
+// from_parts: function key
+let f5 = Keys::from_parts(["F5"]).expect("valid shortcut");
+
+// from_parts: empty → default (never matches)
+let empty = Keys::from_parts([]).expect("valid shortcut");
+assert_eq!(empty, Keys::default());
+
+// Error cases
+assert!(Keys::from_parts(["Ctrl", "P"]).is_err()); // "Ctrl" is not a valid modifier
+assert!(Keys::from_parts(["Control"]).is_err());    // no key, only modifier
+assert!(Keys::from_parts(["Shift", "Shift?", "A"]).is_err()); // incompatible modifiers
+
+// --- Equality with compile-time @keys ---
+let reference = instance.get_reference_shortcut();
+assert_eq!(ctrl_p, reference);
+
+use slint::private_unstable_api::re_exports::Key;
+use slint_testing::send_key_combo;
+
+// Empty shortcut should not match anything
+send_key_combo(&instance, [Key::Control, Key::P]);
+assert_eq!(instance.get_matches(), 0);
+
+// Set Ctrl+P from backend and verify it matches
+instance.set_shortcut(ctrl_p.clone());
+send_key_combo(&instance, [Key::Control, Key::P]);
+assert_eq!(instance.get_matches(), 1);
+
+// Wrong key should not match
+send_key_combo(&instance, [Key::Control, Key::A]);
+assert_eq!(instance.get_matches(), 1);
+
+// Missing modifier should not match
+slint_testing::send_keyboard_string_sequence(&instance, "p");
+assert_eq!(instance.get_matches(), 1);
+
+// Set Ctrl+Plus and test
+instance.set_shortcut(ctrl_plus);
+send_key_combo(&instance, [Key::Control, Key::Plus]);
+assert_eq!(instance.get_matches(), 2);
+
+// Set F5 and test
+instance.set_shortcut(f5);
+send_key_combo(&instance, [Key::F5]);
+assert_eq!(instance.get_matches(), 3);
+
+// Set Ctrl+Shift?+Z — should match with or without Shift
+instance.set_shortcut(ctrl_shift_opt_z);
+send_key_combo(&instance, [Key::Control, Key::Z]);
+assert_eq!(instance.get_matches(), 4);
+send_key_combo(&instance, [Key::Control, Key::Shift, Key::Z]);
+assert_eq!(instance.get_matches(), 5);
+
+// Reset to empty — should stop matching
+instance.set_shortcut(empty);
+send_key_combo(&instance, [Key::Control, Key::Z]);
+assert_eq!(instance.get_matches(), 5);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_has_focus());
+assert_eq(instance.get_matches(), 0);
+
+auto ctrl_p = slint::Keys::from_parts({"Control", "P"});
+assert(ctrl_p.has_value());
+
+auto ctrl_plus = slint::Keys::from_parts({"Control", "Plus"});
+assert(ctrl_plus.has_value());
+
+auto ctrl_shift_opt_z = slint::Keys::from_parts({"Control", "Shift?", "Z"});
+assert(ctrl_shift_opt_z.has_value());
+
+auto f5 = slint::Keys::from_parts({"F5"});
+assert(f5.has_value());
+
+auto empty = slint::Keys::from_parts({});
+assert(empty.has_value());
+
+// Error cases
+assert(!slint::Keys::from_parts({"Ctrl", "P"}).has_value());
+assert(!slint::Keys::from_parts({"Control"}).has_value());
+assert(!slint::Keys::from_parts({"Shift", "Shift?", "A"}).has_value());
+
+// --- Equality with compile-time @keys ---
+assert(ctrl_p.value() == instance.get_reference_shortcut());
+
+using namespace slint::platform;
+using slint::private_api::testing::send_key_combo;
+slint::SharedString control(key_codes::Control);
+slint::SharedString shift(key_codes::Shift);
+
+// Empty shortcut should not match anything
+send_key_combo(&instance, {control, "P"});
+assert_eq(instance.get_matches(), 0);
+
+// Set Ctrl+P from backend and verify it matches
+instance.set_shortcut(ctrl_p.value());
+send_key_combo(&instance, {control, "P"});
+assert_eq(instance.get_matches(), 1);
+
+// Wrong key should not match
+send_key_combo(&instance, {control, "A"});
+assert_eq(instance.get_matches(), 1);
+
+// Set Ctrl+Plus and test
+instance.set_shortcut(ctrl_plus.value());
+send_key_combo(&instance, {control, "+"});
+assert_eq(instance.get_matches(), 2);
+
+// Set F5 and test
+instance.set_shortcut(f5.value());
+slint::SharedString f5key(key_codes::F5);
+send_key_combo(&instance, {f5key});
+assert_eq(instance.get_matches(), 3);
+
+// Set Ctrl+Shift?+Z — should match with or without Shift
+instance.set_shortcut(ctrl_shift_opt_z.value());
+send_key_combo(&instance, {control, "Z"});
+assert_eq(instance.get_matches(), 4);
+send_key_combo(&instance, {control, shift, "Z"});
+assert_eq(instance.get_matches(), 5);
+
+// Reset to empty — should stop matching
+instance.set_shortcut(empty.value());
+send_key_combo(&instance, {control, "Z"});
+assert_eq(instance.get_matches(), 5);
+```
+
+```js
+var instance = new slint.TestCase({});
+
+let ctrl_p = slintlib.Keys.fromParts(["Control", "P"]);
+let ctrl_plus = slintlib.Keys.fromParts(["Control", "Plus"]);
+let f5 = slintlib.Keys.fromParts(["F5"]);
+let empty = slintlib.Keys.fromParts([]);
+
+// Equality with compile-time @keys
+assert(ctrl_p.equals(instance.reference_shortcut));
+
+// Error cases
+assert.throws(() => slintlib.Keys.fromParts(["Ctrl", "P"]));
+assert.throws(() => slintlib.Keys.fromParts(["Control"]));
+
+const KEY_CONTROL = "\u0011";
+const KEY_SHIFT   = "\u0010";
+const KEY_F5      = "\uF708";
+
+let send = (keys) => slintlib.private_api.send_key_combo(instance, keys);
+let assert_matches = (expected) => assert.equal(instance.matches, expected);
+
+// Empty shortcut should not match
+send([KEY_CONTROL, "P"]);
+assert_matches(0);
+
+// Set Ctrl+P
+instance.shortcut = ctrl_p;
+send([KEY_CONTROL, "P"]);
+assert_matches(1);
+
+// Wrong key should not match
+send([KEY_CONTROL, "A"]);
+assert_matches(1);
+
+// Set Ctrl+Plus
+instance.shortcut = ctrl_plus;
+send([KEY_CONTROL, "+"]);
+assert_matches(2);
+
+// Set F5
+instance.shortcut = f5;
+send([KEY_F5]);
+assert_matches(3);
+
+// Reset to empty
+instance.shortcut = empty;
+send([KEY_CONTROL, "P"]);
+assert_matches(3);
+```
+
+```python
+instance = TestCase()
+
+from slint import Keys
+
+ctrl_p = Keys.from_parts(["Control", "P"])
+ctrl_plus = Keys.from_parts(["Control", "Plus"])
+f5 = Keys.from_parts(["F5"])
+empty = Keys.from_parts([])
+
+# Equality with compile-time @keys
+assert ctrl_p == instance.reference_shortcut
+
+# Error cases
+try:
+    Keys.from_parts(["Ctrl", "P"])
+    assert False, "should have raised"
+except ValueError:
+    pass
+
+try:
+    Keys.from_parts(["Control"])
+    assert False, "should have raised"
+except ValueError:
+    pass
+
+# Property assignment round-trip
+instance.shortcut = ctrl_p
+assert instance.shortcut == ctrl_p
+
+instance.shortcut = ctrl_plus
+assert instance.shortcut == ctrl_plus
+
+instance.shortcut = empty
+assert instance.shortcut == empty
+
+# toString
+assert "Ctrl" in str(ctrl_p) or "⌘" in str(ctrl_p)  # platform-dependent
+```
+
+*/

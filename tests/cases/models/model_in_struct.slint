@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore foos
+struct Foo  {
+    ok: bool,
+}
+
+// Make sure that the generated code for this compiles, as we emit
+// #[derive(Debug)] for structures and in this case the field of the
+// struct contains a model handle.
+struct Bar  {
+    foos: [Foo],
+}
+
+export component TestCase inherits Rectangle {
+    in-out property <[Bar]> bars: [];
+
+    // make sure the generated code compiles (that we generate .clone() properly)
+    in-out property <Foo> foo: {ok: true};
+    in-out property <Bar> bar: {foos: [foo, foo]};
+    in-out property <[Bar]> bars2: [bar, bar];
+}

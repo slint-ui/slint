@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `1px / 0` is a constant that folds to an infinite length. The generated code
+// must keep that infinity for the max-width constraint, otherwise the stretched
+// cell collapses to zero width. See issue #12213.
+
+export component TestCase inherits Rectangle {
+    width: 300phx;
+    height: 100phx;
+
+    HorizontalLayout {
+        spacing: 0phx;
+        padding: 0phx;
+        alignment: stretch;
+        r1 := Rectangle {
+            min-width: 100phx;
+            horizontal-stretch: 0;
+        }
+        r2 := Rectangle {
+            max-width: 1px / 0;
+            horizontal-stretch: 1;
+        }
+    }
+
+    out property <length> inf_length: 1px / 0;
+    out property <bool> inf_ok: inf_length > 1000000000phx;
+    out property <bool> layout_ok: r1.width == 100phx && r2.width == 200phx;
+
+    out property <bool> test: inf_ok && layout_ok;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+
+*/

@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export Testcase := Window {
+    preferred-width: 640px;
+    preferred-height: 480px;
+    f := Flickable {
+        for blah in 1: HorizontalLayout {
+            Rectangle { height: 55px; }
+        }
+    }
+
+    VerticalLayout {
+        r := Rectangle {
+            for blah in 1: HorizontalLayout {
+                Rectangle { height: 44px; }
+            }
+        }
+    }
+
+    // FIXME(#407)
+    //property <bool> test: f.preferred-height == 55px && f.viewport-height == 55px && r.preferred-height == 44px;
+}

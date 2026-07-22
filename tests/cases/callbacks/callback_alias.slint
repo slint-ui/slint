@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Foo inherits Rectangle {
+    pure callback hallo_alias <=> xxx.hallo;
+    callback clicked <=> are.clicked;
+    xxx := Rectangle {
+        pure callback hallo(int) -> int;
+        hallo(a) => { return a + 88; }
+    }
+
+    are := TouchArea { }
+}
+
+export component TestCase inherits Rectangle {
+
+    pure callback foo1_alias <=> foo1.hallo_alias;
+    pure callback foo2_alias <=> foo2.hallo_alias;
+
+    callback foo1_clicked <=> foo1.clicked;
+
+    pure callback call_foo2(int) -> int;
+    call_foo2(a) => { return foo2.hallo_alias(a); }
+
+    foo1 := Foo {
+        hallo_alias(a) => { return a + 22; }
+    }
+
+    foo2 := Foo {
+        clicked => { debug(42) }
+    }
+
+    in-out property <bool> test: foo1_alias(100) == 122 && foo2_alias(100) == 188;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.invoke_foo1_alias(100), 122);
+assert_eq!(instance.invoke_foo2_alias(100), 188);
+assert_eq!(instance.invoke_call_foo2(100), 188);
+instance.on_foo2_alias(|val| val - 20);
+assert_eq!(instance.invoke_call_foo2(200), 180);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.invoke_foo1_alias(100), 122);
+assert_eq(instance.invoke_foo2_alias(100), 188);
+assert_eq(instance.invoke_call_foo2(100), 188);
+instance.on_foo2_alias([](auto val){return val - 20;});
+assert_eq(instance.invoke_call_foo2(200), 180);
+```
+
+
+```js
+var instance = new slint.TestCase();
+assert.equal(instance.foo1_alias(100), 122);
+assert.equal(instance.foo2_alias(100), 188);
+assert.equal(instance.call_foo2(100), 188);
+```
+
+```python
+instance = TestCase();
+assert instance.foo1_alias(100) == 122;
+assert instance.foo2_alias(100) == 188;
+assert instance.call_foo2(100) == 188;
+```
+*/

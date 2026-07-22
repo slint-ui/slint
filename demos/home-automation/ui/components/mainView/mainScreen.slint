@@ -1,0 +1,411 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { DoorState, Doors } from "../general/doors.slint";
+import { WidgetLoader } from "widgetLoader.slint";
+import { WidgetLoaderSoftwareRenderer } from "widgetLoaderSoftwareRenderer.slint";
+import { Palette as StdPalette } from "std-widgets.slint";
+import { Palette, Animation, Style } from "../../common.slint";
+import { AppState, Orientation } from "../../appState.slint";
+import { FullScreenView } from "fullScreenView.slint";
+import { HaText } from "../general/haText.slint";
+import { Api } from "../../api.slint";
+
+export component PageButton inherits Rectangle {
+    in property label <=> t.text;
+    in property <int> target-page;
+    in property <image> icon;
+    property <length> default-font-size: AppState.graphics-accelerator-available ? 16px : 22px;
+
+    property <bool> selected: AppState.target-page == target-page;
+
+    width: AppState.orientation == Orientation.landscape ? 120px : 140px;
+    height: 40px;
+
+    Rectangle {
+        t := Text {
+            font-size: default-font-size;
+            font-weight: FontWeight.normal;
+            font-family: AppState.default-font-family;
+            color: black;
+            opacity: selected ? 100% : 70%;
+            Text {
+                x: -1px;
+                y: -1px;
+                text: t.text;
+                font-size: default-font-size;
+                font-weight: FontWeight.normal;
+                font-family: AppState.default-font-family;
+                color: #ffffff;
+            }
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            AppState.target-page = target-page;
+            AppState.first-run = false;
+            AppState.end-kiosk-mode();
+        }
+    }
+}
+
+component PageButtonHighlighter {
+    Rectangle {
+        y: parent.height - parent.height * 15%;
+        width: parent.width * 50%;
+        height: 1px;
+        background: white;
+    }
+}
+
+export component MainScreen inherits Rectangle {
+    property <int> internal-target-page: AppState.target-page;
+    property <bool> transitioning: false;
+    in-out property <bool> door-component-loaded: true;
+    in-out property <DoorState> initial-door-state: closed;
+    property <bool> demo-locked: true;
+    width: 100%;
+    height: 100%;
+    changed width => {
+        AppState.window-width = self.width;
+    }
+    changed height => {
+        AppState.window-height = self.height;
+    }
+    init => {
+        AppState.window-width = self.width;
+        AppState.window-height = self.height;
+        StdPalette.color-scheme = ColorScheme.dark;
+    }
+
+    changed internal-target-page => {
+        if !AppState.graphics-accelerator-available {
+            AppState.current-page = AppState.target-page;
+        } else {
+            if AppState.target-page != AppState.current-page {
+                if !transitioning {
+                    AppState.current-page = AppState.target-page;
+                }
+                transitioning = true;
+                enableTouch.running = false;
+                enableTouch.running = true;
+            }
+        }
+    }
+
+    enableTouch := Timer {
+        running: false;
+        interval: 1400ms;
+        triggered => {
+            self.running = false;
+            transitioning = false;
+            AppState.current-page = AppState.target-page;
+        }
+    }
+
+    background: Palette.background-gradient;
+
+    Image {
+        x: 30px;
+        y: AppState.orientation == Orientation.landscape ? 35px : 36px;
+        width: 84px;
+        height: 25px;
+        source: @image-url("../../images/slint-logo-simple-dark.svg");
+    }
+
+    if AppState.orientation == Orientation.landscape: Rectangle {
+        property <bool> showing-time: true;
+        property <length> margin: AppState.graphics-accelerator-available ? 5px : 20px;
+        width: 200px;
+        height: 50px;
+        x: parent.width - self.width - margin;
+        y: AppState.orientation == Orientation.landscape ? 24px : 30px;
+        opacity: 80%;
+        TouchArea {
+            clicked => {
+                showing-time = !showing-time;
+            }
+        }
+
+        if !showing-time: HorizontalLayout {
+            alignment: center;
+            spacing: 10px;
+            HaText {
+                text: Api.return-month();
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+                font-weight: FontWeight.thin;
+            }
+
+            HaText {
+                text: Api.current-date.day;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+                font-weight: FontWeight.normal;
+            }
+        }
+        if showing-time: HorizontalLayout {
+            alignment: center;
+            HaText {
+                text: Api.current-time.hour.mod(12) == 0 ? 12 : Api.current-time.hour.mod(12);
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: ":";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: Api.current-time.minute < 10 ? "0" + Api.current-time.minute : Api.current-time.minute;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: Api.current-time.hour >= 12 ? " PM" : " AM";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H2-font-size;
+            }
+        }
+    }
+    if AppState.orientation == Orientation.portrait: HorizontalLayout {
+        y: root.height - self.height - 10px;
+        alignment: center;
+        spacing: 30px;
+        height: 50px;
+        opacity: 80%;
+
+        HorizontalLayout {
+            spacing: 10px;
+            HaText {
+                text: Api.return-month();
+                font-size: Style.H1-font-size;
+                font-weight: FontWeight.thin;
+            }
+
+            HaText {
+                text: Api.current-date.day;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+                font-weight: FontWeight.normal;
+            }
+        }
+        HorizontalLayout {
+            HaText {
+                text: Api.current-time.hour.mod(12) == 0 ? 12 : Api.current-time.hour.mod(12);
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: ":";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: Api.current-time.minute;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: Api.current-time.hour > 12 ? " PM" : " AM";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H2-font-size;
+                font-weight: FontWeight.thin;
+            }
+        }
+    }
+
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        cache-rendering-hint: door-component-loaded;
+
+        navigation := Rectangle {
+
+            nav-bar := Rectangle {
+                property <length> portrait-x: 110px;
+                x: AppState.orientation == Orientation.landscape ? (parent.width - self.width) / 2 : portrait-x;
+                y: AppState.graphics-accelerator-available ? 26px : 35px;
+                width: AppState.orientation == Orientation.landscape ? 600px : root.width - portrait-x;
+                height: 40px;
+
+                if !AppState.graphics-accelerator-available: Image {
+                    width: parent.width;
+                    height: self.source.height * 1px;
+                    source: @image-url("../../images/title-frame.png", nine-slice(0 50 0 50));
+                }
+
+                if AppState.graphics-accelerator-available: Rectangle {
+                    Rectangle {
+                        border-radius: self.height / 2;
+                        drop-shadow-blur: 5px;
+                        drop-shadow-color: black.transparentize(0.5);
+                        drop-shadow-offset-x: 3px;
+                        drop-shadow-offset-y: 3px;
+                        background: #241433;
+                    }
+
+                    Rectangle {
+                        border-width: 1px;
+                        border-color: Palette.glass-border;
+                        border-radius: self.height / 2;
+                        background: Palette.glass-background;
+                    }
+                }
+
+                // We need to have two different highlighter because of #7999
+                if AppState.graphics-accelerator-available: PageButtonHighlighter {
+                    x: home.x + (tabs.spacing + self.width) * AppState.target-page;
+                    animate x {
+                        duration: Animation.transition-duration;
+                        easing: ease-in-out-sine;
+                    }
+                    width: AppState.orientation == Orientation.landscape ? 120px : 140px;
+                    height: 100%;
+                }
+
+                if !AppState.graphics-accelerator-available : PageButtonHighlighter {
+                    x: home.x + (tabs.spacing + self.width) * AppState.target-page;
+                    width: AppState.orientation == Orientation.landscape ? 120px : 140px;
+                    height: 100%;
+                }
+
+                tabs := HorizontalLayout {
+                    alignment: center;
+                    spacing: 0px;
+                    y: AppState.graphics-accelerator-available ? 0 : -5px;
+                    home := PageButton {
+                        label: "Home";
+                        target-page: 0;
+                    }
+
+                    PageButton {
+                        label: "Kitchen";
+                        target-page: 1;
+                    }
+
+                    PageButton {
+                        label: "Bedroom";
+                        target-page: 2;
+                    }
+
+                    if AppState.orientation == Orientation.landscape: PageButton {
+                        label: "Office";
+                        target-page: 3;
+                    }
+                    if AppState.orientation == Orientation.landscape && AppState.graphics-accelerator-available: Rectangle {
+                        width: 50px;
+                        height: 40px;
+                        lock := Image {
+                            source: @image-url("../../images/lock.svg");
+                            colorize: white;
+                            opacity: lta.pressed ? 100% : 50%;
+                        }
+                        lta := TouchArea {
+                            clicked => {
+                                door-component-loaded = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        fs-holder := Rectangle {
+            y: 20px;
+            if AppState.graphics-accelerator-available: Rectangle {
+                width: 100%;
+                height: 100%;
+                for i[index] in AppState.component-details: WidgetLoader {
+                    index: index;
+                    type: AppState.component-details[index].type;
+                    data: AppState.current-layout-data.components[index];
+                }
+            }
+
+            if !AppState.graphics-accelerator-available: Rectangle {
+                width: 100%;
+                height: 100%;
+                for i[index] in AppState.component-details: WidgetLoaderSoftwareRenderer {
+                    index: index;
+                    type: AppState.component-details[index].type;
+                    data: AppState.current-layout-data.components[index];
+                }
+            }
+
+            if AppState.showing-full-screen: fullScreenWidgetHolder := FullScreenView {
+                nudge-y: fs-holder.y;
+            }
+        }
+    }
+
+    if AppState.graphics-accelerator-available && door-component-loaded: doors := Doors {
+        doorsOpened => {
+            door-component-loaded = false;
+            initial-door-state = DoorState.open;
+        }
+        demo-locked: demo-locked;
+        initial-door-state: initial-door-state;
+    }
+
+
+    kiosk-blocker :=  TouchArea {
+        visible: AppState.kiosk-mode && !door-component-loaded;
+        clicked => {
+            AppState.end-kiosk-mode();
+        }
+    }
+
+    Timer {
+        interval: 30s;
+        running: !AppState.kiosk-mode && !door-component-loaded && !AppState.disable-kiosk-mode;
+        triggered => {
+            AppState.first-run = false;
+            AppState.kiosk-mode = true;
+        }
+    }
+
+    kiosk-mode-animator := Timer {
+        running: AppState.kiosk-mode && !door-component-loaded;
+        interval: 5s;
+        triggered => {
+            if AppState.orientation == Orientation.landscape {
+                if AppState.current-page < 3 {
+                    AppState.target-page = AppState.target-page + 1;
+                } else {
+                    AppState.target-page = 0;
+                }
+            } else {
+                if AppState.current-page < 2 {
+                    AppState.target-page = AppState.target-page + 1;
+                } else {
+                    AppState.target-page = 0;
+                }
+            }
+        }
+    }
+}

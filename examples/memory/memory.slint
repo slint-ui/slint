@@ -1,0 +1,124 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+struct TileData  {
+    image: image,
+    image-visible: bool,
+    solved: bool,
+}
+
+component MemoryTile inherits Rectangle {
+    in property <bool> open-curtain;
+    in property <bool> solved;
+    in property <image> icon;
+
+    callback clicked;
+
+    border-radius: 8px;
+    background: root.solved ? #70ff00 : #858585;
+
+    animate background { duration: 800ms; }
+
+    Image {
+        source: root.icon;
+        width: parent.width - 16px;
+        height: parent.height - 16px;
+        x: 8px;
+        y: 8px;
+    }
+
+    // Left curtain
+    Rectangle {
+        x: 0;
+        background: #0025ff;
+        border-radius: 4px;
+        width: root.open-curtain ? 0px : parent.width / 2 + 4px;
+        height: parent.height;
+        clip: true;
+
+        animate width { duration: 250ms; easing: ease-in; }
+
+        Image {
+            width: root.width - 32px;
+            height: root.height - 32px;
+            x: 16px;
+            y: 16px;
+            source: @image-url("icons/tile_logo.png");
+        }
+    }
+
+    // Right curtain
+    right-curtain := Rectangle {
+        background: #0025ff;
+        border-radius: 4px;
+        x: root.open-curtain ? parent.width : parent.width / 2 - 4px;
+        width: root.open-curtain ? 0px : parent.width / 2 + 4px;
+        height: parent.height;
+        clip: true;
+
+        animate width { duration: 250ms; easing: ease-in; }
+        animate x { duration: 250ms; easing: ease-in; }
+
+        Image {
+            width: root.width - 32px;
+            height: root.height - 32px;
+            x: right-curtain.width - self.width - 16px;
+            y: 16px;
+            source: @image-url("icons/tile_logo.png");
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            root.clicked();
+        }
+
+        width: 100%;
+        height: 100%;
+    }
+}
+
+export component MainWindow inherits Window {
+    in property <bool> disable-tiles;
+    in property <[TileData]> memory-tiles : [
+        { image: @image-url("icons/at.png") },
+        { image: @image-url("icons/balance-scale.png") },
+        { image: @image-url("icons/bicycle.png") },
+        { image: @image-url("icons/bus.png") },
+        { image: @image-url("icons/cloud.png") },
+        { image: @image-url("icons/cogs.png") },
+        { image: @image-url("icons/motorcycle.png") },
+        { image: @image-url("icons/video.png") },
+    ];
+
+    callback check-if-pair-solved();
+
+    private property <length> tile-size: 80px;
+    private property <length> tile-spacing: 10px;
+    private property <int> row-count: 4;
+    private property <int> column-count: 4;
+
+    // "column_count + 1" and "row_count + 1" are the number of gaps between the tiles.
+    width: (root.column-count * root.tile-size) + ((root.column-count + 1) * root.tile-spacing);
+    height: (root.row-count * root.tile-size) + ((root.row-count + 1) * root.tile-spacing);
+    title: "Memory Game - Slint Demo";
+
+    for tile[i] in root.memory-tiles: MemoryTile {
+        clicked => {
+            if (!root.disable-tiles) {
+                tile.image-visible = true;
+                root.check-if-pair-solved();
+            }
+        }
+
+        x: root.tile-spacing + mod(i, root.column-count) * (root.tile-size + root.tile-spacing);
+        y: root.tile-spacing + floor(i / root.row-count) * (root.tile-size + root.tile-spacing);
+        width: root.tile-size;
+        height: root.tile-size;
+
+        icon: tile.image;
+
+        open-curtain: tile.image-visible || tile.solved;
+        solved: tile.solved;
+    }
+}

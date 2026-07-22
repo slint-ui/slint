@@ -1,0 +1,167 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { MaterialPalette, MaterialFontSettings, MaterialSizeSettings } from "styling.slint";
+
+export component Ripple inherits Rectangle {
+    in property <length> ripple-x;
+    in property <length> ripple-y;
+    in property <bool> active;
+    in property <bool> has-effect;
+    in property <brush> ripple-color <=> i-circle.background;
+
+    states [
+        active when root.active && root.has-effect: {
+            i-circle.width: root.width * 2 * 1.4142;
+
+            in  {
+                animate i-circle.width { duration: 2s; easing: ease-out; }
+            }
+        }
+    ]
+
+    i-circle := Rectangle {
+        x: root.ripple-x  - self.width / 2;
+        y: root.ripple-y  - self.width / 2;
+        height: self.width;
+        border-radius: self.width  / 2;
+    }
+}
+
+// A touch area that also represents a visual state.
+export component StateLayer inherits TouchArea {
+    in property <bool> focusable;
+    in property <brush> checked-background;
+    in property <brush> ripple-color;
+    in property <bool> has-ripple;
+    in property <length> border-radius;
+    out property <bool> has-focus <=> i-focus-scope.has-focus;
+    in-out property <brush> background;
+    in-out property <bool> checked;
+
+    forward-focus: i-focus-scope;
+
+    states [
+        pressed when root.pressed: {
+            i-ripple.opacity: 0.12;
+        }
+        checked when root.checked: {
+            i-ripple.opacity: 1.0;
+            i-ripple.background: root.checked-background;
+        }
+        hover when root.has-hover: {
+            i-ripple.opacity: 0.08;
+        }
+        focused when root.has-focus: {
+            i-ripple.opacity: 0.12;
+        }
+    ]
+
+    i-ripple := Ripple {
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        active: root.pressed;
+        ripple-x: root.pressed-x;
+        ripple-y: root.pressed-y;
+        clip: true;
+        border-radius: root.border-radius;
+        background: root.background;
+        ripple-color: root.ripple-color;
+        has-effect: root.has-ripple;
+
+        animate opacity { duration: 250ms; easing: ease; }
+        animate background { duration: 250ms; }
+    }
+
+    i-focus-scope := FocusScope {
+        x: 0;
+        width: 0px; // Do not react on clicks
+        enabled: root.enabled && root.focusable;
+
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                 root.clicked();
+                 return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+// A selectable item that is used by `StandardListView` and  `ComboBox`.
+export component ListItem {
+    in property <StandardListViewItem> item;
+    in-out property <bool> is_selected;
+    in property <bool> has_hover;
+    in property <bool> has_focus;
+    in property <bool> pressed;
+    in property <int> index;
+    in property <length> pressed-x;
+    in property <length> pressed-y;
+
+    min-width: i-layout.min-width;
+    min-height: max(MaterialSizeSettings.item-height, i-layout.min-height);
+    vertical-stretch: 0;
+    horizontal-stretch: 1;
+    accessible-role: list-item;
+    accessible-label: root.item.text;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.is-selected;
+    accessible-item-index: root.index;
+
+    states [
+        pressed when root.pressed: {
+            i-ripple.opacity: 0.12;
+        }
+        checked when root.is-selected: {
+            i-ripple.opacity: 1.0;
+            i-ripple.background: MaterialPalette.control-background;
+        }
+        hover when root.has-hover: {
+            i-ripple.opacity: 0.08;
+        }
+        focused when root.has-focus: {
+            i-ripple.opacity: 0.12;
+        }
+    ]
+
+    i-ripple := Ripple {
+        opacity: 0;
+        active: root.pressed;
+        ripple-x: root.pressed-x;
+        ripple-y: root.pressed-y;
+        clip: true;
+        border-radius: 4px;
+        background: MaterialPalette.accent-background;
+        ripple-color: MaterialPalette.accent-ripple;
+        has-effect: true;
+
+        animate opacity { duration: 250ms; easing: ease; }
+        animate background { duration: 250ms; }
+    }
+
+    if (root.has-focus) : Rectangle {
+        border-radius: 4px;
+        border-width: 2px;
+        border-color: MaterialPalette.accent-background;
+    }
+
+    i-layout := HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+
+        label := Text {
+            text: root.item.text;
+            color: MaterialPalette.control-foreground;
+            vertical-alignment: center;
+            // FIXME after Roboto font can be loaded
+            //font-family: MaterialFontSettings.label-large.font;
+            font-size: MaterialFontSettings.label-large.font-size;
+            font-weight: MaterialFontSettings.label-large.font-weight;
+            accessible-role: none;
+        }
+    }
+
+    @children
+}

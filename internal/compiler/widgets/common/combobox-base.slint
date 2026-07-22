@@ -1,0 +1,145 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component ComboBoxBase {
+    in property <[string]> model;
+    in property <bool> enabled <=> i-focus-scope.enabled;
+    out property <bool> has-focus: (i-focus-scope.has-focus || popup-has-focus) && root.enabled;
+    out property <bool> pressed <=> i-touch-area.pressed;
+    out property <bool> has-hover: i-touch-area.has-hover;
+    in-out property <int> current-index: 0;
+    in-out property <string> current-value: root.model[root.current-index];
+
+    // Set from the ComboBox when the popup has the focus
+    in-out property <bool> popup-has-focus;
+
+    callback selected(current-value: string);
+    callback show-popup();
+    callback close-popup();
+
+    public function select(index: int) {
+        if !root.enabled {
+            return;
+        }
+        root.current-index = index;
+
+        if root.current-value != root.model[root.current-index] {
+            root.update-current-value();
+        }
+
+        root.selected(root.current-value);
+    }
+
+    public function move-selection-up() {
+        root.select(Math.max(root.current-index - 1, 0));
+    }
+
+    public function move-selection-down() {
+        root.select(Math.min(root.current-index + 1, root.model.length - 1));
+    }
+
+    public function popup-key-handler(event: KeyEvent) -> EventResult {
+        if (event.text == Key.UpArrow) {
+            root.move-selection-up();
+            return accept;
+        } else if (event.text == Key.DownArrow) {
+            root.move-selection-down();
+            return accept;
+        } else if (event.text == Key.Return || event.text == Key.Escape) {
+            root.close-popup();
+            return accept;
+        }
+        return reject;
+
+    }
+
+    function reset-current() {
+        if (root.model.length == 0) {
+            root.current-index = 0;
+        } else {
+            root.current-index = root.current-index.clamp(0, root.model.length - 1);
+        }
+        // Update the current value immediately, instead of in the next event loop
+        // via the changed handler of current-index
+        root.update-current-value();
+    }
+
+    function update-current-value() {
+        if root.current-index < 0 || root.current-index >= root.model.length {
+            root.current-value = "";
+            return;
+        }
+        root.current-value = root.model[root.current-index];
+    }
+
+    changed model => {
+        root.reset-current();
+    }
+
+    changed current-index => {
+        root.update-current-value();
+    }
+
+    // Writes to `current-value` from host code don't change the selection;
+    // the visible state still reflects `model[current-index]`. Warn on the
+    // divergence so the developer learns to use `current-index` instead.
+    // See https://github.com/slint-ui/slint/issues/11970.
+    changed current-value => {
+        if root.current-value != root.model[root.current-index] {
+            debug("ComboBox: `current-value` writes don't change the selection. Use `current-index` instead. See https://github.com/slint-ui/slint/issues/11970.");
+        }
+    }
+
+    /// Minimum scroll delta so that the scroll wheel changes the value.
+    in property <length> scroll-delta: 2px;
+
+    forward-focus: i-focus-scope;
+
+    i-focus-scope := FocusScope {
+        changed has-focus => {
+            if self.has-focus {
+                // this means the popup was closed and we get back the focus
+                root.popup-has-focus = false;
+            }
+        }
+        key-pressed(event) => {
+            if (!self.enabled) {
+                return reject;
+            }
+            if (event.text == Key.UpArrow) {
+                root.move-selection-up();
+                return accept;
+            } else if (event.text == Key.DownArrow) {
+                root.move-selection-down();
+                return accept;
+            } else if (event.text == Key.Return) {
+                root.show-popup();
+            }
+            return reject;
+        }
+
+        i-touch-area := TouchArea {
+            enabled: root.enabled;
+
+            clicked => {
+                root.focus();
+                root.show-popup();
+            }
+
+            scroll-event(event) => {
+                if (!root.has-focus) {
+                    return reject;
+                }
+                if (event.delta-y < -root.scroll-delta) {
+                    root.move-selection-down();
+                    return accept;
+                }
+                if (event.delta-y > root.scroll-delta) {
+                    root.move-selection-up();
+                    return accept;
+                }
+                reject
+            }
+        }
+    }
+}

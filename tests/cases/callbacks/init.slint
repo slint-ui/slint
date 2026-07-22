@@ -1,0 +1,135 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore subsub
+// Verify that the init callback is invoked in the correct order
+
+import { ExportedGlobal } from "../../helper_components/export_globals.slint";
+
+export global InitOrder  {
+    in-out property <string> observed-order: "start";
+}
+
+component Sub1 inherits Rectangle {
+    init => {
+        InitOrder.observed-order += "|sub1";
+    }
+}
+
+component Sub2 inherits Rectangle {
+    init => {
+        InitOrder.observed-order += "|sub2";
+    }
+}
+
+component SubSub inherits Rectangle {
+    init => {
+        InitOrder.observed-order += "|subsub";
+    }
+}
+
+component Sub3 inherits Rectangle {
+    in-out property <string> some-value: "should-not-show-up";
+    init => {
+        InitOrder.observed-order += some-value;
+    }
+    SubSub {}
+}
+
+component Container inherits Rectangle {
+    in property <string> name-inside: "container";
+    init => {
+        InitOrder.observed-order += "|" + self.name-inside;
+    }
+    @children
+}
+
+component InsideRepeater inherits Rectangle {
+    in-out property <int> index;
+    init => {
+        InitOrder.observed-order += "(i" + self.index + ")";
+    }
+    @children
+}
+
+export component TestCase inherits Rectangle {
+    width: 300phx;
+    height: 300phx;
+    init => {
+        InitOrder.observed-order += "|root";
+        ExportedGlobal.foo += 1;
+        // Calling init() explicitly does nothing
+        self.init();
+        root.init();
+        sub1.init();
+        sub2.init();
+        elem.init();
+    }
+    sub1 := Sub1 {
+        init => {
+            InitOrder.observed-order += "|sub1-use-site";
+        }
+    }
+    sub2 := Sub2 {
+    }
+    Sub3 {
+        some-value: "|sub3";
+    }
+
+    Container {
+        property <string> name-outside: "container-instantiation";
+        init => {
+            InitOrder.observed-order += "|" + self.name-outside;
+        }
+    }
+
+    elem := Rectangle {
+        init => {
+            InitOrder.observed-order += "|element";
+        }
+    }
+
+    for i in 2: InsideRepeater {
+        index: i;
+        init => {
+            InitOrder.observed-order += "|repeater";
+            InitOrder.observed-order += i;
+        }
+        Rectangle {}
+    }
+
+    in-out property <string> test_global_prop_value: InitOrder.observed-order;
+
+    in-out property <string> expected_static_order: "start|sub1|sub2|subsub|sub3|container|root|sub1-use-site|container-instantiation|element";
+    in-out property <string> expected_full_order: expected_static_order + "|repeater0(i0)|repeater1(i1)";
+
+    out property <bool> test: InitOrder.observed-order == expected_full_order;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+assert!(instance.get_test());
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.global::<InitOrder<'_>>().get_observed_order(), instance.get_expected_full_order());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.global<InitOrder>().get_observed_order(), instance.get_expected_full_order());
+```
+
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.test_global_prop_value, instance.expected_full_order);
+```
+
+
+*/

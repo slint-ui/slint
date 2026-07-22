@@ -1,0 +1,103 @@
+%YAML 1.2
+---
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# See http://www.sublimetext.com/docs/3/syntax.html
+name: Slint
+file_extensions:
+  - 'slint'
+scope: source.slint
+
+contexts:
+  # The prototype context is prepended to all contexts but those setting
+  # meta_include_prototype: false.
+  prototype:
+    - include: comments
+
+  main:
+    # The main context is the initial starting point of our syntax.
+    # Include other contexts from here (or specify them directly).
+    - include: property
+    - include: color
+    - include: types
+    - include: constants
+    - include: keywords
+    - include: numbers
+    - include: symbols
+    - include: strings
+
+  property:
+    - match: '[a-zA-Z_][a-zA-Z_\-0-9]*:'
+      scope: variable.slint
+    - match: '[a-zA-Z_][a-zA-Z_\-0-9]* *<?=>'
+      scope: variable.slint
+
+  color:
+    - match: '#[0-9a-fA-F]+'
+      scope: constant.other.color.slint
+
+  types:
+    - match: '\b(int|bool|float|duration|angle|string|image|brush|color|length|physical-length|relative-font-size)\b'
+      scope: storage.type.slint
+
+  constants:
+    - match: '\b(blue|red|green|yellow|red|black|ease|ease_in|ease_out|ease_in_out)\b'
+      scope: support.constant.slint
+
+  keywords:
+    # Note that backslashes don't need to be escaped within single quoted
+    # strings in YAML. When using single quoted strings, only single quotes
+    # need to be escaped: this is done by using two single quotes next to each
+    # other.
+    - match: '\b(import|from|export|global|struct|enum|component|inherits)\b'
+      scope: keyword.slint
+    - match: '\b(property|callback|animate|states|transitions|function|in|out|in-out|private|public)\b'
+      scope: keyword.other.slint
+    - match: '\b(if|for|return)\b'
+      scope: keyword.control.slint
+
+  numbers:
+    - match: '\b[0-9]+\.?[0-9]*[a-z%]*\b'
+      scope: constant.numeric.slint
+
+  symbols:
+    - match: '[\!\&\|]+'
+      scope: keyword.operator.logical.slint
+    - match: '[\<\=\>]+'
+      scope: keyword.operator.comparison.slint
+    - match: '[\:\<\=\>]+'
+      scope: keyword.operator.assignment.slint
+    - match: '[\!\%\&\(\)\+\,\-\/\*\<\=\>\?\[\]\|\;]+'
+      scope: keyword.operator.slint
+
+  strings:
+    # Strings begin and end with quotes, and use backslashes as an escape
+    # character.
+    - match: '"'
+      scope: punctuation.definition.string.begin.slint
+      push: inside_string
+
+  inside_string:
+    - meta_include_prototype: false
+    - meta_scope: string.quoted.double.slint
+    - match: '\.'
+      scope: constant.character.escape.slint
+    - match: '"'
+      scope: punctuation.definition.string.end.slint
+      pop: true
+
+  comments:
+    # Comments begin with a '//' and finish at the end of the line.
+    - match: '//'
+      scope: punctuation.definition.comment.slint
+      push:
+        # This is an anonymous context push for brevity.
+        - meta_scope: comment.line.double-slash.slint
+        - match: $\n?
+          pop: true
+    - match: '/\*'
+      push:
+        - meta_scope: comment.line
+        - match: '\*/'
+          pop: true

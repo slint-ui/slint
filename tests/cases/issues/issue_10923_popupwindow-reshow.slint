@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    in property <int> foo: 0;
+    in-out property <int> result;
+
+    width: 100px;
+    height: 100px;
+
+    Button {
+        text: "Show popup";
+
+        clicked => popup.show();
+    }
+
+    popup := PopupWindow {
+        width: rect.preferred-width;
+        height: rect.preferred-height;
+
+        rect := Rectangle {
+            background: lightskyblue;
+
+            VerticalLayout {
+                if foo == 0: Button {
+                    text: "Click for crash";
+
+                    clicked => {
+                        result+=1;
+                        popup.show();
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_result(), 1);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_result(), 2);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_result(), 1);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_result(), 2);
+```
+
+```js
+var instance = new slint.TestCase();
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.result, 1);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.result, 2);
+```
+*/

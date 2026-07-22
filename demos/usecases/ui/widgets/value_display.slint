@@ -1,0 +1,113 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { UsecasesPalette, CosmicFontSettings } from "styling.slint";
+import { Palette } from "std-widgets.slint";
+
+component ValueDelegate {
+    in property <bool> active;
+    in property <string> title <=> title.text;
+    in property <string> unit <=> unit.text;
+    in property <float> value;
+    in property <bool> alternative-colors;
+
+    private property <float> display-value;
+
+    states [
+        active when active : {
+            display-value: value;
+
+            in {
+                animate display-value { duration: 500ms; }
+            }
+        }
+    ]
+
+    HorizontalLayout {
+        spacing: 15px;
+
+        Rectangle {
+            min_width: 1px;
+            background: Palette.accent-background;
+            horizontal-stretch: 0;
+        }
+
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+
+            title := Text {
+                color: Palette.accent-background;
+                font-size: CosmicFontSettings.body-strong.font-size;
+                font-weight: CosmicFontSettings.body-strong.font-weight;
+            }
+
+            HorizontalLayout {
+                alignment: start;
+                spacing: 5px;
+
+                Text {
+                    color: Palette.foreground;
+                    text: round(display-value * 100) / 100;
+                    font-size: CosmicFontSettings.body-strong.font-size;
+                    font-weight: CosmicFontSettings.body-strong.font-weight;
+                    vertical-alignment: center;
+                }
+
+                unit := Text {
+                    y: 4px;
+                    vertical-alignment: center;
+                    color: Palette.accent-background;
+                    font-size: CosmicFontSettings.body.font-size;
+                    font-weight: CosmicFontSettings.body.font-weight;
+                }
+            }
+        }
+    }
+}
+
+export struct Value {
+    title: string,
+    value: float,
+    unit: string,
+}
+
+export component ValueDisplay {
+    in property <bool> alternative-colors;
+    in property <[Value]> model;
+    in property <bool> active;
+    in property <bool> transparent-background;
+    in property <bool> vertical;
+
+    min-height: 70px;
+
+
+    if(model.length > 0 && !vertical) : HorizontalLayout {
+        x: 15px;
+        width: parent.width - 30px;
+        height: 100%;
+        padding-top: 12px;
+        padding-bottom: 12px;
+
+        for value in root.model : ValueDelegate {
+            width: parent.width / model.length;
+            horizontal-stretch: 1;
+            alternative-colors: root.alternative-colors;
+            title: value.title;
+            value: value.value;
+            unit: value.unit;
+            active: root.active;
+        }
+    }
+
+    if(model.length > 0 && vertical) : VerticalLayout {
+        for value in root.model : ValueDelegate {
+            vertical-stretch: 1;
+            alternative-colors: root.alternative-colors;
+            title: value.title;
+            value: value.value;
+            unit: value.unit;
+            active: root.active;
+        }
+    }
+}

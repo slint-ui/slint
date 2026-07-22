@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+ export component TestCase inherits Window  {
+
+    in property <float> thousand: 1000;
+
+    out property <bool> test_sqrt: sqrt(100) == 10 && Math.sqrt(1) == 1 && sqrt(6.25) == 2.5 && abs(sqrt(thousand) - sqrt(1000)) < 0.00001;
+    out property <bool> test_sqrt2: 100 .sqrt() == 10 && 1.0.sqrt() == 1 && 6.25.sqrt() == 2.5 && (thousand.sqrt() - (1000).sqrt()).abs() < 0.00001;
+    out property <bool> test_abs: abs(100.5) == 100.5 && Math.abs(-200.5) == 200.5 && abs(0) == 0 && Math.abs(-thousand) == 1000;
+    out property <bool> test_abs2: 100.5.abs() == 100.5 && (-200.5).abs() == 200.5 && 0 .abs() == 0 && (-thousand).abs() == 1000;
+    out property <bool> test_log: log(4,2) == 2 && Math.log(9,3) == 2 && log(64,4) == 3;
+    out property <bool> test_log2: 4 .log(2) == 2 && (9).log(3) == 2 && 64.0.log(4) == 3;
+    out property <bool> test_pow: pow(4,2) == 16 && Math.pow(9,3) == 729 && pow(4,3) == 64 && abs(log(pow(thousand, 5), thousand) - 5) < 0.00001;
+    out property <bool> test_pow2: 4..pow(2) == 16 && 9.0.pow(3) == 729 && (4).pow(3) == 64 && (thousand.pow(5).log(thousand) - 5).abs() < 0.00001;
+
+    out property <int> test_div_zero: 42 / 0;
+
+    out property <bool> test2: test_sqrt2 && test_abs2 && test_log2 && test_pow2;
+    out property <bool> test1: test_sqrt && test_abs && test_log && test_pow;
+
+    in-out property <int> high-number1: 80000000;
+    in-out property <int> high-number2: 80000001;
+    out property <bool> test-high-number: high-number1 != high-number2 && high-number2 == 80000001 && high-number1 + 1 == high-number2 && high-number1 < high-number2 && high-number2 > high-number1 && !(high-number1 >= high-number2);
+
+
+    out property <bool> test: test1 && test2 && (test_div_zero) > -1 && test-high-number;
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

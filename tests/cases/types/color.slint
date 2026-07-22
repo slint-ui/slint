@@ -1,0 +1,246 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cspell:ignore bwood
+
+export component Test inherits Rectangle {
+    in-out property<color> b1: blue;
+    in-out property<color> b2: #00f;
+    in-out property<color> b3: #0000ff;
+    in-out property<color> b4: #00ff;
+    in-out property<color> b5: #0000ffff;
+    in-out property<color> r1: red;
+    in-out property<color> r2: #f00;
+    in-out property<color> r3: #ff0000;
+    in-out property<color> r4: #f00f;
+    in-out property<color> r5: #ff0000ff;
+
+    in-out property<color> y1: yellow;
+    in-out property<color> y2: #ff0;
+
+    in-out property<color> g1: #999;
+
+    in-out property<color> c1: #ff335588;
+    in-out property<color> c2: rgb(100, 23, 42);
+    in-out property<color> c3: rgba(39%, 50%, 16%, 81%);
+
+    in-out property<color> i1: rgb(0, 666, -85);
+
+    // allow to use `mix` on colors
+    in-out property<color> p1: true ? b1.mix(r1, 30%) : y1.mix(c1, 70%);
+    // allow to use `with_alpha` on colors
+    in-out property<brush> invisible: b1.with-alpha(0%);
+
+    in-out property<float> b1hue: 240.0;
+    in-out property<float> b1sat: 1.0;
+    in-out property<float> b1bri: 1.0;
+
+    in-out property<float> r1hue: 0.0;
+    in-out property<float> r1sat: 1.0;
+    in-out property<float> r1bri: 1.0;
+
+    in-out property<float> y1hue: 60.0;
+    in-out property<float> y1sat: 1.0;
+    in-out property<float> y1bri: 1.0;
+
+    in-out property <color> gr1: green;
+    in-out property<float> gr1hue: 120.0;
+    in-out property<float> gr1sat: 1.0;
+    in-out property<float> gr1bri: 0.501960813999176;
+    in-out property <color> new_green: hsv(120.0, 1.0, 0.501960813999176);
+
+    // burlywood
+    in-out property<color> bwood: Colors.burlywood;
+    in-out property<float> bwood_hue: 33.79310607910156;
+    in-out property<float> bwood_sat: 0.39189186692237854;
+    in-out property<float> bwood_bri: 0.8705882430076599;
+
+    // hsv with angle hue
+    in-out property<color> hsv_angle1: hsv(240deg, 1, 1);
+    in-out property<color> hsv_angle2: hsv(240, 1, 1);
+
+    // oklch color creation
+    in-out property<color> oklch1: oklch(0.5, 0.1, 180);
+    in-out property<color> oklch2: oklch(0.7, 0.15, 90, 0.8);
+    // oklch with percentage - 100% chroma equals 0.4
+    in-out property<color> oklch_pct1: oklch(50%, 100%, 180);
+    in-out property<color> oklch_pct2: oklch(0.5, 0.4, 180);
+    // oklch with angle hue
+    in-out property<color> oklch_angle1: oklch(0.5, 0.1, 180deg);
+    in-out property<color> oklch_angle2: oklch(0.5, 0.1, 180);
+    in-out property<color> oklch_angle3: oklch(0.5, 0.1, 0.5turn);
+
+    // oklch conversion - approximate values for known colors
+    // Red in oklch: L≈0.63, C≈0.26, H≈29
+    // Blue in oklch: L≈0.45, C≈0.31, H≈264
+
+    out property <bool> test_rgb: Colors.blue.blue == 255 && Colors.blue.red == 0 && Colors.blue.green == 0 && Colors.blue.alpha == 255
+        && Colors.rgb(45, 12, 78).red == 45 && Colors.rgb(45, 12, 78).green == 12 && Colors.rgba(45, 12, 78, 12/255).alpha == 12 && Colors.rgba(145, 112, 178, 85%).alpha == floor(85% * 255)
+        && #abc.green == (11 * 16 + 11) && #abcd.alpha == (13 * 16 + 13) && #abcdef.red == (10 * 16 + 11);
+
+    out property <bool> test_hsv: gr1.to-hsv().hue == new_green.to-hsv().hue && gr1.to-hsv().saturation == new_green.to-hsv().saturation && gr1.to-hsv().value == new_green.to-hsv().value
+        && bwood == Colors.hsv(bwood_hue, bwood_sat, bwood_bri);
+    out property <bool> test_hsv_wrap: Colors.blue == hsv(240, 1, 1) && Colors.blue == hsv(600, 1, 1) && Colors.blue == hsv(-120, 1, 1);
+    out property <bool> test_hsv_hue: b1.to-hsv().hue == b1hue && r1.to-hsv().hue == r1hue && y1.to-hsv().hue == y1hue && gr1.to-hsv().hue == gr1hue && bwood.to-hsv().hue == bwood_hue;
+    out property <bool> test_hsv_sat: b1.to-hsv().saturation == b1sat && r1.to-hsv().saturation == r1sat && y1.to-hsv().saturation == y1sat && gr1.to-hsv().saturation == gr1sat && bwood.to-hsv().saturation == bwood_sat;
+    out property <bool> test_hsv_bri: b1.to-hsv().value == b1bri && r1.to-hsv().value == r1bri && y1.to-hsv().value == y1bri && gr1.to-hsv().value == gr1bri && bwood.to-hsv().value == bwood_bri;
+    // Test hsv angle hue: 240deg == 240
+    out property <bool> test_hsv_angle: hsv_angle1 == hsv_angle2 && hsv_angle1 == Colors.blue;
+
+    // oklch tests - test that to-oklch() returns reasonable values
+    // Red: L should be around 0.6, chroma > 0.2, hue around 29
+    out property <bool> test_oklch_red: r1.to-oklch().lightness > 0.5 && r1.to-oklch().lightness < 0.7
+        && r1.to-oklch().chroma > 0.2 && r1.to-oklch().hue > 20 && r1.to-oklch().hue < 40;
+    // Blue: L should be around 0.45, chroma > 0.2, hue around 264
+    out property <bool> test_oklch_blue: b1.to-oklch().lightness > 0.4 && b1.to-oklch().lightness < 0.5
+        && b1.to-oklch().chroma > 0.2 && b1.to-oklch().hue > 250 && b1.to-oklch().hue < 280;
+    // White: L should be ~1, chroma should be ~0
+    out property <bool> test_oklch_white: Colors.white.to-oklch().lightness > 0.99 && Colors.white.to-oklch().chroma < 0.01;
+    // Test oklch() function creates valid colors
+    out property <bool> test_oklch_create: oklch1.to-oklch().lightness > 0.4 && oklch1.to-oklch().lightness < 0.6
+        && oklch2.to-oklch().alpha > 0.79 && oklch2.to-oklch().alpha < 0.81;
+    // Test oklch percentage: 100% chroma should equal 0.4
+    out property <bool> test_oklch_percent: oklch_pct1 == oklch_pct2;
+    // Test oklch angle hue: 180deg == 180 == 0.5turn
+    out property <bool> test_oklch_angle: oklch_angle1 == oklch_angle2 && oklch_angle1 == oklch_angle3;
+
+    in-out property<bool> test: b1 == b2 && b2 == b5 && b3 == Colors.blue && Colors.red == r4 && y1 == Colors.rgba(255, 100%, 0, 100%)
+        && test_rgb && test_hsv && test_hsv_hue && test_hsv_sat && test_hsv_bri && test_hsv_wrap && test_hsv_angle
+        && test_oklch_red && test_oklch_blue && test_oklch_white && test_oklch_create && test_oklch_percent && test_oklch_angle;
+}
+
+/*
+```cpp
+auto handle = Test::create();
+const Test &t = *handle;
+assert_eq(t.get_r1(), t.get_r2());
+assert_eq(t.get_r1(), t.get_r3());
+assert_eq(t.get_r1(), t.get_r4());
+assert_eq(t.get_r1(), t.get_r5());
+assert_eq(t.get_b1(), t.get_b2());
+assert_eq(t.get_b1(), t.get_b3());
+assert_eq(t.get_b1(), t.get_b4());
+assert_eq(t.get_b1(), t.get_b5());
+assert(t.get_b1() != t.get_r5());
+assert_eq(t.get_y1(), t.get_y2());
+
+auto red = slint::Color::from_argb_float(1, 1, 0, 0);
+auto blue = slint::Color::from_rgb_float(0, 0, 1);
+auto g = slint::Color::from_rgb_uint8(0x99, 0x99, 0x99);
+assert_eq(t.get_r1(), red);
+assert_eq(t.get_b1(), blue);
+assert_eq(t.get_g1(), g);
+assert_eq(t.get_y1(), slint::Color::from_argb_encoded(0xffffff00));
+
+t.set_g1(blue);
+assert_eq(t.get_g1(), t.get_b1());
+
+assert_eq(t.get_c1().alpha(), 0x88);
+assert_eq(t.get_c1().red(), 0xff);
+assert_eq(t.get_c1().green(), 0x33);
+assert_eq(t.get_c1().blue(), 0x55);
+
+assert_eq(t.get_c2().alpha(), 0xff);
+assert_eq(t.get_c2().red(), 100);
+assert_eq(t.get_c2().green(), 23);
+assert_eq(t.get_c2().blue(), 42);
+
+assert_eq(t.get_c3().alpha(), uint8_t(255.*0.81));
+assert_eq(t.get_c3().red(), uint8_t(255.*0.39));
+assert_eq(t.get_c3().green(), uint8_t(255.*0.50));
+assert_eq(t.get_c3().blue(), uint8_t(255.*0.16));
+
+assert_eq(t.get_i1().alpha(), 0xff);
+assert_eq(t.get_i1().red(), 0);
+assert_eq(t.get_i1().green(), 255);
+assert_eq(t.get_i1().blue(), 0);
+
+assert(t.get_test_rgb());
+assert(t.get_test());
+```
+
+
+```rust
+let t = Test::new().unwrap();
+assert_eq!(t.get_r1(), t.get_r2());
+assert_eq!(t.get_r1(), t.get_r3());
+assert_eq!(t.get_r1(), t.get_r4());
+assert_eq!(t.get_r1(), t.get_r5());
+assert_eq!(t.get_b1(), t.get_b2());
+assert_eq!(t.get_b1(), t.get_b3());
+assert_eq!(t.get_b1(), t.get_b4());
+assert_eq!(t.get_b1(), t.get_b5());
+assert_ne!(t.get_b1(), t.get_r5());
+assert_eq!(t.get_y1(), t.get_y2());
+
+let red = slint::Color::from_argb_f32(1., 1., 0., 0.);
+let blue = slint::Color::from_rgb_f32(0., 0., 1.);
+let g = slint::Color::from_rgb_u8(0x99, 0x99, 0x99);
+assert_eq!(t.get_r1(), red);
+assert_eq!(t.get_b1(), blue);
+assert_eq!(t.get_g1(), g);
+assert_eq!(t.get_y1(), slint::Color::from_argb_encoded(0xffffff00));
+
+t.set_g1(blue);
+assert_eq!(t.get_g1(), t.get_b1());
+
+assert_eq!(t.get_c1().alpha(), 0x88);
+assert_eq!(t.get_c1().red(), 0xff);
+assert_eq!(t.get_c1().green(), 0x33);
+assert_eq!(t.get_c1().blue(), 0x55);
+
+assert_eq!(t.get_c2().alpha(), 0xff);
+assert_eq!(t.get_c2().red(), 100);
+assert_eq!(t.get_c2().green(), 23);
+assert_eq!(t.get_c2().blue(), 42);
+
+assert_eq!(t.get_c3().alpha(), (255.*0.81) as u8);
+assert_eq!(t.get_c3().red(), (255.*0.39) as u8);
+assert_eq!(t.get_c3().green(), (255.*0.50) as u8);
+assert_eq!(t.get_c3().blue(), (255.*0.16) as u8);
+
+assert_eq!(t.get_i1().alpha(), 0xff);
+assert_eq!(t.get_i1().red(), 0);
+assert_eq!(t.get_i1().green(), 255);
+assert_eq!(t.get_i1().blue(), 0);
+
+assert!(t.get_test_rgb());
+assert!(t.get_test());
+
+```
+
+```js
+var t = new slint.Test({});
+assert(t.r1.toString() == t.r2.toString());
+assert(t.r1.toString() == t.r3.toString());
+assert(t.r1.toString() == t.r4.toString());
+assert(t.r1.toString() == t.r5.toString());
+assert(t.b1.toString() == t.b2.toString());
+assert(t.b1.toString() == t.b3.toString());
+assert(t.b1.toString() == t.b4.toString());
+assert(t.b1.toString() == t.b5.toString());
+assert(t.b1.toString() != t.r5.toString());
+
+let red = "#ff0000";
+let blue = "#0000ff";
+let g = "#999999";
+assert.equal(t.r1.toString(), red);
+assert.equal(t.b1.toString(), blue);
+assert.equal(t.g1.toString(), g);
+assert.equal(t.y1.toString(), "#ffff00");
+
+t.g1 = "blue";
+assert.equal(t.g1.toString(), t.b1.toString());
+t.g1 = "#f00";
+assert.equal(t.g1.toString(), t.r1.toString());
+
+assert.equal(t.c1.toString(), "#ff335588");
+assert.equal(t.c2.toString(), "#64172a");
+assert.equal(t.c3.toString(), "#637f28ce");
+assert.equal(t.i1.toString(), "#00ff00");
+
+assert(t.test_rgb);
+assert(t.test);
+
+```
+*/

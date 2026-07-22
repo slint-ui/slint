@@ -1,0 +1,94 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CupertinoPalette } from "styling.slint";
+import { SliderBase } from "../common/slider-base.slint";
+
+export component Slider {
+    in property <Orientation> orientation <=> base.orientation;
+    in property <float> maximum <=> base.maximum;
+    in property <float> minimum <=> base.minimum;
+    in property <float> step <=> base.step;
+    in property <bool> enabled <=> base.enabled;
+    out property <bool> has-focus <=> base.has-focus;
+    in-out property <float> value <=> base.value;
+
+    callback changed <=> base.changed;
+    callback released <=> base.released;
+
+    min-width: base.vertical ? 20px : 0px;
+    min-height: base.vertical ? 0px : 20px;
+    vertical-stretch: base.vertical ? 1 : 0;
+    horizontal-stretch: base.vertical ? 0 : 1;
+    accessible-role: slider;
+    accessible-enabled: root.enabled;
+    accessible-orientation: root.orientation;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: min(root.step, (root.maximum - root.minimum) / 100);
+    accessible-action-set-value(v) => {
+        if v.is-float() {
+            base.set-value(v.to-float());
+        }
+    }
+    accessible-action-increment => { base.increment(); }
+    accessible-action-decrement => { base.decrement(); }
+    forward-focus: base;
+
+    states [
+        disabled when !root.enabled : {
+            root.opacity: 0.5;
+        }
+        pressed when base.handle-pressed || root.has-focus : {
+            thumb.background: CupertinoPalette.pressed;
+        }
+    ]
+
+    rail := Rectangle {
+        x: base.vertical ? (parent.width - self.width) / 2 : thumb.width / 2;
+        y: base.vertical ? thumb.height / 2 : (parent.height - self.height) / 2;
+        width: base.vertical ? 4px : parent.width - thumb.width;
+        height: base.vertical ? parent.height - thumb.height : 4px;
+        background: CupertinoPalette.alternate-control-background;
+        border-radius: 2px;
+
+        Rectangle {
+            border-width: 1px;
+            border-color: @radial-gradient(circle, #00000026, #00000000);
+            border-radius: parent.border-radius;
+        }
+    }
+
+    track := Rectangle {
+        x: base.vertical ? (parent.width - self.width) / 2 : thumb.width / 2;
+        y: base.vertical ? thumb.y + thumb.height / 2 : (parent.height - self.height) / 2;
+        width: base.vertical ? rail.width : thumb.x;
+        height: base.vertical ? parent.height - thumb.y - thumb.height : rail.height;
+        background: CupertinoPalette.accent-background;
+        border-radius: rail.border-radius;
+    }
+
+    thumb := Rectangle {
+        x: base.vertical ? (parent.width - self.width) / 2 : clamp((parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, parent.width - self.width);
+        y: base.vertical ? clamp((parent.height - self.height) * (root.maximum - root.value) / (root.maximum - root.minimum), 0, parent.height - self.height) : (parent.height - self.height) / 2;
+        width: 20px;
+        height: self.width;
+        border-radius: 10px;
+        background: CupertinoPalette.control-background-thumb;
+        drop-shadow-blur: 1px;
+        drop-shadow-offset-y: 0.25px;
+        drop-shadow-color: #0000003D;
+
+        animate background { duration: 150ms; easing: linear; }
+    }
+
+    base := SliderBase {
+        width: 100%;
+        height: 100%;
+        handle-x: thumb.x;
+        handle-y: thumb.y;
+        handle-width: thumb.width;
+        handle-height: thumb.height;
+    }
+}

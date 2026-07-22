@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 200px;
+    min-height: 300px;
+    VerticalLayout {
+        HorizontalLayout {
+            green := Rectangle {
+                background: Colors.green;
+                width: 100px;
+            }
+            red := Rectangle { background: Colors.red; }
+        }
+        Rectangle { background: orange; }
+    }
+
+    out property <length> win_w: root.width;
+    out property <length> win_h: root.height;
+    out property <length> green_w: green.width;
+    out property <length> red_w: red.width;
+
+
+    out property <bool> test: root.min-height == 300px && root.width == 200px && green.width == 100px && red.width == 100px;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+TestCase &instance = *handle;
+instance.show();
+assert(instance.get_test());
+auto size = instance.window().size();
+assert(size == slint::PhysicalSize({200, 300}));
+assert_eq(instance.get_win_h(), 300.);
+assert_eq(instance.get_win_w(), 200.);
+assert_eq(instance.get_green_w(), 100.);
+assert_eq(instance.get_red_w(), 100.);
+instance.window().set_size(slint::PhysicalSize({150, 150}));
+assert_eq(instance.get_win_h(), 150.); // this didn't have a fixed sized, so the size follow (FIXME: it probably shouldn't)
+assert_eq(instance.get_win_w(), 200.); // but because we have a fixed sized, the geometry don't change
+assert_eq(instance.get_green_w(), 100.);
+assert_eq(instance.get_red_w(), 100.);
+
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert!(instance.get_test());
+let size = instance.window().size();
+assert_eq!(size, slint::PhysicalSize::new(200, 300));
+assert_eq!(instance.get_win_h(), 300.);
+assert_eq!(instance.get_win_w(), 200.);
+assert_eq!(instance.get_green_w(), 100.);
+assert_eq!(instance.get_red_w(), 100.);
+instance.window().set_size(slint::PhysicalSize::new(150, 150));
+assert_eq!(instance.get_win_h(), 150.); // this didn't have a fixed sized, so the size follow (FIXME: it probably shouldn't)
+assert_eq!(instance.get_win_w(), 200.); // but because we have a fixed sized, the geometry don't change
+assert_eq!(instance.get_green_w(), 100.);
+assert_eq!(instance.get_red_w(), 100.);
+```
+
+
+*/

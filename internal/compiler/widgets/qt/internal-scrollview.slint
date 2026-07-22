@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export { NativeStyleMetrics as StyleMetrics }
+
+// This internal ScrollView has some additional properties, used by the
+// StandardTableView, which are not currently exposed by the public ScrollView
+// (since then it would need to be done for all styles).
+export component InternalScrollView {
+    in-out property <length> viewport-width <=> fli.viewport-width;
+    in-out property <length> viewport-height <=> fli.viewport-height;
+    in-out property <length> viewport-x <=> fli.viewport-x;
+    in-out property <length> viewport-y <=> fli.viewport-y;
+    out property <length> visible-width <=> fli.width;
+    out property <length> visible-height <=> fli.height;
+    in-out property <bool> has-focus <=> native.has-focus;
+    in property <bool> enabled <=> native.enabled;
+    in property <ScrollBarPolicy> vertical-scrollbar-policy <=> native.vertical-scrollbar-policy;
+    in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> native.horizontal-scrollbar-policy;
+    in property <bool> mouse-drag-pan-enabled <=> fli.mouse-drag-pan-enabled;
+
+    // Used by the StandardTableView
+    out property <length> native-padding-left: native.native-padding-left;
+    out property <length> native-padding-right: native.native-padding-right;
+    out property <length> native-padding-top: native.native-padding-top;
+    out property <length> native-padding-bottom: native.native-padding-bottom;
+    in property <length> header-height: 0;
+
+    callback scrolled <=> fli.flicked;
+
+    preferred-height: 100%;
+    preferred-width: 100%;
+    min-height: native.min-height;
+    min-width: native.min-width;
+
+    native := NativeScrollView {
+        vertical-max: fli.viewport-height > fli.height ? fli.viewport-height - fli.height : 0phx;
+        vertical-page-size: fli.height;
+
+        horizontal-max: fli.viewport-width > fli.width ? fli.viewport-width - fli.width : 0phx;
+        horizontal-page-size: fli.width;
+
+        scrolled => root.scrolled();
+    }
+
+    fli := Flickable {
+        x: native.native-padding-left;
+        width: root.width - native.native-padding-left - native.native-padding-right;
+        y: native.native-padding-top + header-height;
+        height: root.height - self.y - native.native-padding-bottom;
+
+        @children
+        mouse-drag-pan-enabled: false;
+        viewport-y <=> native.vertical-value;
+        viewport-x <=> native.horizontal-value;
+    }
+}
+
+// This is an internal ListView, used by the StandardTableView. It needs to be
+// called "ListView", for the compiler to recognize it.
+export component ListView inherits InternalScrollView {
+    @children
+}

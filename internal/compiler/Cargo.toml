@@ -1,0 +1,127 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cSpell:ignore nalge fdsm nalgebra pathdiff flate
+
+[package]
+name = "i-slint-compiler"
+description = "Internal Slint Compiler Library"
+authors.workspace = true
+edition = "2024"
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+build = "build.rs"
+
+[lib]
+path = "lib.rs"
+
+[features]
+# Generators
+cpp = []
+rust = ["quote", "proc-macro2"]
+python = ["dep:pathdiff", "dep:serde", "smol_str/serde", "dep:serde_json", "dep:flate2", "dep:base64"]
+
+# Safety-critical subset: enables the SlintSc output format and compile-time checks
+slint-sc = ["quote", "proc-macro2"]
+
+# Support for proc_macro spans in the token (only useful for use within a proc macro)
+proc_macro_span = ["quote", "proc-macro2"]
+
+# Feature to print the diagnostics to the console
+display-diagnostics = ["dep:annotate-snippets"]
+
+# Enable the support to render images and font in the binary
+renderer-software = [
+  "image",
+  "dep:resvg",
+  "dep:swash",
+  "dep:skrifa",
+  "i-slint-common/shared-fontique",
+  "i-slint-common/svg-text",
+  "dep:rayon",
+]
+# Enable `image`'s default feature set (additional codecs). This is enabled by
+# default by `slint-build` and the `slint-compiler` binary for compatibility, but
+# can be opted out from to keep builds minimal.
+image-default-formats = ["image?/default"]
+# Enable support to embed the fonts as signed distance fields
+sdf-fonts = ["renderer-software", "dep:fdsm", "dep:fdsm-ttf-parser", "dep:nalgebra", "dep:rayon"]
+
+# Translation bundler
+bundle-translations = ["dep:rspolib", "i-slint-common/locale-decimal-separator"]
+
+# Enable experimental library module support
+experimental-library-module = []
+
+default = []
+
+[dependencies]
+i-slint-common = { workspace = true, features = ["default", "color-parsing", "markdown"] }
+
+num_enum = "0.7"
+icu_normalizer = { workspace = true }
+unicode-segmentation = { workspace = true }
+strum = { workspace = true }
+rowan = { version = "0.16.1" }
+smol_str = { workspace = true }
+derive_more = { workspace = true }
+annotate-snippets = { version = "0.12.9", optional = true }
+quote = { version = "1.0", optional = true }
+proc-macro2 = { version = "1.0.17", optional = true }
+lyon_path = { workspace = true, features = ["std"] }
+lyon_extra = "1.0.1"
+by_address = { workspace = true }
+itertools = { workspace = true }
+url = "2.2.1"
+linked_hash_set = "0.1.4"
+typed-index-collections = { workspace = true }
+
+# for processing and embedding the rendered image (texture)
+image = { workspace = true, optional = true }
+resvg = { workspace = true, optional = true }
+# font embedding
+swash = { workspace = true, optional = true, features = ["scale", "render", "std"] }
+skrifa = { workspace = true, optional = true }
+fdsm = { version = "0.8.0", optional = true }
+fdsm-ttf-parser = { version = "0.2", optional = true }
+# Keep in sync with the nalgebra version used by fdsm
+nalgebra = { version = "0.34.0", optional = true }
+rayon = { workspace = true, optional = true }
+# translations
+rspolib = { version = "0.1.2", optional = true }
+
+pathdiff = { version = "0.2.3", optional = true }
+
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+flate2 = { version = "1.1.5", optional = true }
+base64 = { version = "0.22.1", optional = true }
+data-url = "0.3.2"
+
+[dev-dependencies]
+i-slint-parser-test-macro = { path = "./parser-test-macro" }
+
+regex = "1.3.7"
+spin_on = { workspace = true }
+rayon = { workspace = true }
+divan = "0.1.14"
+
+[[bench]]
+name = "semantic_analysis"
+harness = false
+required-features = ["rust"]
+
+[package.metadata.docs.rs]
+features = [
+  "renderer-software",
+  "display-diagnostics",
+  "bundle-translations",
+  "cpp",
+  "rust",
+  "python",
+  "experimental-library-module",
+]
+rustdoc-args = ["--generate-link-to-definition"]

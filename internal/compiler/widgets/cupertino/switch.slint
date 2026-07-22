@@ -1,0 +1,133 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
+import { FocusBorder } from "components.slint";
+
+export component Switch {
+    in property <bool> enabled: true;
+    in property <string> text;
+    out property <bool> has-focus: i-focus-scope.has-focus;
+    in-out property <bool> checked;
+
+    callback toggled;
+
+    private property <brush> background: checked && root.enabled ? CupertinoPalette.accent-background : CupertinoPalette.alternate-control-background;
+    private property <color> text-color: CupertinoPalette.foreground;
+
+    function toggle-checked() {
+        if(!root.enabled) {
+            return;
+        }
+
+        root.checked = !root.checked;
+        root.toggled();
+    }
+
+    min-width: max(26px, i-layout.min-width);
+    min-height: max(15px, i-layout.min-height);
+    vertical-stretch: 0;
+    horizontal-stretch: 0;
+    accessible-enabled: root.enabled;
+    accessible-label: root.text;
+    accessible-checkable: true;
+    accessible-checked <=> root.checked;
+    accessible-role: switch;
+    accessible-action-default => {
+        if (root.enabled) {
+           root.checked = !root.checked;
+           root.toggled();
+        }
+    }
+    forward-focus: i-focus-scope;
+
+    states [
+        disabled when !root.enabled : {
+            root.opacity: 0.5;
+        }
+        pressed when i-touch-area.pressed : {
+            root.background: root.checked ? CupertinoPalette.secondary-accent-background : CupertinoPalette.secondary-control-background;
+        }
+        selected when root.checked : {
+            i-rail.background: CupertinoPalette.accent-background;
+        }
+    ]
+
+    i-layout := HorizontalLayout {
+        spacing: 12px;
+
+        VerticalLayout {
+            alignment: center;
+
+           Rectangle {
+                width: 26px;
+                height: 15px;
+                border-radius: 8px;
+
+                i-rail := Rectangle {
+                    border-radius: parent.border-radius;
+                    background: root.background;
+                    border-width: 0.5px;
+                    border-color: CupertinoPalette.border;
+                    clip: true;
+
+                    Rectangle {
+                        border-width: 1px;
+                        border-color: @radial-gradient(circle, #00000026, #00000000);
+                        border-radius: parent.border-radius;
+                    }
+
+                    animate background, border-color { duration: 150ms; easing: linear; }
+                }
+
+                i-thumb := Rectangle {
+                    x: root.checked ? parent.width - self.width - 1px : 2px;
+                    y: (parent.height - self.height) / 2;
+                    height: parent.height - 2px;
+                    width: self.height;
+                    border-radius: self.height / 2;
+                    background: CupertinoPalette.control-background-thumb;
+                    drop-shadow-blur: 0.5px;
+                    drop-shadow-offset-y: 0.25px;
+                    drop-shadow-color: #0000001F;
+
+                    animate background { duration: 150ms; easing: linear; }
+                }
+
+                // focus border
+                if (root.has-focus && root.enabled) : FocusBorder {
+                    border-radius: i-rail.border-radius;
+                }
+            }
+        }
+
+        if (root.text != "") : Text {
+            text: root.text;
+            color: root.text-color;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+
+    i-touch-area := TouchArea {
+        enabled <=> root.enabled;
+
+        clicked => {
+            root.toggle-checked();
+        }
+    }
+
+    i-focus-scope := FocusScope {
+        x:0;
+        width: 0px; // Do not react on clicks
+        enabled <=> root.enabled;
+
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                 root.toggle-checked();
+                 return accept;
+            }
+            return reject;
+        }
+    }
+}

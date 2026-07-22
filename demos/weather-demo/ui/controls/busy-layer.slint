@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { AppFonts, AppImages } from "../style/styles.slint";
+
+export global BusyLayerController {
+    out property<bool> is-busy: false;
+
+    property<int> busy-counter: 0;
+
+    public function set-busy() {
+        busy-counter += 1;
+
+        // updating only when real change happen to avoid:
+        // https://github.com/slint-ui/slint/issues/5209
+        if (!root.is-busy) {
+            root.is-busy = true;
+        }
+    }
+    public function unset-busy() {
+        busy-counter -= 1;
+
+        // updating only when real change happen to avoid:
+        // https://github.com/slint-ui/slint/issues/5209
+        if (root.is-busy && busy-counter == 0) {
+            root.is-busy = false;
+        }
+    }
+}
+
+export component BusyLayer inherits Rectangle {
+    Rectangle {
+        background: black;
+        opacity: 0.75;
+    }
+
+    Image {
+        width: 75px;
+        height: 75px;
+        image-fit: contain;
+
+        source: AppImages.refresh;
+        colorize: white.darker(15%);
+
+        transform-rotation: Math.mod(animation-tick() / 3.25ms, 360) * 1deg;
+    }
+
+    // touch blocker
+    TouchArea {}
+}

@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+ TestCase := Rectangle {
+    property<int> t1: ceil(42.2);
+    property<int> t2: ceil(23.5);
+    property<int> t3: ceil(24.6);
+    property<int> t4: ceil(25);
+
+    property<int> n1: ceil(-42.2);
+    property<int> n2: ceil(-23.5);
+    property<int> n3: ceil(-24.6);
+    property<int> n4: ceil(-25);
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_t1(), 43);
+assert_eq(instance.get_t2(), 24);
+assert_eq(instance.get_t3(), 25);
+assert_eq(instance.get_t4(), 25);
+assert_eq(instance.get_n1(), -42);
+assert_eq(instance.get_n2(), -23);
+assert_eq(instance.get_n3(), -24);
+assert_eq(instance.get_n4(), -25);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_t1(), 43);
+assert_eq!(instance.get_t2(), 24);
+assert_eq!(instance.get_t3(), 25);
+assert_eq!(instance.get_t4(), 25);
+assert_eq!(instance.get_n1(), -42);
+assert_eq!(instance.get_n2(), -23);
+assert_eq!(instance.get_n3(), -24);
+assert_eq!(instance.get_n4(), -25);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.t1, 43);
+assert.equal(instance.t2, 24);
+assert.equal(instance.t3, 25);
+assert.equal(instance.t4, 25);
+assert.equal(instance.n1, -42);
+assert.equal(instance.n2, -23);
+assert.equal(instance.n3, -24);
+assert.equal(instance.n4, -25);
+```
+*/

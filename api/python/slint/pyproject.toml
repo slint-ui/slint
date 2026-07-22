@@ -1,0 +1,74 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cSpell: ignore cibuildwheel
+[build-system]
+# maturin 1.14.1 (PR #3226) encodes the abi3 floor (python3.11) as the link
+# lib name, which breaks the iOS cross-link (only libpython3.13 is shipped).
+requires = ["maturin>=1,<1.14.1"]
+build-backend = "maturin"
+
+[project]
+name = "slint"
+version = "1.18.0b1"
+requires-python = ">= 3.12"
+authors = [{ name = "Slint Team", email = "info@slint.dev" }]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: MacOS X",
+  "Environment :: X11 Applications",
+  "Environment :: Win32 (MS Windows)",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python",
+  "Programming Language :: Rust",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "License :: Other/Proprietary License",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+  "Topic :: Software Development :: User Interfaces",
+  "Topic :: Software Development :: Widget Sets",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+]
+description = "GUI toolkit to efficiently develop fluid graphical user interfaces for embedded devices and desktop applications"
+readme = "README.md"
+
+[project.urls]
+Homepage = "https://slint.dev"
+Documentation = "https://slint.dev/docs"
+Repository = "https://github.com/slint-ui/slint"
+Changelog = "https://github.com/slint-ui/slint/blob/master/CHANGELOG.md"
+Tracker = "https://github.com/slint-ui/slint/issues"
+
+[project.optional-dependencies]
+# `slint-dev` ships the development binary (system-testing and MCP support); it
+# is loaded only when SLINT_TEST_SERVER or SLINT_MCP_PORT is set. Its version is
+# pinned to match slint and is kept in sync by upgrade_version.yaml.
+dev = ["pytest", "numpy>=2.3.2", "pillow>=11.3.0", "aiohttp>=3.12.15", "slint-dev==1.18.0b1"]
+
+[dependency-groups]
+dev = ["pytest>=8.3.4", "ruff>=0.9.6", "pillow>=11.3.0", "numpy>=2.3.2", "aiohttp>=3.12.15"]
+
+[tool.uv]
+# Rebuild package when any rust files change
+cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "**/*.rs" }]
+
+[tool.uv.sources]
+# Resolve the `slint-dev` dev-extra from the sibling source package rather than
+# PyPI for local development. This is uv-only metadata and is not part of the
+# published wheel, where the `dev` extra resolves slint-dev from PyPI. The dev
+# binary is only built when the extra is actually installed (uv reads the
+# package's static metadata otherwise), so a plain `uv sync` stays lean.
+slint-dev = { path = "../slint-dev" }
+# Uncomment to build rust code in development mode
+# config-settings = { build-args = '--profile=dev' }
+
+[tool.cibuildwheel.ios]
+# Expose Rust toolchain to the restricted iOS build environment
+xbuild-tools = ["rustc", "cargo", "rustup", "cc", "ar"]
+
+[tool.maturin]
+editable-profile = "dev"
+# added so it includes in wheel build to overwrite the default behavior of not including untracked files
+include = ["slint/language.pyi"]

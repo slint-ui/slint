@@ -1,0 +1,88 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+
+    le1 := TextInput {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100px;
+    }
+
+    le2 := TextInput {
+        y: 100px;
+        x: 0px;
+        width: 100%;
+        height: 100px;
+    }
+
+    out property le1-has-focus <=> le1.has-focus;
+    out property le2-has-focus <=> le2.has-focus;
+    out property <bool> te-focused: TextInputInterface.text-input-focused;
+
+    callback clear-le1-focus();
+    clear-le1-focus => {
+        le1.clear-focus();
+    }
+
+    callback clear-le2-focus();
+    clear-le2-focus => {
+        le2.clear-focus();
+    }
+
+    callback focus-le1();
+    focus-le1 => {
+        le1.focus();
+    }
+
+    callback focus-le2();
+    focus-le2 => {
+        le2.focus();
+    }
+}
+
+/*
+
+
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_le1_has_focus(), false);
+assert_eq!(instance.get_le2_has_focus(), false);
+//assert_eq!(instance.get_te_focused(), false);
+
+// Focus first line edit
+eprintln!("send event");
+slint_testing::send_mouse_click(&instance, 50., 50.);
+
+assert_eq!(instance.get_le1_has_focus(), true);
+assert_eq!(instance.get_le2_has_focus(), false);
+assert_eq!(instance.get_te_focused(), true);
+
+// Focus second line edit programmatically
+eprintln!("set programmatically");
+instance.invoke_focus_le2();
+
+assert_eq!(instance.get_le1_has_focus(), false);
+assert_eq!(instance.get_le2_has_focus(), true);
+assert_eq!(instance.get_te_focused(), true);
+
+// Clear focus (should fail because item is not focused)
+instance.invoke_clear_le1_focus();
+
+assert_eq!(instance.get_le1_has_focus(), false);
+assert_eq!(instance.get_le2_has_focus(), true);
+assert_eq!(instance.get_te_focused(), true);
+
+// Clear focus on currently focused item
+instance.invoke_clear_le2_focus();
+
+assert_eq!(instance.get_le1_has_focus(), false);
+assert_eq!(instance.get_le2_has_focus(), false);
+assert_eq!(instance.get_te_focused(), false);
+```
+
+*/

@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { MenuBarItemBase, MenuBarBase, MenuFrameBase, MenuItemBase } from "../common/menu-base.slint";
+
+export component MenuBarItem {
+    in property <MenuEntry> entry <=> base.entry;
+
+    callback clicked <=> base.clicked;
+    callback hovered <=> base.hovered;
+
+    min-width: base.min-width;
+    min-height: base.min-height;
+
+    base := MenuBarItemBase {
+        horizontal-padding: 11px;
+        top-padding: 4px;
+        bottom-padding: 6px;
+        default-foreground: NativePalette.foreground;
+        hover-foreground: NativePalette.selection-foreground;
+        pressed-foreground: NativePalette.selection-foreground;
+        hover-background: NativePalette.selection-background;
+        pressed-background: NativePalette.selection-background;
+        font-weight: FontWeight.light;
+        border-radius: 3px;
+    }
+}
+
+export component MenuBar inherits MenuBarBase {
+    spacing: 10px;
+    min-layout-height: 40px;
+}
+
+export component MenuFrame inherits MenuFrameBase {
+    background: NativePalette.background;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: NativePalette.border;
+    drop-shadow-color: transparent;
+    margin: 1px;
+    layout-min-width: 280px;
+}
+
+export component MenuItem {
+    in property <bool> is-current <=> base.is-current;
+    in property <MenuEntry> entry <=> base.entry;
+
+    callback set-current <=> base.set-current;
+    callback clear-current <=> base.clear-current;
+    callback activate <=> base.activate;
+
+    min-height: entry.is-separator ? 1px : max(40px, base.min-height);
+    max-height: entry.is-separator ? 1px : base.max-height;
+
+    HorizontalLayout {
+        padding: 5px;
+
+        base := MenuItemBase {
+            default-foreground: NativePalette.foreground;
+            alternate-foreground: NativePalette.alternate-foreground;
+            current-foreground: NativePalette.selection-foreground;
+            current-background: NativePalette.selection-background;
+            separator-color: NativePalette.border;
+            font-weight: FontWeight.light;
+            border-radius: 4px;
+            horizontal-padding: 11px;
+            spacing: 8px;
+            sub-menu-icon: @image-url("_arrow_forward.svg");
+            icon-size: 12px;
+        }
+    }
+}

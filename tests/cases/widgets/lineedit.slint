@@ -1,0 +1,115 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+
+    forward-focus: edit1;
+
+    edit1 := LineEdit {
+        y: 0px;
+        width: 10 * self.height; // Test that there is no height for width dependency (loop)
+    }
+
+    in-out property <string> text <=> edit1.text;
+    in-out property <bool> read-only <=> edit1.read-only;
+    in-out property <bool> enabled <=> edit1.enabled;
+    in-out property <bool> font-italic <=> edit1.font-italic;
+    in-out property <string> font-family <=> edit1.font-family;
+    public function select-all() {
+        edit1.select-all();
+    }
+    public function cut() {
+        edit1.cut();
+    }
+
+    callback edited <=> edit1.edited;
+}
+
+
+/*
+
+```rust
+
+fn ctrl_key(instance: &TestCase, key: &str) {
+    slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
+    slint_testing::send_keyboard_string_sequence(instance, key);
+    slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Control.into(), false);
+}
+
+use slint::{SharedString};
+
+let instance = TestCase::new().unwrap();
+
+let mut result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::edit1").collect::<Vec<_>>();
+assert_eq!(result.len(), 1);
+let edit1 = result.pop().unwrap();
+assert_eq!(edit1.accessible_value(), Some(SharedString::from("")));
+
+instance.set_text("Hello👋".into());
+assert_eq!(instance.get_text(), "Hello👋");
+
+instance.invoke_select_all();
+instance.invoke_cut();
+assert_eq!(instance.get_text(), "", "cut should remove the text");
+
+instance.set_text("Hello👋".into());
+instance.invoke_cut();
+assert_eq!(instance.get_text(), "Hello👋");
+ctrl_key(&instance, "a");
+ctrl_key(&instance, "x");
+assert_eq!(instance.get_text(), "", "shortcut should have worked");
+ctrl_key(&instance, "v");
+assert_eq!(instance.get_text(), "Hello👋");
+
+
+// Read Only
+instance.set_text("👋Hello".into());
+assert_eq!(instance.get_text(), "👋Hello");
+instance.set_read_only(true);
+ctrl_key(&instance, "a");
+ctrl_key(&instance, "x");
+assert_eq!(instance.get_text(), "👋Hello");
+instance.invoke_cut();
+assert_eq!(instance.get_text(), "", "programmatic should have worked even if read-only");
+
+instance.set_read_only(false);
+
+// Enabled
+ctrl_key(&instance, "v");
+instance.set_enabled(false);
+instance.invoke_select_all();
+ctrl_key(&instance, "x");
+assert_eq!(instance.get_text(), "👋Hello");
+instance.invoke_cut();
+assert_eq!(instance.get_text(), "", "programmatic should have worked even if disabled");
+instance.set_text("👋Hello".into());
+
+// Font Family
+instance.set_font_family("sans-sherif".into());
+assert_eq!(instance.get_font_family(), "sans-sherif");
+
+// Font Italic
+assert_eq!(instance.get_font_italic(), false);
+instance.set_font_italic(true);
+assert_eq!(instance.get_font_italic(), true);
+
+// Invoking accessible-action-set-value should update the value and invoke edited
+let edited_emitted = std::rc::Rc::new(std::cell::Cell::new(0));
+instance.on_edited({
+    let edited_emitted = edited_emitted.clone();
+    move |_| {
+        edited_emitted.set(edited_emitted.get() + 1);
+    }
+});
+assert_eq!(edited_emitted.get(), 0);
+edit1.set_accessible_value("Hello👋");
+assert_eq!(instance.get_text(), "Hello👋");
+assert_eq!(edited_emitted.get(), 1);
+
+
+```
+
+*/

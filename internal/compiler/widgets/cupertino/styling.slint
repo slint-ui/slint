@@ -1,0 +1,134 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ColorSchemeSelector } from "color-scheme.slint";
+
+export struct TextStyle {
+    font-size: relative-font-size,
+    font-weight: int,
+}
+
+export global CupertinoFontSettings {
+    out property <TextStyle> title: { font-size: 28pt * 1rem / 13pt, font-weight: FontWeight.light };
+
+    // needed?
+    out property <TextStyle> body-strong: { font-size: 14pt * 1rem / 13pt, font-weight: FontWeight.semi-bold };
+}
+
+export global CupertinoColors {
+    out property <color> systemGray: #8E8E93;
+    out property <color> systemGray2: #AEAEB2;
+    out property <color> systemGray3: #C7C7CC;
+    out property <color> systemGray4: #D1D1D6;
+    out property <color> systemGray5: #E7E7E7;
+    out property <color> systemGray55: #f0f0f0;
+    out property <color> systemGray6: #F2F2F7;
+    out property <color> white: #FFFFFF;
+    out property <color> systemGray2-dark: #636366;
+    out property <color> systemGray3-dark: #48484A;
+    out property <color> systemGray4-dark: #3A3A3C;
+    out property <color> systemGray5-dark: #2C2C2E;
+    out property <color> systemGray55-dark: #262626;
+    out property <color> systemGray6-dark: #1C1C1E;
+    out property <color> black: #000000;
+
+    out property <color> red: #FF3B30;
+    out property <color> orange: #FF9500;
+    out property <color> yellow: #FFCC00;
+    out property <color> green: #28CD41;
+    out property <color> mint: #00C7BE;
+    out property <color> teal: #59ADC4;
+    out property <color> cyan: #55BEF0;
+    out property <color> blue: #326CCF;
+    out property <color> indigo: #5856D6;
+    out property <color> purple: #AF52DE;
+    out property <color> pink: #FF2D55;
+    out property <color> brown: #A2845E;
+    out property <color> gray: #8E8E93;
+
+    out property <brush> selection-color: self.blue;
+}
+
+export global CupertinoPalette {
+    in-out property <ColorScheme> color-scheme: ColorSchemeSelector.color-scheme;
+    property <bool> dark-color-scheme: {
+        if (color-scheme == ColorScheme.unknown) {
+            return SlintInternal.color-scheme == ColorScheme.dark;
+        }
+        return color-scheme == ColorScheme.dark;
+    }
+
+    pure function accentify(default-color: color) -> color {
+        let accent-color = SlintInternal.accent-color;
+        if (accent-color.alpha > 0) {
+            let default-lch = default-color.to-oklch();
+            let accent-lch = accent-color.to-oklch();
+            return oklch(default-lch.lightness, accent-lch.chroma, accent-lch.hue);
+        }
+        return default-color;
+    }
+
+    // base palette
+    out property <brush> background: dark-color-scheme ? CupertinoColors.systemGray55-dark : CupertinoColors.systemGray55;
+    out property <brush> foreground: dark-color-scheme ? CupertinoColors.systemGray6 : CupertinoColors.systemGray6-dark;
+    out property <brush> alternate-background: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray5;
+    out property <brush> alternate-foreground: dark-color-scheme ? CupertinoColors.systemGray5 : CupertinoColors.systemGray5-dark;
+    out property <brush> control-background: dark-color-scheme ? CupertinoColors.systemGray2-dark : CupertinoColors.systemGray6;
+    out property <brush> control-foreground: dark-color-scheme ? CupertinoColors.systemGray4 : CupertinoColors.systemGray5-dark;
+    out property <brush> accent-background: accentify(CupertinoColors.selection-color);
+    out property <brush> accent-foreground: CupertinoColors.systemGray5;
+    out property <brush> selection-background: accent-background.transparentize(0.5);
+    out property <brush> selection-foreground: dark-color-scheme ? CupertinoColors.systemGray6 : CupertinoColors.systemGray6-dark;
+    out property <brush> border: dark-color-scheme ? CupertinoColors.systemGray6.transparentize(0.9) : CupertinoColors.systemGray6-dark.transparentize(0.9);
+
+    // additional palette
+    out property <brush> tertiary-background: dark-color-scheme ? CupertinoColors.systemGray6-dark : CupertinoColors.systemGray6;
+    out property <brush> quaternary-background: dark-color-scheme ? CupertinoColors.systemGray6-dark : CupertinoColors.systemGray6;
+    out property <brush> secondary-accent-background: accent-background;
+    out property <brush> tertiary-accent-background: accent-background;
+    out property <brush> foreground-neg: dark-color-scheme ? CupertinoColors.systemGray6-dark : CupertinoColors.systemGray6;
+    out property <brush> foreground-secondary: dark-color-scheme ? CupertinoColors.systemGray6.transparentize(0.4) : CupertinoColors.systemGray6-dark.transparentize(0.4);
+    out property <brush> secondary-control-background: dark-color-scheme ? CupertinoColors.systemGray : CupertinoColors.systemGray;
+    out property <brush> tertiary-control-background: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray5;
+    out property <brush> quaternary-control-background: dark-color-scheme ? CupertinoColors.systemGray2-dark : CupertinoColors.systemGray6;
+    out property <brush> alternate-control-background: dark-color-scheme ? CupertinoColors.systemGray3-dark : CupertinoColors.systemGray3;
+    out property <brush> hover: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray4;
+    out property <brush> pressed: dark-color-scheme ? CupertinoColors.systemGray2 : CupertinoColors.systemGray6;
+    out property <brush> popup-border: dark-color-scheme ? CupertinoColors.systemGray3-dark : CupertinoColors.systemGray6-dark.transparentize(0.9);
+    out property <brush> decent-border: dark-color-scheme ? CupertinoColors.systemGray6-dark.transparentize(0.9) : CupertinoColors.systemGray6.transparentize(0.9);
+    out property <brush> control-background-thumb: dark-color-scheme ? CupertinoColors.systemGray3 : CupertinoColors.systemGray6;
+    out property <brush> separator: dark-color-scheme ? CupertinoColors.systemGray6-dark : CupertinoColors.systemGray4;
+    out property <brush> bar-background: dark-color-scheme ? CupertinoColors.systemGray4-dark : CupertinoColors.systemGray4;
+    out property <brush> bar-border: dark-color-scheme ? @linear-gradient(180deg, CupertinoColors.systemGray4-dark 0%, CupertinoColors.systemGray3-dark 80%, CupertinoColors.systemGray2-dark 100%) : CupertinoColors.systemGray5;
+    out property <brush> inner-border: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray4;
+    out property <brush> inner-shadow: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray6;
+
+    out property <brush> state: dark-color-scheme ? CupertinoColors.systemGray6 : CupertinoColors.systemGray6-dark;
+    out property <brush> state-secondary: dark-color-scheme ? CupertinoColors.systemGray6-dark : CupertinoColors.systemGray6;
+
+    // FIXME: dark color
+    out property <brush> dimmer: @linear-gradient(180deg, CupertinoColors.white 100%, CupertinoColors.black 0%);
+}
+
+export global Icons {
+    out property <image> arrow-down: @image-url("_arrow-down.svg");
+    out property <image> arrow-up: @image-url("_arrow-up.svg");
+    out property <image> check-mark: @image-url("_check-mark.svg");
+    out property <image> chevron-down: @image-url("_chevron-down.svg");
+    out property <image> chevron-up: @image-url("_chevron-up.svg");
+    out property <image> down: @image-url("_down.svg");
+    out property <image> dropdown: @image-url("_dropdown.svg");
+    out property <image> left: @image-url("_left.svg");
+    out property <image> right: @image-url("_right.svg");
+    out property <image> up: @image-url("_up.svg");
+    out property <image> keyboard: @image-url("_keyboard.svg");
+    out property <image> clock: @image-url("_clock.svg");
+    out property <image> arrow-back: @image-url("_arrow_back.svg");
+    out property <image> arrow-forward: @image-url("_arrow_forward.svg");
+    out property <image> edit: @image-url("_edit.svg");
+    out property <image> calendar: @image-url("_calendar.svg");
+}
+
+export global CupertinoSizeSettings {
+    out property <length> item-height: 22px;
+}

@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+
+export component BarBackground inherits Rectangle {
+    border-radius: 2px;
+    background: Theme.palette.bar-background-gradient;
+    opacity: 0.25;
+}
+
+export component ChartPattern {
+    in property <int> count;
+
+    HorizontalLayout {
+        spacing: 1px;
+        for _ in count : BarBackground {}
+    }
+}

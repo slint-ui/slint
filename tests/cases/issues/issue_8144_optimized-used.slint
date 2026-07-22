@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+
+enum PaletteLevel { l1, l2, l3 }
+
+component Palette {
+   in property <PaletteLevel> palette-level;
+   in property <PaletteLevel> palette-level2;
+   out property <int> result : palette-level == PaletteLevel.l1 ? 45
+                                         : palette-level == PaletteLevel.l2 ? 89
+                                         :                                    32;
+   out property <int> result2 : palette-level2 == PaletteLevel.l1 ? 12
+                                         : palette-level2 == PaletteLevel.l2 ? 13
+                                         :                                    14;
+}
+
+
+export component TestCase inherits Window {
+    preferred-height: 300px;
+    preferred-width: 300px;
+    palette := Palette { palette-level: PaletteLevel.l2; palette-level2: PaletteLevel.l2; }
+
+    t := Text {
+        text: palette.result;
+        font-size: palette.result2 * 1px;
+    }
+    TouchArea {
+        clicked => {
+            result = t.text;
+        }
+    }
+    out property <string> result;
+}
+
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 101., 101.);
+assert_eq!(instance.get_result(), "89");
+```
+*/

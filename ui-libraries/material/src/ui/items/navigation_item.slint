@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export struct NavigationItem {
+    icon: image,
+    selected_icon: image,
+    text: string,
+    show_badge: bool,
+    badge: string
+}
+
+export struct NavigationGroup {
+    title: string,
+    items: [NavigationItem]
+}

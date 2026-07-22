@@ -1,0 +1,130 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export global AppState {
+    out property <int> totalLights: 35;
+    property <angle> degreesFilledWithLights: 360deg - (startAngle - endAngle);
+    out property <int> volume: (normalizeAngle(angle - startAngle) / degreesFilledWithLights) * (totalLights + 1);
+    out property <angle> startAngle: 120deg;
+    out property <angle> endAngle: 60deg;
+    out property <angle> angleGap: startAngle - endAngle;
+    in-out property <angle> angle: startAngle;
+    out property <length> elementRadius: 185px;
+
+    pure public function normalizeAngle(angle: angle) -> angle {
+        return (angle + 360deg).mod(360deg);
+    }
+}
+
+export component Light {
+    in property <int> index;
+    property <angle> gap: (360deg - (AppState.startAngle - AppState.endAngle)) / AppState.totalLights;
+    property <angle> angle: (index * gap) + AppState.startAngle;
+    property <bool> lightOn: index <= AppState.volume;
+
+    x: AppState.elementRadius * angle.cos();
+    y: AppState.elementRadius * angle.sin();
+    width: 0;
+    height: 0;
+
+    states [
+        lightOn when root.lightOn: {
+            blueLed.opacity: 0.6;
+            in {
+                animate blueLed.opacity {
+                    duration: 100ms;
+                    easing: ease-in-sine;
+                }
+            }
+            out {
+                animate blueLed.opacity {
+                    duration: 600ms;
+                    easing: ease-out-sine;
+                }
+            }
+        }
+    ]
+
+    Image {
+        source: @image-url("images/light-hole.png");
+    }
+
+    blueLed := Image {
+        source: @image-url("images/light.png");
+        opacity: 0;
+    }
+}
+
+export component AppWindow inherits Window {
+    preferred-width: 500px;
+    preferred-height: 500px;
+    background: #1e1d27;
+
+    base := Image {
+        source: @image-url("images/dial-frame.png");
+    }
+
+    ta := TouchArea {
+        property <length> centerX: self.width / 2;
+        property <length> centerY: self.height / 2;
+        property <length> relativeX: ta.mouse-x - centerX;
+        property <length> relativeY: ta.mouse-y - centerY;
+        property <angle> lastAngle;
+        property <bool> hovering: Math.pow(relativeX / 1px, 2) + Math.pow(relativeY / 1px, 2) < metalKnob.width / 2px * metalKnob.height / 2px;
+        property <bool> touching: false;
+        width: base.width;
+        height: base.height;
+
+        mouse-cursor: touching ? grabbing : hovering ? grab : default;
+
+        pointer-event(event) => {
+            let newAngle = AppState.normalizeAngle(atan2(relativeY / 1px, relativeX / 1px));
+            if event.kind == PointerEventKind.down {
+                if hovering {
+                    touching = true;
+                    lastAngle = newAngle;
+                }
+            } else if event.kind == PointerEventKind.up {
+                touching = false;
+            } else if event.kind == PointerEventKind.move {
+                if touching {
+                    let nextAngle = AppState.normalizeAngle(AppState.angle - lastAngle + newAngle);
+                    // Check if the new angle is within the start and end angles
+                    if nextAngle >= AppState.startAngle || nextAngle <= AppState.endAngle {
+                        AppState.angle = nextAngle;
+                    }
+                    lastAngle = newAngle;
+                }
+            }
+        }
+    }
+
+    metalKnob := Image {
+        source: @image-url("images/metal-dial.png");
+        transform-rotation: AppState.angle;
+    }
+
+    Image {
+        source: @image-url("images/metal-lights.png");
+    }
+
+    Image {
+        source: @image-url("images/dial-trim.png");
+    }
+
+    Rectangle {
+        x: parent.width / 2;
+        y: parent.height / 2;
+
+        Image {
+            property <float> r: 0.5;
+            x: r * root.width / 2 * AppState.angle.cos();
+            y: r * root.height / 2 * AppState.angle.sin();
+            source: @image-url("images/indicator.png");
+        }
+
+        for i in AppState.totalLights + 1: Light {
+            index: i;
+        }
+    }
+}

@@ -1,0 +1,92 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that having the model being dirty doesn't re-create items
+// Only actually changing the model does.
+
+export component TestCase inherits Window {
+    property <{xx: int, model :[string]}> model: { model: ["AA", "BB"] };
+    in-out property <string> result ;
+    public function mark_dirty() {
+        model.xx += 1;
+    }
+    public function change() {
+        model.model = ["CC"];
+    }
+
+    HorizontalLayout {
+        Rectangle {}
+        for m in model.model : Rectangle {
+            init => {
+                result += "Init '" + m + "' (" + model.xx + ")\n";
+            }
+        }
+    }
+
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+slint_testing::send_mouse_click(&instance, 15., 5.);
+assert_eq!(instance.get_result(), "Init 'AA' (0)\nInit 'BB' (0)\n");
+instance.set_result("".into());
+slint_testing::send_mouse_click(&instance, 15., 5.);
+instance.invoke_mark_dirty();
+slint_testing::send_mouse_click(&instance, 15., 5.);
+assert_eq!(instance.get_result(), "");
+slint_testing::send_mouse_click(&instance, 15., 5.);
+instance.invoke_change();
+slint_testing::send_mouse_click(&instance, 15., 5.);
+assert_eq!(instance.get_result(), "Init 'CC' (1)\n");
+instance.set_result("".into());
+instance.invoke_mark_dirty();
+slint_testing::send_mouse_click(&instance, 15., 5.);
+assert_eq!(instance.get_result(), "");
+
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_mouse_click(&instance, 15., 5.);
+assert_eq(instance.get_result(), "Init 'AA' (0)\nInit 'BB' (0)\n");
+instance.set_result("");
+slint_testing::send_mouse_click(&instance, 15., 5.);
+instance.invoke_mark_dirty();
+slint_testing::send_mouse_click(&instance, 15., 5.);
+assert_eq(instance.get_result(), "");
+slint_testing::send_mouse_click(&instance, 15., 5.);
+instance.invoke_change();
+slint_testing::send_mouse_click(&instance, 15., 5.);
+assert_eq(instance.get_result(), "Init 'CC' (1)\n");
+instance.set_result("");
+instance.invoke_mark_dirty();
+slint_testing::send_mouse_click(&instance, 15., 5.);
+assert_eq(instance.get_result(), "");
+
+```
+
+
+```js
+var instance = new slint.TestCase({});
+slintlib.private_api.send_mouse_click(instance, 15., 5.);
+assert.equal(instance.result, "Init 'AA' (0)\nInit 'BB' (0)\n");
+instance.result = "";
+slintlib.private_api.send_mouse_click(instance, 15., 5.);
+instance.mark_dirty();
+slintlib.private_api.send_mouse_click(instance, 15., 5.);
+assert.equal(instance.result, "");
+slintlib.private_api.send_mouse_click(instance, 15., 5.);
+instance.change();
+slintlib.private_api.send_mouse_click(instance, 15., 5.);
+assert.equal(instance.result, "Init 'CC' (1)\n");
+instance.result = "";
+instance.mark_dirty();
+slintlib.private_api.send_mouse_click(instance, 15., 5.);
+assert.equal(instance.result, "");
+```
+*/
+

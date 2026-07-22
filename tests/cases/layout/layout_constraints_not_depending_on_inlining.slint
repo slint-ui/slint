@@ -1,0 +1,75 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Abc inherits Rectangle {
+    VerticalLayout {
+        Rectangle {
+            min-width: 100px;
+        }
+    }
+    @children
+}
+
+component T1 {
+    HorizontalLayout {
+        Rectangle {
+            Abc { }
+        }
+    }
+}
+// Manually inline Abc
+component T2 {
+    HorizontalLayout {
+        Rectangle {
+            Rectangle {
+                VerticalLayout {
+                    Rectangle {
+                        min-width: 100px;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Force inlining because of a children
+component T3 {
+    HorizontalLayout {
+        Rectangle {
+            Abc { Rectangle{} }
+        }
+    }
+}
+
+export component TestCase {
+
+    l := HorizontalLayout {
+        t1 := T1 {}
+        t2 := T2 {}
+        t3 := T3 {}
+        abc := Abc { }
+    }
+
+    out property <bool> test: l.min-width == 100px * 4 && t1.min-width == 100px && t2.min-width == 100px && t3.min-width == 100px && abc.min-width == 100px;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+
+*/

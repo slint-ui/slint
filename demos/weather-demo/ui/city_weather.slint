@@ -1,0 +1,215 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { WindowInfo } from "./ui_utils.slint";
+import { PageBase } from "page-base.slint";
+import { CityWeatherTile } from "city_weather_tile.slint";
+import { ExpandedCityWeatherTile } from "expanded_city_weather_tile.slint";
+import { CityWeather, CityWeatherInfo } from "weather_datatypes.slint";
+import { AppPalette, AppImages } from "./style/styles.slint";
+import { SlideButton } from "./controls/generic.slint";
+import { AboutBox } from "about-box.slint";
+
+component CitySlideArea inherits Rectangle {
+    in property<bool> can-move-up: true;
+    in property<bool> can-move-down: true;
+
+    callback opened;
+    callback closed;
+
+    callback up-clicked;
+    callback down-clicked;
+    callback delete-clicked;
+    callback content-clicked;
+
+    public function open() {
+        flickable.viewport-x = -buttons-layout.width;
+        root.opened();
+    }
+
+    public function close() {
+        flickable.viewport-x = 0;
+        root.closed();
+    }
+
+    height: content.preferred-height;
+
+    flickable := Flickable {
+        width: 100%;
+
+        viewport-width: slide-layout.preferred-width;
+        viewport-x: 0;
+
+        property<length> last-viewport-x: 0px;
+        flicked => {
+            if (self.last-viewport-x > self.viewport-x) {
+                root.open();
+            }
+            else {
+                root.close();
+            }
+        }
+
+        slide-layout := HorizontalLayout {
+            content := Rectangle {
+                width: root.width;
+
+                Rectangle {
+                    @children
+                }
+
+                TouchArea {
+                    pointer-event(event) => {
+                        if (event.kind == PointerEventKind.down) {
+                            flickable.last-viewport-x = flickable.viewport-x;
+                        }
+                    }
+
+                    clicked => { root.content-clicked(); }
+                }
+            }
+
+            buttons-layout := VerticalLayout {
+                width: 50px;
+                spacing: 1px;
+
+                SlideButton {
+                    icon-source: AppImages.arrow-up;
+                    enabled: root.can-move-up;
+
+                    clicked => { root.up-clicked(); }
+                }
+                SlideButton {
+                    icon-source: AppImages.trash;
+                    background-color: AppPalette.error-red;
+
+                    clicked => { root.delete-clicked(); }
+                }
+                SlideButton {
+                    icon-source: AppImages.arrow-down;
+                    enabled: root.can-move-down;
+
+                    clicked => { root.down-clicked(); }
+                }
+            }
+        }
+    }
+
+}
+
+component CityWeatherList inherits Flickable {
+    property<int> opened-index: -1;
+
+    callback expand(int, Point, length, length);
+
+    VerticalLayout {
+        alignment: start;
+
+        for city-weather-info[index] in CityWeather.city-weather:
+            CitySlideArea {
+                property<bool> is-opened: root.opened-index == index;
+
+                can-move-up: index > 0;
+                can-move-down: index < CityWeather.city-weather.length - 1;
+
+                changed is-opened => {
+                    if (is-opened) {
+                        self.open();
+                    }
+                    else {
+                        self.close();
+                    }
+                }
+
+                opened => {
+                    root.opened-index = index;
+                }
+
+                content-clicked => {
+                    root.opened-index = -1;
+                    root.expand(index, self.absolute-position, self.width, self.height);
+                }
+
+                up-clicked => {
+                    root.opened-index = index - 1;
+                    CityWeather.reorder(index, root.opened-index);
+                }
+                down-clicked => {
+                    root.opened-index = index + 1;
+                    CityWeather.reorder(index, root.opened-index);
+                }
+                delete-clicked => {
+                    root.opened-index = -1;
+                    CityWeather.delete(index);
+                    self.close();
+                }
+
+                CityWeatherTile {
+                    city-weather-info: city-weather-info;
+                    alternative-background: Math.mod(index, 2) == 0;
+                }
+            }
+
+        Rectangle {
+            // spacing
+            min-height: WindowInfo.is-portrait ? 25px : 10px;
+        }
+        AboutBox {
+            min-height: self.preferred-height;
+        }
+    }
+}
+
+struct TileInfo {
+    index: int,
+    absolute-position: Point,
+    size: { width: length, height: length }
+}
+
+export component CityListView inherits PageBase {
+    property<TileInfo> selected-tile;
+
+    CityWeatherList {
+        expand(index, absolute-position, width, height) => {
+            root.selected-tile = {
+                index: index,
+                absolute-position: absolute-position,
+                size: { width: width, height: height }
+            };
+            expanded-tile.expand();
+        }
+    }
+
+    PageBase {
+        opacity: 0.0;
+
+        states [
+            visible when expanded-tile.expanded: {
+                opacity: 1;
+
+                out {
+                    animate opacity { delay: expanded-tile.animation-duration; }
+                }
+            }
+        ]
+    }
+
+    expanded-tile := ExpandedCityWeatherTile {
+        city-weather-info: CityWeather.city-weather[root.selected-tile.index];
+        alternative-background: Math.mod(root.selected-tile.index, 2) == 0;
+
+        block-x: root.selected-tile.absolute-position.x - root.absolute-position.x;
+        block-y: root.selected-tile.absolute-position.y - root.absolute-position.y;
+        block-width: root.selected-tile.size.width;
+        block-height: root.selected-tile.size.height;
+
+        full-x: 0px;
+        full-y: 0px;
+        full-width: parent.width;
+        full-height: parent.height;
+
+        clicked => {
+            self.collapse();
+        }
+    }
+}

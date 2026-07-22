@@ -1,0 +1,51 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Build and push the `cross` container images used to cross-compile for embedded
+# (MPU) targets. Other workflows (the nightly snapshot, cross_containers_and_demos)
+# call this so their `cross` builds run against freshly built images.
+name: Cross Containers
+
+on:
+    workflow_dispatch:
+    workflow_call:
+
+jobs:
+    build_containers:
+        runs-on: ubuntu-22.04
+        strategy:
+            matrix:
+                target:
+                    - armv7-unknown-linux-gnueabihf
+                    - aarch64-unknown-linux-gnu
+                    - riscv64gc-unknown-linux-gnu
+                    - x86_64-unknown-linux-gnu
+        env:
+            SLINT_NO_QT: 1
+            SLINT_STYLE: fluent
+        steps:
+            - uses: actions/checkout@v7
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v4
+            - name: Login to GitHub Container Registry
+              uses: docker/login-action@v4
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.CR_PAT }}
+            - name: Build and push
+              uses: docker/build-push-action@v7
+              with:
+                  context: .
+                  file: ./docker/Dockerfile.${{ matrix.target }}
+                  push: true
+                  tags: ghcr.io/slint-ui/slint/${{matrix.target}}:latest
+            - name: Build and push C++ image
+              uses: docker/build-push-action@v7
+              with:
+                  context: .
+                  file: ./docker/Dockerfile.cpp-image
+                  push: true
+                  tags: ghcr.io/slint-ui/slint/${{matrix.target}}-cpp:latest
+                  build-args: |
+                      arch=${{matrix.target}}

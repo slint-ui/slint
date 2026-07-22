@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { MaterialFontSettings, MaterialPalette } from "styling.slint";
+import { RadioButtonImplBase, RadioGroupImplBase } from "../common/radiogroup-base.slint";
+
+export component RadioButtonImpl inherits RadioButtonImplBase {
+    private property <color> text-color: MaterialPalette.foreground;
+
+    min-height: max(32px, layout.min-height);
+
+    states [
+        disabled when !root.enabled || !root.group-enabled: {
+            outer.border-color: root.checked ? transparent : MaterialPalette.border-variant;
+            outer.background: MaterialPalette.surface-container;
+            inner.border-color: root.checked ? MaterialPalette.control-foreground-variant : transparent;
+            root.text-color: MaterialPalette.control-foreground-variant;
+        }
+        pressed when root.pressed: {
+            outer.background: transparent;
+            inner.border-color: root.checked ? MaterialPalette.accent-background : MaterialPalette.border;
+            outer.border-color: root.checked ? transparent : MaterialPalette.border;
+            inner.border-width: root.checked ? 7px : 5px;
+        }
+        hover when root.has-hover: {
+            outer.background: root.checked ? transparent : MaterialPalette.surface-container;
+            inner.border-width: root.checked ? 5px : 0px;
+        }
+    ]
+
+    animate text-color { duration: 200ms; }
+
+    layout := HorizontalLayout {
+        padding: 6px;
+        spacing: 8px;
+
+        outer := Rectangle {
+            width: 20px;
+            height: self.width;
+            y: (parent.height - self.height) / 2;
+            background: root.checked ? transparent : MaterialPalette.surface-container;
+            border-radius: self.width / 2;
+            border-width: 2px;
+            border-color: MaterialPalette.border;
+
+            animate background, border-color { duration: 150ms; }
+
+            inner := Rectangle {
+                width: 10px;
+                height: self.width;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                border-radius: self.width / 2;
+                background: root.checked ? MaterialPalette.accent-background : transparent;
+            }
+        }
+
+        if root.text != "": Text {
+            text: root.text;
+            color: root.text-color;
+            font-size: MaterialFontSettings.title-small.font-size;
+            font-weight: MaterialFontSettings.title-small.font-weight;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+}
+
+export component RadioGroupImpl inherits RadioGroupImplBase {
+    title-color: !root.enabled ? MaterialPalette.control-foreground-variant : MaterialPalette.foreground;
+    title-font-size: MaterialFontSettings.title-small.font-size;
+    title-font-weight: MaterialFontSettings.title-small.font-weight;
+}
+
+export component RadioGroup inherits RadioGroup { }

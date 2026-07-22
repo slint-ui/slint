@@ -1,0 +1,116 @@
+---
+title: Interface
+description: Experimental interface keyword and implement statement.
+---
+
+An `interface` describes a contract that a component can promise to fulfill.
+It lists the properties, callbacks, and functions that an implementing component must provide.
+This lets you write code that works with any component that implements the interface, without caring about the concrete type.
+
+> **Note**: `interface` and `implement` are experimental and subject to change.
+> Tracking issue: [slint-ui/slint#1870](https://github.com/slint-ui/slint/issues/1870).
+
+## Declaring an interface
+
+Use the `interface` keyword followed by a body that lists the contract.
+
+```slint no-test
+interface TextInterface {
+    in-out property <string> text;
+
+    public pure function length(text: string) -> int;
+}
+```
+
+An interface body may contain:
+
+- Properties with visibility `in`, `out`, or `in-out`.
+  Default values are not permitted.
+- Callbacks, with any signature except `init`.
+- Function declarations without a body.
+  They must be `public` and can be `pure`.
+
+An interface body may **not** contain bindings, child elements, layouts, `states`, two-way bindings, `animate` blocks, or private properties.
+An interface can be exported with `export interface`.
+
+## Implementing an interface
+
+A component declares that it implements an interface with an `implement I <=> self;` statement in its body.
+The component must provide an implementation of the functions listed in the interface, with matching types and signatures.
+
+An `implement` statement's target must be `self` or the id of a child element (see delegation below), and the statement
+is only allowed directly in a component's root element, not in a nested child element. `root` and `parent` are not valid
+targets: since `implement` is root-only, `root` and `self` refer to the same element there, so use `self` instead.
+
+```slint no-test
+export component MyText {
+    implement TextInterface <=> self;
+
+    text <=> input.text;
+
+    input := TextInput {
+        text: "Hello";
+    }
+
+    public pure function length(text: string) -> int {
+        return text.character-count;
+    }
+}
+```
+
+A component can combine `implement` with `inherits`:
+
+```slint no-test
+component MyText inherits Rectangle {
+    implement TextInterface <=> self;
+    // ...
+}
+```
+
+A component can implement more than one interface, each with its own `implement` statement. Multiple `implement`
+statements exposing properties, callbacks or functions with the same name is an error.
+
+## Delegating to a child with `implement <=> child`
+
+Sometimes a component does not implement an interface itself but contains a child that does.
+`implement I <=> child-id;` exposes the child's interface on the parent, so users of the parent see the same properties, callbacks, and functions as if the parent implemented the interface directly.
+
+```slint no-test
+component Container {
+    implement TextInterface <=> inner;
+    inner := MyText { }
+}
+```
+
+The named child must satisfy the interface API (directly or through its own delegation) the listed interface.
+
+## Full example
+
+```slint no-test
+interface Counter {
+    in-out property <int> value;
+    callback increment();
+}
+
+component CounterButton {
+    // It is not necessary for CounterButton to `implement Counter <=> self;`
+    // implement Counter <=> self;
+
+    preferred-width: 100%;
+    preferred-height: 100%;
+
+    increment => { value += 1; }
+    TouchArea {
+        clicked => { root.increment(); }
+    }
+}
+
+export component App {
+    implement Counter <=> button;
+
+    button := CounterButton { }
+    Text { text: "Count: \{button.value}"; }
+}
+```
+
+`App` has a `value` property and an `increment` callback through the `Counter` interface, both provided by `button`.

@@ -1,0 +1,63 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cSpell: ignore memmap xkbcommon
+[package]
+name = "i-slint-backend-linuxkms"
+description = "OpenGL rendering backend for Slint"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+build = "build.rs"
+
+[lib]
+path = "lib.rs"
+
+[features]
+renderer-skia = ["renderer-skia-opengl"]
+renderer-skia-vulkan = ["unstable-wgpu-30"]
+unstable-wgpu-29 = ["i-slint-renderer-skia/wgpu-29", "drm", "dep:memmap2"]
+unstable-wgpu-30 = ["i-slint-renderer-skia/wgpu-30", "drm", "dep:memmap2", "dep:wgpu-30"]
+renderer-skia-opengl = ["i-slint-renderer-skia/opengl", "drm", "gbm", "glutin", "raw-window-handle", "dep:memmap2"]
+renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "drm", "gbm", "glutin", "raw-window-handle"]
+renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "drm", "dep:wgpu-30"]
+renderer-software = ["i-slint-renderer-software/std", "drm", "dep:bytemuck", "dep:memmap2"]
+libseat = ["dep:libseat"]
+
+default = []
+
+[dependencies]
+i-slint-core = { workspace = true, features = ["default", "image-decoders", "svg"] }
+i-slint-common = { workspace = true, features = ["default"] }
+i-slint-renderer-skia = { workspace = true, features = ["default", "kms"], optional = true }
+i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional = true }
+i-slint-renderer-software = { workspace = true, optional = true }
+# Direct dependency only to enable wgpu's `drm` feature, which gates
+# `SurfaceTargetUnsafe::Drm` as of wgpu 30; the code uses the re-export
+# through i-slint-core.
+wgpu-30 = { workspace = true, optional = true, features = ["drm"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+input = { workspace = true, default-features = true }
+xkbcommon = { version = "0.9.0" }
+calloop = { version = "0.14.1" }
+libseat = { version = "0.2.1", optional = true, default-features = false }
+nix = { version = "0.31.0", features = ["fs", "ioctl"] }
+# Keep in sync with the drm version used by gbm
+drm = { version = "0.14.0", optional = true }
+gbm = { version = "0.18.0", optional = true, default-features = false, features = ["drm-support"] }
+glutin = { workspace = true, optional = true, default-features = false, features = ["libloading", "egl"] }
+raw-window-handle = { version = "0.6.2", optional = true }
+bytemuck = { workspace = true, optional = true, features = ["derive"] }
+memmap2 = { version = "0.9.4", optional = true }
+
+[build-dependencies]
+cfg_aliases = { workspace = true }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

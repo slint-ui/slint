@@ -1,0 +1,12 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Dialog is rejected in Slint SC mode.
+
+export component Test inherits Dialog {
+//                             >     <error{The builtin element 'Dialog' is not supported in Slint SC}
+    Text { text: "hello"; }
+//  >   <error{The builtin element 'Text' is not supported in Slint SC}
+//         >  <^error{Bindings are not supported in Slint SC}
+//               >     <^^error{String literals are not supported in Slint SC}
+}

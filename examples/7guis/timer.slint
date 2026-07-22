@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { LineEdit, Button, Slider, HorizontalBox, VerticalBox, ProgressIndicator } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    in-out property <duration> total-time: slider.value * 1s;
+    in-out property <duration> elapsed-time;
+
+    Timer {
+        interval: 10ms;
+        triggered => {
+            root.elapsed-time += self.interval;
+            root.elapsed-time = min(root.elapsed-time, root.total-time);
+        }
+    }
+
+    VerticalBox {
+        HorizontalBox {
+            padding: 0;
+            Text { text: "Elapsed Time:"; }
+            ProgressIndicator {
+                preferred-width: 100px;
+                progress: elapsed-time / total-time;
+            }
+        }
+        Text{
+            text: (root.total-time / 1s) + "s";
+        }
+        HorizontalBox {
+            padding: 0;
+            Text {
+                text: "Duration:";
+                vertical-alignment: center;
+            }
+            slider := Slider {
+                maximum: 30s / 1s;
+                value: 10s / 1s;
+                changed(new-duration) => {
+                    root.total-time = new-duration * 1s;
+                    root.elapsed-time = min(root.elapsed-time, root.total-time);
+                }
+            }
+        }
+        Button {
+            text: "Reset";
+            clicked => {
+                root.elapsed-time = 0
+            }
+        }
+    }
+}

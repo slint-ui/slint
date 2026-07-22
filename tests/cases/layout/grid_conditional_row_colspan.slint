@@ -1,0 +1,117 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that colspan works correctly when Row is a conditional element
+
+export component TestCase inherits Window {
+    width: 480phx;
+    height: 800phx;
+
+    property <bool> conditional: true;
+
+    GridLayout {
+        spacing: 5phx;
+
+        // Row 0: conditional Row with colspan
+        if conditional: Row {
+            r1 := Rectangle {
+                colspan: 2;
+                background: red;
+                height: 100phx;
+            }
+        }
+
+        // Row 1: Row with conditional child with colspan
+        Row {
+            if conditional: r2 := Rectangle {
+                colspan: 2;
+                background: blue;
+                height: 100phx;
+            }
+        }
+
+        // Row 2: normal Row with colspan
+        Row {
+            r3 := Rectangle {
+                colspan: 2;
+                background: green;
+                height: 100phx;
+            }
+        }
+
+        // Row 3: normal Row with two separate columns - reference for column width
+        Row {
+            r4 := Rectangle {
+                background: yellow;
+                height: 100phx;
+            }
+
+            r5 := Rectangle {
+                background: purple;
+                height: 100phx;
+            }
+        }
+
+        // Row 4: conditional row with rowspan
+        if conditional: Row {
+            r6 := Rectangle {
+                rowspan: 2;
+                background: orange;
+                vertical-stretch: 0;
+            }
+
+            Rectangle {
+                background: pink;
+                vertical-stretch: 0;
+                height: 50px;
+            }
+        }
+
+        // Row 5: normal Row with a cell at column 1 - so we can see the span
+        Row {
+            Rectangle {
+                col: 1;
+                background: cyan;
+                height: 50phx;
+            }
+        }
+
+        // A row that stretches, to occupy the remaining space
+        Row {
+            Rectangle {
+                vertical-stretch: 1;
+                background: magenta;
+            }
+        }
+    }
+
+    // Geometry assertions are performed by the Rust test driver using ElementHandle.
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+
+// Use the testing helpers to find elements by id - we can't use r1 and r6 in slint code
+let handle = instance;
+let mut e = slint_testing::ElementHandle::find_by_element_id(&handle, "TestCase::r1");
+let e_r1 = e.next().expect("r1 not found");
+
+let e_r3 = slint_testing::ElementHandle::find_by_element_id(&handle, "TestCase::r3").next().expect("r3 not found");
+let e_r4 = slint_testing::ElementHandle::find_by_element_id(&handle, "TestCase::r4").next().expect("r4 not found");
+let e_r5 = slint_testing::ElementHandle::find_by_element_id(&handle, "TestCase::r5").next().expect("r5 not found");
+let e_r6 = slint_testing::ElementHandle::find_by_element_id(&handle, "TestCase::r6").next().expect("r6 not found");
+
+let r1_width = e_r1.size().width;
+let r3_width = e_r3.size().width;
+let r4_width = e_r4.size().width;
+let r5_width = e_r5.size().width;
+let r6_height = e_r6.size().height;
+
+assert_eq!(r1_width, r3_width, "r1 and r3 widths should match (colspan=2)");
+assert!((r3_width - (r4_width + r5_width + 5.0)).abs() < 0.1, "spanned width should equal two columns plus spacing");
+assert!((r6_height - 105.0).abs() < 0.1, "r6 should have height roughly 105phx");
+```
+
+*/

@@ -1,0 +1,870 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell:ignore Bubuntu
+
+//! Data structures common between LSP and previewer
+
+use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
+use i_slint_live_preview::protocol::{
+    LspToPreviewMessage, PreviewTarget, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
+};
+use lsp_types::{TextEdit, Url, WorkspaceEdit};
+
+use std::path::Path;
+use std::{collections::HashMap, path::PathBuf};
+
+pub mod component_catalog;
+pub mod document_cache;
+pub use document_cache::DocumentCache;
+pub use i_slint_compiler::diagnostics::ByteFormat;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod host_language_search;
+mod lsp_to_previews;
+pub mod rename_component;
+pub mod rename_element_id;
+pub use lsp_to_previews::LspToPreviews;
+#[cfg(test)]
+pub mod test;
+#[cfg(any(test, feature = "preview-engine"))]
+pub mod text_edit;
+pub mod token_info;
+
+pub type Error = Box<dyn std::error::Error>;
+pub type Result<T> = std::result::Result<T, Error>;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
+
+#[allow(clippy::disallowed_methods)]
+pub fn spawn_local<F>(future: F)
+where
+    F: std::future::Future + 'static,
+    F::Output: 'static,
+{
+    #[cfg(target_arch = "wasm32")]
+    wasm_bindgen_futures::spawn_local(async move {
+        let _ = future.await;
+    });
+    #[cfg(not(target_arch = "wasm32"))]
+    tokio::task::spawn_local(future);
+}
+
+/// Use this in nodes you want the language server and preview to
+/// ignore a node for code analysis purposes.
+pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
+
+#[allow(dead_code)]
+pub trait LspToPreview: std::any::Any {
+    fn send(&self, message: &LspToPreviewMessage);
+    fn preview_target(&self) -> PreviewTarget;
+    fn shutdown<'a>(&'a self) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
+        Box::pin(async {})
+    }
+}
+
+#[derive(Default, Clone)]
+#[allow(dead_code)]
+pub struct DummyLspToPreview {}
+
+impl LspToPreview for DummyLspToPreview {
+    fn send(&self, _message: &LspToPreviewMessage) {}
+
+    fn preview_target(&self) -> PreviewTarget {
+        PreviewTarget::Dummy
+    }
+}
+
+#[allow(dead_code)]
+pub trait PreviewToLsp {
+    fn send(&self, message: &PreviewToLspMessage) -> Result<()>;
+
+    /// Tell the editor about diagnostics
+    fn notify_diagnostics(
+        &self,
+        diagnostics: HashMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
+    ) -> Result<()> {
+        for (uri, (version, diagnostics)) in diagnostics {
+            self.send(&PreviewToLspMessage::Diagnostics { uri, version, diagnostics })?;
+        }
+        Ok(())
+    }
+
+    /// Ask the editor to show some document
+    fn ask_editor_to_show_document(
+        &self,
+        file: &str,
+        selection: lsp_types::Range,
+        take_focus: bool,
+    ) -> Result<()> {
+        let file = match lsp_types::Url::from_file_path(file) {
+            Ok(file) => file,
+            Err(()) => {
+                tracing::error!("Failed to convert file path to URL for ShowDocument: {file}");
+                return Err("Failed to convert file path to URL".to_string().into());
+            }
+        };
+        if selection.start.character == 0 || selection.end.character == 0 {
+            return Ok(());
+        }
+        self.send(&PreviewToLspMessage::ShowDocument { file, selection, take_focus })
+    }
+
+    /// Sends a telemetry event
+    fn send_telemetry(&self, data: &mut [(String, serde_json::Value)]) -> Result<()> {
+        let object = {
+            let mut object = serde_json::Map::new();
+            for (name, value) in data.iter_mut() {
+                object.insert(std::mem::take(name), std::mem::take(value));
+            }
+            object
+        };
+        if let Err(err) = self.send(&PreviewToLspMessage::TelemetryEvent(object)) {
+            tracing::error!("Failed to send telemetry event: {err}");
+            return Err(err);
+        }
+        Ok(())
+    }
+}
+
+/// Converts a log message from the preview to a string to be logged by the LSP
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+pub fn preview_log_message_to_string(
+    location: &Option<(std::path::PathBuf, usize, usize)>,
+    message: &str,
+) -> String {
+    if let Some((file, line, column)) = location {
+        format!("DEBUG {file}:{line}:{column}> {message}", file = file.display())
+    } else {
+        format!("DEBUG> {message}")
+    }
+}
+
+/// Check whether a node is marked to be ignored in the LSP/live preview
+/// using a comment containing `@lsp:ignore-node`
+pub fn is_element_node_ignored(node: &syntax_nodes::Element) -> bool {
+    node.children_with_tokens().any(|nt| {
+        nt.as_token()
+            .map(|t| t.kind() == SyntaxKind::Comment && t.text().contains(NODE_IGNORE_COMMENT))
+            .unwrap_or(false)
+    })
+}
+
+pub fn uri_to_file(uri: &Url) -> Option<PathBuf> {
+    if ["builtin", "vscode-remote"].contains(&uri.scheme()) {
+        Some(PathBuf::from(uri.to_string()))
+    } else {
+        let path = uri.to_file_path().ok()?;
+        let cleaned_path = i_slint_compiler::pathutils::clean_path(&path);
+        Some(cleaned_path)
+    }
+}
+
+pub fn file_to_uri(path: &Path) -> Option<Url> {
+    if ["builtin:/", "vscode-remote:/"].iter().any(|prefix| path.starts_with(prefix)) {
+        Url::parse(path.to_str()?).ok()
+    } else {
+        Url::from_file_path(path).ok()
+    }
+}
+
+pub fn extract_element(node: SyntaxNode) -> Option<syntax_nodes::Element> {
+    match node.kind() {
+        SyntaxKind::Element => Some(node.into()),
+        SyntaxKind::SubElement => extract_element(node.child_node(SyntaxKind::Element)?),
+        SyntaxKind::ConditionalElement | SyntaxKind::RepeatedElement => {
+            extract_element(node.child_node(SyntaxKind::SubElement)?)
+        }
+        _ => None,
+    }
+}
+
+fn find_element_with_decoration(element: &syntax_nodes::Element) -> SyntaxNode {
+    let this_node: SyntaxNode = element.clone().into();
+    element
+        .parent()
+        .and_then(|p| match p.kind() {
+            SyntaxKind::SubElement => p.parent().map(|gp| {
+                if gp.kind() == SyntaxKind::ConditionalElement
+                    || gp.kind() == SyntaxKind::RepeatedElement
+                {
+                    gp
+                } else {
+                    p
+                }
+            }),
+            _ => Some(this_node.clone()),
+        })
+        .unwrap_or(this_node)
+}
+
+fn find_parent_component(node: &SyntaxNode) -> Option<SyntaxNode> {
+    let mut current = Some(node.clone());
+    while let Some(p) = current {
+        if matches!(p.kind(), SyntaxKind::Component) {
+            return Some(p);
+        }
+        current = p.parent();
+    }
+    None
+}
+
+#[derive(Clone)]
+pub struct ElementRcNode {
+    pub element: ElementRc,
+    pub debug_index: usize,
+}
+
+impl std::cmp::PartialEq for ElementRcNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.path_and_offset() == other.path_and_offset() && self.debug_index == other.debug_index
+    }
+}
+
+impl std::fmt::Debug for ElementRcNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (path, offset) = self.path_and_offset();
+        write!(f, "ElementNode {{ {path:?}:{offset:?} }}")
+    }
+}
+
+impl ElementRcNode {
+    pub fn new(element: ElementRc, debug_index: usize) -> Option<Self> {
+        let _ = element.borrow().debug.get(debug_index)?;
+
+        Some(Self { element, debug_index })
+    }
+
+    pub fn in_document_cache(&self, document_cache: &DocumentCache) -> Option<Self> {
+        self.with_element_node(|en| {
+            let element_start = en.text_range().start();
+            let path = en.source_file.path();
+
+            let doc = document_cache.get_document_by_path(path)?;
+            let component = doc.inner_components.iter().find(|c| {
+                let Some(c_node) = &c.node else {
+                    return false;
+                };
+                c_node.text_range().contains(element_start)
+            })?;
+            ElementRcNode::find_in_or_below(
+                component.root_element.clone(),
+                path,
+                u32::from(element_start),
+            )
+        })
+    }
+
+    /// Some nodes get merged into the same ElementRc with no real connections between them...
+    pub fn next_element_rc_node(&self) -> Option<Self> {
+        Self::new(self.element.clone(), self.debug_index + 1)
+    }
+
+    pub fn find_in(element: ElementRc, path: &Path, offset: u32) -> Option<Self> {
+        let debug_index = element.borrow().debug.iter().position(|d| {
+            u32::from(d.node.text_range().start()) == offset && d.node.source_file.path() == path
+        })?;
+
+        Some(Self { element, debug_index })
+    }
+
+    pub fn find_in_or_below(element: ElementRc, path: &Path, offset: u32) -> Option<Self> {
+        let debug_index = element.borrow().debug.iter().position(|d| {
+            u32::from(d.node.text_range().start()) == offset && d.node.source_file.path() == path
+        });
+        if let Some(debug_index) = debug_index {
+            Some(Self { element, debug_index })
+        } else {
+            for c in &element.borrow().children {
+                let result = Self::find_in_or_below(c.clone(), path, offset);
+                if result.is_some() {
+                    return result;
+                }
+            }
+            None
+        }
+    }
+
+    /// Run with all the debug information on the node
+    pub fn with_element_debug<R>(
+        &self,
+        func: impl FnOnce(&i_slint_compiler::object_tree::ElementDebugInfo) -> R,
+    ) -> R {
+        let elem = self.element.borrow();
+        let d = elem.debug.get(self.debug_index).unwrap();
+        func(d)
+    }
+
+    /// Run with the `Element` node
+    pub fn with_element_node<R>(
+        &self,
+        func: impl FnOnce(&i_slint_compiler::parser::syntax_nodes::Element) -> R,
+    ) -> R {
+        let elem = self.element.borrow();
+        func(&elem.debug.get(self.debug_index).unwrap().node)
+    }
+
+    /// Run with the SyntaxNode incl. any id, condition, etc.
+    pub fn with_decorated_node<R>(&self, func: impl FnOnce(SyntaxNode) -> R) -> R {
+        let elem = self.element.borrow();
+        func(find_element_with_decoration(&elem.debug.get(self.debug_index).unwrap().node))
+    }
+
+    pub fn path_and_offset(&self) -> (PathBuf, TextSize) {
+        self.with_element_node(|n| (n.source_file.path().to_owned(), n.text_range().start()))
+    }
+
+    pub fn as_element(&self) -> &ElementRc {
+        &self.element
+    }
+
+    pub fn parent(&self) -> Option<ElementRcNode> {
+        let mut ancestor = self.with_element_node(|node| node.parent());
+
+        while let Some(parent) = ancestor {
+            if parent.kind() != SyntaxKind::Element {
+                ancestor = parent.parent();
+                continue;
+            }
+
+            let (parent_path, parent_offset) =
+                (parent.source_file.path().to_owned(), u32::from(parent.text_range().start()));
+
+            ancestor = parent.parent();
+
+            let component = self.element.borrow().enclosing_component.upgrade().unwrap();
+            let current_root = component.root_element.clone();
+            let root_element = if std::rc::Rc::ptr_eq(&current_root, &self.element) {
+                component.parent_element().map_or(current_root, |parent| {
+                    parent.borrow().enclosing_component.upgrade().unwrap().root_element.clone()
+                })
+            } else {
+                current_root
+            };
+
+            let result = Self::find_in_or_below(root_element, &parent_path, parent_offset);
+
+            if result.is_some() {
+                return result;
+            }
+        }
+
+        None
+    }
+
+    pub fn children(&self) -> Vec<ElementRcNode> {
+        self.with_element_node(|node| {
+            let mut children = Vec::new();
+            for c in node.children() {
+                if let Some(element) = extract_element(c.clone()) {
+                    let e_path = element.source_file.path().to_path_buf();
+                    let e_offset = u32::from(element.text_range().start());
+
+                    let Some(child_node) = ElementRcNode::find_in_or_below(
+                        self.as_element().clone(),
+                        &e_path,
+                        e_offset,
+                    ) else {
+                        continue;
+                    };
+                    children.push(child_node);
+                }
+            }
+
+            children
+        })
+    }
+
+    pub fn component_type(&self) -> String {
+        self.with_element_node(|node| {
+            node.QualifiedName().map(|qn| qn.text().to_string()).unwrap_or_default()
+        })
+    }
+
+    pub fn is_same_component_as(&self, other: &Self) -> bool {
+        let Some(s) = self.with_element_node(|n| find_parent_component(n)) else {
+            return false;
+        };
+        let Some(o) = other.with_element_node(|n| find_parent_component(n)) else {
+            return false;
+        };
+
+        std::rc::Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range()
+    }
+
+    pub fn contains_offset(&self, offset: TextSize) -> bool {
+        self.with_element_node(|node| {
+            node.parent().is_some_and(|n| n.text_range().contains(offset))
+        })
+    }
+}
+
+pub struct SingleTextEdit {
+    pub url: Url,
+    pub version: SourceFileVersion,
+    pub edit: TextEdit,
+}
+
+impl SingleTextEdit {
+    pub fn from_path(document_cache: &DocumentCache, path: &Path, edit: TextEdit) -> Option<Self> {
+        let url = Url::from_file_path(path).ok()?;
+        let version = document_cache.document_version_by_path(path);
+        Some(Self { url, version, edit })
+    }
+}
+
+pub fn create_text_document_edit(
+    uri: Url,
+    version: SourceFileVersion,
+    edits: Vec<TextEdit>,
+) -> lsp_types::TextDocumentEdit {
+    let edits = edits
+        .into_iter()
+        .map(lsp_types::OneOf::Left::<TextEdit, lsp_types::AnnotatedTextEdit>)
+        .collect();
+    lsp_types::TextDocumentEdit {
+        text_document: lsp_types::OptionalVersionedTextDocumentIdentifier { uri, version },
+        edits,
+    }
+}
+
+pub fn create_workspace_edit_from_path(
+    document_cache: &DocumentCache,
+    path: &Path,
+    edits: Vec<TextEdit>,
+) -> Option<WorkspaceEdit> {
+    let url = Url::from_file_path(path).ok()?;
+    let version = document_cache.document_version_by_path(path);
+    Some(create_workspace_edit(url, version, edits))
+}
+
+pub fn create_workspace_edit(
+    url: Url,
+    version: SourceFileVersion,
+    edits: Vec<TextEdit>,
+) -> WorkspaceEdit {
+    create_workspace_edit_from_text_document_edits(vec![create_text_document_edit(
+        url, version, edits,
+    )])
+}
+
+pub fn create_workspace_edit_from_text_document_edits(
+    edits: Vec<lsp_types::TextDocumentEdit>,
+) -> WorkspaceEdit {
+    let document_changes = Some(lsp_types::DocumentChanges::Edits(edits));
+    WorkspaceEdit { document_changes, ..Default::default() }
+}
+
+/// Merge the document-change edits from `additional` into `base`. Test-only
+/// since the rename flow now sends two independent `workspace/applyEdit`
+/// requests; the helper exists for tests that want to assert on the
+/// combined edit shape.
+///
+/// Both `WorkspaceEdit`s must use the `document_changes: Edits(...)` form --
+/// the one produced by [`create_workspace_edit_from_single_text_edits`] and
+/// the other `create_workspace_edit*` helpers. Fields not in `document_changes`
+/// are not merged (`changes`, `change_annotations`, and the `Operations`
+/// variant); the assertion below catches the misuse in debug builds.
+#[cfg(test)]
+pub fn merge_workspace_edits(base: &mut WorkspaceEdit, additional: WorkspaceEdit) {
+    debug_assert!(
+        additional.changes.is_none() && additional.change_annotations.is_none(),
+        "merge_workspace_edits only merges document_changes; got changes/change_annotations on additional",
+    );
+    let Some(lsp_types::DocumentChanges::Edits(more)) = additional.document_changes else {
+        return;
+    };
+    match &mut base.document_changes {
+        Some(lsp_types::DocumentChanges::Edits(existing)) => existing.extend(more),
+        None => {
+            base.document_changes = Some(lsp_types::DocumentChanges::Edits(more));
+        }
+        Some(lsp_types::DocumentChanges::Operations(_)) => {
+            // Operations form is not produced by our codebase; nothing to merge into.
+        }
+    }
+}
+
+pub fn create_workspace_edit_from_single_text_edits(
+    mut inputs: Vec<SingleTextEdit>,
+) -> WorkspaceEdit {
+    let mut files: HashMap<
+        (Url, SourceFileVersion),
+        Vec<lsp_types::OneOf<TextEdit, lsp_types::AnnotatedTextEdit>>,
+    > = HashMap::new();
+    inputs.drain(..).for_each(|se| {
+        let edit = lsp_types::OneOf::Left(se.edit);
+        files
+            .entry((se.url, se.version))
+            .and_modify(|v| v.push(edit.clone()))
+            .or_insert_with(|| vec![edit]);
+    });
+
+    let changes = lsp_types::DocumentChanges::Edits(
+        files
+            .drain()
+            .map(|((uri, version), edits)| lsp_types::TextDocumentEdit {
+                text_document: lsp_types::OptionalVersionedTextDocumentIdentifier { uri, version },
+                edits,
+            })
+            .collect::<Vec<_>>(),
+    );
+
+    WorkspaceEdit { document_changes: Some(changes), ..Default::default() }
+}
+
+/// A versioned file
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+pub struct Position {
+    /// The file url
+    url: Url,
+    /// The offset in the file pointed to by the `url`
+    offset: u32,
+}
+
+#[allow(unused)]
+impl Position {
+    pub fn new(url: Url, offset: TextSize) -> Self {
+        Self { url, offset: offset.into() }
+    }
+
+    pub fn url(&self) -> &Url {
+        &self.url
+    }
+
+    pub fn offset(&self) -> TextSize {
+        self.offset.into()
+    }
+}
+
+/// A versioned file
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+pub struct VersionedPosition {
+    /// The file url
+    url: VersionedUrl,
+    /// The offset in the file pointed to by the `url`
+    offset: u32,
+}
+
+#[allow(unused)]
+impl VersionedPosition {
+    pub fn new(url: VersionedUrl, offset: TextSize) -> Self {
+        Self { url, offset: offset.into() }
+    }
+
+    pub fn url(&self) -> &Url {
+        self.url.url()
+    }
+
+    pub fn version(&self) -> &SourceFileVersion {
+        self.url.version()
+    }
+
+    pub fn offset(&self) -> TextSize {
+        self.offset.into()
+    }
+}
+
+#[allow(unused)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct Diagnostic {
+    pub message: String,
+    pub file: Option<String>,
+    pub line: usize,
+    pub column: usize,
+    pub level: String,
+}
+
+#[allow(unused)]
+#[derive(Clone, Eq, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+pub struct PropertyChange {
+    pub name: String,
+    pub value: String,
+}
+
+impl PropertyChange {
+    #[allow(unused)]
+    pub fn new(name: &str, value: String) -> Self {
+        PropertyChange { name: name.to_string(), value }
+    }
+}
+
+/// Information on the Element types available
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+pub struct ComponentInformation {
+    /// The name of the type
+    pub name: String,
+    /// A broad category to group types by
+    pub category: String,
+    /// This type is a global component
+    pub is_global: bool,
+    /// This type is built into Slint
+    pub is_builtin: bool,
+    /// This type is a standard widget
+    pub is_std_widget: bool,
+    /// This type was exported
+    pub is_exported: bool,
+    /// This type is an interface
+    pub is_interface: bool,
+    /// This is a primitive element that reacts to events in some way
+    pub is_interactive: bool,
+    /// This is a layout
+    pub is_layout: bool,
+    /// The URL to the file containing this type
+    pub defined_at: Option<Position>,
+    /// Default property values
+    pub default_properties: Vec<PropertyChange>,
+}
+
+impl ComponentInformation {
+    pub fn import_file_name(&self, current_uri: &Option<lsp_types::Url>) -> Option<String> {
+        import_file_name_for_url(
+            self.defined_at.as_ref().map(|p| &p.url),
+            self.is_std_widget,
+            current_uri,
+        )
+    }
+}
+
+fn import_file_name_for_url(
+    url: Option<&lsp_types::Url>,
+    is_std_widget: bool,
+    current_uri: &Option<lsp_types::Url>,
+) -> Option<String> {
+    if is_std_widget {
+        Some("std-widgets.slint".to_string())
+    } else {
+        let url = url?;
+        if let Some(path) = url.path().strip_prefix("/@") {
+            Some(format!("@{path}"))
+        } else if let Some(current_uri) = current_uri {
+            lsp_types::Url::make_relative(current_uri, url)
+        } else {
+            url.to_file_path().ok().map(|path| path.to_string_lossy().to_string())
+        }
+    }
+}
+
+/// Information on an exported value type (struct or enum) that can be named as a
+/// property type, callback argument type, or function return type.
+///
+/// Distinct from [`ComponentInformation`], which represents things instantiable as
+/// elements.  The two categories are disjoint: a struct/enum can never be an element
+/// base type, and a component can never be a property type.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TypeInformation {
+    /// The exported name of the type
+    pub name: String,
+    /// The URL to the file where this type is defined.
+    /// `None` for std-widget types (use `is_std_widget` to compute the import path).
+    pub defined_at: Option<lsp_types::Url>,
+    /// This type is exported from the standard widgets library
+    pub is_std_widget: bool,
+    /// The "kind" of type (e.g. struct/array, etc.).
+    /// This is a simplified representation of the real Type used by the compiler
+    /// that should be sufficient for the LSPs completions, etc.
+    pub kind: lsp_types::CompletionItemKind,
+}
+
+impl TypeInformation {
+    pub fn import_file_name(&self, current_uri: &Option<lsp_types::Url>) -> Option<String> {
+        import_file_name_for_url(self.defined_at.as_ref(), self.is_std_widget, current_uri)
+    }
+}
+
+/// Poll a future once and return its result if it was `Ready` afterwards
+/// or `None` otherwise.
+#[cfg(any(test, feature = "preview-engine"))]
+pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
+    let waker = std::task::Waker::noop();
+    let mut ctx = std::task::Context::from_waker(waker);
+
+    let future = std::pin::pin!(future);
+
+    match future.poll(&mut ctx) {
+        std::task::Poll::Ready(result) => Some(result),
+        std::task::Poll::Pending => None,
+    }
+}
+
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+pub mod lsp_to_editor {
+    pub fn notify_lsp_diagnostics(
+        sender: &crate::ServerNotifier,
+        uri: lsp_types::Url,
+        version: super::SourceFileVersion,
+        diagnostics: Vec<lsp_types::Diagnostic>,
+    ) -> Option<()> {
+        sender
+            .send_notification::<lsp_types::notification::PublishDiagnostics>(
+                lsp_types::PublishDiagnosticsParams { uri, diagnostics, version },
+            )
+            .ok()
+    }
+
+    fn show_document_request_from_element_callback(
+        uri: lsp_types::Url,
+        range: lsp_types::Range,
+        take_focus: bool,
+    ) -> Option<lsp_types::ShowDocumentParams> {
+        if range.start.character == 0 || range.end.character == 0 {
+            return None;
+        }
+
+        Some(lsp_types::ShowDocumentParams {
+            uri,
+            external: Some(false),
+            take_focus: Some(take_focus),
+            selection: Some(range),
+        })
+    }
+
+    pub async fn send_show_document_to_editor(
+        sender: crate::ServerNotifier,
+        file: lsp_types::Url,
+        range: lsp_types::Range,
+        take_focus: bool,
+    ) {
+        let Some(params) = show_document_request_from_element_callback(file, range, take_focus)
+        else {
+            return;
+        };
+        let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else {
+            return;
+        };
+
+        let _ = fut.await;
+    }
+}
+
+#[cfg(feature = "preview-engine")]
+pub fn fuzzy_filter_iter<T: std::fmt::Debug>(
+    input: &mut impl Iterator<Item = T>,
+    transformer: impl Fn(&T) -> String,
+    needle: &str,
+) -> Vec<T> {
+    use nucleo_matcher::{Config, Matcher, pattern};
+
+    let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
+    let pattern = pattern::Pattern::parse(
+        needle,
+        pattern::CaseMatching::Ignore,
+        pattern::Normalization::Smart,
+    );
+
+    let mut all_matches = input
+        .filter_map(|t| {
+            let terms = [transformer(&t)];
+            pattern.match_list(terms.iter(), &mut matcher).pop().map(|(_, v)| (v, t))
+        })
+        .collect::<Vec<_>>();
+
+    // sort by value, highest first. Sort names with the same value alphabetically
+    all_matches.sort_by_key(|l| std::cmp::Reverse(l.0));
+
+    let cut_off = {
+        let lowest_value = all_matches.last().map(|(v, _)| *v).unwrap_or_default();
+        let highest_value = all_matches.first().map(|(v, _)| *v).unwrap_or_default();
+
+        if all_matches.len() < 10 {
+            lowest_value
+        } else {
+            highest_value - (highest_value - lowest_value) / 2
+        }
+    };
+
+    all_matches.drain(..).take_while(|(v, _)| *v >= cut_off).map(|(_, t)| t).collect::<Vec<_>>()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mk_edit(uri: &str, new_text: &str) -> SingleTextEdit {
+        SingleTextEdit {
+            url: Url::parse(uri).unwrap(),
+            version: None,
+            edit: TextEdit {
+                range: lsp_types::Range::new(
+                    lsp_types::Position::new(0, 0),
+                    lsp_types::Position::new(0, 0),
+                ),
+                new_text: new_text.into(),
+            },
+        }
+    }
+
+    fn doc_edits(edit: &WorkspaceEdit) -> &Vec<lsp_types::TextDocumentEdit> {
+        match edit.document_changes.as_ref().unwrap() {
+            lsp_types::DocumentChanges::Edits(v) => v,
+            _ => panic!("expected DocumentChanges::Edits"),
+        }
+    }
+
+    #[test]
+    fn merge_workspace_edits_combines_edits_lists() {
+        let mut base =
+            create_workspace_edit_from_single_text_edits(vec![mk_edit("file:///a.slint", "a")]);
+        let additional =
+            create_workspace_edit_from_single_text_edits(vec![mk_edit("file:///b.rs", "b")]);
+        merge_workspace_edits(&mut base, additional);
+        assert_eq!(doc_edits(&base).len(), 2);
+    }
+
+    #[test]
+    fn merge_workspace_edits_into_empty_base() {
+        let mut base = WorkspaceEdit::default();
+        let additional =
+            create_workspace_edit_from_single_text_edits(vec![mk_edit("file:///b.rs", "b")]);
+        merge_workspace_edits(&mut base, additional);
+        assert_eq!(doc_edits(&base).len(), 1);
+    }
+
+    #[test]
+    fn merge_workspace_edits_noop_for_empty_additional() {
+        let mut base =
+            create_workspace_edit_from_single_text_edits(vec![mk_edit("file:///a.slint", "a")]);
+        let before_len = doc_edits(&base).len();
+        merge_workspace_edits(&mut base, WorkspaceEdit::default());
+        assert_eq!(doc_edits(&base).len(), before_len);
+    }
+
+    #[test]
+    fn test_uri_conversion_of_builtins() {
+        let builtin_path = PathBuf::from("builtin:/fluent/button.slint");
+        let url = file_to_uri(&builtin_path).unwrap();
+        assert_eq!(url.scheme(), "builtin");
+
+        let back_conversion = uri_to_file(&url).unwrap();
+        assert_eq!(back_conversion, builtin_path);
+
+        assert!(Url::from_file_path(&builtin_path).is_err());
+    }
+
+    #[test]
+    fn test_uri_conversion_of_slashed_builtins() {
+        let builtin_path1 = PathBuf::from("builtin:/fluent/button.slint");
+        let builtin_path3 = PathBuf::from("builtin:///fluent/button.slint");
+
+        let url1 = file_to_uri(&builtin_path1).unwrap();
+        let url3 = file_to_uri(&builtin_path3).unwrap();
+        assert_ne!(url1, url3);
+
+        let back_conversion1 = uri_to_file(&url1).unwrap();
+        let back_conversion3 = uri_to_file(&url3).unwrap();
+        assert_eq!(back_conversion1, back_conversion3);
+
+        assert_eq!(back_conversion1, builtin_path1);
+    }
+
+    #[test]
+    fn test_uri_to_file_vscode_remote() {
+        let vscode_remote_path = PathBuf::from("vscode-remote://wsl%2Bubuntu/path/to/file.slint");
+
+        let url = file_to_uri(&vscode_remote_path).unwrap();
+
+        let back_conversion = uri_to_file(&url).unwrap();
+
+        assert_eq!(vscode_remote_path, back_conversion);
+    }
+}

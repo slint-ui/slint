@@ -1,0 +1,180 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEditInterface } from "std-widget-interfaces.slint";
+
+export component LineEditBase inherits Rectangle {
+    implement LineEditInterface <=> self;
+
+    font-size <=> text-input.font-size;
+    font-family <=> text-input.font-family;
+    font-italic <=> text-input.font-italic;
+    text <=> text-input.text;
+    enabled <=> text-input.enabled;
+    has-focus: text-input.has-focus;
+    // When true, the password input shows as plain text.
+    // Cleared automatically on focus loss.
+    in-out property <bool> password-revealed: false;
+    horizontal-alignment <=> text-input.horizontal-alignment;
+    read-only <=> text-input.read-only;
+    input-method-hints <=> text-input.input-method-hints;
+
+    changed has-focus => {
+        if !self.has-focus {
+            self.password-revealed = false;
+        }
+    }
+
+    in-out property <brush> placeholder-color;
+    in property <int> font-weight <=> text-input.font-weight;
+    in property <brush> text-color;
+    in property <color> selection-background-color <=> text-input.selection-background-color;
+    in property <color> selection-foreground-color <=> text-input.selection-foreground-color;
+    in property <length> margin;
+
+    public function set-selection-offsets(start: int, end: int) {
+        text-input.set-selection-offsets(start, end);
+    }
+
+    public function select-all() {
+        text-input.select-all();
+    }
+
+    public function clear-selection() {
+        text-input.clear-selection();
+    }
+
+    public function cut() {
+        text-input.cut();
+    }
+
+    public function copy() {
+        text-input.copy();
+    }
+
+    public function paste() {
+        text-input.paste();
+    }
+
+    // on width < 1px or if the `TextInput` is clipped it cannot be focused therefore min-width 1px
+    min-width: 1px;
+    min-height: text-input.preferred-height;
+    clip: true;
+    forward-focus: text-input;
+
+    placeholder := Text {
+        width: 100%;
+        height: 100%;
+        vertical-alignment: center;
+        text: (root.text == "" && text-input.preedit-text == "") ? root.placeholder-text : "";
+        font-size: text-input.font-size;
+        font-italic: text-input.font-italic;
+        font-weight: text-input.font-weight;
+        font-family: text-input.font-family;
+        color: root.placeholder-color;
+        horizontal-alignment: root.horizontal-alignment;
+        // `accessible-placeholder-text` is set on LineEdit already
+        accessible-role: none;
+    }
+
+    ContextMenuArea {
+        enabled: root.enabled;
+        Menu {
+            MenuItem {
+                title: @tr("Cut");
+                enabled: !root.read-only && root.enabled;
+                activated => {
+                    text-input.cut();
+                }
+            }
+
+            MenuItem {
+                title: @tr("Copy");
+                enabled: !root.text.is-empty;
+                activated => {
+                    text-input.copy();
+                }
+            }
+
+            MenuItem {
+                title: @tr("Paste");
+                enabled: !root.read-only && root.enabled;
+                activated => {
+                    text-input.paste();
+                }
+            }
+
+            MenuItem {
+                title: @tr("Select All");
+                enabled: !root.text.is-empty;
+                activated => {
+                    text-input.select-all();
+                }
+            }
+        }
+
+        text-input := TextInput {
+            property <length> computed-x;
+
+            x: min(0px, max(parent.width - self.width - self.text-cursor-width, self.computed-x));
+            width: max(parent.width - self.text-cursor-width, self.preferred-width);
+            height: 100%;
+            vertical-alignment: center;
+            single-line: true;
+            color: root.text-color;
+            input-type: root.password-revealed ? InputType.text : root.input-type;
+            // Disable TextInput's built-in accessibility support as the widget takes care of that.
+            accessible-role: none;
+
+            cursor-position-changed(cursor-position) => {
+                if cursor-position.x + self.computed_x < root.margin {
+                    self.computed_x = - cursor-position.x + root.margin;
+                } else if cursor-position.x + self.computed_x > parent.width - root.margin - self.text-cursor-width {
+                    self.computed_x = parent.width - cursor-position.x - root.margin - self.text-cursor-width;
+                }
+            }
+
+            accepted => {
+                root.accepted(self.text);
+            }
+
+            edited => {
+                root.edited(self.text);
+            }
+
+            key-pressed(event) => {
+                root.key-pressed(event)
+            }
+
+            key-released(event) => {
+                root.key-released(event)
+            }
+        }
+    }
+}
+
+export component LineEditClearIcon inherits Image {
+    in-out property <string> text;
+    callback clear();
+
+    vertical-alignment: center;
+    TouchArea {
+        clicked => { root.clear(); }
+    }
+}
+
+export component LineEditPasswordIcon inherits Image {
+    in-out property <bool> show-password;
+    in property <image> show-password-image;
+    in property <image> hide-password-image;
+    callback clicked();
+
+    source: show-password ? hide-password-image : show-password-image;
+    vertical-alignment: center;
+    TouchArea {
+        clicked => {
+            root.show-password = !root.show-password;
+            root.clicked();
+        }
+    }
+}

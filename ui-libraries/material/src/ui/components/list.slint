@@ -1,0 +1,107 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { StateLayerArea } from "./state_layer.slint";
+import { MaterialText } from "./material_text.slint";
+import { Icon } from "./icon.slint";
+
+export component Avatar {
+    in property <image> image;
+    in property <color> background: MaterialPalette.primary;
+
+    width: MaterialStyleMetrics.size_32;
+    height: self.width;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        border_radius: self.width / 2;
+        background: root.background;
+        clip: true;
+
+        Image {
+            source: root.image;
+        }
+    }
+}
+
+export component ListTile {
+    in property <string> text;
+    in property <string> supporting_text;
+    in property <image> avatar_icon;
+    in property <string> avatar_text;
+    in property <color> avatar_background;
+    in property <color> avatar_foreground;
+    in property <bool> enabled <=> state_layer.enabled;
+
+    property <color> color: MaterialPalette.on_surface;
+
+    callback clicked <=> state_layer.clicked;
+
+    min_height: max(MaterialStyleMetrics.size_72, layout.min_height);
+
+    state_layer := StateLayerArea {
+        color: root.color;
+
+        layout := HorizontalLayout {
+            padding_left: MaterialStyleMetrics.padding_16;
+            padding_right: MaterialStyleMetrics.padding_24;
+            padding_top: MaterialStyleMetrics.padding_8;
+            padding_bottom: self.padding_top;
+            spacing: MaterialStyleMetrics.spacing_16;
+
+            if root.avatar_background != #00000000 ||  root.avatar_text != "" || (root.avatar_icon.width > 0 && root.avatar_icon.height > 0) : Rectangle {
+                width: self.height;
+                border_radius: self.height / 2;
+                background: root.avatar_background;
+                clip: true;
+
+                if root.avatar_text != "" : MaterialText {
+                    text: root.avatar_text;
+                    vertical_alignment: center;
+                    horizontal_alignment: center;
+                    color: root.avatar_foreground;
+                    style: MaterialTypography.title_medium;
+                }
+
+                if root.avatar_icon.width > 0 && root.avatar_icon.height > 0 : Icon {
+                    width: parent.width;
+                    source: root.avatar_icon;
+                    colorize: root.avatar_foreground;
+                }
+            }
+
+            title_layout := VerticalLayout {
+                alignment: center;
+                horizontal_stretch: 1;
+
+                MaterialText {
+                    text: root.text;
+                    color: root.color;
+                    overflow: elide;
+                    style: MaterialTypography.body_large;
+                }
+
+                if root.supporting_text != "" : MaterialText {
+                    text: root.supporting_text;
+                    color: root.color;
+                    overflow: elide;
+                    style: MaterialTypography.body_medium;
+                }
+            }
+
+            @children
+        }
+    }
+
+    states [
+        disabled when !root.enabled : {
+            state_layer.display_background: false;
+            title_layout.opacity: 38%;
+        }
+    ]
+}
+

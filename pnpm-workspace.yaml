@@ -1,0 +1,50 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+packages:
+  - api/node
+  - editors/vscode
+  - tools/figma-inspector
+  - tools/slintpad
+  - demos/printerdemo/node
+  - demos/home-automation/node
+  - demos/energy-monitor
+  - demos/weather-demo
+  - examples/imagefilter/node
+  - examples/carousel/node
+  - examples/todo/node
+  - examples/dnd-kanban
+  - examples/maps
+  - examples/memory
+  - examples/slide_puzzle
+  - examples/system-tray
+  - docs/astro
+  - docs/common
+  - docs/safety
+  - docs/nodejs
+  - docs/python
+  - docs/cpp
+  - ui-libraries/material/docs
+
+catalog:
+  '@astrojs/check': 0.9.9
+  '@astrojs/sitemap': 3.7.3
+  '@astrojs/starlight': 0.41.3
+  '@biomejs/biome': 2.5.3
+  '@expressive-code/plugin-line-numbers': 0.44.0
+  '@pagefind/default-ui': 1.5.2
+  '@playwright/test': 1.61.1
+  '@types/node': 24.12.0
+  astro: 7.1.1
+  astro-embed: 0.13.1
+  cspell: 10.0.1
+  playwright-ctrf-json-reporter: 0.0.29
+  rehype-external-links: 3.0.0
+  sharp: 0.35.3
+  starlight-links-validator: 0.25.2
+  remark-parse: 11.0.0
+  typescript: 6.0.3
+  unified: 11.0.5
+  unist-util-visit: 5.1.0
+  vite: 8.1.4
+  vitest: 4.1.10

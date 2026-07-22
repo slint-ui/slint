@@ -1,0 +1,110 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { AppPalette, AppFonts, AppImages } from "../style/styles.slint";
+
+export component AppText inherits Text {
+    color: AppPalette.foreground;
+
+    overflow: elide;
+}
+
+export component AppIcon inherits Image {
+    image-fit: contain;
+    colorize: AppPalette.foreground;
+}
+
+export component FloatingTextButton inherits Rectangle {
+    in property icon-source <=> icon.source;
+    in property icon-color <=> icon.colorize;
+
+    callback clicked;
+
+    drop-shadow-color: self.background.darker(50%);
+    drop-shadow-blur: 5px;
+    drop-shadow-offset-x: 3px;
+    drop-shadow-offset-y: 2px;
+
+    background: AppPalette.background;
+    border-radius: Math.min(self.width, self.height) / 2;
+
+    property<length> margins: 12px;
+
+    preferred-width: 48px;
+    preferred-height: 48px;
+
+    width: self.preferred-width;
+    height: self.preferred-height;
+
+    icon := AppIcon {
+        width: parent.width - 2 * parent.margins;
+        height: parent.height - 2 * parent.margins;
+    }
+
+    TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+export component SlideButton inherits Rectangle {
+    in-out property icon-source <=> icon.source;
+    in-out property<bool> enabled <=> touch-area.enabled;
+    in property<color> background-color;
+    callback clicked <=> touch-area.clicked;
+
+    background: touch-area.pressed ? self.background-color.darker(10%) : self.background-color;
+    opacity: root.enabled ? 1.0 : 0.5;
+
+    icon := AppIcon {
+        width: 50%;
+        height: 50%;
+
+        colorize: touch-area.pressed ? AppPalette.foreground.darker(10%) : AppPalette.foreground;
+    }
+
+    touch-area := TouchArea {}
+}
+
+export component TextField inherits Rectangle {
+    in property icon-source <=> icon.source;
+    in property<string> placeholder-text;
+    in-out property<string> text <=> text-input.text;
+    callback edited <=> text-input.edited;
+
+    forward-focus: text-input;
+
+    property <length> margins: 5px;
+    preferred-height: text-input.preferred-height + 2 * self.margins;
+    height: self.preferred-height;
+
+    border-radius: 5px;
+    background: white.with-alpha(15%);
+
+    HorizontalLayout {
+        padding: parent.margins;
+
+        spacing: icon.preferred-width > 0 ? 10px : 0px;
+
+        icon := AppIcon {
+            max-width: self.height;
+        }
+
+        AppText {
+            horizontal-stretch: 1;
+
+            horizontal-alignment: left;
+            font-size: text-input.font-size;
+            text: text-input.text == "" ? root.placeholder-text : "";
+
+            text-input := TextInput {
+                color: AppPalette.foreground;
+                font-size: 1.2rem;
+            }
+        }
+
+        AppIcon {
+            source: AppImages.xmark;
+            max-width: self.height;
+        }
+    }
+}

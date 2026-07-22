@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test the maximum and minimum size within a grid layout
+
+export component TestCase inherits Rectangle {
+    width: 300phx;
+    height: 300phx;
+
+    grid := GridLayout {
+        padding: 0phx;
+        spacing: 1phx;
+        Row {
+            rect1 := Rectangle {
+                background: red;
+                min_width: 50phx;
+                min_height: 20phx;
+                max_height: 20phx;
+
+            }
+            rect2 := Rectangle {
+                background: blue;
+            }
+        }
+
+        Row {
+            rect3 := Rectangle {
+                background: green;
+                preferred_width: 60phx;
+                max_width: 60phx;
+            }
+            rect4 := Rectangle {
+                background: red;
+            }
+            rect5 := Rectangle {
+                background: black;
+                max_width: 100phx;
+            }
+        }
+    }
+
+    out property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == 60phx && rect1.height == 20phx;
+    out property <bool> rect2_pos_ok: rect2.x == 61phx && rect2.y == 0phx && rect2.width == 138phx && rect2.height == 20phx;
+    out property <bool> rect3_pos_ok: rect3.x == 0phx && rect3.y == 21phx && rect3.width == 60phx && rect3.height == 279phx;
+    out property <bool> grid_minmax_ok: grid.min-width == 52phx && grid.preferred-width == 62phx && grid.max-width > 300phx;
+    out property <bool> test: rect1_pos_ok && rect2_pos_ok && rect3_pos_ok && grid_minmax_ok;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_rect1_pos_ok());
+assert(instance.get_rect2_pos_ok());
+assert(instance.get_rect3_pos_ok());
+assert(instance.get_grid_minmax_ok());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_rect1_pos_ok());
+assert!(instance.get_rect2_pos_ok());
+assert!(instance.get_rect3_pos_ok());
+assert!(instance.get_grid_minmax_ok());
+```
+
+*/

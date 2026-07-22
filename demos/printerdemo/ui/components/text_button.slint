@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette } from "../common.slint";
+import { Button } from "./button.slint";
+
+export component TextButton inherits Button {
+    in property <string> text <=> text-layout.text;
+    in property <brush> text-color <=> text-layout.color;
+
+    height: 40px;
+    border-radius: 14px;
+
+    background: DemoPalette.secondary;
+
+    text-layout := Text {
+        color: white;
+    }
+}

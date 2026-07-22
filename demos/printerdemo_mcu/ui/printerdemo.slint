@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette, Pages, SubPage, PrinterState } from "common.slint";
+import { SideBar } from "./components/components.slint";
+import { HomePage, InkPage, ScanPage, ScanPagePosition, CopyPage, CopyPagePosition, SettingsPage, PrinterQueue } from "./pages/pages.slint";
+
+// re-export for the native code
+export { PrinterQueue, PrinterState }
+
+import "./fonts/Inter-24pt-Regular.ttf";
+import "./fonts/Inter-24pt-Medium.ttf";
+
+
+export component MainWindow inherits Window {
+    min-width: 320px;
+    min-height: 240px;
+    preferred-width: self.min-width;
+    preferred-height: self.min-height;
+    title: "Slint printer demo";
+    default-font-family: DemoPalette.medium-font-family;
+    default-font-size: DemoPalette.base-font-size;
+
+    callback quit();
+
+    HorizontalLayout {
+        sidebar := SideBar { }
+
+        main-view := Rectangle {
+            background: DemoPalette.page-background;
+
+            if PrinterState.active-subpage == SubPage.none: Rectangle {
+
+                if PrinterState.active-page == Pages.home: HomePage { }
+
+                if PrinterState.active-page == Pages.ink: InkPage { }
+
+                if PrinterState.active-page == Pages.settings: SettingsPage { }
+            }
+
+            if PrinterState.active-subpage == SubPage.scan: ScanPage {
+                back => {
+                    PrinterState.active-subpage = SubPage.none;
+                }
+            }
+
+            if PrinterState.active-subpage == SubPage.scan-position: ScanPagePosition {
+                back => {
+                    PrinterState.active-subpage = SubPage.none;
+                }
+            }
+
+            if PrinterState.active-subpage == SubPage.copy: CopyPage {
+                back => {
+                    PrinterState.active-subpage = SubPage.none;
+                }
+            }
+
+            if PrinterState.active-subpage == SubPage.copy-position: CopyPagePosition {
+                back => {
+                    PrinterState.active-subpage = SubPage.none;
+                }
+            }
+        }
+    }
+
+    screen-corners := Rectangle {
+        width: parent.width + self.border-width * 2;
+        height: parent.height + self.border-width * 2;
+        border-radius: 30px;
+        border-width: 10px;
+        border-color: #212e4a;
+    }
+}

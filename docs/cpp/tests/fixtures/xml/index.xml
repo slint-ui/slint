@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<!-- SPDX-FileCopyrightText: Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<!-- cSpell:ignore doxygenindex refid namespaceslint classslint -->
+<doxygenindex xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.9.8">
+  <compound refid="namespaceslint" kind="namespace"><name>slint</name></compound>
+  <compound refid="classslint_1_1_Color" kind="class"><name>slint::Color</name></compound>
+  <compound refid="classslint_1_1_SharedString" kind="class"><name>slint::SharedString</name></compound>
+</doxygenindex>

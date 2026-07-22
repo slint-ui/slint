@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CosmicFontSettings, CosmicPalette } from "styling.slint";
+import { RadioButtonImplBase, RadioGroupImplBase } from "../common/radiogroup-base.slint";
+
+export component RadioButtonImpl inherits RadioButtonImplBase {
+    private property <brush> dot-color: root.checked ? CosmicPalette.accent-background : transparent;
+    private property <color> text-color: CosmicPalette.control-foreground;
+
+    min-height: max(28px, layout.min-height);
+
+    states [
+        disabled when !root.enabled || !root.group-enabled: {
+            layout.opacity: 0.5;
+        }
+        checked when root.checked: {
+            border.border-color: CosmicPalette.accent-background;
+        }
+    ]
+
+    animate dot-color { duration: 150ms; }
+    animate text-color { duration: 150ms; }
+
+    layout := HorizontalLayout {
+        spacing: 8px;
+
+        Rectangle {
+            width: 16px;
+            height: self.width;
+            y: (parent.height - self.height) / 2;
+            border-radius: self.width / 2;
+            background: CosmicPalette.control-background;
+
+            border := Rectangle {
+                border-color: CosmicPalette.alternate-border;
+                border-width: 1px;
+                border-radius: parent.border-radius;
+            }
+
+            Rectangle {
+                width: 8px;
+                height: self.width;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                border-radius: self.width / 2;
+                background: root.dot-color;
+            }
+        }
+
+        if root.text != "": Text {
+            text: root.text;
+            color: root.text-color;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+}
+
+export component RadioGroupImpl inherits RadioGroupImplBase {
+    title-color: root.enabled ? CosmicPalette.foreground : CosmicPalette.text-disabled;
+    title-font-size: CosmicFontSettings.body-strong.font-size;
+    title-font-weight: CosmicFontSettings.body-strong.font-weight;
+}
+
+export component RadioGroup inherits RadioGroup { }

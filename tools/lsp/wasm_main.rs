@@ -1,0 +1,506 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+#![cfg(target_arch = "wasm32")]
+#![deny(clippy::print_stderr, clippy::print_stdout, clippy::disallowed_methods)]
+
+pub mod common;
+mod fmt;
+mod language;
+#[cfg(feature = "preview-engine")]
+mod preview;
+pub mod util;
+
+use common::LspToPreviews;
+use common::{DocumentCache, Result};
+use i_slint_live_preview::{
+    file_watcher::FileChangeKind,
+    protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl},
+};
+use js_sys::Function;
+pub use language::{Context, RequestHandler};
+use lsp_types::Url;
+
+use std::cell::RefCell;
+use std::future::Future;
+use std::io::ErrorKind;
+use std::rc::Rc;
+use wasm_bindgen::prelude::*;
+
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
+
+type JsResult<T> = std::result::Result<T, JsError>;
+
+pub mod wasm_prelude {
+    use std::path::{Path, PathBuf};
+
+    /// lsp_url doesn't have method to convert to and from PathBuf for wasm, so just make some
+    pub trait UrlWasm {
+        fn to_file_path(&self) -> Result<PathBuf, ()>;
+        fn from_file_path<P: AsRef<Path>>(path: P) -> Result<lsp_types::Url, ()>;
+    }
+    impl UrlWasm for lsp_types::Url {
+        fn to_file_path(&self) -> Result<PathBuf, ()> {
+            Ok(self.to_string().into())
+        }
+        fn from_file_path<P: AsRef<Path>>(path: P) -> Result<Self, ()> {
+            Self::parse(path.as_ref().to_str().ok_or(())?).map_err(|_| ())
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ServerNotifier {
+    send_notification: Function,
+    send_request: Function,
+}
+
+impl ServerNotifier {
+    pub fn send_notification<N: lsp_types::notification::Notification>(
+        &self,
+        params: N::Params,
+    ) -> Result<()> {
+        self.send_notification
+            .call2(&JsValue::UNDEFINED, &N::METHOD.into(), &to_value(&params)?)
+            .map_err(|x| format!("Error calling send_notification: {x:?}"))?;
+        Ok(())
+    }
+
+    pub fn send_request<T: lsp_types::request::Request>(
+        &self,
+        request: T::Params,
+    ) -> Result<impl Future<Output = Result<T::Result>>> {
+        let promise = self
+            .send_request
+            .call2(&JsValue::UNDEFINED, &T::METHOD.into(), &to_value(&request)?)
+            .map_err(|x| format!("Error calling send_request: {x:?}"))?;
+        let future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(promise));
+        Ok(async move {
+            future.await.map_err(|e| format!("{e:?}").into()).and_then(|v| {
+                serde_wasm_bindgen::from_value(v).map_err(|e| format!("{e:?}").into())
+            })
+        })
+    }
+}
+
+impl RequestHandler {
+    fn handle_request(
+        &self,
+        method: String,
+        params: JsValue,
+        ctx: &mut Context,
+    ) -> Result<JsValue> {
+        if let Some(f) = self.0.get(&method.as_str()) {
+            let param = serde_wasm_bindgen::from_value(params)
+                .map_err(|x| format!("invalid param to handle_request: {x:?}"))?;
+            let r = f(param, ctx).map_err(|e| e.message)?;
+            to_value(&r).map_err(|e| e.to_string().into())
+        } else {
+            Err("Cannot handle request".into())
+        }
+    }
+}
+
+struct ReentryGuardInner {
+    locked: bool,
+    waker: Vec<std::task::Waker>,
+}
+
+/// A single-threaded async mutex, similar to `tokio::sync::Mutex<T>` but not requiring `T: Send`.
+struct ReentryGuard<T> {
+    inner: Rc<RefCell<ReentryGuardInner>>,
+    value: RefCell<T>,
+}
+
+impl<T> ReentryGuard<T> {
+    pub fn new(value: T) -> Self {
+        Self {
+            inner: Rc::new(RefCell::new(ReentryGuardInner { locked: false, waker: Vec::new() })),
+            value: RefCell::new(value),
+        }
+    }
+
+    pub async fn lock(&self) -> ReentryGuardLock<'_, T> {
+        struct ReentryGuardLocker {
+            inner: Rc<RefCell<ReentryGuardInner>>,
+        }
+
+        impl std::future::Future for ReentryGuardLocker {
+            type Output = ();
+            fn poll(
+                self: std::pin::Pin<&mut Self>,
+                cx: &mut std::task::Context<'_>,
+            ) -> std::task::Poll<Self::Output> {
+                let mut s = self.inner.borrow_mut();
+                if s.locked {
+                    s.waker.push(cx.waker().clone());
+                    std::task::Poll::Pending
+                } else {
+                    s.locked = true;
+                    std::task::Poll::Ready(())
+                }
+            }
+        }
+        ReentryGuardLocker { inner: self.inner.clone() }.await;
+        ReentryGuardLock { inner: self.inner.clone(), value: self.value.borrow_mut() }
+    }
+}
+
+struct ReentryGuardLock<'a, T> {
+    value: std::cell::RefMut<'a, T>,
+    inner: Rc<RefCell<ReentryGuardInner>>,
+}
+
+impl<T> std::ops::Deref for ReentryGuardLock<'_, T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        &self.value
+    }
+}
+
+impl<T> std::ops::DerefMut for ReentryGuardLock<'_, T> {
+    fn deref_mut(&mut self) -> &mut T {
+        &mut self.value
+    }
+}
+
+impl<T> Drop for ReentryGuardLock<'_, T> {
+    fn drop(&mut self) {
+        let mut s = self.inner.borrow_mut();
+        s.locked = false;
+        let wakers = std::mem::take(&mut s.waker);
+        drop(s);
+        for w in wakers {
+            w.wake()
+        }
+    }
+}
+
+#[wasm_bindgen(typescript_custom_section)]
+const IMPORT_CALLBACK_FUNCTION_SECTION: &'static str = r#"
+type ImportCallbackFunction = (url: string) => Promise<string>;
+type SendRequestFunction = (method: string, r: any) => Promise<any>;
+type HighlightInPreviewFunction = (file: string, offset: number) => void;
+"#;
+
+thread_local! {
+    static PANIC_CALLBACK: RefCell<Option<Function>> = const { RefCell::new(None) };
+}
+
+/// Chains `console_error_panic_hook` (so panics still show up in the browser
+/// console) with an optional JS callback registered via `set_panic_hook`.
+/// Idempotent — safe to call from multiple wasm entry points.
+pub(crate) fn install_panic_hook() {
+    static INSTALLED: std::sync::Once = std::sync::Once::new();
+    INSTALLED.call_once(|| {
+        std::panic::set_hook(Box::new(|info| {
+            console_error_panic_hook::hook(info);
+            PANIC_CALLBACK.with(|c| {
+                if let Some(cb) = c.borrow().as_ref() {
+                    let _ = cb.call1(&JsValue::UNDEFINED, &JsValue::from_str(&info.to_string()));
+                }
+            });
+        }));
+    });
+}
+
+/// Register a JS callback that receives the formatted panic message whenever
+/// the Rust side panics. Used by SlintPad to surface a user-visible dialog.
+#[wasm_bindgen]
+pub fn set_panic_hook(callback: Function) {
+    install_panic_hook();
+    PANIC_CALLBACK.with(|c| *c.borrow_mut() = Some(callback));
+}
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(typescript_type = "ImportCallbackFunction")]
+    pub type ImportCallbackFunction;
+
+    #[wasm_bindgen(typescript_type = "SendRequestFunction")]
+    pub type SendRequestFunction;
+
+    #[wasm_bindgen(typescript_type = "HighlightInPreviewFunction")]
+    pub type HighlightInPreviewFunction;
+
+    // Make console.log available:
+    #[allow(unused)]
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
+// cSpell:ignore reentrancy
+#[wasm_bindgen]
+pub struct SlintServer {
+    /// Multiple requests/notifications from the language client can arrive concurrently,
+    /// but the document cache does not support concurrent access, so we serialize them.
+    /// (So that a request being sent when we are await'ing for a file from the typeloader
+    /// doesn't access the document cache)
+    ///
+    /// Every exported `async` method must therefore take `&self`, not `&mut self`:
+    /// wasm-bindgen holds a `&mut self` borrow across the future's `.await` points,
+    /// which re-entrant messages would trip (see tests/wasm_export_reentrancy.rs).
+    ctx: ReentryGuard<Context>,
+    rh: Rc<RequestHandler>,
+}
+
+#[wasm_bindgen]
+pub fn create(
+    init_param: JsValue,
+    send_notification: Function,
+    send_request: SendRequestFunction,
+    load_file: ImportCallbackFunction,
+) -> JsResult<SlintServer> {
+    install_panic_hook();
+
+    let send_request = Function::from(send_request.clone());
+    let server_notifier = ServerNotifier { send_notification, send_request };
+    let init_param = serde_wasm_bindgen::from_value(init_param)?;
+
+    let mut compiler_config = crate::common::document_cache::CompilerConfiguration::default();
+
+    #[cfg(not(feature = "preview-engine"))]
+    let to_preview = LspToPreviews::with_one(common::DummyLspToPreview::default());
+    #[cfg(feature = "preview-engine")]
+    let to_preview =
+        LspToPreviews::with_one(preview::connector::WasmLspToPreview::new(server_notifier.clone()));
+
+    let to_preview_clone = to_preview.clone();
+    compiler_config.open_import_callback = Some(Rc::new(move |path| {
+        let load_file = Function::from(load_file.clone());
+        let to_preview = to_preview_clone.clone();
+        Box::pin(async move {
+            let contents = self::load_file(path.clone(), &load_file).await;
+            let Ok(url) = Url::from_file_path(&path) else {
+                return Some(contents.map(|c| (None, c)));
+            };
+            if let Ok(contents) = &contents {
+                to_preview.send(&LspToPreviewMessage::SetContents {
+                    url: VersionedUrl::new(url, None),
+                    contents: contents.clone().into(),
+                });
+            }
+            Some(contents.map(|c| (None, c)))
+        })
+    }));
+    let document_cache = DocumentCache::new(compiler_config);
+
+    let mut rh = RequestHandler::default();
+    language::register_request_handlers(&mut rh);
+
+    Ok(SlintServer {
+        ctx: ReentryGuard::new(Context {
+            document_cache,
+            preview_config: Default::default(),
+            init_param,
+            server_notifier,
+            to_show: Default::default(),
+            open_urls: Default::default(),
+            to_preview,
+            pending_recompile: Default::default(),
+            host_language_rename_dont_ask_again: Default::default(),
+        }),
+        rh: Rc::new(rh),
+    })
+}
+
+fn forward_workspace_edit(
+    server_notifier: ServerNotifier,
+    label: Option<String>,
+    edit: Result<lsp_types::WorkspaceEdit>,
+) {
+    let Ok(edit) = edit else {
+        return;
+    };
+
+    wasm_bindgen_futures::spawn_local(async move {
+        let fut = server_notifier.send_request::<lsp_types::request::ApplyWorkspaceEdit>(
+            lsp_types::ApplyWorkspaceEditParams { label, edit },
+        );
+        if let Ok(fut) = fut {
+            // We ignore errors: If the LSP can not be reached, then all is lost
+            // anyway. The other thing that might go wrong is that our Workspace Edit
+            // refers to some outdated text. In that case the update is most likely
+            // in flight already and will cause the preview to re-render, which also
+            // invalidates all our state
+            let _ = fut.await;
+        }
+    });
+}
+
+#[wasm_bindgen]
+impl SlintServer {
+    #[cfg(all(
+        feature = "preview-engine",
+        feature = "preview-external",
+        feature = "preview-remote"
+    ))]
+    #[wasm_bindgen]
+    pub async fn process_preview_to_lsp_message(
+        &self,
+        value: JsValue,
+    ) -> std::result::Result<(), JsValue> {
+        use PreviewToLspMessage as M;
+
+        let ctx = self.ctx.lock().await;
+
+        let Ok(message) = serde_wasm_bindgen::from_value(value) else {
+            return Err(JsValue::from("Failed to convert value to PreviewToLspMessage"));
+        };
+
+        match message {
+            M::Diagnostics { diagnostics, version, uri } => {
+                crate::common::lsp_to_editor::notify_lsp_diagnostics(
+                    &ctx.server_notifier,
+                    uri,
+                    version,
+                    diagnostics,
+                );
+            }
+            M::ShowDocument { file, selection, .. } => {
+                let sn = ctx.server_notifier.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    crate::common::lsp_to_editor::send_show_document_to_editor(
+                        sn, file, selection, true,
+                    )
+                    .await
+                });
+            }
+            M::PreviewTypeChanged { target } => {
+                ctx.to_preview
+                    .set_local_target(target)
+                    .map_err(|err| js_sys::Error::new(&format!("{err}")))?;
+            }
+            M::RequestState { .. } => {
+                crate::language::send_state_to_preview(&ctx);
+            }
+            M::SendWorkspaceEdit { label, edit } => {
+                forward_workspace_edit(ctx.server_notifier.clone(), label, Ok(edit));
+            }
+            M::SendShowMessage { message } => {
+                let _ = ctx
+                    .server_notifier
+                    .send_notification::<lsp_types::notification::ShowMessage>(message);
+            }
+            M::TelemetryEvent(object) => {
+                let _ = ctx
+                    .server_notifier
+                    .send_notification::<lsp_types::notification::TelemetryEvent>(
+                        lsp_types::OneOf::Left(object),
+                    );
+            }
+            M::DebugMessage { location, message } => {
+                log(&common::preview_log_message_to_string(&location, &message));
+            }
+            M::ConnectRemote { .. } | M::DisconnectRemote | M::Pong => {
+                tracing::debug!("Ignoring remote-preview control message in WASM LSP");
+            }
+        }
+        Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub fn server_initialize_result(&self, cap: JsValue) -> JsResult<JsValue> {
+        Ok(to_value(&language::server_initialize_result(&serde_wasm_bindgen::from_value(cap)?))?)
+    }
+
+    #[wasm_bindgen]
+    pub async fn startup_lsp(&self) -> JsResult<JsValue> {
+        let mut ctx = self.ctx.lock().await;
+        language::startup_lsp(&mut ctx).await.map_err(|e| JsError::new(&e.to_string()))?;
+        Ok(JsValue::UNDEFINED)
+    }
+
+    #[wasm_bindgen]
+    pub async fn trigger_file_watcher(&self, url: JsValue, typ: JsValue) -> JsResult<JsValue> {
+        let mut ctx = self.ctx.lock().await;
+        let url: Url = serde_wasm_bindgen::from_value(url)?;
+        let typ: lsp_types::FileChangeType = serde_wasm_bindgen::from_value(typ)?;
+        let typ = match typ {
+            lsp_types::FileChangeType::CREATED => FileChangeKind::Created,
+            lsp_types::FileChangeType::CHANGED => FileChangeKind::Changed,
+            lsp_types::FileChangeType::DELETED => FileChangeKind::Deleted,
+            _ => return Err(JsError::new("Unknown FileChangeType")),
+        };
+        language::trigger_file_watcher(&mut ctx, url, typ)
+            .await
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        Ok(JsValue::UNDEFINED)
+    }
+    #[wasm_bindgen]
+    pub async fn open_document(
+        &self,
+        content: String,
+        uri: JsValue,
+        version: i32,
+    ) -> JsResult<JsValue> {
+        let mut ctx = self.ctx.lock().await;
+        let uri: Url = serde_wasm_bindgen::from_value(uri)?;
+        language::open_document(&mut ctx, content, uri.clone(), Some(version))
+            .await
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        Ok(JsValue::UNDEFINED)
+    }
+
+    #[wasm_bindgen]
+    pub async fn load_document(
+        &self,
+        content: String,
+        uri: JsValue,
+        version: i32,
+    ) -> JsResult<JsValue> {
+        let mut ctx = self.ctx.lock().await;
+        let uri: Url = serde_wasm_bindgen::from_value(uri)?;
+        language::load_document(&mut ctx, content, uri.clone(), Some(version))
+            .await
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        Ok(JsValue::UNDEFINED)
+    }
+
+    #[wasm_bindgen]
+    pub async fn close_document(&self, uri: JsValue) -> JsResult<JsValue> {
+        let mut ctx = self.ctx.lock().await;
+        let uri: Url = serde_wasm_bindgen::from_value(uri)?;
+        language::close_document(&mut ctx, uri).await.map_err(|e| JsError::new(&e.to_string()))?;
+        Ok(JsValue::UNDEFINED)
+    }
+
+    #[wasm_bindgen]
+    pub async fn handle_request(
+        &self,
+        _id: JsValue,
+        method: String,
+        params: JsValue,
+    ) -> JsResult<JsValue> {
+        let mut ctx = self.ctx.lock().await;
+        let result = self
+            .rh
+            .handle_request(method, params, &mut ctx)
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        Ok(result)
+    }
+
+    #[wasm_bindgen]
+    pub async fn reload_config(&self) -> JsResult<()> {
+        let mut ctx = self.ctx.lock().await;
+        language::load_configuration(&mut ctx).await.map_err(|e| JsError::new(&e.to_string()))
+    }
+}
+
+async fn load_file(path: String, load_file: &Function) -> std::io::Result<String> {
+    let string_promise = load_file
+        .call1(&JsValue::UNDEFINED, &path.into())
+        .map_err(|x| std::io::Error::new(ErrorKind::Other, format!("{x:?}")))?;
+    let string_future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(string_promise));
+    let js_value =
+        string_future.await.map_err(|e| std::io::Error::new(ErrorKind::Other, format!("{e:?}")))?;
+    return Ok(js_value.as_string().unwrap_or_default());
+}
+
+// Use a JSON friendly representation to avoid using ES maps instead of JS objects.
+fn to_value<T: serde::Serialize + ?Sized>(
+    value: &T,
+) -> std::result::Result<wasm_bindgen::JsValue, serde_wasm_bindgen::Error> {
+    value.serialize(&serde_wasm_bindgen::Serializer::json_compatible())
+}

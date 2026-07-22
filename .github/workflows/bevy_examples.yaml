@@ -1,0 +1,55 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Bevy examples
+
+on:
+    workflow_dispatch:
+        inputs:
+            update:
+                description: 'Whether to run cargo update before testing'
+                required: false
+                type: boolean
+                default: false
+            save_if:
+                description: 'Condition to save the cache'
+                required: false
+                type: boolean
+                default: true
+    workflow_call:
+        inputs:
+            update:
+                description: 'Whether to run cargo update before testing'
+                required: false
+                type: boolean
+                default: false
+            save_if:
+                description: 'Condition to save the cache'
+                required: false
+                type: boolean
+                default: true
+
+jobs:
+    bevy_examples:
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-14, windows-2022]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  save_if: ${{ inputs.save_if }}
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  extra-packages: libwayland-dev libasound2-dev
+            - uses: ./.github/actions/install-skia-dependencies
+            - uses: ilammy/msvc-dev-cmd@v1
+            # bevy is part of the examples workspace (examples/Cargo.toml) but is
+            # built here rather than in the main test matrix because of its heavy
+            # dependencies.
+            - name: Cargo update
+              if: ${{ inputs.update }}
+              run: cargo update --manifest-path examples/Cargo.toml --package bevy-example --package bevy-hosts-slint --package bevy-hosts-slint-gpu
+            - name: Build Bevy Examples
+              run: cargo build --locked --manifest-path examples/Cargo.toml --package bevy-example --package bevy-hosts-slint --package bevy-hosts-slint-gpu

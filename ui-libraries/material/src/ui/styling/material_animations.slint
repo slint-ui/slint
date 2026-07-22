@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export global MaterialAnimations {
+    out property <easing> emphasized_easing: cubic-bezier(0.05, 0.7, 0.1, 1.0);
+    out property <duration> emphasized_duration: 500ms;
+    out property <duration> emphasized_decelerate_duration: 400ms;
+    out property <duration> emphasized_accelerate_duration: 200ms;
+    out property <easing> standard_easing: cubic-bezier(0, 0, 0, 1);
+    out property <duration> standard_decelerate_duration: 250ms;
+    out property <duration> standard_accelerate_duration: 200ms;
+    out property <duration> standard_fast_duration: 150ms;
+    out property <easing> ripple_easing: ease_out;
+    out property <duration> ripple_duration: 2s;
+    out property <easing> opacity_easing: ease;
+    out property <duration> opacity_duration: 250ms;
+}

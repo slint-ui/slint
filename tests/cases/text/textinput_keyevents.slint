@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits TextInput {
+    out property <string> pressed-text;
+    out property <string> released-text;
+    out property <string> test-text: self.text;
+    in-out property <bool> text-read-only <=> self.read-only;
+
+    width: 100phx;
+    height: 100phx;
+
+    key-pressed(event) => {
+        if event.text == "a" || event.text == "c" {
+            root.pressed-text += event.text;
+            return accept;
+        }
+        reject
+    }
+
+    key-released(event) => {
+        root.released-text += event.text;
+        accept
+    }
+}
+
+/*
+```rust
+use slint::platform::{WindowEvent};
+use slint::SharedString;
+
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::KeyPressed { text: 'a'.into() });
+assert_eq!(instance.get_pressed_text(), "a");
+assert_eq!(instance.get_released_text(), "");
+assert_eq!(instance.get_test_text(), "");
+
+instance.window().dispatch_event(WindowEvent::KeyReleased { text: 'a'.into() });
+assert_eq!(instance.get_pressed_text(), "a");
+assert_eq!(instance.get_released_text(), "a");
+assert_eq!(instance.get_test_text(), "");
+
+instance.window().dispatch_event(WindowEvent::KeyPressed { text: 'b'.into() });
+assert_eq!(instance.get_pressed_text(), "a");
+assert_eq!(instance.get_released_text(), "a");
+assert_eq!(instance.get_test_text(), "b");
+
+instance.window().dispatch_event(WindowEvent::KeyReleased { text: 'b'.into() });
+assert_eq!(instance.get_pressed_text(), "a");
+assert_eq!(instance.get_released_text(), "ab");
+assert_eq!(instance.get_test_text(), "b");
+
+instance.window().dispatch_event(WindowEvent::KeyPressed { text: 'c'.into() });
+assert_eq!(instance.get_pressed_text(), "ac");
+assert_eq!(instance.get_released_text(), "ab");
+assert_eq!(instance.get_test_text(), "b");
+
+instance.window().dispatch_event(WindowEvent::KeyReleased { text: 'c'.into() });
+assert_eq!(instance.get_pressed_text(), "ac");
+assert_eq!(instance.get_released_text(), "abc");
+assert_eq!(instance.get_test_text(), "b");
+
+let mut input_element_search = slint_testing::ElementHandle::find_by_element_type_name(&instance, "TextInput");
+let input_element = input_element_search.next().unwrap();
+assert_eq!(input_element.accessible_value(), Some(SharedString::from("b")));
+assert_eq!(input_element.accessible_read_only(), Some(false));
+instance.set_text_read_only(true);
+assert_eq!(input_element.accessible_read_only(), Some(true));
+
+```
+
+*/

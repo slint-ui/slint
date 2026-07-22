@@ -1,0 +1,155 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component BackgroundExpr inherits Rectangle {
+    in property <bool> cond;
+    // conversion from color to brush do a Cast expression and this should work even when there is a return
+    background: {
+        if (cond) {
+            return blue;
+        }
+        red
+    }
+}
+component BackgroundExpr2 inherits Rectangle {
+    in property <int> val;
+    in property <bool> cond1;
+    pure callback foo();
+    background: {
+        if (val > 20) {
+            if (val > 50) {
+                return green;
+            } else if val > 40 {
+                return yellow;
+            } else {
+                return blue;
+            };
+            return black;
+        }
+        if val > 10 {
+            return pink;
+        } else {
+            foo();
+        }
+        if val > 1 {
+            red
+        } else {
+            orange
+        }
+
+    }
+}
+
+
+export global Issue8485  {
+
+    pure public function format_nullable_duration( has-value: bool, precision: int) -> string {
+        if has-value {
+            return "";
+        } else {
+            if precision == 1 {
+                return "aaa";
+            }
+            if precision == 2 {
+                return "bbb";
+            }
+            return "-";
+        }
+    }
+}
+
+export global Issue8723 {
+    pure callback key-pressed(KeyEvent) -> EventResult;
+    key-pressed(event) => {
+        if (true) {
+            if (false) {
+                return accept;
+            }
+            return accept;
+        }
+        if (event.text == Key.LeftArrow) {
+            return accept;
+        }
+        return reject;
+    }
+
+    public pure function xxx(cond1: bool, cond2: bool, cond3: bool) -> string {
+        if (cond1) {
+            if (cond2) {
+                return "A";
+            }
+            return "B";
+        }
+        if (cond3) {
+            return "C";
+        }
+        return "D";
+    }
+
+    out property <bool> test: xxx(true, true, true) == "A" && xxx(true, false, true) == "B" && xxx(false, true, true) == "C" && xxx(false, false, false) == "D";
+
+}
+
+
+struct Coords {
+    x: int,
+}
+
+// Issue #11232: implicit return of struct after conditional return
+export global Issue11232 {
+    public pure function trigger(cond: bool) -> Coords {
+        if cond {
+            return { };
+        }
+
+        { x: 42 }
+    }
+
+    // Variant: return inside a nested condition (Condition expr wrapped in StoreLocalVariable)
+    public pure function trigger2(cond1: bool, cond2: bool) -> Coords {
+        if cond1 {
+            if cond2 { return { }; }
+            { x: 10 }
+        } else {
+            { x: 20 }
+        }
+    }
+}
+
+export component TestCase {
+
+    bkg1 := BackgroundExpr { cond: true; }
+    bkg2 := BackgroundExpr { cond: false; }
+    bkg3 := BackgroundExpr2 { val: 0; }
+    bkg4 := BackgroundExpr2 { val: 11; }
+    bkg5 := BackgroundExpr2 { val: 21; }
+
+
+    out property <bool> test:
+    {
+        return bkg1.background == Colors.blue && bkg2.background == Colors.red
+            && bkg3.background == Colors.orange && bkg4.background == Colors.pink && bkg5.background == Colors.blue
+            && Issue8485.format_nullable_duration(false, 2) == "bbb"
+            && Issue8723.key-pressed({text: Key.LeftArrow}) == EventResult.accept && Issue8723.test
+            && Issue11232.trigger(false).x == 42 && Issue11232.trigger(true).x == 0
+            && Issue11232.trigger2(true, false).x == 10 && Issue11232.trigger2(true, true).x == 0
+            && Issue11232.trigger2(false, false).x == 20;
+    }
+
+
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+*/

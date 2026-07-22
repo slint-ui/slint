@@ -1,0 +1,144 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// We have two flickables in each other. The inner can only be flicked horizontally,
+// the outer only vertically. If we get a vertical scroll event and the inner cannot scroll
+// vertically, we ignore the event and the outer (parent) can handle it
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 500px;
+    no-frame: false;
+
+    // Scrolling only vertical
+    outer := Flickable {
+        x: 10px;
+        y: 10px;
+        width: parent.width - 20px;
+        height: parent.height - 20px;
+        viewport-width: self.width;
+        viewport-height: 980px;
+
+        // Scrolling only horizontal
+        inner := Flickable {
+            viewport-width: 1500px;
+            viewport-height: parent.height;
+            Rectangle {
+                background: @radial-gradient(circle, yellow, blue, red, green);
+            }
+        }
+    }
+
+    out property<length> outer_y: - outer.viewport-y;
+    out property<length> inner_x: - inner.viewport-x;
+
+    out property <bool> test: outer.viewport-x == 0 && inner.viewport-y == 0;
+
+}
+
+/*
+
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+// First, try to scroll up
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 200.0) });
+slint_testing::mock_elapsed_time(16);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(150.0, 200.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(16);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 205.0) });
+slint_testing::mock_elapsed_time(16);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 290.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 300.0) });
+// shouldn't move because we are already up
+assert_eq!(instance.get_inner_x(), 0.);
+assert_eq!(instance.get_outer_y(), 0.);
+
+// now, scroll down
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 270.0) });
+// should move the outer one now, it has passed the threshold when moving up already
+assert_eq!(instance.get_inner_x(), 0.);
+assert_eq!(instance.get_outer_y(), 30.);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 250.0) });
+assert_eq!(instance.get_inner_x(), 0.);
+assert_eq!(instance.get_outer_y(), 50.);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 250.0) });
+assert_eq!(instance.get_inner_x(), 0.);
+assert_eq!(instance.get_outer_y(), 50.);
+slint_testing::mock_elapsed_time(100);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, -2000.0) });
+assert_eq!(instance.get_inner_x(), 0.);
+// all the way down
+assert_eq!(instance.get_outer_y(), 500.);
+slint_testing::mock_elapsed_time(100);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(250.0, -2000.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_inner_x(), 0.);
+assert_eq!(instance.get_outer_y(), 500.);
+
+// Now, try to go to the right
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_inner_x(), 0.);
+assert_eq!(instance.get_outer_y(), 500.);
+// TODO: A small movement will currently break this the delayed pressed event, as the outer flickable
+// is then accepting the event, which cancels the delayed pressed event!
+// instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(95.0, 100.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(90.0, 100.0) });
+slint_testing::mock_elapsed_time(120); // we need to wait enough because of the delay in the outer one
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(90.0, 100.0) });
+assert_eq!(instance.get_inner_x(), 10.);
+assert_eq!(instance.get_outer_y(), 500.);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(20.0, 100.0) });
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_inner_x(), 80.);
+assert_eq!(instance.get_outer_y(), 500.);
+
+// Scrolling up still work as the outer flickable now intercepts it, and then the inner one lost
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(10.0, 190.0) });
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_inner_x(), 80.);
+assert_eq!(instance.get_outer_y(), 410.);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 200.0) });
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_inner_x(), 80.);
+assert_eq!(instance.get_outer_y(), 400.);
+slint_testing::mock_elapsed_time(1600);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(150.0, 200.0), button: PointerEventButton::Left  });
+slint_testing::mock_elapsed_time(16000); // finish the animation
+
+
+// scroll to the left
+let old_outer_y = instance.get_outer_y();
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(160);
+assert_eq!(instance.get_inner_x(), 80.);
+assert_eq!(instance.get_outer_y(), old_outer_y);
+// 103 is  below the threshold, 120 is not
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(120.0, 103.0) });
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_inner_x(), 60.);
+assert_eq!(instance.get_outer_y(), old_outer_y);
+
+```
+
+```rust
+// Wheel events
+use slint::{LogicalPosition, platform::WindowEvent };
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: 0.0, delta_y: -50.0 });
+assert_eq!(instance.get_inner_x(), 0.);
+assert_eq!(instance.get_outer_y(), 50., "Scrolling the outer because the inner cannot scroll vertically");
+
+println!("Scroll horizontal");
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: 0.0 });
+assert_eq!(instance.get_inner_x(), 30., "Scrolling the inner horizontal because the outer cannot scroll horizontally");
+assert_eq!(instance.get_outer_y(), 50.);
+
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: 0.0, delta_y: 10.0 });
+assert_eq!(instance.get_inner_x(), 30.);
+assert_eq!(instance.get_outer_y(), 40., "Scrolling vertical on the outer was not done. Because the inner is only horizontal");
+```
+
+*/

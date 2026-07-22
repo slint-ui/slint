@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Right now, this test is only testing rust and C++ keyword, but it should be expanded to JS keywords
+
+export struct struct {
+    not: image
+}
+
+export struct dynamic_cast {
+    delete: image
+}
+
+export struct operator {
+    dynamic-cast: image
+}
+
+export struct static_assert {}
+export struct unsigned {}
+export struct namespace {}
+
+export struct mod := {
+    loop: string,
+}
+
+match := Rectangle {
+    property<mod> move: {loop : "mod" };
+    property<bool> test: move.loop == "mod";
+}
+
+/*
+```rust
+let instance = r#match::new().unwrap();
+assert_eq!(instance.get_move(), r#mod{ r#loop: "mod".into() });
+```
+*/

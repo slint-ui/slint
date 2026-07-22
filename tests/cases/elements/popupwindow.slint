@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore insidelayout
+// The presence of this component shouldn't break anything
+component Window {}
+
+component InheritsPopup inherits PopupWindow {}
+
+component Combo inherits Rectangle {
+    in-out property <color> inner_color;
+    my_popup := PopupWindow {
+        Rectangle {
+            background: inner_color;
+            insidelayout := VerticalLayout {
+                spacing: 3px;
+                for aa in [1, 2]: Text { text: aa; }
+            }
+        }
+    }
+    TouchArea {
+        clicked => { my_popup.show(); }
+    }
+}
+
+export component TestCase inherits Rectangle {
+    for x in [1, 2] :  Combo { }
+}
+
+component ComplexTestCase inherits Rectangle {
+    TestCase {
+        cob := Combo {
+            PopupWindow {
+                width: root.width * 0.5;
+                height: parent.height;
+                x: 20px + cob.height;
+            }
+        }
+    }
+    TestCase {  }
+}
+
+component TypeConversionTestCase inherits Rectangle {
+    height: 400px;
+    popup := PopupWindow {
+        y: root.height / 2;
+        x: root.height + 155.52px;
+    }
+    TouchArea {
+        clicked => { popup.show() }
+    }
+    InheritsPopup {}
+}

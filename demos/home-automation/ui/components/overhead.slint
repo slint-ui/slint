@@ -1,0 +1,90 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Palette, Measurements } from "../common.slint";
+import { FancySlider } from "general/fancySlider.slint";
+import { HaText } from "general/haText.slint";
+import { Control } from "control.slint";
+import { AppState } from "../appState.slint";
+
+export component Overhead inherits Control {
+    show-label: false;
+    full-screen: false;
+    tile-shadow-blur: 0px;
+    control-background: @image-url("../images/overhead-frame.png", nine-slice(50));
+
+    property <bool> is-dragging: false;
+    property <length> drag-threshold: 5px;
+    property <float> saved-value: 22;
+    property <float> drag-min-value: 5;
+
+    in property <length> tilePadding: (root.height > Measurements.small-height-tile) ? 18px : 9px;
+    tile := Rectangle {
+        width: 100%;
+        height: 100%;
+
+        VerticalLayout {
+            alignment: space-between;
+            padding: tilePadding;
+            width: 100%;
+            height: 100%;
+            Rectangle {
+                HaText {
+                    text: root.name;
+                    font-size: 13pt;
+                    font-weight: FontWeight.normal;
+                    color: Palette.overhead-foreground;
+                    transform-scale: Math.min(1, parent.width/ self.width);
+                }
+            }
+
+            slider := FancySlider {
+                minValue: 0;
+                maxValue: 24;
+                value: 22;
+                width: (root.height < Measurements.medium-height-tile) ? root.width - 0 - 18px : root.width * 0.8;
+                icon: @image-url("../images/brightness.svg");
+            }
+        }
+    }
+    TouchArea {
+        clicked => {
+            AppState.end-kiosk-mode();
+            if !root.is-dragging {
+                slider.anim-duration = 300ms;
+                if slider.value > 0 {
+                    root.saved-value = slider.value;
+                    slider.animated-value = 0;
+                } else {
+                    slider.animated-value = root.saved-value;
+                }
+            }
+        }
+        moved => {
+            if !slider.first-touch {
+                slider.first-touch = true;
+                slider.initial-position = self.mouse-x;
+                slider.initial-value = (self.mouse-x / self.width) * (slider.maxValue - slider.minValue) + slider.minValue;
+                slider.previous-value = slider.value;
+                slider.anim-duration = 0ms;
+            } else {
+                if Math.abs(self.mouse-x - slider.initial-position) > root.drag-threshold {
+                    root.is-dragging = true;
+                }
+
+                if root.is-dragging {
+                    slider.change-value = ((self.mouse-x / self.width) * (slider.maxValue - slider.minValue) + slider.minValue) - slider.initial-value;
+                    slider.value = Math.clamp(slider.previous-value + slider.change-value, root.drag-min-value, slider.maxValue);
+                    slider.animated-value = slider.value;
+                    root.saved-value = slider.value;
+                }
+            }
+        }
+
+        changed pressed => {
+            if !self.pressed {
+                slider.first-touch = false;
+                root.is-dragging = false;
+            }
+        }
+    }
+}

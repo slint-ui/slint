@@ -1,0 +1,19 @@
+{
+    "name": "imagefilter",
+    "version": "1.18.0",
+    "main": "main.js",
+    "type": "module",
+    "dependencies": {
+        "slint-ui": "workspace:*",
+        "image-js": "1.7.0"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "typescript": "catalog:"
+    },
+    "scripts": {
+        "start": "tsc --build && node ./main.js",
+        "prestart": "cd ../../../api/node/ && pnpm run build && pnpm compile",
+        "check": "tsc --noEmit"
+    }
+}

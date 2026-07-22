@@ -1,0 +1,127 @@
+
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { AboutSlint, Button } from "std-widgets.slint";
+
+
+export global The_Global {
+    in-out property <string> filename: "foo.txt";
+}
+
+export component TestCase inherits Window {
+    in-out property <string> app_title: "Application";
+    in property <bool> condition: true;
+    in-out property <string> result;
+
+    width: 700px;
+    height: 700px;
+
+    TouchArea {
+        function button-str(btn: PointerEventButton) -> string {
+            if btn == PointerEventButton.left { "Left" }
+            else if btn == PointerEventButton.right { "Right" }
+            else if btn == PointerEventButton.middle { "Middle" }
+            else { "Unknown" }
+        }
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                result += "Down" + button-str(event.button);
+            } else if event.kind == PointerEventKind.up {
+                result += "Up" + button-str(event.button);
+            }
+        }
+    }
+
+    if condition :
+    ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: "Entry1";
+                activated => { debug("Entry1"); result += "Entry1"; }
+            }
+            Menu {
+                title: "Entry2";
+                MenuItem {
+                    title: "New";
+                    activated => { debug("New"); }
+                }
+                if true: Menu {
+                    title: "Open";
+                    MenuItem {
+                        title: "Open 1";
+                        activated => { debug("1"); }
+                    }
+                    MenuItem {
+                        title: "Open 2";
+                        activated => { debug("2"); }
+                    }
+                    MenuSeparator {}
+                    for num in 45 : MenuItem {
+                        title: "Open " + (num + 3);
+                        activated => { debug(num+3); }
+                    }
+                    MenuSeparator {}
+                }
+                MenuItem {
+                    title: "Save " + The_Global.filename;
+
+                }
+                if true: MenuSeparator {}
+                MenuItem {
+                    title: "Exit " + app_title;
+                    activated => {
+                        app_title = "Exited";
+                    }
+                }
+                MenuItem {
+                    property <physical-length> scale_factor: 25px;
+                    title: "Scale factor " + scale_factor/1phx;
+                    activated => {
+                        xxx.show();
+                    }
+                }
+            }
+        }
+    }
+
+    xxx := PopupWindow {
+        Text { text: "Hello"; }
+    }
+
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+// right click to open the menu
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+// press on entry1
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_result(), "Entry1");
+
+instance.set_result("".into());
+
+// right click to open the menu
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+// press outside the menu should close it
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(0.0, 0.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(0.0, 0.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_result(), "DownLeftUpLeft");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+*/

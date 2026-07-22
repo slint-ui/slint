@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit } from "std-widgets.slint";
+
+// If the lineedit gets hidden indirectly because a condition gets disabled, the text-input-focused must be false
+// to hide also virtual keyboards and so on
+
+export component TestCase inherits Window {
+    property <bool> set_visible: true;
+
+    callback hide_rectangle();
+    hide_rectangle => {
+        set_visible = false;
+    }
+
+    if set_visible: Rectangle {
+        init => {
+            timer.start();
+        }
+        timer:= Timer {
+            running: false;
+            interval: 5s;
+            triggered => {
+                le.focus();
+                self.running = false;
+                root.triggered = true;
+            }
+        }
+
+        le := LineEdit {}
+    }
+
+    out property <bool> triggered: false;
+    out property <bool> focused: TextInputInterface.text-input-focused;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(0., 0.) }); // Required to trigger traversing through the item tree
+assert!(!instance.get_focused());
+
+slint_testing::mock_elapsed_time(30000); // in ms
+assert!(instance.get_triggered()); // Timer triggered
+assert!(instance.get_focused());
+
+instance.invoke_hide_rectangle();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(0., 0.) }); // Required to trigger traversing through the item tree
+assert!(!instance.get_focused());
+```
+*/

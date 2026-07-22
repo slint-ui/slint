@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { StateLayerArea } from "./state_layer.slint";
+import { MaterialText } from "./material_text.slint";
+import { Icon } from "./icon.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { Avatar } from "./list.slint";
+
+export component BaseButton inherits StateLayerArea {
+    in property <image> icon;
+    in property <color> icon_color: self.color;
+    in property <string> text;
+    in property <length> button_horizontal_padding: MaterialStyleMetrics.padding_24;
+    in property <length> button_vertical_padding: MaterialStyleMetrics.padding_10;
+    in property <length> button_padding_left: self.button_horizontal_padding;
+    in property <length> button_padding_right: self.button_horizontal_padding;
+    in property <length> button_padding_top: self.button_vertical_padding;
+    in property <length> button_padding_bottom: self.button_vertical_padding;
+    in property <length> spacing: MaterialStyleMetrics.spacing_8;
+    in property <length> min_layout_width: MaterialStyleMetrics.size_40;
+    in property <length> min_layout_height: MaterialStyleMetrics.size_40;
+    in property <length> icon_size: MaterialStyleMetrics.icon_size_18;
+    in property <image> avatar_icon;
+    in property <length> avatar_size;
+    in property <color> avatar_background: #00000000;
+    out property <bool> has_icon: root.icon.width > 0 && root.icon.height > 0;
+    out property <bool> has_avatar: root.avatar_icon.width > 0 && root.avatar_icon.height > 0;
+
+    min_width: max(root.min_layout_width, layout.min_width);
+    min_height: max(root.min_layout_height, layout.min_height);
+    tooltip_offset: root.height / 2 + root.icon_size / 2 + MaterialStyleMetrics.padding_14;
+
+    layout := HorizontalLayout {
+        padding_left: root.button_padding_left;
+        padding_right: root.button_padding_right;
+        padding_top: root.button_padding_top;
+        padding_bottom: root.button_padding_bottom;
+        spacing: root.spacing;
+        alignment: center;
+
+        if root.has_icon || root.has_avatar : VerticalLayout {
+            alignment: center;
+
+            if root.has_avatar && root.avatar_size > 0 : Avatar {
+                width: root.avatar_size;
+                height: self.width;
+                image: root.avatar_icon;
+                background: root.avatar_background;
+            }
+
+            if root.has_icon : Icon {
+                source: root.icon;
+                colorize: root.icon_color;
+                opacity: root.enabled ? 100% : 38%;
+                width: root.icon_size;
+            }
+        }
+
+        if root.text != "" : MaterialText {
+            text: root.text;
+            style: MaterialTypography.label_large;
+            color: root.color;
+            opacity: root.enabled ? 100% : 38%;
+            overflow: clip;
+            vertical_alignment: center;
+        }
+
+        @children
+    }
+}

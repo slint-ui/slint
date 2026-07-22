@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Wrapper inherits Rectangle {
+    border-color: blue;
+    border-width: 1px;
+    in-out property <string> text <=> text.text;
+    callback edited <=> text.edited;
+    text := TextInput {}
+}
+
+
+export component TestCase {
+    width: 50px;
+    height: 50px;
+    in-out property <int> text: 6;
+    callback edited();
+
+    VerticalLayout {
+        Wrapper {
+            text: root.text;
+            edited => {
+                root.text = self.text.to-float();
+            }
+        }
+    }
+}
+
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 25., 25.);
+slint_testing::send_keyboard_char(&instance, '4', true);
+assert_eq!(instance.get_text(), 64);
+```
+
+*/

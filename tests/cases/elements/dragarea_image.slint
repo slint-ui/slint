@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//
+// Exercises the `drag-image` / `drag-image-offset-*` properties on `DragArea`.
+// The rendering side (an overlay drawn under the cursor) requires a real renderer to
+// verify visually; this test confirms the property surface compiles and the
+// drag pipeline doesn't regress when an image is set.
+
+export global Api {
+    pure callback string-to-transfer(string) -> data-transfer;
+    pure callback can-drop(data-transfer) -> bool;
+}
+
+export component TestCase inherits Window {
+    pure callback string-to-transfer <=> Api.string-to-transfer;
+    pure callback can-drop <=> Api.can-drop;
+
+    width: 100px;
+    height: 200px;
+    in-out property <string> result;
+    out property <bool> has-drag <=> da.has-drag;
+
+    VerticalLayout {
+        Rectangle {
+            background: red;
+            DragArea {
+                data: Api.string-to-transfer("Hello World");
+                allow-copy: true;
+                drag-image: @image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC");
+                drag-image-offset-x: 4;
+                drag-image-offset-y: 8;
+            }
+        }
+        Rectangle {
+            background: blue;
+            da := DropArea {
+                can-drop(event) => Api.can-drop(event.data) ? DragAction.copy : DragAction.none;
+                dropped(event) => {
+                    result += "drop;";
+                    return DragAction.copy;
+                }
+            }
+        }
+    }
+}
+
+
+/*
+```rust
+use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
+
+let instance = TestCase::new().unwrap();
+instance.on_string_to_transfer(Into::into);
+instance.on_can_drop(|data| data.has_plain_text());
+
+assert_eq!(instance.get_has_drag(), false);
+
+// Press, cross drag threshold, hover over the drop area, release.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(20.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(21.0, 40.0) });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(22.0, 120.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_has_drag(), true);
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(22.0, 120.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_result(), "drop;");
+assert_eq!(instance.get_has_drag(), false);
+```
+
+*/

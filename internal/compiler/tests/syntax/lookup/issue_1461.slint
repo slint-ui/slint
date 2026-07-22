@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+component Button inherits Rectangle {
+    ta := TouchArea {}
+    background: ta.pressed ? blue: red;
+    callback clicked <=> ta.clicked;
+    in property <string> text;
+}
+
+
+ export AppWindow := Window {
+//                ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+     property<int> counter: 42;
+     callback request-increase-value();
+     VerticalLayout {
+         Button {
+             text: "Increase value";
+             clicked => {
+                 request-increase-value();
+             }
+             states [
+                 highlight when counter > 45 : {
+                     background: red;
+//                   >error{Internal error: The expression for the default state currently cannot be represented: https://github.com/slint-ui/slint/issues/1461↵As a workaround, add a binding for property background}
+                 }
+//              <error{Internal error: The expression for the default state currently cannot be represented: https://github.com/slint-ui/slint/issues/1461↵As a workaround, add a binding for property background}
+             ]
+         }
+      }
+ }

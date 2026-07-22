@@ -1,0 +1,77 @@
+{
+    "events": {
+        "extension-activated": {
+            "projectLanguages": {
+                "classification": "EndUserPseudonymizedInformation",
+                "purpose": "FeatureInsight",
+                "comment": "The programming languages used in the project"
+            }
+		},
+        "lsp-panic": {
+            "version": {
+                "classification": "PublicNonPersonalData",
+                "purpose": "PerformanceAndHealth",
+                "comment": "The version of the Slint LSP server"
+            },
+            "message": {
+                "classification": "CallstackOrException",
+                "purpose": "PerformanceAndHealth",
+                "comment": "The message of the panic"
+            },
+            "location": {
+                "classification": "CallstackOrException",
+                "purpose": "PerformanceAndHealth",
+                "comment": "The location of the panic in the slint-lsp code"
+            }
+        },
+        "live-preview-stats": {
+            "preview_opened": {
+                "classification": "PublicNonPersonalData",
+                "purpose": "PerformanceAndHealth",
+                "comment": "Times the live preview has been opened"
+            },
+            "property_changed": {
+                "classification": "PublicNonPersonalData",
+                "purpose": "PerformanceAndHealth",
+                "comment": "Times a value in the property tab has been changed"
+            },
+            "data_json_changed": {
+                "classification": "PublicNonPersonalData",
+                "purpose": "PerformanceAndHealth",
+                "comment": "Times a property in the data tab has been changed"
+            }
+        }
+    },
+    "commonProperties": {
+        "common.machineId": {
+            "classification": "EndUserPseudonymizedInformation",
+            "purpose": "FeatureInsight",
+            "comment": "An identifier provided by VS Code to relate coding sessions from the same installation together"
+        },
+        "common.extname": {
+            "classification": "PublicNonPersonalData",
+            "purpose": "FeatureInsight",
+            "comment": "The name of the Slint extension"
+        },
+        "common.extversion": {
+            "classification": "PublicNonPersonalData",
+            "purpose": "FeatureInsight",
+            "comment": "The version of the Slint extension"
+        },
+        "common.vscodeversion": {
+            "classification": "SystemMetaData",
+            "purpose": "FeatureInsight",
+            "comment": "The version of VS Code running the extension"
+        },
+        "common.platform": {
+            "classification": "SystemMetaData",
+            "purpose": "FeatureInsight",
+            "comment": "The platform/OS the extension is running on"
+        },
+        "common.language": {
+            "classification": "SystemMetaData",
+            "purpose": "FeatureInsight",
+            "comment": "The user's language as reported by VS Code"
+        }
+    }
+}

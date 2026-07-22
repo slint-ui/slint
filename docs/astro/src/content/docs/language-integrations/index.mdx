@@ -1,0 +1,25 @@
+---
+title: Language Integrations
+description: Connect the UI with business logic in your preferred language.
+---
+
+import { Card, CardGrid, LinkButton } from "@astrojs/starlight/components";
+import IconLinkCard from '@slint/common-files/src/components/IconLinkCard.astro';
+import { CPP_BASE_URL, RUST_SLINT_CRATE_URL, NODEJS_BASE_URL, PYTHON_BASE_URL } from "@slint/common-files/src/utils/site-config";
+
+Slint provides first class integrations to various programming languages allowing you to implement the business logic of your Slint application in your preferred language.
+
+<CardGrid>
+  <IconLinkCard title="C++" href={CPP_BASE_URL} icon="seti:cpp">
+    Browse C++ API docs
+  </IconLinkCard>
+  <IconLinkCard title="Rust" href={RUST_SLINT_CRATE_URL} icon="seti:rust">
+    Browse Rust API docs
+  </IconLinkCard>
+  <IconLinkCard title="TypeScript (beta)" href={NODEJS_BASE_URL} icon="seti:typescript">
+    Browse TypeScript / JavaScript API docs.
+  </IconLinkCard>
+  <IconLinkCard title="Python (beta)" href={PYTHON_BASE_URL} icon="seti:python">
+    Browse Python API docs.
+  </IconLinkCard>
+</CardGrid>

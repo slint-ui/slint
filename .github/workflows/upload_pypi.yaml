@@ -1,0 +1,231 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Upload component to Python Package Index
+
+on:
+    workflow_dispatch:
+      inputs:
+        release:
+            type: boolean
+            default: false
+            required: false
+            description: "Release? If false, publish to test.pypi.org, if true, publish to pypi.org"
+
+jobs:
+    build_binaries:
+        env:
+            MACOSX_DEPLOYMENT_TARGET: "11.0"
+            # Use fat LTO for the published Python wheels: smaller size and better runtime perf.
+            # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+            CARGO_PROFILE_RELEASE_LTO: "fat"
+            CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+        strategy:
+            matrix:
+                platform:
+                    - runner: windows-latest
+                      target: x64
+                      container: auto
+# Pending https://github.com/actions/partner-runner-images/issues/85
+#                    - runner: windows-11-arm
+#                      target: aarch64
+#                      container: auto
+                    - runner: macos-14
+                      target: aarch64
+                      container: auto
+                    - runner: ubuntu-22.04
+                      target: x86_64
+                      container: auto
+                    - runner: ubuntu-22.04
+                      target: aarch64
+                      container: "ghcr.io/slint-ui/slint/aarch64-unknown-linux-gnu"
+                    - runner: ubuntu-22.04
+                      target: armv7
+                      container: "ghcr.io/slint-ui/slint/armv7-unknown-linux-gnueabihf"
+        runs-on: ${{ matrix.platform.runner }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+              if: runner.os == 'Linux'
+            - uses: actions/setup-python@v6
+              with:
+                python-version: '3.12'
+            - uses: ./.github/actions/setup-rust
+            - name: Build a binary wheel
+              uses: PyO3/maturin-action@v1
+              with:
+                  working-directory: api/python/slint
+                  target: ${{ matrix.platform.target }}
+                  args: --release --out wheelhouse --find-interpreter --auditwheel skip
+                  container: ${{ matrix.platform.container }}
+            # Don't vendor shared libraries: a bundled libgbm crashes on
+            # gbm_create_device (slint-ui/slint#12522). `--exclude '*'` keeps
+            # them as DT_NEEDED from the host while still applying the manylinux
+            # tag; grafting nothing, it also works for the cross-built wheels.
+            - name: Repair wheel without bundling libraries
+              if: runner.os == 'Linux'
+              working-directory: api/python/slint
+              run: |
+                  python3 -m pip install auditwheel patchelf
+                  python3 -m auditwheel repair --exclude '*' -w repaired wheelhouse/*.whl
+                  # The aarch64/armv7 wheels are built by maturin in a container
+                  # as root, so the wheelhouse is root-owned; swap as root.
+                  sudo rm wheelhouse/*.whl && sudo mv repaired/*.whl wheelhouse/
+            - name: Store the distribution packages
+              uses: actions/upload-artifact@v7
+              with:
+                name: python-package-distributions-${{ matrix.platform.runner }}-${{ strategy.job-index }}
+                path: api/python/slint/wheelhouse/*.whl
+                if-no-files-found: error
+            # The opt-in slint-dev wheel ships the same crate built with the
+            # system-testing and mcp features (see api/python/slint-dev). It is
+            # published alongside slint so `slint[dev]` resolves the matching
+            # version. Note: PyPI trusted publishing must also be configured for
+            # the slint-dev project, not just slint.
+            - name: Build the development binary wheel (slint-dev)
+              uses: PyO3/maturin-action@v1
+              with:
+                  working-directory: api/python/slint-dev
+                  target: ${{ matrix.platform.target }}
+                  args: --release --out wheelhouse --find-interpreter --auditwheel skip
+                  container: ${{ matrix.platform.container }}
+            - name: Repair wheel without bundling libraries (slint-dev)
+              if: runner.os == 'Linux'
+              working-directory: api/python/slint-dev
+              run: |
+                  python3 -m pip install auditwheel patchelf
+                  python3 -m auditwheel repair --exclude '*' -w repaired wheelhouse/*.whl
+                  # The aarch64/armv7 wheels are built by maturin in a container
+                  # as root, so the wheelhouse is root-owned; swap as root.
+                  sudo rm wheelhouse/*.whl && sudo mv repaired/*.whl wheelhouse/
+            - name: Store the development distribution packages
+              uses: actions/upload-artifact@v7
+              with:
+                name: python-package-distributions-dev-${{ matrix.platform.runner }}-${{ strategy.job-index }}
+                path: api/python/slint-dev/wheelhouse/*.whl
+                if-no-files-found: error
+
+    ios_binaries:
+        runs-on: macos-14
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: "aarch64-apple-ios aarch64-apple-ios-sim"
+            - name: Build iOS wheels
+              uses: pypa/cibuildwheel@v4.1.0
+              with:
+                  package-dir: api/python/slint
+                  output-dir: wheelhouse
+              env:
+                  CIBW_PLATFORM: ios
+                  CIBW_ARCHS: arm64_iphoneos arm64_iphonesimulator
+
+            - name: Store the distribution packages
+              uses: actions/upload-artifact@v7
+              with:
+                name: python-package-distributions-ios
+                path: wheelhouse/*.whl
+                if-no-files-found: error
+
+    build_source_package:
+        name: Build source package
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - name: Build source package
+              uses: PyO3/maturin-action@v1
+              with:
+                  working-directory: api/python/slint
+                  command: sdist
+                  args: --out dist
+            - uses: actions/upload-artifact@v7
+              with:
+                name: python-package-distributions-source
+                path: api/python/slint/dist/*.tar.gz
+                if-no-files-found: error
+
+    e2e_test:
+        name: End-to-end test against a local package index
+        # Gate that always runs (also for Test PyPI runs): publish the real,
+        # already-built distributions to a throwaway local package index,
+        # install them as a consumer would (lean and slint[dev]) and verify the
+        # distribution, including the slint-dev loading behavior. Blocks the
+        # publish jobs on failure.
+        needs: [build_binaries, ios_binaries, build_source_package]
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-python@v6
+              with:
+                python-version: '3.12'
+            - name: Install uv
+              uses: astral-sh/setup-uv@v7
+            # The consumer scenarios import slint with a real (winit/X11)
+            # backend, which needs a display and the system libxkbcommon-x11
+            # (dlopened at runtime, so not bundled into the manylinux wheel).
+            - name: Setup headless display
+              uses: pyvista/setup-headless-display-action@v4
+            # The wheels no longer vendor their dependencies, so provide the
+            # extension's direct DT_NEEDED libraries; apt pulls the rest.
+            - name: Install runtime system libraries
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y \
+                    libxkbcommon-x11-0 libxkbcommon0 libgbm1 libinput10 \
+                    libfontconfig1 libfreetype6
+            - uses: actions/download-artifact@v8
+              with:
+                pattern: python-package-distributions-*
+                path: dist
+                merge-multiple: true
+            - name: Run the end-to-end distribution test
+              env:
+                SLINT_E2E_WHEEL_DIR: ${{ github.workspace }}/dist
+                SLINT_E2E_REQUIRE_SDIST: "1"
+              run: python3 api/python/slint/tests/registry/e2e.py
+
+    publish-to-test-pypi:
+        if: ${{ github.event.inputs.release != 'true' }}
+        name: >-
+            Publish Python 🐍 distribution 📦 to Test PyPI
+        needs: [build_binaries, ios_binaries, build_source_package, e2e_test]
+        runs-on: ubuntu-latest
+        environment:
+            name: testpypi
+            url: https://test.pypi.org/p/slint
+        permissions:
+            id-token: write  # IMPORTANT: mandatory for trusted publishing
+        steps:
+            - uses: actions/download-artifact@v8
+              with:
+                pattern: python-package-distributions-*
+                path: dist
+                merge-multiple: true
+            - name: Publish distribution 📦 to Test PyPI
+              uses: pypa/gh-action-pypi-publish@release/v1
+              with:
+                repository-url: https://test.pypi.org/legacy/
+
+    publish-to-pypi:
+      if: ${{ github.event.inputs.release == 'true' }}
+      name: >-
+          Publish Python 🐍 distribution 📦 to PyPI
+      needs: [build_binaries, ios_binaries, build_source_package, e2e_test]
+      runs-on: ubuntu-latest
+      environment:
+          name: pypi
+          url: https://test.pypi.org/p/slint
+      permissions:
+          id-token: write  # IMPORTANT: mandatory for trusted publishing
+      steps:
+          - uses: actions/download-artifact@v8
+            with:
+              pattern: python-package-distributions-*
+              path: dist
+              merge-multiple: true
+          - name: Publish distribution 📦 to PyPI
+            uses: pypa/gh-action-pypi-publish@release/v1
+            with:
+              verbose: true
+

@@ -1,0 +1,152 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { MenuButton } from "menu_button.slint";
+import { MenuBackground } from "../components/menu_background.slint";
+
+export component Menu {
+    in-out property <bool> menu-button-visible;
+    in property <length> start-y;
+    in property <length> end-y;
+    in property <bool> stays-open;
+    in property <length> menu-width <=> i-menu-container.width;
+    in property <length> menu-height <=> i-menu-container.height;
+    out property <bool> open;
+
+    callback opened();
+    callback closed();
+
+    public function hide-button() {
+        menu-button-visible = false;
+    }
+
+    public function open-menu() {
+        open = true;
+    }
+
+    public function hide() {
+        menu-button-visible = false;
+        open = false;
+        closed();
+    }
+
+    private property <int> container-visibility;
+
+    states [
+        open when root.open : {
+            container-visibility: 1.0;
+            i-menu-container.y: end-y;
+
+            in {
+                animate i-menu-container.y { duration: Theme.durations.medium; }
+            }
+            out {
+                animate container-visibility, i-menu-container.y { duration: Theme.durations.medium; }
+            }
+        }
+    ]
+
+    if (open) : Rectangle {
+        background: Theme.palette.pure-black;
+        opacity: 0.5;
+
+        TouchArea {
+            clicked => {
+                hide();
+            }
+        }
+    }
+
+    i-menu-container := Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: parent.height - start-y;
+        width: root.width / 3;
+        height: root.height - 75px;
+
+        i-container := MenuBackground {
+            visible: container-visibility == 1.0;
+
+            // avoid click-through
+            TouchArea {}
+
+            @children
+        }
+
+        if(menu-button-visible || container-visibility == 1.0 || stays-open) : HorizontalLayout {
+            y:  -i-menu-button.height / 2;
+            alignment: center;
+            cross-axis-alignment: start;
+
+            i-menu-button := MenuButton {
+                clicked => {
+                    if(open) {
+                        hide();
+                    } else {
+                        open-menu();
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component MobileMenu {
+    out property <bool> open;
+    in property <length> end-y;
+    in property <length> menu-x;
+    out property <length> menu-width: 200px;
+
+    if (root.open) : Rectangle {
+        background: Theme.palette.pure-black;
+        opacity: 0.5;
+
+        TouchArea {
+            clicked => {
+                hide();
+            }
+        }
+    }
+
+    public function open-menu() {
+        root.open = true;
+    }
+
+    public function hide() {
+       root.open = false;
+    }
+
+    Rectangle {
+        clip: true;
+        menu := Rectangle {
+            x: root.menu-x;
+            y: -self.height;
+            width: root.menu-width;
+            height: root.height / 2;
+            visible: visibility > 0.0;
+
+            private property <float> visibility;
+
+            MenuBackground {
+                // avoid click-through
+                TouchArea {}
+
+                @children
+            }
+
+            states [
+                open when root.open : {
+                    menu.y: end-y;
+                    visibility: 1.0;
+
+                    out {
+                        animate visibility { duration: Theme.durations.medium; }
+                    }
+                }
+            ]
+
+            animate y { duration: Theme.durations.fast; }
+        }
+
+    }
+}

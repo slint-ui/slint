@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import "fonts/Roboto-Regular.ttf";
+import "fonts/Roboto-Bold.ttf";
+
+export global Theme  {
+    // brushes
+    out property <brush> window-background: #2C2F36;
+    out property <brush> background-regular: #0025FF;
+    out property <brush> background-hover: root.background-regular.darker(0.2);
+    out property <brush> background-pressed: root.background-regular.darker(0.4);
+    out property <brush> background-selected: root.foreground;
+    out property <brush> background-selected-hover: root.background-selected.darker(0.2);
+    out property <brush> background-selected-pressed: root.background-selected.darker(0.4);
+    out property <brush> foreground: #FFFFFF;
+    out property <brush> foreground-hover: root.foreground.darker(0.2);
+    out property <brush> foreground-pressed: root.foreground.darker(0.4);
+    out property <brush> foreground-selected: root.background-regular;
+    out property <brush> foreground-selected-hover: root.foreground-selected.darker(0.2);
+    out property <brush> foreground-selected-pressed: root.foreground-selected.darker(0.4);
+
+    // durations
+    out property <duration> duration-fast: 100ms;
+    out property <duration> duration-regular: 250ms;
+
+    // radius
+    out property <length> radius-regular: 16px;
+
+    // sizes
+    out property <length> size-small: 24px;
+    out property <length> size-regular: 32px;
+    out property <length> size-medium: 128px;
+    out property <length> size-big: 170px;
+
+    // spacings
+    out property <length> spacing-regular: 4px;
+    out property <length> spacing-medium: 8px;
+
+    // typo
+    out property <string> font-family: "Roboto";
+    out property <length> font-size-regular: 12px;
+    out property <length> font-size-medium: 28px;
+    out property <int> font-weight-regular: FontWeight.normal;
+    out property <int> font-weight-bold: FontWeight.black;
+}

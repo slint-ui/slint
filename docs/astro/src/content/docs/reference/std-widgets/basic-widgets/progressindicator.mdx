@@ -1,0 +1,42 @@
+---
+title: ProgressIndicator
+description: ProgressIndicator api.
+---
+
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+
+<CodeSnippetMD  imagePath="/src/assets/generated/std-widgets-progressindicator.png"  imageWidth="200" imageHeight="200"  imageAlt='progressindicator example'>
+```slint playground
+import { ProgressIndicator } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 25px;
+    background: transparent;
+    ProgressIndicator {
+        width: 90%;
+        height: parent.height;
+        progress: 80%;
+    }
+}
+```
+</CodeSnippetMD>
+
+The `ProgressIndicator` informs the user about the status of an on-going operation, such as loading data from the network.
+
+## Properties
+
+### indeterminate
+<SlintProperty propName="indeterminate" typeName="bool" defaultValue="false">
+Set to true if the progress of the operation cannot be determined by value.
+</SlintProperty>
+
+### progress
+<SlintProperty propName="progress" typeName="float" defaultValue="0">
+Percentage of completion, as value between 0 and 1. Values less than 0 or greater than 1 are capped.
+```slint "progress: 0.5;"
+ProgressIndicator {
+    progress: 0.5;
+}
+```
+</SlintProperty>

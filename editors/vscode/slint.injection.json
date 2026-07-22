@@ -1,0 +1,66 @@
+{
+    "scopeName": "source.rust.slint",
+    "injectionSelector": "L:source.rust",
+    "patterns": [
+        {
+            "include": "#slint-macro"
+        },
+        {
+            "include": "#slint-macro-parentheses"
+        }
+    ],
+    "repository": {
+        "slint-macro": {
+            "name": "source.slint",
+            "begin": "slint\\s*!\\s*\\{",
+            "end": "}",
+            "patterns": [
+                {
+                    "include": "source.slint"
+                },
+                {
+                    "include": "#inner-block"
+                }
+            ]
+        },
+        "inner-block": {
+            "name": "source.slint",
+            "begin": "{",
+            "end": "}",
+            "patterns": [
+                {
+                    "include": "source.slint"
+                },
+                {
+                    "include": "#inner-block"
+                }
+            ]
+        },
+        "slint-macro-parentheses": {
+            "name": "source.slint",
+            "begin": "slint\\s*!\\s*\\(",
+            "end": ")",
+            "patterns": [
+                {
+                    "include": "source.slint"
+                },
+                {
+                    "include": "#inner-block-parentheses"
+                }
+            ]
+        },
+        "inner-block-parentheses": {
+            "name": "source.slint",
+            "begin": "(",
+            "end": ")",
+            "patterns": [
+                {
+                    "include": "source.slint"
+                },
+                {
+                    "include": "#inner-block-parentheses"
+                }
+            ]
+        }
+    }
+}

@@ -1,0 +1,879 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// cSpell:ignore Edelhirsch
+
+/*
+ The design from this file is inspired from the design in
+ https://github.com/peter-ha/qskinny/tree/iot-dashboard/examples/iot-dashboard
+ Original license:
+/****************************************************************************
+**
+** Copyright 2021 Edelhirsch Software GmbH. All rights reserved.
+**
+** Redistribution and use in source and binary forms, with or without
+** modification, are permitted provided that the following conditions are
+** met:
+**
+**   * Redistributions of source code must retain the above copyright
+**     notice, this list of conditions and the following disclaimer.
+**   * Redistributions in binary form must reproduce the above copyright
+**     notice, this list of conditions and the following disclaimer in
+**     the documentation and/or other materials provided with the
+**     distribution.
+**   * Neither the name of the copyright holder nor the names of its
+**     contributors may be used to endorse or promote products derived
+**     from this software without specific prior written permission.
+**
+** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+** OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+** LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+** DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+** THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+** (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+** OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+**
+****************************************************************************/
+*/
+
+import { Palette } from "std-widgets.slint";
+
+struct Palette  {
+    menuBar : brush,
+    mainContent : brush,
+    box : brush,
+    lightDisplay : brush,
+    pieChart : brush,
+    roundButton : brush,
+    weekdayBox : brush,
+    text : brush,
+    shadow : brush,
+}
+
+global Skin  {
+    in property <bool> day: Palette.color-scheme != ColorScheme.dark;
+    out property <Palette> palette : root.day ? {
+       menuBar : #6D7BFB,
+       mainContent :  #fbfbfb,
+       box :   #ffffff,
+       lightDisplay : #ffffff,
+       pieChart : #ffffff,
+       roundButton : #f7f7f7,
+       weekdayBox : #f4f4f4,
+       text : #000,
+       shadow : #0001, // ### added alpha
+    } : {
+       menuBar : #2937A7,
+       mainContent : #040404,
+       box : #000000,
+       lightDisplay : #000000,
+       pieChart : #000000,
+       roundButton : #0a0a0a,
+       weekdayBox : #0c0c0c,
+       text : #fff,
+       shadow : #fff1, // ### added alpha
+    };
+
+    // From Skin::initHints in Skin.cpp
+    out property <length> DefaultFont: 12px;
+    out property <length> TinyFont: 9px;
+    out property <length> SmallFont: 10px;
+    out property <length> MediumFont: 13px;
+    out property <length> LargeFont: 20px;
+    out property <length> HugeFont: 27px; // (also, bold)
+    out property <length> TitleFont: 10px; // (also, bold)
+}
+
+export component Clock inherits  VerticalLayout {
+    in property <string> time <=> time-label.text;
+
+    Text {
+        text: "Current time";
+        font-size: Skin.TitleFont;
+        font-weight: FontWeight.bold;
+    }
+    time-label := Text {
+        // FIXME: actual time
+        text: "10:02:45";
+        font-size: Skin.HugeFont;
+        font-weight: FontWeight.bold;
+        color: #6776FF;
+    }
+}
+
+component PieChartBackground inherits Path {
+    in property <float> thickness;
+    in property <float> inner-radius;
+
+    fill: #aaaaaa40;
+
+    viewbox-width: 100;
+    viewbox-height: 100;
+
+    MoveTo {
+        x: 50;
+        y: 0;
+    }
+    ArcTo {
+        radius-x: 50;
+        radius-y: 50;
+        x: 50;
+        y: 100;
+        sweep: true;
+    }
+    ArcTo {
+        radius-x: 50;
+        radius-y: 50;
+        x: 50;
+        y: 0;
+        sweep: true;
+    }
+    LineTo {
+        x: 50;
+        y: root.thickness;
+    }
+    ArcTo {
+        radius-x: root.inner-radius;
+        radius-y: root.inner-radius;
+        x: 50;
+        y: 100 - root.thickness;
+    }
+    ArcTo {
+        radius-x: root.inner-radius;
+        radius-y: root.inner-radius;
+        x: 50;
+        y: root.thickness;
+    }
+}
+
+component PieChartFill inherits Path {
+    in property <float> thickness;
+    in property <float> inner-radius;
+    in property <float> progress;
+    in property <float> start : 0;
+
+    viewbox-width: 100;
+    viewbox-height: 100;
+
+    MoveTo {
+        y: 50 - 50 * cos(-root.start * 360deg);
+        x: 50 - 50 * sin(-root.start * 360deg);
+    }
+
+    LineTo {
+        y: 50 - root.inner-radius * cos(-root.start * 360deg);
+        x: 50 - root.inner-radius * sin(-root.start * 360deg);
+    }
+
+    ArcTo {
+        radius-x: root.inner-radius;
+        radius-y: root.inner-radius;
+        y: 50 - root.inner-radius*cos(-(root.start + root.progress) * 360deg);
+        x: 50 - root.inner-radius*sin(-(root.start + root.progress) * 360deg);
+        sweep: root.progress > 0;
+        large-arc: root.progress > 0.5;
+    }
+
+    LineTo {
+        y: 50 - 50*cos(-(root.start + root.progress) * 360deg);
+        x: 50 - 50*sin(-(root.start + root.progress) * 360deg);
+    }
+
+    ArcTo {
+        radius-x: 50;
+        radius-y: 50;
+        y: 50 - 50 * cos(-root.start * 360deg);
+        x: 50 - 50 * sin(-root.start * 360deg);
+        sweep: root.progress < 0;
+        large-arc: root.progress > 0.5;
+    }
+
+    LineTo {
+        y: 50 - 50 * cos(-root.start * 360deg);
+        x: 50 - 50 * sin(-root.start * 360deg);
+    }
+}
+
+component PieChartPainted inherits Rectangle {
+    in property <brush> brush <=> p.fill;
+    in property <float> progress;
+    in property <float> thickness: 15;
+    in property <float> inner-radius: 50 - root.thickness;
+
+    back := PieChartBackground {
+        width: 100%;
+        height: 100%;
+        thickness: root.thickness;
+        inner-radius: root.inner-radius;
+    }
+
+    p := PieChartFill {
+        width: 100%;
+        height: 100%;
+        thickness: root.thickness;
+        inner-radius: root.inner-radius;
+        progress: root.progress;
+    }
+}
+
+
+// From TopBar.cpp
+export component TopBar inherits HorizontalLayout {
+    padding-left: 25px;
+    padding-top: 35px;
+    padding-right: 25px;
+    padding-bottom: 0px;
+    spacing: 0px;
+
+    for item in [
+        { string: "Living Room", progress: 25, value: 175, color: #ff3122, gradient: @linear-gradient(0deg, #FF5C00, #FF3122) },
+        { string: "Bedroom", progress: 45, value: 205, color: #6776ff, gradient: @linear-gradient(0deg, #6776FF, #6100FF) },
+        { string: "Bathroom", progress: 15, value: 115, color: #f99055, gradient: @linear-gradient(0deg, #FFCE50, #FF3122) },
+        { string: "Kitchen", progress: 86, value: 289, color: #6776ff, gradient: @linear-gradient(0deg, #6776FF, #6100FF) },
+    ] : VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+
+        Text {
+            font-size: Skin.SmallFont;
+            text: item.string;
+        }
+
+        HorizontalLayout {
+            PieChartPainted {
+                brush: item.gradient;
+                progress: item.progress / 100;
+
+                Text {
+                    width: 100%;
+                    height: 100%;
+                    vertical-alignment: center;
+                    horizontal-alignment: center;
+                    text: item.progress + "%";
+                    color: item.color;
+                    font-size: Skin.TinyFont;
+                }
+            }
+
+            VerticalLayout {
+                Text {
+                    text: item.value;
+                    font-size: Skin.MediumFont;
+                }
+                Text {
+                    text: "kwH";
+                    font-size: Skin.SmallFont;
+                }
+            }
+            Rectangle {}
+        }
+    }
+    @children
+}
+
+// From Box.cpp
+
+// This element is not in the C++ version, created to share code between Box and the Usage element
+component BoxBase inherits Rectangle {
+    background: Skin.palette.box;
+    drop-shadow-offset-x: 6px;
+    drop-shadow-offset-y: 6px;
+    drop-shadow-blur: 6px;
+    drop-shadow-color: Skin.palette.shadow;
+}
+
+component Box inherits BoxBase {
+    in property <string> title;
+
+    VerticalLayout {
+        if (root.title != "") : Text {
+            text <=> root.title;
+            font-size: Skin.TitleFont;
+            font-weight: FontWeight.bold;
+        }
+        spacing: 10px;
+        padding: 15px;
+
+        @children
+    }
+}
+
+// From RoundedIcon.cpp
+component RoundedIcon inherits Rectangle {
+    in property <bool> isBright;
+    in property <bool> isSmall;
+    in property <image> iconName <=> m-graphicLabel.source;
+    in property <float> background-opacity <=> background-fill.opacity;
+
+    height: root.isSmall ? 60px : 68px;
+    width: root.isSmall ? 60px : 68px;
+
+    background-fill := Rectangle {
+        background: root.isBright ? @linear-gradient(180deg, #ff7d34, #ff3122) : @linear-gradient(180deg, #6776FF, #6100FF);
+        border-radius: 6px;
+        opacity: 1.0;
+    }
+
+    m-graphicLabel := Image {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+    }
+}
+
+//from Usage.cpp
+component UsageSpacer inherits Text {
+    text: "_____";
+    font-size: Skin.SmallFont;
+    color: #dddddd;
+    horizontal-stretch: 2;
+}
+
+// Deviation: To align the items visually better, this is using a grid layout
+export component Usage inherits Box {
+    title: "Usage";
+    horizontal-stretch: 1;
+
+    GridLayout {
+        spacing: 0px;
+        vertical-stretch: 1;
+        Row { Rectangle { vertical-stretch: 0; } }
+
+        Row {
+            Text { text: "Usage Today"; font-size: Skin.SmallFont; }
+            UsageSpacer { }
+            Text { text: "0,5 kwH"; font-size: Skin.SmallFont; }
+        }
+
+        Row {
+            Text { text: "Usage this month"; font-size: Skin.SmallFont; }
+            UsageSpacer { }
+            Text { text: "60 kwH"; font-size: Skin.SmallFont; }
+        }
+
+        Row {
+            Text { text: "Total working hours"; font-size: Skin.SmallFont; }
+            UsageSpacer { }
+            Text { text: "125 hrs"; font-size: Skin.SmallFont; }
+        }
+    }
+}
+
+// From UpAndDownButton.cpp
+component RoundButton inherits Image { //### QskPushButton
+    in property <bool> is-up; // ### QskAspect
+    in property <color> color: #929CB2; // Taken from the fill in the svg itself.
+
+    callback clicked <=> ta.clicked;
+
+    width: 30px;
+
+    Image {
+        source: root.is-up ? @image-url("images/up.svg") : @image-url("images/down.svg");
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        // Deviation from qskinny: Show a darker color when pressing the button to provide feedback.
+        colorize: ta.pressed ? root.color.darker(80%) : root.color;
+    }
+
+    ta := TouchArea {  }
+}
+component UpAndDownButton inherits Rectangle {
+    callback changed(int);
+    // FIXME: this is actually on the RoundButton
+    border-radius: root.width / 2;
+    background: Skin.palette.roundButton;
+
+    VerticalLayout {
+        u := RoundButton { is-up: true;  clicked => { root.changed(+1) }}
+        d := RoundButton { is-up: false; clicked => { root.changed(-1) }}
+    }
+}
+
+// From BoxWithButtons.cpp
+component ButtonValueLabel inherits Text {
+    in property <string> value <=> root.text;
+
+    font-size: Skin.HugeFont;
+    font-weight: FontWeight.bold;
+    color: #929cb2;
+}
+
+component TitleAndValueBox inherits VerticalLayout {
+    padding: 8px;
+    spacing: 8px;
+    horizontal-stretch: 100;
+}
+
+component BoxWithButtons inherits Box {
+    in property <image> iconFile <=> ri.iconName; //### in original, this is derived from title
+    in property <bool> isBright <=> ri.isBright;
+    in property <string> title- <=> titleLabel.text;
+    in-out property <string> value <=> val.value;
+
+    callback changed <=> btns.changed;
+
+    HorizontalLayout {
+        spacing: 20px;
+
+        ri := RoundedIcon { }
+
+        TitleAndValueBox {
+            titleLabel := Text {
+                font-size: Skin.TitleFont;
+                font-weight: FontWeight.bold;
+            }
+
+            val := ButtonValueLabel { }
+        }
+        btns := UpAndDownButton { }
+    }
+}
+
+export component IndoorTemperature inherits BoxWithButtons {
+    in-out property <int> temperature: 24;
+
+    changed(delta) => { root.temperature += delta; }
+
+    title-: "Indoor Temperature";
+    iconFile: @image-url("images/indoor-temperature.png");
+    value: (root.temperature < 0 ? "" : "+") + root.temperature;
+    isBright: true;
+}
+
+export component Humidity inherits BoxWithButtons {
+    in-out property <int> humidity-percent : 30;
+
+    changed(delta) => { root.humidity-percent += delta; }
+
+    title-: "Humidity";
+    iconFile: @image-url("images/humidity.png");
+    value: root.humidity-percent + "%";
+    isBright: false;
+}
+
+// from MyDevices.cpp
+component Device inherits VerticalLayout {
+    in property <string> name <=> t.text;
+    in property <image> iconName <=> ri.iconName; // ### based on the name in the original
+    in property <bool> isBright <=> ri.isBright;
+
+    spacing: 5px;
+
+    ri := RoundedIcon {
+        background-opacity: 0.15;
+        isSmall: true;
+    }
+
+    t := Text {
+        font-size: Skin.TinyFont;
+        horizontal-alignment: center;
+    }
+}
+
+export component MyDevices inherits Box {
+    title: "My devices";
+
+    GridLayout {
+
+        spacing: 5px;
+        Row {
+            Device{
+                name: "Lamps";
+                iconName: @image-url("images/lamps.png");
+                isBright: true;
+            }
+            Device{
+                name: "Music System";
+                iconName: @image-url("images/music-system.png");
+                isBright: false;
+            }
+        }
+        Row {
+            Device{
+                name: "AC";
+                iconName: @image-url("images/ac.png");
+                isBright: false;
+            }
+            Device{
+                name: "Router";
+                iconName: @image-url("images/router.png");
+                isBright: true;
+            }
+        }
+    }
+}
+
+export component UsageDiagram inherits Box {
+    // WeekDayBox
+    boxes := HorizontalLayout {
+        padding: 0px;
+        padding-bottom: 6px;
+        spacing: 6px;
+
+        for _ in 7 : Rectangle {
+            background: Skin.palette.box;
+            drop-shadow-offset-x: 6px;
+            drop-shadow-offset-y: 6px;
+            drop-shadow-blur: 6px;
+            drop-shadow-color: Skin.palette.weekdayBox;
+            min-height: 50px;
+        }
+
+    }
+
+    Rectangle {
+        // ### This is somehow a hack to have another rectangle on top of the boxes
+        height: 0;
+
+        VerticalLayout {
+            x:0;
+            y: -boxes.height;
+            height: boxes.height;
+            width: boxes.width;
+            padding: 0px;
+            spacing: 0px;
+
+            HorizontalLayout {
+                alignment: end;
+                spacing: 10px;
+                // CaptionItem
+                for caption in [
+                    { text: "Water", color: #6776ff, },
+                    { text: "Electricity", color: #ff3122, },
+                    { text: "Gas", color: #ff7d34, },
+                ] : HorizontalLayout {
+                    spacing: 10px;
+                    padding-top: 10px;
+                    padding-right: 20px;
+
+                    VerticalLayout {
+                        padding: 0px;
+                        alignment: center;
+
+                        Rectangle {
+                            height: 8px;
+                            width: 9px;
+                            border-radius: 4px;
+                            background: caption.color;
+                        }
+                    }
+
+                    Text {
+                        text: caption.text;
+                        horizontal-alignment: center;
+                        font-size: Skin.TinyFont;
+                    }
+                }
+            }
+
+            Rectangle {
+                // The datapoint is
+                // FIXME: make it more curve, also fix the color
+                for datapoints in [
+                    {
+                        values: { a: 40, b: 55, c: 60, d: 50, e: 40, f:50, g: 75, h: 80, i: 100, j: 90 },
+                        color: #6776ff
+                    }, {
+                        values: { a: 30, b: 15, c: 30, d: 40, e: 60, f: 10, g: 70, h: 20, i: 40, j: 45 },
+                        color: #ff3122
+                    } , {
+                        values: { a: 60, b: 45, c: 60, d: 70, e: 10, f: 70, g: 20, h: 50, i: 20, j: 30 },
+                        color: #ff7d34,
+                    }
+                ] : Path {
+                    opacity: 0.7;
+                    fill: @linear-gradient(180deg, datapoints.color, transparent 100%);
+                    viewbox-width: self.width/1px;
+                    viewbox-height: self.height/1px;
+
+                    MoveTo {
+                        x: 0;
+                        y: parent.viewbox-height;
+                    }
+
+                    LineTo {
+                        x: 0;
+                        y: parent.viewbox-height - datapoints.values.a / 100 * parent.viewbox-height;
+                    }
+
+                    QuadraticTo {
+                        x: 0.5/7 * parent.viewbox-width;
+                        y: parent.viewbox-height - datapoints.values.b / 100 * parent.viewbox-height;
+                        control-x: 0/7 * parent.viewbox-width;
+                        control-y: parent.viewbox-height - datapoints.values.b / 100 * parent.viewbox-height;
+                    }
+
+                    CubicTo {
+                        x: 1.5/7 * parent.viewbox-width;
+                        control-1-x: 1/7 * parent.viewbox-width;
+                        control-2-x: 1/7 * parent.viewbox-width;
+                        y: parent.viewbox-height - datapoints.values.c / 100 * parent.viewbox-height;
+                        control-1-y: parent.viewbox-height - datapoints.values.b / 100 * parent.viewbox-height;
+                        control-2-y: parent.viewbox-height - datapoints.values.c / 100 * parent.viewbox-height;
+                    }
+
+                    CubicTo {
+                        x: 3.5/7 * parent.viewbox-width;
+                        control-1-x: 3/7 * parent.viewbox-width;
+                        control-2-x: 3/7 * parent.viewbox-width;
+                        y: parent.viewbox-height - datapoints.values.e / 100 * parent.viewbox-height;
+                        control-1-y: parent.viewbox-height - datapoints.values.d / 100 * parent.viewbox-height;
+                        control-2-y: parent.viewbox-height - datapoints.values.e / 100 * parent.viewbox-height;
+                    }
+
+                    CubicTo {
+                        x: 4.5/7 * parent.viewbox-width;
+                        control-1-x: 4/7 * parent.viewbox-width;
+                        control-2-x: 4/7 * parent.viewbox-width;
+                        y: parent.viewbox-height - datapoints.values.f / 100 * parent.viewbox-height;
+                        control-1-y: parent.viewbox-height - datapoints.values.e / 100 * parent.viewbox-height;
+                        control-2-y: parent.viewbox-height - datapoints.values.f / 100 * parent.viewbox-height;
+                    }
+
+                    CubicTo {
+                        x: 5.5/7 * parent.viewbox-width;
+                        control-1-x: 5/7 * parent.viewbox-width;
+                        control-2-x: 5/7 * parent.viewbox-width;
+                        y: parent.viewbox-height - datapoints.values.g / 100 * parent.viewbox-height;
+                        control-1-y: parent.viewbox-height - datapoints.values.f / 100 * parent.viewbox-height;
+                        control-2-y: parent.viewbox-height - datapoints.values.g / 100 * parent.viewbox-height;
+                    }
+
+                    CubicTo {
+                        x: 6.5/7 * parent.viewbox-width;
+                        y: parent.viewbox-height - datapoints.values.h / 100 * parent.viewbox-height;
+                        control-1-x: 6/7 * parent.viewbox-width;
+                        control-1-y: parent.viewbox-height - datapoints.values.g / 100 * parent.viewbox-height;
+                        control-2-x: 6/7 * parent.viewbox-width;
+                        control-2-y: parent.viewbox-height - datapoints.values.h / 100 * parent.viewbox-height;
+                    }
+
+                    QuadraticTo {
+                        x: parent.viewbox-width;
+                        y: parent.viewbox-height - datapoints.values.i / 100 * parent.viewbox-height;
+                        control-x: 7/7 * parent.viewbox-width;
+                        control-y: parent.viewbox-height - datapoints.values.h / 100 * parent.viewbox-height;
+                    }
+
+                    LineTo {
+                        x: parent.viewbox-width;
+                        y: parent.viewbox-height;
+                    }
+
+                    LineTo {
+                        x: 0;
+                        y: parent.viewbox-height;
+                    }
+                }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        padding: 0px;
+        padding-top: 5px;
+        // WeekDay
+        for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : Text {
+            //background: blue;
+            color: Skin.palette.text;
+            text: day;
+            font-size: Skin.TinyFont;
+            horizontal-alignment: center;
+        }
+
+    }
+}
+
+// From LightIntensity.cpp
+component LightDimmer inherits Rectangle {
+    in property <brush> coldGradient <=> cold.fill;
+    in property <brush> warmGradient <=> warm.fill;
+    in property <float> thickness: 8;
+    in property <float> inner-radius: 50 - root.thickness;
+    out property <float> value : 50%;
+    out property <float> display-value : touch.pressed ? touch.new-value : root.value;
+    out property <angle> angle : -180deg + 180deg * root.display-value;
+
+    back := PieChartBackground {
+        width: 100%;
+        height: 100%;
+        thickness: root.thickness;
+        inner-radius: root.inner-radius;
+    }
+
+    warm := PieChartFill {
+        width: 100%;
+        height: 100%;
+        thickness: root.thickness;
+        inner-radius: root.inner-radius;
+        start: (root.display-value - 0.5) / 2;
+        progress: 0.25 - self.start;
+
+    }
+
+    cold := PieChartFill {
+        width: 100%;
+        height: 100%;
+        thickness: root.thickness;
+        inner-radius: root.inner-radius;
+        start: (root.display-value - 0.5) / 2;
+        progress: -0.25 - self.start;
+    }
+
+    knob := Path {
+        width: 100%;
+        height: 100%;
+
+        fill: white;
+        stroke-width: 1px;
+        stroke: #929cb2;
+
+        viewbox-width: 100;
+        viewbox-height: 100;
+
+        MoveTo {
+            x: 50 + (50 + root.thickness / 4) * cos(root.angle);
+            y: 50 + (50 + root.thickness / 4) * sin(root.angle);
+        }
+
+        ArcTo {
+            radius-x: root.thickness / 4;
+            radius-y: root.thickness / 4;
+            x: 50 + (50 - root.thickness * 1.25) * cos(root.angle);
+            y: 50 + (50 - root.thickness * 1.25) * sin(root.angle);
+        }
+
+        ArcTo {
+            radius-x: root.thickness / 4;
+            radius-y: root.thickness / 4;
+            x: 50 + (50 + root.thickness * 0.25) * cos(root.angle);
+            y: 50 + (50 + root.thickness * 0.25) * sin(root.angle);
+        }
+    }
+
+    touch := TouchArea {
+        property <float> new-value : min(1, max(0, self.mouse-x / self.height));
+
+        clicked => {
+            root.value = self.new-value;
+        }
+    }
+}
+
+export component LightIntensity inherits Box {
+    title: "Light intensity";
+    preferred-height: root.width;
+
+    Rectangle {
+        vertical-stretch: 1;
+
+        HorizontalLayout {
+            leftLabel := Text {
+                text: "  0";
+                font-size: Skin.SmallFont;
+                vertical-alignment: center;
+            }
+
+            dimmer := LightDimmer {
+                warmGradient: @linear-gradient(0deg, #ff3122, #feeeb7);
+                coldGradient: @linear-gradient(0deg, #a7b0ff, #6776ff);
+            }
+
+            rightLabel := Text {
+                text: "100";
+                font-size: Skin.SmallFont;
+                vertical-alignment: center;
+            }
+        }
+
+        centreLabel := Text {
+            width: dimmer.width;
+            height: dimmer.height;
+            x: dimmer.x;
+            y: dimmer.y;
+            color: #929cb2;
+            text: "\{round(dimmer.display-value * 100)}%";
+            font-size: Skin.MediumFont;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+// From MenuBar.cpp
+component MenuItem inherits Rectangle {
+    in property <image> icon <=> i.source;
+    in property <string> name <=> t.text;
+    in-out property <bool> active;
+
+    background: root.active ? rgba(100%, 100%, 100%, 14%) : ma.has-hover ? rgba(100%, 100%, 100%, 9%) : transparent;
+
+    ma := TouchArea {}
+
+    HorizontalLayout {
+        alignment: start;
+        spacing: 6px;
+        padding: 8px;
+        padding-left: 30px;
+        padding-right: 30px;
+        i := Image {
+            width: 14px; // Skin.cpp sets 14 pixels for MenuBarGraphicLabel::Graphic
+            height: self.source.height * 1px;
+        }
+
+        t := Text {
+            color: white;
+            font-size: Skin.SmallFont;
+        }
+    }
+}
+
+// From MenuBar.cpp
+export component MenuBar inherits Rectangle {
+    out property <int> active: 0;
+
+    background: Skin.palette.menuBar;
+    min-width: 140px;
+
+    VerticalLayout {
+        padding-left: 0px;
+        padding-top: 35px;
+        padding-right: 0px;
+        padding-bottom: 12px;
+        spacing: 8px;
+
+        VerticalLayout {
+            // Margin hint for MenuBarTopLabel::Graphic
+            padding-left: 50px;
+            padding-top: 0px;
+            padding-right: 50px;
+            padding-bottom: 54px;
+
+            Image {
+                source: @image-url("images/main-icon.png");
+                height: self.source.height * 1px;
+            }
+        }
+
+        //###  In the original, the icon is derived from the name
+        for entry[idx] in [
+            { name: "Dashboard", icon: @image-url("images/dashboard.png") },
+            { name: "Rooms", icon: @image-url("images/rooms.png") },
+            { name: "Devices", icon: @image-url("images/devices.png") },
+            { name: "Statistics", icon: @image-url("images/statistics.png") },
+            { name: "Storage", icon: @image-url("images/storage.png") },
+            { name: "Members", icon: @image-url("images/members.png") },
+        ] : MenuItem {
+            name: entry.name;
+            icon: entry.icon;
+            active: root.active == idx;
+        }
+
+        Rectangle {}
+        MenuItem { name: "Logout"; icon: @image-url("images/logout.png"); }
+    }
+}

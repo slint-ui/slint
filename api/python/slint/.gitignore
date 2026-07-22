@@ -1,0 +1,4 @@
+slint/*.so
+slint/language.pyi
+uv.lock
+docs

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+
+<html>
+<!--
+  This is a static html file used to display the wasm build.
+  In order to generate the build
+   - Run `wasm-pack build --release --target web` in this directory.
+-->
+
+<head>
+  <meta charset="UTF-8">
+  <title>Slint Printer Demo (Web Assembly version)</title>
+  <link rel="stylesheet" href="https://slint.dev/css/demos-v1.css">
+  <style>
+    @media screen and (max-width: 992px) and (orientation: landscape) {
+      .hide-in-mobile-landscape {
+        display: none;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      canvas {
+        width: 100vw !important;
+        height: 100vh !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <h1 class="hide-in-mobile-landscape">Printer Demo</h1>
+  <p class="hide-in-mobile-landscape">This is the <a href="https://slint.dev">Slint</a> Printer Demo compiled to
+    WebAssembly. It simulates the
+    touch user interface of
+    the advanced "Print Machine 2000", without actually printing anything.</p>
+  <div id="spinner" style="position: relative;">
+    <div class="spinner">Loading...</div>
+  </div>
+  <canvas id="canvas" unselectable="on"></canvas>
+  <p class="hide-in-mobile-landscape links">
+    <a href="https://github.com/slint-ui/slint/blob/master/demos/printerdemo/ui/printerdemo.slint">
+      View Source Code on GitHub</a> -
+    <a href="https://slint.dev/editor?load_demo=demos/printerdemo/ui/printerdemo.slint">
+      Open in SlintPad
+    </a>
+  </p>
+  <script type="module">
+    import init from './pkg/printerdemo_lib.js';
+    init().finally(() => {
+      document.getElementById("spinner").remove();
+    });
+  </script>
+</body>
+
+</html>

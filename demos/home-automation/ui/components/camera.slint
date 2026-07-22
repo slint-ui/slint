@@ -1,0 +1,96 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Colors } from "../common.slint";
+import { Control } from "control.slint";
+import { AppState } from "../appState.slint";
+import { HaText } from "general/haText.slint";
+
+enum CameraView {
+    front,
+    back
+}
+export component Camera inherits Control {
+    property <int> current-page: AppState.current-page;
+    property <bool> unlocked: false;
+    property <image> cam: @image-url("../images/front-porch.jpg");
+    property <bool> is-active: false;
+    property <CameraView> camera-view: CameraView.front;
+    control-background: @image-url("../images/overhead-frame.png", nine-slice(50));
+
+    function toggle-view() {
+        if camera-view == CameraView.front {
+            camera-view = CameraView.back;
+        } else {
+            camera-view = CameraView.front;
+        }
+    }
+
+    tile := Rectangle {
+        x: 0;
+        Image {
+            x: 1px;
+            source: root.cam;
+            width: tile.width - 2px;
+            image-fit: cover;
+            height: 60%;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+
+        Image {
+            x: 1px;
+            source: @image-url("../images/back-yard.jpg");
+            width: tile.width - 2px;
+            image-fit: cover;
+            height: 60%;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+
+            states [
+                // Separate states for with and without animation
+                // https://github.com/slint-ui/slint/issues/7999
+                back-with-animation when camera-view == CameraView.back && AppState.graphics-accelerator-available: {
+                    opacity: 1;
+                    in-out {
+                        animate opacity { duration: 300ms; }
+                    }
+                }
+                front-with-animation when camera-view == CameraView.front && AppState.graphics-accelerator-available: {
+                    opacity: 0;
+                    in-out {
+                        animate opacity { duration: 300ms; }
+                    }
+                }
+                back-without-animation when camera-view == CameraView.back && !AppState.graphics-accelerator-available: {
+                    opacity: 1;
+                }
+                front-without-animation when camera-view == CameraView.front && !AppState.graphics-accelerator-available: {
+                    opacity: 0;
+                }
+            ]
+        }
+
+
+        TouchArea {
+            clicked => {
+                toggle-view();
+            }
+        }
+
+        HaText {
+            y: root.height - self.height - 10px;
+            text: camera-view == CameraView.back ? "Back Yard" : "Front Porch";
+            color: Colors.white;
+            font-size: 1.5rem;
+            font-weight: FontWeight.extra-light;
+        }
+    }
+
+    Timer {
+        interval: 2s;
+        running: AppState.kiosk-mode;
+        triggered => {
+            toggle-view();
+        }
+    }
+}

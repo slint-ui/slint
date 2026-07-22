@@ -1,0 +1,83 @@
+---
+title: DatePickerPopup
+description: DatePickerPopup api.
+---
+
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+
+Use a date picker to let the user select a date.
+
+```slint playground
+import { DatePickerPopup, Button } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 600px;
+
+    date-picker-button := Button {
+        text: @tr("Open Date Picker");
+
+        clicked => {
+            date-picker.show();
+        }
+    }
+
+    date-picker := DatePickerPopup {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height ) / 2;
+        close-policy: PopupClosePolicy.no-auto-close;
+
+        accepted(date) => {
+            date-picker.close();
+        }
+        canceled => {
+            date-picker.close();
+        }
+    }
+}
+```
+
+
+
+## Properties
+
+### title
+<SlintProperty propName="title" typeName="string">
+The text that is displayed at the top of the picker.
+</SlintProperty>
+
+### date
+<SlintProperty propName="date" typeName="struct" structName="Date">
+Set the initial displayed date.
+```slint "date: { year: 2024, month: 11 };"
+DatePickerPopup {
+    date: { year: 2024, month: 11 };
+}
+```
+</SlintProperty>
+
+## Callbacks
+
+### canceled()
+Invoked when the cancel button is clicked.
+
+```slint {2-4}
+date-picker := DatePickerPopup {
+    canceled() => {
+        date-picker.close();
+    }
+}
+```
+
+### accepted(Date)
+Invoked when the ok button is clicked.
+
+```slint {2-5}
+date-picker := DatePickerPopup {
+    accepted(date) => {
+        debug("Selected date: ", date);
+        date-picker.close();
+    }
+}
+```
+

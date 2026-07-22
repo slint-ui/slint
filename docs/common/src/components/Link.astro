@@ -1,0 +1,58 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { linkMap } from "../utils/utils";
+
+type LinkType = keyof typeof linkMap;
+
+interface Props {
+    label?: string;
+    type: LinkType;
+    /**
+     * Base of the Slint docs as seen from the consuming site. Defaults to this
+     * site's own base (correct when the consumer is the Slint docs). Cross-site
+     * consumers (e.g. the Python/Node API docs) pass an absolute …/docs/slint/
+     * base so the link resolves to the sibling site.
+     */
+    docsBase?: string;
+    /** Open in a new tab — for cross-site links that leave this site. */
+    external?: boolean;
+    /** Render the label as inline code rather than a span. */
+    code?: boolean;
+}
+
+const {
+    label,
+    type,
+    docsBase,
+    external = false,
+    code = false,
+} = Astro.props as Props;
+const displayLabel = label || type;
+
+if (!(type in linkMap)) {
+    throw new Error(
+        `Invalid link type: ${type}. Maybe you forgot to add it to the linkMap?`,
+    );
+}
+
+// The base is set in astro.config.mjs, unless a consuming site overrides it.
+const base = docsBase ?? import.meta.env.BASE_URL;
+const fullHref = `${base}${linkMap[type].href}`;
+const attrs = external
+    ? { href: fullHref, target: "_blank", rel: "noopener" }
+    : { href: fullHref };
+---
+
+{
+    code ? (
+        <a {...attrs}>
+            <code>{displayLabel}</code>
+        </a>
+    ) : (
+        <a {...attrs}>
+            <span>{displayLabel}</span>
+        </a>
+    )
+}

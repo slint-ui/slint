@@ -1,0 +1,112 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { Elevation } from "./elevation.slint";
+import { StateLayerArea } from "./state_layer.slint";
+
+component BaseCard {
+    in property <bool> clickable;
+    in property <bool> has_elevation;
+    in property <color> background;
+    in property <color> border_color;
+    in property <length> border_width;
+
+    callback clicked();
+
+    forward_focus: state_layer;
+
+    if root.has_elevation : Elevation {
+        width: 100%;
+        height: 100%;
+        border_radius: background_layer.border_radius;
+        level: 1;
+    }
+
+    background_layer := Rectangle {
+        background: root.background;
+        border_radius: MaterialStyleMetrics.border_radius_12;
+        border_width: root.border_width;
+        border_color: root.border_color;
+    }
+
+    state_layer := StateLayerArea {
+        width: 100%;
+        height: 100%;
+        border_radius: background_layer.border_radius;
+        visible: root.clickable;
+        enabled: root.visible;
+
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    Rectangle {
+        clip: true;
+        border_radius: MaterialStyleMetrics.border_radius_12;
+
+        @children
+    }
+}
+
+export component ElevatedCard {
+    in property <bool> clickable <=> base.clickable;
+
+    callback clicked <=> base.clicked;
+
+    forward_focus: base;
+    accessible-role: button;
+    accessible-enabled: root.clickable;
+    accessible-action-default => { base.clicked(); }
+
+    base := BaseCard {
+        width: 100%;
+        height: 100%;
+        has_elevation: true;
+        background: MaterialPalette.surface;
+
+        @children
+    }
+}
+
+export component FilledCard {
+    in property <bool> clickable <=> base.clickable;
+
+    callback clicked <=> base.clicked;
+
+    forward_focus: base;
+    accessible-role: button;
+    accessible-enabled: root.clickable;
+    accessible-action-default => { base.clicked(); }
+
+    base := BaseCard {
+        width: 100%;
+        height: 100%;
+        background: MaterialPalette.surface_container_highest;
+
+        @children
+    }
+}
+
+export component OutlinedCard {
+    in property <bool> clickable <=> base.clickable;
+
+    callback clicked <=> base.clicked;
+
+    forward_focus: base;
+    accessible-role: button;
+    accessible-enabled: root.clickable;
+    accessible-action-default => { base.clicked(); }
+
+    base := BaseCard {
+        width: 100%;
+        height: 100%;
+        background: MaterialPalette.surface_container_low;
+        border_width: 1px;
+        border_color: MaterialPalette.outline;
+
+        @children
+    }
+}

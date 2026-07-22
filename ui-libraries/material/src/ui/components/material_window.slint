@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialPalette } from "../styling/material_palette.slint";
+
+export global MaterialWindowAdapter {
+    in property <bool> disable_hover;
+}
+
+export component MaterialWindow inherits Window {
+    in property <bool> disable_hover;
+
+    background: MaterialPalette.background;
+
+    changed disable_hover => {
+        MaterialWindowAdapter.disable_hover = root.disable_hover;
+    }
+}

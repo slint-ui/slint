@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { NavigationItem } from "../items/navigation_item.slint";
+
+export component BaseNavigationItemTemplate {
+    in property <image> icon;
+    in property <image> selected_icon;
+    in property <string> text;
+    in property <int> index;
+    in property <bool> selected;
+    in property <bool> show_badge;
+    in property <string> badge;
+
+    callback clicked;
+    callback pointer_event(event: PointerEvent, position: Point);
+
+    accessible-role: tab;
+    accessible-label: root.text;
+    accessible-item-index: root.index;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
+    accessible-action-default => { self.clicked(); }
+
+    @children
+
+}
+
+export component BaseNavigation {
+    in property <[NavigationItem]> items;
+    in_out property <int> current_index;
+
+    callback index_changed(index: int);
+
+    accessible-role: tab-list;
+    // accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-index;
+    // accessible-label: root.title;
+    accessible-item-count: root.items.length;
+
+    @children
+
+    protected function select(index: int) {
+        if index < 0 || index >= root.items.length {
+            return;
+        }
+
+        root.current_index = index;
+        root.index_changed(index);
+    }
+
+}

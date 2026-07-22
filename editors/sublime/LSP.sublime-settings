@@ -1,0 +1,21 @@
+{
+	"clients":
+	{
+		"slint":
+		{
+			"command":
+			[
+				"/home/YOUR_USER/.cargo/bin/slint-lsp"
+			],
+			"languageId": "slint",
+			"scopes":
+			[
+				"source.slint"
+			],
+			"syntaxes":
+			[
+				"Packages/User/Slint.sublime-syntax"
+			]
+		}
+	}
+}

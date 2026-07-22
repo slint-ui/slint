@@ -1,0 +1,90 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com
+// SPDX-License-Identifier: MIT
+
+export struct BData {
+    colors: [color],
+    codes: [string]
+}
+
+export global BLogicAAPI {
+    in property <bool> initialized: false;
+
+    in property <color> color1: #0e3151;
+    in property <color> color2: #107013;
+    in property <color> color3: #8a1624;
+    in property <color> color4: #e4d213;
+
+    in property <string> code1: "Important thing";
+    in property <string> code2: "Also important thing";
+    in property <string> code3: "May be an important thingy";
+    in property <string> code4: "Not a important thing";
+
+    callback update(BData);
+}
+
+export component BLogicA {
+    private property <bool> api-initialized <=> BLogicAAPI.initialized;
+
+    // Workaround - binding BLogicAAPI.colorN directly to Rectangle background
+    // property does not work
+    private property <color> color1 <=> BLogicAAPI.color1;
+    private property <color> color2 <=> BLogicAAPI.color2;
+    private property <color> color3 <=> BLogicAAPI.color3;
+    private property <color> color4 <=> BLogicAAPI.color4;
+
+    width: 600px; height: 200px;
+    Rectangle {
+        x: 0px; y:0px;
+        width: 50%; height: 50%;
+        background: color1;
+        Text {
+            text <=> BLogicAAPI.code1;
+            color: white;
+            font-size: 24px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+    Rectangle {
+        x: root.width / 2; y:0px;
+        width: 50%; height: 50%;
+        background: color2;
+        Text {
+            text <=> BLogicAAPI.code2;
+            color: white;
+            font-size: 24px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+    Rectangle {
+        x: 0px; y:root.height / 2;
+        width: 50%; height: 50%;
+        background: color3;
+        Text {
+            text <=> BLogicAAPI.code3;
+            color: white;
+            font-size: 24px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+    Rectangle {
+        x: root.width / 2; y: root.height / 2;
+        width: 50%; height: 50%;
+        background: color4;
+        Text {
+            text <=> BLogicAAPI.code4;
+            color: white;
+            font-size: 24px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    changed api-initialized => {
+        if (self.api-initialized) {
+            debug("BLogicAAPI initialized");
+        }
+    }
+}

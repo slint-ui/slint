@@ -1,0 +1,356 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// for MenuVTable_static
+#![allow(unsafe_code)]
+
+use crate::graphics::Image;
+use crate::input::{InternalKeyEvent, Keys};
+use crate::item_rendering::CachedRenderingData;
+use crate::item_tree::{ItemTreeRc, ItemWeak, VisitChildrenResult};
+use crate::items::{ItemRc, ItemRef, MenuEntry, VoidArg};
+use crate::properties::PropertyTracker;
+#[cfg(feature = "rtti")]
+use crate::rtti::*;
+use crate::string::ToSharedString;
+use crate::window::WindowAdapter;
+use crate::{Callback, Property, SharedString, SharedVector};
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::rc::Rc;
+use core::cell::{Cell, RefCell};
+use core::pin::Pin;
+use i_slint_core_macros::SlintElement;
+use vtable::{VRef, VRefMut};
+
+/// Interface for native menu and menubar
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+#[vtable::vtable]
+#[repr(C)]
+pub struct MenuVTable {
+    /// Return the list of items for the sub menu (or the main menu of parent is None)
+    sub_menu: extern "C" fn(VRef<MenuVTable>, Option<&MenuEntry>, &mut SharedVector<MenuEntry>),
+    /// Handler when the menu entry is activated
+    activate: extern "C" fn(VRef<MenuVTable>, &MenuEntry),
+    /// Handler to return whether the menu is visible or not
+    visible: extern "C" fn(VRef<MenuVTable>) -> bool,
+    /// drop_in_place handler
+    drop_in_place: extern "C" fn(VRefMut<MenuVTable>) -> Layout,
+    /// dealloc handler
+    dealloc: extern "C" fn(&MenuVTable, ptr: *mut u8, layout: Layout),
+}
+
+struct ShadowTreeNode {
+    item: ItemWeak,
+    children: SharedVector<MenuEntry>,
+}
+
+pub struct MenuFromItemTree {
+    item_tree: ItemTreeRc,
+    item_cache: RefCell<BTreeMap<SharedString, ShadowTreeNode>>,
+    root: RefCell<SharedVector<MenuEntry>>,
+    next_id: Cell<usize>,
+    tracker: Pin<Box<PropertyTracker>>,
+    condition: Option<Pin<Box<Property<bool>>>>,
+    visible: Option<Pin<Box<Property<bool>>>>,
+}
+
+impl MenuFromItemTree {
+    pub fn new(item_tree: ItemTreeRc) -> Self {
+        Self::new_internal(item_tree, None, None)
+    }
+
+    pub fn new_with_condition_and_visible(
+        item_tree: ItemTreeRc,
+        condition: impl Fn() -> bool + 'static,
+        visible: impl Fn() -> bool + 'static,
+    ) -> Self {
+        fn make_prop(
+            f: impl Fn() -> bool + 'static,
+            name: &'static str,
+        ) -> Option<Pin<Box<Property<bool>>>> {
+            let prop = Box::pin(Property::new_named(true, name));
+            prop.as_ref().set_binding(f);
+            Some(prop)
+        }
+        let condition = make_prop(condition, "MenuFromItemTree::condition");
+        let visible = make_prop(visible, "MenuFromItemTree::visible");
+        Self::new_internal(item_tree, condition, visible)
+    }
+
+    fn new_internal(
+        item_tree: ItemTreeRc,
+        condition: Option<Pin<Box<Property<bool>>>>,
+        visible: Option<Pin<Box<Property<bool>>>>,
+    ) -> Self {
+        Self {
+            item_tree,
+            item_cache: Default::default(),
+            root: Default::default(),
+            tracker: Box::pin(PropertyTracker::default()),
+            next_id: 0.into(),
+            condition,
+            visible,
+        }
+    }
+
+    fn update_shadow_tree(&self) {
+        self.tracker.as_ref().evaluate_if_dirty(|| {
+            self.item_cache.replace(Default::default());
+            if let Some(condition) = &self.condition
+                && !condition.as_ref().get()
+            {
+                self.root.replace(SharedVector::default());
+                return;
+            }
+            crate::item_tree::ensure_item_tree_instantiated(&self.item_tree);
+            self.root.replace(
+                self.update_shadow_tree_recursive(&ItemRc::new_root(self.item_tree.clone())),
+            );
+        });
+    }
+
+    fn update_shadow_tree_recursive(&self, parent: &ItemRc) -> SharedVector<MenuEntry> {
+        let mut result = SharedVector::default();
+        let mut last_is_separator = false;
+
+        let mut actual_visitor =
+            |item_tree: &ItemTreeRc, index: u32, item_pin: Pin<ItemRef>| -> VisitChildrenResult {
+                if let Some(menu_item) = ItemRef::downcast_pin::<MenuItem>(item_pin) {
+                    let title = menu_item.title();
+                    let is_separator =
+                        title.as_str() == i_slint_common::MENU_SEPARATOR_PLACEHOLDER_TITLE;
+                    if is_separator && (last_is_separator || result.is_empty()) {
+                        return VisitChildrenResult::CONTINUE;
+                    }
+                    last_is_separator = is_separator;
+                    let next_id = self.next_id.get();
+                    self.next_id.set(next_id + 1);
+                    let id = next_id.to_shared_string();
+                    let item = ItemRc::new(item_tree.clone(), index);
+                    let children = self.update_shadow_tree_recursive(&item);
+                    let has_sub_menu = !children.is_empty();
+                    let enabled = menu_item.enabled();
+                    let checkable = menu_item.checkable();
+                    let checked = menu_item.checked();
+                    let icon = menu_item.icon();
+                    let shortcut = menu_item.shortcut();
+                    self.item_cache.borrow_mut().insert(
+                        id.clone(),
+                        ShadowTreeNode { item: ItemRc::downgrade(&item), children },
+                    );
+                    result.push(MenuEntry {
+                        title,
+                        id,
+                        has_sub_menu,
+                        is_separator,
+                        enabled,
+                        checkable,
+                        checked,
+                        icon,
+                        shortcut,
+                    });
+                }
+                VisitChildrenResult::CONTINUE
+            };
+        vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
+
+        vtable::VRc::borrow_pin(parent.item_tree()).as_ref().visit_children_item(
+            parent.index() as isize,
+            crate::item_tree::TraversalOrder::BackToFront,
+            actual_visitor,
+        );
+        if last_is_separator {
+            result.pop();
+        }
+        result
+    }
+}
+
+impl Menu for MenuFromItemTree {
+    fn sub_menu(&self, parent: Option<&MenuEntry>, result: &mut SharedVector<MenuEntry>) {
+        self.update_shadow_tree();
+        match parent {
+            Some(parent) => {
+                if let Some(r) = self.item_cache.borrow().get(parent.id.as_str()) {
+                    *result = r.children.clone();
+                }
+            }
+            None => {
+                *result = self.root.borrow().clone();
+            }
+        }
+    }
+
+    fn activate(&self, entry: &MenuEntry) {
+        if let Some(menu_item) =
+            self.item_cache.borrow().get(entry.id.as_str()).and_then(|e| e.item.upgrade())
+            && let Some(menu_item) = menu_item.downcast::<MenuItem>()
+        {
+            if menu_item.as_pin_ref().checkable() {
+                menu_item.checked.set(!menu_item.as_pin_ref().checked());
+            }
+
+            menu_item.activated.call(&());
+        }
+    }
+
+    fn visible(&self) -> bool {
+        self.visible.as_ref().is_none_or(|v| v.as_ref().get())
+    }
+}
+
+MenuVTable_static!(static MENU_FROM_ITEM_TREE_VT for MenuFromItemTree);
+
+#[repr(C)]
+#[derive(const_field_offset::FieldOffsets, Default, SlintElement)]
+#[pin]
+/// The implementation of an MenuItem items that does nothing
+pub struct MenuItem {
+    pub cached_rendering_data: CachedRenderingData,
+    pub title: Property<SharedString>,
+    pub activated: Callback<VoidArg>,
+    pub enabled: Property<bool>,
+    pub checkable: Property<bool>,
+    pub checked: Property<bool>,
+    pub icon: Property<Image>,
+    pub shortcut: Property<Keys>,
+}
+
+impl crate::items::Item for MenuItem {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
+    fn layout_info(
+        self: Pin<&Self>,
+        _orientation: crate::items::Orientation,
+        _cross_axis_constraint: crate::Coord,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> crate::layout::LayoutInfo {
+        Default::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: &crate::input::MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut crate::cursor::MouseCursorInner,
+    ) -> crate::input::InputEventFilterResult {
+        Default::default()
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _: &crate::input::MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut crate::cursor::MouseCursorInner,
+    ) -> crate::input::InputEventResult {
+        Default::default()
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> crate::input::KeyEventResult {
+        crate::input::KeyEventResult::EventIgnored
+    }
+
+    fn key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> crate::input::KeyEventResult {
+        Default::default()
+    }
+
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &crate::input::FocusEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> crate::input::FocusEventResult {
+        Default::default()
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        _backend: &mut &mut dyn crate::item_rendering::ItemRenderer,
+        _self_rc: &ItemRc,
+        _size: crate::lengths::LogicalSize,
+    ) -> crate::items::RenderingResult {
+        Default::default()
+    }
+
+    fn bounding_rect(
+        self: Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        geometry: crate::lengths::LogicalRect,
+    ) -> crate::lengths::LogicalRect {
+        geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
+}
+
+impl crate::items::ItemConsts for MenuItem {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        MenuItem,
+        CachedRenderingData,
+    > = MenuItem::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
+#[cfg(feature = "ffi")]
+pub mod ffi {
+    use super::*;
+
+    /// Create a `VRc::<MenuVTable>`` that wraps the [`ItemTreeRc`]
+    ///
+    /// Put the created VRc into the result pointer with std::ptr::write
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_menus_create_wrapper(
+        menu_tree: &ItemTreeRc,
+        result: *mut vtable::VRc<MenuVTable>,
+        condition: Option<extern "C" fn(menu_tree: &ItemTreeRc) -> bool>,
+        visible: Option<extern "C" fn(menu_tree: &ItemTreeRc) -> bool>,
+    ) {
+        let menu = match (condition, visible) {
+            (None, None) => MenuFromItemTree::new(menu_tree.clone()),
+            (condition, visible) => {
+                let menu_weak = ItemTreeRc::downgrade(menu_tree);
+                let condition = move || {
+                    menu_weak
+                        .upgrade()
+                        .map(|menu_rc| condition.map(|x| x(&menu_rc)).unwrap_or(true))
+                        .unwrap_or(false)
+                };
+
+                let menu_weak = ItemTreeRc::downgrade(menu_tree);
+                let visible = move || {
+                    menu_weak
+                        .upgrade()
+                        .map(|menu_rc| visible.map(|x| x(&menu_rc)).unwrap_or(true))
+                        .unwrap_or(false)
+                };
+
+                MenuFromItemTree::new_with_condition_and_visible(
+                    menu_tree.clone(),
+                    condition,
+                    visible,
+                )
+            }
+        };
+
+        let vrc = vtable::VRc::into_dyn(vtable::VRc::new(menu));
+        unsafe { core::ptr::write(result, vrc) };
+    }
+}

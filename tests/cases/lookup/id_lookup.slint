@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+ TestCase := Rectangle {
+
+    property<int> bar: 5;
+    property<int> foo: 3;
+    foo := Rectangle {
+        property<int> bar: 7;
+        property<int> foo: 9;
+        property<int> inner: bar * 10 + self.bar * 100 + parent.bar * 1000;
+    }
+
+    property<int> p1: foo.inner;
+    property<int> p2: self.foo *10 + foo.foo * 100 + bar *1000;
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_p1(), 5770);
+assert_eq(instance.get_p2(), 5930);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_p1(), 5770);
+assert_eq!(instance.get_p2(), 5930);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.p1, 5770);
+assert.equal(instance.p2, 5930);
+```
+*/

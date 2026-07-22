@@ -1,0 +1,12 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "std-widgets.slint";
+import { EditorFontSettings } from "./styling.slint";
+
+export component BodyStrongText inherits Text {
+    vertical-alignment: center;
+    color: Palette.foreground;
+    font-size: EditorFontSettings.body-strong.font-size;
+    font-weight: EditorFontSettings.body-strong.font-weight;
+}

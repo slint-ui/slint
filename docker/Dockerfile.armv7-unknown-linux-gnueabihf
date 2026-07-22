@@ -1,0 +1,43 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cSpell: ignore CLANGCC CLANGCXX
+
+# Use cross-image once https://github.com/rust-embedded/cross/pull/591 is merged & released
+#FROM rustembedded/cross:armv7-unknown-linux-gnueabihf-0.2.1
+FROM ghcr.io/slint-ui/cross-armv7-base:1.0
+
+RUN dpkg --add-architecture armhf && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes libfontconfig1-dev:armhf libxcb1-dev:armhf libxcb-render0-dev:armhf libxcb-shape0-dev:armhf libxcb-xfixes0-dev:armhf libxkbcommon-dev:armhf libinput-dev:armhf libgbm-dev:armhf libssl-dev:armhf python3 python3-pip \
+    libfontconfig1-dev \
+    clang clang-18 g++-10-arm-linux-gnueabihf libstdc++-10-dev:armhf ninja-build
+
+# Work around the Skia source build requiring a newer git version (that supports --path-format=relative with rev-parse, as needed by git-sync-deps.py),
+# as well as a disabling of the directory safety checks (https://github.blog/2022-04-12-git-security-vulnerability-announced/#cve-2022-24765) as
+# /cargo comes from ~/.cargo and may have differing user ids, which breaks when the skia-bindings build clones additional git repos (skia/third_party/external/*)
+RUN DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes software-properties-common && \
+    add-apt-repository -y ppa:git-core/ppa && \
+    apt-get install --assume-yes git && \
+    git config --global safe.directory '*'
+
+ENV PKG_CONFIG_PATH_armv7_unknown_linux_gnueabihf=/usr/lib/arm-linux-gnueabihf/pkgconfig
+ENV PKG_CONFIG_PATH_x86_64_unknown_linux_gnu=/usr/lib/pkgconfig
+ENV PKG_CONFIG_PATH=
+ENV PKG_CONFIG_ALLOW_CROSS=1
+
+# In the absence of a sysroot, the header files we install earlier (such as libfontconfig1-dev:armhf) are in /usr/include
+# so remember to teach bindgen to also look there, despite its --target.
+ENV BINDGEN_EXTRA_CLANG_ARGS_armv7_unknown_linux_gnueabihf=-I/usr/include
+
+# Compile C/C++ (e.g. the skia-bindings glue) with GCC 10 instead of the default GCC 9: Skia m148
+# requires -std=c++20, which GCC 9 does not recognize (it only has -std=c++2a).
+ENV CC_armv7_unknown_linux_gnueabihf=arm-linux-gnueabihf-gcc-10 \
+    CXX_armv7_unknown_linux_gnueabihf=arm-linux-gnueabihf-g++-10
+
+# Build Skia's own C++ sources with Clang 18: skia-bindings 0.99's PDF code needs
+# C++20 parenthesized aggregate initialization (P0960) and std::ranges support,
+# which the focal default Clang 10 lacks. skia-bindings honors CLANGCC/CLANGCXX
+# to pick the compiler for the Skia build (it adds the appropriate --target).
+ENV CLANGCC=clang-18 \
+    CLANGCXX=clang++-18

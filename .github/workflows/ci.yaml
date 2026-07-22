@@ -1,0 +1,1067 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: CI
+
+on:
+    workflow_dispatch:
+        inputs:
+            full:
+                type: boolean
+                default: true
+                description: "Run full CI including extended tests (false = PR mode with path filtering)"
+    workflow_call:
+      inputs:
+        full:
+            type: boolean
+            default: false
+      secrets:
+        CLOUDFLARE_API_TOKEN:
+          required: true
+        CLOUDFLARE_ACCOUNT_ID:
+          required: true
+        CLOUDFLARE_API_TOKEN_2:
+          required: true
+        CLOUDFLARE_ACCOUNT_ID_2:
+          required: true
+        ANDROID_KEYSTORE_PASSWORD:
+          required: true
+        ANDROID_KEYSTORE_BASE64:
+          required: true
+        READ_WRITE_PRIVATE_KEY:
+          required: true
+
+env:
+    MACOSX_DEPLOYMENT_TARGET: "11.0"
+    SLINT_COMPILER_DENY_WARNINGS: 1
+    SLINT_BUILD_NUMBER: ${{ github.run_number }}
+    RUST_BACKTRACE: 1
+    # Speed up CI builds and keep the target directory small.
+    CARGO_INCREMENTAL: false
+    CARGO_PROFILE_DEV_DEBUG: 0
+
+jobs:
+    files-changed:
+      runs-on: ubuntu-latest
+      timeout-minutes: 1
+      permissions:
+        pull-requests: read
+      outputs:
+        slint: ${{ inputs.full || steps.filter.outputs.slint == 'true' }}
+        framework: ${{ inputs.full || steps.filter.outputs.framework == 'true' }}
+        figma_inspector: ${{ inputs.full || steps.filter.outputs.figma_inspector == 'true' }}
+        material_components: ${{ inputs.full || steps.filter.outputs.material_components == 'true' }}
+        internal: ${{ inputs.full || steps.filter.outputs.internal == 'true' }}
+        api_cpp: ${{ inputs.full || steps.filter.outputs.api_cpp == 'true' }}
+        android_backend: ${{ inputs.full || steps.filter.outputs.android_backend == 'true' }}
+        api_python: ${{ inputs.full || steps.filter.outputs.api_python == 'true' }}
+        api_node: ${{ inputs.full || steps.filter.outputs.api_node == 'true' }}
+        api_rs: ${{ inputs.full || steps.filter.outputs.api_rs == 'true' }}
+        tests: ${{ inputs.full || steps.filter.outputs.tests == 'true' }}
+        examples: ${{ inputs.full || steps.filter.outputs.examples == 'true' }}
+        examples_mcu: ${{ inputs.full || steps.filter.outputs.examples_mcu == 'true' }}
+        vsce: ${{ inputs.full || steps.filter.outputs.vsce == 'true' }}
+        slintpad: ${{ inputs.full || steps.filter.outputs.slintpad == 'true' }}
+        servo_example: ${{ inputs.full || steps.filter.outputs.servo_example == 'true' }}
+        bevy_examples: ${{ inputs.full || steps.filter.outputs.bevy_examples == 'true' }}
+        rust_files: ${{ inputs.full || steps.filter.outputs.rust_files == 'true' }}
+        qt: ${{ inputs.full || steps.filter.outputs.qt == 'true' }}
+        docs_build: ${{ inputs.full || steps.filter.outputs.docs_build == 'true' }}
+        tree_sitter: ${{ inputs.full || steps.filter.outputs.tree_sitter == 'true' }}
+        slint_sc: ${{ inputs.full || steps.filter.outputs.slint_sc == 'true' }}
+      steps:
+        - uses: actions/checkout@v7
+          if: ${{ !inputs.full }}
+        - uses: dorny/paths-filter@v4
+          if: ${{ !inputs.full }}
+          id: filter
+          with:
+            token: ${{ github.token }}
+            filters: .github/ci_path_filters.yaml
+
+    build_and_test:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.slint == 'true' || needs.files-changed.outputs.examples == 'true' }}
+        strategy:
+            matrix:
+                include:
+                    - os: windows-2022
+                      name: "Windows 2022 1.92"
+                      rust_version: "1.92"
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery"
+                    - os: macos-14
+                      name: "MacOS 14 beta"
+                      rust_version: "beta"
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery"
+        uses: ./.github/workflows/build_and_test_reusable.yaml
+        with:
+            os: ${{ matrix.os }}
+            name: ${{ matrix.name }}
+            rust_version: ${{ matrix.rust_version }}
+            extra_args: ${{ matrix.extra_args }}
+            run_qt: ${{ needs.files-changed.outputs.qt == 'true' }}
+            test_workspace: ${{ needs.files-changed.outputs.slint == 'true' }}
+            test_integration: ${{ needs.files-changed.outputs.framework == 'true' || needs.files-changed.outputs.tests == 'true' }}
+            build_examples: ${{ needs.files-changed.outputs.framework == 'true' || needs.files-changed.outputs.examples == 'true' }}
+            save_if: ${{ github.ref == 'refs/heads/master' }}
+
+    # For changes to Slint internals, do a quick test on Linux for Node.js only.
+    node_test_linux:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        uses: ./.github/workflows/node_test_reusable.yaml
+        with:
+          name: "Node.js Linux"
+          os: "ubuntu-22.04"
+
+    node_test_macos:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.api_node == 'true' }}
+        uses: ./.github/workflows/node_test_reusable.yaml
+        with:
+          name: "Node.js macOS"
+          os: "macos-14"
+
+    node_test_windows:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.api_node == 'true' }}
+        uses: ./.github/workflows/node_test_reusable.yaml
+        with:
+          name: "Node.js Windows"
+          os: "windows-2022"
+
+    # For changes to Slint internals, do a quick test on Linux for Python only.
+    python_test_linux:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        uses: ./.github/workflows/python_test_reusable.yaml
+        with:
+          name: "Python Linux"
+          os: "ubuntu-22.04"
+    python_test_macos:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.api_python == 'true' }}
+        uses: ./.github/workflows/python_test_reusable.yaml
+        with:
+          name: "Python macOS"
+          os: "macos-14"
+    python_test_windows:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.api_python == 'true' }}
+        uses: ./.github/workflows/python_test_reusable.yaml
+        with:
+          name: "Python Windows"
+          os: "windows-2022"
+
+    cpp_test_driver:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        env:
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
+            QT_QPA_PLATFORM: offscreen
+            RUSTFLAGS: -D warnings
+        strategy:
+            matrix:
+                include:
+                    # Linux C++ is covered by cpp_test_driver_32bit
+                    - os: macos-14
+                      rust_version: beta
+                    - os: windows-2022
+                      rust_version: "1.92"
+        runs-on: ${{ matrix.os }}
+
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  force-gcc-10: true
+            - name: Set default style
+              if: runner.os != 'Windows'
+              run: echo "SLINT_STYLE=native" >> $GITHUB_ENV
+            - name: Set default style
+              if: runner.os == 'Windows'
+              run: |
+                  echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+                  echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: ${{ matrix.rust_version }}
+            - name: Run tests
+              run: cargo test --verbose --manifest-path tests/Cargo.toml -p test-driver-cpp --features slint-cpp/backend-qt
+
+    cpp_test_driver_32bit:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        runs-on: ubuntu-24.04
+        env:
+            SLINT_NO_QT: 1
+            RUSTFLAGS: -D warnings
+            CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER: gcc
+            PKG_CONFIG_ALLOW_CROSS: 1
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - name: Install 32-bit build dependencies
+              run: |
+                  sudo dpkg --add-architecture i386
+                  sudo apt-get update
+                  sudo apt-get install -y gcc-multilib g++-multilib libfontconfig-dev:i386
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: i686-unknown-linux-gnu
+            - name: Run tests
+              run: cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features
+            - name: Run tests with live-preview
+              env:
+                  SLINT_LIVE_PREVIEW: 1
+              run: cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
+
+    cpp_cmake_matrix:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true' }}
+        runs-on: ubuntu-latest
+        outputs:
+          matrix: ${{ steps.set.outputs.matrix }}
+        steps:
+          - id: set
+            run: |
+              # Windows runs for internal, api_cpp, or examples changes
+              # macOS and Ubuntu only run when api_cpp changed
+              entries='[{"os":"windows-2022","rust_version":"nightly"}]'
+              if [ "${{ inputs.full }}" = "true" ] || [ "${{ needs.files-changed.outputs.api_cpp }}" = "true" ]; then
+                entries='[{"os":"windows-2022","rust_version":"nightly"},{"os":"macos-14","rust_version":"1.92"},{"os":"ubuntu-22.04","rust_version":"stable"}]'
+              fi
+              echo "matrix={\"include\":$entries}" >> "$GITHUB_OUTPUT"
+
+    cpp_cmake:
+        needs: cpp_cmake_matrix
+        env:
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
+            QT_QPA_PLATFORM: offscreen
+            SLINT_EMIT_DEBUG_INFO: 1
+        strategy:
+            matrix: ${{ fromJSON(needs.cpp_cmake_matrix.outputs.matrix) }}
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  force-gcc-10: true
+            - name: Install Qt
+              uses: jurplel/install-qt-action@v4
+              with:
+                  version: 6.5.1
+                  cache: true
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: ${{ matrix.rust_version }}
+            - uses: ilammy/msvc-dev-cmd@v1
+            - name: Select MSVC (windows)
+              if: runner.os == 'Windows'
+              run: |
+                  echo "CC=cl.exe" >> $GITHUB_ENV
+                  echo "CXX=cl.exe" >> $GITHUB_ENV
+            - name: Enable test coverage for resource embedding in C++ when building examples
+              if: matrix.os == 'ubuntu-22.04'
+              run: |
+                  echo "SLINT_EMBED_RESOURCES=true" >> $GITHUB_ENV
+            - name: C++ Build
+              uses: lukka/run-cmake@v3.4
+              with:
+                  cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+                  cmakeListsTxtPath: CMakeLists.txt
+                  cmakeAppendedArgs: "-DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=ON -DSLINT_FEATURE_EXPERIMENTAL=ON -DSLINT_FEATURE_TESTING=ON"
+                  buildDirectory: ${{ runner.workspace }}/cppbuild
+                  buildWithCMakeArgs: "--config Debug"
+            - name: ctest
+              working-directory: ${{ runner.workspace }}/cppbuild
+              run: ctest --verbose -C Debug
+            - name: cpack
+              working-directory: ${{ runner.workspace }}/cppbuild
+              run: cmake --build . --config Debug --target package
+            - name: "Create C++ packages artifact"
+              uses: actions/upload-artifact@v7
+              with:
+                  name: cpp_bin-${{ matrix.os }}
+                  path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
+
+    cpp_package_test:
+        needs: [cpp_cmake_matrix, cpp_cmake]
+        if: ${{ always() && !cancelled() && needs.cpp_cmake.result == 'success' && contains(fromJSON(needs.cpp_cmake_matrix.outputs.matrix).include.*.os, 'ubuntu-22.04') }}
+        runs-on: ubuntu-22.04
+        env:
+            QT_QPA_PLATFORM: offscreen
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  force-gcc-10: true
+            - name: Install Qt (Ubuntu)
+              uses: jurplel/install-qt-action@v4
+              with:
+                  version: 6.5.1
+                  cache: true
+            - uses: actions/download-artifact@v8
+              with:
+                  name: cpp_bin-ubuntu-22.04
+                  path: cpp-package
+            - name: unpack package
+              run: |
+                  mkdir package
+                  tar xvf cpp-package/Slint-cpp-*.tar.gz -C package --strip-components=1
+                  echo "CMAKE_PREFIX_PATH=`pwd`/package" >> $GITHUB_ENV
+            # Build the examples with a config different than the package (which is debug)
+            - name: Build examples
+              uses: lukka/run-cmake@v3.4
+              with:
+                  cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+                  cmakeListsTxtPath: examples/CMakeLists.txt
+                  cmakeAppendedArgs: "-DCMAKE_BUILD_TYPE=Release -DSLINT_FEATURE_INTERPRETER=1 -DSLINT_FEATURE_BACKEND_QT=1"
+                  buildDirectory: ${{ runner.workspace }}/examples/build
+                  buildWithCMakeArgs: "--config Release"
+
+    vsce_build_test:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.vsce == 'true' }}
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@v6.0.9
+              with:
+                version: 10.29.3
+            - uses: Swatinem/rust-cache@v2
+              with:
+                key: "vsce_1" # increment this to bust the cache if needed
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 24
+                  package-manager-cache: false
+            - name: Install wasm-pack
+              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+            - name: Fake slint-lsp build
+              run: |
+                  mkdir -p target/debug
+                  echo 1 > target/debug/slint-lsp
+            - name: Run pnpm install
+              working-directory: editors/vscode
+              run: pnpm install --frozen-lockfile
+            - name: vscode prebuild
+              working-directory: editors/vscode
+              run: pnpm vscode:prepublish
+            - name: Build VS Code extension
+              working-directory: editors/vscode
+              run: pnpm local-package
+            - name: Typescript syntax check # has to run after the build as it depends on the wasm
+              working-directory: editors/vscode
+              run: pnpm type-check
+            - name: Check tmGrammar
+              working-directory: editors/vscode
+              run: pnpm test_grammar
+
+    # test to compile the mcu backend for no_std targets (ARM and ESP32)
+    mcu:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples_mcu == 'true' || needs.files-changed.outputs.api_rs == 'true' }}
+        env:
+            SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
+            RUSTFLAGS: --cfg slint_int_coord -D warnings
+            CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: thumbv6m-none-eabi,thumbv7em-none-eabihf,thumbv8m.main-none-eabihf
+            - uses: esp-rs/xtensa-toolchain@v1.7
+              if: ${{ needs.files-changed.outputs.examples_mcu == 'true' }}
+              with:
+                  buildtargets: esp32
+                  ldproxy: false
+            - name: Check pico-st7789
+              run: cargo check --target=thumbv6m-none-eabi --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --release
+            - name: Check mcu-embassy
+              run: cargo check --bin ui_mcu --target=thumbv8m.main-none-eabihf --no-default-features --features="mcu-embassy/mcu" --release
+              working-directory: examples/mcu-embassy
+            - name: Check all boards
+              if: ${{ needs.files-changed.outputs.examples_mcu == 'true' }}
+              run: |
+                  cargo check --target=thumbv8m.main-none-eabihf --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-st7789 --release
+                  cargo check --target=thumbv8m.main-none-eabihf --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-touch-lcd-2-8 --release
+                  cargo check --target=thumbv7em-none-eabihf --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/stm32h735g --release
+                  cargo check --target=thumbv8m.main-none-eabihf --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/stm32u5g9j-dk2 --release
+                  cargo +esp check --manifest-path demos/Cargo.toml -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box-3 --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml --release
+                  cargo +esp check --manifest-path demos/Cargo.toml -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-lcd-ev-board --config examples/mcu-board-support/esp32_s3_lcd_ev_board/cargo-config.toml --release
+                  cargo +esp check --manifest-path demos/Cargo.toml -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esope-sld-c-w-s3 --config examples/mcu-board-support/esope_sld_c_w_s3/cargo-config.toml --release
+                  cargo +esp check --manifest-path demos/Cargo.toml -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/waveshare-esp32-s3-touch-amoled-1-8 --config examples/mcu-board-support/waveshare_esp32_s3_touch_amoled_1_8/cargo-config.toml --release
+                  cargo +esp check --manifest-path demos/Cargo.toml -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/m5stack-cores3 --config examples/mcu-board-support/m5stack_cores3/cargo-config.toml --release
+
+    ffi_32bit_build:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' }}
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: armv7-unknown-linux-gnueabihf
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cross
+            - name: Check
+              run: cross check --target=armv7-unknown-linux-gnueabihf -p slint-cpp --no-default-features --features=testing,interpreter,std
+
+    docs:
+        needs: files-changed
+        if: ${{ !inputs.full && needs.files-changed.outputs.docs_build == 'true' }}
+        uses: ./.github/workflows/build_docs.yaml
+        secrets:
+          READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+        with:
+          release: false
+          app-id: ${{ vars.READ_WRITE_APP_ID }}
+
+    slintpad:
+        needs: files-changed
+        if: ${{ !inputs.full && needs.files-changed.outputs.slintpad == 'true' }}
+        uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
+
+    wasm_demo:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.api_rs == 'true' }}
+        uses: ./.github/workflows/wasm_demos.yaml
+        with:
+          build_artifacts: false
+
+    tree-sitter:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.tree_sitter == 'true' }}
+        uses: ./.github/workflows/tree_sitter.yaml
+        with:
+            latest: false
+            tag: "v0.26.9"
+
+    # Test that the formater don't introduce slint compilation error
+    fmt_test:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.slintpad == 'true' }}
+        env:
+            SLINT_NO_QT: 1
+            RUSTFLAGS: -D warnings
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+            - name: run the formatter
+              run: |
+                  cargo run -p slint-lsp --no-default-features -- format -i tests/cases/**/*.slint
+                  cargo run -p slint-lsp --no-default-features -- format -i examples/**/*.slint
+            - name: Show the diff
+              run: git diff
+            - name: Run the intepreter test to make sure that the test are passing after format
+              run: cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter
+            - name: "Commit changes"
+              run: |
+                  git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+                  git config --global user.name "${GITHUB_ACTOR}"
+                  git commit -a -m "Run slint-lsp format"
+            - name: Do another pass to check that it is idempotent
+              run: |
+                  cargo run -p slint-lsp --no-default-features -- format -i tests/cases/**/*.slint
+                  cargo run -p slint-lsp --no-default-features -- format -i examples/**/*.slint
+                  git diff --exit-code
+
+    esp-idf-matrix:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true' }}
+        runs-on: ubuntu-latest
+        outputs:
+          matrix: ${{ steps.set.outputs.matrix }}
+        steps:
+          - id: set
+            run: |
+              # v5.2 always runs; v5.5 only in full mode
+              entries='[{"esp-idf-version":"release-v5.2","idf-extra-args":""}]'
+              if [ "${{ inputs.full }}" = "true" ]; then
+                entries='[{"esp-idf-version":"release-v5.2","idf-extra-args":""},{"esp-idf-version":"release-v5.5","idf-extra-args":"-D SLINT_ESP_LOCAL_EXAMPLE=OFF"}]'
+              fi
+              echo "matrix={\"include\":$entries}" >> "$GITHUB_OUTPUT"
+
+    esp-idf:
+        needs: esp-idf-matrix
+        strategy:
+          matrix: ${{ fromJSON(needs.esp-idf-matrix.outputs.matrix) }}
+        runs-on: ubuntu-22.04
+        container: espressif/idf:${{ matrix.esp-idf-version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        steps:
+            - name: Fix up pydantic regression (https://github.com/espressif/idf-component-manager/issues/97#issuecomment-3380777944)
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  cd $IDF_PYTHON_ENV_PATH
+                  bin/pip install pydantic==2.11.10
+            - uses: actions/checkout@v7
+            - run: apt-get update && apt-get install -y libfontconfig1-dev
+            - uses: dtolnay/rust-toolchain@stable
+            - uses: esp-rs/xtensa-toolchain@v1.7
+              with:
+                  default: true
+                  buildtargets: esp32
+                  ldproxy: false
+            - uses: Swatinem/rust-cache@v2
+            - name: Build and Test Printer demo
+              shell: bash
+              working-directory: demos/printerdemo_mcu/esp-idf
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py ${{ matrix.idf-extra-args }} build
+            - name: Build and Test Carousel example s3 box
+              if: ${{ inputs.full }}
+              shell: bash
+              working-directory: examples/carousel/esp-idf/s3-box
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
+            - name: Build Home Automation demo (ESP32-P4)
+              # The demo requires ESP-IDF >= 5.4, so skip the v5.2 matrix entry
+              if: ${{ inputs.full && matrix.esp-idf-version != 'release-v5.2' }}
+              shell: bash
+              working-directory: demos/home-automation/esp-idf
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py build
+
+    android:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_rs == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.android_backend == 'true' }}
+        runs-on: ubuntu-latest
+        env:
+            RUSTFLAGS: -D warnings
+            # cargo-apk does not honor the repository's relative `build.target-dir`
+            # (.cargo/config.toml), so point it at an absolute path that matches
+            # where cargo actually writes the artifacts.
+            CARGO_TARGET_DIR: ${{ github.workspace }}/target
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - name: Install Android API level 30
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+            - name: Cache cargo-apk
+              id: cargo-apk-cache
+              uses: actions/cache@v6
+              with:
+                  path: ~/.cargo/bin/cargo-apk
+                  key: cargo-apk-cache
+            # Only build cargo-apk if not cached
+            - uses: dtolnay/rust-toolchain@stable
+              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+            - name: Install cargo-apk
+              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+              run: cargo install cargo-apk
+
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-linux-android
+
+            - name: Build todo demo
+              run: cargo apk build --manifest-path examples/Cargo.toml -p todo --target aarch64-linux-android --lib
+
+            - name: Build energy-monitor example
+              run: cargo apk build --manifest-path demos/Cargo.toml -p energy-monitor --target aarch64-linux-android --lib
+
+            - name: Build printerdemo example
+              run: cargo apk build --manifest-path demos/Cargo.toml -p printerdemo --target aarch64-linux-android --lib
+
+            - name: Build usecases demo
+              run: cargo apk build --manifest-path demos/Cargo.toml -p usecases --target aarch64-linux-android --lib
+
+            - name: Build slint-viewer for Android
+              run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --features remote
+
+    android_cpp:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.android_backend == 'true' }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-linux-android
+            - uses: actions/setup-java@v5
+              with:
+                  distribution: temurin
+                  java-version: '17'
+            - uses: gradle/actions/setup-gradle@v6
+            - name: Build usecases demo APK (Gradle end-to-end)
+              working-directory: demos/usecases/cpp/android
+              env:
+                  ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_LATEST_HOME }}
+              run: gradle assembleDebug
+
+    test-figma-inspector:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.figma_inspector == 'true' }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
+              with:
+                node-version: 24
+                package-manager-cache: false
+              id: node-install
+            - uses: pnpm/action-setup@v6.0.9
+              with:
+                version: 10.29.3
+            - name: Run pnpm install
+              working-directory: tools/figma-inspector
+              run: pnpm install --frozen-lockfile
+            - name: Run build
+              working-directory: tools/figma-inspector
+              run: pnpm build
+            - name: Run tests
+              working-directory: tools/figma-inspector
+              run: pnpm test
+            - name: Type Check
+              working-directory: tools/figma-inspector
+              run: pnpm type-check
+            - name: Build zip
+              working-directory: tools/figma-inspector
+              run: pnpm zip
+            - name: Archive zip
+              uses: actions/upload-artifact@v7
+              with:
+                  name: figma-plugin
+                  path: tools/figma-inspector/zip
+
+    material-components:
+      needs: files-changed
+      if: ${{ needs.files-changed.outputs.material_components == 'true' }}
+      permissions:
+        contents: read
+        deployments: write
+      uses: ./.github/workflows/material.yaml
+      secrets:
+        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+        CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
+        ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+
+    servo_example:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.servo_example == 'true' }}
+        uses: ./.github/workflows/servo_example.yaml
+
+    bevy_examples:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.bevy_examples == 'true' }}
+        uses: ./.github/workflows/bevy_examples.yaml
+        with:
+            # In full mode, run cargo update to test upstream dependency stability,
+            # but don't save the cache (would trash it for the next PR run).
+            update: ${{ inputs.full == true }}
+            save_if: ${{ inputs.full != true }}
+
+    slint_sc:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.slint_sc == 'true' }}
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  components: llvm-tools-preview
+            - name: Install cargo-llvm-cov
+              uses: taiki-e/install-action@cargo-llvm-cov
+            - name: Test compiler with slint-sc feature
+              run: cargo llvm-cov --no-report -p i-slint-compiler --features slint-sc --no-default-features
+            - name: Test slint-compiler binary with slint-sc feature
+              run: cargo llvm-cov --no-report -p slint-compiler --features slint-sc --no-default-features
+            - name: Test slint-sc runtime and driver
+              run: cargo llvm-cov --no-report -p slint-sc
+            - name: Generate coverage report
+              run: |
+                  cargo llvm-cov report --html --output-dir coverage
+                  cargo llvm-cov report --lcov --output-path coverage/lcov.info
+            - name: Upload coverage report
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-sc-coverage
+                  path: coverage
+
+    clippy:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.rust_files == 'true' }}
+        env:
+            RUSTFLAGS: -D warnings
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - name: Install ffmpeg and alsa (Linux)
+              run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
+            - name: Install gstreamer and libunwind (Linux)
+              run: sudo apt-get install libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+            - uses: ./.github/actions/setup-rust
+            - name: Run Clippy
+              run: ./scripts/run_clippy.sh
+
+    # === Extended tests (only in full CI mode) ===
+
+    full_build_and_test:
+        if: ${{ inputs.full }}
+        strategy:
+            matrix:
+                include:
+                    - os: ubuntu-22.04
+                      name: "Ubuntu 22.04 1.92 (cargo update)"
+                      rust_version: "1.92"
+                      extra_args: "--exclude plotter"
+                    - os: windows-2022
+                      name: "Windows 2022 nightly (cargo update)"
+                      rust_version: "nightly"
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                    - os: macos-14
+                      name: "MacOS 14 nightly (cargo update)"
+                      rust_version: "nightly"
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude plotter"
+        uses: ./.github/workflows/build_and_test_reusable.yaml
+        with:
+            os: ${{ matrix.os }}
+            name: ${{ matrix.name }}
+            rust_version: ${{ matrix.rust_version }}
+            extra_args: ${{ matrix.extra_args }}
+            update: true
+            save_if: false
+
+    # Cross-compiled build for 32-bit Windows, to catch Win32-specific compilation errors,
+    # e.g. packed struct alignment. Build only, no tests, default features only,
+    # and skia excluded:
+    # rust-skia has no prebuilt binaries for i686-pc-windows-msvc.
+    win32_build:
+        if: ${{ inputs.full }}
+        runs-on: ubuntu-24.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: i686-pc-windows-msvc
+                  key: x-win32
+            # The runner image ships versioned LLVM binaries, but cc-rs invokes the unversioned
+            # llvm-lib when archiving C code (e.g. for the ring crate); the llvm meta package
+            # provides the unversioned tool names. nasm assembles aws-lc-sys' x86 assembly
+            # (pulled in via rustls/aws-lc-rs, e.g. by the servo example and live-preview).
+            - name: Install LLVM tools and nasm
+              run: sudo apt-get update && sudo apt-get install -y llvm nasm
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cargo-xwin
+            # The splat cache is keyed by the architectures it was created for (DONE marker), so
+            # keep the cache key specific to x86 to avoid reusing a cache without the x86 libraries.
+            - name: Cache xwin Windows SDK
+              uses: actions/cache@v6
+              with:
+                  path: ~/.cache/cargo-xwin
+                  key: cargo-xwin-sdk-x86
+            - name: Build (i686-pc-windows-msvc)
+              env:
+                  # cargo-xwin defaults to splatting only x86_64 and aarch64 CRT/SDK libraries;
+                  # request the 32-bit ones instead.
+                  XWIN_ARCH: x86
+                  # aws-lc-sys' x86 C sources guard against assembly without SSE2 and only key
+                  # off __SSE2__, which clang-cl's /arch:SSE2 does not define. Enable SSE2 (the
+                  # baseline for 32-bit Windows anyway) via -msse2; cargo-xwin appends $CFLAGS to
+                  # the target's CFLAGS, so this augments rather than replaces its include flags.
+                  CFLAGS: -msse2
+                  CXXFLAGS: -msse2
+              run: cargo xwin build --target i686-pc-windows-msvc --locked --workspace --exclude doctests --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude ffmpeg --exclude gstreamer-player --exclude material-gallery --exclude test-driver-screenshots --exclude slint-doc-generator --exclude i-slint-renderer-skia
+
+    qa-tree-sitter-latest:
+        if: ${{ inputs.full }}
+        uses: ./.github/workflows/tree_sitter.yaml
+        with:
+          latest: true
+
+    qa-yocto-build:
+        if: ${{ inputs.full }}
+        strategy:
+            matrix:
+                include:
+                    - sdk_url: https://nextcloud.slint.dev/s/DRCzxmr8nRrnkcT/download/poky-glibc-x86_64-core-image-weston-sdk-cortexa57-qemuarm64-toolchain-6.0.1.sh
+                      env_setup: environment-setup-cortexa57-poky-linux
+                      target: aarch64-unknown-linux-gnu
+                    - sdk_url: https://nextcloud.slint.dev/s/SN5REo4B8zyYYoL/download/poky-glibc-x86_64-core-image-weston-sdk-cortexa15t2hf-neon-qemuarm-toolchain-6.0.1.sh
+                      env_setup: environment-setup-cortexa15t2hf-neon-poky-linux-gnueabi
+                      target: armv7-unknown-linux-gnueabihf
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - name: Downgrade cc and ring crate to work around https://github.com/slint-ui/slint/issues/6875
+              run: |
+                  cargo update -p ring --precise 0.17.9
+            - name: Fetch Yocto SDK
+              run: |
+                  # Fetch pre-built SDK built via populate_sdk for core-image-weston with setup from https://github.com/slint-ui/meta-slint/blob/main/.github/workflows/ci.yml
+                  wget -O sdk.sh ${{ matrix.sdk_url }}
+                  chmod +x sdk.sh
+                  ./sdk.sh -d ${{ runner.workspace }}/yocto-sdk -y
+                  rm -f sdk.sh
+            - name: Install Rust
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: stable
+                  target: ${{ matrix.target }}
+            - name: Install a libclang new enough for bindgen
+              # The runner's system libclang (15) cannot parse the SDK's GCC 15.2
+              # libstdc++ headers (<format>, <ranges>) that skia-bindings' bindgen
+              # pulls in, so install a newer libclang from apt.llvm.org. The SDK
+              # itself ships clang-22 but no libclang.so, so it can't be reused here.
+              run: |
+                  wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+                  chmod +x /tmp/llvm.sh
+                  sudo /tmp/llvm.sh 20
+                  sudo apt-get install --assume-yes libclang-20-dev
+                  rm -f /tmp/llvm.sh
+            - name: C++ Build
+              run: |
+                  . ${{ runner.workspace }}/yocto-sdk/${{ matrix.env_setup }}
+                  # Only needed for 32-bit arm builds where soft-fp/hard-fp affects header file lookup, hence the need to drag in these flags. See also commit
+                  # f5c3908b7ec5131b7b19ff642b5975660c7484f8
+                  export BINDGEN_EXTRA_CLANG_ARGS=$OECORE_TUNE_CCARGS
+                  # bindgen must parse the SDK's GCC 15.2 libstdc++ headers, which the
+                  # runner's system libclang is too old for; use the one installed above.
+                  export LIBCLANG_PATH=/usr/lib/llvm-20/lib
+                  mkdir ${{ runner.workspace }}/cppbuild
+                  cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON -DSLINT_FEATURE_INTERPRETER=ON
+                  cmake --build ${{ runner.workspace }}/cppbuild
+
+    mcu_zephyr:
+        if: ${{ inputs.full }}
+        strategy:
+            matrix:
+                include:
+                    - board: native_sim/native/64
+                      toolchain: nightly
+                      target: x86_64-unknown-linux-gnu
+                      extra-cmake-args: ''
+                    - board: mimxrt1170_evk@B/mimxrt1176/cm7
+                      toolchain: stable
+                      target: thumbv7em-none-eabihf
+                      extra-cmake-args: -DSHIELD=rk055hdmipi4ma0
+            fail-fast: false
+        runs-on: ubuntu-24.04
+        steps:
+          - uses: actions/checkout@v7
+            with:
+                path: slint
+          - name: Install linux dependencies, including Zephyr dependencies
+            uses: ./slint/.github/actions/install-linux-dependencies
+            with:
+                extra-packages: |
+                    git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget python3-dev python3-pip python3-setuptools python3-tk python3-wheel xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
+          - uses: ./slint/.github/actions/setup-rust
+            with:
+                toolchain: ${{matrix.toolchain}}
+                components: rust-src
+                target: ${{matrix.target}}
+          - name: Setup Zephyr project
+            uses: zephyrproject-rtos/action-zephyr-setup@v1.0.14
+            with:
+                app-path: slint
+                manifest-file-name: demos/zephyr-common/west.yaml
+                sdk-version: 1.0.1
+          - name: Export the Zephyr CMake package
+            run: west zephyr-export
+          - name: Build for ${{matrix.board}}
+            run: |
+                west build -b ${{matrix.board}} -p always slint/demos/printerdemo/zephyr -- -DCMAKE_BUILD_TYPE=Release ${{matrix.extra-cmake-args}}
+
+    uefi-demo:
+        if: ${{ inputs.full }}
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: stable
+                  target: x86_64-unknown-uefi
+            - name: Check
+              run: cargo check --target=x86_64-unknown-uefi --manifest-path examples/uefi-demo/Cargo.toml
+
+    ios:
+        if: ${{ inputs.full }}
+        strategy:
+            matrix:
+              project:
+                - demos/home-automation/rust
+                - demos/energy-monitor
+                - tools/viewer
+              include:
+                - project: demos/home-automation/rust
+                  scheme: "Home Automation"
+                  bundle_id: dev.slint.demos.HomeAutomation
+                  device: iPad Pro 13-inch (M5)
+                - project: demos/energy-monitor
+                  scheme: "Energy Monitor"
+                  bundle_id: dev.slint.demos.EnergyMonitor
+                  device: iPhone 17
+                - project: tools/viewer
+                  scheme: "slint-viewer"
+                  bundle_id: dev.slint.slint-viewer
+                  device: iPhone 17
+        runs-on: macos-26
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-apple-ios-sim
+            - run: brew install xcodegen librsvg
+            - run: xcodegen -s ios-project.yml
+              working-directory: ${{ matrix.project }}
+            - name: "Find Simulator UDID from iOS 26.4 runtime"
+              run: |
+                echo "=== Finding device from iOS 26.4 runtime (default Xcode) ==="
+                DEVICE_LINE=$(xcrun simctl list devices available | grep -A 50 "iOS 26.4" | grep "${{ matrix.device }}" | head -n 1)
+
+                if [ -z "$DEVICE_LINE" ]; then
+                  echo "ERROR: Could not find ${{ matrix.device }} in iOS 26.4 runtime"
+                  echo "Available iOS 26.4 devices:"
+                  xcrun simctl list devices available | grep -A 30 "iOS 26.4"
+                  exit 1
+                fi
+
+                DEVICE_UDID=$(echo "$DEVICE_LINE" | sed -n 's/.*(\([A-F0-9-]\{36\}\)).*/\1/p')
+
+                if [ -z "$DEVICE_UDID" ]; then
+                  echo "ERROR: Could not extract UDID from line: $DEVICE_LINE"
+                  exit 1
+                fi
+
+                echo "Device: ${{ matrix.device }}"
+                echo "UDID: $DEVICE_UDID"
+                echo "SIMULATOR_UDID=$DEVICE_UDID" >> $GITHUB_ENV
+            - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination "platform=iOS Simulator,id=${{ env.SIMULATOR_UDID }}" build
+              working-directory: ${{ matrix.project }}
+# This isn't working reliably. Sometimes the simulator doesn't boot, somethings launching fails, and sometimes screenshotting fails.
+#            - name: "Boot Simulator"
+#              timeout-minutes: 5
+#              run: |
+#                echo "=== Booting simulator by UDID ==="
+#                echo "Device: ${{ matrix.device }}"
+#                echo "UDID: ${{ env.SIMULATOR_UDID }}"
+#                echo "Start time: $(date '+%Y-%m-%d %H:%M:%S')"
+#
+#                set -x  # Enable command echoing
+#                xcrun simctl boot "${{ env.SIMULATOR_UDID }}"
+#                BOOT_RESULT=$?
+#                set +x  # Disable command echoing
+#
+#                echo "Boot command completed with exit code: $BOOT_RESULT"
+#                echo ""
+#
+#                echo "=== Simulator state after boot command ==="
+#                SIMULATOR_STATUS=$(xcrun simctl list devices | grep "${{ env.SIMULATOR_UDID }}")
+#                echo "$SIMULATOR_STATUS"
+#
+#                if echo "$SIMULATOR_STATUS" | grep -q "(Booted)"; then
+#                  echo "Simulator is booted successfully at: $(date '+%Y-%m-%d %H:%M:%S')"
+#                else
+#                  echo "ERROR: Simulator failed to boot properly"
+#                  echo "Current status: $SIMULATOR_STATUS"
+#                  exit 1
+#                fi
+#            - name: "Install"
+#              run: |
+#                APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "${{ matrix.scheme }}.app" | head -n 1)
+#                echo "Found app bundle at $APP_PATH"
+#                xcrun simctl install booted "$APP_PATH"
+#                echo "Verifying installation..."
+#                xcrun simctl listapps booted | grep -q "${{ matrix.bundle_id }}" && echo "App installed successfully" || echo "WARNING: App may not be installed"
+#            - name: "Launch"
+#              timeout-minutes: 5
+#              run: |
+#                echo "Attempting to launch ${{ matrix.bundle_id }}..."
+#                # Retry loop to wait for FrontBoard to register the app
+#                MAX_ATTEMPTS=10
+#                ATTEMPT=1
+#                while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+#                  echo "Launch attempt $ATTEMPT of $MAX_ATTEMPTS..."
+#                  if xcrun simctl launch booted "${{ matrix.bundle_id }}" 2>&1 | tee launch_output.txt; then
+#                    echo "App launched successfully on attempt $ATTEMPT"
+#                    sleep 5
+#                    exit 0
+#                  fi
+#
+#                  if grep -q "unknown to FrontBoard" launch_output.txt; then
+#                    echo "FrontBoard hasn't registered app yet, waiting 2 seconds..."
+#                    sleep 2
+#                    ATTEMPT=$((ATTEMPT + 1))
+#                  else
+#                    echo "Launch failed with a different error:"
+#                    cat launch_output.txt
+#                    echo "Checking simulator logs..."
+#                    xcrun simctl spawn booted log show --last 30s --predicate 'processImagePath contains "${{ matrix.scheme }}"' || true
+#                    exit 1
+#                  fi
+#                done
+#
+#                echo "Failed to launch after $MAX_ATTEMPTS attempts"
+#                exit 1
+#            - name: "Screenshot"
+#              run: xcrun simctl io booted screenshot "${{ matrix.scheme }}.png"
+#            - name: Upload Screenshot Artifact
+#              uses: actions/upload-artifact@v7
+#              with:
+#                name: ${{matrix.scheme}}-screenshot
+#                path: ${{ matrix.scheme }}.png
+#            - name: "Cleanup - Shutdown Simulator"
+#              if: always()
+#              run: |
+#                echo "Shutting down simulator to avoid orphan processes..."
+#                xcrun simctl shutdown "${{ env.SIMULATOR_UDID }}" || echo "Simulator already shutdown"
+
+    android_wgpu:
+        if: ${{ inputs.full }}
+        runs-on: ubuntu-latest
+        env:
+            # cargo-apk does not honor the repository's relative `build.target-dir`.
+            CARGO_TARGET_DIR: ${{ github.workspace }}/target
+        steps:
+            - uses: actions/checkout@v7
+            - name: Install Android API level 30
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+            - uses: dtolnay/rust-toolchain@stable
+            - name: Install cargo-apk
+              run: cargo install cargo-apk
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-linux-android
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/install-skia-dependencies
+            - name: Build wgpu_texture demo
+              run: cargo apk build --manifest-path examples/Cargo.toml -p wgpu_texture --target aarch64-linux-android --lib
+
+    miri:
+        if: ${{ inputs.full }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - name: Install system dependencies
+              run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: nightly
+                  key: miri
+                  components: miri
+            - name: Run Miri
+              run: cargo miri test -p vtable -p const-field-offset -p i-slint-common
+            - name: Run Miri on i-slint-core
+              env:
+                  MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-tree-borrows -Zmiri-symbolic-alignment-check
+              run: cargo miri test -p i-slint-core --lib --features ffi,rtti

@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    height: 100px;
+    width: 100px;
+    out property <int> clicked;
+    GridLayout {
+        Row {
+            popup2 := PopupWindow {
+                Rectangle {
+                    background: yellow;
+                    TouchArea {
+                        clicked => { root.clicked += 1; }
+                    }
+                }
+
+                // that's 20px relative to the Row which will be a 0x0 Empty centered in the window
+                x: 20px;
+                y: 20px;
+                height: 50px;
+                width: 50px;
+            }
+
+            ta := TouchArea {
+                clicked => {
+                    popup2.show();
+                }
+            }
+        }
+     }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 90., 90.);
+assert_eq(instance.get_clicked(), 0);
+slint_testing::send_mouse_click(&instance, 90., 90.);
+assert_eq(instance.get_clicked(), 1);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 90., 90.);
+assert_eq!(instance.get_clicked(), 0);
+slint_testing::send_mouse_click(&instance, 90., 90.);
+assert_eq!(instance.get_clicked(), 1);
+```
+
+```js
+var instance = new slint.TestCase();
+slintlib.private_api.send_mouse_click(instance, 90., 90.);
+assert.equal(instance.clicked, 0);
+slintlib.private_api.send_mouse_click(instance, 90., 90.);
+assert.equal(instance.clicked, 1);
+```
+
+*/

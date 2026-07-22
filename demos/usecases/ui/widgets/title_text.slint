@@ -1,0 +1,11 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Palette } from "std-widgets.slint";
+import { CosmicFontSettings } from "styling.slint";
+
+export component TitleText inherits Text {
+    color: Palette.foreground;
+    font-size: CosmicFontSettings.title-2.font-size;
+    font-weight: CosmicFontSettings.title-2.font-weight;
+}

@@ -1,0 +1,24 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A user component whose `preferred-height` reads `self.width` creates
+// a cross-axis cycle when placed in a row FlexboxLayout: the parent's
+// solve reads the cell's preferred-height (via native ImplicitLayoutInfo),
+// which reads `self.width`, which is set by the parent's layout-cache.
+// No `layoutinfo-v-with-constraint` is synthesized (Inner isn't a layout
+// and has no h-for-w descendant), so the runtime would otherwise panic
+// with "Recursion detected". This case must be reported by binding-analysis.
+
+component Inner {
+    preferred-height: self.width;
+//                    >         <error{The binding for the property 'preferred-height' is part of a binding loop (preferred-height -> layout-cache -> width -> preferred-height)}
+    Rectangle {}
+}
+
+export component Demo inherits Window {
+    FlexboxLayout {
+//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (preferred-height -> layout-cache -> width -> preferred-height)}
+//  >            <^error{The binding for the property 'width' is part of a binding loop (preferred-height -> layout-cache -> width -> preferred-height)}
+        Inner {}
+    }
+}

@@ -1,0 +1,156 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"POT-Creation-Date: 2025-03-14 11:00+0000\n"
+"PO-Revision-Date: 2025-03-14 12:01+0100\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 3.5\n"
+
+#: ui/views/dashboard_view.slint:11
+msgctxt "WeatherViewAdapter"
+msgid "May 6th 2023"
+msgstr "6. Mai 2023"
+
+#: ui/views/dashboard_view.slint:12
+msgctxt "WeatherViewAdapter"
+msgid "Very cloudy"
+msgstr "Sehr bewölkt"
+
+#: ui/views/dashboard_view.slint:15
+msgctxt "WeatherViewAdapter"
+msgid "Thu"
+msgstr "Do"
+
+#: ui/views/dashboard_view.slint:24
+msgctxt "WeatherViewAdapter"
+msgid "Fri"
+msgstr "Fr"
+
+#: ui/views/dashboard_view.slint:33
+msgctxt "WeatherViewAdapter"
+msgid "Sat"
+msgstr "Sa"
+
+#: ui/views/dashboard_view.slint:45
+msgctxt "UsageViewAdapter"
+msgid "Usage"
+msgstr "Nutzung"
+
+#: ui/views/dashboard_view.slint:49
+msgctxt "UsageViewAdapter"
+msgid "Daily"
+msgstr "Täglich"
+
+#: ui/views/dashboard_view.slint:50 ui/views/dashboard_view.slint:55
+msgctxt "UsageViewAdapter"
+msgid "kWh"
+msgstr "kWh"
+
+#: ui/views/dashboard_view.slint:54
+msgctxt "UsageViewAdapter"
+msgid "Weekly"
+msgstr "Wöchentlich"
+
+#: ui/views/dashboard_view.slint:95
+msgctxt "DashboardView"
+msgid "Dashboard"
+msgstr "Übersicht"
+
+#: ui/views/dashboard_view.slint:99
+msgctxt "DashboardView"
+msgid "Weather"
+msgstr "Wetter"
+
+#: ui/views/dashboard_view.slint:120
+msgctxt "DashboardView"
+msgid "Usage"
+msgstr "Nutzung"
+
+#: ui/views/header_view.slint:27 ui/views/header_view.slint:28
+msgctxt "HeaderView"
+msgid "English"
+msgstr "Englisch"
+
+#: ui/views/header_view.slint:27
+msgctxt "HeaderView"
+msgid "German"
+msgstr "Deutsch"
+
+#: ui/views/header_view.slint:32
+msgctxt "HeaderView"
+msgid "Dark Mode"
+msgstr "Dunkelmodus"
+
+#: ui/views/mail_view.slint:17
+msgctxt "MailSideBarViewAdapter"
+msgid "Inbox"
+msgstr "Eingang"
+
+#: ui/views/mail_view.slint:18
+msgctxt "MailSideBarViewAdapter"
+msgid "Drafts"
+msgstr "Entwürfe"
+
+#: ui/views/mail_view.slint:19
+msgctxt "MailSideBarViewAdapter"
+msgid "Sent"
+msgstr "Gesendet"
+
+#: ui/views/mail_view.slint:21
+msgctxt "MailSideBarViewAdapter"
+msgid "Junk"
+msgstr "Junk"
+
+#: ui/views/mail_view.slint:25
+msgctxt "MailSideBarViewAdapter"
+msgid "Trash"
+msgstr "Mülleimer"
+
+#: ui/views/mail_view.slint:26
+msgctxt "MailSideBarViewAdapter"
+msgid "Archive"
+msgstr "Archiv"
+
+#: ui/views/mail_view.slint:30
+msgctxt "MailSideBarViewAdapter"
+msgid "Social"
+msgstr "Soziales"
+
+#: ui/views/mail_view.slint:31
+msgctxt "MailSideBarViewAdapter"
+msgid "Updates"
+msgstr "Neuigkeiten"
+
+#: ui/views/mail_view.slint:32
+msgctxt "MailSideBarViewAdapter"
+msgid "Forums"
+msgstr "Foren"
+
+#: ui/views/mail_view.slint:316
+msgctxt "MailMessageView"
+msgid "Mute this thread"
+msgstr "Schalte diesen Thread stumm"
+
+#: ui/views/mail_view.slint:321
+msgctxt "MailMessageView"
+msgid "Send"
+msgstr "Senden"
+
+#: ui/views/main_view.slint:27
+msgctxt "MainView"
+msgid "Mail"
+msgstr "Post"
+
+#: ui/views/main_view.slint:37
+msgctxt "MainView"
+msgid "Dashboard"
+msgstr "Übersicht"

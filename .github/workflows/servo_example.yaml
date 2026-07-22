@@ -1,0 +1,65 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Servo example
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  matrix_build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    name: servo ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        # required for servo
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Install rust
+        uses: ./.github/actions/setup-rust
+      - name: Install dependencies
+        uses: ./.github/actions/install-linux-dependencies
+      - name: Install skia dependencies
+        uses: ./.github/actions/install-skia-dependencies
+      - name: Build
+        working-directory: examples/servo
+        run: cargo build --release
+
+  android_build:
+    name: servo android
+    runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: false
+      CARGO_PROFILE_DEV_DEBUG: 0
+      # cargo-apk does not honor the repository's relative `build.target-dir`
+      # (.cargo/config.toml), so point it at an absolute path that matches
+      # where cargo actually writes the artifacts.
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+    steps:
+      - uses: actions/checkout@v7
+        # required for servo
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Install rust
+        uses: ./.github/actions/setup-rust
+        with:
+          target: aarch64-linux-android
+      - name: Install dependencies
+        uses: ./.github/actions/install-linux-dependencies
+      - name: Install skia dependencies
+        uses: ./.github/actions/install-skia-dependencies
+        # required for android
+      - name: Install API level
+        run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+      - name: Install cargo-apk
+        run: cargo install cargo-apk
+      - name: Build
+        working-directory: examples/servo
+        run: |
+          export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-android30 --sysroot=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+          cargo apk build --target aarch64-linux-android --lib

@@ -1,0 +1,22 @@
+{
+    "compilerOptions": {
+        "resolveJsonModule": true,
+        "baseUrl": "./node_modules",
+        "composite": true,
+        "declaration": true,
+        "declarationMap": true,
+        "lib": ["es2021"],
+        "module": "esnext",
+        "moduleResolution": "node",
+        "outDir": "./dist",
+        "paths": {
+            "@lsp/*": ["../../lsp/pkg/*"],
+            "@interpreter/*": ["../../../api/wasm-interpreter/pkg/*"]
+        },
+        "rootDir": ".",
+        "skipLibCheck": true,
+        "strict": true,
+        "target": "es6",
+        "typeRoots": ["./node_modules/@types"]
+    }
+}

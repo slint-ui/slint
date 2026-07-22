@@ -1,0 +1,158 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Material - Build, test and publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_production:
+        type: boolean
+        description: "Deploy to material.slint.dev \n Only tick this box if you want to deploy the current state of the master branch to material.slint.dev."
+        default: false
+        required: false
+  workflow_call:
+
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: true
+      CLOUDFLARE_API_TOKEN_2:
+        required: true
+      CLOUDFLARE_ACCOUNT_ID:
+        required: true
+      CLOUDFLARE_ACCOUNT_ID_2:
+        required: true
+      ANDROID_KEYSTORE_PASSWORD:
+        required: true
+      ANDROID_KEYSTORE_BASE64:
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  MATERIAL_ZIP_VERSION: "1.0.1"
+
+jobs:
+  material_wasm_demo:
+      uses: ./.github/workflows/material_wasm_gallery.yaml
+  material_apk_demo:
+      if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+      uses: ./.github/workflows/material_gallery.yaml
+      secrets:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+  material_tests:
+      env:
+          CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+          CARGO_INCREMENTAL: false
+      runs-on: ubuntu-latest
+      defaults:
+        run:
+          working-directory: ui-libraries/material
+      steps:
+          - uses: actions/checkout@v7
+          - name: Install Linux dependencies
+            if: runner.os == 'Linux'
+            run: |
+              sudo apt-get update
+              sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig-dev
+            shell: bash
+          - name: Install Rust
+            uses: dtolnay/rust-toolchain@stable
+          - uses: Swatinem/rust-cache@v2
+            with:
+                key: tests
+          - name: Build & run tests
+            run: cargo test -p material-gallery
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [material_wasm_demo, material_apk_demo]
+    permissions:
+      contents: read
+      deployments: write
+    name: Deploy to Cloudflare Pages
+
+    defaults:
+      run:
+        working-directory: ui-libraries/material/docs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig-dev
+        shell: bash
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - uses: pnpm/action-setup@v6.0.9
+        with:
+          version: 10.29.3
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Take screenshots
+        # slint-doc-generator lives in the repository root workspace, not the
+        # material workspace, so point cargo at the root manifest.
+        run: cargo run --manifest-path ../../Cargo.toml -p slint-doc-generator -- screenshots -Lmaterial=$PWD/src/material.slint docs
+        working-directory: ui-libraries/material
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        env:
+          MATERIAL_DOCS_BASE_PATH: ${{ github.event_name == 'pull_request' && '/material/' || '' }}
+        run: pnpm build
+      - uses: actions/download-artifact@v8
+        with:
+          name: material_wasm_gallery
+          path: ui-libraries/material/docs/dist/wasm
+      - uses: actions/download-artifact@v8
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        with:
+          name: material_gallery
+          path: ui-libraries/material/docs/dist/apk
+      - name: Normalize APK names
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        working-directory: ui-libraries/material
+        run: |
+          if [ -f docs/dist/apk/material-gallery.apk ]; then mv docs/dist/apk/material-gallery.apk docs/dist/apk/slint_material.apk; fi
+          if [ -f docs/dist/apk/material-gallery.aab ]; then mv docs/dist/apk/material-gallery.aab docs/dist/apk/slint_material.aab; fi
+      - name: Zip material library
+        working-directory: ui-libraries/material
+        run: |
+            cp -a src material-${MATERIAL_ZIP_VERSION}
+            mkdir -p docs/dist/zip
+            curl -fsSL -o docs/dist/zip/material-1.0.zip https://releases.slint.dev/material-1.0/material-1.0.zip
+            zip -r docs/dist/zip/material-${MATERIAL_ZIP_VERSION}.zip material-${MATERIAL_ZIP_VERSION}
+            rm -rf material-${MATERIAL_ZIP_VERSION}
+      - name: Deploy to materialui (Pages)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_production == 'true'
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=materialui --branch=master
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          packageManager: pnpm
+          workingDirectory: ui-libraries/material/docs
+
+      - name: Deploy to material-staging (Workers production)
+        if: (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_production != 'true') && github.ref == 'refs/heads/master'
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
+          command: deploy
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          packageManager: pnpm
+          workingDirectory: ui-libraries/material/docs
+
+      - name: Upload preview artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: preview-material
+          path: ui-libraries/material/docs/dist/

@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget  } from "std-widgets.slint";
+export component Test1 inherits Rectangle {
+    TabWidget {
+        Rectangle {}
+//      >        <error{Rectangle is not allowed within TabWidget. Only Tab are valid children}
+        Tablet {}
+//      >     <error{Tablet is not allowed within TabWidget. Only Tab are valid children}
+        Tab {
+            Tab {}
+//          >  <error{Tab can only be within a TabWidget element}
+        }
+    }
+
+    Tab {}
+//  >  <error{Tab can only be within a TabWidget element}
+}

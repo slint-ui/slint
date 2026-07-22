@@ -1,0 +1,51 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that empty rows in GridLayout don't cause unbounded max-height
+export component TestCase inherits Rectangle {
+    width: 200phx;
+    height: 200phx;
+
+    GridLayout {
+        spacing: 10phx;
+        padding: 10phx;
+        rect1 := Rectangle {
+            background: red;
+            col: 1;
+            width: 50phx;
+            height: 50phx;
+        }
+
+        rect2 := Rectangle {
+            background: black;
+            row: 2;
+            col: 2;
+            width: 50phx;
+            height: 50phx;
+        }
+    }
+
+    // With row 1 empty, min/max-height should be: 2 rects (100px) + 2 spacings (20px) + 2 paddings (20px) = 140px
+    // Same for min/max-height (due to col 0 empty)
+    out property <bool> test: root.min-height == 140phx && root.max-height == 140phx && root.min-width == 140phx && root.max-width == 140phx;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+
+*/

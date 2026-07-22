@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for #9498: popup.show() in the enclosing component's init
+// used to panic with "Recursion detected".
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+    in-out property <int> click-count: 0;
+    out property <bool> test: true;
+    popup := PopupWindow {
+        x: 10px;
+        y: 10px;
+        width: 50px;
+        height: 50px;
+        Rectangle { background: red; }
+        TouchArea {
+            clicked => {
+                click-count += 1;
+            }
+        }
+    }
+    init => {
+        popup.show();
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+// Click inside the popup to verify it was shown from init.
+slint_testing::send_mouse_click(&instance, 35., 35.);
+assert_eq!(instance.get_click_count(), 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+slint_testing::send_mouse_click(&*handle, 35., 35.);
+assert(handle->get_click_count() == 1);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+slintlib.private_api.send_mouse_click(instance, 35., 35.);
+assert.equal(instance.click_count, 1);
+```
+*/

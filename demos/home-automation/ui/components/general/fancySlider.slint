@@ -1,0 +1,113 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Palette } from "../../common.slint";
+import { AppState } from "../../appState.slint";
+
+export component FancySlider inherits Rectangle {
+    in-out property <float> value: 0.0;
+    in property <float> minValue: 0;
+    in property <float> maxValue: 1;
+    in property <image> icon;
+    out property <bool> active;
+    in property <color> colorize-icon: Palette.slider-background;
+    in-out property <duration> anim-duration: 300ms;
+    in-out property <bool> first-touch: false;
+    in-out property <length> initial-position;
+    in-out property <float> initial-value;
+    in-out property <float> previous-value;
+    in-out property <float> change-value;
+
+    callback toggle();
+
+    toggle => {
+        if value > 0.05 {
+            previous-value = value;
+            anim-duration = 50ms;
+            animated-value = 0;
+        } else {
+            anim-duration = 300ms;
+            // previous value is less than 10% between min and max
+            if previous-value < 0.1 {
+                animated-value = 1;
+            } else {
+                animated-value = previous-value;
+            }
+        }
+    }
+
+    in-out property <float> animated-value: value;
+    animate animated-value {
+        duration: anim-duration;
+        easing: ease-in-out-sine;
+    }
+    changed animated-value => {
+        value = animated-value;
+    }
+
+    height: 15px;
+    border-radius: self.height / 2;
+
+    TouchArea {
+        width: 100%;
+        height: 300%;
+        y: parent.height / 2 - self.height / 2;
+
+        clicked => {
+            if self.mouse-x == initial-position {
+                anim-duration = 300ms;
+                animated-value = (self.mouse-x / self.width) * (maxValue - minValue) + minValue;
+            }
+        }
+        moved => {
+            if !first-touch {
+                first-touch = true;
+                initial-position = self.mouse-x;
+                initial-value = (self.mouse-x / self.width) * (maxValue - minValue) + minValue;
+                previous-value = value;
+                anim-duration = 0ms;
+            } else {
+                change-value = ((self.mouse-x / self.width) * (maxValue - minValue) + minValue) - initial-value;
+                value = Math.clamp(previous-value + change-value, minValue, maxValue);
+                animated-value = value;
+            }
+        }
+
+        changed pressed => {
+            if !self.pressed {
+                first-touch = false;
+            }
+        }
+    }
+
+    Rectangle {
+        clip: true;
+        border-radius: root.border-radius;
+        background: Palette.slider-background;
+        border-color: Palette.lamp-foreground;
+        Rectangle {
+            x: 0;
+            background: Palette.slider-foreground;
+            opacity: 0.2 + 0.2 * (self.width / parent.width);
+            width: parent.width * (value - minValue) / (maxValue - minValue);
+            height: 100%;
+            border-radius: !AppState.graphics-accelerator-available ? self.width / 2 : 0px;
+        }
+
+        VerticalLayout {
+            alignment: center;
+            x: - parent.width / 2 + 10px;
+            Image {
+                colorize: root.colorize-icon;
+                height: 60%;
+                source: root.icon;
+            }
+        }
+    }
+
+    Rectangle {
+        border-radius: root.border-radius;
+        border-width: 1px;
+        border-color:  @linear-gradient(180deg, white.transparentize(20%) 0%, white.transparentize(85%) 50%, #ffffff.transparentize(92%) 100%);
+        background: @linear-gradient(180deg, white.transparentize(100%) 0%, white.transparentize(100%) 60%, #ffffff.transparentize(50%) 100%);
+    }
+}

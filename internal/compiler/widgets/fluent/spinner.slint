@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { FluentPalette } from "styling.slint";
+import { SpinnerBase } from "../common/spinner-base.slint";
+
+export component Spinner {
+    in property <float> progress <=> base.progress;
+    in property <bool> indeterminate <=> base.indeterminate;
+
+    min-width: 30px;
+    min-height: 30px;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    accessible-role: progress-indicator;
+    accessible-value: !root.indeterminate ? root.progress : "";
+    accessible-value-minimum: 0.0;
+    accessible-value-maximum: 1.0;
+
+    base := SpinnerBase {
+        width: 100%;
+        height: 100%;
+        stroke-width: 3px;
+        stroke: FluentPalette.accent-background;
+    }
+}

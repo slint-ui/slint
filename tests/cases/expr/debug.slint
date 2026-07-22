@@ -1,0 +1,100 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview: no anonymous-struct (tuple) conversion
+//ignore: cpp-live-preview
+
+enum MyEnum { alpha, beta, gamma }
+
+struct MyStruct {
+    name: string,
+    value: int,
+    flag: bool,
+}
+
+struct Inner {
+    x: int,
+    y: int,
+    dir: MyEnum,
+    pos: {px: float, py: float},
+}
+
+struct Nested {
+    label: string,
+    inner: Inner,
+    active: bool,
+}
+
+export component TestCase inherits Window {
+    width: 500px;
+
+    in property <string> text: "hello";
+    in property <int> number: 42;
+    in property <float> pi: 3.14;
+    in property <bool> flag: true;
+    in property <MyEnum> my-enum: MyEnum.beta;
+    in property <MyStruct> my-struct: { name: "test", value: 7, flag: true };
+    in property <length> len: 10px;
+    in property <duration> dur: 500ms;
+    in property <angle> ang: 90deg;
+    in property <Nested> nested: { label: "outer", inner: { x: 1, y: 2, dir: MyEnum.gamma, pos: { px: 3.5, py: 4.5 } }, active: true };
+    in property <{a: int, b: string}> anon: { a: 99, b: "anon" };
+
+    im := Image {x:0;y:0;}
+
+    pure public function do-debug() {
+        debug();
+        debug("a string");
+        debug(number);
+        debug(pi);
+        debug(flag);
+        debug(my-enum);
+        debug(my-struct);
+        debug(len);
+        debug(dur);
+        debug(ang);
+        debug("multi", 1, true);
+        debug(nested);
+        debug(anon);
+        debug(root.background, im.source, Orientation.horizontal);
+        debug(self.width / 5s);
+    }
+
+    out property <bool> test: { do-debug(); true; }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+// The test binding called do-debug()
+let binding_logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+assert_eq!(binding_logs.len(), 15, "Expected 15 binding debug log entries, got: {binding_logs:?}");
+// Also call via the public function
+instance.invoke_do_debug();
+let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+assert_eq!(logs.len(), 15, "Expected 15 debug log entries, got: {logs:?}");
+assert_eq!(logs[0], "");
+assert_eq!(logs[1], "a string");
+assert_eq!(logs[2], "42");
+assert_eq!(logs[3], "3.14");
+assert_eq!(logs[4], "true");
+assert_eq!(logs[5], "beta");
+assert_eq!(logs[6], "{ flag: true, name: test, value: 7 }");
+assert_eq!(logs[7], "10(px)");
+assert_eq!(logs[8], "500(ms)");
+assert_eq!(logs[9], "90(deg)");
+assert_eq!(logs[10], "multi 1 true");
+assert_eq!(logs[11], "{ active: true, inner: { dir: gamma, pos: { px: 3.5, py: 4.5 }, x: 1, y: 2 }, label: outer }");
+assert_eq!(logs[12], "{ a: 99, b: anon }");
+assert_eq!(logs[13], "<debug-of-this-type-not-yet-implemented> <debug-of-this-type-not-yet-implemented> horizontal");
+assert_eq!(logs[14], "0.1(px×ms⁻¹)");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.invoke_do_debug();
+```
+*/

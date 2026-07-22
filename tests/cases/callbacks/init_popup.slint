@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Verify that the init callback is invoked in the correct order
+
+export component TestCase inherits Rectangle {
+    width: 300phx;
+    height: 300phx;
+
+    out property <int> popup-created;
+
+    popup := PopupWindow {
+        init => {
+            popup-created += 1;
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            popup.show();
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_popup_created(), 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_popup_created(), 1);
+```
+
+
+```js
+var instance = new slint.TestCase({});
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.popup_created, 1);
+```
+
+
+*/

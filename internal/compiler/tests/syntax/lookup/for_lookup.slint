@@ -1,0 +1,99 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export Hello := Rectangle {
+//           ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+
+    aaa := Text{ text: "aaa";
+        bbb := Text{ text: "bbb"; }
+    }
+
+    property<int> count: 5;
+
+    for foo[idx] in count: Rectangle {
+        x: idx * 1phx;
+        ccc := Text {
+            x: idx * 1phx;
+            text: aaa.text;
+            y: foo * 1phx;
+        }
+    }
+
+    for gre[mem] in err: Rectangle {
+//                  > <error{Unknown unqualified identifier 'err'}
+        x: mem * 1phx;
+        ddd := Text { text: ccc.text; }
+//                          >      <error{Cannot access id 'ccc'}
+    }
+
+    for plop in 0 : named_for := Rectangle {
+        Text { color: named_for.background; }
+    }
+
+    Text {
+        text: ccc.text;
+//            >      <error{Cannot access id 'ccc'}
+        color: named_for.background;
+//             >                  <error{Cannot access id 'named_for'}
+    }
+
+    for aaa in aaa.text: Rectangle {
+//             >      <error{Cannot convert string to model}
+    }
+
+    for plop in [1,2,3,4]: Rectangle {
+        x: plop * 1phx;
+        Rectangle {
+            background: plop;
+//                      >   <error{Cannot convert float to brush}
+        }
+    }
+
+    for pp[idx] in [1,3,2]: Rectangle {
+        x: idx * 1phx;
+        y: 25phx * pp;
+    }
+
+    for pp[idx] in [{a: 1phx, b: "P"},{a: 2phx, b: "Q"}]: Text {
+        x: pp.a;
+        text: pp.b;
+        y: pp.b;
+//         >   <error{Cannot convert string to length}
+        property<int> ggg: pp;
+//                         > <error{Cannot convert { a: physical-length,b: string,} to int}
+    }
+
+
+    for pp[idx] in [{a: 1, b: "P"},{a: 2, c: 1}]: Text {
+        text: pp.b; // Ok! pp will have a, b and c properties, and b will be the empty string.
+    }
+
+    // issue 4683
+    if issue_4683.shown : issue_4683 := TouchArea {
+//     >               <error{Cannot access id 'issue_4683'}
+        property <bool> shown: true;
+        clicked => { shown = !shown; }
+    }
+
+    for xx in inner_for.model: inner_for := Rectangle {
+//            >             <error{Cannot access id 'inner_for'}
+        property <[int]> model: [1,2,3,4];
+    }
+
+    for xx in inner_model: Rectangle {
+//            >         <error{Unknown unqualified identifier 'inner_model'}
+        property <[int]> inner_model: [1,2,3,4];
+    }
+
+    if element_inside_if.pressed : Rectangle {
+//     >                        <error{Cannot access id 'element_inside_if'}
+        element_inside_if := TouchArea {}
+    }
+
+    if self.pressed : TouchArea { }
+//          >     <error{Element 'Rectangle' does not have a property 'pressed'}
+
+
+    for i[idx] in [] : Text { text: idx; }
+//                > <error{Cannot convert [void] to model}
+}

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+
+<html>
+<!--
+    This is a static html file used to display the wasm build.
+    In order to generate the build
+     - Run `wasm-pack build --release --target web` in this directory.
+  -->
+
+<head>
+  <meta charset="UTF-8">
+  <title>Slint use cases Demo (Web Assembly version)</title>
+  <link rel="stylesheet" href="https://slint.dev/css/demos-v1.css">
+</head>
+
+<body>
+  <p>This is the <a href="https://slint.dev">Slint</a> Use cases Demo compiled to WebAssembly.</p>
+  <div id="spinner" style="position: relative;">
+    <div class="spinner">Loading...</div>
+  </div>
+  <canvas id="canvas" unselectable="on" data-slint-auto-resize-to-preferred="true"></canvas>
+  <p class="links">
+    <a href="https://github.com/slint-ui/slint/blob/master/demos/usecases/">
+      View Source Code on GitHub</a> -
+    <a href="https://slint.dev/editor?load_demo=demos/usecases/ui/app.slint">
+      Open in SlintPad
+    </a>
+  </p>
+  <script type="module">
+    import init from './pkg/usecases_lib.js';
+    init().finally(() => {
+      document.getElementById("spinner").remove();
+    });
+  </script>
+</body>
+
+</html>

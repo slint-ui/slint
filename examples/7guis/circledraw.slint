@@ -1,0 +1,116 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// cSpell: ignore undoable
+
+import { LineEdit, Button, Slider, StandardListView, VerticalBox } from "std-widgets.slint";
+
+struct Circle  { x: length, y: length, d: length }
+
+export component MainWindow inherits Window {
+    in property <[Circle]> model;
+    in property <bool> undoable: false;
+    in property <bool> redoable: false;
+
+    callback undo_clicked();
+    callback redo_clicked();
+    callback background_clicked(length,length);
+    callback circle_resized(int, length);
+
+    private property <int> clicked-idx: -1;
+    private property <Circle> selected-circle;
+
+    preferred-width: 500px;
+    preferred-height: 400px;
+
+    VerticalBox {
+        HorizontalLayout {
+            alignment: center;
+            spacing: 12px;
+
+            Button {
+                text: "Undo";
+                enabled <=> root.undoable;
+                clicked => { root.undo-clicked() }
+            }
+            Button {
+                text: "Redo";
+                enabled <=> root.redoable;
+                clicked => { root.redo-clicked() }
+            }
+        }
+        Rectangle {
+            background: white;
+            border-color: black;
+            border-width: 2px;
+            clip: true;
+
+            TouchArea {
+                clicked => {
+                    root.background_clicked(self.pressed_x, self.pressed_y);
+                }
+
+                width: 100%;
+                height: 100%;
+            }
+
+            for circle[idx] in root.model : Rectangle {
+                background: root.clicked-idx == idx ? gray : white;
+                border-color: black;
+                border-width: 2px;
+                border-radius: self.width / 2;
+                height: self.width;
+                width: circle.d;
+                x: circle.x - self.width/2;
+                y: circle.y - self.height/2;
+
+                TouchArea {
+                    clicked => {
+                        root.selected-circle = circle;
+                        root.clicked-idx = idx;
+                    }
+
+                    height: 100%;
+                    width: 100%;
+                }
+            }
+        }
+    }
+
+    if (root.clicked-idx != -1) : TouchArea {
+        clicked => { root.clicked-idx = -1; }
+
+        height: 100%;
+        width: 100%;
+    }
+
+    if (root.clicked-idx != -1) : Rectangle {
+        background: lightgray;
+        height: 30%;
+        width: 70%;
+        x: (parent.width - self.width) / 2;
+        y: parent.height - self.height - parent.height * 5%;
+
+        TouchArea {
+            height: 100%;
+            width: 100%;
+        }
+
+        VerticalBox {
+            Text {
+                text: "Adjust diameter of circle at (" + root.selected-circle.x / 1px + ", " +  root.selected-circle.y / 1px + ").";
+                wrap: word-wrap;
+            }
+
+            Slider {
+                changed(diameter) => {
+                    root.circle_resized(root.clicked-idx, diameter *1px);
+                }
+
+                minimum: 4;
+                maximum: 100;
+                value: root.selected-circle.d / 1px;
+            }
+        }
+    }
+}

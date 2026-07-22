@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+import { Slider } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: lightblue;
+
+    Image {
+        source: @image-url("builtin:/common/MadeWithSlint-logo-dark.svg");
+        width: 48%;
+        height: 49%;
+    }
+    Image {
+        x: -5.5px; y: -2px;
+        source: @image-url("../../../../logo/slint-logo-small-light.png");
+        width: 15.4px;
+        height: 40px;
+        opacity: 0.3;
+        image-fit: cover;
+    }
+    Image {
+        x: 49px; y: 0;
+        source: @image-url("../../../../demos/printerdemo/ui/images/sidebar/ink.svg");
+        width: 25px;
+        height: 40px;
+        colorize: #91b6;
+        image-fit: contain;
+    }
+
+    // one color, no colorize should preserve the original color
+    Image {
+        x: 45px; y: 45px;
+        source: @image-url("image-add.png");
+        width: 23px;
+    }
+
+    // Just an image with extreme width and height (shouldn't crash)
+    Image {
+        x: 10px; y: 10px;
+        source: @image-url("../../../../demos/printerdemo/ui/images/sidebar/ink.svg");
+        width: 0.001px;
+        height: 4000000px;
+    }
+}

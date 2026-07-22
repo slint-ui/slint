@@ -1,0 +1,28 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+
+import { TabWidget, TabItem, BarTileModel } from "widgets/widgets.slint";
+import { Dashboard, WeatherAdapter } from "pages/pages.slint";
+import { Header, HeaderAdapter } from "blocks/blocks.slint";
+
+export component BigMain{
+    VerticalLayout {
+        Header {}
+
+        i-tab-widget := TabWidget {
+            tabs: [
+                { text: "Dashboard" },
+                { text: "Energy Flow" },
+                { text: "Weather" },
+                { text: "Statistics" },
+                { text: "Settings" }
+            ];
+
+            Dashboard {
+                index: 0;
+                current-index: i-tab-widget.selected-tab;
+            }
+        }
+    }
+}

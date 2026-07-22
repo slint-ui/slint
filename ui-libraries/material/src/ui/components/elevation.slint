@@ -1,0 +1,108 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Palette } from "std-widgets.slint";
+import { MaterialWindow } from "material_window.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+
+export component Elevation {
+    in property <brush> background;
+    in property <length> border_radius;
+    in property <int> level;
+
+    property <bool> dark: Palette.color_scheme == ColorScheme.dark;
+
+    outer_shadow := Rectangle {
+        border_radius: root.border_radius;
+
+        inner_shadow := Rectangle {
+            border_radius: root.border_radius;
+            background: root.background;
+
+            @children
+        }
+    }
+
+    states [
+        level_1_light when root.level == 1 && !root.dark: {
+            outer_shadow.drop_shadow_offset_y: 1px;
+            outer_shadow.drop_shadow_blur: 2px;
+            outer_shadow.drop_shadow_color: MaterialPalette.shadow_30;
+            inner_shadow.drop_shadow_offset_y: 1px;
+            inner_shadow.drop_shadow_blur: 2px;
+            inner_shadow.drop_shadow_color: MaterialPalette.shadow_15;
+        }
+        level_2_light when root.level == 2 && !root.dark: {
+            outer_shadow.drop_shadow_offset_y: 1px;
+            outer_shadow.drop_shadow_blur: 2px;
+            outer_shadow.drop_shadow_color: MaterialPalette.shadow_30;
+            inner_shadow.drop_shadow_offset_y: 2px;
+            inner_shadow.drop_shadow_blur: 6px;
+            inner_shadow.drop_shadow_color: MaterialPalette.shadow_15;
+        }
+        level_3_light when root.level == 3 && !root.dark: {
+            outer_shadow.drop_shadow_offset_y: 4px;
+            outer_shadow.drop_shadow_blur: 8px;
+            outer_shadow.drop_shadow_color: MaterialPalette.shadow_15;
+            inner_shadow.drop_shadow_offset_y: 1px;
+            inner_shadow.drop_shadow_blur: 3px;
+            inner_shadow.drop_shadow_color: MaterialPalette.shadow_30;
+        }
+        level_4_light when root.level == 4 && !root.dark: {
+            outer_shadow.drop_shadow_offset_y: 6px;
+            outer_shadow.drop_shadow_blur: 10px;
+            outer_shadow.drop_shadow_color: MaterialPalette.shadow_15;
+            inner_shadow.drop_shadow_offset_y: 2px;
+            inner_shadow.drop_shadow_blur: 3px;
+            inner_shadow.drop_shadow_color: MaterialPalette.shadow_30;
+        }
+        level_5_light when root.level == 5 && !root.dark: {
+            outer_shadow.drop_shadow_offset_y: 8px;
+            outer_shadow.drop_shadow_blur: 12px;
+            outer_shadow.drop_shadow_color: MaterialPalette.shadow_15;
+            inner_shadow.drop_shadow_offset_y: 4px;
+            inner_shadow.drop_shadow_blur: 4px;
+            inner_shadow.drop_shadow_color: MaterialPalette.shadow_30;
+        }
+        level_1_dark when root.level == 1 && root.dark: {
+            outer_shadow.drop_shadow_offset_y: 1px;
+            outer_shadow.drop_shadow_blur: 3px;
+            outer_shadow.drop_shadow_color: MaterialPalette.shadow_15;
+            inner_shadow.drop_shadow_offset_y: 1px;
+            inner_shadow.drop_shadow_blur: 2px;
+            inner_shadow.drop_shadow_color: MaterialPalette.shadow_30;
+        }
+        level_2_dark when root.level == 2 && root.dark: {
+            outer_shadow.drop_shadow_offset_y: 2px;
+            outer_shadow.drop_shadow_blur: 6px;
+            outer_shadow.drop_shadow_color: MaterialPalette.shadow_15;
+            inner_shadow.drop_shadow_offset_y: 1px;
+            inner_shadow.drop_shadow_blur: 2px;
+            inner_shadow.drop_shadow_color: MaterialPalette.shadow_30;
+        }
+        level_3_dark when root.level == 3 && root.dark: {
+            outer_shadow.drop_shadow_offset_y: 4px;
+            outer_shadow.drop_shadow_blur: 8px;
+            outer_shadow.drop_shadow_color: MaterialPalette.shadow_15;
+            inner_shadow.drop_shadow_offset_y: 1px;
+            inner_shadow.drop_shadow_blur: 3px;
+            inner_shadow.drop_shadow_color: MaterialPalette.shadow_30;
+        }
+        level_4_dark when root.level == 4 && root.dark: {
+            outer_shadow.drop_shadow_offset_y: 6px;
+            outer_shadow.drop_shadow_blur: 10px;
+            outer_shadow.drop_shadow_color: MaterialPalette.shadow_15;
+            inner_shadow.drop_shadow_offset_y: 2px;
+            inner_shadow.drop_shadow_blur: 3px;
+            inner_shadow.drop_shadow_color: MaterialPalette.shadow_30;
+        }
+        level_5_dark when root.level == 5 && root.dark: {
+            outer_shadow.drop_shadow_offset_y: 8px;
+            outer_shadow.drop_shadow_blur: 12px;
+            outer_shadow.drop_shadow_color: MaterialPalette.shadow_15;
+            inner_shadow.drop_shadow_offset_y: 4px;
+            inner_shadow.drop_shadow_blur: 4px;
+            inner_shadow.drop_shadow_color: MaterialPalette.shadow_30;
+        }
+    ]
+}

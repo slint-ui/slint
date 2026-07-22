@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CosmicPalette, CosmicFontSettings } from "styling.slint";
+import { MenuBarItemBase, MenuBarBase, MenuFrameBase, MenuItemBase } from "../common/menu-base.slint";
+
+export component MenuBarItem {
+    in property <MenuEntry> entry <=> base.entry;
+
+    callback clicked <=> base.clicked;
+    callback hovered <=> base.hovered;
+
+    min-width: base.min-width;
+    min-height: base.min-height;
+
+    base := MenuBarItemBase {
+        horizontal-padding: 12px;
+        top-padding: 4px;
+        bottom-padding: 4px;
+        default-foreground: CosmicPalette.accent-background;
+        hover-foreground: CosmicPalette.accent-background;
+        pressed-foreground: CosmicPalette.accent-background;
+        hover-background: CosmicPalette.state-hover;
+        pressed-background: CosmicPalette.state-pressed;
+        border-radius: 12px;
+    }
+}
+
+export component MenuBar inherits MenuBarBase {
+    spacing: 4px;
+    min-layout-height: 48px;
+}
+
+export component MenuFrame inherits MenuFrameBase {
+    background: CosmicPalette.alternate-background;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: CosmicPalette.border;
+    drop-shadow-color: CosmicPalette.shadow;
+    drop-shadow-offset-y: 4px;
+    drop-shadow-blur: 16px;
+    layout-min-width: 360px;
+}
+
+export component MenuItem {
+    in property <bool> is-current <=> base.is-current;
+    in property <MenuEntry> entry <=> base.entry;
+
+    callback set-current <=> base.set-current;
+    callback clear-current <=> base.clear-current;
+    callback activate <=> base.activate;
+
+    min-height: entry.is-separator ? 1px : max(40px, base.min-height);
+    max-height: entry.is-separator ? 1px : base.max-height;
+
+    HorizontalLayout {
+        base := MenuItemBase {
+            default-foreground: CosmicPalette.foreground;
+            alternate-foreground: CosmicPalette.text-disabled;
+            current-foreground: CosmicPalette.foreground;
+            current-background: CosmicPalette.state-hover;
+            separator-color: CosmicPalette.border;
+            horizontal-padding: 16px;
+            spacing: 8px;
+            sub-menu-icon: @image-url("_arrow_forward.svg");
+            icon-size: 16px;
+        }
+    }
+}

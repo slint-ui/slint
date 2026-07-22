@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 500px;
+    in-out property<string> result;
+    f := Flickable {
+        viewport_width: 2100px;
+        viewport_height: 2100px;
+        ta1 := TouchArea {
+            x: 20px;
+            y: 20px;
+            width: 50px;
+            height: 50px;
+            Rectangle { background: red; }
+            scroll-event(e) => {
+                result += "ta1{" + e.delta-x/1px + "," + e.delta-y/1px + " at " + self.mouse-x/1px + "," + self.mouse-y/1px + "}";
+                accept
+            }
+        }
+
+        ta2 := TouchArea {
+            x: 120px;
+            y: 20px;
+            width: 50px;
+            height: 50px;
+            Rectangle { background: green; }
+            scroll-event(e) => {
+                result += "ta2{" + e.delta-x/1px + "," + e.delta-y/1px + " at " + self.mouse-x/1px + "," + self.mouse-y/1px + "}";
+                EventResult.reject
+            }
+        }
+    }
+
+
+    out property<length> offset_x: -f.viewport_x;
+    out property<length> offset_y: -f.viewport_y;
+}
+
+/*
+
+
+```rust
+// Test wheel events
+use slint::{LogicalPosition, platform::WindowEvent };
+let instance = TestCase::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(25.0, 30.0), delta_x: -3.0, delta_y: -50.0 });
+assert_eq!(instance.get_result(), "ta1{-3,-50 at 5,10}");
+assert_eq!(instance.get_offset_y(), 0.0);
+assert_eq!(instance.get_offset_x(), 0.0);
+
+instance.set_result("".into());
+
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(155.0, 50.0), delta_x: -30.0, delta_y: -50.0 });
+assert_eq!(instance.get_result(), "ta2{-30,-50 at 35,30}");
+assert_eq!(instance.get_offset_x(), 30.0);
+assert_eq!(instance.get_offset_y(), 50.0);
+```
+
+*/

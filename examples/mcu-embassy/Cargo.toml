@@ -1,0 +1,99 @@
+# Copyright © 2025 David Haig
+# SPDX-License-Identifier: MIT
+
+# cSpell: ignore tinybmp
+
+# Own workspace: mcu-embassy defaults to the `mcu` feature (cortex-m / embassy,
+# ARM-only) and so cannot be part of the host-buildable examples workspace. It
+# shares the repository `target/` directory via the root `.cargo/config.toml`,
+# and builds for its embedded target via the `.cargo/config.toml` in this
+# directory.
+[workspace]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+
+[package]
+name = "mcu-embassy"
+version = "1.18.0"
+edition.workspace = true
+authors = ["David Haig <david@ninjametal.com>"]
+readme = "README.md"
+license = "MIT"
+publish = false
+repository = "https://github.com/slint-ui/slint"
+homepage = "https://slint.dev"
+
+[dependencies]
+log = "0.4"
+defmt = { version = "1.0", optional = true, features = ["alloc"] }
+defmt-rtt = { version = "1.0", optional = true }
+panic-probe = { version = "1.0", optional = true, features = ["print-defmt"] }
+cortex-m = { version = "0.7.7", optional = true, features = ["inline-asm", "critical-section-single-core"] }
+cortex-m-rt = { version = "0.7.3", optional = true }
+slint-generated = { path = "./slint_generated" }
+embedded-alloc = { version = "0.6", optional = true }
+heapless = { version = "0.8", default-features = false, features = ["defmt-03"] }
+tinybmp = { version = "0.6" }
+static_cell = { version = "2" }
+
+#slint = { version = "1.9.1", default-features = false, features = [
+#    "compat-1-2",
+#    "unsafe-single-threaded",
+#    "libm",
+#] }
+
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "unsafe-single-threaded", "libm"] }
+
+embassy-stm32 = { version = "0.2.0", optional = true, features = ["stm32u5g9zj", "time-driver-any", "exti", "memory-x", "unstable-pac", "chrono", "time", "defmt"] }
+embassy-sync = { version = "0.6.1" }
+embassy-executor = { version = "0.7.0", features = ["task-arena-size-32768", "executor-thread"] }
+embassy-time = { version = "0.4.0" }
+embassy-futures = { version = "0.1.1" }
+
+env_logger = { version = "0.11.8", optional = true }
+sdl2 = { version = "0.37.0", optional = true }
+object-pool = { version = "0.6.0", optional = true }
+embedded-hal = { version = "1.0.0", optional = true }
+gt911 = { version = "0.3", features = ["defmt"], optional = true }
+
+[features]
+default = ["mcu"]
+mcu = [
+  "defmt",
+  "defmt-rtt",
+  "panic-probe",
+  "cortex-m",
+  "cortex-m-rt",
+  "embassy-stm32",
+  "embassy-sync/defmt",
+  "embassy-executor/arch-cortex-m",
+  "embassy-executor/executor-interrupt",
+  "embassy-executor/defmt",
+  "embassy-time/tick-hz-32_768",
+  "embassy-time/defmt",
+  "embassy-time/defmt-timestamp-uptime",
+  "embedded-alloc",
+  "embedded-hal",
+  "gt911",
+]
+
+simulator = [
+  "slint/renderer-software",
+  "slint/backend-winit",
+  "slint/std",
+  "embassy-executor/arch-std",
+  "embassy-time/std",
+  "env_logger",
+  "sdl2",
+  "object-pool",
+]
+
+[[bin]]
+name = "ui_mcu"
+required-features = ["mcu"]
+
+[[bin]]
+name = "ui_simulator"
+required-features = ["simulator"]

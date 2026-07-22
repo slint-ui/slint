@@ -1,0 +1,168 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { FluentPalette, FluentFontSettings } from "styling.slint";
+import { FocusBorder } from "components.slint";
+import { TabBarBase } from "../common/tabwidget-base.slint";
+
+export component TabWidgetImpl inherits Rectangle {
+    in property <length> tabbar-preferred-height;
+    in property <length> tabbar-preferred-width;
+    in property <length> content-min-height;
+    in property <length> content-min-width;
+    in property <int> current-index;
+    in property <int> current-focused;
+    in property <Orientation> orientation:Orientation.horizontal;
+    out property <length> content-x: orientation == Orientation.horizontal ? 0 : root.tabbar-preferred-width;
+    out property <length> content-y: orientation == Orientation.horizontal ? root.tabbar-preferred-height : 0;
+    out property <length> content-height:orientation == Orientation.horizontal ? root.height - root.tabbar-preferred-height : root.height;
+    out property <length> content-width: orientation == Orientation.horizontal ? root.width : root.width - root.tabbar-preferred-width;
+    out property <length> tabbar-x;
+    out property <length> tabbar-y;
+    out property <length> tabbar-height: orientation == Orientation.horizontal ? root.tabbar-preferred-height : root.height;
+    out property <length> tabbar-width: orientation == Orientation.horizontal ? root.width : root.tabbar-preferred-width;
+    preferred-width: root.content-min-width;
+    min-width: max(root.content-min-width, root.tabbar-preferred-width);
+    preferred-height: root.content-min-height + root.tabbar-preferred-height;
+    min-height: root.content-min-height + root.tabbar-preferred-height;
+}
+
+export component TabImpl inherits Rectangle {
+    // The currently focused tab
+    in property <int> current-focused;
+    // The index of this tab
+    in property <int> tab-index;
+    // The total number of tabs
+    in property <int> num-tabs;
+    in property <string> title <=> i-text.text;
+    in property <bool> enabled: true;
+    out property <bool> has-focus: root.current-focused == root.tab-index;
+    // The currently selected tab
+    in-out property <int> current;
+    private property <bool> hide-right-border: root.tab-index == root.num-tabs - 1 || tab-index + 1 == current;
+    private property <bool> is-current: root.tab-index == root.current;
+    min-width: max(32px, i-text.min-width);
+    min-height: max(32px, i-text.min-height);
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    accessible-role: tab;
+    accessible-enabled: root.enabled;
+    accessible-label: root.title;
+    accessible-item-index: root.tab-index;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.is-current;
+    accessible-action-default => {
+        i-touch-area.clicked();
+    }
+    Rectangle {
+        clip: true;
+        width: 100%;
+        height: 100%;
+        i-background := Rectangle {
+            y: 1px;
+            width: 100%;
+            height: parent.height + self.border-radius;
+            border-radius: 7px;
+            border-width: root.is-current ? 1px : 0px;
+            border-color: FluentPalette.card-stroke;
+            background: i-touch-area.pressed || root.is-current ? FluentPalette.layer-on-mica-base-alt : i-touch-area.has-hover ? FluentPalette.layer-on-mica-base-alt-secondary : transparent;
+        }
+    }
+
+    i-touch-area := TouchArea {
+        enabled <=> root.enabled;
+        clicked => {
+            root.current = root.tab-index;
+        }
+    }
+
+    i-layout := HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        i-text := Text {
+            vertical-alignment: center;
+            horizontal-alignment: left;
+            font-size: root.is-current ? FluentFontSettings.body-strong.font-size : 1rem;
+            font-weight: root.is-current ? FluentFontSettings.body-strong.font-weight : FontWeight.normal;
+            color: root.is-current ? FluentPalette.control-foreground : FluentPalette.text-secondary;
+            accessible-role: none;
+        }
+    }
+
+    if (!root.is-current && !root.hide-right-border && !i-touch-area.has-hover && !i-touch-area.pressed): Rectangle {
+        x: (parent.width - self.width);
+        width: 2px;
+        height: 16px;
+        background: FluentPalette.divider;
+    }
+    if (!root.is-current && !i-touch-area.has-hover && !i-touch-area.pressed): Rectangle {
+        y: (parent.height - self.height);
+        width: 100%;
+        height: 1px;
+        background: FluentPalette.divider;
+    }
+
+    // focus border
+    if (root.has-focus && root.enabled): FocusBorder {
+        border-radius: i-background.border-radius;
+    }
+}
+
+component FluentTabBarBase inherits TabBarBase {
+    // injected properties:
+    // The currently focused tab
+    in-out property <int> current-focused: i-focus-scope.has-focus ? i-focus-scope.focused-tab : -1;
+    accessible-role: tab-list;
+    accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
+    accessible-item-count: root.num-tabs;
+    i-focus-scope := FocusScope {
+        property <int> focused-tab: 0;
+        x: 0;
+        // Do not react on clicks
+        width: 0px;
+        key-pressed(event) => {
+            if (event.text == "\n") {
+                root.current = root.current-focused;
+                return accept;
+            }
+            if (event.text == Key.LeftArrow) {
+                self.focused-tab = Math.max(self.focused-tab - 1,  0);
+                return accept;
+            }
+            if (event.text == Key.RightArrow) {
+                self.focused-tab = Math.min(self.focused-tab + 1, root.num-tabs - 1);
+                return accept;
+            }
+            return reject;
+        }
+        key-released(event) => {
+            if (event.text == " ") {
+                root.current = root.current-focused;
+                return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+export component TabBarHorizontalImpl inherits FluentTabBarBase {
+    accessible-orientation: Orientation.horizontal;
+    Flickable {
+        HorizontalLayout {
+            @children
+        }
+    }
+}
+
+export component TabBarVerticalImpl inherits FluentTabBarBase {
+    accessible-orientation: Orientation.vertical;
+    Flickable {
+        VerticalLayout {
+            @children
+        }
+    }
+}
+
+export component TabBarImpl inherits TabBarBase { }
+
+export component TabWidget inherits TabWidget { }

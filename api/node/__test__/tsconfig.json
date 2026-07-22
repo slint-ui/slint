@@ -1,0 +1,11 @@
+{
+    "compilerOptions": {
+        "module": "nodenext",
+        "target": "esnext",
+        "outDir": "../build",
+        "skipLibCheck": true
+    },
+    "include": [
+        "*.mts"
+    ],
+}

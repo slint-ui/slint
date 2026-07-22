@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialAnimations } from "../styling/material_animations.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { ToolTip } from "tooltip.slint";
+
+export component ExtendedTouchArea inherits TouchArea {
+    in property <string> tooltip;
+    in property <length> tooltip_offset;
+    out property <bool> has_focus <=> focus_scope.has_focus;
+    out property <bool> enter_pressed;
+
+    callback key_pressed(KeyEvent) -> EventResult;
+
+    forward-focus: focus-scope;
+
+    focus_scope := FocusScope {
+        x: 0;
+        width: 0px;
+        enabled: root.enabled;
+
+        key_pressed(event) => {
+            if !root.enabled {
+                return reject;
+            }
+
+            if (event.text == " " || event.text == "\n") && !root.enter_pressed {
+                root.enter_pressed = true;
+                root.clicked();
+                return accept;
+            }
+
+            root.key_pressed(event)
+        }
+
+        key_released(event) => {
+            if !root.enabled {
+                return reject;
+            }
+
+            if (event.text == " " || event.text == "\n") && root.enter_pressed {
+                root.enter_pressed = false;
+                return accept;
+            }
+
+            reject
+        }
+    }
+
+    @children
+
+    if root.tooltip != "" && root.has-hover && !root.pressed : ToolTip {
+        y: root.tooltip_offset;
+        text: root.tooltip;
+    }
+}

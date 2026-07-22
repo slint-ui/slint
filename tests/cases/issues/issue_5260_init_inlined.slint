@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component DrawerLeft {
+    private property <length> logic_width;
+    rect := Rectangle {
+        init => {
+            logic_width = root.width;
+        }
+        @children
+    }
+}
+
+export component A {
+    hello := DrawerLeft { }
+}
+
+export component App inherits Window {
+    world := A { }
+}

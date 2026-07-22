@@ -1,0 +1,125 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Elevation } from "./elevation.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { Horizontal } from "./horizontal.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
+import { Modal } from "./modal.slint";
+
+component BottomSheet {
+    callback drag_moved(offset_y: length);
+    callback pressed();
+    callback released();
+
+    elevation := Elevation {
+        width: 100%;
+        height: 100%;
+        level: 3;
+        border_radius: MaterialStyleMetrics.border_radius_16;
+    }
+
+    TouchArea {
+        Rectangle {
+            background: MaterialPalette.surface_container_low;
+            border_top_left_radius: MaterialStyleMetrics.border_radius_16;
+            border_top_right_radius: self.border_top_left_radius;
+
+            VerticalLayout {
+                alignment: start;
+
+                drag_handle := TouchArea {
+                    height: MaterialStyleMetrics.size_36;
+
+                    Rectangle {
+                        width: MaterialStyleMetrics.size_32;
+                        height: MaterialStyleMetrics.size_4;
+                        background: MaterialPalette.outline;
+                        border_radius: self.height / 2;
+                    }
+
+                    moved => {
+                        root.drag_moved(self.pressed_y - self.mouse_y);
+                    }
+
+                    changed pressed => {
+                        if self.pressed {
+                            root.pressed();
+                            return;
+                        }
+
+                        root.released();
+                    }
+                }
+
+                Horizontal {
+                    @children
+                }
+            }
+        }
+    }
+}
+
+export component ModalBottomSheet inherits PopupWindow {
+    close_policy: no_auto_close;
+
+    property <length> drag_margin: MaterialStyleMetrics.padding_56;
+
+    modal := Modal {
+        width: 100%;
+        height: 100%;
+
+        sheet := BottomSheet {
+            property <duration> y_duration: MaterialAnimations.standard_accelerate_duration;
+            property <length> y_drag_start;
+            property <length> height_drag_start;
+
+            x: (parent.width - self.width) / 2;
+            y: parent.height;
+            width: min(MaterialStyleMetrics.size_640, parent.width - 2 * MaterialStyleMetrics.padding_56);
+
+            @children
+
+            drag_moved(offset_y) => {
+                self.y_duration = 0;
+                self.y = max(self.y - offset_y, self.y_drag_start);
+                self.height += offset_y;
+            }
+
+            pressed => {
+                self.y_drag_start = self.y;
+                self.height_drag_start = self.height;
+            }
+
+            released => {
+                if self.y >= root.height - root.drag_margin {
+                    root.close();
+                    return;
+                }
+
+                self.y_duration = MaterialAnimations.standard_accelerate_duration;
+                self.height = self.height_drag_start;
+                self.y = self.y_drag_start;
+            }
+
+            animate y, height {
+                duration: self.y_duration;
+                easing: MaterialAnimations.standard_easing;
+            }
+        }
+
+        clicked => {
+            root.close();
+        }
+    }
+
+    Timer {
+        interval: 50ms;
+
+        triggered => {
+            sheet.y = modal.height - sheet.height;
+            self.running = false;
+        }
+    }
+}

@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Palette } from "std-widgets.slint";
+
+import {
+    MainView,
+    MainViewAdapter,
+    MailViewAdapter,
+    MailBoxViewAdapter,
+    DashboardViewAdapter,
+} from "views.slint";
+export { MainViewAdapter, MailViewAdapter, MailBoxViewAdapter, DashboardViewAdapter }
+
+import { CardListViewItem, DialogGlobal, UsecasesPalette } from "widgets.slint";
+export { CardListViewItem }
+
+import {
+    VirtualKeyboardHandler,
+    VirtualKeyboard,
+} from "virtual_keyboard.slint";
+
+export { VirtualKeyboardHandler }
+
+export { UsecasesPalette } from "widgets.slint";
+
+export component App inherits Window {
+    preferred-width: 800px;
+    preferred-height: 1280px;
+    title: "Slint usecases";
+    background: UsecasesPalette.use-material ? Palette.alternate-background : Palette.background;
+
+    main-view := MainView {
+        x: root.safe-area-insets.left;
+        y: root.safe-area-insets.top;
+        width: root.width - root.safe-area-insets.right - root.safe-area-insets.left;
+        height: root.height - root.safe-area-insets.bottom - root.safe-area-insets.top;
+
+        break-layout: root.width < 480px;
+    }
+
+    if VirtualKeyboardHandler.enabled: VirtualKeyboard {
+        y: TextInputInterface.text-input-focused ? parent.height - self.height : parent.height;
+
+        close => {
+            main-view.focus();
+        }
+    }
+
+    changed width => {
+        DialogGlobal.window-width = root.width;
+    }
+
+    changed height => {
+        DialogGlobal.window-height = root.height;
+    }
+}

@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component TestButtonImpl inherits  Rectangle {
+    in-out property<string> button_text;
+    Text {
+        x: 10phx;
+        y: 10phx;
+        text: root.button_text;
+    }
+}
+export { TestButtonImpl as TestButton }
+
+export component ColorButton inherits TestButtonImpl {
+    in-out property<color> button_color;
+}

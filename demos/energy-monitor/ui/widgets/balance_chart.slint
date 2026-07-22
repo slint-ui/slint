@@ -1,0 +1,115 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { ChartAxis, AxisLabel, AxisValue } from "chart_axis.slint";
+import { ChartPattern, BarBackground } from "chart_pattern.slint";
+
+component UpBar {
+    VerticalLayout {
+        Rectangle {
+            height: 0.6 * root.height;
+            background: Theme.palette.alternative-bar-gradient;
+        }
+
+        Rectangle {
+            height: 0.4 * root.height;
+            background: Theme.palette.alternative-light-bar-gradient;
+        }
+    }
+}
+
+component DownBar {
+    VerticalLayout {
+        Rectangle {
+            height: 0.37 * root.height;
+            background: Theme.palette.inverted-bar-gradient;
+        }
+
+        Rectangle {
+            height: 0.26 * root.height;
+            background: Theme.palette.inverted-alternative-bar-gradient;
+        }
+
+        Rectangle {
+            height: 0.37 * root.height;
+            background: Theme.palette.inverted-alternative-bar-gradient;
+        }
+    }
+}
+
+export component BalanceChart {
+    in property <float> min;
+    in property <float> max;
+    in property <[string]> x-axis-model;
+    in property <[int]> y-axis-model;
+    in property <string> y-unit;
+    in property <[float]> model;
+    in property <bool> active;
+
+    private property <length> zero: root.height * (1 - (0. - min) / (max - min));
+
+    i-zero-pattern := ChartPattern {
+        preferred-width: 100%;
+        preferred-height: 100%;
+        y: 0px;
+        count: x-axis-model.length;
+        height: root.zero;
+        cache-rendering-hint: true;
+    }
+
+    ChartPattern {
+        preferred-width: 100%;
+        preferred-height: 100%;
+        y: i-zero-pattern.height;
+        count: x-axis-model.length;
+        height: root.height - i_zero_pattern.height;
+        cache-rendering-hint: true;
+    }
+
+    ChartAxis {
+        preferred-width: 100%;
+        preferred-height: 100%;
+        x-model: x-axis-model;
+        y-model: y-axis-model;
+        vertical-stretch: 1;
+        y-min: min;
+        y-max: max;
+        y-unit: root.y-unit;
+    }
+
+    Rectangle {
+        cache-rendering-hint: true;
+        HorizontalLayout {
+            padding-left: 6px;
+            padding-right: 6px;
+            spacing: 10px;
+
+            for value[index] in model : Rectangle {
+                private property <float> display-value;
+
+                if(value > 0.0) : UpBar {
+                    width: 100%;
+                    y: zero - self.height;
+                    height: parent.height * (display-value / (root.max - root.min));
+                }
+
+                if(value < 0.0) : DownBar {
+                    y: zero;
+                    width: 100%;
+                    height: parent.height * (-1 * value / (root.max - root.min));
+                }
+
+                states [
+                    active when active : {
+                        display-value: value;
+
+                        in {
+                            animate display-value { duration: Theme.durations.slow; easing: ease-in-out; }
+                        }
+                    }
+                ]
+            }
+        }
+    }
+}

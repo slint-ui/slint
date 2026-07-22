@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component Button inherits Rectangle {
+    out property <bool> pressed: touch-area.pressed;
+    out property <bool> hovered: touch-area.has-hover;
+
+    callback clicked <=> touch-area.clicked;
+
+    animate background {
+        duration: 120ms;
+        easing: ease-out;
+    }
+
+    touch-area := TouchArea {}
+}

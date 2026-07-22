@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Python is ignored because include paths aren't forwarded in the generated stubs.
+//ignore: pyi
+
+//include_path: ../../helper_components
+
+import { StyleMetrics } from "std-widgets.slint";
+import { ExportedGlobal as ReexportedGlobal } from "export_globals.slint";
+
+struct MyStruct  { x:int, y: int, }
+
+global InternalGlobal  {
+    in-out property <int> hello: 42;
+    in-out property <MyStruct> my_struct;
+    pure callback sum(int, int)->int;
+}
+
+export { InternalGlobal as PublicGlobal }
+export { ReexportedGlobal }
+
+export component TestCase inherits Rectangle {
+    in-out property <bool> test_global_prop_value: InternalGlobal.hello == 100;
+    in-out property <int> test_call_callback: InternalGlobal.sum(6, 4);
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_test_global_prop_value());
+assert_eq!(PublicGlobal::get(&instance).get_hello(), 42);
+instance.global::<PublicGlobal<'_>>().set_hello(100);
+assert!(instance.get_test_global_prop_value());
+
+assert_eq!(ReexportedGlobal::get(&instance).get_foo(), 44);
+
+instance.global::<PublicGlobal<'_>>().on_sum(|a, b| a + b);
+assert_eq!(instance.get_test_call_callback(), 10);
+assert_eq!(instance.global::<PublicGlobal<'_>>().invoke_sum(4, 5), 9);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(!instance.get_test_global_prop_value());
+assert_eq(instance.global<PublicGlobal>().get_hello(), 42);
+instance.global<PublicGlobal>().set_hello(100);
+assert(instance.get_test_global_prop_value());
+
+assert_eq(instance.global<ReexportedGlobal>().get_foo(), 44);
+
+instance.global<PublicGlobal>().on_sum([](int a, int b) { return a + b; });
+assert_eq(instance.get_test_call_callback(), 10);
+assert_eq(instance.global<PublicGlobal>().invoke_sum(4, 5), 9);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(!instance.test_global_prop_value);
+assert.equal(instance.PublicGlobal.hello, 42);
+instance.PublicGlobal.hello = 100;
+assert(instance.test_global_prop_value);
+
+assert.equal(instance.ReexportedGlobal.foo, 44);
+instance.PublicGlobal.sum = function(a, b) { return a + b };
+assert.equal(instance.test_call_callback, 10);
+assert.equal(instance.PublicGlobal.sum(4, 5), 9);
+```
+
+*/

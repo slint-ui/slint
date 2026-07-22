@@ -1,0 +1,19 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Use cross-image once https://github.com/rust-embedded/cross/pull/591 is merged & released
+# FROM rustembedded/cross:x86_64-unknown-linux-gnu
+FROM ghcr.io/slint-ui/cross-x86_64-base:1.0
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes libfontconfig1-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libinput-dev libgbm-dev python3 \
+    python3-pip libfontconfig1-dev \
+    clang libstdc++-10-dev ninja-build
+
+# Work around the Skia source build requiring a newer git version (that supports --path-format=relative with rev-parse, as needed by git-sync-deps.py),
+# as well as a disabling of the directory safety checks (https://github.blog/2022-04-12-git-security-vulnerability-announced/#cve-2022-24765) as
+# /cargo comes from ~/.cargo and may have differing user ids, which breaks when the skia-bindings build clones additional git repos (skia/third_party/external/*)
+RUN DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes software-properties-common && \
+    add-apt-repository -y ppa:git-core/ppa && \
+    apt-get install --assume-yes git && \
+    git config --global safe.directory '*'

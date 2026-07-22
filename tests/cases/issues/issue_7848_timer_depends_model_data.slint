@@ -1,0 +1,59 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export global Data {
+    in-out property <int> counter;
+}
+
+struct Test { blink: bool}
+
+export component Row {
+    in property <Test> prop;
+
+    Timer {
+        interval: 100ms;
+        running: prop.blink;
+        triggered => {
+            Data.counter += 1;
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    in property <[Test]> rows: [{ blink: true }];
+
+    VerticalLayout {
+        for row in rows: Row {
+            prop: row;
+        }
+    }
+}
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 10., 16.);
+assert_eq!(instance.global::<Data<'_>>().get_counter(), 0);
+slint_testing::mock_elapsed_time(101);
+assert_eq!(instance.global::<Data<'_>>().get_counter(), 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 10., 16.);
+assert_eq(instance.global<Data>().get_counter(), 0);
+slint_testing::mock_elapsed_time(101);
+assert_eq(instance.global<Data>().get_counter(), 1);
+```
+
+```js
+var instance = new slint.TestCase({});
+slintlib.private_api.send_mouse_click(instance, 10., 16.);
+assert.equal(instance.Data.counter, 0);
+slintlib.private_api.mock_elapsed_time(101);
+assert.equal(instance.Data.counter, 1);
+```
+
+
+*/

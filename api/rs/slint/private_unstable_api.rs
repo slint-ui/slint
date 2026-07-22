@@ -1,0 +1,239 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//! Module containing the private api that is used by the generated code.
+//!
+//! This is internal API that shouldn't be used because compatibility is not
+//! guaranteed
+#![doc(hidden)]
+
+use core::pin::Pin;
+use re_exports::*;
+
+// Helper functions called from generated code to reduce code bloat from
+// extra copies of the original functions for each call site due to
+// the impl Fn() they are taking.
+
+pub trait StrongItemTreeRef: Sized {
+    type Weak: Clone + 'static;
+    fn to_weak(&self) -> Self::Weak;
+    fn from_weak(weak: &Self::Weak) -> Option<Self>;
+}
+
+impl<C: 'static> StrongItemTreeRef for VRc<ItemTreeVTable, C> {
+    type Weak = VWeak<ItemTreeVTable, C>;
+    fn to_weak(&self) -> Self::Weak {
+        VRc::downgrade(self)
+    }
+    fn from_weak(weak: &Self::Weak) -> Option<Self> {
+        weak.upgrade()
+    }
+}
+
+impl<C: 'static> StrongItemTreeRef for VRcMapped<ItemTreeVTable, C> {
+    type Weak = VWeakMapped<ItemTreeVTable, C>;
+    fn to_weak(&self) -> Self::Weak {
+        VRcMapped::downgrade(self)
+    }
+    fn from_weak(weak: &Self::Weak) -> Option<Self> {
+        weak.upgrade()
+    }
+}
+
+impl<C: 'static> StrongItemTreeRef for Pin<Rc<C>> {
+    type Weak = PinWeak<C>;
+    fn to_weak(&self) -> Self::Weak {
+        PinWeak::downgrade(self.clone())
+    }
+    fn from_weak(weak: &Self::Weak) -> Option<Self> {
+        weak.upgrade()
+    }
+}
+
+pub fn set_property_binding<
+    T: Clone + Default + 'static,
+    StrongRef: StrongItemTreeRef + 'static,
+>(
+    property: Pin<&Property<T>>,
+    component_strong: &StrongRef,
+    binding: fn(StrongRef) -> T,
+) {
+    let weak = component_strong.to_weak();
+    property.set_binding(move || {
+        <StrongRef as StrongItemTreeRef>::from_weak(&weak).map(binding).unwrap_or_default()
+    })
+}
+
+pub fn set_animated_property_binding<
+    T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
+    StrongRef: StrongItemTreeRef + 'static,
+>(
+    property: Pin<&Property<T>>,
+    component_strong: &StrongRef,
+    binding: fn(StrongRef) -> T,
+    compute_animation_details: fn(
+        StrongRef,
+    )
+        -> (PropertyAnimation, Option<i_slint_core::animations::Instant>),
+) {
+    let weak_1 = component_strong.to_weak();
+    let weak_2 = weak_1.clone();
+    property.set_animated_binding(
+        move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak_1).unwrap()),
+        move || {
+            compute_animation_details(<StrongRef as StrongItemTreeRef>::from_weak(&weak_2).unwrap())
+        },
+    )
+}
+
+pub fn set_property_state_binding<StrongRef: StrongItemTreeRef + 'static>(
+    property: Pin<&Property<StateInfo>>,
+    component_strong: &StrongRef,
+    binding: fn(StrongRef) -> i32,
+) {
+    let weak = component_strong.to_weak();
+    re_exports::set_state_binding(property, move || {
+        binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak).unwrap())
+    })
+}
+
+pub fn set_callback_handler<
+    Arg: ?Sized + 'static,
+    Ret: Default + 'static,
+    StrongRef: StrongItemTreeRef + 'static,
+>(
+    callback: Pin<&Callback<Arg, Ret>>,
+    component_strong: &StrongRef,
+    handler: fn(StrongRef, &Arg) -> Ret,
+) {
+    let weak = component_strong.to_weak();
+    callback.set_handler(move |arg| {
+        handler(<StrongRef as StrongItemTreeRef>::from_weak(&weak).unwrap(), arg)
+    })
+}
+
+pub fn debug(s: SharedString) {
+    i_slint_core::debug_log::log_message(i_slint_core::debug_log::LogMessage::new(
+        i_slint_core::debug_log::LogMessageSource::SlintCode,
+        None,
+        format_args!("{s}"),
+    ));
+}
+
+pub fn ensure_backend() -> Result<(), crate::PlatformError> {
+    i_slint_backend_selector::with_platform(|_b| {
+        // Nothing to do, just make sure a backend was created
+        Ok(())
+    })
+}
+
+/// Creates a new window to render components in.
+pub fn create_window_adapter()
+-> Result<alloc::rc::Rc<dyn i_slint_core::window::WindowAdapter>, crate::PlatformError> {
+    i_slint_backend_selector::with_platform(|b| b.create_window_adapter())
+}
+
+/// Wrapper around i_slint_core::translations::translate for the generated code
+pub fn translate(
+    origin: SharedString,
+    context: SharedString,
+    domain: SharedString,
+    args: Slice<SharedString>,
+    n: i32,
+    plural: SharedString,
+) -> SharedString {
+    i_slint_core::translations::translate(&origin, &context, &domain, args.as_slice(), n, &plural)
+}
+
+#[cfg(feature = "gettext")]
+pub fn init_translations(domain: &str, dirname: impl Into<std::path::PathBuf>) {
+    i_slint_core::translations::gettext_bindtextdomain(domain, dirname.into()).unwrap()
+}
+
+pub fn use_24_hour_format() -> bool {
+    i_slint_core::date_time::use_24_hour_format()
+}
+
+/// internal re_exports used by the macro generated
+pub mod re_exports {
+    pub use alloc::boxed::Box;
+    pub use alloc::rc::{Rc, Weak};
+    pub use alloc::string::String;
+    pub use alloc::{vec, vec::Vec};
+    pub use const_field_offset::{self, FieldOffsets, PinnedDrop};
+    pub use core::iter::FromIterator;
+    pub use core::option::{Option, Option::*};
+    pub use core::result::{Result, Result::*};
+    pub use i_slint_core::styled_text::{
+        StyledText, color_to_styled_text, parse_markdown, string_to_styled_text,
+    };
+    // This one is empty when Qt is not available, which triggers a warning
+    pub use euclid::approxeq::ApproxEq;
+    #[allow(unused_imports)]
+    pub use i_slint_backend_selector::native_widgets::*;
+    pub use i_slint_common::TranslationsBundled;
+    pub use i_slint_core::accessibility::{
+        AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
+    };
+    pub use i_slint_core::animations::{EasingCurve, animation_tick, current_tick};
+    pub use i_slint_core::api::LogicalPosition;
+    pub use i_slint_core::callbacks::Callback;
+    pub use i_slint_core::context::SlintContext;
+    pub use i_slint_core::cursor::MouseCursorInner;
+    pub use i_slint_core::data_transfer::DataTransfer;
+    pub use i_slint_core::date_time::*;
+    pub use i_slint_core::detect_operating_system;
+    pub use i_slint_core::graphics::*;
+    pub use i_slint_core::input::{
+        FocusEvent, FocusReason, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,
+        Keys, MouseEvent, key_codes::Key, make_keys,
+    };
+    pub use i_slint_core::item_tree::{
+        IndexRange, ItemTree, ItemTreeRc, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak,
+        ensure_item_tree_instantiated, register_item_tree, unregister_item_tree,
+    };
+    pub use i_slint_core::item_tree::{
+        ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
+        VisitChildrenResult, visit_item_tree,
+    };
+    pub use i_slint_core::items::{Transform, *};
+    pub use i_slint_core::layout::*;
+    pub use i_slint_core::lengths::{
+        LogicalLength, LogicalPoint, LogicalRect, logical_position_to_api,
+    };
+    pub use i_slint_core::macos_bring_all_windows_to_front;
+    pub use i_slint_core::menus::{Menu, MenuFromItemTree, MenuVTable};
+    pub use i_slint_core::model::*;
+    pub use i_slint_core::open_url;
+    pub use i_slint_core::properties::{
+        ChangeTracker, Property, PropertyTracker, StateInfo, set_state_binding,
+    };
+    pub use i_slint_core::slice::Slice;
+    pub use i_slint_core::string::shared_string_from_number;
+    pub use i_slint_core::string::shared_string_from_number_fixed;
+    pub use i_slint_core::string::shared_string_from_number_precision;
+    pub use i_slint_core::string::shared_string_from_number_unlocalized;
+    pub use i_slint_core::timers::{Timer, TimerMode};
+    pub use i_slint_core::translations::{
+        set_bundled_languages, translate_from_bundle, translate_from_bundle_with_plural,
+    };
+    pub use i_slint_core::window::{
+        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, WindowKind, accent_color,
+        context_for_root,
+    };
+    pub use i_slint_core::{
+        Color, Coord, SharedString, SharedVector, format, string::ToSharedString,
+        string::string_to_float,
+    };
+    pub use i_slint_core::{ItemTreeVTable_static, MenuVTable_static};
+    pub use num_traits::float::Float;
+    pub use num_traits::ops::euclid::Euclid;
+    pub use once_cell::race::OnceBox;
+    pub use once_cell::unsync::OnceCell;
+    pub use pin_weak::rc::PinWeak;
+    pub use unicode_segmentation::UnicodeSegmentation;
+    pub use vtable::{self, *};
+
+    #[cfg(feature = "live-preview")]
+    pub use i_slint_live_preview::live_component as live_preview;
+}

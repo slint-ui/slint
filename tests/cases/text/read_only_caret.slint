@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 100phx;
+
+    ti := TextInput {
+        text: "Hello";
+        read-only: true;
+    }
+
+    out property <string> text: ti.text;
+    out property <int> cursor-pos: ti.cursor-position-byte-offset;
+    out property <int> anchor-pos: ti.anchor-position-byte-offset;
+    out property <bool> has-selection: ti.cursor-position-byte-offset != ti.anchor-position-byte-offset;
+    out property <bool> input-focused: ti.has-focus;
+}
+
+/*
+```rust
+use slint::platform::Key;
+use slint::SharedString;
+
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert!(instance.get_input_focused());
+assert_eq!(instance.get_text(), "Hello");
+
+// The caret moves with the arrow keys even when read-only.
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::LeftArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::LeftArrow));
+assert_eq!(instance.get_cursor_pos(), 3);
+assert!(!instance.get_has_selection());
+
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::RightArrow));
+assert_eq!(instance.get_cursor_pos(), 4);
+
+// Shift + arrow extends a selection.
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::LeftArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::LeftArrow));
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
+assert!(instance.get_has_selection());
+assert_eq!(instance.get_anchor_pos(), 4);
+assert_eq!(instance.get_cursor_pos(), 2);
+
+// Backspace must not edit the text.
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Backspace));
+assert_eq!(instance.get_text(), "Hello");
+
+// Typing characters is also ignored.
+slint_testing::send_keyboard_string_sequence(&instance, "x");
+assert_eq!(instance.get_text(), "Hello");
+
+// Ctrl+A still selects all.
+slint_testing::send_keyboard_char(&instance, Key::Control.into(), true);
+slint_testing::send_keyboard_string_sequence(&instance, "a");
+slint_testing::send_keyboard_char(&instance, Key::Control.into(), false);
+assert!(instance.get_has_selection());
+assert_eq!(instance.get_anchor_pos(), 0);
+assert_eq!(instance.get_cursor_pos(), 5);
+```
+*/

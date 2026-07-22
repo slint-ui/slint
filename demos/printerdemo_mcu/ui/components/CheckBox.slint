@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { DemoPalette } from "../common.slint";
+import { ShadowBox } from "ShadowBox.slint";
+
+export component CheckBox {
+    in property <string> text;
+    in-out property <bool> checked;
+
+    property <length> margin: (root.height - tick-box.height) / 2;
+
+    width: 100%;
+    height: 74px;
+
+    ShadowBox { }
+
+    Text {
+        x: margin;
+        text <=> root.text;
+        font-size: 16px;
+        color: DemoPalette.text-foreground-color;
+    }
+
+    tick-box := Rectangle {
+        in property <image> img;
+        callback clicked;
+        x: parent.width - self.width - margin;
+        width: 48px;
+        height: self.width;
+        border-radius: 10px;
+        border-width: 2px;
+        border-color: #CAD5E2;
+
+        Image {
+            visible: root.checked;
+            source: @image-url("../images/mcu/switch-active.png");
+
+            Image {
+                source: @image-url("../images/mcu/tick.svg");
+            }
+        }
+
+        touch := TouchArea {
+            clicked => {
+                root.checked = !root.checked;
+            }
+            width: 150%;
+            height: 150%;
+        }
+    }
+}

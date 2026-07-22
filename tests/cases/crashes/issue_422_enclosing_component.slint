@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// issue #422
+
+export TestCase := Window {
+    width: 100phx;
+    height: 100phx;
+
+    property<bool> combo_has_focus;
+
+    if (true): combo := FocusScope {
+        if (true): TouchArea {
+            clicked => {
+                combo.focus();
+                root.combo_has_focus = combo.has-focus;
+            }
+        }
+    }
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(!instance.get_combo_has_focus());
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert(instance.get_combo_has_focus());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_combo_has_focus());
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert!(instance.get_combo_has_focus());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(!instance.combo_has_focus);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert(instance.combo_has_focus);
+```
+*/

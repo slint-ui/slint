@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component OpacityTwoWay inherits Rectangle {
+    in-out property <float> sub_opacity <=> rect.opacity;
+    rect := Rectangle {
+        opacity: 0.75;
+    }
+}
+
+component Compo inherits Rectangle {
+    preferred-height: 10px;
+    in-out property<int> foo <=> self.bar;
+    in-out property<int> bar: 120;
+}
+
+export component TestCase inherits Window {
+    compo0 := Compo { foo: compo1.foo + 20; }
+    compo1 := Compo {}
+    compo2 := Compo { foo: compo1.foo + 10; }
+
+    Rectangle {
+        otw := OpacityTwoWay { sub_opacity: 0.5; }
+        otw2 := OpacityTwoWay { sub_opacity: 0.5; }
+    }
+
+    in-out property <int> override_bar: 22;
+    force_instance := VerticalLayout {
+        if true : Compo { bar <=> override_bar; }
+    }
+
+    in-out property <int> compo0_foo: compo0.foo;
+    in-out property <int> compo2_foo: compo2.foo;
+    in-out property <float> otw_opacity <=> otw.sub_opacity;
+
+    in-out property <bool> test_override_bar: force_instance.preferred-height == 10px && override_bar == 22;
+
+    in-out property <bool> test: compo0_foo == 140 && compo2_foo == 130 && otw_opacity == 0.5 && otw2.sub_opacity == 0.5 && test_override_bar;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_compo0_foo(), 140);
+assert_eq!(instance.get_compo2_foo(), 130);
+assert_eq!(instance.get_otw_opacity(), 0.5);
+assert!(instance.get_test_override_bar(), "override_bar = {}", instance.get_override_bar());
+assert!(instance.get_test());
+```
+
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_compo0_foo(), 140);
+assert_eq(instance.get_compo2_foo(), 130);
+assert_eq(instance.get_otw_opacity(), 0.5);
+assert(instance.get_test());
+```
+
+
+```js
+let instance = new slint.TestCase({});
+assert.equal(instance.compo0_foo, 140);
+assert.equal(instance.compo2_foo, 130);
+assert.equal(instance.otw_opacity, 0.5);
+assert(instance.test);
+```
+
+*/

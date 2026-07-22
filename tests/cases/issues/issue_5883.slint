@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, ListView, LineEdit } from "std-widgets.slint";
+
+struct Protocol { name: string, uuid: string, }
+
+export component TestCases inherits Window {
+    if true : Button {
+        text: "Yes";
+        clicked => {
+            ProtocolManagerLogic.delete-protocol-by-type-uuid(root.current-selected-protocol-type, protocol.uuid);
+            if root.current-selected-protocol-name-uuid[1] == protocol.uuid {
+                root.current-selected-protocol-name-uuid = ["", ""]
+            };
+            /////// When I comment out the next line, the program compiles fine.
+            root.current-selected-protocol-type == "unit" ? btn-show-unit-protocols.clicked() : btn-show-global-protocols.clicked();
+            ///////
+            search-field.text = "";
+            root.is_confirm_delete_open = false;
+        }
+    }
+
+    btn-show-unit-protocols := Button {
+        text: "Show Unit Protocols";
+        checked: root.current-selected-protocol-type == "unit";
+        clicked => {
+            root.get-all-unit-protocols();
+        }
+    }
+
+    btn-show-global-protocols := Button {
+        text: "Show Global Protocols";
+        checked: root.current-selected-protocol-type == "global";
+        clicked => {
+            root.get-all-global-protocols();
+        }
+    }
+
+    function get-all-unit-protocols() {
+        ProtocolManagerLogic.get-all-unit-protocols();
+        root.current-selected-protocol-type = "unit";
+        root.current-selected-protocol-name-uuid = [current-displayed-protocols[0].name, current-displayed-protocols[0].uuid];
+        root.is_confirm_delete_open = false;
+        if current-displayed-protocols[0].uuid != "" {
+            ProtocolManagerLogic.get-protocol-by-type-uuid(root.current-selected-protocol-type, current-displayed-protocols[0].uuid)
+        }
+        search-field.text = "";
+        root.current-searched-protocols = root.current-displayed-protocols;
+        protocol-list.viewport-y = 0px;
+    }
+
+    protocol-list := ListView {}
+    search-field := LineEdit { }
+
+    in-out property <string> current-selected-protocol-type;
+    in-out property <bool> is_confirm_delete_open;
+    function get-all-global-protocols() {}
+    in-out property <[Protocol]> current-displayed-protocols;
+    in-out property <[Protocol]> current-searched-protocols;
+    in-out property <[string]> current-selected-protocol-name-uuid;
+    in-out property <Protocol> protocol;
+
+}
+
+global ProtocolManagerLogic {
+    callback get-protocol-by-type-uuid(string , string );
+    callback delete-protocol-by-type-uuid(string , string );
+    callback get-all-unit-protocols();
+    callback get-all-global-protocols();
+}

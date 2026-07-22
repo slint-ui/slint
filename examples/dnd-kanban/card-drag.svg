@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 56" width="80" height="56">
+  <!-- Drag-image used by DragArea while a Kanban card is in flight. -->
+  <rect x="1" y="1" width="78" height="54" rx="6"
+        fill="#21262d" stroke="#58a6ff" stroke-width="1.5" opacity="0.85"/>
+  <line x1="12" y1="20" x2="68" y2="20" stroke="#e6edf3" stroke-width="2" opacity="0.9"/>
+  <line x1="12" y1="32" x2="56" y2="32" stroke="#768390" stroke-width="2" opacity="0.7"/>
+  <line x1="12" y1="42" x2="40" y2="42" stroke="#768390" stroke-width="2" opacity="0.7"/>
+</svg>

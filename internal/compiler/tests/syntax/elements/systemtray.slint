@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//config:generate_all_exported_windows
+
+// `if cond : Menu { ... }` is allowed: the wrapper switches the menu's
+// shadow tree based on the condition, so the platform menu is empty when
+// it's false.
+export component A inherits SystemTrayIcon {
+    in property <bool> show-menu: true;
+    if show-menu : Menu {
+        MenuItem { title: "ok"; }
+    }
+}
+
+export component B inherits SystemTrayIcon {
+    for _ in [1,2,3] : Menu {}
+//                     >   <error{SystemTrayIcon's Menu cannot be in a repeated element}
+}
+
+export component C inherits SystemTrayIcon {
+    Menu {
+//  >   <note{First Menu defined here}
+        MenuItem { title: "ok"; }
+    }
+    Menu {
+//  >   <error{Only one Menu is allowed in a SystemTrayIcon}
+        MenuItem { title: "another"; }
+    }
+}

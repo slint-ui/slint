@@ -1,0 +1,139 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component ExtraComponent inherits Rectangle {
+    for x in [{a: "0"}, {a: "1"}] : Text { x:0;y:0; text: x.a; }
+}
+
+
+component Extra2 inherits Rectangle {
+    in-out property<int> top_level;
+    in-out property<int> value;
+    callback update_value;
+    for aaa[r] in [[10, top_level], [2, 3]] : blah := Rectangle {
+        y:0;
+        width: parent.width;
+        height: root.height;
+        property <int> some_value: 1000;
+        for bb[l] in aaa : TouchArea {
+            property <int> some_value: 1515;
+            width: 10phx;
+            height: 10phx;
+            x: r*10phx;
+            y: l*10phx;
+            clicked => {
+                value += bb + blah.some_value;
+                update_value();
+            }
+        }
+    }
+}
+
+export component TestCase inherits Rectangle {
+    width: 100phx;
+    height: 100phx;
+    background: white;
+    in-out property<float> top_level: 42;
+    in-out property<int> value: 0;
+
+   for pp[idx] in 5: Rectangle {
+        s := Rectangle {
+            property<length> within: 88phx;
+            x: 2phx * idx;
+            y: 200phx * pp;
+            width: s.within;
+            height: top_level * 1phx;
+            for nested in [1phx] : Rectangle {
+                x : s.width + top_level * 1phx + nested;
+            }
+        }
+    }
+
+    for pp[idx] in [1,3,2]: Rectangle {
+        x: idx * 1phx;
+        y: 25phx * pp;
+    }
+
+    for pp[idx] in ["1","3","2"]: Rectangle {
+        x: idx * 1phx;
+        Text { x:0;y:0; text: pp; }
+    }
+
+    for pp in [{a: 12, b: "aa", c: {a: #00f}}, {a: 13, b: "cc", c: { a: #f00}}]: Text {
+        y:0;
+        x: pp.a * 1phx;
+        text: pp.b;
+        color: pp.c.a;
+        ExtraComponent {
+        }
+    }
+    Extra2 {
+        y:0;
+        width: parent.width;
+        height: root.height;
+        top_level: top_level;
+        update_value => {
+            value = self.value;
+        }
+    }
+
+    in-out property<[{a: int}]> m;
+    for x in m : TouchArea {
+        y:0;
+        width: parent.width;
+        height: root.height;
+        clicked => {
+            value = x.a;
+        }
+    }
+
+    // issue #2977
+    for v in value + value : Text { x:0;y:0; text: v; }
+}
+
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_value(), 1010);
+
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_value(), 2013);
+
+slint_testing::send_mouse_click(&instance, 5., 15.);
+assert_eq(instance.get_value(), 3000+13+42);
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_value(), 1010);
+
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_value(), 2013);
+
+slint_testing::send_mouse_click(&instance, 5., 15.);
+assert_eq!(instance.get_value(), 3000+13+42);
+
+```
+
+```js
+var instance = new slint.TestCase();
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.value, 1010);
+
+instance.cond1 = true;
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.value, 2013);
+
+instance.cond1 = false;
+slintlib.private_api.send_mouse_click(instance, 5., 15.);
+assert.equal(instance.value, 3000+13+42);
+```
+*/

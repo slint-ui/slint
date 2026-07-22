@@ -1,0 +1,142 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { HorizontalBox, VerticalBox, Palette } from "std-widgets.slint";
+
+component SideBarItem inherits Rectangle {
+    in property <int> tab-index;
+    in property <bool> selected;
+    in property <bool> has-focus;
+    in-out property <string> text <=> label.text;
+
+    callback clicked <=> touch.clicked;
+
+    min-height: l.preferred-height;
+    accessible-role: tab;
+    accessible-label: root.text;
+    accessible-item-index: root.tab-index;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
+    accessible-action-default => { self.clicked(); }
+
+    states [
+        pressed when touch.pressed : {
+            state.opacity: 0.8;
+        }
+        hover when touch.has-hover : {
+            state.opacity: 0.6;
+        }
+        selected when root.selected : {
+            state.opacity: 1;
+        }
+        focused when root.has-focus : {
+            state.opacity: 0.8;
+        }
+    ]
+
+    state := Rectangle {
+        opacity: 0;
+        background: Palette.background;
+
+        animate opacity { duration: 150ms; }
+    }
+
+    l := HorizontalBox {
+        y: (parent.height - self.height) / 2;
+        spacing: 0px;
+
+        label := Text {
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+
+    touch := TouchArea {
+        width: 100%;
+        height: 100%;
+    }
+}
+
+export component SideBar inherits Rectangle {
+    in property <[string]> model: [];
+    in property <string> title <=> label.text;
+    out property <int> current-item: 0;
+    out property <int> current-focused: fs.has-focus ? fs.focused-tab : -1; // The currently focused tab
+
+    width: max(180px, vb.preferred-width);
+    forward-focus: fs;
+
+    Rectangle {
+        background: Palette.background.darker(0.2);
+    }
+
+    vb := VerticalBox {
+        padding-left: 0px;
+        padding-right: 0px;
+        alignment: start;
+
+        label := Text {
+            font-size: 1.3rem;
+            horizontal-alignment: center;
+        }
+
+        navigation := VerticalLayout {
+            alignment: start;
+            vertical-stretch: 0;
+            accessible-role: tab-list;
+            accessible-orientation: Orientation.vertical;
+            accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-item;
+            accessible-label: root.title;
+            accessible-item-count: root.model.length;
+
+            fs := FocusScope {
+                key-pressed(event) => {
+                    if (event.text == "\n") {
+                         root.current-item = root.current-focused;
+                         return accept;
+                    }
+                    if (event.text == Key.UpArrow) {
+                         self.focused-tab = Math.max(self.focused-tab - 1, 0);
+                         return accept;
+                    }
+                    if (event.text == Key.DownArrow) {
+                         self.focused-tab = Math.min(self.focused-tab + 1, root.model.length - 1);
+                         return accept;
+                    }
+                    return reject;
+                }
+
+                key-released(event) => {
+                    if (event.text == " ") {
+                         root.current-item = root.current-focused;
+                         return accept;
+                    }
+                    return reject;
+                }
+
+                property <int> focused-tab: 0;
+
+                x: 0;
+                width: 0; // Do not react on clicks
+            }
+
+            for item[index] in root.model : SideBarItem {
+                clicked => { root.current-item = index; }
+
+                tab-index: index;
+                has-focus: index == root.current-focused;
+                text: item;
+                selected: index == root.current-item;
+            }
+        }
+
+        VerticalLayout {
+            bottom := VerticalBox {
+                padding-top: 0px;
+                padding-bottom: 0px;
+
+                @children
+             }
+        }
+    }
+}

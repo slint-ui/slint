@@ -1,0 +1,1114 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore nodekind
+/*! The Slint Language Parser
+
+This module is responsible to parse a string onto a syntax tree.
+
+The core of it is the `DefaultParser` class that holds a list of token and
+generates a `rowan::GreenNode`
+
+This module has different sub modules with the actual parser functions
+
+*/
+
+use crate::diagnostics::{BuildDiagnostics, SourceFile, Spanned};
+use smol_str::SmolStr;
+use std::fmt::Display;
+
+mod document;
+mod element;
+mod expressions;
+mod statements;
+mod r#type;
+
+/// Each parser submodule would simply do `use super::prelude::*` to import typically used items
+mod prelude {
+    #[cfg(test)]
+    pub use super::DefaultParser;
+    pub use super::{Parser, SyntaxKind};
+    #[cfg(test)]
+    pub use super::{SyntaxNode, SyntaxNodeVerify, syntax_nodes};
+    #[cfg(test)]
+    pub use i_slint_parser_test_macro::parser_test;
+}
+
+#[cfg(test)]
+pub trait SyntaxNodeVerify {
+    /// The SyntaxKind corresponding to this type
+    const KIND: SyntaxKind;
+    /// Asserts that the node is of the given SyntaxKind and that it has the expected children
+    /// Panic if this is not the case
+    fn verify(node: SyntaxNode) {
+        assert_eq!(node.kind(), Self::KIND)
+    }
+}
+
+pub use rowan::{TextRange, TextSize};
+
+/// Check that a node has the assumed children
+#[cfg(test)]
+macro_rules! verify_node {
+    // Some combination of children
+    ($node:ident, [ $($t1:tt $($t2:ident)?),* ]) => {
+        // Check that every children is there
+        $(verify_node!(@check_has_children $node, $t1 $($t2)* );)*
+
+        // check that there are not too many nodes
+        for c in $node.children() {
+            assert!(
+                false $(|| c.kind() == verify_node!(@extract_kind $t1 $($t2)*))*,
+                "Node is none of [{}]\n{:?}", stringify!($($t1 $($t2)*),*) ,c);
+        }
+
+        // recurse
+        $(
+            for _c in $node.children().filter(|n| n.kind() == verify_node!(@extract_kind $t1 $($t2)*)) {
+                <verify_node!(@extract_type $t1 $($t2)*)>::verify(_c)
+            }
+        )*
+    };
+
+    // At least one
+    (@check_has_children $node:ident, + $kind:ident) => {
+        let count = $node.children_with_tokens().filter(|n| n.kind() == SyntaxKind::$kind).count();
+        assert!(count >= 1, "Expecting one or more sub-node of type {}, found {}\n{:?}", stringify!($kind), count, $node);
+    };
+    // Any number of this kind.
+    (@check_has_children $node:ident, * $kind:ident) => {};
+    // 1 or 0
+    (@check_has_children $node:ident, ? $kind:ident) => {
+        let count = $node.children_with_tokens().filter(|n| n.kind() == SyntaxKind::$kind).count();
+        assert!(count <= 1, "Expecting one or zero sub-node of type {}, found {}\n{:?}", stringify!($kind), count, $node);
+    };
+    // Exactly one
+    (@check_has_children $node:ident, $kind:ident) => {
+        let count = $node.children_with_tokens().filter(|n| n.kind() == SyntaxKind::$kind).count();
+        assert_eq!(count, 1, "Expecting exactly one sub-node of type {}\n{:?}", stringify!($kind), $node);
+    };
+    // Exact number
+    (@check_has_children $node:ident, $count:literal $kind:ident) => {
+        let count = $node.children_with_tokens().filter(|n| n.kind() == SyntaxKind::$kind).count();
+        assert_eq!(count, $count, "Expecting {} sub-node of type {}, found {}\n{:?}", $count, stringify!($kind), count, $node);
+    };
+
+    (@extract_kind + $kind:ident) => {SyntaxKind::$kind};
+    (@extract_kind * $kind:ident) => {SyntaxKind::$kind};
+    (@extract_kind ? $kind:ident) => {SyntaxKind::$kind};
+    (@extract_kind $count:literal $kind:ident) => {SyntaxKind::$kind};
+    (@extract_kind $kind:ident) => {SyntaxKind::$kind};
+
+    (@extract_type + $kind:ident) => {$crate::parser::syntax_nodes::$kind};
+    (@extract_type * $kind:ident) => {$crate::parser::syntax_nodes::$kind};
+    (@extract_type ? $kind:ident) => {$crate::parser::syntax_nodes::$kind};
+    (@extract_type $count:literal $kind:ident) => {$crate::parser::syntax_nodes::$kind};
+    (@extract_type $kind:ident) => {$crate::parser::syntax_nodes::$kind};
+}
+
+macro_rules! node_accessors {
+    // Some combination of children
+    ([ $($t1:tt $($t2:ident)?),* ]) => {
+        $(node_accessors!{@ $t1 $($t2)*} )*
+    };
+    (@ + $kind:ident) => {
+        #[allow(non_snake_case)]
+        pub fn $kind(&self) -> impl Iterator<Item = $kind> + use<> {
+            let mut it = self.0.children().filter(|n| n.kind() == SyntaxKind::$kind).map(Into::into).peekable();
+            debug_assert!(it.peek().is_some(), stringify!(Expected at least one $kind));
+            it
+        }
+    };
+    (@ * $kind:ident) => {
+        #[allow(non_snake_case)]
+        pub fn $kind(&self) -> impl Iterator<Item = $kind> + use<> {
+            self.0.children().filter(|n| n.kind() == SyntaxKind::$kind).map(Into::into)
+        }
+    };
+    (@ ? $kind:ident) => {
+        #[allow(non_snake_case)]
+        pub fn $kind(&self) -> Option<$kind> {
+            self.0.child_node(SyntaxKind::$kind).map(Into::into)
+        }
+    };
+    (@ 2 $kind:ident) => {
+        #[allow(non_snake_case)]
+        #[track_caller]
+        pub fn $kind(&self) -> ($kind, $kind) {
+            let mut it = self.0.children().filter(|n| n.kind() == SyntaxKind::$kind);
+            let a = it.next().expect(stringify!(Missing first $kind));
+            let b = it.next().expect(stringify!(Missing second $kind));
+            debug_assert!(it.next().is_none(), stringify!(More $kind than expected));
+            (a.into(), b.into())
+        }
+    };
+    (@ 3 $kind:ident) => {
+        #[allow(non_snake_case)]
+        #[track_caller]
+        pub fn $kind(&self) -> ($kind, $kind, $kind) {
+            let mut it = self.0.children().filter(|n| n.kind() == SyntaxKind::$kind);
+            let a = it.next().expect(stringify!(Missing first $kind));
+            let b = it.next().expect(stringify!(Missing second $kind));
+            let c = it.next().expect(stringify!(Missing third $kind));
+            debug_assert!(it.next().is_none(), stringify!(More $kind than expected));
+            (a.into(), b.into(), c.into())
+        }
+    };
+    (@ $kind:ident) => {
+        #[allow(non_snake_case)]
+        #[track_caller]
+        pub fn $kind(&self) -> $kind {
+            self.0.child_node(SyntaxKind::$kind).expect(stringify!(Missing $kind)).into()
+        }
+    };
+
+}
+
+/// This macro is invoked once, to declare all the token and syntax kind.
+/// The purpose of this macro is to declare the token with its regexp at the same place,
+/// and the nodes with their contents.
+///
+/// This is split into two group: first the tokens, then the nodes.
+///
+/// # Tokens
+///
+/// Given as `$token:ident -> $rule:expr`. The rule parameter can be either a string literal or
+/// a lexer function. The order of tokens is important because the rules will be run in that order
+/// and the first one matching will be chosen.
+///
+/// # Nodes
+///
+/// Given as `$(#[$attr:meta])* $nodekind:ident -> [$($children:tt),*] `.
+/// Where `children` is a list of sub-nodes (not including tokens).
+/// This will allow to self-document and create the structure from the [`syntax_nodes`] module.
+/// The children can be prefixed with the following symbol:
+///
+/// - nothing: The node occurs once and exactly once, the generated accessor returns the node itself
+/// - `+`: the node occurs one or several times, the generated accessor returns an `Iterator`
+/// - `*`: the node occurs zero or several times, the generated accessor returns an `Iterator`
+/// - `?`: the node occurs once or zero times, the generated accessor returns an `Option`
+/// - `2` or `3`: the node occurs exactly two or three times, the generated accessor returns a tuple
+///
+/// Note: the parser must generate the right amount of sub nodes, even if there is a parse error.
+///
+/// ## The [`syntax_nodes`] module
+///
+/// Creates one struct for every node with the given accessor.
+/// The struct can be converted from and to the node.
+macro_rules! declare_syntax {
+    ({
+        $($token:ident -> $rule:expr ,)*
+     }
+     {
+        $( $(#[$attr:meta])*  $nodekind:ident -> $children:tt ,)*
+    })
+    => {
+        #[repr(u16)]
+        #[derive(Debug, Copy, Clone, Eq, PartialEq, num_enum::IntoPrimitive, num_enum::TryFromPrimitive, Hash, Ord, PartialOrd)]
+        pub enum SyntaxKind {
+            Error,
+            Eof,
+
+            // Tokens:
+            $(
+                /// Token
+                $token,
+            )*
+
+            // Nodes:
+            $(
+                $(#[$attr])*
+                $nodekind,
+            )*
+        }
+
+        impl Display for SyntaxKind {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    $(Self::$token => {
+                        if let Some(character) = <dyn std::any::Any>::downcast_ref::<&str>(& $rule) {
+                            return write!(f, "'{}'", character)
+                        }
+                    })*
+                    _ => ()
+                }
+                write!(f, "{:?}", self)
+            }
+        }
+
+
+        /// Returns a pair of the matched token type at the beginning of `text`, and its size
+        pub fn lex_next_token(text : &str, state: &mut crate::lexer::LexState) -> Option<(usize, SyntaxKind)> {
+            use crate::lexer::LexingRule;
+            $(
+                let len = ($rule).lex(text, state);
+                if len > 0 {
+                    return Some((len, SyntaxKind::$token));
+                }
+            )*
+            None
+        }
+
+        pub mod syntax_nodes {
+            use super::*;
+            $(
+                #[derive(Debug, Clone, derive_more::Deref, derive_more::Into)]
+                pub struct $nodekind(SyntaxNode);
+                #[cfg(test)]
+                impl SyntaxNodeVerify for $nodekind {
+                    const KIND: SyntaxKind = SyntaxKind::$nodekind;
+                    #[track_caller]
+                    fn verify(node: SyntaxNode) {
+                        assert_eq!(node.kind(), Self::KIND);
+                        verify_node!(node, $children);
+                    }
+                }
+                impl $nodekind {
+                    node_accessors!{$children}
+
+                    /// Create a new node from a SyntaxNode, if the SyntaxNode is of the correct kind
+                    pub fn new(node: SyntaxNode) -> Option<Self> {
+                        (node.kind() == SyntaxKind::$nodekind).then(|| Self(node))
+                    }
+                }
+
+                impl From<SyntaxNode> for $nodekind {
+                    #[track_caller]
+                    fn from(node: SyntaxNode) -> Self {
+                        assert_eq!(node.kind(), SyntaxKind::$nodekind);
+                        Self(node)
+                    }
+                }
+
+                impl Spanned for $nodekind {
+                    fn span(&self) -> crate::diagnostics::Span {
+                        self.0.span()
+                    }
+
+                    fn source_file(&self) -> Option<&SourceFile> {
+                        self.0.source_file()
+                    }
+                }
+            )*
+        }
+    }
+}
+declare_syntax! {
+    // Tokens.
+    // WARNING: when changing this, do not forget to update the tokenizer in the slint-rs-macro crate!
+    // The order of token is important because the rules will be run in that order
+    // and the first one matching will be chosen.
+    {
+        Whitespace -> &crate::lexer::lex_whitespace,
+        Comment -> &crate::lexer::lex_comment,
+        StringLiteral -> &crate::lexer::lex_string,
+        NumberLiteral -> &crate::lexer::lex_number,
+        ColorLiteral -> &crate::lexer::lex_color,
+        Identifier -> &crate::lexer::lex_identifier,
+        DoubleArrow -> "<=>",
+        PlusEqual -> "+=",
+        MinusEqual -> "-=",
+        StarEqual -> "*=",
+        DivEqual -> "/=",
+        LessEqual -> "<=",
+        GreaterEqual -> ">=",
+        EqualEqual -> "==",
+        NotEqual -> "!=",
+        ColonEqual -> ":=",
+        FatArrow -> "=>",
+        Arrow -> "->",
+        OrOr -> "||",
+        AndAnd -> "&&",
+        LBrace -> "{",
+        RBrace -> "}",
+        LParent -> "(",
+        RParent -> ")",
+        LAngle -> "<",
+        RAngle -> ">",
+        LBracket -> "[",
+        RBracket -> "]",
+        Plus -> "+",
+        Minus -> "-",
+        Star -> "*",
+        Div -> "/",
+        Equal -> "=",
+        Colon -> ":",
+        Comma -> ",",
+        Semicolon -> ";",
+        Bang -> "!",
+        Dot -> ".",
+        Question -> "?",
+        Dollar -> "$",
+        At -> "@",
+        Pipe -> "|",
+        Percent -> "%",
+    }
+    // Syntax Nodes. The list after the `->` is the possible child nodes,
+    // see the documentation of `declare_syntax!` macro for details.
+    {
+        Document -> [ *Component, *ExportsList, *ImportSpecifier, *StructDeclaration, *EnumDeclaration ],
+        /// `DeclaredIdentifier := Element { ... }`
+        Component -> [ DeclaredIdentifier, Element ],
+        /// `id := Element { ... }`
+        SubElement -> [ Element ],
+        Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
+                     *CallbackDeclaration, *ConditionalElement, *MatchElement, *Function, *SubElement,
+                     *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
+                     *TwoWayBinding, *States, *Transitions, *ImplementStatement, ?ChildrenPlaceholder ],
+        RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
+        RepeatedIndex -> [],
+        ConditionalElement -> [ Expression , SubElement],
+        /// match (foo) { 1: Elem { } }
+        MatchElement -> [ Expression , *MatchCase, ?WildcardMatchCase ],
+        /// 1: Elem { }
+        MatchCase -> [ Expression, ?SubElement ],
+        /// *: Elem { }
+        WildcardMatchCase -> [ ?SubElement ],
+        CallbackDeclaration -> [ DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
+        // `foo: type` or just `type`
+        CallbackDeclarationParameter -> [ ?DeclaredIdentifier, Type],
+        Function -> [DeclaredIdentifier, *ArgumentDeclaration, ?ReturnType, ?CodeBlock ],
+        ArgumentDeclaration -> [DeclaredIdentifier, Type],
+        /// `-> type`  (but without the ->)
+        ReturnType -> [Type],
+        CallbackConnection -> [ *DeclaredIdentifier, ?CodeBlock, ?Expression ],
+        /// Declaration of a property.
+        PropertyDeclaration-> [ ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
+        /// QualifiedName are the properties name
+        PropertyAnimation-> [ *QualifiedName, *Binding ],
+        /// `changed xxx => {...}`  where `xxx` is the DeclaredIdentifier
+        PropertyChangedCallback-> [ DeclaredIdentifier, ?CodeBlock, ?Expression ],
+        /// wraps Identifiers, like `Rectangle` or `SomeModule.SomeType`
+        QualifiedName-> [],
+        /// Wraps single identifier (to disambiguate when there are other identifier in the production)
+        DeclaredIdentifier -> [],
+        ChildrenPlaceholder -> [],
+        Binding-> [ BindingExpression ],
+        /// `xxx <=> something`
+        TwoWayBinding -> [ Expression ],
+        /// `implement Interface <=> target;`
+        ImplementStatement -> [ QualifiedName, DeclaredIdentifier ],
+        /// the right-hand-side of a binding
+        // Fixme: the test should be a or
+        BindingExpression-> [ ?CodeBlock, ?Expression ],
+        CodeBlock-> [ *Expression, *LetStatement, *ReturnStatement ],
+        LetStatement -> [ DeclaredIdentifier, ?Type, Expression ],
+        ReturnStatement -> [ ?Expression ],
+        // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
+        Expression-> [ ?Expression, ?FunctionCallExpression, ?IndexExpression, ?SelfAssignment,
+                       ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
+                       ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtGradient, ?AtTr,
+                       ?MemberAccess, ?AtKeys ],
+        /// Concatenate the children Expressions and StringLiteral to make a string
+        StringTemplate -> [*Expression],
+        /// `@image-url("foo.png")`
+        AtImageUrl -> [],
+        /// `@linear-gradient(...)` or `@radial-gradient(...)`
+        AtGradient -> [*Expression],
+        /// `@tr("foo", ...)`  // the string is a StringLiteral
+        AtTr -> [?TrContext, ?TrPlural, *Expression],
+        AtMarkdown -> [*Expression],
+        /// `"foo" =>`  in a `AtTr` node
+        TrContext -> [],
+        /// `| "foo" % n`  in a `AtTr` node
+        TrPlural -> [Expression],
+        /// `@keys(...)`
+        AtKeys -> [],
+        /// expression()
+        FunctionCallExpression -> [*Expression],
+        /// `expression[index]`
+        IndexExpression -> [2 Expression],
+        /// `expression += expression`
+        SelfAssignment -> [2 Expression],
+        /// `condition ? first : second`
+        ConditionalExpression -> [3 Expression],
+        /// `expr + expr`
+        BinaryExpression -> [2 Expression],
+        /// `- expr`
+        UnaryOpExpression -> [Expression],
+        /// `(foo).bar`, where `foo` is the base expression, and `bar` is a Identifier.
+        MemberAccess -> [Expression],
+        /// `[ ... ]`
+        Array -> [ *Expression ],
+        /// `{ foo: bar }`
+        ObjectLiteral -> [ *ObjectMember ],
+        /// `foo: bar` inside an ObjectLiteral
+        ObjectMember -> [ Expression ],
+        /// `states: [...]`
+        States -> [*State],
+        /// The DeclaredIdentifier is the state name. The Expression, if any, is the condition.
+        State -> [DeclaredIdentifier, ?Expression, *StatePropertyChange, *Transition],
+        /// binding within a state
+        StatePropertyChange -> [ QualifiedName, BindingExpression ],
+        /// `transitions: [...]`
+        Transitions -> [*Transition],
+        /// There is an identifier "in", "out", "in-out", the DeclaredIdentifier is the state name
+        Transition -> [?DeclaredIdentifier, *PropertyAnimation],
+        /// Export a set of declared components by name
+        ExportsList -> [ *ExportSpecifier, ?Component, *StructDeclaration, ?ExportModule, *EnumDeclaration ],
+        /// Declare the first identifier to be exported, either under its name or instead
+        /// under the name of the second identifier.
+        ExportSpecifier -> [ ExportIdentifier, ?ExportName ],
+        ExportIdentifier -> [],
+        ExportName -> [],
+        /// `export ... from "foo"`. The import uri is stored as string literal.
+        ExportModule -> [],
+        /// import { foo, bar, baz } from "blah"; The import uri is stored as string literal.
+        ImportSpecifier -> [ ?ImportIdentifierList ],
+        ImportIdentifierList -> [ *ImportIdentifier ],
+        /// { foo as bar } or just { foo }
+        ImportIdentifier -> [ ExternalName, ?InternalName ],
+        ExternalName -> [],
+        InternalName -> [],
+        /// The representation of a type
+        Type -> [ ?QualifiedName, ?ObjectType, ?ArrayType ],
+        /// `{foo: string, bar: string} `
+        ObjectType ->[ *ObjectTypeMember ],
+        /// `foo: type` or `foo: type = default-value` inside an ObjectType
+        ObjectTypeMember -> [ Type, ?Expression ],
+        /// `[ type ]`
+        ArrayType -> [ Type ],
+        /// `struct Foo { ... }`
+        StructDeclaration -> [DeclaredIdentifier, ObjectType, *AtRustAttr],
+        /// `enum Foo { bli, bla, blu }`
+        EnumDeclaration -> [DeclaredIdentifier, *EnumValue, *AtRustAttr],
+        /// The value is a Identifier
+        EnumValue -> [],
+        /// `@rust-attr(...)`
+        AtRustAttr -> [],
+    }
+}
+
+impl From<SyntaxKind> for rowan::SyntaxKind {
+    fn from(v: SyntaxKind) -> Self {
+        rowan::SyntaxKind(v.into())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Token {
+    pub kind: SyntaxKind,
+    pub text: SmolStr,
+    pub offset: usize,
+    pub length: usize,
+    #[cfg(feature = "proc_macro_span")]
+    pub span: Option<proc_macro::Span>,
+}
+
+impl Default for Token {
+    fn default() -> Self {
+        Token {
+            kind: SyntaxKind::Eof,
+            text: Default::default(),
+            offset: 0,
+            length: 0,
+            #[cfg(feature = "proc_macro_span")]
+            span: None,
+        }
+    }
+}
+
+impl Token {
+    pub fn as_str(&self) -> &str {
+        self.text.as_str()
+    }
+
+    pub fn kind(&self) -> SyntaxKind {
+        self.kind
+    }
+}
+
+mod parser_trait {
+    //! module allowing to keep implementation details of the node private
+    use super::*;
+
+    pub trait Parser: Sized {
+        type Checkpoint: Clone;
+
+        /// Enter a new node.  The node is going to be finished when
+        /// The return value of this function is dropped
+        ///
+        /// (do not re-implement this function, re-implement
+        /// start_node_impl and finish_node_impl)
+        #[must_use = "The node will be finished when it is dropped"]
+        fn start_node(&mut self, kind: SyntaxKind) -> Node<'_, Self> {
+            self.start_node_impl(kind, None, NodeToken(()));
+            Node(self)
+        }
+        #[must_use = "use start_node_at to use this checkpoint"]
+        fn checkpoint(&mut self) -> Self::Checkpoint;
+        #[must_use = "The node will be finished when it is dropped"]
+        fn start_node_at(
+            &mut self,
+            checkpoint: impl Into<Option<Self::Checkpoint>>,
+            kind: SyntaxKind,
+        ) -> Node<'_, Self> {
+            self.start_node_impl(kind, checkpoint.into(), NodeToken(()));
+            Node(self)
+        }
+
+        /// Can only be called by Node::drop
+        fn finish_node_impl(&mut self, token: NodeToken);
+        /// Can only be called by Self::start_node
+        fn start_node_impl(
+            &mut self,
+            kind: SyntaxKind,
+            checkpoint: Option<Self::Checkpoint>,
+            token: NodeToken,
+        );
+
+        /// Same as nth(0)
+        fn peek(&mut self) -> Token {
+            self.nth(0)
+        }
+        /// Peek the `n`th token, not including whitespace and comments
+        fn nth(&mut self, n: usize) -> Token;
+        /// Consume the token and point to the next token
+        fn consume(&mut self);
+        fn error(&mut self, e: impl Into<String>);
+        fn warning(&mut self, e: impl Into<String>);
+
+        /// Consume the token if it has the right kind, otherwise report a syntax error.
+        /// Returns true if the token was consumed.
+        fn expect(&mut self, kind: SyntaxKind) -> bool {
+            if !self.test(kind) {
+                self.error(format!("Syntax error: expected {kind}"));
+                return false;
+            }
+            true
+        }
+
+        /// If the token if of this type, consume it and return true, otherwise return false
+        fn test(&mut self, kind: SyntaxKind) -> bool {
+            if self.nth(0).kind() != kind {
+                return false;
+            }
+            self.consume();
+            true
+        }
+
+        /// consume everything until reaching a token of this kind
+        fn until(&mut self, kind: SyntaxKind) {
+            let mut parens = 0;
+            let mut braces = 0;
+            let mut brackets = 0;
+            loop {
+                match self.nth(0).kind() {
+                    k if k == kind && parens == 0 && braces == 0 && brackets == 0 => break,
+                    SyntaxKind::Eof => break,
+                    SyntaxKind::LParent => parens += 1,
+                    SyntaxKind::LBrace => braces += 1,
+                    SyntaxKind::LBracket => brackets += 1,
+                    SyntaxKind::RParent if parens == 0 => break,
+                    SyntaxKind::RParent => parens -= 1,
+                    SyntaxKind::RBrace if braces == 0 => break,
+                    SyntaxKind::RBrace => braces -= 1,
+                    SyntaxKind::RBracket if brackets == 0 => break,
+                    SyntaxKind::RBracket => brackets -= 1,
+                    _ => {}
+                };
+                self.consume();
+            }
+            self.expect(kind);
+        }
+    }
+
+    /// A token to proof that start_node_impl and finish_node_impl are only
+    /// called from the Node implementation
+    ///
+    /// Since the constructor is private, it cannot be produced by anything else.
+    pub struct NodeToken(());
+    /// The return value of `DefaultParser::start_node`. This borrows the parser
+    /// and finishes the node on Drop
+    #[derive(derive_more::DerefMut)]
+    pub struct Node<'a, P: Parser>(&'a mut P);
+    impl<P: Parser> Drop for Node<'_, P> {
+        fn drop(&mut self) {
+            self.0.finish_node_impl(NodeToken(()));
+        }
+    }
+    impl<P: Parser> core::ops::Deref for Node<'_, P> {
+        type Target = P;
+        fn deref(&self) -> &Self::Target {
+            self.0
+        }
+    }
+}
+#[doc(inline)]
+pub use parser_trait::*;
+
+pub struct DefaultParser<'a> {
+    builder: rowan::GreenNodeBuilder<'static>,
+    /// tokens from the lexer
+    tokens: Vec<Token>,
+    /// points on the current token of the token list
+    cursor: usize,
+    diags: &'a mut BuildDiagnostics,
+    source_file: SourceFile,
+}
+
+impl<'a> DefaultParser<'a> {
+    fn from_tokens(tokens: Vec<Token>, diags: &'a mut BuildDiagnostics) -> Self {
+        Self {
+            builder: Default::default(),
+            tokens,
+            cursor: 0,
+            diags,
+            source_file: Default::default(),
+        }
+    }
+
+    /// Constructor that create a parser from the source code.
+    /// It creates the tokens by lexing the code
+    pub fn new(source: &str, diags: &'a mut BuildDiagnostics) -> Self {
+        Self::from_tokens(crate::lexer::lex(source), diags)
+    }
+
+    fn current_token(&self) -> Token {
+        self.tokens.get(self.cursor).cloned().unwrap_or_default()
+    }
+
+    /// Consume all the whitespace
+    pub fn consume_ws(&mut self) {
+        while matches!(self.current_token().kind, SyntaxKind::Whitespace | SyntaxKind::Comment) {
+            self.consume()
+        }
+    }
+}
+
+impl Parser for DefaultParser<'_> {
+    fn start_node_impl(
+        &mut self,
+        kind: SyntaxKind,
+        checkpoint: Option<Self::Checkpoint>,
+        _: NodeToken,
+    ) {
+        if kind != SyntaxKind::Document {
+            self.consume_ws();
+        }
+        match checkpoint {
+            None => self.builder.start_node(kind.into()),
+            Some(cp) => self.builder.start_node_at(cp, kind.into()),
+        }
+    }
+
+    fn finish_node_impl(&mut self, _: NodeToken) {
+        self.builder.finish_node();
+    }
+
+    /// Peek the `n`th token starting from the cursor position, not including whitespace and comments
+    fn nth(&mut self, mut n: usize) -> Token {
+        self.consume_ws();
+        let mut c = self.cursor;
+        while n > 0 {
+            n -= 1;
+            c += 1;
+            while c < self.tokens.len()
+                && matches!(self.tokens[c].kind, SyntaxKind::Whitespace | SyntaxKind::Comment)
+            {
+                c += 1;
+            }
+        }
+        self.tokens.get(c).cloned().unwrap_or_default()
+    }
+
+    /// Adds the current token to the node builder and increments the cursor to point on the next token
+    fn consume(&mut self) {
+        let t = self.current_token();
+        self.builder.token(t.kind.into(), t.text.as_str());
+        if t.kind != SyntaxKind::Eof {
+            self.cursor += 1;
+        }
+    }
+
+    /// Reports an error at the current token location
+    fn error(&mut self, e: impl Into<String>) {
+        let current_token = self.current_token();
+        #[allow(unused_mut)]
+        let mut span = crate::diagnostics::Span::new(current_token.offset, current_token.length);
+        #[cfg(feature = "proc_macro_span")]
+        {
+            span.span = current_token.span;
+        }
+
+        self.diags.push_error_with_span(
+            e.into(),
+            crate::diagnostics::SourceLocation {
+                source_file: Some(self.source_file.clone()),
+                span,
+            },
+        );
+    }
+
+    /// Reports an error at the current token location
+    fn warning(&mut self, e: impl Into<String>) {
+        let current_token = self.current_token();
+        #[allow(unused_mut)]
+        let mut span = crate::diagnostics::Span::new(current_token.offset, current_token.length);
+        #[cfg(feature = "proc_macro_span")]
+        {
+            span.span = current_token.span;
+        }
+
+        self.diags.push_warning_with_span(
+            e.into(),
+            crate::diagnostics::SourceLocation {
+                source_file: Some(self.source_file.clone()),
+                span,
+            },
+        );
+    }
+
+    type Checkpoint = rowan::Checkpoint;
+    fn checkpoint(&mut self) -> Self::Checkpoint {
+        self.builder.checkpoint()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, Hash, PartialEq, PartialOrd)]
+pub enum Language {}
+impl rowan::Language for Language {
+    type Kind = SyntaxKind;
+    fn kind_from_raw(raw: rowan::SyntaxKind) -> Self::Kind {
+        SyntaxKind::try_from(raw.0).unwrap()
+    }
+    fn kind_to_raw(kind: Self::Kind) -> rowan::SyntaxKind {
+        kind.into()
+    }
+}
+
+#[derive(Debug, Clone, derive_more::Deref)]
+pub struct SyntaxNode {
+    #[deref]
+    pub node: rowan::SyntaxNode<Language>,
+    pub source_file: SourceFile,
+}
+
+#[derive(Debug, Clone, derive_more::Deref)]
+pub struct SyntaxToken {
+    #[deref]
+    pub token: rowan::SyntaxToken<Language>,
+    pub source_file: SourceFile,
+}
+
+impl SyntaxToken {
+    pub fn parent(&self) -> SyntaxNode {
+        SyntaxNode { node: self.token.parent().unwrap(), source_file: self.source_file.clone() }
+    }
+    pub fn parent_ancestors(&self) -> impl Iterator<Item = SyntaxNode> + '_ {
+        self.token
+            .parent_ancestors()
+            .map(|node| SyntaxNode { node, source_file: self.source_file.clone() })
+    }
+    pub fn next_token(&self) -> Option<SyntaxToken> {
+        // Due to a bug (as of rowan 0.15.3), rowan::SyntaxToken::next_token doesn't work if a
+        // sibling don't have tokens.
+        // For example, if we have an expression like  `if (true) {}`  the
+        // ConditionalExpression has an empty Expression/CodeBlock  for the else part,
+        // and next_token doesn't go into that.
+        // So re-implement
+
+        let token = self
+            .token
+            .next_sibling_or_token()
+            .and_then(|e| match e {
+                rowan::NodeOrToken::Node(n) => n.first_token(),
+                rowan::NodeOrToken::Token(t) => Some(t),
+            })
+            .or_else(|| {
+                self.token.parent_ancestors().find_map(|it| it.next_sibling_or_token()).and_then(
+                    |e| match e {
+                        rowan::NodeOrToken::Node(n) => n.first_token(),
+                        rowan::NodeOrToken::Token(t) => Some(t),
+                    },
+                )
+            })?;
+        Some(SyntaxToken { token, source_file: self.source_file.clone() })
+    }
+    pub fn prev_token(&self) -> Option<SyntaxToken> {
+        let token = self.token.prev_token()?;
+        Some(SyntaxToken { token, source_file: self.source_file.clone() })
+    }
+    pub fn text(&self) -> &str {
+        self.token.text()
+    }
+}
+
+impl std::fmt::Display for SyntaxToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.token.fmt(f)
+    }
+}
+
+impl SyntaxNode {
+    pub fn child_node(&self, kind: SyntaxKind) -> Option<SyntaxNode> {
+        self.node
+            .children()
+            .find(|n| n.kind() == kind)
+            .map(|node| SyntaxNode { node, source_file: self.source_file.clone() })
+    }
+    pub fn child_token(&self, kind: SyntaxKind) -> Option<SyntaxToken> {
+        self.node
+            .children_with_tokens()
+            .find(|n| n.kind() == kind)
+            .and_then(|x| x.into_token())
+            .map(|token| SyntaxToken { token, source_file: self.source_file.clone() })
+    }
+    pub fn child_text(&self, kind: SyntaxKind) -> Option<SmolStr> {
+        self.node
+            .children_with_tokens()
+            .find(|n| n.kind() == kind)
+            .and_then(|x| x.as_token().map(|x| x.text().into()))
+    }
+    pub fn descendants(&self) -> impl Iterator<Item = SyntaxNode> + use<> {
+        let source_file = self.source_file.clone();
+        self.node
+            .descendants()
+            .map(move |node| SyntaxNode { node, source_file: source_file.clone() })
+    }
+    pub fn kind(&self) -> SyntaxKind {
+        self.node.kind()
+    }
+    pub fn children(&self) -> impl Iterator<Item = SyntaxNode> + use<> {
+        let source_file = self.source_file.clone();
+        self.node.children().map(move |node| SyntaxNode { node, source_file: source_file.clone() })
+    }
+    pub fn children_with_tokens(&self) -> impl Iterator<Item = NodeOrToken> + use<> {
+        let source_file = self.source_file.clone();
+        self.node.children_with_tokens().map(move |token| match token {
+            rowan::NodeOrToken::Node(node) => {
+                SyntaxNode { node, source_file: source_file.clone() }.into()
+            }
+            rowan::NodeOrToken::Token(token) => {
+                SyntaxToken { token, source_file: source_file.clone() }.into()
+            }
+        })
+    }
+    pub fn text(&self) -> rowan::SyntaxText {
+        self.node.text()
+    }
+    pub fn parent(&self) -> Option<SyntaxNode> {
+        self.node.parent().map(|node| SyntaxNode { node, source_file: self.source_file.clone() })
+    }
+    pub fn first_token(&self) -> Option<SyntaxToken> {
+        self.node
+            .first_token()
+            .map(|token| SyntaxToken { token, source_file: self.source_file.clone() })
+    }
+    pub fn last_token(&self) -> Option<SyntaxToken> {
+        self.node
+            .last_token()
+            .map(|token| SyntaxToken { token, source_file: self.source_file.clone() })
+    }
+    pub fn token_at_offset(&self, offset: TextSize) -> rowan::TokenAtOffset<SyntaxToken> {
+        self.node
+            .token_at_offset(offset)
+            .map(|token| SyntaxToken { token, source_file: self.source_file.clone() })
+    }
+    pub fn first_child(&self) -> Option<SyntaxNode> {
+        self.node
+            .first_child()
+            .map(|node| SyntaxNode { node, source_file: self.source_file.clone() })
+    }
+    pub fn first_child_or_token(&self) -> Option<NodeOrToken> {
+        self.node.first_child_or_token().map(|n_o_t| match n_o_t {
+            rowan::NodeOrToken::Node(node) => {
+                NodeOrToken::Node(SyntaxNode { node, source_file: self.source_file.clone() })
+            }
+            rowan::NodeOrToken::Token(token) => {
+                NodeOrToken::Token(SyntaxToken { token, source_file: self.source_file.clone() })
+            }
+        })
+    }
+    pub fn next_sibling(&self) -> Option<SyntaxNode> {
+        self.node
+            .next_sibling()
+            .map(|node| SyntaxNode { node, source_file: self.source_file.clone() })
+    }
+}
+
+#[derive(Debug, Clone, derive_more::From)]
+pub enum NodeOrToken {
+    Node(SyntaxNode),
+    Token(SyntaxToken),
+}
+
+impl NodeOrToken {
+    pub fn kind(&self) -> SyntaxKind {
+        match self {
+            NodeOrToken::Node(n) => n.kind(),
+            NodeOrToken::Token(t) => t.kind(),
+        }
+    }
+
+    pub fn as_node(&self) -> Option<&SyntaxNode> {
+        match self {
+            NodeOrToken::Node(n) => Some(n),
+            NodeOrToken::Token(_) => None,
+        }
+    }
+
+    pub fn as_token(&self) -> Option<&SyntaxToken> {
+        match self {
+            NodeOrToken::Node(_) => None,
+            NodeOrToken::Token(t) => Some(t),
+        }
+    }
+
+    pub fn into_token(self) -> Option<SyntaxToken> {
+        match self {
+            NodeOrToken::Token(t) => Some(t),
+            _ => None,
+        }
+    }
+
+    pub fn into_node(self) -> Option<SyntaxNode> {
+        match self {
+            NodeOrToken::Node(n) => Some(n),
+            _ => None,
+        }
+    }
+
+    pub fn text_range(&self) -> TextRange {
+        match self {
+            NodeOrToken::Node(n) => n.text_range(),
+            NodeOrToken::Token(t) => t.text_range(),
+        }
+    }
+}
+
+impl Spanned for SyntaxNode {
+    fn span(&self) -> crate::diagnostics::Span {
+        let range = self.node.text_range();
+        crate::diagnostics::Span::new(range.start().into(), range.len().into())
+    }
+
+    fn source_file(&self) -> Option<&SourceFile> {
+        Some(&self.source_file)
+    }
+}
+
+impl Spanned for Option<SyntaxNode> {
+    fn span(&self) -> crate::diagnostics::Span {
+        self.as_ref().map(|n| n.span()).unwrap_or_default()
+    }
+
+    fn source_file(&self) -> Option<&SourceFile> {
+        self.as_ref().and_then(|n| n.source_file())
+    }
+}
+
+impl Spanned for SyntaxToken {
+    fn span(&self) -> crate::diagnostics::Span {
+        let range = self.token.text_range();
+        crate::diagnostics::Span::new(range.start().into(), range.len().into())
+    }
+
+    fn source_file(&self) -> Option<&SourceFile> {
+        Some(&self.source_file)
+    }
+}
+
+impl Spanned for NodeOrToken {
+    fn span(&self) -> crate::diagnostics::Span {
+        match self {
+            NodeOrToken::Node(n) => n.span(),
+            NodeOrToken::Token(t) => t.span(),
+        }
+    }
+
+    fn source_file(&self) -> Option<&SourceFile> {
+        match self {
+            NodeOrToken::Node(n) => n.source_file(),
+            NodeOrToken::Token(t) => t.source_file(),
+        }
+    }
+}
+
+impl Spanned for Option<NodeOrToken> {
+    fn span(&self) -> crate::diagnostics::Span {
+        self.as_ref().map(|t| t.span()).unwrap_or_default()
+    }
+    fn source_file(&self) -> Option<&SourceFile> {
+        self.as_ref().and_then(|t| t.source_file())
+    }
+}
+
+impl Spanned for Option<SyntaxToken> {
+    fn span(&self) -> crate::diagnostics::Span {
+        self.as_ref().map(|t| t.span()).unwrap_or_default()
+    }
+    fn source_file(&self) -> Option<&SourceFile> {
+        self.as_ref().and_then(|t| t.source_file())
+    }
+}
+
+/// return the normalized identifier string of the first SyntaxKind::Identifier in this node
+pub fn identifier_text(node: &SyntaxNode) -> Option<SmolStr> {
+    node.child_text(SyntaxKind::Identifier).map(|x| normalize_identifier(&x))
+}
+
+pub fn normalize_identifier(ident: &str) -> SmolStr {
+    let mut builder = smol_str::SmolStrBuilder::default();
+    for (pos, c) in ident.chars().enumerate() {
+        match (pos, c) {
+            (0, '-') | (0, '_') => builder.push('_'),
+            (_, '_') => builder.push('-'),
+            (_, c) => builder.push(c),
+        }
+    }
+    builder.finish()
+}
+
+#[test]
+fn test_normalize_identifier() {
+    assert_eq!(normalize_identifier("true"), SmolStr::new("true"));
+    assert_eq!(normalize_identifier("foo_bar"), SmolStr::new("foo-bar"));
+    assert_eq!(normalize_identifier("-foo_bar"), SmolStr::new("_foo-bar"));
+    assert_eq!(normalize_identifier("-foo-bar"), SmolStr::new("_foo-bar"));
+    assert_eq!(normalize_identifier("foo_bar_"), SmolStr::new("foo-bar-"));
+    assert_eq!(normalize_identifier("foo_bar-"), SmolStr::new("foo-bar-"));
+    assert_eq!(normalize_identifier("_foo_bar_"), SmolStr::new("_foo-bar-"));
+    assert_eq!(normalize_identifier("__1"), SmolStr::new("_-1"));
+    assert_eq!(normalize_identifier("--1"), SmolStr::new("_-1"));
+    assert_eq!(normalize_identifier("--1--"), SmolStr::new("_-1--"));
+}
+
+// Actual parser
+pub fn parse(
+    source: String,
+    path: Option<&std::path::Path>,
+    build_diagnostics: &mut BuildDiagnostics,
+) -> SyntaxNode {
+    let mut p = DefaultParser::new(&source, build_diagnostics);
+    p.source_file = std::rc::Rc::new(crate::diagnostics::SourceFileInner::new(
+        path.map(crate::pathutils::clean_path).unwrap_or_default(),
+        source,
+    ));
+    document::parse_document(&mut p);
+    SyntaxNode {
+        node: rowan::SyntaxNode::new_root(p.builder.finish()),
+        source_file: p.source_file.clone(),
+    }
+}
+
+pub fn parse_file<P: AsRef<std::path::Path>>(
+    path: P,
+    build_diagnostics: &mut BuildDiagnostics,
+) -> Option<SyntaxNode> {
+    let path = crate::pathutils::clean_path(path.as_ref());
+    let source = crate::diagnostics::load_from_path(&path)
+        .map_err(|d| build_diagnostics.push_internal_error(d))
+        .ok()?;
+    Some(parse(source, Some(path.as_ref()), build_diagnostics))
+}
+
+pub fn parse_tokens(
+    tokens: Vec<Token>,
+    source_file: SourceFile,
+    diags: &mut BuildDiagnostics,
+) -> SyntaxNode {
+    let mut p = DefaultParser::from_tokens(tokens, diags);
+    document::parse_document(&mut p);
+    SyntaxNode { node: rowan::SyntaxNode::new_root(p.builder.finish()), source_file }
+}

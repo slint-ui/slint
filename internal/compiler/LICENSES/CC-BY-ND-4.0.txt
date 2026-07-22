@@ -1,0 +1,1 @@
+../../../LICENSES/CC-BY-ND-4.0.txt

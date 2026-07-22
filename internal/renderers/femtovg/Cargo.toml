@@ -1,0 +1,62 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "i-slint-renderer-femtovg"
+description = "FemtoVG based renderer for Slint"
+authors.workspace = true
+edition = "2024"
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[features]
+default = []
+opengl = []
+# wgpu-30 enables the wgpu backend for internal use (e.g. linuxkms DRM rendering).
+# unstable-wgpu-30 additionally exposes public API integration (GraphicsAPI, texture import).
+wgpu = ["wgpu-30"]
+wgpu-30 = ["dep:wgpu-30", "femtovg/wgpu", "i-slint-core/wgpu-30"]
+unstable-wgpu-30 = ["wgpu-30", "i-slint-core/unstable-wgpu-30"]
+
+[dependencies]
+i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontique", "shared-parley"] }
+i-slint-core-macros = { workspace = true, features = ["default"] }
+i-slint-common = { workspace = true, features = ["default", "shared-fontique"] }
+
+const-field-offset = { version = "0.2", path = "../../../helper_crates/const-field-offset" }
+
+cfg-if = "1"
+derive_more = { workspace = true }
+lyon_path = { workspace = true }
+pin-weak = "1"
+femtovg = { version = "0.26", default-features = false, features = ["swash"] }
+imgref = { version = "1.6.1" }
+rgb = { version = "0.8.27" }
+
+glow = { workspace = true }
+
+wgpu-30 = { workspace = true, optional = true, default-features = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
+wasm-bindgen = { version = "0.2" }
+# Enable wgpu-core's WebGL2 backend so the wgpu init helper can fall back to
+# it transparently when no BROWSER_WEBGPU adapter is available (e.g. in
+# headless Chromium without a usable WebGPU device).
+wgpu-30 = { workspace = true, optional = true, features = ["webgl"] }
+
+# The browser decodes images on the web; decode with the image and resvg crates elsewhere.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_nightly_test)"] }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

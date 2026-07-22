@@ -1,0 +1,210 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { NavigationItem } from "../items/navigation_item.slint";
+import { BaseNavigationItemTemplate, BaseNavigation } from "./base_navigation.slint";
+import { StateLayerArea } from "./state_layer.slint";
+import { MaterialText } from "./material_text.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
+import { Icon } from "./icon.slint";
+
+component TabItemTemplate inherits BaseNavigationItemTemplate {
+    out property <length> label_width: label.width;
+
+    property <bool> has_selected_icon: root.selected_icon.width > 0 || root.selected_icon.height > 0;
+
+    StateLayerArea {
+        color: MaterialPalette.primary;
+
+        VerticalLayout {
+            padding_top: MaterialStyleMetrics.padding_10;
+            padding_bottom: MaterialStyleMetrics.padding_8;
+            spacing: MaterialStyleMetrics.spacing_2;
+
+            if root.icon.width > 0 && root.icon.height > 0 : HorizontalLayout {
+                alignment: center;
+
+                Icon {
+                    source: root.icon;
+                    colorize: label.color;
+
+                    states [
+                        selected when root.selected && root.has_selected_icon : {
+                            source: root.selected_icon;
+                        }
+                    ]
+                }
+            }
+
+            HorizontalLayout {
+                alignment: center;
+
+                label := MaterialText {
+                    text: root.text;
+                    style: MaterialTypography.title_small;
+                    color: MaterialPalette.on_surface_variant;
+                }
+            }
+        }
+
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    states [
+        selected when root.selected : {
+            label.color: MaterialPalette.primary;
+        }
+    ]
+}
+
+component SecondaryTabItemTemplate inherits BaseNavigationItemTemplate {
+    property <bool> has_selected_icon: root.selected_icon.width > 0 || root.selected_icon.height > 0;
+
+    StateLayerArea {
+        color: label.color;
+
+        HorizontalLayout {
+            alignment: center;
+            spacing: MaterialStyleMetrics.spacing_8;
+
+            if root.icon.width > 0 && root.icon.height > 0 : VerticalLayout {
+                alignment: center;
+
+                Icon {
+                    source: root.icon;
+                    colorize: label.color;
+
+                    states [
+                        selected when root.selected && root.has_selected_icon : {
+                            source: root.selected_icon;
+                        }
+                    ]
+                }
+            }
+
+
+            label := MaterialText {
+                text: root.text;
+                style: MaterialTypography.title_small;
+                color: MaterialPalette.on_surface_variant;
+                vertical_alignment: center;
+            }
+        }
+
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    states [
+        selected when root.selected : {
+            label.color: MaterialPalette.on_surface;
+        }
+    ]
+}
+
+export component TabBar inherits BaseNavigation {
+    property <length> indicator_width;
+    property <length> item_width: root.width / root.items.length;
+    property <length> current_x: root.item_width * self.current_index;
+
+    min_height: max(MaterialStyleMetrics.size_49, layout.min_height);
+
+    Rectangle {
+        background: MaterialPalette.surface;
+
+        layout := HorizontalLayout {
+            for item[index] in root.items : tab_item := TabItemTemplate {
+                icon: item.icon;
+                selected_icon: item.selected_icon;
+                text: item.text;
+                index: index;
+                selected: index == root.current_index;
+                show_badge: item.show_badge;
+                badge: item.badge;
+
+                clicked => {
+                    root.select(index);
+                    root.set_indicator_width(index, self.label_width);
+                }
+
+                Timer {
+                    interval: 50ms;
+
+                    triggered => {
+                        root.set_indicator_width(index, tab_item.label_width);
+                        self.running = false;
+                    }
+                }
+            }
+        }
+
+        indicator := Rectangle {
+            x: root.current_x + (root.item_width - self.width) / 2;
+            y: parent.height - self.height;
+            width: root.indicator_width;
+            height: MaterialStyleMetrics.size_3;
+            border_top_left_radius: self.height / 2;
+            border_top_right_radius: self.border_top_left_radius;
+            background: MaterialPalette.primary;
+
+            animate x, width {
+                duration: MaterialAnimations.standard_accelerate_duration;
+                easing: MaterialAnimations.standard_easing;
+            }
+        }
+    }
+
+    function set_indicator_width(index: int, width: length) {
+        if index != root.current_index {
+            return;
+        }
+
+        root.indicator_width = width;
+    }
+}
+
+export component SecondaryTabBar inherits BaseNavigation {
+    property <length> item_width: root.width / root.items.length;
+    property <length> current_x: root.item_width * self.current_index;
+
+    min_height: max(MaterialStyleMetrics.size_49, layout.min_height);
+
+    Rectangle {
+        background: MaterialPalette.surface;
+
+        layout := HorizontalLayout {
+            for item[index] in root.items : SecondaryTabItemTemplate {
+                icon: item.icon;
+                selected_icon: item.selected_icon;
+                text: item.text;
+                index: index;
+                selected: index == root.current_index;
+                show_badge: item.show_badge;
+                badge: item.badge;
+
+                clicked => {
+                    root.select(index);
+                }
+            }
+        }
+
+        indicator := Rectangle {
+            x: root.current_x;
+            y: parent.height - self.height;
+            width: root.item_width;
+            height: MaterialStyleMetrics.size_2;
+            background: MaterialPalette.primary;
+
+            animate x {
+                duration: MaterialAnimations.standard_accelerate_duration;
+                easing: MaterialAnimations.standard_easing;
+            }
+        }
+    }
+}

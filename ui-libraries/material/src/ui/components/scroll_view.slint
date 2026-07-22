@@ -1,0 +1,166 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialPalette } from "../styling/material_palette.slint";
+
+export component ScrollBar {
+    in property <bool> enabled;
+    out property <bool> has_hover: touch_area.has_hover;
+    in_out property <bool> horizontal;
+    in_out property <length> maximum;
+    in_out property <length> page_size;
+    in_out property <length> value;
+    in property <ScrollBarPolicy> policy: ScrollBarPolicy.as_needed;
+
+    property <length> track_size: root.horizontal ? root.width - 2 * root.offset : root.height - 2 * offset;
+    property <length> step_size: 10px;
+    property <length> offset: 2px;
+    property <float> state_opacity: 40%;
+
+    visible: (self.policy == ScrollBarPolicy.always_on) || (self.policy == ScrollBarPolicy.as_needed && self.maximum > 0);
+
+    Rectangle {
+        clip: true;
+
+        thumb := Rectangle {
+            width: !root.horizontal ? parent.width : root.maximum <= 0phx ? 0phx : max(min(32px, root.width), root.track-size * root.page-size / (root.maximum + root.page-size));
+            height: root.horizontal ? parent.height : root.maximum <= 0phx ? 0phx : max(min(32px, root.height), root.track-size * (root.page-size / (root.maximum + root.page-size)));
+            x: !root.horizontal ? (parent.width - self.width) / 2 : root.offset + (root.track-size - thumb.width) * (-root.value / root.maximum);
+            y: root.horizontal ? (parent.height - self.height) / 2 : root.offset + (root.track-size - thumb.height) * (-root.value / root.maximum);
+            border-radius: (root.horizontal ? self.height : self.width) / 2;
+            background: MaterialPalette.on_background;
+            opacity: hide_timer.running || touch_area.has_hover || touch_area.pressed ? root.state_opacity : 0;
+
+            animate opacity { duration: 150ms; }
+        }
+    }
+
+    touch_area := TouchArea {
+        property <length> pressed_value;
+
+        width: parent.width;
+        height: parent.height;
+
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                self.pressed-value = -root.value;
+            }
+        }
+
+        moved => {
+            if (self.enabled && self.pressed) {
+                root.value = -max(0px, min(root.maximum, self.pressed-value + (
+                    root.horizontal ? (touch-area.mouse-x - touch-area.pressed-x) * (root.maximum / (root.track-size - thumb.width))
+                               : (touch-area.mouse-y - touch-area.pressed-y) * (root.maximum / (root.track-size - thumb.height))
+                )));
+            }
+        }
+
+        scroll-event(event) => {
+            if (root.horizontal && event.delta-x != 0) {
+                root.value = max(-root.maximum, min(0px, root.value + event.delta-x));
+                return accept;
+            } else if (!root.horizontal && event.delta-y != 0) {
+                root.value = max(-root.maximum, min(0px, root.value + event.delta-y));
+                return accept;
+            }
+
+            reject
+        }
+
+        changed has_hover => {
+            if !self.has_hover && !hide_timer.running {
+                hide_timer.running = true;
+            }
+        }
+
+        changed pressed => {
+            if self.pressed && hide_timer.running {
+                hide_timer.running = false;
+            }
+        }
+    }
+
+    changed value => {
+        if !self.has_hover && !hide_timer.running {
+            hide_timer.running = true;
+        }
+    }
+
+    hide_timer := Timer {
+        interval: 1.5s;
+        running: false;
+
+        triggered => {
+            self.running = false;
+        }
+    }
+
+    states [
+        pressed when touch_area.pressed : {
+            root.state_opacity: 80%;
+        }
+        hover when root.has_hover : {
+            root.state_opacity: 70%;
+        }
+    ]
+}
+
+export component ScrollView {
+    in property <bool> enabled: true;
+    out property <length> visible_width <=> flickable.width;
+    out property <length> visible_height <=> flickable.height;
+    in_out property <length> viewport_width <=> flickable.viewport_width;
+    in_out property <length> viewport_height <=> flickable.viewport_height;
+    in_out property <length> viewport_x <=> flickable.viewport_x;
+    in_out property <length> viewport_y <=> flickable.viewport_y;
+    in property <ScrollBarPolicy> vertical_scrollbar_policy <=> vertical_bar.policy;
+    in property <ScrollBarPolicy> horizontal_scrollbar_policy <=> horizontal_bar.policy;
+    // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
+    in_out property <bool> has_focus;
+
+    callback scrolled <=> flickable.flicked;
+
+    property <length> scroll_bar_size: 8px;
+    property <length> scroll_bar_padding: 1px;
+
+    min_height: 50px;
+    min_width: 50px;
+    horizontal_stretch: 1;
+    vertical_stretch: 1;
+    preferred_height: 100%;
+    preferred_width: 100%;
+
+    flickable := Flickable {
+        x: 0;
+        y: 0;
+        viewport_y <=> vertical_bar.value;
+        viewport_x <=> horizontal_bar.value;
+        width: root.width - (root.vertical_scrollbar_policy != ScrollBarPolicy.always_off ? root.scroll_bar_size - 2 * root.scroll_bar_padding : 0);
+        height: root.height - (root.horizontal_scrollbar_policy != ScrollBarPolicy.always_off ? root.scroll_bar_size : 0);
+
+        @children
+    }
+
+    vertical_bar := ScrollBar {
+        enabled: root.enabled;
+        x: flickable.width + root.scroll_bar_padding;
+        y: 0;
+        width: root.visible ? root.scroll_bar_size : 0;
+        height: root.vertical_scrollbar_policy != ScrollBarPolicy.always_off ? parent.height - horizontal_bar.height : parent.height;
+        horizontal: false;
+        maximum:  flickable.viewport_height - flickable.height;
+        page-size:  flickable.height;
+    }
+
+    horizontal_bar := ScrollBar {
+        enabled: root.enabled;
+        width: vertical_bar.visible ? parent.width - vertical_bar.width : parent.width;
+        height: root.horizontal_scrollbar_policy != ScrollBarPolicy.always_off ? root.scroll_bar_size : 0;
+        x: 0;
+        y: flickable.height + root.scroll_bar_padding;
+        horizontal: true;
+        maximum:  flickable.viewport_width - flickable.width;
+        page_size:  flickable.width;
+    }
+}

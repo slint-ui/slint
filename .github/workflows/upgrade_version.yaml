@@ -1,0 +1,120 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Upgrade Version Number
+
+on:
+    workflow_dispatch:
+        inputs:
+            new_version:
+                description: "The new version number"
+                required: true
+
+jobs:
+    upgrade_version_number:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - name: Do replacements
+              run: |
+                  # Each Cargo.toml need to have the version updated
+                  git ls-files | grep Cargo.toml | grep -v helper_crates | xargs sed -i 's/^version = "[0-9]*\.[0-9]*\.[0-9]*"/version = "${{ github.event.inputs.new_version }}"/'
+                  # Each dependencies in cargo.toml
+                  git ls-files | grep Cargo.toml | xargs sed -i 's/\(slint.*version = \)"=[0-9]*\.[0-9]*\.[0-9]*"/\1"=${{ github.event.inputs.new_version }}"/'
+
+                  # Update the version in CmakeLists.txt
+                  sed -i 's/ VERSION [0-9]*\.[0-9]*\.[0-9]*)$/ VERSION ${{ github.event.inputs.new_version }})/' api/cpp/CMakeLists.txt
+
+                  # The version is also in these files
+                  sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\(.*\)\"/version = \"${{ github.event.inputs.new_version }}\1\"/" api/python/slint/pyproject.toml api/python/slint-dev/pyproject.toml api/python/briefcase/pyproject.toml tools/compiler/pyproject.toml editors/zed/extension.toml
+
+                  # Keep the slint-dev pin in slint's [dev] extra in sync
+                  sed -i "s/slint-dev==[0-9]*\.[0-9]*\.[0-9]*\(.*\)\"/slint-dev==${{ github.event.inputs.new_version }}\1\"/" api/python/slint/pyproject.toml
+
+                  # Version in package.json files
+                  git ls-files | grep package.json | xargs sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/'
+                  # Update version in Node.js binary package config
+                  sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/' api/node/binaries.json api/node/binaries-dev.json
+
+                  # Version in the AI plugins (cursor, claude, ...) mirrored to the ai-plugins repo
+                  git ls-files | grep '^ai-plugins/.*\(plugin\|marketplace\)\.json$' | xargs sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/'
+
+                  # VersionCheck
+                  sed -i "s/VersionCheck_[0-9]*_[0-9]*_[0-9]*;/VersionCheck_`echo ${{ github.event.inputs.new_version }} | sed "s/\([0-9]*\)\.\([0-9]*\).\([0-9]*\)/\1/"`_`echo ${{ github.event.inputs.new_version }} | sed "s/\([0-9]*\)\.\([0-9]*\).\([0-9]*\)/\2/"`_`echo ${{ github.event.inputs.new_version }} | sed "s/\([0-9]*\)\.\([0-9]*\).\([0-9]*\)/\3/"`;/" api/rs/slint/lib.rs
+
+                  # Version in the AboutSlint widget
+                  sed -i "s/Version [0-9]*\.[0-9]*\.[0-9]*\\\\n/Version ${{ github.event.inputs.new_version }}\\\\n/" internal/compiler/widgets/common/about-slint.slint
+
+                  # Version in the docs (cargo add slint@<VERSION>):
+                  git ls-files | grep "\(^\|/\)docs/.*\.\(md\|rst\)\$" | grep -v "/LICENSES/" | xargs sed --follow-symlinks -i 's/slint@[0-9]\+\.[0-9]\+\.[0-9]\+/slint@${{ github.event.inputs.new_version }}/'
+
+                  # Version in esp-idf component
+                  sed -i 's/^version: "[0-9]*\.[0-9]*\.[0-9]*.*"/version: "${{ github.event.inputs.new_version }}"/' api/cpp/esp-idf/slint/idf_component.yml
+                  sed -i 's/GIT_TAG v[0-9]*\.[0-9]*\.[0-9]*/GIT_TAG v${{ github.event.inputs.new_version }}/' api/cpp/esp-idf/slint/CMakeLists.txt
+                  sed -i 's/find_package(Slint [0-9]*\.[0-9]*\.[0-9]*)/find_package(Slint ${{ github.event.inputs.new_version }})/' api/cpp/esp-idf/slint/CMakeLists.txt
+
+                  # Version in the Android docs
+                  sed -i 's/^slint = { version = "[^"]+"/slint = { version = "${{ github.event.inputs.new_version }}"/' docs/astro/src/content/docs/guide/platforms/mobile/android.mdx
+
+                  # Marketing version for the iOS viewer
+                  sed -i 's/^\( *MARKETING_VERSION: \)"[0-9]*\.[0-9]*\.[0-9]*"/\1"${{ github.event.inputs.new_version }}"/' tools/viewer/ios-project.yml
+
+                  # Some documentation use the ~syntax
+                  sed -i 's/\(slint.*version = \)"~[0-9]*\.[0-9]*"/\1"~'"$(echo ${{ github.event.inputs.new_version }} | sed 's/\([0-9]*\.[0-9]*\)\.[0-9]*/\1/')"'"/' api/rs/slint/Cargo.toml api/rs/slint/lib.rs
+
+                  echo "Note that the version is not updated in the documentation and README yet"
+
+            - name: Commit
+              run: |
+                  git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+                  git config --global user.name "${GITHUB_ACTOR}"
+                  git commit -a --message "Bump version number to ${{ github.event.inputs.new_version }}"
+            - name: Result
+              run: |
+                  git diff
+
+            - name: Push changes
+              uses: ad-m/github-push-action@master
+              with:
+                  branch: wip/version-bump
+
+    # update https://releases.slint.dev/versions.json
+    update_versions_json:
+        runs-on: ubuntu-latest
+        if: github.ref == 'refs/heads/master'
+        steps:
+            - name: Generate a token
+              id: app-token
+              uses: actions/create-github-app-token@v3
+              with:
+                  app-id: ${{ vars.READ_WRITE_APP_ID }}
+                  private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+                  repositories: www-releases
+            - name: Clone www-releases directory
+              uses: actions/checkout@v7
+              with:
+                  repository: slint-ui/www-releases
+                  sparse-checkout: |
+                      releases/versions.json
+                  path: www-releases
+                  token: ${{ steps.app-token.outputs.token }}
+            - name: Update version in versions.json
+              run: |
+                  sed -i '0,/"version": "[0-9]\+\.[0-9]\+\.[0-9]\+"/s//"version": "${{ github.event.inputs.new_version }}"/' www-releases/releases/versions.json
+            - name: Adjust redirections
+              run: |
+                  sed -i "/\/[0-9]*\.[0-9]*\.[0-9]*\/* https:\/\/snapshots\.slint\.dev\/master\/:splat/ s/[0-9]*\.[0-9]*\.[0-9]*/${{ github.event.inputs.new_version }}/" www-releases/releases/_redirects
+            - name: Get GitHub App User ID
+              id: get-user-id
+              run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+              env:
+                  GH_TOKEN: ${{ steps.app-token.outputs.token }}
+            - name: commit and push
+              working-directory: ./www-releases
+              run: |
+                  git config user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
+                  git config user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>'
+                  git add .
+                  git add -u .
+                  git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Update versions.json"
+                  git push

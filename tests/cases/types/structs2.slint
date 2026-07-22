@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that structs work if they are only referenced by callbacks
+
+struct Foo1  { member: int, }
+struct Foo2  { a: Foo1 }
+struct Foo3  { b: int }
+
+struct DeleteMe  { c: color }
+
+struct Palette  {
+    menuBar : brush,
+    mainContent : brush,
+    box : brush,
+}
+
+export component TestCase inherits Rectangle {
+    pure callback cb1(Foo2) -> Foo3;
+    cb1(foo) => { return { b: foo.a.member+1 }; }
+
+    in-out property<Foo2> xx;
+    pure callback cb2(Foo2, Foo2)->Foo2;
+    in-out property<Foo2> xx2: root.cb2(root.xx, root.xx);
+
+
+    // Based on Issue #1733
+    Rectangle {
+        property<[DeleteMe]> data;
+        for d[i] in self.data: Rectangle { }
+    }
+
+    // Bug #2765
+    out property<Palette> palette : xx.a.member > 32 ? {
+       menuBar : #6D7BFB,
+       mainContent :  #fbfbfb,
+       box :   #ffffff,
+    } : {
+       menuBar : #2937A7,
+       mainContent : #040404,
+       box : #000000,
+    };
+
+}
+
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.invoke_cb1(Foo2{ a: Foo1{ member: 123 } }).b, 124);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.invoke_cb1(Foo2{ Foo1{ 123 } }).b, 124);
+```
+
+```js
+var instance = new slint.TestCase();
+assert.equal(instance.cb1({a: {member: 123}}).b, 124);
+```
+
+*/

@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SuperSimple {
+    property <[keys]> unknown_keys_list: [
+        @keys(a),
+//            ^error{a not defined in the Keys namespace↵(Use uppercase A instead)}
+        @keys(Alt + Control + Shift + Meta + a),
+//                                           ^error{a not defined in the Keys namespace↵(Use uppercase A instead)}
+        @keys(    Alt + Control + Shift + Meta + FooBar    ),
+//                                               >    <error{FooBar not defined in the Keys namespace↵(Consider using "FooBar")}
+        @keys(Shift+Plus),
+//                  >  <error{Plus implies Shift? to support different keyboard layouts↵Remove Shift to match when the user types '+'↵Consider using Equals to match when the user types '='}
+        @keys(Shift+Asterisk),
+//                  >      <error{Asterisk implies Shift? to support different keyboard layouts↵Remove Shift to match when the user types '*'↵Consider using Digit8 to match when the user types '8'}
+
+        // Shift?
+        @keys(Shift? + Asterisk),
+//                     >      <warning{Asterisk already implies Shift? (remove Shift?)}
+
+        @keys("A"),
+//            > <error{Key string literals must currently be lowercase, use "a" instead}
+        @keys(Alt + Control + Shift + Meta + "Ä"),
+//                                           >  <error{Key string literals must currently be lowercase, use "ä" instead}
+
+        // Multi-grapheme cluster
+        @keys("ab"),
+//            >  <error{Key string literal must contain exactly one grapheme cluster, found 2}
+        @keys(Control + "xy"),
+//                      >  <error{Key string literal must contain exactly one grapheme cluster, found 2}
+
+        // Bad escape in key string literal
+        @keys("\xz"),
+//             ><error{Unknown escape sequence. Use '\\' to escape a literal backslash}
+    ];
+    }

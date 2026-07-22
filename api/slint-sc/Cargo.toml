@@ -1,0 +1,30 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "slint-sc"
+description = "Runtime library for Slint SC, the safety-critical subset of Slint"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Slint-Software-3.0"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+categories = ["gui", "rendering::engine", "no-std", "embedded"]
+
+[lib]
+path = "lib.rs"
+
+[features]
+default = []
+
+[dev-dependencies]
+rayon = { workspace = true }
+tempfile = "3"
+regex = "1"
+
+[[test]]
+name = "driver"
+path = "tests/driver.rs"
+harness = false

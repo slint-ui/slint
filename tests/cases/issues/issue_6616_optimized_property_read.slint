@@ -1,0 +1,80 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+
+component DeltasList {
+    in property <string> delta;
+}
+
+component Changelog inherits Rectangle {
+    in-out property <int> count-files-changed;
+    in-out property <[string]> changes_log: [];
+    in-out property <int> selected: -2;
+    callback selection-changed(/*new selection*/ int);
+}
+
+export component TestCase inherits Window {
+    in-out property <[string]> changes_log <=> log.changes_log;
+    in-out property <int> count-files-changed <=> log.count-files-changed;
+    in-out property <string> delta <=> deltas.delta;
+    callback request-change-delta(string);
+    callback request-diff-delta(string);
+
+    function fill-diff-view() {
+        if log.selected >= 0 && log.selected < changes_log.length {
+            root.request-change-delta(changes_log[log.selected])
+        } else if log.selected == -1 {
+            root.request-diff-delta("channel name")
+        } else {
+            delta = "";
+        }
+    }
+
+    HorizontalLayout {
+        log := Changelog {
+            selection-changed => {
+                fill-diff-view();
+            }
+        }
+
+        deltas := DeltasList {
+            horizontal-stretch: 3;
+        }
+    }
+
+    //----
+
+    in-out property <int> abc : 25;
+    in-out property <int> new-value: 45;
+    function test-abc() {
+        if new-value != 45 && abc > 0 && abc < 10 {
+            debug("XXX", abc);
+        } else if abc > 45 || new-value == 8 {
+            debug(abc)
+        } else {
+            new-value = abc
+        }
+    }
+    init => { test-abc(); }
+    out property <bool> test: new-value == 25;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+*/

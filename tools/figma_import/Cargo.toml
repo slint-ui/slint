@@ -1,0 +1,31 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "figma_import"
+description = "A figma file importer for Slint"
+license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+
+[[bin]]
+name = "figma_import"
+path = "src/main.rs"
+
+
+[dependencies]
+float-cmp = "0.10.0"
+clap = { workspace = true }
+reqwest = { version = "0.13", features = ["json", "stream"] }
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+serde = { workspace = true }
+serde_json = { workspace = true }
+smart-default = "0.7"
+derive_more = { workspace = true }

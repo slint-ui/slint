@@ -1,0 +1,50 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Run full CI on active branches 3x/day, only if they have recent changes
+name: Scheduled CI
+
+on:
+  schedule:
+    # One night build + two during the European working day
+    # 1:00 UTC = ~2:00-3:00 CET, 9:00 UTC = ~10:00-11:00 CET, 14:00 UTC = ~15:00-16:00 CET
+    - cron: '18 1,9,14 * * *'
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Specific branch to test (blank = auto-discover active branches)'
+        type: string
+        default: ''
+
+jobs:
+  discover-and-trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger CI on branches with recent changes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "${{ inputs.branch }}" ]; then
+            echo "Triggering full CI for ${{ inputs.branch }}"
+            gh workflow run "CI" --repo ${{ github.repository }} --ref "${{ inputs.branch }}" -f full=true
+            exit 0
+          fi
+
+          # Trigger CI when the branch tip differs from the tip the last CI run
+          # tested. This is independent of commit timestamps, so it catches
+          # rebase-and-merge or late merges that a time window would miss.
+          gh api repos/${{ github.repository }}/branches --paginate \
+            -q '.[] | select(.name | test("^(master|feature/|pre-release/)")) | .name + " " + .commit.sha' \
+          | while read -r branch head_sha; do
+            last_sha=$(gh api "repos/${{ github.repository }}/actions/workflows/ci.yaml/runs?branch=$branch&event=workflow_dispatch&per_page=1" -q '.workflow_runs[0].head_sha // ""') || last_sha=""
+            if [ "$head_sha" != "$last_sha" ]; then
+              echo "Triggering full CI for $branch ($head_sha, last CI ran on ${last_sha:-none})"
+              # Old branches may have a ci.yaml that does not accept the `full`
+              # input; a failed dispatch must not abort the loop for the
+              # remaining branches.
+              gh workflow run "CI" --repo ${{ github.repository }} --ref "$branch" -f full=true \
+                || echo "Warning: failed to trigger CI for $branch"
+            else
+              echo "No changes on $branch since last CI ($head_sha), skipping"
+            fi
+          done

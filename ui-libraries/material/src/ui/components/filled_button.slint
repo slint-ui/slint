@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Elevation } from "./elevation.slint";
+import { BaseButton } from "./base_button.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+
+export component FilledButton {
+    in property <image> icon <=> base.icon;
+    in property <string> text <=> base.text;
+    in property <string> tooltip <=> base.tooltip;
+    in property <bool> enabled <=> base.enabled;
+
+    callback clicked <=> base.clicked;
+
+    accessible-role: button;
+    accessible-enabled: root.enabled;
+    accessible-label: root.text == "" ? root.tooltip : root.text;
+    accessible-action-default => { base.clicked(); }
+
+    elevation := Elevation {
+        border_radius: root.height / 2;
+        background: MaterialPalette.primary;
+        width: 100%;
+        height: 100%;
+    }
+
+    base := BaseButton {
+        border_radius: elevation.border_radius;
+        color: MaterialPalette.on_primary;
+    }
+
+    states [
+        disabled when !root.enabled : {
+            elevation.background: transparent;
+            base.color: MaterialPalette.on_surface;
+        }
+        hover when base.has_hover && !base.pressed && !base.enter_pressed : {
+            elevation.level: 1;
+        }
+    ]
+}

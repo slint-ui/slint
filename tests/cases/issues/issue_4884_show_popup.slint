@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component DialogBox inherits Rectangle {
+    callback show-dialog();
+
+    show-dialog() => {
+        dialog.show();
+    }
+
+    dialog := PopupWindow { }
+}
+
+export component TestCase inherits Window {
+    height: 30px;
+    width: 30px;
+    dialog := DialogBox { }
+    TouchArea {
+        clicked => {
+            dialog.show-dialog();
+        }
+    }
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 5., 5.);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+```
+
+```js
+var instance = new slint.TestCase();
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+```
+*/

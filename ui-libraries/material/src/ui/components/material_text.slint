@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialTypography, TextStyle } from "../styling/material_typography.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+
+export component MaterialText inherits Text {
+    in property <TextStyle> style: MaterialTypography.body_medium;
+
+    font_size: root.style.font_size;
+    font_weight: root.style.font_weight;
+    color: MaterialPalette.on_background;
+    overflow: elide;
+}

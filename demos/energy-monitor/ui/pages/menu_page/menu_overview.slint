@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../../theme.slint";
+import { Images } from "../../images.slint";
+import { Page } from "../page.slint";
+import { IconButton, ListView } from "../../widgets/widgets.slint";
+
+export global MenuOverviewAdapter {
+    in property <[StandardListViewItem]> model: [
+        { text: "Production & Self-consumption"},
+        { text: "Usage"},
+        { text: "Balance"},
+        { text: "Weather"},
+        { text: "About"},
+    ];
+    in-out property <int> current-page;
+    out property <int> count: model.length;
+}

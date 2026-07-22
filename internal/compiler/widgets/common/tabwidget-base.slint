@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TabBarBase inherits TouchArea {
+    // injected properties:
+    // The currently selected tab
+    in-out property <int> current;
+    // The total number of tabs
+    in-out property <int> num-tabs;
+
+    // Returns the index of the previous tab
+    protected pure function previous-tab() -> int {
+        return Math.max(root.current - 1,  0);
+    }
+
+    // Returns the index of the next tab
+    protected pure function next-tab() -> int {
+        return Math.min(root.current + 1, root.num-tabs - 1);
+    }
+
+    private property <length> scroll-delta: 2px;
+
+    // Allows scrolling through the tabs
+    scroll-event(event) => {
+        if (event.delta-y < -root.scroll-delta) {
+            root.current = next-tab();
+            return accept;
+        }
+        if (event.delta-y > -root.scroll-delta) {
+            root.current = previous-tab();
+            return accept;
+        }
+        reject
+    }
+}

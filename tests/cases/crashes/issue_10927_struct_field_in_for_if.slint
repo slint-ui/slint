@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for https://github.com/slint-ui/slint/issues/10927
+// The compiler crashed with "Expression::StructFieldAccess's base expression is not an Object type"
+// when accessing a struct field inside a callback inside a for-if statement.
+
+export struct UserField {
+    is_user: bool,
+    text: string,
+}
+
+export component TestCase inherits Window {
+    callback some-callback(name: string);
+    in property <[UserField]> fields: [{
+        is_user: false,
+        text: "engineer",
+    }, {
+        is_user: true,
+        text: "designer",
+    }];
+
+    VerticalLayout {
+        for field in fields: Text {
+            text: field.text;
+            if field.is_user: ContextMenuArea {
+                Menu {
+                    MenuItem {
+                        title: field.text;
+                        activated => {
+                            some-callback(field.text);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

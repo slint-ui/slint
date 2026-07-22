@@ -1,0 +1,212 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexboxLayout flex-wrap property.
+// flex-wrap controls whether flex items wrap onto multiple lines.
+
+component VisibleRect inherits Rectangle {
+    border-width: 1px;
+    border-color: black;
+}
+
+// === wrap (default) ===
+
+// Test 1: flex-wrap: wrap (default) — items wrap to next line when they don't fit
+component TestWrapRow inherits VisibleRect {
+    width: 130px;
+    height: 300px;
+
+    FlexboxLayout {
+        flex-wrap: wrap;
+        align-content: start;
+
+        r1 := Rectangle {
+            width: 50px;
+            height: 40px;
+            background: red;
+        }
+
+        r2 := Rectangle {
+            width: 50px;
+            height: 40px;
+            background: green;
+        }
+
+        r3 := Rectangle {
+            width: 50px;
+            height: 40px;
+            background: blue;
+        }
+    }
+
+    // With width=130, items r1+r2 (100px) fit on line 1, r3 wraps to line 2
+    out property <bool> test:
+        r1.x == 0px && r1.y == 0px && r2.x == 50px && r2.y == 0px && r3.x == 0px && r3.y == 40px;
+}
+
+// Test 2: flex-wrap: no-wrap — all items stay on one line (may overflow)
+component TestNoWrapRow inherits VisibleRect {
+    width: 130px;
+    height: 300px;
+
+    FlexboxLayout {
+        flex-wrap: no-wrap;
+
+        r1 := Rectangle {
+            width: 50px;
+            height: 40px;
+            background: red;
+        }
+
+        r2 := Rectangle {
+            width: 50px;
+            height: 40px;
+            background: green;
+        }
+
+        r3 := Rectangle {
+            width: 50px;
+            height: 40px;
+            background: blue;
+        }
+    }
+
+    // All three items on the same line (x positions: 0, 50, 100) despite container width=130
+    out property <bool> test:
+        r1.x == 0px && r1.y == 0px && r2.x == 50px && r2.y == 0px && r3.x == 100px && r3.y == 0px;
+}
+
+// Test 3: flex-wrap: wrap-reverse — items wrap in reverse direction (bottom to top)
+component TestWrapReverseRow inherits VisibleRect {
+    width: 130px;
+    height: 80px;  // exactly 2 lines × 40px, so alignment doesn't affect positions
+
+    FlexboxLayout {
+        flex-wrap: wrap-reverse;
+
+        r1 := Rectangle {
+            width: 50px;
+            height: 40px;
+            background: red;
+        }
+
+        r2 := Rectangle {
+            width: 50px;
+            height: 40px;
+            background: green;
+        }
+
+        r3 := Rectangle {
+            width: 50px;
+            height: 40px;
+            background: blue;
+        }
+    }
+
+    // With wrap-reverse: line order is reversed.
+    // Line 1 (first items: r1, r2) goes to the bottom (y=40).
+    // Line 2 (wrapping item: r3) goes to the top (y=0).
+    out property <bool> test:
+        r3.x == 0px && r3.y == 0px && r1.x == 0px && r1.y == 40px && r2.x == 50px && r2.y == 40px;
+}
+
+// Test 4: no-wrap with column direction
+component TestNoWrapColumn inherits VisibleRect {
+    width: 300px;
+    height: 130px;
+
+    FlexboxLayout {
+        flex-direction: column;
+        flex-wrap: no-wrap;
+
+        r1 := Rectangle {
+            width: 40px;
+            height: 50px;
+            background: red;
+        }
+
+        r2 := Rectangle {
+            width: 40px;
+            height: 50px;
+            background: green;
+        }
+
+        r3 := Rectangle {
+            width: 40px;
+            height: 50px;
+            background: blue;
+        }
+    }
+
+    // All items on one column (y: 0, 50, 100), no wrapping
+    out property <bool> test:
+        r1.x == 0px && r1.y == 0px && r2.x == 0px && r2.y == 50px && r3.x == 0px && r3.y == 100px;
+}
+
+// Test 5: no-wrap column with items WIDER than tall — verifies that min-height uses
+// item heights (not widths) and min-width uses item widths (not heights).
+// Bug: (Column, Vertical) mistakenly used cells_h (widths) for the min calculation,
+// so min-height was 3 * 80px = 240px instead of the correct 3 * 40px = 120px.
+component TestNoWrapColumnLayoutInfo inherits VisibleRect {
+    width: 400px;
+    height: 300px;
+
+    flex := FlexboxLayout {
+        flex-direction: column;
+        flex-wrap: no-wrap;
+
+        Rectangle {
+            width: 80px;
+            height: 40px;
+            background: red;
+        }
+
+        Rectangle {
+            width: 80px;
+            height: 40px;
+            background: green;
+        }
+
+        Rectangle {
+            width: 80px;
+            height: 40px;
+            background: blue;
+        }
+    }
+
+    // min-height = sum of item heights = 3 * 40px = 120px (not 3 * 80px = 240px)
+    // min-width = max of item widths = 80px (not max of item heights = 40px)
+    out property <bool> test: flex.min-height == 120px && flex.min-width == 80px;
+}
+
+export component TestCase inherits Rectangle {
+    wrap_row := TestWrapRow { }
+
+    no_wrap_row := TestNoWrapRow { }
+
+    wrap_reverse_row := TestWrapReverseRow { }
+
+    no_wrap_column := TestNoWrapColumn { }
+
+    no_wrap_column_layout_info := TestNoWrapColumnLayoutInfo { }
+
+    out property <bool> test: wrap_row.test && no_wrap_row.test && wrap_reverse_row.test && no_wrap_column.test && no_wrap_column_layout_info.test;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

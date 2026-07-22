@@ -1,0 +1,58 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The visible and enabled property are set by default by Slint to true.
+// But when overridden by an alias, the overridden value should take precedence.
+
+export Button := Rectangle {
+    property<bool> the_enabled <=> touch.enabled;
+    property<bool> the_visible <=> touch.visible;
+    background: !the_enabled ? blue : red;
+    border-color: !the_visible ? green : yellow;
+    border-width: 15px;
+    touch := TouchArea {}
+    fs := FocusScope {
+        enabled <=> root.the_enabled;
+        visible <=> root.the_visible;
+    }
+    property <bool> check: !fs.enabled && !touch.enabled && !fs.visible && !touch.visible;
+}
+
+export TestCase := Rectangle {
+    VerticalLayout {
+        spacing: 10px;
+        b1 := Button { the_enabled: false; the_visible: false; }
+        b2 := Button { the_enabled: false; the_visible: false; }
+        b3 := Button { the_enabled: false; the_visible: false; }
+        b4 := Button { the_enabled: false; the_visible: false; }
+        b5 := Button { the_enabled: false; the_visible: false; }
+        b6 := Button { the_enabled: false; the_visible: false; }
+        b7 := Button { the_enabled: false; the_visible: false; }
+    }
+
+    property <bool> test: b1.check && b2.check && b3.check && b4.check && b5.check && b6.check && b7.check;
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+*/

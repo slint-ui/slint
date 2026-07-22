@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export struct SA {
+    is-set: bool,
+    zoom-range: float,
+}
+export struct SB {
+    is-set: bool,
+}
+
+export struct Model {
+    fov: SA,
+    tilt-speed: SB,
+}
+
+
+export struct EvenMoreComplex {
+    m1: Model,
+    m2: Model,
+    xx: bool,
+}
+
+export component TestCase inherits Window{
+
+    preferred-width: 600px;
+    preferred-height: 320px;
+
+    in-out property <Model> local: {
+        {
+            fov: {
+                is-set: false,
+            },
+            tilt-speed: {
+                is-set: true,
+            },
+        }
+    };
+
+    in-out property <EvenMoreComplex> p2: {
+        {
+            m1: { fov: { zoom-range: 5 }, tilt-speed: { is-set: true } },
+            m2: { tilt-speed: local.tilt-speed, fov: { is-set: local.fov.is-set } },
+        }
+    }
+
+    init => {
+        debug(p2);
+        local.fov = { is-set: true }
+    }
+    out property <bool> test: p2.m2.fov.is-set && p2.m1.fov.zoom-range == 5 && !p2.m1.fov.is-set;
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/
+
+
+

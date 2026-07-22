@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "module": "CommonJS",
+        "target": "esnext",
+        "declaration": true,
+        "rootDir": "typescript",
+        "outDir": "dist",
+        "skipLibCheck": true,
+        "types": ["node"]
+    },
+    "include": [
+        "typescript/"
+    ],
+    "exclude": ["**/node_modules/**"]
+}

@@ -1,0 +1,73 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression: a column-direction FlexboxLayout with `flex-wrap: wrap`
+// inside a component cell of a row FlexboxLayout used to overflow its
+// container's width. The runtime fell back to a sqrt(item-areas)
+// heuristic for the unknown cross-axis constraint, which guessed too
+// short a main-axis container and wrapped items into multiple columns
+// that spilled outside the cell's width.
+
+component InnerColumn {
+    width: 120px;
+    FlexboxLayout {
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 5px;
+        a := Rectangle { width: 60px; height: 30px; background: red; }
+        b := Rectangle { width: 60px; height: 30px; background: green; }
+        c := Rectangle { width: 60px; height: 30px; background: blue; }
+        d := Rectangle { width: 60px; height: 30px; background: yellow; }
+        e := Rectangle { width: 60px; height: 30px; background: orange; }
+    }
+
+    // Expose positions for the test harness.
+    out property <length> a_x: a.x;
+    out property <length> b_x: b.x;
+    out property <length> c_x: c.x;
+    out property <length> d_x: d.x;
+    out property <length> e_x: e.x;
+    out property <length> a_w: a.width;
+    out property <length> b_w: b.width;
+    out property <length> c_w: c.width;
+    out property <length> d_w: d.width;
+    out property <length> e_w: e.width;
+}
+
+export component TestCase inherits Window {
+    width: 800px;
+    height: 400px;
+
+    FlexboxLayout {
+        flex-direction: row;
+        Rectangle { width: 50px; height: 50px; background: gray; flex-shrink: 0; }
+        col := InnerColumn { }
+    }
+
+    // All inner items must stay inside the InnerColumn's 120px width.
+    out property <bool> a_inside: col.a_x + col.a_w <= 120px;
+    out property <bool> b_inside: col.b_x + col.b_w <= 120px;
+    out property <bool> c_inside: col.c_x + col.c_w <= 120px;
+    out property <bool> d_inside: col.d_x + col.d_w <= 120px;
+    out property <bool> e_inside: col.e_x + col.e_w <= 120px;
+
+    out property <bool> test:
+        a_inside && b_inside && c_inside && d_inside && e_inside;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

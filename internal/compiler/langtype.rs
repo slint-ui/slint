@@ -1,0 +1,1336 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+use std::borrow::Cow;
+use std::collections::{BTreeMap, HashMap};
+use std::fmt::Display;
+use std::rc::Rc;
+
+use itertools::Itertools;
+
+use smol_str::SmolStr;
+
+use crate::expression_tree::{BuiltinFunction, Expression, Unit};
+use crate::object_tree::{Component, PropertyVisibility};
+use crate::parser::syntax_nodes;
+use crate::typeregister::TypeRegister;
+
+#[derive(Debug, Clone, Default)]
+pub enum Type {
+    /// Correspond to an uninitialized type, or an error
+    #[default]
+    Invalid,
+    /// The type of an expression that return nothing
+    Void,
+    /// The type of a property two way binding whose type was not yet inferred
+    InferredProperty,
+    /// The type of a callback alias whose type was not yet inferred
+    InferredCallback,
+
+    Callback(Rc<Function>),
+    Function(Rc<Function>),
+
+    ComponentFactory,
+
+    // Other property types:
+    Float32,
+    Int32,
+    String,
+    Color,
+    Duration,
+    PhysicalLength,
+    LogicalLength,
+    Rem,
+    Angle,
+    Percent,
+    Image,
+    Bool,
+    /// Fake type that can represent anything that can be converted into a model.
+    Model,
+    PathData, // Either a vector of path elements or a two vectors of events and coordinates
+    Easing,
+    Brush,
+    /// This is usually a model
+    Array(Rc<Type>),
+    Struct(Rc<Struct>),
+    Enumeration(Rc<Enumeration>),
+    Keys,
+    /// `data-transfer` - a special type that handles reading a value from the system with
+    /// some set of available MIME types.
+    DataTransfer,
+
+    /// A type made up of the product of several "unit" types.
+    /// The first parameter is the unit, and the second parameter is the power.
+    /// The vector should be sorted by 1) the power, 2) the unit.
+    UnitProduct(Vec<(Unit, i8)>),
+
+    ElementReference,
+
+    /// This is a `SharedArray<f32>`
+    LayoutCache,
+    /// This is used by GridLayoutOrganizedData
+    ArrayOfU16,
+
+    StyledText,
+    MouseCursor,
+}
+
+impl core::cmp::PartialEq for Type {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Type::Invalid => matches!(other, Type::Invalid),
+            Type::Void => matches!(other, Type::Void),
+            Type::InferredProperty => matches!(other, Type::InferredProperty),
+            Type::InferredCallback => matches!(other, Type::InferredCallback),
+            Type::Callback(lhs) => {
+                matches!(other, Type::Callback(rhs) if lhs == rhs)
+            }
+            Type::Function(lhs) => {
+                matches!(other, Type::Function(rhs) if lhs == rhs)
+            }
+            Type::ComponentFactory => matches!(other, Type::ComponentFactory),
+            Type::Float32 => matches!(other, Type::Float32),
+            Type::Int32 => matches!(other, Type::Int32),
+            Type::String => matches!(other, Type::String),
+            Type::Color => matches!(other, Type::Color),
+            Type::Duration => matches!(other, Type::Duration),
+            Type::Angle => matches!(other, Type::Angle),
+            Type::PhysicalLength => matches!(other, Type::PhysicalLength),
+            Type::LogicalLength => matches!(other, Type::LogicalLength),
+            Type::Rem => matches!(other, Type::Rem),
+            Type::Percent => matches!(other, Type::Percent),
+            Type::Image => matches!(other, Type::Image),
+            Type::Bool => matches!(other, Type::Bool),
+            Type::Model => matches!(other, Type::Model),
+            Type::PathData => matches!(other, Type::PathData),
+            Type::Easing => matches!(other, Type::Easing),
+            Type::MouseCursor => matches!(other, Type::MouseCursor),
+            Type::Brush => matches!(other, Type::Brush),
+            Type::Array(a) => matches!(other, Type::Array(b) if a == b),
+            Type::Struct(lhs) => {
+                matches!(other, Type::Struct(rhs) if lhs.fields == rhs.fields && lhs.name == rhs.name)
+            }
+            Type::Enumeration(lhs) => matches!(other, Type::Enumeration(rhs) if lhs == rhs),
+            Type::Keys => matches!(other, Type::Keys),
+            Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
+            Type::ElementReference => matches!(other, Type::ElementReference),
+            Type::LayoutCache => matches!(other, Type::LayoutCache),
+            Type::ArrayOfU16 => matches!(other, Type::ArrayOfU16),
+            Type::StyledText => matches!(other, Type::StyledText),
+            Type::DataTransfer => matches!(other, Type::DataTransfer),
+        }
+    }
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Invalid => write!(f, "<error>"),
+            Type::Void => write!(f, "void"),
+            Type::InferredProperty => write!(f, "?"),
+            Type::InferredCallback => write!(f, "callback"),
+            Type::Callback(callback) => {
+                write!(f, "callback")?;
+                if !callback.args.is_empty() {
+                    write!(f, "(")?;
+                    for (i, arg) in callback.args.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ",")?;
+                        }
+                        write!(f, "{arg}")?;
+                    }
+                    write!(f, ")")?
+                }
+                write!(f, "-> {}", callback.return_type)?;
+                Ok(())
+            }
+            Type::ComponentFactory => write!(f, "component-factory"),
+            Type::Function(function) => {
+                write!(f, "function(")?;
+                for (i, arg) in function.args.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ",")?;
+                    }
+                    write!(f, "{arg}")?;
+                }
+                write!(f, ") -> {}", function.return_type)
+            }
+            Type::Float32 => write!(f, "float"),
+            Type::Int32 => write!(f, "int"),
+            Type::String => write!(f, "string"),
+            Type::Duration => write!(f, "duration"),
+            Type::Angle => write!(f, "angle"),
+            Type::PhysicalLength => write!(f, "physical-length"),
+            Type::LogicalLength => write!(f, "length"),
+            Type::Rem => write!(f, "relative-font-size"),
+            Type::Percent => write!(f, "percent"),
+            Type::Color => write!(f, "color"),
+            Type::Image => write!(f, "image"),
+            Type::Bool => write!(f, "bool"),
+            Type::Model => write!(f, "model"),
+            Type::Array(t) => write!(f, "[{t}]"),
+            Type::Struct(t) => write!(f, "{t}"),
+            Type::PathData => write!(f, "pathdata"),
+            Type::Easing => write!(f, "easing"),
+            Type::MouseCursor => write!(f, "MouseCursor"),
+            Type::Brush => write!(f, "brush"),
+            Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
+            Type::Keys => write!(f, "keys"),
+            Type::DataTransfer => write!(f, "data-transfer"),
+            Type::UnitProduct(vec) => {
+                const POWERS: &[char] = &['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+                let mut x = vec.iter().map(|(unit, power)| {
+                    if *power == 1 {
+                        return unit.to_string();
+                    }
+                    let mut res = format!("{}{}", unit, if *power < 0 { "⁻" } else { "" });
+                    let value = power.abs().to_string();
+                    for x in value.as_bytes() {
+                        res.push(POWERS[(x - b'0') as usize]);
+                    }
+
+                    res
+                });
+                write!(f, "({})", x.join("×"))
+            }
+            Type::ElementReference => write!(f, "element ref"),
+            Type::LayoutCache => write!(f, "layout cache"),
+            Type::ArrayOfU16 => write!(f, "[u16]"),
+            Type::StyledText => write!(f, "styled-text"),
+        }
+    }
+}
+
+impl From<Rc<Struct>> for Type {
+    fn from(value: Rc<Struct>) -> Self {
+        Self::Struct(value)
+    }
+}
+
+impl Type {
+    /// valid type for properties
+    pub fn is_property_type(&self) -> bool {
+        matches!(
+            self,
+            Self::Float32
+                | Self::Int32
+                | Self::String
+                | Self::Color
+                | Self::ComponentFactory
+                | Self::Duration
+                | Self::Angle
+                | Self::PhysicalLength
+                | Self::LogicalLength
+                | Self::Rem
+                | Self::Percent
+                | Self::Image
+                | Self::Bool
+                | Self::Easing
+                | Self::MouseCursor
+                | Self::Enumeration(_)
+                | Self::Keys
+                | Self::DataTransfer
+                | Self::ElementReference
+                | Self::Struct { .. }
+                | Self::Array(_)
+                | Self::Brush
+                | Self::InferredProperty
+                | Self::StyledText
+        )
+    }
+
+    pub fn ok_for_public_api(&self) -> bool {
+        !matches!(self, Self::Easing)
+    }
+
+    /// Assume it is an enumeration, panic if it isn't
+    pub fn as_enum(&self) -> &Rc<Enumeration> {
+        match self {
+            Type::Enumeration(e) => e,
+            _ => panic!("should be an enumeration, bug in compiler pass"),
+        }
+    }
+
+    /// Return true if the type can be converted to the other type
+    pub fn can_convert(&self, other: &Self) -> bool {
+        let can_convert_struct = |a: &BTreeMap<SmolStr, Type>, b: &BTreeMap<SmolStr, Type>| {
+            // the struct `b` has property that the struct `a` doesn't
+            let mut has_more_property = false;
+            for (k, v) in b {
+                match a.get(k) {
+                    Some(t) if !t.can_convert(v) => return false,
+                    None => has_more_property = true,
+                    _ => (),
+                }
+            }
+            if has_more_property {
+                // we should reject the conversion if `a` has property that `b` doesn't have
+                if a.keys().any(|k| !b.contains_key(k)) {
+                    return false;
+                }
+            }
+            true
+        };
+        match (self, other) {
+            (a, b) if a == b => true,
+            (_, Type::Invalid)
+            | (_, Type::Void)
+            | (Type::Float32, Type::Int32)
+            | (Type::Float32, Type::String)
+            | (Type::Int32, Type::Float32)
+            | (Type::Int32, Type::String)
+            | (Type::Float32, Type::Model)
+            | (Type::Int32, Type::Model)
+            | (Type::PhysicalLength, Type::LogicalLength)
+            | (Type::LogicalLength, Type::PhysicalLength)
+            | (Type::Rem, Type::LogicalLength)
+            | (Type::Rem, Type::PhysicalLength)
+            | (Type::LogicalLength, Type::Rem)
+            | (Type::PhysicalLength, Type::Rem)
+            | (Type::Percent, Type::Float32)
+            | (Type::Brush, Type::Color)
+            | (Type::Color, Type::Brush) => true,
+            (Type::Array(a), Type::Model) if a.is_property_type() => true,
+            (Type::Struct(a), Type::Struct(b)) => can_convert_struct(&a.fields, &b.fields),
+            (Type::UnitProduct(u), o) => match o.as_unit_product() {
+                Some(o) => unit_product_length_conversion(u.as_slice(), o.as_slice()).is_some(),
+                None => false,
+            },
+            (o, Type::UnitProduct(u)) => match o.as_unit_product() {
+                Some(o) => unit_product_length_conversion(u.as_slice(), o.as_slice()).is_some(),
+                None => false,
+            },
+            _ => false,
+        }
+    }
+
+    /// If this is a number type which should be used with an unit, this returns the default unit
+    /// otherwise, returns None
+    pub fn default_unit(&self) -> Option<Unit> {
+        match self {
+            Type::Duration => Some(Unit::Ms),
+            Type::PhysicalLength => Some(Unit::Phx),
+            Type::LogicalLength => Some(Unit::Px),
+            Type::Rem => Some(Unit::Rem),
+            // Unit::Percent is special that it does not combine with other units like
+            Type::Percent => None,
+            Type::Angle => Some(Unit::Deg),
+            Type::Invalid => None,
+            Type::Void => None,
+            Type::InferredProperty | Type::InferredCallback => None,
+            Type::Callback { .. } => None,
+            Type::ComponentFactory => None,
+            Type::Function { .. } => None,
+            Type::Float32 => None,
+            Type::Int32 => None,
+            Type::String => None,
+            Type::Color => None,
+            Type::Image => None,
+            Type::Bool => None,
+            Type::Model => None,
+            Type::PathData => None,
+            Type::Easing => None,
+            Type::MouseCursor => None,
+            Type::Brush => None,
+            Type::Array(_) => None,
+            Type::Struct { .. } => None,
+            Type::Enumeration(_) => None,
+            Type::Keys => None,
+            Type::DataTransfer => None,
+            Type::UnitProduct(_) => None,
+            Type::ElementReference => None,
+            Type::LayoutCache => None,
+            Type::ArrayOfU16 => None,
+            Type::StyledText => None,
+        }
+    }
+
+    /// Return a unit product vector even for single scalar
+    pub fn as_unit_product(&self) -> Option<Vec<(Unit, i8)>> {
+        match self {
+            Type::UnitProduct(u) => Some(u.clone()),
+            Type::Float32 | Type::Int32 => Some(Vec::new()),
+            Type::Percent => Some(Vec::new()),
+            _ => self.default_unit().map(|u| vec![(u, 1)]),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum BuiltinPropertyDefault {
+    None,
+    Expr(Expression),
+    /// When materializing a property of this type, it will be initialized with an Expression that depends on the ElementRc
+    WithElement(fn(&crate::object_tree::ElementRc) -> Expression),
+    /// The property is actually not a property but a builtin function
+    BuiltinFunction(BuiltinFunction),
+}
+
+impl BuiltinPropertyDefault {
+    pub fn expr(&self, elem: &crate::object_tree::ElementRc) -> Option<Expression> {
+        match self {
+            BuiltinPropertyDefault::None => None,
+            BuiltinPropertyDefault::Expr(expression) => Some(expression.clone()),
+            BuiltinPropertyDefault::WithElement(init_expr) => Some(init_expr(elem)),
+            BuiltinPropertyDefault::BuiltinFunction(..) => {
+                unreachable!("can't get an expression for functions")
+            }
+        }
+    }
+}
+
+/// Information about properties in NativeClass
+#[derive(Debug, Clone)]
+pub struct BuiltinPropertyInfo {
+    /// The property type
+    pub ty: Type,
+    /// When != None, this is the initial value that we will have to set if no other binding were specified
+    pub default_value: BuiltinPropertyDefault,
+    pub property_visibility: PropertyVisibility,
+    /// Raw `///` doc comment from builtins.slint, if any.
+    pub docs: Option<String>,
+    /// True when a component may declare a member of the same name, shadowing this one
+    /// (`//-shadowable` annotation in builtins.slint).
+    /// Members added to a builtin element after its initial release should be marked
+    /// shadowable so that older code that already declares the name keeps compiling —
+    /// unless a compiler pass accesses the member by name, in which case shadowing
+    /// would generate wrong code and the member must not be marked.
+    pub shadowable: bool,
+}
+
+impl BuiltinPropertyInfo {
+    pub fn new(ty: Type) -> Self {
+        Self {
+            ty,
+            default_value: BuiltinPropertyDefault::None,
+            property_visibility: PropertyVisibility::InOut,
+            docs: None,
+            shadowable: false,
+        }
+    }
+
+    pub fn is_native_output(&self) -> bool {
+        matches!(self.property_visibility, PropertyVisibility::InOut | PropertyVisibility::Output)
+    }
+}
+
+impl From<BuiltinFunction> for BuiltinPropertyInfo {
+    fn from(function: BuiltinFunction) -> Self {
+        Self {
+            ty: Type::Function(function.ty()),
+            default_value: BuiltinPropertyDefault::BuiltinFunction(function),
+            property_visibility: PropertyVisibility::Public,
+            docs: None,
+            shadowable: false,
+        }
+    }
+}
+
+/// The base of an element
+#[derive(Clone, Debug, derive_more::From, Default)]
+pub enum ElementType {
+    /// The element is based of a component
+    Component(Rc<Component>),
+    /// The element is a builtin element
+    Builtin(Rc<BuiltinElement>),
+    /// The native type was resolved by the resolve_native_class pass.
+    Native(Rc<NativeClass>),
+    /// The base element couldn't be looked up
+    #[default]
+    Error,
+    /// This should be the base type of the root element of a global component
+    Global,
+    /// This should be the base type of the root element of an interface
+    Interface,
+}
+
+impl PartialEq for ElementType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Component(a), Self::Component(b)) => Rc::ptr_eq(a, b),
+            (Self::Builtin(a), Self::Builtin(b)) => Rc::ptr_eq(a, b),
+            (Self::Native(a), Self::Native(b)) => Rc::ptr_eq(a, b),
+            (Self::Error, Self::Error)
+            | (Self::Global, Self::Global)
+            | (Self::Interface, Self::Interface) => true,
+            _ => false,
+        }
+    }
+}
+
+impl ElementType {
+    pub fn lookup_property<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
+        match self {
+            Self::Component(c) => c.root_element.borrow().lookup_property(name),
+            Self::Builtin(b) => {
+                let resolved_name =
+                    if let Some(alias_name) = b.native_class.lookup_alias(name.as_ref()) {
+                        Cow::Owned(alias_name.to_string())
+                    } else {
+                        Cow::Borrowed(name)
+                    };
+                match b.properties.get(resolved_name.as_ref()) {
+                    None => {
+                        if b.is_non_item_type || b.is_global {
+                            PropertyLookupResult::invalid(resolved_name)
+                        } else {
+                            crate::typeregister::reserved_property(resolved_name)
+                        }
+                    }
+                    Some(p) => PropertyLookupResult {
+                        resolved_name,
+                        property_type: p.ty.clone(),
+                        property_visibility: p.property_visibility,
+                        declared_pure: None,
+                        is_local_to_component: false,
+                        is_in_direct_base: false,
+                        is_shadowable: p.shadowable,
+                        builtin_function: match &p.default_value {
+                            BuiltinPropertyDefault::BuiltinFunction(f) => Some(f.clone()),
+                            _ => None,
+                        },
+                    },
+                }
+            }
+            Self::Native(n) => {
+                let resolved_name = if let Some(alias_name) = n.lookup_alias(name.as_ref()) {
+                    Cow::Owned(alias_name.to_string())
+                } else {
+                    Cow::Borrowed(name)
+                };
+                let property_type =
+                    n.lookup_property(resolved_name.as_ref()).cloned().unwrap_or_default();
+                PropertyLookupResult {
+                    resolved_name,
+                    property_type,
+                    property_visibility: PropertyVisibility::InOut,
+                    declared_pure: None,
+                    is_local_to_component: false,
+                    is_in_direct_base: false,
+                    is_shadowable: false,
+                    builtin_function: None,
+                }
+            }
+            _ => PropertyLookupResult::invalid(Cow::Borrowed(name)),
+        }
+    }
+
+    /// List of sub properties valid for the auto completion
+    pub fn property_list(&self) -> Vec<(SmolStr, Type)> {
+        match self {
+            Self::Component(c) => {
+                let mut r = c.root_element.borrow().base_type.property_list();
+                r.extend(
+                    c.root_element
+                        .borrow()
+                        .property_declarations
+                        .iter()
+                        .filter(|(_, d)| d.visibility != PropertyVisibility::Private)
+                        .map(|(k, d)| (k.clone(), d.property_type.clone())),
+                );
+                r
+            }
+            Self::Builtin(b) => {
+                b.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
+            }
+            Self::Native(n) => {
+                n.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    /// This function looks at the element and checks whether it can have Elements of type `name` as children.
+    /// In addition to what `accepts_child_element` does, this method also probes the type of `name`.
+    /// It returns an Error if that is not possible or an `ElementType` if it is.
+    pub fn lookup_type_for_child_element(
+        &self,
+        name: &str,
+        tr: &TypeRegister,
+    ) -> Result<ElementType, String> {
+        match self {
+            Self::Component(component) => {
+                let base_type = match &*component.child_insertion_point.borrow() {
+                    Some(insert_in) => insert_in.parent.borrow().base_type.clone(),
+                    None => {
+                        let base_type = component.root_element.borrow().base_type.clone();
+                        if base_type == tr.empty_type() {
+                            let element = tr.lookup_element(name)?;
+                            if matches!(&element, ElementType::Builtin(b) if b.can_be_declared_without_children_slot) {
+                                return Ok(element);
+                            }
+                            return Err(format!("'{}' cannot have children. Only components with @children can have children", component.id));
+                        }
+                        base_type
+                    }
+                };
+                base_type.lookup_type_for_child_element(name, tr)
+            }
+            Self::Builtin(builtin) => {
+                let looked_up = tr.lookup_element(name);
+                if let Ok(ElementType::Builtin(b)) = &looked_up
+                    && b.can_be_declared_without_children_slot
+                {
+                    return Ok(ElementType::Builtin(b.clone()));
+                }
+                if builtin.disallow_global_types_as_child_elements {
+                    if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
+                        return Ok(child_type.clone().into());
+                    } else if builtin.additional_accept_self && name == builtin.native_class.class_name {
+                        return Ok(builtin.clone().into());
+                    }
+                    let mut valid_children: Vec<_> =
+                        builtin.additional_accepted_child_types.keys().cloned().collect();
+                    if builtin.additional_accept_self {
+                        valid_children.push(builtin.native_class.class_name.clone());
+                    }
+                    valid_children.sort();
+
+                    let err = if valid_children.is_empty() {
+                        // No whitelist to suggest from; prefer "Unknown element" for typos.
+                        looked_up?;
+                        format!("{} cannot have children elements", builtin.native_class.class_name,)
+                    } else {
+                        format!(
+                            "{} is not allowed within {}. Only {} are valid children",
+                            name,
+                            builtin.native_class.class_name,
+                            valid_children.join(" ")
+                        )
+                    };
+                    return Err(err);
+                }
+                let err = match looked_up {
+                    Err(e) => e,
+                    Ok(t) => {
+                        if !tr.expose_internal_types
+                            && matches!(&t, Self::Builtin(e) if e.is_internal)
+                        {
+                            format!("Unknown element '{name}'. (The type exists as an internal type, but cannot be accessed in this scope)")
+                        } else {
+                            return Ok(t);
+                        }
+                    }
+                };
+                if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
+                    return Ok(child_type.clone().into());
+                } else if builtin.additional_accept_self && name == builtin.native_class.class_name {
+                    return Ok(builtin.clone().into());
+                }
+                match tr.lookup(name) {
+                    Type::Invalid => Err(err),
+                    ty => Err(format!("'{ty}' cannot be used as an element")),
+                }
+            }
+            _ => tr.lookup_element(name).and_then(|t| {
+                if !tr.expose_internal_types && matches!(&t, Self::Builtin(e) if e.is_internal) {
+                    Err(format!("Unknown element '{name}'. (The type exists as an internal type, but cannot be accessed in this scope)"))
+                } else {
+                    Ok(t)
+                }
+            })
+        }
+    }
+
+    /// Assume this is a builtin type, panic if it isn't
+    pub fn as_builtin(&self) -> &BuiltinElement {
+        match self {
+            Self::Builtin(b) => b,
+            Self::Component(_) => panic!("This should not happen because of inlining"),
+            _ => panic!("invalid type"),
+        }
+    }
+
+    /// Assume this is a builtin type, panic if it isn't
+    pub fn as_native(&self) -> &NativeClass {
+        match self {
+            Self::Native(b) => b,
+            Self::Component(_) => {
+                panic!("This should not happen because of native class resolution")
+            }
+            _ => panic!("invalid type"),
+        }
+    }
+
+    /// Assume it is a Component, panic if it isn't
+    pub fn as_component(&self) -> &Rc<Component> {
+        match self {
+            Self::Component(c) => c,
+            _ => panic!("should be a component because of the repeater_component pass"),
+        }
+    }
+
+    /// Returns the Slint type name if applicable (for example `Rectangle` or `MyButton` when `component MyButton {}` is used as `MyButton` element)
+    pub fn type_name(&self) -> Option<&str> {
+        match self {
+            ElementType::Component(component) => Some(&component.id),
+            ElementType::Builtin(b) => Some(&b.name),
+            ElementType::Native(_) => None, // Too late, caller should call this function before the native class lowering
+            ElementType::Error => None,
+            ElementType::Global => None,
+            ElementType::Interface => None,
+        }
+    }
+}
+
+impl Display for ElementType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Component(c) => c.id.fmt(f),
+            Self::Builtin(b) => b.name.fmt(f),
+            Self::Native(b) => b.class_name.fmt(f),
+            Self::Error => write!(f, "<error>"),
+            Self::Global => Ok(()),
+            Self::Interface => Ok(()),
+        }
+    }
+}
+
+macro_rules! define_builtin_struct_enum {
+    ($(
+        $(#[$attr:meta])*
+        $vis:vis struct $Name:ident {
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
+        }
+    )*) => {
+        #[derive(Debug, Clone, PartialEq, strum::EnumString, strum::IntoStaticStr)]
+        pub enum BuiltinStruct {
+            // Generated from for_each_builtin_structs
+            $($Name,)*
+
+            // Public structs not in the macro (registered in typeregister.rs)
+            Color,
+            LogicalPosition,
+            LogicalSize,
+
+            // Path element types, set via `//-builtin_struct:` annotations
+            // in builtins.slint and read through NativeClass.builtin_struct
+            PathMoveTo,
+            PathLineTo,
+            PathArcTo,
+            PathCubicTo,
+            PathQuadraticTo,
+            PathClose,
+            PathElement,
+
+            // Compiler-internal structs (no slint_name, not exposed to .slint)
+
+            // Internal coordinate struct for compiled SVG path data (x/y as Float32,
+            // unlike LogicalPosition which uses LogicalLength)
+            Point,
+            // Return type of ArraySize (width/height as Int32,
+            // unlike LogicalSize which uses LogicalLength)
+            Size,
+            StateInfo,
+            PropertyAnimation,
+            GridLayoutData,
+            GridLayoutInputData,
+            BoxLayoutData,
+            BoxLayoutOrthoData,
+            FlexboxLayoutData,
+            LayoutItemInfo,
+            FlexboxLayoutItemInfo,
+            Padding,
+            LayoutInfo,
+        }
+
+        impl BuiltinStruct {
+            pub fn is_public(&self) -> bool {
+                match self {
+                    // Macro-defined structs: derived from the `pub` visibility keyword
+                    $(Self::$Name => stringify!($vis) == "pub",)*
+                    // Non-macro public structs
+                    Self::Color | Self::LogicalPosition | Self::LogicalSize => true,
+                    _ => false,
+                }
+            }
+
+            /// The name of this struct in the Slint language, or None if it is
+            /// purely internal and not visible in .slint files.
+            pub fn slint_name(&self) -> Option<SmolStr> {
+                match self {
+                    // Macro-defined structs all have a slint name matching their Rust name
+                    $(Self::$Name => {
+                        Some(SmolStr::new_static(stringify!($Name)))
+                    })*
+                    // Non-macro structs with custom slint names
+                    Self::Color => Some(SmolStr::new_static("color")),
+                    Self::LogicalPosition => Some(SmolStr::new_static("Point")),
+                    Self::LogicalSize => Some(SmolStr::new_static("Size")),
+                    _ => None,
+                }
+            }
+        }
+    };
+}
+i_slint_common::for_each_builtin_structs!(define_builtin_struct_enum);
+
+impl BuiltinStruct {
+    pub fn is_layout_data(&self) -> bool {
+        matches!(
+            self,
+            Self::GridLayoutInputData
+                | Self::GridLayoutData
+                | Self::BoxLayoutData
+                | Self::BoxLayoutOrthoData
+                | Self::FlexboxLayoutData
+        )
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct NativeClass {
+    pub parent: Option<Rc<NativeClass>>,
+    pub class_name: SmolStr,
+    pub cpp_vtable_getter: String,
+    pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
+    pub deprecated_aliases: HashMap<SmolStr, SmolStr>,
+    /// Type override if class_name is not equal to the name to be used in the
+    /// target language API.
+    pub builtin_struct: Option<BuiltinStruct>,
+}
+
+impl NativeClass {
+    pub fn new(class_name: &str) -> Self {
+        let cpp_vtable_getter = format!("SLINT_GET_ITEM_VTABLE({class_name}VTable)");
+        Self {
+            class_name: class_name.into(),
+            cpp_vtable_getter,
+            properties: Default::default(),
+            ..Default::default()
+        }
+    }
+
+    pub fn new_with_properties(
+        class_name: &str,
+        properties: impl IntoIterator<Item = (SmolStr, BuiltinPropertyInfo)>,
+    ) -> Self {
+        let mut class = Self::new(class_name);
+        class.properties = properties.into_iter().collect();
+        class
+    }
+
+    pub fn property_count(&self) -> usize {
+        self.properties.len() + self.parent.clone().map(|p| p.property_count()).unwrap_or_default()
+    }
+
+    pub fn lookup_property(&self, name: &str) -> Option<&Type> {
+        if let Some(bty) = self.properties.get(name) {
+            Some(&bty.ty)
+        } else if let Some(parent_class) = &self.parent {
+            parent_class.lookup_property(name)
+        } else {
+            None
+        }
+    }
+
+    pub fn lookup_alias(&self, name: &str) -> Option<&str> {
+        if let Some(alias_target) = self.deprecated_aliases.get(name) {
+            Some(alias_target)
+        } else if self.properties.contains_key(name) {
+            None
+        } else if let Some(parent_class) = &self.parent {
+            parent_class.lookup_alias(name)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum DefaultSizeBinding {
+    /// There should not be a default binding for the size
+    #[default]
+    None,
+    /// The size should default to `width:100%; height:100%`
+    ExpandsToParentGeometry,
+    /// The size should default to the item's implicit size
+    ImplicitSize,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct BuiltinElement {
+    pub name: SmolStr,
+    pub native_class: Rc<NativeClass>,
+    pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
+    /// Additional builtin element that can be accepted as child of this element
+    /// (example `Tab` in `TabWidget`, `Row` in `GridLayout` and the path elements in `Path`)
+    pub additional_accepted_child_types: HashMap<SmolStr, Rc<BuiltinElement>>,
+    /// `Self` is conceptually in `additional_accepted_child_types` (which it can't otherwise that'd make a Rc loop)
+    pub additional_accept_self: bool,
+    pub disallow_global_types_as_child_elements: bool,
+    /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
+    pub is_non_item_type: bool,
+    pub accepts_focus: bool,
+    pub is_global: bool,
+    pub default_size_binding: DefaultSizeBinding,
+    /// When true this is an internal type not shown in the auto-completion
+    pub is_internal: bool,
+    /// Documentation sections from builtins.slint, preserving source order.
+    /// `Text` entries come from `///` (element-level) and `//!` (section) comments;
+    /// `Member` entries reference a property, callback, or function by name.
+    pub docs: Vec<crate::doc_comments::ElementDocEntry>,
+    /// When true this builtin can be declared as a child even if the parent element
+    /// does not expose an explicit @children insertion slot.
+    pub can_be_declared_without_children_slot: bool,
+    /// When true this element is part of the Slint SC (safety-critical) subset.
+    pub slint_sc: bool,
+}
+
+impl BuiltinElement {
+    pub fn new(native_class: Rc<NativeClass>) -> Self {
+        Self { name: native_class.class_name.clone(), native_class, ..Default::default() }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct PropertyLookupResult<'a> {
+    pub resolved_name: std::borrow::Cow<'a, str>,
+    pub property_type: Type,
+    pub property_visibility: PropertyVisibility,
+    pub declared_pure: Option<bool>,
+    /// True if the property is part of the current component (for visibility purposes)
+    pub is_local_to_component: bool,
+    /// True if the property in the direct base of the component (for protected visibility purposes)
+    pub is_in_direct_base: bool,
+    /// True if a local declaration may shadow this member. Only builtin element
+    /// members marked `//-shadowable` in builtins.slint are shadowable.
+    pub is_shadowable: bool,
+
+    /// If the property is a builtin function
+    pub builtin_function: Option<BuiltinFunction>,
+}
+
+impl<'a> PropertyLookupResult<'a> {
+    pub fn is_valid(&self) -> bool {
+        self.property_type != Type::Invalid
+    }
+
+    /// Can this property be used in an assignment
+    pub fn is_valid_for_assignment(&self) -> bool {
+        !matches!(
+            (self.property_visibility, self.is_local_to_component),
+            (PropertyVisibility::Private, false)
+                | (PropertyVisibility::Input, true)
+                | (PropertyVisibility::Output, false)
+        )
+    }
+
+    pub fn invalid(resolved_name: Cow<'a, str>) -> Self {
+        Self {
+            resolved_name,
+            property_type: Type::Invalid,
+            property_visibility: PropertyVisibility::Private,
+            declared_pure: None,
+            is_local_to_component: false,
+            is_in_direct_base: false,
+            is_shadowable: false,
+            builtin_function: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Function {
+    pub return_type: Type,
+    pub args: Vec<Type>,
+    /// The optional names of the arguments (empty string means not set).
+    /// The names are not technically part of the type, but it is good to have them available for auto-completion
+    pub arg_names: Vec<SmolStr>,
+}
+
+#[derive(Debug, Clone)]
+pub enum StructName {
+    None,
+    /// When declared in .slint as  `struct Foo { }`, then the name is "Foo"
+    User {
+        name: SmolStr,
+        /// When declared in .slint, this is the node of the declaration.
+        node: syntax_nodes::ObjectType,
+    },
+    Builtin(BuiltinStruct),
+}
+
+impl PartialEq for StructName {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                Self::User { name: l_user_name, node: _ },
+                Self::User { name: r_user_name, node: _ },
+            ) => l_user_name == r_user_name,
+            (Self::Builtin(l0), Self::Builtin(r0)) => l0 == r0,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
+}
+
+impl StructName {
+    pub fn slint_name(&self) -> Option<SmolStr> {
+        match self {
+            StructName::None => None,
+            StructName::User { name, .. } => Some(name.clone()),
+            StructName::Builtin(builtin) => builtin.slint_name(),
+        }
+    }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+
+    pub fn is_some(&self) -> bool {
+        !matches!(self, Self::None)
+    }
+
+    pub fn or(self, other: Self) -> Self {
+        match self {
+            Self::None => other,
+            this => this,
+        }
+    }
+}
+
+impl From<BuiltinStruct> for StructName {
+    fn from(value: BuiltinStruct) -> Self {
+        Self::Builtin(value)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Struct {
+    pub fields: BTreeMap<SmolStr, Type>,
+    /// Default values for the fields.
+    /// The expressions are resolved, converted to the field type, and constant-folded.
+    /// Like the syntax node in `name`, this is ignored by `Type`'s equality comparison.
+    pub field_defaults: BTreeMap<SmolStr, ConstantExpression>,
+    pub name: StructName,
+}
+
+impl Struct {
+    /// Create a struct without declared field default values.
+    pub fn new(fields: BTreeMap<SmolStr, Type>, name: impl Into<StructName>) -> Self {
+        Self { fields, field_defaults: Default::default(), name: name.into() }
+    }
+
+    pub fn node(&self) -> Option<&syntax_nodes::ObjectType> {
+        match &self.name {
+            StructName::User { node, .. } => Some(node),
+            _ => None,
+        }
+    }
+
+    /// The default value for the given field: the user-declared default if there is one,
+    /// otherwise the default value for the field's type.
+    pub fn default_value_for_field(&self, name: &SmolStr) -> Expression {
+        self.field_defaults.get(name).map(ConstantExpression::to_expression).unwrap_or_else(|| {
+            Expression::default_value_for_type(
+                self.fields.get(name).expect("default value requested for unknown struct field"),
+            )
+        })
+    }
+}
+
+/// A constant expression, used for the default values of struct fields
+/// (see [`Struct::field_defaults`]).
+///
+/// This is deliberately neither [`Expression`] nor an llr expression:
+/// unlike those, it cannot reference any properties, elements, or syntax nodes,
+/// so a [`Struct`] carrying one can safely outlive the object tree.
+/// The variants are the subset that every consumer can materialize.
+/// Keep the matches over this type exhaustive,
+/// so that adding a variant is a compile error in each consumer:
+/// the conversion to an expression tree ([`Self::to_expression`]),
+/// the lowering for the code generators (`lower_constant_expression` in the llr module),
+/// and the interpreter's evaluator (`eval_constant_expression` there).
+#[derive(Debug, Clone)]
+pub enum ConstantExpression {
+    StringLiteral(SmolStr),
+    /// A number and its unit, in normalized form
+    NumberLiteral(f64, Unit),
+    BoolLiteral(bool),
+    EnumerationValue(EnumerationValue),
+    Cast {
+        from: Box<ConstantExpression>,
+        to: Type,
+    },
+    UnaryOp {
+        sub: Box<ConstantExpression>,
+        op: char,
+    },
+    Struct {
+        ty: Rc<Struct>,
+        values: BTreeMap<SmolStr, ConstantExpression>,
+    },
+    Array {
+        element_ty: Type,
+        values: Vec<ConstantExpression>,
+    },
+}
+
+impl ConstantExpression {
+    /// Create a constant expression from a resolved, converted, and constant-folded
+    /// expression, or `None` if the expression is not in the constant subset.
+    pub fn from_expression(expression: &Expression) -> Option<Self> {
+        Some(match expression {
+            Expression::StringLiteral(s) => Self::StringLiteral(s.clone()),
+            Expression::NumberLiteral(n, unit) => Self::NumberLiteral(*n, *unit),
+            Expression::BoolLiteral(b) => Self::BoolLiteral(*b),
+            Expression::EnumerationValue(e) => Self::EnumerationValue(e.clone()),
+            Expression::Cast { from, to } => {
+                Self::Cast { from: Box::new(Self::from_expression(from)?), to: to.clone() }
+            }
+            Expression::UnaryOp { sub, op } => {
+                Self::UnaryOp { sub: Box::new(Self::from_expression(sub)?), op: *op }
+            }
+            Expression::Struct { ty, values } => Self::Struct {
+                ty: ty.clone(),
+                values: values
+                    .iter()
+                    .map(|(k, v)| Some((k.clone(), Self::from_expression(v)?)))
+                    .collect::<Option<_>>()?,
+            },
+            Expression::Array { element_ty, values } => Self::Array {
+                element_ty: element_ty.clone(),
+                values: values.iter().map(Self::from_expression).collect::<Option<_>>()?,
+            },
+            _ => return None,
+        })
+    }
+
+    /// The expression tree form, for splicing the constant into bindings at compile time
+    pub fn to_expression(&self) -> Expression {
+        match self {
+            Self::StringLiteral(s) => Expression::StringLiteral(s.clone()),
+            Self::NumberLiteral(n, unit) => Expression::NumberLiteral(*n, *unit),
+            Self::BoolLiteral(b) => Expression::BoolLiteral(*b),
+            Self::EnumerationValue(e) => Expression::EnumerationValue(e.clone()),
+            Self::Cast { from, to } => {
+                Expression::Cast { from: Box::new(from.to_expression()), to: to.clone() }
+            }
+            Self::UnaryOp { sub, op } => {
+                Expression::UnaryOp { sub: Box::new(sub.to_expression()), op: *op }
+            }
+            Self::Struct { ty, values } => Expression::Struct {
+                ty: ty.clone(),
+                values: values.iter().map(|(k, v)| (k.clone(), v.to_expression())).collect(),
+            },
+            Self::Array { element_ty, values } => Expression::Array {
+                element_ty: element_ty.clone(),
+                values: values.iter().map(Self::to_expression).collect(),
+            },
+        }
+    }
+}
+
+impl Display for Struct {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(name) = &self.name.slint_name() {
+            write!(f, "{name}")
+        } else {
+            write!(f, "{{ ")?;
+            for (k, v) in &self.fields {
+                write!(f, "{k}: {v},")?;
+            }
+            write!(f, "}}")
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Enumeration {
+    pub name: SmolStr,
+    pub values: Vec<SmolStr>,
+    pub default_value: usize, // index in values
+    // For non-builtins enums, this is the declaration node
+    pub node: Option<syntax_nodes::EnumDeclaration>,
+}
+
+impl PartialEq for Enumeration {
+    fn eq(&self, other: &Self) -> bool {
+        self.name.eq(&other.name)
+    }
+}
+
+impl Enumeration {
+    pub fn default_value(self: Rc<Self>) -> EnumerationValue {
+        EnumerationValue { value: self.default_value, enumeration: self.clone() }
+    }
+
+    pub fn try_value_from_string(self: Rc<Self>, value: &str) -> Option<EnumerationValue> {
+        self.values.iter().enumerate().find_map(|(idx, name)| {
+            if name == value {
+                Some(EnumerationValue { value: idx, enumeration: self.clone() })
+            } else {
+                None
+            }
+        })
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+pub struct KeyboardModifiers {
+    pub alt: bool,
+    pub control: bool,
+    pub meta: bool,
+    pub shift: bool,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+pub struct Keys {
+    pub key: SmolStr,
+    pub modifiers: KeyboardModifiers,
+    pub ignore_shift: bool,
+    pub ignore_alt: bool,
+}
+
+impl std::fmt::Display for Keys {
+    // Make sure to keep this in sync with the implementation in core/input.rs
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.key.is_empty() {
+            write!(f, "")
+        } else {
+            let alt = self
+                .ignore_alt
+                .then_some("Alt?+")
+                .or(self.modifiers.alt.then_some("Alt+"))
+                .unwrap_or_default();
+            let ctrl = if self.modifiers.control { "Control+" } else { "" };
+            let meta = if self.modifiers.meta { "Meta+" } else { "" };
+            let shift = self
+                .ignore_shift
+                .then_some("Shift?+")
+                .or(self.modifiers.shift.then_some("Shift+"))
+                .unwrap_or_default();
+            let keycode: String = self
+                .key
+                .chars()
+                .flat_map(|character| {
+                    let mut escaped = vec![];
+                    if character.is_control() {
+                        escaped.extend(character.escape_unicode());
+                    } else {
+                        escaped.push(character);
+                    }
+                    escaped
+                })
+                .collect();
+            write!(f, "{meta}{ctrl}{alt}{shift}\"{keycode}\"")
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct EnumerationValue {
+    pub value: usize, // index in enumeration.values
+    pub enumeration: Rc<Enumeration>,
+}
+
+impl PartialEq for EnumerationValue {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.enumeration, &other.enumeration) && self.value == other.value
+    }
+}
+
+impl std::fmt::Display for EnumerationValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.enumeration.values[self.value].fmt(f)
+    }
+}
+
+impl EnumerationValue {
+    pub fn to_pascal_case(&self) -> String {
+        crate::generator::to_pascal_case(&self.enumeration.values[self.value])
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct LengthConversionPowers {
+    pub rem_to_px_power: i8,
+    pub px_to_phx_power: i8,
+}
+
+/// If the `Type::UnitProduct(a)` can be converted to `Type::UnitProduct(b)` by multiplying
+/// by the scale factor, return that scale factor, otherwise, return None
+pub fn unit_product_length_conversion(
+    a: &[(Unit, i8)],
+    b: &[(Unit, i8)],
+) -> Option<LengthConversionPowers> {
+    // e.g. float to int conversion, no units
+    if a.is_empty() && b.is_empty() {
+        return Some(LengthConversionPowers { rem_to_px_power: 0, px_to_phx_power: 0 });
+    }
+
+    let mut units = [0i8; 16];
+    for (u, count) in a {
+        units[*u as usize] += count;
+    }
+    for (u, count) in b {
+        units[*u as usize] -= count;
+    }
+
+    if units[Unit::Px as usize] + units[Unit::Phx as usize] + units[Unit::Rem as usize] != 0 {
+        return None;
+    }
+
+    if units[Unit::Rem as usize] != 0
+        && units[Unit::Phx as usize] == -units[Unit::Rem as usize]
+        && units[Unit::Px as usize] == 0
+    {
+        units[Unit::Px as usize] = -units[Unit::Rem as usize];
+        units[Unit::Phx as usize] = -units[Unit::Rem as usize];
+    }
+
+    let result = LengthConversionPowers {
+        rem_to_px_power: if units[Unit::Rem as usize] != 0 { units[Unit::Px as usize] } else { 0 },
+        px_to_phx_power: if units[Unit::Px as usize] != 0 { units[Unit::Phx as usize] } else { 0 },
+    };
+
+    units[Unit::Px as usize] = 0;
+    units[Unit::Phx as usize] = 0;
+    units[Unit::Rem as usize] = 0;
+    units.into_iter().all(|x| x == 0).then_some(result)
+}
+
+#[test]
+fn unit_product_length_conversion_test() {
+    use Option::None;
+    use Unit::*;
+    assert_eq!(
+        unit_product_length_conversion(&[], &[]),
+        Some(LengthConversionPowers { rem_to_px_power: 0, px_to_phx_power: 0 })
+    );
+    assert_eq!(
+        unit_product_length_conversion(&[(Px, 1)], &[(Phx, 1)]),
+        Some(LengthConversionPowers { rem_to_px_power: 0, px_to_phx_power: -1 })
+    );
+    assert_eq!(
+        unit_product_length_conversion(&[(Phx, -2)], &[(Px, -2)]),
+        Some(LengthConversionPowers { rem_to_px_power: 0, px_to_phx_power: -2 })
+    );
+    assert_eq!(
+        unit_product_length_conversion(&[(Px, 1), (Phx, -2)], &[(Phx, -1)]),
+        Some(LengthConversionPowers { rem_to_px_power: 0, px_to_phx_power: -1 })
+    );
+    assert_eq!(
+        unit_product_length_conversion(
+            &[(Deg, 3), (Phx, 2), (Ms, -1)],
+            &[(Phx, 4), (Deg, 3), (Ms, -1), (Px, -2)]
+        ),
+        Some(LengthConversionPowers { rem_to_px_power: 0, px_to_phx_power: -2 })
+    );
+    assert_eq!(unit_product_length_conversion(&[(Px, 1)], &[(Phx, -1)]), None);
+    assert_eq!(unit_product_length_conversion(&[(Deg, 1), (Phx, -2)], &[(Px, -2)]), None);
+    assert_eq!(unit_product_length_conversion(&[(Px, 1)], &[(Phx, -1)]), None);
+
+    assert_eq!(
+        unit_product_length_conversion(&[(Rem, 1)], &[(Px, 1)]),
+        Some(LengthConversionPowers { rem_to_px_power: -1, px_to_phx_power: 0 })
+    );
+    assert_eq!(
+        unit_product_length_conversion(&[(Rem, 1)], &[(Phx, 1)]),
+        Some(LengthConversionPowers { rem_to_px_power: -1, px_to_phx_power: -1 })
+    );
+    assert_eq!(
+        unit_product_length_conversion(&[(Rem, 2)], &[(Phx, 2)]),
+        Some(LengthConversionPowers { rem_to_px_power: -2, px_to_phx_power: -2 })
+    );
+}

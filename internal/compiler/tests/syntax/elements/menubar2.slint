@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export component MyMenu inherits MenuBar {
+//                               >      <error{MenuBar can only be within a Window element}
+}
+
+export component A inherits Window {
+    mb := MenuBar {
+        Rectangle {}
+//      >        <error{Rectangle is not allowed within MenuBar. Only Menu are valid children}
+        x: 45px;
+//      ^error{Unknown property x in MenuBar}
+        width: 45px;
+//      >   <error{Unknown property width in MenuBar}
+        entries: [];
+//      >     <error{Unknown property entries in MenuBar}
+        init => {}
+//      >  <error{'init' is not a callback in MenuBar}
+
+        Menu {
+            title: "hello";
+            x: 0px;
+//          ^error{Unknown property x in Menu}
+            max-height: 13px;
+//          >        <error{Unknown property max-height in Menu}
+            opacity: 0.4;
+//          >     <error{Unknown property opacity in Menu}
+            Rectangle {
+//          >        <error{Rectangle is not allowed within Menu. Only Menu MenuItem MenuSeparator are valid children}
+            }
+
+            MenuItem {
+                activated => {
+                        mb.activated({});
+//                         >       <error{Element 'MenuBar' does not have a property 'activated'}
+                }
+
+                TouchArea {}
+//              >        <error{MenuItem cannot have children elements}
+            }
+
+        }
+
+        MenuItem {}
+//      >       <error{MenuItem is not allowed within MenuBar. Only Menu are valid children}
+
+        MenuSeparator {}
+//      >            <error{MenuSeparator is not allowed within MenuBar. Only Menu are valid children}
+    }
+
+    Rectangle {
+        x: 45px;
+        MenuBar {
+//      >      <error{MenuBar can only be within a Window element}
+        }
+
+        MenuItem {
+//      >       <error{MenuItem can only be within a Menu element}
+            Menu {}
+//          >   <error{Menu can only be within the following elements: ContextMenuArea, Menu, MenuBar, SystemTrayIcon}
+        }
+
+        Menu {}
+//      >   <error{Menu can only be within the following elements: ContextMenuArea, Menu, MenuBar, SystemTrayIcon}
+    }
+}
+
+

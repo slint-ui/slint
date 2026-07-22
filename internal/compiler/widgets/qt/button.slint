@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Button {
+    in property <string> text <=> native.text;
+    in property <image> icon <=> native.icon;
+    in property <length> icon-size <=> native.icon_size;
+    in property <bool> enabled <=> native.enabled;
+    in property <bool> checkable <=> native.checkable;
+    in property <bool> primary <=> native.primary;
+    in property <bool> colorize-icon <=> native.colorize-icon;
+    out property <bool> has-focus <=> native.has-focus;
+    out property <bool> pressed <=> native.pressed;
+    in-out property <bool> checked <=> native.checked;
+
+    callback clicked <=> native.clicked;
+
+    accessible-role: button;
+    accessible-enabled: root.enabled;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-label: root.text;
+    accessible-action-default => {
+        if (root.checkable) {
+            root.checked = !root.checked;
+        }
+        clicked();
+    }
+
+    forward-focus: native;
+
+    HorizontalLayout {
+        native := NativeButton {
+            checkable: false;
+            enabled: true;
+        }
+    }
+}
+
+export component StandardButton {
+    in property <StandardButtonKind> kind <=> native.standard-button-kind;
+    in property <bool> enabled <=> native.enabled;
+    in property <bool> primary <=> native.primary;
+    out property <bool> has-focus <=> native.has-focus;
+    out property <bool> pressed <=> native.pressed;
+
+    callback clicked <=> native.clicked;
+
+    forward-focus: native;
+
+    HorizontalLayout {
+        native := NativeButton {
+            accessible-role: button;
+            accessible-label: native.text;
+            accessible-action-default => { clicked(); }
+            is-standard-button: true;
+            checkable: false;
+        }
+    }
+}

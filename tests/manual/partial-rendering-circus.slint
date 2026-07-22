@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component AppWindow inherits Window {
+    preferred-width: 800px;
+    preferred-height: 600px;
+
+    i := Image {
+        width: 100px;
+        height: 150px;
+        x: (root.width - self.width) / 2 + (cos(mod(animation-tick(), 5s) / 5s * 360deg) * (root.width - self.width) / 2);
+        y: (root.height - self.height) / 2 + (sin(mod(animation-tick(), 5s) / 5s * 360deg) * (root.height - self.height) / 2);
+        source: @image-url("../../demos/home-automation/ui/images/slint-logo.svg");
+        transform-rotation: mod(animation-tick(), 2s) / 2s * 360deg;
+        colorize: green;
+    }
+
+    Rectangle {
+        x: 10px + mod(animation-tick(), 5s) / 5s * 100px;
+        y: 10px;
+        width: 20px;
+        height: 20px;
+        drop-shadow-blur: 5px;
+        drop-shadow-offset-x: 15px;
+        drop-shadow-offset-y: 5px;
+        drop-shadow-color: red;
+    }
+
+    Text {
+        x: 10px + mod(animation-tick(), 5s) / 5s * 100px;
+        y: 40px;
+        width: 40px;
+        height: 30px;
+        text: "This is a long piece\nof text that\nwill render out of\nthe bounds.";
+
+        Rectangle {
+            border-width: 1px;
+            border-color: green;
+        }
+    }
+}

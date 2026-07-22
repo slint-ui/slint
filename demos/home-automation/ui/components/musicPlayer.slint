@@ -1,0 +1,135 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Measurements, Palette } from "../common.slint";
+import { AppState } from "../appState.slint";
+import { HaText } from "general/haText.slint";
+
+export component MusicPlayer inherits Rectangle {
+    property <string> title: "Time";
+    property <int> current-page: AppState.current-page;
+    property <string> artist: "Pink Floyd";
+    property <string> album: "Dark Side Of The Moon";
+    property <bool> unlocked: false;
+    property <image> cover-art: @image-url("../images/album.png");
+    property <bool> is-active: false;
+    in property <string> name;
+    in property <string> id;
+    in property <int> index;
+    in property <bool> full-screen: false;
+
+    Rectangle {
+        width: 90%;
+        height: 90%;
+        background: black;
+        border-radius: 30px;
+    }
+
+    tile := Rectangle {
+
+        Image {
+            x: -5px;
+            y: 0px;
+            source: cover-art;
+        }
+
+        VerticalLayout {
+            alignment: stretch;
+            spacing: 2px;
+            padding-top: 0px;
+            padding-bottom: 20px;
+
+            VerticalLayout {
+                alignment: start;
+                padding-top: (tile.height > Measurements.small-height-tile) ? 18px : 9px;
+                padding: 20px;
+                spacing: 5px;
+
+                HaText {
+                    color: white;
+                    text: title;
+                    font-size: 2rem;
+                    font-weight: FontWeight.medium;
+                    horizontal-alignment: right;
+                    vertical-alignment: center;
+                }
+
+                HaText {
+                    color: white;
+                    text: artist;
+                    font-size: 1rem;
+                    font-weight: FontWeight.normal;
+                    horizontal-alignment: right;
+                    vertical-alignment: center;
+                }
+
+                HaText {
+                    color: white;
+                    text: album;
+                    font-size: 1rem;
+                    font-weight: FontWeight.normal;
+                    horizontal-alignment: right;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        controls := Rectangle {
+            y: root.height - self.height - 0px;
+            width: 95%;
+            height: 60px;
+            HorizontalLayout {
+                Rectangle {
+                    Rectangle {
+                        width: 40px;
+                        height: self.width;
+                        border-radius: self.height / 2;
+                        background: white;
+                        Image {
+                            source: @image-url("../images/back.svg");
+                            width: 18px;
+                            height: self.width;
+                            colorize: Palette.music-alternate-foreground;
+                        }
+                    }
+                }
+
+                Rectangle {
+                    height: 60px;
+                    width: self.height;
+                    Rectangle {
+                        width: 60px;
+                        height: self.width;
+                        border-radius: self.height / 2;
+                        background: white;
+                        property <bool> playing: true;
+                        Image {
+                            source: playing ? @image-url("../images/pause.svg") : @image-url("../images/play.svg");
+                            colorize: Palette.music-alternate-foreground;
+                        }
+
+                        TouchArea {
+                            clicked => {
+                                playing = !playing;
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Rectangle {
+                        width: 40px;
+                        height: self.width;
+                        border-radius: self.height / 2;
+                        background: white;
+                        Image {
+                            source: @image-url("../images/fwd.svg");
+                            width: 18px;
+                            height: self.width;
+                            colorize: Palette.music-alternate-foreground;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

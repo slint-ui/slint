@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Palette } from "../../common.slint";
+import { AppState } from "../../appState.slint";
+import { HaText } from "../general/haText.slint";
+
+export component ViewButton inherits Rectangle {
+    in property <int> target-page;
+    in property <string> text <=> t.text;
+    in property <brush> active-color: Palette.selection-foreground;
+    in property <brush> inactive-color: Palette.foreground;
+    in property <length> font-size: 1.5rem;
+    property <bool> is-active: target-page == AppState.target-page;
+    TouchArea {
+        clicked => {
+            AppState.target-page = target-page;
+            AppState.first-run = false;
+        }
+    }
+
+    Rectangle {
+        background: is-active ? Palette.accent-background : Palette.accent-background.transparentize(0.9);
+        animate background {
+            duration: 200ms;
+            easing: ease-in-out-sine;
+        }
+        border-radius: self.height / 2;
+        width: is-active ? t.width : t.width * 0.8;
+        animate width {
+            duration: 500ms;
+            easing: ease-in-out-sine;
+        }
+        height: 1.5px;
+        y: parent.height - 15px;
+    }
+
+    t := HaText {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        font-size: root.font-size;
+        color: is-active ? root.active-color : root.inactive-color;
+    }
+}

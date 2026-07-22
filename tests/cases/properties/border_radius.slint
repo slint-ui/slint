@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    rect := Rectangle {
+        border-radius: 45px;
+        border-top-left-radius: 98px;
+    }
+
+    out property<bool> tl_ok: rect.border-top-left-radius == 98px;
+    out property<bool> tr_ok: rect.border-top-right-radius == 45px;
+    out property<bool> br_ok: rect.border-bottom-right-radius == 45px;
+    out property<bool> bl_ok: rect.border-bottom-left-radius == 45px;
+
+    out property<bool> test: tl_ok && tr_ok && br_ok && bl_ok;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+*/

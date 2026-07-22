@@ -1,0 +1,11 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Inheriting from user-defined components is rejected in Slint SC mode.
+
+component Base inherits Window { }
+//        >  <error{Component declarations are not supported in Slint SC}
+
+export component Test inherits Base {
+//                             >   <error{Inheriting from user-defined components is not supported in Slint SC}
+}

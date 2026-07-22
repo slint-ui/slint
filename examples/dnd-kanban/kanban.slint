@@ -1,0 +1,212 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Palette } from "std-widgets.slint";
+
+export struct TaskData {
+    title: string,
+}
+
+// Bridges between Slint's opaque `data-transfer` type and the typed
+// host-language payload we attach via `DataTransfer::set_user_data`.
+// The implementations live in the host language.
+export global Api {
+    pure callback make-data(task: TaskData, source-column: int, source-index: int) -> data-transfer;
+    pure callback can-drop(event: DropEvent, target-column: int, target-index: int) -> DragAction;
+    callback dropped(event: DropEvent, target-column: int, target-index: int);
+}
+
+// Card geometry, used by both `Card` itself and the column's insertion-index
+// math.
+global Layout {
+    out property <length> card-height: 56px;
+    out property <length> card-spacing: 8px;
+    // Distance from one card's top edge to the next card's top edge.
+    out property <length> card-stride: card-height + card-spacing;
+}
+
+// Color palette that follows the system color scheme via `Palette`
+// (provided by `std-widgets`). Each property picks a dark or light variant.
+global Theme {
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+    out property <color> window-bg:       dark ? #0d1117 : #ffffff;
+    out property <color> column-bg:       dark ? #161b22 : #f6f8fa;
+    out property <color> column-drop-bg:  dark ? #1d2733 : #eaf5ff;
+    out property <color> column-border:   dark ? #30363d : #d0d7de;
+    out property <color> card-bg:         dark ? #21262d : #ffffff;
+    out property <color> card-border:     dark ? #30363d : #d0d7de;
+    out property <color> shadow:          dark ? #00000066 : #00000018;
+    out property <color> text-primary:    dark ? #e6edf3 : #1f2328;
+    out property <color> text-secondary:  dark ? #768390 : #57606a;
+}
+
+component Card inherits Rectangle {
+    in property <TaskData> task;
+    in property <int> source-column;
+    in property <int> source-index;
+
+    height: Layout.card-height;
+    background: Theme.card-bg;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: Theme.card-border;
+    drop-shadow-blur: 6px;
+    drop-shadow-offset-y: 2px;
+    drop-shadow-color: Theme.shadow;
+
+    DragArea {
+        data: Api.make-data(root.task, root.source-column, root.source-index);
+        // Show a card-shaped preview under the cursor while dragging. The offsets are
+        // half the SVG's 80x56 viewBox so the image centres on the cursor (the offset
+        // names the hot spot inside the image, not a displacement from the cursor).
+        drag-image: @image-url("card-drag.svg");
+        drag-image-offset-x: 40;
+        drag-image-offset-y: 28;
+        allow-copy: true;
+        allow-move: true;
+        opacity: self.dragging ? 0.4 : 1.0;
+
+        Text {
+            x: 12px;
+            width: parent.width - 24px;
+            text: root.task.title;
+            vertical-alignment: center;
+            color: Theme.text-primary;
+            overflow: elide;
+        }
+    }
+}
+
+component KanbanColumn inherits Rectangle {
+    in property <string> title;
+    in property <int> column-id;
+    in property <[TaskData]> tasks;
+    in property <color> accent;
+
+    // Cursor y inside the DropArea, refreshed on every drag move via `can-drop`.
+    property <length> hover-y;
+
+    // Insertion index implied by `hover-y`: 0 means "before card 0", `tasks.length`
+    // means "after the last card". The boundary between index N and N+1 is the
+    // centre of card N, i.e. `N * card-stride + card-height/2`.
+    property <int> drop-index: clamp(
+        floor((hover-y - Layout.card-height / 2) / Layout.card-stride) + 1,
+        0, root.tasks.length);
+
+    background: drop-area.has-drag ? Theme.column-drop-bg : Theme.column-bg;
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: drop-area.has-drag ? root.accent : Theme.column-border;
+    animate background, border-color { duration: 120ms; }
+
+    VerticalLayout {
+        padding: 12px;
+        spacing: 10px;
+
+        HorizontalLayout {
+            spacing: 8px;
+            cross-axis-alignment: center;
+            Rectangle {
+                width: 10px;
+                height: 10px;
+                border-radius: 5px;
+                background: root.accent;
+            }
+            Text {
+                text: root.title;
+                font-size: 15px;
+                font-weight: 700;
+                color: Theme.text-primary;
+                vertical-alignment: center;
+            }
+            Text {
+                text: root.tasks.length;
+                color: Theme.text-secondary;
+                vertical-alignment: center;
+                horizontal-alignment: right;
+                horizontal-stretch: 1;
+            }
+        }
+
+        drop-area := DropArea {
+            vertical-stretch: 1;
+            can-drop(event) => {
+                // Track the cursor so the drop indicator can follow it.
+                root.hover-y = event.position.y;
+                return Api.can-drop(event, root.column-id, root.drop-index);
+            }
+            dropped(event) => {
+                Api.dropped(event, root.column-id, root.drop-index);
+                return event.proposed-action;
+            }
+
+            VerticalLayout {
+                spacing: Layout.card-spacing;
+                alignment: start;
+                for task[i] in root.tasks: Card {
+                    task: task;
+                    source-column: root.column-id;
+                    source-index: i;
+                }
+            }
+
+            // Drop indicator: a 3px line centred in the gap above card `drop-index`
+            // (or at the top / below the last card for the boundary positions).
+            if drop-area.has-drag: Rectangle {
+                x: 0;
+                width: parent.width;
+                y: max(0px, root.drop-index * Layout.card-stride
+                            - Layout.card-spacing / 2 - 1.5px);
+                height: 3px;
+                background: root.accent;
+                border-radius: 1.5px;
+            }
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "Slint Kanban — Drag & Drop";
+    preferred-width: 760px;
+    preferred-height: 480px;
+    background: Theme.window-bg;
+
+    in-out property <[TaskData]> todo;
+    in-out property <[TaskData]> doing;
+    in-out property <[TaskData]> done;
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        Text {
+            text: "Drag a card between columns — hold the copy modifier to duplicate. Drop plain text from another app to add a new card.";
+            font-size: 18px;
+            font-weight: 700;
+            color: Theme.text-primary;
+        }
+
+        HorizontalLayout {
+            spacing: 12px;
+
+            KanbanColumn {
+                title: "Todo";
+                column-id: 0;
+                tasks: root.todo;
+                accent: Theme.dark ? #e3b341 : #d29922;
+            }
+            KanbanColumn {
+                title: "In Progress";
+                column-id: 1;
+                tasks: root.doing;
+                accent: Theme.dark ? #58a6ff : #1f6feb;
+            }
+            KanbanColumn {
+                title: "Done";
+                column-id: 2;
+                tasks: root.done;
+                accent: Theme.dark ? #3fb950 : #1a7f37;
+            }
+        }
+    }
+}

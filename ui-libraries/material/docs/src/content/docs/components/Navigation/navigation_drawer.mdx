@@ -1,0 +1,63 @@
+---
+title: NavigationDrawer
+description: NavigationDrawer API.
+---
+
+import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/navigationdrawer.png" scale="3" imageWidth="300" imageHeight="200" imageAlt="">
+```slint
+import { NavigationDrawer } from "@material";
+export component Example inherits Window {
+    width: 400px;
+    height: 300px;
+    background: transparent;
+    navigation_drawer := NavigationDrawer {
+        width: 280px;
+        height: parent.height;
+        groups: [
+            {
+                title: "Main",
+                items: [
+                    { icon: @image-url("../icons/share.svg"), text: "Home" },
+                    { icon: @image-url("../icons/search.svg"), text: "Search" }
+                ]
+            }
+        ];
+    }
+}
+```
+</CodeSnippetMD>
+
+A `NavigationDrawer` is a side panel that contains navigation items organized in groups, typically used for app navigation.
+
+## Properties
+
+### current-group
+<SlintProperty propName="current-group" typeName="int" propertyVisibility="in-out">
+The index of the currently selected navigation group.
+</SlintProperty>
+
+### current-index
+<SlintProperty propName="current-index" typeName="int" propertyVisibility="in-out">
+The index of the currently selected navigation item within the current group.
+</SlintProperty>
+
+### groups
+<SlintProperty propName="groups" typeName="[struct]" structName="NavigationGroup">
+An array of navigation groups, each containing a title and navigation items.
+</SlintProperty>
+
+## Functions
+
+### select(group-index: int, item-index: int)
+Selects the navigation item at the specified group and item indices.
+
+## Callbacks
+
+### selected(group-index: int, item-index: int)
+Invoked when an item is selected. `group-index` is the index of the selected group and `item-index` the selected index in that group.
+
+### item_pointer_event()
+Emitted on any mouse pointer event similar to `TouchArea`. Arguments are the group and item index associated with the event, the `PointerEvent` itself and the mouse position within the `NavigationDrawer`.

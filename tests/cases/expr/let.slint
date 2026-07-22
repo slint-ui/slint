@@ -1,0 +1,88 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct TestStruct {
+    a: int,
+    b: int,
+}
+
+enum TestEnum {
+    a,
+    b,
+}
+
+export component TestCase inherits Rectangle {
+    // test to make sure this compiles (local variable overlapping global name)
+    background: {
+        let blue: brush = red;
+
+        return blue;
+    }
+
+    in-out property <bool> test-background: self.background == Colors.red;
+
+    public pure function test_simple() -> int {
+        let a = 1;
+
+        return a;
+        return 1;
+    }
+
+    public pure function test_type_annotation() -> int {
+        let a: int = 1;
+
+        return a;
+        return 1;
+    }
+
+    public pure function test_type_annotation_conversion() -> int {
+        let a: int = 1.0;
+
+        return a;
+    }
+
+    public pure function test_struct_conversion() -> int {
+        let a: TestStruct = { a: 1, b: 2 };
+
+        return a.b;
+    }
+
+    public pure function test_enum() -> int {
+        let a = TestEnum.b;
+
+        return a == TestEnum.b ? 1 : 0;
+    }
+
+    // this is just a test to make sure it compiles with codeblock simplification
+    // previously this would break if a let statement was the final expression in a block
+    public pure function test_lone_let_in_block() {
+        if (true) {
+            let a = 1;
+        }
+    }
+
+    out property <bool> test: test_simple() == 1 && test_type_annotation() == 1 && test_type_annotation_conversion() == 1 && test_struct_conversion() == 2 && test_enum() == 1 && self.test_background;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.invoke_test_simple(), 1);
+assert_eq!(instance.invoke_test_type_annotation(), 1);
+assert_eq!(instance.invoke_test_type_annotation_conversion(), 1);
+assert_eq!(instance.invoke_test_struct_conversion(), 2);
+assert_eq!(instance.invoke_test_enum(), 1);
+assert!(instance.get_test_background());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.invoke_test_simple(), 1);
+assert_eq(instance.invoke_test_type_annotation(), 1);
+assert_eq(instance.invoke_test_type_annotation_conversion(), 1);
+assert_eq(instance.invoke_test_struct_conversion(), 2);
+assert_eq(instance.invoke_test_enum(), 1);
+assert(instance.get_test_background());
+```
+*/

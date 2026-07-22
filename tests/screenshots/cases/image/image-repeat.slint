@@ -1,0 +1,93 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Slider } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    GridLayout {
+        Row {
+            Image {
+                height: 50%;
+                source: @image-url("image-repeat.png");
+                image-fit: cover;
+                vertical-alignment: top;
+                horizontal-alignment: center;
+                vertical-tiling: repeat;
+            }
+
+            Image {
+                source: @image-url("image-repeat.png");
+                image-fit: fill;
+                vertical-alignment: bottom;
+                horizontal-alignment: left;
+                vertical-tiling: repeat;
+                horizontal-tiling: repeat;
+            }
+
+            Image {
+                source: @image-url("image-repeat.png");
+                image-fit: contain;
+                vertical-alignment: center;
+                horizontal-alignment: right;
+                opacity: 0.5;
+                horizontal-tiling: repeat;
+            }
+
+            Image {
+                source: @image-url("image-repeat.png");
+                image-fit: preserve;
+                vertical-alignment: top;
+                horizontal-alignment: right;
+                vertical-tiling: round;
+                horizontal-tiling: round;
+            }
+        }
+
+        Row {
+            Image {
+                height: 50%;
+                source: @image-url("image-repeat.png");
+                image-fit: cover;
+                vertical-alignment: bottom;
+                horizontal-alignment: right;
+                vertical-tiling: repeat;
+                horizontal-tiling: round;
+            }
+
+            Image {
+                source: @image-url("image-repeat.png");
+                image-fit: contain;
+                vertical-alignment: bottom;
+                horizontal-alignment: left;
+                vertical-tiling: round;
+                width: 15%;
+            }
+
+            Image {
+                source: @image-url("image-repeat.png");
+                image-fit: contain;
+                vertical-alignment: center;
+                horizontal-alignment: left;
+                horizontal-tiling: round;
+            }
+
+            Image {
+                width: 23%;
+                source: @image-url("image-repeat.png");
+                image-fit: preserve;
+                vertical-alignment: bottom;
+                horizontal-alignment: left;
+
+                source-clip-x: -10;
+                source-clip-y: 2;
+                source-clip-height: 12;
+                source-clip-width: 13;
+
+                vertical-tiling: repeat;
+                horizontal-tiling: round;
+            }
+        }
+    }
+}

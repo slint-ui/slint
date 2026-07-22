@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component SubElem inherits Rectangle {
+    in-out property <int> value: sub.value;
+    callback change();
+    change => { sub.value += 44; }
+    sub := Rectangle {
+        property <int> value: 55;
+    }
+}
+
+export component TestCase inherits Rectangle {
+    callback change();
+    change => sub.change();
+    in-out property <int> toplevel: sub.value + 1;
+    sub := SubElem { }
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_toplevel(), 56);
+instance.invoke_change();
+assert_eq!(instance.get_toplevel(), 56+44);
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_toplevel(), 56);
+instance.invoke_change();
+assert_eq(instance.get_toplevel(), 56+44);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.toplevel, 56);
+instance.change();
+assert.equal(instance.toplevel, 56+44);
+```
+
+*/

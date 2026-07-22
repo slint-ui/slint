@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test inherits Window {
+    Rectangle {
+        Tooltip {
+            text: @markdown("Hello");
+            x: 10px;
+//          ^error{Unknown property x in Tooltip}
+            y: 20px;
+//          ^error{Unknown property y in Tooltip}
+            width: 30px;
+//          >   <error{Unknown property width in Tooltip}
+            height: 40px;
+//          >    <error{Unknown property height in Tooltip}
+        }
+    }
+}

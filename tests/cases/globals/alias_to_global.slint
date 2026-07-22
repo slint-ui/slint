@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { StyleMetrics } from "std-widgets.slint";
+
+global Glop  {
+    in-out property <int> hello: 42;
+    in-out property <int> second: 88;
+    in-out property <int> third: 102;
+}
+
+global DualBindingGlop  {
+    in-out property third <=> Glop.third;
+}
+
+component Widget inherits Rectangle {
+    in-out property second <=> Glop.second;
+}
+
+export component TestCase inherits Rectangle {
+    // This is meant to test an alias to a native global.
+    // Unfortunately, this is only a native global with the Qt backend and not with the Test backend
+    out property <length> alias_to_native <=> StyleMetrics.text_cursor_width;
+    in-out property <int> alias_to_global <=> Glop.hello;
+    in-out property <bool> test: root.alias_to_native == StyleMetrics.text_cursor_width && root.alias_to_global == 42 && root.indirect == 88;
+    in-out property <int> indirect <=> widget.second;
+    in-out property <int> direct: Glop.second;
+    in-out property <int> dual <=> DualBindingGlop.third;
+
+    widget := Widget { }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_alias_to_global(), 42);
+instance.set_alias_to_global(123);
+assert_eq!(instance.get_alias_to_global(), 123);
+assert_eq!(instance.get_indirect(), 88);
+instance.set_indirect(99);
+assert_eq!(instance.get_direct(), 99);
+assert_eq!(instance.get_dual(), 102);
+
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert_eq(instance.get_dual(), 102);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+assert.equal(instance.alias_to_global, 42);
+instance.alias_to_global = 123;
+assert.equal(instance.alias_to_global, 123);
+assert.equal(instance.indirect, 88);
+instance.indirect = 99;
+assert.equal(instance.direct, 99);
+assert.equal(instance.dual, 102);
+```
+
+*/

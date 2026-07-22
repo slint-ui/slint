@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Palette, Style } from "../common.slint";
+import { Info } from "info.slint";
+import { HaText } from "./general/haText.slint";
+
+export component TimeInfo inherits Info {
+    in property <int> index;
+    in property <int> hours: 3;
+    in property <int> minutes: 15;
+    HorizontalLayout {
+        alignment: center;
+        spacing: 20px;
+        HorizontalLayout {
+            alignment: center;
+            HaText {
+                text: hours;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: ":";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: minutes;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: " PM";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H2-font-size;
+            }
+        }
+
+        date := Rectangle {
+            y: root.height * 0.15;
+            height: root.height * 0.7;
+            border-radius: 7px;
+            width: self.height;
+            Rectangle {
+                height: 30%;
+                y: 0;
+                HaText {
+                    text: "Oct";
+                    font-size: Style.H3-font-size;
+                }
+            }
+
+            HaText {
+                text: "18";
+                y: parent.height * 0.3;
+                color: Palette.info-foreground;
+                font-size: Style.H2-font-size;
+                font-weight: FontWeight.normal;
+            }
+        }
+    }
+}

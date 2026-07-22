@@ -1,0 +1,58 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The spacing and the padding must be considered for the determination of the width of the rectangles
+
+import { HorizontalBox } from "std-widgets.slint";
+export component TestCase inherits Window {
+    preferred-width: 300px;
+    preferred-height: 300px;
+
+    layout:= HorizontalLayout {
+        spacing: 10px; // Between elements
+        padding: 7px;
+        rect:= Rectangle {
+            width: 50%;
+            background: red;
+        }
+
+        rect2:= Rectangle {
+            width: 50%;
+            background: blue;
+        }
+    }
+
+    out property <bool> check_spacing: layout.spacing > 0;
+    out property <bool> check_padding: layout.padding > 0;
+    out property <bool> check_x: rect.x == layout.x + layout.padding;
+    out property <bool> check_width: rect.width + rect2.width + 2* layout.padding + layout.spacing == root.width;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_check_spacing());
+assert(instance.get_check_padding());
+assert(instance.get_check_x());
+assert(instance.get_check_width());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_check_spacing());
+assert!(instance.get_check_padding());
+assert!(instance.get_check_x());
+assert!(instance.get_check_width());
+```
+
+
+```js
+var instance = new slint.TestCase();
+assert(instance.check_spacing);
+assert(instance.check_padding);
+assert(instance.check_x);
+assert(instance.check_width);
+```
+*/

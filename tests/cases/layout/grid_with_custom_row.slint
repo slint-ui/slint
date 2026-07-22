@@ -1,0 +1,71 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that a component named Row doesn't get confused with the builtin Row type used in GridLayout
+component Row inherits Rectangle {
+    border-width: 1phx;
+    border-color: #888;
+    min-height: 100phx;
+    in property <string> name;
+    in property <string> account;
+    HorizontalLayout {
+        Text {
+            text: name;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+        Text {
+            text: " (" + account + ")";
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    default-font-size: 20px;
+
+    property <[{ name: string, account: string}]> model: [
+        { name: "Olivier", account: "ogoffart"},
+        { name: "Simon", account: "tronical"},
+        { name: "David", account: "dfaure"},
+        { name: "Alice", account: "wonderland"},
+        { name: "Bob", account: "builder"},
+    ];
+    property <[string]> headings: ["Name", "Account"];
+
+    GridLayout {
+        for person[idx] in model: Row {
+            name: person.name;
+            account: person.account;
+            row: idx;
+        }
+        end := Text {
+            text: "end marker";
+        }
+    }
+
+    out property <bool> test: end.row == 4 && end.col == 1;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+
+*/

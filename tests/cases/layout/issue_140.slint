@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component HelloWorld inherits Window {
+    HorizontalLayout {
+        VerticalLayout {
+            HorizontalLayout {
+                height: 50%;
+                Rectangle {}
+            }
+        }
+    }
+}
+
+/*
+
+```cpp
+auto handle = HelloWorld::create();
+const HelloWorld &instance = *handle;
+slint_testing::send_mouse_click(&instance, 5., 5.);
+```
+
+
+```rust
+let instance = HelloWorld::new().unwrap();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+```
+
+*/

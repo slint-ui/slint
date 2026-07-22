@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export Btn := Rectangle {
+    property <bool> show: false;
+    min-height: max(32px, l.min-height);
+    l := HorizontalLayout {
+        if (show): button_in_image := Image {
+            width: 24px;
+        }
+        text := Text {  }
+    }
+}
+
+export TestCase := Window {
+    property <bool> show: false;
+    x := HorizontalLayout {
+        btn := Btn { show: root.show; }
+    }
+}

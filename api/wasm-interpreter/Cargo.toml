@@ -1,0 +1,34 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "slint-wasm-interpreter"
+description = "Slint wasm glue"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+slint-interpreter = { workspace = true, features = ["std", "backend-winit", "renderer-femtovg", "compat-1-2", "internal"] }
+i-slint-backend-winit = { workspace = true }
+i-slint-core = { workspace = true }
+send_wrapper = { workspace = true }
+
+vtable = { workspace = true }
+
+console_error_panic_hook = { version = "0.1.6", optional = true }
+js-sys = "0.3.44"
+wasm-bindgen-futures = { version = "0.4.18" }
+wasm-bindgen = { version = "0.2.66" }
+web-sys = { workspace = true, features = ["Request", "RequestInit", "RequestMode", "Response", "Window"] }
+
+#[dev-dependencies]
+#wasm-bindgen-test = "0.3.13"

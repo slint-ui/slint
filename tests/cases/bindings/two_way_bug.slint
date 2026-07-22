@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// There used to be a bug in the deduplicate_property_read pass that would mess up aliases
+
+component BoxWithButtons inherits Window {
+    in-out property <string> value <=> val.text;
+    val := Text {x:0;y:0;}
+}
+
+export component TestCase inherits BoxWithButtons {
+    in-out property <int> temperature: 24;
+    value: {
+        (temperature < 0 ? "" : "+") + temperature;
+    }
+
+    in-out property <bool> test: root.value == "+24";
+}

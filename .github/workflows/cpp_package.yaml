@@ -1,0 +1,282 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Build the C++ binary package
+
+on:
+    workflow_dispatch:
+    workflow_call:
+      inputs:
+        extra_cmake_flags:
+          type: string
+          description: Extra CMake flags to pass to the build.
+          default: ""
+
+env:
+    MACOSX_DEPLOYMENT_TARGET: "11.0"
+    # Keep in sync with features in nightly_snapshot.yaml, slint_tool_binary.yaml, api/node/Cargo.toml, and api/python/slint/Cargo.toml
+    SLINT_BINARY_FEATURES: "-DSLINT_FEATURE_BACKEND_LINUXKMS_NOSEAT=ON -DSLINT_FEATURE_BACKEND_WINIT=ON -DSLINT_FEATURE_RENDERER_FEMTOVG=ON -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_RENDERER_SOFTWARE=ON -DSLINT_FEATURE_LIVE_PREVIEW=ON"
+    SLINT_MCU_FEATURES: "-DSLINT_FEATURE_FREESTANDING=ON -DSLINT_FEATURE_RENDERER_SOFTWARE=ON"
+    # env variable used by espup https://github.com/esp-rs/espup?tab=readme-ov-file#github-api
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # Use fat LTO for the distributed C++ packages: smaller shared library and better runtime perf.
+    # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+    CARGO_PROFILE_RELEASE_LTO: "fat"
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+
+jobs:
+    cmake_package_desktop:
+        env:
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.2/clang_64/lib
+            QT_QPA_PLATFORM: offscreen
+            CARGO_INCREMENTAL: false
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-14, windows-2022]
+                include:
+                    - os: ubuntu-22.04
+                      package_suffix: linux
+                    - os: macos-14
+                      package_suffix: macos-aarch64
+                    - os: windows-2022
+                      package_suffix: windows-x86_64
+                      msvc_arch: x64
+                    - os: windows-11-arm
+                      package_suffix: windows-aarch64
+                      msvc_arch: arm64
+
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - name: Install Qt (Ubuntu)
+              uses: jurplel/install-qt-action@v4
+              if: matrix.os == 'ubuntu-22.04'
+              with:
+                  version: 6.2.2
+                  cache: true
+            - uses: ./.github/actions/setup-rust
+            - name: Prepare licenses
+              run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
+              working-directory: api/cpp/
+            - uses: ilammy/msvc-dev-cmd@v1
+              with:
+                arch: ${{ matrix.msvc_arch }}
+              if: runner.os == 'Windows'
+            - name: Select MSVC (windows)
+              run: |
+                  echo "CC=cl.exe" >> $GITHUB_ENV
+                  echo "CXX=cl.exe" >> $GITHUB_ENV
+              if: runner.os == 'Windows'
+            - name: C++ Build
+              uses: lukka/run-cmake@v3.4
+              with:
+                  cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+                  cmakeListsTxtPath: CMakeLists.txt
+                  cmakeAppendedArgs: "-DCMAKE_BUILD_TYPE=RelWithDebInfo ${{ env.SLINT_BINARY_FEATURES }} ${{ inputs.extra_cmake_flags }} -DSLINT_FEATURE_SDF_FONTS=ON"
+                  buildDirectory: ${{ runner.workspace }}/cppbuild
+                  buildWithCMakeArgs: "--config Release"
+            - name: cpack
+              working-directory: ${{ runner.workspace }}/cppbuild
+              run: cmake --build . --config Release --target package
+            - name: "Upload C++ packages"
+              uses: actions/upload-artifact@v7
+              with:
+                  name: cpp_bin-${{ matrix.package_suffix }}
+                  path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
+
+    cmake_package_mcu_arm:
+        env:
+            CARGO_INCREMENTAL: false
+        strategy:
+            matrix:
+                target: [thumbv7em-none-eabihf]
+
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: ${{ matrix.target }}
+            - name: Install GNU Arm Embedded Toolchain
+              run: sudo apt-get update && sudo apt-get install gcc-arm-none-eabi
+            - name: Prepare licenses
+              run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
+              working-directory: api/cpp/
+            - name: C++ Build
+              uses: lukka/run-cmake@v3.4
+              with:
+                  cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+                  cmakeListsTxtPath: CMakeLists.txt
+                  cmakeAppendedArgs: "-GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_SHARED_LIBS=OFF -DRust_CARGO_TARGET=${{ matrix.target }} -DCMAKE_C_COMPILER=arm-none-eabi-gcc -DCMAKE_CXX_COMPILER=arm-none-eabi-g++ -DCMAKE_AR=arm-none-eabi-ar -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY -DSLINT_COMPILER=download ${{ env.SLINT_MCU_FEATURES }}  ${{ inputs.extra_cmake_flags }}"
+                  buildDirectory: ${{ runner.workspace }}/cppbuild
+                  buildWithCMakeArgs: "--config Release"
+            - name: cpack
+              working-directory: ${{ runner.workspace }}/cppbuild
+              run: cpack -G TGZ
+            - name: "Upload C++ packages"
+              uses: actions/upload-artifact@v7
+              with:
+                  name: cpp_mcu_bin-${{ matrix.target }}
+                  path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
+
+    cmake_package_mcu_esp:
+        env:
+            CARGO_INCREMENTAL: false
+        strategy:
+            matrix:
+                idf_target: [esp32, esp32s2, esp32s3, esp32p4]
+                include:
+                  - idf_target: esp32
+                    rust_target: xtensa-esp32-none-elf
+                  - idf_target: esp32s2
+                    rust_target: xtensa-esp32s2-none-elf
+                  - idf_target: esp32s3
+                    rust_target: xtensa-esp32s3-none-elf
+                  - idf_target: esp32p4
+                    rust_target: riscv32imafc-esp-espidf
+
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: dtolnay/rust-toolchain@stable
+            - uses: cargo-bins/cargo-binstall@main
+            - name: install espup
+              run: |
+                  cargo binstall espup
+                  espup install
+                  rustup default esp
+            - name: add esp toolchains to PATH
+              if: runner.os != 'Windows'
+              run: |
+                  source "$HOME/export-esp.sh"
+                  echo "$PATH" >> "$GITHUB_PATH"
+            - name: Prepare licenses
+              run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
+              working-directory: api/cpp/
+            - name: C++ Build
+              uses: lukka/run-cmake@v3.4
+              with:
+                  cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+                  cmakeListsTxtPath: CMakeLists.txt
+                  # NOTE: xtensa-esp-elf-gcc as compiler for the RISC-V targets is wrong, but the compiler argument here is only
+                  # used to ensure that SIZEOF_VOID_P is 4 in the generated cmake config file. Otherwise this build requires no
+                  # C compiler.
+                  cmakeAppendedArgs: "-GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DESP_PLATFORM=1 -DIDF_TARGET=${{ matrix.idf_target }} -DRust_CARGO_TARGET=${{ matrix.rust_target }} -DCMAKE_C_COMPILER=xtensa-esp-elf-gcc -DCMAKE_AR=xtensa-esp-elf-ar -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY -DSLINT_LIBRARY_CARGO_FLAGS='-Zbuild-std=core,alloc' -DSLINT_COMPILER=download ${{ env.SLINT_MCU_FEATURES }} ${{ inputs.extra_cmake_flags }}"
+                  buildDirectory: ${{ runner.workspace }}/cppbuild
+                  buildWithCMakeArgs: "--config Release"
+            - name: cpack
+              working-directory: ${{ runner.workspace }}/cppbuild
+              run: cpack -G TGZ
+            - name: "Upload C++ packages"
+              uses: actions/upload-artifact@v7
+              with:
+                  name: cpp_mcu_bin-${{ matrix.idf_target }}
+                  path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
+
+    cmake_package_arm_linux:
+        env:
+            CARGO_INCREMENTAL: false
+        strategy:
+            matrix:
+                gcc_target: [aarch64-linux-gnu, arm-linux-gnueabihf]
+                include:
+                  - gcc_target: aarch64-linux-gnu
+                    rust_target: aarch64-unknown-linux-gnu
+                    cmake_system_processor: arm64
+                    gcc_suffix: ""
+                  # armv7 compiles Skia from source, which needs C++20 / GCC 10
+                  # (the default GCC 9 only knows -std=c++2a, not -std=c++20).
+                  - gcc_target: arm-linux-gnueabihf
+                    rust_target: armv7-unknown-linux-gnueabihf
+                    cmake_system_processor: armhf
+                    gcc_suffix: "-10"
+
+        runs-on: ubuntu-22.04
+        container: ghcr.io/slint-ui/slint/${{ matrix.rust_target }}-cpp
+        steps:
+            - uses: actions/checkout@v7
+            - name: Prepare licenses
+              run: bash -x ../../scripts/prepare_binary_package.sh ../../build
+              working-directory: api/cpp/
+            - name: CMake configure
+              run: cmake -B build -S . -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.cmake_system_processor }} -DRust_CARGO_TARGET=${{ matrix.rust_target}} -DCMAKE_C_COMPILER=${{ matrix.gcc_target }}-gcc${{ matrix.gcc_suffix }} -DCMAKE_CXX_COMPILER=${{ matrix.gcc_target }}-g++${{ matrix.gcc_suffix }}  -DSLINT_COMPILER=download ${{ env.SLINT_BINARY_FEATURES }} ${{ inputs.extra_cmake_flags }}
+            - name: CMake build
+              run: cmake --build build --parallel
+            - name: CMake package
+              working-directory: build
+              run: cpack -G TGZ
+            - name: "Upload C++ packages"
+              uses: actions/upload-artifact@v7
+              with:
+                  name: cpp_bin-${{ matrix.rust_target }}
+                  path: build/Slint-cpp-*
+
+    cmake_slint_compiler:
+        env:
+            CARGO_INCREMENTAL: false
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-14, windows-2022]
+                include:
+                    - os: ubuntu-22.04
+                      package_suffix: Linux-x86_64
+                      cargo_target: x86_64-unknown-linux-gnu
+                    - os: ubuntu-22.04-arm
+                      package_suffix: Linux-aarch64
+                      cargo_target: aarch64-unknown-linux-gnu
+                    - os: macos-14
+                      package_suffix: Darwin-arm64
+                      cargo_target: aarch64-apple-darwin
+                    - os: windows-2022
+                      package_suffix: Windows-AMD64
+                      msvc_arch: x64
+                      cargo_target: x86_64-pc-windows-msvc
+                    - os: windows-11-arm
+                      package_suffix: Windows-ARM64
+                      msvc_arch: arm64
+                      cargo_target: aarch64-pc-windows-msvc
+
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+            - uses: ilammy/msvc-dev-cmd@v1
+              with:
+                arch: ${{ matrix.msvc_arch }}
+              if: runner.os == 'Windows'
+            - name: Select MSVC (windows)
+              run: |
+                  echo "CC=cl.exe" >> $GITHUB_ENV
+                  echo "CXX=cl.exe" >> $GITHUB_ENV
+              if: runner.os == 'Windows'
+            # Build Slint-compiler with CMake so that CMakeLists.txt can configure C++ specific features
+            - name: Slint Compiler Build
+              uses: lukka/run-cmake@v3.4
+              with:
+                cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+                cmakeListsTxtPath: CMakeLists.txt
+                cmakeAppendedArgs: "-GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSLINT_BUILD_RUNTIME=OFF ${{ inputs.extra_cmake_flags }} -DSLINT_FEATURE_SDF_FONTS=ON -DRust_CARGO_TARGET=${{ matrix.cargo_target }}"
+                buildDirectory: ${{ runner.workspace }}/cppbuild
+                buildWithCMakeArgs: "--config Release"
+            - name: cpack
+              working-directory: ${{ runner.workspace }}/cppbuild
+              run: cpack -G TGZ
+            - name: Extract Slint Compiler binary
+              working-directory: ${{ runner.workspace }}/cppbuild
+              shell: bash
+              run: cmake -E tar xvf Slint-cpp-*.tar.gz
+            - name: Repackage
+              working-directory: ${{ runner.workspace }}/cppbuild
+              shell: bash
+              run: |
+                  cd Slint-cpp-*/bin
+                  cmake -E tar czf ../../slint-compiler-${{ matrix.package_suffix }}.tar.gz slint-compiler*
+            - name: "Upload Slint compiler package"
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-compiler-bin-${{ matrix.package_suffix }}
+                  path: ${{ runner.workspace }}/cppbuild/slint-compiler-*.tar.gz

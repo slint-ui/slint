@@ -1,0 +1,21 @@
+{
+  "Hello World": {
+    "prefix": ["hello world window"],
+    "isFileTemplate": true,
+    "body": [
+      "import { AboutSlint, VerticalBox } from \"std-widgets.slint\";",
+      "",
+      "export component MainWindow inherits Window {",
+      "    VerticalBox {",
+      "        Text {",
+      "            text: \"Hello World!\";",
+      "        }",
+      "        AboutSlint {",
+      "            preferred-height: 150px;",
+      "        }",
+      "    }",
+      "}"
+    ],
+    "description": "A Hello World window written in Slint"
+  }
+}

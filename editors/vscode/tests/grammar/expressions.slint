@@ -1,0 +1,36 @@
+// SYNTAX TEST "source.slint" "Simple tmGrammar test"
+
+  component Test {
+
+  // expressions are valid here
+
+  true
+//^^^^ constant.language.boolean.slint
+  false
+//^^^^^ constant.language.boolean.slint
+  ( true )
+//  ^^^^ constant.language.boolean.slint
+  ( false )
+//  ^^^^^ constant.language.boolean.slint
+  Colors.red
+//^^^^^^ support.class.colors.slint
+//       ^^^ support.constant.colors.slint
+  (Colors.red)
+// ^^^^^^ support.class.colors.slint
+//        ^^^ support.constant.colors.slint
+  15px
+//^^^^ constant.numeric.slint
+  ( 15px)
+//  ^^^^ constant.numeric.slint
+  "some text"
+//^^^^^^^^^^^ string.quoted.double.slint
+  @tr("some text")
+//^^^ support.function.macro.slint
+//    ^^^^^^^^^^^ string.quoted.double.slint
+  [ 15px, "some sting", @image-url("foo.png")]
+//  ^^^^ constant.numeric.slint
+//        ^^^^^^^^^^^ string.quoted.double.slint
+//                      ^^^^^^^^^^ support.function.macro.slint
+//                                 ^^^^^^^^^ string.quoted.double.slint
+
+  }

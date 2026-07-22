@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Container inherits Rectangle {
+    GridLayout {
+        padding: 0phx;
+        spacing: 0phx;
+        Row {
+            Rectangle {
+                width: 50phx;
+                background: green;
+            }
+            @children
+            Rectangle {
+                width: 2phx;
+                background: yellow;
+            }
+        }
+    }
+}
+
+component SuperContainer inherits Container {}
+component ExtraContainer inherits SuperContainer {}
+
+component MegaContainer inherits Rectangle {
+    ExtraContainer {
+        Rectangle {
+            background: violet;
+            width: 100phx;
+        }
+        PopupWindow {}
+        @children
+        Rectangle {
+            background: purple;
+            width: 4phx;
+        }
+        width: parent.width;
+        height: parent.height;
+
+    }
+}
+
+export component TestCase inherits MegaContainer {
+    width: 300phx;
+    height: 200phx;
+
+    rect1 := Rectangle {
+        background: black;
+    }
+
+
+    in-out property <bool> rect1_pos_ok: rect1.x == 150phx;
+    out property <bool> test: rect1_pos_ok;
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_rect1_pos_ok());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_rect1_pos_ok());
+```
+*/

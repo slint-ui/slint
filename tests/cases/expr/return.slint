@@ -1,0 +1,92 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase  {
+    in-out property <bool> toggle: { return false; }
+    in-out property <int> value: {
+        if (toggle) {
+            return 42;
+        }
+        return 100;
+    }
+    in-out property <float> value2: {
+        return 100;
+    }
+
+    in-out property <int> index: -1;
+    public function rust_fn_codegen_bug() -> bool {
+        return index != 0 && index != 1;
+    }
+    in-out property <bool> rust_binding_codegen_bug: {
+        return index != 42 && index != 42;
+    }
+
+    callback test_signal;
+    in-out property <bool> block_signal;
+    in-out property <bool> signal_handled;
+    test_signal => {
+        if (block_signal) {
+            return;
+        }
+        signal_handled = true;
+    }
+
+    private property <bool> issue_5430_const_with_return: {
+        return true;
+    }
+    out property <string> issue_5430: issue_5430_const_with_return ? "true" : "false";
+
+    out property<bool> test: { return value2 == value && issue_5430 == "true"; return false; }
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_value(), 100);
+assert(instance.get_test());
+instance.set_toggle(true);
+assert_eq(instance.get_value(), 42);
+
+instance.invoke_test_signal();
+assert(instance.get_signal_handled());
+
+instance.set_signal_handled(false);
+instance.set_block_signal(true);
+instance.invoke_test_signal();
+assert(!instance.get_signal_handled());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_value(), 100);
+assert!(instance.get_test());
+instance.set_toggle(true);
+assert_eq!(instance.get_value(), 42);
+
+instance.invoke_test_signal();
+assert!(instance.get_signal_handled());
+
+instance.set_signal_handled(false);
+instance.set_block_signal(true);
+instance.invoke_test_signal();
+assert!(!instance.get_signal_handled());
+```
+
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.value, 100);
+assert(instance.test);
+instance.toggle = (true);
+assert.equal(instance.value, 42);
+
+instance.test_signal();
+assert(instance.signal_handled);
+
+instance.signal_handled = (false);
+instance.block_signal = (true);
+instance.test_signal();
+assert(!instance._signal_handled);
+```
+
+*/

@@ -1,0 +1,31 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "slint-tr-extractor"
+description = "Tool used to update extract @tr string out of Slint files into gettext .po file"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+categories = ["gui", "command-line-utilities", "development-tools"]
+
+[dependencies]
+i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics"] }
+chrono = { version = "0.4.24", default-features = false, features = ["clock"] }
+clap = { workspace = true }
+rspolib = "0.1.2"
+smol_str = { workspace = true }
+
+[dev-dependencies]
+itertools = { workspace = true }
+rayon = { workspace = true }
+tempfile = "3"
+
+[[bin]]
+name = "slint-tr-extractor"
+path = "main.rs"

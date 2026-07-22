@@ -1,0 +1,52 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+# cSpell:ignore PARAMDOC PROGRAMLISTING TAGFILE TAGFILES
+
+# Doxygen configuration for the Slint C++ API docs. This replaces the inline
+# `exhaleDoxygenStdin` block from `api/cpp/docs/conf.py`: it produces only XML,
+# which `scripts/doxygen-to-markdown.ts` turns into Markdown for Starlight.
+
+PROJECT_NAME           = "Slint C++ API"
+
+# Public headers plus the cbindgen-generated headers. The generated headers are
+# produced by `cargo xtask cppdocs` (cbindgen) into a directory passed via the
+# SLINT_CPP_GENERATED_INCLUDE environment variable.
+INPUT                  = ../../api/cpp/include $(SLINT_CPP_GENERATED_INCLUDE)
+INCLUDE_PATH           = $(SLINT_CPP_GENERATED_INCLUDE)
+# The core public types (Color, SharedString, Window, …) live in include/private/,
+# re-exported via slint.h, so Doxygen must descend into subdirectories.
+RECURSIVE              = YES
+
+EXCLUDE                = ../../api/cpp/include/vtable.h \
+                         ../../api/cpp/include/slint_tests_helper.h \
+                         ../../api/cpp/include/slint-stm32.h
+EXCLUDE_SYMBOLS        = slint::cbindgen_private* slint::private_api* vtable* SLINT_DECL_ITEM
+
+ENABLE_PREPROCESSING   = YES
+PREDEFINED             = DOXYGEN
+
+# Standard-library symbols (std::vector, std::shared_ptr, …) are linked to
+# cppreference.com via its Doxygen tag file. SLINT_CPPREFERENCE_TAGFILE points
+# at the tag file (path only; the converter supplies the cppreference base URL).
+# When the variable is unset the build still succeeds, std types just stay plain.
+TAGFILES               = $(SLINT_CPPREFERENCE_TAGFILE)
+
+# Emit XML only; the converter reads it. No HTML/LaTeX from Doxygen itself.
+GENERATE_HTML          = NO
+GENERATE_LATEX         = NO
+GENERATE_XML           = YES
+XML_PROGRAMLISTING     = YES
+OUTPUT_DIRECTORY       = ../../target/cppdocs
+XML_OUTPUT             = xml
+
+QUIET                  = YES
+# The old Sphinx/Exhale build set WARN_AS_ERROR, but it tolerated two benign,
+# pre-existing Doxygen quirks in the public headers: a template-constructor
+# out-of-line match (slint::interpreter::Value(const SharedVector<Value> &))
+# and a documented internal cbindgen_private symbol (LayoutInfo::merge). Neither
+# affects the generated pages. Output-link integrity is enforced separately by
+# Starlight's links validator at `astro build`. Clean those two up to restore
+# WARN_AS_ERROR = YES.
+WARN_AS_ERROR          = NO
+WARN_NO_PARAMDOC       = NO

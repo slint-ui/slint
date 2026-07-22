@@ -1,0 +1,93 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Issue #7341
+// Check that changing focus while the current item is hidden does not panic
+
+import { LineEdit, StandardListView } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    forward-focus: l1;
+    out property l1-has-focus <=> l1.has-focus;
+    out property l2-has-focus <=> l2.has-focus;
+    out property lv-has-focus <=> lv.has-focus;
+    out property current-item <=> lv.current-item;
+    out property viewport-y <=> lv.viewport-y;
+    out property <length> item-height: lv.viewport-height / lv.model.length;
+
+
+    VerticalLayout {
+        l1 := LineEdit {}
+        lv := StandardListView {
+            model: [ { text: "a"}, { text: "b"}, { text: "c"}, { text: "d"}, { text: "e"}, { text: "f"}, { text: "g"}, { text: "h"}, { text: "i"}, { text: "j"}, { text: "k"}, { text: "l"}, { text: "m"}, { text: "n"}, { text: "o"}, { text: "p"}, { text: "q"}, { text: "r"}, { text: "s"}, { text: "t"}, { text: "u"}, { text: "v"}, { text: "w"}, { text: "x"}, { text: "y"}, { text: "z"} ];
+           current-item-changed(current-item) => {
+               debug("current-item-changed", current-item);
+           }
+        }
+        l2 := LineEdit {}
+    }
+
+}
+
+/*
+```rust
+use slint::{LogicalPosition, SharedString};
+use slint::platform::{Key, WindowEvent};
+let instance = TestCase::new().unwrap();
+assert!(instance.get_l1_has_focus());
+assert!(!instance.get_lv_has_focus());
+assert!(!instance.get_l2_has_focus());
+assert_eq!(instance.get_current_item(), -1);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(!instance.get_l1_has_focus());
+assert!(instance.get_lv_has_focus());
+assert!(!instance.get_l2_has_focus());
+assert_eq!(instance.get_current_item(), 0);
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+assert_eq!(instance.get_current_item(), 1);
+
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(!instance.get_l1_has_focus());
+assert!(!instance.get_lv_has_focus());
+assert!(instance.get_l2_has_focus());
+assert_eq!(instance.get_current_item(), 1);
+
+let delta_y = -600.0;
+
+assert_eq!(instance.get_viewport_y(), 0.0);
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(150.0, 150.0), delta_x: -0.0, delta_y });
+assert_eq!(instance.get_viewport_y(), delta_y);
+assert_eq!(instance.get_current_item(), 1);
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Backtab));
+assert!(!instance.get_l1_has_focus());
+assert!(instance.get_lv_has_focus());
+assert!(!instance.get_l2_has_focus());
+assert_eq!(instance.get_current_item(), 1);
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Backtab));
+assert!(instance.get_l1_has_focus());
+assert!(!instance.get_lv_has_focus());
+assert!(!instance.get_l2_has_focus());
+assert_eq!(instance.get_current_item(), 1);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(!instance.get_l1_has_focus());
+assert!(instance.get_lv_has_focus());
+assert!(!instance.get_l2_has_focus());
+assert_eq!(instance.get_current_item(), 1);
+
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::UpArrow));
+let mut x = (-delta_y / instance.get_item_height()).round() as i32 - 1;
+assert_eq!(instance.get_current_item(), x);
+while x > 0 {
+    slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::UpArrow));
+    x -= 1;
+    assert_eq!(instance.get_current_item(), x);
+}
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::UpArrow));
+assert_eq!(instance.get_current_item(), 0);
+```
+
+
+
+*/

@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// States and transitions are rejected in Slint SC mode.
+
+export component Test inherits Window {
+    in-out property <bool> active;
+//  >                            <error{Property declarations are not supported in Slint SC}
+//                   >  <^error{The type 'bool' is not supported in Slint SC}
+
+    states [
+//  >error{States are not supported in Slint SC}
+        on when active: { }
+//              >    <error{Identifier references are not supported in Slint SC}
+        off when !active: { }
+//               >     <error{Unary expressions are not supported in Slint SC}
+//                >    <^error{Identifier references are not supported in Slint SC}
+    ]
+//  <error{States are not supported in Slint SC}
+}

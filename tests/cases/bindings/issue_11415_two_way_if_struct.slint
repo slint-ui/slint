@@ -1,0 +1,95 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that two-way bindings on struct properties within conditional
+// components persist data when the condition changes.
+// Issue #11415: when data is modified through a field-level two-way binding
+// chain and the condition toggles (without an intervening get on the struct),
+// the struct's cached value is stale and link_two_way uses it to initialize
+// the new conditional's common property, resetting the struct.
+
+import { Button } from "std-widgets.slint";
+
+export struct Data { counter: int }
+
+component Counter {
+    in-out property <int> count;
+}
+
+component Page {
+    in-out property <Data> data;
+    Counter {
+        count <=> data.counter;
+    }
+}
+
+export component TestCase inherits Window {
+    in-out property <Data> data;
+    in-out property <bool> show-first: true;
+    in-out property <int> counter <=> data.counter;
+
+    if show-first: Page {
+        data <=> root.data;
+    }
+    if !show-first: Page {
+        data <=> root.data;
+    }
+
+    out property <bool> test: data.counter == 0;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+// Force a render to create the first conditional Page
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_data().counter, 0);
+
+// Modify data through the field binding chain.
+// This updates the common property but NOT root.data's cached value.
+instance.set_counter(42);
+// Do NOT call get_data() here — that would update the cache and mask the bug.
+
+// Toggle the condition. This destroys the old Page and creates a new one.
+// The new Page's init calls link_two_way(page.data, root.data).
+// Bug: link_two_way reads root.data.get_internal() which returns the stale
+// cached value (0), discarding the actual value (42).
+instance.set_show_first(false);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+
+assert_eq!(instance.get_data().counter, 42);
+assert_eq!(instance.get_counter(), 42);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_data().counter, 0);
+
+instance.set_counter(42);
+
+instance.set_show_first(false);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+
+assert_eq(instance.get_data().counter, 42);
+assert_eq(instance.get_counter(), 42);
+```
+
+```js
+let instance = new slint.TestCase({});
+
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.data.counter, 0);
+
+instance.counter = 42;
+
+instance.show_first = false;
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+
+assert.equal(instance.data.counter, 42);
+assert.equal(instance.counter, 42);
+```
+*/

@@ -1,0 +1,90 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { LineEdit, Button, Slider, StandardListView, GridBox, HorizontalBox } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    in property <[StandardListViewItem]> names-list;
+    out property <int> current-item: list.current-item;
+    out property <string> name;
+    out property <string> surname;
+    out property <string> prefix;
+    callback prefixEdited();
+    callback createClicked();
+    callback updateClicked();
+    callback deleteClicked();
+
+    GridBox {
+        filter-label := Text {
+            text: "Filter prefix:";
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
+
+        LineEdit {
+            text <=> root.prefix;
+            edited => { root.prefixEdited() }
+            accessible-label: filter-label.accessible-label;
+        }
+
+        list := StandardListView {
+            row: 1;
+            rowspan: 3;
+            colspan: 2;
+            model: root.names-list;
+            accessible-label: "Names";
+        }
+
+        name-label := Text {
+            col: 2;
+            row: 1;
+            text: "Name: ";
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
+
+        LineEdit {
+            text <=> root.name;
+            accessible-label: name-label.accessible-label;
+        }
+
+        surname-label := Text {
+            col: 2;
+            row: 2;
+            text: "Surname: ";
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
+
+        LineEdit {
+            text <=> root.surname;
+            accessible-label: surname-label.accessible-label;
+        }
+
+        HorizontalBox {
+            padding-left: 0;
+            padding-bottom: 0;
+            row: 4;
+            alignment: start;
+
+            Button {
+                clicked => { root.createClicked() }
+
+                text: "Create";
+            }
+            Button {
+                clicked => { root.updateClicked() }
+
+                text: "Update";
+                enabled: list.current-item != -1 && list.current-item < root.names-list.length;
+
+            }
+            Button {
+                clicked => { root.deleteClicked() }
+
+                text: "Delete";
+                enabled: list.current-item != -1 && list.current-item < root.names-list.length;
+            }
+        }
+    }
+}

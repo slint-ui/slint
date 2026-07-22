@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { UsecasesPalette } from "styling.slint";
+
+export global DialogGlobal {
+    in-out property <length> window-width;
+    in-out property <length> window-height;
+}
+
+export component ModalDialog inherits PopupWindow {
+    width: DialogGlobal.window-width;
+    height: DialogGlobal.window-height;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        background: UsecasesPalette.modal-background;
+
+        @children
+    }
+}

@@ -1,0 +1,819 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+use super::{EvaluationContext, EvaluationScope, Expression, ParentScope};
+use crate::langtype::{NativeClass, Type};
+use derive_more::{From, Into};
+use smol_str::SmolStr;
+use std::cell::{Cell, RefCell};
+use std::collections::{BTreeMap, HashMap};
+use std::rc::Rc;
+use typed_index_collections::TiVec;
+
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PropertyIdx(usize);
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FunctionIdx(usize);
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct CallbackIdx(usize);
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+pub struct SubComponentIdx(usize);
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+pub struct GlobalIdx(usize);
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct SubComponentInstanceIdx(usize);
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ItemInstanceIdx(usize);
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+pub struct RepeatedElementIdx(usize);
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+pub struct GridLayoutChildIdx(usize);
+
+/// Describes one child in a repeated Row template.
+/// Used by code generators to handle any number of interleaved static children and
+/// inner repeaters within a repeated Row in a GridLayout.
+#[derive(Debug, Clone)]
+pub enum RowChildTemplateInfo {
+    /// A static child. `child_index` is an index into `SubComponent::grid_layout_children`.
+    Static { child_index: GridLayoutChildIdx },
+    /// An inner repeated child.
+    Repeated { repeater_index: RepeatedElementIdx },
+}
+
+/// Returns `true` if the optional template list contains at least one inner repeater.
+pub fn has_inner_repeaters(templates: &Option<Vec<RowChildTemplateInfo>>) -> bool {
+    templates
+        .as_ref()
+        .is_some_and(|t| t.iter().any(|e| matches!(e, RowChildTemplateInfo::Repeated { .. })))
+}
+
+/// Count the static children in a template list.
+pub fn static_child_count(templates: &[RowChildTemplateInfo]) -> usize {
+    templates.iter().filter(|e| matches!(e, RowChildTemplateInfo::Static { .. })).count()
+}
+
+#[derive(Debug, Clone)]
+pub struct LayoutRepeatedElement {
+    pub repeater_index: RepeatedElementIdx,
+    /// Template of children for a repeated Row (statics and inner repeaters in declaration order).
+    /// `None` means a single child per repeater entry (no Row with multiple children).
+    pub row_child_templates: Option<Vec<RowChildTemplateInfo>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct GridLayoutRepeatedElement {
+    pub new_row: bool,
+    pub repeater_index: RepeatedElementIdx,
+    /// Template of children for a repeated Row (statics and inner repeaters in declaration order).
+    /// `None` means a single child per repeater entry (no Row with multiple children).
+    pub row_child_templates: Option<Vec<RowChildTemplateInfo>>,
+}
+
+impl PropertyIdx {
+    pub const REPEATER_DATA: Self = Self(0);
+    pub const REPEATER_INDEX: Self = Self(1);
+}
+
+/// Layout info (constraints) for a direct child of a repeated Row in a GridLayout.
+/// Used to generate `layout_item_info` which returns layout info for a specific child.
+#[derive(Debug, Clone)]
+pub struct GridLayoutChildLayoutInfo {
+    pub layout_info_h: MutExpression,
+    pub layout_info_v: MutExpression,
+}
+
+#[derive(Debug, Clone, derive_more::Deref, derive_more::DerefMut)]
+pub struct MutExpression(RefCell<Expression>);
+
+impl From<Expression> for MutExpression {
+    fn from(e: Expression) -> Self {
+        Self(e.into())
+    }
+}
+
+impl MutExpression {
+    pub fn ty(&self, ctx: &dyn super::TypeResolutionContext) -> Type {
+        self.0.borrow().ty(ctx)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Animation {
+    /// The expression is a Struct with the animation fields
+    Static(Expression),
+    Transition(Expression),
+}
+
+/// How a property binding should be installed at runtime.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BindingKind {
+    /// A constant expression — can be evaluated once with `set`.
+    Constant,
+    /// A normal binding — install with `set_binding`.
+    Normal,
+    /// A state binding — the expression returns `i32` (the state index)
+    /// but the property stores a `StateInfo` struct. Install with
+    /// `set_state_binding` which tracks `previous_state` and `change_time`.
+    State,
+}
+
+#[derive(Debug, Clone)]
+pub struct BindingExpression {
+    pub expression: MutExpression,
+    pub animation: Option<Animation>,
+    pub kind: BindingKind,
+
+    /// The amount of time this binding is used.
+    /// Only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass.
+    pub use_count: Cell<usize>,
+}
+
+#[derive(Debug)]
+pub struct GlobalComponent {
+    pub name: SmolStr,
+    pub properties: TiVec<PropertyIdx, Property>,
+    pub callbacks: TiVec<CallbackIdx, Callback>,
+    pub functions: TiVec<FunctionIdx, Function>,
+    /// One entry per property
+    pub init_values: BTreeMap<LocalMemberIndex, BindingExpression>,
+    /// The animation for properties which are animated
+    pub animations: BTreeMap<LocalMemberIndex, Expression>,
+    // maps property to its changed callback
+    pub change_callbacks: BTreeMap<PropertyIdx, MutExpression>,
+    pub const_properties: TiVec<PropertyIdx, bool>,
+    pub public_properties: PublicProperties,
+    pub private_properties: PrivateProperties,
+    /// true if we should expose the global in the generated API
+    pub exported: bool,
+    /// The extra names under which this component should be accessible
+    /// if it is exported several time.
+    pub aliases: Vec<SmolStr>,
+    /// True when this is a built-in global that does not need to be generated
+    pub is_builtin: bool,
+    /// True if this component is imported from an external library
+    pub from_library: bool,
+    /// Analysis for each properties
+    pub prop_analysis: TiVec<PropertyIdx, crate::object_tree::PropertyAnalysis>,
+}
+
+impl GlobalComponent {
+    pub fn must_generate(&self) -> bool {
+        !self.from_library
+            && (self.exported
+                || !self.functions.is_empty()
+                || self.properties.iter().any(|p| p.use_count.get() > 0)
+                || self.callbacks.iter().any(|c| c.use_count.get() > 0))
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, From, PartialOrd, Ord)]
+pub enum LocalMemberIndex {
+    #[from]
+    Property(PropertyIdx),
+    #[from]
+    Function(FunctionIdx),
+    #[from]
+    Callback(CallbackIdx),
+    Native {
+        item_index: ItemInstanceIdx,
+        prop_name: SmolStr,
+        /// Disambiguates rtti property bindings from rtti callback
+        /// handlers (and from member-function calls handled by
+        /// `Expression::ItemMemberFunctionCall`). Lowering resolves
+        /// this from the element's declared property type; the code
+        /// generators and the interpreter dispatch on it rather than
+        /// probing the rtti tables by name.
+        kind: NativeMemberKind,
+    },
+}
+
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum NativeMemberKind {
+    /// A regular `Property` on the native item (`TouchArea.pressed`,
+    /// `Rectangle.background`, etc.).
+    Property,
+    /// A `Callback` on the native item (`TouchArea.clicked`,
+    /// `Window.close-requested`).
+    Callback,
+    /// A function exposed through the native item's property table
+    /// with a `Type::Function` declaration (`TextInput.select-all`).
+    /// Only reached via `Expression::ItemMemberFunctionCall`.
+    Function,
+}
+impl LocalMemberIndex {
+    pub fn property(&self) -> Option<PropertyIdx> {
+        if let LocalMemberIndex::Property(p) = self { Some(*p) } else { None }
+    }
+}
+
+/// A reference to a property, callback, or function, in the context of a SubComponent
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum MemberReference {
+    /// The property or callback is withing a global
+    Global { global_index: GlobalIdx, member: LocalMemberIndex },
+
+    /// The reference is relative to the current SubComponent
+    Relative {
+        /// Go up so many level to reach the parent
+        parent_level: usize,
+        local_reference: LocalMemberReference,
+    },
+}
+impl MemberReference {
+    /// this is only valid for relative local reference
+    #[track_caller]
+    pub fn local(&self) -> LocalMemberReference {
+        match self {
+            MemberReference::Relative { parent_level: 0, local_reference, .. } => {
+                local_reference.clone()
+            }
+            _ => panic!("not a local reference"),
+        }
+    }
+
+    pub fn is_function(&self) -> bool {
+        matches!(
+            self,
+            MemberReference::Global { member: LocalMemberIndex::Function(..), .. }
+                | MemberReference::Relative {
+                    local_reference: LocalMemberReference {
+                        reference: LocalMemberIndex::Function(..),
+                        ..
+                    },
+                    ..
+                }
+        )
+    }
+}
+
+impl From<LocalMemberReference> for MemberReference {
+    fn from(local_reference: LocalMemberReference) -> Self {
+        MemberReference::Relative { parent_level: 0, local_reference }
+    }
+}
+
+/// A reference to something within an ItemTree
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct LocalMemberReference {
+    pub sub_component_path: Vec<SubComponentInstanceIdx>,
+    pub reference: LocalMemberIndex,
+}
+
+impl<T: Into<LocalMemberIndex>> From<T> for LocalMemberReference {
+    fn from(reference: T) -> Self {
+        Self { sub_component_path: Vec::new(), reference: reference.into() }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TwoWayBinding {
+    pub prop1: LocalMemberReference,
+    pub prop2: MemberReference,
+    /// `Some` when the binding targets a model row. `prop2` is then the
+    /// `model_data` property of the enclosing `for`'s body sub-component,
+    /// and this index is the `model_index` property in the same sub-component.
+    pub is_model: Option<PropertyIdx>,
+    /// Field path applied to `prop2`, when `prop2` is a struct.
+    pub field_access: Vec<SmolStr>,
+}
+
+/// Resolved view of a model two-way binding, used by code generators to
+/// avoid re-deriving the parent walk and the data/index/repeater references.
+pub struct ResolvedModelTwoWayBinding<'a> {
+    /// Number of `parent` hops up to the body sub-component.
+    pub parent_level: usize,
+    pub body_sub_component: SubComponentIdx,
+    pub data_prop: PropertyIdx,
+    /// Type of `data_prop`, i.e. the starting type of [`TwoWayBinding::field_access`].
+    pub data_prop_ty: &'a Type,
+    pub index_prop: PropertyIdx,
+    pub parent_sub_component: SubComponentIdx,
+    pub repeater_index: RepeatedElementIdx,
+}
+
+impl TwoWayBinding {
+    /// Resolve the parent walk and the data/index/repeater references of a
+    /// model two-way binding. Returns `None` for regular property bindings.
+    pub fn resolve_model<'a, T>(
+        &self,
+        ctx: &EvaluationContext<'a, T>,
+    ) -> Option<ResolvedModelTwoWayBinding<'a>> {
+        let index_prop = self.is_model?;
+        let MemberReference::Relative { parent_level, local_reference } = &self.prop2 else {
+            unreachable!("model two-way binding's prop2 is always a Relative reference")
+        };
+        debug_assert!(local_reference.sub_component_path.is_empty());
+        let LocalMemberIndex::Property(data_prop) = local_reference.reference else {
+            unreachable!("model two-way binding's prop2 always references a property")
+        };
+        let super::EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else {
+            unreachable!("model two-way binding cannot be in a global")
+        };
+        for _ in 0..*parent_level {
+            let x = par.expect("parent_level should be valid");
+            par = x.parent;
+            sc = x.sub_component;
+        }
+        let par = par.expect("repeated item_tree must have a parent");
+        let data_prop_ty = &ctx.compilation_unit.sub_components[sc].properties[data_prop].ty;
+        Some(ResolvedModelTwoWayBinding {
+            parent_level: *parent_level,
+            body_sub_component: sc,
+            data_prop,
+            data_prop_ty,
+            index_prop,
+            parent_sub_component: par.sub_component,
+            repeater_index: par.repeater_index.expect("repeated parent has a repeater_index"),
+        })
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Property {
+    pub name: SmolStr,
+    pub ty: Type,
+    /// The amount of time this property is used of another property
+    /// This property is only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass
+    pub use_count: Cell<usize>,
+}
+
+#[derive(Debug, Default)]
+pub struct Callback {
+    pub name: SmolStr,
+    pub ret_ty: Type,
+    pub args: Vec<Type>,
+
+    /// The Type::Callback
+    /// (This shouldn't be needed but it is because we call property_ty that returns a &Type)
+    pub ty: Type,
+
+    /// Same as for Property::use_count
+    pub use_count: Cell<usize>,
+
+    /// Whether this callback needs a change tracker `Property<()>` so that
+    /// setting a new handler from native code triggers re-evaluation of
+    /// property bindings that invoke this callback.
+    pub needs_tracker: bool,
+}
+
+#[derive(Debug)]
+pub struct Function {
+    pub name: SmolStr,
+    pub ret_ty: Type,
+    pub args: Vec<Type>,
+    pub code: MutExpression,
+    /// The number of times this function is called.
+    /// Only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass.
+    pub use_count: Cell<usize>,
+}
+
+#[derive(Debug, Clone)]
+/// The property references might be either in the parent context, or in the
+/// repeated's component context
+pub struct ListViewInfo {
+    pub viewport_y: MemberReference,
+    pub viewport_height: MemberReference,
+    pub viewport_width: MemberReference,
+    /// The ListView's inner visible height (not counting eventual scrollbar)
+    pub listview_height: MemberReference,
+    /// The ListView's inner visible width (not counting eventual scrollbar)
+    pub listview_width: MemberReference,
+
+    // In the repeated component context
+    pub prop_y: MemberReference,
+    // In the repeated component context
+    pub prop_height: MemberReference,
+}
+
+#[derive(Debug)]
+pub struct RepeatedElement {
+    pub model: MutExpression,
+    /// Within the sub_tree's root component. None for `if`
+    pub index_prop: Option<PropertyIdx>,
+    /// Within the sub_tree's root component. None for `if`
+    pub data_prop: Option<PropertyIdx>,
+    pub sub_tree: ItemTree,
+    /// The index of the item node in the parent tree
+    pub index_in_tree: u32,
+
+    pub listview: Option<ListViewInfo>,
+
+    /// Access through this in case of the element being a `is_component_placeholder`
+    pub container_item_index: Option<ItemInstanceIdx>,
+}
+
+#[derive(Debug)]
+pub struct ComponentContainerElement {
+    /// The index of the `ComponentContainer` in the enclosing components `item_tree` array
+    pub component_container_item_tree_index: u32,
+    /// The index of the `ComponentContainer` item in the enclosing components `items` array
+    pub component_container_items_index: ItemInstanceIdx,
+    /// The index to a dynamic tree node where the component is supposed to be embedded at
+    pub component_placeholder_item_tree_index: u32,
+}
+
+pub struct Item {
+    pub ty: Rc<NativeClass>,
+    pub name: SmolStr,
+    /// Index in the item tree array
+    pub index_in_tree: u32,
+}
+
+impl std::fmt::Debug for Item {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Item")
+            .field("ty", &self.ty.class_name)
+            .field("name", &self.name)
+            .field("index_in_tree", &self.index_in_tree)
+            .finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct TreeNode {
+    pub sub_component_path: Vec<SubComponentInstanceIdx>,
+    /// Either an index in the items, or the local dynamic index for repeater or component container
+    pub item_index: itertools::Either<ItemInstanceIdx, u32>,
+    pub children: Vec<TreeNode>,
+    pub is_accessible: bool,
+}
+
+impl TreeNode {
+    fn children_count(&self) -> usize {
+        let mut count = self.children.len();
+        for c in &self.children {
+            count += c.children_count();
+        }
+        count
+    }
+
+    /// Visit this, and the children.
+    /// `children_offset` must be set to `1` for the root
+    pub fn visit_in_array(
+        &self,
+        visitor: &mut dyn FnMut(
+            &TreeNode,
+            /*children_offset: */ usize,
+            /*parent_index: */ usize,
+        ),
+    ) {
+        visitor(self, 1, 0);
+        visit_in_array_recursive(self, 1, 0, visitor);
+
+        fn visit_in_array_recursive(
+            node: &TreeNode,
+            children_offset: usize,
+            current_index: usize,
+            visitor: &mut dyn FnMut(&TreeNode, usize, usize),
+        ) {
+            let mut offset = children_offset + node.children.len();
+            for c in &node.children {
+                visitor(c, offset, current_index);
+                offset += c.children_count();
+            }
+
+            let mut offset = children_offset + node.children.len();
+            for (i, c) in node.children.iter().enumerate() {
+                visit_in_array_recursive(c, offset, children_offset + i, visitor);
+                offset += c.children_count();
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct SubComponent {
+    pub name: SmolStr,
+    pub properties: TiVec<PropertyIdx, Property>,
+    pub callbacks: TiVec<CallbackIdx, Callback>,
+    pub functions: TiVec<FunctionIdx, Function>,
+    pub items: TiVec<ItemInstanceIdx, Item>,
+    pub repeated: TiVec<RepeatedElementIdx, RepeatedElement>,
+    pub component_containers: Vec<ComponentContainerElement>,
+    pub popup_windows: Vec<PopupWindow>,
+    /// The MenuItem trees. The index is stored in a Expression::NumberLiteral in the arguments of BuiltinFunction::ShowPopupMenu and BuiltinFunction::SetupMenuBar
+    pub menu_item_trees: Vec<ItemTree>,
+    pub timers: Vec<Timer>,
+    pub sub_components: TiVec<SubComponentInstanceIdx, SubComponentInstance>,
+    /// The initial value or binding for properties.
+    /// This is ordered in the order they must be set.
+    pub property_init: Vec<(MemberReference, BindingExpression)>,
+    pub change_callbacks: Vec<(MemberReference, MutExpression)>,
+    /// The animation for properties which are animated
+    pub animations: BTreeMap<LocalMemberReference, Expression>,
+    /// The two way bindings that map the first property to the second wih optional field access
+    pub two_way_bindings: Vec<TwoWayBinding>,
+    pub const_properties: Vec<LocalMemberReference>,
+    /// Code run at the start of the constructor, before the property initialization.
+    /// Custom font registration uses this, so fonts are ready before a property needs them.
+    pub pre_init_code: Vec<MutExpression>,
+    /// Code that is run in the sub component constructor, after property initializations
+    pub init_code: Vec<MutExpression>,
+
+    /// For each node, an expression that returns a `{x: length, y: length, width: length, height: length}`
+    pub geometries: Vec<Option<MutExpression>>,
+
+    pub layout_info_h: MutExpression,
+    pub layout_info_v: MutExpression,
+    pub child_of_layout: bool,
+    pub grid_layout_input_for_repeated: Option<MutExpression>,
+    /// Expression that builds a FlexboxLayoutItemInfo for a repeated element in a FlexboxLayout.
+    /// Contains property references to flex-grow, flex-shrink, flex-basis, align-self, order.
+    pub flexbox_layout_item_info_for_repeated: Option<MutExpression>,
+    /// Vertical `LayoutInfo` for a repeated element, computed with a width
+    /// constraint (its preferred width) so a height-for-width instance in a
+    /// column FlexboxLayout doesn't read `self.width` and recurse through the
+    /// parent flex cache. `Some` only when the element carries a
+    /// `layoutinfo-v-with-constraint`. See `flexbox_layout_item_info`.
+    pub layout_info_v_constrained_for_repeated: Option<MutExpression>,
+    /// Same as `layout_info_v_constrained_for_repeated`, but measured at the
+    /// width passed in the `flex_cross_width` local instead of the preferred
+    /// width. Drives the generated `flexbox_layout_item_info_at_cross_width` method,
+    /// which a column FlexboxLayout calls with its real container width so a
+    /// repeated cell wraps to the same height as an equivalent static cell.
+    pub layout_info_v_at_cross_width_for_repeated: Option<MutExpression>,
+    /// True when this is a repeated Row in a GridLayout, meaning layout_item_info
+    /// needs to be able to return layout info for individual children
+    pub is_repeated_row: bool,
+    /// The list of direct grid layout children for a repeated Row.
+    /// Used to generate `layout_item_info` which returns layout info for a specific child.
+    pub grid_layout_children: TiVec<GridLayoutChildIdx, GridLayoutChildLayoutInfo>,
+    /// For repeated Rows with children: template of children in declaration order
+    /// (statics and inner repeaters). Used by code generators to produce
+    /// `grid_layout_input_data` and `layout_item_info`.
+    pub row_child_templates: Option<Vec<RowChildTemplateInfo>>,
+
+    /// Maps (item_index, property) to an expression
+    pub accessible_prop: BTreeMap<(u32, String), MutExpression>,
+
+    /// Maps item index to a list of encoded element infos of the element  (type name, qualified ids).
+    pub element_infos: BTreeMap<u32, String>,
+
+    pub prop_analysis: HashMap<MemberReference, PropAnalysis>,
+
+    /// Populated when `CompilerConfiguration::debug_info` is set.
+    /// The interpreter uses it for highlighting and live preview.
+    pub debug_info: Option<super::debug_info::SubComponentDebugInfo>,
+}
+
+#[derive(Debug)]
+pub struct PopupWindow {
+    pub item_tree: ItemTree,
+    pub position: MutExpression,
+    pub is_tooltip: bool,
+}
+
+#[derive(Debug)]
+pub struct PopupMenu {
+    pub item_tree: ItemTree,
+    pub sub_menu: MemberReference,
+    pub activated: MemberReference,
+    pub close: MemberReference,
+    pub entries: MemberReference,
+}
+
+#[derive(Debug)]
+pub struct Timer {
+    pub interval: MutExpression,
+    pub running: MutExpression,
+    pub triggered: MutExpression,
+}
+
+#[derive(Debug, Clone)]
+pub struct PropAnalysis {
+    /// Index in SubComponent::property_init for this property
+    pub property_init: Option<usize>,
+    pub analysis: crate::object_tree::PropertyAnalysis,
+}
+
+impl SubComponent {
+    /// total count of repeater, including in sub components
+    pub fn repeater_count(&self, cu: &CompilationUnit) -> u32 {
+        let mut count = (self.repeated.len() + self.component_containers.len()) as u32;
+        for x in self.sub_components.iter() {
+            count += cu.sub_components[x.ty].repeater_count(cu);
+        }
+        count
+    }
+
+    /// total count of items, including in sub components
+    pub fn child_item_count(&self, cu: &CompilationUnit) -> u32 {
+        let mut count = self.items.len() as u32;
+        for x in self.sub_components.iter() {
+            count += cu.sub_components[x.ty].child_item_count(cu);
+        }
+        count
+    }
+}
+
+#[derive(Debug)]
+pub struct SubComponentInstance {
+    pub ty: SubComponentIdx,
+    pub name: SmolStr,
+    pub index_in_tree: u32,
+    pub index_of_first_child_in_tree: u32,
+    pub repeater_offset: u32,
+}
+
+#[derive(Debug)]
+pub struct ItemTree {
+    pub root: SubComponentIdx,
+    pub tree: TreeNode,
+}
+
+/// What top-level role an exported component plays. Drives whether the
+/// generated public API is `slint::Window`-shaped (a `ComponentHandle` impl
+/// with `show`/`hide`/`run`/`window`) or something else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TopLevelComponentType {
+    Window,
+    SystemTrayIcon,
+}
+
+#[derive(Debug)]
+pub struct PublicComponent {
+    pub public_properties: PublicProperties,
+    pub private_properties: PrivateProperties,
+    pub item_tree: ItemTree,
+    pub name: SmolStr,
+    pub top_level_type: TopLevelComponentType,
+}
+
+#[derive(Debug)]
+pub struct CompilationUnit {
+    pub public_components: Vec<PublicComponent>,
+    /// Storage for all sub-components
+    pub sub_components: TiVec<SubComponentIdx, SubComponent>,
+    /// The sub-components that are not item-tree root
+    pub used_sub_components: Vec<SubComponentIdx>,
+    pub globals: TiVec<GlobalIdx, GlobalComponent>,
+    pub popup_menu: Option<PopupMenu>,
+    pub has_debug_info: bool,
+    #[cfg(feature = "bundle-translations")]
+    pub translations: Option<crate::translations::Translations>,
+}
+
+impl CompilationUnit {
+    pub fn needs_window_adapter(&self) -> bool {
+        self.public_components.iter().any(|p| p.top_level_type == TopLevelComponentType::Window)
+            || self.popup_menu.is_some()
+    }
+
+    pub fn for_each_sub_components<'a>(
+        &'a self,
+        visitor: &mut dyn FnMut(&'a SubComponent, &EvaluationContext<'_>),
+    ) {
+        fn visit_component<'a>(
+            root: &'a CompilationUnit,
+            c: SubComponentIdx,
+            visitor: &mut dyn FnMut(&'a SubComponent, &EvaluationContext<'_>),
+            parent: Option<&ParentScope<'_>>,
+        ) {
+            let ctx = EvaluationContext::new_sub_component(root, c, (), parent);
+            let sc = &root.sub_components[c];
+            visitor(sc, &ctx);
+            for (idx, r) in sc.repeated.iter_enumerated() {
+                visit_component(
+                    root,
+                    r.sub_tree.root,
+                    visitor,
+                    Some(&ParentScope::new(&ctx, Some(idx))),
+                );
+            }
+            for popup in &sc.popup_windows {
+                visit_component(
+                    root,
+                    popup.item_tree.root,
+                    visitor,
+                    Some(&ParentScope::new(&ctx, None)),
+                );
+            }
+            for menu_tree in &sc.menu_item_trees {
+                visit_component(root, menu_tree.root, visitor, Some(&ParentScope::new(&ctx, None)));
+            }
+        }
+        for c in &self.used_sub_components {
+            visit_component(self, *c, visitor, None);
+        }
+        for p in &self.public_components {
+            visit_component(self, p.item_tree.root, visitor, None);
+        }
+        if let Some(p) = &self.popup_menu {
+            visit_component(self, p.item_tree.root, visitor, None);
+        }
+    }
+
+    pub fn for_each_expression<'a>(
+        &'a self,
+        visitor: &mut dyn FnMut(&'a super::MutExpression, &EvaluationContext<'_>),
+    ) {
+        self.for_each_sub_components(&mut |sc, ctx| {
+            for e in &sc.pre_init_code {
+                visitor(e, ctx);
+            }
+            for e in &sc.init_code {
+                visitor(e, ctx);
+            }
+            for (_, e) in &sc.property_init {
+                visitor(&e.expression, ctx);
+            }
+            visitor(&sc.layout_info_h, ctx);
+            visitor(&sc.layout_info_v, ctx);
+            if let Some(e) = &sc.grid_layout_input_for_repeated {
+                visitor(e, ctx);
+            }
+            if let Some(e) = &sc.flexbox_layout_item_info_for_repeated {
+                visitor(e, ctx);
+            }
+            if let Some(e) = &sc.layout_info_v_constrained_for_repeated {
+                visitor(e, ctx);
+            }
+            if let Some(e) = &sc.layout_info_v_at_cross_width_for_repeated {
+                visitor(e, ctx);
+            }
+            for e in sc.accessible_prop.values() {
+                visitor(e, ctx);
+            }
+            for i in sc.geometries.iter().flatten() {
+                visitor(i, ctx);
+            }
+            for (_, e) in sc.change_callbacks.iter() {
+                visitor(e, ctx);
+            }
+            for child in &sc.grid_layout_children {
+                visitor(&child.layout_info_h, ctx);
+                visitor(&child.layout_info_v, ctx);
+            }
+            for r in sc.repeated.iter() {
+                visitor(&r.model, ctx);
+            }
+            for t in sc.timers.iter() {
+                visitor(&t.interval, ctx);
+                visitor(&t.running, ctx);
+                visitor(&t.triggered, ctx);
+            }
+            if let EvaluationScope::SubComponent(idx, _) = ctx.current_scope {
+                // A parent-less context, matching how `count_property_use` counts
+                // function bodies, so both passes rewrite the same references.
+                let fn_ctx = EvaluationContext::new_sub_component(self, idx, (), None);
+                visit_function_bodies(&sc.functions, &fn_ctx, visitor);
+            }
+            // Popup positions are intentionally not visited: they are evaluated in a
+            // nested context, so inlining into them would corrupt the parent levels
+            // of their property references.
+        });
+        for (idx, g) in self.globals.iter_enumerated() {
+            let ctx = EvaluationContext::new_global(self, idx, ());
+            for e in g.init_values.values() {
+                visitor(&e.expression, &ctx)
+            }
+            for e in g.change_callbacks.values() {
+                visitor(e, &ctx)
+            }
+            visit_function_bodies(&g.functions, &ctx, visitor);
+        }
+    }
+}
+
+/// Visit the body of each reachable function in `ctx` (which must have no parents,
+/// see [`CompilationUnit::for_each_expression`]) with `argument_types` set.
+///
+/// Only functions with a non-zero use count: `count_property_use` visits exactly
+/// those bodies, so visiting an unreachable one would inline references it never
+/// counted and underflow the use counts.
+fn visit_function_bodies<'a>(
+    functions: &'a TiVec<FunctionIdx, Function>,
+    ctx: &EvaluationContext<'a>,
+    visitor: &mut dyn FnMut(&'a super::MutExpression, &EvaluationContext<'_>),
+) {
+    for f in functions {
+        if f.use_count.get() > 0 {
+            let mut fn_ctx = ctx.clone();
+            fn_ctx.argument_types = &f.args;
+            visitor(&f.code, &fn_ctx);
+        }
+    }
+}
+
+/// Depending on the type, this can also be a Callback or a Function
+#[derive(Debug, Clone)]
+pub struct PublicProperty {
+    /// The identifier as written in the `.slint` source, preserving any
+    /// hyphens and the original casing. The interpreter's public API
+    /// returns this form in the property list so that callers see the same
+    /// name they wrote.
+    pub display_name: SmolStr,
+    pub ty: Type,
+    pub prop: MemberReference,
+    pub visibility: crate::object_tree::PropertyVisibility,
+}
+
+impl PublicProperty {
+    pub fn read_only(&self) -> bool {
+        self.visibility == crate::object_tree::PropertyVisibility::Output
+    }
+}
+/// Public properties of a component or global, keyed by the normalized
+/// identifier (underscores). Iteration order is by sorted key.
+pub type PublicProperties = BTreeMap<SmolStr, PublicProperty>;
+pub type PrivateProperties = Vec<(SmolStr, Type)>;

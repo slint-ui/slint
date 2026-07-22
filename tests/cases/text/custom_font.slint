@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// This test imports a custom font and declares it for use, to ensure at least that the generated init code for
+// the custom font setup compiles.
+
+import "../../../demos/printerdemo/ui/fonts/Inter-24pt-Regular.ttf";
+import "../../../demos/printerdemo/ui/fonts/Inter-24pt-Medium.ttf";
+
+
+export component TestCase inherits Window {
+    preferred-width: 100phx;
+    preferred-height: 100phx;
+    default-font-family: "Inter 24pt";
+}
+
+/*
+```rust
+let _instance = TestCase::new().unwrap();
+```
+
+```cpp
+auto handle = TestCase::create();
+```
+
+```js
+var instance = new slint.TestCase({});
+```
+*/

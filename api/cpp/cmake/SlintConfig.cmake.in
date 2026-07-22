@@ -1,0 +1,67 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cSpell: ignore BINDIR
+@PACKAGE_INIT@
+
+get_filename_component(_IMPORT_PREFIX "${CMAKE_CURRENT_LIST_FILE}" PATH)
+get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
+get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
+get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
+if(_IMPORT_PREFIX STREQUAL "/")
+  set(_IMPORT_PREFIX "")
+endif()
+
+add_library(@slint_cpp_impl@ @cmake_lib_type@ IMPORTED)
+set_target_properties(@slint_cpp_impl@ PROPERTIES @SLINT_LIB_PROPERTIES@)
+
+function(_slint_download_compiler_and_cache)
+    set(SLINT_GITHUB_RELEASE "v@PROJECT_VERSION@" CACHE STRING "GitHub Release to use for Slint Binary Artifact Downloads")
+
+    if (CMAKE_HOST_WIN32)
+        set(compiler_exe_suffix ".exe")
+        set(platform_suffix "windows-${CMAKE_HOST_SYSTEM_PROCESSOR}")
+    else()
+        set(platform_suffix "${CMAKE_HOST_SYSTEM_NAME}-${CMAKE_HOST_SYSTEM_PROCESSOR}")
+    endif()
+
+    set(prebuilt_archive_filename "slint-compiler-${platform_suffix}.tar.gz")
+    set(download_url "https://github.com/slint-ui/slint/releases/download/${SLINT_GITHUB_RELEASE}/${prebuilt_archive_filename}")
+    set(download_directory "${CMAKE_BINARY_DIR}/slint-prebuilt")
+    message(STATUS "Downloading pre-built Slint compiler binary from ${download_url}")
+    file(DOWNLOAD "${download_url}" "${download_directory}/${prebuilt_archive_filename}" STATUS download_status)
+    list(GET download_status 0 download_code)
+    if (NOT download_code EQUAL 0)
+        list(GET download_status 1 download_message)
+        message(FATAL_ERROR "Download of Slint compiler binary package failed: ${download_message}")
+    else()
+        file(ARCHIVE_EXTRACT INPUT "${download_directory}/${prebuilt_archive_filename}" DESTINATION "${download_directory}")
+        file(REMOVE "${download_directory}/${prebuilt_archive_filename}")
+
+        set(SLINT_COMPILER "${download_directory}/slint-compiler${compiler_exe_suffix}")
+        set(SLINT_COMPILER "${SLINT_COMPILER}" CACHE STRING "Path to the slint-compiler executable" FORCE)
+        set(SLINT_COMPILER "${SLINT_COMPILER}" PARENT_SCOPE)
+    endif()
+endfunction()
+
+set(SLINT_COMPILER @SLINT_COMPILER@ CACHE STRING "Path to the slint-compiler executable")
+if (SLINT_COMPILER)
+    if (SLINT_COMPILER STREQUAL "download")
+        _slint_download_compiler_and_cache(_)
+    endif()
+
+    add_executable(Slint::slint-compiler IMPORTED GLOBAL)
+    set_target_properties(Slint::slint-compiler PROPERTIES IMPORTED_LOCATION ${SLINT_COMPILER})
+    include("${CMAKE_CURRENT_LIST_DIR}/SlintMacro.cmake")
+elseif (@SLINT_FEATURE_COMPILER@)
+    add_executable(Slint::slint-compiler IMPORTED GLOBAL)
+    set_target_properties(Slint::slint-compiler PROPERTIES IMPORTED_LOCATION "${_IMPORT_PREFIX}/@CMAKE_INSTALL_BINDIR@/@SLINT_COMPILER_FILE_NAME@")
+    include("${CMAKE_CURRENT_LIST_DIR}/SlintMacro.cmake")
+endif()
+
+set(_IMPORT_PREFIX)
+
+include("${CMAKE_CURRENT_LIST_DIR}/SlintTargets.cmake")
+
+set(SLINT_STYLE @_SLINT_STYLE@ CACHE STRING "The Slint widget style")
+set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE})

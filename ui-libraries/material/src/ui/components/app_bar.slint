@@ -1,0 +1,256 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { IconButton } from "./icon_button.slint";
+import { MaterialText } from "./material_text.slint";
+import { MaterialTypography, TextStyle } from "../styling/material_typography.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { IconButtonItem } from "./bottom_app_bar.slint";
+
+component BaseAppBar {
+    in property <string> title;
+    in property <IconButtonItem> leading_button;
+    in property <bool> show_background;
+    in property <[IconButtonItem]> trailing_buttons;
+    in property <TextHorizontalAlignment> horizontal_alignment;
+    in property <length> spacing;
+    in property <length> vertical_spacing;
+    in property <bool> two_rows;
+    in property <TextStyle> text_style;
+    in property <length> text_padding;
+    in property <length> appbar_padding_right: 0;
+    in property <length> appbar_padding_top: 0;
+    in property <length> appbar_padding_bottom: 0;
+
+    callback leading_button_clicked();
+    callback trailing_button_clicked(index: int);
+
+    min_width: layout.min_width;
+    min_height: layout.min_height;
+
+    Rectangle {
+        background: root.show_background ? MaterialPalette.surface_container :  MaterialPalette.surface;
+
+        layout := VerticalLayout {
+            padding_top: root.appbar_padding_top;
+            padding_bottom: root.appbar_padding_bottom;
+            min_width: top_layout.min_width;
+            spacing: root.vertical_spacing;
+
+            top_layout := HorizontalLayout {
+                padding_left: root.spacing;
+                padding_right: root.appbar_padding_right;
+                spacing: MaterialStyleMetrics.spacing_6;
+
+                if root.leading_button.icon.width > 0 && root.leading_button.icon.height > 0 : VerticalLayout {
+                    alignment: center;
+
+                    IconButton {
+                        icon: root.leading_button.icon;
+                        enabled: root.leading_button.enabled;
+                        tooltip: root.leading_button.tooltip;
+
+                        clicked => {
+                            root.leading_button_clicked();
+                        }
+                    }
+                }
+
+                if !root.two_rows : MaterialText {
+                    horizontal_stretch: 1;
+                    text: root.title;
+                    vertical_alignment: center;
+                    horizontal_alignment: root.horizontal_alignment;
+                    color: MaterialPalette.on_surface;
+                    overflow: elide;
+                    style: root.text_style;
+                }
+
+                // spacer
+                if root.two_rows : Rectangle {
+                    horizontal_stretch: 1;
+                }
+
+                if root.trailing_buttons.length > 0 : VerticalLayout {
+                    alignment: center;
+
+                    HorizontalLayout {
+                        spacing: top_layout.spacing;
+
+                        for item[index] in root.trailing_buttons : IconButton {
+                            icon: item.icon;
+                            enabled: item.enabled;
+                            tooltip: item.tooltip;
+
+                            clicked => {
+                                root.trailing_button_clicked(index);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if root.two_rows && root.title != "" : HorizontalLayout {
+                padding_left: root.text_padding;
+                padding_right: self.padding_left;
+
+                 MaterialText {
+                    text: root.title;
+                    horizontal_alignment: root.horizontal_alignment;
+                    color: MaterialPalette.on_surface;
+                    overflow: elide;
+                    style: root.text_style;
+                }
+            }
+        }
+    }
+}
+
+export component AppBar {
+    in property <string> title;
+    in property <IconButtonItem> leading_button;
+    in property <IconButtonItem> trailing_button;
+    in property <bool> show_background;
+
+    callback leading_button_clicked();
+    callback trailing_button_clicked();
+
+    min_height: max(MaterialStyleMetrics.size_64, base.min_height);
+
+    HorizontalLayout {
+        base := BaseAppBar {
+            title: root.title;
+            horizontal_alignment: center;
+
+            leading_button: root.leading_button;
+            trailing_buttons: [root.trailing_button];
+            show_background: root.show_background;
+
+            appbar_padding_right: self.padding_left;
+            appbar_padding_top: MaterialStyleMetrics.padding_8;
+            appbar_padding_bottom: self.padding_top;
+            spacing: MaterialStyleMetrics.spacing_6;
+            text_style: MaterialTypography.title_large;
+
+            leading_button_clicked => {
+                root.leading_button_clicked();
+            }
+
+            trailing_button_clicked(index) => {
+                root.trailing_button_clicked();
+            }
+        }
+    }
+}
+
+export component SmallAppBar {
+    in property <string> title;
+    in property <IconButtonItem> leading_button;
+    in property <[IconButtonItem]> trailing_buttons;
+    in property <bool> show_background;
+
+    callback leading_button_clicked();
+    callback trailing_button_clicked(index: int);
+
+    min_height: max(MaterialStyleMetrics.size_64, base.min_height);
+
+    HorizontalLayout {
+        base := BaseAppBar {
+            title: root.title;
+            horizontal_alignment: left;
+            leading_button: root.leading_button;
+            trailing_buttons: root.trailing_buttons;
+            show_background: root.show_background;
+            appbar_padding_right: self.padding_left;
+            appbar_padding_top: MaterialStyleMetrics.padding_8;
+            appbar_padding_bottom: self.padding_top;
+            spacing: MaterialStyleMetrics.spacing_4;
+            text_style: MaterialTypography.title_large;
+
+            leading_button_clicked => {
+                root.leading_button_clicked();
+            }
+
+            trailing_button_clicked(index) => {
+                root.trailing_button_clicked(index);
+            }
+        }
+    }
+}
+
+export component MediumAppBar {
+    in property <string> title;
+    in property <IconButtonItem> leading_button;
+    in property <[IconButtonItem]> trailing_buttons;
+    in property <bool> show_background;
+
+    callback leading_button_clicked();
+    callback trailing_button_clicked(index: int);
+
+    min_height: max(MaterialStyleMetrics.size_64, base.min_height);
+
+    HorizontalLayout {
+        base := BaseAppBar {
+            title: root.title;
+            horizontal_alignment: left;
+            leading_button: root.leading_button;
+            trailing_buttons: root.trailing_buttons;
+            show_background: root.show_background;
+            appbar_padding_right: self.padding_left;
+            appbar_padding_top: MaterialStyleMetrics.padding_8;
+            appbar_padding_bottom: MaterialStyleMetrics.padding_24;
+            vertical_spacing: MaterialStyleMetrics.spacing_4;
+            spacing: MaterialStyleMetrics.spacing_4;
+            two_rows: true;
+            text_style: MaterialTypography.headline_small;
+            text_padding: MaterialStyleMetrics.padding_16;
+
+            leading_button_clicked => {
+                root.leading_button_clicked();
+            }
+
+            trailing_button_clicked(index) => {
+                root.trailing_button_clicked(index);
+            }
+        }
+    }
+}
+
+export component LargeAppBar {
+    in property <string> title;
+    in property <IconButtonItem> leading_button;
+    in property <[IconButtonItem]> trailing_buttons;
+    in property <bool> show_background;
+
+    callback leading_button_clicked();
+    callback trailing_button_clicked(index: int);
+
+    min_height: max(MaterialStyleMetrics.size_64, base.min_height);
+
+    HorizontalLayout {
+        base := BaseAppBar {
+            title: root.title;
+            horizontal_alignment: left;
+            leading_button: root.leading_button;
+            trailing_buttons: root.trailing_buttons;
+            show_background: root.show_background;
+            appbar_padding_right: self.padding_left;
+            appbar_padding_top: MaterialStyleMetrics.padding_8;
+            appbar_padding_bottom: MaterialStyleMetrics.padding_28;
+            vertical_spacing: MaterialStyleMetrics.spacing_40;
+            spacing: MaterialStyleMetrics.spacing_4;
+            two_rows: true;
+            text_style: MaterialTypography.headline_medium;
+            text_padding: MaterialStyleMetrics.padding_16;
+
+            leading_button_clicked => {
+                root.leading_button_clicked();
+            }
+
+            trailing_button_clicked(index) => {
+                root.trailing_button_clicked(index);
+            }
+        }
+    }
+}

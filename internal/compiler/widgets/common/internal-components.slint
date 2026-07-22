@@ -1,0 +1,180 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component StateLayer inherits Rectangle {
+    in property <bool> pressed;
+    in property <bool> has-hover;
+    in property <bool> has-focus;
+    in property <bool> enabled;
+    in property <brush> state-brush;
+
+    states [
+        highlighted when root.enabled && (root.pressed || root.has-focus) : {
+            root.background: root.state-brush.with_alpha(0.12);
+        }
+        hovered when root.enabled && root.has-hover : {
+            root.background: root.state-brush.with_alpha(0.08);
+        }
+    ]
+}
+
+export struct IconButtonStyle {
+    foreground: brush,
+    icon-size: length,
+    state-brush: brush,
+}
+
+export component FocusTouchArea {
+    in property <bool> enabled;
+    out property <bool> pressed <=> touch-area.pressed;
+    out property <bool> has-hover <=> touch-area.has-hover;
+    out property <bool> has-focus <=> focus-scope.has-focus;
+
+    callback clicked <=> touch-area.clicked;
+
+    forward-focus: focus-scope;
+
+    touch-area := TouchArea {
+        enabled: root.enabled;
+    }
+
+    focus-scope := FocusScope {
+        width: 0px;
+        enabled: root.enabled;
+
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                touch-area.clicked();
+                 return accept;
+            }
+
+            return reject;
+        }
+    }
+}
+
+export component IconButton {
+    in property <image> icon <=> icon-image.source;
+    in property <IconButtonStyle> style;
+    in property <bool> enabled: true;
+
+    callback clicked <=> touch-area.clicked;
+
+    min-width: max(48px, content-layer.min-width);
+    min-height: max(48px, content-layer.min-height);
+    accessible-role: button;
+    accessible-action-default => { touch-area.clicked(); }
+    forward-focus: touch-area;
+
+    touch-area := FocusTouchArea {
+        width: 100%;
+        height: 100%;
+        enabled: root.enabled;
+    }
+
+    state-layer := StateLayer {
+        enabled: root.enabled;
+        pressed: touch-area.pressed;
+        has-hover: touch-area.has-hover;
+        has-focus: touch-area.has-focus;
+        state-brush: root.style.state-brush;
+        border-radius: max(self.width, self.height) / 2;
+    }
+
+    content-layer := VerticalLayout {
+        alignment: center;
+
+        icon-image := Image {
+            x: (parent.width - self.width) / 2;
+            width: root.style.icon-size;
+            colorize: root.style.foreground;
+        }
+    }
+
+    states [
+        disabled when !root.enabled : {
+            root.opacity: 0.38;
+        }
+    ]
+}
+
+export struct SelectionButtonStyle {
+    state-brush: brush,
+    foreground: brush,
+    font-size: length,
+    font-weight: float,
+    icon-size: length,
+}
+
+export component SelectionButton {
+    in property <string> text <=> text-label.text;
+    in property <image> icon <=> icon-image.source;
+    in property <SelectionButtonStyle> style;
+    in property <bool> enabled: true;
+    in-out property <bool> checked;
+
+    callback clicked();
+
+    min-width: content-layer.min-width;
+    min-height: max(40px, content-layer.min-height);
+    accessible-label: root.text;
+    accessible-role: button;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => { touch-area.clicked(); }
+    forward-focus: touch-area;
+
+    touch-area := FocusTouchArea {
+        width: 100%;
+        height: 100%;
+        enabled: root.enabled;
+
+        clicked => {
+            root.checked = !root.checked;
+            root.clicked();
+        }
+    }
+
+    state-layer := StateLayer {
+        enabled: root.enabled;
+        pressed: touch-area.pressed;
+        has-hover: touch-area.has-hover;
+        has-focus: touch-area.has-focus;
+        state-brush: root.style.state-brush;
+    }
+
+    content-layer := HorizontalLayout {
+        alignment: center;
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 8px;
+
+        text-label := Text {
+            font-size: root.style.font-size;
+            font-weight: root.style.font-weight;
+            color: root.style.foreground;
+            vertical-alignment: center;
+        }
+
+        icon-image := Image {
+            y: (parent.height - self.height) / 2;
+            width: root.style.icon-size;
+            colorize: root.style.foreground;
+            transform-rotation: root.checked ? 180deg : 0;
+
+            animate transform-rotation { duration: 250ms; }
+        }
+    }
+
+    states [
+        disabled when !root.enabled : {
+            root.opacity: 0.38;
+        }
+    ]
+}
+
+export struct ColoredTextStyle {
+    font-size: length,
+    font-weight: int,
+    foreground: brush,
+}

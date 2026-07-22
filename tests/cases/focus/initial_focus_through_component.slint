@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component MyTextInput inherits TextInput { }
+
+component TextComponent inherits Rectangle {
+    in-out property<bool> has_focus: my_text_input.has_focus;
+    forward-focus: my_text_input;
+    my_text_input := MyTextInput { }
+
+    callback not_called;
+    not_called => {
+        if (false) {
+            my_text_input.focus();
+        }
+    }
+}
+
+export component TestCase inherits Rectangle {
+    width: 400phx;
+    height: 400phx;
+    forward-focus: input2;
+
+    input1 := TextComponent {
+    }
+    input2 := TextComponent {
+    }
+
+    callback not_called;
+    not_called => {
+      input1.focus();
+    }
+
+    in-out property<bool> input1_focused: input1.has_focus;
+    in-out property<bool> input2_focused: input2.has_focus;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_input1_focused());
+assert!(instance.get_input2_focused());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(!instance.get_input1_focused());
+assert(instance.get_input2_focused());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(!instance.input1_focused);
+assert(instance.input2_focused);
+```
+*/

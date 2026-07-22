@@ -1,0 +1,70 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A wrapping Text inside a component used as a flex-shrunk cell. The card is
+// squeezed well below the text's preferred (single-line) width, so the text
+// must wrap to several lines and the card needs a tall height.
+//
+// This exercises height-for-width re-measurement at the actual assigned
+// width. The interpreter re-measures via a measure callback; the generated
+// (rust/C++) code must do the same, otherwise it computes the height at the
+// preferred (single-line) width and the card comes out far too short.
+
+component Card inherits Rectangle {
+    HorizontalLayout {
+        padding: 4px;
+        t := Text {
+            text: "A fairly long sentence that has to word-wrap into several lines once the card is squeezed narrow by the flexbox";
+            wrap: word-wrap;
+        }
+    }
+    out property <length> text_h: t.height;
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 400px;
+
+    VerticalLayout {
+        spacing: 5px;
+        FlexboxLayout {
+            spacing: 10px;
+            padding: 6px;
+            flex-wrap: no-wrap;
+            cross-axis-alignment: start;
+            vertical-stretch: 0;
+            Rectangle { width: 60px; height: 60px; flex-shrink: 0; }
+            card := Card { flex-shrink: 1; }
+        }
+        Rectangle { vertical-stretch: 1; }
+    }
+
+    // Single-line reference Text in the same font, so the check is
+    // independent of the renderer's font metrics (some test drivers, e.g.
+    // nodejs, don't install the deterministic test fonts).
+    ref := Text {
+        text: "Reference";
+    }
+
+    // Squeezed narrow, the sentence wraps to many lines: its laid-out height
+    // is well above a single line. Computed at the preferred (single-line)
+    // width — the bug — it would be ~1 line.
+    out property <bool> test: card.text_h > ref.height * 1.5;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

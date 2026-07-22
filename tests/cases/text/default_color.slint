@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "std-widgets.slint";
+
+component SubElement inherits Rectangle {
+    in-out property sub_color <=> sub.color;
+    sub := Text { x:0;y:0; text: "sub"; }
+}
+
+export component TestCase inherits Rectangle {
+    // This binding allow the test to set the style's default color so that we can compare it
+    in-out property<color> binding_to_default_text_color: Palette.foreground;
+
+    default_text := Text { x:0;y:0; text: "default"; }
+    text_with_color := Text {
+        x:0;y:0;
+        text: "yellow";
+        color: #ffff00ff;
+    }
+    text_in_sub_element := SubElement { sub_color: #ff0000; }
+    text_in_state := Text { x:0;y:0; }
+    states [ xx when false: { text_in_state.color: #abc; } ]
+
+    in-out property <color> default_text_color: default_text.color;
+    in-out property <color> color_of_initialized_text: text_with_color.color;
+    in-out property <color> color_of_sub_element_text: text_in_sub_element.sub_color;
+    in-out property <color> color_in_state: text-in-state.color;
+
+    in-out property <bool> test: default_text_color == Palette.foreground && root.color-of-initialized-text == #ffff00ff
+        && color_of_sub_element_text == #ff0000 && root.color-in-state == Palette.foreground;
+}
+
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_default_text_color(), instance.get_binding_to_default_text_color());
+assert_eq(instance.get_color_of_initialized_text(), slint::Color::from_rgb_uint8(255, 255, 0));
+assert_eq(instance.get_color_of_sub_element_text(), slint::Color::from_rgb_uint8(255, 0, 0));
+assert_eq(instance.get_color_in_state(), instance.get_binding_to_default_text_color());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_default_text_color(), instance.get_binding_to_default_text_color());
+assert_eq!(instance.get_color_of_initialized_text(), slint::Color::from_rgb_u8(255, 255, 0));
+assert_eq!(instance.get_color_of_sub_element_text(), slint::Color::from_rgb_u8(255, 0, 0));
+assert_eq!(instance.get_color_in_state(), instance.get_binding_to_default_text_color());
+```
+
+*/

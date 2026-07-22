@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+component RoundedIcon inherits Rectangle {
+    in-out property <float> background-opacity <=> background-fill.opacity;
+    background-fill := Rectangle {
+        background:  #ff7d34;
+        opacity: 1.0;
+    }
+    in-out property <float> o: background-fill.opacity;
+}
+
+component Device inherits VerticalLayout {
+    spacing: 5px;
+    ri := RoundedIcon {
+        background-opacity: 0.15;
+    }
+
+    in-out property<float> o: ri.o;
+}
+
+component Sub inherits Rectangle {
+    in-out property o <=> d.o;
+    d := Device {}
+}
+
+
+export component TestCase inherits Rectangle {
+    s := Sub {}
+    d := Device {}
+    in-out property o1 <=> s.o;
+    in-out property o2 <=> d.o;
+    in-out property <bool> test: abs(root.o1 - 0.15) < 0.001 && abs(root.o2 - 0.15) < 0.001;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+*/

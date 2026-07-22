@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette, Label } from "../common.slint";
+
+export component MenuPopup inherits PopupWindow {
+
+    in-out property <[string]> items;
+    in-out property <int> current_index: 0;
+
+    callback selected(int);
+
+    frame := Rectangle {
+        background: DemoPalette.popup-bg;
+        border-radius: 14px;
+
+        VerticalLayout {
+            for value[idx] in root.items: Rectangle {
+                background: idx == root.current_index ? DemoPalette.popup-active-background : item-area.has-hover ? DemoPalette.popup-hover-background :white;
+                height: 48px;
+                border-top-left-radius: idx == 0 ? frame.border-radius : 0;
+                border-top-right-radius: idx == 0 ? frame.border-radius : 0;
+                border-bottom-left-radius: idx == root.items.length - 1 ? frame.border-radius : 0;
+                border-bottom-right-radius: idx == root.items.length - 1 ? frame.border-radius : 0;
+
+                Label {
+                    x: 12px;
+                    text: value;
+                    font-size: 16px;
+                    color: idx == root.current_index ? DemoPalette.popup-active-text-color : item-area.has-hover ? DemoPalette.primary : DemoPalette.text-primary;
+                }
+
+                item-area := TouchArea {
+                    clicked => {
+                        root.selected(idx);
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            border-radius: 14px;
+            border-width: 2px;
+            border-color: DemoPalette.popup-border;
+        }
+    }
+}

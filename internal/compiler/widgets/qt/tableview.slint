@@ -1,0 +1,158 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView } from "internal-scrollview.slint";
+
+export component StandardTableView {
+    private property <length> item-height: scroll-view.viewport-height / rows.length;
+    private property <length> current-item-y: scroll-view.viewport-y + current-row * item-height;
+
+    callback sort-ascending(column: int);
+    callback sort-descending(column: int);
+    callback row-pointer-event(row: int, event: PointerEvent, position: Point);
+    callback current-row-changed(current-row: int);
+    accessible-role: table;
+
+    out property <int> current-sort-column: -1;
+    in-out property <[TableColumn]> columns;
+    in property <[[StandardListViewItem]]> rows;
+    in-out property <int> current-row: -1;
+    in property <bool> enabled <=> scroll-view.enabled;
+    out property <length> visible-width <=> scroll-view.visible-width;
+    out property <length> visible-height <=> scroll-view.visible-height;
+    in-out property <bool> has-focus <=> scroll-view.has-focus;
+    in-out property <length> viewport-width <=> scroll-view.viewport-width;
+    in-out property <length> viewport-height <=> scroll-view.viewport-height;
+    in-out property <length> viewport-x <=> scroll-view.viewport-x;
+    in-out property <length> viewport-y <=> scroll-view.viewport-y;
+    in property <ScrollBarPolicy> vertical-scrollbar-policy <=> scroll-view.vertical-scrollbar-policy;
+    in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> scroll-view.horizontal-scrollbar-policy;
+
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    forward-focus: i-focus-scope;
+
+    public function set-current-row(index: int) {
+        if(index < 0 || index >= rows.length) {
+            return;
+        }
+
+        current-row = index;
+        current-row-changed(current-row);
+
+        if(current-item-y < 0) {
+            scroll-view.viewport-y += 0 - current-item-y;
+        }
+
+        if(current-item-y + item-height > scroll-view.visible-height) {
+            scroll-view.viewport-y -= current-item-y + item-height - scroll-view.visible-height;
+        }
+    }
+
+    function sort(index: int) {
+        if (current-sort-column != index) {
+            columns[current-sort-column].sort-order = SortOrder.unsorted;
+        }
+
+        if(columns[index].sort-order == SortOrder.ascending) {
+            columns[index].sort-order = SortOrder.descending;
+            sort-descending(index);
+        } else {
+            columns[index].sort-order = SortOrder.ascending;
+            sort-ascending(index);
+        }
+
+        current-sort-column = index;
+    }
+
+    scroll-view := ListView {
+        header-height: header-layout.preferred-height;
+
+        for row[i] in rows : Rectangle {
+            width: max(row-layout.preferred-width, scroll-view.visible-width);
+            row-ta := TouchArea {
+                clicked => {
+                    root.focus();
+                    root.set-current-row(i);
+                }
+
+                pointer-event(pe) => {
+                    root.row-pointer-event(i, pe, {
+                        x: self.absolute-position.x + self.mouse-x - root.absolute-position.x,
+                        y: self.absolute-position.y + self.mouse-y - root.absolute-position.y,
+                    });
+                }
+            }
+            row-layout := HorizontalLayout {
+                for cell[index] in row : Rectangle {
+                    horizontal-stretch: columns[index].horizontal-stretch;
+                    min-width: max(columns[index].min-width, columns[index].width);
+                    preferred-width: self.min-width;
+                    max-width: (index < columns.length && columns[index].width >= 1px) ? max(columns[index].min-width, columns[index].width) : 100000px;
+                    HorizontalLayout {
+                        NativeStandardListViewItem {
+                            is_selected: i == root.current-row;
+                            item: cell;
+                            index: i;
+                            has-hover: row-ta.has-hover;
+                            min-width: 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    header := Rectangle {
+        clip: true;
+        height: header-layout.preferred-height;
+        x: scroll-view.native-padding-left;
+        y: scroll-view.native-padding-top;
+        width: scroll-view.visible-width;
+
+        header-layout := HorizontalLayout {
+            width: max(self.preferred-width, parent.width);
+            x: scroll-view.viewport-x;
+            for column[index] in columns : NativeTableHeaderSection {
+                item: column;
+                horizontal-stretch: column.horizontal-stretch;
+                min-width: max(column.min-width, column.width);
+                preferred-width: self.min-width;
+                max-width: (index < columns.length && column.width >= 1px) ? max(column.min-width, column.width) : 100000px;
+
+                TouchArea {
+                    clicked => {
+                        sort(index);
+                    }
+                }
+
+                TouchArea {
+                    width: 10px;
+                    x: parent.width - self.width / 2;
+                    moved => {
+                        if (self.pressed) {
+                            column.width = max(1px, parent.width + (self.mouse-x - self.pressed-x));
+                        }
+                    }
+                    mouse-cursor: ew-resize;
+                }
+            }
+        }
+    }
+
+    i-focus-scope := FocusScope {
+        x: 0;
+        width: 0; // Do not react on clicks
+
+        key-pressed(event) => {
+            if (event.text == Key.UpArrow) {
+                root.set-current-row(root.current-row - 1);
+                return accept;
+            } else if (event.text == Key.DownArrow) {
+                root.set-current-row(root.current-row + 1);
+                return accept;
+            }
+            reject
+        }
+    }
+}

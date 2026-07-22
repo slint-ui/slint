@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct Date { day: int, month: int, year: int}
+
+component Calendar {
+    in property <Date> current-date;
+
+    out property <string> text <=> t.text;
+
+    t := Text {
+        text: current-date.day + "." + current-date.month + "." + current-date.year;
+    }
+}
+
+export component TestCase inherits Window {
+    preferred-width: 600px;
+    preferred-height: 600px;
+
+    in-out property <Date> current-date: { day: 5, month: 2, year: 2026 };
+
+    l := HorizontalLayout {
+        if true: Calendar {
+            preferred-height: 100px;
+            current-date <=> root.current-date;
+            init => { root.result = self.text; }
+            changed text => { root.result = self.text; }
+        }
+    }
+
+
+    out property <string> result;
+
+    out property <bool> test: l.preferred-height == 100px && result == "5.2.2026";
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_current_date(Date { day: 30, month: 7, year: 1984 });
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_result(), "30.7.1984");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.set_current_date({ .day = 30, .month = 7, .year = 1984 });
+slint_testing::mock_elapsed_time(600);
+assert_eq(instance.get_result(), "30.7.1984");
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+instance.current_date = { day: 30, month: 7, year: 1984 };
+slintlib.private_api.mock_elapsed_time(600);
+assert.equal(instance.result, "30.7.1984");
+```
+*/

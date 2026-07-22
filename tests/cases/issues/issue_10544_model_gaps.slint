@@ -1,0 +1,89 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Can't create a default-constructed ModelData
+//ignore: live-preview
+
+export component TestCase inherits Window {
+    width: 300phx;
+    height: 300phx;
+    in-out property <[int]> model;
+
+    out property <int> focus-index: -1;
+
+    for item[index] in model: FocusScope {
+        focus-gained(reason) => {
+            root.focus-index = index;
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+type ModelData = i32;
+struct BrokenModel;
+
+impl slint::Model for BrokenModel {
+    type Data = ModelData;
+    fn row_count(&self) -> usize { 3 }
+
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        // The model is "broken" because it doesn't return anything for when row == 1
+        if row == 0 || row == 2 {
+            Some(row as i32)
+        } else {
+            None
+        }
+    }
+    fn model_tracker(&self) -> &dyn slint::ModelTracker {
+        &()
+    }
+}
+
+assert_eq!(instance.get_focus_index(), -1);
+
+instance.set_model(slint::ModelRc::new(BrokenModel));
+
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focus_index(), 0);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focus_index(), 1);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focus_index(), 2);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focus_index(), 0);
+
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+struct BrokenModel : slint::Model<int> {
+    std::size_t row_count() const override { return 3; }
+    std::optional<int> row_data(std::size_t row) const override {
+        // The model is "broken" because it doesn't return anything for when row == 1
+        if (row == 0 || row == 2) {
+            return row;
+        } else {
+            return std::nullopt;
+        }
+    }
+};
+
+auto model = std::make_shared<BrokenModel>();
+instance.set_model(model);
+
+assert_eq(instance.get_focus_index(), -1);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq(instance.get_focus_index(), 0);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq(instance.get_focus_index(), 1);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq(instance.get_focus_index(), 2);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq(instance.get_focus_index(), 0);
+```
+*/

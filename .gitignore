@@ -1,0 +1,42 @@
+tsconfig.tsbuildinfo
+/target
+node_modules
+.pnpm-store
+/tools/figma_import/target
+/tools/figma_import/figma_output
+*.code-workspace
+/build
+/build-release
+/_deps
+.DS_Store
+Pipfile.lock
+/playwright-report
+
+# Ignore all package-lock.json files
+**/package-lock.json
+# But keep these specific ones
+!editors/vscode/package-lock.json
+
+# MISE local files:
+/.mise.local.toml
+/.mise/tasks/local/
+
+# Helix local config
+.helix
+
+.claude
+
+*.node
+*.d.ts
+
+__pycache__
+.cache
+uv.lock
+.python-version
+
+MODULE.bazel.lock
+
+# Ignore Xcode projects created by xcodegen
+*.xcodeproj
+*.xcworkspace
+Info.plist

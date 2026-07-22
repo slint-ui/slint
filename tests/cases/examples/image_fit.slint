@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Win inherits Window {
+    GridLayout {
+        Image {
+            source: @image-url("../../../demos/printerdemo/ui/images/cat.jpg");
+        }
+        Image {
+            source: @image-url("../../../demos/printerdemo/ui/images/cat.jpg");
+            image-fit: contain;
+        }
+        Image {
+            row: 1;
+            source: @image-url("../../../demos/printerdemo/ui/images/cat.jpg");
+            image-fit: cover;
+        }
+        Image {
+            source: @image-url("../../../demos/printerdemo/ui/images/cat.jpg");
+            image-fit: fill;
+        }
+    }
+}

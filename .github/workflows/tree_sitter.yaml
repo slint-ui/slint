@@ -1,0 +1,52 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: "Tree Sitter Test"
+on:
+    #  push:
+    #  pull_request:
+    workflow_call:
+        inputs:
+            tag:
+                type: string
+                description: tree sitter release tag to use
+            latest:
+                type: boolean
+                description: Use the latest tree-sitter release
+                default: true
+
+jobs:
+    tree-sitter-tests:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  fetch-depth: 0
+            - uses: robinraju/release-downloader@v1.13
+              with:
+                  repository: "tree-sitter/tree-sitter"
+                  tag: ${{ inputs.tag }}
+                  latest: ${{ inputs.latest }}
+                  fileName: "tree-sitter-linux-x64.gz"
+                  out-file-path: ${{ runner.workspace }}
+            - name: Extract tree-sitter-cli
+              run: |
+                  gunzip tree-sitter-linux-x64.gz
+                  chmod 755 tree-sitter-linux-x64
+                  mv tree-sitter-linux-x64 tree-sitter
+              working-directory: ${{ runner.workspace }}
+            - name: Run tree-sitter tests
+              run: TREE_SITTER_CLI=${{ runner.workspace }}/tree-sitter ./run_tests.sh
+              working-directory: editors/tree-sitter-slint
+            - name: Ensure tests did not update snapshots
+              run: |
+                  if ! git diff --quiet -- .; then
+                      echo "::error::Tree-sitter tests modified repository files. Please run editors/tree-sitter-slint/run_tests.sh locally and commit updated corpus files."
+                      echo
+                      echo "Repository status:"
+                      git --no-pager status
+                      echo
+                      echo "Diff:"
+                      git --no-pager diff -- .
+                      exit 1
+                  fi

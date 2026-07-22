@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Python is ignored because include paths aren't forwarded in the generated stubs.
+//ignore: pyi
+
+//include_path: ../../helper_components
+import {
+    UseGlobal,
+    ExportedGlobal as FromExport,
+} from "export_globals.slint";
+
+global NotExported  {
+    in-out property<int> abc: 1000;
+    in-out property<string> prop: "_";
+}
+
+global ExportedGlobal  {
+    in-out property<int> abc: 1001;
+}
+
+export component TestCase inherits Rectangle {
+    ug := UseGlobal {}
+    in-out property<int> p1: ug.used42;
+    in-out property<int> p2: ug.used44;
+    in-out property<int> p3: NotExported.abc + ExportedGlobal.abc;
+
+    in-out property <bool> test: p1 == 42 && p2 == 44 && p3 == 2001 ;//&& NotExported.prop == "_";
+}
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_p1(), 42);
+assert_eq(instance.get_p2(), 44);
+assert_eq(instance.get_p3(), 2001);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_p1(), 42);
+assert_eq!(instance.get_p2(), 44);
+assert_eq!(instance.get_p3(), 2001);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.p1, 42);
+assert.equal(instance.p2, 44);
+assert.equal(instance.p3, 2001);
+```
+
+*/

@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { Images } from "../images.slint";
+import { Page } from "page.slint";
+import { IconButton } from "../widgets/widgets.slint";
+import { GroupBox } from "../widgets/group_box.slint";
+
+export component About inherits Page {
+    GroupBox {
+        VerticalLayout {
+            vertical-stretch: 1;
+            spacing: Theme.spaces.medium;
+            alignment: start;
+
+            Text {
+                vertical-stretch: 0;
+                horizontal-alignment: center;
+                text: "Developed by";
+                color: Theme.palette.slint-blue-100;
+                font-size: Theme.typo.header-item.size;
+                font-weight: Theme.typo.header-item.weight;
+            }
+
+            Image {
+                preferred-height: 55px;
+                source: Images.slint-logo;
+            }
+
+            // spacer
+            Rectangle {
+                vertical-stretch: 1;
+            }
+
+            Text {
+                vertical-stretch: 0;
+                horizontal-alignment: center;
+                text: "Designed by";
+                color: Theme.palette.slint-blue-100;
+                font-size: Theme.typo.header-item.size;
+                font-weight: Theme.typo.header-item.weight;
+            }
+
+            Image {
+                preferred-height: 42px;
+                source: Images.spyrosoft-logo;
+            }
+        }
+    }
+}

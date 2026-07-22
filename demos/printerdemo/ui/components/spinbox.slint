@@ -1,0 +1,58 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { IconButton } from "./icon_button.slint";
+import { DemoPalette, Label } from "../common.slint";
+
+export component SpinBox inherits Rectangle {
+    in property <int> minimum;
+    in property <int> maximum: 100;
+    in-out property <int> value;
+    in property <string> label <=> label-text.text;
+
+    height: 40px;
+
+    HorizontalLayout {
+        spacing: 12px;
+
+        label-text := Label {
+            font-size: 16px;
+        }
+
+        IconButton {
+            clicked => {
+                if (root.value > root.minimum) {
+                    root.value -= 1;
+                }
+            }
+
+            background: DemoPalette.spinbox-button-gradient;
+            width: root.height;
+            icon: @image-url("../images/minus.svg");
+            colorize: DemoPalette.spinbox-text-color;
+            border-color: DemoPalette.spinbox-button-border;
+        }
+
+        Rectangle {
+            width: 40px;
+
+            Label {
+                text: root.value;
+            }
+        }
+
+        IconButton {
+            clicked => {
+                if (root.value < root.maximum) {
+                    root.value += 1;
+                }
+            }
+
+            background: DemoPalette.spinbox-button-gradient;
+            width: root.height;
+            icon: @image-url("../images/plus.svg");
+            colorize: DemoPalette.spinbox-text-color;
+            border-color: DemoPalette.spinbox-button-border;
+        }
+    }
+}

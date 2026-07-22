@@ -1,0 +1,191 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    Button,
+    GroupBox,
+    CheckBox,
+    VerticalBox,
+    HorizontalBox,
+    Slider,
+    ProgressIndicator,
+    Spinner,
+    GridBox,
+    Palette,
+} from "std-widgets.slint";
+import { GallerySettings } from "../gallery_settings.slint";
+import { Page } from "page.slint";
+
+export component ControlsPage inherits Page {
+    title: @tr("Controls");
+    show-enable-read-only: false;
+    description: @tr("This page gives an overview of the default widget set provided by Slint. The widgets are available in different styles native, fluent-(dark/light) and material-(dark/light). The widgets can be imported from \"std-widgets.slint\".");
+    alignment: start;
+
+    GroupBox {
+        vertical-stretch: 0;
+        title: @tr("Buttons");
+
+        VerticalLayout {
+            padding: 0px;
+
+            HorizontalBox {
+                alignment: start;
+
+                Button {
+                    text: @tr("Regular Button");
+                    enabled: GallerySettings.widgets-enabled;
+                }
+
+                Button {
+                    text: @tr("Primary Button with Icon");
+                    icon: @image-url("../../thumbsup.png");
+                    enabled: GallerySettings.widgets-enabled;
+                    primary: true;
+                }
+
+                Button {
+                    icon: @image-url("../../thumbsup.png");
+                    enabled: GallerySettings.widgets-enabled;
+                    primary: true;
+                }
+
+                Button {
+                    checkable: true;
+                    text: self.checked ? @tr("ON") : @tr("OFF");
+                    enabled: GallerySettings.widgets-enabled;
+                }
+            }
+
+            HorizontalBox {
+                alignment: start;
+
+                Button {
+                    text: @tr("Primary Button with colorized icon");
+                    icon: @image-url("../../thumbsup.png");
+                    enabled: GallerySettings.widgets-enabled;
+                    colorize-icon: true;
+                    primary: true;
+                }
+            }
+        }
+    }
+
+    GroupBox {
+        title: @tr("Tooltip");
+        vertical-stretch: 0;
+
+        HorizontalBox {
+            alignment: start;
+            padding: 0px;
+
+            Button {
+                text: @tr("Hover me");
+                enabled: GallerySettings.widgets-enabled;
+
+                Tooltip {
+                    text: @markdown("\{@tr("This is a tooltip.")}");
+                }
+            }
+
+            Button {
+                text: @tr("Custom Tooltip");
+                enabled: GallerySettings.widgets-enabled;
+
+                Tooltip {
+                    VerticalBox {
+                        padding: 10px;
+                        spacing: 6px;
+                        Text {
+                            text: @tr("Quick Actions");
+                            font-weight: 700;
+                            color: Palette.alternate-foreground;
+                        }
+
+                        Text {
+                            text: @tr("Open command palette and search settings.");
+                            color: Palette.alternate-foreground;
+                            wrap: word-wrap;
+                        }
+
+                        HorizontalBox {
+                            spacing: 6px;
+                            Rectangle {
+                                border-radius: 4px;
+                                background: Palette.control-background;
+                                HorizontalBox {
+                                    padding: 4px;
+                                    Text {
+                                        text: "Ctrl";
+                                        color: Palette.control-foreground;
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                border-radius: 4px;
+                                background: Palette.control-background;
+                                HorizontalBox {
+                                    padding: 4px;
+                                    Text {
+                                        text: "K";
+                                        color: Palette.control-foreground;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    GroupBox {
+        title: @tr("Slider");
+        vertical-stretch: 0;
+
+        slider := Slider {
+            min-width: 160px;
+            minimum: -100;
+            maximum: 100;
+            value: 42;
+            enabled: GallerySettings.widgets-enabled;
+        }
+    }
+
+    GroupBox {
+        title: @tr("ProgressIndicator | Spinner");
+        vertical-stretch: 0;
+
+        GridBox {
+            spacing: 16px;
+
+            progress-indicator := ProgressIndicator {
+                row: 0;
+                col: 0;
+                min-width: 160px;
+                progress: (slider.value - slider.minimum) / (slider.maximum - slider.minimum);
+                indeterminate: true;
+            }
+
+            Rectangle {
+                row: 0;
+                col: 1;
+                rowspan: 2;
+
+                Spinner {
+                    progress: progress-indicator.progress;
+                    indeterminate: progress-indicator.indeterminate;
+                }
+            }
+
+            CheckBox {
+                row: 1;
+                col: 0;
+                text: @tr("indeterminate");
+                checked <=> progress-indicator.indeterminate;
+                enabled: GallerySettings.widgets-enabled;
+            }
+        }
+    }
+}

@@ -1,0 +1,99 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for issue #10589: a layer containing a child much larger
+// than the visible area must clip its surface to what is visible, otherwise
+// texture allocation fails and the layer renders as empty.
+// Also exercises:
+//   - children that extend outside the layer item's own geometry (must
+//     still be rendered into the layer surface),
+//   - clip:true subtrees with huge contents,
+//   - non-visual elements like TouchArea that have no bounding box.
+
+// Software renderer uses i16 physical coordinates and has no layer cache.
+//ignore: software
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: white;
+
+    Rectangle {
+        cache-rendering-hint: true;
+        x: 16px;
+        y: 16px;
+        width: 32px;
+        height: 32px;
+
+        // Huge child: relies on the layer surface being clipped to the visible area.
+        Rectangle {
+            x: -50000px;
+            y: -50000px;
+            width: 100000px;
+            height: 100000px;
+            background: green;
+        }
+
+        // Outside the layer's 32x32 geometry, in the window's top-left corner.
+        Rectangle {
+            x: -16px;
+            y: -16px;
+            width: 16px;
+            height: 16px;
+            background: red;
+        }
+
+        // Outside the layer's 32x32 geometry, in the window's bottom-right corner.
+        Rectangle {
+            x: 32px;
+            y: 32px;
+            width: 16px;
+            height: 16px;
+            background: blue;
+        }
+
+        // Off-screen sibling: must not leak into the visible area.
+        Rectangle {
+            x: 1000px;
+            y: 1000px;
+            width: 16px;
+            height: 16px;
+            background: magenta;
+        }
+
+        // clip:true container with a huge child: exercises recursive clip
+        // handling in item_children_bounding_rect_inner.
+        Rectangle {
+            clip: true;
+            x: 8px;
+            y: 8px;
+            width: 16px;
+            height: 16px;
+            background: black;
+
+            Rectangle {
+                x: -50000px;
+                y: -50000px;
+                width: 100000px;
+                height: 100000px;
+                background: yellow;
+            }
+
+            Rectangle {
+                x: 4px;
+                y: 4px;
+                width: 8px;
+                height: 8px;
+                background: white;
+            }
+        }
+
+        // No bounding box, must not crash bounding-rect computation.
+        TouchArea {
+            x: 100000px;
+            y: 100000px;
+            width: 1px;
+            height: 1px;
+        }
+    }
+}

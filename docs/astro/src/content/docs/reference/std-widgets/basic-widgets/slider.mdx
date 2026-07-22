@@ -1,0 +1,108 @@
+---
+title: Slider
+description: Slider api.
+---
+
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/slider-example.png"  imageWidth="200" imageHeight="200"  imageAlt='slider example'>
+```slint
+import { Slider,  VerticalBox } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 40px;
+
+    VerticalBox {
+        alignment: center;
+
+        Slider {
+            value: 42;
+        }
+    }
+}
+```
+</CodeSnippetMD>
+
+## Properties
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+You can't interact with the slider if enabled is false.
+</SlintProperty>
+
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool" propertyVisibility="out">
+Set to true when the slider currently has the focus
+</SlintProperty>
+
+### value
+<SlintProperty propName="value" typeName="float" defaultValue="0" propertyVisibility="in-out">
+The value. Defaults to the minimum.
+```slint "value: 50;"
+Slider {
+    value: 50;
+}
+```
+</SlintProperty>
+
+### step
+<SlintProperty propName="step" typeName="float" defaultValue="1">
+The change step when pressing arrow key.
+```slint "step: 1;"
+Slider {
+    step: 1;
+}
+```
+</SlintProperty>
+
+### minimum
+<SlintProperty propName="minimum" typeName="float" defaultValue="0">
+The minimum value.
+```slint "minimum: 10;"
+Slider {
+    minimum: 10;
+    value: 11;
+}
+```
+</SlintProperty>
+
+### maximum
+<SlintProperty propName="maximum" typeName="float" defaultValue="100">
+The maximum value.
+```slint "maximum: 10;"
+Slider {
+    maximum: 10;
+    value: 9;
+}
+```
+</SlintProperty>
+
+### orientation
+<SlintProperty propName="orientation" typeName="enum" enumName="Orientation" defaultValue="horizontal">
+Describes the orientation of the Slider, vertical or horizontal.
+</SlintProperty>
+
+## Callbacks
+
+### changed(float)
+The value was changed
+
+```slint {2-4}
+Slider {
+    changed(value) => {
+        debug("New value: ", value);
+    }
+}
+```
+
+### released(float)
+Invoked when the user completed changing the slider's value, i.e. when the press on the knob was released or the arrow keys lifted.
+
+```slint {2-4}
+Slider {
+    released(position) => {
+        debug("Released at position: ", position);
+    }
+}
+```

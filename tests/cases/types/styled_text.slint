@@ -1,0 +1,247 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore ello
+
+export struct TestStruct {
+    label: string,
+    text: styled-text,
+}
+
+export component TestCase inherits Window {
+    property <string> world: "World";
+    VerticalLayout {
+        s1 := StyledText {
+            text: @markdown("Hello \{world}");
+        }
+        s2 := StyledText {
+            text: @markdown("Hello \{"*World*"}");
+        }
+        s3 := StyledText {
+            text: @markdown("Hello"
+                            " *\{world}*");
+        }
+        s4 := StyledText {
+            text: @markdown("Hello \{@markdown("*\{world}*")}");
+        }
+        s5 := StyledText {
+            text: @markdown("*\{@markdown("**H\{"ello"}**")}* \{@markdown("*\{world}*")}");
+        }
+        // Regression test for #11321: empty interpolation inside a styled span used to crash parley.
+        s6 := StyledText {
+            text: @markdown("Value : "
+                            "<font color=\"red\">\{""}</font> [\{""}](https://slint.dev)");
+        }
+        s7 := StyledText {
+            text: @markdown("Hello \{world}");
+            default-font-size: 24px;
+        }
+        // Regression test for #11527 - interpolation in link URL
+        s8 := StyledText {
+            text: @markdown("[Click](\{my-url})");
+        }
+        // Color with a literal value
+        s9 := StyledText {
+            text: @markdown("<font color=\"red\">colored</font>");
+        }
+        // Color with an interpolated color property
+        s10 := StyledText {
+            text: @markdown("<font color=\"\{my-color}\">colored</font>");
+        }
+        // Brush converts to color for font color interpolation
+        s11 := StyledText {
+            text: @markdown("<font color=\"\{my-brush}\">brushed</font>");
+        }
+        // Color interpolation mixed with text interpolation
+        s12 := StyledText {
+            text: @markdown("hello \{world} <font color=\"\{my-color}\">colored \{world}</font>");
+        }
+    }
+
+    property <string> my-url: "https://slint.dev";
+    property <color> my-color: blue;
+    property <brush> my-brush: green;
+
+    in-out property<styled-text> t1: s1.text;
+    in-out property<styled-text> t2: s2.text;
+    in-out property<styled-text> t3: s3.text;
+    // Regression test for #11471 - StyledText type must have a default,
+    // otherwise it crashes when left out of a struct declaration!
+    out property<TestStruct> default-struct : {
+        label: "test",
+    };
+    property<styled-text> unset-styled-text;
+    out property<styled-text> default-styled-text: unset-styled-text;
+    in-out property<styled-text> plain-text-prop;
+    out property<styled-text> foo-bar: @markdown("foo bar");
+
+    out property<length> w1: s1.preferred-width;
+    out property<length> w2: s2.preferred-width;
+    out property<length> w3: s3.preferred-width;
+    out property<length> w4: s4.preferred-width;
+    out property<length> w5: s5.preferred-width;
+    out property<length> w6: s6.preferred-width;
+    out property<length> w7: s7.preferred-width;
+    out property<length> w8: s8.preferred-width;
+    out property<length> w9: s9.preferred-width;
+    out property<length> w10: s10.preferred-width;
+    out property<length> w11: s11.preferred-width;
+    out property<length> w12: s12.preferred-width;
+
+    out property<bool> test: w1 == 66px && w2 == 80px && w3 == 64px && w4 == 64px && w5 == 65px && w6 > 0px && w7 > w1 && w8 > 0px && w9 > 0px && w10 > 0px && w11 > 0px && w12 > 0px;
+}
+
+/*
+```rust
+use slint::private_unstable_api::re_exports::StyledText;
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_t1(), StyledText::from_markdown("Hello World").unwrap());
+assert_eq!(instance.get_t2(), StyledText::from_markdown("Hello \\*World\\*").unwrap());
+assert_eq!(instance.get_t3(), StyledText::from_markdown("Hello *World*").unwrap());
+assert_eq!(instance.get_w1(), 66.0);
+assert_eq!(instance.get_w2(), 80.0);
+assert_eq!(instance.get_w3(), 64.0);
+assert_eq!(instance.get_w4(), 64.0);
+assert_eq!(instance.get_w5(), 65.0);
+assert!(instance.get_test());
+
+assert_eq!(instance.get_default_struct().text, StyledText::default());
+assert_eq!(instance.get_default_styled_text(), StyledText::default());
+
+// Public API: from_plain_text round-trip
+let plain = StyledText::from_plain_text("Hello World");
+instance.set_plain_text_prop(plain.clone());
+assert_eq!(instance.get_plain_text_prop(), plain);
+
+// Public API: from_markdown round-trip
+let md = StyledText::from_markdown("Hello *World*").unwrap();
+instance.set_t1(md.clone());
+assert_eq!(instance.get_t1(), md);
+
+// from_plain_text and from_markdown produce the same result for unstyled text
+let plain2 = StyledText::from_plain_text("plain text");
+let md2 = StyledText::from_markdown("plain text").unwrap();
+assert_eq!(plain2, md2);
+
+// @markdown("foo bar") in .slint equals from_plain_text("foo bar")
+assert_eq!(instance.get_foo_bar(), StyledText::from_plain_text("foo bar"));
+
+// Public API: from_markdown rejects unsupported syntax
+assert!(StyledText::from_markdown("# heading").is_err());
+```
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// Compare t1/t2/t3 content with from_markdown
+assert(instance.get_t1() == *slint::StyledText::from_markdown("Hello World"));
+assert(instance.get_t2() == *slint::StyledText::from_markdown("Hello \\*World\\*"));
+assert(instance.get_t3() == *slint::StyledText::from_markdown("Hello *World*"));
+
+assert(instance.get_w1() == 66.0);
+assert(instance.get_w2() == 80.0);
+assert(instance.get_w3() == 64.0);
+assert(instance.get_w4() == 64.0);
+assert(instance.get_w5() == 65.0);
+assert(instance.get_test());
+assert(instance.get_default_styled_text() == slint::StyledText());
+
+// from_plain_text round-trip
+auto plain = slint::StyledText::from_plain_text("Hello World");
+handle->set_plain_text_prop(plain);
+assert(handle->get_plain_text_prop() == plain);
+
+// from_markdown round-trip
+auto md = slint::StyledText::from_markdown("Hello *World*");
+assert(md.has_value());
+handle->set_t1(*md);
+assert(handle->get_t1() == *md);
+
+// from_plain_text and from_markdown produce the same result for unstyled text
+auto plain2 = slint::StyledText::from_plain_text("plain text");
+auto md2 = slint::StyledText::from_markdown("plain text");
+assert(md2.has_value());
+assert(plain2 == *md2);
+
+// @markdown("foo bar") in .slint equals from_plain_text("foo bar")
+assert(instance.get_foo_bar() == slint::StyledText::from_plain_text("foo bar"));
+
+// from_markdown returns nullopt for unsupported syntax
+auto bad = slint::StyledText::from_markdown("# heading");
+assert(!bad.has_value());
+```
+```js
+var instance = new slint.TestCase({});
+let StyledText = slintlib.StyledText;
+
+// Compare t1/t2/t3 content with fromMarkdown
+assert(instance.t1.equals(StyledText.fromMarkdown("Hello World")));
+assert(instance.t2.equals(StyledText.fromMarkdown("Hello \\*World\\*")));
+assert(instance.t3.equals(StyledText.fromMarkdown("Hello *World*")));
+
+// Default styled-text is a StyledText instance
+let def = instance.default_styled_text;
+assert(def instanceof StyledText);
+
+// fromPlainText round-trip
+let plain = StyledText.fromPlainText("Hello World");
+instance.plain_text_prop = plain;
+assert(instance.plain_text_prop.equals(plain));
+
+// fromMarkdown round-trip
+let md = StyledText.fromMarkdown("Hello *World*");
+instance.t1 = md;
+assert(instance.t1.equals(md));
+
+// fromPlainText and fromMarkdown produce the same result for unstyled text
+let plain2 = StyledText.fromPlainText("plain text");
+let md2 = StyledText.fromMarkdown("plain text");
+assert(plain2.equals(md2));
+
+// @markdown("foo bar") in .slint equals fromPlainText("foo bar")
+assert(instance.foo_bar.equals(StyledText.fromPlainText("foo bar")));
+
+// fromMarkdown throws for unsupported syntax
+let threw = false;
+try { StyledText.fromMarkdown("# heading"); } catch(e) { threw = true; }
+assert(threw);
+```
+```python
+instance = TestCase()
+
+# Compare t1/t2/t3 content with from_markdown
+assert instance.t1 == slint.StyledText.from_markdown("Hello World")
+assert instance.t2 == slint.StyledText.from_markdown("Hello \\*World\\*")
+assert instance.t3 == slint.StyledText.from_markdown("Hello *World*")
+
+# Default styled-text is a StyledText instance
+assert isinstance(instance.default_styled_text, slint.StyledText)
+assert instance.default_styled_text == slint.StyledText()
+
+# from_plain_text round-trip
+plain = slint.StyledText.from_plain_text("Hello World")
+instance.plain_text_prop = plain
+assert instance.plain_text_prop == plain
+
+# from_markdown round-trip
+md = slint.StyledText.from_markdown("Hello *World*")
+instance.t1 = md
+assert instance.t1 == md
+
+# from_plain_text and from_markdown produce the same result for unstyled text
+plain2 = slint.StyledText.from_plain_text("plain text")
+md2 = slint.StyledText.from_markdown("plain text")
+assert plain2 == md2
+
+# @markdown("foo bar") in .slint equals from_plain_text("foo bar")
+assert instance.foo_bar == slint.StyledText.from_plain_text("foo bar")
+
+# from_markdown raises for unsupported syntax
+threw = False
+try:
+    slint.StyledText.from_markdown("# heading")
+except ValueError:
+    threw = True
+assert threw
+```
+*/

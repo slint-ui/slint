@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test for manual visual verification of rotation
+//
+// The green rectangle should be 45 degree rotated inside the black rectangle
+//
+// The rectangle with the linear gradient should be rotated by 315 degrees
+// inside the other black rectangle
+
+export component TestCase inherits Window {
+    width: 800px;
+    height: 600px;
+
+    // "box" to act as translation
+    Rectangle {
+        x: 50px;
+        y: 50px;
+
+        Image {
+            rotation-angle: 45deg;
+            x: 50px;
+            y: 50px;
+            rotation-origin-x: 0;
+            rotation-origin-y: 0;
+            width: 50px;
+            height: 50px;
+            source: @image-url("../../../logo/slint-logo-square-light-128x128.png");
+        }
+
+        Rectangle {
+            x: 50px;
+            y: 50px;
+            width: 50px;
+            height: 50px;
+            border-width: 1px;
+            border-color: black;
+        }
+
+    }
+
+    // -------
+
+    // "box" to act as translation
+    Rectangle {
+        x: 200px;
+        y: 50px;
+        border-width: 1px;
+        border-color: black;
+        width: i2.width;
+        height: i2.height;
+
+        i2 := Image {
+            x:0;y:0;
+            rotation-angle: 315deg;
+            source: @image-url("../../../logo/slint-logo-square-light-128x128.png");
+        }
+    }
+
+    Text {
+        x: 150px;
+        y: 200px;
+        text: "Hello World";
+        rotation-angle: 360deg * animation-tick() / 3s;
+    }
+}

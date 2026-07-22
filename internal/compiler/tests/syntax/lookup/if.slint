@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export Hello := Rectangle {
+//           ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+
+    width: 100phx;
+    height: 100phx;
+    background: white;
+    property<length> top_level: 42phx;
+
+    property<bool> cond1;
+    property<bool> cond2;
+    property<bool> cond3;
+
+    if (cond1) : Rectangle {
+        background: root.background;
+        property<length> xx: root.top_level;
+    }
+
+    if (cond1 ? cond2 : cond3) : Rectangle {
+
+    }
+
+    if (width) : Rectangle {
+//     >      <error{Cannot convert length to bool}
+
+    }
+}

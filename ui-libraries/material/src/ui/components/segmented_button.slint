@@ -1,0 +1,103 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { BaseButton } from "base_button.slint";
+import { Icons } from "../icons/icons.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
+
+export struct SegmentedItem {
+    icon: image,
+    text: string
+}
+
+component SegmentedItemTemplate {
+    in property <image> icon;
+    in property <string> text;
+    in property <int> index;
+    in property <bool> selected;
+    in property <bool> last;
+
+    callback clicked <=> base.clicked;
+
+    accessible-role: list-item;
+    accessible-label: root.text;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
+    accessible-item-index: root.index;
+
+    if root.selected : Rectangle {
+        background: MaterialPalette.secondary_container;
+    }
+
+    base := BaseButton {
+        min_layout_width: 0;
+        min_layout_height: 0;
+        color: MaterialPalette.on_surface;
+        button_vertical_padding: MaterialStyleMetrics.padding_10;
+        button_horizontal_padding: MaterialStyleMetrics.padding_24;
+        spacing: MaterialStyleMetrics.spacing_8;
+        icon: root.icon;
+        text: root.text;
+
+
+        animate width { duration: MaterialAnimations.standard_accelerate_duration; easing: MaterialAnimations.standard_easing; }
+    }
+
+    if !root.last : Rectangle {
+        x: parent.width - self.width;
+        width: 1px;
+        height: 100%;
+        background: MaterialPalette.outline;
+    }
+
+    states [
+        selected when root.selected : {
+            base.icon: Icons.check;
+        }
+    ]
+}
+
+export component SegmentedButton {
+    in property <[SegmentedItem]> items;
+    in_out property <int> current_index;
+
+    callback index_changed(index: int);
+
+    min_width: max(2 * MaterialStyleMetrics.size_40, layout.min_width);
+    min_height: max(MaterialStyleMetrics.size_40, layout.min_height);
+
+    accessible-role: list;
+    accessible-item-count: root.items.length;
+
+    Rectangle {
+        clip: true;
+        border_width: 1px;
+        border_radius: self.height / 2;
+        border_color: MaterialPalette.outline;
+
+        layout := HorizontalLayout {
+            for item[index] in root.items : SegmentedItemTemplate {
+                icon: item.icon;
+                text: item.text;
+                index: index;
+                last: index == root.items.length - 1;
+                selected: index == root.current_index;
+
+                clicked => {
+                    root.select(index);
+                }
+            }
+        }
+    }
+
+    function select(index: int) {
+        if index < 0 || index >= root.items.length {
+            return;
+        }
+
+        root.current_index = index;
+        root.index_changed(index);
+    }
+}

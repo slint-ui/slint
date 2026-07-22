@@ -1,0 +1,205 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Build slint-viewer or -lsp binary
+
+on:
+    workflow_dispatch:
+        inputs:
+            program:
+                type: choice
+                description: binary to build
+                options:
+                    - viewer
+                    - lsp
+            features:
+                type: string
+                description: features to enable for build
+                # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml,api/node/Cargo.toml, and api/python/slint/Cargo.toml
+                default: "backend-linuxkms-noseat,backend-winit,renderer-femtovg,renderer-skia,renderer-software"
+            codesign:
+                type: boolean
+                description: Sign binaries on macOS (false for manual builds)
+                default: false
+            ios:
+                type: boolean
+                description: Also build an unsigned iOS archive (.xcarchive) of the viewer
+                default: false
+
+    workflow_call:
+        inputs:
+            program:
+                type: string
+                description: binary to build
+            features:
+                type: string
+                description: features to enable for build
+                # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml,api/node/Cargo.toml, and api/python/slint/Cargo.toml
+                default: "backend-linuxkms-noseat,backend-winit,renderer-femtovg,renderer-skia,renderer-software"
+            codesign:
+                type: boolean
+                description: Sign binaries on macOS
+                default: true
+            ios:
+                type: boolean
+                description: Also build an unsigned iOS archive (.xcarchive) of the viewer
+                default: false
+        secrets:
+            certificate:
+                description: "certificate secret"
+                required: false
+            certificate_password:
+                description: "certificate password"
+                required: false
+            keychain_password:
+                description: "keychain password to use"
+                required: false
+            developer_id:
+                description: "developer id to use"
+                required: false
+
+env:
+    MACOSX_DEPLOYMENT_TARGET: "11.0"
+    SLINT_BUILD_NUMBER: ${{ github.run_number }}
+    # Use fat LTO for distributed binaries: smaller size and better runtime perf.
+    # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+    CARGO_PROFILE_RELEASE_LTO: "fat"
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+
+# Note: Make sure to always use the full Rust target name as suffix for the generated artifacts.
+# This way tools like `cargo binstall` can detect the binaries automatically from the release artifacts.
+jobs:
+    build_windows:
+        strategy:
+            matrix:
+                arch: [x86_64-pc-windows-msvc, aarch64-pc-windows-msvc]
+                include:
+                  - arch: x86_64-pc-windows-msvc
+                    runner: windows-2022
+                  - arch: aarch64-pc-windows-msvc
+                    runner: windows-11-arm
+
+        runs-on: ${{ matrix.runner}}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: ${{ matrix.arch }}
+            - name: Build
+              run: cargo build --verbose --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
+            - name: Create artifact directory
+              run: |
+                  mkdir pkg
+                  cd pkg
+                  mkdir slint-${{ github.event.inputs.program || inputs.program }}
+                  cd slint-${{ github.event.inputs.program || inputs.program }}
+                  cp ..\..\target/release/slint-${{ github.event.inputs.program || inputs.program }}.exe ./
+                  cd ..
+                  cd ..
+                  cd tools\${{ github.event.inputs.program || inputs.program }}
+                  bash -x ../../scripts/prepare_binary_package.sh ..\..\pkg\slint-${{ github.event.inputs.program || inputs.program }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }}
+            - name: Create archive
+              shell: powershell
+              run: |
+                  cd pkg
+                  Compress-Archive -Path slint-${{ github.event.inputs.program || inputs.program }}\* -Destination ..\slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.arch }}.zip
+            - name: Upload artifact
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.arch }}
+                  path: |
+                      slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.arch }}.zip
+
+    build_linux:
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: x86_64-unknown-linux-gnu
+            - name: Build
+              run: cargo build --verbose --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
+            - name: Create artifact directory
+              run: |
+                  mkdir -p slint-${{ github.event.inputs.program || inputs.program }}
+                  cp target/release/slint-${{ github.event.inputs.program || inputs.program }} slint-${{ github.event.inputs.program || inputs.program }}/
+                  cd tools/${{ github.event.inputs.program || inputs.program }}
+                  ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }}
+            - name: Tar artifacts to preserve permissions
+              run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-x86_64-unknown-linux-gnu.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
+            - name: Upload artifact
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-${{ github.event.inputs.program || inputs.program }}-x86_64-unknown-linux-gnu
+                  path: slint-${{ github.event.inputs.program || inputs.program }}-x86_64-unknown-linux-gnu.tar.gz
+
+    build_linux_arm:
+      runs-on: ubuntu-22.04
+      strategy:
+        matrix:
+            target:
+                - armv7-unknown-linux-gnueabihf
+                - aarch64-unknown-linux-gnu
+      steps:
+          - uses: actions/checkout@v7
+          - uses: ./.github/actions/setup-rust
+            with:
+                target: x86_64-unknown-linux-gnu
+          - uses: baptiste0928/cargo-install@v3
+            with:
+                crate: cross
+          - name: Build
+            run: cross build --target=${{ matrix.target }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
+          - name: Create artifact directory
+            run: |
+                mkdir -p slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}
+                cp target//${{ matrix.target }}/release/slint-${{ github.event.inputs.program || inputs.program }} slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}/
+                cd tools/${{ github.event.inputs.program || inputs.program }}
+                ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }}
+          - name: Tar artifacts to preserve permissions
+            run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}.tar.gz slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}
+          - name: Upload artifact
+            uses: actions/upload-artifact@v7
+            with:
+                name: slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}
+                path: slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}.tar.gz
+
+    build_macos:
+        runs-on: macos-26
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: x86_64-apple-darwin
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-apple-darwin
+            - name: Build x86-64
+              run: cargo build --verbose --target x86_64-apple-darwin --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
+            - name: Build aarch64
+              run: cargo build --verbose --target aarch64-apple-darwin --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
+            - name: Create artifact directory
+              run: |
+                  mkdir -p slint-${{ github.event.inputs.program || inputs.program }}
+                  cd slint-${{ github.event.inputs.program || inputs.program }}
+                  lipo -create -output ./slint-${{ github.event.inputs.program || inputs.program }} ../target/aarch64-apple-darwin/release/slint-${{ github.event.inputs.program || inputs.program }} ../target/x86_64-apple-darwin/release/slint-${{ github.event.inputs.program || inputs.program }}
+                  install_name_tool -add_rpath @executable_path/. ./slint-${{ github.event.inputs.program || inputs.program }}
+                  cd ..
+                  cd tools/${{ github.event.inputs.program || inputs.program }}
+                  ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }}
+            - uses: ./.github/actions/codesign
+              if: ${{ github.event.inputs.codesign == 'true' }}
+              with:
+                  binary: slint-${{ github.event.inputs.program || inputs.program }}/slint-${{ github.event.inputs.program || inputs.program }}
+                  certificate: ${{ github.event.inputs.certificate }}
+                  certificate_password: ${{ github.event.inputs.certificate_password }}
+                  keychain_password: ${{ github.event.inputs.keychain_password }}
+                  developer_id: ${{ github.event.inputs.developer_id }}
+            - name: Tar artifacts to preserve permissions
+              run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
+            - name: Upload artifact
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin
+                  path: slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin.tar.gz

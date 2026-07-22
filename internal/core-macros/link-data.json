@@ -1,0 +1,344 @@
+{
+    "AccessibleProperties": {
+        "href": "reference/common/#accessibility-properties"
+    },
+    "AnimationRef": {
+        "href": "reference/primitive-types/#animation"
+    },
+    "AnimationTick": {
+        "href": "reference/global-functions/builtinfunctions/#animation-tick---duration"
+    },
+    "angle": {
+        "href": "reference/primitive-types/#angle"
+    },
+    "bool": {
+        "href": "reference/primitive-types/#bool"
+    },
+    "brush": {
+        "href": "reference/primitive-types/#brush"
+    },
+    "BuiltInMouseCursor": {
+        "href": "reference/global-structs-enums/#builtinmousecursor"
+    },
+    "BorderRadiusRectangle": {
+        "href": "reference/elements/rectangle/#border-radius-properties"
+    },
+    "cache-rendering-hint": {
+        "href": "reference/common/#cache-rendering-hint"
+    },
+    "ColorsRef": {
+        "href": "reference/colors-and-brushes/"
+    },
+    "color": {
+        "href": "reference/primitive-types/#color"
+    },
+    "DragAndDrop": {
+        "href": "guide/development/drag-and-drop/"
+    },
+    "data_transfer": {
+        "href": "reference/primitive-types/#data-transfer"
+    },
+    "DragAction": {
+        "href": "reference/global-structs-enums/#dragaction"
+    },
+    "DragArea": {
+        "href": "reference/drag-and-drop/dragarea/"
+    },
+    "DropArea": {
+        "href": "reference/drag-and-drop/droparea/"
+    },
+    "DropEvent": {
+        "href": "reference/global-structs-enums/#dropevent"
+    },
+    "ComponentLibraries": {
+        "href": "guide/language/coding/file/#component-libraries"
+    },
+    "CommonProperties": {
+        "href": "reference/common/"
+    },
+    "duration": {
+        "href": "reference/primitive-types/#duration"
+    },
+    "DebugFn": {
+        "href": "reference/global-functions/builtinfunctions/#debug"
+    },
+    "easing": {
+        "href": "reference/primitive-types/#easing"
+    },
+    "Edges": {
+        "href": "reference/global-structs-enums/#edges"
+    },
+    "EnumType": {
+        "href": "reference/global-structs-enums/"
+    },
+    "EventResult": {
+        "href": "reference/global-structs-enums/#eventresult"
+    },
+    "Expressions": {
+        "href": "guide/language/coding/expressions-and-statements/"
+    },
+    "float": {
+        "href": "reference/primitive-types/#float"
+    },
+    "FocusReason": {
+        "href": "reference/global-structs-enums/#focusreason"
+    },
+    "FocusHandling": {
+        "href": "guide/development/focus/"
+    },
+    "FontHandling": {
+        "href": "guide/development/fonts/"
+    },
+    "FontWeight": {
+        "href": "reference/global-namespaces/font-weight/"
+    },
+    "GridLayout": {
+        "href": "reference/layouts/gridlayout/"
+    },
+    "Globals": {
+        "href": "guide/language/coding/globals/"
+    },
+    "HorizontalBox": {
+        "href": "reference/std-widgets/layouts/horizontalbox/"
+    },
+    "HorizontalLayout": {
+        "href": "reference/layouts/horizontallayout/"
+    },
+    "Image": {
+        "href": "reference/elements/image/"
+    },
+    "ImageType": {
+        "href": "reference/primitive-types/#image"
+    },
+    "int": {
+        "href": "reference/primitive-types/#int"
+    },
+    "KeyEvent": {
+        "href": "reference/keyboard-input/overview/"
+    },
+    "KeyboardInput": {
+        "href": "reference/keyboard-input/overview/"
+    },
+    "KeyBindingOverview": {
+        "href": "reference/keyboard-input/overview/#key-bindings"
+    },
+    "KeyBinding": {
+        "href": "reference/keyboard-input/focusscope/#keybinding"
+    },
+    "keys": {
+        "href": "reference/primitive-types/#keys"
+    },
+    "length": {
+        "href": "reference/primitive-types/#length"
+    },
+    "ListView": {
+        "href": "reference/std-widgets/views/listview/"
+    },
+    "LineEdit": {
+        "href": "reference/std-widgets/views/lineedit/"
+    },
+    "LinuxkmsBackend": {
+        "href": "guide/backends-and-renderers/backend_linuxkms/"
+    },
+    "MenuBar": {
+        "href": "reference/window/window/#menubar"
+    },
+    "Menu": {
+        "href": "reference/window/contextmenuarea/#menu"
+    },
+    "Modules": {
+        "href": "guide/language/coding/file/#modules"
+    },
+    "Models": {
+        "href": "guide/language/coding/repetition-and-data-models/#models"
+    },
+    "MathRef": {
+        "href": "reference/global-functions/math/"
+    },
+    "MouseCursor": {
+        "href": "reference/primitive-types/#mousecursor"
+    },
+    "NumericTypes": {
+        "href": "reference/primitive-types/#numeric-types"
+    },
+    "Palette": {
+        "href": "reference/std-widgets/globals/palette/"
+    },
+    "Path": {
+        "href": "reference/elements/path/"
+    },
+    "percent": {
+        "href": "reference/primitive-types/#percent"
+    },
+    "physicalLength": {
+        "href": "reference/primitive-types/#physical-length"
+    },
+    "PopupWindow": {
+        "href": "reference/window/popupwindow/"
+    },
+    "Point": {
+        "href": "reference/global-structs-enums/#point"
+    },
+    "ProgressIndicator": {
+        "href": "reference/std-widgets/basic-widgets/progressindicator/"
+    },
+    "Purity": {
+        "href": "guide/language/concepts/reactivity/"
+    },
+    "Rectangle": {
+        "href": "reference/elements/rectangle/"
+    },
+    "relativeFontSize": {
+        "href": "reference/primitive-types/#relative-font-size"
+    },
+    "Size": {
+        "href": "reference/global-structs-enums/#size"
+    },
+    "slintFile": {
+        "href": "guide/language/coding/file/"
+    },
+    "ScrollView": {
+        "href": "reference/std-widgets/views/scrollview/"
+    },
+    "StyledText": {
+        "href": "reference/elements/styledtext/"
+    },
+    "SystemTrayIcon": {
+        "href": "reference/window/systemtrayicon/"
+    },
+    "styled_text": {
+        "href": "reference/primitive-types/#styled-text"
+    },
+    "callback": {
+        "href": "guide/language/coding/functions-and-callbacks/#callbacks"
+    },
+    "Flickable": {
+        "href": "reference/gestures/flickable/"
+    },
+    "StandardButton": {
+        "href": "reference/std-widgets/basic-widgets/standardbutton/"
+    },
+    "StringType": {
+        "href": "reference/primitive-types/#string"
+    },
+    "StructType": {
+        "href": "reference/global-structs-enums/"
+    },
+    "StyleWidgets": {
+        "href": "reference/std-widgets/style/"
+    },
+    "StyleMetrics": {
+        "href": "reference/std-widgets/globals/stylemetrics/"
+    },
+    "Text": {
+        "href": "reference/elements/text/"
+    },
+    "TextEdit": {
+        "href": "reference/std-widgets/views/textedit/"
+    },
+    "TextInput": {
+        "href": "reference/keyboard-input/textinput/"
+    },
+    "TouchArea": {
+        "href": "reference/gestures/toucharea/"
+    },
+    "Timer": {
+        "href": "reference/timer/"
+    },
+    "Types": {
+        "href": "reference/primitive-types/"
+    },
+    "NumberStringConversion": {
+        "href": "reference/primitive-types/#converting-between-numbers-and-strings"
+    },
+    "VerticalBox": {
+        "href": "reference/std-widgets/layouts/verticalbox/"
+    },
+    "VerticalLayout": {
+        "href": "reference/layouts/verticallayout/"
+    },
+    "VSCode": {
+        "href": "guide/tooling/vscode/"
+    },
+    "QtBackend": {
+        "href": "guide/backends-and-renderers/backend_qt/"
+    },
+    "Platform": {
+        "href": "reference/platform/"
+    },
+    "Platform.decimal-separator": {
+        "href": "reference/platform/#decimal-separator"
+    },
+    "Window": {
+        "href": "reference/window/window/"
+    },
+    "Window.safe-area-insets": {
+        "href": "reference/window/window/#safe-area-insets"
+    },
+    "Window.virtual-keyboard-position": {
+        "href": "reference/window/window/#virtual-keyboard-position"
+    },
+    "Window.virtual-keyboard-size": {
+        "href": "reference/window/window/#virtual-keyboard-size"
+    },
+    "WinitBackend": {
+        "href": "guide/backends-and-renderers/backend_winit/"
+    },
+    "translations": {
+        "href": "guide/development/translations/"
+    },
+    "backends_and_renderers": {
+        "href": "guide/backends-and-renderers/backends_and_renderers/"
+    },
+    "skia_renderer": {
+        "href": "guide/backends-and-renderers/backends_and_renderers/#skia-renderer"
+    },
+    "globals": {
+        "href": "guide/language/coding/globals/"
+    },
+    "quickstart": {
+        "href": "tutorial/quickstart/"
+    },
+    "getting_started": {
+        "href": "tutorial/getting_started/"
+    },
+    "modules": {
+        "href": "guide/language/coding/file/#modules"
+    },
+    "ManualEditorSetup": {
+        "href": "guide/tooling/manual-setup/"
+    },
+    "Kate": {
+        "href": "guide/tooling/kate/"
+    },
+    "QtCreator": {
+        "href": "guide/tooling/qt-creator/"
+    },
+    "Helix": {
+        "href": "guide/tooling/helix/"
+    },
+    "NeoVim": {
+        "href": "guide/tooling/neo-vim/"
+    },
+    "SublimeText": {
+        "href": "guide/tooling/sublime-text/"
+    },
+    "JetBrains": {
+        "href": "guide/tooling/jetbrains-ide/"
+    },
+    "Zed": {
+        "href": "guide/tooling/zed/"
+    },
+    "SlintLSP": {
+        "href": "guide/tooling/manual-setup/#slint-lsp"
+    },
+    "SlintViewer": {
+        "href": "guide/tooling/slint-viewer/"
+    },
+    "KateSyntaxHighlighting": {
+        "href": "guide/tooling/kate/#syntax-highlighting"
+    },
+    "index": {
+        "href": ""
+    }
+}

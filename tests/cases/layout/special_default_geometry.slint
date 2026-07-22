@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that the default geometry is taken from the right parent, even when some
+//of visible or opacity or so are set
+
+export component TestCase  {
+    in property <bool> condition: true;
+    Rectangle {
+        width: 10px;
+        height: 20px;
+
+        invisible := Rectangle {
+            visible: condition;
+            background: blue;
+        }
+
+        opaque := Rectangle {
+            opacity: 0.5;
+            background: red;
+        }
+
+        clipped := Rectangle {
+            clip: condition;
+            background: yellow;
+        }
+
+        shadowed := Rectangle {
+            drop-shadow-color: #00000054;
+            drop-shadow-blur: 8px;
+            background: pink;
+        }
+
+        all := Rectangle {
+            visible: condition;
+            clip: condition;
+            opacity: 0.2;
+            drop-shadow-color: #00000054;
+            drop-shadow-blur: 8px;
+            background: orange;
+        }
+
+    }
+
+    out property <bool> test:
+        invisible.width == 10px && invisible.height == 20px &&
+        opaque.width == 10px && opaque.height == 20px &&
+        clipped.width == 10px && clipped.height == 20px &&
+        shadowed.width == 10px && shadowed.height == 20px &&
+        all.width == 10px && all.height == 20px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

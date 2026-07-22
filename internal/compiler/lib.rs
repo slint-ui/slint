@@ -1,0 +1,435 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore inlines namedreference pathutils
+#![doc = include_str!("README.md")]
+#![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+// It would be nice to keep the compiler free of unsafe code
+#![deny(unsafe_code)]
+
+#[cfg(feature = "proc_macro_span")]
+extern crate proc_macro;
+
+use core::future::Future;
+use core::pin::Pin;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+
+pub mod builtin_macros;
+pub mod data_uri;
+pub mod diagnostics;
+pub mod doc_comments;
+pub mod embedded_resources;
+pub mod expression_tree;
+pub mod fileaccess;
+pub mod generator;
+pub mod langtype;
+pub mod layout;
+pub mod lexer;
+pub mod literals;
+pub mod llr;
+pub(crate) mod load_builtins;
+pub mod lookup;
+pub mod namedreference;
+pub mod object_tree;
+pub mod parser;
+pub mod pathutils;
+pub mod symbol_counters;
+#[cfg(feature = "bundle-translations")]
+pub mod translations;
+pub mod typeloader;
+pub mod typeregister;
+
+pub mod passes;
+
+use crate::generator::OutputFormat;
+use std::path::Path;
+
+/// Specify how the resources are embedded by the compiler
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EmbedResourcesKind {
+    /// Embeds nothing (only useful for interpreter)
+    Nothing,
+    /// Only embed builtin resources (such as widget assets shipped with Slint).
+    ///
+    /// User resources are loaded from their absolute path at run-time.
+    OnlyBuiltinResources,
+    /// Don't embed resources, but list them in the Document as if they were embedded.
+    ///
+    /// Used by tools such as the LSP that need to know about all resources without embedding them.
+    ListAllResources,
+    /// Embed the content of all image resources in the binary as-is (a compressed PNG stays
+    /// compressed), to be decoded at run-time.
+    EmbedAllResources,
+    #[cfg(feature = "renderer-software")]
+    /// Pre-process images and fonts at compile time and embed them as uncompressed pixel data,
+    /// ready to be drawn by the software renderer without any decoding at run-time.
+    ///
+    /// Useful for MCUs with no file system and little RAM.
+    /// Only the Slint software renderer can use these resources; Skia and FemtoVG can't.
+    EmbedTextures,
+}
+
+/// This enum specifies the default translation context when no context is explicitly
+/// specified in the `@tr("context" => ...)` macro.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum DefaultTranslationContext {
+    /// The default translation context is the component name in which the `@tr` is written.
+    ///
+    /// This is the default behavior of `slint-tr-extractor`.
+    ComponentName,
+    /// Opt out of the default translation context.
+    ///
+    /// When using this option, invoke `slint-tr-extractor` with `--no-default-translation-context`
+    /// to make sure that the translation files have no context for strings which didn't specify a context.
+    None,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
+#[non_exhaustive]
+pub enum ComponentSelection {
+    /// All components that inherit from Window.
+    ///
+    /// Note: Components marked for export but lacking Window inheritance are not selected (this will produce a warning),
+    /// For compatibility reason, the last exported component is still selected even if it doesn't inherit Window,
+    /// and if no component is exported, the last component is selected
+    #[default]
+    ExportedWindows,
+
+    /// The Last component (legacy for the viewer / interpreter)
+    ///
+    /// Only the last exported component is generated, regardless if this is a Window or not,
+    /// (and it will be transformed in a Window)
+    LastExported,
+
+    /// The component with the given name is generated
+    Named(String),
+}
+
+/// Type alias for the callback to open files mentioned in `import` statements
+///
+/// This is a dyn-compatible version of:
+///
+/// ```ignore
+/// async fn(String) -> Option<std::io::Result<String>>
+/// ```
+///
+/// Unfortunately AsyncFn is not dyn-compatible yet.
+pub type OpenImportCallback =
+    Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>;
+pub type ResourceUrlMapper =
+    Rc<dyn Fn(&url::Url) -> Pin<Box<dyn Future<Output = Option<url::Url>>>>>;
+
+/// CompilationConfiguration allows configuring different aspects of the compiler.
+#[derive(Clone)]
+pub struct CompilerConfiguration {
+    /// Indicate whether to embed resources such as images in the generated output or whether
+    /// to retain references to the resources on the file system.
+    pub embed_resources: EmbedResourcesKind,
+    /// Whether to use SDF when pre-rendering fonts.
+    #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
+    pub use_sdf_fonts: bool,
+    /// The compiler will look in these paths for components used in the file to compile.
+    pub include_paths: Vec<std::path::PathBuf>,
+    /// The compiler will look in these paths for library imports.
+    pub library_paths: HashMap<String, std::path::PathBuf>,
+    /// the name of the style. (eg: "native")
+    pub style: Option<String>,
+
+    /// Callback to load import files
+    ///
+    /// The callback should open the file specified by the given file name and
+    /// return a future that provides the text content of the file as output.
+    pub open_import_callback: Option<OpenImportCallback>,
+    /// Callback to map URLs for resources
+    ///
+    /// The function takes the url and returns the mapped URL (or None if not mapped)
+    pub resource_url_mapper: Option<ResourceUrlMapper>,
+
+    /// Run the pass that inlines all the elements.
+    ///
+    /// This may help optimization to optimize the runtime resources usages,
+    /// but at the cost of much more generated code and binary size.
+    pub inline_all_elements: bool,
+
+    /// Compile time scale factor to apply to embedded resources such as images and glyphs.
+    /// It will also be set as a const scale factor on the `slint::Window`.
+    pub const_scale_factor: Option<f32>,
+
+    /// Whether image sizes are known when a compiled component is instantiated.
+    /// This is false when the generated code may run on the web, where the browser
+    /// decodes images asynchronously and the size updates once an image is loaded,
+    /// so that expressions using an image size stay in bindings.
+    pub const_image_sizes: bool,
+
+    /// expose the accessible role and properties
+    pub accessibility: bool,
+
+    /// Add support for experimental features
+    pub enable_experimental: bool,
+
+    /// The domain used as one of the parameter to the translate function
+    pub translation_domain: Option<String>,
+    /// When Some, this is the path where the translations are looked at to bundle the translations
+    #[cfg(feature = "bundle-translations")]
+    pub translation_path_bundle: Option<std::path::PathBuf>,
+    /// Default translation context
+    pub default_translation_context: DefaultTranslationContext,
+
+    /// Do not generate the hook to create native menus
+    pub no_native_menu: bool,
+
+    /// C++ namespace
+    pub cpp_namespace: Option<String>,
+
+    /// When true, fail the build when a binding loop is detected with a window layout property
+    /// (otherwise this is a compatibility warning)
+    pub error_on_binding_loop_with_window_layout: bool,
+
+    /// Generate debug information for elements (ids, type names)
+    pub debug_info: bool,
+
+    /// Generate debug hooks to inspect/override properties.
+    pub debug_hooks: Option<std::hash::RandomState>,
+
+    pub components_to_generate: ComponentSelection,
+
+    /// The name of the library when compiling as a library.
+    pub library_name: Option<String>,
+
+    /// Specify the Rust module to place the generated code in.
+    pub rust_module: Option<String>,
+
+    /// Set automatically when the output format is `SlintSc`.
+    /// The compiler rejects all features not supported by the
+    /// safety-critical subset.
+    #[cfg(feature = "slint-sc")]
+    pub(crate) slint_sc: bool,
+}
+
+impl CompilerConfiguration {
+    pub fn new(output_format: OutputFormat) -> Self {
+        let embed_resources = if std::env::var_os("SLINT_EMBED_TEXTURES").is_some()
+            || std::env::var_os("DEP_MCU_BOARD_SUPPORT_MCU_EMBED_TEXTURES").is_some()
+        {
+            #[cfg(not(feature = "renderer-software"))]
+            panic!(
+                "the renderer-software feature must be enabled in i-slint-compiler when embedding textures"
+            );
+            #[cfg(feature = "renderer-software")]
+            EmbedResourcesKind::EmbedTextures
+        } else if let Ok(var) = std::env::var("SLINT_EMBED_RESOURCES") {
+            let var = var.parse::<bool>().unwrap_or_else(|_|{
+                panic!("SLINT_EMBED_RESOURCES has incorrect value. Must be either unset, 'true' or 'false'")
+            });
+            match var {
+                true => EmbedResourcesKind::EmbedAllResources,
+                false => EmbedResourcesKind::OnlyBuiltinResources,
+            }
+        } else {
+            match output_format {
+                #[cfg(feature = "rust")]
+                OutputFormat::Rust => EmbedResourcesKind::EmbedAllResources,
+                OutputFormat::Interpreter => EmbedResourcesKind::Nothing,
+                _ => EmbedResourcesKind::OnlyBuiltinResources,
+            }
+        };
+
+        let inline_all_elements = match std::env::var("SLINT_INLINING") {
+            Ok(var) => var.parse::<bool>().unwrap_or_else(|_| {
+                panic!(
+                    "SLINT_INLINING has incorrect value. Must be either unset, 'true' or 'false'"
+                )
+            }),
+            // Currently, the interpreter needs the inlining to be on.
+            Err(_) => output_format == OutputFormat::Interpreter,
+        };
+
+        let const_scale_factor = std::env::var("SLINT_SCALE_FACTOR")
+            .ok()
+            .and_then(|x| x.parse::<f32>().ok())
+            .filter(|f| *f > 0.);
+
+        let const_image_sizes = match std::env::var("CARGO_CFG_TARGET_FAMILY") {
+            // Set by cargo when running in a build script (slint-build): the target is known.
+            Ok(target_family) => !target_family.split(',').any(|f| f == "wasm"),
+            // The target is unknown (slint! macro, C++). The interpreter compiles for the
+            // architecture it runs on; otherwise assume the code may run on the web.
+            Err(_) => output_format == OutputFormat::Interpreter && !cfg!(target_family = "wasm"),
+        };
+
+        let enable_experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
+
+        let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
+
+        #[cfg(feature = "slint-sc")]
+        let slint_sc = matches!(output_format, OutputFormat::SlintSc);
+
+        let cpp_namespace = match output_format {
+            #[cfg(feature = "cpp")]
+            OutputFormat::Cpp(config) => match config.namespace {
+                Some(namespace) => Some(namespace),
+                None => std::env::var("SLINT_CPP_NAMESPACE").ok(),
+            },
+            _ => None,
+        };
+
+        let style = std::env::var("SLINT_STYLE").ok();
+
+        Self {
+            embed_resources,
+            include_paths: Default::default(),
+            library_paths: Default::default(),
+            style,
+            open_import_callback: None,
+            resource_url_mapper: None,
+            inline_all_elements,
+            const_scale_factor,
+            const_image_sizes,
+            accessibility: true,
+            enable_experimental,
+            translation_domain: None,
+            default_translation_context: DefaultTranslationContext::ComponentName,
+            no_native_menu: false,
+            cpp_namespace,
+            error_on_binding_loop_with_window_layout: false,
+            debug_info,
+            debug_hooks: None,
+            components_to_generate: ComponentSelection::ExportedWindows,
+            #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
+            use_sdf_fonts: false,
+            #[cfg(feature = "bundle-translations")]
+            translation_path_bundle: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
+                .ok()
+                .map(|x| x.into()),
+            library_name: None,
+            rust_module: None,
+            #[cfg(feature = "slint-sc")]
+            slint_sc,
+        }
+    }
+}
+
+/// Prepare for compilation of the source file
+/// - storing parser configuration
+/// - setting up the parser
+fn prepare_for_compile(
+    diagnostics: &mut diagnostics::BuildDiagnostics,
+    #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
+) -> typeloader::TypeLoader {
+    #[cfg(feature = "renderer-software")]
+    if compiler_config.embed_resources == EmbedResourcesKind::EmbedTextures {
+        // HACK: disable accessibility when compiling for the software renderer
+        // accessibility is not supported with backend that support software renderer anyway
+        compiler_config.accessibility = false;
+    }
+
+    diagnostics.enable_experimental = compiler_config.enable_experimental;
+    #[cfg(feature = "slint-sc")]
+    {
+        diagnostics.slint_sc = compiler_config.slint_sc;
+    }
+
+    typeloader::TypeLoader::new(compiler_config, diagnostics)
+}
+
+pub async fn compile_syntax_node(
+    doc_node: parser::SyntaxNode,
+    mut diagnostics: diagnostics::BuildDiagnostics,
+    #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
+) -> (object_tree::Document, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
+    let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
+
+    let doc_node: parser::syntax_nodes::Document = doc_node.into();
+
+    let type_registry =
+        Rc::new(RefCell::new(typeregister::TypeRegister::new(&loader.global_type_registry)));
+    let (foreign_imports, reexports) =
+        loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
+
+    let ignore_missing_font_files = loader.compiler_config.resource_url_mapper.is_some();
+    let mut doc = crate::object_tree::Document::from_node(
+        doc_node,
+        foreign_imports,
+        reexports,
+        &mut diagnostics,
+        &type_registry,
+        ignore_missing_font_files,
+        &loader.symbol_counters,
+    );
+
+    if !diagnostics.has_errors() {
+        passes::run_passes(&mut doc, &mut loader, false, &mut diagnostics).await;
+    } else {
+        // Don't run all the passes in case of errors because because some invariants are not met.
+        passes::run_import_passes(&doc, &loader, &mut diagnostics);
+    }
+    (doc, diagnostics, loader)
+}
+
+/// Pass a file to the compiler and process it fully, applying all the
+/// necessary compilation passes.
+///
+/// This returns a `Tuple` containing the actual cleaned `path` to the file,
+/// a set of `BuildDiagnostics` and a `TypeLoader` with all compilation passes applied.
+pub async fn load_root_file(
+    path: &Path,
+    source_path: &Path,
+    source_code: String,
+    mut diagnostics: diagnostics::BuildDiagnostics,
+    #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
+) -> (std::path::PathBuf, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
+    let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
+
+    let (path, _) =
+        loader.load_root_file(path, source_path, source_code, false, &mut diagnostics).await;
+
+    (path, diagnostics, loader)
+}
+
+/// Pass a file to the compiler and process it fully, applying all the
+/// necessary compilation passes, just like `load_root_file`.
+///
+/// This returns a `Tuple` containing the actual cleaned `path` to the file,
+/// a set of `BuildDiagnostics`, a `TypeLoader` with all compilation passes
+/// applied and another `TypeLoader` with a minimal set of passes applied to it.
+pub async fn load_root_file_with_raw_type_loader(
+    path: &Path,
+    source_path: &Path,
+    source_code: String,
+    mut diagnostics: diagnostics::BuildDiagnostics,
+    #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
+) -> (
+    std::path::PathBuf,
+    diagnostics::BuildDiagnostics,
+    typeloader::TypeLoader,
+    Option<typeloader::TypeLoader>,
+) {
+    let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
+
+    let (path, raw_type_loader) =
+        loader.load_root_file(path, source_path, source_code, true, &mut diagnostics).await;
+
+    (path, diagnostics, loader, raw_type_loader)
+}
+
+/// Returns true and emits an error if experimental features should be disabled.
+///
+/// Some experimental features are used internally which is why this function also checks
+/// `TypeRegister::expose_internal_types`.
+fn reject_experimental_feature(
+    diagnostics: &mut diagnostics::BuildDiagnostics,
+    type_register: &typeregister::TypeRegister,
+    feature: &str,
+    source: &dyn diagnostics::Spanned,
+) -> bool {
+    if !diagnostics.enable_experimental && !type_register.expose_internal_types {
+        diagnostics.push_error(format!("'{feature}' is an experimental feature"), source);
+        true
+    } else {
+        false
+    }
+}

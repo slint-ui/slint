@@ -1,0 +1,82 @@
+{
+    "root": true,
+    "extends": [
+        "../../../biome.json",
+        "../../../docs/common/biome-starlight-shared.json"
+    ],
+    "formatter": {
+        "includes": [
+            "**",
+            "!**/archive/**",
+            "!**/.astro",
+            "!**/dist",
+            "!**/codemirror.js",
+            "!**/playwright-report/**"
+        ],
+        "enabled": true,
+        "formatWithErrors": false,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineEnding": "lf",
+        "attributePosition": "auto"
+    },
+    "linter": {
+        "includes": [
+            "**",
+            "!**/archive/**",
+            "!**/.astro",
+            "!**/dist",
+            "!**/codemirror.js",
+            "!**/playwright-report/**"
+        ],
+        "rules": {
+            "preset": "none",
+            "complexity": {
+                "noBannedTypes": "warn",
+                "noUselessConstructor": "error",
+                "useArrowFunction": "off"
+            },
+            "style": {
+                "useBlockStatements": "warn",
+                "noUselessElse": "off",
+                "useConst": "error",
+                "useImportType": "error",
+                "useNodejsImportProtocol": "error"
+            },
+            "suspicious": {
+                "noDoubleEquals": "error",
+                "noRedundantUseStrict": "warn",
+                "noImplicitAnyLet": "error"
+            }
+        }
+    },
+    "javascript": {
+        "formatter": {
+            "jsxQuoteStyle": "double",
+            "quoteProperties": "asNeeded",
+            "semicolons": "always",
+            "bracketSpacing": true,
+            "bracketSameLine": false,
+            "quoteStyle": "double",
+            "attributePosition": "auto"
+        }
+    },
+    "css": {
+        "parser": {
+            "tailwindDirectives": true
+        }
+    },
+    "overrides": [
+        {
+            "includes": ["**/*.astro"],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "useConst": "off",
+                        "useImportType": "off"
+                    }
+                }
+            }
+        }
+    ]
+}

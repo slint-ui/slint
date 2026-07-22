@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0 -->
+
+<plist version="1.0">
+<dict>
+   <key>name</key>
+   <string>Miscellaneous</string>
+   <key>scope</key>
+   <string>source.slint</string>
+   <key>settings</key>
+   <dict>
+      <key>shellVariables</key>
+      <array>
+         <dict>
+            <key>name</key>
+            <string>TM_COMMENT_START</string>
+            <key>value</key>
+            <string>// </string>
+         </dict>
+         <dict>
+            <key>name</key>
+            <string>TM_COMMENT_START_2</string>
+            <key>value</key>
+            <string>/*</string>
+         </dict>
+         <dict>
+            <key>name</key>
+            <string>TM_COMMENT_END_2</string>
+            <key>value</key>
+            <string>*/</string>
+         </dict>
+      </array>
+   </dict>
+</dict>
+</plist>

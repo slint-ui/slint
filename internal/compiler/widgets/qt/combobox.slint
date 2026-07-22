@@ -1,0 +1,139 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ComboBoxBase } from "../common/combobox-base.slint";
+import { ScrollView } from "./scrollview.slint";
+
+export component ComboBox {
+    in property <[string]> model <=> base.model;
+    in property <bool> enabled <=> base.enabled;
+    out property <bool> has-focus <=> base.has-focus;
+    in-out property <int> current-index <=> base.current-index;
+    in-out property <string> current-value <=> base.current-value;
+
+    callback selected <=> base.selected;
+
+    property <int> visible-items: min(6, model.length);
+    property <length> popup-scroll-y: -max(0, root.current-index - root.visible-items + 1) * 2rem;
+
+    accessible-role: combobox;
+    accessible-enabled: root.enabled;
+    accessible-expandable: true;
+    accessible-expanded: base.popup-has-focus;
+    accessible-value <=> root.current-value;
+    accessible-action-expand => {
+        base.show-popup();
+    }
+    forward-focus: base;
+
+    HorizontalLayout {
+        native := NativeComboBox {
+            current-value <=> root.current-value;
+            has-focus <=> root.has-focus;
+            enabled <=> root.enabled;
+        }
+    }
+
+    base := ComboBoxBase {
+        width: 100%;
+        height: 100%;
+        show-popup => {
+            if model.length <= root.visible-items {
+                small-popup.show();
+            } else {
+                big-popup.show();
+            }
+        }
+        close-popup => {
+            small-popup.close();
+            big-popup.close();
+        }
+    }
+
+    big-popup := PopupWindow {
+        x: 0;
+        y: root.height;
+        width: root.width;
+        height: root.visible-items * 2rem;
+        close-policy: close-on-click-outside;
+        forward-focus: inner-fs;
+
+        NativeComboBoxPopup {
+            width: 100%;
+            height: 100%;
+        }
+
+        inner-fs := FocusScope {
+            focus-changed-event => {
+                base.popup-has-focus = self.has-focus;
+            }
+            key-pressed(event) => {
+                return base.popup-key-handler(event);
+            }
+
+            ScrollView {
+                viewport-y: root.popup-scroll-y;
+                VerticalLayout {
+                    alignment: start;
+
+                    for value[index] in root.model: NativeStandardListViewItem {
+                        item: { text: value };
+                        is-selected: root.current-index == index;
+                        has-hover: ta2.has-hover;
+                        combobox: true;
+
+                        ta2 := TouchArea {
+                            clicked => {
+                                base.select(index);
+                                big-popup.close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    small-popup := PopupWindow {
+        x: 0;
+        y: root.height;
+        width: root.width;
+        close-policy: close-on-click-outside;
+        NativeComboBoxPopup {
+            width: 100%;
+            height: 100%;
+        }
+
+        FocusScope {
+            init => {
+                self.focus();
+                base.popup-has-focus = true;
+            }
+            changed has-focus => {
+                base.popup-has-focus = self.has-focus;
+            }
+            key-pressed(event) => {
+                return base.popup-key-handler(event);
+            }
+
+            VerticalLayout {
+
+                for value[index] in root.model: NativeStandardListViewItem {
+                    item: { text: value };
+                    is-selected: root.current-index == index;
+                    has-hover: ta.has-hover;
+                    combobox: true;
+
+                    ta := TouchArea {
+                        clicked => {
+                            base.select(index);
+                            small-popup.close();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+}
+

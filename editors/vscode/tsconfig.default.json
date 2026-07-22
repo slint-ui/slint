@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+        "resolveJsonModule": true,
+        "composite": true,
+        "declaration": true,
+        "declarationMap": true,
+        "lib": ["es2021"],
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "outDir": "./out",
+        "rootDir": ".",
+        "skipLibCheck": true,
+        "strict": true,
+        "target": "es6",
+        "typeRoots": ["./node_modules/@types", "../../node_modules/@types"]
+    }
+}

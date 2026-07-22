@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+ TestCase := Rectangle {
+    property<angle> t1: acos(0);
+    property<angle> t2: acos(0.5);
+    property<angle> t3: acos(1);
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(std::abs(instance.get_t1() - 90.0) < 0.0001);
+assert(std::abs(instance.get_t2() - 60.0) < 0.0001);
+assert(std::abs(instance.get_t3()) < 0.0001);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!((instance.get_t1() - 90.0).abs() < 0.0001);
+assert!((instance.get_t2() - 60.0).abs() < 0.0001);
+assert!(instance.get_t3().abs() < 0.0001);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(Math.abs(instance.t1 - 90) < 0.0001);
+assert(Math.abs(instance.t2 - 60) < 0.0001);
+assert(Math.abs(instance.t3) < 0.0001);
+```
+*/

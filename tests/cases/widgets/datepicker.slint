@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { DatePickerPopup, Date, Button } from "std-widgets.slint";
+export { Date }
+
+export component TestCase inherits Window {
+    in-out property <bool> datepicker-created;
+    width: 600px;
+    height: 600px;
+
+    d := DatePickerPopup {
+        x: 0;
+        y: 0;
+        date: root.date;
+
+        accepted(date) => {
+            root.result-date = date;
+        }
+
+        init => {
+            root.datepicker-created = true;
+        }
+    }
+
+    b := Button {
+        clicked => { d.show(); }
+    }
+
+    in property <Date> date;
+    out property <Date> result-date;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+
+instance.set_date(Date{ day: 17, month: 5, year: 2024});
+
+let mut result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::b").collect::<Vec<_>>();
+assert_eq!(result.len(), 1);
+let button = result.pop().unwrap();
+
+button.invoke_accessible_default_action();
+assert_eq!(instance.get_datepicker_created(), true);
+```
+*/

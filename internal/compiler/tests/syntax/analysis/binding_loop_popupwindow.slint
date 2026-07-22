@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Issue #8889
+// There shouldn't be error or warnings in this case
+
+
+component MyPopup inherits PopupWindow {
+    property <length> first_column_width: 0.3 * root.width;
+
+    height: 400px;
+    width: 600px;
+
+    header := HorizontalLayout {
+        padding_left: root.first_column_width;
+    }
+}
+
+export component Test inherits Window {
+    popup := MyPopup { }
+}

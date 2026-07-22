@@ -1,0 +1,12 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// init callbacks are rejected in Slint SC mode.
+
+export component Test inherits Window {
+    init => { debug("hello"); }
+//  >error{Callback handlers are not supported in Slint SC}
+//            >            <^error{Function calls are not supported in Slint SC}
+//                  >     <^^error{String literals are not supported in Slint SC}
+}
+//<<<<error{Callback handlers are not supported in Slint SC}

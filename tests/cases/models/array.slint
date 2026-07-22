@@ -1,0 +1,329 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    in-out property<[int]> ints: [1, 2, 3, 4, 5];
+    out property<int> num_ints: ints.length;
+    out property<int> n: ints[ints[4] - ints[1]];
+    out property<int> operations: ints.length < 1 ? ints.length : ints.length + ints.length;
+    out property<[{a: [int]}]> empty_model;
+    in-out property<[{a: [int]}]> empty_model2 : [];
+    in-out property<[{a: [int]}]> empty_model3 : [{a:[]}];
+    in-out property<[[int]]> array_of_array: [ints, ints, ints, []];
+    out property <[int]> empty_ints;
+
+    out property<bool> test: num_ints == 5 && operations == 10
+        && hello_world == (["", "world"])[1] && empty_model.length == 0 && empty_model[45].a.length == 0
+        && array_of_array[1][1] == 2 && [].length == 0 && ninth_int == 0 && minus_int == 0 && decimal_check;
+    out property<int> third_int: ints[2];
+    out property<int> ninth_int: ints[8];
+    out property<int> minus_int: ints[-1];
+    out property<bool> decimal_check: ints[-0.5] == 1 && ints[2.9] == 3 && ints[-1.3] == 0;
+    out property<string> hello_world: [{t: "hello"}, {t: "world"}][1].t;
+
+    public function push_one(val: int) { ints.push(val) }
+    public function remove_one(index: int) { ints.remove(index) }
+    public function insert_one(index: int, value: int) { ints.insert(index, value) }
+
+    public function push_one_empty(val: int) { empty_ints.push(val) }
+    public function remove_one_empty() { empty_ints.remove(0) }
+    public function insert_one_empty() { empty_ints.insert(0, 10) }
+
+    for xxx in (third_int == 0) ? ints : [] : Rectangle {}
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_num_ints(), 5);
+assert_eq(instance.get_n(), 4);
+assert_eq(instance.get_third_int(), 3);
+assert_eq(instance.get_ninth_int(), 0);
+assert_eq(instance.get_minus_int(), 0);
+assert_eq(instance.get_test(), true);
+
+auto model = std::make_shared<slint::VectorModel<int>>(std::vector<int>{1, 2, 3, 4, 5, 6, 7});
+instance.set_ints(model);
+assert_eq(instance.get_num_ints(), 7);
+assert_eq(instance.get_third_int(), 3);
+model->push_back(8);
+assert_eq(instance.get_num_ints(), 8);
+model->set_row_data(2, 100);
+assert_eq(instance.get_third_int(), 100);
+assert_eq(instance.get_ninth_int(), 0);
+assert_eq(instance.get_minus_int(), 0);
+
+model->push_back(9);
+assert_eq(instance.get_ninth_int(), 9);
+
+
+assert_eq(instance.get_hello_world(), "world");
+
+model->set_vector(std::vector<int>{1, 2, 3});
+instance.invoke_push_one(10);
+assert_eq(model->row_count(), 4);
+assert_eq(model->row_data(3).value(), 10);
+
+instance.invoke_remove_one(2);
+assert_eq(model->row_count(), 3);
+assert_eq(model->row_data(2).value(), 10);
+
+instance.invoke_insert_one(1, 20);
+assert_eq(model->row_count(), 4);
+assert_eq(model->row_data(1).value(), 20);
+
+instance.invoke_remove_one(-1);
+assert_eq(model->row_count(), 4);
+instance.invoke_remove_one(10);
+assert_eq(model->row_count(), 4);
+
+instance.invoke_insert_one(-1, 30);
+assert_eq(model->row_count(), 4);
+instance.invoke_insert_one(10, 30);
+assert_eq(model->row_count(), 4);
+
+instance.invoke_remove_one(0);
+assert_eq(model->row_count(), 3);
+assert_eq(model->row_data(0).value(), 20);
+
+instance.invoke_insert_one(0, 30);
+assert_eq(model->row_count(), 4);
+assert_eq(model->row_data(0).value(), 30);
+assert_eq(model->row_data(1).value(), 20);
+
+// `empty_ints` is an uninitialized `out` model property: in C++ it defaults to a
+// null model, so the modifying operations are no-ops and the model stays empty.
+// `model_length` handles the null model gracefully.
+auto empty_model = instance.get_empty_ints();
+assert_eq(slint::private_api::model_length(empty_model), 0);
+instance.invoke_push_one_empty(1);
+assert_eq(slint::private_api::model_length(empty_model), 0);
+assert_eq(slint::private_api::model_length(instance.get_empty_ints()), 0);
+instance.invoke_remove_one_empty();
+assert_eq(slint::private_api::model_length(instance.get_empty_ints()), 0);
+instance.invoke_insert_one_empty();
+assert_eq(slint::private_api::model_length(empty_model), 0);
+assert_eq(slint::private_api::model_length(instance.get_empty_ints()), 0);
+```
+
+
+```rust
+use slint::Model;
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_num_ints(), 5);
+assert_eq!(instance.get_n(), 4);
+assert_eq!(instance.get_third_int(), 3);
+assert_eq!(instance.get_ninth_int(), 0);
+assert_eq!(instance.get_minus_int(), 0);
+assert_eq!(instance.get_test(), true);
+
+let model: std::rc::Rc<slint::VecModel<i32>> = std::rc::Rc::new(vec![1, 2, 3, 4, 5, 6, 7].into());
+instance.set_ints(slint::ModelRc::from(model.clone()));
+assert_eq!(instance.get_num_ints(), 7);
+assert_eq!(instance.get_third_int(), 3);
+model.push(8);
+assert_eq!(instance.get_num_ints(), 8);
+model.set_row_data(2, 100);
+assert_eq!(instance.get_third_int(), 100);
+assert_eq!(instance.get_ninth_int(), 0);
+assert_eq!(instance.get_minus_int(), 0);
+
+model.push(9);
+assert_eq!(instance.get_ninth_int(), 9);
+
+
+assert_eq!(instance.get_hello_world(), slint::SharedString::from("world"));
+
+model.set_vec([1, 2, 3]);
+instance.invoke_push_one(10);
+assert_eq!(model.row_count(), 4);
+assert_eq!(model.row_data(3).unwrap(), 10);
+
+instance.invoke_remove_one(2);
+assert_eq!(model.row_count(), 3);
+assert_eq!(model.row_data(2).unwrap(), 10);
+
+instance.invoke_insert_one(1, 20);
+assert_eq!(model.row_count(), 4);
+assert_eq!(model.row_data(1).unwrap(), 20);
+
+instance.invoke_remove_one(-1);
+assert_eq!(model.row_count(), 4);
+instance.invoke_remove_one(10);
+assert_eq!(model.row_count(), 4);
+
+instance.invoke_insert_one(-1, 30);
+assert_eq!(model.row_count(), 4);
+instance.invoke_insert_one(10, 30);
+assert_eq!(model.row_count(), 4);
+
+instance.invoke_remove_one(0);
+assert_eq!(model.row_count(), 3);
+assert_eq!(model.row_data(0).unwrap(), 20);
+
+instance.invoke_insert_one(0, 30);
+assert_eq!(model.row_count(), 4);
+assert_eq!(model.row_data(0).unwrap(), 30);
+assert_eq!(model.row_data(1).unwrap(), 20);
+
+let model = instance.get_empty_ints();
+assert_eq!(model.row_count(), 0);
+instance.invoke_push_one_empty(1);
+assert_eq!(model.row_count(), 0);
+instance.invoke_remove_one_empty();
+assert_eq!(model.row_count(), 0);
+instance.invoke_insert_one_empty();
+assert_eq!(model.row_count(), 0);
+```
+
+```js
+var instance = new slint.TestCase();
+
+assert.equal(instance.num_ints, 5);
+assert.equal(instance.n, 4);
+assert.equal(instance.third_int, 3);
+assert.equal(instance.ninth_int, 0);
+assert.equal(instance.minus_int, 0);
+assert(instance.test);
+
+let model = new slintlib.ArrayModel([1, 2, 3, 4, 5, 6, 7]);
+instance.ints = model;
+assert.equal(instance.num_ints, 7);
+assert.equal(instance.third_int, 3);
+model.push(8);
+assert.equal(instance.num_ints, 8);
+model.setRowData(2, 100);
+assert.equal(instance.third_int, 100);
+assert.equal(instance.ninth_int, 0);
+assert.equal(instance.minus_int, 0);
+
+model.push(9);
+assert.equal(instance.ninth_int, 9);
+
+assert.equal(instance.hello_world, "world");
+
+model = new slintlib.ArrayModel([1, 2, 3]);
+instance.ints = model;
+
+instance.push_one(10);
+assert.equal(model.rowCount(), 4);
+assert.equal(model.rowData(3), 10);
+
+instance.remove_one(2);
+assert.equal(model.rowCount(), 3);
+assert.equal(model.rowData(2), 10);
+
+instance.insert_one(1, 20);
+assert.equal(model.rowCount(), 4);
+assert.equal(model.rowData(1), 20);
+
+instance.remove_one(-1);
+assert.equal(model.rowCount(), 4);
+instance.remove_one(10);
+assert.equal(model.rowCount(), 4);
+
+instance.insert_one(-1, 30);
+assert.equal(model.rowCount(), 4);
+instance.insert_one(10, 30);
+assert.equal(model.rowCount(), 4);
+
+instance.remove_one(0);
+assert.equal(model.rowCount(), 3);
+assert.equal(model.rowData(0), 20);
+
+instance.insert_one(0, 30);
+assert.equal(model.rowCount(), 4);
+assert.equal(model.rowData(0), 30);
+assert.equal(model.rowData(1), 20);
+
+model = instance.empty_ints;
+assert.equal(model.rowCount(), 0);
+instance.push_one_empty(1);
+assert.equal(model.rowCount(), 0);
+instance.remove_one_empty();
+assert.equal(model.rowCount(), 0);
+instance.insert_one_empty();
+assert.equal(model.rowCount(), 0);
+```
+
+////////// Test with read-only model and check for logs.
+```cpp
+// A read-only model: it doesn't override push_row/insert_row/remove_row,
+// so mutating operations coming from .slint are no-ops that only log a warning
+struct ReadOnlyModel : slint::Model<int> {
+    std::size_t row_count() const override { return 3; }
+    std::optional<int> row_data(std::size_t row) const override {
+        return row < 3 ? std::make_optional(int(10 * (row + 1))) : std::nullopt;
+    }
+};
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+auto read_only = std::make_shared<ReadOnlyModel>();
+instance.set_ints(read_only);
+assert_eq(instance.get_num_ints(), 3);
+assert_eq(instance.get_third_int(), 30);
+
+instance.invoke_push_one(40);
+assert_eq(instance.get_num_ints(), 3);
+
+instance.invoke_remove_one(0);
+assert_eq(instance.get_num_ints(), 3);
+
+instance.invoke_insert_one(1, 40);
+assert_eq(instance.get_num_ints(), 3);
+assert_eq(instance.get_third_int(), 30);
+assert_eq(read_only->row_count(), 3);
+```
+
+```rust
+// A read-only model: it doesn't re-implement push_row/insert_row/remove_row,
+// so mutating operations coming from .slint are no-ops that only log a warning
+struct ReadOnlyModel;
+impl slint::Model for ReadOnlyModel {
+    type Data = i32;
+    fn row_count(&self) -> usize { 3 }
+    fn row_data(&self, row: usize) -> Option<i32> {
+        [10, 20, 30].get(row).copied()
+    }
+    fn model_tracker(&self) -> &dyn slint::ModelTracker { &() }
+}
+
+
+let instance = TestCase::new().unwrap();
+
+let read_only = std::rc::Rc::new(ReadOnlyModel);
+instance.set_ints(slint::ModelRc::from(read_only.clone()));
+assert_eq!(instance.get_num_ints(), 3);
+assert_eq!(instance.get_third_int(), 30);
+
+// Drain any log messages emitted before invoking the three methods.
+slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+
+instance.invoke_push_one(40);
+assert_eq!(instance.get_num_ints(), 3);
+let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+assert_eq!(logs.len(), 1, "Expected one push_row log, got: {logs:?}");
+assert!(logs[0].contains("Model::push_row called on a model of type"));
+assert!(logs[0].contains("which does not re-implement this method. This happens when trying to modify a read-only model"));
+
+instance.invoke_remove_one(0);
+assert_eq!(instance.get_num_ints(), 3);
+let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+assert_eq!(logs.len(), 1, "Expected one remove_row log, got: {logs:?}");
+assert!(logs[0].contains("Model::remove_row called on a model of type"));
+assert!(logs[0].contains("which does not re-implement this method. This happens when trying to modify a read-only model"));
+
+instance.invoke_insert_one(1, 40);
+assert_eq!(instance.get_num_ints(), 3);
+assert_eq!(instance.get_third_int(), 30);
+let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+assert_eq!(logs.len(), 1, "Expected one insert_row log, got: {logs:?}");
+assert!(logs[0].contains("Model::insert_row called on a model of type"));
+assert!(logs[0].contains("which does not re-implement this method. This happens when trying to modify a read-only model"));
+```
+*/

@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CupertinoPalette, CupertinoFontSettings } from "styling.slint";
+import { MenuBarItemBase, MenuBarBase, MenuFrameBase, MenuItemBase } from "../common/menu-base.slint";
+
+export component MenuBarItem {
+    in property <MenuEntry> entry <=> base.entry;
+
+    callback clicked <=> base.clicked;
+    callback hovered <=> base.hovered;
+
+    min-width: base.min-width;
+    min-height: base.min-height;
+
+    base := MenuBarItemBase {
+        horizontal-padding: 8px;
+        default-foreground: CupertinoPalette.foreground;
+        hover-foreground: CupertinoPalette.foreground;
+        pressed-foreground: CupertinoPalette.foreground;
+        hover-background: CupertinoPalette.secondary-control-background;
+        pressed-background: CupertinoPalette.secondary-control-background;
+        font-size: 13px;
+        font-weight: FontWeight.light;
+        border-radius: 2px;
+    }
+}
+
+export component MenuBar inherits MenuBarBase {
+    horizontal-padding: 8px;
+    min-layout-height: 24px;
+}
+
+export component MenuFrame inherits MenuFrameBase {
+    border-width: 1px;
+    border-color: CupertinoPalette.border;
+    layout-min-width: 280px;
+    drop-shadow-blur: 22px;
+    drop-shadow-color: #00000066;
+    drop-shadow-offset-y: 0.5px;
+    background: CupertinoPalette.background;
+    border-radius: 6px;
+    margin: 4px;
+}
+
+export component MenuItem {
+    in property <bool> is-current <=> base.is-current;
+    in property <MenuEntry> entry <=> base.entry;
+
+    callback set-current <=> base.set-current;
+    callback clear-current <=> base.clear-current;
+    callback activate <=> base.activate;
+
+    min-height: entry.is-separator ? 5px : max(22px, base.min-height);
+    max-height: entry.is-separator ? 5px : base.max-height;
+
+    HorizontalLayout {
+        base := MenuItemBase {
+            default-foreground: CupertinoPalette.foreground;
+            alternate-foreground: CupertinoPalette.alternate-foreground;
+            current-foreground: CupertinoPalette.accent-foreground;
+            current-background: CupertinoPalette.accent-background;
+            separator-color: CupertinoPalette.border;
+            border-radius: 5px;
+            horizontal-padding: 8px;
+            spacing: 4px;
+            sub-menu-icon: @image-url("_arrow_forward.svg");
+            icon-size: 13px;
+        }
+    }
+}

@@ -1,0 +1,95 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export global Api {
+    pure callback make-data() -> data-transfer;
+    in property <DragAction> next-action: DragAction.move;
+}
+
+export component TestCase inherits Window {
+    pure callback make-data <=> Api.make-data;
+
+    width: 100px;
+    height: 200px;
+    out property <bool> dragging <=> dragger.dragging;
+    out property <DragAction> current-action <=> dropper.current-action;
+    in-out property <DragAction> last-finished: DragAction.none;
+    in-out property <int> finished-count: 0;
+
+    VerticalLayout {
+        Rectangle {
+            background: red;
+            dragger := DragArea {
+                data: Api.make-data();
+                allow-copy: false;
+                allow-move: true;
+                allow-link: false;
+                drag-finished(action) => {
+                    last-finished = action;
+                    finished-count += 1;
+                }
+            }
+        }
+        Rectangle {
+            background: blue;
+            dropper := DropArea {
+                can-drop(event) => Api.next-action;
+                dropped(event) => event.proposed-action;
+            }
+        }
+    }
+}
+
+
+/*
+```rust
+use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
+use slint::private_unstable_api::re_exports::{DragAction, MouseCursorInner, BuiltInMouseCursor};
+
+let instance = TestCase::new().unwrap();
+instance.on_make_data(|| slint::SharedString::from("payload").into());
+
+// --- Successful drag with preferred move action ---
+assert_eq!(instance.get_dragging(), false);
+assert_eq!(instance.get_current_action(), DragAction::None);
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(20.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(21.0, 40.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_dragging(), true);
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(22.0, 120.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_current_action(), DragAction::Move);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Move));
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(22.0, 120.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_dragging(), false);
+assert_eq!(instance.get_last_finished(), DragAction::Move);
+assert_eq!(instance.get_finished_count(), 1);
+
+// --- can-drop returning a disallowed action gets clamped to None ---
+instance.global::<Api<'_>>().set_next_action(DragAction::Link);  // source doesn't allow link
+instance.set_finished_count(0);
+instance.set_last_finished(DragAction::None);
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(20.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(21.0, 40.0) });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(22.0, 120.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_current_action(), DragAction::None);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::NoDrop));
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(22.0, 120.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_dragging(), false);
+assert_eq!(instance.get_last_finished(), DragAction::None);
+assert_eq!(instance.get_finished_count(), 1);
+
+```
+
+*/

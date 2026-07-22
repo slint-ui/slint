@@ -1,0 +1,157 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { AppPalette, AppFonts } from "../style/styles.slint";
+import { AppText } from "./generic.slint";
+import { WindowInfo } from "../ui_utils.slint";
+import { IconType } from "../weather_datatypes.slint";
+
+export component WeatherIconBase inherits Text {
+    color: AppPalette.foreground;
+    font-family: AppFonts.weather-icons-font-name;
+
+    horizontal-alignment: center;
+    vertical-alignment: center;
+}
+
+export component WeatherIcon inherits WeatherIconBase {
+    in property<IconType> icon-type;
+
+    pure function get-weather-icon-url(type: IconType) -> string {
+        if (type == IconType.Sunny) { return "\u{f00d}"; }
+        if (type == IconType.PartiallyCloudy) { return "\u{f002}"; }
+        if (type == IconType.MostlyCloudy) { return "\u{f041}"; }
+        if (type == IconType.Cloudy) { return "\u{f013}"; }
+        if (type == IconType.SunnyRainy) { return "\u{f008}"; }
+        if (type == IconType.Rainy) { return "\u{f015}"; }
+        if (type == IconType.Stormy) { return "\u{f01e}"; }
+        if (type == IconType.Snowy) { return "\u{f064}"; }
+        if (type == IconType.Foggy) { return "\u{f063}"; }
+
+        return "";
+    }
+
+    pure function get-weather-icon-color(type: IconType) -> color {
+        if (type == IconType.Sunny) { return AppPalette.sun-yellow; }
+
+        return AppPalette.foreground;
+    }
+
+    text: root.get-weather-icon-url(root.icon-type);
+    color: root.get-weather-icon-color(root.icon-type);
+}
+
+component DataText inherits AppText {
+    in property<bool> minimal: false;
+
+    font-size: root.minimal ? (WindowInfo.is-portrait ? 0.85rem : 0.9rem) : 1.1rem;
+    overflow: elide;
+    horizontal-alignment: center;
+    vertical-alignment: center;
+}
+
+export component RainInfo inherits Rectangle {
+    in property<float> precipitation-probability;
+    in property<float> rain-volume;
+    in property<float> snow-volume;
+
+    in property<bool> minimal: false;
+
+    property<bool> is-snow: root.snow-volume > root.rain-volume;
+    property<float> volume: Math.max(root.rain-volume, root.snow-volume);
+    property<float> probability: Math.round(root.precipitation-probability * 100);
+
+    property<string> volume-display: Math.round(volume * 10) / 10;
+    property<string> type-indicator: self.is-snow ? "\u{f076}" : "\u{f078}";
+    property<color> type-color: self.is-snow ? AppPalette.snow-white : AppPalette.rain-blue;
+
+    property<float> max-bar-volume: 10;
+
+    property<length> margin: 2px;
+
+    opacity: root.minimal ? (root.precipitation-probability * 30% + 70%) : 100%;
+
+    if !root.minimal: Rectangle {
+        x: parent.width - self.width;
+        y: parent.height - self.height;
+
+        width: 3px;
+        height: (parent.height - 2 * parent.margin) *
+                    Math.min(root.volume, root.max-bar-volume) / root.max-bar-volume * 100%;
+
+        background: root.type-color;
+        opacity: root.precipitation-probability * 70% + 30%;
+    }
+
+    VerticalLayout {
+        HorizontalLayout {
+            alignment: center;
+            spacing: 3px;
+
+            DataText {
+                minimal: root.minimal;
+                text: "\{root.probability}%";
+
+                color: root.type-color;
+            }
+
+            if !root.minimal || !WindowInfo.is-portrait: WeatherIcon {
+                font-size: root.minimal ? 0.9rem : 1rem;
+                text: "\{root.type-indicator}";
+                color: root.type-color;
+            }
+
+            if root.minimal && WindowInfo.is-portrait: DataText {
+                minimal: true;
+                text: "/ \{root.volume-display}l";
+
+                color: root.type-color;
+            }
+        }
+
+        if !root.minimal || !WindowInfo.is-portrait: DataText {
+            minimal: root.minimal;
+            text: "\{root.volume-display}l";
+
+            color: root.type-color;
+        }
+    }
+}
+
+export component UvInfo inherits Rectangle {
+    in property<int> uv-index;
+
+    in property<bool> minimal: false;
+
+    property<float> uv-index-rate: (root.uv-index / 12.0);
+
+    opacity: root.minimal ? (root.uv-index-rate * 30% + 70%) : 100%;
+
+    HorizontalLayout {
+        alignment: center;
+        spacing: 3px;
+
+        WeatherIcon {
+            text: "\u{f06e}";
+
+            font-size: root.minimal ? 0.9rem : 1.3rem;
+
+            opacity: root.minimal ? 100% : (root.uv-index-rate * 70% + 30%);
+            color: AppPalette.sun-yellow;
+        }
+
+        if root.minimal: DataText {
+            minimal: true;
+            text: "UV";
+
+            color: AppPalette.sun-yellow;
+        }
+
+        DataText {
+            minimal: root.minimal;
+            text: "\{root.uv-index}";
+
+            color: AppPalette.sun-yellow;
+        }
+    }
+}

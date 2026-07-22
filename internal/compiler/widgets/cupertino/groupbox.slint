@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
+
+export component GroupBox {
+    in property <string> title;
+    in property <bool> enabled: true;
+    in property <length> content-padding: 8px;
+
+    accessible-role: groupbox;
+    accessible-label: root.title;
+    accessible-enabled: root.enabled;
+
+    VerticalLayout {
+        spacing: 6px;
+        padding-top: 12px;
+        padding-bottom: 12px;
+
+        if root.title != "" : Text {
+            vertical-stretch: 0;
+            color: !root.enabled ? CupertinoPalette.foreground-secondary : CupertinoPalette.foreground;
+            font-size: CupertinoFontSettings.body-strong.font-size;
+            font-weight: CupertinoFontSettings.body-strong.font-weight;
+            text: root.title;
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+            border-radius: 6px;
+            background: CupertinoPalette.alternate-background;
+            border-width: 1px;
+            border-color: CupertinoPalette.border;
+
+            GridLayout {
+                padding: root.content-padding;
+
+                @children
+            }
+        }
+    }
+}

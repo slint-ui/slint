@@ -1,0 +1,217 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CupertinoFontSettings, CupertinoPalette, Icons, CupertinoSizeSettings } from "styling.slint";
+import { MenuBorder, ListItem, FocusBorder } from "components.slint";
+import { ComboBoxBase } from "../common/combobox-base.slint";
+import { ScrollView } from "./scrollview.slint";
+
+export component ComboBox {
+    in property <[string]> model <=> base.model;
+    in property <bool> enabled <=> base.enabled;
+    out property <bool> has-focus <=> base.has-focus;
+    in-out property <int> current-index <=> base.current-index;
+    in-out property <string> current-value <=> base.current-value;
+
+    callback selected <=> base.selected;
+
+    property <brush> background: CupertinoPalette.control-background;
+    property <length> popup-padding: 4px;
+    property <length> popup-scroll-y: -max(0, root.current-index - root.visible-items + 1) * CupertinoSizeSettings.item-height;
+    property <int> visible-items: min(6, model.length);
+
+    min-width: max(160px, layout.min-width);
+    min-height: max(22px, layout.min-height);
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    forward-focus: base;
+    accessible-role: combobox;
+    accessible-enabled: root.enabled;
+    accessible-expandable: true;
+    accessible-expanded: base.popup-has-focus;
+    accessible-value <=> root.current-value;
+    accessible-action-expand => { base.show-popup(); }
+
+    states [
+        disabled when !root.enabled : {
+            text.color: CupertinoPalette.foreground-secondary;
+            top-icon.colorize: CupertinoPalette.foreground-secondary;
+            bottom-icon.colorize: CupertinoPalette.foreground-secondary;
+            root.background: CupertinoPalette.tertiary-control-background;
+        }
+        pressed when base.pressed : {
+            root.background: CupertinoPalette.secondary-control-background;
+        }
+    ]
+
+    base := ComboBoxBase {
+        width: 100%;
+        height: 100%;
+
+        // Mac doesn't react on mouse wheel on the ComboBox.
+        scroll-delta: 1000000px;
+
+        show-popup => {
+            popup.show();
+        }
+        close-popup => {
+            popup.close();
+        }
+    }
+
+    FocusBorder {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        border-radius: 8px;
+        has-focus: root.has-focus;
+    }
+
+    Rectangle {
+        drop-shadow-blur: 0.25px;
+        drop-shadow-color: #00000066;
+        drop-shadow-offset-y: 0.25px;
+        border-radius: 5px;
+        background: root.background;
+
+        Rectangle {
+            drop-shadow-blur: 1px;
+            drop-shadow-color: #00000026;
+            drop-shadow-offset-y: 1px;
+            border-radius: parent.border-radius;
+            background: root.background;
+            border-width: 1px;
+            border-color: CupertinoPalette.decent-border;
+            opacity: root.enabled ? 1 : 0.5;
+        }
+    }
+
+    layout := HorizontalLayout {
+        y: (parent.height - self.height) / 2;
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        spacing: 4px;
+
+        text := Text {
+            horizontal-stretch: 1;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            color: CupertinoPalette.foreground;
+            text: root.current-value;
+            overflow: elide;
+            accessible-role: none;
+        }
+
+        Rectangle {
+            min-width: 16px;
+            preferred-width: button-layout.preferred-width;
+            min-height: 16px;
+            horizontal-stretch: 0;
+
+            Rectangle {
+                x: 0px;
+                width: 100%;
+                y: (parent.height - self.height) / 2;
+
+                if root.enabled : Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    drop-shadow-blur: 3px;
+                    drop-shadow-color: #00000066;
+                    drop-shadow-offset-y: 0.5px;
+                    border-radius: 4px;
+                    background: CupertinoPalette.accent-background;
+
+                    Rectangle {
+                        drop-shadow-blur: 2px;
+                        drop-shadow-color: #00000026;
+                        drop-shadow-offset-y: 1px;
+                        border-radius: parent.border-radius;
+                        background: parent.background;
+                    }
+
+                    Rectangle {
+                        drop-shadow-blur: 1px;
+                        drop-shadow-color: #00000026;
+                        drop-shadow-offset-y: 0.5px;
+                        border-radius: parent.border-radius;
+                        background: parent.background;
+                    }
+
+                    Rectangle {
+                        border-radius: parent.border-radius;
+                        background: CupertinoPalette.dimmer;
+                        opacity: 0.17;
+                    }
+                }
+
+                button-layout := VerticalLayout {
+                    padding: 4px;
+                    spacing: 4px;
+
+                    top-icon := Image {
+                        x: (parent.width - self.width) / 2;
+                        colorize: CupertinoPalette.accent-foreground;
+                        source: Icons.chevron-up;
+                        accessible-role: none;
+                    }
+
+                    bottom-icon := Image {
+                        x: (parent.width - self.width) / 2;
+                        colorize: CupertinoPalette.accent-foreground;
+                        source: Icons.chevron-down;
+                        accessible-role: none;
+                    }
+                }
+            }
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        y: parent.height + 6px;
+        width: root.width;
+        height: root.visible-items * CupertinoSizeSettings.item-height  + 2 * root.popup-padding;
+        close-policy: close-on-click-outside;
+        forward-focus: inner-fs;
+
+        inner-fs := FocusScope {
+            focus-changed-event => {
+                base.popup-has-focus = self.has-focus;
+            }
+            key-pressed(event) => {
+                return base.popup-key-handler(event);
+            }
+
+            MenuBorder {
+                ScrollView {
+                    viewport-y: root.popup-scroll-y;
+                    VerticalLayout {
+                        alignment: start;
+                        padding: root.popup-padding;
+
+                        for value[index] in root.model : ListItem {
+                            padding-horizontal: 0;
+                            item: { text: value };
+                            is-selected: index == root.current-index;
+                            has-hover: touch-area.has-hover;
+                            pressed: touch-area.pressed;
+                            pressed-x: touch-area.pressed-x;
+                            pressed-y: touch-area.pressed-y;
+
+                            touch-area := TouchArea {
+                                clicked => {
+                                    base.select(index);
+                                    popup.close();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

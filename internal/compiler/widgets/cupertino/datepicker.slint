@@ -1,0 +1,99 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { VerticalBox } from "../common/layout.slint";
+import { Button } from "./button.slint";
+import { CupertinoPalette, CupertinoFontSettings, Icons } from "styling.slint";
+import { MenuBorder } from "./components.slint";
+import { StandardButton } from "../common/standardbutton.slint";
+
+import { Date, DatePickerBase } from "../common/datepicker_base.slint";
+export { Date }
+
+export component DatePickerPopup inherits PopupWindow {
+    in property <string> title: "Select date";
+    in property <Date> date <=> base.date;
+
+    callback canceled();
+    callback accepted(date: Date);
+
+    width: dialog.width;
+    height: dialog.height;
+
+    close-policy: PopupClosePolicy.no-auto-close;
+
+    background-layer := MenuBorder {
+        width: dialog.width;
+        height: dialog.height;
+    }
+
+    dialog := Dialog {
+        padding: 8px;
+
+        base := DatePickerBase {
+            title: root.title;
+            style: {
+                  border-brush: CupertinoPalette.border,
+                  vertical-spacing: 8px,
+                  horizontal-spacing: 4px,
+                  calendar-style: {
+                      spacing: 8px,
+                      delegate-style: {
+                          font-size: CupertinoFontSettings.body-strong.font-size,
+                          font-weight: CupertinoFontSettings.body-strong.font-weight,
+                          foreground: CupertinoPalette.foreground,
+                          state-brush: CupertinoPalette.state,
+                          background-selected: CupertinoPalette.accent-background,
+                          foreground-selected: CupertinoPalette.accent-foreground,
+                          state-brush-selected: CupertinoPalette.state-secondary,
+                          border-color-today: CupertinoPalette.accent-background,
+                          foreground-today: CupertinoPalette.accent-background,
+                          state-brush-today: CupertinoPalette.state,
+                      }
+                  },
+                  icon-button-style: {
+                      foreground: CupertinoPalette.foreground,
+                      state-brush: CupertinoPalette.state,
+                      icon-size: 12px,
+                  },
+                  current-day-style: {
+                      foreground: CupertinoPalette.foreground,
+                      font-size: CupertinoFontSettings.title.font-size,
+                      font-weight: CupertinoFontSettings.title.font-weight,
+                  },
+                  title-style: {
+                      foreground: CupertinoPalette.foreground,
+                  },
+                  previous-icon: Icons.arrow-back,
+                  next-icon: Icons.arrow-forward,
+                  drop-down-icon: Icons.dropdown,
+                  input-icon: Icons.edit,
+                  calendar-icon: Icons.calendar,
+                  selection-button-style: {
+                      foreground: CupertinoPalette.foreground,
+                      state-brush: CupertinoPalette.state,
+                      icon-size: 8px,
+                  }
+            };
+        }
+
+        StandardButton {
+            kind: cancel;
+
+            clicked => {
+                root.close();
+                root.canceled();
+            }
+        }
+
+        StandardButton {
+            enabled: base.ok-enabled();
+            kind: ok;
+
+            clicked => {
+                root.close();
+                root.accepted(base.get-current-date());
+            }
+        }
+    }
+}

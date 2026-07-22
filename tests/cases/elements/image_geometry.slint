@@ -1,0 +1,101 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//include_path: ../../../demos/printerdemo/ui/images/
+
+component FixedWidthImage inherits Image {
+    source: @image-url("cat.jpg");
+    width: 500phx;
+}
+
+export component TestCase inherits Rectangle {
+    fixed_image := Image {
+        x:0;y:0;
+        width: 50phx;
+        height: 50phx;
+    }
+    fixed_image_contain := Image {
+        x:0;y:0;
+        width: 50phx;
+        height: 50phx;
+        image-fit: contain;
+    }
+
+    VerticalLayout {
+        image_in_layout := Image {
+        }
+        image_in_layout_with_explicit_fit := Image {
+            image-fit: fill;
+        }
+    }
+
+    image_with_missing_height := FixedWidthImage {
+        x:0;y:0;
+        property <bool> expected_height_ok: self.height == 750phx;
+    }
+
+    image_with_missing_width := Image {
+        x:0;y:0;
+        source: @image-url("cat.jpg");
+        height: 600phx;
+        property <bool> expected_width_ok: self.width == 400phx;
+    }
+
+    image_with_missing_width_clipped := Image {
+        x:0;y:0;
+        source: @image-url("cat.jpg");
+        height: 600phx;
+        source-clip-width: 20;
+        source-clip-height: 20;
+        property <bool> expected_width_ok: self.width == 600phx;
+    }
+
+    in-out property <bool> fixed_image_default_image_fit_ok: fixed_image.image-fit == ImageFit.fill;
+    in-out property <bool> fixed_image_image_fit_override_ok: fixed_image_contain.image-fit == ImageFit.contain;
+    in-out property <bool> image_in_layout_fit_ok: image_in_layout.image-fit == ImageFit.contain;
+    in-out property <bool> image_in_layout_custom_fit_ok: image_in_layout_with_explicit_fit.image-fit == ImageFit.fill;
+    in-out property <bool> image_with_missing_height_ok <=> image_with_missing_height.expected_height_ok;
+    in-out property <bool> image_with_missing_width_ok <=> image_with_missing_width.expected_width_ok;
+    in-out property <bool> image_with_missing_width_clipped_ok <=> image_with_missing_width.expected_width_ok;
+
+    in-out property <bool> test: fixed_image_default_image_fit_ok && fixed_image_image_fit_override_ok && image_in_layout_fit_ok && image_in_layout_custom_fit_ok && image_with_missing_height_ok && image_with_missing_width_ok && image_with_missing_width_clipped_ok;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_fixed_image_default_image_fit_ok());
+assert(instance.get_fixed_image_image_fit_override_ok());
+assert(instance.get_image_in_layout_fit_ok());
+assert(instance.get_image_in_layout_custom_fit_ok());
+assert(instance.get_image_with_missing_height_ok());
+assert(instance.get_image_with_missing_width_ok());
+assert(instance.get_image_with_missing_width_clipped_ok());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_fixed_image_default_image_fit_ok());
+assert!(instance.get_fixed_image_image_fit_override_ok());
+assert!(instance.get_image_in_layout_fit_ok());
+assert!(instance.get_image_in_layout_custom_fit_ok());
+assert!(instance.get_image_with_missing_height_ok());
+assert!(instance.get_image_with_missing_width_ok());
+assert!(instance.get_image_with_missing_width_clipped_ok());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.fixed_image_default_image_fit_ok);
+assert(instance.fixed_image_image_fit_override_ok);
+assert(instance.image_in_layout_fit_ok);
+assert(instance.image_in_layout_custom_fit_ok);
+assert(instance.image_with_missing_height_ok);
+assert(instance.image_with_missing_width_ok);
+assert(instance.image_with_missing_width_clipped_ok);
+```
+
+*/

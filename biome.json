@@ -1,0 +1,65 @@
+{
+    "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+    "formatter": {
+        "enabled": true,
+        "formatWithErrors": false,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineEnding": "lf",
+        "attributePosition": "auto",
+        "includes": [
+            "**",
+            "!**/.vscode/**",
+            "!**/*.json",
+            "!**/dist/**",
+            "!**/build/**",
+            "!**/!biome.json",
+            "!**/editors/vscode/out/**"
+        ]
+    },
+    "assist": {
+        "actions": {
+            "source": {
+                "organizeImports": "off"
+            }
+        }
+    },
+    "linter": {
+        "enabled": true,
+        "includes": ["**", "!**/dist/**"],
+        "rules": {
+            "preset": "none",
+            "complexity": {
+                "noBannedTypes": "warn",
+                "noUselessConstructor": "error"
+            },
+            "style": {
+                "useBlockStatements": "warn",
+                "noUselessElse": "off",
+                "useConst": "error",
+                "useImportType": "error",
+                "useNodejsImportProtocol": "error"
+            },
+            "nursery": {
+                "noFloatingPromises": "error"
+            },
+            "suspicious": {
+                "noDoubleEquals": "error",
+                "noRedundantUseStrict": "warn",
+                "noImplicitAnyLet": "error",
+                "useAwait": "error"
+            }
+        }
+    },
+    "javascript": {
+        "formatter": {
+            "jsxQuoteStyle": "double",
+            "quoteProperties": "asNeeded",
+            "semicolons": "always",
+            "bracketSpacing": true,
+            "bracketSameLine": false,
+            "quoteStyle": "double",
+            "attributePosition": "auto"
+        }
+    }
+}

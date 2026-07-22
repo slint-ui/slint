@@ -1,0 +1,39 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com
+// SPDX-License-Identifier: MIT
+
+// cSpell: ignore alfta coso denia
+import { Button, VerticalBox } from "std-widgets.slint";
+import { BLogicA, BLogicAAPI } from "@BLogicA";
+import { BLogicB, BLogicBAPI } from "@BLogicB";
+
+export component AppWindow inherits Window {
+    callback update-blogic-data();
+
+    // Used by the regression test in src/main.rs. Mirrors a property declared
+    // on a library-imported global; without the bug fix the compiler would
+    // inline the global's default value here and the binding would no longer
+    // observe writes made via the library's Rust API.
+    out property <string> test-status: BLogicBAPI.status;
+
+    VerticalBox {
+        BLogicA {}
+        BLogicB {}
+        Button {
+            text: "Crank me up!";
+            clicked => {
+                BLogicBAPI.crank-it({ magic-number: 42, cranks: [ "delta", "alfta", "sorta", "coso", "tokyo", "denia" ]});
+            }
+        }
+        Text {
+            text:BLogicBAPI.status;
+        }
+    }
+
+    Timer {
+        interval: 1s;
+        running: true;
+        triggered => {
+            root.update-blogic-data();
+        }
+    }
+}

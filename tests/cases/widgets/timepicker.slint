@@ -1,0 +1,62 @@
+ // Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+
+import { TimePickerPopup, Time, Button } from "std-widgets.slint";
+export { Time }
+
+export component TestCase inherits Window {
+    in-out property <bool> timepicker-created;
+
+    width: 600px;
+    height: 600px;
+
+    t := TimePickerPopup {
+        x: 0;
+        y: 0;
+        time: root.time;
+
+        init => {
+            root.timepicker-created = true;
+        }
+    }
+
+    b := Button {
+        clicked => { t.show(); }
+    }
+
+    in property <Time> time;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+
+instance.set_time(Time{ hour: 8, minute: 45, ..Default::default()});
+
+let mut result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::b").collect::<Vec<_>>();
+assert_eq!(result.len(), 1);
+let button = result.pop().unwrap();
+
+button.invoke_accessible_default_action();
+assert_eq!(instance.get_timepicker_created(), true);
+```
+
+```cpp
+using slint_testing::mock_elapsed_time;
+
+auto instance = TestCase::create();
+
+instance->set_time(Time{ .hour = 8, .minute = 45, .second = 0});
+
+auto result = slint::testing::ElementHandle::find_by_element_id(instance, "TestCase::b");
+auto button = result[0];
+
+button.invoke_accessible_default_action();
+
+assert_eq(instance->get_timepicker_created(), true);
+```
+*/

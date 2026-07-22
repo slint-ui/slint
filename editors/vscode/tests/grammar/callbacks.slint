@@ -1,0 +1,38 @@
+// SYNTAX TEST "source.slint" "Callback setup tests"
+
+  component Test {
+
+  // Simple callback setup (no arguments)
+      clicked => { }
+//    ^^^^^^^ entity.name.function.slint
+
+  // Callback setup with arguments
+      clicked(arg) => { }
+//    ^^^^^^^ entity.name.function.slint
+
+  // Callback setup without braces
+      foobar => debug("ok");
+//    ^^^^^^ entity.name.function.slint
+      mouse-moved(x, y) => debug("ok");
+//    ^^^^^^^^^^^ entity.name.function.slint
+
+  // Multiple callback setups
+      activated => { root.do-something(); }
+//    ^^^^^^^^^ entity.name.function.slint
+
+  // Bare function calls must NOT be consumed by callback-setup.
+  // If callback-setup incorrectly matches here, subsequent lines break.
+      property <int> a: max(10, 20);
+//    ^^^^^^^^ keyword.other.property.slint
+      property <int> b: min(10, 20);
+//    ^^^^^^^^ keyword.other.property.slint
+      property <string> c: debug("hello");
+//    ^^^^^^^^ keyword.other.property.slint
+      property <int> d: 42;
+//    ^^^^^^^^ keyword.other.property.slint
+//                      ^^ constant.numeric.slint
+      property <int> e: 100;
+//    ^^^^^^^^ keyword.other.property.slint
+//                      ^^^ constant.numeric.slint
+
+  }

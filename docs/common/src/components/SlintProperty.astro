@@ -1,0 +1,110 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import "@astrojs/starlight/style/markdown.css";
+import {
+    getEnumContent,
+    getStructContent,
+} from "../utils/generated-reference-markdown.ts";
+import {
+    type KnownType,
+    type PropertyVisibility,
+    getTypeInfo,
+} from "../utils/utils.ts";
+
+import Type from "./Type.astro";
+
+interface Props {
+    propName: string;
+    typeName: KnownType;
+    defaultValue?: string;
+    enumName?: string;
+    structName?: string;
+    propertyVisibility?: PropertyVisibility;
+}
+const {
+    propName,
+    typeName,
+    defaultValue,
+    enumName,
+    structName,
+    propertyVisibility,
+} = Astro.props as Props;
+
+if (propName === "") {
+    console.error("No propName!!");
+}
+
+let fullTypeName = typeName;
+
+if (typeName === "enum") {
+    if (enumName === undefined || enumName === "") {
+        console.error("enum type without an enumName:", propName);
+    } else {
+        fullTypeName = typeName.toString() + " " + enumName!.toString();
+    }
+} else if (typeName === "struct") {
+    if (structName === undefined || structName === "") {
+        console.error("struct type without a structName:", propName);
+    } else {
+        fullTypeName = typeName.toString() + " " + structName!.toString();
+    }
+} else {
+    if (enumName && enumName !== "") {
+        console.error("Non-enum type with an enumName set:", propName);
+    }
+}
+
+const typeInfo = getTypeInfo(typeName);
+if (typeInfo.href !== "") {
+    const base = import.meta.env.BASE_URL;
+    typeInfo.href = `${base}${typeInfo.href}`;
+
+    // For enums and structs, we can assume they have a permalink to their header on the target page.
+    // (These permalinks are also always lower-case.)
+    if (typeName === "enum") {
+        typeInfo.href += "#" + enumName.toLowerCase();
+    } else if (typeName === "struct") {
+        typeInfo.href += "#" + structName.toLowerCase();
+    }
+}
+const enumContent = await getEnumContent(enumName);
+const structContent = await getStructContent(structName);
+
+const isOutput = propertyVisibility === "out";
+const defaultValue_ = defaultValue
+    ? defaultValue
+    : isOutput
+      ? ""
+      : typeInfo.defaultValue;
+
+if (!defaultValue_ && !isOutput) {
+    console.error("No defaultValue for:", propName);
+} else if (defaultValue && isOutput) {
+    console.error("defaultValue set on out property:", propName);
+}
+
+if ((enumName || structName) && !Astro.slots.has("default")) {
+    throw new Error(
+        `SlintProperty "${propName}": enum/struct property has no slot content. Place the property description inside <SlintProperty>...</SlintProperty> tags so it renders before the inlined enum/struct docs.`,
+    );
+}
+---
+
+
+<div class="sl-markdown-content slint-property">
+  <p>
+    {typeInfo.href === "" ? (
+      <Type text={fullTypeName} />
+    ) : (
+      <a href={typeInfo.href} dir="auto" class="no-underline">
+        <Type text={fullTypeName} />
+      </a>
+    )}
+    {propertyVisibility && <code>{`(${propertyVisibility})`}</code>}
+    {defaultValue_ && <span class="default-value">default: <code class="plain-code" dir="auto">{defaultValue_}</code></span>}<br>
+  </p>
+   <slot/>
+   {enumName && <Fragment set:html={enumContent}/>}
+   {structContent && <Fragment set:html={structContent}/>}
+</div>

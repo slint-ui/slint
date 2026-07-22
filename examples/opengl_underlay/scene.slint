@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ScrollView, Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView,
+    ComboBox, HorizontalBox, VerticalBox, GridBox, TabWidget, TextEdit } from "std-widgets.slint";
+
+export component App inherits Window {
+    in-out property <bool> rotation-enabled <=> apply-rotation.checked;
+    preferred-width: 1280px;
+    preferred-height: 720px;
+    title: "Slint OpenGL Underlay Example";
+    icon: @image-url("../../logo/slint-logo-small-light.png");
+    Rectangle {
+        x: 0;
+        width: 33%;
+        background: #1B1B1Fcc;
+        VerticalBox {
+            padding-top: 55px;
+            y: 0;
+            padding: 37px;
+            alignment: start;
+            spacing: 15px;
+            Rectangle {
+                height: 65px;
+                Image {
+                    x: 0;
+                    width: 131px;
+                    source: @image-url("../../logo/slint-logo-simple-dark.png");
+                }
+            }
+
+            Text {
+                text: "Slint OpenGL Underlay Example";
+                wrap: word-wrap;
+                font-size: 23px;
+            }
+
+            Text {
+                text: "The animation below is rendered using an OpenGL shader";
+                wrap: word-wrap;
+            }
+
+            apply-rotation := CheckBox {
+                checked: true;
+                text: "Enable shader rotation";
+            }
+        }
+    }
+}

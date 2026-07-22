@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+component Abc inherits VerticalLayout {
+    Rectangle { background: green; }
+    Rectangle { background: blue; @children }
+    Rectangle { background: pink; }
+}
+
+component Cde inherits HorizontalLayout {
+    Rectangle { background: red; }
+    Abc {}
+    Rectangle { background: orange; }
+}
+
+component Fgh inherits HorizontalLayout {
+    Abc {}
+    Rectangle { background: yellow; GridLayout { @children } }
+    Rectangle { background: gray; }
+}
+
+component Ijk inherits Fgh {}
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 200px;
+
+    Cde {
+        // The rectangle should not be within Abc since Cde don't have a @children (despite Abc has one) )
+        r1 := Rectangle { background: black; }
+    }
+
+    Fgh {
+        // The rectangle should not be in the yellow one )
+        r2 := Rectangle { background: white; }
+    }
+
+    Ijk {
+        // Same as r2
+        Row {
+            r3 := Rectangle { background: brown; }
+        }
+    }
+
+    out property r1_pos <=> r1.absolute-position;
+    out property r2_pos <=> r2.absolute-position;
+    out property r3_pos <=> r2.absolute-position;
+    out property <bool> r1_ok: r1_pos.x == root.width * 3/4 && r1_pos.y == 0px;
+    out property <bool> r2_ok: r2_pos.x == root.width * 1/3 && r2_pos.y == 0px;
+    out property <bool> r3_ok: r3_pos.x == root.width * 1/3 && r3_pos.y == 0px;
+    out property <bool> test: r1_ok && r2_ok && r3_ok;
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/

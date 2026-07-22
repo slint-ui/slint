@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Animations are rejected in Slint SC mode.
+
+export component Test inherits Window {
+    in-out property <int> val;
+//  >                        <error{Property declarations are not supported in Slint SC}
+//                   > <^error{The type 'int' is not supported in Slint SC}
+    animate val { duration: 100ms; }
+//  >                              <error{Animations are not supported in Slint SC}
+//                >      <^error{Bindings are not supported in Slint SC}
+//                          >   <^^error{Number literals are not supported in Slint SC}
+}

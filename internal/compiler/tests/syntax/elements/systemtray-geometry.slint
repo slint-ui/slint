@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//config:generate_all_exported_windows
+
+// SystemTrayIcon is not a visual element. The auto-injected geometry / layout
+// properties (x, y, width, height, ...) would have no effect at runtime
+// (the OS shell decides where to place the tray icon), so the compiler
+// rejects them rather than silently letting them bind to dead state.
+
+export component WithX inherits SystemTrayIcon {
+    x: 100px;
+//  ^error{Unknown property x in SystemTrayIcon}
+    Menu { MenuItem { title: "ok"; } }
+}
+
+export component WithY inherits SystemTrayIcon {
+    y: 50px;
+//  ^error{Unknown property y in SystemTrayIcon}
+    Menu { MenuItem { title: "ok"; } }
+}
+
+export component WithWidth inherits SystemTrayIcon {
+    width: 200px;
+//  >   <error{Unknown property width in SystemTrayIcon}
+    Menu { MenuItem { title: "ok"; } }
+}
+
+export component WithHeight inherits SystemTrayIcon {
+    height: 200px;
+//  >    <error{Unknown property height in SystemTrayIcon}
+    Menu { MenuItem { title: "ok"; } }
+}

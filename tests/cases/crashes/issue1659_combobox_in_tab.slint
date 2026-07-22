@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+
+export ComboBox := Rectangle {
+    min-height: max(32px, l.min-height);
+    l := HorizontalLayout { Text {} }
+}
+
+export Broken := TabWidget  {
+    t1 := Tab {
+        vl := VerticalLayout {
+            cb := ComboBox { }
+        }
+    }
+}
+export AppWindow := Window {
+    hl := HorizontalLayout {
+        broken := Broken {}
+    }
+}

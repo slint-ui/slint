@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore pessimize
+import { Button } from "std-widgets.slint";
+
+// Test case for manual visual verification that layering does not pessimize the
+// output, and to have a compile-time verification that the lowering to the Layer
+// element compiles.
+
+component MyLayer inherits Rectangle {
+    cache-rendering-hint: true;
+    background: red;
+    for i in 1000: Rectangle {
+        cache-rendering-hint: i == 8;
+        background: blue;
+        drop-shadow-blur: 10px;
+        drop-shadow-offset-x: 5px;
+        drop-shadow-offset-y: 5px;
+        drop-shadow-color: green;
+        Text {
+            x:0;y:0;
+            text: "Many text items over each other";
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    preferred-width: 800px;
+    preferred-height: 600px;
+    background: white;
+
+    VerticalLayout {
+
+        Button {
+            text: "Press me to start the animation and check that it is smooth.";
+            clicked => {
+                layered.place_to_the_right = true;
+            }
+        }
+
+        Rectangle {
+
+            // This will be a layer
+            layered := MyLayer {
+                x:0;y:0;
+                width: 200px;
+                height: 100px;
+
+                property <bool> place_to_the_right;
+                states [
+                    right when self.place_to_the_right: {
+                        x: 200px;
+                    }
+                    left when !self.place_to_the_right: {
+                        x: 10px;
+                    }
+                ]
+
+                animate x {
+                    duration: 15s;
+                }
+            }
+        }
+    }
+}

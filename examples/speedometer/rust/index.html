@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<html>
+    <head>
+        <style>
+            @media screen and (max-width: 992px) and (orientation: landscape) {
+                .hide-in-mobile-landscape {
+                    display: none;
+                }
+
+                * {
+                    margin: 0;
+                    padding: 0;
+                    overflow: hidden;
+                }
+
+                canvas {
+                    width: 100vw !important;
+                    height: 100vh !important;
+                }
+            }
+            body {
+                background-color: #020414;
+                color: #ffffff;
+                text-align: center;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            }
+            #loading {
+                margin-top: 20px;
+                text-align: center;
+            }
+            .overlay {
+                position: absolute;
+                display: flex;
+                top: 0;
+                width: 100%;
+            }
+            canvas {
+                display: block;
+                margin-left: auto;
+                margin-right: auto;
+                margin-top: 20px;
+                outline: none;
+            }
+            a {
+                color: #4da6ff;
+                text-decoration: none;
+            }
+            a:visited {
+                color: #bb86fc;
+            }
+            a:hover {
+                color: #80c4ff;
+                text-decoration: underline;
+            }
+        </style>
+    </head>
+    <body>
+        <h1 class="hide-in-mobile-landscape">Speedometer Demo</h1>
+        <p class="hide-in-mobile-landscape">This is the <a href="https://slint.dev">Slint</a> Speedometer Demo compiled to WebAssembly.</p>
+        <div id="spinner" style="position: relative;">
+          <div class="spinner">Loading...</div>
+        </div>
+        <canvas id="canvas" unselectable="on"></canvas>
+        <p class="hide-in-mobile-landscape links">
+          <a href="https://github.com/slint-ui/slint/blob/master/examples/speedometer/demo.slint">
+            View Source Code on GitHub</a> -
+          <a href="https://slint.dev/editor?load_demo=examples/speedometer/demo.slint">
+            Open in SlintPad
+          </a>
+        </p>
+        <script type="module">
+          import init from './pkg/speedometer_lib.js';
+          init().finally(() => {
+            document.getElementById("spinner").remove();
+          });
+        </script>
+      </body>
+</html>

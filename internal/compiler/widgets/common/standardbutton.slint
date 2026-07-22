@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { StyleMetrics, Button } from "std-widgets-impl.slint";
+
+export component StandardButton {
+    in property <StandardButtonKind> kind;
+    in property <bool> enabled <=> base.enabled;
+    in property <bool> primary <=> base.primary;
+    out property <bool> has-focus <=> base.has-focus;
+    out property <bool> pressed <=> base.pressed;
+
+    forward-focus: base;
+
+    callback clicked <=> base.clicked;
+
+    HorizontalLayout {
+        base := Button {
+            text:
+                root.kind == StandardButtonKind.ok ? @tr("OK") :
+                root.kind == StandardButtonKind.cancel ? @tr("Cancel") :
+                root.kind == StandardButtonKind.apply ? @tr("Apply") :
+                root.kind == StandardButtonKind.close ? @tr("Close") :
+                root.kind == StandardButtonKind.reset ? @tr("Reset") :
+                root.kind == StandardButtonKind.help ? @tr("Help") :
+                root.kind == StandardButtonKind.yes ? @tr("Yes") :
+                root.kind == StandardButtonKind.no ? @tr("No") :
+                root.kind == StandardButtonKind.abort ? @tr("Abort") :
+                root.kind == StandardButtonKind.retry ? @tr("Retry") :
+                root.kind == StandardButtonKind.ignore ? @tr("Ignore") : "";
+        }
+    }
+}

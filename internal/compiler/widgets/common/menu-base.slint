@@ -1,0 +1,216 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component MenuBarItemBase {
+    in property <MenuEntry> entry;
+    in property <brush> default-foreground;
+    in property <brush> hover-foreground;
+    in property <brush> pressed-foreground;
+    in property <brush> default-background;
+    in property <brush> hover-background;
+    in property <brush> pressed-background;
+    in property <length> font-size <=> label.font-size;
+    in property <int> font-weight <=> label.font-weight;
+    in property <length> border-radius <=> background-layer.border-radius;
+    in property <length> horizontal-padding;
+    in property <length> top-padding;
+    in property <length> bottom-padding;
+
+    callback clicked;
+    callback hovered;
+
+    background-layer := Rectangle {
+        background: root.default-background;
+
+        touch-area := TouchArea {
+            layout := HorizontalLayout {
+                padding-top: root.top-padding;
+                padding-bottom: root.bottom-padding;
+                padding-left: root.horizontal-padding;
+                padding-right: root.horizontal-padding;
+
+                label := Text {
+                    text: entry.title;
+                    color: root.default-foreground;
+                }
+            }
+
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down {
+                    root.clicked();
+                }
+            }
+
+            changed has-hover => {
+                if self.has-hover {
+                    root.hovered();
+                }
+            }
+        }
+    }
+
+    states [
+        pressed when touch-area.pressed : {
+            background-layer.background: root.pressed-background;
+            label.color: root.pressed-foreground;
+        }
+        has-hover when touch-area.has-hover : {
+            background-layer.background: root.hover-background;
+            label.color: root.hover-foreground;
+        }
+    ]
+}
+
+export component MenuBarBase inherits Rectangle {
+    in property <length> spacing <=> layout.spacing;
+    in property <LayoutAlignment> alignment <=> layout.alignment;
+    in property <length> min-layout-height;
+    in property <length> horizontal-padding;
+
+    min-height: max(root.min-layout-height, layout.min-height);
+
+    layout := HorizontalLayout {
+        alignment: start;
+        padding-left: root.horizontal-padding;
+        padding-right: root.horizontal-padding;
+
+        @children
+    }
+}
+
+export component MenuFrameBase inherits Rectangle {
+    in property <length> spacing <=> layout.spacing;
+    in property <length> layout-min-width;
+    in property <length> margin;
+
+    clip: true;
+    min-width: max(root.layout-min-width, layout.min-width);
+
+    layout := VerticalLayout {
+        padding: root.margin;
+        @children
+    }
+}
+
+export component MenuItemBase {
+    in property <brush> default-foreground;
+    in property <brush> alternate-foreground: default-foreground;
+    in property <brush> default-background;
+    in property <brush> current-foreground;
+    in property <brush> current-background;
+    in property <brush> separator-color;
+    in property <length> font-size <=> label.font-size;
+    in property <int> font-weight <=> label.font-weight;
+    in property <length> border-radius <=> background-layer.border-radius;
+    in property <bool> is-current;
+    // Time at which the item was created, used to suppress accidental
+    // activation from the mouse-up that opened the menu.
+    property <duration> open-time;
+    property <bool> had-press;
+    init => { open-time = animation-tick(); }
+    in property <MenuEntry> entry;
+    in property <image> sub-menu-icon;
+    in property <length> spacing <=> layout.spacing;
+    in property <length> icon-size;
+    in property <length> horizontal-padding;
+    in property <length> vertical-padding;
+
+    callback set-current();
+    callback clear-current();
+    callback activate(entry : MenuEntry, y: length);
+
+    background-layer := Rectangle {
+        background: root.default-background;
+
+        touch-area := TouchArea {
+            visible: !entry.is-separator;
+            enabled: entry.enabled;
+
+            layout := HorizontalLayout {
+                padding-top: root.vertical-padding;
+                padding-bottom: root.vertical-padding;
+                padding-left: root.horizontal-padding;
+                padding-right: root.horizontal-padding;
+
+                spacing: 10px;
+
+                Rectangle {
+                    width: root.icon-size;
+                    y: (parent.height - self.height) / 2;
+
+                    if entry.checked: Text {
+                        text: "✓";
+                    }
+
+                    Image {
+                        source: entry.icon;
+                        accessible-role: none;
+                        image-fit: contain;
+                        width: 100%;
+                        height: label.font-metrics.ascent - label.font-metrics.descent;
+                    }
+                }
+
+                label := Text {
+                    text: entry.title;
+                    color: root.default-foreground;
+                    vertical-alignment: center;
+                }
+
+                shortcut := Text {
+                    text: entry.shortcut.to-string();
+                    color: root.alternate-foreground;
+                    vertical-alignment: center;
+                    horizontal-alignment: TextHorizontalAlignment.right;
+                }
+
+                if entry.has-sub-menu : Image {
+                    width: root.icon-size;
+                    y: (parent.height - self.height) / 2;
+                    source: root.sub-menu-icon;
+                    colorize: label.color;
+                    accessible-role: none;
+                }
+            }
+
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.move && !root.is-current {
+                    root.set-current()
+                } else if event.kind == PointerEventKind.down && entry.has-sub-menu && entry.enabled {
+                    activate(entry, self.absolute-position.y);
+                } else if event.kind == PointerEventKind.down {
+                    // A deliberate press always enables activation
+                    root.had-press = true;
+                } else if event.kind == PointerEventKind.up
+                        && (root.had-press || animation-tick() - root.open-time > 300ms)
+                        && self.mouse-y > 0 && self.mouse-y < self.height
+                        && self.mouse-x > 0 && self.mouse-x < self.width
+                        && entry.enabled {
+                    // can't put this in `clicked` because then the menu would close causing a panic in the pointer-event
+                    activate(entry, self.absolute-position.y);
+                }
+            }
+
+            changed has-hover => {
+                if !self.has-hover && root.is-current {
+                    root.clear-current();
+                }
+            }
+        }
+
+        if entry.is-separator: Rectangle {
+            height: 1px;
+            background: root.separator-color;
+        }
+    }
+
+    states [
+        is-current when root.is-current : {
+            background-layer.background: root.current-background;
+            label.color: root.current-foreground;
+        }
+        disabled when !entry.enabled : {
+            label.opacity: 0.5;
+        }
+    ]
+}

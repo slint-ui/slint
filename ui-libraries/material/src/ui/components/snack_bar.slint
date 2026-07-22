@@ -1,0 +1,88 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
+import { Elevation } from "elevation.slint";
+import { MaterialText } from "./material_text.slint";
+import { TextButton } from "./text_button.slint";
+import { IconButton } from "./icon_button.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { Icons } from "../icons/icons.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
+
+export component SnackBar inherits PopupWindow {
+    in property <string> text;
+    in property <string> action_text;
+    in property <bool> has_close_button;
+
+    close_policy: no_auto_close;
+
+    callback action_clicked();
+
+    snack_bar := Elevation {
+        x: (parent.width - self.width) / 2;
+        y: parent.height - self.height;
+        width: MaterialStyleMetrics.size_344;
+        level: 3;
+
+        background_layer := Rectangle {
+            background: MaterialPalette.inverse_surface;
+            border_radius: MaterialStyleMetrics.border_radius_4;
+
+            HorizontalLayout {
+                padding_left: MaterialStyleMetrics.padding_16;
+                padding_right: self.padding_left;
+                padding_top: MaterialStyleMetrics.padding_10;
+                padding_bottom: self.padding_top;
+                spacing: MaterialStyleMetrics.spacing_4;
+
+                MaterialText {
+                    text: root.text;
+                    vertical_alignment: center;
+                    horizontal_alignment: left;
+                    wrap: word_wrap;
+                    style: MaterialTypography.body_medium;
+                    color: MaterialPalette.inverse_on_surface;
+                }
+
+                if root.action_text != "" : TextButton {
+                    text: root.action_text;
+                    inverse: true;
+
+                    clicked => {
+                        root.raise_action();
+                    }
+                }
+
+                if root.has_close_button : IconButton {
+                    icon: Icons.close;
+                    inverse: true;
+
+                    clicked => {
+                        root.close();
+                    }
+                }
+            }
+        }
+
+        animate y, height {
+            duration: MaterialAnimations.standard_accelerate_duration;
+            easing: MaterialAnimations.standard_easing;
+        }
+    }
+
+     Timer {
+        interval: 50ms;
+
+        triggered => {
+            snack_bar.y = root.height - snack_bar.height - MaterialStyleMetrics.padding_30;
+            self.running = false;
+        }
+    }
+
+    function raise_action() {
+        root.action_clicked();
+        root.close();
+    }
+}

@@ -1,0 +1,652 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore dataonly
+/// Basic information on a known component
+export struct ComponentItem {
+    name: string,
+    index: int,
+    defined-at: string,
+    pretty-location: string,
+    is-user-defined: bool,
+    is-currently-shown: bool,
+    is-exported: bool,
+}
+
+/// A `category` with a lost of `ComponentItem`s that belong into it.
+///
+/// File url is either an empty string or a URL to some document
+export struct ComponentListItem {
+    category: string,
+    file_url: string,
+    components: [ComponentItem]
+}
+
+/// Some `Diagnostics` as raised by the compiler
+export enum DiagnosticSummary {
+    NothingDetected,
+    Warnings,
+    Errors,
+}
+
+/// One device discovered as a possible remote-preview target.
+export struct RemoteViewerInfo {
+    /// User-facing name, e.g. "Simon's iPhone".
+    name: string,
+    /// mDNS `instance.service-type.`; the model's unique key.
+    fullname: string,
+    /// Sanitized mDNS `.local` hostname.
+    host: string,
+    port: int,
+    /// All resolved addresses, tried in order.
+    addresses: [string],
+    /// Whether the viewer speaks our protocol version.
+    compatible: bool,
+    /// If incompatible, a short reason to show to the user.
+    incompatible-reason: string,
+    /// Monotonic seconds-since-process-start at the last mDNS ServiceResolved.
+    /// The prune timer drops entries older than 60 s.
+    last-seen-secs: int,
+}
+
+export enum RemoteConnectionState {
+    Disconnected,
+    Connecting,
+    Connected,
+    Failed,
+}
+
+export enum PreviewMode {
+    Local,
+    Remote,
+}
+
+/// What kind of layout we are working with
+export enum LayoutKind {
+    None,
+    Horizontal,
+    Vertical,
+    Grid,
+}
+
+/// A rectangular region that is selected
+export struct SelectionRectangle {
+    x: length,
+    y: length,
+    width: length,
+    height: length,
+    angle: angle,
+}
+
+/// A `Selection`
+export struct Selection {
+    highlight-index: int,
+    layout-data: LayoutKind,
+    is-interactive: bool,
+    is-moveable: bool,
+    is-resizable: bool,
+}
+
+/// A mark showing where an element will show up when dropped into the current location
+export struct DropMark {
+    x1: length,
+    y1: length,
+    x2: length,
+    y2: length,
+}
+
+export struct SelectionStackFrame {
+    width: percent,
+    height: percent,
+    x: percent,
+    y: percent,
+    is-in-root-component: bool,
+    is-layout: bool,
+    is-interactive: bool,
+    is-selected: bool,
+    type-name: string,
+    file-name: string,
+    element-path: string,
+    element-offset: int,
+    id: string,
+}
+
+export enum SelectionStackFilter {
+    Nothing,
+    Layouts,
+    Interactive,
+    Others,
+    LayoutsAndInteractive,
+    LayoutsAndOthers,
+    InteractiveAndOthers,
+    Everything,
+}
+
+/// A Range in a source
+export struct Range {
+    start: int,
+    end: int,
+}
+
+export struct ColorData {
+    r: int,
+    g: int,
+    b: int,
+    a: int,
+    text: string,
+    short-text: string,
+}
+
+export enum PropertyValueKind {
+    boolean,
+    brush,
+    code,
+    color,
+    enum,
+    float,
+    integer,
+    string,
+}
+
+export enum BrushKind {
+    solid,
+    linear,
+    radial,
+    conic,
+}
+
+export struct GradientStop {
+    position: float, // between 0 and 1!
+    color: color,
+}
+
+/// Data about the property value for use in "simple" mode
+export struct PropertyValue {
+    display-string: string, // ALWAYS, its a string description of what is there
+    value-bool: bool, // boolean
+    is-translatable: bool, // string
+    kind: PropertyValueKind, // Defines what to display this as
+    value-kind: PropertyValueKind, // If kind == code, then this is the real kind of data
+    brush-kind: BrushKind, // brush
+    gradient-stops: [GradientStop], // brush
+    value-brush: brush, // brush, color
+    value-float: float, // float, brush (angle)
+    value-int: int, // integer, enum/float (current index into visual_items)
+    default-selection: int, // enum/float (default index into visual_items)
+    value-string: string, // enum (name), string, brush (palette name or empty)
+    visual-items: [string], // enum (enum members), float (units)
+    tr-context: string, // string
+    tr-plural: string, // string
+    tr-plural-expression: string, // string
+    code: string, // ALWAYS, empty if property is not explicitly defined
+    accessor-path: string, // set for struct members and such
+    was-edited: bool, // Used by preview dataonly!
+    edited-value: string, // Used in preview dataonly!
+}
+
+export struct PropertyValueTable {
+    is-array: bool,
+    headers: [string],
+    values: [[PropertyValue]],
+}
+
+/// Important Ranges in the property definition
+///
+/// The URL and version is the same as in the Element it belongs to
+export struct PropertyDefinition {
+    definition-range: Range,
+    selection-range: Range,
+    expression-range: Range,
+    expression-value: string,
+}
+
+/// The Property Declaration
+export struct PropertyDeclaration {
+    defined-at: PropertyDefinition,
+
+    source-path: string,
+    source-version: int,
+    range: Range,
+}
+
+/// Information on one Property
+export struct PropertyInformation {
+    name: string,
+    type-name: string,
+    value: PropertyValue,
+    display-priority: int,
+}
+
+/// Grouping for properties
+export struct PropertyGroup {
+    group-name: string,
+    properties: [PropertyInformation],
+}
+
+export enum PreviewDataKind {
+    Value,
+    Json,
+    Table,
+}
+
+export struct PreviewData {
+    name: string,
+    has-getter: bool,
+    has-setter: bool,
+    kind: PreviewDataKind,
+}
+
+/// Information on exported components and their properties
+export struct PropertyContainer {
+    container-name: string,
+    container-id: string,
+    properties: [PreviewData],
+}
+
+/// Information on an Element a Property belongs to
+export struct ElementInformation {
+    id: string,
+    component-name: string,
+    type-name: string,
+    source-uri: string,
+    source-version: int,
+    /// The offset within source-uri
+    offset: int,
+}
+
+export struct PaletteEntry {
+    name: string,
+    value: PropertyValue,
+}
+
+export enum LogMessageLevel {
+    Debug,
+    Warning,
+    Error,
+    Note,
+}
+
+export struct LogMessage {
+    file: string,
+    line: int,
+    column: int,
+    message: string,
+    level: LogMessageLevel,
+}
+
+/// A node in the outline tree
+export struct OutlineTreeNode {
+    indent-level: int,
+    has-children: bool,
+    is-expanded: bool,
+    is-last-child: bool,
+    element-type: string,
+    element-id: string,
+    uri: string,
+    offset: int,
+
+}
+
+export enum DropLocation {
+    onto,
+    before,
+    after,
+}
+
+export global Api {
+    // # Properties
+    // ## General preview state:
+    // enable editing mode
+    in property <bool> show-preview-ui: true;
+    // std-widgets are used (=> show style dropdown)
+    in-out property <bool> uses-widgets;
+    in-out property <bool> always-on-top;
+    in property <bool> focus-previewed-element;
+
+    // ## Component Data for ComponentList:
+    // All the components
+    in property <[ComponentListItem]> known-components;
+    callback library-search(string);
+    // The component currently viewed
+    out property <ComponentItem> visible-component;
+
+    // ## Kinds of diagnostics seen in the last compiler run
+    in property <DiagnosticSummary> diagnostic-summary;
+    // status message text
+    in property <string> status-text;
+
+    // ## Style:
+    // All the known styles
+    in property <[string]> known-styles;
+    // The index of the current style within `known-styles`
+    in-out property <int> current-style-index;
+    // control, but command on macOS
+    in-out property <string> control-key-name: "control";
+
+    // ## Log Output
+    in-out property <[LogMessage]> log-output;
+    in-out property <bool> auto-clear-console: true;
+
+    // ## Drawing Area
+    // Borders around things
+    pure callback highlight-positions(source-uri: string, offset: int) -> [SelectionRectangle];
+    in-out property <Selection> selection;
+    in-out property <DropMark> drop-mark;
+    // The actual preview
+    in-out property <component-factory> preview-area;
+
+    pure callback new-component-data(index: int) -> data-transfer;
+    pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;
+
+    // set to true to resize
+    in property <bool> resize-to-preferred-size: false;
+
+    // ## Palette data:
+    in-out property <[PaletteEntry]> palettes;
+    in-out property <[color]> recent-colors;
+
+    // ## Property Editor
+    in-out property <ElementInformation> current-element;
+    in-out property <[PropertyGroup]> properties: [
+        {
+            group-name: "Geometry",
+            properties: [
+                {
+                    name: "width",
+                    type-name: "length",
+                    value: {
+                        kind: PropertyValueKind.float,
+                        value-float: 100,
+                        visual-items: ["px", "cm", "mm", "in", "pt", "phx"],
+                    }
+                },
+                {
+                    name: "height",
+                    type-name: "length",
+                    value: {
+                        kind: PropertyValueKind.float,
+                        value-float: 200,
+                        visual-items: ["px", "cm", "mm", "in", "pt", "phx"],
+                    }
+                },
+                { name: "z", type-name: "float", value: {
+                    kind: PropertyValueKind.float,
+                    value-float: 10,
+                } },
+                {
+                    name: "combobox",
+                    type-name: "string",
+                    value: {
+                        kind: PropertyValueKind.enum,
+                        value-int: 1,
+                        default-selection: 0,
+                        visual-items: ["one", "twenty two", "one hundred", "infinite"],
+                    }
+                },
+            ]
+        },
+        {
+            group-name: "Button",
+            properties: [
+                {
+                    name: "text",
+                    type-name: "string",
+                    value: {
+                        is-translatable: true,
+                        kind: PropertyValueKind.string,
+                    }
+                },
+                { name: "checkable", type-name: "bool", value: {
+                    kind: PropertyValueKind.boolean,
+                } },
+                { name: "icon", type-name: "image", value: {
+                    kind: PropertyValueKind.code,
+                } },
+                {
+                    name: "brush",
+                    type-name: "brush",
+                    value: { kind: PropertyValueKind.brush, value-brush: Colors.green, value-string: "#00ff00" },
+                },
+                {
+                    name: "text-between",
+                    type-name: "string",
+                    value: {
+                        is-translatable: true,
+                        kind: PropertyValueKind.string,
+                    }
+                },
+                {
+                    name: "color",
+                    type-name: "color",
+                    value: { kind: PropertyValueKind.color, value-brush: Colors.green, value-string: "#00ff00" },
+                },
+                {
+                    name: "a-really-long-named-attribute",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.float,
+                        value-float: 10,
+                    }
+                },
+                {
+                    name: "bar",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.code,
+                        value-float: 10.5,
+                        code: 10 / 2,
+                    }
+                },
+                {
+                    name: "baz",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.code,
+                        value-float: 10.5,
+                        code: "",
+                    }
+                }
+            ]
+        },
+        {
+            group-name: "Other",
+            properties: [
+                {
+                    name: "text",
+                    type-name: "string",
+                    value: {
+                        is-translatable: true,
+                        kind: PropertyValueKind.string,
+                    }
+                },
+                { name: "checkable", type-name: "bool", value: {
+                    kind: PropertyValueKind.boolean,
+                } },
+                { name: "icon", type-name: "image", value: {
+                    kind: PropertyValueKind.code,
+                } },
+                {
+                    name: "color",
+                    type-name: "brush",
+                    value: { kind: PropertyValueKind.brush, value-brush: Colors.magenta, value-string: "#ff00ff" },
+                },
+                {
+                    name: "a-really-long-named-attribute",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.float,
+                        value-float: 10,
+                    }
+                },
+                {
+                    name: "bar",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.code,
+                        value-float: 10.5,
+                        code: 10 / 2,
+                    }
+                },
+                {
+                    name: "baz",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.code,
+                        value-float: 10.5,
+                        code: "",
+                    }
+                }
+            ]
+        }
+    ];
+    callback properties-search(string);
+
+    // ## Outline
+    in-out property <[OutlineTreeNode]> outline;
+    callback outline-select-element(uri: string, offset: int, notify_editor: bool);
+    // Data is either a "file:offset" for an element to move, or just a component index.
+    callback outline-drop(data: data-transfer, uri: string, offset: int, location: DropLocation);
+    callback outline-can-drop(data: data-transfer, uri: string, offset: int, location: DropLocation) -> bool;
+
+    // ## preview data
+
+    in-out property <[PropertyContainer]> preview-data;
+
+    // # Callbacks
+
+    // ## Custom conversion functions:
+    pure callback string-is-color(string) -> bool;
+    pure callback string-to-color(string) -> color;
+    pure callback color-to-data(color) -> ColorData;
+    pure callback rgba_to_color(r: int, g: int, b: int, a: int) -> color;
+
+    // ## Style:
+    callback style-changed();
+
+    // ## Component life-cycle:
+
+    // Create a new component
+    callback add-new-component();
+
+    // Add an existing component
+    pure callback can-drop(data: data-transfer, x: length, y: length, on-drop-area: bool) -> bool;
+    callback drop(data: data-transfer, x: length, y: length);
+
+    callback rename-component(old-name: string, defined-at: string, new-name: string);
+
+    callback selected-element-can-move-to(x: length, y: length, mouse-x: length, mouse-y: length) -> bool;
+    callback selected-element-move(x: length, y: length, mouse-x: length, mouse-y: length);
+
+    callback selected-element-resize(x: length, y: length, width: length, height: length);
+
+    callback selected-element-delete();
+
+    // ## Element selection:
+    callback selection-stack-at(x: length, y: length) -> [SelectionStackFrame];
+    pure callback filter-sort-selection-stack(model: [SelectionStackFrame], filter_text: string, filter: SelectionStackFilter) -> [SelectionStackFrame];
+    pure callback find-selected-selection-stack-frame([SelectionStackFrame]) -> SelectionStackFrame;
+    callback select-element(file: string, offset: int, x: length, y: length);
+
+    callback select-at(x: length, y: length, enter-component: bool);
+    callback select-behind(x: length, y: length, enter-component: bool, reverse: bool);
+    callback reselect();
+    callback unselect();
+
+    // ## Change Editor:
+
+    // Show a component in the editor
+    callback show-component(name: string, url: string);
+    // Show a position consisting of `line` and `column` in a `file` in the editor
+    callback show-document(file: string, line: int, column: int);
+    // Show a position consisting of `line` and `column` in a `file` in the editor
+    callback show-document-offset-range(url: string, start_offset: int, end_offset: int, take-focus: bool);
+
+    // ## Drawing Area
+    // Preview some other component
+    callback show-preview-for(name: string, url: string);
+    callback reload-preview();
+
+    // ## Property Editor
+    pure callback test-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
+    pure callback set-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string);
+    pure callback set-color-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: color);
+    callback set-element-id(element-url: string, element-version: int, element-offset: int, new-id: string);
+
+    pure callback string-to-code(value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string) -> string;
+
+    pure callback as-slint-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> string;
+
+    // ## preview data
+    pure callback get-property-value(component: string, name: string) -> PropertyValue;
+    pure callback get-property-value-table(component: string, name: string) -> PropertyValueTable;
+    pure callback set-property-value-table(component: string, name: string, table: [[PropertyValue]], is-array: bool) -> string;
+
+    pure callback insert-row-into-value-table(table: PropertyValueTable, insert-before: int);
+    pure callback remove-row-from-value-table(table: PropertyValueTable, remove-row: int);
+
+    pure callback set-json-preview-data(component: string, name: string, json-value: string, send-telemetry: bool) -> string;
+
+    pure callback as-json-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> string;
+
+    pure callback add-gradient-stop(stops: [GradientStop], value: GradientStop) -> int;
+    pure callback remove-gradient-stop(stops: [GradientStop], row: int);
+    // returns the new index of the gradient stop in the sorted list of GradientStops
+    pure callback move-gradient-stop(stops: [GradientStop], row: int, new_position: float) -> int;
+    pure callback suggest-gradient-stop-at-row(stops: [GradientStop], row: int) -> GradientStop;
+    pure callback suggest-gradient-stop-at-position(stops: [GradientStop], position: float) -> GradientStop;
+    pure callback clone-gradient-stops(stops: [GradientStop]) -> [GradientStop];
+
+    pure callback create-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> brush;
+
+    // Get the property declaration/definition ranges
+    callback property-declaration-ranges(property-name: string) -> PropertyDeclaration;
+
+    // Palettes:
+    pure callback filter-palettes(palettes: [PaletteEntry], pattern: string) -> [PaletteEntry];
+    callback add-recent-color(color);
+    pure callback is-css-color(code: string) -> bool;
+
+    // ## Console / LogMessages
+    pure callback filter-log-messages(messages: [LogMessage], pattern: string) -> [LogMessage];
+    callback clear-log-messages();
+
+    // ## Undo/Redo
+    callback undo();
+    callback redo();
+    in-out property <bool> undo-enabled: false;
+    in-out property <bool> redo-enabled: false;
+
+    // ## Remote preview
+    in-out property <PreviewMode> preview-mode: PreviewMode.Local;
+    in-out property <[RemoteViewerInfo]> remote-discovered-viewers;
+    in-out property <RemoteConnectionState> remote-connection-state;
+    in-out property <string> remote-connection-error;
+    in-out property <string> remote-connection-target;
+    callback remote-start-discovery();
+    callback remote-stop-discovery();
+    callback remote-connect(addresses: [string], port: int);
+    callback remote-connect-manual(host-port: string);
+    callback remote-disconnect();
+
+    // ## SlintPad related APIs
+    in-out property <bool> runs-in-slintpad;
+    in-out property <[{title: string, url: string}]> demos: [
+        { url: "", title: "Hello World!" },
+        { url: "examples/gallery/gallery.slint", title: "Gallery" },
+        { url: "demos/home-automation/ui/demo-debug.slint", title: "Home Automation" },
+        { url: "demos/usecases/ui/app.slint", title: "Use Cases Demo" },
+        { url: "demos/printerdemo/ui/printerdemo.slint", title: "Printer Demo" },
+        { url: "demos/energy-monitor/ui/desktop_window.slint", title: "Energy Monitor" },
+        { url: "examples/todo/ui/todo.slint", title: "Todo Demo" },
+        { url: "examples/iot-dashboard/main.slint", title: "IOT Dashboard" },
+        { url: "examples/fancy-switches/demo.slint", title: "Fancy Switches" },
+        { url: "examples/dial/dial.slint", title: "Fancy Dial" },
+        { url: "examples/orbit-animation/demo.slint", title: "Fancy Animations" },
+        { url: "examples/repeater/demo.slint", title: "Fancy Repeater" },
+        { url: "examples/sprite-sheet/demo.slint", title: "Sprite sheet Demo" },
+    ];
+    callback new-file();
+    callback share-permalink-to-clipboard();
+    callback load-demo(url: string);
+    callback show-about-slint();
+}

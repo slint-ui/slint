@@ -1,0 +1,40 @@
+{
+  "name": "slint-docs",
+  "type": "module",
+  "version": "1.18.0",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro check && astro build && node scripts/validate-md-links.mjs",
+    "preview": "astro preview",
+    "astro": "astro",
+    "format": "biome format",
+    "format:fix": "biome format --write",
+    "lint": "biome lint",
+    "lint:fix": "biome lint --fix",
+    "spellcheck": "cspell --no-progress --gitignore --exclude 'archive/**' \"./**/*.{md,mdx}\"",
+    "type-check": "astro check",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui"
+  },
+  "dependencies": {
+    "@astrojs/check": "catalog:",
+    "@astrojs/sitemap": "catalog:",
+    "@astrojs/starlight": "catalog:",
+    "@types/node": "catalog:",
+    "astro": "catalog:",
+    "astro-embed": "catalog:",
+    "playwright-ctrf-json-reporter": "catalog:",
+    "remark-parse": "catalog:",
+    "sharp": "catalog:",
+    "starlight-sidebar-topics": "0.8.0",
+    "typescript": "catalog:",
+    "unified": "catalog:",
+    "unist-util-visit": "catalog:",
+    "@slint/common-files": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "catalog:",
+    "cspell": "catalog:"
+  }
+}

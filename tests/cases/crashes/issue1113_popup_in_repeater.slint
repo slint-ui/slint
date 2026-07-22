@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component App inherits Window {
+    for menu-item in [{children: ["hello"]}] : VerticalLayout {
+        Rectangle {
+            popup := PopupWindow {
+                Rectangle {
+                    for child in menu-item.children : Rectangle {
+                    }
+                }
+            }
+       }
+    }
+
+    if true : Rectangle {
+        Rectangle {
+            TouchArea {
+                clicked => {
+                    popup2.show();
+                }
+            }
+            popup2 := PopupWindow { }
+        }
+    }
+
+    // Issue #1132
+    for menu-item in [0] : TouchArea {
+        clicked => { popup3.show(); }
+        if true: TouchArea {
+            clicked => { popup3.show(); }
+        }
+        popup3 := PopupWindow { }
+    }
+
+}
+

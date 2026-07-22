@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { MainScreen } from "components/mainView/mainScreen.slint";
+import { Api } from "api.slint";
+
+export { Api }
+
+export component AppWindow inherits Window {
+    min-width: 960px;
+    min-height: 540px;
+    preferred-width: 960px;
+    preferred-height: 540px;
+
+    MainScreen { }
+}

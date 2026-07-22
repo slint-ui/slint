@@ -1,0 +1,19 @@
+{
+    "name": "home_automation",
+    "version": "1.18.0",
+    "main": "main.js",
+    "type": "module",
+    "dependencies": {
+        "@biomejs/biome": "catalog:",
+        "slint-ui": "workspace:*"
+    },
+    "scripts": {
+        "start": "node .",
+        "prestart": "cd ../../../api/node/ && pnpm run build && pnpm compile",
+        "check": "biome check",
+        "format": "biome format",
+        "format:fix": "biome format --write",
+        "lint": "biome lint",
+        "lint:fix": "biome lint --fix"
+    }
+}

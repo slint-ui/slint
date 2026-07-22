@@ -1,0 +1,230 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 400px;
+
+    in-out property <string> result;
+    out property swiping-sgh-with-ta <=> sgh-with-ta.swiping;
+    out property swiping-sgh-wo-ta <=> sgh-wo-ta.swiping;
+    out property swiping-sgh-disabled-ta <=> sgh-disabled-ta.swiping;
+
+
+    // With a TouchArea
+    sgh-with-ta := SwipeGestureHandler {
+        width: 200px;
+        height: 200px;
+        x: 0px;
+        y: 0px;
+        Rectangle {
+            background: yellow;
+        }
+        handle-swipe-down: true;
+        handle-swipe-up: true;
+        handle-swipe-left: true;
+        handle-swipe-right: true;
+        TouchArea {
+            clicked => { result += "ta1"; }
+        }
+    }
+
+    // Without a TouchArea
+    sgh-wo-ta := SwipeGestureHandler {
+        width: 200px;
+        height: 200px;
+        x: 200px;
+        y: 0px;
+        Rectangle {
+            background: green;
+        }
+        handle-swipe-down: true;
+        handle-swipe-up: true;
+        handle-swipe-left: true;
+        handle-swipe-right: true;
+    }
+
+    // With a disabled one
+    sgh-disabled-ta := SwipeGestureHandler {
+        width: 200px;
+        height: 200px;
+        x: 0px;
+        y: 200px;
+        Rectangle {
+            background: red;
+        }
+        handle-swipe-down: true;
+        handle-swipe-up: true;
+        handle-swipe-left: true;
+        handle-swipe-right: true;
+        ta := TouchArea {
+            enabled: false;
+            clicked => { result += "ta2"; }
+        }
+    }
+}
+
+
+/*
+```rust
+use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+
+
+// With TouchArea
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 100.0) });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(200);
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 100.0) });
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 50.0) });
+assert_eq!(instance.get_swiping_sgh_with_ta(), true, "we should be swiping 'with-ta'");
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+slint_testing::mock_elapsed_time(50);
+
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(250.0, 250.0) }); //outside
+assert_eq!(instance.get_swiping_sgh_with_ta(), true, "we should be swiping 'with-ta'");
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+slint_testing::mock_elapsed_time(50);
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 100.0) });
+assert_eq!(instance.get_swiping_sgh_with_ta(), true);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+assert_eq!(instance.get_result(), "");
+
+
+// Without TouchArea
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200.0 + 100.0, 100.0) });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(200.0 + 100.0, 100.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(200);
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200.0 + 100.0, 100.0) });
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200.0 + 50.0, 50.0) });
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), true, "we should be swiping 'without-ta'");
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+slint_testing::mock_elapsed_time(50);
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(250.0, 250.0) }); //outside
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), true);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+slint_testing::mock_elapsed_time(50);
+
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200.0 + 100.0, 100.0) });
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), true);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(200.0 + 100.0, 100.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+assert_eq!(instance.get_result(), "");
+
+// With disabled TouchArea
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 200.0 + 100.0) });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 200.0 + 100.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(200);
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 200.0 + 100.0) });
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 200.0 + 50.0) });
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), true, "we should be swiping 'with-disabled-ta'");
+slint_testing::mock_elapsed_time(50);
+
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(250.0, 250.0) }); //outside
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), true);
+slint_testing::mock_elapsed_time(50);
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 200.0 + 100.0) });
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), true);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 200.0 + 100.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+assert_eq!(instance.get_result(), "");
+
+// Do the click, now.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 100.0) });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(200);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(101.0, 101.0) });
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(101.0, 101.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+assert_eq!(instance.get_result(), "ta1");
+instance.set_result("".into());
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0 + 100.0, 100.0) });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0 + 100.0, 100.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(200);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0 + 101.0, 101.0) });
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0 + 101.0, 101.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+assert_eq!(instance.get_result(), "");
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 100.0 + 100.0) });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 100.0 + 100.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(200);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(101.0, 100.0 + 101.0) });
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(101.0, 100.0 + 101.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_swiping_sgh_with_ta(), false);
+assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
+assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
+assert_eq!(instance.get_result(), "");
+
+
+```
+
+
+*/

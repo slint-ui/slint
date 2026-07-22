@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { StandardTableView } from "std-widgets.slint";
+
+export component TestCase inherits Rectangle {
+    callback set-current-row(int);
+
+    out property <int> row-count: list.rows.length;
+    out property <int> callback-current-row: -1;
+
+    in-out property<[[StandardListViewItem]]> rows: [
+        [{ text: "Item 1" }, { text: "Description"} ],
+        [{ text: "Item 1" }, { text: "Description"}],
+        [{ text: "Item 1" }, { text: "Description"}],
+    ];
+    in-out property <int> current-row <=> list.current-row;
+
+    list := StandardTableView {
+        rows: rows;
+
+        columns: [
+           { title: "Items" },
+           { title: "Descriptions" },
+        ];
+
+        current-row-changed(index) => {
+            callback-current-row = index;
+        }
+    }
+
+    set-current-row(index) => {
+        list.set-current-row(index);
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_row_count(), 3);
+assert_eq!(instance.get_current_row(), -1);
+
+assert_eq!(instance.get_callback_current_row(), -1);
+instance.invoke_set_current_row(1);
+assert_eq!(instance.get_callback_current_row(), 1);
+assert_eq!(instance.get_current_row(), 1);
+```
+*/

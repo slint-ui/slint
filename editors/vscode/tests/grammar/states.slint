@@ -1,0 +1,29 @@
+// SYNTAX TEST "source.slint" "Example code test"
+
+  component Test {
+      states [
+//    ^^^^^^ keyword.other.states.slint
+          expanded when root.expanded : {
+//        ^^^^^^^^ entity.name.tag.state.slint
+//                 ^^^^ keyword.other.when.slint
+              height: layout.min-height;
+//            ^^^^^^ variable.other.property.slint
+
+              in {
+//            ^^ keyword.other.state-change.slint
+                  height: layout.min-height;
+//                ^^^^^^ variable.other.property.slint
+              }
+              out {
+//            ^^^ keyword.other.state-change.slint
+                  animate height { duration: 200ms; easing: foobar; }
+//                ^^^^^^^ keyword.other.animate.slint
+//                        ^^^^^^ variable.other.property.slint
+//                                 ^^^^^^^^ keyword.other.animate.setting.slint
+//                                           ^^^^^ constant.numeric.slint
+//                                                  ^^^^^^ keyword.other.animate.setting.slint
+              }
+          }
+      ]
+  }
+

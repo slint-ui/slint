@@ -1,0 +1,151 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    width: 100phx;
+    height: 100phx;
+
+    ti := TextInput {}
+
+    in-out property<string> test_text <=> ti.text;
+
+    callback do_select();
+    do_select => {
+        ti.select_all();
+    }
+
+    callback do_copy();
+    do_copy => {
+        ti.copy();
+    }
+
+    callback do_cut();
+    do_cut => {
+        ti.cut();
+    }
+
+    callback do_paste();
+    do_paste => {
+        ti.paste();
+    }
+
+    callback do_deselect();
+    do_deselect => {
+        ti.clear-selection();
+    }
+
+    callback set_selection_offsets(int, int);
+    set_selection_offsets(start, end) => {
+        ti.set-selection-offsets(start, end);
+    }
+
+    out property<bool> has_selection: ti.cursor_position_byte_offset != ti.anchor_position_byte_offset;
+    out property<int> test_cursor_pos: ti.cursor_position_byte_offset;
+    out property<int> test_anchor_pos: ti.anchor_position_byte_offset;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.set_test_text("Hello World".into());
+assert!(!instance.get_has_selection());
+instance.invoke_do_select();
+assert!(instance.get_has_selection());
+
+instance.invoke_do_copy();
+assert!(instance.get_has_selection());
+assert_eq!(instance.get_test_text(), "Hello World");
+instance.invoke_do_cut();
+assert!(!instance.get_has_selection());
+assert_eq!(instance.get_test_text(), "");
+
+instance.invoke_do_paste();
+assert_eq!(instance.get_test_text(), "Hello World");
+instance.invoke_do_select();
+assert!(instance.get_has_selection());
+instance.invoke_do_deselect();
+assert!(!instance.get_has_selection());
+
+instance.set_test_text("Hello".into());
+instance.invoke_set_selection_offsets(-3, 10);
+assert_eq!(instance.get_test_anchor_pos(), 0);
+assert_eq!(instance.get_test_cursor_pos(), 5);
+
+instance.set_test_text("🥳😎".into());
+instance.invoke_set_selection_offsets(0, 3);
+assert_eq!(instance.get_test_anchor_pos(), 0);
+assert_eq!(instance.get_test_cursor_pos(), 4);
+
+```
+*/
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.set_test_text("Hello World");
+assert(!instance.get_has_selection());
+instance.invoke_do_select();
+assert(instance.get_has_selection());
+
+instance.invoke_do_copy();
+assert(instance.get_has_selection());
+assert_eq(instance.get_test_text(), "Hello World");
+instance.invoke_do_cut();
+assert(!instance.get_has_selection());
+assert_eq(instance.get_test_text(), "");
+
+instance.invoke_do_paste();
+assert_eq(instance.get_test_text(), "Hello World");
+instance.invoke_do_select();
+assert(instance.get_has_selection());
+instance.invoke_do_deselect();
+assert(!instance.get_has_selection());
+
+instance.set_test_text("Hello");
+instance.invoke_set_selection_offsets(-3, 10);
+assert_eq(instance.get_test_anchor_pos(), 0);
+assert_eq(instance.get_test_cursor_pos(), 5);
+
+instance.set_test_text("🥳😎");
+instance.invoke_set_selection_offsets(0, 3);
+assert_eq(instance.get_test_anchor_pos(), 0);
+assert_eq(instance.get_test_cursor_pos(), 4);
+
+```
+*/
+
+/*
+```js
+var instance = new slint.TestCase({});
+instance.test_text = "Hello World";
+assert(!instance.has_selection);
+instance.do_select();
+assert(instance.has_selection);
+
+instance.do_copy();
+assert(instance.has_selection);
+assert.equal(instance.test_text, "Hello World");
+instance.do_cut();
+assert(!instance.has_selection);
+assert.equal(instance.test_text, "");
+
+instance.do_paste();
+assert.equal(instance.test_text, "Hello World");
+instance.do_select();
+assert(instance.has_selection);
+instance.do_deselect();
+assert(!instance.has_selection);
+
+instance.test_text = "Hello";
+instance.set_selection_offsets(-3, 10);
+assert.equal(instance.test_anchor_pos, 0);
+assert.equal(instance.test_cursor_pos, 5);
+
+instance.test_text = "🥳😎";
+instance.set_selection_offsets(0, 3);
+assert.equal(instance.test_anchor_pos, 0);
+assert.equal(instance.test_cursor_pos, 4);
+
+```
+*/

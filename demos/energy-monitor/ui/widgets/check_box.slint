@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { Images } from "../images.slint";
+
+export component CheckBox {
+    callback clicked <=> i-touch-area.clicked;
+    in-out property <bool> checked;
+
+    min-height: 18px;
+    width: self.height;
+
+    states [
+        checked when checked : {
+            i-container.border-width: 0;
+            i-container.background: Theme.palette.lemon-green;
+            i-check-icon.opacity: 1.0;
+        }
+    ]
+
+    i-container := Rectangle {
+        border-color: Theme.palette.slint-blue-300;
+        border-width: 2px;
+        border-radius: 2px;
+
+        animate background { duration: Theme.durations.fast; }
+
+        i-check-icon := Image {
+            opacity: 0.0;
+            colorize: Theme.palette.pure-black;
+            source: Images.check;
+
+            animate opacity { duration: Theme.durations.fast; }
+        }
+    }
+
+    i-touch-area := TouchArea {
+        clicked => {
+            checked = !checked;
+        }
+    }
+}

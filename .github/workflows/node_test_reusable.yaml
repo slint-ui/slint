@@ -1,0 +1,75 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Node.js Test (Reusable)
+
+on:
+    workflow_call:
+      inputs:
+        name:
+            description: 'Name of the job'
+            required: true
+            type: string
+        os:
+            description: 'Operating system to run on'
+            required: true
+            type: string
+
+env:
+    RUSTFLAGS: -D warnings
+    CARGO_PROFILE_DEV_DEBUG: 0
+    CARGO_INCREMENTAL: false
+    RUST_BACKTRACE: 1
+
+
+jobs:
+    node_test:
+        name: ${{ inputs.name }}
+        runs-on: ${{ inputs.os }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/install-skia-dependencies
+            - name: Setup headless display
+              if: runner.os != 'macOS'
+              uses: pyvista/setup-headless-display-action@v4
+            - uses: actions/setup-node@v7
+              with:
+                node-version: 24
+                package-manager-cache: false
+              id: node-install
+            - uses: pnpm/action-setup@v6.0.9
+              with:
+                version: 10.29.3
+            - uses: ./.github/actions/setup-rust
+              with:
+                  key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
+            - name: Run pnpm install
+              working-directory: api/node
+              run: pnpm install --frozen-lockfile
+            - name: Build node plugin in debug
+              # build:testing builds the default binary with the `testing` feature
+              # (mocked time and synthetic input) that the unit tests rely on. The
+              # opt-in system-testing/MCP capabilities ship in the separate dev
+              # binary and are covered by the registry e2e test (publish gate).
+              run: pnpm build:testing
+              working-directory: api/node
+            - name: Type-check registry e2e fixtures
+              # Type-checked here (not in the standalone typecheck job) because it
+              # resolves slint-ui's types, which depend on the generated bindings
+              # produced by the build above.
+              run: pnpm exec tsc -p tsconfig.e2e.json
+              working-directory: api/node
+            - name: Run node tests
+              working-directory: api/node
+              run: pnpm test
+            # The registry end-to-end test (api/node/__test__/registry/e2e.test.mts)
+            # runs as a gate in the npm publish workflow against the real, all-platform
+            # tarballs — see publish_npm_package.yaml.
+            - name: Run test-driver-nodejs
+              # Release is only applied to the harness that drives the node.js invocations, but needed
+              # to avoid crashing on Windows with what looks like an out of stack exception.
+              run: cargo test --verbose --release --all-features --manifest-path tests/Cargo.toml -p test-driver-nodejs
+            - name: Check image-filter example
+              working-directory: examples/imagefilter/node
+              run: pnpm check

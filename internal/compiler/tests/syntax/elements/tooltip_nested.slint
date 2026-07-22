@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test inherits Window {
+    Rectangle {
+        Tooltip {
+//      >      <error{Tooltip cannot have both text and custom content}
+            text: @markdown("Outer");
+            Tooltip {
+//          >      <error{Tooltip cannot be added to Tooltip}
+                text: @markdown("Nested");
+            }
+        }
+    }
+}

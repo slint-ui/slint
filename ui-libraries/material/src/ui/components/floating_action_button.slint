@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Elevation } from "./elevation.slint";
+import { BaseButton } from "./base_button.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+
+export enum FABStyle {
+    small,
+    standard,
+    large
+}
+
+export component FloatingActionButton {
+    in property <image> icon <=> base.icon;
+    in property <string> text <=> base.text;
+    in property <string> tooltip <=> base.tooltip;
+    in property <FABStyle> style;
+
+    callback clicked <=> base.clicked;
+
+    accessible-role: button;
+    accessible-enabled: true;
+    accessible-label: root.text == "" ? root.tooltip : root.text;
+    accessible-action-default => { base.clicked(); }
+
+    elevation := Elevation {
+        border_radius: root.style == FABStyle.small ? MaterialStyleMetrics.border_radius_12 :
+            root.style == FABStyle.standard ? MaterialStyleMetrics.border_radius_16 : MaterialStyleMetrics.border_radius_28;
+        background: MaterialPalette.primary;
+        level: 3;
+        width: 100%;
+        height: 100%;
+    }
+
+    base := BaseButton {
+        border_radius: elevation.border_radius;
+        color:  MaterialPalette.on_primary;
+        button_vertical_padding: root.style == FABStyle.small ? MaterialStyleMetrics.padding_10 :
+            root.style == FABStyle.standard ? MaterialStyleMetrics.padding_14 : MaterialStyleMetrics.padding_30;
+        button_horizontal_padding: self.button_vertical_padding;
+        min_layout_width: self.min_layout_height;
+        min_layout_height: root.style == FABStyle.small ? MaterialStyleMetrics.size_40 :
+            root.style == FABStyle.standard ? MaterialStyleMetrics.size_56 : MaterialStyleMetrics.size_90;
+        icon_size: root.style != FABStyle.large ? MaterialStyleMetrics.icon_size_24 : MaterialStyleMetrics.icon_size_36;
+    }
+
+    states [
+        hover when base.has_hover : {
+            elevation.level: 4;
+        }
+    ]
+}

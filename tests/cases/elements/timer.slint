@@ -1,0 +1,222 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore tArunning ABAAB BAAB
+export global G {
+    in-out property <bool> tArunning: true;
+}
+
+component Bug8541 {
+    out property <bool> bar: true;
+}
+
+
+component SubCompo {
+
+    out property <string> r;
+
+    HorizontalLayout {
+        Rectangle {}
+        Timer {
+            interval: 1s;
+            triggered => { r += "A"; }
+            running <=> G.tArunning;
+        }
+        Timer {
+            interval: 1.502s;
+            triggered => { r += "B"; }
+        }
+        for l in ["c", "d"] : Rectangle {
+            Timer {
+                interval: 3s;
+                triggered => { r += l; }
+            }
+        }
+    }
+    init => {
+        // instantiate the repeater
+        debug(root.preferred-height);
+    }
+}
+
+export component TestCase inherits Window {
+
+    out property <string> result;
+    out property <string> second_result: s.r;
+
+    in property <int> tm2duration;
+    in property <bool> tm2running <=> tm2.running;
+
+    vl := VerticalLayout {
+        if true: HorizontalLayout {
+            Timer {
+                interval: 1s;
+                triggered => { result += "1"; }
+            }
+        }
+    }
+    out property <bool> test: vl.max-width == 0;
+
+    bug8541 := Bug8541 {}
+
+    Rectangle {
+        tm2 := Timer {
+            running: false;
+            interval: tm2duration * 1ms;
+            triggered => { if bug8541.bar { result += "2"; } }
+        }
+    }
+
+    Rectangle {
+        oops := Timer {
+            interval: -5ms;
+            triggered => { result += "oops"; debug(s.absolute-position.x) }
+        }
+        s := SubCompo {  }
+    }
+
+
+}
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_result(), "");
+slint_testing::mock_elapsed_time(991);
+assert_eq!(instance.get_result(), "");
+slint_testing::mock_elapsed_time(10);
+assert_eq!(instance.get_result(), "1");
+instance.set_tm2running(true);
+assert_eq!(instance.get_result(), "1");
+slint_testing::mock_elapsed_time(500);
+// despite we say to elapse 500ms, the changed callback is only called once
+slint_testing::mock_elapsed_time(510);
+// Same, the timer event are only called once
+assert_eq!(instance.get_result(), "121");
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_result(), "1212");
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_result(), "12122");
+instance.set_tm2duration(50);
+slint_testing::mock_elapsed_time(8);
+// even though we changed the duration, the timer fires before the changed callback
+assert_eq!(instance.get_result(), "121222");
+slint_testing::mock_elapsed_time(49);
+assert_eq!(instance.get_result(), "121222");
+slint_testing::mock_elapsed_time(2);
+assert_eq!(instance.get_result(), "1212222");
+slint_testing::mock_elapsed_time(47);
+assert_eq!(instance.get_result(), "1212222");
+instance.set_tm2duration(18);
+slint_testing::mock_elapsed_time(2);
+assert_eq!(instance.get_result(), "1212222");
+slint_testing::mock_elapsed_time(19);
+assert_eq!(instance.get_result(), "12122222");
+
+for _ in 0..20 {
+    slint_testing::mock_elapsed_time(500);
+}
+assert_eq!(instance.get_second_result(), "ABAcdABAABAcdABAAcdBAABAcd");
+instance.global::<G<'_>>().set_tArunning(false);
+for _ in 0..20 {
+    slint_testing::mock_elapsed_time(500);
+}
+assert_eq!(instance.get_second_result(), "ABAcdABAABAcdABAAcdBAABAcdBcdBBcdBcdB");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert_eq(instance.get_result(), "");
+slint_testing::mock_elapsed_time(991);
+assert_eq(instance.get_result(), "");
+slint_testing::mock_elapsed_time(10);
+assert_eq(instance.get_result(), "1");
+instance.set_tm2running(true);
+assert_eq(instance.get_result(), "1");
+slint_testing::mock_elapsed_time(500);
+// despite we say to elapse 500ms, the changed callback is only called once
+slint_testing::mock_elapsed_time(510);
+// Same, the timer event are only called once
+assert_eq(instance.get_result(), "121");
+slint_testing::mock_elapsed_time(0);
+assert_eq(instance.get_result(), "1212");
+slint_testing::mock_elapsed_time(0);
+assert_eq(instance.get_result(), "12122");
+instance.set_tm2duration(50);
+slint_testing::mock_elapsed_time(8);
+// even though we changed the duration, the timer fires before the changed callback
+assert_eq(instance.get_result(), "121222");
+slint_testing::mock_elapsed_time(49);
+assert_eq(instance.get_result(), "121222");
+slint_testing::mock_elapsed_time(2);
+assert_eq(instance.get_result(), "1212222");
+slint_testing::mock_elapsed_time(47);
+assert_eq(instance.get_result(), "1212222");
+instance.set_tm2duration(18);
+slint_testing::mock_elapsed_time(2);
+assert_eq(instance.get_result(), "1212222");
+slint_testing::mock_elapsed_time(19);
+assert_eq(instance.get_result(), "12122222");
+
+for (int i = 0; i < 20; ++i) {
+    slint_testing::mock_elapsed_time(500);
+}
+assert_eq(instance.get_second_result(), "ABAcdABAABAcdABAAcdBAABAcd");
+
+instance.global<G>().set_tArunning(false);
+for (int i = 0; i < 20; ++i) {
+    slint_testing::mock_elapsed_time(500);
+}
+assert_eq(instance.get_second_result(), "ABAcdABAABAcdABAAcdBAABAcdBcdBBcdBcdB");
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+assert.equal(instance.result, "");
+slintlib.private_api.mock_elapsed_time(991);
+assert.equal(instance.result, "");
+slintlib.private_api.mock_elapsed_time(10);
+assert.equal(instance.result, "1");
+instance.tm2running = true;
+assert.equal(instance.result, "1");
+slintlib.private_api.mock_elapsed_time(500);
+// despite we say to elapse 500ms, the changed callback is only called once
+slintlib.private_api.mock_elapsed_time(510);
+// Same, the timer event are only called once
+assert.equal(instance.result, "121");
+slintlib.private_api.mock_elapsed_time(0);
+assert.equal(instance.result, "1212");
+slintlib.private_api.mock_elapsed_time(0);
+assert.equal(instance.result, "12122");
+instance.tm2duration = 50;
+slintlib.private_api.mock_elapsed_time(8);
+// even though we changed the duration, the timer fires before the changed callback
+assert.equal(instance.result, "121222");
+slintlib.private_api.mock_elapsed_time(49);
+assert.equal(instance.result, "121222");
+slintlib.private_api.mock_elapsed_time(2);
+assert.equal(instance.result, "1212222");
+slintlib.private_api.mock_elapsed_time(47);
+assert.equal(instance.result, "1212222");
+instance.tm2duration = 18;
+slintlib.private_api.mock_elapsed_time(2);
+assert.equal(instance.result, "1212222");
+slintlib.private_api.mock_elapsed_time(19);
+assert.equal(instance.result, "12122222");
+
+for (var i = 0; i < 20; ++i) {
+    slintlib.private_api.mock_elapsed_time(500);
+}
+assert.equal(instance.second_result, "ABAcdABAABAcdABAAcdBAABAcd");
+
+instance.G.tArunning = false;
+for (var i = 0; i < 20; ++i) {
+    slintlib.private_api.mock_elapsed_time(500);
+}
+assert.equal(instance.second_result, "ABAcdABAABAcdABAAcdBAABAcdBcdBBcdBcdB");
+```
+*/

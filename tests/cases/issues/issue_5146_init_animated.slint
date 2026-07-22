@@ -1,0 +1,13 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component MyComponent inherits Rectangle {
+    animate background { }
+    init => {
+        self.background = #000;
+    }
+}
+
+export component MyWindow inherits Window {
+    for _ in [1, 2, 3]: MyComponent { }
+}

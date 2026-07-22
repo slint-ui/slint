@@ -1,0 +1,336 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+use std::collections::HashMap;
+use std::ffi::{OsStr, OsString};
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::path::{Path, PathBuf};
+
+fn make_generator_file(path: &Path) -> std::io::Result<BufWriter<File>> {
+    Ok(BufWriter::new(File::create(path)?))
+}
+
+fn validate_test_file(base: &OsStr, path: &Path) -> std::io::Result<()> {
+    let template = include_str!("template.rs");
+    let expected = template.replace("{FILENAME}", &base.to_string_lossy());
+
+    println!("cargo::rerun-if-env-changed=SLINT_UPDATE_TESTS");
+    // If requested, update the file to match the template instead of failing.
+    if std::env::var("SLINT_UPDATE_TESTS").is_ok() {
+        std::fs::write(path, expected)?;
+        println!("cargo:warning=Updated test file: {}", path.display());
+        return Ok(());
+    }
+
+    assert!(std::fs::exists(path).unwrap_or_default(), "Missing test binary: {}", path.display());
+    let file_contents = std::fs::read_to_string(path)?;
+    let normalize = |s: &str| s.replace("\r\n", "\n").trim_end().to_string();
+
+    assert_eq!(
+        normalize(&file_contents),
+        normalize(&expected),
+        "Test file '{}' does not match template.\nRun with SLINT_UPDATE_TESTS=1 to update from template.",
+        path.display(),
+    );
+    Ok(())
+}
+
+fn make_generator_files() -> std::io::Result<HashMap<OsString, BufWriter<File>>> {
+    // Always re-generate all files, to ensure SLINT_TEST_FILTER can actually filter out test cases.
+    let mut generated_files = HashMap::new();
+    let tests_folder: PathBuf = [env!("CARGO_MANIFEST_DIR"), "tests"].iter().collect();
+
+    for file in std::fs::read_dir(tests_folder)? {
+        let file = file?.path();
+        let base = file.file_stem().expect("Missing file name!");
+        validate_test_file(base, &file)?;
+
+        let generated_path =
+            PathBuf::from(&std::env::var_os("OUT_DIR").unwrap()).join(file.file_name().unwrap());
+        generated_files.insert(base.into(), make_generator_file(&generated_path)?);
+    }
+    Ok(generated_files)
+}
+
+fn generated_file_for_test<'a>(
+    testcase: &test_driver_lib::TestCase,
+    generated_files: &'a mut HashMap<OsString, BufWriter<File>>,
+    fallback: &'a mut BufWriter<File>,
+) -> Result<&'a mut BufWriter<File>, std::io::Error> {
+    let base: Option<&Path> = testcase.relative_path.iter().next().map(|folder| folder.as_ref());
+    let case_root_dir: PathBuf = [env!("CARGO_MANIFEST_DIR"), "..", "..", "cases"].iter().collect();
+
+    // For each folder in cases/ generate a separate file.
+    // This allows splitting the test cases into multiple test binaries, which allows
+    // parallelizing the compilation.
+    if base.map(|path| case_root_dir.join(path).is_dir()).unwrap_or_default() {
+        let mut base = base.unwrap().to_owned();
+        if base.starts_with("widgets") {
+            if let Some(style) = testcase.requested_style {
+                base = PathBuf::from(format!("{}-{}", base.display(), style));
+            }
+        }
+
+        let base = base.into_os_string();
+        if generated_files.get(&base).is_none() {
+            // The generated file hashmap is filled from the list of available test binaries.
+            // Panic if we cannot find a generator file to write into, as that means there is no
+            // corresponding test binary.
+            panic!("Missing test binary for subfolder: {}", base.display());
+        }
+        Ok(generated_files.get_mut(&base).unwrap())
+    } else {
+        Ok(fallback)
+    }
+}
+
+fn main() -> std::io::Result<()> {
+    let live_preview = std::env::var("SLINT_LIVE_PREVIEW").is_ok();
+
+    let mut generated_file = make_generator_file(
+        &Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
+    )?;
+
+    let mut generated_files = make_generator_files()?;
+
+    for testcase in test_driver_lib::collect_test_cases("cases")? {
+        let generated_file =
+            generated_file_for_test(&testcase, &mut generated_files, &mut generated_file)?;
+
+        println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
+        let mut module_name = testcase.identifier();
+        if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {
+            module_name.insert(0, '_');
+        }
+        writeln!(generated_file, "#[path=\"{module_name}.rs\"] pub mod r#{module_name};")?;
+        let source = std::fs::read_to_string(&testcase.absolute_path)?;
+        let ignored = if testcase.is_ignored("rust") {
+            "#[ignore = \"testcase ignored for rust\"]"
+        } else if (cfg!(not(feature = "build-time")) || live_preview)
+            && source.contains("//bundle-translations")
+        {
+            "#[ignore = \"translation bundle not working with the macro\"]"
+        } else if live_preview && testcase.is_ignored("js") {
+            "#[ignore = \"Ignored JS testcases ignored in live-preview mode\"]"
+        } else if live_preview && testcase.is_ignored("live-preview") {
+            "#[ignore = \"testcase ignored in live-preview mode\"]"
+        } else if live_preview && source.contains("#3464") {
+            "#[ignore = \"issue #3464 not fixed with the interpreter\"]"
+        } else if live_preview && module_name.contains("write_to_model") {
+            "#[ignore = \"Interpreted model don't forward to underlying models for anonymous structs\"]"
+        } else {
+            ""
+        };
+
+        let mut output = BufWriter::new(File::create(
+            Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{module_name}.rs")),
+        )?);
+
+        output.write_all(
+            b"#![deny(warnings)]\n#![deny(rust_2018_idioms)]\n#![deny(unsafe_code)]\n",
+        )?;
+
+        #[cfg(not(feature = "build-time"))]
+        if !generate_macro(&source, &mut output, testcase)? {
+            continue;
+        }
+        #[cfg(feature = "build-time")]
+        generate_source(&source, &mut output, testcase)?;
+
+        for (i, x) in test_driver_lib::extract_test_functions(&source)
+            .filter(|x| x.language_id == "rust")
+            .enumerate()
+        {
+            write!(
+                output,
+                r"
+#[rust_analyzer::skip]
+#[test] {} fn t_{}() -> ::std::result::Result<(), ::std::boxed::Box<dyn ::std::error::Error>> {{
+    use i_slint_backend_testing as slint_testing;
+    slint_testing::init_no_event_loop();
+    slint_testing::configure_test_fonts();
+    {}
+    Ok(())
+}}",
+                ignored,
+                i,
+                x.source.replace('\n', "\n    ")
+            )?;
+        }
+
+        output.flush()?;
+    }
+
+    generated_file.flush()?;
+    for file in generated_files.values_mut() {
+        file.flush()?;
+    }
+
+    // By default resources are embedded. The WASM example builds provide test coverage for that. This switch
+    // provides test coverage for the non-embedding case, compiling tests without embedding the images.
+    if !live_preview {
+        println!("cargo:rustc-env=SLINT_EMBED_RESOURCES=false");
+    }
+
+    //Make sure to use a consistent style
+    println!("cargo:rustc-env=SLINT_STYLE=fluent");
+    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+    println!("cargo:rustc-env=SLINT_EMIT_DEBUG_INFO=1");
+    Ok(())
+}
+
+#[cfg(not(feature = "build-time"))]
+fn generate_macro(
+    source: &str,
+    output: &mut dyn Write,
+    testcase: test_driver_lib::TestCase,
+) -> Result<bool, std::io::Error> {
+    if source.contains("\\{") {
+        // Unfortunately, \{ is not valid in a rust string so it cannot be used in a slint! macro
+        output.write_all(b"#[test] #[ignore = \"string template don't work in macros\"] fn ignored_because_string_template() {{}}")?;
+        return Ok(false);
+    }
+    // to silence all the warnings in .slint files that would be turned into errors
+    output.write_all(b"#![allow(deprecated)]")?;
+    let include_paths = test_driver_lib::extract_include_paths(source);
+    let library_paths = test_driver_lib::extract_library_paths(source);
+    output.write_all(b"slint::slint!{")?;
+    for path in include_paths {
+        let mut abs_path = testcase.absolute_path.clone();
+        abs_path.pop();
+        abs_path.push(path);
+
+        output.write_all(b"#[include_path=r#\"")?;
+        output.write_all(abs_path.to_string_lossy().as_bytes())?;
+        output.write_all(b"\"#]\n")?;
+
+        println!("cargo:rerun-if-changed={}", abs_path.to_string_lossy());
+    }
+    for (lib, path) in library_paths {
+        let mut abs_path = testcase.absolute_path.clone();
+        abs_path.pop();
+        abs_path.push(path);
+
+        output.write_all(b"#[library_path(")?;
+        output.write_all(lib.as_bytes())?;
+        output.write_all(b")=r#\"")?;
+        output.write_all(abs_path.to_string_lossy().as_bytes())?;
+        output.write_all(b"\"#]\n")?;
+
+        println!("cargo:rerun-if-changed={}", abs_path.to_string_lossy());
+    }
+
+    if let Some(style) = testcase.requested_style {
+        output.write_all(b"#[style=\"")?;
+        output.write_all(style.as_bytes())?;
+        output.write_all(b"\"#]\n")?;
+    }
+
+    let mut abs_path = testcase.absolute_path;
+    abs_path.pop();
+    output.write_all(b"#[include_path=r#\"")?;
+    output.write_all(abs_path.to_string_lossy().as_bytes())?;
+    output.write_all(b"\"#]\n")?;
+    output.write_all(source.as_bytes())?;
+    output.write_all(b"}\n")?;
+    Ok(true)
+}
+
+#[cfg(feature = "build-time")]
+fn generate_source(
+    source: &str,
+    output: &mut impl Write,
+    testcase: test_driver_lib::TestCase,
+) -> Result<(), std::io::Error> {
+    println!("cargo::rerun-if-env-changed=SLINT_LIVE_PREVIEW");
+
+    let generated = compile_and_generate(source, &testcase)?;
+
+    #[cfg(feature = "deterministic-output")]
+    {
+        let second = compile_and_generate(source, &testcase)?;
+        let expect_utf8 =
+            |bytes| std::str::from_utf8(bytes).expect("generated Rust is valid UTF-8");
+        assert_eq!(
+            expect_utf8(&generated),
+            expect_utf8(&second),
+            "Non-deterministic compiler output for {:?}",
+            testcase.absolute_path
+        );
+    }
+
+    output.write_all(&generated)?;
+    Ok(())
+}
+
+#[cfg(feature = "build-time")]
+fn compile_and_generate(
+    source: &str,
+    testcase: &test_driver_lib::TestCase,
+) -> Result<Vec<u8>, std::io::Error> {
+    // Run the compiler in a thread with a reduced stack size to catch excessive
+    // stack usage, which would break compilation in environments with small
+    // default stack sizes.
+    std::thread::scope(|scope| {
+        std::thread::Builder::new()
+            .stack_size(512 * 1024)
+            .spawn_scoped(scope, || compile_and_generate_impl(source, testcase))
+            .expect("failed to spawn compiler thread")
+            .join()
+            .expect("compiler thread panicked")
+    })
+}
+
+#[cfg(feature = "build-time")]
+fn compile_and_generate_impl(
+    source: &str,
+    testcase: &test_driver_lib::TestCase,
+) -> Result<Vec<u8>, std::io::Error> {
+    use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
+
+    let include_paths = test_driver_lib::extract_include_paths(source)
+        .map(std::path::PathBuf::from)
+        .collect::<Vec<_>>();
+    let library_paths = test_driver_lib::extract_library_paths(source)
+        .map(|(k, v)| (k.to_string(), std::path::PathBuf::from(v)))
+        .collect::<std::collections::HashMap<_, _>>();
+
+    let mut diag = BuildDiagnostics::default();
+    let syntax_node = parser::parse(source.to_owned(), Some(&testcase.absolute_path), &mut diag);
+    let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
+    compiler_config.enable_experimental = true;
+    compiler_config.include_paths = include_paths;
+    compiler_config.library_paths = library_paths;
+    compiler_config.style = Some(testcase.requested_style.unwrap_or("fluent").to_string());
+    compiler_config.debug_info = true;
+    if source.contains("//bundle-translations") {
+        compiler_config.translation_path_bundle =
+            Some(testcase.absolute_path.parent().unwrap().to_path_buf());
+        compiler_config.translation_domain =
+            Some(testcase.absolute_path.file_stem().unwrap().to_str().unwrap().to_string());
+    }
+    if source.contains("//no-default-translation-context") {
+        compiler_config.default_translation_context =
+            i_slint_compiler::DefaultTranslationContext::None;
+    }
+    let (root_component, diag, loader) =
+        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+
+    if diag.has_errors() {
+        diag.print_warnings_and_exit_on_error();
+        return Err(std::io::Error::other(format!("build error in {:?}", testcase.absolute_path)));
+    } else {
+        diag.print();
+    }
+
+    let mut output = Vec::new();
+    generator::generate(
+        generator::OutputFormat::Rust,
+        &mut output,
+        None,
+        &root_component,
+        &loader.compiler_config,
+    )?;
+    Ok(output)
+}

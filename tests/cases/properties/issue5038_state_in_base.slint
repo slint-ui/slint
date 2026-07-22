@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export global Glob {
+    in-out property <bool> cond2;
+}
+
+component Base inherits Rectangle {
+    in property <int> value;
+
+}
+
+export component R1 inherits Base {
+
+    t := TouchArea { }
+
+    ti := TextInput { text: Glob.cond2 ? "a" : "b";  }
+
+
+    states [
+        xxx when ti.text == "a" : {
+            value: 1;
+        }
+        hover when t.has-hover: {
+            background: white;
+            value: 2;
+        }
+    ]
+}
+
+export component R2 inherits R1 { }
+
+export component TestCase inherits Window {
+    in property <bool> cond1;
+    r2 := R2 {
+        states [
+            s1 when cond1: {
+                background: white;
+                value: 3;
+            }
+        ]
+    }
+
+    out property <int> value: r2.value;
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_value(), 0);
+instance.global<Glob>().set_cond2(true);
+assert_eq(instance.get_value(), 1);
+instance.set_cond1(true);
+assert_eq(instance.get_value(), 3);
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_value(), 0);
+instance.global::<Glob<'_>>().set_cond2(true);
+assert_eq!(instance.get_value(), 1);
+instance.set_cond1(true);
+assert_eq!(instance.get_value(), 3);
+```
+
+
+*/

@@ -1,0 +1,107 @@
+@import "figma-kit/styles.css";
+
+html,
+body {
+    margin: 0;
+    font-family:
+        -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+}
+
+.dialog-frame {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.main-content {
+    flex: 1;
+    background-color: var(--figma-color-bg-secondary);
+    border-radius: 4px;
+    margin: 12px;
+    display: flex;
+    flex-direction: column;
+}
+
+.dialog-frame-title {
+    height: 30px;
+    font-size: 12px;
+    flex: 0 0 30px;
+    color: var(--figma-color-text-secondary);
+    border-bottom: 1px solid var(--figma-color-border);
+    display: flex;
+    align-items: center;
+    padding-left: 16px;
+    padding-right: 16px;
+    justify-content: space-between;
+    user-select: none;
+}
+
+.dialog-frame-content {
+    position: relative;
+    font-size: 12px;
+    color: var(--figma-color-text-secondary);
+    flex: 1;
+    margin-right: 16px;
+    display: flex;
+    flex-direction: column;
+}
+
+.dialog-frame-footer {
+    height: 40px;
+    flex: 0 0 40px;
+    width: 100vw;
+    border-top: 1px solid var(--figma-color-border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 8px;
+}
+
+.code-snippet .line::before {
+    content: counter(step);
+    counter-increment: step;
+    width: 30px;
+    position: absolute;
+    left: -55px;
+    text-align: right;
+    color: var(--figma-color-text-tertiary);
+}
+
+.code-snippet {
+    width: 100%;
+    max-width: 100%;
+    font-size: 12px;
+    white-space: pre-wrap;
+    font-family: "Roboto Mono", Monaco, "Courier New", monospace;
+    font-weight: 200;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+    counter-reset: step;
+    counter-increment: step 0;
+    padding-left: 3rem;
+    position: relative;
+    box-sizing: border-box;
+}
+
+.code-snippet .line {
+    position: relative;
+}
+
+.code-snippet::before {
+    content: "";
+    position: absolute;
+    left: 2rem;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: var(--figma-color-border);
+}
+
+.hidden {
+    display: none;
+}

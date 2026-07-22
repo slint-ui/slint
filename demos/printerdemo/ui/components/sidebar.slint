@@ -1,0 +1,92 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DemoPalette, Theme, ComponentTheme, SubPage, Page } from "../common.slint";
+import { PrinterState } from "../common.slint";
+import { MenuPopup } from "./popup_menu.slint";
+
+component SideBarIcon inherits Rectangle {
+    in-out property <bool> active;
+    in-out property <image> icon <=> i.source;
+    in-out property <brush> icon-colorize <=> i.colorize;
+
+    callback activate;
+    width: ComponentTheme.side-bar.icon-size;
+    height: self.width;
+    background: active ? ComponentTheme.side-bar.active-background : ta.has-hover ? ComponentTheme.side-bar.active-background.with-alpha(0.2) : Colors.transparent;
+    border-radius: ComponentTheme.side-bar.icon-border-radius;
+
+    i := Image {
+        colorize: root.active ? ComponentTheme.side-bar.active-icon-color : ComponentTheme.side-bar.inactive-icon-color;
+    }
+
+    ta := TouchArea {
+        clicked => {
+            root.activate();
+        }
+    }
+}
+
+export component Sidebar inherits Rectangle {
+    background: ComponentTheme.side-bar.background;
+    x: 0px;
+    width: DemoPalette.side-bar-width;
+
+    VerticalLayout {
+        width: self.preferred-width;
+        padding-top: DemoPalette.default-margin;
+        spacing: DemoPalette.default-margin;
+        alignment: start;
+
+        for page-data[index] in [
+            { icon: @image-url("../images/sidebar/home.svg"), page: Page.home },
+            { icon: @image-url("../images/sidebar/settings.svg"), page: Page.settings },
+            { icon: @image-url("../images/sidebar/ink.svg"), page: Page.ink },
+        ]: SideBarIcon {
+            activate => {
+                PrinterState.active-subpage = SubPage.none;
+                PrinterState.active-page = page-data.page;
+            }
+            icon: page-data.icon;
+            active: PrinterState.active-page == page-data.page;
+        }
+    }
+
+    VerticalLayout {
+        width: self.preferred-width;
+        padding-bottom: DemoPalette.default-margin;
+        spacing: DemoPalette.default-margin;
+        alignment: end;
+
+        SideBarIcon {
+            activate => {
+                popup.show();
+            }
+            icon: @image-url("../images/sidebar/slint-logo.svg");
+            icon-colorize: ComponentTheme.side-bar.inactive-icon-color;
+        }
+    }
+
+    side-separator := Rectangle {
+        x: root.width - self.width;
+        width: 2px;
+        background: ComponentTheme.side-bar.separator;
+        height: 100%;
+    }
+
+    property <int> current_theme_index: 0;
+
+    popup := MenuPopup {
+        x: root.width - 10px;
+        y: root.height - self.preferred-height - 10px;
+        width: 200px;
+        property <[Theme]> themes: DemoPalette.themes;
+        items: [@tr("Gradient"), @tr("Vibrant"), @tr("Minimalist"), @tr("Glass")];
+        current_index: current_theme_index;
+
+        selected(index) => {
+            current_theme_index = index;
+            DemoPalette.theme = themes[index];
+        }
+    }
+}

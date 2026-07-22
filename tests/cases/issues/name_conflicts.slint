@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export struct Color {
+    SharedVector: string,
+}
+
+export struct SharedString {
+    Model: string,
+    Component: int,
+}
+
+export struct ComponentHandle {
+    SharedString: string,
+}
+
+export struct Model {
+    _self: Color,
+}
+
+export component TestCase {
+    in-out property<Model> Model: {_self: { SharedVector: "ddd" }};
+    in-out property<SharedString> SharedString: {Model: Model._self.SharedVector };
+    in-out property<[ComponentHandle]> Rectangle: [{SharedString: SharedString.Model}];
+}
+

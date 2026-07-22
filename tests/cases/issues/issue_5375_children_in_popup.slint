@@ -1,0 +1,77 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component DialogBox {
+
+    public function show-dialog() {
+        dialog.show();
+    }
+
+    dialog := PopupWindow {
+        x: 10px;
+        y: 20px;
+        width: 20px;
+        height: 20px;
+        Rectangle {
+            background: yellow;
+            @children
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    height: 300px;
+    width: 300px;
+    in-out property<int> clicked;
+    dialog := DialogBox {
+        x: 100px;
+        y: 0px;
+        r:= Rectangle {
+            background: purple;
+            TouchArea {
+                clicked => { clicked+=1; }
+            }
+        }
+    }
+    TouchArea {
+        clicked => {
+            dialog.show-dialog();
+        }
+    }
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 120., 25.);
+assert_eq(instance.get_clicked(), 0);
+slint_testing::send_mouse_click(&instance, 120., 25.);
+assert_eq(instance.get_clicked(), 1);
+slint_testing::send_mouse_click(&instance, 120., 25.);
+assert_eq(instance.get_clicked(), 1);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 120., 25.);
+assert_eq!(instance.get_clicked(), 0);
+slint_testing::send_mouse_click(&instance, 120., 25.);
+assert_eq!(instance.get_clicked(), 1);
+slint_testing::send_mouse_click(&instance, 120., 25.);
+assert_eq!(instance.get_clicked(), 1);
+
+
+```
+
+```js
+var instance = new slint.TestCase();
+slintlib.private_api.send_mouse_click(instance, 120, 25);
+assert.equal(instance.clicked, 0);
+slintlib.private_api.send_mouse_click(instance, 120, 25);
+assert.equal(instance.clicked, 1);
+slintlib.private_api.send_mouse_click(instance, 120, 25);
+assert.equal(instance.clicked, 1);
+```
+*/

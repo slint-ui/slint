@@ -1,0 +1,109 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { CheckBox, ListView, HorizontalBox } from "std-widgets.slint";
+import { StateLayer } from "./state_layer.slint";
+import { FocusTouchArea } from "./focus_touch_area.slint";
+import { SizeSettings, TodoPalette, FontSettings, Icons } from "styling.slint";
+import { IconButton } from "icon_button.slint";
+
+@rust-attr(derive(serde::Serialize, serde::Deserialize))
+export struct SelectionListViewItem {
+    text: string,
+    checked: bool,
+    description: string,
+}
+
+export component SelectionListViewItemDelegate {
+    callback toggle;
+    callback remove;
+
+    in property <string> text <=> text-label.text;
+    in property <string> description <=> description-label.text;
+    in-out property <bool> checked <=> check-box.checked;
+
+    min-width: content-layer.min-width;
+    min-height: max(SizeSettings.control-height, content-layer.min-height);
+    forward-focus: touch-area;
+
+    touch-area := FocusTouchArea {
+        width: 100%;
+        height: 100%;
+
+        clicked => {
+            root.toggle();
+        }
+    }
+
+    StateLayer {
+        width: 100%;
+        height: 100%;
+        focus-padding: -1px;
+        pressed: touch-area.pressed || touch-area.enter-pressed;
+        has-focus: touch-area.has-focus;
+        has-hover: touch-area.has-hover;
+    }
+
+    content-layer := HorizontalBox {
+        accessible-role: list-item;
+
+        check-box := CheckBox {
+            horizontal-stretch: 0;
+            y: (parent.height - self.height) / 2;
+            accessible-label: @tr("Task Done");
+            toggled => {
+                root.toggle();
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            text-label := Text {
+                horizontal-alignment: left;
+                color: TodoPalette.foreground;
+                font-size: FontSettings.body-strong.font-size;
+                font-weight: FontSettings.body-strong.font-weight;
+                overflow: elide;
+            }
+
+            description-label := Text {
+                color: TodoPalette.foreground;
+                font-size: FontSettings.body.font-size;
+                font-weight: FontSettings.body.font-weight;
+                overflow: elide;
+            }
+        }
+
+        IconButton {
+            y: (parent.height - self.height) / 2;
+            icon: Icons.remove;
+            accessible-label: @tr("Delete Task");
+            clicked => {
+                root.remove();
+            }
+        }
+    }
+}
+
+export component SelectionListView inherits ListView {
+    in property <[SelectionListViewItem]> model;
+
+    callback toggle(/* index */ int);
+    callback remove(/* index */ int);
+
+    accessible-role: list;
+
+    for item[index] in root.model: SelectionListViewItemDelegate {
+        width: root.visible-width;
+        text: item.text;
+        description: item.description;
+        checked: item.checked;
+        toggle => {
+            root.toggle(index);
+        }
+
+        remove => {
+            root.remove(index);
+        }
+    }
+}

@@ -1,0 +1,86 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { WindowInfo } from "./ui_utils.slint";
+import { AppText } from "./controls/generic.slint";
+import { AboutSlint } from "std-widgets.slint";
+
+component AboutFelgo {
+    VerticalLayout {
+        spacing: 5px;
+
+        width: 90% * parent.width;
+        padding-bottom: 14px;
+
+        Rectangle {
+            background: white;
+            border-radius: self.height / 2;
+
+            preferred-height: self.width * 45%;
+
+            logo-layout := VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+
+                made-text := AppText {
+                    text: "MADE BY";
+                    horizontal-alignment: center;
+                    font-size: 1rem;
+                    color: black;
+                }
+
+                Rectangle {
+                    Image {
+                        image-fit: contain;
+                        width: 70% * parent.width;
+                        source: @image-url("./assets/felgo-logo.svg");
+                    }
+                }
+            }
+        }
+
+        AppText {
+            text: "https://felgo.com/";
+            horizontal-alignment: center;
+        }
+    }
+}
+
+export component AboutBox {
+    VerticalLayout {
+        if WindowInfo.is-portrait: VerticalLayout {
+            alignment: center;
+
+            Rectangle {
+                AboutFelgo {
+                    width: Math.min(200px, 80% * parent.width);
+                    min-height: self.preferred-height;
+                }
+            }
+            Rectangle {
+                AboutSlint {
+                    width: Math.min(200px, 80% * parent.width);
+                    min-height: self.preferred-height;
+                }
+            }
+        }
+
+        if !WindowInfo.is-portrait: HorizontalLayout {
+            alignment: space-around;
+
+            // adjust AboutFelgo size to look the same as AboutSlint
+            Rectangle {
+                max-width: 200px;
+
+                AboutFelgo {
+                    height: 84%;
+                    preferred-width: 200px;
+                }
+            }
+
+            AboutSlint {
+                max-width: 200px;
+            }
+        }
+    }
+}

@@ -1,0 +1,147 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cSpell: ignore shlex
+[package]
+name = "slint-viewer"
+description = "The viewer binary for Slint"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+categories = ["gui", "development-tools", "command-line-utilities"]
+keywords = ["viewer", "gui", "ui", "toolkit"]
+
+[features]
+backend-default = ["slint-interpreter/backend-default"]
+backend-qt = ["slint-interpreter/backend-qt"]
+backend-winit = ["slint-interpreter/backend-winit"]
+backend-winit-x11 = ["slint-interpreter/backend-winit-x11"]
+backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
+backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
+backend-linuxkms-noseat = ["slint-interpreter/backend-linuxkms-noseat"]
+
+renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
+renderer-femtovg-wgpu = ["slint-interpreter/renderer-femtovg-wgpu"]
+renderer-skia = ["slint-interpreter/renderer-skia", "dep:i-slint-renderer-skia"]
+renderer-skia-opengl = ["slint-interpreter/renderer-skia-opengl", "dep:i-slint-renderer-skia"]
+renderer-skia-vulkan = ["slint-interpreter/renderer-skia-vulkan", "dep:i-slint-renderer-skia"]
+renderer-software = ["slint-interpreter/renderer-software"]
+
+# Compat
+backend-gl-all = ["backend-winit", "renderer-femtovg"]
+backend-gl-wayland = ["backend-winit-wayland", "renderer-femtovg"]
+backend-gl-x11 = ["backend-winit-x11", "renderer-femtovg"]
+eventloop-qt = ["backend-qt"]
+renderer-winit-qt = ["backend-qt"]
+renderer-winit-femtovg = ["renderer-femtovg"]
+renderer-winit-skia = ["renderer-skia"]
+renderer-winit-skia-opengl = ["renderer-skia-opengl"]
+renderer-winit-skia-vulkan = ["renderer-skia-vulkan"]
+renderer-winit-software = ["renderer-software"]
+
+## Enable the translations using [gettext](https://www.gnu.org/software/gettext/gettext)
+##
+## the `@tr(...)` code from .slint files will be transformed into call to `dgettext`.
+## You should pass --translation-domain and --translation-dir command line argument
+## so that the viewer can find the translation
+gettext = ["i-slint-core/gettext-rs"]
+
+## Enable the remote viewer mode (--remote flag)
+remote = [
+  "dep:slint",
+  "i-slint-live-preview/remote",
+  "dep:tokio",
+  "dep:async-compat",
+  "dep:anyhow",
+  "dep:mdns-sd",
+  "dep:zeroconf",
+  "dep:objc2-foundation",
+  "dep:objc2-ui-kit",
+  "dep:block2",
+  "dep:i-slint-backend-android-activity",
+  "i-slint-backend-android-activity?/native-activity",
+  "i-slint-backend-android-activity?/aa-06",
+  "i-slint-backend-selector/backend-android-activity",
+  "dep:jni",
+]
+
+default = ["backend-default", "renderer-femtovg", "renderer-software", "remote"]
+
+[dependencies]
+i-slint-compiler = { workspace = true }
+i-slint-core = { workspace = true }
+i-slint-renderer-software = { workspace = true, features = ["std"] }
+i-slint-renderer-skia = { workspace = true, optional = true }
+slint = { workspace = true, features = ["compat-1-2"], optional = true }
+slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "accessibility", "image-default-formats", "internal-json"] }
+i-slint-live-preview = { workspace = true, features = ["file-watcher", "live-component"] }
+i-slint-backend-selector = { workspace = true }
+
+clap = { workspace = true }
+shlex = "2"
+image = { workspace = true }
+itertools = { workspace = true }
+serde_json = { workspace = true }
+smol_str = { workspace = true }
+tokio = { version = "1.48.0", optional = true }
+async-compat = { version = "0.2.4", optional = true }
+anyhow = { version = "1.0.100", optional = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-log = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+
+# On the choice of mdns-sd vs zeroconf:
+#
+# - zeroconf uses bonjour on Apple platforms. That's the right choice.
+# - zeroconf uses bonjour on Windows. That's not a good choice, because it means the users need to have bonjour installed on Windows.
+# - zeroconf uses avahi on the other platforms. That in turn requires the avahi dev packages (headers and .so file) to be available.
+# - mdns-sd is a pure Rust implementation that works on all platforms, but it doesn't integrate with the system's mDNSResponder on Apple platforms.
+#
+# That's why we chose zeroconf for Apple platforms and mdns-sd for the other platforms.
+[target.'cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))'.dependencies]
+mdns-sd = { version = "0.20.0", default-features = false, features = ["async"], optional = true }
+
+[target.'cfg(target_vendor = "apple")'.dependencies]
+zeroconf = { version = "0.18", optional = true }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSNotification", "NSString", "NSOperation", "block2"], optional = true }
+objc2-ui-kit = { version = "0.3.2", default-features = false, features = ["UIApplication"], optional = true }
+block2 = { version = "0.6", optional = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+i-slint-backend-android-activity = { workspace = true, optional = true }
+jni = { version = "0.22", optional = true }
+
+[target.'cfg(not(any(target_os = "openbsd", target_os = "windows", target_os = "ios", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
+tikv-jemallocator = { workspace = true }
+
+[lib]
+crate-type = ["cdylib"]
+path = "lib.rs"
+
+[[bin]]
+name = "slint-viewer"
+path = "main.rs"
+
+# cSpell: ignore avahi
+[package.metadata.slint-license.allow]
+avahi-sys = "LGPL-3.0-or-later"
+
+[package.metadata.android]
+package = "dev.slint.viewer"
+min_sdk_version = 26
+target_sdk_version = 35
+
+[package.metadata.android.application]
+label = "Slint Viewer"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.INTERNET"

@@ -1,0 +1,155 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Page } from "page.slint";
+import { Button, HorizontalBox, Slider, ScrollView, Palette } from "std-widgets.slint";
+
+component EaseTest {
+    in property <string> label: "None";
+    in property <easing> easing: linear;
+    in property <int> duration: 1000;
+
+    public function animate() {
+        if (ball.x == 0) {
+            ball.x = container.width - 16px;
+        } else {
+            ball.x = 0;
+        }
+    }
+
+    HorizontalLayout {
+        padding: 10px;
+        spacing: 10px;
+
+        Button {
+            width: 140px;
+            horizontal-stretch: 0;
+            text: label; clicked => { root.animate(); }
+        }
+
+        VerticalLayout {
+            alignment: center;
+
+            container := Rectangle {
+                horizontal-stretch: 1;
+                height: 4px;
+                border-radius: 2px;
+                background: Palette.control-background;
+
+                ball := Rectangle {
+                    x: 0px;
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 5px;
+                    background: Palette.accent-background;
+
+                    animate x { duration: duration * 1ms; easing: easing; }
+                }
+            }
+        }
+    }
+}
+
+export component EasingsPage inherits Page {
+    show-enable-switch: false;
+    title: @tr("Easings");
+    description: @tr("Easing demos");
+
+    private property <int> curr-duration: slider.value;
+
+    VerticalLayout {
+        padding: 10px;
+        spacing: 10px;
+
+        HorizontalBox {
+            Button {
+                text: @tr("Animate All");
+                clicked => {
+                    linear-test.animate();
+                    ease-in-quad-test.animate();
+                    ease-out-quad-test.animate();
+                    ease-in-out-quad-test.animate();
+                    ease-test.animate();
+                    ease-in-test.animate();
+                    ease-out-test.animate();
+                    ease-in-out-test.animate();
+                    ease-in-quart-test.animate();
+                    ease-out-quart-test.animate();
+                    ease-in-out-quart-test.animate();
+                    ease-in-quint-test.animate();
+                    ease-out-quint-test.animate();
+                    ease-in-out-quint-test.animate();
+                    ease-in-expo-test.animate();
+                    ease-out-expo-test.animate();
+                    ease-in-out-expo-test.animate();
+                    ease-in-sine-test.animate();
+                    ease-out-sine-test.animate();
+                    ease-in-out-sine-test.animate();
+                    ease-in-back-test.animate();
+                    ease-out-back-test.animate();
+                    ease-in-out-back-test.animate();
+                    ease-in-circ-test.animate();
+                    ease-out-circ-test.animate();
+                    ease-in-out-circ-test.animate();
+                    ease-in-elastic-test.animate();
+                    ease-out-elastic-test.animate();
+                    ease-in-out-elastic-test.animate();
+                    ease-in-bounce-test.animate();
+                    ease-out-bounce-test.animate();
+                    ease-in-out-bounce-test.animate();
+                }
+            }
+            Text { text: @tr("Duration:"); vertical-alignment: center ;}
+            slider := Slider { minimum: 100; maximum: 5000; value: 1000; }
+            Text { text: "" + round(slider.value) + "ms"; vertical-alignment: center; }
+        }
+    }
+
+    ScrollView {
+        VerticalLayout {
+            padding-right: 10px;
+
+            linear-test := EaseTest { label: "linear"; easing: linear; duration: curr-duration; }
+            ease-in-quad-test := EaseTest { label: "ease-in-quad"; easing: ease-in-quad; duration: curr-duration; }
+            ease-out-quad-test := EaseTest { label: "ease-out-quad"; easing: ease-out-quad; duration: curr-duration; }
+            ease-in-out-quad-test := EaseTest { label: "ease-in-out-quad"; easing: ease-in-out-quad; duration: curr-duration; }
+
+            ease-test := EaseTest { label: "ease"; easing: ease; duration: curr-duration; }
+            ease-in-test := EaseTest { label: "ease-in"; easing: ease-in; duration: curr-duration; }
+            ease-out-test := EaseTest { label: "ease-out"; easing: ease-out; duration: curr-duration; }
+            ease-in-out-test := EaseTest { label: "ease-in-out"; easing: ease-in-out; duration: curr-duration; }
+
+            ease-in-quart-test := EaseTest { label: "ease-in-quart"; easing: ease-in-quart; duration: curr-duration; }
+            ease-out-quart-test := EaseTest { label: "ease-out-quart"; easing: ease-out-quart; duration: curr-duration; }
+            ease-in-out-quart-test := EaseTest { label: "ease-in-out-quart"; easing: ease-in-out-quart; duration: curr-duration; }
+
+            ease-in-quint-test := EaseTest { label: "ease-in-quint"; easing: ease-in-quint; duration: curr-duration; }
+            ease-out-quint-test := EaseTest { label: "ease-out-quint"; easing: ease-out-quint; duration: curr-duration; }
+            ease-in-out-quint-test := EaseTest { label: "ease-in-out-quint"; easing: ease-in-out-quint; duration: curr-duration; }
+
+            ease-in-expo-test := EaseTest { label: "ease-in-expo"; easing: ease-in-expo; duration: curr-duration; }
+            ease-out-expo-test := EaseTest { label: "ease-out-expo"; easing: ease-out-expo; duration: curr-duration; }
+            ease-in-out-expo-test := EaseTest { label: "ease-in-out-expo"; easing: ease-in-out-expo; duration: curr-duration; }
+
+            ease-in-sine-test := EaseTest { label: "ease-in-sine"; easing: ease-in-sine; duration: curr-duration; }
+            ease-out-sine-test := EaseTest { label: "ease-out-sine"; easing: ease-out-sine; duration: curr-duration; }
+            ease-in-out-sine-test := EaseTest { label: "ease-in-out-sine"; easing: ease-in-out-sine; duration: curr-duration; }
+
+            ease-in-back-test := EaseTest { label: "ease-in-back"; easing: ease-in-back; duration: curr-duration; }
+            ease-out-back-test := EaseTest { label: "ease-out-back"; easing: ease-out-back; duration: curr-duration; }
+            ease-in-out-back-test := EaseTest { label: "ease-in-out-back"; easing: ease-in-out-back; duration: curr-duration; }
+
+            ease-in-circ-test := EaseTest { label: "ease-in-circ"; easing: ease-in-circ; duration: curr-duration; }
+            ease-out-circ-test := EaseTest { label: "ease-out-circ"; easing: ease-out-circ; duration: curr-duration; }
+            ease-in-out-circ-test := EaseTest { label: "ease-in-out-circ"; easing: ease-in-out-circ; duration: curr-duration; }
+
+            ease-in-elastic-test := EaseTest { label: "ease-in-elastic"; easing: ease-in-elastic; duration: curr-duration; }
+            ease-out-elastic-test := EaseTest { label: "ease-out-elastic"; easing: ease-out-elastic; duration: curr-duration; }
+            ease-in-out-elastic-test := EaseTest { label: "ease-in-out-elastic"; easing: ease-in-out-elastic; duration: curr-duration; }
+
+            ease-in-bounce-test := EaseTest { label: "ease-in-bounce"; easing: ease-in-bounce; duration: curr-duration; }
+            ease-out-bounce-test := EaseTest { label: "ease-out-bounce"; easing: ease-out-bounce; duration: curr-duration; }
+            ease-in-out-bounce-test := EaseTest { label: "ease-in-out-bounce"; easing: ease-in-out-bounce; duration: curr-duration; }
+        }
+    }
+}

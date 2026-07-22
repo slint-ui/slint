@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that the x and y property of a Rectangle with opacity are consistent
+
+export component TestCase  {
+
+    width: 100px;
+    height: 100px;
+
+
+    r1 := Rectangle {
+        x: 20px;
+        y: 15px;
+        width: 12px;
+        height: 5px;
+        opacity: 0.5;
+        background: red;
+        TouchArea {
+            clicked => {
+                root.clicked = (self.absolute-position.y + self.mouse-y) / 1px;
+                r1.y += 50px;
+            }
+        }
+    }
+
+    in-out property xx <=> r1.x;
+    out property<int> clicked;
+
+    out property <bool> test:
+        r1.x == 20px && r1.y == 15px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+slint_testing::send_mouse_click(&instance, 21., 16.);
+assert_eq!(instance.get_clicked(), 16);
+instance.set_xx(80.);
+slint_testing::send_mouse_click(&instance, 81., 66.);
+assert_eq!(instance.get_clicked(), 66);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

@@ -1,0 +1,73 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { UsecasesPalette } from "styling.slint";
+
+component Bar {
+    in property <length> bar-height;
+
+    horizontal-stretch: 1;
+
+    Rectangle {
+        border-radius: 2px;
+        y: parent.height - self.height;
+        height: bar-height;
+        clip: true;
+
+        Rectangle {
+            height: root.height;
+            y: parent.height - self.height;
+            background: UsecasesPalette.bar-gradient;
+        }
+    }
+}
+
+export component BarBackground inherits Rectangle {
+    border-radius: 2px;
+    // background: Theme.palette.bar-background-gradient;
+    opacity: 0.25;
+}
+
+export component ChartPattern {
+    in property <int> count;
+
+    HorizontalLayout {
+        spacing: 1px;
+        for _ in count : BarBackground {}
+    }
+}
+
+export component BarChart {
+    in property <[float]> model;
+    in property <float> min;
+    in property <float> max;
+    in property <bool> active;
+
+    cache-rendering-hint: true;
+
+    ChartPattern {
+        count: model.length / 2;
+    }
+
+    layout := HorizontalLayout {
+        spacing: 1px;
+
+        for value in model : Bar {
+            private property <float> display-value;
+
+            min-height: 120px;
+            preferred-height: 100%;
+            bar-height: parent.height * (display-value - root.min) / (root.max - root.min);
+
+            states [
+                active when active : {
+                    display-value: value;
+
+                    in {
+                        animate display-value { duration: 500ms; easing: ease-in-out; }
+                    }
+                }
+            ]
+        }
+    }
+}

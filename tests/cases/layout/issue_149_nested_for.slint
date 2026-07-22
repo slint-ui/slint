@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 300phx;
+    height: 300phx;
+
+    in-out property<[int]> xs: [1, 2, 3];
+    in-out property<[int]> ys: [10, 20, 30];
+
+    VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        for x_[i] in xs: HorizontalLayout {
+            padding: 0px;
+            spacing: 0px;
+            for y_[j] in ys: Rectangle {
+                TouchArea {
+                    clicked => {
+                        last_clicked = x_ + y_;
+                    }
+                }
+                Text { x:0;y:0; text: (x_ + y_);  }
+            }
+        }
+    }
+
+    in-out property<int> last_clicked;
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_mouse_click(&instance, 5., 95.);
+assert_eq(instance.get_last_clicked(), 11);
+slint_testing::send_mouse_click(&instance, 105., 205.);
+assert_eq(instance.get_last_clicked(), 23);
+slint_testing::send_mouse_click(&instance, 95., 195.);
+assert_eq(instance.get_last_clicked(), 12);
+slint_testing::send_mouse_click(&instance, 295., 56.);
+assert_eq(instance.get_last_clicked(), 31);
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+
+slint_testing::send_mouse_click(&instance, 5., 95.);
+assert_eq!(instance.get_last_clicked(), 11);
+slint_testing::send_mouse_click(&instance, 105., 205.);
+assert_eq!(instance.get_last_clicked(), 23);
+slint_testing::send_mouse_click(&instance, 95., 195.);
+assert_eq!(instance.get_last_clicked(), 12);
+slint_testing::send_mouse_click(&instance, 295., 56.);
+assert_eq!(instance.get_last_clicked(), 31);
+
+```
+
+```js
+var instance = new slint.TestCase();
+
+slintlib.private_api.send_mouse_click(instance, 5., 95.);
+assert.equal(instance.last_clicked, 11);
+slintlib.private_api.send_mouse_click(instance, 105., 205.);
+assert.equal(instance.last_clicked, 23);
+slintlib.private_api.send_mouse_click(instance, 95., 195.);
+assert.equal(instance.last_clicked, 12);
+slintlib.private_api.send_mouse_click(instance, 295., 56.);
+assert.equal(instance.last_clicked, 31);
+```
+*/

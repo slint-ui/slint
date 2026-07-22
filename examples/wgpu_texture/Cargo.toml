@@ -1,0 +1,28 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "wgpu_texture"
+version = "1.18.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition.workspace = true
+build = "build.rs"
+license = "MIT"
+publish = false
+
+[[bin]]
+path = "main.rs"
+name = "wgpu_texture"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+path = "lib.rs"
+name = "wgpu_texture_lib"
+
+[dependencies]
+slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-30", "backend-android-activity-06"] }
+bytemuck = { workspace = true }
+wgpu-30 = { workspace = true, features = ["wgsl"] }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }

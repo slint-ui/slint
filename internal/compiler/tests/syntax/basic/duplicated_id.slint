@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+SubElement := Rectangle {
+//         ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+
+    foo := Rectangle {
+        background: yellow;
+        hello := Rectangle {}
+//               >        <error{duplicated element id 'hello'}
+    }
+
+    unique := Rectangle {
+        background: yellow;
+        world := Rectangle {}
+//               >        <error{duplicated element id 'world'}
+    }
+
+    if (true) : hello := Rectangle {
+//                       >        <error{duplicated element id 'hello'}
+        world := Rectangle { }
+//               >        <error{duplicated element id 'world'}
+    }
+
+    hello := Rectangle {}
+//           >        <error{duplicated element id 'hello'}
+}
+
+export TestCase := Rectangle {
+//              ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+
+    unique := Rectangle {
+        foo := SubElement { }
+//             >         <error{duplicated element id 'foo'}
+    }
+
+    bar := TouchArea {}
+//         >        <error{duplicated element id 'bar'}
+
+    Rectangle {
+        foo := Text {}
+//             >   <error{duplicated element id 'foo'}
+        bar := Text {}
+//             >   <error{duplicated element id 'bar'}
+    }
+}

@@ -1,0 +1,77 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Palette,Measurements,Colors, Style } from "../common.slint";
+import { Info } from "info.slint";
+import { HaText } from "./general/haText.slint";
+
+export component PowerInfo inherits Info {
+    in property <int> index;
+    in property <int> hours: 3;
+    in property <int> minutes: 15;
+    tile := Rectangle {
+        layout := VerticalLayout {
+            padding: (tile.height > Measurements.small-height-tile) ? 18px : 9px;
+            width: 100%;
+            height: 100%;
+            alignment: space-between;
+            Rectangle {
+                width: 100%;
+                VerticalLayout {
+                    alignment: start;
+                    HorizontalLayout {
+                    alignment: start;
+                        HaText {
+                            text: root.name;
+                            font-size: Style.tile-title-font-size;
+                            font-weight: FontWeight.normal;
+                            color: Palette.info-foreground;
+                        }
+                        HaText {
+                            text: " today is ";
+                            font-size: Style.tile-title-font-size;
+                            font-weight: FontWeight.normal;
+                            color: Palette.info-foreground;
+                        }
+                        HaText {
+                            text: "320 W";
+                            font-size: Style.tile-title-font-size;
+                            font-weight: FontWeight.extra-bold;
+                            color: Colors.dustygold;
+                        }
+                    }
+                }
+            }
+
+            graph := Rectangle {
+                height: tile.height * 0.2;
+
+                HorizontalLayout {
+                    alignment: center;
+                    y: graph.height * 0.15;
+                    Rectangle {
+                        background: Colors.green70;
+                        width: 30%;
+                    }
+
+                    Rectangle {
+                        background: Colors.dustygold;
+                        width: 50%;
+                    }
+
+                    Rectangle {
+                        background: Colors.orange60;
+                        width: 20%;
+                    }
+                }
+                Rectangle {
+                    height:tile.height * 0.3;
+                    width: 4px;
+                    drop-shadow-blur: 5px;
+                    drop-shadow-color: Colors.black;
+                    background: Colors.white;
+                    y: -1px;
+                }
+            }
+        }
+    }
+}

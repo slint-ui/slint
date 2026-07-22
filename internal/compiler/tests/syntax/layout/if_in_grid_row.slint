@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test  {
+    property <bool> condition;
+
+    GridLayout {
+        if (condition) : r := Row {
+            row: 1;
+//          > <error{Unknown property row in Row}
+            col: 2;
+//          > <error{Unknown property col in Row}
+            rowspan: 2;
+//          >     <error{Unknown property rowspan in Row}
+            colspan: 2;
+//          >     <error{Unknown property colspan in Row}
+        }
+    }
+}

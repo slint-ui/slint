@@ -1,0 +1,30 @@
+
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { AboutSlint, Button } from "std-widgets.slint";
+export component TestCase inherits Window {
+
+    in-out property <string> app_title: "Application";
+
+    MenuBar { }
+
+    vl := ContextMenuArea { Menu { } }
+
+
+    out property <bool> check-geometry: vl.x == 0 && vl.y == 0 && vl.width == root.width && vl.height == root.height;
+    out property <bool> test: check-geometry;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+*/

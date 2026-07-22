@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// issue #177
+
+export TestCase := Window {
+    width: 100px;
+    height: 100px;
+
+    callback clicked;
+    clicked => { debug("Hello"); model= []; }
+    property <bool> hover: under.has-hover;
+    property<[int]> model: [1];
+    VerticalLayout {
+        under := TouchArea {
+            VerticalLayout {
+                for value in model: TouchArea {
+                    horizontal-stretch: 5;
+                    vertical-stretch: 5;
+                    clicked => { root.clicked(); }
+                    Rectangle { background: blue; }
+                }
+            }
+        }
+        Rectangle {
+            horizontal-stretch: 0;
+            vertical-stretch: 0;
+            background: yellow;
+        }
+    }
+
+
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int>{1, 2});
+instance.set_model(vec_model);
+instance.on_clicked([vec_model] { vec_model->erase(vec_model->row_count()-1); });
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert_eq(instance.get_model()->row_count(), 1);
+assert(instance.get_hover());
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert_eq(instance.get_model()->row_count(), 0);
+slint_testing::mock_elapsed_time(16);
+assert(!instance.get_hover());
+```
+
+```rust
+use slint::Model;
+let instance = TestCase::new().unwrap();
+let vec_model = std::rc::Rc::new(slint::VecModel::from(vec![1i32, 2i32]));
+instance.set_model(vec_model.clone().into());
+instance.on_clicked(move || { vec_model.remove(vec_model.row_count() - 1); });
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert_eq!(instance.get_model().row_count(), 1);
+assert!(instance.get_hover());
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert_eq!(instance.get_model().row_count(), 0);
+slint_testing::mock_elapsed_time(16);
+assert!(!instance.get_hover());
+```
+
+```js
+let model = new slintlib.ArrayModel([1, 2]);
+var instance = new slint.TestCase({
+    clicked: function() { model.pop(); }
+});
+instance.model = model;
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.model.length, 1);
+assert(instance.hover);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.model.length, 0);
+slintlib.private_api.mock_elapsed_time(16);
+assert(!instance.hover);
+```
+*/

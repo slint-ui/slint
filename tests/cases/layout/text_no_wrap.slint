@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+// A Text that does not use word wrap's height should not depends on the width
+
+export component TestCase inherits Rectangle {
+
+    VerticalLayout {
+        HorizontalLayout {
+            Text {
+                text: "Hello World";
+            }
+            square := Rectangle {
+                width: self.height;
+                background: violet;
+            }
+        }
+        Rectangle {}
+    }
+
+    out property <bool> test: square.width == square.height;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+*/
