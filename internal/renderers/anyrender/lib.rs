@@ -41,9 +41,12 @@ pub(crate) type PhysicalLength = euclid::Length<f32, PhysicalPx>;
 pub(crate) type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
 pub(crate) type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
 
+// cSpell: ignore imagecache
+mod imagecache;
 mod itemrenderer;
 mod recording;
 
+pub use imagecache::{ImageConversionCache, SharedImageData};
 pub use itemrenderer::AnyrenderItemRenderer;
 pub use recording::RecordingWindowRenderer;
 
@@ -87,6 +90,8 @@ pub trait SlintWindowRenderer: anyrender::WindowRenderer {
 pub struct AnyrenderSlintRenderer<W: SlintWindowRenderer> {
     maybe_window_adapter: RefCell<Option<Weak<dyn WindowAdapter>>>,
     window_renderer: RefCell<W>,
+    image_cache: RefCell<ImageConversionCache>,
+    item_image_cache: i_slint_core::item_rendering::ItemCache<Option<SharedImageData>>,
     rendering_metrics_collector: std::cell::OnceCell<
         Option<
             std::rc::Rc<
@@ -101,6 +106,8 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
         Self {
             maybe_window_adapter: Default::default(),
             window_renderer: RefCell::new(window_renderer),
+            image_cache: Default::default(),
+            item_image_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
         }
     }
@@ -143,6 +150,8 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
             })
             .clone();
 
+        self.item_image_cache.clear_cache_if_scale_factor_changed(window);
+
         let base_color = window_background_color(window_inner);
 
         let initial_transform = if rotation_angle_degrees != 0. || translation != (0., 0.) {
@@ -152,42 +161,50 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
             kurbo::Affine::IDENTITY
         };
 
-        self.window_renderer.borrow_mut().slint_render(surface_size, base_color, |painter| {
-            window_inner
-                .draw_contents(|components, post_render| -> Result<(), PlatformError> {
-                    let mut item_renderer = AnyrenderItemRenderer::new_with_initial_transform(
-                        painter,
-                        surface_size.width,
-                        surface_size.height,
-                        window,
-                        initial_transform,
-                    );
+        let result =
+            self.window_renderer.borrow_mut().slint_render(surface_size, base_color, |painter| {
+                window_inner
+                    .draw_contents(|components, post_render| -> Result<(), PlatformError> {
+                        let mut item_renderer = AnyrenderItemRenderer::new_with_initial_transform(
+                            painter,
+                            surface_size.width,
+                            surface_size.height,
+                            window,
+                            &self.image_cache,
+                            &self.item_image_cache,
+                            initial_transform,
+                        );
 
-                    for (component, origin) in components {
-                        if let Some(component) = ItemTreeWeak::upgrade(component) {
-                            i_slint_core::item_rendering::render_component_items(
-                                &component,
-                                &mut item_renderer,
-                                *origin,
-                                &window_adapter,
-                            );
+                        for (component, origin) in components {
+                            if let Some(component) = ItemTreeWeak::upgrade(component) {
+                                i_slint_core::item_rendering::render_component_items(
+                                    &component,
+                                    &mut item_renderer,
+                                    *origin,
+                                    &window_adapter,
+                                );
+                            }
                         }
-                    }
 
-                    post_render(&mut item_renderer);
+                        post_render(&mut item_renderer);
 
-                    if let Some(collector) = &collector {
-                        collector.measure_frame_rendered(&mut item_renderer, Default::default());
-                    }
+                        if let Some(collector) = &collector {
+                            collector
+                                .measure_frame_rendered(&mut item_renderer, Default::default());
+                        }
 
-                    if let Some(cb) = post_render_cb {
-                        cb(&mut item_renderer);
-                    }
+                        if let Some(cb) = post_render_cb {
+                            cb(&mut item_renderer);
+                        }
 
-                    Ok(())
-                })
-                .unwrap_or(Ok(()))
-        })
+                        Ok(())
+                    })
+                    .unwrap_or(Ok(()))
+            });
+
+        self.image_cache.borrow_mut().drain();
+
+        result
     }
 
     fn try_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
@@ -298,9 +315,10 @@ impl<W: SlintWindowRenderer> RendererSealed for AnyrenderSlintRenderer<W> {
 
     fn free_graphics_resources(
         &self,
-        _component: i_slint_core::item_tree::ItemTreeRef,
+        component: i_slint_core::item_tree::ItemTreeRef,
         _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), PlatformError> {
+        self.item_image_cache.component_destroyed(component);
         Ok(())
     }
 
@@ -334,30 +352,40 @@ impl<W: SlintWindowRenderer> RendererSealed for AnyrenderSlintRenderer<W> {
         let window_inner = WindowInner::from_pub(window);
         let base_color = window_background_color(window_inner);
 
-        self.window_renderer.borrow_mut().slint_take_snapshot(window_size, base_color, |painter| {
-            window_inner
-                .draw_contents(|components, post_render| -> Result<(), PlatformError> {
-                    let mut item_renderer = AnyrenderItemRenderer::new(
-                        painter,
-                        window_size.width,
-                        window_size.height,
-                        window,
-                    );
-                    for (component, origin) in components {
-                        if let Some(component) = ItemTreeWeak::upgrade(component) {
-                            i_slint_core::item_rendering::render_component_items(
-                                &component,
-                                &mut item_renderer,
-                                *origin,
-                                &window_adapter,
-                            );
+        let result = self.window_renderer.borrow_mut().slint_take_snapshot(
+            window_size,
+            base_color,
+            |painter| {
+                window_inner
+                    .draw_contents(|components, post_render| -> Result<(), PlatformError> {
+                        let mut item_renderer = AnyrenderItemRenderer::new(
+                            painter,
+                            window_size.width,
+                            window_size.height,
+                            window,
+                            &self.image_cache,
+                            &self.item_image_cache,
+                        );
+                        for (component, origin) in components {
+                            if let Some(component) = ItemTreeWeak::upgrade(component) {
+                                i_slint_core::item_rendering::render_component_items(
+                                    &component,
+                                    &mut item_renderer,
+                                    *origin,
+                                    &window_adapter,
+                                );
+                            }
                         }
-                    }
-                    post_render(&mut item_renderer);
-                    Ok(())
-                })
-                .unwrap_or(Ok(()))
-        })
+                        post_render(&mut item_renderer);
+                        Ok(())
+                    })
+                    .unwrap_or(Ok(()))
+            },
+        );
+
+        self.image_cache.borrow_mut().drain();
+
+        result
     }
 
     fn supports_transformations(&self) -> bool {

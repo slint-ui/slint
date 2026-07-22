@@ -6,13 +6,10 @@ use std::sync::Arc;
 
 use anyrender::PaintScene;
 use i_slint_core::graphics::euclid;
-use i_slint_core::graphics::{
-    Image, ImageCacheKey, IntRect, IntSize, OpaqueImage, OpaqueImageVTable, SharedImageBuffer,
-    SharedPixelBuffer,
-};
+use i_slint_core::graphics::{Image, ImageCacheKey, IntRect, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemRenderer, RenderBorderRectangle, RenderImage, RenderRectangle,
-    RenderText,
+    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
+    RenderRectangle, RenderText,
 };
 use i_slint_core::items::{
     self, FillRule, ImageFit, ImageRendering, ItemRc, Opacity, RenderingResult,
@@ -49,6 +46,8 @@ pub struct AnyrenderItemRenderer<'a, S: PaintScene> {
     window: &'a i_slint_core::api::Window,
     scale_factor: ScaleFactor,
     scene: &'a mut S,
+    image_cache: &'a std::cell::RefCell<crate::ImageConversionCache>,
+    item_image_cache: &'a ItemCache<Option<crate::SharedImageData>>,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
 }
@@ -59,8 +58,18 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
         width: u32,
         height: u32,
         window: &'a i_slint_core::api::Window,
+        image_cache: &'a std::cell::RefCell<crate::ImageConversionCache>,
+        item_image_cache: &'a ItemCache<Option<crate::SharedImageData>>,
     ) -> Self {
-        Self::new_with_initial_transform(scene, width, height, window, kurbo::Affine::IDENTITY)
+        Self::new_with_initial_transform(
+            scene,
+            width,
+            height,
+            window,
+            image_cache,
+            item_image_cache,
+            kurbo::Affine::IDENTITY,
+        )
     }
 
     /// Like [`new`](Self::new) but starts with a non-identity transform —
@@ -71,6 +80,8 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
         width: u32,
         height: u32,
         window: &'a i_slint_core::api::Window,
+        image_cache: &'a std::cell::RefCell<crate::ImageConversionCache>,
+        item_image_cache: &'a ItemCache<Option<crate::SharedImageData>>,
         initial_transform: kurbo::Affine,
     ) -> Self {
         let scale_factor = ScaleFactor::new(window.scale_factor());
@@ -78,6 +89,8 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
             window,
             scale_factor,
             scene,
+            image_cache,
+            item_image_cache,
             state_stack: vec![],
             current_state: RenderState {
                 clip_rect: LogicalRect::from_size(
@@ -218,15 +231,27 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         }
 
         let tiling = image.tiling();
-        let image_fit =
-            if tiling != Default::default() { ImageFit::Preserve } else { image.image_fit() };
 
-        let source = image.source();
-        let Some(image_data) =
-            load_image(source.clone(), &|| image.target_size(), image_fit, self.scale_factor)
-        else {
+        // The per-item cache tracks the properties read in the closure
+        // (source, image-fit, target size) and invalidates on change; the
+        // shared conversion cache deduplicates across items.
+        let image_data = self.item_image_cache.get_or_update_cache_entry(_item_rc, || {
+            let image_fit =
+                if tiling != Default::default() { ImageFit::Preserve } else { image.image_fit() };
+            load_image(
+                image.source(),
+                &|| image.target_size(),
+                image_fit,
+                self.scale_factor,
+                self.image_cache,
+            )
+        });
+        let Some(image_data) = image_data else {
             return;
         };
+        let image_fit =
+            if tiling != Default::default() { ImageFit::Preserve } else { image.image_fit() };
+        let source = image.source();
 
         let source_size = source.size();
         if source_size.is_empty() {
@@ -302,11 +327,33 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
                 // Extend::Repeat wraps the entire brush image, but the tile
                 // is only the clip_rect portion of the source, so crop it
                 // out (like the skia renderer's make_subset).
-                let Some(tile) = crop_image_data(&image_data, clip_x, clip_y, clip_w, clip_h)
+                let Some((crop_x, crop_y, crop_w, crop_h)) =
+                    crop_rect(&image_data, clip_x, clip_y, clip_w, clip_h)
                 else {
                     continue;
                 };
-                let image_brush = peniko::ImageBrush::new(tile)
+                let tile = if (crop_x, crop_y, crop_w, crop_h)
+                    == (0, 0, image_data.width, image_data.height)
+                {
+                    image_data.clone()
+                } else {
+                    let Some(tile) = self.image_cache.borrow_mut().get_or_insert(
+                        ImageCacheKey::new(image_inner),
+                        crate::imagecache::ImageVariant::Tile {
+                            source_width: image_data.width,
+                            source_height: image_data.height,
+                            x: crop_x,
+                            y: crop_y,
+                            width: crop_w,
+                            height: crop_h,
+                        },
+                        || Some(crop_image_data(&image_data, crop_x, crop_y, crop_w, crop_h)),
+                    ) else {
+                        continue;
+                    };
+                    tile
+                };
+                let image_brush = peniko::ImageBrush::new((*tile).clone())
                     .with_quality(quality)
                     .with_extend(peniko::Extend::Repeat);
 
@@ -321,7 +368,8 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
                 .then_scale_non_uniform(scale_x, scale_y);
                 (image_brush, brush_transform)
             } else {
-                let image_brush = peniko::ImageBrush::new(image_data.clone()).with_quality(quality);
+                let image_brush =
+                    peniko::ImageBrush::new((*image_data).clone()).with_quality(quality);
                 let brush_transform = kurbo::Affine::translate((-clip_x, -clip_y))
                     .then_scale_non_uniform(
                         fit.size.width as f64 / clip_w,
@@ -613,31 +661,31 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
 
     fn draw_cached_pixmap(
         &mut self,
-        _item_rc: &ItemRc,
+        item_rc: &ItemRc,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
-        // This renderer keeps no persistent per-item graphics cache, so the
-        // pixmap is re-uploaded on every call. anyrender backends can still
-        // deduplicate by blob identity within a frame.
-        let transform = self.current_state.transform;
-        let scene = &mut *self.scene;
-        update_fn(&mut |width, height, data| {
-            let image_data = peniko::ImageData {
-                data: peniko::Blob::new(Arc::new(data.to_vec())),
-                format: peniko::ImageFormat::Rgba8,
-                alpha_type: peniko::ImageAlphaType::AlphaPremultiplied,
-                width,
-                height,
-            };
-            let image_brush = peniko::ImageBrush::new(image_data);
-            scene.fill(
-                peniko::Fill::default(),
-                transform,
-                peniko::BrushRef::Image(image_brush.as_ref()),
-                None,
-                &kurbo::Rect::new(0., 0., width as f64, height as f64),
-            );
+        let image_data = self.item_image_cache.get_or_update_cache_entry(item_rc, || {
+            let mut image_data = None;
+            update_fn(&mut |width, height, data| {
+                image_data = Some(std::rc::Rc::new(peniko::ImageData {
+                    data: peniko::Blob::new(Arc::new(data.to_vec())),
+                    format: peniko::ImageFormat::Rgba8,
+                    alpha_type: peniko::ImageAlphaType::AlphaPremultiplied,
+                    width,
+                    height,
+                }));
+            });
+            image_data
         });
+        let Some(image_data) = image_data else { return };
+        let image_brush = peniko::ImageBrush::new((*image_data).clone());
+        self.scene.fill(
+            peniko::Fill::default(),
+            self.current_state.transform,
+            peniko::BrushRef::Image(image_brush.as_ref()),
+            None,
+            &kurbo::Rect::new(0., 0., image_data.width as f64, image_data.height as f64),
+        );
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
@@ -656,13 +704,14 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             &|| LogicalSize::from_untyped(image.size().cast()),
             ImageFit::Fill,
             self.scale_factor,
+            self.image_cache,
         ) else {
             return;
         };
 
         let shape = kurbo::Rect::new(0., 0., image_data.width as f64, image_data.height as f64);
 
-        let image_brush = peniko::ImageBrush::new(image_data);
+        let image_brush = peniko::ImageBrush::new((*image_data).clone());
         self.scene.fill(
             peniko::Fill::default(),
             self.current_state.transform,
@@ -1210,49 +1259,23 @@ pub(crate) fn to_peniko_color(color: Color) -> peniko::Color {
     peniko::Color::from_rgba8(color.red, color.green, color.blue, color.alpha)
 }
 
-struct AnyrenderCachedImage {
-    image_data: peniko::ImageData,
-    size: IntSize,
-    cache_key: ImageCacheKey,
-}
-
-i_slint_core::OpaqueImageVTable_static! {
-    static ANYRENDER_CACHED_IMAGE_VT for AnyrenderCachedImage
-}
-
-impl OpaqueImage for AnyrenderCachedImage {
-    fn size(&self) -> IntSize {
-        self.size
-    }
-
-    fn cache_key(&self) -> ImageCacheKey {
-        self.cache_key.clone()
-    }
-}
-
 fn load_image(
     image: Image,
     target_size_fn: &dyn Fn() -> LogicalSize,
     image_fit: ImageFit,
     scale_factor: ScaleFactor,
-) -> Option<peniko::ImageData> {
+    image_cache: &std::cell::RefCell<crate::ImageConversionCache>,
+) -> Option<crate::SharedImageData> {
+    use crate::imagecache::ImageVariant;
+
     let image_inner: &ImageInner = (&image).into();
     match image_inner {
         ImageInner::None => None,
-        ImageInner::EmbeddedImage { buffer, cache_key } => {
-            let image_data = image_buffer_to_peniko_image(buffer)?;
-            i_slint_core::graphics::cache::replace_cached_image(
-                cache_key.clone(),
-                ImageInner::BackendStorage(vtable::VRc::into_dyn(vtable::VRc::new(
-                    AnyrenderCachedImage {
-                        image_data: image_data.clone(),
-                        size: IntSize::new(image_data.width, image_data.height),
-                        cache_key: cache_key.clone(),
-                    },
-                ))),
-            );
-            Some(image_data)
-        }
+        ImageInner::EmbeddedImage { buffer, cache_key } => image_cache.borrow_mut().get_or_insert(
+            Some(cache_key.clone()),
+            ImageVariant::Full,
+            || image_buffer_to_peniko_image(buffer),
+        ),
         ImageInner::Svg(svg) => {
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
             let svg_size = svg.size();
@@ -1268,34 +1291,46 @@ fn load_image(
                 svg_size.cast::<f32>().width * fit.source_to_target_x,
                 svg_size.cast::<f32>().height * fit.source_to_target_y,
             );
-            let pixels = match svg.render(Some(target_size.cast())).ok()? {
-                SharedImageBuffer::RGB8(_) => unreachable!(),
-                SharedImageBuffer::RGBA8(_) => unreachable!(),
-                SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,
-            };
+            let render_size: euclid::Size2D<u32, i_slint_core::lengths::PhysicalPx> =
+                target_size.cast();
+            image_cache.borrow_mut().get_or_insert(
+                ImageCacheKey::new(image_inner),
+                ImageVariant::Sized { width: render_size.width, height: render_size.height },
+                || {
+                    let pixels = match svg.render(Some(render_size)).ok()? {
+                        SharedImageBuffer::RGB8(_) => unreachable!(),
+                        SharedImageBuffer::RGBA8(_) => unreachable!(),
+                        SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,
+                    };
 
-            let width = pixels.width();
-            let height = pixels.height();
+                    let width = pixels.width();
+                    let height = pixels.height();
 
-            let data = peniko::Blob::new(Arc::new(PixelBufferWrap(pixels)));
+                    let data = peniko::Blob::new(Arc::new(PixelBufferWrap(pixels)));
 
-            Some(peniko::ImageData {
-                data,
-                format: peniko::ImageFormat::Rgba8,
-                alpha_type: peniko::ImageAlphaType::AlphaPremultiplied,
-                width,
-                height,
-            })
+                    Some(peniko::ImageData {
+                        data,
+                        format: peniko::ImageFormat::Rgba8,
+                        alpha_type: peniko::ImageAlphaType::AlphaPremultiplied,
+                        width,
+                        height,
+                    })
+                },
+            )
         }
-        ImageInner::StaticTextures(_) => {
-            let buffer = image_inner.render_to_buffer(None)?;
-            image_buffer_to_peniko_image(&buffer)
-        }
-        ImageInner::BackendStorage(x) => {
-            vtable::VRc::borrow(x).downcast::<AnyrenderCachedImage>().map(|x| x.image_data.clone())
-        }
+        ImageInner::StaticTextures(_) => image_cache.borrow_mut().get_or_insert(
+            ImageCacheKey::new(image_inner),
+            ImageVariant::Full,
+            || {
+                let buffer = image_inner.render_to_buffer(None)?;
+                image_buffer_to_peniko_image(&buffer)
+            },
+        ),
+        // Backend storage is only produced by other renderers in the same
+        // process; their data is not usable here.
+        ImageInner::BackendStorage(..) => None,
         ImageInner::NineSlice(n) => {
-            load_image(n.image(), target_size_fn, ImageFit::Preserve, scale_factor)
+            load_image(n.image(), target_size_fn, ImageFit::Preserve, scale_factor, image_cache)
         }
         // Remaining variants hold live GPU resources (borrowed GL textures,
         // wgpu textures behind the unstable-wgpu-* features) that this
@@ -1305,30 +1340,33 @@ fn load_image(
     }
 }
 
-/// Extract a sub-rectangle of an RGBA8 image into its own [`peniko::ImageData`],
-/// for use as a repeating tile — [`peniko::Extend::Repeat`] wraps the whole
-/// brush image, so the tile must be exactly the image.
-///
-/// The coordinates are in image-data space and are clamped to the image
-/// bounds; returns `None` for a degenerate (empty) tile.
-fn crop_image_data(
+/// Clamp the given image-data-space coordinates to the image bounds and
+/// round them to whole pixels; returns `None` for a degenerate (empty) crop.
+fn crop_rect(
     image: &peniko::ImageData,
     x: f64,
     y: f64,
     width: f64,
     height: f64,
-) -> Option<peniko::ImageData> {
+) -> Option<(u32, u32, u32, u32)> {
     let x = (x.round().max(0.) as u32).min(image.width);
     let y = (y.round().max(0.) as u32).min(image.height);
     let width = (width.round().max(0.) as u32).min(image.width - x);
     let height = (height.round().max(0.) as u32).min(image.height - y);
-    if width == 0 || height == 0 {
-        return None;
-    }
-    if x == 0 && y == 0 && width == image.width && height == image.height {
-        return Some(image.clone());
-    }
+    if width == 0 || height == 0 { None } else { Some((x, y, width, height)) }
+}
 
+/// Extract a sub-rectangle of an RGBA8 image into its own [`peniko::ImageData`],
+/// for use as a repeating tile — [`peniko::Extend::Repeat`] wraps the whole
+/// brush image, so the tile must be exactly the image. The rectangle must
+/// come from [`crop_rect`].
+fn crop_image_data(
+    image: &peniko::ImageData,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+) -> peniko::ImageData {
     debug_assert!(matches!(image.format, peniko::ImageFormat::Rgba8));
     let src = image.data.data();
     let stride = image.width as usize * 4;
@@ -1338,13 +1376,13 @@ fn crop_image_data(
         out.extend_from_slice(&src[start..start + width as usize * 4]);
     }
 
-    Some(peniko::ImageData {
+    peniko::ImageData {
         data: peniko::Blob::new(Arc::new(out)),
         format: image.format,
         alpha_type: image.alpha_type,
         width,
         height,
-    })
+    }
 }
 
 fn image_buffer_to_peniko_image(buffer: &SharedImageBuffer) -> Option<peniko::ImageData> {
