@@ -103,6 +103,12 @@ fn process_file(path: &std::path::Path, update: bool) -> std::io::Result<bool> {
             "{path:?} does not contains BOM while it should"
         )));
     }
+    if path.to_str().unwrap_or("").contains("crlf-") && !source.contains("\r\n") {
+        // make sure that the CRLF line terminators weren't normalized away by some tools
+        return Err(std::io::Error::other(format!(
+            "{path:?} does not contain CRLF line terminators while it should"
+        )));
+    }
     std::panic::catch_unwind(|| process_file_source(path, source, false, update)).unwrap_or_else(
         |err| {
             println!("Panic while processing {}: {:?}", path.display(), err);

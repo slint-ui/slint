@@ -3,3 +3,5 @@
 # With linguist-generated we can mark them as generated so they don't show up in the Github diff.
 # https://docs.github.com/en/repositories/working-with-files/managing-files/customizing-how-changed-files-appear-on-github
 tests/driver/rust/tests/*.rs linguist-generated
+# These test files must keep their CRLF line terminators; the syntax test driver checks them.
+internal/compiler/tests/syntax/**/crlf-* -text
