@@ -211,18 +211,14 @@ pub(super) fn disallow_implement_in_non_root(
     }
 }
 
-pub(super) fn validate_properties_and_callbacks(
+pub(super) fn validate_self_implement_statements(
     element: &Element,
     implemented_interfaces: &[ImplementedInterface],
     diagnostics: &mut BuildDiagnostics,
 ) {
     for ImplementedInterface { interface, node, interface_name, .. } in implemented_interfaces {
         let mut errors = Vec::new();
-        for (member_name, member_declaration) in
-            interface.borrow().property_declarations.iter().filter(|(_, property_declaration)| {
-                !matches!(property_declaration.property_type, Type::Function { .. })
-            })
-        {
+        for (member_name, member_declaration) in interface.borrow().property_declarations.iter() {
             if let Some(message) = validate_interface_member_implementation(
                 element,
                 member_name,
@@ -288,125 +284,6 @@ fn validate_interface_member_implementation(
         return None;
     }
     return Some(conflicts);
-}
-
-pub(super) fn validate_function_implementations(
-    element: &Element,
-    implemented_interfaces: &[ImplementedInterface],
-    diagnostics: &mut BuildDiagnostics,
-) {
-    for ImplementedInterface { interface, node, interface_name, .. } in implemented_interfaces {
-        for (function_name, function_property_decl) in interface
-            .borrow()
-            .property_declarations
-            .iter()
-            .filter(|(_, prop_decl)| matches!(prop_decl.property_type, Type::Function { .. }))
-        {
-            let Type::Function(ref function_declaration) = function_property_decl.property_type
-            else {
-                debug_assert!(false, "Non-functions should have been filtered out already");
-                continue;
-            };
-
-            let push_interface_error =
-                |diag: &mut BuildDiagnostics, is_local_to_component, error| {
-                    if is_local_to_component {
-                        let source = element
-                            .property_declarations
-                            .get(function_name)
-                            .and_then(|decl| decl.node.clone())
-                            .map_or_else(
-                                || parser::NodeOrToken::Node(node.QualifiedName().into()),
-                                parser::NodeOrToken::Node,
-                            );
-                        diag.push_error(error, &source);
-                    } else {
-                        diag.push_error(error, &node.QualifiedName());
-                    }
-                };
-
-            let found_function = element.lookup_property(function_name);
-            let function_impl = match found_function.property_type {
-                Type::Invalid => {
-                    diagnostics.push_error(
-                        format!("Missing implementation of function '{}'", function_name),
-                        &node.QualifiedName(),
-                    );
-                    None
-                }
-                Type::Function(function) => Some(function.clone()),
-                _ => {
-                    push_interface_error(
-                        diagnostics,
-                        found_function.is_local_to_component,
-                        format!(
-                            "Cannot override '{}' from interface '{}'",
-                            function_name, interface_name
-                        ),
-                    );
-                    None
-                }
-            };
-            let Some(function_impl) = function_impl else { continue };
-
-            match (function_property_decl.pure, found_function.declared_pure) {
-                (Some(true), Some(false)) | (Some(true), None) => push_interface_error(
-                    diagnostics,
-                    found_function.is_local_to_component,
-                    format!(
-                        "Implementation of pure function '{}' from interface '{}' cannot be impure",
-                        function_name, interface_name
-                    ),
-                ),
-                _ => {
-                    // If the implementation is pure but the declaration is not, we allow it.
-                }
-            }
-
-            if function_property_decl.visibility != found_function.property_visibility {
-                push_interface_error(
-                    diagnostics,
-                    found_function.is_local_to_component,
-                    format!(
-                        "Incorrect visibility for implementation of '{}' from interface '{}'. Expected '{}'",
-                        function_name, interface_name, function_property_decl.visibility,
-                    ),
-                );
-            }
-
-            if function_impl.args != function_declaration.args {
-                let display_args = |args: &Vec<Type>| -> SmolStr {
-                    args.iter().map(|t| t.to_string()).join(", ").into()
-                };
-
-                push_interface_error(
-                    diagnostics,
-                    found_function.is_local_to_component,
-                    format!(
-                        "Incorrect arguments for implementation of '{}' from interface '{}'. Expected ({}) but got ({})",
-                        function_name,
-                        interface_name,
-                        display_args(&function_declaration.args),
-                        display_args(&function_impl.args),
-                    ),
-                );
-            }
-
-            if function_impl.return_type != function_declaration.return_type {
-                push_interface_error(
-                    diagnostics,
-                    found_function.is_local_to_component,
-                    format!(
-                        "Incorrect return type for implementation of '{}' from interface '{}'. Expected '{}' but got '{}'",
-                        function_name,
-                        interface_name,
-                        function_declaration.return_type,
-                        function_impl.return_type,
-                    ),
-                );
-            }
-        }
-    }
 }
 
 pub(super) fn apply_child_implement_statements(
