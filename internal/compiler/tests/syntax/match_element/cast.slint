@@ -52,3 +52,19 @@ export component Baz {
 //      >          <error{Cannot convert MyEnum to string}
     }
 }
+
+export component CastWithWildcard {
+    in property <int> num: 42;
+    in property <int> num_2: 42;
+    in property <string> str_num: "42";
+
+    match num {
+        42: Rectangle { }
+        "42": Rectangle { }
+//      >  <error{Cannot convert string to int}
+        str_num: Rectangle { }
+//      >     <error{Cannot convert string to int}
+//      >     <^error{Cases must be literal values}
+        *: Rectangle { }
+    }
+}

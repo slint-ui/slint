@@ -54,6 +54,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 enclosing_component: Default::default(),
                 states: std::mem::take(&mut original_elem.states),
                 transitions: std::mem::take(&mut original_elem.transitions),
+                match_elements: Default::default(),
                 child_of_layout: original_elem.child_of_layout || is_listview.is_some(),
                 child_of_flexbox: original_elem.child_of_flexbox,
                 parent_box_layout_orientation: original_elem.parent_box_layout_orientation,

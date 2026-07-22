@@ -610,6 +610,7 @@ fn duplicate_element_with_mapping(
         debug: elem.debug.clone(),
         enclosing_component: Rc::downgrade(root_component),
         states: elem.states.clone(),
+        match_elements: Default::default(),
         transitions: elem
             .transitions
             .iter()
