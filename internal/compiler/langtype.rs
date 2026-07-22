@@ -130,30 +130,11 @@ impl Display for Type {
             Type::InferredProperty => write!(f, "?"),
             Type::InferredCallback => write!(f, "callback"),
             Type::Callback(callback) => {
-                write!(f, "callback")?;
-                if !callback.args.is_empty() {
-                    write!(f, "(")?;
-                    for (i, arg) in callback.args.iter().enumerate() {
-                        if i > 0 {
-                            write!(f, ",")?;
-                        }
-                        write!(f, "{arg}")?;
-                    }
-                    write!(f, ")")?
-                }
-                write!(f, "-> {}", callback.return_type)?;
-                Ok(())
+                write!(f, "callback{}", callback)
             }
             Type::ComponentFactory => write!(f, "component-factory"),
             Type::Function(function) => {
-                write!(f, "function(")?;
-                for (i, arg) in function.args.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ",")?;
-                    }
-                    write!(f, "{arg}")?;
-                }
-                write!(f, ") -> {}", function.return_type)
+                write!(f, "function{}", function)
             }
             Type::Float32 => write!(f, "float"),
             Type::Int32 => write!(f, "int"),
@@ -966,6 +947,19 @@ pub struct Function {
     /// The optional names of the arguments (empty string means not set).
     /// The names are not technically part of the type, but it is good to have them available for auto-completion
     pub arg_names: Vec<SmolStr>,
+}
+
+impl Display for Function {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "(")?;
+        for (i, arg) in self.args.iter().enumerate() {
+            if i > 0 {
+                write!(formatter, ", ")?;
+            }
+            write!(formatter, "{arg}")?;
+        }
+        write!(formatter, ") -> {}", self.return_type)
+    }
 }
 
 #[derive(Debug, Clone)]
