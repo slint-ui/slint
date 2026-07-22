@@ -3,6 +3,7 @@
 
 #include <ranges>
 #include <chrono>
+#include <filesystem>
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch_all.hpp"
 
@@ -526,6 +527,53 @@ TEST_CASE("DataTransfer")
         REQUIRE(a.has_plain_text());
         REQUIRE(a.has_image());
     }
+
+    SECTION("File paths round-trip")
+    {
+        DataTransfer a;
+        REQUIRE(!a.has_file_paths());
+        REQUIRE(!a.file_paths().has_value());
+
+        std::filesystem::path paths[] = { "/tmp/plain.txt", u8"/tmp/gr\u00fc\u00dfe.txt" };
+        a.set_file_paths(paths);
+        REQUIRE(a.has_file_paths());
+        REQUIRE(!a.is_empty());
+        auto fetched = a.file_paths();
+        REQUIRE(fetched.has_value());
+        REQUIRE(fetched->size() == 2);
+        REQUIRE((*fetched)[0] == paths[0]);
+        REQUIRE((*fetched)[1] == paths[1]);
+
+        a.set_file_paths({});
+        REQUIRE(!a.has_file_paths());
+        REQUIRE(a.is_empty());
+    }
+
+#ifdef _WIN32
+    SECTION("File paths keep unpaired surrogates")
+    {
+        // A lone surrogate is representable in a Windows filename; it must
+        // survive the conversion to Rust's WTF-8 encoded PathBuf and back.
+        std::filesystem::path lone_surrogate(L"C:\\tmp\\lone-\xD800.txt");
+        std::filesystem::path paths[] = { lone_surrogate };
+        DataTransfer a;
+        a.set_file_paths(paths);
+        auto fetched = a.file_paths();
+        REQUIRE(fetched.has_value());
+        REQUIRE((*fetched)[0].native() == lone_surrogate.native());
+    }
+#else
+    SECTION("File paths keep non-UTF-8 bytes")
+    {
+        std::filesystem::path invalid_utf8(std::string("/tmp/\xFF\xFE-invalid"));
+        std::filesystem::path paths[] = { invalid_utf8 };
+        DataTransfer a;
+        a.set_file_paths(paths);
+        auto fetched = a.file_paths();
+        REQUIRE(fetched.has_value());
+        REQUIRE((*fetched)[0].native() == invalid_utf8.native());
+    }
+#endif
 
     SECTION("User data round-trip")
     {

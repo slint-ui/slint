@@ -474,6 +474,7 @@ export component Example inherits Window {
 
 A `data-transfer` value is the payload carried by drag-and-drop and clipboard operations.
 It abstracts over the file-type transfer mechanisms supported by each platform.
+It can carry plain text, an image, and a list of local file paths simultaneously.
 
 The type is opaque in Slint code:
 construct a `data-transfer` value and read its content via callbacks implemented in the host language.
