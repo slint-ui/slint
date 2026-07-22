@@ -59,7 +59,7 @@ export component CorrectCalculator {
 // Missing members - property, callback and function each report distinctly.
 export component MissingProperty {
     implement ValidInterface <=> self;
-//            >             <error{Missing 'value' from 'ValidInterface'}
+//            >             <error{Cannot implement 'ValidInterface'.↵Missing 'value' from 'ValidInterface'}
 
     callback speak();
     public function reset() {}
@@ -67,7 +67,7 @@ export component MissingProperty {
 
 export component MissingCallback {
     implement ValidInterface <=> self;
-//            >             <error{Missing 'speak' from 'ValidInterface'}
+//            >             <error{Cannot implement 'ValidInterface'.↵Missing 'speak' from 'ValidInterface'}
 
     in-out property <int> value;
     public function reset() {}
@@ -223,8 +223,7 @@ component BaseWithMembers {
 
 export component DerivedConflicts inherits BaseWithMembers {
     implement ValidInterface <=> self;
-//            >             <error{Cannot implement interface 'ValidInterface'.↵- 'speak' conflicts with an existing callback in 'BaseWithMembers'}
-//            >             <^error{Cannot implement interface 'ValidInterface'.↵- 'value' conflicts with an existing property in 'BaseWithMembers'}
+//            >             <error{Cannot implement 'ValidInterface'.↵- 'speak' conflicts with an existing callback in 'BaseWithMembers'↵- 'value' conflicts with an existing property in 'BaseWithMembers'}
 }
 
 interface CallbackInterface {
@@ -238,7 +237,7 @@ component BaseWithFunction {
 
 export component ImplementFunctionConflict inherits BaseWithFunction {
     implement CallbackInterface <=> self;
-//            >                <error{Cannot implement interface 'CallbackInterface'.↵- 'action' conflicts with an existing function in 'BaseWithFunction'}
+//            >                <error{Cannot implement 'CallbackInterface'.↵- 'action' conflicts with an existing function in 'BaseWithFunction'}
 }
 
 // Each member declared as the wrong kind of member.
