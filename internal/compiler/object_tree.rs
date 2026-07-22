@@ -2247,6 +2247,8 @@ impl Element {
                 is_in_direct_base: false,
                 is_shadowable: false,
                 builtin_function: None,
+                #[cfg(feature = "slint-sc")]
+                is_slint_sc: false,
             },
         )
     }
@@ -2258,10 +2260,12 @@ impl Element {
         diag: &mut BuildDiagnostics,
     ) {
         for (name_token, b) in bindings {
-            #[cfg(feature = "slint-sc")]
-            diag.slint_sc_error("Bindings are", &name_token);
             let unresolved_name = crate::parser::normalize_identifier(name_token.text());
             let lookup_result = self.lookup_property(&unresolved_name);
+            #[cfg(feature = "slint-sc")]
+            if lookup_result.is_valid() && !lookup_result.is_slint_sc {
+                diag.slint_sc_error(&format!("The property '{unresolved_name}' is"), &name_token);
+            }
             if !lookup_result.property_type.is_property_type() {
                 match lookup_result.property_type {
                         Type::Invalid => {

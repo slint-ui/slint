@@ -369,6 +369,8 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
             property_visibility: visibility,
             declared_pure: None,
             builtin_function,
+            #[cfg(feature = "slint-sc")]
+            is_slint_sc: false,
         };
     }
 
@@ -388,6 +390,8 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
                         property_visibility: crate::object_tree::PropertyVisibility::InOut,
                         declared_pure: None,
                         builtin_function: None,
+                        #[cfg(feature = "slint-sc")]
+                        is_slint_sc: false,
                     };
                 }
             }

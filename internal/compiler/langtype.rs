@@ -389,6 +389,10 @@ pub struct BuiltinPropertyInfo {
     pub property_visibility: PropertyVisibility,
     /// Raw `///` doc comment from builtins.slint, if any.
     pub docs: Option<String>,
+    /// Whether the property is part of the Slint SC subset
+    /// (`\sc` marker in its doc comment). Set by [`Self::set_docs`].
+    #[cfg(feature = "slint-sc")]
+    pub slint_sc: bool,
     /// True when a component may declare a member of the same name, shadowing this one
     /// (`//-shadowable` annotation in builtins.slint).
     /// Members added to a builtin element after its initial release should be marked
@@ -406,7 +410,19 @@ impl BuiltinPropertyInfo {
             property_visibility: PropertyVisibility::InOut,
             docs: None,
             shadowable: false,
+            #[cfg(feature = "slint-sc")]
+            slint_sc: false,
         }
+    }
+
+    /// Set the doc comment, deriving the Slint SC subset flag from its
+    /// `\sc` marker.
+    pub fn set_docs(&mut self, docs: Option<String>) {
+        #[cfg(feature = "slint-sc")]
+        {
+            self.slint_sc = docs.as_deref().is_some_and(crate::load_builtins::has_sc_marker);
+        }
+        self.docs = docs;
     }
 
     pub fn is_native_output(&self) -> bool {
@@ -422,6 +438,8 @@ impl From<BuiltinFunction> for BuiltinPropertyInfo {
             property_visibility: PropertyVisibility::Public,
             docs: None,
             shadowable: false,
+            #[cfg(feature = "slint-sc")]
+            slint_sc: false,
         }
     }
 }
@@ -489,6 +507,8 @@ impl ElementType {
                             BuiltinPropertyDefault::BuiltinFunction(f) => Some(f.clone()),
                             _ => None,
                         },
+                        #[cfg(feature = "slint-sc")]
+                        is_slint_sc: p.slint_sc,
                     },
                 }
             }
@@ -509,6 +529,8 @@ impl ElementType {
                     is_in_direct_base: false,
                     is_shadowable: false,
                     builtin_function: None,
+                    #[cfg(feature = "slint-sc")]
+                    is_slint_sc: false,
                 }
             }
             _ => PropertyLookupResult::invalid(Cow::Borrowed(name)),
@@ -899,6 +921,11 @@ pub struct PropertyLookupResult<'a> {
 
     /// If the property is a builtin function
     pub builtin_function: Option<BuiltinFunction>,
+
+    /// Whether the property is part of the Slint SC subset
+    /// (`\sc` marker in its doc comment in builtins.slint).
+    #[cfg(feature = "slint-sc")]
+    pub is_slint_sc: bool,
 }
 
 impl<'a> PropertyLookupResult<'a> {
@@ -926,6 +953,8 @@ impl<'a> PropertyLookupResult<'a> {
             is_in_direct_base: false,
             is_shadowable: false,
             builtin_function: None,
+            #[cfg(feature = "slint-sc")]
+            is_slint_sc: false,
         }
     }
 }

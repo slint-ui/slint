@@ -569,8 +569,6 @@ impl Expression {
                             });
                     }
                     SyntaxKind::ColorLiteral => {
-                        #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Color literals are", &token);
                         return i_slint_common::color_parsing::parse_color_literal(token.text())
                             .map(|i| Expression::Cast {
                                 from: Box::new(Expression::NumberLiteral(i as _, Unit::None)),
