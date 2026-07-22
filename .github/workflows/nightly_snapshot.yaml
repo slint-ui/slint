@@ -764,7 +764,7 @@ jobs:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Android API platforms
-              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30" "platforms;android-35" "build-tools;35.0.1"
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30" "platforms;android-36" "build-tools;36.0.0"
             - name: Cache cargo-apk, cargo-ndk and resvg
               id: cargo-tools-cache
               uses: actions/cache@v6
@@ -816,7 +816,7 @@ jobs:
               uses: gradle/actions/setup-gradle@v6
               with:
                   # Installs Gradle on PATH; the AAB project has no wrapper jar.
-                  gradle-version: "8.10.2"
+                  gradle-version: "8.11.1"
             - name: Build slint-viewer AAB
               env:
                   ANDROID_KEYSTORE_PATH: ${{ env.CARGO_APK_RELEASE_KEYSTORE }}

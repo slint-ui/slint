@@ -14,7 +14,7 @@
 #   ANDROID_KEYSTORE_ALIAS     alias of the signing key in the keystore
 #
 # Requires: cargo-ndk; Android SDK + NDK with ANDROID_HOME / ANDROID_NDK_HOME
-# set; gradle 8.9+ on PATH (AGP 8.7); JDK 17; the three Android rust targets
+# set; gradle 8.11.1+ on PATH (AGP 8.10); JDK 17; the three Android rust targets
 # (rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android).
 #
 # Output: app/build/outputs/bundle/release/slint-viewer.aab
