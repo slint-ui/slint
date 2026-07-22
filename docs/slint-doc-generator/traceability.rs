@@ -33,8 +33,10 @@ struct SpecPage {
     stem: String,
     /// From the frontmatter.
     title: String,
-    /// Anchor ids in document order.
-    anchors: Vec<String>,
+    /// (anchor id, 1-based line number) in document order.
+    anchors: Vec<(String, usize)>,
+    /// Draft pages aren't published, so their anchors don't exist.
+    draft: bool,
 }
 
 struct TestRef {
@@ -62,22 +64,13 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         scan_test_refs(&root, kind, &mut refs)?;
     }
 
-    let known: std::collections::HashSet<&str> =
-        pages.iter().flat_map(|p| p.anchors.iter().map(String::as_str)).collect();
-    let unknown: Vec<&TestRef> = refs.iter().filter(|r| !known.contains(r.id.as_str())).collect();
-    if !unknown.is_empty() {
-        eprintln!("error: traceability: test references unknown specification ids:");
-        for r in &unknown {
-            eprintln!(
-                "  {}:{}: `//#{}` has no `{{#{}}}` anchor in {SPEC_DIR}/",
-                r.file, r.line, r.id, r.id
-            );
+    let errors = check(&pages, &refs);
+    if !errors.is_empty() {
+        eprintln!("error: traceability:");
+        for e in &errors {
+            eprintln!("  {e}");
         }
-        return Err(anyhow::anyhow!(
-            "{} unknown specification id reference(s) in tests",
-            unknown.len()
-        )
-        .into());
+        return Err(anyhow::anyhow!("{} traceability error(s)", errors.len()).into());
     }
 
     let mut tests_by_id: HashMap<&str, Vec<&TestRef>> = HashMap::new();
@@ -91,16 +84,94 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     write_matrix(cfg, &root, &pages, &tests_by_id)
 }
 
+/// Validate the parsed pages and test references, returning one message per
+/// problem: duplicate anchor ids across the specification, and test
+/// references without a matching anchor.
+fn check(pages: &[SpecPage], refs: &[TestRef]) -> Vec<String> {
+    let mut errors = Vec::new();
+    let mut seen: HashMap<&str, (&str, usize)> = HashMap::new();
+    for p in pages {
+        for (id, line) in &p.anchors {
+            match seen.get(id.as_str()) {
+                Some((stem, first)) => errors.push(format!(
+                    "{SPEC_DIR}/{}.md:{line}: duplicate anchor `{{#{id}}}`, already defined at {SPEC_DIR}/{stem}.md:{first}",
+                    p.stem
+                )),
+                None => {
+                    seen.insert(id, (&p.stem, *line));
+                }
+            }
+        }
+    }
+    for r in refs {
+        if !seen.contains_key(r.id.as_str()) {
+            errors.push(format!(
+                "{}:{}: `//#{}` has no `{{#{}}}` anchor in {SPEC_DIR}/",
+                r.file, r.line, r.id, r.id
+            ));
+        }
+    }
+    errors
+}
+
 /// Parse a `{#sls.…}` marker at the end of a line, mirroring `ID_MARKER` in
 /// docs/common/src/utils/rehype-sls-ids.mjs.
 fn anchor_id(line: &str) -> Option<&str> {
     let t = line.trim_end().strip_suffix('}')?;
     let id = &t[t.rfind("{#")? + 2..];
-    (id.starts_with("sls.")
+    (id.len() > "sls.".len()
+        && id.starts_with("sls.")
         && id.bytes().all(|b| {
             b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'.' | b'-' | b'_')
         }))
     .then_some(id)
+}
+
+/// Parse one specification chapter: frontmatter title and draft flag, and the
+/// anchors in document order. Anchors inside HTML comments and code fences
+/// don't render, so they don't count.
+fn parse_spec_page(stem: &str, text: &str) -> SpecPage {
+    let mut page = SpecPage {
+        stem: stem.to_string(),
+        title: String::new(),
+        anchors: Vec::new(),
+        draft: false,
+    };
+    let mut in_comment = false;
+    let mut in_fence = false;
+    let mut frontmatter_delimiters = 0;
+    for (i, line) in text.lines().enumerate() {
+        let t = line.trim();
+        if frontmatter_delimiters < 2 {
+            if t == "---" {
+                frontmatter_delimiters += 1;
+            } else if let Some(title) = t.strip_prefix("title:") {
+                page.title = title.trim().to_string();
+            } else if t == "draft: true" {
+                page.draft = true;
+            }
+            continue;
+        }
+        if in_comment {
+            in_comment = !t.contains("-->");
+            continue;
+        }
+        if t.starts_with("```") {
+            in_fence = !in_fence;
+            continue;
+        }
+        if in_fence {
+            continue;
+        }
+        if t.starts_with("<!--") {
+            in_comment = !t.contains("-->");
+            continue;
+        }
+        if let Some(id) = anchor_id(line) {
+            page.anchors.push((id.to_string(), i + 1));
+        }
+    }
+    page
 }
 
 fn scan_spec_pages(dir: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Error>> {
@@ -114,57 +185,12 @@ fn scan_spec_pages(dir: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Erro
         (SPEC_PAGE_ORDER.iter().position(|s| *s == stem).unwrap_or(SPEC_PAGE_ORDER.len()), stem)
     });
 
-    let mut seen: HashMap<String, (String, usize)> = HashMap::new();
     let mut pages = Vec::new();
     for path in paths {
         let stem = path.file_stem().unwrap_or_default().to_string_lossy().into_owned();
         let text = std::fs::read_to_string(&path).context(format!("error reading {path:?}"))?;
-        let mut page = SpecPage { stem, title: String::new(), anchors: Vec::new() };
-        let mut draft = false;
-        let mut in_comment = false;
-        let mut in_fence = false;
-        let mut frontmatter_delimiters = 0;
-        for (i, line) in text.lines().enumerate() {
-            let t = line.trim();
-            if frontmatter_delimiters < 2 {
-                if t == "---" {
-                    frontmatter_delimiters += 1;
-                } else if let Some(title) = t.strip_prefix("title:") {
-                    page.title = title.trim().to_string();
-                } else if t == "draft: true" {
-                    draft = true;
-                }
-                continue;
-            }
-            if in_comment {
-                in_comment = !t.contains("-->");
-                continue;
-            }
-            if t.starts_with("```") {
-                in_fence = !in_fence;
-                continue;
-            }
-            if in_fence {
-                continue;
-            }
-            if t.starts_with("<!--") {
-                in_comment = !t.contains("-->");
-                continue;
-            }
-            if let Some(id) = anchor_id(line) {
-                if let Some((file, line)) = seen.get(id) {
-                    return Err(anyhow::anyhow!(
-                        "traceability: duplicate anchor `{{#{id}}}` in {path:?}:{}, already defined at {file}:{line}",
-                        i + 1
-                    )
-                    .into());
-                }
-                seen.insert(id.to_string(), (path.display().to_string(), i + 1));
-                page.anchors.push(id.to_string());
-            }
-        }
-        // Draft pages aren't published, so their anchors don't exist.
-        if !draft {
+        let page = parse_spec_page(&stem, &text);
+        if !page.draft {
             pages.push(page);
         }
     }
@@ -231,7 +257,7 @@ fn write_matrix(
     let covered = pages
         .iter()
         .flat_map(|p| &p.anchors)
-        .filter(|a| tests_by_id.contains_key(a.as_str()))
+        .filter(|(id, _)| tests_by_id.contains_key(id.as_str()))
         .count();
 
     writeln!(
@@ -271,7 +297,7 @@ tests marked `syntax:` are compiler syntax tests from `{syntax_root}/`.
         };
         writeln!(file, "\n| Paragraph | Tests |")?;
         writeln!(file, "| --- | --- |")?;
-        for id in &page.anchors {
+        for (id, _) in &page.anchors {
             let tests = match tests_by_id.get(id.as_str()) {
                 Some(files) => files
                     .iter()
@@ -286,4 +312,89 @@ tests marked `syntax:` are compiler syntax tests from `{syntax_root}/`.
         }
     }
     Ok(())
+}
+
+#[test]
+fn test_anchor_id() {
+    assert_eq!(anchor_id("Some text. {#sls.foo.bar}"), Some("sls.foo.bar"));
+    assert_eq!(anchor_id("Text. {#sls.a-b_c.d2}  "), Some("sls.a-b_c.d2"));
+    assert_eq!(anchor_id("{#sls.x}"), Some("sls.x"));
+    assert_eq!(anchor_id("no marker here"), None);
+    assert_eq!(anchor_id("not at the end {#sls.x} more"), None);
+    assert_eq!(anchor_id("wrong prefix {#foo.bar}"), None);
+    assert_eq!(anchor_id("bad chars {#sls.Foo}"), None);
+    assert_eq!(anchor_id("bad chars {#sls.a b}"), None);
+    assert_eq!(anchor_id("empty tail {#sls.}"), None);
+}
+
+#[test]
+fn test_parse_spec_page() {
+    let text = r#"---
+title: Some Chapter
+description: not an anchor {#sls.frontmatter}
+---
+
+A paragraph. {#sls.one}
+
+<!--
+Commented out. {#sls.commented}
+-->
+
+```slint
+// code {#sls.fenced}
+```
+
+Another paragraph. {#sls.two}
+"#;
+    let page = parse_spec_page("chapter", text);
+    assert_eq!(page.stem, "chapter");
+    assert_eq!(page.title, "Some Chapter");
+    assert!(!page.draft);
+    assert_eq!(page.anchors, [("sls.one".to_string(), 6), ("sls.two".to_string(), 16)]);
+
+    let draft = parse_spec_page("draft", "---\ntitle: Draft\ndraft: true\n---\nText. {#sls.d}\n");
+    assert!(draft.draft);
+    assert_eq!(draft.anchors, [("sls.d".to_string(), 5)]);
+}
+
+#[test]
+fn test_check_reports_all_errors() {
+    let page = |stem: &str, anchors: &[(&str, usize)]| SpecPage {
+        stem: stem.to_string(),
+        title: String::new(),
+        anchors: anchors.iter().map(|(id, line)| (id.to_string(), *line)).collect(),
+        draft: false,
+    };
+    let test_ref = |id: &str, file: &str, line| TestRef {
+        id: id.to_string(),
+        file: file.to_string(),
+        line,
+        kind: &TEST_ROOTS[0],
+    };
+
+    let pages = [page("a", &[("sls.one", 5), ("sls.two", 8)]), page("b", &[("sls.one", 3)])];
+    let refs = [
+        test_ref("sls.two", "tests/t1.slint", 4),
+        test_ref("sls.gone", "tests/t1.slint", 9),
+        test_ref("sls.also-gone", "tests/t2.slint", 7),
+    ];
+
+    // All errors are reported in one pass, not just the first.
+    let errors = check(&pages, &refs);
+    assert_eq!(errors.len(), 3);
+    assert!(errors[0].contains("b.md:3"), "{}", errors[0]);
+    assert!(errors[0].contains("{#sls.one}") && errors[0].contains("a.md:5"), "{}", errors[0]);
+    assert!(
+        errors[1].contains("tests/t1.slint:9") && errors[1].contains("sls.gone"),
+        "{}",
+        errors[1]
+    );
+    assert!(
+        errors[2].contains("tests/t2.slint:7") && errors[2].contains("sls.also-gone"),
+        "{}",
+        errors[2]
+    );
+
+    let clean_pages = [page("a", &[("sls.one", 5), ("sls.two", 8)])];
+    assert!(check(&clean_pages, &refs[..1]).is_empty());
 }
