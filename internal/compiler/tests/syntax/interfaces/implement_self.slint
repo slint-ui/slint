@@ -91,7 +91,7 @@ export component IncorrectPropertyType {
     implement ValidInterface <=> self;
 
     in-out property <float> value;
-//  >                            <error{Incorrect implementation of 'value' from 'ValidInterface' - expected type: 'int'}
+//  >                            <error{Cannot implement 'ValidInterface'.↵- 'value' must be a 'int' property (found a 'float' property)}
     callback speak();
     public function reset() {}
 }
@@ -101,7 +101,7 @@ export component IncorrectCallbackType {
 
     in-out property <int> value;
     callback speak(string);
-//  >                     <error{Incorrect implementation of 'speak' from 'ValidInterface' - expected type: 'callback() -> void'}
+//  >                     <error{Cannot implement 'ValidInterface'.↵- 'speak' must be a 'callback() -> void' (found a 'callback(string) -> void')}
     public function reset() {}
 }
 
@@ -109,14 +109,25 @@ export component IncorrectPropertyVisibility {
     implement OutOnlyInterface <=> self;
 
     in-out property <int> count;
-//  >                          <error{Incorrect implementation of 'count' from 'OutOnlyInterface' - expected visibility: 'out'}
+//  >                          <error{Cannot implement 'OutOnlyInterface'.↵- 'count' must be 'out' (found 'in-out')}
+}
+
+
+interface ImpureFunctionInterface {
+    public function bar(i: int, s: string) -> bool;
 }
 
 export component IncorrectCallbackPurity {
     implement Inverter <=> self;
+    implement ImpureFunctionInterface <=> self;
 
     callback invert(bool) -> bool;
-//  >                            <error{Incorrect implementation of 'invert' from 'Inverter' - expected purity declaration: 'true'}
+//  >                            <error{Cannot implement 'Inverter'.↵- 'invert' must be 'pure'}
+
+    // Implementation is pure, interface is not - this should not raise an error
+    public pure function bar(i: int, s: string) -> bool {
+        return false;
+    }
 }
 
 // Function mismatches: purity, visibility, arguments and return type.
@@ -228,4 +239,24 @@ component BaseWithFunction {
 export component ImplementFunctionConflict inherits BaseWithFunction {
     implement CallbackInterface <=> self;
 //            >                <error{Cannot implement interface 'CallbackInterface' because 'action' conflicts with an existing function in 'BaseWithFunction'}
+}
+
+// Each member declared as the wrong kind of member.
+export component CrossKindMismatch {
+    implement ValidInterface <=> self;
+
+    callback value();
+//  >               <error{Cannot implement 'ValidInterface'.↵- 'value' must be a 'int' property (found a 'callback() -> void')}
+    in-out property <int> speak;
+//  >                          <error{Cannot implement 'ValidInterface'.↵- 'speak' must be a 'callback() -> void' (found a 'int' property)}
+    in-out property <int> reset;
+//  >                          <error{Cannot override 'reset' from interface 'ValidInterface'}
+}
+
+// A single member that violates several constraints at once, joined into one message.
+export component MultipleViolations {
+    implement OutOnlyInterface <=> self;
+
+    in-out property <float> count;
+//  >                            <error{Cannot implement 'OutOnlyInterface'.↵- 'count' must be a 'int' property (found a 'float' property)↵- 'count' must be 'out' (found 'in-out')}
 }
