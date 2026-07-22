@@ -2403,16 +2403,16 @@ export component Path {
     /// If no view box is defined, the implicit bounding rectangle is used.
     /// \default contain
     in property <ImageFit> fit: contain;
+    /// By default, when a path has a view box defined and the elements render
+    /// outside of it, they are still rendered. When this property is set to `true`, then rendering will be
+    /// clipped at the boundaries of the view box.
     /// \default false
     in property <bool> clip;
-    //!  By default, when a path has a view box defined and the elements render
-    //! outside of it, they are still rendered. When this property is set to `true`, then rendering will be
-    //! clipped at the boundaries of the view box.
+    ///  By default, the fill and stroke of a path is rendered with anti-aliasing, for best quality. Some GPUs
+    ///  have performance issues when rendering with anti-aliasing and animation. Setting the value to `false`
+    ///  might improve the frame-rate at the expense of a smoother looking path.
     /// \default true
     in property <bool> anti-alias: true;
-    //!  By default, the fill and stroke of a path is rendered with anti-aliasing, for best quality. Some GPUs
-    //!  have performance issues when rendering with anti-aliasing and animation. Setting the value to `false`
-    //!  might improve the frame-rate at the expense of a smoother looking path.
     //!
     //! ## Path Using SVG Commands
     //!
