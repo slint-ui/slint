@@ -126,6 +126,32 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
         insertion_point.parent = viewport.clone()
     }
 
+    let assign_viewport =
+        |property: &'static str, argument_index: usize| Expression::SelfAssignment {
+            lhs: Box::new(Expression::PropertyReference(NamedReference::new(
+                flickable,
+                property.into(),
+            ))),
+            rhs: Box::new(Expression::FunctionParameterReference {
+                index: argument_index,
+                ty: Type::LogicalLength,
+            }),
+            op: '=',
+            node: None,
+        };
+
+    let reveal_viewport_x = assign_viewport("viewport-x", 0);
+    let reveal_viewport_y = assign_viewport("viewport-y", 0);
+
+    let mut flickable_mut = flickable.borrow_mut();
+    flickable_mut
+        .bindings
+        .insert(SmolStr::new_static("reveal-viewport-x"), RefCell::new(reveal_viewport_x.into()));
+    flickable_mut
+        .bindings
+        .insert(SmolStr::new_static("reveal-viewport-y"), RefCell::new(reveal_viewport_y.into()));
+    drop(flickable_mut);
+
     flickable.borrow_mut().children.push(viewport);
 }
 

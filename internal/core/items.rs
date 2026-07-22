@@ -75,6 +75,7 @@ type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
 
 /// Workarounds for cbindgen
 pub type VoidArg = ();
+type CoordArg = (crate::Coord,);
 pub type KeyEventArg = (KeyEvent,);
 pub type DragActionArg = (DragAction,);
 type FocusReasonArg = (FocusReason,);

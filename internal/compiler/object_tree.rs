@@ -1662,9 +1662,24 @@ impl Element {
             #[cfg(feature = "slint-sc")]
             diag.slint_sc_error("Callback handlers are", &con_node);
             let unresolved_name = unwrap_or_continue!(parser::identifier_text(&con_node); diag);
-            let PropertyLookupResult { resolved_name, property_type, .. } =
-                r.lookup_property(&unresolved_name);
+            let PropertyLookupResult {
+                resolved_name,
+                property_type,
+                property_visibility,
+                is_local_to_component,
+                ..
+            } = r.lookup_property(&unresolved_name);
             if let Type::Callback(callback) = &property_type {
+                if property_visibility == PropertyVisibility::Private
+                    && !is_local_to_component
+                    && resolved_name != "init"
+                {
+                    diag.push_error(
+                        format!("Cannot connect to private callback '{resolved_name}'"),
+                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                    );
+                    continue;
+                }
                 let num_arg = con_node.DeclaredIdentifier().count();
                 if num_arg > callback.args.len() {
                     diag.push_error(

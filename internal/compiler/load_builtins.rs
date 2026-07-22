@@ -129,6 +129,9 @@ pub(crate) fn load_builtins(
                             .collect()
                     })));
                     info.docs = docs::doc_comment(&s);
+                    if has_member_annotation(&s, "private") {
+                        info.property_visibility = PropertyVisibility::Private;
+                    }
                     info.shadowable = has_shadowable_annotation(&s);
                     (identifier_text(&s.DeclaredIdentifier()).unwrap(), info)
                 }))
@@ -296,16 +299,17 @@ fn compiled(
     e
 }
 
-/// Check for a `//-shadowable` annotation in the comments immediately before a
-/// member declaration. Marks members that a component may shadow with a local
-/// declaration of the same name.
-fn has_shadowable_annotation(node: &SyntaxNode) -> bool {
+/// Check for a member annotation in the comments immediately preceding the
+/// declaration, such as `//-private` or `//-shadowable`.
+fn has_member_annotation(node: &SyntaxNode, annotation: &str) -> bool {
+    let expected = format!("//-{annotation}");
     let mut cursor = node.node.prev_sibling_or_token();
+
     while let Some(cur) = cursor {
         match cur.kind() {
             SyntaxKind::Whitespace => {}
             SyntaxKind::Comment => {
-                if cur.as_token().unwrap().text().trim_end() == "//-shadowable" {
+                if cur.as_token().unwrap().text().trim_end() == expected {
                     return true;
                 }
             }
@@ -313,7 +317,12 @@ fn has_shadowable_annotation(node: &SyntaxNode) -> bool {
         }
         cursor = cur.prev_sibling_or_token();
     }
+
     false
+}
+
+fn has_shadowable_annotation(node: &SyntaxNode) -> bool {
+    has_member_annotation(node, "shadowable")
 }
 
 /// Find out if there are comments that starts with `//-key` and returns `None`

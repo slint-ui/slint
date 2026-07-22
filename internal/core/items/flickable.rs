@@ -7,8 +7,8 @@
 //! The `Flickable` item
 
 use super::{
-    Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton, RenderingResult,
-    VoidArg,
+    CoordArg, Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton,
+    RenderingResult, VoidArg,
 };
 use crate::animations::Instant;
 use crate::animations::physics_simulation::ConstantDecelerationParameters;
@@ -68,6 +68,11 @@ pub struct Flickable {
     pub mouse_drag_pan_enabled: Property<bool>,
 
     pub flicked: Callback<VoidArg>,
+
+    /// Applies focus-driven viewport changes through generated assignments so
+    /// that declared viewport animations are honored.
+    pub reveal_viewport_x: Callback<CoordArg>,
+    pub reveal_viewport_y: Callback<CoordArg>,
 
     data: FlickableDataBox,
 
@@ -311,7 +316,12 @@ impl Flickable {
 
     /// Scroll the Flickable so that all of the points are visible at the same time (if possible).
     /// The points have to be in the parent's coordinate space.
-    pub(crate) fn reveal_points(self: Pin<&Self>, self_rc: &ItemRc, pts: &[LogicalPoint]) {
+    pub(crate) fn reveal_points(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        pts: &[LogicalPoint],
+        animate: bool,
+    ) {
         if pts.is_empty() {
             return;
         }
@@ -332,8 +342,13 @@ impl Flickable {
         let new_vx = vx + tx;
         let new_vy = vy + ty;
 
-        Self::FIELD_OFFSETS.viewport_x().apply_pin(self).set(euclid::Length::new(-new_vx));
-        Self::FIELD_OFFSETS.viewport_y().apply_pin(self).set(euclid::Length::new(-new_vy));
+        if animate {
+            Self::FIELD_OFFSETS.reveal_viewport_x().apply_pin(self).call(&(-new_vx,));
+            Self::FIELD_OFFSETS.reveal_viewport_y().apply_pin(self).call(&(-new_vy,));
+        } else {
+            Self::FIELD_OFFSETS.viewport_x().apply_pin(self).set(euclid::Length::new(-new_vx));
+            Self::FIELD_OFFSETS.viewport_y().apply_pin(self).set(euclid::Length::new(-new_vy));
+        }
     }
 
     fn geometry_without_virtual_keyboard(self_rc: &ItemRc) -> LogicalRect {

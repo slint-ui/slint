@@ -1054,6 +1054,14 @@ export component Flickable inherits Empty {
     in-out property <length> viewport-y;
     /// Invoked when `viewport-x` or `viewport-y` is changed by a user action (dragging, scrolling).
     callback flicked();
+
+    // Runtime hooks used to apply focus-driven scrolling through generated
+    // assignments, so viewport animation declarations are honored.
+    //-private
+    callback reveal-viewport-x(value: length);
+    //-private
+    callback reveal-viewport-y(value: length);
+
     //-default_size_binding:expands_to_parent_geometry
 }
 
