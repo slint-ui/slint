@@ -5,6 +5,8 @@ import { test, expect } from "vitest";
 
 import { private_api, Window } from "../dist/index.js";
 
+private_api.initTesting();
+
 test("Window constructor", () => {
     let thrownError: any;
     try {
