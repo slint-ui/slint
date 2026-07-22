@@ -89,6 +89,9 @@ pub enum EmbedResourcesKind {
     /// Useful for MCUs with no file system and little RAM.
     /// Only the Slint software renderer can use these resources; Skia and FemtoVG can't.
     EmbedForSoftwareRenderer,
+    #[cfg(feature = "renderer-software")]
+    /// Same as EmbedForSoftwareRenderer, except fonts are not embedded.
+    EmbedForSoftwareRendererNoFonts,
 }
 
 impl Default for CompilerConfiguration {
@@ -173,6 +176,10 @@ impl CompilerConfiguration {
             #[cfg(feature = "renderer-software")]
             EmbedResourcesKind::EmbedForSoftwareRenderer => {
                 i_slint_compiler::EmbedResourcesKind::EmbedTextures
+            }
+            #[cfg(feature = "renderer-software")]
+            EmbedResourcesKind::EmbedForSoftwareRendererNoFonts => {
+                i_slint_compiler::EmbedResourcesKind::EmbedTexturesOnly
             }
         };
         Self { config }
