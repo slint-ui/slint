@@ -12,29 +12,32 @@
 /// test (e.g. `screenshot!(x, after_click)`).
 macro_rules! screenshot {
     ($component:expr) => {
-        crate::harness::save_screenshot(|w, h, buf| $component.render_rgb8(w, h, buf), None)
+        crate::harness::save_screenshot(|w, h, buf| $component.render_rgb8(w, h, buf), None)?
     };
     ($component:expr, $state:ident) => {
         crate::harness::save_screenshot(
             |w, h, buf| $component.render_rgb8(w, h, buf),
             Some(stringify!($state)),
-        )
+        )?
     };
 }
 
 const WIDTH: u32 = 64;
 const HEIGHT: u32 = 64;
 
-pub fn save_screenshot(render: impl FnOnce(u32, u32, &mut [u8]), state: Option<&str>) {
+pub fn save_screenshot(
+    render: impl FnOnce(u32, u32, &mut [u8]) -> Result<(), slint_sc::RenderError>,
+    state: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut buffer = [0u8; (WIDTH * HEIGHT * 3) as usize];
-    render(WIDTH, HEIGHT, &mut buffer);
-    let name = std::env::var("SLINT_TEST_NAME").expect("SLINT_TEST_NAME not set");
+    render(WIDTH, HEIGHT, &mut buffer)?;
+    let name = std::env::var("SLINT_TEST_NAME")?;
     let filename = match state {
         Some(state) => format!("{name}-{state}.ppm"),
         None => format!("{name}.ppm"),
     };
     let mut data = format!("P6\n{WIDTH} {HEIGHT}\n255\n").into_bytes();
     data.extend_from_slice(&buffer);
-    std::fs::write(&filename, data)
-        .unwrap_or_else(|e| panic!("failed to write screenshot {filename}: {e}"));
+    std::fs::write(&filename, data)?;
+    Ok(())
 }
