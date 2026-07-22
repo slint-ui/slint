@@ -12,11 +12,11 @@ type MarkdownDocModule = { compiledContent: () => string };
 
 /** Vite must see static glob patterns; runtime `import(\`...${name}.md\`)` fails SSR ("Unknown variable dynamic import"). */
 const enumMarkdownLoaders = import.meta.glob<MarkdownDocModule>(
-    "../../../astro/src/content/docs/reference/generated/enums/*.md",
+    "../../../astro/src/content/docs/generated/reference/enums/*.md",
 );
 
 const structMarkdownLoaders = import.meta.glob<MarkdownDocModule>(
-    "../../../astro/src/content/docs/reference/generated/structs/*.md",
+    "../../../astro/src/content/docs/generated/reference/structs/*.md",
 );
 
 const stdWidgetMarkdownLoaders = import.meta.glob<MarkdownDocModule>(

@@ -53,8 +53,8 @@ fn write_global_structs_enums_index(
     structs: &std::collections::BTreeMap<String, StructDoc>,
     enums: &std::collections::BTreeMap<String, EnumDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let generated_dir = &cfg.generated_dir;
-    create_dir_all(generated_dir)?;
+    let generated_dir = cfg.reference_dir();
+    create_dir_all(&generated_dir)?;
     let path = generated_dir.join("global-structs-enums.mdx");
     let mut file =
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
@@ -72,8 +72,9 @@ slug: reference/global-structs-enums
     for name in structs.keys() {
         writeln!(
             file,
-            "import {0} from \"/src/content/docs/reference/generated/structs/_{0}.md\"",
-            name
+            "import {0} from \"/src/{1}/reference/structs/_{0}.md\"",
+            name,
+            crate::GENERATED_DIR
         )?;
     }
 
@@ -92,8 +93,9 @@ slug: reference/global-structs-enums
         }
         writeln!(
             file,
-            "import {0} from \"/src/content/docs/reference/generated/enums/_{0}.md\"",
-            name
+            "import {0} from \"/src/{1}/reference/enums/_{0}.md\"",
+            name,
+            crate::GENERATED_DIR
         )?;
     }
 
@@ -131,7 +133,7 @@ fn write_individual_enum_files(
     cfg: &Config,
     enums: &std::collections::BTreeMap<String, EnumDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let enums_dir = cfg.generated_dir.join("enums");
+    let enums_dir = cfg.reference_dir().join("enums");
     create_dir_all(&enums_dir).context(format!(
         "Failed to create folder holding individual enum doc files {enums_dir:?}"
     ))?;
@@ -375,7 +377,7 @@ fn write_individual_struct_files(
     cfg: &Config,
     structs: std::collections::BTreeMap<String, StructDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let structs_dir = cfg.generated_dir.join("structs");
+    let structs_dir = cfg.reference_dir().join("structs");
     create_dir_all(&structs_dir).context(format!(
         "Failed to create folder holding individual structs doc files {structs_dir:?}"
     ))?;
@@ -434,7 +436,7 @@ pub fn to_kebab_case(str: &str) -> String {
 }
 
 fn generate_keys_docs(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    let enums_dir = cfg.generated_dir.join("enums");
+    let enums_dir = cfg.reference_dir().join("enums");
     create_dir_all(&enums_dir).context(format!(
         "Failed to create folder holding individual enum doc files {enums_dir:?}"
     ))?;
