@@ -66,6 +66,18 @@ interface FunctionInterface {
     public pure function foo(i: int, s: string) -> bool;
 }
 
+component ChildWithDifferentParameterNames {
+    // The function is correct even though the parameter names differ
+    public pure function foo(int: int, string: string) -> bool {
+        return false;
+    }
+}
+
+export component ValidChildFunctionInterface {
+    implement FunctionInterface <=> base;
+    base := ChildWithDifferentParameterNames { }
+}
+
 interface ImpureFunctionInterface {
     public function bar(i: int, s: string) -> bool;
 }
@@ -80,7 +92,6 @@ component IncorrectPurity {
         return false;
     }
 }
-
 
 export component ChildWrongPurity {
     implement FunctionInterface <=> base;
