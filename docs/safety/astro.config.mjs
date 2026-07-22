@@ -31,7 +31,12 @@ export default defineConfig({
     ...(_safetyBase ? { base: _safetyBase } : {}),
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
     markdown: {
-        rehypePlugins: [rehypeExternalLinksSlint, rehypeSlsIds],
+        // Only SC-covered content reaches this site's generated reference, so
+        // every paragraph of it carries a traceability id.
+        rehypePlugins: [
+            rehypeExternalLinksSlint,
+            [rehypeSlsIds, { generatedReferenceRequiresIds: true }],
+        ],
     },
     integrations: [
         mermaid(),
