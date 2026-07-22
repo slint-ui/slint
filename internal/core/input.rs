@@ -953,6 +953,16 @@ pub struct InternalKeyEvent {
     pub key_event: KeyEvent,
     /// Indicates whether the key was pressed or released
     pub event_type: KeyEventType,
+    /// A layout-independent representation of the physical key, derived from
+    /// the key's position on a standard US QWERTY keyboard (e.g. the physical
+    /// "V" key yields "v" regardless of the active keyboard layout or CapsLock
+    /// state). It is used to resolve standard shortcuts such as Ctrl+V so they
+    /// keep working on non-Latin layouts and with CapsLock enabled.
+    ///
+    /// Empty when the backend cannot provide it (e.g. non-letter keys, or
+    /// backends without physical-key information); in that case `shortcut()`
+    /// falls back to `key_event.text`.
+    pub physical_key: SharedString,
     /// The key without any modifiers held
     /// Important on Windows, to distinguish between key presses when Ctrl+Alt was pressed
     /// vs. AltGr.
@@ -978,8 +988,15 @@ impl InternalKeyEvent {
     /// If a shortcut was pressed, this function returns `Some(StandardShortcut)`.
     /// Otherwise it returns None.
     pub fn shortcut(&self) -> Option<StandardShortcut> {
+        let key = if self.physical_key.is_empty() {
+            self.key_event.text.as_str()
+        } else {
+            self.physical_key.as_str()
+        }
+        .to_ascii_lowercase();
+
         if self.key_event.modifiers.control && !self.key_event.modifiers.shift {
-            match self.key_event.text.as_str() {
+            match key.as_str() {
                 #[cfg(not(target_arch = "wasm32"))]
                 "c" => Some(StandardShortcut::Copy),
                 #[cfg(not(target_arch = "wasm32"))]
@@ -997,9 +1014,9 @@ impl InternalKeyEvent {
                 _ => None,
             }
         } else if self.key_event.modifiers.control && self.key_event.modifiers.shift {
-            match self.key_event.text.as_str() {
+            match key.as_str() {
                 #[cfg(not(target_os = "windows"))]
-                "z" | "Z" => Some(StandardShortcut::Redo),
+                "z" => Some(StandardShortcut::Redo),
                 _ => None,
             }
         } else {
@@ -3085,5 +3102,37 @@ mod tests {
             ..Default::default()
         };
         assert!(k.matches(&event), "Return key should match Return event");
+    }
+
+    #[test]
+    fn shortcut_is_layout_and_caps_lock_independent() {
+        fn ev(text: &str, physical: &str, control: bool, shift: bool) -> InternalKeyEvent {
+            InternalKeyEvent {
+                key_event: KeyEvent {
+                    text: text.into(),
+                    modifiers: KeyboardModifiers { control, shift, alt: false, meta: false },
+                    ..Default::default()
+                },
+                physical_key: physical.into(),
+                ..Default::default()
+            }
+        }
+
+        // Non-Latin layout: the physical "V" key produces e.g. Cyrillic "м",
+        // but the shortcut must still resolve to Paste via the physical key.
+        assert!(matches!(ev("м", "v", true, false).shortcut(), Some(StandardShortcut::Paste)));
+        // CapsLock: the text is upper-cased to "V".
+        assert!(matches!(ev("V", "v", true, false).shortcut(), Some(StandardShortcut::Paste)));
+        // CapsLock on a Cyrillic layout → "М".
+        assert!(matches!(ev("М", "v", true, false).shortcut(), Some(StandardShortcut::Paste)));
+        // Copy / Cut / SelectAll resolve the same way.
+        assert!(matches!(ev("с", "c", true, false).shortcut(), Some(StandardShortcut::Copy)));
+        assert!(matches!(ev("ч", "x", true, false).shortcut(), Some(StandardShortcut::Cut)));
+        assert!(matches!(ev("ф", "a", true, false).shortcut(), Some(StandardShortcut::SelectAll)));
+        // Backends without a physical key fall back to the (case-insensitive) text.
+        assert!(matches!(ev("V", "", true, false).shortcut(), Some(StandardShortcut::Paste)));
+        // No Control modifier → plain typing must never be treated as a shortcut.
+        assert!(ev("м", "v", false, false).shortcut().is_none());
+        assert!(ev("v", "v", false, false).shortcut().is_none());
     }
 }
