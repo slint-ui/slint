@@ -18,8 +18,60 @@ export component TestCase inherits Window {
             }
         ]
     }
+
+    out property <bool> test: inner.width == 800px && inner.height == 600px;
 }
 
+export component TestCasePercentageInPixels inherits Window {
+    width: 800px;
+    height: 600px;
+
+    out property <length> inner_width <=> inner.width;
+
+    inner := Rectangle {
+        width: 50px;
+
+        states [
+            test when true: {
+                width: 100%;
+            }
+        ]
+    }
+}
+
+export component TestCasePixelsInPercentage inherits Window {
+    width: 800px;
+    height: 600px;
+
+    out property <length> inner_width <=> inner.width;
+
+    inner := Rectangle {
+        width: 90%;
+
+        states [
+            test when true: {
+                width: 256px;
+            }
+        ]
+    }
+}
+
+export component TestCaseNestedConditional inherits Window {
+    width: 800px;
+    height: 600px;
+
+    out property <length> inner_width <=> inner.width;
+
+    inner := Rectangle {
+        width: parent.height == 600px ? 300px : 8px;
+
+        states [
+            test when true: {
+                width: parent.height == 0px ? 10% : 50%;
+            }
+        ]
+    }
+}
 
 /*
 ```rust
@@ -28,5 +80,20 @@ instance.show().unwrap();
 
 assert_eq!(instance.get_inner_width(), 800.);
 assert_eq!(instance.get_inner_height(), 600.);
+
+let instance = TestCasePercentageInPixels::new().unwrap();
+instance.show().unwrap();
+
+assert_eq!(instance.get_inner_width(), 800.);
+
+let instance = TestCasePixelsInPercentage::new().unwrap();
+instance.show().unwrap();
+
+assert_eq!(instance.get_inner_width(), 256.);
+
+let instance = TestCaseNestedConditional::new().unwrap();
+instance.show().unwrap();
+
+assert_eq!(instance.get_inner_width(), 400.);
 ```
 */
