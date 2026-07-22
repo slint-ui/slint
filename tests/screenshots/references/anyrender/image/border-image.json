@@ -300,7 +300,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 1,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -333,7 +333,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 1,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -366,7 +366,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 1,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -399,7 +399,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 2,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -432,7 +432,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 2,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -465,7 +465,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 2,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -498,7 +498,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 2,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -531,7 +531,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 2,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -564,7 +564,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 2,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
