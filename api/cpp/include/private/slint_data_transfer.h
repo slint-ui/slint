@@ -8,10 +8,14 @@
 
 #ifndef SLINT_FEATURE_FREESTANDING
 #    include <any>
+#    include <filesystem>
+#    include <span>
+#    include <vector>
 #endif
 
 #include "private/slint_image.h"
 #include "private/slint_string.h"
+#include "private/slint_sharedvector.h"
 #include "private/slint_data_transfer_internal.h"
 
 namespace slint {
@@ -99,6 +103,24 @@ public:
         cbindgen_private::types::slint_data_transfer_set_image(this, &image.data);
     }
 
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
+    /// Sets the list of local file paths transferred by this `DataTransfer`,
+    /// overwriting any previously set list. An empty list clears the file paths.
+    void set_file_paths(std::span<const std::filesystem::path> paths)
+    {
+        // Each path crosses the FFI in its native representation, so that no
+        // path is mangled by an encoding conversion.
+        std::vector<cbindgen_private::Slice<cbindgen_private::types::PathValueType>> slices;
+        slices.reserve(paths.size());
+        for (const auto &path : paths) {
+            const auto &native = path.native();
+            slices.push_back(private_api::make_slice(native.data(), native.size()));
+        }
+        cbindgen_private::types::slint_data_transfer_set_file_paths(
+                this, private_api::make_slice(slices.data(), slices.size()));
+    }
+#endif
+
     /// Returns `true` if this data transfer advertises a plain text representation.
     bool has_plain_text() const
     {
@@ -108,8 +130,16 @@ public:
     /// Returns `true` if this data transfer advertises an image representation.
     bool has_image() const { return cbindgen_private::types::slint_data_transfer_has_image(this); }
 
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
+    /// Returns `true` if this data transfer advertises a list of file paths.
+    bool has_file_paths() const
+    {
+        return cbindgen_private::types::slint_data_transfer_has_file_paths(this);
+    }
+#endif
+
     /// Returns `true` if this `DataTransfer` carries no data: no plain text, no image,
-    /// and no user data.
+    /// no file paths, and no user data.
     bool is_empty() const { return cbindgen_private::types::slint_data_transfer_is_empty(this); }
 
     /// Returns the plain text representation of this `DataTransfer`, or `std::nullopt` if no
@@ -133,6 +163,24 @@ public:
         }
         return std::nullopt;
     }
+
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
+    /// Returns the list of local file paths transferred by this `DataTransfer`, or
+    /// `std::nullopt` if no file paths are available.
+    std::optional<std::vector<std::filesystem::path>> file_paths() const
+    {
+        SharedVector<SharedVector<cbindgen_private::types::PathValueType>> out;
+        if (!cbindgen_private::types::slint_data_transfer_file_paths(this, &out)) {
+            return std::nullopt;
+        }
+        std::vector<std::filesystem::path> paths;
+        paths.reserve(out.size());
+        for (const auto &units : out) {
+            paths.emplace_back(std::basic_string_view(units.begin(), units.size()));
+        }
+        return paths;
+    }
+#endif
 
 #if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
     /// Overload of `set_user_data()` for callers that already hold a `std::any`.
