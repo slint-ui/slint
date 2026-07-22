@@ -372,8 +372,12 @@ pub struct Function {
 /// repeated's component context
 pub struct ListViewInfo {
     pub viewport_y: MemberReference,
-    pub viewport_height: MemberReference,
-    pub viewport_width: MemberReference,
+    /// `None` when the user explicitly sets `viewport-height` on the ListView;
+    /// `Some` when the ListView computes it from the content.
+    pub viewport_height: Option<MemberReference>,
+    /// `None` when the user explicitly sets `viewport-width` on the ListView;
+    /// `Some` when the ListView computes it from the content.
+    pub viewport_width: Option<MemberReference>,
     /// The ListView's inner visible height (not counting eventual scrollbar)
     pub listview_height: MemberReference,
     /// The ListView's inner visible width (not counting eventual scrollbar)

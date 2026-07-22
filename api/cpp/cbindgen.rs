@@ -1036,6 +1036,15 @@ namespace slint {
         using types::IntRect;
         using types::Size;
         using types::MouseEvent;
+
+        template<typename T> struct Option;
+        // This specialization provides a concrete C++ type for Option types
+        template<typename T>
+        struct Option<T *> {
+            T *ptr = nullptr;
+            Option() noexcept = default;
+            Option(T *p) noexcept : ptr(p) {}
+        };
     }
     template<typename ModelData> class Model;
 }",

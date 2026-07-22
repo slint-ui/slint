@@ -2497,19 +2497,31 @@ fn generate_sub_component(
 
         if let Some(listview) = &repeated.listview {
             let vp_y = access_member(&listview.viewport_y, &ctx).unwrap();
-            let vp_h = access_member(&listview.viewport_height, &ctx).unwrap();
-            let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
-            let vp_w = access_member(&listview.viewport_width, &ctx).unwrap();
             let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
+            let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
+            let vp_w = listview.viewport_width.as_ref().map_or_else(
+                || "nullptr".to_string(),
+                |w| {
+                    let w = access_member(w, &ctx).unwrap();
+                    format!("&{w}")
+                },
+            );
+            let vp_h = listview.viewport_height.as_ref().map_or_else(
+                || "nullptr".to_string(),
+                |h| {
+                    let h = access_member(h, &ctx).unwrap();
+                    format!("&{h}")
+                },
+            );
 
             children_visitor_cases.push(format!(
                 "\n        case {idx}: {{
-                self->{repeater_id}.track_changes_listview(&{vp_w}, &{vp_h}, &{vp_y}, {lv_w}.get(), &{lv_h});
+                self->{repeater_id}.track_changes_listview({vp_w}, {vp_h}, &{vp_y}, {lv_w}.get(), &{lv_h});
                 return self->{repeater_id}.visit(order, visitor);
             }}",
             ));
             ensure_instantiated_stmts.push(format!(
-                "_changed |= self->{repeater_id}.ensure_updated_listview(self, &{vp_w}, &{vp_h}, &{vp_y}, {lv_w}.get(), {lv_h}.get());"
+                "_changed |= self->{repeater_id}.ensure_updated_listview(self, {vp_w}, {vp_h}, &{vp_y}, {lv_w}.get(), {lv_h}.get());"
             ));
         } else {
             children_visitor_cases.push(format!(

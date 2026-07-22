@@ -45,8 +45,12 @@ pub fn count_property_use(root: &CompilationUnit) {
             r.model.borrow().visit_property_references(ctx, &mut visit_property);
             if let Some(lv) = &r.listview {
                 visit_property(&lv.viewport_y, ctx);
-                visit_property(&lv.viewport_width, ctx);
-                visit_property(&lv.viewport_height, ctx);
+                if let Some(viewport_height) = &lv.viewport_height {
+                    visit_property(viewport_height, ctx);
+                }
+                if let Some(viewport_width) = &lv.viewport_width {
+                    visit_property(viewport_width, ctx);
+                }
                 visit_property(&lv.listview_width, ctx);
                 visit_property(&lv.listview_height, ctx);
 
