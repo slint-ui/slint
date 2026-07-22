@@ -40,6 +40,46 @@ def test_callback_decorators(caplog: pytest.LogCaptureFixture) -> None:
     del instance
 
 
+def test_connect_global_callbacks() -> None:
+    module = load_file(base_dir() / "test-load-file.slint", quiet=False)
+
+    class Adapter:
+        def __init__(self, prefix: str):
+            self.prefix = prefix
+
+        @slint.callback(name="global-callback")
+        def global_callback(self, arg: str) -> str:
+            return self.prefix + ":" + arg
+
+    instance = module.App()
+    slint.connect_callbacks(instance.MyGlobal, Adapter("adapter"))
+    assert instance.invoke_global_callback("ok") == "adapter:ok"
+
+
+def test_connect_callbacks_respects_shadowing() -> None:
+    module = load_file(base_dir() / "test-load-file.slint", quiet=False)
+
+    class BaseAdapter:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        @slint.callback(name="global-callback")
+        def global_callback(self, arg: str) -> str:
+            self.calls.append(arg)
+            return "base:" + arg
+
+    class Adapter(BaseAdapter):
+        def global_callback(self, arg: str) -> str:
+            return "shadowed:" + arg
+
+    adapter = Adapter()
+    instance = module.App()
+    slint.connect_callbacks(instance.MyGlobal, adapter)
+
+    assert instance.invoke_global_callback("ok") == ""
+    assert adapter.calls == []
+
+
 def test_callback_decorators_async() -> None:
     module = load_file(base_dir() / "test-load-file.slint", quiet=False)
 

@@ -211,6 +211,18 @@ The `@slint.callback()` decorator accepts a `name` argument, if the name of the 
 callback in the `.slint` file. Similarly, a `global_name` argument can be used to bind a method to a callback in a global
 singleton.
 
+You can also connect all callback methods from a separate object to a global singleton:
+
+```python
+class Adapter:
+    @slint.callback(name="global-callback")
+    def global_callback(self, value):
+        print(value)
+
+component = slint.loader.my_component.MyComponent()
+slint.connect_callbacks(component.MyGlobal, Adapter())
+```
+
 ### Type Mappings
 
 Each type used for properties in the Slint Language translates to a specific type in Python. See the
