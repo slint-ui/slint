@@ -79,10 +79,27 @@ impl SkiaWGPURenderer {
 
     /// Render the scene to the given texture.
     ///
-    /// The texture must have been created with `RENDER_ATTACHMENT` usage and have a supported
-    /// format. Supported formats depend on the GPU backend: `Rgba8Unorm` and `Rgba8UnormSrgb`
-    /// are supported on all backends; `Bgra8Unorm` is additionally supported on Metal and Vulkan.
+    /// The texture must have been created with `RENDER_ATTACHMENT` usage and have a supported,
+    /// **non-sRGB** format: `Rgba8Unorm` on all backends, and `Bgra8Unorm` additionally on Metal
+    /// and Vulkan.
+    ///
+    /// sRGB texture formats (e.g. `Rgba8UnormSrgb`) are **rejected**: Slint's colors are already
+    /// display-ready sRGB, so an sRGB target would double-encode them and wash colors out. To get
+    /// the result in a texture sampled *as* sRGB, use a non-sRGB base format with its sRGB variant
+    /// in `view_formats` and sample through an sRGB view. The returned error spells this out.
     pub fn render_to_texture(&self, texture: &wgpu::Texture) -> Result<(), PlatformError> {
+        let format = texture.format();
+        if format.is_srgb() {
+            return Err(PlatformError::from(format!(
+                "SkiaWGPURenderer::render_to_texture: sRGB texture format {format:?} is not \
+                 supported as a render target. Slint renders display-ready sRGB colors, so an \
+                 sRGB target applies an extra sRGB encode and washes out colors. Use the \
+                 non-sRGB format {:?} instead; to sample the result as sRGB, add {format:?} to \
+                 the texture's `view_formats` and sample through an sRGB texture view.",
+                format.remove_srgb_suffix(),
+            )));
+        }
+
         self.renderer.invoke_rendering_notifier_setup(&self.surface)?;
 
         let gr_context = &mut self.surface.gr_context.borrow_mut();
