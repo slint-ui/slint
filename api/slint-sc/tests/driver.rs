@@ -8,6 +8,9 @@
 //! 2. Extracts test code from `` ```rust `` blocks in comments
 //! 3. Calls `rustc` directly to compile the generated + test code
 //! 4. Runs the resulting binary
+//! 5. Compares the screenshots taken with the `screenshot!` macro against the
+//!    PNG references in `tests/references/` (set `SLINT_CREATE_SCREENSHOTS=1`
+//!    to create or update them)
 //!
 //! Tests run in parallel via rayon.
 
@@ -39,19 +42,17 @@ fn main() {
         slint_sc_rlib: &slint_sc_rlib,
         rustc: &rustc,
         instrument_coverage,
+        create_screenshots: std::env::var("SLINT_CREATE_SCREENSHOTS").is_ok_and(|var| var == "1"),
         rx: &rx,
     };
 
     let results: Vec<(String, Result<(), String>)> = test_files
         .par_iter()
         .map(|path| {
-            let name = path
-                .strip_prefix(&cases_dir)
-                .unwrap_or(path)
-                .with_extension("")
-                .to_string_lossy()
-                .replace(std::path::MAIN_SEPARATOR, "/");
-            let result = run_test(path, &config);
+            let rel = path.strip_prefix(&cases_dir).unwrap_or(path);
+            let name =
+                rel.with_extension("").to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/");
+            let result = run_test(path, rel, &config);
             (name, result)
         })
         .collect();
@@ -86,6 +87,7 @@ struct TestConfig<'a> {
     slint_sc_rlib: &'a Path,
     rustc: &'a str,
     instrument_coverage: bool,
+    create_screenshots: bool,
     rx: &'a Regex,
 }
 
@@ -134,7 +136,7 @@ fn find_slint_sc_rlib(target_dir: &Path) -> PathBuf {
     panic!("Could not find slint-sc rlib in {}", deps_dir.display());
 }
 
-fn run_test(slint_path: &Path, config: &TestConfig) -> Result<(), String> {
+fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), String> {
     let tmp = tempfile::tempdir().map_err(|e| format!("tempdir: {e}"))?;
     let generated_rs = tmp.path().join("generated.rs");
 
@@ -165,7 +167,15 @@ fn run_test(slint_path: &Path, config: &TestConfig) -> Result<(), String> {
     {
         let mut f = std::fs::File::create(&test_rs).map_err(|e| format!("create test.rs: {e}"))?;
         let gen_path = generated_rs.to_string_lossy().replace('\\', "/");
+        let harness_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/driver/harness.rs")
+            .to_string_lossy()
+            .replace('\\', "/");
         let mut content = String::new();
+        writeln!(content, "#[macro_use]").unwrap();
+        writeln!(content, r#"#[path = "{harness_path}"]"#).unwrap();
+        writeln!(content, "mod harness;").unwrap();
+        writeln!(content).unwrap();
         writeln!(content, r#"include!("{gen_path}");"#).unwrap();
         writeln!(content).unwrap();
         writeln!(content, "fn main() -> Result<(), Box<dyn std::error::Error>> {{").unwrap();
@@ -204,8 +214,11 @@ fn run_test(slint_path: &Path, config: &TestConfig) -> Result<(), String> {
     }
 
     // Step 5: Run the test binary
-    let run_output =
-        Command::new(&test_bin).output().map_err(|e| format!("test binary spawn: {e}"))?;
+    let run_output = Command::new(&test_bin)
+        .current_dir(tmp.path())
+        .env("SLINT_TEST_NAME", rel.file_stem().unwrap_or_default())
+        .output()
+        .map_err(|e| format!("test binary spawn: {e}"))?;
 
     if !run_output.status.success() {
         let stderr = String::from_utf8_lossy(&run_output.stderr);
@@ -213,7 +226,117 @@ fn run_test(slint_path: &Path, config: &TestConfig) -> Result<(), String> {
         return Err(format!("test binary failed:\nstdout: {stdout}\nstderr: {stderr}"));
     }
 
+    // Step 6: Compare the screenshots against the references
+    compare_screenshots(tmp.path(), rel, config.create_screenshots)
+}
+
+/// Compare the `*.ppm` screenshots that the test binary wrote in `tmp_dir`
+/// against the PNG references, which mirror the layout of the cases directory.
+fn compare_screenshots(tmp_dir: &Path, rel: &Path, create: bool) -> Result<(), String> {
+    let references_dir =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/references").join(rel.parent().unwrap());
+    let mut screenshots: Vec<PathBuf> = std::fs::read_dir(tmp_dir)
+        .map_err(|e| format!("read_dir {}: {e}", tmp_dir.display()))?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|e| e == "ppm"))
+        .collect();
+    screenshots.sort();
+
+    let mut errors = String::new();
+    for ppm_path in screenshots {
+        let reference = references_dir.join(ppm_path.file_name().unwrap()).with_extension("png");
+        let data =
+            std::fs::read(&ppm_path).map_err(|e| format!("read {}: {e}", ppm_path.display()))?;
+        let (width, height, pixels) =
+            parse_ppm(&data).ok_or_else(|| format!("invalid ppm file {}", ppm_path.display()))?;
+        if let Err(msg) = compare_with_reference(&reference, width, height, pixels) {
+            writeln!(errors, "{}: {msg}", reference.display()).unwrap();
+            if create {
+                std::fs::create_dir_all(&references_dir)
+                    .map_err(|e| format!("create_dir_all {}: {e}", references_dir.display()))?;
+                image::save_buffer(&reference, pixels, width, height, image::ColorType::Rgb8)
+                    .map_err(|e| format!("save {}: {e}", reference.display()))?;
+                writeln!(
+                    errors,
+                    "SLINT_CREATE_SCREENSHOTS=1: wrote reference image to {}",
+                    reference.display()
+                )
+                .unwrap();
+            }
+        }
+    }
+    // A reference for this test without a matching screenshot means the test
+    // no longer takes it
+    let stem = rel.file_stem().unwrap_or_default().to_string_lossy();
+    for entry in std::fs::read_dir(&references_dir).into_iter().flatten().flatten() {
+        let reference = entry.path();
+        if reference.extension().is_none_or(|e| e != "png") {
+            continue;
+        }
+        let ref_stem = reference.file_stem().unwrap_or_default().to_string_lossy();
+        let belongs_to_test = ref_stem
+            .strip_prefix(&*stem)
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('-'));
+        if belongs_to_test && !tmp_dir.join(&*ref_stem).with_extension("ppm").exists() {
+            writeln!(
+                errors,
+                "{}: reference exists but the test did not take a screenshot named {ref_stem}; \
+                 delete the file if this is intentional",
+                reference.display()
+            )
+            .unwrap();
+        }
+    }
+
+    if errors.is_empty() { Ok(()) } else { Err(errors) }
+}
+
+fn compare_with_reference(
+    reference: &Path,
+    width: u32,
+    height: u32,
+    pixels: &[u8],
+) -> Result<(), String> {
+    if !reference.exists() {
+        return Err("reference is missing, run with SLINT_CREATE_SCREENSHOTS=1 to create it".into());
+    }
+    let img =
+        image::open(reference).map_err(|e| format!("cannot read reference: {e}"))?.into_rgb8();
+    if (img.width(), img.height()) != (width, height) {
+        return Err(format!(
+            "reference size {}x{} does not match screenshot size {width}x{height}",
+            img.width(),
+            img.height()
+        ));
+    }
+    if let Some(byte) = pixels.iter().zip(img.as_raw()).position(|(a, b)| a != b) {
+        let pixel = byte / 3;
+        let index = pixel * 3;
+        let (x, y) = (pixel as u32 % width, pixel as u32 / width);
+        return Err(format!(
+            "screenshot differs from reference at pixel ({x}, {y}): \
+             expected #{:02x}{:02x}{:02x}, got #{:02x}{:02x}{:02x}",
+            img.as_raw()[index],
+            img.as_raw()[index + 1],
+            img.as_raw()[index + 2],
+            pixels[index],
+            pixels[index + 1],
+            pixels[index + 2],
+        ));
+    }
     Ok(())
+}
+
+/// Parse a binary PPM image as written by the `screenshot!` macro in harness.rs
+fn parse_ppm(data: &[u8]) -> Option<(u32, u32, &[u8])> {
+    let rest = data.strip_prefix(b"P6\n")?;
+    let newline = rest.iter().position(|&b| b == b'\n')?;
+    let (dimensions, rest) = rest.split_at(newline);
+    let rest = rest[1..].strip_prefix(b"255\n")?;
+    let (width, height) = std::str::from_utf8(dimensions).ok()?.split_once(' ')?;
+    let (width, height) = (width.parse::<u32>().ok()?, height.parse::<u32>().ok()?);
+    (rest.len() == width as usize * height as usize * 3).then_some((width, height, rest))
 }
 
 fn extract_rust_test_code(source: &str, rx: &Regex) -> String {
