@@ -3,9 +3,10 @@
   "type": "module",
   "version": "1.18.0",
   "scripts": {
-    "dev": "astro dev",
-    "start": "astro dev",
-    "build": "astro check && astro build",
+    "sync-language-spec": "node scripts/sync-language-spec.mjs",
+    "dev": "node scripts/sync-language-spec.mjs && astro dev",
+    "start": "node scripts/sync-language-spec.mjs && astro dev",
+    "build": "node scripts/sync-language-spec.mjs && astro check && astro build",
     "preview": "astro preview",
     "astro": "astro",
     "format": "biome format",

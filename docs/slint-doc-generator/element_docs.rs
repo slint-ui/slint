@@ -823,7 +823,9 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        let group = extract_group(&mut description);
+        // The SC reference is small, so it presents one flat list without
+        // the group subdirectories used by the main docs site.
+        let group = extract_group(&mut description).filter(|_| !cfg.sc_only);
         let draft = strip_annotation(&mut description, "\\draft");
         if draft {
             continue;

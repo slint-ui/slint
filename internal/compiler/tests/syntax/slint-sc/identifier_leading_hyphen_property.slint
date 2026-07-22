@@ -1,0 +1,13 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A `-` shall not appear as the first character of an identifier:
+// property name.
+//#sls.lex.identifier.no-leading-hyphen
+
+export component Foo inherits Window {
+    property <int> -prop;
+//                 ^error{Syntax error: expected Identifier}
+//                 ^^error{Syntax error: expected ';'}
+//                 ^^^error{Parse error}
+}

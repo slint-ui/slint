@@ -34,7 +34,7 @@
 }
 
 component Rectangle inherits Empty {
-    /// The background brush of this `Rectangle`.
+    /// The background brush of this `Rectangle`. \{#sls.ref.rectangle.background}
     ///
     /// ```slint imageAlt="rectangle background" width="200" height="400"
     /// property <brush> rainbow-gradient: @linear-gradient(40deg, rgba(255, 0, 0, 1) 0%, rgba(255, 154, 0, 1) 10%, rgba(208, 222, 33, 1) 20%,rgba(79, 220, 74, 1) 30%, rgba(63, 218, 216, 1) 40%, rgba(47, 201, 226, 1) 50%, rgba(28, 127, 238, 1) 60%, rgba(95, 21, 242, 1) 70%, rgba(186, 12, 248, 1) 80%, rgba(251, 7, 217, 1) 90%, rgba(255, 0, 0, 1) 100%);
@@ -144,9 +144,9 @@ component BasicBorderRectangle inherits Rectangle {
 }
 
 /// By default, a `Rectangle` is just an empty item that shows nothing. By setting a color or configuring a border,
-/// it's then possible to draw a rectangle on the screen.
+/// it's then possible to draw a rectangle on the screen. \{#sls.meta.rectangle.purpose}
 ///
-/// When not part of a layout, its width and height default to 100% of the parent element.
+/// When not part of a layout, its width and height default to 100% of the parent element. \{#sls.ref.rectangle.default-size}
 ///
 /// ```slint playground imageAlt="rectangle example"
 /// export component ExampleRectangle inherits Window {
@@ -1579,13 +1579,13 @@ component WindowItem {
     }
 }
 
-/// `Window` is the root of the tree of elements that are visible on the screen.
+/// `Window` is the root of the tree of elements that are visible on the screen. \{#sls.meta.window.purpose}
 ///
 /// The `Window` geometry will be restricted by its layout constraints: Setting the `width` will result in a fixed width,
 /// and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
-/// or smaller. The initial width can be controlled with the `preferred-width` property. The same applies to the `Window`s height.
+/// or smaller. The initial width can be controlled with the `preferred-width` property. The same applies to the `Window`s height. \{#sls.ref.window.geometry-constraints}
 ///
-/// Use the <Link type="MenuBar" /> element to declare a menu bar for the window.
+/// Use the <Link type="MenuBar" /> element to declare a menu bar for the window. \{#sls.meta.window.menu-bar}
 /// \group:window
 /// \sc
 export component Window inherits WindowItem {

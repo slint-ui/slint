@@ -14,7 +14,7 @@ import {
     SAFETY_DOCS_BASE_URL,
     SAFETY_DOCS_BASE_PATH,
 } from "./src/safety-site-config.mjs";
-import rehypeSlsIds from "./src/rehype-sls-ids.mjs";
+import rehypeSlsIds from "@slint/common-files/src/utils/rehype-sls-ids.mjs";
 
 const _safetyOrigin = String(SAFETY_DOCS_BASE_URL).replace(/\/+$/, "");
 const _safetyAtRoot = SAFETY_DOCS_BASE_PATH === "/";
@@ -31,7 +31,12 @@ export default defineConfig({
     ...(_safetyBase ? { base: _safetyBase } : {}),
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
     markdown: {
-        rehypePlugins: [rehypeExternalLinksSlint, rehypeSlsIds],
+        // Only SC-covered content reaches this site's generated reference, so
+        // every paragraph of it carries a traceability id.
+        rehypePlugins: [
+            rehypeExternalLinksSlint,
+            [rehypeSlsIds, { generatedReferenceRequiresIds: true }],
+        ],
     },
     integrations: [
         mermaid(),
@@ -40,7 +45,7 @@ export default defineConfig({
             customCss: [
                 "@slint/common-files/src/styles/starlight-slint-custom.css",
                 "@slint/common-files/src/styles/starlight-slint-theme.css",
-                "./src/styles/sls-ids.css",
+                "@slint/common-files/src/styles/sls-ids.css",
             ],
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",
@@ -103,15 +108,9 @@ export default defineConfig({
                     items: [
                         { label: "Overview", slug: "reference" },
                         {
-                            label: "Elements",
-                            items: [
-                                {
-                                    autogenerate: {
-                                        directory:
-                                            "reference/generated/elements",
-                                    },
-                                },
-                            ],
+                            autogenerate: {
+                                directory: "reference/generated",
+                            },
                         },
                     ],
                 },
@@ -140,6 +139,10 @@ export default defineConfig({
                             label: "Validation",
                             slug: "qualification-plan/validation",
                         },
+                        {
+                            label: "Traceability Matrix",
+                            slug: "qualification-plan/traceability-matrix",
+                        },
                     ],
                 },
                 {
@@ -165,6 +168,10 @@ export default defineConfig({
                         {
                             label: "Exports",
                             slug: "language/exports",
+                        },
+                        {
+                            label: "Bindings",
+                            slug: "language/bindings",
                         },
                     ],
                 },

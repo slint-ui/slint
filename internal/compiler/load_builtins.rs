@@ -96,7 +96,7 @@ pub(crate) fn load_builtins(
                         }
                     }
 
-                    info.docs = docs::doc_comment(&p);
+                    info.set_docs(docs::doc_comment(&p));
                     info.shadowable = has_shadowable_annotation(&p);
 
                     if let Some(e) = p.BindingExpression() {
@@ -128,7 +128,7 @@ pub(crate) fn load_builtins(
                             .map(|a| a.DeclaredIdentifier().and_then(|x| identifier_text(&x)).unwrap_or_default())
                             .collect()
                     })));
-                    info.docs = docs::doc_comment(&s);
+                    info.set_docs(docs::doc_comment(&s));
                     info.shadowable = has_shadowable_annotation(&s);
                     (identifier_text(&s.DeclaredIdentifier()).unwrap(), info)
                 }))
@@ -184,7 +184,7 @@ pub(crate) fn load_builtins(
             let mut info = BuiltinPropertyInfo::new(Type::Function(
                 Function { return_type, args, arg_names }.into(),
             ));
-            info.docs = docs::doc_comment(&f);
+            info.set_docs(docs::doc_comment(&f));
             info.shadowable = has_shadowable_annotation(&f);
             (name, info)
         }));
@@ -343,7 +343,7 @@ fn parse_annotation(key: &str, node: &SyntaxNode) -> Option<Option<SmolStr>> {
 /// Check for standalone `\sc` marker in a doc string, ensuring it is not
 /// followed by an alphanumeric or underscore character (avoids matching
 /// `\score`, `\scale`, etc.).
-fn has_sc_marker(doc: &str) -> bool {
+pub(crate) fn has_sc_marker(doc: &str) -> bool {
     doc.match_indices("\\sc").any(|(start, _)| {
         let end = start + 3;
         match doc.as_bytes().get(end).copied() {

@@ -1106,8 +1106,12 @@ impl PropertyAnalysis {
 #[derive(Debug, Clone)]
 pub struct ListViewInfo {
     pub viewport_y: NamedReference,
-    pub viewport_height: NamedReference,
-    pub viewport_width: NamedReference,
+    /// `None` when the user explicitly sets `viewport-height` on the ListView;
+    /// `Some` when the ListView computes it from the content.
+    pub viewport_height: Option<NamedReference>,
+    /// `None` when the user explicitly sets `viewport-width` on the ListView;
+    /// `Some` when the ListView computes it from the content.
+    pub viewport_width: Option<NamedReference>,
     /// The ListView's inner visible height (not counting eventual scrollbar)
     pub listview_height: NamedReference,
     /// The ListView's inner visible width (not counting eventual scrollbar)
@@ -2062,19 +2066,36 @@ impl Element {
         let is_listview = if parent_is_listview
             && let Some(geometry_props) = e.borrow().geometry_props.as_ref()
         {
+            let parent_elem = parent.borrow();
+            // Check if viewport-width and viewport-height are explicitly set by the user
+            let viewport_width_is_explicitly_set = parent_elem
+                .bindings
+                .get("viewport-width")
+                .map(|b| b.borrow().has_binding())
+                .unwrap_or(false);
+            let viewport_height_is_explicitly_set = parent_elem
+                .bindings
+                .get("viewport-height")
+                .map(|b| b.borrow().has_binding())
+                .unwrap_or(false);
+            drop(parent_elem); // Drop the borrow before creating NamedReference
+
             let lvi = ListViewInfo {
                 viewport_y: NamedReference::new(parent, SmolStr::new_static("viewport-y")),
-                viewport_height: NamedReference::new(
-                    parent,
-                    SmolStr::new_static("viewport-height"),
-                ),
-                viewport_width: NamedReference::new(parent, SmolStr::new_static("viewport-width")),
+                viewport_height: (!viewport_height_is_explicitly_set)
+                    .then(|| NamedReference::new(parent, SmolStr::new_static("viewport-height"))),
+                viewport_width: (!viewport_width_is_explicitly_set)
+                    .then(|| NamedReference::new(parent, SmolStr::new_static("viewport-width"))),
                 listview_height: NamedReference::new(parent, SmolStr::new_static("visible-height")),
                 listview_width: NamedReference::new(parent, SmolStr::new_static("visible-width")),
             };
             // these properties are set by the ListView layouting code
-            lvi.viewport_height.mark_as_set();
-            lvi.viewport_width.mark_as_set();
+            if let Some(viewport_height) = &lvi.viewport_height {
+                viewport_height.mark_as_set();
+            }
+            if let Some(viewport_width) = &lvi.viewport_width {
+                viewport_width.mark_as_set();
+            }
             geometry_props.y.mark_as_set();
             Some(lvi)
         } else {
@@ -2226,6 +2247,8 @@ impl Element {
                 is_in_direct_base: false,
                 is_shadowable: false,
                 builtin_function: None,
+                #[cfg(feature = "slint-sc")]
+                is_slint_sc: false,
             },
         )
     }
@@ -2237,10 +2260,12 @@ impl Element {
         diag: &mut BuildDiagnostics,
     ) {
         for (name_token, b) in bindings {
-            #[cfg(feature = "slint-sc")]
-            diag.slint_sc_error("Bindings are", &name_token);
             let unresolved_name = crate::parser::normalize_identifier(name_token.text());
             let lookup_result = self.lookup_property(&unresolved_name);
+            #[cfg(feature = "slint-sc")]
+            if lookup_result.is_valid() && !lookup_result.is_slint_sc {
+                diag.slint_sc_error(&format!("The property '{unresolved_name}' is"), &name_token);
+            }
             if !lookup_result.property_type.is_property_type() {
                 match lookup_result.property_type {
                         Type::Invalid => {
@@ -3245,8 +3270,12 @@ pub fn visit_all_named_references_in_element(
         && let Some(lv) = &mut r.is_listview
     {
         vis(&mut lv.viewport_y);
-        vis(&mut lv.viewport_height);
-        vis(&mut lv.viewport_width);
+        if let Some(viewport_height) = &mut lv.viewport_height {
+            vis(viewport_height);
+        }
+        if let Some(viewport_width) = &mut lv.viewport_width {
+            vis(viewport_width);
+        }
         vis(&mut lv.listview_height);
         vis(&mut lv.listview_width);
     }

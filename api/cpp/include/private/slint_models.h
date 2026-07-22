@@ -1200,8 +1200,10 @@ public:
                                 [[maybe_unused]] float listview_width,
                                 const private_api::Property<float> *listview_height) const
     {
-        viewport_width->register_as_dependency();
-        viewport_height->register_as_dependency();
+        if (viewport_width)
+            viewport_width->register_as_dependency();
+        if (viewport_height)
+            viewport_height->register_as_dependency();
         viewport_y->register_as_dependency();
         listview_height->register_as_dependency();
     }

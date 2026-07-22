@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Color literals with 3, 4, 6, or 8 hexadecimal digits are accepted as
+// binding expressions; any other number of digits, or non-hexadecimal
+// characters, are an error.
+//#sls.binding.form
+//#sls.expr.color.forms
+
+export component Test inherits Window {
+    Rectangle {
+        background: #18f;
+    }
+    Rectangle {
+        background: #18f8;
+    }
+    Rectangle {
+        background: #1188ff;
+    }
+    Rectangle {
+        background: #1188FF88;
+    }
+    Rectangle {
+        background: #;
+//                  ^error{Invalid color literal}
+    }
+    Rectangle {
+        background: #1;
+//                  ><error{Invalid color literal}
+    }
+    Rectangle {
+        background: #12;
+//                  > <error{Invalid color literal}
+    }
+    Rectangle {
+        background: #12345;
+//                  >    <error{Invalid color literal}
+    }
+    Rectangle {
+        background: #1234567;
+//                  >      <error{Invalid color literal}
+    }
+    Rectangle {
+        background: #123456789;
+//                  >        <error{Invalid color literal}
+    }
+    Rectangle {
+        background: #1234567890;
+//                  >         <error{Invalid color literal}
+    }
+    Rectangle {
+        background: #12345678901;
+//                  >          <error{Invalid color literal}
+    }
+    Rectangle {
+        background: #123456789012;
+//                  >           <error{Invalid color literal}
+    }
+    Rectangle {
+        background: #1234567890123456;
+//                  >               <error{Invalid color literal}
+    }
+    Rectangle {
+        background: #12345678901234567890;
+//                  >                   <error{Invalid color literal}
+    }
+    Rectangle {
+        background: #xyz;
+//                  >  <error{Invalid color literal}
+    }
+    Rectangle {
+        background: #12g4;
+//                  >   <error{Invalid color literal}
+    }
+}

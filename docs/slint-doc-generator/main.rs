@@ -7,6 +7,7 @@ mod element_docs;
 mod headless;
 mod mdx;
 mod screenshots;
+mod traceability;
 
 use clap::Parser;
 use std::path::PathBuf;
@@ -39,7 +40,7 @@ enum Command {
 }
 
 /// Find the root of the git repository.
-fn root_dir() -> PathBuf {
+pub(crate) fn root_dir() -> PathBuf {
     let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     root.pop(); // docs/slint-doc-generator -> docs
     root.pop(); // docs -> root

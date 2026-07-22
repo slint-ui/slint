@@ -2207,10 +2207,16 @@ extern "C" fn ensure_instantiated(component: ItemTreeRefPin) -> bool {
         {
             let assume_property_logical_length =
                 |prop| unsafe { Pin::new_unchecked(&*(prop as *const Property<LogicalLength>)) };
+            let viewport_width = lv.viewport_width.as_ref().map(|viewport_width| {
+                assume_property_logical_length(get_property_ptr(viewport_width, instance_ref))
+            });
+            let viewport_height = lv.viewport_height.as_ref().map(|viewport_height| {
+                assume_property_logical_length(get_property_ptr(viewport_height, instance_ref))
+            });
             changed |= repeater.ensure_updated_listview(
                 init,
-                assume_property_logical_length(get_property_ptr(&lv.viewport_width, instance_ref)),
-                assume_property_logical_length(get_property_ptr(&lv.viewport_height, instance_ref)),
+                viewport_width,
+                viewport_height,
                 assume_property_logical_length(get_property_ptr(&lv.viewport_y, instance_ref)),
                 eval::load_property(
                     instance_ref,

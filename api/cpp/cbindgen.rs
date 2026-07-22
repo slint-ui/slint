@@ -504,17 +504,21 @@ fn gen_corelib(
         "PathElement",
         "Brush",
         "DataTransfer",
+        "PathValueType",
         "slint_data_transfer_init_default",
         "slint_data_transfer_drop",
         "slint_data_transfer_clone",
         "slint_data_transfer_eq",
         "slint_data_transfer_set_plain_text",
         "slint_data_transfer_set_image",
+        "slint_data_transfer_set_file_paths",
         "slint_data_transfer_has_plain_text",
         "slint_data_transfer_has_image",
+        "slint_data_transfer_has_file_paths",
         "slint_data_transfer_is_empty",
         "slint_data_transfer_plain_text",
         "slint_data_transfer_image",
+        "slint_data_transfer_file_paths",
         "slint_data_transfer_set_user_data",
         "slint_data_transfer_user_data",
         "slint_data_transfer_clear_user_data",
@@ -686,17 +690,37 @@ fn gen_corelib(
                 "slint_data_transfer_eq",
                 "slint_data_transfer_set_plain_text",
                 "slint_data_transfer_set_image",
+                "slint_data_transfer_set_file_paths",
                 "slint_data_transfer_has_plain_text",
                 "slint_data_transfer_has_image",
+                "slint_data_transfer_has_file_paths",
                 "slint_data_transfer_is_empty",
                 "slint_data_transfer_plain_text",
                 "slint_data_transfer_image",
+                "slint_data_transfer_file_paths",
                 "slint_data_transfer_set_user_data",
                 "slint_data_transfer_user_data",
                 "slint_data_transfer_clear_user_data",
             ],
             "slint_data_transfer_internal.h",
-            "namespace slint { struct DataTransfer; struct SharedString; }",
+            "#include \"private/slint_sharedvector.h\"\n\
+            #ifndef SLINT_FEATURE_FREESTANDING\n\
+            #    include <filesystem>\n\
+            #endif\n\
+            namespace slint { struct DataTransfer; struct SharedString; }\n\
+            namespace slint::cbindgen_private::types {\n\
+            #ifndef SLINT_FEATURE_FREESTANDING\n\
+            using PathValueType = std::filesystem::path::value_type;\n\
+            // The Rust side uses u16 path units on Windows and u8 elsewhere.\n\
+            #    ifdef _WIN32\n\
+            static_assert(sizeof(PathValueType) == 2);\n\
+            #    else\n\
+            static_assert(sizeof(PathValueType) == 1);\n\
+            #    endif\n\
+            #else\n\
+            using PathValueType = uint8_t;\n\
+            #endif\n\
+            }",
         ),
         (
             vec!["MouseEvent", "TouchPhase"],
@@ -1012,6 +1036,15 @@ namespace slint {
         using types::IntRect;
         using types::Size;
         using types::MouseEvent;
+
+        template<typename T> struct Option;
+        // This specialization provides a concrete C++ type for Option types
+        template<typename T>
+        struct Option<T *> {
+            T *ptr = nullptr;
+            Option() noexcept = default;
+            Option(T *p) noexcept : ptr(p) {}
+        };
     }
     template<typename ModelData> class Model;
 }",

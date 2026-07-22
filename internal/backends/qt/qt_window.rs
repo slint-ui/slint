@@ -60,6 +60,8 @@ cpp! {{
     #include <QtCore/QThread>
     #include <QtCore/QTimer>
     #include <QtCore/QMimeData>
+    #include <QtCore/QStringList>
+    #include <QtCore/QUrl>
     #include <QtGui/QAccessible>
     #include <QtGui/QCursor>
     #include <QtGui/QDesktopServices>
@@ -293,6 +295,19 @@ cpp! {{
             const QMimeData *mime = event->mimeData();
             QString text = mime->hasText() ? mime->text() : QString();
             QImage image = mime->hasImage() ? qvariant_cast<QImage>(mime->imageData()) : QImage();
+            QStringList files;
+            if (mime->hasUrls()) {
+                const QList<QUrl> urls = mime->urls();
+                for (const QUrl &url : urls) {
+                    if (!url.isLocalFile()) {
+                        // Only represent the drop as files when every URL is a local
+                        // file, so an application never sees a partial file list.
+                        files.clear();
+                        break;
+                    }
+                    files << url.toLocalFile();
+                }
+            }
     #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
             QPoint pos = event->position().toPoint();
     #else
@@ -305,11 +320,12 @@ cpp! {{
                 pos: qttypes::QPoint as "QPoint",
                 text: qttypes::QString as "QString",
                 image: qttypes::QImage as "QImage",
+                files: qttypes::QStringList as "QStringList",
                 allowed: u32 as "int",
                 proposed: u32 as "int",
                 is_drop: bool as "bool"
             ] -> u32 as "int" {
-                rust_window.drag_event(pos, text.clone(), image.clone(), allowed, proposed, is_drop)
+                rust_window.drag_event(pos, text.clone(), image.clone(), files.clone(), allowed, proposed, is_drop)
             });
             return Qt::DropAction(chosen);
         }
@@ -2154,15 +2170,16 @@ impl QtWindow {
     /// Dispatch a Qt drag/drop event. `allowed` is `event->possibleActions()` and
     /// `proposed` is `event->proposedAction()` as `Qt::DropAction` bitmask values
     /// (see `key_generated::Qt_DropAction_*`). `image` is the source's image payload
-    /// when one is offered, or a default (null) `QImage` otherwise. Returns the
-    /// negotiated `Qt::DropAction` (`Qt_DropAction_IgnoreAction` when no `DropArea`
-    /// accepted) for the caller to feed back into `QDropEvent::setDropAction` +
-    /// `accept()`.
+    /// when one is offered, or a default (null) `QImage` otherwise. `files` holds the
+    /// source's local file paths. Returns the negotiated `Qt::DropAction`
+    /// (`Qt_DropAction_IgnoreAction` when no `DropArea` accepted) for the caller
+    /// to feed back into `QDropEvent::setDropAction` + `accept()`.
     fn drag_event(
         &self,
         pos: qttypes::QPoint,
         text: qttypes::QString,
         image: qttypes::QImage,
+        files: qttypes::QStringList,
         allowed: u32,
         proposed: u32,
         is_drop: bool,
@@ -2183,6 +2200,9 @@ impl QtWindow {
         }
         if let Some(buffer) = qimage_to_shared_pixel_buffer(image) {
             data.set_image(i_slint_core::graphics::Image::from_rgba8(buffer));
+        }
+        if files.len() > 0 {
+            data.set_file_paths(files.into_iter().map(|f| f.to_string()));
         }
         let mut drop_event = DropEvent::default();
         drop_event.data = data;
@@ -2524,6 +2544,14 @@ impl WindowAdapterInternal for QtWindow {
             .and_then(|img| image_to_pixmap(<&ImageInner>::from(&img), None))
             .unwrap_or_default();
 
+        let files: qttypes::QStringList = request
+            .data()
+            .file_paths()
+            .map(|paths| {
+                paths.map(|p| qttypes::QString::from(p.to_string_lossy().as_ref())).collect()
+            })
+            .unwrap_or_default();
+
         let drag_pixmap =
             image_to_pixmap(<&ImageInner>::from(request.drag_image()), None).unwrap_or_default();
         let offset = request.drag_image_offset();
@@ -2550,6 +2578,7 @@ impl WindowAdapterInternal for QtWindow {
             text as "QString",
             has_image as "bool",
             payload_pixmap as "QPixmap",
+            files as "QStringList",
             drag_pixmap as "QPixmap",
             offset_x as "int",
             offset_y as "int",
@@ -2566,6 +2595,13 @@ impl WindowAdapterInternal for QtWindow {
                 }
                 if (has_image) {
                     mime->setImageData(payload_pixmap.toImage());
+                }
+                if (!files.isEmpty()) {
+                    QList<QUrl> urls;
+                    for (const QString &path : files) {
+                        urls.append(QUrl::fromLocalFile(path));
+                    }
+                    mime->setUrls(urls);
                 }
                 QDrag *qdrag = new QDrag(widget_ptr);
                 qdrag->setMimeData(mime);
