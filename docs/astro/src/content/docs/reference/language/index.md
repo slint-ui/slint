@@ -3,6 +3,10 @@ title: Slint Language Specification
 description: Normative reference for the .slint markup language as accepted by the Slint Compiler.
 ---
 
+:::caution[Work in Progress]
+This specification is a work in progress and doesn't yet cover the whole Slint language.
+:::
+
 ## Purpose
 
 This document is the normative reference for the `.slint` markup language as accepted by the Slint Compiler.
