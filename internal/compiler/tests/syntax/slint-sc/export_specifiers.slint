@@ -10,3 +10,12 @@ component Foo inherits Window { }
 //#sls.export.list
 export { Foo }
 //       >  <error{Export specifiers are not supported in Slint SC}
+
+//#sls.export.rename
+export { Foo as Bar }
+//       >        <error{Export specifiers are not supported in Slint SC}
+
+//#sls.export.left-must-exist
+export { DoesNotExist }
+//       >           <error{Export specifiers are not supported in Slint SC}
+//       >          <^error{'DoesNotExist' not found}
