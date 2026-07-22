@@ -110,65 +110,79 @@ fn resolve_expression(
             Expression::DebugHook { expression, .. } => **expression = new_expr,
             _ => *expr = new_expr,
         }
-    // Specifically used to resolve match elements
-    } else if let Expression::BinaryExpression { lhs, rhs, op } = expr {
-        let op = *op;
-        let rhs_node =
-            if let Expression::Uncompiled(node) = rhs.as_ref() { Some(node.clone()) } else { None };
+    }
+}
 
+/// Resolve the subject and the case values to create a standard conditional element
+fn resolve_match_elements(
+    elem: &ElementRc,
+    scope: &[ElementRc],
+    type_register: &TypeRegister,
+    type_loader: &crate::typeloader::TypeLoader,
+    diag: &mut BuildDiagnostics,
+) {
+    let mut match_elements = std::mem::take(&mut elem.borrow_mut().match_elements);
+    for match_element in &mut match_elements {
         resolve_expression(
             elem,
-            lhs,
-            property_name,
+            &mut match_element.subject,
+            None,
             Type::Invalid,
             scope,
             type_register,
             type_loader,
             diag,
         );
-        resolve_expression(
-            elem,
-            rhs,
-            property_name,
-            lhs.ty(),
-            scope,
-            type_register,
-            type_loader,
-            diag,
-        );
-        if op == '=' {
-            let is_literal = matches!(
-                rhs.as_ref(),
-                Expression::NumberLiteral(..)
-                    | Expression::StringLiteral(..)
-                    | Expression::BoolLiteral(..)
-                    | Expression::EnumerationValue(..)
+        let case_type = match_element.subject.ty();
+        for (value, _) in &mut match_element.cases {
+            let node =
+                if let Expression::Uncompiled(node) = &value { Some(node.clone()) } else { None };
+            resolve_expression(
+                elem,
+                value,
+                None,
+                case_type.clone(),
+                scope,
+                type_register,
+                type_loader,
+                diag,
             );
-            let is_cast = matches!(rhs.as_ref(), Expression::Cast { .. });
-            let is_valid_cast = matches!(
-                rhs.as_ref(),
-                Expression::Cast { from, to, .. }
-                    if matches!(from.as_ref(), Expression::NumberLiteral(..))
-                        && matches!(to, Type::Color | Type::Int32)
-            );
-            if let Expression::NumberLiteral(val, unit) = rhs.as_ref()
-                && *unit == Unit::None
-                && val.fract() != 0.0
-                && let Some(node) = &rhs_node
-            {
-                diag.push_warning("Floating point comparison is not recommended".into(), node);
-            }
-
-            if let Some(node) = rhs_node {
-                if is_literal || is_valid_cast {
-                    // pass
-                } else if is_cast {
-                    diag.push_error("Cannot perform type conversion".into(), &node);
-                } else {
-                    diag.push_error("Cases must be literal values".into(), &node);
-                }
+            if let Some(node) = &node {
+                check_case_value(value, node, diag);
             }
         }
+        match_element.lower_to_conditional_elements();
+    }
+}
+
+/// Confirms that each case is a literal value and matches the type of the subject
+fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagnostics) {
+    let is_literal = matches!(
+        value,
+        Expression::NumberLiteral(..)
+            | Expression::StringLiteral(..)
+            | Expression::BoolLiteral(..)
+            | Expression::EnumerationValue(..)
+    );
+    let is_valid_cast = matches!(
+        value,
+        Expression::Cast { from, to, .. }
+            if matches!(from.as_ref(), Expression::NumberLiteral(..))
+                && matches!(to, Type::Color | Type::Int32)
+    );
+
+    if let Expression::NumberLiteral(number, Unit::None) = value
+        && number.fract() != 0.0
+    {
+        diag.push_warning("Floating point comparison is not recommended".into(), node);
+    }
+
+    if is_literal || is_valid_cast {
+        // pass
+    } else if matches!(value, Expression::Cast { .. }) {
+        diag.push_error("Cannot perform type conversion".into(), node);
+    } else {
+        diag.push_error("Cases must be literal values".into(), node);
     }
 }
 
@@ -218,6 +232,8 @@ pub fn resolve_expressions(
                         );
                     });
                 }
+
+                resolve_match_elements(elem, &scope.0, &doc.local_registry, type_loader, diag);
 
                 resolve_two_way_bindings_for_element(elem, &scope.0, &doc.local_registry, diag);
 
