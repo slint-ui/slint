@@ -91,7 +91,7 @@ export component IncorrectPropertyType {
     implement ValidInterface <=> self;
 
     in-out property <float> value;
-//  >                            <error{Cannot implement 'ValidInterface'.↵- 'value' must be a 'int' property (found a 'float' property)}
+//  >                            <error{'ValidInterface' error.↵- 'value' must be a 'int' property (found a 'float' property)}
     callback speak();
     public function reset() {}
 }
@@ -101,7 +101,7 @@ export component IncorrectCallbackType {
 
     in-out property <int> value;
     callback speak(string);
-//  >                     <error{Cannot implement 'ValidInterface'.↵- 'speak' must be a 'callback() -> void' (found a 'callback(string) -> void')}
+//  >                     <error{'ValidInterface' error.↵- 'speak' must be a 'callback() -> void' (found a 'callback(string) -> void')}
     public function reset() {}
 }
 
@@ -109,7 +109,7 @@ export component IncorrectPropertyVisibility {
     implement OutOnlyInterface <=> self;
 
     in-out property <int> count;
-//  >                          <error{Cannot implement 'OutOnlyInterface'.↵- 'count' must be 'out' (found 'in-out')}
+//  >                          <error{'OutOnlyInterface' error.↵- 'count' must be 'out' (found 'in-out')}
 }
 
 
@@ -122,7 +122,7 @@ export component IncorrectCallbackPurity {
     implement ImpureFunctionInterface <=> self;
 
     callback invert(bool) -> bool;
-//  >                            <error{Cannot implement 'Inverter'.↵- 'invert' must be 'pure'}
+//  >                            <error{'Inverter' error.↵- 'invert' must be 'pure'}
 
     // Implementation is pure, interface is not - this should not raise an error
     public pure function bar(i: int, s: string) -> bool {
@@ -245,9 +245,9 @@ export component CrossKindMismatch {
     implement ValidInterface <=> self;
 
     callback value();
-//  >               <error{Cannot implement 'ValidInterface'.↵- 'value' must be a 'int' property (found a 'callback() -> void')}
+//  >               <error{'ValidInterface' error.↵- 'value' must be a 'int' property (found a 'callback() -> void')}
     in-out property <int> speak;
-//  >                          <error{Cannot implement 'ValidInterface'.↵- 'speak' must be a 'callback() -> void' (found a 'int' property)}
+//  >                          <error{'ValidInterface' error.↵- 'speak' must be a 'callback() -> void' (found a 'int' property)}
     in-out property <int> reset;
 //  >                          <error{Cannot override 'reset' from interface 'ValidInterface'}
 }
@@ -257,5 +257,5 @@ export component MultipleViolations {
     implement OutOnlyInterface <=> self;
 
     in-out property <float> count;
-//  >                            <error{Cannot implement 'OutOnlyInterface'.↵- 'count' must be a 'int' property (found a 'float' property)↵- 'count' must be 'out' (found 'in-out')}
+//  >                            <error{'OutOnlyInterface' error.↵- 'count' must be a 'int' property (found a 'float' property)↵- 'count' must be 'out' (found 'in-out')}
 }

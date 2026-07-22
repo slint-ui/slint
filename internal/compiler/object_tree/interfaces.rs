@@ -283,7 +283,7 @@ fn validate_interface_member_implementation(
         .and_then(|declaration| declaration.node.clone());
 
     if let Some(source) = source {
-        let error = format!("Cannot implement '{interface_name}'.\n{conflicts}");
+        let error = format!("'{interface_name}' error.\n{conflicts}");
         diagnostics.push_error(error, &source);
         return None;
     }
