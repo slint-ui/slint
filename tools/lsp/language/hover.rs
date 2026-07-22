@@ -178,9 +178,19 @@ fn builtin_element_description(b: &BuiltinElement) -> &str {
         .unwrap_or("")
 }
 
+/// Strip a trailing `\{#sls.…}` paragraph-id marker. Those identify normative
+/// paragraphs for the safety manual's traceability matrix and are meaningless
+/// in a tooltip. Mirrors `split_marker` in
+/// docs/slint-doc-generator/traceability.rs.
+fn strip_paragraph_id(line: &str) -> &str {
+    let Some(prefix) = line.trim_end().strip_suffix('}') else { return line };
+    let Some(start) = prefix.rfind("\\{#sls.") else { return line };
+    line[..start].trim_end()
+}
+
 /// Extract the prose description from a raw builtins.slint doc comment,
-/// stripping code fences, `\`-annotations, and `<Component />` MDX tags
-/// that don't render well in a tooltip.
+/// stripping code fences, `\`-annotations, `\{#sls.…}` paragraph ids, and
+/// `<Component />` MDX tags that don't render well in a tooltip.
 fn clean_builtin_doc(raw: &str) -> String {
     let mut result = String::new();
     let mut in_fence = false;
@@ -202,7 +212,7 @@ fn clean_builtin_doc(raw: &str) -> String {
         if !result.is_empty() {
             result.push('\n');
         }
-        result.push_str(line);
+        result.push_str(strip_paragraph_id(line));
     }
     // Trim trailing blank lines.
     while result.ends_with('\n') {

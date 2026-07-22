@@ -8,6 +8,13 @@ use std::io::{BufWriter, Write};
 
 /// Generate all markdown/mdx documentation files.
 pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    // Start from an empty directory: a page left behind by an earlier run
+    // (of a version that named or grouped it differently) still renders, and
+    // its paragraph ids still count as duplicates of the current ones.
+    if cfg.generated_dir.exists() {
+        std::fs::remove_dir_all(&cfg.generated_dir)
+            .context(format!("error clearing {:?}", cfg.generated_dir))?;
+    }
     generate_enum_docs(cfg)?;
     generate_builtin_struct_docs(cfg)?;
     if !cfg.sc_only {

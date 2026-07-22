@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Traceability matrix between the requirement paragraphs of the Language
-//! Specification (`{#sls.…}` anchors) and the test cases that reference them
-//! with `//#sls.…` comments.
+//! Specification and the generated SC API Reference (`{#sls.…}` anchors) and
+//! the test cases that reference them with `//#sls.…` comments.
 
 use crate::Config;
 use anyhow::Context;
@@ -26,13 +26,23 @@ const SPEC_PAGE_ORDER: &[&str] =
 const TEST_ROOTS: &[(&str, &str)] =
     &[("case", "api/slint-sc/tests/cases"), ("syntax", "internal/compiler/tests/syntax/slint-sc")];
 
+/// Name of the matrix this module writes into [`Config::generated_dir`]. It
+/// isn't a source of anchors, so scanning skips it.
+const MATRIX_FILE: &str = "traceability-matrix.md";
+
 const REPO_URL: &str = env!("CARGO_PKG_REPOSITORY");
 
 struct SpecPage {
-    /// File name without the `.md` extension.
-    stem: String,
+    /// Repository-relative path with `/` separators, for error messages.
+    file: String,
     /// From the frontmatter.
     title: String,
+    /// Site-relative URL of the page, for linking its anchors from the matrix.
+    /// The matrix sits two levels deep, so it starts with `../../`.
+    base: String,
+    /// The specification index heads its section; every other page nests
+    /// under one.
+    top_level: bool,
     /// (anchor id, 1-based line number) in document order.
     anchors: Vec<(String, usize)>,
     /// Draft pages aren't published, so their anchors don't exist.
@@ -57,14 +67,15 @@ impl TestRef {
 
 pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let root = crate::root_dir();
-    let pages = scan_spec_pages(&root.join(SPEC_DIR))?;
+    let spec_pages = scan_spec_pages(&root.join(SPEC_DIR))?;
+    let reference_pages = scan_reference_pages(cfg, &root)?;
 
     let mut refs = Vec::new();
     for kind in TEST_ROOTS {
         scan_test_refs(&root, kind, &mut refs)?;
     }
 
-    let errors = check(&pages, &refs);
+    let errors = check(&spec_pages, &reference_pages, &refs);
     if !errors.is_empty() {
         eprintln!("error: traceability:");
         for e in &errors {
@@ -81,24 +92,24 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    write_matrix(cfg, &root, &pages, &tests_by_id)
+    write_matrix(cfg, &root, &spec_pages, &reference_pages, &tests_by_id)
 }
 
 /// Validate the parsed pages and test references, returning one message per
-/// problem: duplicate anchor ids across the specification, and test
-/// references without a matching anchor.
-fn check(pages: &[SpecPage], refs: &[TestRef]) -> Vec<String> {
+/// problem: duplicate anchor ids across the specification and the SC
+/// reference, and test references without a matching anchor.
+fn check(spec_pages: &[SpecPage], reference_pages: &[SpecPage], refs: &[TestRef]) -> Vec<String> {
     let mut errors = Vec::new();
     let mut seen: HashMap<&str, (&str, usize)> = HashMap::new();
-    for p in pages {
+    for p in spec_pages.iter().chain(reference_pages) {
         for (id, line) in &p.anchors {
             match seen.get(id.as_str()) {
-                Some((stem, first)) => errors.push(format!(
-                    "{SPEC_DIR}/{}.md:{line}: duplicate anchor `{{#{id}}}`, already defined at {SPEC_DIR}/{stem}.md:{first}",
-                    p.stem
+                Some((file, first)) => errors.push(format!(
+                    "{}:{line}: duplicate anchor `{{#{id}}}`, already defined at {file}:{first}",
+                    p.file
                 )),
                 None => {
-                    seen.insert(id, (&p.stem, *line));
+                    seen.insert(id, (&p.file, *line));
                 }
             }
         }
@@ -106,7 +117,7 @@ fn check(pages: &[SpecPage], refs: &[TestRef]) -> Vec<String> {
     for r in refs {
         if !seen.contains_key(r.id.as_str()) {
             errors.push(format!(
-                "{}:{}: `//#{}` has no `{{#{}}}` anchor in {SPEC_DIR}/",
+                "{}:{}: `//#{}` has no `{{#{}}}` anchor in the specification or the SC reference",
                 r.file, r.line, r.id, r.id
             ));
         }
@@ -114,28 +125,40 @@ fn check(pages: &[SpecPage], refs: &[TestRef]) -> Vec<String> {
     errors
 }
 
-/// Parse a `{#sls.…}` marker at the end of a line, mirroring `ID_MARKER` in
-/// docs/common/src/utils/rehype-sls-ids.mjs. The sources write the marker in
-/// its MDX-safe escaped form `\{#sls.…}`; the backslash sits before the `{`
-/// found via `rfind`, so both forms parse the same here.
-fn anchor_id(line: &str) -> Option<&str> {
+/// Split a trailing `{#sls.…}` marker off a line, returning the prose before
+/// it and the identifier. Mirrors `ID_MARKER` in
+/// docs/common/src/utils/rehype-sls-ids.mjs (and the `.sls-id` styling in
+/// docs/common/src/styles/sls-ids.css). The sources write the marker in its
+/// MDX-safe escaped form `\{#sls.…}`; the backslash sits before the `{` found
+/// via `rfind`, so both forms parse the same here.
+fn split_marker(line: &str) -> Option<(&str, &str)> {
     let t = line.trim_end().strip_suffix('}')?;
-    let id = &t[t.rfind("{#")? + 2..];
-    (id.len() > "sls.".len()
+    let start = t.rfind("{#")?;
+    let id = &t[start + 2..];
+    let is_id = id.len() > "sls.".len()
         && id.starts_with("sls.")
         && id.bytes().all(|b| {
             b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'.' | b'-' | b'_')
-        }))
-    .then_some(id)
+        });
+    // Keep the escaping backslash out of the prose.
+    is_id.then(|| (line[..start].trim_end().trim_end_matches('\\').trim_end(), id))
 }
 
-/// Parse one specification chapter: frontmatter title and draft flag, and the
-/// anchors in document order. Anchors inside HTML comments and code fences
-/// don't render, so they don't count.
-fn parse_spec_page(stem: &str, text: &str) -> SpecPage {
+/// The identifier of a trailing `{#sls.…}` marker.
+fn anchor_id(line: &str) -> Option<&str> {
+    split_marker(line).map(|(_, id)| id)
+}
+
+/// Parse one page: frontmatter title, slug and draft flag, and the anchors in
+/// document order. Anchors inside HTML comments and code fences don't render,
+/// so they don't count. The caller turns the slug into [`SpecPage::base`].
+fn parse_spec_page(file: &str, text: &str) -> (SpecPage, Option<String>) {
+    let mut slug = None;
     let mut page = SpecPage {
-        stem: stem.to_string(),
+        file: file.to_string(),
         title: String::new(),
+        base: String::new(),
+        top_level: false,
         anchors: Vec::new(),
         draft: false,
     };
@@ -149,6 +172,8 @@ fn parse_spec_page(stem: &str, text: &str) -> SpecPage {
                 frontmatter_delimiters += 1;
             } else if let Some(title) = t.strip_prefix("title:") {
                 page.title = title.trim().to_string();
+            } else if let Some(s) = t.strip_prefix("slug:") {
+                slug = Some(s.trim().to_string());
             } else if t == "draft: true" {
                 page.draft = true;
             }
@@ -173,7 +198,17 @@ fn parse_spec_page(stem: &str, text: &str) -> SpecPage {
             page.anchors.push((id.to_string(), i + 1));
         }
     }
-    page
+    (page, slug)
+}
+
+/// Repository-relative path with `/` separators.
+fn repo_relative(path: &Path, repo_root: &Path) -> String {
+    let relative = path.strip_prefix(repo_root).unwrap_or(path).to_string_lossy().into_owned();
+    if std::path::MAIN_SEPARATOR == '/' {
+        relative
+    } else {
+        relative.replace(std::path::MAIN_SEPARATOR, "/")
+    }
 }
 
 fn scan_spec_pages(dir: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Error>> {
@@ -191,10 +226,49 @@ fn scan_spec_pages(dir: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Erro
     for path in paths {
         let stem = path.file_stem().unwrap_or_default().to_string_lossy().into_owned();
         let text = std::fs::read_to_string(&path).context(format!("error reading {path:?}"))?;
-        let page = parse_spec_page(&stem, &text);
+        let (mut page, _) = parse_spec_page(&format!("{SPEC_DIR}/{stem}.md"), &text);
+        // The index page is served at the root of the specification.
+        page.top_level = stem == "index";
+        page.base = if page.top_level {
+            "../../language/".to_string()
+        } else {
+            format!("../../language/{stem}/")
+        };
         if !page.draft {
             pages.push(page);
         }
+    }
+    Ok(pages)
+}
+
+/// Parse the generated SC API reference pages for their anchors. The pages
+/// are written by `element_docs`/`mdx` earlier in the same run.
+fn scan_reference_pages(
+    cfg: &Config,
+    repo_root: &Path,
+) -> Result<Vec<SpecPage>, Box<dyn std::error::Error>> {
+    let mut pages = Vec::new();
+    for entry in walkdir::WalkDir::new(&cfg.generated_dir).sort_by_file_name() {
+        let entry = entry?;
+        let path = entry.path();
+        if !entry.file_type().is_file()
+            || path.extension().is_none_or(|e| e != "md" && e != "mdx")
+            || path.file_name().is_some_and(|n| n == MATRIX_FILE)
+        {
+            continue;
+        }
+        let file = repo_relative(path, repo_root);
+        let text = std::fs::read_to_string(path).context(format!("error reading {path:?}"))?;
+        let (mut page, slug) = parse_spec_page(&file, &text);
+        if page.anchors.is_empty() || page.draft {
+            continue;
+        }
+        // Every generated page sets its own slug; without one the matrix
+        // couldn't link to the anchors it just found.
+        let slug = slug
+            .ok_or_else(|| anyhow::anyhow!("{file}: generated page carries anchors but no slug"))?;
+        page.base = format!("../../{slug}/");
+        pages.push(page);
     }
     Ok(pages)
 }
@@ -211,11 +285,7 @@ fn scan_test_refs(
         }
         let text = std::fs::read_to_string(entry.path())
             .context(format!("error reading {:?}", entry.path()))?;
-        let file = entry
-            .path()
-            .strip_prefix(repo_root)?
-            .to_string_lossy()
-            .replace(std::path::MAIN_SEPARATOR, "/");
+        let file = repo_relative(entry.path(), repo_root);
         for (i, line) in text.lines().enumerate() {
             if let Some(id) = line.trim().strip_prefix("//#") {
                 refs.push(TestRef {
@@ -253,18 +323,19 @@ fn git_head(repo_root: &Path) -> String {
 fn write_matrix(
     cfg: &Config,
     repo_root: &Path,
-    pages: &[SpecPage],
+    spec_pages: &[SpecPage],
+    reference_pages: &[SpecPage],
     tests_by_id: &HashMap<&str, Vec<&TestRef>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let sha = git_head(repo_root);
     std::fs::create_dir_all(&cfg.generated_dir)?;
-    let path = cfg.generated_dir.join("traceability-matrix.md");
+    let path = cfg.generated_dir.join(MATRIX_FILE);
     let mut file =
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
-    let total = pages.iter().flat_map(|p| &p.anchors).filter(|(id, _)| !informative(id)).count();
-    let covered = pages
-        .iter()
+    let all = || spec_pages.iter().chain(reference_pages);
+    let total = all().flat_map(|p| &p.anchors).filter(|(id, _)| !informative(id)).count();
+    let covered = all()
         .flat_map(|p| &p.anchors)
         .filter(|(id, _)| !informative(id) && tests_by_id.contains_key(id.as_str()))
         .count();
@@ -273,11 +344,11 @@ fn write_matrix(
         file,
         r#"---
 title: Traceability Matrix
-description: Mapping between the requirement paragraphs of the Language Specification and the test cases that verify them.
+description: Mapping between the requirement paragraphs of the Language Specification and the SC API Reference, and the test cases that verify them.
 slug: qualification-plan/traceability-matrix
 ---
 
-Each requirement paragraph in the [Language Specification](../../language/) carries a unique identifier,
+Each requirement paragraph in the [Language Specification](../../language/) and the [SC API Reference](../../reference/) carries a unique identifier,
 shown as a `[sls.…]` badge at the end of the paragraph.
 A test case declares which requirements it verifies by listing their identifiers in `//#sls.…` comments.
 This matrix lists every requirement paragraph with the test cases that declare it.
@@ -293,40 +364,67 @@ tests marked `syntax:` are compiler syntax tests from `{syntax_root}/`.
         syntax_root = TEST_ROOTS[1].1,
     )?;
 
-    // The index page's title heads the section; the other pages nest under it.
-    for page in pages {
-        let anchors: Vec<&(String, usize)> =
-            page.anchors.iter().filter(|(id, _)| !informative(id)).collect();
-        if page.stem == "index" {
-            writeln!(file, "\n## {}", page.title)?;
-        }
-        if anchors.is_empty() {
-            continue;
-        }
-        // The matrix page is two levels deep, so `../../` is the site root.
-        let base = if page.stem == "index" {
-            "../../language/".to_string()
-        } else {
-            writeln!(file, "\n### {}", page.title)?;
-            format!("../../language/{}/", page.stem)
-        };
-        writeln!(file, "\n| Paragraph | Tests |")?;
-        writeln!(file, "| --- | --- |")?;
-        for (id, _) in anchors {
-            let tests = match tests_by_id.get(id.as_str()) {
-                Some(files) => files
-                    .iter()
-                    .map(|t| {
-                        format!("[`{}: {}`]({REPO_URL}/blob/{sha}/{})", t.kind.0, t.short(), t.file)
-                    })
-                    .collect::<Vec<_>>()
-                    .join("<br/>"),
-                None => "❌".to_string(),
-            };
-            writeln!(file, "| [`{id}`]({base}#{id}) | {tests} |")?;
+    for page in spec_pages {
+        write_page(&mut file, page, tests_by_id, &sha)?;
+    }
+
+    // Skipped entirely when the reference states no testable requirement.
+    if reference_pages.iter().flat_map(|p| &p.anchors).any(|(id, _)| !informative(id)) {
+        writeln!(file, "\n## SC API Reference")?;
+        for page in reference_pages {
+            write_page(&mut file, page, tests_by_id, &sha)?;
         }
     }
     Ok(())
+}
+
+/// One section of the matrix: the page's heading and a row per anchor.
+fn write_page(
+    out: &mut impl Write,
+    page: &SpecPage,
+    tests_by_id: &HashMap<&str, Vec<&TestRef>>,
+    sha: &str,
+) -> std::io::Result<()> {
+    let anchors: Vec<&(String, usize)> =
+        page.anchors.iter().filter(|(id, _)| !informative(id)).collect();
+    // The specification index heads the section the other pages nest under,
+    // so its title appears even when it states no requirement of its own.
+    if page.top_level {
+        writeln!(out, "\n## {}", page.title)?;
+    }
+    if anchors.is_empty() {
+        return Ok(());
+    }
+    if !page.top_level {
+        writeln!(out, "\n### {}", page.title)?;
+    }
+    writeln!(out, "\n| Paragraph | Tests |")?;
+    writeln!(out, "| --- | --- |")?;
+    for (id, _) in anchors {
+        let tests = match tests_by_id.get(id.as_str()) {
+            Some(files) => files
+                .iter()
+                .map(|t| {
+                    format!("[`{}: {}`]({REPO_URL}/blob/{sha}/{})", t.kind.0, t.short(), t.file)
+                })
+                .collect::<Vec<_>>()
+                .join("<br/>"),
+            None => "❌".to_string(),
+        };
+        writeln!(out, "| [`{id}`]({}#{id}) | {tests} |", page.base)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn test_split_marker() {
+    // The prose keeps neither the marker nor the escaping backslash.
+    assert_eq!(split_marker("Some text. {#sls.foo.bar}"), Some(("Some text.", "sls.foo.bar")));
+    assert_eq!(
+        split_marker(r"MDX-escaped. \{#sls.foo.bar}"),
+        Some(("MDX-escaped.", "sls.foo.bar"))
+    );
+    assert_eq!(split_marker("no marker here"), None);
 }
 
 #[test]
@@ -371,22 +469,33 @@ Commented out. {#sls.commented}
 
 Another paragraph. {#sls.two}
 "#;
-    let page = parse_spec_page("chapter", text);
-    assert_eq!(page.stem, "chapter");
+    let (page, slug) = parse_spec_page("spec/chapter.md", text);
+    assert_eq!(page.file, "spec/chapter.md");
     assert_eq!(page.title, "Some Chapter");
+    assert_eq!(slug, None);
     assert!(!page.draft);
     assert_eq!(page.anchors, [("sls.one".to_string(), 6), ("sls.two".to_string(), 16)]);
 
-    let draft = parse_spec_page("draft", "---\ntitle: Draft\ndraft: true\n---\nText. {#sls.d}\n");
+    let (draft, _) =
+        parse_spec_page("spec/draft.md", "---\ntitle: Draft\ndraft: true\n---\nText. {#sls.d}\n");
     assert!(draft.draft);
     assert_eq!(draft.anchors, [("sls.d".to_string(), 5)]);
+
+    let (reference, slug) = parse_spec_page(
+        "generated/elements/rectangle.mdx",
+        "---\ntitle: Rectangle\nslug: reference/elements/rectangle\n---\nProse. \\{#sls.ref.rectangle.purpose}\n",
+    );
+    assert_eq!(slug.as_deref(), Some("reference/elements/rectangle"));
+    assert_eq!(reference.anchors, [("sls.ref.rectangle.purpose".to_string(), 5)]);
 }
 
 #[test]
 fn test_check_reports_all_errors() {
     let page = |stem: &str, anchors: &[(&str, usize)]| SpecPage {
-        stem: stem.to_string(),
+        file: format!("{stem}.md"),
         title: String::new(),
+        base: String::new(),
+        top_level: false,
         anchors: anchors.iter().map(|(id, line)| (id.to_string(), *line)).collect(),
         draft: false,
     };
@@ -405,7 +514,7 @@ fn test_check_reports_all_errors() {
     ];
 
     // All errors are reported in one pass, not just the first.
-    let errors = check(&pages, &refs);
+    let errors = check(&pages, &[], &refs);
     assert_eq!(errors.len(), 3);
     assert!(errors[0].contains("b.md:3"), "{}", errors[0]);
     assert!(errors[0].contains("{#sls.one}") && errors[0].contains("a.md:5"), "{}", errors[0]);
@@ -421,5 +530,12 @@ fn test_check_reports_all_errors() {
     );
 
     let clean_pages = [page("a", &[("sls.one", 5), ("sls.two", 8)])];
-    assert!(check(&clean_pages, &refs[..1]).is_empty());
+    assert!(check(&clean_pages, &[], &refs[..1]).is_empty());
+
+    // A duplicate between the specification and the reference pages is
+    // caught, and a test may reference a reference anchor.
+    let reference = [page("rectangle", &[("sls.one", 2), ("sls.ref.covered", 4)])];
+    let errors = check(&clean_pages, &reference, &[test_ref("sls.ref.covered", "t.slint", 1)]);
+    assert_eq!(errors.len(), 1);
+    assert!(errors[0].contains("{#sls.one}"), "{}", errors[0]);
 }
