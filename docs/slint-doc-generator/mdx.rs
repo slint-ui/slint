@@ -21,6 +21,10 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         write_global_structs_enums_index(cfg, &structs, &enums)?;
     }
 
+    if cfg.sc_only {
+        crate::traceability::generate(cfg)?;
+    }
+
     Ok(())
 }
 

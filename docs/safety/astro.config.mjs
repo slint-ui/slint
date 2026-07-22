@@ -140,6 +140,10 @@ export default defineConfig({
                             label: "Validation",
                             slug: "qualification-plan/validation",
                         },
+                        {
+                            label: "Traceability Matrix",
+                            slug: "qualification-plan/traceability-matrix",
+                        },
                     ],
                 },
                 {
