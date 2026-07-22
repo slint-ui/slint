@@ -964,20 +964,29 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
                 (peniko_gradient.into(), None)
             }
             Brush::RadialGradient(gradient) => {
-                let circle_scale = 0.5
-                    * (shape_size.width * shape_size.width + shape_size.height * shape_size.height)
-                        .sqrt();
+                let (center_x, center_y) = gradient.center_or_default_scaled(
+                    shape_size.width as f32,
+                    shape_size.height as f32,
+                    self.scale_factor.get(),
+                );
+                let radius = gradient.radius_or_default_scaled(
+                    shape_size.width as f32,
+                    shape_size.height as f32,
+                    self.scale_factor.get(),
+                );
 
                 let mut peniko_gradient =
                     peniko::Gradient::new_radial(kurbo::Point::new(0., 0.), 1.0);
                 peniko_gradient.stops = convert_color_stops(gradient.stops());
 
+                // A unit circle at the origin, scaled to the radius and moved
+                // to the center, so the color stops span [0, radius].
                 (
                     peniko_gradient.into(),
-                    Some(kurbo::Affine::scale(circle_scale).then_translate(kurbo::Vec2::new(
-                        shape_size.width / 2.,
-                        shape_size.height / 2.,
-                    ))),
+                    Some(
+                        kurbo::Affine::scale(radius as f64)
+                            .then_translate(kurbo::Vec2::new(center_x as f64, center_y as f64)),
+                    ),
                 )
             }
             Brush::ConicGradient(gradient) => {
