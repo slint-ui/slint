@@ -8,6 +8,12 @@ from items annotated with `\sc` in `internal/compiler/builtins.slint` (and
 later in `internal/common/{enums,builtin_structs}.rs`); that directory is
 gitignored.
 
+The language specification under `src/content/docs/language/` is also
+gitignored: its canonical source is the main Slint docs
+(`docs/astro/src/content/docs/reference/language/`), from which
+`scripts/sync-language-spec.mjs` copies it on every `pnpm dev`/`pnpm build`.
+Edit the chapters there, not here.
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) (v22+)

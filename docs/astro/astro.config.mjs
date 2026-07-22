@@ -9,8 +9,9 @@ import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlig
 import {
     SLINT_STARLIGHT_TRAILING_SLASH,
     slintStarlightLinksValidatorPlugin,
-    slintStarlightMarkdownRehypeExternalLinksOnly,
 } from "@slint/common-files/src/utils/starlight-site-defaults";
+import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
+import rehypeSlsIds from "@slint/common-files/src/utils/rehype-sls-ids.mjs";
 import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 import {
     BASE_PATH,
@@ -35,7 +36,10 @@ export default defineConfig({
     site: `${BASE_URL}${BASE_PATH}`,
     base: BASE_PATH,
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
-    markdown: slintStarlightMarkdownRehypeExternalLinksOnly(),
+    markdown: {
+        gfm: true,
+        rehypePlugins: [rehypeExternalLinksSlint, rehypeSlsIds],
+    },
     integrations: [
         sitemap(),
         starlight({
@@ -46,6 +50,7 @@ export default defineConfig({
             customCss: [
                 "@slint/common-files/src/styles/starlight-slint-custom.css",
                 "@slint/common-files/src/styles/starlight-slint-theme.css",
+                "@slint/common-files/src/styles/sls-ids.css",
             ],
 
             components: {
@@ -254,6 +259,36 @@ export default defineConfig({
                             {
                                 label: "Overview",
                                 slug: "reference/overview",
+                            },
+                            {
+                                label: "Language Specification",
+                                collapsed: true,
+                                items: [
+                                    {
+                                        label: "Introduction",
+                                        slug: "reference/language",
+                                    },
+                                    {
+                                        label: "Source Files",
+                                        slug: "reference/language/source-files",
+                                    },
+                                    {
+                                        label: "Lexical Structure",
+                                        slug: "reference/language/lexical-structure",
+                                    },
+                                    {
+                                        label: "File Structure",
+                                        slug: "reference/language/file-structure",
+                                    },
+                                    // {
+                                    //     label: "Imports",
+                                    //     slug: "reference/language/imports",
+                                    // },
+                                    {
+                                        label: "Exports",
+                                        slug: "reference/language/exports",
+                                    },
+                                ],
                             },
                             {
                                 label: "Types and Properties",
@@ -556,7 +591,13 @@ export default defineConfig({
                         ],
                     },
                 ]),
-                slintStarlightLinksValidatorPlugin(),
+                // The language-specification chapters under reference/language/
+                // are shared with the safety manual and therefore use relative
+                // links, which resolve in both sites. The validator still
+                // checks that relative links point to existing pages.
+                slintStarlightLinksValidatorPlugin({
+                    errorOnRelativeLinks: false,
+                }),
             ],
             social: slintStarlightSocial,
             favicon: "favicon.svg",
