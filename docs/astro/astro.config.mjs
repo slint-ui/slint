@@ -288,6 +288,10 @@ export default defineConfig({
                                         label: "Exports",
                                         slug: "reference/language/exports",
                                     },
+                                    {
+                                        label: "Bindings",
+                                        slug: "reference/language/bindings",
+                                    },
                                 ],
                             },
                             {
