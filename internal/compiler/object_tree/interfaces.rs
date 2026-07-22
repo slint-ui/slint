@@ -15,8 +15,7 @@ use crate::expression_tree::{BindingExpression, Callable, Expression};
 use crate::langtype::{ElementType, Function, PropertyLookupResult, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
-    Element, ElementRc, PropertyDeclaration, PropertyVisibility, QualifiedTypeName,
-    find_element_by_id,
+    Element, ElementRc, PropertyDeclaration, QualifiedTypeName, find_element_by_id,
 };
 use crate::parser;
 use crate::parser::{SyntaxKind, syntax_nodes};
@@ -260,7 +259,7 @@ fn validate_interface_member_implementation(
 
     let lookup_result = element.lookup_property(member_name);
     if lookup_result.property_type == Type::Invalid {
-        return Some(format!("Missing '{}' from '{}'", member_name, interface_name));
+        return Some(missing_type_description(member_name, interface_member));
     }
 
     let Err(conflicts) =
@@ -538,6 +537,36 @@ fn element_implements_interface(
     errors.is_empty()
 }
 
+fn missing_type_description(name: &SmolStr, interface_declaration: &PropertyDeclaration) -> String {
+    let purity_description = |purity: &Option<bool>| {
+        if purity.unwrap_or(false) { "pure " } else { "" }
+    };
+    let type_description = match interface_declaration.property_type {
+        Type::Callback(..) => {
+            format!(
+                "a '{}{}'",
+                purity_description(&interface_declaration.pure),
+                interface_declaration.property_type
+            )
+        }
+        Type::Function(..) => {
+            format!(
+                "a 'public {}{}'",
+                purity_description(&interface_declaration.pure),
+                interface_declaration.property_type
+            )
+        }
+        _ => {
+            format!(
+                "an {} '{}' property",
+                interface_declaration.visibility, interface_declaration.property_type
+            )
+        }
+    };
+
+    format!("- missing '{name}', {type_description}")
+}
+
 fn property_matches_interface(
     property: &PropertyLookupResult,
     interface_declaration: &PropertyDeclaration,
@@ -545,32 +574,7 @@ fn property_matches_interface(
     child_id: Option<&SmolStr>,
 ) -> Result<(), String> {
     if property.property_type == Type::Invalid {
-        let missing_type_description =
-            |property_type: &Type, purity: &Option<bool>, visibility: &PropertyVisibility| {
-                let purity_description = |purity: &Option<bool>| {
-                    if purity.unwrap_or(false) { "pure " } else { "" }
-                };
-                match property_type {
-                    Type::Callback(..) => {
-                        format!("a '{}{}'", purity_description(purity), property_type)
-                    }
-                    Type::Function(..) => {
-                        format!("a 'public {}{}'", purity_description(purity), property_type)
-                    }
-                    _ => {
-                        format!("an {} '{}' property", visibility, property_type)
-                    }
-                }
-            };
-
-        return Err(format!(
-            "- missing '{name}', {}",
-            missing_type_description(
-                &interface_declaration.property_type,
-                &interface_declaration.pure,
-                &interface_declaration.visibility
-            )
-        ));
+        return Err(missing_type_description(name, interface_declaration));
     }
 
     let mut errors = Vec::new();

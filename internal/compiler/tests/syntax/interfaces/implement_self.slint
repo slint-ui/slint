@@ -59,7 +59,7 @@ export component CorrectCalculator {
 // Missing members - property, callback and function each report distinctly.
 export component MissingProperty {
     implement ValidInterface <=> self;
-//            >             <error{Cannot implement 'ValidInterface'.↵Missing 'value' from 'ValidInterface'}
+//            >             <error{Cannot implement 'ValidInterface'.↵- missing 'value', an in-out 'int' property}
 
     callback speak();
     public function reset() {}
@@ -67,7 +67,7 @@ export component MissingProperty {
 
 export component MissingCallback {
     implement ValidInterface <=> self;
-//            >             <error{Cannot implement 'ValidInterface'.↵Missing 'speak' from 'ValidInterface'}
+//            >             <error{Cannot implement 'ValidInterface'.↵- missing 'speak', a 'callback() -> void'}
 
     in-out property <int> value;
     public function reset() {}
