@@ -108,14 +108,13 @@ public:
     /// overwriting any previously set list. An empty list clears the file paths.
     void set_file_paths(std::span<const std::filesystem::path> paths)
     {
-        std::vector<std::u8string> bytes;
-        bytes.reserve(paths.size());
-        std::vector<cbindgen_private::Slice<uint8_t>> slices;
+        // Each path crosses the FFI in its native representation, so that no
+        // path is mangled by an encoding conversion.
+        std::vector<cbindgen_private::Slice<cbindgen_private::types::PathValueType>> slices;
         slices.reserve(paths.size());
         for (const auto &path : paths) {
-            const auto &b = bytes.emplace_back(path.u8string());
-            slices.push_back(
-                    private_api::make_slice(reinterpret_cast<const uint8_t *>(b.data()), b.size()));
+            const auto &native = path.native();
+            slices.push_back(private_api::make_slice(native.data(), native.size()));
         }
         cbindgen_private::types::slint_data_transfer_set_file_paths(
                 this, private_api::make_slice(slices.data(), slices.size()));
@@ -170,15 +169,14 @@ public:
     /// `std::nullopt` if no file paths are available.
     std::optional<std::vector<std::filesystem::path>> file_paths() const
     {
-        SharedVector<SharedVector<uint8_t>> out;
+        SharedVector<SharedVector<cbindgen_private::types::PathValueType>> out;
         if (!cbindgen_private::types::slint_data_transfer_file_paths(this, &out)) {
             return std::nullopt;
         }
         std::vector<std::filesystem::path> paths;
         paths.reserve(out.size());
-        for (const auto &bytes : out) {
-            paths.emplace_back(std::u8string_view(reinterpret_cast<const char8_t *>(bytes.begin()),
-                                                  bytes.size()));
+        for (const auto &units : out) {
+            paths.emplace_back(std::basic_string_view(units.begin(), units.size()));
         }
         return paths;
     }
