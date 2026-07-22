@@ -1,6 +1,10 @@
 ---
 title: Imports
 description: Bringing components from other files into scope.
+# Unpublished placeholder; drop `draft` and uncomment the sidebar entries in
+# both docs/astro/astro.config.mjs and docs/safety/astro.config.mjs once
+# imports come into scope.
+draft: true
 ---
 
 Imports are not yet covered by this revision of the specification.

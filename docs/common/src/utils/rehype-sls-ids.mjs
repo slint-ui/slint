@@ -47,7 +47,7 @@ export default function rehypeSlsIds() {
             if (claimedHere.has(id)) {
                 throw new Error(
                     `rehype-sls-ids: duplicate id ${id} within ${sourcePath}\n` +
-                        `Each paragraph identifier shall be unique across the corpus.`,
+                        "Each paragraph identifier shall be unique across the corpus.",
                 );
             }
             claimedHere.add(id);
@@ -58,7 +58,7 @@ export default function rehypeSlsIds() {
                     `rehype-sls-ids: duplicate id ${id}\n` +
                         `  first defined in:  ${previousPath}\n` +
                         `  duplicated in:     ${sourcePath}\n` +
-                        `Each paragraph identifier shall be unique across the corpus.`,
+                        "Each paragraph identifier shall be unique across the corpus.",
                 );
             }
             seen.set(id, sourcePath);

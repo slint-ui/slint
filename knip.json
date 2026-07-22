@@ -78,6 +78,7 @@
       "ignoreFiles": [
         "src/styles/starlight-slint-custom.css",
         "src/styles/starlight-slint-theme.css",
+        "src/styles/sls-ids.css",
         "src/components/Banner.astro",
         "src/components/Footer.astro",
         "src/components/Header.astro",
@@ -96,11 +97,6 @@
     "docs/python": {
       "ignoreBinaries": ["uv"],
       "ignoreFiles": ["src/components/Signature.astro"]
-    },
-    "docs/safety": {
-      "ignoreFiles": [
-        "src/styles/sls-ids.css"
-      ]
     },
     "docs/cpp": {
       "ignoreBinaries": ["doxygen"],
