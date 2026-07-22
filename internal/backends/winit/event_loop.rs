@@ -45,11 +45,11 @@ use winit::window::ResizeDirection;
 /// key used for text input is layout-dependent and unsuitable for that.
 ///
 /// Only letter keys are mapped, since those are the only keys that back a
-/// `StandardShortcut`. Returns an empty string for any other key.
-fn physical_key_shortcut_char(physical: winit::keyboard::PhysicalKey) -> SharedString {
+/// `StandardShortcut`. Returns `None` for any other key.
+fn physical_key_shortcut_char(physical: winit::keyboard::PhysicalKey) -> Option<SharedString> {
     use winit::keyboard::{KeyCode, PhysicalKey};
     let PhysicalKey::Code(code) = physical else {
-        return SharedString::new();
+        return None;
     };
     // KeyCode is #[non_exhaustive]; the wildcard arm is intentional.
     #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
@@ -80,9 +80,9 @@ fn physical_key_shortcut_char(physical: winit::keyboard::PhysicalKey) -> SharedS
         KeyCode::KeyX => 'x',
         KeyCode::KeyY => 'y',
         KeyCode::KeyZ => 'z',
-        _ => return SharedString::new(),
+        _ => return None,
     };
-    c.into()
+    Some(c.into())
 }
 
 /// This enum captures run-time specific events that can be dispatched to the event loop in

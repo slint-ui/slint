@@ -959,10 +959,10 @@ pub struct InternalKeyEvent {
     /// state). It is used to resolve standard shortcuts such as Ctrl+V so they
     /// keep working on non-Latin layouts and with CapsLock enabled.
     ///
-    /// Empty when the backend cannot provide it (e.g. non-letter keys, or
+    /// `None` when the backend cannot provide it (e.g. non-letter keys, or
     /// backends without physical-key information); in that case `shortcut()`
     /// falls back to `key_event.text`.
-    pub physical_key: SharedString,
+    pub physical_key: Option<SharedString>,
     /// The key without any modifiers held
     /// Important on Windows, to distinguish between key presses when Ctrl+Alt was pressed
     /// vs. AltGr.
@@ -988,12 +988,11 @@ impl InternalKeyEvent {
     /// If a shortcut was pressed, this function returns `Some(StandardShortcut)`.
     /// Otherwise it returns None.
     pub fn shortcut(&self) -> Option<StandardShortcut> {
-        let key = if self.physical_key.is_empty() {
-            self.key_event.text.as_str()
-        } else {
-            self.physical_key.as_str()
-        }
-        .to_ascii_lowercase();
+        let key = self
+            .physical_key
+            .as_deref()
+            .unwrap_or(self.key_event.text.as_str())
+            .to_ascii_lowercase();
 
         if self.key_event.modifiers.control && !self.key_event.modifiers.shift {
             match key.as_str() {
@@ -3106,33 +3105,45 @@ mod tests {
 
     #[test]
     fn shortcut_is_layout_and_caps_lock_independent() {
-        fn ev(text: &str, physical: &str, control: bool, shift: bool) -> InternalKeyEvent {
+        fn ev(text: &str, physical: Option<&str>, control: bool, shift: bool) -> InternalKeyEvent {
             InternalKeyEvent {
                 key_event: KeyEvent {
                     text: text.into(),
                     modifiers: KeyboardModifiers { control, shift, alt: false, meta: false },
                     ..Default::default()
                 },
-                physical_key: physical.into(),
+                physical_key: physical.map(Into::into),
                 ..Default::default()
             }
         }
 
         // Non-Latin layout: the physical "V" key produces e.g. Cyrillic "м",
         // but the shortcut must still resolve to Paste via the physical key.
-        assert!(matches!(ev("м", "v", true, false).shortcut(), Some(StandardShortcut::Paste)));
+        assert!(matches!(
+            ev("м", Some("v"), true, false).shortcut(),
+            Some(StandardShortcut::Paste)
+        ));
         // CapsLock: the text is upper-cased to "V".
-        assert!(matches!(ev("V", "v", true, false).shortcut(), Some(StandardShortcut::Paste)));
+        assert!(matches!(
+            ev("V", Some("v"), true, false).shortcut(),
+            Some(StandardShortcut::Paste)
+        ));
         // CapsLock on a Cyrillic layout → "М".
-        assert!(matches!(ev("М", "v", true, false).shortcut(), Some(StandardShortcut::Paste)));
+        assert!(matches!(
+            ev("М", Some("v"), true, false).shortcut(),
+            Some(StandardShortcut::Paste)
+        ));
         // Copy / Cut / SelectAll resolve the same way.
-        assert!(matches!(ev("с", "c", true, false).shortcut(), Some(StandardShortcut::Copy)));
-        assert!(matches!(ev("ч", "x", true, false).shortcut(), Some(StandardShortcut::Cut)));
-        assert!(matches!(ev("ф", "a", true, false).shortcut(), Some(StandardShortcut::SelectAll)));
+        assert!(matches!(ev("с", Some("c"), true, false).shortcut(), Some(StandardShortcut::Copy)));
+        assert!(matches!(ev("ч", Some("x"), true, false).shortcut(), Some(StandardShortcut::Cut)));
+        assert!(matches!(
+            ev("ф", Some("a"), true, false).shortcut(),
+            Some(StandardShortcut::SelectAll)
+        ));
         // Backends without a physical key fall back to the (case-insensitive) text.
-        assert!(matches!(ev("V", "", true, false).shortcut(), Some(StandardShortcut::Paste)));
+        assert!(matches!(ev("V", None, true, false).shortcut(), Some(StandardShortcut::Paste)));
         // No Control modifier → plain typing must never be treated as a shortcut.
-        assert!(ev("м", "v", false, false).shortcut().is_none());
-        assert!(ev("v", "v", false, false).shortcut().is_none());
+        assert!(ev("м", Some("v"), false, false).shortcut().is_none());
+        assert!(ev("v", Some("v"), false, false).shortcut().is_none());
     }
 }
