@@ -209,9 +209,9 @@ export component CannotOverrideFunction {
         return a + b;
     }
     in property <string> format;
-//  >                          <error{'Calculator' error.↵- 'format' must be a 'function(int) -> string' (found a 'string' property)↵- 'format' must be 'public' (found 'in')}
+//  >                          <error{'Calculator' error.↵- 'format' must be a 'public function(int) -> string' (found a 'string' property)}
     callback reset();
-//  >               <error{'Calculator' error.↵- 'reset' must be a 'function() -> void' (found a 'callback() -> void')↵- 'reset' must be 'public' (found 'in-out')}
+//  >               <error{'Calculator' error.↵- 'reset' must be a 'public function() -> void' (found a 'callback() -> void')}
 }
 
 // Conflicts with an inherited (non-local) member: property, callback and function variants.
@@ -246,11 +246,11 @@ export component CrossKindMismatch {
     implement ValidInterface <=> self;
 
     callback value();
-//  >               <error{'ValidInterface' error.↵- 'value' must be a 'int' property (found a 'callback() -> void')}
+//  >               <error{'ValidInterface' error.↵- 'value' must be an in-out 'int' property (found a 'callback() -> void')}
     in-out property <int> speak;
 //  >                          <error{'ValidInterface' error.↵- 'speak' must be a 'callback() -> void' (found a 'int' property)}
     in-out property <int> reset;
-//  >                          <error{'ValidInterface' error.↵- 'reset' must be a 'function() -> void' (found a 'int' property)↵- 'reset' must be 'public' (found 'in-out')}
+//  >                          <error{'ValidInterface' error.↵- 'reset' must be a 'public function() -> void' (found a 'int' property)}
 }
 
 // A single member that violates several constraints at once, joined into one message.

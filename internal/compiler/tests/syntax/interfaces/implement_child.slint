@@ -122,7 +122,7 @@ component CrossKindImpl {
 
 export component ChildCrossKind {
     implement ValidInterface <=> impl;
-//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.reset' must be a 'function() -> void' (found a 'int' property)↵- 'impl.reset' must be 'public' (found 'in-out')↵- 'impl.reset' must be 'pure'↵- 'impl.speak' must be a 'callback() -> void' (found a 'int' property)↵- 'impl.value' must be a 'int' property (found a 'callback() -> void')}
+//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.reset' must be a 'public pure function() -> void' (found a 'int' property)↵- 'impl.speak' must be a 'callback() -> void' (found a 'int' property)↵- 'impl.value' must be an in-out 'int' property (found a 'callback() -> void')}
     impl := CrossKindImpl { }
 }
 

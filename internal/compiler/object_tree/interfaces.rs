@@ -7,7 +7,6 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use itertools::Itertools;
 use smol_str::{SmolStr, ToSmolStr};
 
 use crate::diagnostics::BuildDiagnostics;
@@ -255,7 +254,7 @@ fn validate_interface_member_implementation(
 
     let lookup_result = element.lookup_property(member_name);
     if lookup_result.property_type == Type::Invalid {
-        return Some(missing_type_description(member_name, interface_member));
+        return Some(missing_type_error(member_name, interface_member));
     }
 
     let Err(conflicts) =
@@ -414,11 +413,11 @@ fn element_implements_interface(
     errors.is_empty()
 }
 
-fn missing_type_description(name: &SmolStr, interface_declaration: &PropertyDeclaration) -> String {
+fn missing_type_description(interface_declaration: &PropertyDeclaration) -> String {
     let purity_description = |purity: &Option<bool>| {
         if purity.unwrap_or(false) { "pure " } else { "" }
     };
-    let type_description = match interface_declaration.property_type {
+    match interface_declaration.property_type {
         Type::Callback(..) => {
             format!(
                 "a '{}{}'",
@@ -439,9 +438,11 @@ fn missing_type_description(name: &SmolStr, interface_declaration: &PropertyDecl
                 interface_declaration.visibility, interface_declaration.property_type
             )
         }
-    };
+    }
+}
 
-    format!("- missing '{name}', {type_description}")
+fn missing_type_error(name: &SmolStr, interface_declaration: &PropertyDeclaration) -> String {
+    format!("- missing '{name}', {}", missing_type_description(interface_declaration))
 }
 
 /// [PartialEq] for [Function] means that the argument names must match. That is not required for a valid interface implementation.
@@ -464,7 +465,7 @@ fn property_matches_interface(
     child_id: Option<&SmolStr>,
 ) -> Result<(), String> {
     if property.property_type == Type::Invalid {
-        return Err(missing_type_description(name, interface_declaration));
+        return Err(missing_type_error(name, interface_declaration));
     }
 
     let mut errors = Vec::new();
@@ -476,6 +477,13 @@ fn property_matches_interface(
         &property.property_type,
         &interface_declaration.property_type,
     ) {
+        let is_same_type = match (&interface_declaration.property_type, &property.property_type) {
+            (Type::Callback(..), Type::Callback(..)) | (Type::Function(..), Type::Function(..)) => {
+                true
+            }
+            (lhs, rhs) => lhs.is_property_type() && rhs.is_property_type(),
+        };
+
         let type_description = |property_type: &Type| match property_type {
             Type::Callback(..) => {
                 format!("a '{}'", property_type)
@@ -488,9 +496,19 @@ fn property_matches_interface(
             }
         };
 
-        let expected = type_description(&interface_declaration.property_type);
+        let expected = if !is_same_type {
+            missing_type_description(interface_declaration)
+        } else {
+            type_description(&interface_declaration.property_type)
+        };
+
         let actual = type_description(&property.property_type);
         errors.push(format!("- '{member_name}' must be {expected} (found {actual})"));
+
+        if !is_same_type {
+            // Visibility and purity are unlikely to make sense, so return early in this case.
+            return Err(errors.join("\n"));
+        }
     }
 
     if property.property_visibility != interface_declaration.visibility {
@@ -505,7 +523,7 @@ fn property_matches_interface(
         errors.push(format!("- '{member_name}' must be 'pure'"));
     }
 
-    if errors.is_empty() { Ok(()) } else { Err(errors.into_iter().join("\n")) }
+    if errors.is_empty() { Ok(()) } else { Err(errors.join("\n")) }
 }
 
 fn apply_uses_statement_function_binding(
