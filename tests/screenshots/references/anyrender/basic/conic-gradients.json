@@ -69,7 +69,14 @@
           ]
         }
       },
-      "brush_transform": null,
+      "brush_transform": [
+        0.0,
+        -1.0,
+        1.0,
+        0.0,
+        0.0,
+        21.3333
+      ],
       "fill": "NonZero",
       "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
       "transform": [
@@ -188,7 +195,14 @@
           ]
         }
       },
-      "brush_transform": null,
+      "brush_transform": [
+        0.0,
+        -1.0,
+        1.0,
+        0.0,
+        0.0,
+        21.3333
+      ],
       "fill": "NonZero",
       "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
       "transform": [
@@ -304,7 +318,14 @@
           ]
         }
       },
-      "brush_transform": null,
+      "brush_transform": [
+        0.0,
+        -1.0,
+        1.0,
+        0.0,
+        0.0,
+        21.3333
+      ],
       "fill": "NonZero",
       "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
       "transform": [
@@ -387,7 +408,14 @@
           ]
         }
       },
-      "brush_transform": null,
+      "brush_transform": [
+        0.0,
+        -1.0,
+        1.0,
+        0.0,
+        0.0,
+        21.3333
+      ],
       "fill": "NonZero",
       "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
       "transform": [
@@ -470,7 +498,14 @@
           ]
         }
       },
-      "brush_transform": null,
+      "brush_transform": [
+        0.0,
+        -1.0,
+        1.0,
+        0.0,
+        0.0,
+        21.3333
+      ],
       "fill": "NonZero",
       "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
       "transform": [
@@ -569,7 +604,14 @@
           ]
         }
       },
-      "brush_transform": null,
+      "brush_transform": [
+        0.0,
+        -1.0,
+        1.0,
+        0.0,
+        0.0,
+        21.3333
+      ],
       "fill": "NonZero",
       "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
       "transform": [
@@ -700,7 +742,14 @@
           ]
         }
       },
-      "brush_transform": null,
+      "brush_transform": [
+        0.0,
+        -1.0,
+        1.0,
+        0.0,
+        0.0,
+        21.3333
+      ],
       "fill": "NonZero",
       "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
       "transform": [
@@ -799,7 +848,14 @@
           ]
         }
       },
-      "brush_transform": null,
+      "brush_transform": [
+        0.0,
+        -1.0,
+        1.0,
+        0.0,
+        0.0,
+        21.3333
+      ],
       "fill": "NonZero",
       "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
       "transform": [
@@ -882,7 +938,14 @@
           ]
         }
       },
-      "brush_transform": null,
+      "brush_transform": [
+        0.0,
+        -1.0,
+        1.0,
+        0.0,
+        0.0,
+        21.3333
+      ],
       "fill": "NonZero",
       "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
       "transform": [
@@ -997,7 +1060,14 @@
           ]
         }
       },
-      "brush_transform": null,
+      "brush_transform": [
+        0.0,
+        -1.0,
+        1.0,
+        0.0,
+        0.0,
+        21.3333
+      ],
       "fill": "NonZero",
       "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
       "transform": [
@@ -1096,7 +1166,14 @@
           ]
         }
       },
-      "brush_transform": null,
+      "brush_transform": [
+        0.0,
+        -1.0,
+        1.0,
+        0.0,
+        0.0,
+        21.3333
+      ],
       "fill": "NonZero",
       "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
       "transform": [

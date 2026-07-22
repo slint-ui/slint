@@ -990,13 +990,23 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
                 )
             }
             Brush::ConicGradient(gradient) => {
-                let center = kurbo::Point::new(shape_size.width / 2., shape_size.height / 2.);
+                let (center_x, center_y) = gradient.center_or_default_scaled(
+                    shape_size.width as f32,
+                    shape_size.height as f32,
+                    self.scale_factor.get(),
+                );
+                let center = kurbo::Point::new(center_x as f64, center_y as f64);
 
                 let mut peniko_gradient =
                     peniko::Gradient::new_sweep(center, 0., 360f32.to_radians());
                 peniko_gradient.stops = convert_color_stops(gradient.stops());
 
-                (peniko_gradient.into(), None)
+                // Sweep gradients start at 3 o'clock (east); Slint's 0° is at
+                // 12 o'clock, so rotate the brush by -90° around the center.
+                (
+                    peniko_gradient.into(),
+                    Some(kurbo::Affine::rotate_about(-std::f64::consts::FRAC_PI_2, center)),
+                )
             }
             _ => return None,
         })

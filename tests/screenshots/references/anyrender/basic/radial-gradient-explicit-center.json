@@ -303,7 +303,14 @@
           ]
         }
       },
-      "brush_transform": null,
+      "brush_transform": [
+        0.0,
+        -1.0,
+        1.0,
+        0.0,
+        0.0,
+        21.3333
+      ],
       "fill": "NonZero",
       "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
       "transform": [
@@ -327,8 +334,8 @@
           "kind": {
             "Sweep": {
               "center": {
-                "x": 10.6667,
-                "y": 10.6667
+                "x": 5.0,
+                "y": 5.0
               },
               "end_angle": 6.2832,
               "start_angle": 0.0
@@ -386,7 +393,14 @@
           ]
         }
       },
-      "brush_transform": null,
+      "brush_transform": [
+        0.0,
+        -1.0,
+        1.0,
+        0.0,
+        0.0,
+        10.0
+      ],
       "fill": "NonZero",
       "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
       "transform": [
@@ -410,8 +424,8 @@
           "kind": {
             "Sweep": {
               "center": {
-                "x": 10.6667,
-                "y": 10.6667
+                "x": 17.0,
+                "y": 17.0
               },
               "end_angle": 6.2832,
               "start_angle": 0.0
@@ -469,7 +483,14 @@
           ]
         }
       },
-      "brush_transform": null,
+      "brush_transform": [
+        0.0,
+        -1.0,
+        1.0,
+        0.0,
+        0.0,
+        34.0
+      ],
       "fill": "NonZero",
       "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
       "transform": [
