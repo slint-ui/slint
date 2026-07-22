@@ -2,29 +2,17 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { CosmicFontSettings, CosmicPalette } from "styling.slint";
-import { RadioButtonBase } from "../common/radiobutton-base.slint";
-import { RadioGroupBase, RadioEntry } from "../common/radiogroup-base.slint";
-import { StateLayer } from "components.slint";
+import { RadioButtonImplBase, RadioGroupImplBase } from "../common/radiogroup-base.slint";
 
-export { RadioEntry }
-
-component RadioButton {
-    in property <string> label <=> base.label;
-    in property <bool> enabled <=> base.enabled;
-    in property <bool> checked <=> base.checked;
-    out property <bool> has-focus <=> base.has-focus;
-
-    callback selected <=> base.selected;
-    callback focus-change <=> base.focus-change;
-
+export component RadioButtonImpl inherits RadioButtonImplBase {
     private property <brush> dot-color: root.checked ? CosmicPalette.accent-background : transparent;
     private property <color> text-color: CosmicPalette.control-foreground;
 
-    base := RadioButtonBase { }
+    min-height: max(28px, layout.min-height);
 
     states [
-        disabled when !root.enabled: {
-            opacity: 0.5;
+        disabled when !root.enabled || !root.group-enabled: {
+            layout.opacity: 0.5;
         }
         checked when root.checked: {
             border.border-color: CosmicPalette.accent-background;
@@ -60,74 +48,19 @@ component RadioButton {
             }
         }
 
-        if root.label != "": Text {
-            text: root.label;
+        if root.text != "": Text {
+            text: root.text;
             color: root.text-color;
-            font-size: CosmicFontSettings.body.font-size;
-            font-weight: CosmicFontSettings.body.font-weight;
             vertical-alignment: center;
             horizontal-alignment: left;
         }
     }
 }
 
-export component RadioGroup {
-    in property <string> title;
-    in property <bool> enabled: true;
-    in property <Orientation> orientation: Orientation.vertical;
-
-    in property <[RadioEntry]> model <=> base.model;
-    in-out property <int> current-index <=> base.current-index;
-    in-out property <string> current-value <=> base.current-value;
-
-    out property <bool> has-focus: root.focus-depth > 0;
-
-    callback selected <=> base.selected;
-
-    private property <int> focus-depth: 0;
-
-    base := RadioGroupBase {
-        enabled: root.enabled;
-    }
-
-    accessible-role: radio-group;
-    accessible-label: root.title;
-    accessible-enabled: root.enabled;
-    accessible-value <=> root.current-value;
-
-    VerticalLayout {
-        spacing: 8px;
-
-        if root.title != "": Text {
-            color: root.enabled ? CosmicPalette.foreground : CosmicPalette.text-disabled;
-            font-size: CosmicFontSettings.body-strong.font-size;
-            font-weight: CosmicFontSettings.body-strong.font-weight;
-            text: root.title;
-        }
-
-        GridLayout {
-            spacing: 8px;
-
-            for entry[index] in root.model: RadioButton {
-                row: root.orientation == Orientation.vertical ? index : 0;
-                col: root.orientation == Orientation.vertical ? 0 : index;
-                label: entry.text;
-                enabled: root.enabled && !entry.disabled;
-                checked: root.current-index == index;
-                height: 28px;
-
-                focus-change(gained) => {
-                    if (gained) {
-                        root.focus-depth += 1;
-                    } else {
-                        root.focus-depth = max(0, root.focus-depth - 1);
-                    }
-                }
-
-                selected => {
-                    base.select(index);
-                }
-            }
-        }
-    }
+export component RadioGroupImpl inherits RadioGroupImplBase {
+    title-color: root.enabled ? CosmicPalette.foreground : CosmicPalette.text-disabled;
+    title-font-size: CosmicFontSettings.body-strong.font-size;
+    title-font-weight: CosmicFontSettings.body-strong.font-weight;
 }
+
+export component RadioGroup inherits RadioGroup { }

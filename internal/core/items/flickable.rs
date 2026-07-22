@@ -65,6 +65,7 @@ pub struct Flickable {
     pub viewport_height: Property<LogicalLength>,
 
     pub interactive: Property<bool>,
+    pub mouse_drag_pan_enabled: Property<bool>,
 
     pub flicked: Callback<VoidArg>,
 
@@ -138,7 +139,7 @@ impl Item for Flickable {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
+        _: &mut super::MouseCursorInner,
     ) -> InputEventFilterResult {
         if let Some(pos) = event.position() {
             let geometry = Self::geometry_without_virtual_keyboard(self_rc);
@@ -152,7 +153,7 @@ impl Item for Flickable {
                 return InputEventFilterResult::Intercept;
             }
         }
-        if !self.interactive() && !matches!(event, MouseEvent::Wheel { .. }) {
+        if !self.accepts_pan_event(event) {
             return InputEventFilterResult::ForwardAndIgnore;
         }
         self.data.handle_mouse_filter(self, event, window_adapter, self_rc)
@@ -163,9 +164,9 @@ impl Item for Flickable {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
+        _: &mut super::MouseCursorInner,
     ) -> InputEventResult {
-        if !self.interactive() && !matches!(event, MouseEvent::Wheel { .. }) {
+        if !self.accepts_pan_event(event) {
             return InputEventResult::EventIgnored;
         }
         if let Some(pos) = event.position() {
@@ -244,6 +245,22 @@ impl ItemConsts for Flickable {
 }
 
 impl Flickable {
+    /// Whether the event may pan this Flickable, given that `interactive` and
+    /// `mouse-drag-pan-enabled` can disable it.
+    fn accepts_pan_event(self: Pin<&Self>, event: &MouseEvent) -> bool {
+        match event {
+            MouseEvent::Wheel { .. } => true,
+            MouseEvent::Pressed { .. } | MouseEvent::Moved { .. } | MouseEvent::Released { .. } => {
+                self.interactive() && (event.is_from_touch() || self.mouse_drag_pan_enabled())
+            }
+            MouseEvent::Exit
+            | MouseEvent::DragMove { .. }
+            | MouseEvent::Drop { .. }
+            | MouseEvent::PinchGesture { .. }
+            | MouseEvent::RotationGesture { .. } => self.interactive(),
+        }
+    }
+
     fn choose_min_move(
         current_view_start: Coord, // vx or vy
         view_len: Coord,           // w or h
@@ -774,7 +791,7 @@ impl FlickableData {
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                 InputEventFilterResult::ForwardEvent
             }
-            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
+            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
         }
@@ -916,7 +933,7 @@ impl FlickableData {
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                 InputEventResult::EventIgnored
             }
-            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
+            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => InputEventResult::EventIgnored,
         }
     }
 }

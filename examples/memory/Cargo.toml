@@ -3,7 +3,7 @@
 
 [package]
 name = "memory"
-version = "1.17.0"
+version = "1.18.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition.workspace = true
 publish = false
@@ -14,7 +14,7 @@ path = "main.rs"
 name = "memory"
 
 [dependencies]
-rand = "0.9"
+rand = "0.10"
 slint = { path = "../../api/rs/slint" }
 
 [build-dependencies]
@@ -32,4 +32,4 @@ slint-build = { path = "../../api/rs/build" }
 #wasm# wasm-bindgen = { version = "0.2" }
 #wasm# web-sys = { version = "0.3", features=["console"] }
 #wasm# console_error_panic_hook = "0.1.5"
-#wasm# getrandom = { version = "0.3.4", features = ["wasm_js"] }
+#wasm# getrandom = { version = "0.4", features = ["wasm_js"] }

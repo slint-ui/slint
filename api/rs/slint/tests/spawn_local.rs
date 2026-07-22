@@ -86,7 +86,11 @@ fn main() {
 fn with_context() {
     use i_slint_core::SlintContext;
     let ctx = SlintContext::new(Box::new(i_slint_backend_testing::TestingBackend::new(
-        i_slint_backend_testing::TestingBackendOptions { mock_time: true, threading: true },
+        i_slint_backend_testing::TestingBackendOptions {
+            mock_time: true,
+            threading: true,
+            ..Default::default()
+        },
     )));
     let handle = ctx.spawn_local(async { String::from("Hello") }).unwrap();
     ctx.spawn_local(async move { panic!("Aborted task") }).unwrap().abort();
@@ -98,4 +102,93 @@ fn with_context() {
         proxy.quit_event_loop().unwrap();
     });
     ctx.run_event_loop().unwrap()
+}
+
+/// A minimal backend whose event loop proxy fails once the loop has terminated, like
+/// winit does. Used to check that waking a still-pending future during teardown doesn't panic.
+mod terminating_backend {
+    use std::collections::VecDeque;
+    use std::rc::Rc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{Arc, Mutex};
+
+    use slint::platform::{EventLoopProxy, Platform, PlatformError, WindowAdapter};
+
+    enum Event {
+        Quit,
+        Invoke(Box<dyn FnOnce() + Send>),
+    }
+
+    #[derive(Clone, Default)]
+    pub struct Backend {
+        queue: Arc<Mutex<VecDeque<Event>>>,
+        terminated: Arc<AtomicBool>,
+    }
+
+    impl EventLoopProxy for Backend {
+        fn quit_event_loop(&self) -> Result<(), slint::EventLoopError> {
+            self.queue.lock().unwrap().push_back(Event::Quit);
+            Ok(())
+        }
+
+        fn invoke_from_event_loop(
+            &self,
+            event: Box<dyn FnOnce() + Send>,
+        ) -> Result<(), slint::EventLoopError> {
+            if self.terminated.load(Ordering::Relaxed) {
+                return Err(slint::EventLoopError::EventLoopTerminated);
+            }
+            self.queue.lock().unwrap().push_back(Event::Invoke(event));
+            Ok(())
+        }
+    }
+
+    impl Platform for Backend {
+        fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+            Err(PlatformError::Unsupported)
+        }
+
+        fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
+            Some(Box::new(self.clone()))
+        }
+
+        fn run_event_loop(&self) -> Result<(), PlatformError> {
+            // The test enqueues everything before running, so an empty queue means we're done.
+            while let Some(event) = self.queue.lock().unwrap().pop_front() {
+                match event {
+                    Event::Quit => break,
+                    Event::Invoke(event) => event(),
+                }
+            }
+            self.terminated.store(true, Ordering::Relaxed);
+            Ok(())
+        }
+    }
+}
+
+#[test]
+fn wake_after_event_loop_terminated() {
+    use i_slint_core::SlintContext;
+    use std::sync::{Arc, Mutex};
+    use std::task::{Poll, Waker};
+
+    let ctx = SlintContext::new(Box::new(terminating_backend::Backend::default()));
+
+    // The future stays pending and hands its waker out so we can fire it after the loop quits.
+    let waker: Arc<Mutex<Option<Waker>>> = Arc::default();
+    let waker_clone = waker.clone();
+    let _handle = ctx
+        .spawn_local(std::future::poll_fn(move |cx| -> Poll<()> {
+            *waker_clone.lock().unwrap() = Some(cx.waker().clone());
+            Poll::Pending
+        }))
+        .unwrap();
+
+    // Run the loop once so the future is polled (storing its waker), then quit.
+    ctx.event_loop_proxy().unwrap().quit_event_loop().unwrap();
+    ctx.run_event_loop().unwrap();
+
+    // The event loop is gone. Waking the still-pending future used to panic with
+    // "No event loop despite we checked"; now the late wake is simply dropped.
+    waker.lock().unwrap().take().unwrap().wake();
 }

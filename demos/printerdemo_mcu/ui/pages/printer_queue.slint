@@ -82,7 +82,6 @@ component NarrowPrintQueueElement {
 
     callback cancel-job();
 
-    width: 152px;
     height: layout.height + 16px;
 
     ShadowBox { }
@@ -106,7 +105,6 @@ component NarrowPrintQueueElement {
         }
 
         Text {
-            width: 130px;
             text: root.queue-item.title;
             overflow: elide;
             color: DemoPalette.text-foreground-color;

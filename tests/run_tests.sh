@@ -52,4 +52,8 @@ if [ "$driver" = "rust" ] && [ -n "$filter" ]; then
   fi
 fi
 
-SLINT_TEST_FILTER="$filter" cargo test -p "test-driver-$driver" $test_bin_flag "$@"
+# The integration tests are their own workspace; select it explicitly so the
+# script works regardless of the current directory.
+manifest="$(cd "$(dirname "$0")" && pwd)/Cargo.toml"
+
+SLINT_TEST_FILTER="$filter" cargo test --manifest-path "$manifest" -p "test-driver-$driver" $test_bin_flag "$@"

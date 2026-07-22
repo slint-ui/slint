@@ -3,24 +3,25 @@
 
 import { ListView  } from "std-widgets.slint";
 
-MyListItem := Rectangle {
+component MyListItem inherits Rectangle {
     callback clicked <=> ta.clicked;
-    property <string> string;
+    in-out property <string> string;
 
     height: 100px;
 
     Text {
+        x:0;y:0;
         text: string;
     }
 
     ta := TouchArea {  }
 }
 
-TestCase := Window {
+export component TestCase inherits Window {
     width: 300px;
     height: 500px;
 
-    property <string> value;
+    in-out property <string> value;
 
     HorizontalLayout {
         lv := ListView {
@@ -30,7 +31,7 @@ TestCase := Window {
             }
         }
     }
-    property <int> viewport-height: lv.viewport-height / 1px;
+    in-out property <int> viewport-height: lv.viewport-height / 1px;
 }
 
 /*

@@ -95,14 +95,14 @@ export component MenuItem {
 Pass the `--no-default-translation-context` flag to `slint-tr-extractor` if you don't want the component name to be the default context. The same option needs to be passed to the Slint compiler:
 
 <Tabs syncKey="dev-language">
-<TabItem label="C++" icon="cpp">
-Set the <LangRefLink lang="cpp" relpath="cmake_reference.html#bundle-translations">`SLINT_NO_DEFAULT_TRANSLATION_CONTEXT`</LangRefLink> target property on your CMake target.
-</TabItem>
-<TabItem label="Rust" icon="rust">
-With <LangRefLink lang="rust-slint-build" relpath="struct.compilerconfiguration#method.set_default_translation_context">`slint_build::CompilerConfiguration::set_default_translation_context(slint_build::DefaultTranslationContext::None)`</LangRefLink>
+<TabItem label="Rust" icon="seti:rust">
+With <LangRefLink lang="rust-slint-build" relpath="struct.compilerconfiguration#method.with_default_translation_context">`slint_build::CompilerConfiguration::with_default_translation_context(slint_build::DefaultTranslationContext::None)`</LangRefLink>
 when using a build script.
 With <LangRefLink lang="rust-slint-interpreter" relpath="struct.compiler#method.set_default_translation_context">`slint_interpreter::Compiler::set_default_translation_context(slint_interpreter::DefaultTranslationContext::None)`</LangRefLink>
 when using the `slint-interpreter` crate.
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+Set the <LangRefLink lang="cpp" relpath="cmake-reference/disable-default-translation-context/">`SLINT_NO_DEFAULT_TRANSLATION_CONTEXT`</LangRefLink> target property on your CMake target.
 </TabItem>
 </Tabs>
 
@@ -175,7 +175,32 @@ msgfmt translation.po -o translation.mo
 
 ### Select and Load Translations
 <Tabs syncKey="dev-language">
-<TabItem label="C++" icon="cpp">
+<TabItem label="Rust" icon="seti:rust">
+
+First, enable the `gettext` feature of the `slint` crate in the `features` section to gain access to the translations API
+and activate run-time translation support.
+
+Next, use the <LangRefLink lang="rust-slint" relpath="macro.init_translations">`slint::init_translations!`</LangRefLink> macro to specify the base location of your `.mo` files.
+This is the `dir_name` in the scheme of the previous section. Slint expects the `.mo` files to be in the
+corresponding sub-directories and their file name - `domain_name` - must match the package name
+in your `Cargo.toml`. This is often the same as the crate name.
+
+For example:
+
+```rust
+slint::init_translations!(concat!(env!("CARGO_MANIFEST_DIR"), "/lang/"));
+```
+
+For example, if your `Cargo.toml` contains the following lines and the user's locale is `fr`:
+
+```toml
+[package]
+name = "gallery"
+```
+
+With these settings, Slint looks for `gallery.mo` in the `lang/fr/LC_MESSAGES/gallery.mo`.
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
 
 First, enable the `SLINT_FEATURE_GETTEXT` cmake option when compiling Slint to gain access to
 the translations API and activate run-time translation support.
@@ -215,31 +240,6 @@ int main()
 For example, if you're using the above and the user's locale is `fr`,
 Slint looks for `my_application.mo` in the `lang/fr/LC_MESSAGES/` directory.
 </TabItem>
-<TabItem label="Rust" icon="rust">
-
-First, enable the `gettext` feature of the `slint` crate in the `features` section to gain access to the translations API
-and activate run-time translation support.
-
-Next, use the <LangRefLink lang="rust-slint" relpath="macro.init_translations">`slint::init_translations!`</LangRefLink> macro to specify the base location of your `.mo` files.
-This is the `dir_name` in the scheme of the previous section. Slint expects the `.mo` files to be in the
-corresponding sub-directories and their file name - `domain_name` - must match the package name
-in your `Cargo.toml`. This is often the same as the crate name.
-
-For example:
-
-```rust
-slint::init_translations!(concat!(env!("CARGO_MANIFEST_DIR"), "/lang/"));
-```
-
-For example, if your `Cargo.toml` contains the following lines and the user's locale is `fr`:
-
-```toml
-[package]
-name = "gallery"
-```
-
-With these settings, Slint looks for `gallery.mo` in the `lang/fr/LC_MESSAGES/gallery.mo`.
-</TabItem>
 </Tabs>
 
 ## Bundled Translations
@@ -256,17 +256,7 @@ path/<lang>/LC_MESSAGES/<domain>.po
 
 ### Bundling
 <Tabs syncKey="dev-language">
-<TabItem label="C++" icon="cpp">
-Set the <LangRefLink lang="cpp" relpath="cmake_reference.html#bundle-translations">`SLINT_BUNDLE_TRANSLATIONS`</LangRefLink> property in CMake:
-
-```cmake
-set_property(TARGET my_application PROPERTY SLINT_BUNDLE_TRANSLATIONS "${CMAKE_CURRENT_SOURCE_DIR}/lang")
-```
-
-the `<domain>` is the cmake target name.
-
-</TabItem>
-<TabItem label="Rust" icon="rust">
+<TabItem label="Rust" icon="seti:rust">
 
 Use `slint_build::CompilerConfiguration`'s <LangRefLink lang="rust-slint-build" relpath="struct.compilerconfiguration#method.with_bundled_translations">`with_bundled_translations()`</LangRefLink> function to set up bundling in
 `build.rs`:
@@ -279,6 +269,16 @@ slint_build::compile_with_config("path/to/main-ui.slint", config).unwrap();
 
 The `<domain>` is the crate name.
 </TabItem>
+<TabItem label="C++" icon="seti:cpp">
+Set the <LangRefLink lang="cpp" relpath="cmake-reference/bundle-translations/">`SLINT_BUNDLE_TRANSLATIONS`</LangRefLink> property in CMake:
+
+```cmake
+set_property(TARGET my_application PROPERTY SLINT_BUNDLE_TRANSLATIONS "${CMAKE_CURRENT_SOURCE_DIR}/lang")
+```
+
+the `<domain>` is the cmake target name.
+
+</TabItem>
 </Tabs>
 
 
@@ -289,14 +289,14 @@ If you enable the `std` feature with Slint, language for translations is detecte
 if one of the bundled language matches the selected locale, it will be used.
 
 <Tabs syncKey="dev-language">
-<TabItem label="C++" icon="cpp">
-Use the <LangRefLink lang="cpp" relpath="api/function_namespaceslint_1a18aba736373254f5be3362941f3ddbcd.html#_CPPv4N5slint26select_bundled_translationENSt11string_viewE">`slint::select_bundled_translation`</LangRefLink> function to change translations at runtime.
-</TabItem>
-<TabItem label="Rust" icon="rust">
+<TabItem label="Rust" icon="seti:rust">
 Use the <LangRefLink lang="rust-slint" relpath="fn.select_bundled_translation.html">`slint::select_bundled_translation`</LangRefLink> function to change translations at runtime.
 </TabItem>
-<TabItem label="Python">
-Use the <LangRefLink lang="python" relpath="slint#init_translations">`slint.init_translations()`</LangRefLink> function to change translations at runtime.
+<TabItem label="C++" icon="seti:cpp">
+Use the <LangRefLink lang="cpp" relpath="api/slint/select-bundled-translation/">`slint::select_bundled_translation`</LangRefLink> function to change translations at runtime.
+</TabItem>
+<TabItem label="Python" icon="seti:python">
+Use the <LangRefLink lang="python" relpath="api/functions/init_translations/">`slint.init_translations()`</LangRefLink> function to change translations at runtime.
 </TabItem>
 </Tabs>
 
@@ -305,7 +305,16 @@ Use the <LangRefLink lang="python" relpath="slint#init_translations">`slint.init
 Make sure the `gettext` feature was enabled when building slint-viewer.
 Use the `--translation-domain` and `--translation-dir` command line options to load translations for preview.
 
-## Selecting the decimal separator
+## Selecting the Decimal Separator
 
-The current used decimal separator can be read with <Link type="Platform.decimal-separator" label="decimal-separator" />. As default the dot `.` is used as decimal separator.
-When bundling the languages, the decimal separator will be determined during compile time and bundled into the software, otherwise it will be determined from the system locale
+Conversions between `float` and `string` use the locale's decimal separator,
+for example the comma (`,`) in a German locale.
+See <Link type="NumberStringConversion" label="Converting Between Numbers and Strings" /> for the conversion rules.
+
+Read the currently used separator from <Link type="Platform.decimal-separator" label="Platform.decimal-separator" />.
+It defaults to the dot (`.`).
+
+When bundling translations, the decimal separator of each language is determined at compile time
+and bundled with the application:
+selecting a translation also selects its decimal separator.
+When the `gettext` feature is enabled, the decimal separator is determined from the system locale.

@@ -28,9 +28,9 @@ component Tab {
 
         VerticalLayout {
             spacing: root.has-icon ? 7px : 0;
+            cross-axis-alignment: center;
 
             if (root.has-icon) : Image {
-                x: (parent.width - self.width) / 2;
                 width: 24px;
                 height: 24px;
                 source: root.icon;

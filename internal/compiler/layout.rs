@@ -13,6 +13,9 @@ use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
+/// Number of slots a cell occupies in a box layout cache: position and size.
+pub const BOX_LAYOUT_CACHE_ENTRIES_PER_CELL: usize = 2;
+
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum Orientation {
     Horizontal,
@@ -197,12 +200,26 @@ pub struct LayoutConstraints {
     pub fixed_height: bool,
 }
 
+/// The [`LayoutConstraints`] fields along one orientation.
+pub struct OrientationConstraints<'a> {
+    pub min: &'a Option<NamedReference>,
+    pub max: &'a Option<NamedReference>,
+    pub preferred: &'a Option<NamedReference>,
+    pub stretch: &'a Option<NamedReference>,
+    /// The size is set by an explicit `width`/`height` binding.
+    pub fixed: bool,
+}
+
 impl LayoutConstraints {
-    /// Build the constraints for the given element
+    /// Build the constraints for the given element.
     ///
-    /// Report diagnostics when both constraints and fixed size are set
-    /// (one can set the level to warning to keep compatibility to old version of Slint)
-    pub fn new(element: &ElementRc, diag: &mut BuildDiagnostics, level: DiagnosticLevel) -> Self {
+    /// When `diag` is `Some`, a redundant size constraint (e.g. both `width` and `min-width`) is
+    /// reported at the given level; pass `None` to compute the constraints without reporting (e.g.
+    /// when another pass owns that diagnostic).
+    pub fn new(
+        element: &ElementRc,
+        mut diag: Option<(&mut BuildDiagnostics, DiagnosticLevel)>,
+    ) -> Self {
         let mut constraints = Self {
             min_width: binding_reference(element, "min-width"),
             max_width: binding_reference(element, "max-width"),
@@ -226,7 +243,8 @@ impl LayoutConstraints {
                         &other_prop.element(),
                         other_prop.name(),
                         |old, enclosing2, d2| {
-                            if Weak::ptr_eq(enclosing1, enclosing2)
+                            if let Some((diag, level)) = &mut diag
+                                && Weak::ptr_eq(enclosing1, enclosing2)
                                 && old.priority.saturating_add(d2)
                                     <= binding.priority.saturating_add(depth)
                             {
@@ -236,7 +254,7 @@ impl LayoutConstraints {
                                         other_prop.name()
                                     ),
                                     binding.to_source_location(),
-                                    level,
+                                    *level,
                                 );
                             }
                         },
@@ -279,36 +297,48 @@ impl LayoutConstraints {
         }
     }
 
+    pub fn for_orientation(&self, orientation: Orientation) -> OrientationConstraints<'_> {
+        match orientation {
+            Orientation::Horizontal => OrientationConstraints {
+                min: &self.min_width,
+                max: &self.max_width,
+                preferred: &self.preferred_width,
+                stretch: &self.horizontal_stretch,
+                fixed: self.fixed_width,
+            },
+            Orientation::Vertical => OrientationConstraints {
+                min: &self.min_height,
+                max: &self.max_height,
+                preferred: &self.preferred_height,
+                stretch: &self.vertical_stretch,
+                fixed: self.fixed_height,
+            },
+        }
+    }
+
     // Iterate over the constraint with a reference to a property, and the corresponding member in the i_slint_core::layout::LayoutInfo struct
     pub fn for_each_restrictions(
         &self,
         orientation: Orientation,
     ) -> impl Iterator<Item = (&NamedReference, &'static str)> {
-        let (min, max, preferred, stretch) = match orientation {
-            Orientation::Horizontal => {
-                (&self.min_width, &self.max_width, &self.preferred_width, &self.horizontal_stretch)
-            }
-            Orientation::Vertical => {
-                (&self.min_height, &self.max_height, &self.preferred_height, &self.vertical_stretch)
-            }
-        };
+        let c = self.for_orientation(orientation);
         std::iter::empty()
-            .chain(min.as_ref().map(|x| {
+            .chain(c.min.as_ref().map(|x| {
                 if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
                     (x, "min")
                 } else {
                     (x, "min_percent")
                 }
             }))
-            .chain(max.as_ref().map(|x| {
+            .chain(c.max.as_ref().map(|x| {
                 if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
                     (x, "max")
                 } else {
                     (x, "max_percent")
                 }
             }))
-            .chain(preferred.as_ref().map(|x| (x, "preferred")))
-            .chain(stretch.as_ref().map(|x| (x, "stretch")))
+            .chain(c.preferred.as_ref().map(|x| (x, "preferred")))
+            .chain(c.stretch.as_ref().map(|x| (x, "stretch")))
     }
 
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
@@ -615,7 +645,7 @@ pub struct BoxLayout {
     pub orientation: Orientation,
     pub elems: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,
-    /// The `align-items` property, if set.
+    /// The `cross-axis-alignment` property, if set.
     pub cross_alignment: Option<NamedReference>,
 }
 
@@ -638,11 +668,34 @@ pub struct FlexboxLayout {
     pub geometry: LayoutGeometry,
     pub direction: Option<NamedReference>,
     pub align_content: Option<NamedReference>,
-    pub align_items: Option<NamedReference>,
+    pub cross_axis_alignment: Option<NamedReference>,
     pub flex_wrap: Option<NamedReference>,
 }
 
 impl FlexboxLayout {
+    /// If `elem` is a (lowered, inline) FlexboxLayout, return its layout
+    /// description. The struct is embedded in the synthesized
+    /// `layoutinfo-{h,v}` / `layout-cache` bindings on the element.
+    pub fn from_element(elem: &ElementRc) -> Option<FlexboxLayout> {
+        use crate::expression_tree::Expression;
+        // The `layoutinfo-{h,v}` property's binding (on this element or its
+        // base component's root) holds a `ComputeFlexboxLayoutInfo` with the
+        // layout when the element is a FlexboxLayout.
+        let nr = {
+            let eb = elem.borrow();
+            eb.layout_info_prop(Orientation::Vertical)
+                .or_else(|| eb.layout_info_prop(Orientation::Horizontal))
+                .cloned()
+        }?;
+        let target = nr.element();
+        let target = target.borrow();
+        let binding = target.bindings.get(nr.name())?;
+        match binding.borrow().expression.ignore_debug_hooks() {
+            Expression::ComputeFlexboxLayoutInfo { layout, .. } => Some(layout.clone()),
+            _ => None,
+        }
+    }
+
     /// Try to determine the flex direction at compile time from a constant binding.
     /// Returns None if the direction is set at runtime.
     fn compile_time_direction(&self) -> Option<FlexboxLayoutDirection> {
@@ -712,7 +765,7 @@ impl FlexboxLayout {
         if let Some(e) = self.align_content.as_mut() {
             visitor(&mut *e)
         }
-        if let Some(e) = self.align_items.as_mut() {
+        if let Some(e) = self.cross_axis_alignment.as_mut() {
             visitor(&mut *e)
         }
         if let Some(e) = self.flex_wrap.as_mut() {
@@ -839,6 +892,16 @@ pub fn implicit_layout_info_call(
             }),
         };
     }
+}
+
+/// The stretch factor of elements based on text or image items, which never
+/// stretch: their `layout_info` always reports stretch 0, and a layoutinfo
+/// property synthesized later can only merge it with smaller values.
+pub fn static_native_stretch(elem: &ElementRc) -> Option<Expression> {
+    elem.borrow()
+        .builtin_type()
+        .filter(|b| matches!(b.name.as_str(), "Text" | "StyledText" | "TextInput" | "Image"))
+        .map(|_| Expression::NumberLiteral(0., Unit::None))
 }
 
 /// Create a new property based on the name. (it might get a different name if that property exist)

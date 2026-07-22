@@ -16,7 +16,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: servo ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         # required for servo
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -36,8 +36,12 @@ jobs:
     env:
       CARGO_INCREMENTAL: false
       CARGO_PROFILE_DEV_DEBUG: 0
+      # cargo-apk does not honor the repository's relative `build.target-dir`
+      # (.cargo/config.toml), so point it at an absolute path that matches
+      # where cargo actually writes the artifacts.
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         # required for servo
       - name: Install uv
         uses: astral-sh/setup-uv@v7

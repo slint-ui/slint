@@ -20,7 +20,8 @@ The Model system provides data for repeated elements in Slint's `for` expression
 
 | File | Purpose |
 |------|---------|
-| `internal/core/model.rs` | Model trait, VecModel, ModelRc, Repeater |
+| `internal/core/model.rs` | Model trait, VecModel, ModelRc |
+| `internal/core/model/repeater.rs` | Repeater, RepeaterTracker, RepeaterInner, Conditional |
 | `internal/core/model/adapters.rs` | MapModel, FilterModel, SortModel, ReverseModel |
 | `internal/core/model/model_peer.rs` | Change notification system |
 
@@ -262,7 +263,9 @@ let result = VecModel::from(vec![5, 2, 8, 1, 9])
 
 ## Repeater
 
-The `Repeater<C>` manages instantiation of item trees based on model data.
+The `Repeater<C>` manages instantiation of item trees based on model data. It (along with
+`RepeaterTracker`, `RepeaterInner`, and `Conditional`) is defined in
+`internal/core/model/repeater.rs`, not `model.rs`.
 
 ### Structure
 
@@ -271,18 +274,27 @@ pub struct Repeater<C: RepeatedItemTree>(
     ModelChangeListenerContainer<RepeaterTracker<C>>
 );
 
-struct RepeaterTracker<T: RepeatedItemTree> {
+pub struct RepeaterTracker<T: RepeatedItemTree> {
     inner: RefCell<RepeaterInner<T>>,
     model: Property<ModelRc<T::Data>>,
     is_dirty: Property<bool>,
+    /// Marked dirty when instances are added/removed, separately from `is_dirty`.
+    instance_generation: Property<()>,
     listview_geometry_tracker: PropertyTracker,
 }
 
 struct RepeaterInner<C: RepeatedItemTree> {
     instances: Vec<(RepeatedInstanceState, Option<ItemTreeRc<C>>)>,
+    /// ListView-specific layout state (offset, cached heights, scroll position).
+    layout_state: RepeaterLayoutState,
+}
+
+/// Persistent layout state for a ListView repeater.
+pub struct RepeaterLayoutState {
     offset: usize,              // For ListView virtualization
-    cached_item_height: LogicalLength,
-    // ...
+    cached_item_height: Coord,
+    previous_viewport_y: Coord,
+    anchor_y: Coord,
 }
 ```
 

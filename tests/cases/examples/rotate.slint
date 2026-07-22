@@ -8,7 +8,7 @@
 // The rectangle with the linear gradient should be rotated by 315 degrees
 // inside the other black rectangle
 
-TestCase := Window {
+export component TestCase inherits Window {
     width: 800px;
     height: 600px;
 
@@ -51,6 +51,7 @@ TestCase := Window {
         height: i2.height;
 
         i2 := Image {
+            x:0;y:0;
             rotation-angle: 315deg;
             source: @image-url("../../../logo/slint-logo-square-light-128x128.png");
         }

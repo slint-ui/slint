@@ -28,7 +28,7 @@
         "enabled": true,
         "includes": ["**", "!**/dist/**"],
         "rules": {
-            "recommended": false,
+            "preset": "none",
             "complexity": {
                 "noBannedTypes": "warn",
                 "noUselessConstructor": "error"

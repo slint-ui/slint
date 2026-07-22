@@ -58,6 +58,11 @@ component SearchTextInput  {
     forward_focus: text_input;
     horizontal_stretch: 1;
 
+    accessible-role: AccessibleRole.text-input;
+    accessible-value <=> text;
+    accessible-placeholder-text: placeholder_text;
+    accessible-action-set-value(v) => { text = v; edited(v); }
+
     Rectangle {
         clip: true;
 
@@ -69,6 +74,7 @@ component SearchTextInput  {
             font_weight: MaterialTypography.body_large.font_weight;
             vertical_alignment: center;
             single_line: true;
+            input-type: search;
             color: MaterialPalette.on_surface;
             selection_background_color: MaterialPalette.secondary_container;
             selection_foreground_color: self.color;

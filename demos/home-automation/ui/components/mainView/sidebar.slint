@@ -49,6 +49,7 @@ export component Sidebar inherits Rectangle {
                     background: Palette.alternate-background;
                     HorizontalLayout {
                         alignment: space-around;
+                        cross-axis-alignment: center;
                         HaText {
                             vertical-alignment: center;
                             text: "Lock Controls ";
@@ -56,14 +57,11 @@ export component Sidebar inherits Rectangle {
                             font-size: 1rem;
                         }
 
-                        VerticalLayout {
-                            alignment: center;
-                            Image {
-                                source: @image-url("../../images/lock.svg");
-                                width: 15px;
-                                height: self.width;
-                                colorize: Palette.foreground;
-                            }
+                        Image {
+                            source: @image-url("../../images/lock.svg");
+                            width: 15px;
+                            height: self.width;
+                            colorize: Palette.foreground;
                         }
                     }
 

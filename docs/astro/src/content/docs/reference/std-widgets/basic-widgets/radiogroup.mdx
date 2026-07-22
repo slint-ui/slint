@@ -14,67 +14,38 @@ export component Example inherits Window {
     height: 150px;
     RadioGroup {
         title: "Target Platform";
-        model: [
-            { text: "Desktop" },
-            { text: "Mobile" },
-            { text: "Embedded" },
-        ];
-        current-index: 0;
+        RadioButton { text: "Desktop"; }
+        RadioButton { text: "Mobile"; }
+        RadioButton { text: "Embedded"; }
     }
 }
 ```
 </CodeSnippetMD>
 
-A group of radio buttons where the user can select exactly one option.
+A group of radio buttons where the user picks exactly one option.
+
+`RadioGroup` only accepts `RadioButton` children, either listed statically
+or produced by a single `for` loop.
+`if` inside a `RadioGroup` is not supported, and a `for` must be the only
+child of the group.
 
 ## Properties
 
-### current-index
-<SlintProperty propName="current-index" typeName="int" defaultValue="0" propertyVisibility="in-out">
-The index of the selected entry in `model`.
-```slint "current-index: 1;"
-RadioGroup {
-    model: [
-        { text: "Desktop" },
-        { text: "Mobile" },
-    ];
-    current-index: 1;
-}
-```
-</SlintProperty>
-
 ### current-value
-<SlintProperty propName="current-value" typeName="string" defaultValue='""' propertyVisibility="in-out">
-The `text` of the currently selected entry.
+<SlintProperty propName="current-value" typeName="string" propertyVisibility="out">
+The `text` of the currently selected `RadioButton`. To change the selection from
+host code, set the target `RadioButton`'s `checked` to `true` — typically through
+a two-way binding (`checked <=> model.field`).
 </SlintProperty>
 
 ### enabled
 <SlintProperty propName="enabled" typeName="bool" defaultValue="true">
-When `false`, the entire group and all its radio buttons cannot be interacted with.
+When `false`, the group and its buttons don't react to input.
 </SlintProperty>
 
 ### has-focus
-<SlintProperty propName="has-focus" typeName="bool" defaultValue="false" propertyVisibility="out">
-Set to `true` when any radio button inside the group has keyboard focus.
-</SlintProperty>
-
-### model
-<SlintProperty propName="model" typeName="struct" structName="RadioEntry" defaultValue="[]">
-The list of options to display. Each entry has `text` and an optional `disabled` flag.
-
-```slint 'model: [{ text: "Desktop" }, { text: "Mobile", disabled: true }];'
-RadioGroup {
-    model: [
-        { text: "Desktop" },
-        { text: "Mobile", disabled: true },
-    ];
-}
-```
-
-:::note[Note]
-When setting this property, the `RadioGroup` preserves `current-index` when possible. If the `current-index` is larger than the new model length, it is clamped to the last item in the model.
-:::
-
+<SlintProperty propName="has-focus" typeName="bool" propertyVisibility="out">
+`true` while any radio button in the group has keyboard focus.
 </SlintProperty>
 
 ### title
@@ -92,14 +63,83 @@ Use `Orientation.vertical` (default) to stack options, or `Orientation.horizonta
 ### selected(string)
 Invoked when the user selects a different option. The argument is the `text` of the newly selected entry.
 
-```slint {6-8}
+```slint {4-6}
 RadioGroup {
-    model: [
-        { text: "Desktop" },
-        { text: "Mobile" },
-    ];
+    RadioButton { text: "Desktop"; }
+    RadioButton { text: "Mobile"; }
     selected(value) => {
         debug("Selected: ", value);
+    }
+}
+```
+
+## RadioButton
+
+`RadioButton` is a pseudo-element that only appears inside `RadioGroup`.
+
+### Properties
+
+<SlintProperty propName="text" typeName="string" defaultValue='""'>
+Label shown next to the radio indicator.
+</SlintProperty>
+
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+When `false`, the user can't select this button.
+The button stays visible.
+</SlintProperty>
+
+<SlintProperty propName="checked" typeName="bool" defaultValue="false" propertyVisibility="in-out">
+`true` when this is the currently selected button.
+By default `checked` tracks the group's selection: when a button is clicked
+it becomes `true`, and the previously-checked button's `checked` becomes
+`false`.
+Setting `checked = true` from outside selects this button on the next
+event loop iteration; the previously-checked button goes unchecked.
+Setting `checked = false` on the currently-selected button is reverted —
+the group always has at most one selection.
+Programmatic selection on a disabled button is refused.
+
+Use a two-way binding (`checked <=> model.field`) to keep the
+button in sync with an external property, including with a `for`
+over a model:
+
+```slint
+RadioGroup {
+    for m in [{ name: "Mobile", checked: false }, { name: "Desktop", checked: true }]:
+        RadioButton { text: m.name; checked <=> m.checked; }
+}
+```
+
+A one-way binding (`checked: cond`) works for the initial state and
+stays reactive *until another button in the group is selected* — at
+that point the group writes `checked = false` and the binding to
+`cond` is severed. Prefer `<=>` for cases where `cond` keeps changing.
+</SlintProperty>
+
+### Callbacks
+
+#### toggled()
+Invoked when this button's `checked` state changes — both when it becomes the selection and when another button takes it over.
+
+```slint {3-5}
+RadioGroup {
+    RadioButton {
+        text: "Mobile";
+        toggled => { debug("Mobile is now", self.checked ? "selected" : "unselected"); }
+    }
+}
+```
+
+## Dynamic Buttons
+
+Drive the buttons from a model with `for`.
+The `for` must be the only child of the group — mixing it with static
+`RadioButton` siblings isn't supported.
+
+```slint
+RadioGroup {
+    for option in ["Desktop", "Mobile", "Embedded"]: RadioButton {
+        text: option;
     }
 }
 ```

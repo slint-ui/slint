@@ -14,6 +14,7 @@ use super::r#type::parse_type;
 /// Item { }
 /// Item { property: value; SubElement { } }
 /// Item { if true: Rectangle {} }
+/// Item { match foo { 1: Rectangle {} } }
 /// ```
 pub fn parse_element(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Element);
@@ -51,6 +52,8 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// double_binding <=> element.property;
 /// public pure function foo() {}
 /// changed foo => {}
+/// match (foo) { 1: Elem { } }
+/// match bar.property { 1: Elem { } }
 /// ```
 pub fn parse_element_content(p: &mut impl Parser) {
     let mut had_parse_error = false;
@@ -63,7 +66,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::ColonEqual | SyntaxKind::LBrace => {
                     had_parse_error |= !parse_sub_element(&mut *p)
                 }
-                SyntaxKind::FatArrow | SyntaxKind::LParent if p.peek().as_str() != "if" => {
+                SyntaxKind::FatArrow | SyntaxKind::LParent
+                    if !["if", "match"].contains(&p.peek().as_str()) =>
+                {
                     parse_callback_connection(&mut *p)
                 }
                 SyntaxKind::DoubleArrow => parse_two_way_binding(&mut *p),
@@ -106,11 +111,37 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 _ if p.peek().as_str() == "if" => {
                     parse_if_element(&mut *p);
                 }
+                SyntaxKind::Identifier | SyntaxKind::LParent if p.peek().as_str() == "match" => {
+                    let mut i = 2;
+                    loop {
+                        match p.nth(i).kind() {
+                            SyntaxKind::FatArrow => {
+                                parse_callback_connection(&mut *p);
+                                break;
+                            }
+                            SyntaxKind::LBrace => {
+                                parse_match_element(&mut *p);
+                                break;
+                            }
+                            SyntaxKind::Eof => {
+                                if !had_parse_error {
+                                    p.error("Error: Expected '{'");
+                                    had_parse_error = true;
+                                }
+                                break;
+                            }
+                            _ => i += 1,
+                        }
+                    }
+                }
                 SyntaxKind::LBracket if p.peek().as_str() == "states" => {
                     parse_states(&mut *p);
                 }
                 SyntaxKind::LBracket if p.peek().as_str() == "transitions" => {
                     parse_transitions(&mut *p);
+                }
+                SyntaxKind::Identifier if p.peek().as_str() == "implement" => {
+                    parse_implement_statement(&mut *p);
                 }
                 _ => {
                     if p.peek().as_str() == "changed" {
@@ -219,6 +250,96 @@ fn parse_if_element(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
+/// ```test,MatchElement
+/// match (foo) { one_case: Elem { } }
+/// match foo { one_case: Elem { } another_case: Elem { } }
+/// match (foo) { one_case: Elem { } another_case: Elem { } *: Elem { } }
+/// ```
+fn parse_match_element(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "match");
+    let mut p = p.start_node(SyntaxKind::MatchElement);
+    p.expect(SyntaxKind::Identifier); // "match"
+    parse_expression(&mut *p);
+    if !p.test(SyntaxKind::LBrace) {
+        p.error("Expected '{' to start cases");
+    }
+    if p.peek().kind() == SyntaxKind::Star {
+        p.error("Expected at least one case before wildcard case");
+        {
+            p.test(SyntaxKind::Star);
+            p.test(SyntaxKind::Colon);
+            let mut p = p.start_node(SyntaxKind::MatchCase);
+            drop(p.start_node(SyntaxKind::Expression));
+            parse_sub_element(&mut *p);
+            p.test(SyntaxKind::RBrace);
+        }
+        return;
+    }
+    while ![SyntaxKind::RBrace, SyntaxKind::Star, SyntaxKind::Eof].contains(&p.peek().kind()) {
+        parse_match_case(&mut *p);
+    }
+    if p.peek().kind() == SyntaxKind::Star {
+        parse_wildcard_case(&mut *p);
+    }
+    p.expect(SyntaxKind::RBrace);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,MatchCase
+/// foo: Elem { }
+/// (foo): Elem { }
+/// foo: { }
+/// ```
+fn parse_match_case(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::MatchCase);
+    parse_expression(&mut *p);
+    if !p.test(SyntaxKind::Colon) {
+        p.error("Expected ':' after match case expression");
+        if p.peek().kind() != SyntaxKind::Identifier {
+            p.consume();
+        }
+    }
+    if p.peek().kind() == SyntaxKind::LBrace {
+        // pass case
+        p.expect(SyntaxKind::LBrace);
+        if p.peek().kind() == SyntaxKind::Identifier {
+            p.error("Remove '{ }' around case element");
+            parse_sub_element(&mut *p);
+        }
+        p.expect(SyntaxKind::RBrace);
+        return;
+    }
+    parse_sub_element(&mut *p);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,WildcardMatchCase
+/// *: Elem { }
+/// ```
+fn parse_wildcard_case(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().kind(), SyntaxKind::Star);
+    let mut p = p.start_node(SyntaxKind::WildcardMatchCase);
+    p.expect(SyntaxKind::Star);
+    if !p.test(SyntaxKind::Colon) {
+        p.error("Expected ':' after '*'");
+        if p.peek().kind() != SyntaxKind::Identifier {
+            p.consume();
+        }
+    };
+    if p.peek().kind() == SyntaxKind::LBrace {
+        // pass case
+        p.expect(SyntaxKind::LBrace);
+        if p.peek().kind() == SyntaxKind::Identifier {
+            p.error("Remove '{ }' around case element");
+            return;
+        }
+        p.expect(SyntaxKind::RBrace);
+        return;
+    }
+    parse_sub_element(&mut *p);
+}
+
+#[cfg_attr(test, parser_test)]
 /// ```test,Binding
 /// foo: bar;
 /// foo: {}
@@ -316,6 +437,27 @@ fn parse_two_way_binding(p: &mut impl Parser) {
     p.consume(); // the identifier
     p.expect(SyntaxKind::DoubleArrow);
     parse_expression(&mut *p);
+    p.expect(SyntaxKind::Semicolon);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,ImplementStatement
+/// implement Foo <=> self;
+/// implement Foo <=> root;
+/// implement Foo <=> parent;
+/// implement Foo <=> inner;
+/// implement Qualified.Foo <=> self;
+/// ```
+fn parse_implement_statement(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "implement");
+    let mut p = p.start_node(SyntaxKind::ImplementStatement);
+    p.expect(SyntaxKind::Identifier); // "implement"
+    parse_qualified_name(&mut *p);
+    p.expect(SyntaxKind::DoubleArrow);
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
     p.expect(SyntaxKind::Semicolon);
 }
 

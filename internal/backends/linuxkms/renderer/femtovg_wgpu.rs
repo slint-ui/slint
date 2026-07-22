@@ -24,11 +24,11 @@ impl FemtoVGWgpuRendererAdapter {
         requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
-        let (surface_target, size) = drm_output.wgpu_29_surface_target()?;
+        let (surface_target, size) = drm_output.wgpu_30_surface_target()?;
 
         let renderer = i_slint_renderer_femtovg::FemtoVGRenderer::new_suspended();
         renderer
-            .set_surface(surface_target, size, requested_graphics_api.cloned())
+            .set_surface(surface_target, size, requested_graphics_api.cloned(), false)
             .map_err(|e| format!("Error initializing FemtoVG wgpu surface: {e}"))?;
 
         let renderer = Box::new(Self { renderer, size, _drm_output: drm_output });

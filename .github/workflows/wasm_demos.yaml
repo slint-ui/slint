@@ -17,9 +17,13 @@ jobs:
         env:
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
             CARGO_INCREMENTAL: false
+            # Use fat LTO for the published demo WASMs to minimize download size.
+            # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+            CARGO_PROFILE_RELEASE_LTO: "fat"
+            CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
@@ -43,7 +47,7 @@ jobs:
             - name: Remaining wasm demos
               if: ${{ inputs.build_artifacts }}
               run: |
-                  for demo in demos/printerdemo/rust demos/usecases/rust examples/todo/rust examples/todo-mvc/rust examples/carousel/rust examples/slide_puzzle examples/memory examples/imagefilter/rust examples/plotter examples/opengl_underlay demos/home-automation/rust examples/speedometer/rust; do
+                  for demo in demos/printerdemo/rust demos/usecases/rust examples/todo/rust examples/todo-mvc/rust examples/carousel/rust examples/slide_puzzle examples/memory examples/dnd-kanban examples/imagefilter/rust examples/plotter examples/opengl_underlay demos/home-automation/rust examples/speedometer/rust; do
                       pushd $demo
                       sed -i "s/#wasm# //" Cargo.toml
                       wasm-pack build --release --target web
@@ -72,6 +76,7 @@ jobs:
                       examples/todo-mvc/rust/
                       examples/carousel/rust/
                       examples/memory/
+                      examples/dnd-kanban/
                       examples/slide_puzzle/
                       examples/speedometer/rust/
                       examples/imagefilter/rust

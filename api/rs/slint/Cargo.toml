@@ -20,7 +20,15 @@ path = "lib.rs"
 
 [features]
 
-default = ["std", "backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-2"]
+default = [
+  "std",
+  "backend-default",
+  "renderer-femtovg",
+  "renderer-software",
+  "accessibility",
+  "compat-1-2",
+  "system-tray",
+]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 1.2
@@ -45,9 +53,9 @@ gettext = ["i-slint-core/gettext-rs"]
 ## in MCU environments where the processor does not support floating point arithmetic.
 libm = ["i-slint-core/libm", "i-slint-renderer-software?/libm"]
 
-## If enabled, calls of `debug()` in `.slint` files use to the [`log::debug!()`] macro
-## of the [log](https://crates.io/crates/log) crate instead of just `println!()`.
-log = ["dep:log"]
+## If enabled, calls of `debug()` in `.slint` files use to the [`log::debug!()`](https://docs.rs/log/latest/log/macro.debug.html)
+## macro of the [log](https://crates.io/crates/log) crate instead of just `println!()`.
+log = ["i-slint-core/log"]
 
 ## Implement the `serde::Serialize` and `serde::Deserialize` for some of the base types
 ## such as `SharedString` and `SharedVector`.
@@ -75,6 +83,12 @@ unsafe-single-threaded = ["i-slint-core/unsafe-single-threaded"]
 ## APIs to support screen readers and other assistive technologies.
 accessibility = ["i-slint-backend-selector/accessibility"]
 
+## Enable the `SystemTrayIcon` element. On Linux/BSD this pulls in
+## [`ksni`](https://crates.io/crates/ksni). It is on by default; to drop the
+## tray dependency, disable default features and re-enable the ones you need
+## without `system-tray` (keep the mandatory `compat-1-2`).
+system-tray = ["i-slint-core/system-tray"]
+
 ## Enable integration with [raw-window-handle](raw_window_handle_06) version 0.6. This provides a
 ## [`Window::window_handle()`] function that returns a struct that implements
 ## [HasWindowHandle](raw_window_handle_06::HasWindowHandle) and
@@ -85,6 +99,7 @@ raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/ra
 ## and `@image-url`. When this feature is disabled, only PNG and JPEG are supported. When enabled,
 ## the following image formats are supported:
 ## AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP.
+## This feature has no effect on the web, where the browser decodes images.
 image-default-formats = ["i-slint-core/image-default-formats"]
 
 ## Enable the live preview feature
@@ -98,7 +113,7 @@ image-default-formats = ["i-slint-core/image-default-formats"]
 ## ```bash
 ## SLINT_LIVE_PREVIEW=1 cargo build --features slint/live-preview
 ## ```
-live-preview = ["dep:slint-interpreter"]
+live-preview = ["dep:i-slint-live-preview"]
 
 ## Enable the embedded MCP (Model Context Protocol) server.
 ##
@@ -108,6 +123,15 @@ live-preview = ["dep:slint-interpreter"]
 ##
 ## This is a developer/debug feature. It is not recommended to enable it in production builds.
 mcp = ["std", "i-slint-backend-selector/mcp"]
+
+## Enable support for controlling the application from a system testing tool.
+##
+## When this feature is enabled and the `SLINT_TEST_SERVER` environment variable is set
+## at runtime, the application connects to the system test server at the given address
+## and permits remote introspection and control of the user interface.
+##
+## This is a developer/testing feature. It is not recommended to enable it in production builds.
+system-testing = ["std", "i-slint-backend-selector/system-testing"]
 
 #! ### Backends
 
@@ -204,25 +228,6 @@ backend-android-activity-05 = [
   "i-slint-backend-android-activity/aa-05",
 ]
 
-## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 28.x.
-##
-## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because WGPU releases new major
-## versions frequently. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
-## by a feature with a similar name but the WGPU version suffix being bumped.
-##
-## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
-## in your `Cargo.toml` when enabling this feature:
-##
-## ```toml
-## slint = { version = "~1.17", features = ["unstable-wgpu-28"] }
-## ```
-unstable-wgpu-28 = [
-  "i-slint-core/unstable-wgpu-28",
-  "i-slint-backend-selector/unstable-wgpu-28",
-  "i-slint-backend-android-activity?/unstable-wgpu-28",
-  "dep:wgpu-28",
-]
-
 ## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 29.x.
 ##
 ## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because WGPU releases new major
@@ -233,13 +238,32 @@ unstable-wgpu-28 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.17", features = ["unstable-wgpu-29"] }
+## slint = { version = "~1.18", features = ["unstable-wgpu-29"] }
 ## ```
 unstable-wgpu-29 = [
   "i-slint-core/unstable-wgpu-29",
   "i-slint-backend-selector/unstable-wgpu-29",
   "i-slint-backend-android-activity?/unstable-wgpu-29",
   "dep:wgpu-29",
+]
+
+## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 30.x.
+##
+## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because WGPU releases new major
+## versions frequently. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
+## by a feature with a similar name but the WGPU version suffix being bumped.
+##
+## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
+## in your `Cargo.toml` when enabling this feature:
+##
+## ```toml
+## slint = { version = "~1.18", features = ["unstable-wgpu-30"] }
+## ```
+unstable-wgpu-30 = [
+  "i-slint-core/unstable-wgpu-30",
+  "i-slint-backend-selector/unstable-wgpu-30",
+  "i-slint-backend-android-activity?/unstable-wgpu-30",
+  "dep:wgpu-30",
 ]
 
 ## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because winit releases new major
@@ -250,7 +274,7 @@ unstable-wgpu-29 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.17", features = ["unstable-winit-030"] }
+## slint = { version = "~1.18", features = ["unstable-winit-030"] }
 ## ```
 unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-backend-selector/unstable-winit-030"]
 
@@ -264,11 +288,11 @@ unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-bac
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.17", features = ["unstable-libinput-09"] }
+## slint = { version = "~1.18", features = ["unstable-libinput-09"] }
 ## ```
 unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 
-## Enable support for exposing [fontique](https://docs.rs/fontique/0.9.0/fontique/) related APIs.
+## Enable support for exposing [fontique](https://docs.rs/fontique/0.11.0/fontique/) related APIs.
 ##
 ## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees. This feature as well as the APIs changed or removed
 ## in future minor releases of Slint, likely to be replaced by a feature with a similar name but the fontique version suffix being bumped.
@@ -277,9 +301,9 @@ unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.17", features = ["unstable-fontique-09"] }
+## slint = { version = "~1.18", features = ["unstable-fontique-011"] }
 ## ```
-unstable-fontique-09 = ["i-slint-common/shared-fontique"]
+unstable-fontique-011 = ["i-slint-common/shared-fontique"]
 
 [dependencies]
 i-slint-core = { workspace = true }
@@ -288,7 +312,7 @@ i-slint-backend-selector = { workspace = true }
 i-slint-core-macros = { workspace = true }
 i-slint-common = { workspace = true }
 i-slint-renderer-software = { workspace = true, optional = true }
-slint-interpreter = { workspace = true, optional = true, default-features = false, features = ["display-diagnostics", "compat-1-2", "internal-live-preview"] }
+i-slint-live-preview = { workspace = true, optional = true, features = ["live-component"] }
 
 const-field-offset = { version = "0.2.0", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }
@@ -298,14 +322,12 @@ once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1.1", default-features = false }
 num-traits = { version = "0.2", default-features = false }
 
-log = { workspace = true, optional = true }
-
 raw-window-handle-06 = { workspace = true, optional = true }
 
 unicode-segmentation = { workspace = true }
 
-wgpu-28 = { workspace = true, optional = true }
 wgpu-29 = { workspace = true, optional = true }
+wgpu-30 = { workspace = true, optional = true }
 
 i-slint-backend-winit = { workspace = true, optional = true }
 i-slint-renderer-skia = { workspace = true, optional = true }
@@ -343,8 +365,9 @@ features = [
   "renderer-femtovg",
   "raw-window-handle-06",
   "unstable-wgpu-29",
+  "unstable-wgpu-30",
   "unstable-winit-030",
   "unstable-libinput-09",
-  "unstable-fontique-09",
+  "unstable-fontique-011",
 ]
 rustdoc-args = ["--generate-link-to-definition"]

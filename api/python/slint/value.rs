@@ -6,7 +6,6 @@ use i_slint_compiler::generator::python::ident;
 use pyo3::types::PyDict;
 use pyo3::{IntoPyObjectExt, PyTraverseError};
 use pyo3::{PyVisit, prelude::*};
-use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 
 use std::cell::OnceCell;
 use std::collections::HashMap;
@@ -18,7 +17,6 @@ use i_slint_core::model::{Model, ModelRc};
 
 use crate::keys::PyKeys;
 
-#[gen_stub_pyclass]
 pub struct SlintToPyValue {
     pub slint_value: slint_interpreter::Value,
     pub type_collection: TypeCollection,
@@ -156,7 +154,6 @@ fn clear_strongrefs_in_struct(structval: &slint_interpreter::Struct) {
     }
 }
 
-#[gen_stub_pyclass]
 #[pyclass(subclass, unsendable, skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyStruct {
@@ -228,7 +225,6 @@ impl PyStruct {
     }
 }
 
-#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 struct PyStructFieldIterator {
     inner: std::collections::hash_map::IntoIter<String, slint_interpreter::Value>,
@@ -236,7 +232,6 @@ struct PyStructFieldIterator {
     expected_type: Option<Type>,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyStructFieldIterator {
     fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
@@ -332,11 +327,18 @@ impl TypeCollection {
         py: Python<'_>,
     ) -> Result<Py<PyAny>, PyErr> {
         let key = ident(enum_name);
+        // `enum_value` is the kebab-case string from the Slint runtime
+        // (e.g. `"radio-button"`); look up the member via `cls(value)` since
+        // kebab-case strings aren't valid Python attribute names.
         if let Some(cls) = self.enum_classes.get(key.as_str()) {
-            return cls.getattr(py, enum_value);
+            cls.bind(py).call1((enum_value,)).map(|v| v.unbind())
+        } else {
+            // Built-in language enums live on the `slint.language` module.
+            py.import("slint.language")?
+                .getattr(key.as_str())?
+                .call1((enum_value,))
+                .map(|v| v.unbind())
         }
-        // Built-in language enums live on the `slint.language` module.
-        py.import("slint.language")?.getattr(key.as_str())?.getattr(enum_value).map(|v| v.unbind())
     }
 
     pub fn model_to_py(
@@ -455,7 +457,9 @@ impl TypeCollection {
                         {
                             let enum_name =
                                 ob.getattr("__class__").and_then(|cls| cls.getattr("__name__"))?;
-                            let enum_value = ob.getattr("name")?;
+                            // `.value` is the kebab-case string the Slint runtime stores
+                            // in `Enumeration::values`.
+                            let enum_value = ob.getattr("value")?;
                             Ok(slint_interpreter::Value::EnumerationValue(
                                 enum_name.to_string(),
                                 enum_value.to_string(),

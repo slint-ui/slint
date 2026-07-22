@@ -1,15 +1,16 @@
 {
   "name": "@slint/common-files",
-  "version": "1.17.0",
+  "version": "1.18.0",
   "type": "module",
   "scripts": {
     "format": "biome format",
     "format:fix": "biome format --write",
     "lint": "biome lint",
-    "lint:fix": "biome lint --fix"
+    "lint:fix": "biome lint --fix",
+    "test": "node --experimental-strip-types --test tests/markdown-endpoint.test.ts"
   },
   "dependencies": {
-    "@expressive-code/core": "0.42.0",
+    "@expressive-code/core": "0.44.0",
     "@expressive-code/plugin-line-numbers": "catalog:",
     "rehype-external-links": "catalog:"
   },

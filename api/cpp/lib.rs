@@ -38,6 +38,27 @@ pub use i_slint_backend_testing;
 #[cfg(feature = "slint-interpreter")]
 pub use slint_interpreter;
 
+#[cfg(feature = "live-preview")]
+pub use i_slint_live_preview;
+
+#[cfg(target_os = "android")]
+mod android {
+    unsafe extern "C" {
+        fn slint_main();
+    }
+
+    #[unsafe(no_mangle)]
+    fn android_main(app: i_slint_backend_android_activity::AndroidApp) {
+        i_slint_core::platform::set_platform(alloc::boxed::Box::new(
+            i_slint_backend_android_activity::AndroidPlatform::new(app),
+        ))
+        .unwrap();
+        #[cfg(any(feature = "mcp", feature = "system-testing"))]
+        i_slint_backend_selector::init_testing_backends();
+        unsafe { slint_main() };
+    }
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_context_accent_color(
     root: &i_slint_core::item_tree::ItemTreeRc,
@@ -276,8 +297,8 @@ pub unsafe extern "C" fn slint_open_url(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_bring_all_to_front() {
-    i_slint_core::bring_all_to_front()
+pub extern "C" fn slint_macos_bring_all_windows_to_front() {
+    i_slint_core::macos_bring_all_windows_to_front()
 }
 
 #[unsafe(no_mangle)]

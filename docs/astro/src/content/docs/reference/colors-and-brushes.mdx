@@ -20,8 +20,8 @@ In addition to plain colors, many elements have properties that are of type `bru
 A brush is a type that can be either a color or gradient. The brush is then used to fill an element or
 draw the outline.
 
-CSS Color names are only in scope in expressions of type `color` or `brush`. Otherwise, access
-colors from the `Colors` namespace.
+CSS color names are in scope wherever a `color` or `brush` value is expected, including struct
+fields, array elements and function arguments. Elsewhere, access colors from the `Colors` namespace.
 
 ## Color Properties
 
@@ -140,7 +140,7 @@ reach at the specified percentage along the axis of the gradient.
 The following example shows a rectangle that's filled with a linear gradient that starts with a light blue
 color, interpolates to a very light shade in the center and finishes with an orange tone:
 
-<CodeSnippetMD imagePath="/src/assets/generated/gradients-linear.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Conic Gradient Example'>
+<CodeSnippetMD imagePath="/src/assets/generated/gradients-linear.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Linear Gradient Example'>
 ```slint
 export component Example inherits Window {
     preferred-width: 100px;
@@ -158,14 +158,21 @@ export component Example inherits Window {
 Radial gradients are like linear gradients but the colors are interpolated circularly instead of
 along a line. To describe a radial gradient, use the `@radial-gradient` macro with the following signature:
 
-### @radial-gradient(circle, color percentage, color percentage, ...)
+### @radial-gradient(circle [radius] [at x y], color percentage, color percentage, ...)
 
 The first parameter to the macro is always `circle` because only circular gradients are supported.
-The syntax is otherwise based on the CSS `radial-gradient` function.
+The optional `radius` value sets the circle radius in the element's local coordinate space.
+The `radius` value is a length expression.
+If omitted, the radius is half of the element's bounding box diagonal.
+
+The optional `at` parameter sets the gradient center in the element's local coordinate space.
+The `x` and `y` values are length expressions.
+If omitted, the gradient is centered in the element's bounding box.
+You can use a radius without `at` to keep the default center with an explicit radius.
 
 Example:
 
-<CodeSnippetMD imagePath="/src/assets/generated/gradients-radial.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Conic Gradient Example'>
+<CodeSnippetMD imagePath="/src/assets/generated/gradients-radial.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Radial Gradient Example'>
 ```slint
 export component Example inherits Window {
     preferred-width: 100px;
@@ -177,12 +184,20 @@ export component Example inherits Window {
 ```
 </CodeSnippetMD>
 
+You can set a center and radius explicitly:
+
+```slint
+export component Example inherits Rectangle {
+    background: @radial-gradient(circle 60px at 25px 25px, #f00 0%, #00f 100%);
+}
+```
+
 ## Conic Gradients
 
 Conic gradients are gradients where the color transitions rotate around a center point (like the angle on a color wheel).
 To describe a conic gradient, use the `@conic-gradient` macro with the following signature:
 
-### @conic-gradient([from angle,] color angle, color angle, ...)
+### @conic-gradient([from angle] [at x y], color angle, color angle, ...)
 
 The conic gradient is described by a series of color stops, each consisting of a color and an angle.
 The angle specifies where the color is placed along the circular sweep (0deg to 360deg).
@@ -191,6 +206,10 @@ Colors are interpolated between the stops along the circular path.
 The optional `from` parameter specifies the starting angle of the gradient rotation.
 If omitted, the gradient starts at 0deg (pointing upward). For example, `from 90deg` rotates
 the entire gradient 90 degrees clockwise.
+
+The optional `at` parameter sets the gradient center in the element's local coordinate space.
+The `x` and `y` values are length expressions.
+If omitted, the gradient is centered in the element's bounding box.
 
 Example:
 
@@ -223,6 +242,14 @@ export component Example inherits Window {
 </CodeSnippetMD>
 
 This rotates the same color wheel 90 degrees clockwise, so red starts at the right (90deg) instead of the top.
+
+You can set the center explicitly:
+
+```slint
+export component Example inherits Rectangle {
+    background: @conic-gradient(from 45deg at 30px 30px, #f00 0deg, #00f 180deg, #f00 360deg);
+}
+```
 
 :::note[Known Limitation]
 Negative angles cannot be used directly in conic gradients (e.g., `#ff0000 -90deg`).

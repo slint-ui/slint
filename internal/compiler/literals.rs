@@ -3,8 +3,7 @@
 
 // cSpell: ignore qsdf
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Span, Spanned};
-use crate::expression_tree::Expression;
-use crate::expression_tree::Unit;
+use crate::expression_tree::WrittenUnit;
 use itertools::Itertools;
 use smol_str::SmolStr;
 use strum::IntoEnumIterator;
@@ -328,7 +327,7 @@ impl StringLiteralSourceMap {
     }
 }
 
-pub fn parse_number_literal(s: SmolStr) -> Result<Expression, SmolStr> {
+pub fn parse_number_literal(s: SmolStr) -> Result<(f64, WrittenUnit), SmolStr> {
     let bytes = s.as_bytes();
     let mut end = 0;
     while end < bytes.len() && matches!(bytes[end], b'0'..=b'9' | b'.') {
@@ -339,43 +338,38 @@ pub fn parse_number_literal(s: SmolStr) -> Result<Expression, SmolStr> {
         format!(
             "Invalid unit '{}'. Valid units are: {}",
             s.get(end..).unwrap_or(&s),
-            Unit::iter().filter(|x| !x.to_string().is_empty()).join(", ")
+            WrittenUnit::iter().filter(|x| !x.to_string().is_empty()).join(", ")
         )
     })?;
-    Ok(Expression::NumberLiteral(val, unit))
+    Ok((val, unit))
 }
 
 #[test]
 fn test_parse_number_literal() {
-    use crate::expression_tree::Unit;
+    use crate::expression_tree::WrittenUnit;
     use smol_str::{ToSmolStr, format_smolstr};
 
-    fn doit(s: &str) -> Result<(f64, Unit), SmolStr> {
-        parse_number_literal(s.into()).map(|e| match e {
-            Expression::NumberLiteral(a, b) => (a, b),
-            _ => panic!(),
-        })
-    }
-
-    assert_eq!(doit("10"), Ok((10., Unit::None)));
-    assert_eq!(doit("10phx"), Ok((10., Unit::Phx)));
-    assert_eq!(doit("10.0phx"), Ok((10., Unit::Phx)));
-    assert_eq!(doit("10.0"), Ok((10., Unit::None)));
-    assert_eq!(doit("1.1phx"), Ok((1.1, Unit::Phx)));
-    assert_eq!(doit("10.10"), Ok((10.10, Unit::None)));
-    assert_eq!(doit("10000000"), Ok((10000000., Unit::None)));
-    assert_eq!(doit("10000001phx"), Ok((10000001., Unit::Phx)));
+    assert_eq!(parse_number_literal("10".into()), Ok((10., WrittenUnit::None)));
+    assert_eq!(parse_number_literal("10phx".into()), Ok((10., WrittenUnit::Phx)));
+    assert_eq!(parse_number_literal("10.0phx".into()), Ok((10., WrittenUnit::Phx)));
+    assert_eq!(parse_number_literal("10.0".into()), Ok((10., WrittenUnit::None)));
+    assert_eq!(parse_number_literal("1.1phx".into()), Ok((1.1, WrittenUnit::Phx)));
+    assert_eq!(parse_number_literal("10.10".into()), Ok((10.10, WrittenUnit::None)));
+    assert_eq!(parse_number_literal("10000000".into()), Ok((10000000., WrittenUnit::None)));
+    assert_eq!(parse_number_literal("10000001phx".into()), Ok((10000001., WrittenUnit::Phx)));
+    assert_eq!(parse_number_literal("5cm".into()), Ok((5., WrittenUnit::Cm)));
+    assert_eq!(parse_number_literal("90grad".into()), Ok((90., WrittenUnit::Grad)));
 
     let cannot_parse = Err("Cannot parse number literal".to_smolstr());
-    assert_eq!(doit("12.10.12phx"), cannot_parse);
+    assert_eq!(parse_number_literal("12.10.12phx".into()), cannot_parse);
 
-    let valid_units = Unit::iter().filter(|x| !x.to_string().is_empty()).join(", ");
+    let valid_units = WrittenUnit::iter().filter(|x| !x.to_string().is_empty()).join(", ");
     let wrong_unit_spaced =
         Err(format_smolstr!("Invalid unit ' phx'. Valid units are: {}", valid_units));
-    assert_eq!(doit("10000001 phx"), wrong_unit_spaced);
+    assert_eq!(parse_number_literal("10000001 phx".into()), wrong_unit_spaced);
     let wrong_unit_oo = Err(format_smolstr!("Invalid unit 'oo'. Valid units are: {}", valid_units));
-    assert_eq!(doit("12.12oo"), wrong_unit_oo);
+    assert_eq!(parse_number_literal("12.12oo".into()), wrong_unit_oo);
     let wrong_unit_euro =
         Err(format_smolstr!("Invalid unit '€'. Valid units are: {}", valid_units));
-    assert_eq!(doit("12.12€"), wrong_unit_euro);
+    assert_eq!(parse_number_literal("12.12€".into()), wrong_unit_euro);
 }

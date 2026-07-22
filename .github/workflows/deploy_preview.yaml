@@ -54,11 +54,11 @@ jobs:
                     core.setOutput('pr_number', pr.number);
                     core.setOutput('head_sha', pr.head.sha);
 
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
 
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
@@ -102,7 +102,6 @@ jobs:
               id: assemble
               env:
                 PR_NUMBER: ${{ steps.pr-info.outputs.pr_number }}
-                DL_DOCS: ${{ steps.dl-docs.outcome }}
                 DL_SLINTPAD: ${{ steps.dl-slintpad.outcome }}
                 DL_MATERIAL: ${{ steps.dl-material.outcome }}
               run: |
@@ -119,7 +118,7 @@ jobs:
                 LINKS=""
 
                 # Assemble docs from sub-artifacts into master/docs/
-                if [ "$DL_DOCS" = "success" ]; then
+                if [ -d artifacts/docs-parts/docs ]; then
                   mkdir -p "$DIST/master/docs"
                   cp -R artifacts/docs-parts/docs/. "$DIST/master/docs/"
                   LINKS="$LINKS<li>Documentation: "

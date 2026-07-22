@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Declarations that collide with a shadowable member of a builtin element are only a
+// warning: the declaration shadows the builtin member, even with a different type.
+// This keeps code compiling when a new Slint version adds members to builtin elements.
+
+// The base component doesn't use the builtin members, so the derived component may
+// shadow them.
+component Base inherits Window {
+    width: 300px;
+    height: 200px;
+}
+
+export component TestCase inherits Base {
+    // shadows the builtin bool properties with different types
+    in-out property <string> maximized: "shadowed";
+    in-out property <int> minimized: 42;
+
+    // shadows the builtin `close() -> bool` function
+    pure callback close(string) -> string;
+    close(s) => { s + "!" }
+
+    out property <bool> test: maximized == "shadowed" && minimized == 42 && close("a") == "a!";
+}
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_maximized("changed".into());
+instance.set_minimized(-1);
+assert_eq!(instance.get_maximized(), slint::SharedString::from("changed"));
+assert_eq!(instance.get_minimized(), -1);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.set_maximized("changed");
+instance.set_minimized(-1);
+assert_eq(instance.get_maximized(), "changed");
+assert_eq(instance.get_minimized(), -1);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+instance.maximized = "changed";
+instance.minimized = -1;
+assert.equal(instance.maximized, "changed");
+assert.equal(instance.minimized, -1);
+```
+*/

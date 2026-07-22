@@ -96,7 +96,7 @@ mod cubic_bezier {
             }
 
             // Newton's method.
-            let mut t = x - from / (to - from);
+            let mut t = (x - from) / (to - from);
             for _ in 0..8 {
                 let x2 = self.x(t);
 
@@ -418,7 +418,7 @@ pub fn update_animations() {
         let mut duration = Instant::duration_since_start().as_millis() as u64;
         #[cfg(feature = "std")]
         if let Ok(val) = std::env::var("SLINT_SLOW_ANIMATIONS") {
-            let factor = val.parse().unwrap_or(2);
+            let factor = val.parse().unwrap_or(2).max(1);
             duration /= factor;
         };
         driver.update_animations(Instant(duration))

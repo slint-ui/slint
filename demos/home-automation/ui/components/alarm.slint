@@ -59,6 +59,7 @@ export component Alarm inherits Control {
             VerticalLayout {
                 visible: !root.full-screen;
                 alignment: center;
+                cross-axis-alignment: center;
                 spacing: 60px;
                 HaText {
                     text: "Home Alarm \nOff";
@@ -66,11 +67,9 @@ export component Alarm inherits Control {
                     font-size: Style.H2-font-size;
                     color: Palette.hvac-knob-foreground;
                     font-weight: FontWeight.light;
-                    x: parent.width / 2 - self.width / 2;
                 }
 
                 Rectangle {
-                    x: (parent.width - self.width) / 2;
                     width: root.width * 0.7;
                     height: 50px;
                     Image {

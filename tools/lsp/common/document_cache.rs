@@ -8,7 +8,7 @@ use i_slint_compiler::object_tree::Document;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
-use i_slint_preview_protocol::SourceFileVersion;
+use i_slint_live_preview::protocol::SourceFileVersion;
 use lsp_types::Url;
 
 use std::{
@@ -44,8 +44,7 @@ pub struct CompilerConfiguration {
     pub library_paths: HashMap<String, std::path::PathBuf>,
     pub style: Option<String>,
     pub open_import_callback: Option<OpenImportCallback>,
-    pub resource_url_mapper:
-        Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>>,
+    pub resource_url_mapper: Option<i_slint_compiler::ResourceUrlMapper>,
     pub format: super::ByteFormat,
     /// Whether to enable experimental features.
     /// Note that the i_slint_compiler::CompilerConfiguration still reads the environment variable
@@ -199,6 +198,11 @@ impl DocumentCache {
         self.type_loader.get_document(&path)
     }
 
+    /// Iterator over every fully-loaded `object_tree::Document` in the cache.
+    pub fn all_documents(&self) -> impl Iterator<Item = &Document> + '_ {
+        self.type_loader.all_documents()
+    }
+
     fn uses_widgets_impl(&self, doc_path: PathBuf, dedup: &mut HashSet<PathBuf>) -> bool {
         if dedup.contains(&doc_path) {
             return false;
@@ -280,6 +284,10 @@ impl DocumentCache {
         self.type_loader.global_type_registry.borrow()
     }
 
+    pub fn revision(&self) -> u64 {
+        self.type_loader.revision()
+    }
+
     fn invalidate_everything(&mut self) {
         let all_files = self.type_loader.all_files().cloned().collect::<Vec<_>>();
 
@@ -319,8 +327,11 @@ impl DocumentCache {
 
         if enable_experimental && !self.type_loader.compiler_config.enable_experimental {
             self.type_loader.compiler_config.enable_experimental = true;
-            *self.type_loader.global_type_registry.borrow_mut() =
-                Rc::into_inner(TypeRegister::builtin_experimental()).unwrap().into_inner();
+            *self.type_loader.global_type_registry.borrow_mut() = Rc::into_inner(
+                TypeRegister::builtin_experimental(&self.type_loader.symbol_counters),
+            )
+            .unwrap()
+            .into_inner();
         }
 
         self.invalidate_everything();
@@ -464,6 +475,10 @@ impl DocumentCache {
     ) -> Option<ElementRcNode> {
         let (doc, offset) = self.get_document_and_offset(text_document_uri, pos)?;
         self.element_at_document_and_offset(doc, offset)
+    }
+
+    pub fn all_paths_to_watch(&self) -> HashSet<PathBuf> {
+        self.type_loader.all_files_to_watch()
     }
 }
 

@@ -17,6 +17,9 @@
     "brush": {
         "href": "reference/primitive-types/#brush"
     },
+    "BuiltInMouseCursor": {
+        "href": "reference/global-structs-enums/#builtinmousecursor"
+    },
     "BorderRadiusRectangle": {
         "href": "reference/elements/rectangle/#border-radius-properties"
     },
@@ -149,6 +152,12 @@
     "Models": {
         "href": "guide/language/coding/repetition-and-data-models/#models"
     },
+    "MathRef": {
+        "href": "reference/global-functions/math/"
+    },
+    "MouseCursor": {
+        "href": "reference/primitive-types/#mousecursor"
+    },
     "NumericTypes": {
         "href": "reference/primitive-types/#numeric-types"
     },
@@ -239,6 +248,9 @@
     "Types": {
         "href": "reference/primitive-types/"
     },
+    "NumberStringConversion": {
+        "href": "reference/primitive-types/#converting-between-numbers-and-strings"
+    },
     "VerticalBox": {
         "href": "reference/std-widgets/layouts/verticalbox/"
     },
@@ -287,6 +299,9 @@
     "quickstart": {
         "href": "tutorial/quickstart/"
     },
+    "getting_started": {
+        "href": "tutorial/getting_started/"
+    },
     "modules": {
         "href": "guide/language/coding/file/#modules"
     },
@@ -316,6 +331,9 @@
     },
     "SlintLSP": {
         "href": "guide/tooling/manual-setup/#slint-lsp"
+    },
+    "SlintViewer": {
+        "href": "guide/tooling/slint-viewer/"
     },
     "KateSyntaxHighlighting": {
         "href": "guide/tooling/kate/#syntax-highlighting"

@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from . import slint as native
+from ._native import native
 from collections.abc import Iterable
 from abc import abstractmethod
 import typing
@@ -45,6 +45,21 @@ class Model[T](native.PyModelBase, Iterable[T]):
         Re-implement this method in a sub-class to provide the data."""
         return cast(T, super().row_data(row))
 
+    def append(self, value: T) -> None:
+        """Add a new row to the model with the provided value.
+        Re-implement this method in a sub-class to handle the change."""
+        super().append(value)
+
+    def remove_row(self, row: int) -> None:
+        """Remove the row at the given index.
+        Re-implement this method in a sub-class to handle the change."""
+        super().remove_row(row)
+
+    def insert_row(self, row: int, value: T) -> None:
+        """Insert a new row at the given index.
+        Re-implement this method in a sub-class to handle the change."""
+        super().insert_row(row, value)
+
     def notify_row_changed(self, row: int) -> None:
         """Call this method from a sub-class to notify the views that a row has changed."""
         super().notify_row_changed(row)
@@ -76,6 +91,7 @@ class ListModel[T](Model[T]):
         the iterable produces are stored in a list."""
 
         super().__init__()
+        self.list: list[T]
         if iterable is not None:
             self.list = list(iterable)
         else:
@@ -90,6 +106,18 @@ class ListModel[T](Model[T]):
     def set_row_data(self, row: int, value: T) -> None:
         self.list[row] = value
         super().notify_row_changed(row)
+
+    def remove_row(self, row: int) -> None:
+        if row < 0 or row >= len(self.list):
+            return
+        del self.list[row]
+        super().notify_row_removed(row, 1)
+
+    def insert_row(self, row: int, value: T) -> None:
+        # Validate index range to follow behavior from other languages implementations.
+        if row < 0 or row > len(self.list):
+            return
+        self.insert(row, value)
 
     def __delitem__(self, key: int | slice) -> None:
         if isinstance(key, slice):

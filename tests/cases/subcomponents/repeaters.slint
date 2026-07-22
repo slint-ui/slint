@@ -8,24 +8,27 @@
 // wrong rendering order. This is tested by clicking into the left half and
 // verifying that it did not hit the sub-component's repeater.
 
-SubCompo := Rectangle {
-    property <bool> clicked: false;
+component SubCompo inherits Rectangle {
+    in-out property <bool> clicked: false;
     for x in 1: Text {
+        x:0;y:0;
         text: "I should appear in the right half";
         ta := TouchArea {
             clicked => {
-                root.clicked = true;
+                clicked = true;
             }
         }
     }
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 300phx;
-    property clicked <=> c.clicked;
+    in-out property clicked <=> c.clicked;
+    in property <bool> show: false;
     Text {
-        if (false): TouchArea {
+        x:0;y:0;
+        if (root.show): TouchArea {
         }
     }
     c := SubCompo {

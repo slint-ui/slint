@@ -21,7 +21,7 @@ path = "lib.rs"
 
 [features]
 
-default = ["backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-2"]
+default = ["backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-2", "system-tray"]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 1.2
@@ -30,6 +30,11 @@ default = ["backend-default", "renderer-femtovg", "renderer-software", "accessib
 "compat-1-2" = []
 "compat-1-0" = ["compat-1-2"]
 
+## Enable the `SystemTrayIcon` element (pulls `ksni` on Linux/BSD); on by
+## default. See the [`slint` crate](https://docs.rs/slint/latest/slint/) feature
+## of the same name.
+system-tray = ["i-slint-core/system-tray"]
+
 ## enable the [`print_diagnostics`] function to show diagnostic in the console output
 display-diagnostics = ["i-slint-compiler/display-diagnostics"]
 
@@ -37,6 +42,7 @@ display-diagnostics = ["i-slint-compiler/display-diagnostics"]
 ## and `@image-url`. When this feature is disabled, only PNG and JPEG are supported. When enabled,
 ## the following image formats are supported:
 ## AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP.
+## This feature has no effect on the web, where the browser decodes images.
 image-default-formats = ["i-slint-core/image-default-formats"]
 
 
@@ -123,10 +129,6 @@ raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/ra
 ## any stability guarantees whatsoever.
 internal = []
 
-# (internal) Expose the native file watcher for other Slint tooling.
-# NOTE: this is not a semver compatible feature
-internal-file-watcher = ["dep:notify"]
-
 # (internal) Draw an highlight on a specified element
 # NOTE: this is not a semver compatible feature
 internal-highlight = []
@@ -134,9 +136,6 @@ internal-highlight = []
 # (internal) Serialize and deserialize Values to JSON, needs other internal API
 # NOTE: this is not a semver compatible feature
 internal-json = ["dep:serde_json"]
-
-# (internal)
-internal-live-preview = ["internal-file-watcher", "display-diagnostics"]
 
 
 [dependencies]
@@ -160,18 +159,22 @@ itertools = { workspace = true }
 smol_str = { workspace = true }
 unicode-segmentation = { workspace = true }
 
-notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 i-slint-backend-winit = { workspace = true }
 web-sys = { workspace = true, features = ["Navigator"] }
+
+# The interpreter loads images from the filesystem at runtime, so native builds
+# always need the decoders. The browser decodes images on the web.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # this line is there to add the "enable" feature by default, but only on linux
 i-slint-backend-qt = { workspace = true, features = ["enable"], optional = true }
 
 [dev-dependencies]
-i-slint-backend-testing = { path = "../../internal/backends/testing" }
+i-slint-backend-testing = { path = "../../internal/backends/testing", features = ["internal"] }
 spin_on = { workspace = true }
 
 [lints.rust]

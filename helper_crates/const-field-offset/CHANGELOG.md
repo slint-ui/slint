@@ -1,6 +1,11 @@
 
 # Changelog
 
+## [0.2.1]
+
+ - Added `const fn compose_field_offsets` as an alternative to `Add`
+   in `const` contexts.
+
 ## [0.2.0]
 
  - Breaking change: `FIELD_OFFSETS` is now a zero-sized type with a `const fn`

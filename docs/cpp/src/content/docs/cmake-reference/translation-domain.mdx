@@ -1,0 +1,8 @@
+---
+title: Translation Domain
+description: Override the gettext translation domain with the SLINT_TRANSLATION_DOMAIN target property.
+---
+
+By default, the domain used for translations is the name of the CMake target the `.slint` files are targeted with.
+Use the `SLINT_TRANSLATION_DOMAIN` target property to override this and use the specified value as domain, instead.
+This is useful in build environments where the target name is given and not suitable, such as esp-idf.

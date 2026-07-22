@@ -5,13 +5,14 @@
 
 use lsp_types::{Diagnostic, Url};
 
+use i_slint_live_preview::file_watcher::FileChangeKind;
+
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::rc::Rc;
 
 use crate::{
     common,
-    common::SwitchableLspToPreview,
+    common::LspToPreviews,
     language::{convert_diagnostics, load_document_impl},
 };
 
@@ -33,9 +34,9 @@ pub fn mock_context() -> Context {
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: None,
         open_urls: HashSet::new(),
-        to_preview: Rc::new(SwitchableLspToPreview::with_one(common::DummyLspToPreview::default())),
+        to_preview: LspToPreviews::with_one(common::DummyLspToPreview::default()),
         pending_recompile: Default::default(),
-        preview_to_lsp_sender: tokio::sync::mpsc::unbounded_channel().0,
+        host_language_rename_dont_ask_again: Default::default(),
     }
 }
 
@@ -43,6 +44,16 @@ pub fn mock_context() -> Context {
 pub fn empty_document_cache() -> common::DocumentCache {
     let config = crate::common::document_cache::CompilerConfiguration {
         style: Some("fluent".to_string()),
+        ..Default::default()
+    };
+    common::DocumentCache::new(config)
+}
+
+/// Create an empty `DocumentCache` with experimental features enabled.
+pub fn empty_document_cache_with_experimental() -> common::DocumentCache {
+    let config = crate::common::document_cache::CompilerConfiguration {
+        style: Some("fluent".to_string()),
+        enable_experimental: true,
         ..Default::default()
     };
     common::DocumentCache::new(config)
@@ -59,8 +70,20 @@ pub fn loaded_document_cache_with_file_name(
     content: String,
     file_name: &str,
 ) -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
-    let mut dc = empty_document_cache();
+    load_content_with_document_cache(empty_document_cache(), content, file_name)
+}
 
+pub fn loaded_document_cache_with_experimental(
+    content: String,
+) -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
+    load_content_with_document_cache(empty_document_cache_with_experimental(), content, "bar.slint")
+}
+
+fn load_content_with_document_cache(
+    mut dc: common::DocumentCache,
+    content: String,
+    file_name: &str,
+) -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
     // Pre-load std-widgets.slint:
     spin_on::spin_on(dc.preload_builtins());
 
@@ -77,11 +100,9 @@ pub fn loaded_document_cache_with_file_name(
         init_param: Default::default(),
         to_show: None,
         open_urls: Default::default(),
-        to_preview: std::rc::Rc::new(SwitchableLspToPreview::with_one(
-            common::DummyLspToPreview::default(),
-        )),
+        to_preview: LspToPreviews::with_one(common::DummyLspToPreview::default()),
         pending_recompile: Default::default(),
-        preview_to_lsp_sender: tokio::sync::mpsc::unbounded_channel().0,
+        host_language_rename_dont_ask_again: Default::default(),
     };
     let (extra_files, diag) =
         spin_on::spin_on(load_document_impl(&mut ctx, content, url.clone(), Some(42)));
@@ -300,13 +321,15 @@ fn preview_file_recompiled_when_dependency_changes() {
     // Update context with:
     // - main.slint set as the preview file (to_show)
     // - main.slint NOT in open_urls (simulating it was closed in the editor)
-    ctx.to_show =
-        Some(i_slint_preview_protocol::PreviewComponent { url: main_url.clone(), component: None });
+    ctx.to_show = Some(i_slint_live_preview::protocol::PreviewComponent {
+        url: main_url.clone(),
+        component: None,
+    });
 
     spin_on::spin_on(crate::language::trigger_file_watcher(
         &mut ctx,
         dep_url.clone(),
-        lsp_types::FileChangeType::CHANGED,
+        FileChangeKind::Changed,
     ))
     .unwrap();
 
@@ -369,7 +392,7 @@ mod missing_imports {
         spin_on::spin_on(crate::language::trigger_file_watcher(
             &mut ctx,
             dep_url,
-            lsp_types::FileChangeType::CREATED,
+            FileChangeKind::Created,
         ))
         .unwrap();
 

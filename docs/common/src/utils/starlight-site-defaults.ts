@@ -8,11 +8,21 @@ import { rehypeExternalLinksSlint } from "./rehype-external-links-preset";
 export const SLINT_STARLIGHT_TRAILING_SLASH = "always" as const;
 
 /**
- * Default Astro `markdown.rehypePlugins` for Starlight sites (Slint external-link preset only).
- * Sites with extra rehype plugins should import {@link rehypeExternalLinksSlint} and compose locally.
+ * Default Astro `markdown` config for Starlight sites: the Slint external-link
+ * rehype preset plus GitHub-Flavored Markdown.
+ *
+ * `gfm` is set explicitly because once an Astro site provides a `markdown`
+ * object, the `@astrojs/mdx` pipeline no longer picks up the `gfm: true`
+ * default, which silently disables GFM tables (and the rest of GFM) inside
+ * `.mdx` pages. Keeping it here means every site that uses this helper renders
+ * markdown tables instead of raw `|`-delimited text.
+ *
+ * Sites with extra rehype plugins should import {@link rehypeExternalLinksSlint}
+ * and compose locally (and set `gfm: true` themselves).
  */
 export function slintStarlightMarkdownRehypeExternalLinksOnly() {
     return {
+        gfm: true,
         rehypePlugins: [rehypeExternalLinksSlint],
     };
 }

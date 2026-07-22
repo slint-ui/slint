@@ -9,7 +9,6 @@ use std::rc::Rc;
 
 use i_slint_compiler::generator::python::ident;
 use pyo3::IntoPyObjectExt;
-use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyclass_enum, gen_stub_pymethods};
 use slint_interpreter::{ComponentHandle, Value};
 
 use i_slint_compiler::langtype::{Function as SlintFunction, Type};
@@ -27,13 +26,11 @@ use crate::errors::{
 };
 use crate::value::{SlintToPyValue, TypeCollection};
 
-#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 pub struct Compiler {
     compiler: slint_interpreter::Compiler,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl Compiler {
     #[new]
@@ -93,11 +90,9 @@ impl Compiler {
 }
 
 #[derive(Debug, Clone)]
-#[gen_stub_pyclass]
 #[pyclass(unsendable, from_py_object)]
 pub struct PyDiagnostic(slint_interpreter::Diagnostic);
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyDiagnostic {
     #[getter]
@@ -135,7 +130,6 @@ impl PyDiagnostic {
     }
 }
 
-#[gen_stub_pyclass_enum]
 #[pyclass(name = "DiagnosticLevel", eq, eq_int)]
 #[derive(PartialEq)]
 pub enum PyDiagnosticLevel {
@@ -144,7 +138,6 @@ pub enum PyDiagnosticLevel {
     Note,
 }
 
-#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 pub struct CompilationResult {
     result: slint_interpreter::CompilationResult,
@@ -159,7 +152,6 @@ impl CompilationResult {
     }
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl CompilationResult {
     #[getter]
@@ -190,14 +182,12 @@ impl CompilationResult {
             match struct_or_enum {
                 Type::Struct(s) if s.node().is_some() => {
                     let struct_instance = self.type_collection.struct_to_py(
-                        slint_interpreter::Struct::from_iter(s.fields.iter().map(
-                            |(name, field_type)| {
-                                (
-                                    ident(&name).into(),
-                                    slint_interpreter::default_value_for_type(field_type),
-                                )
-                            },
-                        )),
+                        slint_interpreter::Struct::from_iter(s.fields.keys().map(|name| {
+                            (
+                                ident(&name).into(),
+                                slint_interpreter::default_value_for_struct_field(s, name),
+                            )
+                        })),
                         None,
                     );
 
@@ -312,7 +302,6 @@ fn lookup_global_property_type(
     })
 }
 
-#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 pub struct ComponentDefinition {
     definition: slint_interpreter::ComponentDefinition,
@@ -405,7 +394,6 @@ impl ComponentDefinition {
     }
 }
 
-#[gen_stub_pyclass_enum]
 #[pyclass(name = "ValueType", eq, eq_int)]
 #[derive(PartialEq)]
 pub enum PyValueType {
@@ -420,6 +408,7 @@ pub enum PyValueType {
     StyledText,
     Enumeration,
     Keys,
+    MouseCursor,
 }
 
 impl From<i_slint_compiler::langtype::Type> for PyValueType {
@@ -446,12 +435,12 @@ impl From<i_slint_compiler::langtype::Type> for PyValueType {
             Type::StyledText => PyValueType::StyledText,
             Type::Enumeration(..) => PyValueType::Enumeration,
             Type::Keys => PyValueType::Keys,
+            Type::MouseCursor => PyValueType::MouseCursor,
             _ => unimplemented!(),
         }
     }
 }
 
-#[gen_stub_pyclass]
 #[pyclass(unsendable, weakref)]
 pub struct ComponentInstance {
     instance: slint_interpreter::ComponentInstance,

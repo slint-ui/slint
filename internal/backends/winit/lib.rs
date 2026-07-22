@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore binfmt testui
+// cSpell: ignore binfmt dlsym GETNONCLIENTMETRICS NONCLIENTMETRICSW RTLD testui
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![warn(missing_docs)]
@@ -27,6 +27,7 @@ use winit::event_loop::ActiveEventLoop;
 #[cfg(not(target_arch = "wasm32"))]
 mod clipboard;
 mod drag_resize_window;
+mod winit_compat;
 mod winitwindowadapter;
 use winitwindowadapter::*;
 pub(crate) mod event_loop;
@@ -61,6 +62,7 @@ pub enum EventResult {
 }
 
 mod renderer {
+    use std::rc::Weak;
     use std::sync::Arc;
 
     use i_slint_core::platform::PlatformError;
@@ -81,6 +83,7 @@ mod renderer {
             &self,
             active_event_loop: &ActiveEventLoop,
             window_attributes: winit::window::WindowAttributes,
+            window_adapter_weak: Weak<crate::winitwindowadapter::WinitWindowAdapter>,
         ) -> Result<Arc<winit::window::Window>, PlatformError>;
     }
 
@@ -411,8 +414,9 @@ pub(crate) struct SharedBackendData {
     /// event loop or is from a stale event.
     event_loop_generation: Arc<AtomicUsize>,
     is_wayland: bool,
+    /// Desktop settings read from the XDG portal (cursor blink, appearance query).
     #[cfg(xdg_desktop_settings)]
-    cursor_blink_interval: std::cell::Cell<core::time::Duration>,
+    desktop_settings: xdg_desktop_settings::DesktopSettings,
     #[cfg(target_os = "ios")]
     #[allow(unused)]
     keyboard_notifications: ios::KeyboardNotifications,
@@ -501,7 +505,7 @@ impl SharedBackendData {
             event_loop_generation: Default::default(),
             is_wayland,
             #[cfg(xdg_desktop_settings)]
-            cursor_blink_interval: std::cell::Cell::new(DEFAULT_CURSOR_FLASH_CYCLE),
+            desktop_settings: xdg_desktop_settings::DesktopSettings::new(),
             #[cfg(target_os = "ios")]
             keyboard_notifications,
         })
@@ -572,6 +576,12 @@ impl SharedBackendData {
         &self,
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> Result<(), PlatformError> {
+        // Wait for the appearance query so windows aren't shown with default colors;
+        // the next `about_to_wait` retries once it clears.
+        #[cfg(xdg_desktop_settings)]
+        if self.desktop_settings.is_appearance_pending() {
+            return Ok(());
+        }
         let mut inactive_windows = self.inactive_windows.take();
         let mut result = Ok(());
         while let Some(window_weak) = inactive_windows.pop() {
@@ -675,6 +685,46 @@ impl Backend {
 #[allow(unused)]
 const DEFAULT_CURSOR_FLASH_CYCLE: core::time::Duration = core::time::Duration::from_millis(1000);
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+fn prefers_non_blinking_text_insertion_indicator() -> Option<bool> {
+    use core::ffi::{c_char, c_int, c_void};
+
+    unsafe extern "C" {
+        fn dlopen(path: *const c_char, mode: c_int) -> *mut c_void;
+        fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
+    }
+
+    type AxPrefersNonBlinkingTextInsertionIndicator =
+        unsafe extern "C" fn() -> objc2::runtime::Bool;
+
+    // AXPrefersNonBlinkingTextInsertionIndicator is available starting with macOS 15 and iOS 18,
+    // and the Accessibility framework itself only exists since macOS 11 and iOS 14.
+    // Load both dynamically: a `#[link]` attribute would emit a strong load command that makes
+    // dyld abort before main() on older systems. When the framework or the symbol is
+    // unavailable, the accessibility setting is unavailable and we keep the existing cursor
+    // blink behavior.
+    const RTLD_LAZY: c_int = 0x1;
+    let framework = unsafe {
+        dlopen(
+            c"/System/Library/Frameworks/Accessibility.framework/Accessibility".as_ptr(),
+            RTLD_LAZY,
+        )
+    };
+    if framework.is_null() {
+        return None;
+    }
+
+    let symbol =
+        unsafe { dlsym(framework, c"AXPrefersNonBlinkingTextInsertionIndicator".as_ptr()) };
+    if symbol.is_null() {
+        return None;
+    }
+
+    let function: AxPrefersNonBlinkingTextInsertionIndicator =
+        unsafe { core::mem::transmute(symbol) };
+    Some(unsafe { function() }.as_bool())
+}
+
 #[cfg(xdg_desktop_settings)]
 impl Drop for Backend {
     fn drop(&mut self) {
@@ -688,17 +738,36 @@ impl i_slint_core::platform::Platform for Backend {
     fn bind_context(&self, _ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
         #[cfg(xdg_desktop_settings)]
         {
-            let strong_ctx = _ctx
-                .upgrade()
-                .expect("bind_context is called while the SlintContext is still alive");
-            let shared_weak = Rc::downgrade(&self.shared_data);
-            let ctx_weak = _ctx.clone();
-            if let Ok(handle) = strong_ctx.spawn_local(async move {
-                if let Err(err) = crate::xdg_desktop_settings::watch(shared_weak, ctx_weak).await {
-                    i_slint_core::debug_log!("Error watching for xdg desktop settings: {}", err);
-                }
-            }) {
-                *self.xdg_watcher.borrow_mut() = Some(handle);
+            *self.xdg_watcher.borrow_mut() =
+                crate::xdg_desktop_settings::spawn(&self.shared_data, &_ctx);
+        }
+        #[cfg(target_os = "windows")]
+        if let Some(ctx) = _ctx.upgrade() {
+            use windows::Win32::UI::HiDpi::SystemParametersInfoForDpi;
+            use windows::Win32::UI::WindowsAndMessaging::{
+                NONCLIENTMETRICSW, SPI_GETNONCLIENTMETRICS,
+            };
+            let mut metrics = NONCLIENTMETRICSW {
+                cbSize: core::mem::size_of::<NONCLIENTMETRICSW>() as u32,
+                ..NONCLIENTMETRICSW::default()
+            };
+            let ok = unsafe {
+                SystemParametersInfoForDpi(
+                    SPI_GETNONCLIENTMETRICS.0,
+                    metrics.cbSize,
+                    Some(&mut metrics as *mut _ as *mut core::ffi::c_void),
+                    0,
+                    96,
+                )
+            }
+            .is_ok();
+            // `lfMessageFont.lfHeight` is in pixels at 96 DPI = Slint logical pixels;
+            // negative means em height, positive means cell height — magnitude is fine here.
+            let height = metrics.lfMessageFont.lfHeight.unsigned_abs();
+            if ok && height > 0 {
+                ctx.set_platform_default_font_size(Some(
+                    i_slint_core::lengths::LogicalLength::new(height as f32),
+                ));
             }
         }
     }
@@ -858,8 +927,11 @@ impl i_slint_core::platform::Platform for Backend {
 
     #[cfg(target_os = "macos")]
     fn cursor_flash_cycle(&self) -> core::time::Duration {
-        use objc2_foundation::NSUserDefaults;
-        let defaults = NSUserDefaults::standardUserDefaults();
+        if prefers_non_blinking_text_insertion_indicator() == Some(true) {
+            return core::time::Duration::ZERO;
+        }
+
+        let defaults = objc2_foundation::NSUserDefaults::standardUserDefaults();
         let key = objc2_foundation::NSString::from_str("NSTextInsertionPointBlinkPeriod");
         let period = defaults.integerForKey(&key);
         if period < 0 {
@@ -871,9 +943,18 @@ impl i_slint_core::platform::Platform for Backend {
         }
     }
 
+    #[cfg(target_os = "ios")]
+    fn cursor_flash_cycle(&self) -> core::time::Duration {
+        if prefers_non_blinking_text_insertion_indicator() == Some(true) {
+            core::time::Duration::ZERO
+        } else {
+            DEFAULT_CURSOR_FLASH_CYCLE
+        }
+    }
+
     #[cfg(xdg_desktop_settings)]
     fn cursor_flash_cycle(&self) -> core::time::Duration {
-        self.shared_data.cursor_blink_interval.get()
+        self.shared_data.desktop_settings.cursor_flash_cycle()
     }
 
     fn open_url(&self, url: &str) -> Result<(), i_slint_core::platform::PlatformError> {
@@ -1039,10 +1120,10 @@ fn create_renderer(
         #[cfg(feature = "renderer-femtovg-wgpu")]
         (Some("femtovg-wgpu"), maybe_graphics_api) => {
             if let Some(_api) = maybe_graphics_api {
-                #[cfg(feature = "unstable-wgpu-29")]
-                if !matches!(_api, RequestedGraphicsAPI::WGPU29(..)) {
+                #[cfg(feature = "unstable-wgpu-30")]
+                if !matches!(_api, RequestedGraphicsAPI::WGPU30(..)) {
                     return Err(
-                        "The FemtoVG WGPU renderer only supports the WGPU29 graphics API selection"
+                        "The FemtoVG WGPU renderer only supports the WGPU30 graphics API selection"
                             .into(),
                     );
                 }
@@ -1065,20 +1146,20 @@ fn create_renderer(
         }
         #[cfg(all(
             enable_skia_renderer,
-            any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29")
+            any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30")
         ))]
         (Some("skia-wgpu"), maybe_graphics_api) => {
             if let Some(selected_renderer) = maybe_graphics_api.map_or_else(
                 || {
-                    #[cfg(feature = "unstable-wgpu-29")]
+                    #[cfg(feature = "unstable-wgpu-30")]
                     {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(
                             shared_data,
                         ));
                     }
-                    #[cfg(all(feature = "unstable-wgpu-28", not(feature = "unstable-wgpu-29")))]
+                    #[cfg(all(feature = "unstable-wgpu-29", not(feature = "unstable-wgpu-30")))]
                     {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
                             shared_data,
                         ));
                     }
@@ -1086,15 +1167,15 @@ fn create_renderer(
                     None
                 },
                 |_api| {
-                    #[cfg(feature = "unstable-wgpu-29")]
-                    if matches!(_api, RequestedGraphicsAPI::WGPU29(..)) {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
+                    #[cfg(feature = "unstable-wgpu-30")]
+                    if matches!(_api, RequestedGraphicsAPI::WGPU30(..)) {
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(
                             shared_data,
                         ));
                     }
-                    #[cfg(feature = "unstable-wgpu-28")]
-                    if matches!(_api, RequestedGraphicsAPI::WGPU28(..)) {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
+                    #[cfg(feature = "unstable-wgpu-29")]
+                    if matches!(_api, RequestedGraphicsAPI::WGPU29(..)) {
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
                             shared_data,
                         ));
                     }
@@ -1125,25 +1206,25 @@ fn create_renderer(
                 Err(PlatformError::NoPlatform)
             }
         }
-        #[cfg(feature = "unstable-wgpu-28")]
-        (None, Some(RequestedGraphicsAPI::WGPU28(..))) => {
-            cfg_if::cfg_if! {
-                if #[cfg(enable_skia_renderer)] {
-                    renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(shared_data)
-                } else {
-                    return Err("unstable-wgpu-28 was enabled but no renderer was selected. Please select renderer-skia*".into())
-                }
-            }
-        }
         #[cfg(feature = "unstable-wgpu-29")]
         (None, Some(RequestedGraphicsAPI::WGPU29(..))) => {
             cfg_if::cfg_if! {
                 if #[cfg(enable_skia_renderer)] {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(shared_data)
+                } else {
+                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select renderer-skia*".into())
+                }
+            }
+        }
+        #[cfg(feature = "unstable-wgpu-30")]
+        (None, Some(RequestedGraphicsAPI::WGPU30(..))) => {
+            cfg_if::cfg_if! {
+                if #[cfg(enable_skia_renderer)] {
+                    renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(shared_data)
                 } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
                     renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
                 } else {
-                    return Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
+                    Err("unstable-wgpu-30 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
                 }
             }
         }

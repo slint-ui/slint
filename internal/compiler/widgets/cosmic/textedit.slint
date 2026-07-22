@@ -8,6 +8,7 @@ import { TextEditBase } from "../common/textedit-base.slint";
 export component TextEdit {
     in property <TextWrap> wrap <=> base.wrap;
     in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
+    in property <InputMethodHints> input-method-hints <=> base.input-method-hints;
     in property <bool> read-only <=> base.read-only;
     in property <length> font-size <=> base.font-size;
     in property <string> font-family <=> base.font-family;
@@ -76,8 +77,6 @@ export component TextEdit {
         border-color: CosmicPalette.control-divider;
         scroll-view-padding: 12px;
         foreground: CosmicPalette.foreground;
-        font-size: CosmicFontSettings.body.font-size;
-        font-weight: CosmicFontSettings.body.font-weight;
         selection-background-color: CosmicPalette.selection-background;
         selection-foreground-color: CosmicPalette.selection-foreground;
         placeholder-color: CosmicPalette.placeholder-foreground;

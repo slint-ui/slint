@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Foo := Rectangle {
+component Foo inherits Rectangle {
     pure callback hallo_alias <=> xxx.hallo;
     callback clicked <=> are.clicked;
     xxx := Rectangle {
@@ -12,14 +12,14 @@ Foo := Rectangle {
     are := TouchArea { }
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
 
     pure callback foo1_alias <=> foo1.hallo_alias;
     pure callback foo2_alias <=> foo2.hallo_alias;
 
     callback foo1_clicked <=> foo1.clicked;
 
-    callback call_foo2(int) -> int;
+    pure callback call_foo2(int) -> int;
     call_foo2(a) => { return foo2.hallo_alias(a); }
 
     foo1 := Foo {
@@ -30,7 +30,7 @@ TestCase := Rectangle {
         clicked => { debug(42) }
     }
 
-    property <bool> test: foo1_alias(100) == 122 && foo2_alias(100) == 188;
+    in-out property <bool> test: foo1_alias(100) == 122 && foo2_alias(100) == 188;
 }
 
 /*

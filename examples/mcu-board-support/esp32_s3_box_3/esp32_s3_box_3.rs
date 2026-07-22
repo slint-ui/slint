@@ -246,16 +246,16 @@ impl EspBackend {
                         };
 
                         // Dispatch the event to Slint.
-                        window.try_dispatch_event(event)?;
+                        window.dispatch_event_with_result(event)?;
                     }
                     // No active touch: if a previous touch existed, dispatch pointer release.
                     Ok(None) => {
                         if let Some(pos) = last_touch.take() {
-                            window.try_dispatch_event(WindowEvent::PointerReleased {
+                            window.dispatch_event_with_result(WindowEvent::PointerReleased {
                                 position: pos,
                                 button: PointerEventButton::Left,
                             })?;
-                            window.try_dispatch_event(WindowEvent::PointerExited)?;
+                            window.dispatch_event_with_result(WindowEvent::PointerExited)?;
                         }
                     }
                     // On errors, you can log them if desired.

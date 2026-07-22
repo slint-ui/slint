@@ -61,17 +61,16 @@ export component MobileMain {
 
         HorizontalLayout {
             alignment: center;
+            cross-axis-alignment: center;
 
             Image {
                 horizontal-stretch: 1;
-                y: (parent.height - self.height) / 2;
                 height: 24px;
                 source: Images.slint-logo;
             }
         }
 
         settings-button := IconButton {
-            y: (parent.height - self.height) / 2;
             icon: Images.settings;
 
             clicked => {

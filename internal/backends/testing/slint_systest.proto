@@ -23,6 +23,9 @@ enum PointerEventButton {
     Left = 0;
     Right = 1;
     Middle = 2;
+    Back = 3;
+    Forward = 4;
+    Other = 5;
 }
 
 enum ClickAction {
@@ -53,6 +56,21 @@ message PointerScrolledEvent {
 message PointerExitedEvent {
 }
 
+message ScaleFactorChangedEvent {
+    float scale_factor = 1;
+}
+
+message ResizedEvent {
+    LogicalSize size = 1;
+}
+
+message CloseRequestedEvent {
+}
+
+message WindowActiveChangedEvent {
+    bool active = 1;
+}
+
 message KeyPressedEvent {
     string text = 1;
 }
@@ -75,6 +93,10 @@ message WindowEvent {
         KeyPressedEvent key_pressed = 6;
         KeyPressRepeatedEvent key_press_repeated = 7;
         KeyReleasedEvent key_released = 8;
+        ScaleFactorChangedEvent scale_factor_changed = 9;
+        ResizedEvent resized = 10;
+        CloseRequestedEvent close_requested = 11;
+        WindowActiveChangedEvent window_active_changed = 12;
     }
 }
 
@@ -117,6 +139,23 @@ enum AccessibleRole {
     Image = 18;
     RadioButton = 19;
     RadioGroup = 20;
+    Banner = 21;
+    Complementary = 22;
+    ContentInfo = 23;
+    Form = 24;
+    Main = 25;
+    Navigation = 26;
+    Region = 27;
+    Search = 28;
+}
+
+enum RecordedEventResult {
+    // Default; only appears when a deserializer reads a corrupt or
+    // partially-populated RecordedEvent. The recorder never writes this.
+    Unspecified = 0;
+    Accepted = 1;
+    Rejected = 2;
+    Ignored = 3;
 }
 
 message ElementQueryInstruction {
@@ -196,6 +235,22 @@ message RequestQueryElementDescendants {
     bool find_all = 3;
 }
 
+message RequestEventLog {
+    Handle window_handle = 1;
+    uint64 since_sequence = 2;
+    uint64 max_events = 3;
+    bool clear_after_read = 4;
+}
+
+message RequestClearEventLog {
+}
+
+message RequestStartEventRecording {
+}
+
+message RequestStopEventRecording {
+}
+
 message RequestToAUT {
     oneof msg {
         RequestWindowListMessage request_window_list = 1;
@@ -211,6 +266,10 @@ message RequestToAUT {
         RequestElementDrag request_element_drag = 11;
         RequestDispatchKeyEvent request_dispatch_key_event = 12;
         RequestGetElementTree request_get_element_tree = 13;
+        RequestEventLog request_event_log = 14;
+        RequestClearEventLog request_clear_event_log = 15;
+        RequestStartEventRecording request_start_event_recording = 16;
+        RequestStopEventRecording request_stop_event_recording = 17;
     }
 }
 
@@ -251,6 +310,7 @@ message WindowPropertiesResponse {
     PhysicalSize size = 4;
     PhysicalPosition position = 5;
     Handle root_element_handle = 6;
+    float scale_factor = 7;
 }
 
 message ElementsResponse {
@@ -311,6 +371,41 @@ message ElementQueryResponse {
     repeated Handle element_handles = 1;
 }
 
+message RecordedEvent {
+    reserved 4;
+    reserved "source";
+    uint64 sequence = 1;
+    uint64 timestamp_ms = 2;
+    Handle window_handle = 3;
+    WindowEvent event = 5;
+    RecordedEventResult result = 6;
+}
+
+message EventLogResponse {
+    repeated RecordedEvent events = 1;
+    // The next sequence number to use as sinceSequence on the following poll.
+    // Zero when no events have ever been recorded (or after a clear).
+    uint64 next_sequence = 2;
+    uint64 dropped_count = 3;
+    // Number of events skipped because their variant could not be converted to
+    // proto. Non-zero indicates a bug: the conversion code is out of sync with
+    // i_slint_core::platform::WindowEvent / PointerEventButton.
+    uint64 unknown_event_count = 4;
+}
+
+message ClearEventLogResponse {
+}
+
+message StartEventRecordingResponse {
+}
+
+message StopEventRecordingResponse {
+    repeated RecordedEvent events = 1;
+    uint64 dropped_count = 2;
+    // See EventLogResponse.unknown_event_count.
+    uint64 unknown_event_count = 3;
+}
+
 message AUTResponse {
     oneof msg {
         ErrorResponse error = 1;
@@ -327,5 +422,9 @@ message AUTResponse {
         ElementDragResponse element_drag_response = 12;
         DispatchKeyEventResponse dispatch_key_event_response = 13;
         GetElementTreeResponse get_element_tree_response = 14;
+        EventLogResponse event_log_response = 15;
+        ClearEventLogResponse clear_event_log_response = 16;
+        StartEventRecordingResponse start_event_recording_response = 17;
+        StopEventRecordingResponse stop_event_recording_response = 18;
     }
 }

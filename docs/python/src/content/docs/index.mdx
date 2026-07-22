@@ -1,0 +1,157 @@
+---
+title: Slint Python API
+description: Build fluid graphical user interfaces in Python with Slint.
+---
+
+import XRef from "../../components/XRef.astro";
+import SlintRef from "../../components/SlintRef.astro";
+import pkg from "../../version.json";
+
+[Slint](https://slint.dev/) is a UI toolkit that supports different programming
+languages. Slint-python is the integration with Python.
+
+This documentation describes `slint` {pkg.version}.
+
+:::caution[Beta]
+Slint-python is in a beta phase of development: the APIs, while mostly stable,
+may be subject to further changes. Any changes are documented in the
+[ChangeLog](https://github.com/slint-ui/slint/blob/master/CHANGELOG.md). You can
+track the progress of the Python integration via the
+[python-labelled issues](https://github.com/slint-ui/slint/labels/a%3Alanguage-python).
+:::
+
+## Prerequisites
+
+- [Python 3.12 or newer](https://python.org/)
+- [uv](https://docs.astral.sh/uv/) or [pip](https://pypi.org/project/pip/)
+
+## Installation
+
+Install Slint with `uv` or `pip` from the [Python Package Index](https://pypi.org):
+
+```bash
+uv add slint
+```
+
+The installation uses binaries provided for macOS, Windows, and Linux for
+various architectures. If your target platform is not covered by binaries, `uv`
+will automatically build Slint from source. If that happens, you will need some
+software development tools on your machine, as well as
+[Rust](https://www.rust-lang.org/learn/get-started).
+
+## Quick start
+
+1. Create a new project with `uv init`.
+2. Add the Slint Python package to your project: `uv add slint`.
+3. Create a file called `app-window.slint`:
+
+```slint
+import { Button, VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    in-out property<int> counter: 42;
+    callback request-increase-value();
+    VerticalBox {
+        Text {
+            text: "Counter: \{root.counter}";
+        }
+        Button {
+            text: "Increase value";
+            clicked => {
+                root.request-increase-value();
+            }
+        }
+    }
+}
+```
+
+4. Create a file called `main.py`:
+
+```python
+import slint
+
+# slint.loader will look in `sys.path` for `app-window.slint`.
+class App(slint.loader.app_window.AppWindow):
+    @slint.callback
+    def request_increase_value(self):
+        self.counter = self.counter + 1
+
+app = App()
+app.run()
+```
+
+5. Run it with `uv run main.py`.
+
+## Instantiating a component
+
+Exported components are exposed as Python classes. To access such a class, you
+have two options:
+
+1. Call <XRef to="load_file" />. The returned object is a
+   [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace)
+   that provides every exported component that inherits <SlintRef type="Window" />:
+
+   ```python
+   import slint
+   components = slint.load_file("app.slint")
+   main_window = components.MainWindow()
+   ```
+
+2. Use Slint's auto-loader, which lazily loads `.slint` files from `sys.path`:
+
+   ```python
+   import slint
+   main_window = slint.loader.app.MainWindow()
+   ```
+
+## Callbacks
+
+Callbacks declared in `.slint` files are visible as callable properties on the
+component instance. Assign a Python callable to set a handler, or use the
+<XRef to="callback" /> decorator when sub-classing:
+
+```python
+import slint
+
+class Component(slint.loader.my_component.MyComponent):
+    @slint.callback
+    def clicked(self):
+        print("hello")
+
+component = Component()
+```
+
+## Arrays and models
+
+Set array properties from Python by passing subclasses of <XRef to="Model" />.
+Use <XRef to="ListModel" /> to construct a model from an iterable:
+
+```python
+component.model = slint.ListModel([1, 2, 3])
+component.model.append(4)
+del component.model[0]
+```
+
+## Type mappings
+
+Each type used for properties in the Slint language translates to a specific
+Python type:
+
+| `.slint` type | Python type |
+| --- | --- |
+| <SlintRef type="int" /> | `int` |
+| <SlintRef type="float" /> | `float` |
+| <SlintRef type="bool" /> | `bool` |
+| <SlintRef type="StringType" label="string" /> | `str` |
+| <SlintRef type="color" /> | <XRef to="Color" /> |
+| <SlintRef type="brush" /> | <XRef to="Brush" /> |
+| <SlintRef type="ImageType" label="image" /> | <XRef to="Image" /> |
+| <SlintRef type="styled_text" label="styled-text" /> | <XRef to="StyledText" /> |
+| <SlintRef type="data_transfer" label="data-transfer" /> | <XRef to="DataTransfer" /> |
+| `length`, `physical-length`, `duration`, `angle`, `relative-font-size` | `float` |
+| structure | `dict` / `Struct` |
+| array | <XRef to="Model" /> |
+| <SlintRef type="Point" /> | <XRef to="LogicalPosition" /> |
+
+For the full set of classes and module-level functions, see the **API**
+section in the sidebar.

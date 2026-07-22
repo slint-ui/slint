@@ -3,16 +3,16 @@
 
 export component Test inherits Window {
     Rectangle {
-        ToolTip {
-            text: "Hello";
+        Tooltip {
+            text: @markdown("Hello");
             x: 10px;
-//          ^error{Unknown property x in ToolTip}
+//          ^error{Unknown property x in Tooltip}
             y: 20px;
-//          ^error{Unknown property y in ToolTip}
+//          ^error{Unknown property y in Tooltip}
             width: 30px;
-//          >   <error{Unknown property width in ToolTip}
+//          >   <error{Unknown property width in Tooltip}
             height: 40px;
-//          >    <error{Unknown property height in ToolTip}
+//          >    <error{Unknown property height in Tooltip}
         }
     }
 }

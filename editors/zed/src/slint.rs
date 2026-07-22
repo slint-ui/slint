@@ -59,10 +59,10 @@ impl SlintExtension {
         let target = zed::current_platform();
 
         let target_name = match target {
-            (Os::Mac, _) => "slint-lsp-macos",
-            (Os::Windows, Architecture::X8664) => "slint-lsp-windows-x86_64",
-            (Os::Windows, Architecture::Aarch64) => "slint-lsp-windows-arm64",
-            (Os::Linux, Architecture::X8664) => "slint-lsp-linux",
+            (Os::Mac, _) => "slint-lsp-universal-apple-darwin",
+            (Os::Windows, Architecture::X8664) => "slint-lsp-x86_64-pc-windows-msvc",
+            (Os::Windows, Architecture::Aarch64) => "slint-lsp-aarch64-pc-windows-msvc",
+            (Os::Linux, Architecture::X8664) => "slint-lsp-x86_64-unknown-linux-gnu",
             (Os::Linux, Architecture::Aarch64) => "slint-lsp-aarch64-unknown-linux-gnu",
             (_, _) => return Err("Platform or architecture not supported for automatic slint-lsp download. Please install it manually and use the 'lsp.slint.binary' setting to point to it.".to_string()),
         };

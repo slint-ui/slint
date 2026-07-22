@@ -6,6 +6,7 @@
 
 use crate::common;
 use crate::preview::{self, connector, ui};
+use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewTarget, PreviewToLspMessage};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -230,12 +231,15 @@ pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
         callbacks.as_ref().map(|cb| js_sys::Function::from((cb.resource_url_mapper).clone()))
     })?;
 
-    Some(Rc::new(move |url: &str| {
-        let Some(promise) = callback.call1(&JsValue::UNDEFINED, &url.into()).ok() else {
+    Some(Rc::new(move |url: &lsp_types::Url| {
+        let Some(promise) = callback.call1(&JsValue::UNDEFINED, &url.as_str().into()).ok() else {
             return Box::pin(std::future::ready(None));
         };
         let future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(promise));
-        Box::pin(async move { future.await.ok().and_then(|v| v.as_string()) })
+        Box::pin(async move {
+            let mapped = future.await.ok().and_then(|v| v.as_string())?;
+            lsp_types::Url::parse(&mapped).ok()
+        })
     }))
 }
 
@@ -250,14 +254,12 @@ impl WasmLspToPreview {
 }
 
 impl common::LspToPreview for WasmLspToPreview {
-    fn send(&self, message: &i_slint_preview_protocol::LspToPreviewMessage) {
-        let _ = self
-            .server_notifier
-            .send_notification::<i_slint_preview_protocol::LspToPreviewMessage>(message.clone());
+    fn send(&self, message: &LspToPreviewMessage) {
+        let _ = self.server_notifier.send_notification::<LspToPreviewMessage>(message.clone());
     }
 
-    fn preview_target(&self) -> i_slint_preview_protocol::PreviewTarget {
-        i_slint_preview_protocol::PreviewTarget::EmbeddedWasm
+    fn preview_target(&self) -> PreviewTarget {
+        PreviewTarget::EmbeddedWasm
     }
 }
 
@@ -265,7 +267,7 @@ impl common::LspToPreview for WasmLspToPreview {
 struct WasmPreviewToLsp {}
 
 impl common::PreviewToLsp for WasmPreviewToLsp {
-    fn send(&self, message: &i_slint_preview_protocol::PreviewToLspMessage) -> common::Result<()> {
+    fn send(&self, message: &PreviewToLspMessage) -> common::Result<()> {
         WASM_CALLBACKS.with_borrow(|callbacks| {
             let notifier = js_sys::Function::from(
                 (callbacks.as_ref().expect("Callbacks were set up earlier").lsp_notifier).clone(),

@@ -68,6 +68,17 @@ pub trait RepeatedItemTree:
         self.layout_item_info(orientation, child_index).into()
     }
 
+    /// Vertical flexbox info measured at the given cross-axis (container) width.
+    /// A column FlexboxLayout calls this so a height-for-width instance wraps to
+    /// the real width. The default ignores the width (non-height-for-width
+    /// cells); the generated code overrides it for height-for-width instances.
+    fn flexbox_layout_item_info_at_cross_width(
+        self: Pin<&Self>,
+        _flex_cross_width: f32,
+    ) -> crate::layout::FlexboxLayoutItemInfo {
+        self.flexbox_layout_item_info(Orientation::Vertical, None)
+    }
+
     /// Fills in the grid layout input data for this ItemTree if it is in a grid layout.
     /// This will be a single GridLayoutInputData if the repeated item is a single cell,
     /// or multiple GridLayoutInputData if the repeated item is a full Row.
@@ -140,8 +151,17 @@ trait RepeaterInstanceOps {
     fn listview_layout(&self, instance_idx: usize, y: &mut Coord) -> Coord;
 }
 
+/// More rows than this is presumably a bug (e.g. a division by zero) and would run out of memory
+const MAX_EAGER_INSTANCE_COUNT: usize = 1 << 20;
+
 /// Update all instances in the repeater, creating any that are missing.
 fn update_all_instances(ops: &mut impl RepeaterInstanceOps, offset: usize, count: usize) {
+    let count = if count > MAX_EAGER_INSTANCE_COUNT {
+        crate::debug_log!("A repeater's model has {count} rows: too many to instantiate");
+        0
+    } else {
+        count
+    };
     let cur = ops.len();
     if count > cur {
         ops.splice(cur, 0, count - cur);

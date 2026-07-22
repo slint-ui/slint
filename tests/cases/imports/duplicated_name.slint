@@ -10,16 +10,16 @@ import { ColorButton } from "test_button.slint";
 import { TestButton as TheRealTestButton  } from "re_export.slint";
 
 // ColorButton uses TestButtonImpl
-TestButtonImpl := Rectangle {
-    property <int> abc: 12;
+component TestButtonImpl inherits Rectangle {
+    in-out property <int> abc: 12;
 }
 
 // Testbutton is another name for TestButtonImpl
-TestButton := Rectangle {
-    property <string> abc: "hello";
+component TestButton inherits Rectangle {
+    in-out property <string> abc: "hello";
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     ColorButton { button_color: red; }
     TestButtonImpl { abc: 4; }
     TestButton { abc: "world"; }

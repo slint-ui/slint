@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::{
+    cursor::MouseCursorInner,
     input::{FocusEventResult, FocusReason, InternalKeyEvent, KeyEventType, key_codes},
     items::PointerEventButton,
 };
@@ -158,7 +159,7 @@ impl Item for NativeSlider {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -169,7 +170,7 @@ impl Item for NativeSlider {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self_rc);
         let enabled = self.enabled();
@@ -271,7 +272,7 @@ impl Item for NativeSlider {
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                 InputEventResult::EventIgnored
             }
-            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
+            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => InputEventResult::EventIgnored,
             // Note: The Qt slider used to accept scroll events, however the other styles do not.
             // As the scroll event handling is problematic when a slider is placed in a Flickable,
             // ignore scroll events for now.

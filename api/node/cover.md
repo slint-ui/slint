@@ -30,9 +30,13 @@ To use Slint with Deno, ensure the following programs are installed:
 
 ### Building from Source
 
-Slint-node comes with pre-built binaries for macOS, Linux, and Windows. If you'd like to use Slint-node on a system
-without pre-built binaries, you need to additional software:
+Slint-node comes with pre-built binaries for Linux (x86-64 and ARM64, glibc), macOS (ARM64), and
+Windows (x86-64 and ARM64). On other systems, installing the `slint-ui` package succeeds, but loading it
+fails because no matching binary is found. `npm install` does not build Slint-node from source automatically;
+instead, build it yourself from a checkout of the [Slint repository](https://github.com/slint-ui/slint)
+(run `pnpm install && pnpm build` in `api/node`). This requires:
 
+  * **[pnpm](https://www.pnpm.io/)**
   * **[Rust compiler](https://www.rust-lang.org/tools/install)**
   * Depending on your operating system, you may need additional components. For a list of required system libraries,
     see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>.

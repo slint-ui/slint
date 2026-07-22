@@ -4,30 +4,23 @@
 import {
     Button,
     GroupBox,
-    SpinBox,
-    ComboBox,
     CheckBox,
-    LineEdit,
     VerticalBox,
     HorizontalBox,
     Slider,
     ProgressIndicator,
-    SpinBox,
-    Switch,
     Spinner,
     GridBox,
-    TimePickerPopup,
-    DatePickerPopup,
     Palette,
-    RadioGroup,
 } from "std-widgets.slint";
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
 export component ControlsPage inherits Page {
     title: @tr("Controls");
-    show-enable-read-only: true;
+    show-enable-read-only: false;
     description: @tr("This page gives an overview of the default widget set provided by Slint. The widgets are available in different styles native, fluent-(dark/light) and material-(dark/light). The widgets can be imported from \"std-widgets.slint\".");
+    alignment: start;
 
     GroupBox {
         vertical-stretch: 0;
@@ -79,7 +72,7 @@ export component ControlsPage inherits Page {
     }
 
     GroupBox {
-        title: @tr("ToolTip");
+        title: @tr("Tooltip");
         vertical-stretch: 0;
 
         HorizontalBox {
@@ -90,29 +83,16 @@ export component ControlsPage inherits Page {
                 text: @tr("Hover me");
                 enabled: GallerySettings.widgets-enabled;
 
-                ToolTip {
-                    text: @tr("This is a tooltip.");
+                Tooltip {
+                    text: @markdown("\{@tr("This is a tooltip.")}");
                 }
             }
 
             Button {
-                text: @tr("Below ToolTip");
+                text: @tr("Custom Tooltip");
                 enabled: GallerySettings.widgets-enabled;
 
-                ToolTip {
-                    placement: below-element;
-                    delay: 700ms;
-                    text: @tr("Below placement with delay");
-                }
-            }
-
-            Button {
-                text: @tr("Custom ToolTip");
-                enabled: GallerySettings.widgets-enabled;
-
-                ToolTip {
-                    placement: above-element;
-
+                Tooltip {
                     VerticalBox {
                         padding: 10px;
                         spacing: 6px;
@@ -154,123 +134,6 @@ export component ControlsPage inherits Page {
                                 }
                             }
                         }
-                    }
-                }
-            }
-        }
-    }
-
-    GroupBox {
-        title: @tr("CheckBox - ComboBox - Switch");
-        vertical-stretch: 0;
-
-        HorizontalBox {
-            alignment: start;
-            padding: 0px;
-
-            checkbox := CheckBox {
-                text: checkbox.checked ? @tr("(checked)") : @tr("(unchecked)");
-                checked: true;
-                enabled: GallerySettings.widgets-enabled;
-            }
-
-            ComboBox {
-                model: [@tr("Select Something"), @tr("From this"), @tr("Combobox")];
-                enabled: GallerySettings.widgets-enabled;
-            }
-
-            Switch {
-                text: @tr("Flight Mode");
-                checked: true;
-                enabled: GallerySettings.widgets-enabled;
-            }
-        }
-    }
-
-    GroupBox {
-        title: @tr("RadioGroup");
-        vertical-stretch: 0;
-
-        HorizontalBox {
-            padding: 0px;
-            spacing: 50px;
-            alignment: start;
-            align-items: start;
-
-            RadioGroup {
-                title: @tr("Vertical Orientation");
-                enabled: GallerySettings.widgets-enabled;
-                model: [
-                    { text: @tr("Portrait") },
-                    { text: @tr("Landscape") },
-                    { text: @tr("Auto"), disabled: true },
-                ];
-                current-index: 0;
-            }
-
-            RadioGroup {
-                title: @tr("Horizontal Orientation");
-                enabled: GallerySettings.widgets-enabled;
-                orientation: Orientation.horizontal;
-                model: [
-                    { text: @tr("Start") },
-                    { text: @tr("Center") },
-                    { text: @tr("End") },
-                ];
-                current-index: 1;
-                selected(value) => {
-                    debug("RadioGroup selected: ", value);
-                }
-            }
-        }
-    }
-
-    GroupBox {
-        title: @tr("LineEdit - SpinBox - TimePickerPopup - DatePickerPopup");
-        vertical-stretch: 0;
-        VerticalBox {
-            HorizontalBox {
-                alignment: start;
-                padding: 0px;
-
-                LineEdit {
-                    placeholder-text: @tr("Enter some text");
-                    enabled: GallerySettings.widgets-enabled;
-                    read-only: GallerySettings.widgets-read-only;
-                }
-
-                LineEdit {
-                    placeholder-text: @tr("Password");
-                    enabled: GallerySettings.widgets-enabled;
-                    read-only: GallerySettings.widgets-read-only;
-                    input-type: InputType.password;
-                }
-
-                SpinBox {
-                    vertical-stretch: 0;
-                    value: 42;
-                    enabled: GallerySettings.widgets-enabled;
-                    read-only: GallerySettings.widgets-read-only;
-                }
-            }
-
-            HorizontalBox {
-                alignment: start;
-                padding: 0px;
-
-                time-picker-button := Button {
-                    text: @tr("Open TimePickerPopup");
-                    enabled: GallerySettings.widgets-enabled;
-                    clicked => {
-                        time-picker.show();
-                    }
-                }
-
-                Button {
-                    text: @tr("Open DatePickerPopup");
-                    enabled: GallerySettings.widgets-enabled;
-                    clicked => {
-                        date-picker.show();
                     }
                 }
             }
@@ -324,15 +187,5 @@ export component ControlsPage inherits Page {
                 enabled: GallerySettings.widgets-enabled;
             }
         }
-    }
-
-    time-picker := TimePickerPopup {
-        x: (root.width - self.width) / 2;
-        y: (root.height - self.height) / 2;
-    }
-
-    date-picker := DatePickerPopup {
-        x: (root.width - self.width) / 2;
-        y: (root.height - self.height) / 2;
     }
 }

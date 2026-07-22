@@ -56,8 +56,8 @@ int main()
             // Our own card: accept whatever modifier the user is holding.
             return event.proposed_action;
         }
-        if (event.data.has_plaintext()) {
-            // External plaintext drop: always treated as a copy.
+        if (event.data.has_plain_text()) {
+            // External plain text drop: always treated as a copy.
             return slint::language::DragAction::Copy;
         }
         return slint::language::DragAction::None;
@@ -95,7 +95,7 @@ int main()
                 columns[source]->erase(source_index);
                 columns[target]->insert(static_cast<size_t>(target_index), payload->task);
             }
-        } else if (auto text = event.data.fetch_plaintext()) {
+        } else if (auto text = event.data.plain_text()) {
             columns[target]->insert(static_cast<size_t>(target_index), TaskData { *text });
         }
     });

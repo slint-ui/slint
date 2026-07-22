@@ -9,7 +9,7 @@
 */
 use crate::EventResult;
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
-use crate::winitwindowadapter::WindowVisibility;
+use crate::winitwindowadapter::{WindowVisibility, WinitWindowAdapter};
 use crate::{SharedBackendData, SlintEvent};
 use corelib::SharedString;
 use corelib::graphics::euclid;
@@ -89,6 +89,10 @@ pub struct EventLoopState {
     /// Set to true when pumping events for the shortest amount of time possible.
     pumping_events_instantly: bool,
 
+    /// Allocates small i32 finger ids for iOS's pointer-valued touch ids.
+    #[cfg(target_os = "ios")]
+    touch_finger_ids: crate::ios::TouchFingerIdAllocator,
+
     custom_application_handler: Option<Box<dyn crate::CustomApplicationHandler>>,
 }
 
@@ -105,6 +109,8 @@ impl EventLoopState {
             current_resize_direction: Default::default(),
             pending_mouse_move: Default::default(),
             pumping_events_instantly: Default::default(),
+            #[cfg(target_os = "ios")]
+            touch_finger_ids: Default::default(),
             custom_application_handler,
         }
     }
@@ -204,6 +210,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         }
 
         let runtime_window = WindowInner::from_pub(window.window());
+        self.maybe_set_custom_cursor(&window, event_loop);
         if !matches!(event, WindowEvent::CursorMoved { .. } | WindowEvent::AxisMotion { .. }) {
             self.flush_pending_mouse_move();
         }
@@ -234,7 +241,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             WindowEvent::CloseRequested => {
                 self.loop_error = window
                     .window()
-                    .try_dispatch_event(corelib::platform::WindowEvent::CloseRequested)
+                    .dispatch_event_with_result(corelib::platform::WindowEvent::CloseRequested)
                     .err();
             }
             WindowEvent::Focused(have_focus) => {
@@ -457,19 +464,39 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             WindowEvent::Touch(touch) => {
                 let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
                 let position = euclid::point2(location.x, location.y);
-                runtime_window.process_touch_input(
-                    touch.id,
-                    position,
-                    winit_touch_phase(touch.phase),
-                );
+                // winit types the touch id as u64, but on all platforms except
+                // iOS it is in fact a small integer that fits in i32. Only iOS
+                // stores a UITouch pointer address in it, which
+                // TouchFingerIdAllocator maps to a small id instead.
+                #[cfg(not(target_os = "ios"))]
+                let finger_id =
+                    Some(i32::try_from(touch.id).expect("winit touch id out of i32 range"));
+                #[cfg(target_os = "ios")]
+                let finger_id = match touch.phase {
+                    winit::event::TouchPhase::Started | winit::event::TouchPhase::Moved => {
+                        self.touch_finger_ids.id_for(touch.id)
+                    }
+                    winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
+                        self.touch_finger_ids.take(touch.id)
+                    }
+                };
+                if let Some(finger_id) = finger_id {
+                    runtime_window.process_touch_input(
+                        finger_id,
+                        position,
+                        winit_touch_phase(touch.phase),
+                    );
+                }
             }
             WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
                     self.loop_error = window
                         .window()
-                        .try_dispatch_event(corelib::platform::WindowEvent::ScaleFactorChanged {
-                            scale_factor: scale_factor as f32,
-                        })
+                        .dispatch_event_with_result(
+                            corelib::platform::WindowEvent::ScaleFactorChanged {
+                                scale_factor: scale_factor as f32,
+                            },
+                        )
                         .err();
                     // TODO: send a resize event or try to keep the logical size the same.
                     //window.resize_event(inner_size_writer.???)?;
@@ -692,6 +719,19 @@ impl EventLoopState {
                 }
                 Ok(self)
             }
+        }
+    }
+
+    /// Sets the cursor to a custom source, if it needs to be set.
+    pub fn maybe_set_custom_cursor(
+        &self,
+        window: &WinitWindowAdapter,
+        event_loop: &ActiveEventLoop,
+    ) {
+        // If there is a new custom cursor, update it.
+        let custom_cursor_source = window.custom_cursor_source.take();
+        if let (Some(source), Some(winit_window)) = (custom_cursor_source, window.winit_window()) {
+            winit_window.set_cursor(event_loop.create_custom_cursor(source));
         }
     }
 

@@ -3,19 +3,27 @@
 // SPDX-License-Identifier: MIT
 import { Icon } from "@astrojs/starlight/components";
 
-const useNodeReleaseDocs = Astro.props.docsUrlKind === "node";
+/** Per-language docs live under …/docs/<subdir>/; the default Slint manual has none. */
+const docsSubdir =
+    Astro.props.docsUrlKind === "node"
+        ? "node"
+        : Astro.props.docsUrlKind === "python"
+          ? "python"
+          : Astro.props.docsUrlKind === "cpp"
+            ? "cpp"
+            : null;
 ---
 
-<script define:vars={{ useNodeReleaseDocs }}>
-/** `versions.json` only lists Slint doc roots; map to …/1.x.y/docs/node/ for the Node handbook. */
-function releaseUrlToNodeHandbookRoot(url) {
+<script define:vars={{ docsSubdir }}>
+/** `versions.json` only lists Slint doc roots; map to …/1.x.y/docs/<subdir>/ for per-language docs. */
+function releaseUrlToLanguageDocsRoot(url) {
   try {
     const u = new URL(url);
     let p = u.pathname.replace(/\/+$/, "");
     if (p.includes("/docs/slint")) {
-      p = p.replace("/docs/slint", "/docs/node");
+      p = p.replace("/docs/slint", `/docs/${docsSubdir}`);
     } else if (p.endsWith("/docs")) {
-      p = `${p}/node`;
+      p = `${p}/${docsSubdir}`;
     } else {
       return url;
     }
@@ -26,10 +34,10 @@ function releaseUrlToNodeHandbookRoot(url) {
   }
 }
 function versionOptionValue(v) {
-  if (!useNodeReleaseDocs) {
+  if (!docsSubdir) {
     return v.url;
   }
-  return releaseUrlToNodeHandbookRoot(v.url);
+  return releaseUrlToLanguageDocsRoot(v.url);
 }
 
 /** If the script runs before the select exists, retry `fetchVersions` once after DOM is ready. */

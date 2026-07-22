@@ -4,7 +4,7 @@
 # cSpell: ignore luts tonemapping
 [package]
 name = "bevy-example"
-version = "1.17.0"
+version = "1.18.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2024"
 publish = false
@@ -18,8 +18,8 @@ path = "main.rs"
 [dependencies]
 slint = { path = "../../../api/rs/slint", features = ["renderer-skia", "unstable-wgpu-29"] }
 spin_on = { version = "0.1" }
-bevy = { version = "0.19.0-rc.1", default-features = false, features = ["bevy_core_pipeline", "bevy_pbr", "bevy_window", "bevy_scene", "bevy_world_serialization", "bevy_gltf", "bevy_log", "jpeg", "png", "tonemapping_luts", "multi_threaded", "reflect_auto_register", "debug"] }
-bevy_image = { version = "0.19.0-rc.1", features = ["zstd_rust"] }
+bevy = { version = "0.19", default-features = false, features = ["bevy_core_pipeline", "bevy_pbr", "bevy_window", "bevy_scene", "bevy_world_serialization", "bevy_gltf", "bevy_log", "jpeg", "png", "tonemapping_luts", "multi_threaded", "reflect_auto_register", "debug"] }
+bevy_image = { version = "0.19", features = ["zstd_rust"] }
 smol = { version = "2.0.0" }
 async-compat = { version = "0.2.4" }
-reqwest = { version = "0.12", features = ["stream"] }
+reqwest = { version = "0.13", features = ["stream"] }

@@ -171,17 +171,17 @@ pub unsafe fn make_vulkan_context(
             }
         };
 
-        let mut backend = vk::BackendContext::new(
+        // WGPU 29 is locked to vulkan 1.3 and skia assumes the highest vulkan API version of the
+        // physical device is chosen, causing it to ask for unsupported features/functions.
+        let backend = vk::BackendContext::new_builder(
             vulkan_device.shared_instance().raw_instance().handle().as_raw() as _,
             vulkan_device.raw_physical_device().as_raw() as _,
             vulkan_device.raw_device().handle().as_raw() as _,
             (vulkan_queue_raw.as_raw() as _, vulkan_device.queue_family_index() as _),
             &get_proc,
-        );
-
-        // WGPU 28 is locked to vulkan 1.3 and skia assumes the highest vulkan API version of the physical device is chosen,
-        // causing it to ask for unsupported features/functions
-        backend.set_max_api_version(vk::Version::new(1, 3, 0));
+            Some(vk::Version::new(1, 3, 0)),
+        )
+        .build();
 
         skia_safe::gpu::direct_contexts::make_vulkan(&backend, None)
     }

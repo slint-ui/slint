@@ -19,6 +19,8 @@ use crate::langtype::{BuiltinStruct, ElementType, StructName};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Document, ElementRc};
 
+pub mod accessor_names;
+
 #[cfg(feature = "cpp")]
 pub mod cpp;
 #[cfg(feature = "cpp")]

@@ -1,24 +1,24 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-O := Text {
-    property <int> val;
+component O inherits Text {
+    in-out property <int> val;
     text: val;
-    property <int> a: val + 1;
+    in-out property <int> a: val + 1;
 }
 
-TestCase := Window {
-    property <int> val: condition ? 2 : 4;
-    property <bool> condition : false;
+export component TestCase inherits Window {
+    in-out property <int> val: condition ? 2 : 4;
+    in-out property <bool> condition : false;
     HorizontalLayout {
-        o1 := O { val <=> root.val; }
-        o2 := O { val <=> root.val; }
-        o3 := O { val <=> root.val; }
-        o4 := O { val <=> root.val; }
-        o5 := O { val <=> root.val; }
+        o1 := O { val <=> val; }
+        o2 := O { val <=> val; }
+        o3 := O { val <=> val; }
+        o4 := O { val <=> val; }
+        o5 := O { val <=> val; }
     }
-    property <int> checksum: 10000 * o1.a + 1000 * o2.a + 100 * o3.a + 10 * o4.a + 1 * o5.a;
-    property <bool> test: checksum == 55555;
+    in-out property <int> checksum: 10000 * o1.a + 1000 * o2.a + 100 * o3.a + 10 * o4.a + 1 * o5.a;
+    in-out property <bool> test: checksum == 55555;
 }
 
 

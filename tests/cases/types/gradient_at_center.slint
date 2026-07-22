@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component TestCase inherits Rectangle {
+    width: 200px;
+    height: 200px;
+
+    // Accepted syntax forms.
+    property <brush> radial_at_center: @radial-gradient(circle at 50px 50px, red, blue);
+    property <brush> radial_at_size: @radial-gradient(circle 80px at 100px 100px, red, green, blue);
+    property <brush> radial_size_only: @radial-gradient(circle 80px, red, green, blue);
+    property <brush> conic_at_center: @conic-gradient(at 100px 50px, red 0deg, blue 180deg, red 360deg);
+    property <brush> conic_from_at: @conic-gradient(from 45deg at 150px 150px, red 0deg, blue 180deg, red 360deg);
+
+    // Dynamic coordinates and outside-bounds centers.
+    property <length> cx: 100px;
+    property <length> cy: 75px;
+    property <brush> radial_dynamic: @radial-gradient(circle at cx cy, red, blue);
+    property <brush> conic_dynamic: @conic-gradient(at cx cy, red 0deg, blue 360deg);
+
+    property <length> neg_offset: 0px - 50px;
+    property <brush> radial_outside: @radial-gradient(circle 200px at neg_offset neg_offset, yellow, transparent);
+
+    // Brush equality semantics.
+    out property <bool> test:
+        @radial-gradient(circle at 50px 50px, red, blue) != @radial-gradient(circle, red, blue)
+        && @radial-gradient(circle at 50px 50px, red, blue) == @radial-gradient(circle at 50px 50px, red, blue)
+        && @radial-gradient(circle 80px at 100px 100px, red, green, blue) != @radial-gradient(circle, red, green, blue)
+        && @radial-gradient(circle 80px, red, green, blue) != @radial-gradient(circle, red, green, blue)
+        && @conic-gradient(at 100px 50px, red 0deg, blue 180deg, red 360deg) != @conic-gradient(red 0deg, blue 180deg, red 360deg)
+        && radial_dynamic != @radial-gradient(circle, red, blue);
+}
+
+export { TestCase }
+
+/*
+```rust
+let t = TestCase::new().unwrap();
+assert!(t.get_test(), "gradient center brush equality assertions failed");
+```
+*/

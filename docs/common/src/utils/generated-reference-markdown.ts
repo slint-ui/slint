@@ -29,11 +29,22 @@ function findGlobLoader(
     segment: string,
     baseName: string,
 ): (() => Promise<MarkdownDocModule>) | undefined {
-    const tail = `/${segment}/${baseName}.md`;
-    const hit = Object.keys(glob).find((key) =>
-        key.replaceAll("\\", "/").endsWith(tail),
-    );
-    return hit !== undefined ? glob[hit] : undefined;
+    // Generated enum/struct partials are written with a `_` prefix so Astro
+    // doesn't emit them as standalone pages; std-widgets snippets are not.
+    const candidates = [
+        `/${segment}/_${baseName}.md`,
+        `/${segment}/${baseName}.md`,
+    ];
+    const keys = Object.keys(glob);
+    for (const tail of candidates) {
+        const hit = keys.find((key) =>
+            key.replaceAll("\\", "/").endsWith(tail),
+        );
+        if (hit !== undefined) {
+            return glob[hit];
+        }
+    }
+    return undefined;
 }
 
 export async function getEnumContent(enumName: string | undefined) {

@@ -7,7 +7,7 @@ r"""
 
 import os
 import sys
-from . import slint as native
+from ._native import native
 from . import language
 
 import types
@@ -17,25 +17,26 @@ import typing
 from typing import Any
 import pathlib
 from .models import ListModel, Model
-from .slint import (
-    Image,
-    Color,
-    Brush,
-    Keys,
-    DataTransfer,
-    LogicalPosition,
-    LogicalSize,
-    StyledText,
-    Timer,
-    TimerMode,
-)
 from .loop import SlintEventLoop
 from pathlib import Path
 from collections.abc import Coroutine
 import asyncio
+import signal
+import threading
 import gettext
 import gzip
 import base64
+
+Image = native.Image
+Color = native.Color
+Brush = native.Brush
+Keys = native.Keys
+DataTransfer = native.DataTransfer
+LogicalPosition = native.LogicalPosition
+LogicalSize = native.LogicalSize
+StyledText = native.StyledText
+Timer = native.Timer
+TimerMode = native.TimerMode
 
 
 Struct = native.PyStruct
@@ -579,6 +580,20 @@ def run_event_loop(
 
     """
 
+    # Decide whether to install our own SIGINT handler *before* asyncio.run()
+    # installs its own: only claim SIGINT on the main thread and only if the
+    # application hasn't set its own handler. asyncio.run()'s built-in Ctrl-C
+    # handling can't help here — it relies on a Python-level signal.signal()
+    # callback that never runs while we are blocked in the native event loop
+    # with the GIL released. Arming it through loop.add_signal_handler() instead
+    # wires up the self-pipe wakeup, so the native loop wakes on Ctrl-C even when
+    # idle (see #11507 for the underlying machinery).
+    interrupted = [False]
+    install_sigint = (
+        threading.current_thread() is threading.main_thread()
+        and signal.getsignal(signal.SIGINT) is signal.default_int_handler
+    )
+
     async def run_inner() -> None:
         global quit_event
         loop = typing.cast(SlintEventLoop, asyncio.get_event_loop())
@@ -592,6 +607,20 @@ def run_event_loop(
             main_task = loop.create_task(main_coro)
             tasks.append(main_task)
 
+        if install_sigint:
+
+            def _on_sigint() -> None:
+                # Preserve Python semantics: stop the loop and re-raise
+                # KeyboardInterrupt out of run_event_loop() below.
+                interrupted[0] = True
+                quit_event.set()
+
+            try:
+                loop.add_signal_handler(signal.SIGINT, _on_sigint)
+            except (NotImplementedError, RuntimeError, ValueError):
+                # add_signal_handler is Unix and main-thread only.
+                pass
+
         done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
         if main_task is not None and main_task in done:
@@ -602,6 +631,8 @@ def run_event_loop(
     global quit_event
     quit_event = asyncio.Event()
     asyncio.run(run_inner(), debug=False, loop_factory=SlintEventLoop)
+    if interrupted[0]:
+        raise KeyboardInterrupt
 
 
 def quit_event_loop() -> None:

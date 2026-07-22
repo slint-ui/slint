@@ -1,11 +1,11 @@
 {
   "name": "slint_repository",
-  "version": "1.17.0",
+  "version": "1.18.0",
   "description": "",
   "devDependencies": {
     "@cspell/dict-fr-fr": "2.3.2",
     "cspell": "catalog:",
-    "knip": "6.12.2"
+    "knip": "6.27.0"
   },
   "scripts": {
     "knip": "knip",
@@ -15,7 +15,7 @@
     "lint": "pnpm --stream -r lint",
     "lint:fix": "pnpm --stream -r lint:fix",
     "type-check": "pnpm --stream -r type-check",
-    "type-check:ci": "pnpm --stream --filter '!./editors/vscode' --filter '!slint_repository' --filter '!./docs/nodejs' -r type-check"
+    "type-check:ci": "pnpm --stream --filter '!./editors/vscode' --filter '!slint_repository' --filter '!./docs/nodejs' --filter '!./docs/python' -r type-check"
   },
   "packageManager": "pnpm@10.29.3",
   "pnpm": {
@@ -32,7 +32,9 @@
       "devalue@<=5.6.3": ">=5.6.4",
       "flatted@<3.4.0": ">=3.4.0",
       "yaml@>=2.0.0 <2.8.3": ">=2.8.3",
-      "uuid@<14.0.0": ">=14.0.0"
+      "uuid@<14.0.0": ">=14.0.0",
+      "qs@>=6.11.1 <=6.15.1": ">=6.15.2",
+      "js-yaml@<=4.1.1": ">=4.2.0 <5.0.0"
     }
   }
 }

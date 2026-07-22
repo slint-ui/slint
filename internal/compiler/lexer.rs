@@ -331,36 +331,32 @@ pub fn locate_slint_macro(rust_source: &str) -> impl Iterator<Item = core::ops::
     let mut begin = 0;
     std::iter::from_fn(move || {
         let (open, close) = loop {
-            if let Some(m) = rust_source[begin..].find("slint") {
-                // heuristics to find if we are not in a comment or a string literal. Not perfect, but should work in most cases
-                if let Some(x) = rust_source[begin..(begin + m)].rfind(['\\', '\n', '/', '\"'])
-                    && rust_source.as_bytes()[begin + x] != b'\n'
-                {
-                    begin += m + 5;
-                    begin += rust_source[begin..].find(['\n']).unwrap_or(0);
-                    continue;
-                }
+            let m = rust_source[begin..].find("slint")?;
+            // heuristics to find if we are not in a comment or a string literal. Not perfect, but should work in most cases
+            if let Some(x) = rust_source[begin..(begin + m)].rfind(['\\', '\n', '/', '\"'])
+                && rust_source.as_bytes()[begin + x] != b'\n'
+            {
                 begin += m + 5;
-                while rust_source[begin..].starts_with(' ') {
-                    begin += 1;
-                }
-                if !rust_source[begin..].starts_with('!') {
-                    continue;
-                }
+                begin += rust_source[begin..].find(['\n']).unwrap_or(0);
+                continue;
+            }
+            begin += m + 5;
+            while rust_source[begin..].starts_with(' ') {
                 begin += 1;
-                while rust_source[begin..].starts_with(' ') {
-                    begin += 1;
-                }
-                let Some(open) = rust_source.as_bytes().get(begin) else { continue };
-                match open {
-                    b'{' => break (SyntaxKind::LBrace, SyntaxKind::RBrace),
-                    b'[' => break (SyntaxKind::LBracket, SyntaxKind::RBracket),
-                    b'(' => break (SyntaxKind::LParent, SyntaxKind::RParent),
-                    _ => continue,
-                }
-            } else {
-                // No macro found, just return
-                return None;
+            }
+            if !rust_source[begin..].starts_with('!') {
+                continue;
+            }
+            begin += 1;
+            while rust_source[begin..].starts_with(' ') {
+                begin += 1;
+            }
+            let Some(open) = rust_source.as_bytes().get(begin) else { continue };
+            match open {
+                b'{' => break (SyntaxKind::LBrace, SyntaxKind::RBrace),
+                b'[' => break (SyntaxKind::LBracket, SyntaxKind::RBracket),
+                b'(' => break (SyntaxKind::LParent, SyntaxKind::RParent),
+                _ => continue,
             }
         };
 

@@ -1,11 +1,10 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cspell:ignore pipx
+# cspell:ignore pipx pipenv graphviz sharkdp taplo
 [tools]
 
 ## C++:
-"ubi:EmbarkStudios/cargo-about" = "0.6.6"
 "pipx:cmake" = "4.0.0"
 "pipx:ninja" = "1.11.1.4"
 "pipx:pipenv" = "2025.0.2"

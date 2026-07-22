@@ -27,7 +27,6 @@ export component HeaderView {
 
             ComboBox {
                 model: [@tr("English"), @tr("German")];
-                current-value: @tr("English");
                 selected() => {
                     root.select-language(self.current-index);
                 }

@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct MyStruct { x: int }
+
+export component Test {
+    in property <string> s;
+    in property <int> i;
+    in property <float> f;
+    in property <color> c;
+    in property <brush> br;
+    in property <bool> b;
+    in property <length> l;
+    in property <duration> d;
+    in property <[int]> arr;
+    in property <MyStruct> st;
+
+    // Convertible to string: the hint suggests @markdown wrapping.
+    in property <styled-text> t1: "hello";
+//                                >      <error{Cannot convert string to styled-text. Wrap the expression in `@markdown("\{...}")` to convert it explicitly}
+    in property <styled-text> t2: s;
+//                                ><error{Cannot convert string to styled-text. Wrap the expression in `@markdown("\{...}")` to convert it explicitly}
+    in property <styled-text> t3: i;
+//                                ><error{Cannot convert int to styled-text. Wrap the expression in `@markdown("\{...}")` to convert it explicitly}
+    in property <styled-text> t4: f;
+//                                ><error{Cannot convert float to styled-text. Wrap the expression in `@markdown("\{...}")` to convert it explicitly}
+    in property <styled-text> t5: 42;
+//                                > <error{Cannot convert float to styled-text. Wrap the expression in `@markdown("\{...}")` to convert it explicitly}
+    in property <styled-text> t6: 3.14;
+//                                >   <error{Cannot convert float to styled-text. Wrap the expression in `@markdown("\{...}")` to convert it explicitly}
+    in property <styled-text> t7: i + 1;
+//                                >    <error{Cannot convert float to styled-text. Wrap the expression in `@markdown("\{...}")` to convert it explicitly}
+
+    // Not convertible to string: bare error, no @markdown hint.
+    in property <styled-text> t8: c;
+//                                ><error{Cannot convert color to styled-text}
+    in property <styled-text> t9: br;
+//                                > <error{Cannot convert brush to styled-text}
+    in property <styled-text> t10: b;
+//                                 ><error{Cannot convert bool to styled-text}
+    in property <styled-text> t11: arr;
+//                                 >  <error{Cannot convert [int] to styled-text}
+    in property <styled-text> t12: st;
+//                                 > <error{Cannot convert MyStruct to styled-text}
+
+    // Unit-bearing types: bare error, no @markdown hint (wrapping alone won't
+    // fix it; the user would also have to divide by 1px / 1ms first).
+    in property <styled-text> t13: l;
+//                                 ><error{Cannot convert length to styled-text}
+    in property <styled-text> t14: d;
+//                                 ><error{Cannot convert duration to styled-text}
+}

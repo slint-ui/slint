@@ -1,21 +1,22 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
-    property<brush> extra_background <=> background;
-    property<length> sub_width1 <=> sub.width;
-    property<length> sub_width2: sub.width;
+export component TestCase inherits Rectangle {
+    in-out property<brush> extra_background <=> root.background;
+    in-out property<length> sub_width1 <=> sub.width;
+    in-out property<length> sub_width2: sub.width;
 
-    property<int> sub_foo1: 44;
-    property<int> sub_foo2: sub.foo;
+    in-out property<int> sub_foo1: 44;
+    in-out property<int> sub_foo2: sub.foo;
 
 
     sub := Rectangle {
+        x:0;
         width: 80phx;
-        property<int> foo <=> root.sub_foo1;
+        property<int> foo <=> sub_foo1;
     }
 
-    if (true) : Rectangle { background: root.extra_background; }
+    if (true) : Rectangle { background: extra_background; }
 }
 
 

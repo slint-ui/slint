@@ -19,6 +19,10 @@ env:
     SLINT_MCU_FEATURES: "-DSLINT_FEATURE_FREESTANDING=ON -DSLINT_FEATURE_RENDERER_SOFTWARE=ON"
     # env variable used by espup https://github.com/esp-rs/espup?tab=readme-ov-file#github-api
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # Use fat LTO for the distributed C++ packages: smaller shared library and better runtime perf.
+    # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+    CARGO_PROFILE_RELEASE_LTO: "fat"
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
 
 jobs:
     cmake_package_desktop:
@@ -43,7 +47,7 @@ jobs:
 
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Qt (Ubuntu)
               uses: jurplel/install-qt-action@v4
@@ -52,10 +56,6 @@ jobs:
                   version: 6.2.2
                   cache: true
             - uses: ./.github/actions/setup-rust
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: cargo-about
-                  version: "=0.6.6"
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
@@ -94,17 +94,13 @@ jobs:
 
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.target }}
             - name: Install GNU Arm Embedded Toolchain
               run: sudo apt-get update && sudo apt-get install gcc-arm-none-eabi
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: cargo-about
-                  version: "=0.6.6"
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
@@ -143,7 +139,7 @@ jobs:
 
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: dtolnay/rust-toolchain@stable
             - uses: cargo-bins/cargo-binstall@main
@@ -157,10 +153,6 @@ jobs:
               run: |
                   source "$HOME/export-esp.sh"
                   echo "$PATH" >> "$GITHUB_PATH"
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: cargo-about
-                  version: "=0.6.6"
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
@@ -194,23 +186,23 @@ jobs:
                   - gcc_target: aarch64-linux-gnu
                     rust_target: aarch64-unknown-linux-gnu
                     cmake_system_processor: arm64
+                    gcc_suffix: ""
+                  # armv7 compiles Skia from source, which needs C++20 / GCC 10
+                  # (the default GCC 9 only knows -std=c++2a, not -std=c++20).
                   - gcc_target: arm-linux-gnueabihf
                     rust_target: armv7-unknown-linux-gnueabihf
                     cmake_system_processor: armhf
+                    gcc_suffix: "-10"
 
         runs-on: ubuntu-22.04
         container: ghcr.io/slint-ui/slint/${{ matrix.rust_target }}-cpp
         steps:
-            - uses: actions/checkout@v6
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: cargo-about
-                  version: "=0.6.6"
+            - uses: actions/checkout@v7
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ../../build
               working-directory: api/cpp/
             - name: CMake configure
-              run: cmake -B build -S . -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.cmake_system_processor }} -DRust_CARGO_TARGET=${{ matrix.rust_target}} -DCMAKE_C_COMPILER=${{ matrix.gcc_target }}-gcc -DCMAKE_CXX_COMPILER=${{ matrix.gcc_target }}-g++  -DSLINT_COMPILER=download ${{ env.SLINT_BINARY_FEATURES }} ${{ inputs.extra_cmake_flags }}
+              run: cmake -B build -S . -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.cmake_system_processor }} -DRust_CARGO_TARGET=${{ matrix.rust_target}} -DCMAKE_C_COMPILER=${{ matrix.gcc_target }}-gcc${{ matrix.gcc_suffix }} -DCMAKE_CXX_COMPILER=${{ matrix.gcc_target }}-g++${{ matrix.gcc_suffix }}  -DSLINT_COMPILER=download ${{ env.SLINT_BINARY_FEATURES }} ${{ inputs.extra_cmake_flags }}
             - name: CMake build
               run: cmake --build build --parallel
             - name: CMake package
@@ -249,7 +241,7 @@ jobs:
 
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
             - uses: ilammy/msvc-dev-cmd@v1

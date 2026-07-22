@@ -16,6 +16,7 @@ use crate::common::{self, text_edit};
 use crate::language::completion;
 use crate::preview::{self, element_selection, ui};
 use crate::util;
+use i_slint_live_preview::protocol::VersionedUrl;
 
 use crate::preview::ext::ElementRcNodeExt;
 
@@ -352,7 +353,7 @@ pub fn insert_position_at_end(
 
         Some(InsertInformation {
             insertion_position: common::VersionedPosition::new(
-                i_slint_preview_protocol::VersionedUrl::new(url, version),
+                VersionedUrl::new(url, version),
                 offset,
             ),
             replacement_range,
@@ -410,7 +411,7 @@ pub fn insert_position_before_child(
 
             return Some(InsertInformation {
                 insertion_position: common::VersionedPosition::new(
-                    i_slint_preview_protocol::VersionedUrl::new(url, version),
+                    VersionedUrl::new(url, version),
                     first_token_offset,
                 ),
                 replacement_range: 0,
@@ -434,7 +435,7 @@ fn insert_position_before_first_component(
     let url = {
         let url = lsp_types::Url::from_file_path(document.source_file.path()).ok()?;
         let version = document_cache.document_version_by_path(document.source_file.path());
-        i_slint_preview_protocol::VersionedUrl::new(url, version)
+        VersionedUrl::new(url, version)
     };
 
     let first_component: Option<SyntaxNode> = document.Component().next().map(|c| c.into());

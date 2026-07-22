@@ -7,7 +7,8 @@ import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common
 
 import { LineEditInterface } from "../common/std-widget-interfaces.slint";
 
-export component LineEdit uses { LineEditInterface from base } {
+export component LineEdit {
+    implement LineEditInterface <=> base;
 
     accessible-role: text-input;
     accessible-enabled: root.enabled;
@@ -55,8 +56,6 @@ export component LineEdit uses { LineEditInterface from base } {
             spacing: 3px;
 
             base := LineEditBase {
-                font-size: CupertinoFontSettings.body.font-size;
-                font-weight: CupertinoFontSettings.body.font-weight;
                 selection-background-color: CupertinoPalette.selection-background;
                 selection-foreground-color: CupertinoPalette.selection-foreground;
                 text-color: CupertinoPalette.foreground;

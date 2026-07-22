@@ -1,21 +1,30 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore dalvik jboolean jint
+// cSpell: ignore dalvik jboolean jfloat jint
 use super::*;
+use i_slint_common::unicode_utils::{
+    byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
+};
 use i_slint_core::SharedString;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
 use i_slint_core::item_rendering::HasFont;
-use i_slint_core::items::{ColorScheme, InputType};
-use i_slint_core::lengths::PhysicalEdges;
+use i_slint_core::items::{CapitalizationMode, ColorScheme, InputType};
+use i_slint_core::lengths::{LogicalLength, PhysicalEdges};
 use i_slint_core::platform::WindowAdapter;
 use jni::objects::{JClass, JClassLoader, JString, LoaderContext};
-use jni::sys::jint;
+use jni::sys::{jfloat, jint};
 use jni::{Env, JavaVM, bind_java_type};
 use std::sync::OnceLock;
 use std::time::Duration;
+
+/// Maps an Android `Configuration.fontScale` to a Slint default font size.
+/// 14 LP = Material Design body-text size at `fontScale = 1.0`.
+pub(crate) fn font_scale_to_logical_length(font_scale: f32) -> Option<LogicalLength> {
+    (font_scale.is_finite() && font_scale > 0.0).then(|| LogicalLength::new(14.0 * font_scale))
+}
 
 const DEX_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/classes.dex"));
 
@@ -36,6 +45,10 @@ bind_java_type! {
         fn color_scheme {
             name = "color_scheme",
             sig = () -> jint,
+        },
+        fn font_scale {
+            name = "font_scale",
+            sig = () -> jfloat,
         },
         fn get_clipboard {
             name = "get_clipboard",
@@ -118,6 +131,10 @@ bind_java_type! {
             sig = (night_mode: jint) -> (),
             fn = callback_set_night_mode,
         },
+        pub static fn set_font_scale {
+            sig = (font_scale: jfloat) -> (),
+            fn = callback_set_font_scale,
+        },
         pub static fn update_text {
             sig = (
                     text: JString,
@@ -198,6 +215,31 @@ bind_java_type! {
         static TYPE_NUMBER_FLAG_DECIMAL {
             sig = jint,
             get = TYPE_NUMBER_FLAG_DECIMAL,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_CAP_SENTENCES {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_CAP_SENTENCES,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_CAP_WORDS {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_CAP_WORDS,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_CAP_CHARACTERS {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_CAP_CHARACTERS,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_AUTO_CORRECT {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_AUTO_CORRECT,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_AUTO_COMPLETE {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_AUTO_COMPLETE,
         },
     }
 }
@@ -367,11 +409,40 @@ impl JavaHelper {
                 }
             }
 
-            let to_utf16 = |x| convert_utf8_index_to_utf16(&text, x);
+            let to_utf16 = |x| byte_offset_to_utf16_offset(&text, x as usize);
             let text = JString::new(env, text.as_str())?;
 
             let input_type = match data.input_type {
-                InputType::Text => AndroidInputType::TYPE_CLASS_TEXT(env)?,
+                InputType::Text | InputType::Search => {
+                    let hints = &data.input_method_hints;
+                    let capitalization_flag = match hints.capitalization {
+                        CapitalizationMode::None => 0 as jint,
+                        CapitalizationMode::Sentences => {
+                            AndroidInputType::TYPE_TEXT_FLAG_CAP_SENTENCES(env)?
+                        }
+                        CapitalizationMode::Words => {
+                            AndroidInputType::TYPE_TEXT_FLAG_CAP_WORDS(env)?
+                        }
+                        CapitalizationMode::Characters => {
+                            AndroidInputType::TYPE_TEXT_FLAG_CAP_CHARACTERS(env)?
+                        }
+                        _ => 0 as jint,
+                    };
+                    let auto_correct_flag = if hints.auto_correct {
+                        AndroidInputType::TYPE_TEXT_FLAG_AUTO_CORRECT(env)?
+                    } else {
+                        0 as jint
+                    };
+                    let auto_complete_flag = if hints.auto_complete {
+                        AndroidInputType::TYPE_TEXT_FLAG_AUTO_COMPLETE(env)?
+                    } else {
+                        0 as jint
+                    };
+                    AndroidInputType::TYPE_CLASS_TEXT(env)?
+                        | capitalization_flag
+                        | auto_correct_flag
+                        | auto_complete_flag
+                }
                 InputType::Password => {
                     AndroidInputType::TYPE_TEXT_VARIATION_PASSWORD(env)?
                         | AndroidInputType::TYPE_CLASS_TEXT(env)?
@@ -392,7 +463,13 @@ impl JavaHelper {
                 r.contains(i_slint_core::lengths::logical_point_from_api(data.cursor_rect_origin))
             });
             let anchor_visible = data.clip_rect.map_or(true, |r| {
-                r.contains(i_slint_core::lengths::logical_point_from_api(data.anchor_point))
+                // anchor_point is `origin + cursor_size` for handle placement; check the
+                // anchor cursor's origin so we don't spuriously fail on the clip rect's edge.
+                let anchor_origin =
+                    i_slint_core::lengths::logical_point_from_api(data.anchor_point)
+                        - i_slint_core::lengths::logical_size_from_api(data.cursor_rect_size)
+                            .to_vector();
+                r.contains(anchor_origin)
             });
 
             // Add 2*cur_size.width to the y position to be a bit under the cursor
@@ -424,6 +501,10 @@ impl JavaHelper {
 
     pub fn color_scheme(&self) -> Result<i32, jni::errors::Error> {
         self.with_jni_env(|env, helper| helper.color_scheme(env))
+    }
+
+    pub fn font_scale(&self) -> Result<f32, jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.font_scale(env))
     }
 
     pub fn accent_color(&self) -> Result<Color, jni::errors::Error> {
@@ -485,10 +566,10 @@ fn callback_update_text<'local>(
     let decoded: std::borrow::Cow<str> = (&java_str).into();
     let text = SharedString::from(decoded.as_ref());
 
-    let cursor_position = convert_utf16_index_to_utf8(&text, cursor_position as usize);
-    let anchor_position = convert_utf16_index_to_utf8(&text, anchor_position as usize);
-    let preedit_start = convert_utf16_index_to_utf8(&text, preedit_start as usize);
-    let preedit_end = convert_utf16_index_to_utf8(&text, preedit_end as usize);
+    let cursor_position = utf16_offset_to_byte_offset_clamped(&text, cursor_position as usize);
+    let anchor_position = utf16_offset_to_byte_offset_clamped(&text, anchor_position as usize);
+    let preedit_start = utf16_offset_to_byte_offset_clamped(&text, preedit_start as usize);
+    let preedit_end = utf16_offset_to_byte_offset_clamped(&text, preedit_end as usize);
 
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
@@ -538,22 +619,6 @@ fn callback_update_text<'local>(
     Ok(())
 }
 
-fn convert_utf16_index_to_utf8(in_str: &str, utf16_index: usize) -> usize {
-    let mut utf16_counter = 0;
-
-    for (utf8_index, c) in in_str.char_indices() {
-        if utf16_counter >= utf16_index {
-            return utf8_index;
-        }
-        utf16_counter += c.len_utf16();
-    }
-    in_str.len()
-}
-
-fn convert_utf8_index_to_utf16(in_str: &str, utf8_index: usize) -> usize {
-    in_str[..utf8_index].encode_utf16().count()
-}
-
 fn callback_set_night_mode<'local>(
     _env: &mut Env<'local>,
     _class: JClass<'local>,
@@ -572,6 +637,25 @@ fn callback_set_night_mode<'local>(
             if let Ok(accent) = w.java_helper.accent_color() {
                 ctx.set_accent_color(accent);
             }
+        }
+    })
+    .unwrap();
+    Ok(())
+}
+
+fn callback_set_font_scale<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
+    font_scale: jfloat,
+) -> Result<(), jni::errors::Error> {
+    // Skip rather than clobber: an OEM/ROM that hands us 0.0 or NaN during a
+    // transient configuration change must not zero out the value `bind_context`
+    // already set.
+    let Some(size) = font_scale_to_logical_length(font_scale) else { return Ok(()) };
+    i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(w) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            let ctx = i_slint_core::window::WindowInner::from_pub(&w.window).context();
+            ctx.set_platform_default_font_size(Some(size));
         }
     })
     .unwrap();

@@ -1,42 +1,29 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { FluentFontSettings, FluentPalette, Icons } from "styling.slint";
-import { RadioButtonBase } from "../common/radiobutton-base.slint";
-import { RadioGroupBase, RadioEntry } from "../common/radiogroup-base.slint";
+import { FluentPalette } from "styling.slint";
+import { RadioButtonImplBase, RadioGroupImplBase } from "../common/radiogroup-base.slint";
 import { FocusBorder } from "components.slint";
 
-export { RadioEntry }
-
-component RadioButton {
-    in property <string> label <=> base.label;
-    in property <bool> enabled <=> base.enabled;
-    in property <bool> checked <=> base.checked;
-    out property <bool> has-focus <=> base.has-focus;
-
-    callback selected <=> base.selected;
-    callback focus-change <=> base.focus-change;
-
+export component RadioButtonImpl inherits RadioButtonImplBase {
     private property <color> text-color: FluentPalette.foreground;
 
-    min-height: max(18px, layout.min-height);
-
-    base := RadioButtonBase { }
+    min-height: max(32px, layout.min-height);
 
     states [
-        disabled when !root.enabled: {
+        disabled when !root.enabled || !root.group-enabled: {
             outer.border-color: root.checked ? transparent : FluentPalette.control-strong-stroke-disabled;
             outer.background: FluentPalette.control-alt-disabled;
             inner.border-color: root.checked ? FluentPalette.accent-disabled : transparent;
             root.text-color: FluentPalette.text-disabled;
         }
-        pressed when base.pressed: {
+        pressed when root.pressed: {
             outer.background: transparent;
             inner.border-color: root.checked ? FluentPalette.tertiary-accent-background : FluentPalette.control-alt-quaternary;
             outer.border-color: root.checked ? transparent : FluentPalette.control-strong-stroke-disabled;
             inner.border-width: root.checked ? 7px : 5px;
         }
-        hover when base.has-hover: {
+        hover when root.has-hover: {
             outer.background: root.checked ? transparent : FluentPalette.control-alt-tertiary;
             inner.border-width: root.checked ? 5px : 0px;
         }
@@ -71,78 +58,23 @@ component RadioButton {
             }
         }
 
-        if root.label != "": Text {
-            text: root.label;
+        if root.text != "": Text {
+            text: root.text;
             color: root.text-color;
-            font-size: FluentFontSettings.body.font-size;
-            font-weight: FluentFontSettings.body.font-weight;
             vertical-alignment: center;
             horizontal-alignment: left;
         }
     }
 
-    if root.has-focus && root.enabled: FocusBorder {
+    if root.has-focus && root.enabled && root.group-enabled: FocusBorder {
         border-radius: 7px;
     }
 }
 
-export component RadioGroup {
-    in property <string> title;
-    in property <bool> enabled: true;
-    in property <Orientation> orientation: Orientation.vertical;
-
-    in property <[RadioEntry]> model <=> base.model;
-    in-out property <int> current-index <=> base.current-index;
-    in-out property <string> current-value <=> base.current-value;
-
-    out property <bool> has-focus: root.focus-depth > 0;
-
-    callback selected <=> base.selected;
-
-    private property <int> focus-depth: 0;
-
-    base := RadioGroupBase {
-        enabled: root.enabled;
-    }
-
-    accessible-role: radio-group;
-    accessible-label: root.title;
-    accessible-enabled: root.enabled;
-    accessible-value <=> root.current-value;
-
-    VerticalLayout {
-        spacing: 8px;
-
-        if root.title != "": Text {
-            color: !root.enabled ? FluentPalette.text-disabled : FluentPalette.control-foreground;
-            font-size: FluentFontSettings.body.font-size;
-            font-weight: FluentFontSettings.body.font-weight;
-            text: root.title;
-        }
-
-        GridLayout {
-            spacing: 8px;
-
-            for entry[index] in root.model: RadioButton {
-                row: root.orientation == Orientation.vertical ? index : 0;
-                col: root.orientation == Orientation.vertical ? 0 : index;
-                label: entry.text;
-                enabled: root.enabled && !entry.disabled;
-                checked: root.current-index == index;
-                height: 32px;
-
-                focus-change(gained) => {
-                    if (gained) {
-                        root.focus-depth += 1;
-                    } else {
-                        root.focus-depth = max(0, root.focus-depth - 1);
-                    }
-                }
-
-                selected => {
-                    base.select(index);
-                }
-            }
-        }
-    }
+export component RadioGroupImpl inherits RadioGroupImplBase {
+    title-color: !root.enabled ? FluentPalette.text-disabled : FluentPalette.control-foreground;
+    title-font-size: 1rem;
+    title-font-weight: FontWeight.normal;
 }
+
+export component RadioGroup inherits RadioGroup { }

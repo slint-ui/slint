@@ -147,18 +147,16 @@ public:
         slint_windowrc_set_component(&inner, &item_tree_rc);
     }
 
-    template<typename Component, typename Parent, typename PosGetter>
+    template<typename Component, typename Parent, typename PosGetter, typename IsOpenSetter>
     uint32_t show_popup(const Parent *parent_component, PosGetter pos,
                         cbindgen_private::PopupClosePolicy close_policy,
-                        cbindgen_private::ItemRc parent_item, bool is_tooltip = false) const
+                        cbindgen_private::ItemRc parent_item,
+                        cbindgen_private::WindowKind window_kind, IsOpenSetter is_open_setter) const
     {
         using SharedGlobals = decltype(parent_component->globals);
         SharedGlobals _own_globals = nullptr;
-        if (!is_tooltip) {
-            if (auto _popup_adapter = create_popup_window_adapter()) {
-                _own_globals =
-                        parent_component->globals->clone_with_window_adapter(*_popup_adapter);
-            }
+        if (auto _popup_adapter = create_child_window_adapter(window_kind)) {
+            _own_globals = parent_component->globals->clone_with_window_adapter(*_popup_adapter);
         }
         if (!_own_globals) {
             _own_globals = parent_component->globals;
@@ -174,6 +172,9 @@ public:
         };
 
         auto position_data = new PopupPositionData { std::move(pos), popup };
+        // Keeps the parent component's `PopupWindow::is-open` property in sync: invoked with `true`
+        // when the popup is shown and with `false` from every close path.
+        auto is_open_data = new IsOpenSetter(std::move(is_open_setter));
         auto id = cbindgen_private::slint_windowrc_show_popup(
                 &inner, &popup_dyn,
                 [](void *user_data, LogicalPosition *pos) {
@@ -181,7 +182,12 @@ public:
                     *pos = data->pos(data->popup_component);
                 },
                 [](void *user_data) { delete reinterpret_cast<PopupPositionData *>(user_data); },
-                position_data, close_policy, &parent_item, is_tooltip, false);
+                position_data, close_policy, &parent_item, window_kind,
+                [](void *user_data, bool is_open) {
+                    (*reinterpret_cast<IsOpenSetter *>(user_data))(is_open);
+                },
+                [](void *user_data) { delete reinterpret_cast<IsOpenSetter *>(user_data); },
+                is_open_data);
         popup->user_init();
         return id;
     }
@@ -195,10 +201,12 @@ public:
 
     /// Try to create a window adapter for a popup window.
     /// Returns std::nullopt if the backend renders popups as child windows.
-    std::optional<WindowAdapterRc> create_popup_window_adapter() const
+    std::optional<WindowAdapterRc>
+    create_child_window_adapter(cbindgen_private::WindowKind window_kind) const
     {
         cbindgen_private::WindowAdapterRcOpaque raw_result;
-        if (cbindgen_private::slint_windowrc_create_popup_window_adapter(&inner, &raw_result)) {
+        if (cbindgen_private::slint_windowrc_create_child_window_adapter(&inner, window_kind,
+                                                                         &raw_result)) {
             std::optional<WindowAdapterRc> result;
             result.emplace(raw_result); // clone: refcount = 2
             cbindgen_private::slint_windowrc_drop(&raw_result); // drop original: refcount = 1
@@ -231,7 +239,9 @@ public:
                 },
                 [](void *user_data) { delete reinterpret_cast<LogicalPosition *>(user_data); },
                 position_data, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
-                &context_menu_rc, false, true);
+                &context_menu_rc, cbindgen_private::WindowKind::Menu,
+                // Menus do not expose `is-open`, so the setter is a no-op.
+                [](void *, bool) {}, [](void *) {}, nullptr);
         popup->user_init();
         return id;
     }

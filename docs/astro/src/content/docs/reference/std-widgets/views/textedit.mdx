@@ -65,6 +65,17 @@ Set to true when the widget currently has the focus.
 When false, nothing can be entered.
 </SlintProperty>
 
+### input-method-hints
+<SlintProperty propName="input-method-hints" typeName="struct" structName="InputMethodHints">
+Hints for the platform's input method (such as a soft keyboard), for example to configure auto-capitalization.
+The input method may take these hints into account, but might also ignore them.
+```slint "input-method-hints: { capitalization: CapitalizationMode.words };"
+TextEdit {
+    input-method-hints: { capitalization: CapitalizationMode.words };
+}
+```
+</SlintProperty>
+
 ### read-only
 <SlintProperty propName="read-only" typeName="bool" defaultValue="false" >
 When set to true, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically.
@@ -81,7 +92,7 @@ The horizontal alignment of the text.
 </SlintProperty>
 
 ### placeholder-text
-<SlintProperty propName="text" typeName="string" propertyVisibility="in" >
+<SlintProperty propName="placeholder-text" typeName="string" propertyVisibility="in" >
 A placeholder text being shown when there is no text in the edit field.
 </SlintProperty>
 

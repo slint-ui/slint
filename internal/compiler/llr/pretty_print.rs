@@ -3,17 +3,36 @@
 
 use std::fmt::{Display, Result, Write};
 
-use itertools::Itertools;
+use itertools::{Either, Itertools};
 
 use crate::expression_tree::MinMaxOp;
+use crate::langtype::{StructName, Type};
+use crate::layout::Orientation;
 
 use super::{
-    CompilationUnit, EvaluationContext, Expression, LocalMemberIndex, LocalMemberReference,
-    MemberReference, ParentScope, SubComponentIdx,
+    Animation, CompilationUnit, EvaluationContext, Expression, LocalMemberIndex,
+    LocalMemberReference, MemberReference, ParentScope, SubComponentIdx,
 };
 
 pub fn pretty_print(root: &CompilationUnit, writer: &mut dyn Write) -> Result {
     PrettyPrinter { writer, indentation: 0 }.print_root(root)
+}
+
+/// Print compiler-internal builtin structs by their name; they have no slint
+/// name, so `Type`'s Display spells out all their fields.
+struct DisplayType<'a>(&'a Type);
+impl Display for DisplayType<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
+        match self.0 {
+            Type::Struct(s) => match &s.name {
+                StructName::Builtin(b) if b.slint_name().is_none() => {
+                    write!(f, "{}", <&str>::from(b))
+                }
+                _ => write!(f, "{}", self.0),
+            },
+            _ => write!(f, "{}", self.0),
+        }
+    }
 }
 
 struct PrettyPrinter<'a> {
@@ -28,8 +47,16 @@ impl PrettyPrinter<'_> {
                 self.print_global(root, idx, g)?;
             }
         }
-        for c in root.sub_components.keys() {
-            self.print_component(root, c, None)?
+        // Repeater, popup, and menu trees print inline under their parent,
+        // because their expressions resolve in the parent scope.
+        for c in &root.used_sub_components {
+            self.print_component(root, *c, None)?
+        }
+        for p in &root.public_components {
+            self.print_component(root, p.item_tree.root, None)?
+        }
+        if let Some(p) = &root.popup_menu {
+            self.print_component(root, p.item_tree.root, None)?
         }
 
         Ok(())
@@ -47,7 +74,13 @@ impl PrettyPrinter<'_> {
         self.indentation += 1;
         for p in &sc.properties {
             self.indent()?;
-            writeln!(self.writer, "property <{}> {}; //use={}", p.ty, p.name, p.use_count.get())?;
+            writeln!(
+                self.writer,
+                "property <{}> {}; //use={}",
+                DisplayType(&p.ty),
+                p.name,
+                p.use_count.get()
+            )?;
         }
         for c in &sc.callbacks {
             self.indent()?;
@@ -55,8 +88,8 @@ impl PrettyPrinter<'_> {
                 self.writer,
                 "callback {} ({}) -> {};",
                 c.name,
-                c.args.iter().map(ToString::to_string).join(", "),
-                c.ret_ty,
+                c.args.iter().map(|t| DisplayType(t).to_string()).join(", "),
+                DisplayType(&c.ret_ty),
             )?;
         }
         for f in &sc.functions {
@@ -65,9 +98,9 @@ impl PrettyPrinter<'_> {
                 self.writer,
                 "function {} ({}) -> {} {{ {} }}; ",
                 f.name,
-                f.args.iter().map(ToString::to_string).join(", "),
-                f.ret_ty,
-                DisplayExpression(&f.code, &ctx)
+                f.args.iter().map(|t| DisplayType(t).to_string()).join(", "),
+                DisplayType(&f.ret_ty),
+                DisplayExpression(&f.code.borrow(), &ctx)
             )?;
         }
         for twb in &sc.two_way_bindings {
@@ -83,12 +116,34 @@ impl PrettyPrinter<'_> {
         }
         for (p, init) in &sc.property_init {
             self.indent()?;
+            write!(
+                self.writer,
+                "{}: {}",
+                DisplayPropertyRef(p, &ctx),
+                DisplayExpression(&init.expression.borrow(), &ctx)
+            )?;
+            match &init.animation {
+                Some(Animation::Static(a)) => {
+                    write!(self.writer, " animate {}", DisplayExpression(a, &ctx))?
+                }
+                Some(Animation::Transition(a)) => {
+                    write!(self.writer, " animate transition {}", DisplayExpression(a, &ctx))?
+                }
+                None => {}
+            }
             writeln!(
                 self.writer,
-                "{}: {};{}",
-                DisplayPropertyRef(p, &ctx),
-                DisplayExpression(&init.expression.borrow(), &ctx),
-                if init.is_constant { " /*const*/" } else { "" }
+                ";{}",
+                if init.kind == super::BindingKind::Constant { " /*const*/" } else { "" }
+            )?
+        }
+        for (p, a) in &sc.animations {
+            self.indent()?;
+            writeln!(
+                self.writer,
+                "animate {} {{ {} }};",
+                DisplayLocalRef(p, &ctx),
+                DisplayExpression(a, &ctx)
             )?
         }
         for (p, e) in &sc.change_callbacks {
@@ -98,6 +153,56 @@ impl PrettyPrinter<'_> {
                 "changed {} => {};",
                 DisplayPropertyRef(p, &ctx),
                 DisplayExpression(&e.borrow(), &ctx),
+            )?
+        }
+        for e in &sc.pre_init_code {
+            self.indent()?;
+            writeln!(self.writer, "pre-init => {};", DisplayExpression(&e.borrow(), &ctx))?
+        }
+        for e in &sc.init_code {
+            self.indent()?;
+            writeln!(self.writer, "init => {};", DisplayExpression(&e.borrow(), &ctx))?
+        }
+        for (name, e) in
+            [("layout-info-h", &sc.layout_info_h), ("layout-info-v", &sc.layout_info_v)]
+        {
+            self.indent()?;
+            writeln!(self.writer, "{}: {};", name, DisplayExpression(&e.borrow(), &ctx))?
+        }
+        if let Some(e) = &sc.grid_layout_input_for_repeated {
+            self.indent()?;
+            writeln!(
+                self.writer,
+                "grid-layout-input-for-repeated: {};",
+                DisplayExpression(&e.borrow(), &ctx)
+            )?
+        }
+        if let Some(e) = &sc.flexbox_layout_item_info_for_repeated {
+            self.indent()?;
+            writeln!(
+                self.writer,
+                "flexbox-layout-item-info-for-repeated: {};",
+                DisplayExpression(&e.borrow(), &ctx)
+            )?
+        }
+        for (i, c) in sc.grid_layout_children.iter_enumerated() {
+            self.indent()?;
+            writeln!(
+                self.writer,
+                "grid-layout-child[{}] {{ h: {}; v: {} }};",
+                usize::from(i),
+                DisplayExpression(&c.layout_info_h.borrow(), &ctx),
+                DisplayExpression(&c.layout_info_v.borrow(), &ctx)
+            )?
+        }
+        for t in &sc.timers {
+            self.indent()?;
+            writeln!(
+                self.writer,
+                "timer {{ interval: {}; running: {}; triggered => {} }};",
+                DisplayExpression(&t.interval.borrow(), &ctx),
+                DisplayExpression(&t.running.borrow(), &ctx),
+                DisplayExpression(&t.triggered.borrow(), &ctx)
             )?
         }
         for ssc in &sc.sub_components {
@@ -111,18 +216,46 @@ impl PrettyPrinter<'_> {
             });
             writeln!(self.writer, "{} := {} {{ {geometry} }};", item.name, item.ty.class_name)?;
         }
+        for ((item_index, prop), e) in &sc.accessible_prop {
+            self.indent()?;
+            writeln!(
+                self.writer,
+                "{}.accessible-{}: {};",
+                item_name_in_tree(root, sc, *item_index)
+                    .unwrap_or_else(|| format!("@{item_index}")),
+                crate::generator::to_kebab_case(prop),
+                DisplayExpression(&e.borrow(), &ctx)
+            )?
+        }
         for (idx, r) in sc.repeated.iter_enumerated() {
             self.indent()?;
-            write!(self.writer, "for in {} : ", DisplayExpression(&r.model.borrow(), &ctx))?;
+            write!(
+                self.writer,
+                "{} {} : /*@repeater({})*/ ",
+                if r.index_prop.is_none() && r.data_prop.is_none() { "if" } else { "for in" },
+                DisplayExpression(&r.model.borrow(), &ctx),
+                usize::from(idx)
+            )?;
             self.print_component(root, r.sub_tree.root, Some(&ParentScope::new(&ctx, Some(idx))))?
         }
-        for t in &sc.menu_item_trees {
+        for (i, t) in sc.menu_item_trees.iter().enumerate() {
             self.indent()?;
+            write!(self.writer, "menu : /*@menu({i})*/ ")?;
             self.print_component(root, t.root, Some(&ParentScope::new(&ctx, None)))?
         }
-        for w in &sc.popup_windows {
+        for (i, w) in sc.popup_windows.iter().enumerate() {
             self.indent()?;
-            self.print_component(root, w.item_tree.root, Some(&ParentScope::new(&ctx, None)))?
+            let parent = ParentScope::new(&ctx, None);
+            // The position is evaluated in the popup's own scope.
+            let popup_ctx =
+                EvaluationContext::new_sub_component(root, w.item_tree.root, (), Some(&parent));
+            write!(
+                self.writer,
+                "{} at {} : /*@popup({i})*/ ",
+                if w.is_tooltip { "tooltip" } else { "popup" },
+                DisplayExpression(&w.position.borrow(), &popup_ctx)
+            )?;
+            self.print_component(root, w.item_tree.root, Some(&parent))?
         }
         self.indentation -= 1;
         self.indent()?;
@@ -141,14 +274,21 @@ impl PrettyPrinter<'_> {
         }
         let aliases = global.aliases.join(",");
         let aliases = if aliases.is_empty() { String::new() } else { format!(" /*{aliases}*/") };
-        writeln!(self.writer, "global {} {{{aliases}", global.name)?;
+        let emission = if global.from_library {
+            " /*from library*/"
+        } else if !global.must_generate() {
+            " /*not generated*/"
+        } else {
+            ""
+        };
+        writeln!(self.writer, "global {} {{{aliases}{emission}", global.name)?;
         self.indentation += 1;
         for (p, is_const) in std::iter::zip(&global.properties, &global.const_properties) {
             self.indent()?;
             writeln!(
                 self.writer,
                 "property <{}> {}; //use={}{}",
-                p.ty,
+                DisplayType(&p.ty),
                 p.name,
                 p.use_count.get(),
                 if *is_const { "  const" } else { "" }
@@ -160,8 +300,8 @@ impl PrettyPrinter<'_> {
                 self.writer,
                 "callback {} ({}) -> {};",
                 c.name,
-                c.args.iter().map(ToString::to_string).join(", "),
-                c.ret_ty,
+                c.args.iter().map(|t| DisplayType(t).to_string()).join(", "),
+                DisplayType(&c.ret_ty),
             )?;
         }
         for (p, init) in &global.init_values {
@@ -173,7 +313,7 @@ impl PrettyPrinter<'_> {
                         "{}: {}{};",
                         global.properties[*p].name,
                         DisplayExpression(&init.expression.borrow(), &ctx,),
-                        if init.is_constant { "/*const*/" } else { "" }
+                        if init.kind == super::BindingKind::Constant { "/*const*/" } else { "" }
                     )?;
                 }
                 LocalMemberIndex::Callback(c) => {
@@ -182,6 +322,20 @@ impl PrettyPrinter<'_> {
                         "{} => {};",
                         global.callbacks[*c].name,
                         DisplayExpression(&init.expression.borrow(), &ctx,),
+                    )?;
+                }
+                _ => unreachable!(),
+            }
+        }
+        for (p, animation) in &global.animations {
+            self.indent()?;
+            match p {
+                LocalMemberIndex::Property(p) => {
+                    writeln!(
+                        self.writer,
+                        "animate {} {{ {} }}",
+                        global.properties[*p].name,
+                        DisplayExpression(animation, &ctx),
                     )?;
                 }
                 _ => unreachable!(),
@@ -205,7 +359,7 @@ impl PrettyPrinter<'_> {
                 f.name,
                 f.args.iter().map(ToString::to_string).join(", "),
                 f.ret_ty,
-                DisplayExpression(&f.code, &ctx)
+                DisplayExpression(&f.code.borrow(), &ctx)
             )?;
         }
         self.indentation -= 1;
@@ -221,6 +375,20 @@ impl PrettyPrinter<'_> {
     }
 }
 
+/// Name an item by its tree index, following sub-component instances to
+/// their root item (the index of an element that is itself a component).
+fn item_name_in_tree(
+    root: &CompilationUnit,
+    sc: &super::SubComponent,
+    tree_index: u32,
+) -> Option<String> {
+    if let Some(item) = sc.items.iter().find(|i| i.index_in_tree == tree_index) {
+        return Some(item.name.to_string());
+    }
+    let ssc = sc.sub_components.iter().find(|s| s.index_in_tree == tree_index)?;
+    Some(format!("{}.{}", ssc.name, item_name_in_tree(root, &root.sub_components[ssc.ty], 0)?))
+}
+
 pub struct DisplayPropertyRef<'a, T>(pub &'a MemberReference, pub &'a EvaluationContext<'a, T>);
 impl<T> Display for DisplayPropertyRef<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
@@ -234,6 +402,9 @@ impl<T> Display for DisplayPropertyRef<'_, T> {
                 match member {
                     LocalMemberIndex::Property(property_index) => {
                         write!(f, "{}.{}", g.name, g.properties[*property_index].name)
+                    }
+                    LocalMemberIndex::Callback(callback_index) => {
+                        write!(f, "{}.{}", g.name, g.callbacks[*callback_index].name)
                     }
                     LocalMemberIndex::Function(function_index) => {
                         write!(f, "{}.{}", g.name, g.functions[*function_index].name)
@@ -263,6 +434,9 @@ fn print_local_ref<T>(
             LocalMemberIndex::Property(property_index) => {
                 write!(f, "{}.{}", g.name, g.properties[*property_index].name)
             }
+            LocalMemberIndex::Callback(callback_index) => {
+                write!(f, "{}.{}", g.name, g.callbacks[*callback_index].name)
+            }
             LocalMemberIndex::Function(function_index) => {
                 write!(f, "{}.{}", g.name, g.functions[*function_index].name)
             }
@@ -288,7 +462,7 @@ fn print_local_ref<T>(
             LocalMemberIndex::Function(function_index) => {
                 write!(f, "{}", sc.functions[*function_index].name)
             }
-            LocalMemberIndex::Native { item_index, prop_name } => {
+            LocalMemberIndex::Native { item_index, prop_name, .. } => {
                 let i = &sc.items[*item_index];
                 write!(f, "{}.{}", i.name, prop_name)
             }
@@ -380,23 +554,37 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 values.iter().map(|(k, v)| format!("{}: {}", k, e(v))).join(", ")
             ),
             Expression::EasingCurve(x) => write!(f, "{x:?}"),
+            Expression::MouseCursor(x) => write!(f, "{x:?}"),
             Expression::LinearGradient { angle, stops } => write!(
                 f,
                 "@linear-gradient({}, {})",
                 e(angle),
                 stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
             ),
-            Expression::RadialGradient { stops } => write!(
-                f,
-                "@radial-gradient(circle, {})",
-                stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
-            ),
-            Expression::ConicGradient { from_angle, stops } => write!(
-                f,
-                "@conic-gradient(from {}, {})",
-                e(from_angle),
-                stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
-            ),
+            Expression::RadialGradient { center, radius, stops } => {
+                let center_str = center
+                    .as_ref()
+                    .map(|(cx, cy)| format!(" at {} {}", e(cx), e(cy)))
+                    .unwrap_or_default();
+                let radius_str = radius.as_ref().map(|r| format!(" {}", e(r))).unwrap_or_default();
+                write!(
+                    f,
+                    "@radial-gradient(circle{radius_str}{center_str}, {})",
+                    stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
+                )
+            }
+            Expression::ConicGradient { from_angle, center, stops } => {
+                let center_str = center
+                    .as_ref()
+                    .map(|(cx, cy)| format!(" at {} {}", e(cx), e(cy)))
+                    .unwrap_or_default();
+                write!(
+                    f,
+                    "@conic-gradient(from {}{center_str}, {})",
+                    e(from_angle),
+                    stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
+                )
+            }
             Expression::EnumerationValue(x) => write!(f, "{x}"),
             Expression::LayoutCacheAccess {
                 layout_cache_prop,
@@ -414,7 +602,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             } => {
                 write!(
                     f,
-                    "{}[{} % {} * {}]",
+                    "{0}[{0}[{1}] + {2} * {3}]",
                     DisplayPropertyRef(layout_cache_prop, ctx),
                     index,
                     e(ri),
@@ -454,9 +642,44 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                     )
                 }
             }
-            Expression::WithLayoutItemInfo { .. } => write!(f, "WithLayoutItemInfo(TODO)",),
+            Expression::WithLayoutItemInfo {
+                cells_variable,
+                repeater_indices_var_name,
+                repeater_steps_var_name,
+                elements,
+                orientation,
+                sub_expression,
+            } => {
+                write!(
+                    f,
+                    "{{ {} = [{}] /*{}*/; ",
+                    cells_variable,
+                    elements
+                        .iter()
+                        .map(|x| match x {
+                            Either::Left(x) => e(x).to_string(),
+                            Either::Right(r) =>
+                                format!("@repeater({})", usize::from(r.repeater_index)),
+                        })
+                        .join(", "),
+                    match orientation {
+                        Orientation::Horizontal => "horizontal",
+                        Orientation::Vertical => "vertical",
+                    }
+                )?;
+                if let Some(v) = repeater_indices_var_name {
+                    write!(f, "{v} = @repeater-indices; ")?;
+                }
+                if let Some(v) = repeater_steps_var_name {
+                    write!(f, "{v} = @repeater-steps; ")?;
+                }
+                write!(f, "{} }}", e(sub_expression))
+            }
             Expression::WithFlexboxLayoutItemInfo { .. } => {
                 write!(f, "WithFlexboxLayoutItemInfo(TODO)",)
+            }
+            Expression::SolveFlexboxLayoutWithMeasure { .. } => {
+                write!(f, "SolveFlexboxLayoutWithMeasure(TODO)",)
             }
             Expression::WithGridInputData { .. } => write!(f, "WithGridInputData(TODO)",),
             Expression::MinMax { ty: _, op, lhs, rhs } => match op {

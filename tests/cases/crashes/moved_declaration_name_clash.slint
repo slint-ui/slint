@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Element-local property declarations are moved to the component root under a name made
+// of the unique element id and the property name. That concatenation alone can be
+// ambiguous: element ids are made unique with a global counter, so `a` becomes `a-2` and
+// `a-2-b` becomes `a-2-b-4`, and with the properties below both declarations would
+// concatenate to `a-2-b-4-c`. The two properties must stay distinct.
+
+export component TestCase inherits Window {
+    a := Rectangle {
+        property <int> b-4-c: 1;
+    }
+    x := Rectangle { }
+    a-2-b := Rectangle {
+        property <int> c: 2;
+    }
+    callback poke;
+    poke => {
+        a.b-4-c += 1;
+        a-2-b.c += 10;
+    }
+    out property <int> r1: a.b-4-c;
+    out property <int> r2: a-2-b.c;
+    out property <bool> test: r1 == 1 && r2 == 2;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.invoke_poke();
+assert_eq!(instance.get_r1(), 2);
+assert_eq!(instance.get_r2(), 12);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.invoke_poke();
+assert_eq(instance.get_r1(), 2);
+assert_eq(instance.get_r2(), 12);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+instance.poke();
+assert.equal(instance.r1, 2);
+assert.equal(instance.r2, 12);
+```
+*/

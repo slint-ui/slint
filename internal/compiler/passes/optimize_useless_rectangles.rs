@@ -43,17 +43,18 @@ pub fn optimize_useless_rectangles(root_component: &Rc<Component>) {
 
 /// Check that this is a element we can optimize
 fn can_optimize(elem: &ElementRc) -> bool {
-    let e = elem.borrow();
-    if e.is_flickable_viewport || e.has_popup_child || e.is_component_placeholder {
+    let element = elem.borrow();
+    if element.is_flickable_viewport || element.has_popup_child || element.is_component_placeholder
+    {
         return false;
     };
 
-    if e.child_of_layout {
+    if element.child_of_layout {
         // The `LayoutItem` still has reference to this component, so we cannot remove it
         return false;
     }
 
-    let base_type = match &e.base_type {
+    let base_type = match &element.base_type {
         ElementType::Builtin(base_type) if base_type.name == "Rectangle" => base_type,
         ElementType::Builtin(base_type) if base_type.native_class.class_name == "Empty" => {
             base_type
@@ -61,9 +62,9 @@ fn can_optimize(elem: &ElementRc) -> bool {
         _ => return false,
     };
 
-    let analysis = e.property_analysis.borrow();
+    let analysis = element.property_analysis.borrow();
     for coord in ["x", "y"] {
-        if e.bindings.contains_key(coord) || analysis.get(coord).is_some_and(|a| a.is_set) {
+        if element.binding(coord).is_some() || analysis.get(coord).is_some_and(|a| a.is_set) {
             return false;
         }
     }
@@ -72,8 +73,13 @@ fn can_optimize(elem: &ElementRc) -> bool {
     }
 
     // Check that no Rectangle property are set
-    !e.bindings.keys().chain(analysis.iter().filter(|(_, v)| v.is_set).map(|(k, _)| k)).any(|k| {
-        !e.property_declarations.contains_key(k.as_str())
-            && base_type.properties.contains_key(k.as_str())
-    }) && e.accessibility_props.0.is_empty()
+    !element
+        .real_bindings()
+        .map(|(property_name, _)| property_name)
+        .chain(analysis.iter().filter(|(_, v)| v.is_set).map(|(k, _)| k))
+        .any(|property_name| {
+            !element.property_declarations.contains_key(property_name.as_str())
+                && base_type.properties.contains_key(property_name.as_str())
+        })
+        && element.accessibility_props.0.is_empty()
 }

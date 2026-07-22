@@ -14,12 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        branch:
-          - pre-release/1.16
-          - master
+        # Exactly one branch uses `mode: full-nightly`: it owns the `nightly` tag and the VS Code extension.
+        include:
+          - branch: pre-release/1.17
+            mode: website-only
+          - branch: master
+            mode: full-nightly
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ matrix.branch }}
@@ -37,4 +40,4 @@ jobs:
         if: steps.recent.outputs.has_commits == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run "Nightly snapshot" --ref ${{ matrix.branch }} --repo ${{ github.repository }} -f private=false
+        run: gh workflow run "Nightly snapshot" --ref ${{ matrix.branch }} --repo ${{ github.repository }} -f mode=${{ matrix.mode }}

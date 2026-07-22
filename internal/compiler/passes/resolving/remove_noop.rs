@@ -83,17 +83,27 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::Struct { ty: _, values } => values.values().all(without_side_effects),
         Expression::PathData(_) => true,
         Expression::EasingCurve(_) => true,
+        Expression::MouseCursor(_) => true,
         Expression::LinearGradient { angle, stops } => {
             without_side_effects(angle)
                 && stops
                     .iter()
                     .all(|(start, end)| without_side_effects(start) && without_side_effects(end))
         }
-        Expression::RadialGradient { stops } => stops
-            .iter()
-            .all(|(start, end)| without_side_effects(start) && without_side_effects(end)),
-        Expression::ConicGradient { from_angle, stops } => {
+        Expression::RadialGradient { center, radius, stops } => {
+            center
+                .as_ref()
+                .is_none_or(|(cx, cy)| without_side_effects(cx) && without_side_effects(cy))
+                && radius.as_ref().is_none_or(|r| without_side_effects(r))
+                && stops
+                    .iter()
+                    .all(|(start, end)| without_side_effects(start) && without_side_effects(end))
+        }
+        Expression::ConicGradient { from_angle, center, stops } => {
             without_side_effects(from_angle)
+                && center
+                    .as_ref()
+                    .is_none_or(|(cx, cy)| without_side_effects(cx) && without_side_effects(cy))
                 && stops
                     .iter()
                     .all(|(start, end)| without_side_effects(start) && without_side_effects(end))

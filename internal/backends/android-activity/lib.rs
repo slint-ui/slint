@@ -157,6 +157,29 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
         }
     }
 
+    fn bind_context(&self, ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
+        let ctx = ctx.upgrade().expect("bind_context called while the SlintContext is still alive");
+        let color_scheme = match self
+            .window
+            .java_helper
+            .color_scheme()
+            .unwrap_or_else(|e| javahelper::print_jni_error(&self.app, e))
+        {
+            0x10 => i_slint_core::items::ColorScheme::Light, // UI_MODE_NIGHT_NO
+            0x20 => i_slint_core::items::ColorScheme::Dark,  // UI_MODE_NIGHT_YES
+            _ => i_slint_core::items::ColorScheme::Unknown,
+        };
+        ctx.set_color_scheme(color_scheme);
+        if let Ok(accent) = self.window.java_helper.accent_color() {
+            ctx.set_accent_color(accent);
+        }
+        if let Ok(scale) = self.window.java_helper.font_scale()
+            && let Some(size) = javahelper::font_scale_to_logical_length(scale)
+        {
+            ctx.set_platform_default_font_size(Some(size));
+        }
+    }
+
     fn long_press_interval(&self, _: i_slint_core::InternalToken) -> Duration {
         self.window.java_helper.long_press_timeout().unwrap_or(Duration::from_millis(500))
     }

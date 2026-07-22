@@ -1,23 +1,24 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Window {
+export component TestCase inherits Window {
    width: 100px;
    height: 100px;
-   property<int> niceness: 33;
+   in-out property<int> niceness: 33;
    greeting := TouchArea {
-       clicked => { root.niceness += 1; }
+       clicked => { niceness += 1; }
        t:= Text {
+           x:0;y:0;
            text: "Hello world";
        }
 
        states [
-            rude when root.niceness <= 0: {visible: false;}
-            mannered when root.niceness > 100: {t.text: "Hello, dearest world"; t.font-size: 32px;}
+            rude when niceness <= 0: {visible: false;}
+            mannered when niceness > 100: {t.text: "Hello, dearest world"; t.font-size: 32px;}
        ]
    }
 
-   property <bool> test: greeting.visible;
+   in-out property <bool> test: greeting.visible;
 }
 
 

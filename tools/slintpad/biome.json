@@ -10,7 +10,8 @@
             "!**/out/**",
             "!**/playwright-report/**",
             "!**/test-results/**",
-            "!preview.html"
+            "!preview.html",
+            "!static/**"
         ]
     },
     "linter": {

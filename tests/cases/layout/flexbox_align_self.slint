@@ -3,14 +3,14 @@
 
 // Test FlexboxLayout align-self per-item property
 
-// Test 1: align-self overrides container align-items
-// Container has align-items: start, but r2 overrides to end
+// Test 1: align-self overrides container cross-axis-alignment
+// Container has cross-axis-alignment: start, but r2 overrides to end
 component TestAlignSelfOverride inherits Rectangle {
     width: 300px;
     height: 100px;
     FlexboxLayout {
         flex-wrap: no-wrap;
-        align-items: start;
+        cross-axis-alignment: start;
 
         r1 := Rectangle {
             width: 80px;
@@ -30,7 +30,7 @@ component TestAlignSelfOverride inherits Rectangle {
         }
     }
 
-    // r1 and r3: align-items: start → y=0
+    // r1 and r3: cross-axis-alignment: start → y=0
     // r2: flex-align-self: end → y=70 (100-30)
     out property <bool> test_r1: r1.y == 0px;
     out property <bool> test_r2: r2.y == 70px;
@@ -44,7 +44,7 @@ component TestAlignSelfCenter inherits Rectangle {
     height: 100px;
     FlexboxLayout {
         flex-wrap: no-wrap;
-        align-items: start;
+        cross-axis-alignment: start;
 
         r1 := Rectangle {
             width: 80px;
@@ -72,7 +72,7 @@ component TestAlignSelfStretch inherits Rectangle {
     height: 100px;
     FlexboxLayout {
         flex-wrap: no-wrap;
-        align-items: start;
+        cross-axis-alignment: start;
 
         r1 := Rectangle {
             width: 80px;
@@ -99,7 +99,7 @@ component TestAlignSelfAuto inherits Rectangle {
     height: 100px;
     FlexboxLayout {
         flex-wrap: no-wrap;
-        align-items: end;
+        cross-axis-alignment: end;
 
         r1 := Rectangle {
             width: 80px;

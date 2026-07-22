@@ -9,9 +9,6 @@
         cargo run --bin slint-lsp -- format -i some_file.slint
     ```
 
-    Some code in this main.rs file is duplicated with the slint-updater, i guess it could
-    be refactored in a separate utility crate or module or something.
-
     The [`writer::TokenWriter`] trait is meant to be able to support the LSP later as the
     LSP wants just the edits, not the full file
 */
@@ -37,7 +34,6 @@ pub fn run(files: &[std::path::PathBuf], inplace: bool) -> std::io::Result<()> {
     Ok(())
 }
 
-/// FIXME! this is duplicated with the updater
 fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()> {
     let mut last = 0;
     for range in i_slint_compiler::lexer::locate_slint_macro(&source) {
@@ -58,7 +54,6 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
     file.flush()
 }
 
-/// FIXME! this is duplicated with the updater
 fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Result<()> {
     let mut source_slice = &source[..];
     const CODE_FENCE_START: &str = "```slint\n";
@@ -112,8 +107,7 @@ fn process_file(
     match path.extension() {
         Some(ext) if ext == "rs" => process_rust_file(source, file),
         Some(ext) if ext == "md" => process_markdown_file(source, file),
-        // Formatting .60 files because of backwards compatibility (project was recently renamed)
-        Some(ext) if ext == "slint" || ext == ".60" => process_slint_file(source, path, file),
+        Some(ext) if ext == "slint" => process_slint_file(source, path, file),
         _ => {
             // This allows usage like `cat x.slint | slint-lsp format /dev/stdin`
             if path == Path::new("/dev/stdin") {

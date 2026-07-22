@@ -14,61 +14,73 @@ use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
+use std::collections::HashSet;
+use std::rc::Rc;
 
 pub async fn lower_tabwidget(
     doc: &Document,
     type_loader: &mut crate::typeloader::TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
-    // First check if any TabWidget is used - avoid loading std-widgets.slint if not needed
-    let mut has_tabwidget = false;
+    // Collect before lowering: lowering rewrites base_type, which would hide
+    // other TabWidget elements from builtin_type() (an instance and the style
+    // wrapper both match). Dedup a sub-component root visited more than once.
+    // The empty check below also avoids loading std-widgets.slint when unused.
+    let mut seen = HashSet::new();
+    let mut tab_widgets = Vec::new();
     doc.visit_all_used_components(|component| {
         recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "TabWidget") {
-                has_tabwidget = true;
+            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "TabWidget")
+                && seen.insert(Rc::as_ptr(elem))
+            {
+                tab_widgets.push(elem.clone());
             }
         })
     });
 
-    if !has_tabwidget {
+    if tab_widgets.is_empty() {
         return;
     }
 
     // Ignore import errors
     let mut build_diags_to_ignore = BuildDiagnostics::default();
     let tabwidget_impl = type_loader
-        .import_component("std-widgets.slint", "TabWidgetImpl", &mut build_diags_to_ignore)
+        .import_component("std-widgets-impl.slint", "TabWidgetImpl", &mut build_diags_to_ignore)
         .await
-        .expect("can't load TabWidgetImpl from std-widgets.slint");
+        .expect("can't load TabWidgetImpl from std-widgets-impl.slint");
     let tab_impl = type_loader
-        .import_component("std-widgets.slint", "TabImpl", &mut build_diags_to_ignore)
+        .import_component("std-widgets-impl.slint", "TabImpl", &mut build_diags_to_ignore)
         .await
-        .expect("can't load TabImpl from std-widgets.slint");
+        .expect("can't load TabImpl from std-widgets-impl.slint");
     let tabbar_horizontal_impl = type_loader
-        .import_component("std-widgets.slint", "TabBarHorizontalImpl", &mut build_diags_to_ignore)
+        .import_component(
+            "std-widgets-impl.slint",
+            "TabBarHorizontalImpl",
+            &mut build_diags_to_ignore,
+        )
         .await
-        .expect("can't load TabBarHorizontalImpl from std-widgets.slint");
+        .expect("can't load TabBarHorizontalImpl from std-widgets-impl.slint");
     let tabbar_vertical_impl = type_loader
-        .import_component("std-widgets.slint", "TabBarVerticalImpl", &mut build_diags_to_ignore)
+        .import_component(
+            "std-widgets-impl.slint",
+            "TabBarVerticalImpl",
+            &mut build_diags_to_ignore,
+        )
         .await
-        .expect("can't load TabBarVerticalImpl from std-widgets.slint");
+        .expect("can't load TabBarVerticalImpl from std-widgets-impl.slint");
     let empty_type = type_loader.global_type_registry.borrow().empty_type();
 
-    doc.visit_all_used_components(|component| {
-        recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "TabWidget") {
-                process_tabwidget(
-                    elem,
-                    ElementType::Component(tabwidget_impl.clone()),
-                    ElementType::Component(tab_impl.clone()),
-                    ElementType::Component(tabbar_horizontal_impl.clone()),
-                    ElementType::Component(tabbar_vertical_impl.clone()),
-                    &empty_type,
-                    diag,
-                );
-            }
-        })
-    });
+    for elem in &tab_widgets {
+        process_tabwidget(
+            elem,
+            ElementType::Component(tabwidget_impl.clone()),
+            ElementType::Component(tab_impl.clone()),
+            ElementType::Component(tabbar_horizontal_impl.clone()),
+            ElementType::Component(tabbar_vertical_impl.clone()),
+            &empty_type,
+            diag,
+        );
+    }
 }
 
 fn process_tabwidget(
@@ -80,11 +92,6 @@ fn process_tabwidget(
     empty_type: &ElementType,
     diag: &mut BuildDiagnostics,
 ) {
-    if matches!(&elem.borrow_mut().base_type, ElementType::Builtin(_)) {
-        // That's the TabWidget re-exported from the style, it doesn't need to be processed
-        return;
-    }
-
     elem.borrow_mut().base_type = tabwidget_impl;
     let mut children = std::mem::take(&mut elem.borrow_mut().children);
     let num_tabs = children.len();
@@ -283,17 +290,15 @@ fn set_geometry_prop(
     prop: &str,
     diag: &mut BuildDiagnostics,
 ) {
-    let old = content.borrow_mut().bindings.insert(
+    let old = content.borrow_mut().set_binding(
         prop.into(),
-        RefCell::new(
-            Expression::PropertyReference(NamedReference::new(
-                tab_widget,
-                format_smolstr!("content-{}", prop),
-            ))
-            .into(),
-        ),
+        Expression::PropertyReference(NamedReference::new(
+            tab_widget,
+            format_smolstr!("content-{}", prop),
+        ))
+        .into(),
     );
-    if let Some(old) = old.map(RefCell::into_inner) {
+    if let Some(old) = old {
         diag.push_error(
             format!("The property '{prop}' cannot be set for Tabs inside a TabWidget"),
             &old,

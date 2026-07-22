@@ -1,13 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 100phx;
     height: 100phx;
 
-    property <int> touch_error;
-    property <int> touch1;
-    property <int> value;
+    in-out property <int> touch_error;
+    in-out property <int> touch1;
+    in-out property <int> value;
 
 
     HorizontalLayout {
@@ -38,7 +38,7 @@ TestCase := Rectangle {
                 background: i.color;
                 TouchArea {
                     clicked => {
-                        root.value = i.value;
+                        value = i.value;
                     }
                 }
             }

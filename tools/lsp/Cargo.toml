@@ -11,7 +11,7 @@ homepage = "https://slint.dev"
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-version = "1.17.0"
+version = "1.18.0"
 categories = ["gui", "development-tools", "command-line-utilities"]
 keywords = ["lsp", "ui", "toolkit"]
 default-run = "slint-lsp"
@@ -24,7 +24,7 @@ icon = ["../../logo/slint-logo.icns"]
 name = "slint-lsp"
 path = "main.rs"
 
-[[bin]]
+[[example]]
 name = "slint-editor"
 path = "editor_main.rs"
 
@@ -86,7 +86,7 @@ preview-builtin = ["preview-engine"]
 ## Support the external preview optionally used by e.g. the VSCode plugin
 preview-external = []
 ## Support the remote preview via a WebSocket connection
-preview-remote = []
+preview-remote = ["preview-engine", "preview-builtin"]
 
 default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"]
 
@@ -99,18 +99,18 @@ clru = { workspace = true }
 dissimilar = "1.0.7"
 itertools = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing-subscriber = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 smol_str = { workspace = true }
-i-slint-preview-protocol = { version = "=1.17.0", path = "../../internal/preview-protocol" }
+i-slint-live-preview = { version = "=1.18.0", path = "../../internal/live-preview", features = ["protocol", "file-watcher"] }
 lsp-types = { workspace = true }
 
 # for the preview-engine feature
 i-slint-backend-selector = { workspace = true, optional = true }
 i-slint-core = { workspace = true, features = ["std"], optional = true }
-slint = { workspace = true, features = ["compat-1-2"], optional = true }
-slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-file-watcher", "internal-highlight", "internal-json", "image-default-formats"], optional = true }
+slint = { workspace = true, features = ["compat-1-2", "unstable-winit-030"], optional = true }
+slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-formats"], optional = true }
 nucleo-matcher = "0.3.1"
 futures-util = "0.3.32"
 tokio-tungstenite-wasm = "0.8.2"
@@ -119,13 +119,23 @@ postcard = { version = "1.1.3", features = ["alloc"] }
 [target.'cfg(not(any(target_os = "openbsd", target_os = "windows", target_arch = "wasm32", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
 tikv-jemallocator = { workspace = true }
 
+# Used by the visual editor for the macOS unified title bar.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSResponder", "NSToolbar", "NSView", "NSWindow", "objc2-core-foundation"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString"] }
+objc2 = "0.6"
+raw-window-handle = "0.6"
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { workspace = true }
 crossbeam-channel = "0.5"                                                                                                # must match the version used by lsp-server
 lsp-server = "0.7"
 tokio = { version = "1.50.0", features = ["rt", "sync", "time", "macros", "io-std", "io-util", "net", "fs", "process"] }
 dashmap = "6.1.0"
-mdns-sd = "0.18.2"
+mdns-sd = "0.20.0"
+# Unicode XID property lookup used by the host-language accessor scanner to
+# tokenize identifiers in Rust/C++ source rather than scanning byte-by-byte.
+icu_properties = { version = "2.2.0", features = ["compiled_data"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.5"
@@ -141,9 +151,12 @@ tokio = { version = "1.50.0", features = ["rt", "sync", "macros"] }
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
 spin_on = { workspace = true }
+tempfile = "3"
+# The remote connector tests talk to the real viewer-side connection.
+i-slint-live-preview = { path = "../../internal/live-preview", features = ["remote"] }
 
 [build-dependencies]
-slint-build = { workspace = true, features = ["default"], optional = true }
+slint-build = { workspace = true, optional = true }
 
 # [package.metadata.wasm-pack.profile.release]
 # wasm-opt = false

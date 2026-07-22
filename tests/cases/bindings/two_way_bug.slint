@@ -3,16 +3,16 @@
 
 // There used to be a bug in the deduplicate_property_read pass that would mess up aliases
 
-BoxWithButtons := Window {
-    property <string> value <=> val.text;
-    val := Text {}
+component BoxWithButtons inherits Window {
+    in-out property <string> value <=> val.text;
+    val := Text {x:0;y:0;}
 }
 
-export TestCase := BoxWithButtons {
-    property <int> temperature: 24;
+export component TestCase inherits BoxWithButtons {
+    in-out property <int> temperature: 24;
     value: {
         (temperature < 0 ? "" : "+") + temperature;
     }
 
-    property <bool> test: value == "+24";
+    in-out property <bool> test: root.value == "+24";
 }

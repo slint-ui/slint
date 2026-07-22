@@ -85,15 +85,15 @@ services:
       - "c 226:* rmw"
 ```
 
-:::Note{}
+:::note[Note]
 Change the `image` to match your hardware platform:
 
-| Platform      | Image                                                    |
-| ------------- | -------------------------------------------------------- |
-| ARM64 no GPU  | `ghcr.io/slint-ui/slint/torizon-demos-arm64:latest`      |
-| i.MX8 w/ GPU  | `ghcr.io/slint-ui/slint/torizon-demos-arm64-imx9:latest` |
-| AM62 w/  GPU  | `ghcr.io/slint-ui/slint/torizon-demos-am62:latest`       |
-| i.MX95 W/ GPU | `ghcr.io/slint-ui/slint/torizon-demos-imx95:latest`      |
+| Platform      | Image                                                     |
+| ------------- | --------------------------------------------------------- |
+| ARM64 no GPU  | `ghcr.io/slint-ui/slint/torizon-demos-arm64:latest`       |
+| i.MX8 w/ GPU  | `ghcr.io/slint-ui/slint/torizon-demos-arm64-imx8:latest`  |
+| AM62 w/  GPU  | `ghcr.io/slint-ui/slint/torizon-demos-arm64-am62:latest`  |
+| i.MX95 W/ GPU | `ghcr.io/slint-ui/slint/torizon-demos-arm64-imx95:latest` |
 :::
 
 Alternative, run the container with the following command line:
@@ -144,10 +144,7 @@ environment. Developers need to implement functionality to feed input events suc
 well as displaying the pixels rendered by Slint into a frame- or linebuffer.
 
 <Tabs syncKey="dev-language">
-<TabItem label="C++">
-We provide templates for a few off-the-shelf development boards from some of the silicon vendors.
-</TabItem>
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 You will need to use the `mcu-board-support` crate. This crate re-export a `entry` attribute macro to apply to the `main` function, and a `init()`
 function that should be called before creating the Slint UI.
 
@@ -185,17 +182,15 @@ slint-build = { git = "https://github.com/slint-ui/slint" }
 In your build.rs, you must include a call to `slint_build::print_rustc_flags().unwrap()` to set some of the flags.
 
 </TabItem>
+<TabItem label="C++" icon="seti:cpp">
+We provide templates for a few off-the-shelf development boards from some of the silicon vendors.
+</TabItem>
 </Tabs>
 
 ### Espressif (ESP32)
 
 <Tabs syncKey="dev-language">
-<TabItem label="C++">
-To use Slint with your C++ application, you can follow the instructions on the [Espressif Documentation site](https://components.espressif.com/components/slint/slint)
-</TabItem>
-
-{/*
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 #### Prerequisites
 
  * ESP Rust Toolchain: https://esp-rs.github.io/book/installation/installation.html
@@ -204,29 +199,23 @@ To use Slint with your C++ application, you can follow the instructions on the [
 When flashing, with `espflash`, you will be prompted to select a USB port. If this port is always the same, then you can also pass it as a parameter on the command line to avoid the prompt. For example if
 `/dev/ttyUSB1` is the device file for your port, the command line changes to `espflash --monitor /dev/ttyUSB1 path/to/binary/to/flash_and_monitor`.
 
-#### ESP32-S3-Box
+#### ESP32-S3-Box-3
 
 To compile and run the Slint Printer demo:
 
 ```sh
-CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box --release --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box-3 --release --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml
 ```
 </TabItem>
-*/}
+<TabItem label="C++" icon="seti:cpp">
+To use Slint with your C++ application, you can follow the instructions on the [Espressif Documentation site](https://components.espressif.com/components/slint/slint)
+</TabItem>
 </Tabs>
 
 ### ST (STM32)
 
 <Tabs syncKey="dev-language">
-<TabItem label="C++">
-#### STM32H735G-DK
-You can start with the template <ReleaseLink id="slint-cpp-template-stm32h735g-dk.zip" />
-
-#### STM32H747I-DISCO
-You can start with the template <ReleaseLink id="slint-cpp-template-stm32h747i-disco.zip" />
-
-</TabItem>
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 Follow the steps below to run the Slint Printer Demo
 
 #### STM32H735G-DK
@@ -236,6 +225,14 @@ Using [probe-rs](https://probe.rs).
 ```sh
 CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-rs run --chip STM32H735IGKx" cargo run -p printerdemo_mcu --no-default-features  --features=mcu-board-support/stm32h735g --target=thumbv7em-none-eabihf --release
 ```
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+#### STM32H735G-DK
+You can start with the template <ReleaseLink id="slint-cpp-template-stm32h735g-dk.zip" />
+
+#### STM32H747I-DISCO
+You can start with the template <ReleaseLink id="slint-cpp-template-stm32h747i-disco.zip" />
+
 </TabItem>
 </Tabs>
 

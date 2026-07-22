@@ -1,6 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Even if that file exist in the style, it shouldn't be loaded
+// Even if that file exists in the style, it shouldn't be loaded.
+// Nothing is importable from "style-base.slint", regardless of the symbol.
 import { StyleMetrics } from "style-base.slint";
 //                           >                <error{Cannot find requested import "style-base.slint" in the include search path}
+import { Palette } from "style-base.slint";
+//                      >                <error{Cannot find requested import "style-base.slint" in the include search path}
+import { NotAThing } from "style-base.slint";
+//                        >                <error{Cannot find requested import "style-base.slint" in the include search path}

@@ -2,21 +2,21 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     height: 100phx;
     width: 100phx;
-    property <int> clicked;
-    property <bool> condition;
+    in-out property <int> clicked;
+    in-out property <bool> condition;
 
     if true : TouchArea {
         visible: condition;
-        clicked => { root.clicked += 1; }
+        clicked => { clicked += 1; }
     }
 
     HorizontalLayout {
         for xx in [10] : TouchArea {
             visible: false;
-            clicked => { root.clicked += xx; }
+            clicked => { clicked += xx; }
         }
     }
 }

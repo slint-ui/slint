@@ -9,6 +9,11 @@
 
 Use with vim/helix/... other editors.
 
+## Rust crate
+
+This directory also contains a standalone Cargo package that exposes the generated
+tree-sitter language as `i_tree_sitter_slint::LANGUAGE`.
+
 ## Inject into Rust
 
 This tree-sitter configuration can be injected into rust, so that the `slint!`

@@ -3,9 +3,9 @@
 
 export component Test inherits Window {
     Rectangle {
-        ToolTip {
-//      >      <error{ToolTip cannot have both text and custom content}
-            text: "Hello";
+        Tooltip {
+//      >      <error{Tooltip cannot have both text and custom content}
+            text: @markdown("Hello");
             Rectangle {}
         }
     }

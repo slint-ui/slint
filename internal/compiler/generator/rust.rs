@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore conv gdata powf punct vref rescope updt
+// cSpell: ignore conv gdata powf punct vref rescope rfold updt
 
 /*! module for the Rust code generator
 
@@ -12,10 +12,12 @@ Some convention used in the generated code:
    this is usually a local variable to the init code that shouldn't be relied upon by the binding code.
 */
 
+use super::accessor_names::{self, AccessorKind};
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
+use crate::llr::lower_expression::lower_constant_expression;
 use crate::llr::{
     self, ArrayOutput, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression,
     ParentScope, TypeResolutionContext as _,
@@ -89,6 +91,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Color => Some(quote!(sp::Color)),
         Type::DataTransfer => Some(quote!(sp::DataTransfer)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
+        Type::MouseCursor => Some(quote!(sp::MouseCursorInner)),
         Type::ComponentFactory => Some(quote!(slint::ComponentFactory)),
         Type::Duration => Some(quote!(i64)),
         Type::Angle => Some(quote!(f32)),
@@ -135,6 +138,7 @@ fn rust_property_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     match ty {
         Type::LogicalLength => Some(quote!(sp::LogicalLength)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
+        Type::MouseCursor => Some(quote!(sp::MouseCursorInner)),
         _ => rust_primitive_type(ty),
     }
 }
@@ -202,14 +206,14 @@ pub fn generate(
             .collect::<Vec<_>>()
     };
 
-    let (structs_and_enums_ids, inner_module) =
-        generate_types(&doc.used_types.borrow().structs_and_enums);
-
     let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
     if llr.public_components.is_empty() {
         return Ok(Default::default());
     }
+
+    let (structs_and_enums_ids, inner_module) =
+        generate_types(&doc.used_types.borrow().structs_and_enums, &llr);
 
     let sub_compos = llr
         .used_sub_components
@@ -292,13 +296,16 @@ pub(super) fn generate_module_header() -> TokenStream {
 }
 
 /// Generate the struct and enums. Return a vector of names to import and a token stream with the inner module
-pub fn generate_types(used_types: &[Type]) -> (Vec<Ident>, TokenStream) {
+pub fn generate_types(
+    used_types: &[Type],
+    unit: &llr::CompilationUnit,
+) -> (Vec<Ident>, TokenStream) {
     let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = used_types
         .iter()
         .filter_map(|ty| match ty {
             Type::Struct(s) => match s.as_ref() {
-                Struct { fields, name: struct_name @ StructName::User { name, .. } } => {
-                    Some((ident(name), generate_struct(struct_name, fields)))
+                the_struct @ Struct { name: StructName::User { name, .. }, .. } => {
+                    Some((ident(name), generate_struct(the_struct, unit)))
                 }
                 _ => None,
             },
@@ -335,9 +342,7 @@ fn generate_public_component(
     let ctx = EvaluationContext {
         compilation_unit: unit,
         current_scope: EvaluationScope::SubComponent(llr.item_tree.root, None),
-        generator_state: RustGeneratorContext {
-            global_access: quote!(_self.globals.get().unwrap()),
-        },
+        generator_state: RustGeneratorContext { global_access: quote!(_self.globals()) },
         argument_types: &[],
     };
 
@@ -380,6 +385,22 @@ fn generate_public_component(
     let init_bundle_translations = quote!();
 
     let experimental = compiler_config.enable_experimental;
+
+    let new_with_existing_window_impl: Option<TokenStream> = match llr.top_level_type {
+        llr::TopLevelComponentType::Window => Some(quote!(
+            #[cfg(#experimental)]
+            pub fn new_with_existing_window(window: &slint::Window) -> ::core::result::Result<Self, slint::PlatformError> {
+                slint::private_unstable_api::ensure_backend()?;
+                let inner = #inner_component_id::new()?;
+                #init_bundle_translations
+                inner.globals.get().unwrap().create_window_from_existing(window)?;
+                #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
+                #ensure_tree_instantiated
+                ::core::result::Result::Ok(Self(inner))
+            }
+        )),
+        llr::TopLevelComponentType::SystemTrayIcon => None,
+    };
 
     // Window-rooted components get the full `ComponentHandle` impl. SystemTrayIcon
     // gets an inherent impl with no `window()` accessor: a tray icon is not a
@@ -497,6 +518,8 @@ fn generate_public_component(
                 ::core::result::Result::Ok(Self(inner))
             }
 
+            #new_with_existing_window_impl
+
             #property_and_callback_accessors
         }
 
@@ -606,6 +629,16 @@ fn generate_shared_globals(
                 sp::Ok(())
             }
 
+            #[cfg(#experimental)]
+            fn create_window_from_existing(&self, window: &slint::Window) -> sp::Result<(), slint::PlatformError> {
+                let adapter = sp::WindowInner::from_pub(window).window_adapter();
+                let root_rc = self.root_item_tree_weak.upgrade().unwrap();
+                sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
+                #apply_constant_scale_factor
+                self.window_adapter.set(adapter).map_err(|_|()).expect("The window shouldn't be initialized before this call");
+                sp::Ok(())
+            }
+
             fn maybe_window_adapter_impl(&self) -> sp::Option<sp::Rc<dyn sp::WindowAdapter>> {
                 self.window_adapter.get().cloned()
             }
@@ -624,15 +657,22 @@ fn generate_shared_globals(
         impl SharedGlobals {
             #pub_token fn new(root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>) -> sp::Rc<Self> {
                 #(let #library_shared_globals_names = #library_shared_globals_types::new(root_item_tree_weak.clone());)*
-                let _self = sp::Rc::new(Self {
+                sp::Rc::new(Self {
                     #(#global_names : #global_types::new(),)*
                     #(#from_library_global_names : #library_global_vars.clone(),)*
                     window_adapter : ::core::default::Default::default(),
                     root_item_tree_weak,
                     #(#library_shared_globals_names,)*
-                });
-                #(_self.#global_names.clone().init(&_self);)*
-                _self
+                })
+            }
+
+            // Run the eager initialization of the globals. This must be called only *after* the
+            // root component's `globals` field has been set (see the root component's `new`),
+            // because a global's init may evaluate a binding (e.g. `Palette.color-scheme`) that
+            // resolves the root's window adapter through `globals`, which would otherwise panic.
+            #pub_token fn init_globals(self: &sp::Rc<Self>) {
+                #(self.#library_shared_globals_names.init_globals();)*
+                #(self.#global_names.clone().init(self);)*
             }
 
             // Clone the SharedGlobals struct but use a different window adapter. This is for example used for popup windows, because they need access to the globals, but need their own window adapter
@@ -668,12 +708,17 @@ fn generate_shared_globals(
     }
 }
 
-fn generate_struct(name: &StructName, fields: &BTreeMap<SmolStr, Type>) -> TokenStream {
-    let component_id = struct_name_to_tokens(name).unwrap();
-    let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) =
-        fields.iter().map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap())).unzip();
+fn generate_struct(the_struct: &Struct, unit: &llr::CompilationUnit) -> TokenStream {
+    let component_id = struct_name_to_tokens(&the_struct.name).unwrap();
+    let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) = the_struct
+        .fields
+        .iter()
+        .map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap()))
+        .unzip();
 
-    let StructName::User { name, node } = name else { unreachable!("generating non-user struct") };
+    let StructName::User { name, node } = &the_struct.name else {
+        unreachable!("generating non-user struct")
+    };
 
     let attributes =
         node.parent().and_then(crate::parser::syntax_nodes::StructDeclaration::new).map(|node| {
@@ -692,12 +737,47 @@ fn generate_struct(name: &StructName, fields: &BTreeMap<SmolStr, Type>) -> Token
             quote! { #(#attrs)* }
         });
 
+    // With user-declared field default values, `Default` cannot be derived anymore
+    let default_impl = (!the_struct.field_defaults.is_empty()).then(|| {
+        // Constant expressions cannot access the globals; make sure a bug in that
+        // assumption breaks the build of the generated code with a clear message
+        let ctx = EvaluationContext::new_const(
+            unit,
+            RustGeneratorContext {
+                global_access: quote!(compile_error!("no global access in a constant expression")),
+            },
+        );
+        let (field_names, field_values): (Vec<_>, Vec<_>) = the_struct
+            .fields
+            .keys()
+            .map(|field_name| {
+                let value = match the_struct.field_defaults.get(field_name) {
+                    Some(expr) => {
+                        let value = compile_expression(&lower_constant_expression(expr), &ctx);
+                        quote!(#value as _)
+                    }
+                    None => quote!(::core::default::Default::default()),
+                };
+                (ident(field_name), value)
+            })
+            .unzip();
+        quote! {
+            impl ::core::default::Default for #component_id {
+                fn default() -> Self {
+                    Self { #(#field_names: #field_values,)* }
+                }
+            }
+        }
+    });
+    let default_derive = default_impl.is_none().then(|| quote!(Default,));
+
     quote! {
         #attributes
-        #[derive(Default, PartialEq, Debug, Clone)]
+        #[derive(#default_derive PartialEq, Debug, Clone)]
         pub struct #component_id {
             #(pub #declared_property_vars : #declared_property_types),*
         }
+        #default_impl
     }
 }
 
@@ -847,28 +927,35 @@ fn handle_property_init(
 
         let tokens_for_expression = set_primitive_property_value(prop_type, tokens_for_expression);
 
-        init.push(if binding_expression.is_constant && !binding_expression.is_state_info {
-            let t = rust_property_type(prop_type).unwrap_or(quote!(_));
-            quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
-        } else {
-            let maybe_cast_to_property_type = if binding_expression.expression.borrow().ty(ctx) == Type::Invalid {
-                // Don't cast if the Rust code is the never type, as with return statements inside a block, the
-                // type of the return expression is `()` instead of `!`.
-                None
-            } else {
-                Some(quote!(as _))
-            };
-
-            let binding_tokens = quote!(move |self_rc| {
-                #init_self_pin_ref
-                (#tokens_for_expression) #maybe_cast_to_property_type
-            });
-
-            if binding_expression.is_state_info {
+        init.push(match binding_expression.kind {
+            llr::BindingKind::Constant => {
+                let t = rust_property_type(prop_type).unwrap_or(quote!(_));
+                quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
+            }
+            llr::BindingKind::State => {
+                let maybe_cast = if binding_expression.expression.borrow().ty(ctx) == Type::Invalid {
+                    None
+                } else {
+                    Some(quote!(as _))
+                };
+                let binding_tokens = quote!(move |self_rc| {
+                    #init_self_pin_ref
+                    (#tokens_for_expression) #maybe_cast
+                });
                 quote! { {
                     slint::private_unstable_api::set_property_state_binding(#rust_property, &self_rc, #binding_tokens);
                 } }
-            } else {
+            }
+            llr::BindingKind::Normal => {
+                let maybe_cast = if binding_expression.expression.borrow().ty(ctx) == Type::Invalid {
+                    None
+                } else {
+                    Some(quote!(as _))
+                };
+                let binding_tokens = quote!(move |self_rc| {
+                    #init_self_pin_ref
+                    (#tokens_for_expression) #maybe_cast
+                });
                 match &binding_expression.animation {
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);
@@ -973,8 +1060,7 @@ fn public_api(
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let mut property_and_callback_accessors: Vec<TokenStream> = Vec::new();
-    for p in public_properties {
-        let prop_ident = ident(&p.name);
+    for (name, p) in public_properties {
         let prop = access_member(&p.prop, ctx).unwrap();
 
         if let Type::Callback(callback) = &p.ty {
@@ -983,7 +1069,7 @@ fn public_api(
             let return_type = rust_primitive_type(&callback.return_type).unwrap();
             let args_name =
                 (0..callback.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
@@ -991,7 +1077,7 @@ fn public_api(
                     #prop.call(&(#(#args_name,)*))
                 }
             ));
-            let on_ident = format_ident!("on_{}", prop_ident);
+            let on_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Handler);
             let args_index = (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
             let tracker_access = access_callback_tracker(&p.prop, ctx);
             let set_dirty = tracker_access.map(|t| quote!(#t.mark_dirty();));
@@ -1013,7 +1099,7 @@ fn public_api(
             let return_type = rust_primitive_type(&function.return_type).unwrap();
             let args_name =
                 (0..function.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
@@ -1024,7 +1110,7 @@ fn public_api(
         } else {
             let rust_property_type = rust_primitive_type(&p.ty).unwrap();
 
-            let getter_ident = format_ident!("get_{}", prop_ident);
+            let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
 
             let prop_expression = primitive_property_value(&p.ty, MemberAccess::Direct(prop));
 
@@ -1037,8 +1123,8 @@ fn public_api(
                 }
             ));
 
-            let setter_ident = format_ident!("set_{}", prop_ident);
-            if !p.read_only {
+            let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
+            if !p.read_only() {
                 let set_value = property_set_value_tokens(&p.prop, quote!(value), ctx);
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
@@ -1057,15 +1143,14 @@ fn public_api(
     }
 
     for (name, ty) in private_properties {
-        let prop_ident = ident(name);
         if let Type::Function { .. } = ty {
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(
                 quote!( #[allow(dead_code)] fn #caller_ident(&self, _private_function: ()) {} ),
             );
         } else {
-            let getter_ident = format_ident!("get_{}", prop_ident);
-            let setter_ident = format_ident!("set_{}", prop_ident);
+            let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
+            let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)] fn #getter_ident(&self, _private_property: ()) {}
                 #[allow(dead_code)] fn #setter_ident(&self, _private_property: ()) {}
@@ -1074,6 +1159,61 @@ fn public_api(
     }
 
     quote!(#(#property_and_callback_accessors)*)
+}
+
+/// Maximum number of statements in a generated `init`-like function body.
+/// rustc's per-function-body work scales super-linearly, so bigger bodies are
+/// split into chunk functions. Measured on a large project, the build time
+/// stops improving below 128 statements per chunk.
+const INIT_CHUNK_SIZE: usize = 128;
+
+/// When `stmts` is bigger than [`INIT_CHUNK_SIZE`], move the statements into
+/// `{prefix}_chunk_{i}` functions (added to `chunk_fns`) and return the calls
+/// to them. Each statement must only use the names bound by `params` and
+/// `prologue` (`quote!` is not hygienic, so the exact names matter).
+///
+/// When `fallible` is set the chunks return `Result` and are called with `?`,
+/// so `init`'s statements can use the `?` operator (e.g. for font registration).
+fn emit_in_chunks(
+    prefix: &str,
+    stmts: Vec<TokenStream>,
+    params: &TokenStream,
+    args: &TokenStream,
+    prologue: &TokenStream,
+    fallible: bool,
+    chunk_fns: &mut Vec<TokenStream>,
+) -> Vec<TokenStream> {
+    if stmts.len() <= INIT_CHUNK_SIZE {
+        return stmts;
+    }
+    let (ret, ok, question) = if fallible {
+        (
+            quote!(-> ::core::result::Result<(), slint::PlatformError>),
+            quote!(::core::result::Result::Ok(())),
+            quote!(?),
+        )
+    } else {
+        (quote!(), quote!(), quote!())
+    };
+    stmts
+        .chunks(INIT_CHUNK_SIZE)
+        .enumerate()
+        .map(|(i, chunk)| {
+            let name = format_ident!("{prefix}_chunk_{i}");
+            // inline(never) stops the MIR inliner from re-merging the chunks
+            // into one huge function.
+            chunk_fns.push(quote!(
+                #[inline(never)]
+                fn #name(#params) #ret {
+                    #![allow(unused)]
+                    #prologue
+                    #(#chunk)*
+                    #ok
+                }
+            ));
+            quote!(Self::#name(#args)#question;)
+        })
+        .collect()
 }
 
 /// Generate the rust code for the given component.
@@ -1090,7 +1230,7 @@ fn generate_sub_component(
     let ctx = EvaluationContext::new_sub_component(
         root,
         component_idx,
-        RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+        RustGeneratorContext { global_access: quote!(_self.globals()) },
         parent_ctx,
     );
     let mut extra_components = component
@@ -1194,7 +1334,12 @@ fn generate_sub_component(
 
         if let Some(item_index) = repeated.container_item_index {
             let embed_item = access_local_member(
-                &llr::LocalMemberIndex::Native { item_index, prop_name: Default::default() }.into(),
+                &llr::LocalMemberIndex::Native {
+                    item_index,
+                    prop_name: Default::default(),
+                    kind: llr::NativeMemberKind::Property,
+                }
+                .into(),
                 &ctx,
             );
 
@@ -1365,7 +1510,7 @@ fn generate_sub_component(
         init.push(quote!(#sub_component_id::init(
             sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
             #global_access.clone(), #global_index, #global_children
-        );));
+        )?;));
         user_init_code.push(quote!(#sub_component_id::user_init(
             sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
         );));
@@ -1459,6 +1604,17 @@ fn generate_sub_component(
         };
         init.push(quote!(#r;))
     }
+
+    // The pre-init code (custom font registration) runs before the property initialization.
+    let pre_init_code: Vec<TokenStream> = component
+        .pre_init_code
+        .iter()
+        .map(|e| {
+            let code = compile_expression(&e.borrow(), &ctx);
+            quote!(#code;)
+        })
+        .collect();
+    init.splice(0..0, pre_init_code);
 
     // Initialize all properties which have an initial value in the slint file
     // This sets up also the callback handler and bindings
@@ -1555,8 +1711,9 @@ fn generate_sub_component(
             let running = compile_expression(&tmr.running.borrow(), &ctx);
             let callback = compile_expression(&tmr.triggered.borrow(), &ctx);
             quote!(
-                if #running {
-                    let interval = ::core::time::Duration::from_millis(#interval as u64);
+                let millis = if #running { (#interval) as i64 } else { -1 };
+                if millis >= 0 {
+                    let interval = ::core::time::Duration::from_millis(millis as u64);
                     if !self.#ident.running() || interval != self.#ident.interval() {
                         let self_weak = self.self_weak.get().unwrap().clone();
                         self.#ident.start(sp::TimerMode::Repeated, interval, move || {
@@ -1579,6 +1736,26 @@ fn generate_sub_component(
             }
         )
     });
+
+    let mut chunk_fns = Vec::new();
+    let init = emit_in_chunks(
+        "init",
+        init,
+        &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>, tree_index: u32, tree_index_of_first_child: u32),
+        &quote!(self_rc.clone(), tree_index, tree_index_of_first_child),
+        &quote!(let _self = self_rc.as_pin_ref();),
+        true,
+        &mut chunk_fns,
+    );
+    let user_init_code = emit_in_chunks(
+        "user_init",
+        user_init_code,
+        &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>),
+        &quote!(self_rc.clone()),
+        &quote!(let _self = self_rc.as_pin_ref();),
+        false,
+        &mut chunk_fns,
+    );
 
     let pin_macro = if pinned_drop { quote!(#[pin_drop]) } else { quote!(#[pin]) };
 
@@ -1606,9 +1783,23 @@ fn generate_sub_component(
         }
 
         impl #inner_component_id {
+            // Shorthands used by the generated expression code: these accesses are
+            // emitted many times, so keep the call sites as small as possible.
+            #[allow(dead_code)]
+            fn globals(&self) -> &sp::Rc<SharedGlobals> {
+                self.globals.get().unwrap()
+            }
+
+            #[allow(dead_code)]
+            fn origin_rc(&self) -> sp::ItemTreeRc {
+                sp::VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap())
+            }
+
             fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
                     globals : sp::Rc<SharedGlobals>,
-                    tree_index: u32, tree_index_of_first_child: u32) {
+                    tree_index: u32, tree_index_of_first_child: u32)
+                -> ::core::result::Result<(), slint::PlatformError>
+            {
                 #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
                 let _ = _self.self_weak.set(sp::VRcMapped::downgrade(&self_rc));
@@ -1616,6 +1807,7 @@ fn generate_sub_component(
                 _self.tree_index.set(tree_index);
                 _self.tree_index_of_first_child.set(tree_index_of_first_child);
                 #(#init)*
+                ::core::result::Result::Ok(())
             }
 
             fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
@@ -1623,6 +1815,8 @@ fn generate_sub_component(
                 let _self = self_rc.as_pin_ref();
                 #(#user_init_code)*
             }
+
+            #(#chunk_fns)*
 
             fn visit_dynamic_children(
                 self: ::core::pin::Pin<&Self>,
@@ -1760,10 +1954,10 @@ fn generate_functions(functions: &[llr::Function], ctx: &EvaluationContext) -> V
         .map(|f| {
             let mut ctx2 = ctx.clone();
             ctx2.argument_types = &f.args;
-            let tokens_for_expression = compile_expression(&f.code, &ctx2);
+            let tokens_for_expression = compile_expression(&f.code.borrow(), &ctx2);
             let as_ = if f.ret_ty == Type::Void {
                 Some(quote!(;))
-            } else if f.code.ty(&ctx2) == Type::Invalid {
+            } else if f.code.borrow().ty(&ctx2) == Type::Invalid {
                 // Don't cast if the Rust code is the never type, as with return statements inside a block, the
                 // type of the return expression is `()` instead of `!`.
                 None
@@ -1831,9 +2025,7 @@ fn generate_global(
     let ctx = EvaluationContext::new_global(
         root,
         global_idx,
-        RustGeneratorContext {
-            global_access: quote!(_self.globals.get().unwrap().upgrade().unwrap()),
-        },
+        RustGeneratorContext { global_access: quote!(_self.globals()) },
     );
 
     let declared_functions = generate_functions(global.functions.as_ref(), &ctx);
@@ -1881,6 +2073,17 @@ fn generate_global(
             );
         }
     }));
+
+    let mut chunk_fns = Vec::new();
+    let init = emit_in_chunks(
+        "init",
+        init,
+        &quote!(self_rc: ::core::pin::Pin<sp::Rc<Self>>),
+        &quote!(self_rc.clone()),
+        &quote!(let _self = self_rc.as_ref();),
+        false,
+        &mut chunk_fns,
+    );
 
     let pub_token = if compiler_config.library_name.is_some() && !global.is_builtin {
         global_exports.push(quote! (#inner_component_id));
@@ -1939,6 +2142,12 @@ fn generate_global(
             }
 
             impl #inner_component_id {
+                // Shorthand used by the generated expression code: the member access is
+                // emitted for every global property access, so keep it as small as possible.
+                #[allow(dead_code)]
+                fn globals(&self) -> sp::Rc<SharedGlobals> {
+                    self.globals.get().unwrap().upgrade().unwrap()
+                }
                 fn new() -> ::core::pin::Pin<sp::Rc<Self>> {
                     sp::Rc::pin(Self::default())
                 }
@@ -1949,6 +2158,8 @@ fn generate_global(
                     let _self = self_rc.as_ref();
                     #(#init)*
                 }
+
+                #(#chunk_fns)*
 
                 #(#declared_functions)*
             }
@@ -2013,12 +2224,26 @@ fn generate_item_tree(
         })
         .collect::<Vec<_>>();
 
+    let is_root_component = !is_popup && parent_ctx.is_none();
     let globals = if is_popup {
         quote!(globals)
     } else if parent_ctx.is_some() {
         quote!(parent.upgrade().unwrap().globals.get().unwrap().clone())
     } else {
         quote!(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc)))
+    };
+    // The root component owns the freshly created `SharedGlobals` and is responsible for running
+    // its eager initialization. The root's own `globals` field must be set *before* that init
+    // runs, because a global binding (e.g. `Palette.color-scheme`) may resolve the root's window
+    // adapter through `globals` during evaluation. Popups and sub-components receive an already
+    // initialized `SharedGlobals`, so they skip this step.
+    let set_and_init_globals = if is_root_component {
+        quote!(
+            let _ = sp::VRc::map(self_rc.clone(), |x| x).as_pin_ref().globals.set(globals.clone());
+            globals.init_globals();
+        )
+    } else {
+        quote!()
     };
     let globals_arg = is_popup.then(|| quote!(globals: sp::Rc<SharedGlobals>));
 
@@ -2057,7 +2282,7 @@ fn generate_item_tree(
     let mut item_array = Vec::new();
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
-        let (path, component) =
+        let (_, component) =
             follow_sub_component_path(root, sub_tree.root, &node.sub_component_path);
         match node.item_index {
             Either::Right(mut repeater_index) => {
@@ -2076,10 +2301,6 @@ fn generate_item_tree(
             }
             Either::Left(item_index) => {
                 let item = &component.items[item_index];
-                let field = access_component_field_offset(
-                    &self::inner_component_id(component),
-                    &ident(&item.name),
-                );
 
                 let children_count = node.children.len() as u32;
                 let children_index = children_offset as u32;
@@ -2094,7 +2315,26 @@ fn generate_item_tree(
                         item_array_index: #item_array_len,
                     }
                 ));
-                item_array.push(quote!(sp::VOffset::new(#path #field)));
+
+                // The array is const, so nested offsets are composed with the
+                // const compose_field_offsets rather than the non-const `+`.
+                let mut sc = &root.sub_components[sub_tree.root];
+                let mut offsets = Vec::new();
+                for i in &node.sub_component_path {
+                    offsets.push(access_component_field_offset(
+                        &self::inner_component_id(sc),
+                        &ident(&sc.sub_components[*i].name),
+                    ));
+                    sc = &root.sub_components[sc.sub_components[*i].ty];
+                }
+                let offset = offsets.into_iter().rfold(
+                    access_component_field_offset(
+                        &self::inner_component_id(component),
+                        &ident(&item.name),
+                    ),
+                    |acc, seg| quote!(sp::compose_field_offsets(#seg, #acc)),
+                );
+                item_array.push(quote!(sp::VOffset::new(#offset)));
             }
         }
     });
@@ -2164,8 +2404,9 @@ fn generate_item_tree(
                 let self_rc = sp::VRc::new(_self);
                 let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
                 let globals = #globals;
+                #set_and_init_globals
                 sp::register_item_tree(&self_dyn_rc, #register_window_adapter_arg);
-                Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1);
+                Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1)?;
                 ::core::result::Result::Ok(self_rc)
             }
 
@@ -2175,11 +2416,9 @@ fn generate_item_tree(
             }
 
             fn item_array() -> &'static [sp::VOffset<Self, sp::ItemVTable, sp::AllowPin>] {
-                // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
-                static ITEM_ARRAY : sp::OnceBox<
-                    [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
-                > = sp::OnceBox::new();
-                &*ITEM_ARRAY.get_or_init(|| sp::vec![#(#item_array),*].into_boxed_slice().try_into().unwrap())
+                const ITEM_ARRAY : [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
+                    = [#(#item_array),*];
+                &ITEM_ARRAY
             }
         }
 
@@ -2349,10 +2588,10 @@ fn generate_repeated_component(
                             let inner_len = _self.as_ref().#inner_rep_id.len();
                             for _i in 0..inner_len {
                                 if write_idx < result.len() {
-                                    result[write_idx] = sp::GridLayoutInputData {
-                                        new_row: write_idx == 0 && new_row,
-                                        ..Default::default()
-                                    };
+                                    // Let the inner cell report its own col/row/colspan/rowspan.
+                                    if let Some(inner) = _self.as_ref().#inner_rep_id.instance_at(_i) {
+                                        inner.as_pin_ref().grid_layout_input_data(write_idx == 0 && new_row, core::slice::from_mut(&mut result[write_idx]));
+                                    }
                                 }
                                 write_idx += 1;
                             }
@@ -2433,7 +2672,7 @@ fn generate_repeated_component(
                         Some(parent_ctx),
                     ),
                     generator_state: RustGeneratorContext {
-                        global_access: quote!(_self.globals.get().unwrap()),
+                        global_access: quote!(_self.globals()),
                     },
                     argument_types: &[],
                 };
@@ -2530,14 +2769,61 @@ fn generate_repeated_component(
         });
         let flexbox_layout_item_info_fn =
             root_sc.flexbox_layout_item_info_for_repeated.as_ref().map(|_| {
+                // Break the height-for-width recursion for a repeated instance
+                // in a column FlexboxLayout: its vertical info must not read
+                // self.width (set by the parent flex cache it is feeding).
+                // Use the constrained vertical info (computed at the instance's
+                // own preferred width via layoutinfo-v-with-constraint) instead.
+                let v_constrained =
+                    root_sc.layout_info_v_constrained_for_repeated.as_ref().map(|e| {
+                        let v_info = compile_expression(&e.borrow(), &ctx);
+                        quote! {
+                            if matches!(o, sp::Orientation::Vertical) && child_index.is_none() {
+                                info.constraint = #v_info;
+                                return info;
+                            }
+                        }
+                    });
+                // A column FlexboxLayout calls this with its real container width
+                // so a height-for-width instance wraps to the same height as an
+                // equivalent static cell (instead of the preferred-width single
+                // line that `flexbox_layout_item_info` returns). The expression
+                // reads the `flex_cross_width` local (matches FLEX_CROSS_WIDTH_LOCAL).
+                let at_cross_width_body = root_sc
+                    .layout_info_v_at_cross_width_for_repeated
+                    .as_ref()
+                    .map(|e| {
+                        let v_info = compile_expression(&e.borrow(), &ctx);
+                        quote! { info.constraint = #v_info; }
+                    })
+                    .unwrap_or_else(|| {
+                        quote! {
+                            info.constraint =
+                                self.layout_item_info(sp::Orientation::Vertical, sp::None).constraint;
+                        }
+                    });
                 quote! {
                     fn flexbox_layout_item_info(
                         self: ::core::pin::Pin<&Self>,
                         o: sp::Orientation,
                         child_index: sp::Option<usize>,
                     ) -> sp::FlexboxLayoutItemInfo {
+                        #[allow(unused)]
+                        let _self = self.as_ref();
                         let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
+                        #v_constrained
                         info.constraint = self.layout_item_info(o, child_index).constraint;
+                        info
+                    }
+                    #[allow(unused_variables)]
+                    fn flexbox_layout_item_info_at_cross_width(
+                        self: ::core::pin::Pin<&Self>,
+                        flex_cross_width: f32,
+                    ) -> sp::FlexboxLayoutItemInfo {
+                        #[allow(unused)]
+                        let _self = self.as_ref();
+                        let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
+                        #at_cross_width_body
                         info
                     }
                 }
@@ -2726,7 +3012,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         },
                     )
                 }
-                llr::LocalMemberIndex::Native { item_index, prop_name } => {
+                llr::LocalMemberIndex::Native { item_index, prop_name, .. } => {
                     let (compo_path, sub_component) = follow_sub_component_path(
                         ctx.compilation_unit,
                         ctx.parent_sub_component_idx(*parent_level).unwrap(),
@@ -2883,7 +3169,7 @@ fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> TokenSt
     let llr::MemberReference::Relative { parent_level, local_reference } = pr else {
         unreachable!()
     };
-    let llr::LocalMemberIndex::Native { item_index, prop_name: _ } = &local_reference.reference
+    let llr::LocalMemberIndex::Native { item_index, prop_name: _, .. } = &local_reference.reference
     else {
         unreachable!()
     };
@@ -2900,7 +3186,7 @@ fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> TokenSt
         component_access_tokens = quote!(#component_access_tokens . #sub_component_name);
         sub_component = &ctx.compilation_unit.sub_components[sub_component.sub_components[*i].ty];
     }
-    let component_rc_tokens = quote!(sp::VRcMapped::origin(&#component_access_tokens.self_weak.get().unwrap().upgrade().unwrap()));
+    let component_rc_tokens = quote!(#component_access_tokens.origin_rc());
     let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
     let item_index_tokens = if item_index_in_tree == 0 {
         quote!(#component_access_tokens.tree_index.get())
@@ -2913,149 +3199,113 @@ fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> TokenSt
 
 /// Compile `expr` to a Rust expression returning an owned value.
 fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    /// Whether the code generated by [`compile_expression`] always evaluates to a fresh owned
+    /// value, so that no `.clone()` is needed to use it as a value.
+    fn produces_owned_value(expr: &Expression) -> bool {
+        match expr {
+            Expression::StringLiteral(..)
+            | Expression::NumberLiteral(..)
+            | Expression::BoolLiteral(..)
+            | Expression::KeysLiteral(..)
+            // compiles to a `.get()` (or `.map(...).unwrap_or_default()`) call
+            | Expression::PropertyReference(..)
+            // compiles to `args.N.clone()`
+            | Expression::FunctionParameterReference { .. }
+            // compiles to `x.row_data_tracked(i).unwrap_or_default()`
+            | Expression::ArrayIndex { .. }
+            | Expression::Cast { .. }
+            | Expression::BuiltinFunctionCall { .. }
+            | Expression::CallBackCall { .. }
+            | Expression::FunctionCall { .. }
+            | Expression::ItemMemberFunctionCall { .. }
+            | Expression::ExtraBuiltinFunctionCall { .. }
+            | Expression::BinaryExpression { .. }
+            | Expression::UnaryOp { .. }
+            | Expression::ImageReference { .. }
+            | Expression::Array { .. }
+            | Expression::Struct { .. }
+            | Expression::EasingCurve(..)
+            | Expression::LinearGradient { .. }
+            | Expression::RadialGradient { .. }
+            | Expression::ConicGradient { .. }
+            | Expression::EnumerationValue(..) => true,
+            Expression::Condition { true_expr, false_expr, .. } => {
+                produces_owned_value(true_expr) && produces_owned_value(false_expr)
+            }
+            // an empty code block evaluates to `()`, which is owned
+            Expression::CodeBlock(b) => b.last().is_none_or(produces_owned_value),
+            _ => false,
+        }
+    }
+
     let compiled_expr = compile_expression(expr, ctx);
 
-    quote!((#compiled_expr).clone())
+    if produces_owned_value(expr) { compiled_expr } else { quote!((#compiled_expr).clone()) }
+}
+
+impl quote::ToTokens for crate::expression_tree::ImageReference {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let tks = match self {
+            crate::expression_tree::ImageReference::None => {
+                quote!(sp::Image::default())
+            }
+            crate::expression_tree::ImageReference::Path(path) => {
+                let path = path.as_str();
+                quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
+            }
+            crate::expression_tree::ImageReference::Url(url) => {
+                let url = url.as_str();
+                // URL image references only work on the web, where the browser fetches them.
+                quote!({
+                    #[cfg(target_arch = "wasm32")]
+                    { sp::load_as_html_image(#url).unwrap_or_default() }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    { sp::Image::default() }
+                })
+            }
+            crate::expression_tree::ImageReference::DataUri(_) => {
+                unreachable!("data: URIs are embedded before code generation")
+            }
+            crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
+                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
+                let format = proc_macro2::Literal::byte_string(extension.as_bytes());
+                quote!(sp::load_image_from_embedded_data(#symbol.into(), sp::Slice::from_slice(#format)))
+            }
+            crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
+                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
+                quote!(
+                    sp::Image::from(sp::ImageInner::StaticTextures(&#symbol))
+                )
+            }
+        };
+        tokens.extend(tks);
+    }
 }
 
 /// Compile `expr` to a Rust expression which may potentially return a reference.
+///
+/// The body of every non-trivial match arm lives in its own `#[inline(never)]`
+/// helper function: this function recurses for nested expressions, and with all
+/// arm bodies inlined, its stack frame in unoptimized builds becomes so large
+/// that deeply nested expressions overflow the stack.
 fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     match expr {
         Expression::StringLiteral(s) => {
             let s = s.as_str();
             quote!(sp::SharedString::from(#s))
         }
-        Expression::KeysLiteral(keys) => {
-                let key = &*keys.key;
-                let alt = keys.modifiers.alt;
-                let control = keys.modifiers.control;
-                let shift = keys.modifiers.shift;
-                let meta = keys.modifiers.meta;
-                let ignore_shift = keys.ignore_shift;
-                let ignore_alt = keys.ignore_alt;
-
-                quote!(
-                    sp::make_keys(
-                        #key.into(),
-                        {
-                            let mut modifiers = sp::KeyboardModifiers::default();
-                            modifiers.alt = #alt;
-                            modifiers.control = #control;
-                            modifiers.shift = #shift;
-                            modifiers.meta = #meta;
-                            modifiers
-                        },
-                        #ignore_shift,
-                        #ignore_alt))
-        },
-        Expression::NumberLiteral(n) if n.is_finite() => quote!(#n),
-        Expression::NumberLiteral(_) => quote!(0.),
-        Expression::BoolLiteral(b) => quote!(#b),
-        Expression::Cast { from, to } => {
-            let f = compile_expression(from, ctx);
-            match (from.ty(ctx), to) {
-                (Type::Float32, Type::Int32) => {
-                    quote!(((#f) as i32))
-                }
-                (from, Type::String) if from.as_unit_product().is_some() => {
-                    quote!(sp::shared_string_from_number((#f) as f64))
-                }
-                (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    quote!(sp::ModelRc::new(#f.max(::core::default::Default::default()) as usize))
-                }
-                (Type::Float32, Type::Color) => {
-                    quote!(sp::Color::from_argb_encoded((#f) as u32))
-                }
-                (Type::Color, Type::Brush) => {
-                    quote!(slint::Brush::SolidColor(#f))
-                }
-                (Type::Brush, Type::Color) => {
-                    quote!(#f.color())
-                }
-                (Type::Struct(lhs), Type::Struct(rhs)) => {
-                    debug_assert_eq!(
-                        lhs.fields, rhs.fields,
-                        "cast of struct with deferent fields should be handled before llr"
-                    );
-                    match (&lhs.name, &rhs.name) {
-                        (StructName::None, targetstruct) if targetstruct.is_some() => {
-                            // Convert from an anonymous struct to a named one
-                            let fields = lhs.fields.iter().enumerate().map(|(index, (name, _))| {
-                                let index = proc_macro2::Literal::usize_unsuffixed(index);
-                                let name = ident(name);
-                                quote!(the_struct.#name = (obj.#index).clone() as _;)
-                            });
-                            let id = struct_name_to_tokens(targetstruct).unwrap();
-                            quote!({ let obj = #f; let mut the_struct = #id::default(); #(#fields)* the_struct })
-                        }
-                        (sourcestruct, StructName::None) if sourcestruct.is_some() => {
-                            // Convert from a named struct to an anonymous one
-                            let fields = lhs.fields.keys().map(|name| ident(name));
-                            quote!({ let obj = #f; (#(obj.#fields,)*) })
-                        }
-                        _ => f,
-                    }
-                }
-                (Type::Array(..), Type::PathData)
-                    if matches!(
-                        from.as_ref(),
-                        Expression::Array { element_ty: Type::Struct { .. }, .. }
-                    ) =>
-                {
-                    let path_elements = match from.as_ref() {
-                        Expression::Array { element_ty: _, values, output: _ } => values
-                            .iter()
-                            .map(|path_elem_expr|
-                                // Close{} is a struct with no fields in markup, and PathElement::Close has no fields
-                                if matches!(path_elem_expr, Expression::Struct { ty, .. } if ty.fields.is_empty()) {
-                                    quote!(sp::PathElement::Close)
-                                } else {
-                                    compile_expression(path_elem_expr, ctx)
-                                }
-                            ),
-                        _ => {
-                            unreachable!()
-                        }
-                    };
-                    quote!(sp::PathData::Elements(sp::SharedVector::<_>::from_slice(&[#((#path_elements).into()),*])))
-                }
-                (Type::Struct { .. }, Type::PathData)
-                    if matches!(from.as_ref(), Expression::Struct { .. }) =>
-                {
-                    let (events, points) = match from.as_ref() {
-                        Expression::Struct { ty: _, values } => (
-                            compile_expression(&values["events"], ctx),
-                            compile_expression(&values["points"], ctx),
-                        ),
-                        _ => {
-                            unreachable!()
-                        }
-                    };
-                    quote!(sp::PathData::Events(sp::SharedVector::<_>::from_slice(&#events), sp::SharedVector::<_>::from_slice(&#points)))
-                }
-                (Type::String, Type::PathData) => {
-                    quote!(sp::PathData::Commands(#f))
-                }
-                (Type::Enumeration(e), Type::String) => {
-                    let cases = e.values.iter().enumerate().map(|(idx, v)| {
-                        let c = compile_expression(
-                            &Expression::EnumerationValue(EnumerationValue {
-                                value: idx,
-                                enumeration: e.clone(),
-                            }),
-                            ctx,
-                        );
-                        let v = v.as_str();
-                        quote!(#c => sp::SharedString::from(#v))
-                    });
-                    quote!(match #f { #(#cases,)*  _ => sp::SharedString::default() })
-                }
-                (_, Type::Void) => {
-                    quote!({#f;})
-                }
-                _ => f,
+        Expression::KeysLiteral(..) => compile_keys_literal(expr),
+        Expression::NumberLiteral(n) => {
+            if n.is_nan() {
+                quote!(f64::NAN)
+            } else if n.is_infinite() {
+                if *n > 0. { quote!(f64::INFINITY) } else { quote!(f64::NEG_INFINITY) }
+            } else {
+                quote!(#n)
             }
         }
+        Expression::BoolLiteral(b) => quote!(#b),
+        Expression::Cast { .. } => compile_cast(expr, ctx),
         Expression::PropertyReference(nr) => {
             let access = access_member(nr, ctx);
             let prop_type = ctx.property_ty(nr);
@@ -3064,41 +3314,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::BuiltinFunctionCall { function, arguments } => {
             compile_builtin_function_call(function.clone(), arguments, ctx)
         }
-        Expression::CallBackCall { callback, arguments } => {
-            let f = access_member(callback, ctx);
-            let tracker = access_callback_tracker(callback, ctx);
-            let register_dep = tracker.map(|t| {
-                quote!(#t.get();)
-            });
-            let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
-            if expr.ty(ctx) == Type::Void {
-                f.then(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)); }))
-            } else {
-                f.map_or_default(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)) }))
-            }
-        }
-        Expression::FunctionCall { function, arguments } => {
-            let a = arguments.iter().map(|a| compile_expression(a, ctx));
-            let f = access_member(function, ctx);
-            if expr.ty(ctx) == Type::Void {
-                f.then(|f| quote!(#f( #(#a as _),*)))
-            } else {
-                f.map_or_default(|f| quote!(#f( #(#a as _),*)))
-            }
-        }
-        Expression::ItemMemberFunctionCall { function } => {
-            let fun = access_member(function, ctx);
-            let item_rc = access_item_rc(function, ctx);
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            fun.map_or_default(|fun| quote!(#fun(#window_adapter_tokens, #item_rc)))
-        }
-        Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
-            let f = ident(function);
-            let a = arguments.iter().map(|a| {
-                let arg = compile_expression(a, ctx);
-                if matches!(a.ty(ctx), Type::Struct { .. }) { quote!(&#arg) } else { arg }
-            });
-            quote! { sp::#f(#(#a as _),*) }
+        Expression::CallBackCall { .. } => compile_callback_call(expr, ctx),
+        Expression::FunctionCall { .. } => compile_function_call(expr, ctx),
+        Expression::ItemMemberFunctionCall { .. } => compile_item_member_function_call(expr, ctx),
+        Expression::ExtraBuiltinFunctionCall { .. } => {
+            compile_extra_builtin_function_call(expr, ctx)
         }
         Expression::FunctionParameterReference { index } => {
             let i = proc_macro2::Literal::usize_unsuffixed(*index);
@@ -3112,116 +3332,20 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
             _ => panic!("Expression::StructFieldAccess's base expression is not an Object type"),
         },
-        Expression::ArrayIndex { array, index } => {
-            debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
-            let base_e = compile_expression(array, ctx);
-            let index_e = compile_expression(index, ctx);
-            quote!(match &#base_e { x => {
-                let index = (#index_e) as usize;
-                x.row_data_tracked(index).unwrap_or_default()
-            }})
-        }
-        Expression::CodeBlock(sub) => {
-            let mut body = TokenStream::new();
-            for (i, e) in sub.iter().enumerate() {
-                body.extend(compile_expression_no_parenthesis(e, ctx));
-                if i + 1 < sub.len() && !matches!(e, Expression::StoreLocalVariable { .. }) {
-                    body.extend(quote!(;));
-                }
-            }
-            quote!({ #body })
-        }
+        Expression::ArrayIndex { .. } => compile_array_index(expr, ctx),
+        Expression::CodeBlock(..) => compile_code_block(expr, ctx),
         Expression::PropertyAssignment { property, value } => {
             let value = compile_expression(value, ctx);
             property_set_value_tokens(property, value, ctx)
         }
-        Expression::ModelDataAssignment { level, value } => {
-            let value = compile_expression(value, ctx);
-            let mut path = quote!(_self);
-            let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else {
-                unreachable!()
-            };
-            let mut repeater_index = None;
-            for _ in 0..=*level {
-                let x = par.unwrap();
-                par = x.parent;
-                repeater_index = x.repeater_index;
-                sc = x.sub_component;
-                path = quote!(#path.parent.upgrade().unwrap());
-            }
-            let repeater_index = repeater_index.unwrap();
-            let sub_component = &ctx.compilation_unit.sub_components[sc];
-            let local_reference = sub_component.repeated[repeater_index].index_prop.unwrap().into();
-            let index_prop =
-                llr::MemberReference::Relative { parent_level: *level, local_reference };
-            let index_access = access_member(&index_prop, ctx).get_property();
-            let repeater = access_component_field_offset(
-                &inner_component_id(sub_component),
-                &format_ident!("repeater{}", usize::from(repeater_index)),
-            );
-            quote!(#repeater.apply_pin(#path.as_pin_ref()).model_set_row_data(#index_access as _, #value as _))
-        }
-        Expression::ArrayIndexAssignment { array, index, value } => {
-            debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
-            let base_e = compile_expression(array, ctx);
-            let index_e = compile_expression(index, ctx);
-            let value_e = compile_expression(value, ctx);
-            quote!((#base_e).set_row_data(#index_e as isize as usize, #value_e as _))
-        }
+        Expression::ModelDataAssignment { .. } => compile_model_data_assignment(expr, ctx),
+        Expression::ArrayIndexAssignment { .. } => compile_array_index_assignment(expr, ctx),
         Expression::SliceIndexAssignment { slice_name, index, value } => {
             let slice_ident = ident(slice_name);
             let value_e = compile_expression(value, ctx);
             quote!(#slice_ident[#index] = #value_e)
         }
-        Expression::BinaryExpression { lhs, rhs, op } => {
-            let lhs_ty = lhs.ty(ctx);
-            let lhs = compile_expression_to_value_no_parenthesis(lhs, ctx);
-            let rhs = compile_expression_to_value_no_parenthesis(rhs, ctx);
-
-            if lhs_ty.as_unit_product().is_some() && (*op == '=' || *op == '!') {
-                let maybe_negate = if *op == '!' { quote!(!) } else { quote!() };
-                quote!(#maybe_negate sp::ApproxEq::<f64>::approx_eq(&(#lhs as f64), &(#rhs as f64)))
-            } else {
-                let (conv1, conv2) = match crate::expression_tree::operator_class(*op) {
-                    OperatorClass::ArithmeticOp => match lhs_ty {
-                        Type::String => (None, Some(quote!(.as_str()))),
-                        Type::Struct { .. } => (None, None),
-                        _ => (Some(quote!(as f64)), Some(quote!(as f64))),
-                    },
-                    OperatorClass::ComparisonOp
-                        if matches!(
-                            lhs_ty,
-                            Type::Int32
-                                | Type::Float32
-                                | Type::Duration
-                                | Type::PhysicalLength
-                                | Type::LogicalLength
-                                | Type::Angle
-                                | Type::Percent
-                                | Type::Rem
-                        ) =>
-                    {
-                        (Some(quote!(as f64)), Some(quote!(as f64)))
-                    }
-                    _ => (None, None),
-                };
-
-                let op = match op {
-                    '=' => quote!(==),
-                    '!' => quote!(!=),
-                    '≤' => quote!(<=),
-                    '≥' => quote!(>=),
-                    '&' => quote!(&&),
-                    '|' => quote!(||),
-                    _ => proc_macro2::TokenTree::Punct(proc_macro2::Punct::new(
-                        *op,
-                        proc_macro2::Spacing::Alone,
-                    ))
-                    .into(),
-                };
-                quote!( (((#lhs) #conv1 ) #op ((#rhs) #conv2)) )
-            }
-        }
+        Expression::BinaryExpression { .. } => compile_binary_expression(expr, ctx),
         Expression::UnaryOp { sub, op } => {
             let sub = compile_expression(sub, ctx);
             if *op == '+' {
@@ -3231,91 +3355,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
             quote!( (#op #sub) )
         }
-        Expression::ImageReference { resource_ref, nine_slice } => {
-            let image = match resource_ref {
-                crate::expression_tree::ImageReference::None => {
-                    quote!(sp::Image::default())
-                }
-                crate::expression_tree::ImageReference::AbsolutePath(path) => {
-                    let path = path.as_str();
-                    quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
-                }
-                crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
-                    let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
-                    let format = proc_macro2::Literal::byte_string(extension.as_bytes());
-                    quote!(sp::load_image_from_embedded_data(#symbol.into(), sp::Slice::from_slice(#format)))
-                }
-                crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
-                    let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
-                    quote!(
-                        sp::Image::from(sp::ImageInner::StaticTextures(&#symbol))
-                    )
-                }
-            };
-            match &nine_slice {
-                Some([a, b, c, d]) => {
-                    quote! {{ let mut image = #image; image.set_nine_slice_edges(#a, #b, #c, #d); image }}
-                }
-                None => image,
-            }
-        }
-        Expression::Condition { condition, true_expr, false_expr } => {
-            let condition_code = compile_expression_no_parenthesis(condition, ctx);
-            let true_code = compile_expression(true_expr, ctx);
-            let false_code = compile_expression_no_parenthesis(false_expr, ctx);
-            let semi = if false_expr.ty(ctx) == Type::Void { quote!(;) } else { quote!(as _) };
-            quote!(
-                if #condition_code {
-                    (#true_code) #semi
-                } else {
-                    #false_code
-                }
-            )
-        }
-        Expression::Array { values, element_ty, output } => {
-            let val = values.iter().map(|e| compile_expression_to_value(e, ctx));
-            match output {
-                ArrayOutput::Model => {
-                    let rust_element_ty = rust_primitive_type(element_ty).unwrap();
-                    quote!(sp::ModelRc::new(
-                        sp::VecModel::<#rust_element_ty>::from(
-                            sp::vec![#(#val as _),*]
-                        )
-                    ))
-                }
-                ArrayOutput::Slice => quote!(sp::Slice::from_slice(&[#(#val),*])),
-                ArrayOutput::Vector => quote!(sp::vec![#(#val as _),*]),
-            }
-        }
-        Expression::Struct { ty, values } => {
-            let elem = ty.fields.keys().map(|k| values.get(k).map(|e| compile_expression_to_value(e, ctx)));
-            if ty.name.is_some() {
-                let name_tokens = struct_name_to_tokens(&ty.name).unwrap();
-                let keys = ty.fields.keys().map(|k| ident(k));
-                if matches!(&ty.name, StructName::Builtin(b) if b.is_layout_data())
-                {
-                    quote!(#name_tokens{#(#keys: #elem as _,)*})
-                } else {
-                    quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys = #elem as _;)* the_struct})
-                }
-            } else {
-                let as_ = ty.fields.values().map(|t| {
-                    if t.as_unit_product().is_some() {
-                        // number needs to be converted to the right things because intermediate
-                        // result might be f64 and that's usually not what the type of the tuple is in the end
-                        let t = rust_primitive_type(t).unwrap();
-                        quote!(as #t)
-                    } else {
-                        quote!()
-                    }
-                });
-                // This will produce a tuple
-                quote!((#((#elem).clone() #as_,)*))
-            }
-        }
+        Expression::ImageReference { .. } => compile_image_reference(expr),
+        Expression::Condition { .. } => compile_condition(expr, ctx),
+        Expression::Array { .. } => compile_array(expr, ctx),
+        Expression::Struct { .. } => compile_struct(expr, ctx),
 
         Expression::StoreLocalVariable { name, value } => {
-            let value = compile_expression_no_parenthesis(value, ctx);
+            let value = compile_expression_to_value_no_parenthesis(value, ctx);
             let name = ident(name);
             quote!(let #name = #value;)
         }
@@ -3323,62 +3369,30 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let name = ident(name);
             quote!(#name)
         }
-        Expression::EasingCurve(EasingCurve::Linear) => {
-            quote!(sp::EasingCurve::Linear)
-        }
+        Expression::MouseCursor(cursor) => match cursor {
+            llr::MouseCursorInner::BuiltIn(expression) => {
+                let expression = compile_expression(expression, ctx);
+                quote!(sp::MouseCursorInner::BuiltIn(#expression.clone()))
+            }
+            llr::MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                let image = compile_expression(image, ctx);
+                let hotspot_x = compile_expression(hotspot_x, ctx);
+                let hotspot_y = compile_expression(hotspot_y, ctx);
+
+                quote!(sp::MouseCursorInner::CustomMouseCursor { image: #image.clone(), hotspot_x: #hotspot_x.clone() as i32, hotspot_y: #hotspot_y.clone() as i32 })
+            }
+        },
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => {
             quote!(sp::EasingCurve::CubicBezier([#a, #b, #c, #d]))
         }
-        Expression::EasingCurve(EasingCurve::EaseInElastic) => {
-            quote!(sp::EasingCurve::EaseInElastic)
+        // The other curves have no parameters and map to a runtime variant with the same name.
+        Expression::EasingCurve(e) => {
+            let ident = format_ident!("{e:?}");
+            quote!(sp::EasingCurve::#ident)
         }
-        Expression::EasingCurve(EasingCurve::EaseOutElastic) => {
-            quote!(sp::EasingCurve::EaseOutElastic)
-        }
-        Expression::EasingCurve(EasingCurve::EaseInOutElastic) => {
-            quote!(sp::EasingCurve::EaseInOutElastic)
-        }
-        Expression::EasingCurve(EasingCurve::EaseInBounce) => {
-            quote!(sp::EasingCurve::EaseInBounce)
-        }
-        Expression::EasingCurve(EasingCurve::EaseOutBounce) => {
-            quote!(sp::EasingCurve::EaseOutBounce)
-        }
-        Expression::EasingCurve(EasingCurve::EaseInOutBounce) => {
-            quote!(sp::EasingCurve::EaseInOutBounce)
-        }
-        Expression::LinearGradient { angle, stops } => {
-            let angle = compile_expression(angle, ctx);
-            let stops = stops.iter().map(|(color, stop)| {
-                let color = compile_expression(color, ctx);
-                let position = compile_expression(stop, ctx);
-                quote!(sp::GradientStop{ color: #color, position: #position as _ })
-            });
-            quote!(slint::Brush::LinearGradient(
-                sp::LinearGradientBrush::new(#angle as _, [#(#stops),*])
-            ))
-        }
-        Expression::RadialGradient { stops } => {
-            let stops = stops.iter().map(|(color, stop)| {
-                let color = compile_expression(color, ctx);
-                let position = compile_expression(stop, ctx);
-                quote!(sp::GradientStop{ color: #color, position: #position as _ })
-            });
-            quote!(slint::Brush::RadialGradient(
-                sp::RadialGradientBrush::new_circle([#(#stops),*])
-            ))
-        }
-        Expression::ConicGradient { from_angle, stops } => {
-            let from_angle = compile_expression(from_angle, ctx);
-            let stops = stops.iter().map(|(color, stop)| {
-                let color = compile_expression(color, ctx);
-                let position = compile_expression(stop, ctx);
-                quote!(sp::GradientStop{ color: #color, position: #position as _ })
-            });
-            quote!(slint::Brush::ConicGradient(
-                sp::ConicGradientBrush::new(#from_angle as _, [#(#stops),*])
-            ))
-        }
+        Expression::LinearGradient { .. } => compile_linear_gradient(expr, ctx),
+        Expression::RadialGradient { .. } => compile_radial_gradient(expr, ctx),
+        Expression::ConicGradient { .. } => compile_conic_gradient(expr, ctx),
         Expression::EnumerationValue(value) => {
             let base_ident = ident(&value.enumeration.name);
             let value_ident = ident(&value.to_pascal_case());
@@ -3388,47 +3402,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 quote!(sp::#base_ident::#value_ident)
             }
         }
-        Expression::LayoutCacheAccess {
-            layout_cache_prop,
-            index,
-            repeater_index,
-            entries_per_item,
-        } => {
-            access_member(layout_cache_prop, ctx).map_or_default(|cache| {
-                if let Some(ri) = repeater_index {
-                    let offset = compile_expression(ri, ctx);
-                    quote!({
-                        let cache = #cache.get();
-                        *cache.get((cache[#index] as usize) + #offset as usize * #entries_per_item).unwrap_or(&(0 as _))
-                    })
-                } else {
-                    quote!(#cache.get()[#index])
-                }
-            })
-        }
-        Expression::GridRepeaterCacheAccess {
-            layout_cache_prop,
-            index,
-            repeater_index,
-            stride,
-            child_offset,
-            inner_repeater_index,
-            entries_per_item,
-        } => access_member(layout_cache_prop, ctx).map_or_default(|cache| {
-            let offset = compile_expression(repeater_index, ctx);
-            let stride_val = compile_expression(stride, ctx);
-            let inner_offset = inner_repeater_index.as_ref().map(|inner_ri| {
-                let inner_offset = compile_expression(inner_ri, ctx);
-                quote!(+ #inner_offset as usize * #entries_per_item)
-            });
-
-            quote!({
-                let cache = #cache.get();
-                let base = cache[#index] as usize;
-                let data_idx = base + #offset as usize * (#stride_val as usize) + #child_offset #inner_offset;
-                *cache.get(data_idx).unwrap_or(&(0 as _))
-            })
-        }),
+        Expression::LayoutCacheAccess { .. } => compile_layout_cache_access(expr, ctx),
+        Expression::GridRepeaterCacheAccess { .. } => compile_grid_repeater_cache_access(expr, ctx),
         Expression::WithLayoutItemInfo {
             cells_variable,
             repeater_indices_var_name,
@@ -3451,13 +3426,30 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             cells_v_variable,
             repeater_indices_var_name,
             elements,
+            repeated_cross_width,
             sub_expression,
         } => generate_with_flexbox_layout_item_info(
             cells_h_variable,
             cells_v_variable,
             repeater_indices_var_name.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
+            repeated_cross_width.as_deref(),
             sub_expression,
+            ctx,
+        ),
+
+        Expression::SolveFlexboxLayoutWithMeasure {
+            data,
+            repeater_indices,
+            measure_cells,
+            default_cells,
+            cells_variables,
+        } => generate_solve_flexbox_layout_with_measure(
+            data,
+            repeater_indices,
+            measure_cells,
+            default_cells,
+            cells_variables.as_ref(),
             ctx,
         ),
 
@@ -3476,46 +3468,594 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             ctx,
         ),
 
-        Expression::MinMax { ty, op, lhs, rhs } => {
-            let lhs = compile_expression(lhs, ctx);
-            let t = rust_primitive_type(ty);
-            let (lhs, rhs) = match t {
-                Some(t) => {
-                    let rhs = compile_expression(rhs, ctx);
-                    (quote!((#lhs as #t)), quote!(#rhs as #t))
-                }
-                None => {
-                    let rhs = compile_expression_no_parenthesis(rhs, ctx);
-                    (lhs, rhs)
-                }
-            };
-            match op {
-                MinMaxOp::Min => {
-                    quote!(#lhs.min(#rhs))
-                }
-                MinMaxOp::Max => {
-                    quote!(#lhs.max(#rhs))
-                }
-            }
-        }
+        Expression::MinMax { .. } => compile_min_max(expr, ctx),
         Expression::EmptyComponentFactory => quote!(slint::ComponentFactory::default()),
         Expression::EmptyDataTransfer => quote!(slint::DataTransfer::default()),
-        Expression::TranslationReference { format_args, string_index, plural } => {
-            let args = compile_expression(format_args, ctx);
-            match plural {
-                Some(plural) => {
-                    let plural = compile_expression(plural, ctx);
-                    quote!(sp::translate_from_bundle_with_plural(
-                        &self::_SLINT_TRANSLATED_STRINGS_PLURALS[#string_index],
-                        &self::_SLINT_TRANSLATED_PLURAL_RULES,
-                        sp::Slice::<sp::SharedString>::from(#args).as_slice(),
-                        #plural as _
-                    ))
+        Expression::TranslationReference { .. } => compile_translation_reference(expr, ctx),
+    }
+}
+
+#[inline(never)]
+fn compile_keys_literal(expr: &Expression) -> TokenStream {
+    let Expression::KeysLiteral(keys) = expr else { unreachable!() };
+    let key = &*keys.key;
+    let alt = keys.modifiers.alt;
+    let control = keys.modifiers.control;
+    let shift = keys.modifiers.shift;
+    let meta = keys.modifiers.meta;
+    let ignore_shift = keys.ignore_shift;
+    let ignore_alt = keys.ignore_alt;
+
+    quote!(
+        sp::make_keys(
+            #key.into(),
+            {
+                let mut modifiers = sp::KeyboardModifiers::default();
+                modifiers.alt = #alt;
+                modifiers.control = #control;
+                modifiers.shift = #shift;
+                modifiers.meta = #meta;
+                modifiers
+            },
+            #ignore_shift,
+            #ignore_alt))
+}
+
+#[inline(never)]
+fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::Cast { from, to } = expr else { unreachable!() };
+    let f = compile_expression(from, ctx);
+    match (from.ty(ctx), to) {
+        (Type::Float32, Type::Int32) => {
+            quote!(((#f) as i32))
+        }
+        (from, Type::String) if from.as_unit_product().is_some() => {
+            quote!(sp::shared_string_from_number((#f) as f64))
+        }
+        (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
+            quote!(sp::ModelRc::new(#f.max(::core::default::Default::default()) as usize))
+        }
+        (Type::Float32, Type::Color) => {
+            quote!(sp::Color::from_argb_encoded((#f) as u32))
+        }
+        (Type::Color, Type::Brush) => {
+            quote!(slint::Brush::SolidColor(#f))
+        }
+        (Type::Brush, Type::Color) => {
+            quote!(#f.color())
+        }
+        (Type::Struct(lhs), Type::Struct(rhs)) => {
+            debug_assert_eq!(
+                lhs.fields, rhs.fields,
+                "cast of struct with deferent fields should be handled before llr"
+            );
+            match (&lhs.name, &rhs.name) {
+                (StructName::None, targetstruct) if targetstruct.is_some() => {
+                    // Convert from an anonymous struct to a named one
+                    let fields = lhs.fields.iter().enumerate().map(|(index, (name, _))| {
+                        let index = proc_macro2::Literal::usize_unsuffixed(index);
+                        let name = ident(name);
+                        quote!(the_struct.#name = (obj.#index).clone() as _;)
+                    });
+                    let id = struct_name_to_tokens(targetstruct).unwrap();
+                    quote!({ let obj = #f; let mut the_struct = #id::default(); #(#fields)* the_struct })
                 }
-                None => {
-                    quote!(sp::translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice()))
+                (sourcestruct, StructName::None) if sourcestruct.is_some() => {
+                    // Convert from a named struct to an anonymous one
+                    let fields = lhs.fields.keys().map(|name| ident(name));
+                    quote!({ let obj = #f; (#(obj.#fields,)*) })
                 }
+                _ => f,
             }
+        }
+        (Type::Array(..), Type::PathData)
+            if matches!(
+                from.as_ref(),
+                Expression::Array { element_ty: Type::Struct { .. }, .. }
+            ) =>
+        {
+            let path_elements = match from.as_ref() {
+                Expression::Array { element_ty: _, values, output: _ } => values
+                    .iter()
+                    .map(|path_elem_expr|
+                        // Close{} is a struct with no fields in markup, and PathElement::Close has no fields
+                        if matches!(path_elem_expr, Expression::Struct { ty, .. } if ty.fields.is_empty()) {
+                            quote!(sp::PathElement::Close)
+                        } else {
+                            compile_expression(path_elem_expr, ctx)
+                        }
+                    ),
+                _ => {
+                    unreachable!()
+                }
+            };
+            quote!(sp::PathData::Elements(sp::SharedVector::<_>::from_slice(&[#((#path_elements).into()),*])))
+        }
+        (Type::Struct { .. }, Type::PathData)
+            if matches!(from.as_ref(), Expression::Struct { .. }) =>
+        {
+            let (events, points) = match from.as_ref() {
+                Expression::Struct { ty: _, values } => (
+                    compile_expression(&values["events"], ctx),
+                    compile_expression(&values["points"], ctx),
+                ),
+                _ => {
+                    unreachable!()
+                }
+            };
+            quote!(sp::PathData::Events(sp::SharedVector::<_>::from_slice(&#events), sp::SharedVector::<_>::from_slice(&#points)))
+        }
+        (Type::String, Type::PathData) => {
+            quote!(sp::PathData::Commands(#f))
+        }
+        (Type::Enumeration(e), Type::String) => {
+            let cases = e.values.iter().enumerate().map(|(idx, v)| {
+                let c = compile_expression(
+                    &Expression::EnumerationValue(EnumerationValue {
+                        value: idx,
+                        enumeration: e.clone(),
+                    }),
+                    ctx,
+                );
+                let v = v.as_str();
+                quote!(#c => sp::SharedString::from(#v))
+            });
+            quote!(match #f { #(#cases,)*  _ => sp::SharedString::default() })
+        }
+        (_, Type::Void) => {
+            quote!({#f;})
+        }
+        _ => f,
+    }
+}
+
+#[inline(never)]
+fn compile_callback_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::CallBackCall { callback, arguments } = expr else { unreachable!() };
+    let f = access_member(callback, ctx);
+    let tracker = access_callback_tracker(callback, ctx);
+    let register_dep = tracker.map(|t| quote!(#t.get();));
+    let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    if expr.ty(ctx) == Type::Void {
+        f.then(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)); }))
+    } else {
+        f.map_or_default(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)) }))
+    }
+}
+
+#[inline(never)]
+fn compile_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::FunctionCall { function, arguments } = expr else { unreachable!() };
+    let a = arguments.iter().map(|a| compile_expression(a, ctx));
+    let f = access_member(function, ctx);
+    if expr.ty(ctx) == Type::Void {
+        f.then(|f| quote!(#f( #(#a as _),*)))
+    } else {
+        f.map_or_default(|f| quote!(#f( #(#a as _),*)))
+    }
+}
+
+#[inline(never)]
+fn compile_item_member_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::ItemMemberFunctionCall { function } = expr else { unreachable!() };
+    let fun = access_member(function, ctx);
+    let item_rc = access_item_rc(function, ctx);
+    let window_adapter_tokens = access_window_adapter_field(ctx);
+    fun.map_or_default(|fun| quote!(#fun(#window_adapter_tokens, #item_rc)))
+}
+
+#[inline(never)]
+fn compile_extra_builtin_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } = expr else {
+        unreachable!()
+    };
+    let f = ident(function);
+    let a = arguments.iter().map(|a| {
+        let arg = compile_expression(a, ctx);
+        if matches!(a.ty(ctx), Type::Struct { .. }) { quote!(&#arg) } else { arg }
+    });
+    quote! { sp::#f(#(#a as _),*) }
+}
+
+#[inline(never)]
+fn compile_array_index(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::ArrayIndex { array, index } = expr else { unreachable!() };
+    debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
+    let base_e = compile_expression(array, ctx);
+    let index_e = compile_expression(index, ctx);
+    quote!(match &#base_e { x => {
+        let index = (#index_e) as usize;
+        x.row_data_tracked(index).unwrap_or_default()
+    }})
+}
+
+#[inline(never)]
+fn compile_code_block(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::CodeBlock(sub) = expr else { unreachable!() };
+    let mut body = TokenStream::new();
+    for (i, e) in sub.iter().enumerate() {
+        body.extend(compile_expression_no_parenthesis(e, ctx));
+        if i + 1 < sub.len() && !matches!(e, Expression::StoreLocalVariable { .. }) {
+            body.extend(quote!(;));
+        }
+    }
+    quote!({ #body })
+}
+
+#[inline(never)]
+fn compile_model_data_assignment(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::ModelDataAssignment { level, value } = expr else { unreachable!() };
+    let value = compile_expression(value, ctx);
+    let mut path = quote!(_self);
+    let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else { unreachable!() };
+    let mut repeater_index = None;
+    for _ in 0..=*level {
+        let x = par.unwrap();
+        par = x.parent;
+        repeater_index = x.repeater_index;
+        sc = x.sub_component;
+        path = quote!(#path.parent.upgrade().unwrap());
+    }
+    let repeater_index = repeater_index.unwrap();
+    let sub_component = &ctx.compilation_unit.sub_components[sc];
+    let local_reference = sub_component.repeated[repeater_index].index_prop.unwrap().into();
+    let index_prop = llr::MemberReference::Relative { parent_level: *level, local_reference };
+    let index_access = access_member(&index_prop, ctx).get_property();
+    let repeater = access_component_field_offset(
+        &inner_component_id(sub_component),
+        &format_ident!("repeater{}", usize::from(repeater_index)),
+    );
+    quote!(#repeater.apply_pin(#path.as_pin_ref()).model_set_row_data(#index_access as _, #value as _))
+}
+
+#[inline(never)]
+fn compile_array_index_assignment(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::ArrayIndexAssignment { array, index, value } = expr else { unreachable!() };
+    debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
+    let base_e = compile_expression(array, ctx);
+    let index_e = compile_expression(index, ctx);
+    let value_e = compile_expression(value, ctx);
+    quote!((#base_e).set_row_data(#index_e as isize as usize, #value_e as _))
+}
+
+#[inline(never)]
+fn compile_binary_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    // Long chains of binary operators, such as `a && b && c && ...`, nest on the
+    // left side. Iterate that spine instead of recursing into it, so that the
+    // stack depth stays bounded no matter how long the chain is.
+    let mut spine = Vec::new();
+    let mut node = expr;
+    while let Expression::BinaryExpression { lhs, rhs, op } = node {
+        spine.push((rhs, *op));
+        node = lhs;
+    }
+    let mut result = compile_expression_to_value_no_parenthesis(node, ctx);
+    let mut result_ty = node.ty(ctx);
+    for (rhs, op) in spine.into_iter().rev() {
+        result = compile_binary_operator(result, &result_ty, rhs, op, ctx);
+        result_ty = llr::binary_expression_ty(op, || result_ty);
+    }
+    result
+}
+
+fn compile_binary_operator(
+    lhs: TokenStream,
+    lhs_ty: &Type,
+    rhs: &Expression,
+    op: char,
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let rhs = compile_expression_to_value_no_parenthesis(rhs, ctx);
+
+    if lhs_ty.as_unit_product().is_some() && (op == '=' || op == '!') {
+        let maybe_negate = if op == '!' { quote!(!) } else { quote!() };
+        quote!(#maybe_negate sp::ApproxEq::<f64>::approx_eq(&(#lhs as f64), &(#rhs as f64)))
+    } else {
+        let (conv1, conv2) = match crate::expression_tree::operator_class(op) {
+            OperatorClass::ArithmeticOp => match lhs_ty {
+                Type::String => (None, Some(quote!(.as_str()))),
+                Type::Struct { .. } => (None, None),
+                _ => (Some(quote!(as f64)), Some(quote!(as f64))),
+            },
+            OperatorClass::ComparisonOp
+                if matches!(
+                    lhs_ty,
+                    Type::Int32
+                        | Type::Float32
+                        | Type::Duration
+                        | Type::PhysicalLength
+                        | Type::LogicalLength
+                        | Type::Angle
+                        | Type::Percent
+                        | Type::Rem
+                ) =>
+            {
+                (Some(quote!(as f64)), Some(quote!(as f64)))
+            }
+            _ => (None, None),
+        };
+
+        let op = match op {
+            '=' => quote!(==),
+            '!' => quote!(!=),
+            '≤' => quote!(<=),
+            '≥' => quote!(>=),
+            '&' => quote!(&&),
+            '|' => quote!(||),
+            _ => proc_macro2::TokenTree::Punct(proc_macro2::Punct::new(
+                op,
+                proc_macro2::Spacing::Alone,
+            ))
+            .into(),
+        };
+        quote!( (((#lhs) #conv1 ) #op ((#rhs) #conv2)) )
+    }
+}
+
+#[inline(never)]
+fn compile_image_reference(expr: &Expression) -> TokenStream {
+    let Expression::ImageReference { resource_ref, nine_slice } = expr else { unreachable!() };
+    match &nine_slice {
+        Some([a, b, c, d]) => {
+            quote! {{ let mut image = #resource_ref; image.set_nine_slice_edges(#a, #b, #c, #d); image }}
+        }
+        None => quote!(#resource_ref),
+    }
+}
+
+#[inline(never)]
+fn compile_condition(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::Condition { condition, true_expr, false_expr } = expr else { unreachable!() };
+    let condition_code = compile_expression_no_parenthesis(condition, ctx);
+    let true_code = compile_expression(true_expr, ctx);
+    let false_code = compile_expression_no_parenthesis(false_expr, ctx);
+    let semi = if false_expr.ty(ctx) == Type::Void { quote!(;) } else { quote!(as _) };
+    quote!(
+        if #condition_code {
+            (#true_code) #semi
+        } else {
+            #false_code
+        }
+    )
+}
+
+#[inline(never)]
+fn compile_array(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::Array { values, element_ty, output } = expr else { unreachable!() };
+    let val = values.iter().map(|e| compile_expression_to_value(e, ctx));
+    match output {
+        ArrayOutput::Model => {
+            let rust_element_ty = rust_primitive_type(element_ty).unwrap();
+            quote!(sp::ModelRc::new(
+                sp::VecModel::<#rust_element_ty>::from(
+                    sp::vec![#(#val as _),*]
+                )
+            ))
+        }
+        ArrayOutput::Slice => quote!(sp::Slice::from_slice(&[#(#val),*])),
+        ArrayOutput::Vector => quote!(sp::vec![#(#val as _),*]),
+    }
+}
+
+#[inline(never)]
+fn compile_struct(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::Struct { ty, values } = expr else { unreachable!() };
+    if ty.name.is_some() {
+        let name_tokens = struct_name_to_tokens(&ty.name).unwrap();
+        // A struct literal can only be used when all the fields are public, there
+        // is no hidden field (like euclid's `_unit`), and the struct is not
+        // `#[non_exhaustive]`. That holds for the generated user structs and for
+        // the listed builtin structs.
+        use crate::langtype::BuiltinStruct as BS;
+        let supports_struct_literal = match &ty.name {
+            StructName::User { .. } => true,
+            StructName::Builtin(b) => {
+                b.is_layout_data()
+                    || matches!(
+                        b,
+                        BS::LayoutInfo
+                            | BS::LayoutItemInfo
+                            | BS::FlexboxLayoutItemInfo
+                            | BS::Padding
+                            | BS::PropertyAnimation
+                            | BS::StateInfo
+                    )
+            }
+            StructName::None => false,
+        };
+        if supports_struct_literal {
+            let (keys, elem): (Vec<_>, Vec<_>) = ty
+                .fields
+                .keys()
+                .filter(|k| values.contains_key(*k))
+                .map(|k| (ident(k), compile_expression_to_value(&values[k], ctx)))
+                .unzip();
+            let default_rest = (keys.len() != ty.fields.len())
+                .then(|| quote!(..::core::default::Default::default()));
+            quote!(#name_tokens{#(#keys: #elem as _,)* #default_rest})
+        } else {
+            let elem = ty
+                .fields
+                .keys()
+                .map(|k| values.get(k).map(|e| compile_expression_to_value(e, ctx)));
+            let keys = ty.fields.keys().map(|k| ident(k));
+            quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys = #elem as _;)* the_struct})
+        }
+    } else {
+        let elem =
+            ty.fields.keys().map(|k| values.get(k).map(|e| compile_expression_to_value(e, ctx)));
+        let as_ = ty.fields.values().map(|t| {
+            if t.as_unit_product().is_some() {
+                // number needs to be converted to the right things because intermediate
+                // result might be f64 and that's usually not what the type of the tuple is in the end
+                let t = rust_primitive_type(t).unwrap();
+                quote!(as #t)
+            } else {
+                quote!()
+            }
+        });
+        // This will produce a tuple
+        quote!((#((#elem).clone() #as_,)*))
+    }
+}
+
+#[inline(never)]
+fn compile_linear_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::LinearGradient { angle, stops } = expr else { unreachable!() };
+    let angle = compile_expression(angle, ctx);
+    let stops = stops.iter().map(|(color, stop)| {
+        let color = compile_expression(color, ctx);
+        let position = compile_expression(stop, ctx);
+        quote!(sp::GradientStop{ color: #color, position: #position as _ })
+    });
+    quote!(slint::Brush::LinearGradient(
+        sp::LinearGradientBrush::new(#angle as _, [#(#stops),*])
+    ))
+}
+
+#[inline(never)]
+fn compile_radial_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::RadialGradient { center, radius, stops } = expr else { unreachable!() };
+    let stops = stops.iter().map(|(color, stop)| {
+        let color = compile_expression(color, ctx);
+        let position = compile_expression(stop, ctx);
+        quote!(sp::GradientStop{ color: #color, position: #position as _ })
+    });
+    let brush_expr = quote!(sp::RadialGradientBrush::new_circle([#(#stops),*]));
+    let brush_expr = if let Some((cx, cy)) = center {
+        let cx = compile_expression(cx, ctx);
+        let cy = compile_expression(cy, ctx);
+        quote!(#brush_expr.with_center(#cx as f32, #cy as f32))
+    } else {
+        brush_expr
+    };
+    let brush_expr = if let Some(r) = radius {
+        let r = compile_expression(r, ctx);
+        quote!(#brush_expr.with_radius(#r as f32))
+    } else {
+        brush_expr
+    };
+    quote!(slint::Brush::RadialGradient(#brush_expr))
+}
+
+#[inline(never)]
+fn compile_conic_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::ConicGradient { from_angle, center, stops } = expr else { unreachable!() };
+    let from_angle = compile_expression(from_angle, ctx);
+    let stops = stops.iter().map(|(color, stop)| {
+        let color = compile_expression(color, ctx);
+        let position = compile_expression(stop, ctx);
+        quote!(sp::GradientStop{ color: #color, position: #position as _ })
+    });
+    let brush_expr = quote!(sp::ConicGradientBrush::new(#from_angle as _, [#(#stops),*]));
+    let brush_expr = if let Some((cx, cy)) = center {
+        let cx = compile_expression(cx, ctx);
+        let cy = compile_expression(cy, ctx);
+        quote!(#brush_expr.with_center(#cx as f32, #cy as f32))
+    } else {
+        brush_expr
+    };
+    quote!(slint::Brush::ConicGradient(#brush_expr))
+}
+
+#[inline(never)]
+fn compile_layout_cache_access(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::LayoutCacheAccess {
+        layout_cache_prop,
+        index,
+        repeater_index,
+        entries_per_item,
+    } = expr
+    else {
+        unreachable!()
+    };
+    access_member(layout_cache_prop, ctx).map_or_default(|cache| {
+        if let Some(ri) = repeater_index {
+            let offset = compile_expression(ri, ctx);
+            quote!({
+                let cache = #cache.get();
+                *cache.get((cache[#index] as usize) + #offset as usize * #entries_per_item).unwrap_or(&(0 as _))
+            })
+        } else {
+            quote!(#cache.get()[#index])
+        }
+    })
+}
+
+#[inline(never)]
+fn compile_grid_repeater_cache_access(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::GridRepeaterCacheAccess {
+        layout_cache_prop,
+        index,
+        repeater_index,
+        stride,
+        child_offset,
+        inner_repeater_index,
+        entries_per_item,
+    } = expr
+    else {
+        unreachable!()
+    };
+    access_member(layout_cache_prop, ctx).map_or_default(|cache| {
+        let offset = compile_expression(repeater_index, ctx);
+        let stride_val = compile_expression(stride, ctx);
+        let inner_offset = inner_repeater_index.as_ref().map(|inner_ri| {
+            let inner_offset = compile_expression(inner_ri, ctx);
+            quote!(+ #inner_offset as usize * #entries_per_item)
+        });
+
+        quote!({
+            let cache = #cache.get();
+            let base = cache[#index] as usize;
+            let data_idx = base + #offset as usize * (#stride_val as usize) + #child_offset #inner_offset;
+            *cache.get(data_idx).unwrap_or(&(0 as _))
+        })
+    })
+}
+
+#[inline(never)]
+fn compile_min_max(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::MinMax { ty, op, lhs, rhs } = expr else { unreachable!() };
+    let lhs = compile_expression(lhs, ctx);
+    let t = rust_primitive_type(ty);
+    let (lhs, rhs) = match t {
+        Some(t) => {
+            let rhs = compile_expression(rhs, ctx);
+            (quote!((#lhs as #t)), quote!(#rhs as #t))
+        }
+        None => {
+            let rhs = compile_expression_no_parenthesis(rhs, ctx);
+            (lhs, rhs)
+        }
+    };
+    match op {
+        MinMaxOp::Min => {
+            quote!(#lhs.min(#rhs))
+        }
+        MinMaxOp::Max => {
+            quote!(#lhs.max(#rhs))
+        }
+    }
+}
+
+#[inline(never)]
+fn compile_translation_reference(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let Expression::TranslationReference { format_args, string_index, plural } = expr else {
+        unreachable!()
+    };
+    let args = compile_expression(format_args, ctx);
+    match plural {
+        Some(plural) => {
+            let plural = compile_expression(plural, ctx);
+            quote!(sp::translate_from_bundle_with_plural(
+                &self::_SLINT_TRANSLATED_STRINGS_PLURALS[#string_index],
+                &self::_SLINT_TRANSLATED_PLURAL_RULES,
+                sp::Slice::<sp::SharedString>::from(#args).as_slice(),
+                #plural as _
+            ))
+        }
+        None => {
+            quote!(sp::translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice()))
         }
     }
 }
@@ -3567,6 +4107,7 @@ fn compile_builtin_function_call(
                 Expression::NumberLiteral(popup_index),
                 close_policy,
                 Expression::PropertyReference(parent_ref),
+                is_open_args @ ..,
             ] = arguments
             {
                 let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
@@ -3596,55 +4137,86 @@ fn compile_builtin_function_call(
                 let popup_ctx = EvaluationContext::new_sub_component(
                     ctx.compilation_unit,
                     popup.item_tree.root,
-                    RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+                    RustGeneratorContext { global_access: quote!(_self.globals()) },
                     Some(&parent_ctx),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
-                let is_tooltip = popup.is_tooltip;
                 let close_policy = compile_expression(close_policy, ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
-                let globals_init = if !is_tooltip {
-                    quote! {
-                        if let Some(popup_window_adapter) = window.create_popup_window_adapter() {
-                            shared_global.clone_with_window_adapter(popup_window_adapter)
-                        } else {
-                            shared_global.clone()
-                        }
-                    }
+                let window_kind = if popup.is_tooltip {
+                    quote!(sp::WindowKind::ToolTip)
                 } else {
-                    quote! { shared_global.clone() }
+                    quote!(sp::WindowKind::Popup)
                 };
-                component_access_tokens.then(|component_access_tokens| quote!({
-                    let parent_item = #parent_item;
-                    // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
-                    let shared_global = #component_access_tokens.globals.get().unwrap();
-                    let window_adapter = shared_global.window_adapter_impl();
-                    let window = sp::WindowInner::from_pub(window_adapter.window());
-                    let globals = #globals_init;
-
-                    let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone(), globals).unwrap();
-                    let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
-                    if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
-                        window.close_popup(current_id);
+                let globals_init = quote! {
+                    if let Some(popup_window_adapter) = window.create_child_window_adapter(#window_kind) {
+                        shared_global.clone_with_window_adapter(popup_window_adapter)
+                    } else {
+                        shared_global.clone()
                     }
+                };
+                // The optional 4th argument is a property reference to the synthesized `is-open`,
+                // mapped in this show call's own frame (see lower_show_popup_window), so it resolves
+                // directly against `ctx`/`_self`, exactly like `parent_ref`.
+                let is_open_set_expr = is_open_args.first().map(|arg| {
+                    let Expression::PropertyReference(is_open_ref) = arg else {
+                        unreachable!(
+                            "ShowPopupWindow is-open argument must be a property reference"
+                        )
+                    };
+                    access_member(is_open_ref, ctx).then(|p| quote!(#p.set(value);))
+                });
+                component_access_tokens.then(|component_access_tokens| {
+                    // Keep the parent's `is-open` in sync: `show_popup` invokes this setter with `true`
+                    // immediately and with `false` from every close path (see window.rs). Passing it
+                    // directly into `show_popup` avoids an extra registration call and a second popup
+                    // lookup. Menus and `is-open`-less popups get a no-op setter.
+                    let (is_open_self_weak_decl, is_open_setter) = match &is_open_set_expr {
+                        Some(set_expr) => (
+                            quote!(let is_open_self_weak = _self.self_weak.get().unwrap().clone();),
+                            quote! {
+                                sp::Box::new(move |value: bool| {
+                                    if let Some(is_open_self) = is_open_self_weak.upgrade() {
+                                        let _self = is_open_self.as_pin_ref();
+                                        #set_expr
+                                    }
+                                })
+                            },
+                        ),
+                        None => (quote!(), quote!(sp::Box::new(|_| {}))),
+                    };
+                    quote!({
+                        let parent_item = #parent_item;
+                        // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
+                        let shared_global = #component_access_tokens.globals.get().unwrap();
+                        let window_adapter = shared_global.window_adapter_impl();
+                        let window = sp::WindowInner::from_pub(window_adapter.window());
+                        let globals = #globals_init;
 
-                    let popup_instance_vrc_for_position = popup_instance_vrc.clone();
-                    let access_position = sp::Box::new(move || {
-                        let _self = popup_instance_vrc_for_position.as_pin_ref(); #position
-                    });
+                        let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone(), globals).unwrap();
+                        let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
+                        if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
+                            window.close_popup(current_id);
+                        }
 
-                    #component_access_tokens.#popup_id_name.set(Some(
-                        window.show_popup(
+                        let popup_instance_vrc_for_position = popup_instance_vrc.clone();
+                        let access_position = sp::Box::new(move || {
+                            let _self = popup_instance_vrc_for_position.as_pin_ref(); #position
+                        });
+
+                        #is_open_self_weak_decl
+                        let popup_id = window.show_popup(
                             &sp::VRc::into_dyn(popup_instance.into()),
                             access_position,
                             #close_policy,
                             parent_item,
-                            #is_tooltip,
-                            false,
-                        ))
-                    );
-                    #popup_window_id::user_init(popup_instance_vrc.clone());
-                }))
+                            #window_kind,
+                            #is_open_setter,
+                        );
+                        #component_access_tokens.#popup_id_name.set(Some(popup_id));
+                        #popup_window_id::user_init(popup_instance_vrc.clone());
+                    })
+                })
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
             }
@@ -3670,20 +4242,19 @@ fn compile_builtin_function_call(
                         _ => unreachable!(),
                     };
                 }
-                let window_adapter_tokens = access_window_adapter_field(ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 let current_id_tokens = match component_access_tokens {
                     MemberAccess::Option(token_stream) => quote!(
-                        #token_stream.and_then(|a| a.as_pin_ref().#popup_id_name.take())
+                        #token_stream.and_then(|a| a.as_pin_ref().#popup_id_name.take().map(|id| (a.as_pin_ref().globals.get().unwrap().clone(), id)))
                     ),
                     MemberAccess::Direct(token_stream) => {
-                        quote!(#token_stream.as_ref().#popup_id_name.take())
+                        quote!(#token_stream.as_ref().#popup_id_name.take().map(|id|(#token_stream.as_ref().globals.get().unwrap().clone(), id)))
                     }
                     _ => unreachable!(),
                 };
                 quote!(
-                    if let Some(current_id) = #current_id_tokens {
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
+                    if let Some((globals, current_id)) = #current_id_tokens {
+                        sp::WindowInner::from_pub(globals.window_adapter_impl().window()).close_popup(current_id);
                     }
                 )
             } else {
@@ -3712,7 +4283,7 @@ fn compile_builtin_function_call(
             let popup_ctx = EvaluationContext::new_sub_component(
                 ctx.compilation_unit,
                 popup.item_tree.root,
-                RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+                RustGeneratorContext { global_access: quote!(_self.globals()) },
                 None,
             );
             let access_entries = access_member(&popup.entries, &popup_ctx).unwrap();
@@ -3729,7 +4300,6 @@ fn compile_builtin_function_call(
             let set_id = context_menu
                 .clone()
                 .then(|context_menu| quote!(#context_menu.popup_id.set(Some(id))));
-
             let slint_show = quote! {
                 #close_popup
                 let access_position = sp::Box::new(move || position);
@@ -3738,8 +4308,8 @@ fn compile_builtin_function_call(
                     access_position,
                     sp::PopupClosePolicy::CloseOnClickOutside,
                     #context_menu_rc,
-                    false,
-                    true,
+                    sp::WindowKind::Menu,
+                    sp::Box::new(|_| {}),
                 );
                 #set_id;
                 #popup_id::user_init(popup_instance_vrc);
@@ -3879,29 +4449,31 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::RegisterCustomFontByPath => {
             if let [Expression::StringLiteral(path)] = arguments {
-                let window_adapter_tokens = access_window_adapter_field(ctx);
+                let global_access = &ctx.generator_state.global_access;
                 let path = path.as_str();
-                quote!(#window_adapter_tokens.renderer().register_font_from_path(&std::path::PathBuf::from(#path)).unwrap())
+                // The `?` requires the enclosing generated function to return `Result`: font
+                // registration is only emitted in `init()`, which does.
+                quote!(#global_access.window_adapter_ref()?.renderer().register_font_from_path(&std::path::PathBuf::from(#path)).unwrap())
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByPath {arguments:?}")
             }
         }
         BuiltinFunction::RegisterCustomFontByMemory => {
             if let [Expression::NumberLiteral(resource_id)] = &arguments {
+                let global_access = &ctx.generator_state.global_access;
                 let resource_id: usize = *resource_id as _;
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                let window_adapter_tokens = access_window_adapter_field(ctx);
-                quote!(#window_adapter_tokens.renderer().register_font_from_memory(#symbol.into()).unwrap())
+                quote!(#global_access.window_adapter_ref()?.renderer().register_font_from_memory(#symbol.into()).unwrap())
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByMemory {arguments:?}")
             }
         }
         BuiltinFunction::RegisterBitmapFont => {
             if let [Expression::NumberLiteral(resource_id)] = &arguments {
+                let global_access = &ctx.generator_state.global_access;
                 let resource_id: usize = *resource_id as _;
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                let window_adapter_tokens = access_window_adapter_field(ctx);
-                quote!(#window_adapter_tokens.renderer().register_bitmap_font(&#symbol))
+                quote!(#global_access.window_adapter_ref()?.renderer().register_bitmap_font(&#symbol))
             } else {
                 panic!("internal error: invalid args to RegisterBitmapFont must be a number")
             }
@@ -3967,6 +4539,10 @@ fn compile_builtin_function_call(
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
             quote!(sp::shared_string_from_number_precision(#a1 as f64, (#a2 as i32).max(0) as usize))
         }
+        BuiltinFunction::ToStringUnlocalized => {
+            let a1 = a.next().unwrap();
+            quote!(sp::shared_string_from_number_unlocalized(#a1 as f64))
+        }
         BuiltinFunction::StringToFloat => {
             quote!(sp::string_to_float(#(#a)*.as_str()).unwrap_or_default())
         }
@@ -3977,6 +4553,14 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::StringToLowercase => quote!(sp::SharedString::from(#(#a)*.to_lowercase())),
         BuiltinFunction::StringToUppercase => quote!(sp::SharedString::from(#(#a)*.to_uppercase())),
+        BuiltinFunction::StringStartsWith => {
+            let (s, pat) = (a.next().unwrap(), a.next().unwrap());
+            quote!(#s.starts_with(#pat.as_str()))
+        }
+        BuiltinFunction::StringEndsWith => {
+            let (s, pat) = (a.next().unwrap(), a.next().unwrap());
+            quote!(#s.ends_with(#pat.as_str()))
+        }
         BuiltinFunction::KeysToString => quote!(sp::ToSharedString::to_shared_string(&#(#a)*)),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
         BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),
@@ -4014,7 +4598,35 @@ fn compile_builtin_function_call(
                 x.row_count() as i32
             }})
         }
-
+        BuiltinFunction::ArrayPush => {
+            let model = a.next().unwrap();
+            let value = a.next().unwrap();
+            quote!({
+                let model = &#model;
+                let value = #value;
+                model.push_row(value);
+            })
+        }
+        BuiltinFunction::ArrayRemove => {
+            let model = a.next().unwrap();
+            let index = a.next().unwrap();
+            quote!({
+                let model = &#model;
+                let index = #index;
+                model.remove_row(index as isize);
+            })
+        }
+        BuiltinFunction::ArrayInsert => {
+            let model = a.next().unwrap();
+            let index = a.next().unwrap();
+            let value = a.next().unwrap();
+            quote!({
+                let model = &#model;
+                let index = #index;
+                let value = #value;
+                model.insert_row(index as isize, value);
+            })
+        }
         BuiltinFunction::Rgb => {
             let (r, g, b, a) =
                 (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
@@ -4236,7 +4848,7 @@ fn compile_builtin_function_call(
             if let [Expression::PropertyReference(pr)] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
                 quote!(
-                    sp::logical_position_to_api((*#item_rc).map_to_window(::core::default::Default::default()))
+                    sp::logical_position_to_api((*#item_rc).map_to_window((*#item_rc).geometry().origin))
                 )
             } else {
                 panic!("internal error: invalid args to MapPointToWindow {arguments:?}")
@@ -4264,8 +4876,8 @@ fn compile_builtin_function_call(
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::open_url(&#url, #window_adapter_tokens.window()).is_ok())
         }
-        BuiltinFunction::BringAllToFront => {
-            quote!(sp::bring_all_to_front())
+        BuiltinFunction::MacosBringAllWindowsToFront => {
+            quote!(sp::macos_bring_all_windows_to_front())
         }
         BuiltinFunction::ParseMarkdown => {
             let format_string = a.next().unwrap();
@@ -4496,7 +5108,7 @@ fn generate_with_grid_input_data(
                             let total_item_count = max_total;
                             #rs_init
                             let start_offset = items_vec.len();
-                            items_vec.extend(core::iter::repeat_with(Default::default).take(len * total_item_count));
+                            items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(len * total_item_count));
                             for i in 0..len {
                                 if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                                     let offset = start_offset + i * total_item_count;
@@ -4513,7 +5125,7 @@ fn generate_with_grid_input_data(
                         quote!({
                             let len = _self.#repeater_id.len();
                             let start_offset = items_vec.len();
-                            items_vec.extend(core::iter::repeat_with(Default::default).take(len * #step));
+                            items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(len * #step));
                             for i in 0..len {
                                 if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                                     let offset = start_offset + i * #step;
@@ -4605,6 +5217,10 @@ fn generate_with_layout_item_info(
                                         for child_idx in 0..total_item_count {
                                             items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, Some(child_idx)));
                                         }
+                                    } else {
+                                        // Not-yet-instantiated slot: push placeholder cells so the cell
+                                        // count stays in sync with the repeater length written above.
+                                        items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(total_item_count));
                                     }
                                 }
                             }
@@ -4619,6 +5235,8 @@ fn generate_with_layout_item_info(
                                 for i in 0.._self.#repeater_id.len() {
                                     if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                                        items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, None));
+                                    } else {
+                                        items_vec.push(::core::default::Default::default());
                                     }
                                 }
                             )
@@ -4629,6 +5247,8 @@ fn generate_with_layout_item_info(
                                         for child_idx in 0..#step {
                                             items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, Some(child_idx)));
                                         }
+                                    } else {
+                                        items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(#step));
                                     }
                                 }
                             )
@@ -4668,10 +5288,14 @@ fn generate_with_flexbox_layout_item_info(
     cells_v_variable: &str,
     repeated_indices_var_name: Option<&str>,
     elements: &[Either<(Expression, Expression), llr::LayoutRepeatedElement>],
+    repeated_cross_width: Option<&Expression>,
     sub_expression: &Expression,
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let repeated_indices_var_name = repeated_indices_var_name.map(ident);
+    // Container width forwarded to repeated cells' vertical query (column flex),
+    // so a height-for-width instance wraps to the real width like a static cell.
+    let cross_width = repeated_cross_width.map(|w| compile_expression(w, ctx));
     let mut fixed_count = 0usize;
     let mut repeated_count_code = quote!();
     let mut push_code = Vec::new();
@@ -4699,14 +5323,28 @@ fn generate_with_flexbox_layout_item_info(
                     ctx,
                 );
                 let repeater_id = format_ident!("repeater{}", usize::from(repeater.repeater_index));
+                // For a column flex, measure each instance's vertical info at the
+                // container width; otherwise use its preferred-width default.
+                let v_push = if let Some(w) = &cross_width {
+                    quote!(sub_comp.as_pin_ref().flexbox_layout_item_info_at_cross_width((#w) as f32))
+                } else {
+                    quote!(
+                        sub_comp
+                            .as_pin_ref()
+                            .flexbox_layout_item_info(sp::Orientation::Vertical, None)
+                    )
+                };
                 let loop_code = quote!(for i in 0.._self.#repeater_id.len() {
                     if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                         items_vec_h.push(
                             sub_comp.as_pin_ref().flexbox_layout_item_info(sp::Orientation::Horizontal, None),
                         );
-                        items_vec_v.push(
-                            sub_comp.as_pin_ref().flexbox_layout_item_info(sp::Orientation::Vertical, None),
-                        );
+                        items_vec_v.push(#v_push);
+                    } else {
+                        // Not-yet-instantiated slot: push placeholder cells so the cell
+                        // count stays in sync with the repeater length written above.
+                        items_vec_h.push(::core::default::Default::default());
+                        items_vec_v.push(::core::default::Default::default());
                     }
                 });
                 push_code.push(quote!(
@@ -4741,6 +5379,154 @@ fn generate_with_flexbox_layout_item_info(
     } }
 }
 
+/// Emit a `solve_flexbox_layout_with_measure` call with a generated measure
+/// callback. For each static cell, `measure_cells[i]` is
+/// `(h_info_given_known_h, v_info_given_known_w)` — `LayoutInfo` expressions
+/// that read the `__measure_known_w` / `__measure_known_h` locals. taffy calls
+/// the callback with exactly one of width/height known (the cross axis), so we
+/// recompute that cell's perpendicular info at the assigned dimension.
+fn generate_solve_flexbox_layout_with_measure(
+    data: &Expression,
+    repeater_indices: &Expression,
+    measure_cells: &[Either<(Expression, Expression), llr::LayoutRepeatedElement>],
+    default_cells: &[Either<(Expression, Expression), llr::LayoutRepeatedElement>],
+    cells_variables: Option<&(SmolStr, SmolStr)>,
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let data = compile_expression(data, ctx);
+    let repeater_indices = compile_expression(repeater_indices, ctx);
+    let known_w_ident = ident("measure_known_w");
+    let known_h_ident = ident("measure_known_h");
+
+    // Height-for-width / width-for-height: recompute the perpendicular info at
+    // the dimension taffy assigned. Without a repeater the cell index is known at
+    // compile time, so match on it (O(1) dispatch). With a repeater the count is
+    // only known at runtime: walk the elements, advancing `cursor` by 1 per static
+    // cell and by the repeater's instance count per repeater, until `index`'s range
+    // is found.
+    let (v_body, h_body) = if cells_variables.is_none() {
+        let mut v_arms = Vec::new();
+        let mut h_arms = Vec::new();
+        for (i, item) in measure_cells.iter().enumerate() {
+            if let Either::Left((h_info, v_info)) = item {
+                let idx = proc_macro2::Literal::usize_unsuffixed(i);
+                let v = compile_expression(v_info, ctx);
+                let h = compile_expression(h_info, ctx);
+                v_arms.push(quote!(#idx => return (w, ({ #v }).preferred_bounded()),));
+                h_arms.push(quote!(#idx => return (({ #h }).preferred_bounded(), h),));
+            }
+        }
+        (quote!(match index { #(#v_arms)* _ => {} }), quote!(match index { #(#h_arms)* _ => {} }))
+    } else {
+        let mut v_steps = Vec::new();
+        let mut h_steps = Vec::new();
+        for item in measure_cells {
+            match item {
+                Either::Left((h_info, v_info)) => {
+                    let v = compile_expression(v_info, ctx);
+                    let h = compile_expression(h_info, ctx);
+                    v_steps.push(quote!(
+                        if index == cursor { return (w, ({ #v }).preferred_bounded()); }
+                        cursor += 1;
+                    ));
+                    h_steps.push(quote!(
+                        if index == cursor { return (({ #h }).preferred_bounded(), h); }
+                        cursor += 1;
+                    ));
+                }
+                Either::Right(repeater) => {
+                    let repeater_id =
+                        format_ident!("repeater{}", usize::from(repeater.repeater_index));
+                    v_steps.push(quote!(
+                        {
+                            let len = _self.#repeater_id.len();
+                            if index >= cursor && index < cursor + len {
+                                if let Some(sub_comp) = _self.#repeater_id.instance_at(index - cursor) {
+                                    return (w, sub_comp
+                                        .as_pin_ref()
+                                        .flexbox_layout_item_info_at_cross_width(w)
+                                        .constraint
+                                        .preferred_bounded());
+                                }
+                                return (w, h);
+                            }
+                            cursor += len;
+                        }
+                    ));
+                    // No width-for-height accessor on a repeated instance: keep its default.
+                    h_steps.push(quote!(cursor += _self.#repeater_id.len();));
+                }
+            }
+        }
+        // The final `cursor += …` is a dead write; `let _ = cursor;` consumes it
+        // to avoid an `unused_assignments` warning in the generated code.
+        (
+            quote!(let mut cursor = 0usize; #(#v_steps)* let _ = cursor;),
+            quote!(let mut cursor = 0usize; #(#h_steps)* let _ = cursor;),
+        )
+    };
+
+    // Preferred size per cell, returned when taffy asks for a dimension without
+    // a known cross-axis size (mirrors the plain `solve_flexbox_layout` measure).
+    // With a repeater, read the flat cell arrays; otherwise inline the constants.
+    let (defaults_decl, default_w, default_h) = match cells_variables {
+        Some((cells_h, cells_v)) => {
+            let cells_h = ident(cells_h);
+            let cells_v = ident(cells_v);
+            (
+                quote!(
+                    let pref_h_cells = #cells_h.as_slice();
+                    let pref_v_cells = #cells_v.as_slice();
+                ),
+                quote!(pref_h_cells.get(index).map_or(0f32, |c| c.constraint.preferred_bounded())),
+                quote!(pref_v_cells.get(index).map_or(0f32, |c| c.constraint.preferred_bounded())),
+            )
+        }
+        None => {
+            let mut def_w = Vec::new();
+            let mut def_h = Vec::new();
+            for item in default_cells {
+                if let Either::Left((h_info, v_info)) = item {
+                    let h = compile_expression(h_info, ctx);
+                    let v = compile_expression(v_info, ctx);
+                    def_w.push(quote!(({ #h }).preferred_bounded(),));
+                    def_h.push(quote!(({ #v }).preferred_bounded(),));
+                }
+            }
+            (
+                quote!(
+                    let pref_w: &[f32] = &[#(#def_w)*];
+                    let pref_h: &[f32] = &[#(#def_h)*];
+                ),
+                quote!(pref_w.get(index).copied().unwrap_or(0f32)),
+                quote!(pref_h.get(index).copied().unwrap_or(0f32)),
+            )
+        }
+    };
+
+    quote! { {
+        #defaults_decl
+        let mut measure = |index: usize, known_w: Option<f32>, known_h: Option<f32>| -> (f32, f32) {
+            let w = known_w.unwrap_or_else(|| #default_w);
+            let h = known_h.unwrap_or_else(|| #default_h);
+            if known_w.is_some() && known_h.is_none() {
+                let #known_w_ident = w;
+                let _ = #known_w_ident;
+                #v_body
+                return (w, h);
+            }
+            if known_h.is_some() && known_w.is_none() {
+                let #known_h_ident = h;
+                let _ = #known_h_ident;
+                #h_body
+                return (w, h);
+            }
+            (w, h)
+        };
+        sp::solve_flexbox_layout_with_measure(&#data, #repeater_indices, Some(&mut measure))
+    } }
+}
+
 /// Access a field offset via `FIELD_OFFSETS.field()`. The `FIELD_OFFSETS`
 /// constant is a ZST with const fn methods, so this does not create a MIR
 /// local of any aggregate type.
@@ -4760,7 +5546,7 @@ fn embedded_file_tokens(path: &str) -> TokenStream {
 }
 
 fn generate_resources(doc: &Document) -> Vec<TokenStream> {
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     let link_section = std::env::var("SLINT_ASSET_SECTION")
         .ok()
         .map(|section| quote!(#[unsafe(link_section = #section)]));
@@ -4782,7 +5568,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                 crate::embedded_resources::EmbeddedResourcesKind::DataUriPayload(bytes, _) => {
                     quote!(static #symbol: &'static [u8] = &[#(#bytes),*];)
                 }
-                #[cfg(feature = "software-renderer")]
+                #[cfg(feature = "renderer-software")]
                 crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture {
                     data, format, rect,
                     total_size: crate::embedded_resources::Size{width, height},
@@ -4816,7 +5602,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                         };
                     )
                 },
-                #[cfg(feature = "software-renderer")]
+                #[cfg(feature = "renderer-software")]
                 crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, x_height, cap_height, glyphs, weight, italic, sdf }) => {
 
                     let character_map_size = character_map.len();

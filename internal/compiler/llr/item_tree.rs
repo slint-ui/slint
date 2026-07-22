@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::{EvaluationContext, Expression, ParentScope};
+use super::{EvaluationContext, EvaluationScope, Expression, ParentScope};
 use crate::langtype::{NativeClass, Type};
 use derive_more::{From, Into};
 use smol_str::SmolStr;
@@ -20,7 +20,7 @@ pub struct CallbackIdx(usize);
 pub struct SubComponentIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct GlobalIdx(usize);
-#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SubComponentInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ItemInstanceIdx(usize);
@@ -104,18 +104,27 @@ pub enum Animation {
     Transition(Expression),
 }
 
+/// How a property binding should be installed at runtime.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BindingKind {
+    /// A constant expression — can be evaluated once with `set`.
+    Constant,
+    /// A normal binding — install with `set_binding`.
+    Normal,
+    /// A state binding — the expression returns `i32` (the state index)
+    /// but the property stores a `StateInfo` struct. Install with
+    /// `set_state_binding` which tracks `previous_state` and `change_time`.
+    State,
+}
+
 #[derive(Debug, Clone)]
 pub struct BindingExpression {
     pub expression: MutExpression,
     pub animation: Option<Animation>,
-    /// When true, we can initialize the property with `set` otherwise, `set_binding` must be used
-    pub is_constant: bool,
-    /// When true, the expression is a "state binding".  Despite the type of the expression being a integer
-    /// the property is of type StateInfo and the `set_state_binding` need to be used on the property
-    pub is_state_info: bool,
+    pub kind: BindingKind,
 
-    /// The amount of time this binding is used
-    /// This property is only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass
+    /// The amount of time this binding is used.
+    /// Only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass.
     pub use_count: Cell<usize>,
 }
 
@@ -127,6 +136,8 @@ pub struct GlobalComponent {
     pub functions: TiVec<FunctionIdx, Function>,
     /// One entry per property
     pub init_values: BTreeMap<LocalMemberIndex, BindingExpression>,
+    /// The animation for properties which are animated
+    pub animations: BTreeMap<LocalMemberIndex, Expression>,
     // maps property to its changed callback
     pub change_callbacks: BTreeMap<PropertyIdx, MutExpression>,
     pub const_properties: TiVec<PropertyIdx, bool>,
@@ -166,7 +177,28 @@ pub enum LocalMemberIndex {
     Native {
         item_index: ItemInstanceIdx,
         prop_name: SmolStr,
+        /// Disambiguates rtti property bindings from rtti callback
+        /// handlers (and from member-function calls handled by
+        /// `Expression::ItemMemberFunctionCall`). Lowering resolves
+        /// this from the element's declared property type; the code
+        /// generators and the interpreter dispatch on it rather than
+        /// probing the rtti tables by name.
+        kind: NativeMemberKind,
     },
+}
+
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum NativeMemberKind {
+    /// A regular `Property` on the native item (`TouchArea.pressed`,
+    /// `Rectangle.background`, etc.).
+    Property,
+    /// A `Callback` on the native item (`TouchArea.clicked`,
+    /// `Window.close-requested`).
+    Callback,
+    /// A function exposed through the native item's property table
+    /// with a `Type::Function` declaration (`TextInput.select-all`).
+    /// Only reached via `Expression::ItemMemberFunctionCall`.
+    Function,
 }
 impl LocalMemberIndex {
     pub fn property(&self) -> Option<PropertyIdx> {
@@ -221,7 +253,7 @@ impl From<LocalMemberReference> for MemberReference {
 }
 
 /// A reference to something within an ItemTree
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct LocalMemberReference {
     pub sub_component_path: Vec<SubComponentInstanceIdx>,
     pub reference: LocalMemberIndex,
@@ -329,7 +361,10 @@ pub struct Function {
     pub name: SmolStr,
     pub ret_ty: Type,
     pub args: Vec<Type>,
-    pub code: Expression,
+    pub code: MutExpression,
+    /// The number of times this function is called.
+    /// Only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass.
+    pub use_count: Cell<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -465,10 +500,13 @@ pub struct SubComponent {
     pub property_init: Vec<(MemberReference, BindingExpression)>,
     pub change_callbacks: Vec<(MemberReference, MutExpression)>,
     /// The animation for properties which are animated
-    pub animations: HashMap<LocalMemberReference, Expression>,
+    pub animations: BTreeMap<LocalMemberReference, Expression>,
     /// The two way bindings that map the first property to the second wih optional field access
     pub two_way_bindings: Vec<TwoWayBinding>,
     pub const_properties: Vec<LocalMemberReference>,
+    /// Code run at the start of the constructor, before the property initialization.
+    /// Custom font registration uses this, so fonts are ready before a property needs them.
+    pub pre_init_code: Vec<MutExpression>,
     /// Code that is run in the sub component constructor, after property initializations
     pub init_code: Vec<MutExpression>,
 
@@ -482,6 +520,18 @@ pub struct SubComponent {
     /// Expression that builds a FlexboxLayoutItemInfo for a repeated element in a FlexboxLayout.
     /// Contains property references to flex-grow, flex-shrink, flex-basis, align-self, order.
     pub flexbox_layout_item_info_for_repeated: Option<MutExpression>,
+    /// Vertical `LayoutInfo` for a repeated element, computed with a width
+    /// constraint (its preferred width) so a height-for-width instance in a
+    /// column FlexboxLayout doesn't read `self.width` and recurse through the
+    /// parent flex cache. `Some` only when the element carries a
+    /// `layoutinfo-v-with-constraint`. See `flexbox_layout_item_info`.
+    pub layout_info_v_constrained_for_repeated: Option<MutExpression>,
+    /// Same as `layout_info_v_constrained_for_repeated`, but measured at the
+    /// width passed in the `flex_cross_width` local instead of the preferred
+    /// width. Drives the generated `flexbox_layout_item_info_at_cross_width` method,
+    /// which a column FlexboxLayout calls with its real container width so a
+    /// repeated cell wraps to the same height as an equivalent static cell.
+    pub layout_info_v_at_cross_width_for_repeated: Option<MutExpression>,
     /// True when this is a repeated Row in a GridLayout, meaning layout_item_info
     /// needs to be able to return layout info for individual children
     pub is_repeated_row: bool,
@@ -500,6 +550,10 @@ pub struct SubComponent {
     pub element_infos: BTreeMap<u32, String>,
 
     pub prop_analysis: HashMap<MemberReference, PropAnalysis>,
+
+    /// Populated when `CompilerConfiguration::debug_info` is set.
+    /// The interpreter uses it for highlighting and live preview.
+    pub debug_info: Option<super::debug_info::SubComponentDebugInfo>,
 }
 
 #[derive(Debug)]
@@ -654,6 +708,9 @@ impl CompilationUnit {
         visitor: &mut dyn FnMut(&'a super::MutExpression, &EvaluationContext<'_>),
     ) {
         self.for_each_sub_components(&mut |sc, ctx| {
+            for e in &sc.pre_init_code {
+                visitor(e, ctx);
+            }
             for e in &sc.init_code {
                 visitor(e, ctx);
             }
@@ -668,6 +725,12 @@ impl CompilationUnit {
             if let Some(e) = &sc.flexbox_layout_item_info_for_repeated {
                 visitor(e, ctx);
             }
+            if let Some(e) = &sc.layout_info_v_constrained_for_repeated {
+                visitor(e, ctx);
+            }
+            if let Some(e) = &sc.layout_info_v_at_cross_width_for_repeated {
+                visitor(e, ctx);
+            }
             for e in sc.accessible_prop.values() {
                 visitor(e, ctx);
             }
@@ -677,6 +740,27 @@ impl CompilationUnit {
             for (_, e) in sc.change_callbacks.iter() {
                 visitor(e, ctx);
             }
+            for child in &sc.grid_layout_children {
+                visitor(&child.layout_info_h, ctx);
+                visitor(&child.layout_info_v, ctx);
+            }
+            for r in sc.repeated.iter() {
+                visitor(&r.model, ctx);
+            }
+            for t in sc.timers.iter() {
+                visitor(&t.interval, ctx);
+                visitor(&t.running, ctx);
+                visitor(&t.triggered, ctx);
+            }
+            if let EvaluationScope::SubComponent(idx, _) = ctx.current_scope {
+                // A parent-less context, matching how `count_property_use` counts
+                // function bodies, so both passes rewrite the same references.
+                let fn_ctx = EvaluationContext::new_sub_component(self, idx, (), None);
+                visit_function_bodies(&sc.functions, &fn_ctx, visitor);
+            }
+            // Popup positions are intentionally not visited: they are evaluated in a
+            // nested context, so inlining into them would corrupt the parent levels
+            // of their property references.
         });
         for (idx, g) in self.globals.iter_enumerated() {
             let ctx = EvaluationContext::new_global(self, idx, ());
@@ -686,6 +770,27 @@ impl CompilationUnit {
             for e in g.change_callbacks.values() {
                 visitor(e, &ctx)
             }
+            visit_function_bodies(&g.functions, &ctx, visitor);
+        }
+    }
+}
+
+/// Visit the body of each reachable function in `ctx` (which must have no parents,
+/// see [`CompilationUnit::for_each_expression`]) with `argument_types` set.
+///
+/// Only functions with a non-zero use count: `count_property_use` visits exactly
+/// those bodies, so visiting an unreachable one would inline references it never
+/// counted and underflow the use counts.
+fn visit_function_bodies<'a>(
+    functions: &'a TiVec<FunctionIdx, Function>,
+    ctx: &EvaluationContext<'a>,
+    visitor: &mut dyn FnMut(&'a super::MutExpression, &EvaluationContext<'_>),
+) {
+    for f in functions {
+        if f.use_count.get() > 0 {
+            let mut fn_ctx = ctx.clone();
+            fn_ctx.argument_types = &f.args;
+            visitor(&f.code, &fn_ctx);
         }
     }
 }
@@ -693,10 +798,22 @@ impl CompilationUnit {
 /// Depending on the type, this can also be a Callback or a Function
 #[derive(Debug, Clone)]
 pub struct PublicProperty {
-    pub name: SmolStr,
+    /// The identifier as written in the `.slint` source, preserving any
+    /// hyphens and the original casing. The interpreter's public API
+    /// returns this form in the property list so that callers see the same
+    /// name they wrote.
+    pub display_name: SmolStr,
     pub ty: Type,
     pub prop: MemberReference,
-    pub read_only: bool,
+    pub visibility: crate::object_tree::PropertyVisibility,
 }
-pub type PublicProperties = Vec<PublicProperty>;
+
+impl PublicProperty {
+    pub fn read_only(&self) -> bool {
+        self.visibility == crate::object_tree::PropertyVisibility::Output
+    }
+}
+/// Public properties of a component or global, keyed by the normalized
+/// identifier (underscores). Iteration order is by sorted key.
+pub type PublicProperties = BTreeMap<SmolStr, PublicProperty>;
 pub type PrivateProperties = Vec<(SmolStr, Type)>;

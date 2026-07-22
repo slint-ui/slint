@@ -1,23 +1,26 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+
 component Button {
     callback clicked();
     accessible-role: button;
     accessible-label: "Hello";
     accessible-action-default => {
         debug("DEFAULT");
-        clicked()
+        root.clicked()
     }
-    accessible-value: value;
+    accessible-value: root.value;
     in-out property <int> value;
     accessible-action-set-value(x) => {
         debug("SetValue", x);
-        value = x.to-float();
+        root.value = x.to-float();
     }
 }
 
-component TestCase {
+export component TestCase {
     Rectangle {
         x: 100px;
         y: 100px;

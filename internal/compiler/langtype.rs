@@ -72,6 +72,7 @@ pub enum Type {
     ArrayOfU16,
 
     StyledText,
+    MouseCursor,
 }
 
 impl core::cmp::PartialEq for Type {
@@ -103,6 +104,7 @@ impl core::cmp::PartialEq for Type {
             Type::Model => matches!(other, Type::Model),
             Type::PathData => matches!(other, Type::PathData),
             Type::Easing => matches!(other, Type::Easing),
+            Type::MouseCursor => matches!(other, Type::MouseCursor),
             Type::Brush => matches!(other, Type::Brush),
             Type::Array(a) => matches!(other, Type::Array(b) if a == b),
             Type::Struct(lhs) => {
@@ -170,6 +172,7 @@ impl Display for Type {
             Type::Struct(t) => write!(f, "{t}"),
             Type::PathData => write!(f, "pathdata"),
             Type::Easing => write!(f, "easing"),
+            Type::MouseCursor => write!(f, "MouseCursor"),
             Type::Brush => write!(f, "brush"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
             Type::Keys => write!(f, "keys"),
@@ -223,6 +226,7 @@ impl Type {
                 | Self::Image
                 | Self::Bool
                 | Self::Easing
+                | Self::MouseCursor
                 | Self::Enumeration(_)
                 | Self::Keys
                 | Self::DataTransfer
@@ -326,6 +330,7 @@ impl Type {
             Type::Model => None,
             Type::PathData => None,
             Type::Easing => None,
+            Type::MouseCursor => None,
             Type::Brush => None,
             Type::Array(_) => None,
             Type::Struct { .. } => None,
@@ -384,6 +389,13 @@ pub struct BuiltinPropertyInfo {
     pub property_visibility: PropertyVisibility,
     /// Raw `///` doc comment from builtins.slint, if any.
     pub docs: Option<String>,
+    /// True when a component may declare a member of the same name, shadowing this one
+    /// (`//-shadowable` annotation in builtins.slint).
+    /// Members added to a builtin element after its initial release should be marked
+    /// shadowable so that older code that already declares the name keeps compiling —
+    /// unless a compiler pass accesses the member by name, in which case shadowing
+    /// would generate wrong code and the member must not be marked.
+    pub shadowable: bool,
 }
 
 impl BuiltinPropertyInfo {
@@ -393,6 +405,7 @@ impl BuiltinPropertyInfo {
             default_value: BuiltinPropertyDefault::None,
             property_visibility: PropertyVisibility::InOut,
             docs: None,
+            shadowable: false,
         }
     }
 
@@ -408,6 +421,7 @@ impl From<BuiltinFunction> for BuiltinPropertyInfo {
             default_value: BuiltinPropertyDefault::BuiltinFunction(function),
             property_visibility: PropertyVisibility::Public,
             docs: None,
+            shadowable: false,
         }
     }
 }
@@ -470,6 +484,7 @@ impl ElementType {
                         declared_pure: None,
                         is_local_to_component: false,
                         is_in_direct_base: false,
+                        is_shadowable: p.shadowable,
                         builtin_function: match &p.default_value {
                             BuiltinPropertyDefault::BuiltinFunction(f) => Some(f.clone()),
                             _ => None,
@@ -492,6 +507,7 @@ impl ElementType {
                     declared_pure: None,
                     is_local_to_component: false,
                     is_in_direct_base: false,
+                    is_shadowable: false,
                     builtin_function: None,
                 }
             }
@@ -539,8 +555,9 @@ impl ElementType {
                     None => {
                         let base_type = component.root_element.borrow().base_type.clone();
                         if base_type == tr.empty_type() {
-                            if Self::can_be_special_child_element(name, tr) {
-                                return tr.lookup_element(name);
+                            let element = tr.lookup_element(name)?;
+                            if matches!(&element, ElementType::Builtin(b) if b.can_be_declared_without_children_slot) {
+                                return Ok(element);
                             }
                             return Err(format!("'{}' cannot have children. Only components with @children can have children", component.id));
                         }
@@ -550,8 +567,11 @@ impl ElementType {
                 base_type.lookup_type_for_child_element(name, tr)
             }
             Self::Builtin(builtin) => {
-                if Self::can_be_special_child_element(name, tr) {
-                    return tr.lookup_element(name);
+                let looked_up = tr.lookup_element(name);
+                if let Ok(ElementType::Builtin(b)) = &looked_up
+                    && b.can_be_declared_without_children_slot
+                {
+                    return Ok(ElementType::Builtin(b.clone()));
                 }
                 if builtin.disallow_global_types_as_child_elements {
                     if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
@@ -567,6 +587,8 @@ impl ElementType {
                     valid_children.sort();
 
                     let err = if valid_children.is_empty() {
+                        // No whitelist to suggest from; prefer "Unknown element" for typos.
+                        looked_up?;
                         format!("{} cannot have children elements", builtin.native_class.class_name,)
                     } else {
                         format!(
@@ -578,7 +600,7 @@ impl ElementType {
                     };
                     return Err(err);
                 }
-                let err = match tr.lookup_element(name) {
+                let err = match looked_up {
                     Err(e) => e,
                     Ok(t) => {
                         if !tr.expose_internal_types
@@ -608,14 +630,6 @@ impl ElementType {
                 }
             })
         }
-    }
-
-    fn can_be_special_child_element(name: &str, tr: &TypeRegister) -> bool {
-        let is_special_builtin = matches!(
-            tr.lookup_element(name),
-            Ok(ElementType::Builtin(b)) if b.can_be_declared_without_children_slot
-        );
-        is_special_builtin
     }
 
     /// Assume this is a builtin type, panic if it isn't
@@ -676,7 +690,7 @@ macro_rules! define_builtin_struct_enum {
     ($(
         $(#[$attr:meta])*
         $vis:vis struct $Name:ident {
-            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
         }
     )*) => {
         #[derive(Debug, Clone, PartialEq, strum::EnumString, strum::IntoStaticStr)]
@@ -769,7 +783,7 @@ pub struct NativeClass {
     pub parent: Option<Rc<NativeClass>>,
     pub class_name: SmolStr,
     pub cpp_vtable_getter: String,
-    pub properties: HashMap<SmolStr, BuiltinPropertyInfo>,
+    pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
     pub deprecated_aliases: HashMap<SmolStr, SmolStr>,
     /// Type override if class_name is not equal to the name to be used in the
     /// target language API.
@@ -879,6 +893,9 @@ pub struct PropertyLookupResult<'a> {
     pub is_local_to_component: bool,
     /// True if the property in the direct base of the component (for protected visibility purposes)
     pub is_in_direct_base: bool,
+    /// True if a local declaration may shadow this member. Only builtin element
+    /// members marked `//-shadowable` in builtins.slint are shadowable.
+    pub is_shadowable: bool,
 
     /// If the property is a builtin function
     pub builtin_function: Option<BuiltinFunction>,
@@ -907,6 +924,7 @@ impl<'a> PropertyLookupResult<'a> {
             declared_pure: None,
             is_local_to_component: false,
             is_in_direct_base: false,
+            is_shadowable: false,
             builtin_function: None,
         }
     }
@@ -980,14 +998,125 @@ impl From<BuiltinStruct> for StructName {
 #[derive(Debug, Clone)]
 pub struct Struct {
     pub fields: BTreeMap<SmolStr, Type>,
+    /// Default values for the fields.
+    /// The expressions are resolved, converted to the field type, and constant-folded.
+    /// Like the syntax node in `name`, this is ignored by `Type`'s equality comparison.
+    pub field_defaults: BTreeMap<SmolStr, ConstantExpression>,
     pub name: StructName,
 }
 
 impl Struct {
+    /// Create a struct without declared field default values.
+    pub fn new(fields: BTreeMap<SmolStr, Type>, name: impl Into<StructName>) -> Self {
+        Self { fields, field_defaults: Default::default(), name: name.into() }
+    }
+
     pub fn node(&self) -> Option<&syntax_nodes::ObjectType> {
         match &self.name {
             StructName::User { node, .. } => Some(node),
             _ => None,
+        }
+    }
+
+    /// The default value for the given field: the user-declared default if there is one,
+    /// otherwise the default value for the field's type.
+    pub fn default_value_for_field(&self, name: &SmolStr) -> Expression {
+        self.field_defaults.get(name).map(ConstantExpression::to_expression).unwrap_or_else(|| {
+            Expression::default_value_for_type(
+                self.fields.get(name).expect("default value requested for unknown struct field"),
+            )
+        })
+    }
+}
+
+/// A constant expression, used for the default values of struct fields
+/// (see [`Struct::field_defaults`]).
+///
+/// This is deliberately neither [`Expression`] nor an llr expression:
+/// unlike those, it cannot reference any properties, elements, or syntax nodes,
+/// so a [`Struct`] carrying one can safely outlive the object tree.
+/// The variants are the subset that every consumer can materialize.
+/// Keep the matches over this type exhaustive,
+/// so that adding a variant is a compile error in each consumer:
+/// the conversion to an expression tree ([`Self::to_expression`]),
+/// the lowering for the code generators (`lower_constant_expression` in the llr module),
+/// and the interpreter's evaluator (`eval_constant_expression` there).
+#[derive(Debug, Clone)]
+pub enum ConstantExpression {
+    StringLiteral(SmolStr),
+    /// A number and its unit, in normalized form
+    NumberLiteral(f64, Unit),
+    BoolLiteral(bool),
+    EnumerationValue(EnumerationValue),
+    Cast {
+        from: Box<ConstantExpression>,
+        to: Type,
+    },
+    UnaryOp {
+        sub: Box<ConstantExpression>,
+        op: char,
+    },
+    Struct {
+        ty: Rc<Struct>,
+        values: BTreeMap<SmolStr, ConstantExpression>,
+    },
+    Array {
+        element_ty: Type,
+        values: Vec<ConstantExpression>,
+    },
+}
+
+impl ConstantExpression {
+    /// Create a constant expression from a resolved, converted, and constant-folded
+    /// expression, or `None` if the expression is not in the constant subset.
+    pub fn from_expression(expression: &Expression) -> Option<Self> {
+        Some(match expression {
+            Expression::StringLiteral(s) => Self::StringLiteral(s.clone()),
+            Expression::NumberLiteral(n, unit) => Self::NumberLiteral(*n, *unit),
+            Expression::BoolLiteral(b) => Self::BoolLiteral(*b),
+            Expression::EnumerationValue(e) => Self::EnumerationValue(e.clone()),
+            Expression::Cast { from, to } => {
+                Self::Cast { from: Box::new(Self::from_expression(from)?), to: to.clone() }
+            }
+            Expression::UnaryOp { sub, op } => {
+                Self::UnaryOp { sub: Box::new(Self::from_expression(sub)?), op: *op }
+            }
+            Expression::Struct { ty, values } => Self::Struct {
+                ty: ty.clone(),
+                values: values
+                    .iter()
+                    .map(|(k, v)| Some((k.clone(), Self::from_expression(v)?)))
+                    .collect::<Option<_>>()?,
+            },
+            Expression::Array { element_ty, values } => Self::Array {
+                element_ty: element_ty.clone(),
+                values: values.iter().map(Self::from_expression).collect::<Option<_>>()?,
+            },
+            _ => return None,
+        })
+    }
+
+    /// The expression tree form, for splicing the constant into bindings at compile time
+    pub fn to_expression(&self) -> Expression {
+        match self {
+            Self::StringLiteral(s) => Expression::StringLiteral(s.clone()),
+            Self::NumberLiteral(n, unit) => Expression::NumberLiteral(*n, *unit),
+            Self::BoolLiteral(b) => Expression::BoolLiteral(*b),
+            Self::EnumerationValue(e) => Expression::EnumerationValue(e.clone()),
+            Self::Cast { from, to } => {
+                Expression::Cast { from: Box::new(from.to_expression()), to: to.clone() }
+            }
+            Self::UnaryOp { sub, op } => {
+                Expression::UnaryOp { sub: Box::new(sub.to_expression()), op: *op }
+            }
+            Self::Struct { ty, values } => Expression::Struct {
+                ty: ty.clone(),
+                values: values.iter().map(|(k, v)| (k.clone(), v.to_expression())).collect(),
+            },
+            Self::Array { element_ty, values } => Expression::Array {
+                element_ty: element_ty.clone(),
+                values: values.iter().map(Self::to_expression).collect(),
+            },
         }
     }
 }

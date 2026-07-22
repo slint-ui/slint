@@ -9,15 +9,14 @@
 
 #![allow(unsafe_code)]
 
+use crate::cursor::MouseCursorInner;
 use crate::graphics::Image;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
-use crate::items::{
-    ColorScheme, Item, ItemConsts, ItemRc, MouseCursor, Orientation, RenderingResult, VoidArg,
-};
+use crate::items::{ColorScheme, Item, ItemConsts, ItemRc, Orientation, RenderingResult, VoidArg};
 use crate::layout::LayoutInfo;
 use crate::lengths::{LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
@@ -31,16 +30,17 @@ use core::pin::Pin;
 use i_slint_core_macros::*;
 
 // Pick the per-platform tray backend. The `dummy` arm catches anything without a
-// real native tray (Android, WASM, embedded targets, …) so a `SystemTrayIcon`-
-// rooted component constructs without surfacing an icon to any host shell.
+// real native tray (the `system-tray` feature is off, or Android, WASM, embedded
+// targets, …) so a `SystemTrayIcon`-rooted component constructs without surfacing
+// an icon to any host shell.
 cfg_if::cfg_if! {
-    if #[cfg(target_os = "macos")] {
+    if #[cfg(all(feature = "system-tray", target_os = "macos"))] {
         mod appkit;
         use self::appkit::PlatformTray;
-    } else if #[cfg(target_os = "windows")] {
+    } else if #[cfg(all(feature = "system-tray", target_os = "windows"))] {
         mod windows;
         use self::windows::PlatformTray;
-    } else if #[cfg(all(feature = "std", target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))] {
+    } else if #[cfg(all(feature = "system-tray", target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))] {
         mod ksni;
         use self::ksni::PlatformTray;
     } else {
@@ -62,10 +62,14 @@ pub struct Params<'a> {
 pub enum Error {
     #[display("Failed to create a rgba8 buffer from an icon image")]
     Rgba8,
-    #[display("{}", 0)]
+    #[display("{_0}")]
     PlatformError(crate::platform::PlatformError),
-    #[display("{}", 0)]
+    #[display("{_0}")]
     EventLoopError(crate::api::EventLoopError),
+    #[display(
+        "no system tray backend compiled in (missing `system-tray` feature or unsupported platform)"
+    )]
+    Unsupported,
 }
 
 /// Owning handle to a live platform tray icon. Dropping it removes the icon.
@@ -188,7 +192,7 @@ pub struct SystemTrayIcon {
     pub title: Property<SharedString>,
     pub visible: Property<bool>,
     pub color_scheme: Property<ColorScheme>,
-    pub activated: Callback<VoidArg>,
+    pub clicked: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
     data: SystemTrayIconDataBox,
 }
@@ -394,7 +398,7 @@ impl Item for SystemTrayIcon {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -404,7 +408,7 @@ impl Item for SystemTrayIcon {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }

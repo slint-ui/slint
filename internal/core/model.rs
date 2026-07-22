@@ -144,6 +144,54 @@ pub trait Model {
         );
     }
 
+    /// Add a new row to the model.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call [`ModelNotify::row_added`] on its
+    /// internal [`ModelNotify`].
+    fn push_row(&self, _data: Self::Data) {
+        #[cfg(feature = "std")]
+        crate::debug_log!(
+            "Model::push_row called on a model of type {} which does not re-implement this method. \
+            This happens when trying to modify a read-only model",
+            core::any::type_name::<Self>()
+        );
+    }
+
+    /// Remove a row from the model at the specified index.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call [`ModelNotify::row_removed`] on its
+    /// internal [`ModelNotify`].
+    fn remove_row(&self, _row: isize) {
+        #[cfg(feature = "std")]
+        crate::debug_log!(
+            "Model::remove_row called on a model of type {} which does not re-implement this method. \
+            This happens when trying to modify a read-only model",
+            core::any::type_name::<Self>()
+        );
+    }
+
+    /// Insert a new row at the specified index and move the next rows by 1 step to the right.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call [`ModelNotify::row_added`] on its
+    /// internal [`ModelNotify`].
+    fn insert_row(&self, _row: isize, _data: Self::Data) {
+        #[cfg(feature = "std")]
+        crate::debug_log!(
+            "Model::insert_row called on a model of type {} which does not re-implement this method. \
+            This happens when trying to modify a read-only model",
+            core::any::type_name::<Self>()
+        );
+    }
+
     /// The implementation should return a reference to its [`ModelNotify`] field.
     ///
     /// You can return `&()` if you your `Model` is constant and does not have a ModelNotify field.
@@ -355,6 +403,15 @@ impl<M: Model> Model for Rc<M> {
     fn set_row_data(&self, row: usize, data: Self::Data) {
         (**self).set_row_data(row, data)
     }
+    fn push_row(&self, data: Self::Data) {
+        (**self).push_row(data)
+    }
+    fn remove_row(&self, row: isize) {
+        (**self).remove_row(row)
+    }
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        (**self).insert_row(row, data)
+    }
 }
 
 /// A [`Model`] backed by a `Vec<T>`, using interior mutability.
@@ -482,6 +539,22 @@ impl<T: Clone + 'static> Model for VecModel<T> {
         }
     }
 
+    fn push_row(&self, data: Self::Data) {
+        self.push(data);
+    }
+
+    fn remove_row(&self, row: isize) {
+        if row >= 0 && row < self.row_count() as isize {
+            self.remove(row as usize);
+        }
+    }
+
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        if row >= 0 && row <= self.row_count() as isize {
+            self.insert(row as usize, data);
+        }
+    }
+
     fn model_tracker(&self) -> &dyn ModelTracker {
         &self.notify
     }
@@ -533,6 +606,25 @@ impl<T: Clone + 'static> Model for SharedVectorModel<T> {
     fn set_row_data(&self, row: usize, data: Self::Data) {
         self.array.borrow_mut().make_mut_slice()[row] = data;
         self.notify.row_changed(row);
+    }
+
+    fn push_row(&self, data: Self::Data) {
+        self.array.borrow_mut().push(data);
+        self.notify.row_added(self.array.borrow().len() - 1, 1);
+    }
+
+    fn remove_row(&self, row: isize) {
+        if row >= 0 && row < self.row_count() as isize {
+            self.array.borrow_mut().remove(row as usize);
+            self.notify.row_removed(row as usize, 1);
+        }
+    }
+
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        if row >= 0 && row <= self.row_count() as isize {
+            self.array.borrow_mut().insert(row as usize, data);
+            self.notify.row_added(row as usize, 1);
+        }
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
@@ -820,6 +912,24 @@ impl<T> Model for ModelRc<T> {
         }
     }
 
+    fn push_row(&self, data: Self::Data) {
+        if let Some(model) = self.0.as_ref() {
+            model.push_row(data);
+        }
+    }
+
+    fn remove_row(&self, row: isize) {
+        if let Some(model) = self.0.as_ref() {
+            model.remove_row(row);
+        }
+    }
+
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        if let Some(model) = self.0.as_ref() {
+            model.insert_row(row, data);
+        }
+    }
+
     fn model_tracker(&self) -> &dyn ModelTracker {
         self.0.as_ref().map_or(&(), |model| model.model_tracker())
     }
@@ -896,6 +1006,39 @@ mod tests {
         assert!(!tracker.is_dirty());
         model.set_vec(vec![1, 2, 3]);
         assert!(tracker.is_dirty());
+    }
+
+    #[test]
+    fn test_shared_vector_model_bounds() {
+        let model: Rc<SharedVectorModel<i32>> =
+            Rc::new(SharedVectorModel::from(SharedVector::from_slice(&[1, 2, 3])));
+        let handle = ModelRc::from(model.clone());
+        let tracker = Box::pin(<crate::properties::PropertyTracker>::default());
+        let count = || {
+            tracker.as_ref().evaluate(|| {
+                handle.model_tracker().track_row_count_changes();
+                handle.row_count()
+            })
+        };
+        assert_eq!(count(), 3);
+        assert!(!tracker.is_dirty());
+
+        // Out-of-range operations do nothing and must not notify the views.
+        model.remove_row(3);
+        model.remove_row(-1);
+        model.insert_row(4, 42);
+        model.insert_row(-1, 42);
+        assert!(!tracker.is_dirty());
+        assert_eq!(model.row_count(), 3);
+        assert_eq!(model.row_data(2), Some(3));
+
+        // In-range operations change the data and notify.
+        model.insert_row(3, 4);
+        assert!(tracker.is_dirty());
+        assert_eq!(count(), 4);
+        model.remove_row(0);
+        assert_eq!(model.row_count(), 3);
+        assert_eq!(model.row_data(0), Some(2));
     }
 
     #[test]

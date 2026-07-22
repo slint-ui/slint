@@ -1,13 +1,68 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore newtype
+// cSpell: ignore newtype CROSSFILE
+
+//! `.slint` rename support, plus the classifier that decides when a rename
+//! should be paired with a Rust/C++ host-language rewrite.
+//!
+//! # Host-language follow-up flow
+//!
+//! Renaming a public property/callback/function in `.slint` can optionally
+//! also replace matching generated Rust/C++ accessor identifiers (`get_<n>`,
+//! `set_<n>`, `invoke_<n>`, `on_<n>`) throughout the workspace. The
+//! `textDocument/rename` handler in `language.rs` returns the slint-only
+//! edits synchronously; the host-language follow-up runs in a `spawn_local`
+//! task because the rename handler is sync but the dialog and the second
+//! `workspace/applyEdit` are async.
+//!
+//! After the synchronous slint rename, the spawned task:
+//!
+//! 1. Calls [`DeclarationNode::host_language_classification`]. This walks
+//!    every loaded `Document` (via `DocumentCache::all_documents()`) and,
+//!    for each exported non-interface component, follows the `inherits`
+//!    chain looking for a declaration whose syntax node matches the rename
+//!    target. The walk is bounded (depth + visited-set) so a cyclic
+//!    `inherits` chain from a mid-edit state can't hang the task. Returns
+//!    the declaration kind and current name -- or `None` if the
+//!    declaration isn't reachable from any exported component or its
+//!    visibility/type rules it out.
+//! 2. Skips the dialog entirely when
+//!    `normalize_identifier(new_name) == old_name` (kebab/snake no-op
+//!    that produces no accessor change).
+//! 3. Checks an in-memory "don't ask again" flag that suppresses the dialog
+//!    for the rest of the session. TODO(#12111): Persist this setting across
+//!    sessions.
+//! 4. Sends `window/showMessageRequest` with three actions: *Search & Replace
+//!    Rust/C++ accessors*, *Skip*, *Skip and don't ask again*. Dismissal is
+//!    treated as Skip.
+//! 5. On *Search & Replace*, queries `workspace/workspaceFolders` (or falls back
+//!    to the cached `InitializeParams` when the client doesn't support
+//!    the query), runs
+//!    [`crate::common::host_language_search::search_replace_host_language_accessors`]
+//!    against every folder, and sends a second `workspace/applyEdit` with
+//!    the host-language edits.
+//! 6. Reports the outcome via `window/showMessage`: count of replaced
+//!    occurrences on success, or a warning on scan failure / refused edit.
+//!
+//! The slint rename and the host-language rewrite arrive as two
+//! independent edits; the editor's undo treats them separately. That is
+//! intentional: if the user rejects the host-language rewrite or the
+//! scanner errors, the slint rename still stands.
+//!
+//! Failure modes (no workspace folders, scan exceeds `max_files`, client
+//! refuses the applyEdit) **soft-degrade**: tracing warning + a
+//! `window/showMessage` to the user, but the slint rename is not rolled
+//! back.
+
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::{common, util};
 
-use i_slint_compiler::diagnostics::Spanned;
+use i_slint_compiler::diagnostics::{SourceFile, Spanned};
+use i_slint_compiler::generator::accessor_names::DeclarationKind;
+use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
 use lsp_types::Url;
 use smol_str::SmolStr;
@@ -533,6 +588,131 @@ impl DeclarationNode {
             }
         }
     }
+
+    /// If this declaration would be exposed in the generated Rust/C++ public
+    /// API, return the information the host-language scanner needs to find
+    /// matching accessor identifiers in Rust and C++ source files.
+    ///
+    /// Returns `None` for declarations that don't emit Rust/C++ accessors:
+    /// private properties, declarations inside non-exported inner components,
+    /// structs, enums, components themselves, etc.
+    ///
+    /// Mirrors the logic of `i_slint_compiler::passes::check_public_api`
+    /// rather than reading `expose_in_public_api`: the LSP only runs
+    /// `run_import_passes`, so that flag is never set in this context.
+    pub fn host_language_classification(
+        &self,
+        document_cache: &common::DocumentCache,
+    ) -> Option<HostLanguageRenameInfo> {
+        let DeclarationNodeKind::DeclaredIdentifier(decl_id) = &self.kind else {
+            return None;
+        };
+
+        let parent = decl_id.parent()?;
+        let kind = match parent.kind() {
+            SyntaxKind::PropertyDeclaration => DeclarationKind::Property,
+            SyntaxKind::CallbackDeclaration => DeclarationKind::Callback,
+            SyntaxKind::Function => DeclarationKind::Function,
+            _ => return None,
+        };
+
+        let name = i_slint_compiler::parser::identifier_text(decl_id)?;
+        let source_file = decl_id.source_file.clone();
+        // Ensure the source file is known to the LSP -- avoids classifying
+        // declarations from documents the cache hasn't loaded.
+        document_cache.get_document_for_source_file(&source_file)?;
+
+        // The LSP only runs `run_import_passes`, not the full pipeline; the
+        // `check_public_api` pass that sets `expose_in_public_api` never runs
+        // here, and `inlining` (which would copy inherited declarations onto
+        // the exported component's root_element) is also absent. Compute the
+        // public-API exposure ourselves: the declaration must be reachable
+        // from an exported, non-interface component's root_element (walking
+        // its `inherits` chain), the type must be `ok_for_public_api`, and
+        // the visibility must not be `private`. Mirrors the gating logic of
+        // `passes::check_public_api`.
+        //
+        // Iterate every loaded document, not just the one containing the
+        // renamed declaration: a non-exported base in file A can be
+        // inherited by an exported component in file B, and the codegen for
+        // B WILL emit accessors for the inherited declaration.
+        for doc in document_cache.all_documents() {
+            for component in doc.exports.iter().filter_map(|(_, e)| e.as_ref().left()) {
+                if component.is_interface() {
+                    // Interfaces don't generate Rust/C++ accessors.
+                    continue;
+                }
+                if matching_decl_in_inheritance_chain(component, &name, &parent, &source_file) {
+                    return Some(HostLanguageRenameInfo { kind, old_name: name });
+                }
+            }
+        }
+        None
+    }
+}
+
+/// Walk `component.root_element` and its `inherits` chain looking for a
+/// declaration whose syntax node matches `declaration_node` (the syntax
+/// node of the `PropertyDeclaration` / `CallbackDeclaration` / `Function`
+/// being renamed), and which would be exposed in the generated Rust/C++
+/// public API: non-private visibility and a type that `ok_for_public_api`.
+///
+/// Bounded by a fixed depth and by a visited-set on `Rc::as_ptr`: in a
+/// healthy program `inherits` never cycles, but the LSP runs only
+/// `run_import_passes` and may see mid-edit states where the cycle check
+/// hasn't run yet. We must not hang the synchronous rename handler.
+fn matching_decl_in_inheritance_chain(
+    component: &Rc<object_tree::Component>,
+    name: &SmolStr,
+    declaration_node: &SyntaxNode,
+    source_file: &SourceFile,
+) -> bool {
+    const MAX_DEPTH: usize = 64;
+    let mut element = component.root_element.clone();
+    let mut visited: std::collections::HashSet<usize> = std::collections::HashSet::new();
+    for _ in 0..MAX_DEPTH {
+        if !visited.insert(Rc::as_ptr(&element) as usize) {
+            return false; // cycle in `inherits` chain
+        }
+        let element_borrow = element.borrow();
+        if let Some(decl) = element_borrow.property_declarations.get(name)
+            && let Some(node) = decl.node.as_ref()
+            && node.text_range() == declaration_node.text_range()
+            && Rc::ptr_eq(&node.source_file, source_file)
+        {
+            if decl.visibility == object_tree::PropertyVisibility::Private {
+                return false;
+            }
+            if !decl.property_type.ok_for_public_api() {
+                return false;
+            }
+            return true;
+        }
+        let base = element_borrow.base_type.clone();
+        drop(element_borrow);
+        match base {
+            i_slint_compiler::langtype::ElementType::Component(c) => {
+                element = c.root_element.clone();
+            }
+            _ => return false,
+        }
+    }
+    false
+}
+
+/// Information needed by the host-language scanner to compute Rust/C++
+/// accessor-rename edits to pair with a Slint property/callback/function
+/// rename.
+#[derive(Clone, Debug)]
+pub struct HostLanguageRenameInfo {
+    /// Whether the renamed declaration is a property, callback, or function.
+    /// Determines which accessor prefixes (`get_`/`set_`/`invoke_`/`on_`) the
+    /// scanner searches for.
+    pub kind: DeclarationKind,
+    /// The current (pre-rename) Slint name. The scanner derives the old
+    /// accessor names from this via
+    /// [`i_slint_compiler::generator::accessor_names`].
+    pub old_name: SmolStr,
 }
 
 fn find_last_declared_identifier_at_or_before(
@@ -1234,6 +1414,179 @@ mod tests {
         suffix: &str,
     ) -> Vec<text_edit::EditedText> {
         rename_tester_with_new_name(document_cache, document_path, suffix, "XxxYyyZzz")
+    }
+
+    #[test]
+    fn test_host_language_classification() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                r#"
+export component Foo inherits Window {
+    in property <int> count /* <- TEST_ME_PROP */;
+    private property <string> secret /* <- TEST_ME_PRIV */;
+    callback clicked /* <- TEST_ME_CB */();
+    public function multiply /* <- TEST_ME_FN */(x: int) -> int { x * 2 }
+}
+
+component Inner {
+    in property <int> hidden /* <- TEST_ME_INNER */;
+}
+                "#
+                .to_string(),
+            )]),
+            true,
+        );
+
+        let classify = |suffix: &str| -> Option<HostLanguageRenameInfo> {
+            let token =
+                find_token_by_comment(&document_cache, &test::main_test_file_name(), suffix);
+            find_declaration_node(&document_cache, &token)?
+                .host_language_classification(&document_cache)
+        };
+
+        let prop = classify("_PROP").expect("public property should classify");
+        assert_eq!(prop.kind, DeclarationKind::Property);
+        assert_eq!(prop.old_name, "count");
+
+        assert!(classify("_PRIV").is_none(), "private property must not classify");
+
+        let cb = classify("_CB").expect("public callback should classify");
+        assert_eq!(cb.kind, DeclarationKind::Callback);
+        assert_eq!(cb.old_name, "clicked");
+
+        let func = classify("_FN").expect("public function should classify");
+        assert_eq!(func.kind, DeclarationKind::Function);
+        assert_eq!(func.old_name, "multiply");
+
+        assert!(
+            classify("_INNER").is_none(),
+            "property on non-exported inner component must not classify",
+        );
+    }
+
+    #[test]
+    fn test_host_language_classification_global_property() {
+        // Globals also emit Rust/C++ public accessors (via global<T>()).
+        // Their declarations must classify just like component-root
+        // declarations.
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                r#"
+export global Settings {
+    in-out property <int> volume /* <- TEST_ME_GLOBAL_PROP */;
+    callback changed /* <- TEST_ME_GLOBAL_CB */;
+}
+
+export component Host inherits Window { }
+                "#
+                .to_string(),
+            )]),
+            true,
+        );
+
+        let classify = |suffix: &str| -> Option<HostLanguageRenameInfo> {
+            let token =
+                find_token_by_comment(&document_cache, &test::main_test_file_name(), suffix);
+            find_declaration_node(&document_cache, &token)?
+                .host_language_classification(&document_cache)
+        };
+
+        let prop = classify("_GLOBAL_PROP").expect("public global property should classify");
+        assert_eq!(prop.kind, DeclarationKind::Property);
+        assert_eq!(prop.old_name, "volume");
+
+        let cb = classify("_GLOBAL_CB").expect("public global callback should classify");
+        assert_eq!(cb.kind, DeclarationKind::Callback);
+    }
+
+    #[test]
+    fn test_host_language_classification_cross_file_inherited_property() {
+        // Property declared in a non-exported base in file A, inherited by
+        // an exported component in file B. The classifier must walk all
+        // documents (not just the renamed file's own document) to find the
+        // exported descendant.
+        let base_url = Url::from_file_path(test::test_file_name("base.slint")).unwrap();
+        let app_url = Url::from_file_path(test::main_test_file_name()).unwrap();
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([
+                (
+                    base_url.clone(),
+                    r#"
+export component Base {
+    in property <int> base-count /* <- TEST_ME_CROSSFILE */;
+}
+                    "#
+                    .to_string(),
+                ),
+                (
+                    app_url.clone(),
+                    format!(
+                        r#"
+import {{ Base }} from "{}";
+export component App inherits Base {{ }}
+                        "#,
+                        "base.slint",
+                    ),
+                ),
+            ]),
+            true,
+        );
+
+        let base_path = test::test_file_name("base.slint");
+        let token = find_token_by_comment(&document_cache, &base_path, "_CROSSFILE");
+        let info = find_declaration_node(&document_cache, &token)
+            .and_then(|n| n.host_language_classification(&document_cache))
+            .expect("inherited property exposed via cross-file export must classify");
+        assert_eq!(info.kind, DeclarationKind::Property);
+        assert_eq!(info.old_name, "base-count");
+    }
+
+    #[test]
+    fn test_host_language_classification_inherited_property() {
+        // A property declared on a non-exported base but exposed by an
+        // exported component via `inherits` must still classify -- the
+        // codegen DOES generate the accessor on the exported component.
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                r#"
+component Base {
+    in property <int> base-count /* <- TEST_ME_INHERITED */;
+}
+
+export component App inherits Window {
+    base := Base { }
+}
+
+export component DerivedApp inherits Base {
+    in property <int> own-prop /* <- TEST_ME_OWN */;
+}
+                "#
+                .to_string(),
+            )]),
+            true,
+        );
+
+        let classify = |suffix: &str| -> Option<HostLanguageRenameInfo> {
+            let token =
+                find_token_by_comment(&document_cache, &test::main_test_file_name(), suffix);
+            find_declaration_node(&document_cache, &token)?
+                .host_language_classification(&document_cache)
+        };
+
+        let inherited = classify("_INHERITED")
+            .expect("property inherited into an exported component must classify");
+        assert_eq!(inherited.kind, DeclarationKind::Property);
+        assert_eq!(inherited.old_name, "base-count");
+
+        let own = classify("_OWN").expect("locally-declared property on exported component");
+        assert_eq!(own.old_name, "own-prop");
     }
 
     #[test]
@@ -3835,5 +4188,489 @@ global Foo {
                 panic!("Unexpected file!");
             }
         }
+    }
+}
+
+/// Integration tests for the classification and search portions of the
+/// cross-language rename pipeline:
+/// `find_declaration_node` -> `rename()` -> `host_language_classification()`
+/// -> `search_replace_host_language_accessors()`.
+/// Tests for the interactive LSP requests live in `language.rs`.
+#[cfg(test)]
+mod host_language_rename_tests {
+    use super::*;
+    use crate::common;
+    use crate::common::host_language_search::{ScanBounds, search_replace_host_language_accessors};
+    use i_slint_compiler::diagnostics::{BuildDiagnostics, ByteFormat};
+    use lsp_types::{Url, WorkspaceEdit, WorkspaceFolder};
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+
+    /// Throwaway tempdir; cleans itself up on drop.
+    struct TempDir {
+        path: PathBuf,
+    }
+
+    impl TempDir {
+        fn path(&self) -> &std::path::Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn tempdir() -> TempDir {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        // Per-test serial -- bare timestamps collide when many tests start
+        // in the same nanosecond under cargo's parallel runner.
+        static COUNTER: AtomicUsize = AtomicUsize::new(0);
+        let serial = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let mut path = std::env::temp_dir();
+        path.push(format!(
+            "slint-lsp-rename-roundtrip-{}-{}-{serial}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0),
+        ));
+        std::fs::create_dir(&path).unwrap();
+        TempDir { path }
+    }
+
+    /// Build a workspace under `tempdir`: writes the given `.slint` files and
+    /// `.rs` files to disk, then loads the slint files into a `DocumentCache`.
+    /// The first slint file in `slint_files` is treated as the "main" one
+    /// and its URL is returned.
+    ///
+    /// The second arg to load_url is the source version; we use 1 so that
+    /// the produced WorkspaceEdit has a non-None document version on the
+    /// slint side -- which the host scanner deliberately leaves as None for
+    /// `.rs`/`.cpp` files (those aren't in the cache).
+    fn setup(
+        tmp: &TempDir,
+        slint_files: &[(&str, &str)],
+        host_files: &[(&str, &str)],
+    ) -> (common::DocumentCache, Url, Vec<WorkspaceFolder>) {
+        // Write all host-language files to disk. The scanner is language-
+        // agnostic at this layer (same accessor strings emitted for Rust and
+        // C++), so `host_files` may contain `.rs`, `.cpp`, `.h`, etc.
+        for (rel_path, contents) in host_files {
+            let full = tmp.path().join(rel_path);
+            if let Some(parent) = full.parent() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
+            std::fs::write(&full, contents).unwrap();
+        }
+
+        // Build the DocumentCache.
+        let config = common::document_cache::CompilerConfiguration {
+            style: Some("fluent".into()),
+            ..Default::default()
+        };
+        let mut cache = common::DocumentCache::new(config);
+        spin_on::spin_on(cache.preload_builtins());
+
+        // Write each slint file and load it into the cache.
+        let mut main_url: Option<Url> = None;
+        for (i, (rel_path, contents)) in slint_files.iter().enumerate() {
+            let full = tmp.path().join(rel_path);
+            if let Some(parent) = full.parent() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
+            std::fs::write(&full, contents).unwrap();
+            let url = Url::from_file_path(&full).unwrap();
+            let mut diag = BuildDiagnostics::default();
+            spin_on::spin_on(cache.load_url(&url, Some(1), contents.to_string(), &mut diag))
+                .unwrap();
+            assert!(
+                !diag.has_errors(),
+                "slint diagnostics in {rel_path}: {:?}",
+                diag.iter().map(|d| d.message().to_string()).collect::<Vec<_>>(),
+            );
+            if i == 0 {
+                main_url = Some(url);
+            }
+        }
+
+        let folders = vec![WorkspaceFolder {
+            uri: Url::from_file_path(tmp.path()).unwrap(),
+            name: "ws".into(),
+        }];
+        (cache, main_url.unwrap(), folders)
+    }
+
+    /// Locate the token immediately before a `/* <- TEST_ME<suffix> */` marker
+    /// in the document at `url`.
+    #[track_caller]
+    fn find_token_in_url(
+        document_cache: &common::DocumentCache,
+        url: &Url,
+        suffix: &str,
+    ) -> SyntaxToken {
+        let document = document_cache.get_document(url).unwrap();
+        let document = document.node.as_ref().unwrap();
+        let offset =
+            document.text().to_string().find(&format!("<- TEST_ME{suffix} ")).unwrap() as u32;
+        let comment = document.token_at_offset(offset.into()).next().unwrap();
+        assert_eq!(comment.kind(), SyntaxKind::Comment);
+        let mut token = comment.prev_token();
+        while let Some(t) = &token {
+            if ![SyntaxKind::Comment, SyntaxKind::Eof, SyntaxKind::Whitespace].contains(&t.kind()) {
+                break;
+            }
+            token = t.prev_token();
+        }
+        token.unwrap()
+    }
+
+    /// Compose Slint and host-language edits for concise assertions.
+    /// Production sends these as two independent workspace edits.
+    fn perform_rename(
+        document_cache: &common::DocumentCache,
+        folders: &[WorkspaceFolder],
+        slint_url: &Url,
+        token_suffix: &str,
+        new_name: &str,
+    ) -> WorkspaceEdit {
+        let token = find_token_in_url(document_cache, slint_url, token_suffix);
+        let decl =
+            find_declaration_node(document_cache, &token).expect("declaration node must be found");
+        let mut workspace_edit = decl.rename(document_cache, new_name).expect("rename");
+
+        if let Some(info) = decl.host_language_classification(document_cache)
+            && i_slint_compiler::parser::normalize_identifier(new_name) != info.old_name
+        {
+            let host_edits = search_replace_host_language_accessors(
+                folders,
+                info.kind,
+                &info.old_name,
+                new_name,
+                ByteFormat::Utf16,
+                ScanBounds::DEFAULT,
+            )
+            .expect("scan");
+            if !host_edits.is_empty() {
+                let host_we = common::create_workspace_edit_from_single_text_edits(host_edits);
+                common::merge_workspace_edits(&mut workspace_edit, host_we);
+            }
+        }
+        workspace_edit
+    }
+
+    /// Collect the (URL -> [new_text]) map from a WorkspaceEdit's
+    /// `document_changes::Edits` form, for assertion ergonomics.
+    fn edits_by_url(edit: &WorkspaceEdit) -> HashMap<Url, Vec<String>> {
+        let mut out: HashMap<Url, Vec<String>> = HashMap::new();
+        if let Some(lsp_types::DocumentChanges::Edits(v)) = edit.document_changes.as_ref() {
+            for tde in v {
+                let url = tde.text_document.uri.clone();
+                for e in &tde.edits {
+                    if let lsp_types::OneOf::Left(te) = e {
+                        out.entry(url.clone()).or_default().push(te.new_text.clone());
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    fn rs_url(tmp: &TempDir, rel: &str) -> Url {
+        Url::from_file_path(tmp.path().join(rel)).unwrap()
+    }
+
+    fn slint_url(tmp: &TempDir, rel: &str) -> Url {
+        Url::from_file_path(tmp.path().join(rel)).unwrap()
+    }
+
+    /// Property rename: `count` -> `total` in .slint should rewrite the
+    /// `.slint` declaration AND the `get_count`/`set_count` accessors in
+    /// the .rs file.
+    #[test]
+    fn property_rename_rewrites_slint_and_rust() {
+        let tmp = tempdir();
+        let (cache, url, folders) = setup(
+            &tmp,
+            &[(
+                "ui/app.slint",
+                r#"
+export component App inherits Window {
+    in property <int> count /* <- TEST_ME */;
+}
+                "#,
+            )],
+            &[("src/main.rs", "fn main() { let v = obj.get_count(); obj.set_count(v + 1); }\n")],
+        );
+
+        let edit = perform_rename(&cache, &folders, &url, "", "total");
+        let by_url = edits_by_url(&edit);
+        let rs = rs_url(&tmp, "src/main.rs");
+        let slint = slint_url(&tmp, "ui/app.slint");
+        assert!(by_url.contains_key(&slint), "missing .slint edits");
+        let rust_edits = by_url.get(&rs).expect("missing .rs edits");
+        assert!(rust_edits.contains(&"get_total".to_string()), "got: {rust_edits:?}");
+        assert!(rust_edits.contains(&"set_total".to_string()), "got: {rust_edits:?}");
+    }
+
+    /// Callback rename: `clicked` -> `pressed` should rewrite `invoke_clicked`
+    /// and `on_clicked` in the .rs file.
+    #[test]
+    fn callback_rename_rewrites_invoke_and_on() {
+        let tmp = tempdir();
+        let (cache, url, folders) = setup(
+            &tmp,
+            &[(
+                "ui/app.slint",
+                r#"
+export component App inherits Window {
+    callback clicked /* <- TEST_ME */();
+}
+                "#,
+            )],
+            &[("src/main.rs", "fn main() { obj.invoke_clicked(); obj.on_clicked(|| {}); }\n")],
+        );
+
+        let edit = perform_rename(&cache, &folders, &url, "", "pressed");
+        let by_url = edits_by_url(&edit);
+        let rust_edits = by_url.get(&rs_url(&tmp, "src/main.rs")).expect("missing .rs edits");
+        assert!(rust_edits.contains(&"invoke_pressed".to_string()), "{rust_edits:?}");
+        assert!(rust_edits.contains(&"on_pressed".to_string()), "{rust_edits:?}");
+    }
+
+    /// Function rename: `bump` -> `add` should rewrite `invoke_bump` (no
+    /// `on_` for functions).
+    #[test]
+    fn function_rename_rewrites_invoke_only() {
+        let tmp = tempdir();
+        let (cache, url, folders) = setup(
+            &tmp,
+            &[(
+                "ui/app.slint",
+                r#"
+export component App inherits Window {
+    public function bump /* <- TEST_ME */(by: int) -> int { by + 1 }
+}
+                "#,
+            )],
+            &[("src/main.rs", "fn main() { let _ = obj.invoke_bump(2); }\n")],
+        );
+
+        let edit = perform_rename(&cache, &folders, &url, "", "add");
+        let by_url = edits_by_url(&edit);
+        let rust_edits = by_url.get(&rs_url(&tmp, "src/main.rs")).expect("missing .rs edits");
+        assert_eq!(rust_edits, &vec!["invoke_add".to_string()]);
+    }
+
+    /// Private property: classifier returns None, scanner is skipped, only
+    /// the .slint edit is produced.
+    #[test]
+    fn private_property_does_not_touch_host_files() {
+        let tmp = tempdir();
+        let (cache, url, folders) = setup(
+            &tmp,
+            &[(
+                "ui/app.slint",
+                r#"
+export component App inherits Window {
+    private property <int> secret /* <- TEST_ME */;
+}
+                "#,
+            )],
+            &[(
+                "src/main.rs",
+                // Even though the text 'get_secret' appears, it shouldn't
+                // be rewritten because the slint property is private.
+                "fn main() { let _ = obj.get_secret(); }\n",
+            )],
+        );
+
+        let edit = perform_rename(&cache, &folders, &url, "", "hidden");
+        let by_url = edits_by_url(&edit);
+        assert!(
+            !by_url.contains_key(&rs_url(&tmp, "src/main.rs")),
+            "private property must not produce .rs edits"
+        );
+    }
+
+    /// Kebab/snake normalization no-op (`my-count` -> `my_count` both
+    /// produce `get_my_count`): the scanner must NOT run, otherwise the
+    /// preview would show every .rs file as "modified" with identical text.
+    #[test]
+    fn noop_normalization_skips_scanner() {
+        let tmp = tempdir();
+        let (cache, url, folders) = setup(
+            &tmp,
+            &[(
+                "ui/app.slint",
+                r#"
+export component App inherits Window {
+    in property <int> my-count /* <- TEST_ME */;
+}
+                "#,
+            )],
+            &[("src/main.rs", "fn main() { let _ = obj.get_my_count(); }\n")],
+        );
+
+        let edit = perform_rename(&cache, &folders, &url, "", "my_count");
+        let by_url = edits_by_url(&edit);
+        assert!(
+            !by_url.contains_key(&rs_url(&tmp, "src/main.rs")),
+            "no-op normalization must skip host-language scanning"
+        );
+    }
+
+    /// Cross-file inheritance: property declared in a non-exported base in
+    /// `base.slint`, inherited by an exported component in `app.slint`. The
+    /// .rs file calls accessors on the derived component. Renaming the base
+    /// declaration must update both .slint files AND the .rs file.
+    #[test]
+    fn cross_file_inheritance_rewrites_all_three_files() {
+        let tmp = tempdir();
+        // base.slint must be loaded into the cache BEFORE app.slint, since
+        // app.slint imports it. setup() loads files in array order.
+        let (cache, _, folders) = setup(
+            &tmp,
+            &[
+                (
+                    "ui/base.slint",
+                    r#"
+export component Base {
+    in property <int> shared /* <- TEST_ME */;
+}
+                    "#,
+                ),
+                (
+                    "ui/app.slint",
+                    r#"
+import { Base } from "base.slint";
+export component App inherits Base { }
+                    "#,
+                ),
+            ],
+            &[("src/main.rs", "fn main() { obj.set_shared(42); }\n")],
+        );
+
+        // The renamed declaration is in base.slint, so we drive the rename
+        // from base.slint's URL.
+        let base_url = slint_url(&tmp, "ui/base.slint");
+        let edit = perform_rename(&cache, &folders, &base_url, "", "common");
+        let by_url = edits_by_url(&edit);
+        let rust_edits = by_url.get(&rs_url(&tmp, "src/main.rs")).expect("missing .rs edits");
+        assert_eq!(rust_edits, &vec!["set_common".to_string()]);
+    }
+
+    /// Globals: `export global Settings { in property <int> volume; }` plus
+    /// `Settings.volume` accessed via `global<Settings>().get_volume()` on
+    /// the Rust side. Renaming `volume` must rewrite the .rs call site.
+    #[test]
+    fn global_rename_rewrites_rust_accessors() {
+        let tmp = tempdir();
+        let (cache, url, folders) = setup(
+            &tmp,
+            &[(
+                "ui/app.slint",
+                r#"
+export global Settings {
+    in-out property <int> volume /* <- TEST_ME */;
+}
+export component App inherits Window { }
+                "#,
+            )],
+            &[("src/main.rs", "fn main() { app.global::<Settings>().set_volume(5); }\n")],
+        );
+
+        let edit = perform_rename(&cache, &folders, &url, "", "level");
+        let by_url = edits_by_url(&edit);
+        let rust_edits = by_url.get(&rs_url(&tmp, "src/main.rs")).expect("missing .rs edits");
+        assert!(rust_edits.contains(&"set_level".to_string()), "{rust_edits:?}");
+    }
+
+    /// Property rename should rewrite the same `get_<n>`/`set_<n>` accessors
+    /// in a `.cpp` source file -- the scanner is language-agnostic at the
+    /// byte level and both backends emit identical accessor names.
+    #[test]
+    fn cpp_property_rename_rewrites_slint_and_cpp() {
+        let tmp = tempdir();
+        let (cache, url, folders) = setup(
+            &tmp,
+            &[(
+                "ui/app.slint",
+                r#"
+export component App inherits Window {
+    in property <int> count /* <- TEST_ME */;
+}
+                "#,
+            )],
+            &[(
+                "src/main.cpp",
+                "int main() { auto v = app->get_count(); app->set_count(v + 1); }\n",
+            )],
+        );
+
+        let edit = perform_rename(&cache, &folders, &url, "", "total");
+        let by_url = edits_by_url(&edit);
+        let cpp = Url::from_file_path(tmp.path().join("src/main.cpp")).unwrap();
+        let cpp_edits = by_url.get(&cpp).expect("missing .cpp edits");
+        assert!(cpp_edits.contains(&"get_total".to_string()), "{cpp_edits:?}");
+        assert!(cpp_edits.contains(&"set_total".to_string()), "{cpp_edits:?}");
+    }
+
+    /// Header files (`.h`, `.hpp`) are also walked. A caller that holds a
+    /// reference to the generated component in a header method must be
+    /// rewritten too.
+    #[test]
+    fn cpp_header_call_site_is_rewritten() {
+        let tmp = tempdir();
+        let (cache, url, folders) = setup(
+            &tmp,
+            &[(
+                "ui/app.slint",
+                r#"
+export component App inherits Window {
+    callback clicked /* <- TEST_ME */();
+}
+                "#,
+            )],
+            &[("include/binding.hpp", "inline void wire(App* app) { app->on_clicked([](){}); }\n")],
+        );
+
+        let edit = perform_rename(&cache, &folders, &url, "", "pressed");
+        let by_url = edits_by_url(&edit);
+        let hpp = Url::from_file_path(tmp.path().join("include/binding.hpp")).unwrap();
+        let hpp_edits = by_url.get(&hpp).expect("missing .hpp edits");
+        assert_eq!(hpp_edits, &vec!["on_pressed".to_string()]);
+    }
+
+    /// Mixed-language workspace: a single rename must rewrite call sites in
+    /// both `.rs` and `.cpp` files in a single `WorkspaceEdit`.
+    #[test]
+    fn mixed_rust_and_cpp_workspace_both_rewritten() {
+        let tmp = tempdir();
+        let (cache, url, folders) = setup(
+            &tmp,
+            &[(
+                "ui/app.slint",
+                r#"
+export component App inherits Window {
+    in property <int> count /* <- TEST_ME */;
+}
+                "#,
+            )],
+            &[
+                ("rust/src/main.rs", "fn main() { obj.get_count(); }\n"),
+                ("cpp/src/main.cpp", "int main() { app->set_count(1); }\n"),
+            ],
+        );
+
+        let edit = perform_rename(&cache, &folders, &url, "", "total");
+        let by_url = edits_by_url(&edit);
+        let rs = Url::from_file_path(tmp.path().join("rust/src/main.rs")).unwrap();
+        let cpp = Url::from_file_path(tmp.path().join("cpp/src/main.cpp")).unwrap();
+        assert_eq!(by_url.get(&rs).map(Vec::as_slice), Some(&["get_total".to_string()][..]));
+        assert_eq!(by_url.get(&cpp).map(Vec::as_slice), Some(&["set_total".to_string()][..]));
     }
 }

@@ -9,10 +9,10 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 use super::{
-    EventResult, FontMetrics, InputType, Item, ItemConsts, ItemRc, ItemRef, KeyEventArg,
-    KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult, StringArg,
-    TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment, TextWrap,
-    VoidArg,
+    EventResult, FontMetrics, InputMethodHints, InputType, Item, ItemConsts, ItemRc, ItemRef,
+    KeyEventArg, KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult,
+    StringArg, TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment,
+    TextWrap, VoidArg,
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
@@ -25,7 +25,6 @@ use crate::item_rendering::{
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
-use crate::renderer::Renderer;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::string::string_to_float;
@@ -53,6 +52,7 @@ pub struct ComplexText {
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub max_lines: Property<i32>,
 
     pub font_family: Property<SharedString>,
     pub font_italic: Property<bool>,
@@ -92,7 +92,7 @@ impl Item for ComplexText {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
+        _: &mut super::MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -102,7 +102,7 @@ impl Item for ComplexText {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
+        _: &mut super::MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -182,6 +182,10 @@ impl RenderString for ComplexText {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
         PlainOrStyledText::Plain(self.text())
     }
+
+    fn max_lines(self: Pin<&Self>) -> i32 {
+        Self::FIELD_OFFSETS.max_lines().apply_pin(self).get()
+    }
 }
 
 impl RenderText for ComplexText {
@@ -244,6 +248,7 @@ pub struct StyledTextItem {
     pub default_font_family: Property<SharedString>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub max_lines: Property<i32>,
     pub link_clicked: Callback<StringArg>,
     pub link_color: Property<Color>,
     pub cached_rendering_data: CachedRenderingData,
@@ -276,7 +281,7 @@ impl Item for StyledTextItem {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
+        _: &mut super::MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -287,7 +292,7 @@ impl Item for StyledTextItem {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-        cursor: &mut super::MouseCursor,
+        cursor: &mut super::MouseCursorInner,
     ) -> InputEventResult {
         #[cfg(feature = "shared-parley")]
         let find_link = |position: &LogicalPoint| {
@@ -312,7 +317,7 @@ impl Item for StyledTextItem {
                 touch_finger_id: _,
             } => {
                 if let Some(link) = find_link(position) {
-                    *cursor = super::MouseCursor::Pointer;
+                    *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Pointer);
                     Self::FIELD_OFFSETS.link_clicked().apply_pin(self).call(&(link.into(),));
                 }
                 InputEventResult::EventAccepted
@@ -322,7 +327,7 @@ impl Item for StyledTextItem {
             | MouseEvent::Pressed { position, .. }
             | MouseEvent::Released { position, .. } => {
                 if find_link(position).is_some() {
-                    *cursor = super::MouseCursor::Pointer;
+                    *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Pointer);
                 }
                 InputEventResult::EventAccepted
             }
@@ -405,6 +410,10 @@ impl RenderString for StyledTextItem {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
         PlainOrStyledText::Styled(self.text())
     }
+
+    fn max_lines(self: Pin<&Self>) -> i32 {
+        Self::FIELD_OFFSETS.max_lines().apply_pin(self).get()
+    }
 }
 
 impl RenderText for StyledTextItem {
@@ -467,6 +476,7 @@ pub struct SimpleText {
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub max_lines: Property<i32>,
 
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -498,7 +508,7 @@ impl Item for SimpleText {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
+        _: &mut super::MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -508,7 +518,7 @@ impl Item for SimpleText {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
+        _: &mut super::MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -588,6 +598,10 @@ impl RenderString for SimpleText {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
         PlainOrStyledText::Plain(self.text())
     }
+
+    fn max_lines(self: Pin<&Self>) -> i32 {
+        Self::FIELD_OFFSETS.max_lines().apply_pin(self).get()
+    }
 }
 
 impl RenderText for SimpleText {
@@ -636,23 +650,8 @@ impl SimpleText {
     }
 }
 
-/// The size of the text of the textitem considering the current font as minimum height
-fn text_size(
-    text_item: Pin<&dyn crate::item_rendering::RenderString>,
-    self_rc: &ItemRc,
-    renderer: &dyn Renderer,
-    max_width: Option<LogicalLength>,
-    text_wrap: TextWrap,
-) -> LogicalSize {
-    let mut size = renderer.text_size(text_item, self_rc, max_width, text_wrap);
-    // ensure that text input doesn't shrink when going from empty to text that ends up selecting a font that has
-    // an ascent - descent that's less than the requested default font.
-    let request = text_item.font_request(self_rc);
-    let metrics = renderer.font_metrics(request);
-    size.height = size.height.max(metrics.ascent - metrics.descent);
-    size
-}
-
+// The compiler's single-cell box layout lowering relies on text and image
+// items keeping the default stretch of 0 in their layout info.
 fn text_layout_info(
     text: Pin<&dyn RenderText>,
     self_rc: &ItemRc,
@@ -662,7 +661,7 @@ fn text_layout_info(
     cross_axis_constraint: Coord,
 ) -> LayoutInfo {
     let implicit_size = |max_width, text_wrap| {
-        text_size(text, self_rc, window_adapter.renderer(), max_width, text_wrap)
+        window_adapter.renderer().text_size(text, self_rc, max_width, text_wrap)
     };
 
     // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
@@ -761,6 +760,7 @@ pub struct TextInput {
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub wrap: Property<TextWrap>,
     pub input_type: Property<InputType>,
+    pub input_method_hints: Property<InputMethodHints>,
     pub letter_spacing: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
@@ -789,10 +789,34 @@ pub struct TextInput {
     pressed: Cell<u8>,
     undo_items: Cell<SharedVector<UndoItem>>,
     redo_items: Cell<SharedVector<UndoItem>>,
+    /// Mirror of `text` as of the last internal edit. Used by the change handler installed
+    /// in `init` to tell internal edits apart from external assignments to the public `text`
+    /// property, so that only the latter realign the cursor/anchor offsets and undo stack.
+    internal_text: Cell<SharedString>,
+    /// Runs `align_to_text` whenever `text` is assigned externally (see issues #331 and #9024).
+    text_change_tracker: crate::properties::ChangeTracker,
 }
 
 impl Item for TextInput {
-    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+    fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+        // Seed the mirror so the change handler doesn't treat the initial text as external.
+        self.internal_text.set(self.text());
+        self.text_change_tracker.init_delayed(
+            self_rc.downgrade(),
+            |self_weak| {
+                self_weak
+                    .upgrade()
+                    .and_then(|rc| rc.downcast::<TextInput>())
+                    .map(|text_input| text_input.as_pin_ref().text())
+                    .unwrap_or_default()
+            },
+            |self_weak, new_text| {
+                let Some(self_rc) = self_weak.upgrade() else { return };
+                let Some(text_input) = self_rc.downcast::<TextInput>() else { return };
+                text_input.as_pin_ref().align_to_text(new_text, &self_rc);
+            },
+        );
+    }
 
     fn deinit(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
         if self.has_focus() {
@@ -809,7 +833,7 @@ impl Item for TextInput {
         self_rc: &ItemRc,
     ) -> LayoutInfo {
         let implicit_size = |max_width, text_wrap| {
-            text_size(self, self_rc, window_adapter.renderer(), max_width, text_wrap)
+            window_adapter.renderer().text_size(self, self_rc, max_width, text_wrap)
         };
 
         // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
@@ -851,7 +875,7 @@ impl Item for TextInput {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
+        _: &mut super::MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -861,13 +885,13 @@ impl Item for TextInput {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-        cursor: &mut super::MouseCursor,
+        cursor: &mut super::MouseCursorInner,
     ) -> InputEventResult {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
 
-        *cursor = super::MouseCursor::Text;
+        *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Text);
 
         match event {
             MouseEvent::Pressed {
@@ -881,7 +905,7 @@ impl Item for TextInput {
                     self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 }
 
-                #[cfg(not(target_os = "android"))]
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
 
                 match click_count % 3 {
@@ -900,13 +924,13 @@ impl Item for TextInput {
                 return InputEventResult::GrabMouse;
             }
             MouseEvent::Pressed { button: PointerEventButton::Middle, .. } => {
-                #[cfg(not(target_os = "android"))]
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 self.as_ref().pressed.set(0);
                 self.copy_clipboard(window_adapter, Clipboard::SelectionClipboard);
-                #[cfg(target_os = "android")]
+                #[cfg(any(target_os = "android", target_os = "ios"))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
             MouseEvent::Released { position, button: PointerEventButton::Middle, .. } => {
@@ -1102,7 +1126,7 @@ impl Item for TextInput {
                     kind: UndoItemKind::TextInsert,
                 });
 
-                self.as_ref().text.set(text.into());
+                self.as_ref().set_text_internal(text.into());
                 let new_cursor_pos = (insert_pos + event.key_event.text.len()) as i32;
                 self.as_ref().anchor_position_byte_offset.set(new_cursor_pos);
                 self.set_cursor_position(
@@ -1219,7 +1243,7 @@ impl Item for TextInput {
                             let mut text = String::from(self.text());
                             let cursor_position = self.cursor_position(&text);
                             text.insert_str(cursor_position, &preedit_text);
-                            self.text.set(text.into());
+                            self.set_text_internal(text.into());
                             let new_pos = (cursor_position + preedit_text.len()) as i32;
                             self.anchor_position_byte_offset.set(new_pos);
                             self.set_cursor_position(
@@ -1330,10 +1354,10 @@ impl core::convert::TryFrom<char> for TextCursorDirection {
             key_codes::DownArrow => Self::NextLine,
             key_codes::PageUp => Self::PageUp,
             key_codes::PageDown => Self::PageDown,
-            // On macos this scrolls to the top or the bottom of the page
-            #[cfg(not(target_os = "macos"))]
+            // On macOS and iOS this scrolls to the top or the bottom of the page
+            #[cfg(not(target_vendor = "apple"))]
             key_codes::Home => Self::StartOfLine,
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(target_vendor = "apple"))]
             key_codes::End => Self::EndOfLine,
             _ => return Err(()),
         })
@@ -1366,20 +1390,21 @@ fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
     if unsafe_byte_offset <= 0 {
         return 0;
     }
-    let byte_offset_candidate = unsafe_byte_offset as usize;
+    text.ceil_char_boundary(unsafe_byte_offset as usize)
+}
 
-    if byte_offset_candidate >= text.len() {
-        return text.len();
+/// Like [`safe_byte_offset`], but additionally snaps the result up to a grapheme cluster
+/// boundary. Used when realigning the cursor/anchor to text that was replaced externally, so
+/// they never land inside a multi-codepoint grapheme (e.g. an emoji with a skin-tone modifier
+/// or a base character followed by a combining mark), matching how cursor movement treats a
+/// grapheme cluster as indivisible.
+fn safe_grapheme_boundary_offset(unsafe_byte_offset: i32, text: &str) -> usize {
+    let offset = safe_byte_offset(unsafe_byte_offset, text);
+    let mut grapheme_cursor = unicode_segmentation::GraphemeCursor::new(offset, text.len(), true);
+    match grapheme_cursor.is_boundary(text, 0) {
+        Ok(true) => offset,
+        _ => grapheme_cursor.next_boundary(text, 0).ok().flatten().unwrap_or(text.len()),
     }
-
-    if text.is_char_boundary(byte_offset_candidate) {
-        return byte_offset_candidate;
-    }
-
-    // Use std::floor_char_boundary once stabilized.
-    text.char_indices()
-        .find_map(|(offset, _)| if offset >= byte_offset_candidate { Some(offset) } else { None })
-        .unwrap_or(text.len())
 }
 
 /// This struct holds the fields needed for rendering a TextInput item after applying any
@@ -1462,6 +1487,17 @@ impl TextInputVisualRepresentation {
             byte_offset
         }
     }
+}
+
+/// Whether the text cursor is drawn in the selection color (Apple and Android platforms) rather
+/// than in the text color.
+fn cursor_uses_selection_color() -> bool {
+    matches!(
+        crate::detect_operating_system(),
+        crate::items::OperatingSystemType::Android
+            | crate::items::OperatingSystemType::Ios
+            | crate::items::OperatingSystemType::Macos
+    )
 }
 
 impl TextInput {
@@ -1626,6 +1662,48 @@ impl TextInput {
         new_cursor_pos != last_cursor_pos
     }
 
+    /// Set `text` from an internal edit, keeping the `internal_text` mirror in sync so the
+    /// change handler doesn't mistake this edit for an external assignment.
+    fn set_text_internal(self: Pin<&Self>, text: SharedString) {
+        self.internal_text.set(text.clone());
+        self.text.set(text);
+    }
+
+    /// Called by the change handler when the public `text` property changes. If the new text
+    /// differs from our `internal_text` mirror, the change came from outside (the application
+    /// assigned `text` directly), so realign all derived state to the new text: clamp the
+    /// cursor and anchor offsets to valid boundaries (issue #331) and clear the undo/redo
+    /// stacks, whose positions refer to the now-replaced text (issue #9024).
+    fn align_to_text(self: Pin<&Self>, new_text: &SharedString, self_rc: &ItemRc) {
+        let previous_text = self.internal_text.replace(new_text.clone());
+        if previous_text == *new_text {
+            // Produced by an internal edit: `set_text_internal` already kept the mirror in sync,
+            // so the offsets and undo stack are consistent with `new_text`. Nothing to realign.
+            return;
+        }
+
+        self.undo_items.set(Default::default());
+        self.redo_items.set(Default::default());
+
+        let old_cursor = self.cursor_position_byte_offset();
+        let clamped_cursor = safe_grapheme_boundary_offset(old_cursor, new_text) as i32;
+        let clamped_anchor =
+            safe_grapheme_boundary_offset(self.anchor_position_byte_offset(), new_text) as i32;
+        self.anchor_position_byte_offset.set(clamped_anchor);
+
+        if let Some(window_adapter) = self_rc.window_adapter() {
+            self.set_cursor_position(
+                clamped_cursor,
+                true,
+                TextChangeNotify::TriggerCallbacks,
+                &window_adapter,
+                self_rc,
+            );
+        } else {
+            self.cursor_position_byte_offset.set(clamped_cursor);
+        }
+    }
+
     pub fn set_cursor_position(
         self: Pin<&Self>,
         new_position: i32,
@@ -1705,7 +1783,7 @@ impl TextInput {
         };
 
         let text = [text.split_at(anchor).0, text.split_at(cursor).1].concat();
-        self.text.set(text.into());
+        self.set_text_internal(text.into());
         self.anchor_position_byte_offset.set(anchor as i32);
 
         self.add_undo_item(UndoItem {
@@ -1777,6 +1855,7 @@ impl TextInput {
             cursor_rect_size,
             anchor_point,
             input_type: self.input_type(),
+            input_method_hints: self.input_method_hints(),
             clip_rect,
         }
     }
@@ -1835,7 +1914,7 @@ impl TextInput {
         });
 
         let cursor_pos = cursor_pos + text_to_insert.len();
-        self.text.set(text.into());
+        self.set_text_internal(text.into());
         self.anchor_position_byte_offset.set(cursor_pos as i32);
         self.set_cursor_position(
             cursor_pos as i32,
@@ -2018,13 +2097,14 @@ impl TextInput {
 
         let text_color = self.color();
 
-        let cursor_color = if cfg!(any(target_os = "android", target_vendor = "apple")) {
+        let cursor_color = if cursor_uses_selection_color() {
             if cursor_position.is_some() {
                 self.selection_background_color().with_alpha(1.)
             } else {
                 Default::default()
             }
         } else {
+            // Other platforms draw the cursor in the text color.
             text_color.color()
         };
 
@@ -2118,7 +2198,7 @@ impl TextInput {
         self.undo_items.set(items);
     }
 
-    fn undo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+    pub fn undo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         let mut items = self.undo_items.take();
         let Some(last) = items.pop() else {
             return;
@@ -2129,7 +2209,7 @@ impl TextInput {
                 let text: String = self.text().into();
                 let text = [text.split_at(last.pos).0, text.split_at(last.pos + last.text.len()).1]
                     .concat();
-                self.text.set(text.into());
+                self.set_text_internal(text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2143,7 +2223,7 @@ impl TextInput {
             UndoItemKind::TextRemove => {
                 let mut text: String = self.text().into();
                 text.insert_str(last.pos, &last.text);
-                self.text.set(text.into());
+                self.set_text_internal(text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2163,7 +2243,7 @@ impl TextInput {
         Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
     }
 
-    fn redo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+    pub fn redo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         let mut items = self.redo_items.take();
         let Some(last) = items.pop() else {
             return;
@@ -2173,7 +2253,7 @@ impl TextInput {
             UndoItemKind::TextInsert => {
                 let mut text: String = self.text().into();
                 text.insert_str(last.pos, &last.text);
-                self.text.set(text.into());
+                self.set_text_internal(text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2188,7 +2268,7 @@ impl TextInput {
                 let text: String = self.text().into();
                 let text = [text.split_at(last.pos).0, text.split_at(last.pos + last.text.len()).1]
                     .concat();
-                self.text.set(text.into());
+                self.set_text_internal(text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2246,7 +2326,7 @@ impl TextInput {
                 }
                 return string_to_float(&candidate).is_some();
             }
-            InputType::Password | InputType::Text => (),
+            InputType::Password | InputType::Text | InputType::Search => (),
         }
 
         true
@@ -2386,6 +2466,36 @@ pub unsafe extern "C" fn slint_textinput_paste(
     }
 }
 
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_textinput_undo(
+    text_input: Pin<&TextInput>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+) {
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        text_input.undo(window_adapter, &self_rc);
+    }
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_textinput_redo(
+    text_input: Pin<&TextInput>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+) {
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        text_input.redo(window_adapter, &self_rc);
+    }
+}
+
 pub fn slint_text_item_fontmetrics(
     window_adapter: &Rc<dyn WindowAdapter>,
     item_ref: Pin<ItemRef<'_>>,
@@ -2408,11 +2518,12 @@ pub unsafe extern "C" fn slint_cpp_text_item_fontmetrics(
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
-) -> FontMetrics {
+    out: *mut FontMetrics,
+) {
     unsafe {
         let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
         let self_rc = ItemRc::new(self_component.clone(), self_index);
         let self_ref = self_rc.borrow();
-        slint_text_item_fontmetrics(window_adapter, self_ref, &self_rc)
+        core::ptr::write(out, slint_text_item_fontmetrics(window_adapter, self_ref, &self_rc));
     }
 }

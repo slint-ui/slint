@@ -117,8 +117,6 @@ fn main() -> std::io::Result<()> {
             "#[ignore = \"testcase ignored in live-preview mode\"]"
         } else if live_preview && source.contains("#3464") {
             "#[ignore = \"issue #3464 not fixed with the interpreter\"]"
-        } else if live_preview && module_name.contains("widgets_menubar") {
-            "#[ignore = \"issue #8454 causes crashes\"]"
         } else if live_preview && module_name.contains("write_to_model") {
             "#[ignore = \"Interpreted model don't forward to underlying models for anonymous structs\"]"
         } else {
@@ -245,9 +243,51 @@ fn generate_source(
     output: &mut impl Write,
     testcase: test_driver_lib::TestCase,
 ) -> Result<(), std::io::Error> {
-    use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
-
     println!("cargo::rerun-if-env-changed=SLINT_LIVE_PREVIEW");
+
+    let generated = compile_and_generate(source, &testcase)?;
+
+    #[cfg(feature = "deterministic-output")]
+    {
+        let second = compile_and_generate(source, &testcase)?;
+        let expect_utf8 =
+            |bytes| std::str::from_utf8(bytes).expect("generated Rust is valid UTF-8");
+        assert_eq!(
+            expect_utf8(&generated),
+            expect_utf8(&second),
+            "Non-deterministic compiler output for {:?}",
+            testcase.absolute_path
+        );
+    }
+
+    output.write_all(&generated)?;
+    Ok(())
+}
+
+#[cfg(feature = "build-time")]
+fn compile_and_generate(
+    source: &str,
+    testcase: &test_driver_lib::TestCase,
+) -> Result<Vec<u8>, std::io::Error> {
+    // Run the compiler in a thread with a reduced stack size to catch excessive
+    // stack usage, which would break compilation in environments with small
+    // default stack sizes.
+    std::thread::scope(|scope| {
+        std::thread::Builder::new()
+            .stack_size(512 * 1024)
+            .spawn_scoped(scope, || compile_and_generate_impl(source, testcase))
+            .expect("failed to spawn compiler thread")
+            .join()
+            .expect("compiler thread panicked")
+    })
+}
+
+#[cfg(feature = "build-time")]
+fn compile_and_generate_impl(
+    source: &str,
+    testcase: &test_driver_lib::TestCase,
+) -> Result<Vec<u8>, std::io::Error> {
+    use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 
     let include_paths = test_driver_lib::extract_include_paths(source)
         .map(std::path::PathBuf::from)
@@ -284,12 +324,13 @@ fn generate_source(
         diag.print();
     }
 
+    let mut output = Vec::new();
     generator::generate(
         generator::OutputFormat::Rust,
-        output,
+        &mut output,
         None,
         &root_component,
         &loader.compiler_config,
     )?;
-    Ok(())
+    Ok(output)
 }

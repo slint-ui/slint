@@ -3,72 +3,72 @@
 
 // cspell:ignore bwood
 
-Test := Rectangle {
-    property<color> b1: blue;
-    property<color> b2: #00f;
-    property<color> b3: #0000ff;
-    property<color> b4: #00ff;
-    property<color> b5: #0000ffff;
-    property<color> r1: red;
-    property<color> r2: #f00;
-    property<color> r3: #ff0000;
-    property<color> r4: #f00f;
-    property<color> r5: #ff0000ff;
+export component Test inherits Rectangle {
+    in-out property<color> b1: blue;
+    in-out property<color> b2: #00f;
+    in-out property<color> b3: #0000ff;
+    in-out property<color> b4: #00ff;
+    in-out property<color> b5: #0000ffff;
+    in-out property<color> r1: red;
+    in-out property<color> r2: #f00;
+    in-out property<color> r3: #ff0000;
+    in-out property<color> r4: #f00f;
+    in-out property<color> r5: #ff0000ff;
 
-    property<color> y1: yellow;
-    property<color> y2: #ff0;
+    in-out property<color> y1: yellow;
+    in-out property<color> y2: #ff0;
 
-    property<color> g1: #999;
+    in-out property<color> g1: #999;
 
-    property<color> c1: #ff335588;
-    property<color> c2: rgb(100, 23, 42);
-    property<color> c3: rgba(39%, 50%, 16%, 81%);
+    in-out property<color> c1: #ff335588;
+    in-out property<color> c2: rgb(100, 23, 42);
+    in-out property<color> c3: rgba(39%, 50%, 16%, 81%);
 
-    property<color> i1: rgb(0, 666, -85);
+    in-out property<color> i1: rgb(0, 666, -85);
 
     // allow to use `mix` on colors
-    property<color> p1: true ? b1.mix(r1, 30%) : y1.mix(c1, 70%);
+    in-out property<color> p1: true ? b1.mix(r1, 30%) : y1.mix(c1, 70%);
     // allow to use `with_alpha` on colors
-    property<brush> invisible: b1.with-alpha(0%);
+    in-out property<brush> invisible: b1.with-alpha(0%);
 
-    property<float> b1hue: 240.0;
-    property<float> b1sat: 1.0;
-    property<float> b1bri: 1.0;
+    in-out property<float> b1hue: 240.0;
+    in-out property<float> b1sat: 1.0;
+    in-out property<float> b1bri: 1.0;
 
-    property<float> r1hue: 0.0;
-    property<float> r1sat: 1.0;
-    property<float> r1bri: 1.0;
+    in-out property<float> r1hue: 0.0;
+    in-out property<float> r1sat: 1.0;
+    in-out property<float> r1bri: 1.0;
 
-    property<float> y1hue: 60.0;
-    property<float> y1sat: 1.0;
-    property<float> y1bri: 1.0;
+    in-out property<float> y1hue: 60.0;
+    in-out property<float> y1sat: 1.0;
+    in-out property<float> y1bri: 1.0;
 
-    property <color> gr1: green;
-    property<float> gr1hue: 120.0;
-    property<float> gr1sat: 1.0;
-    property<float> gr1bri: 0.501960813999176;
-    property <color> new_green: hsv(120.0, 1.0, 0.501960813999176);
+    in-out property <color> gr1: green;
+    in-out property<float> gr1hue: 120.0;
+    in-out property<float> gr1sat: 1.0;
+    in-out property<float> gr1bri: 0.501960813999176;
+    in-out property <color> new_green: hsv(120.0, 1.0, 0.501960813999176);
 
     // burlywood
-    property<color> bwood: Colors.burlywood;
-    property<float> bwood_hue: 33.79310607910156;
-    property<float> bwood_sat: 0.39189186692237854;
-    property<float> bwood_bri: 0.8705882430076599;
+    in-out property<color> bwood: Colors.burlywood;
+    in-out property<float> bwood_hue: 33.79310607910156;
+    in-out property<float> bwood_sat: 0.39189186692237854;
+    in-out property<float> bwood_bri: 0.8705882430076599;
 
     // hsv with angle hue
-    property<color> hsv_angle1: hsv(240deg, 1, 1);
-    property<color> hsv_angle2: hsv(240, 1, 1);
+    in-out property<color> hsv_angle1: hsv(240deg, 1, 1);
+    in-out property<color> hsv_angle2: hsv(240, 1, 1);
 
     // oklch color creation
-    property<color> oklch1: oklch(0.5, 0.1, 180);
-    property<color> oklch2: oklch(0.7, 0.15, 90, 0.8);
+    in-out property<color> oklch1: oklch(0.5, 0.1, 180);
+    in-out property<color> oklch2: oklch(0.7, 0.15, 90, 0.8);
     // oklch with percentage - 100% chroma equals 0.4
-    property<color> oklch_pct1: oklch(50%, 100%, 180);
-    property<color> oklch_pct2: oklch(0.5, 0.4, 180);
+    in-out property<color> oklch_pct1: oklch(50%, 100%, 180);
+    in-out property<color> oklch_pct2: oklch(0.5, 0.4, 180);
     // oklch with angle hue
-    property<color> oklch_angle1: oklch(0.5, 0.1, 180deg);
-    property<color> oklch_angle2: oklch(0.5, 0.1, 180);
-    property<color> oklch_angle3: oklch(0.5, 0.1, 0.5turn);
+    in-out property<color> oklch_angle1: oklch(0.5, 0.1, 180deg);
+    in-out property<color> oklch_angle2: oklch(0.5, 0.1, 180);
+    in-out property<color> oklch_angle3: oklch(0.5, 0.1, 0.5turn);
 
     // oklch conversion - approximate values for known colors
     // Red in oklch: L≈0.63, C≈0.26, H≈29
@@ -104,7 +104,7 @@ Test := Rectangle {
     // Test oklch angle hue: 180deg == 180 == 0.5turn
     out property <bool> test_oklch_angle: oklch_angle1 == oklch_angle2 && oklch_angle1 == oklch_angle3;
 
-    property<bool> test: b1 == b2 && b2 == b5 && b3 == Colors.blue && Colors.red == r4 && y1 == Colors.rgba(255, 100%, 0, 100%)
+    in-out property<bool> test: b1 == b2 && b2 == b5 && b3 == Colors.blue && Colors.red == r4 && y1 == Colors.rgba(255, 100%, 0, 100%)
         && test_rgb && test_hsv && test_hsv_hue && test_hsv_sat && test_hsv_bri && test_hsv_wrap && test_hsv_angle
         && test_oklch_red && test_oklch_blue && test_oklch_white && test_oklch_create && test_oklch_percent && test_oklch_angle;
 }

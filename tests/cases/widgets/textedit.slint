@@ -11,6 +11,8 @@ export component TestCase inherits Window {
     edit := TextEdit {
         width: 100%;
         height: 100%;
+        // Pin the font size so the page navigation lands at the same spot in every style.
+        font-size: 1rem;
     }
 
     forward-focus: edit;
@@ -64,14 +66,14 @@ assert_eq!(edits.borrow().clone(), vec!["h", "he", "hel", "hell", "hello"]);
 
 // Test mouse cursor for issue 6444
 use slint::{LogicalPosition, platform::{WindowEvent, PointerEventButton}};
-use slint::private_unstable_api::re_exports::MouseCursor;
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Text, "after previous click");
+use slint::private_unstable_api::re_exports::{BuiltInMouseCursor, MouseCursorInner};
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text), "after previous click");
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Middle });
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Text, "Middle button pressed");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text), "Middle button pressed");
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Middle });
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Text, "Middle button released");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text), "Middle button released");
 instance.window().dispatch_event(WindowEvent::PointerExited { });
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default));
 
 // test page up/down
 for x in 0..10 {

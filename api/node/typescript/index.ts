@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import * as napi from "../rust-module.cjs";
+import * as napi from "../binding.cjs";
 export {
     Diagnostic,
     DiagnosticLevel,
@@ -9,7 +9,8 @@ export {
     Brush,
     DataTransfer,
     StyledText,
-} from "../rust-module.cjs";
+    Keys,
+} from "../binding.cjs";
 
 import { Model } from "./models";
 export { Model };
@@ -18,7 +19,7 @@ export { ArrayModel } from "./models";
 
 export { language } from "./generated/language";
 
-import { Diagnostic } from "../rust-module.cjs";
+import { Diagnostic } from "../binding.cjs";
 
 import { fileURLToPath } from "node:url";
 
@@ -156,9 +157,9 @@ export interface ComponentHandle {
      * Returns the {@link Window} associated with this component instance.
      * The window API can be used to control different aspects of the integration into the windowing system, such as the position on the screen.
      *
-     * Not present on non-windowed components such as ones inheriting from `SystemTrayIcon`.
+     * Throws an error when accessed on non-windowed components such as ones inheriting from `SystemTrayIcon`.
      */
-    readonly window?: Window;
+    get window(): Window;
 }
 
 /**
@@ -173,17 +174,10 @@ class Component implements ComponentHandle {
      */
     constructor(instance: napi.ComponentInstance) {
         this.#instance = instance;
+    }
 
-        // Non-windowed components (e.g. `SystemTrayIcon`) don't have a `window`:
-        // the underlying `instance.window()` would panic. Install the getter
-        // only when meaningful so `'window' in component` reflects support.
-        if (instance.definition().isWindow) {
-            Object.defineProperty(this, "window", {
-                get: () => this.#instance.window(),
-                enumerable: true,
-                configurable: false,
-            });
-        }
+    get window(): Window {
+        return this.#instance.window();
     }
 
     /**
@@ -1030,7 +1024,6 @@ export namespace private_api {
     export import SlintSize = napi.SlintSize;
     export import SlintPoint = napi.SlintPoint;
     export import SlintImageData = napi.SlintImageData;
-    export import SlintKeys = napi.SlintKeys;
 
     export function send_mouse_click(
         component: Component,
@@ -1052,4 +1045,12 @@ export namespace private_api {
     }
 
     export import initTesting = napi.initTesting;
+
+    /**
+     * Returns the optional capabilities that were compiled into the loaded
+     * native binary, e.g. `"testing"`, `"system-testing"` and `"mcp"`. When the
+     * default binary is loaded this is empty; when the "dev" binary is loaded
+     * it contains the additional features. See binding.cjs.
+     */
+    export import buildFeatures = napi.buildFeatures;
 }

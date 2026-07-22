@@ -18,6 +18,15 @@
    another properties. These binding will be then set by the compiler.
    `output` property mean that the property can be modified by the native Item,
    otherwise it is assumed the native item don't write to that property.
+
+   A property, callback, or function can be preceded by a `//-shadowable` comment.
+   Components may declare a member with the same name as a shadowable member: this is
+   a warning instead of an error, and the declaration shadows the builtin member.
+   Members added to an already released element must be marked shadowable, so that
+   older code that already declares a member with that name keeps compiling.
+   This only works for members that the compiler itself never accesses by name —
+   no default binding, and no compiler pass that looks the name up on user elements —
+   as such accesses would resolve to the shadowing declaration and generate wrong code.
  */
 
  component Empty {
@@ -199,6 +208,10 @@ component BorderRectangle inherits BasicBorderRectangle {
     //! To achieve the graphical effect of a visually elevated shape that shows a shadow effect underneath the frame of
     //! an element, it's possible to set the following `drop-shadow` properties:
     //!
+    //! The CSS equivalent is `box-shadow`: `box-shadow: 2px 2px 4px 1px black` translates to
+    //! `drop-shadow-offset-x: 2px; drop-shadow-offset-y: 2px; drop-shadow-blur: 4px;
+    //! drop-shadow-spread: 1px; drop-shadow-color: black;`.
+    //!
     //! ### drop-shadow-blur
     //! <SlintProperty propName="drop-shadow-blur" typeName="length"/>
     //! The radius of the shadow that also describes the level of blur applied to the shadow. Negative values are ignored and zero means no blur.
@@ -221,30 +234,34 @@ component BorderRectangle inherits BasicBorderRectangle {
     //! Grows (positive) or shrinks (negative) the shadow shape on all sides before the blur is applied.
     //! Equivalent to the spread radius in CSS `box-shadow`. Currently only supported by the Skia renderer.
     //!
-    //! ## Inset Shadows
+    //! ## Inner Shadows
     //!
-    //! Inset shadows are rendered inside the element's geometry (inverted from drop shadows), giving
+    //! Inner shadows are rendered inside the element's geometry (inverted from drop shadows), giving
     //! the appearance of an inwards-cast shadow. They follow the same parameters as drop shadows.
     //! Currently only supported by the Skia renderer.
     //!
-    //! ### inset-shadow-blur
-    //! <SlintProperty propName="inset-shadow-blur" typeName="length"/>
-    //! The blur radius of the inset shadow.
+    //! The CSS equivalent is `box-shadow` with the `inset` keyword: `box-shadow: inset 2px 2px 4px 1px black`
+    //! translates to `inner-shadow-offset-x: 2px; inner-shadow-offset-y: 2px; inner-shadow-blur: 4px;
+    //! inner-shadow-spread: 1px; inner-shadow-color: black;`.
     //!
-    //! ### inset-shadow-color
-    //! <SlintProperty propName="inset-shadow-color" typeName="color"/>
-    //! The base color of the inset shadow.
+    //! ### inner-shadow-blur
+    //! <SlintProperty propName="inner-shadow-blur" typeName="length"/>
+    //! The blur radius of the inner shadow.
     //!
-    //! ### inset-shadow-offset-x
-    //! <SlintProperty propName="inset-shadow-offset-x" typeName="length"/>
-    //! Horizontal offset of the inset shadow inside the element.
+    //! ### inner-shadow-color
+    //! <SlintProperty propName="inner-shadow-color" typeName="color"/>
+    //! The base color of the inner shadow.
     //!
-    //! ### inset-shadow-offset-y
-    //! <SlintProperty propName="inset-shadow-offset-y" typeName="length"/>
-    //! Vertical offset of the inset shadow inside the element.
+    //! ### inner-shadow-offset-x
+    //! <SlintProperty propName="inner-shadow-offset-x" typeName="length"/>
+    //! Horizontal offset of the inner shadow inside the element.
     //!
-    //! ### inset-shadow-spread
-    //! <SlintProperty propName="inset-shadow-spread" typeName="length"/>
+    //! ### inner-shadow-offset-y
+    //! <SlintProperty propName="inner-shadow-offset-y" typeName="length"/>
+    //! Vertical offset of the inner shadow inside the element.
+    //!
+    //! ### inner-shadow-spread
+    //! <SlintProperty propName="inner-shadow-spread" typeName="length"/>
     //! Positive spread thickens the shadow band along the element's interior boundary; negative spread
     //! thins it.
     //-default_size_binding:expands_to_parent_geometry
@@ -492,7 +509,7 @@ export component Transform inherits Empty {
 component SimpleText inherits Empty {
     in property <length> width;
     in property <length> height;
-    ///     The color of the text.
+    /// The color of the text.
     ///
     /// ```slint "color: #3586f4;" imageAlt="text color" width="200" height="200" needsBackground
     /// Text {
@@ -534,6 +551,11 @@ component SimpleText inherits Empty {
     /// }
     /// ```
     in property <TextHorizontalAlignment> horizontal-alignment;
+    /// The maximum number of lines to display. Wrapped lines count towards the limit, and
+    /// with `overflow` set to `elide`, the ellipsis is placed on the last visible line.
+    /// Values less than or equal to zero don't limit the number of lines.
+    /// \default 0
+    in property <int> max-lines;
     /// The text rendered.
     /// \default ""
     in property <string> text;
@@ -725,6 +747,10 @@ component StyledTextItem inherits Empty {
     in property <TextHorizontalAlignment> horizontal-alignment;
     /// The color used for rendering links in the text.
     in property <color> link-color: #00f;
+    /// The maximum number of lines to display. Wrapped lines count towards the limit.
+    /// Values less than or equal to zero don't limit the number of lines.
+    /// \default 0
+    in property <int> max-lines;
     /// The styled text rendered, using CommonMark markup with additional HTML tags for styling.
     /// \default ""
     in property <styled-text> text;
@@ -801,7 +827,7 @@ export component TouchArea {
     in property <bool> enabled: true;
     /// Set to true when the mouse is over the `TouchArea` area.
     out property <bool> has_hover;
-    /// The mouse cursor type when the mouse is hovering the `TouchArea`.
+    /// The mouse cursor when the mouse is hovering the `TouchArea`.
     in property <MouseCursor> mouse-cursor;
     /// Set by the `TouchArea` to the position of the mouse within it.
     out property <length> mouse_x;
@@ -980,6 +1006,7 @@ component KeyBinding {
 /// interacting with `TouchArea` elements:
 ///
 /// 1. If the `Flickable`'s `interactive` property is `false`, all events are forwarded to elements underneath.
+///    If `mouse-drag-pan-enabled` is `false`, only mouse events are forwarded this way, while touch events keep panning.
 /// 2. If a press event is received where the event's coordinates interact with a `TouchArea`, the event is stored
 ///    and any subsequent move and release events are handled as follows:
 ///    1. If 100ms elapse without any events, the stored press event is delivered to the `TouchArea`.
@@ -1001,7 +1028,7 @@ component KeyBinding {
 /// ## Wheel/Scroll Event Interaction
 ///
 /// The `Flickable` also supports scrolling with the mouse wheel and touchpad scroll gestures.
-/// It will scroll regardless of the `interactive` property.
+/// It will scroll regardless of the `interactive` and `mouse-drag-pan-enabled` properties.
 /// If the `Flickable` can scroll in the event's direction, the event will be intercepted.
 /// If the Flickable can't scroll in the direction of the event, the event will be forwarded to the parent.
 /// \group:gestures
@@ -1011,8 +1038,12 @@ export component Flickable inherits Empty {
     ///     interactive: false;
     /// }
     /// ```
-    /// When true, the viewport can be scrolled by clicking on it and dragging it with the cursor.
+    /// When false, the viewport can't be panned by the user, neither by dragging with the mouse
+    /// nor with touch.
     in property <bool> interactive: true;
+    /// When true, the viewport can be scrolled by clicking on it and dragging it with the cursor.
+    /// Panning with a touch screen is only affected by `interactive`.
+    in property <bool> mouse-drag-pan-enabled: true;
     /// The total width of the scrollable element.
     in property <length> viewport-width;
     /// The total height of the scrollable element.
@@ -1174,7 +1205,6 @@ export component ScaleRotateGestureHandler {
     /// The cumulative scale factor of the gesture. Always starts at `1.0` when the gesture begins.
     /// A value greater than `1.0` means zooming in, less than `1.0` means zooming out.
     /// When the gesture is not active, the value is `1.0`.
-    /// \default 1.0
     out property <float> scale;
     /// The cumulative rotation angle of the gesture. Always starts at `0deg` when the gesture begins.
     /// Positive values indicate clockwise rotation, negative values indicate counter-clockwise rotation.
@@ -1206,10 +1236,12 @@ export component ScaleRotateGestureHandler {
 /// `data-transfer` values are opaque in Slint code:
 /// construct and read them via callbacks implemented in the host language.
 ///
-/// The source declares which actions it permits via `allow-copy`, `allow-move`, and `allow-link`,
-/// and a `preferred-action` that applies when no modifier key is pressed. The target picks the final
-/// action from this set in its `can-drop` callback. Once a drop completes (or the drag is cancelled),
-/// `drag-finished(action)` fires so a "move" source can remove the original data.
+/// The source declares which actions it permits via `allow-copy`, `allow-move`, and `allow-link`.
+/// At least one must be set to true; a `DragArea` that permits no action never starts a drag.
+/// When no modifier key is pressed, the proposed action is the first allowed of move, copy, link;
+/// modifier keys request a specific action (Ctrl -> copy, Shift -> move, Ctrl+Shift -> link).
+/// The target picks the final action from this set in its `can-drop` callback. Once a drop completes
+/// (or the drag is cancelled), `drag-finished(action)` fires so a "move" source can remove the original data.
 ///
 /// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
 /// \group:drag-and-drop
@@ -1229,15 +1261,12 @@ export component DragArea {
     /// `0` puts the image's top edge at the cursor.
     in property <int> drag-image-offset-y;
     /// Whether the source allows the drop to copy the data. The source retains the data.
-    in property <bool> allow-copy: true;
+    in property <bool> allow-copy;
     /// Whether the source allows the drop to move the data. The source should remove the
     /// original from its model in the `drag-finished` callback when the action is `move`.
-    in property <bool> allow-move: false;
+    in property <bool> allow-move;
     /// Whether the source allows the drop to link to the data. Neither side gives up ownership.
-    in property <bool> allow-link: false;
-    /// The action used when no modifier key is pressed. The runtime clamps it to the allowed set;
-    /// if the named action isn't allowed, falls back to the first allowed of move, copy, link.
-    in property <DragAction> preferred-action: DragAction.copy;
+    in property <bool> allow-link;
     /// `true` once the press has crossed the drag threshold and a drag is in flight,
     /// `false` once the drop completes or the drag is cancelled.
     out property <bool> dragging;
@@ -1271,7 +1300,7 @@ export component DropArea {
     callback dropped(event: DropEvent) -> DragAction;
     /// `true` while an accepted drag hovers over the area, `false` otherwise.
     /// Bind it to a visual property to give the user feedback, for example a background color.
-    out property <bool> contains-drag;
+    out property <bool> has-drag;
     /// The action the runtime is currently negotiating with the source: `none` when no drag is hovering,
     /// or `copy`/`move`/`link` once a concrete action is settled.
     out property <DragAction> current-action;
@@ -1502,8 +1531,10 @@ component WindowItem {
     /// \default true if 'SLINT_FULLSCREEN' environment variable is set, otherwise false
     in-out property <bool> full-screen;
     /// Whether the window is minimized. Setting this to true minimizes the window.
+    //-shadowable
     in-out property <bool> minimized;
     /// Whether the window is maximized. Setting this to true maximizes the window.
+    //-shadowable
     in-out property <bool> maximized;
     /// The background brush of the `Window`.
     /// \default depends on the style
@@ -1538,10 +1569,12 @@ component WindowItem {
     /// Request that the window be closed. This triggers the `close-requested` callback,
     /// giving the application a chance to cancel the close. Returns `true` if the close
     /// was dispatched, or `false` if the application declined.
+    //-shadowable
     function close() -> bool {
     }
     /// Hide this window. This also drops the strong reference on the window, so if this was
     /// the last reference, the event loop will quit.
+    //-shadowable
     function hide() {
     }
 }
@@ -1559,8 +1592,57 @@ export component Window inherits WindowItem {
     MenuBar { }
 }
 
+/// Use `WindowMoveArea` to let the user move the window by dragging a region of your UI,
+/// such as a custom title bar in a window without native decorations (`no-frame: true`).
+///
+/// The move starts when the user presses the left mouse button inside the area and drags past a small threshold.
+/// A plain click doesn't move the window, so child elements like <Link type="TouchArea" /> stay interactive.
+///
+/// The windowing system performs the move.
+/// It requires a backend and platform with support for it (winit on Windows, macOS, X11, and Wayland; Qt).
+/// On platforms without support, the element does nothing.
+///
+/// When not part of a layout, its width and height default to 100% of the parent element.
+///
+/// ```slint playground
+/// export component Example inherits Window {
+///     no-frame: true;
+///     preferred-width: 400px;
+///     preferred-height: 300px;
+///     VerticalLayout {
+///         Rectangle {
+///             height: 32px;
+///             background: #444444;
+///             WindowMoveArea {
+///                 HorizontalLayout {
+///                     Text {
+///                         text: "My Application";
+///                         color: white;
+///                         vertical-alignment: center;
+///                         horizontal-alignment: center;
+///                     }
+///                 }
+///             }
+///         }
+///         Rectangle {
+///             background: white;
+///         }
+///     }
+/// }
+/// ```
+/// \group:window
+export component WindowMoveArea {
+    /// Set to `false` to stop the `WindowMoveArea` from initiating window moves.
+    /// Events still reach the child elements.
+    in property <bool> enabled: true;
+    //-default_size_binding:expands_to_parent_geometry
+}
+
 export component BoxShadow inherits Empty {
-    in property <length> border_radius;
+    in property <length> border-top-left-radius;
+    in property <length> border-top-right-radius;
+    in property <length> border-bottom-left-radius;
+    in property <length> border-bottom-right-radius;
     in property <length> offset_x;
     in property <length> offset_y;
     in property <color> color;
@@ -1656,6 +1738,9 @@ export component TextInput {
     ///  Use this to configure `TextInput` for editing special input, such as password fields.
     /// \default text
     in property <InputType> input-type;
+    /// Hints for the platform's input method (such as a soft keyboard), for example to configure auto-capitalization.
+    /// The input method may take these hints into account, but might also ignore them.
+    in property <InputMethodHints> input-method-hints;
     // Internal, undocumented property, only exposed for tests.
     out property <int> cursor-position_byte-offset;
     // Internal, undocumented property, only exposed for tests.
@@ -1706,6 +1791,12 @@ export component TextInput {
     }
     /// Pastes the text content of the clipboard at the cursor position.
     function paste() {
+    }
+    /// Undoes the last text operation.
+    function undo() {
+    }
+    /// Redoes the last undone text operation.
+    function redo() {
     }
     //! ### focus()
     //! Call this function to focus the text input and make it receive future keyboard events.
@@ -1933,14 +2024,14 @@ export component VerticalLayout {
     ///     width: 200px;
     ///     height: 100px;
     ///     VerticalLayout {
-    ///         align-items: end;
+    ///         cross-axis-alignment: end;
     ///         Rectangle { background: red; preferred-width: 30px; preferred-height: 20px; }
     ///         Rectangle { background: blue; preferred-width: 60px; preferred-height: 20px; }
     ///         Rectangle { background: green; preferred-width: 90px; preferred-height: 20px; }
     ///     }
     /// }
     /// ```
-    in property <LayoutAlignItems> align-items;
+    in property <CrossAxisAlignment> cross-axis-alignment;
 }
 
 /// ```slint
@@ -2000,14 +2091,14 @@ export component HorizontalLayout {
     ///     width: 200px;
     ///     height: 100px;
     ///     HorizontalLayout {
-    ///         align-items: center;
+    ///         cross-axis-alignment: center;
     ///         Rectangle { background: red; preferred-width: 30px; preferred-height: 20px; }
     ///         Rectangle { background: blue; preferred-width: 30px; preferred-height: 40px; }
     ///         Rectangle { background: green; preferred-width: 30px; preferred-height: 60px; }
     ///     }
     /// }
     /// ```
-    in property <LayoutAlignItems> align-items;
+    in property <CrossAxisAlignment> cross-axis-alignment;
 }
 
 /// `FlexboxLayout` is a flexible box layout that arranges its children in rows or columns with automatic wrapping. It implements a CSS Flexbox-like layout model suitable for creating flexible, responsive UIs.
@@ -2079,8 +2170,8 @@ export component HorizontalLayout {
 ///
 /// ### flex-align-self
 /// <SlintProperty propName="flex-align-self" typeName="enum" enumName="FlexboxLayoutAlignSelf">
-/// Overrides the container's `align-items` for this specific item.
-/// The default value is `auto`, which inherits the container's `align-items` setting.
+/// Overrides the container's `cross-axis-alignment` for this specific item.
+/// The default value is `auto`, which inherits the container's `cross-axis-alignment` setting.
 /// </SlintProperty>
 ///
 /// ### flex-order
@@ -2142,7 +2233,7 @@ export component FlexboxLayout {
     in property <FlexboxLayoutAlignContent> align-content;
     /// Set the alignment of individual items along the cross axis within each flex line.
     /// The default value is `stretch`.
-    in property <LayoutAlignItems> align-items;
+    in property <CrossAxisAlignment> cross-axis-alignment;
     /// Controls whether flex items wrap onto multiple lines when they don't fit in the container.
     /// The default value is `wrap`.
     in property <FlexboxLayoutWrap> flex-wrap;
@@ -2418,6 +2509,27 @@ export component TabWidget {
     //-is_internal
 }
 
+component RadioButton {
+    in property <string> text;
+    in property <bool> enabled: true;
+    in-out property <bool> checked;
+    callback toggled();
+}
+
+// Note: not a native class, handled in the lower_radiogroup pass
+export component RadioGroup {
+    in property <string> title;
+    in property <bool> enabled: true;
+    in property <Orientation> orientation;
+    out property <string> current-value;
+    out property <bool> has-focus;
+    callback selected(string);
+
+    //-disallow_global_types_as_child_elements
+    RadioButton { }
+    //-is_internal
+}
+
 /// ```slint playground
 /// export component Example inherits Window {
 ///     width: 100px;
@@ -2454,6 +2566,11 @@ export component PopupWindow {
     /// By default, a PopupWindow closes when the user clicks. Set this to false to prevent that behavior and close it manually using the `close()` function.
     /// \default close-on-click
     in property <PopupClosePolicy> close-policy; // constexpr hardcoded in typeregister.rs
+    /// Use this read-only property to style the element that opened the popup, for example
+    /// to rotate a ComboBox's arrow while the dropdown is open.
+    /// `true` while the popup is shown on the screen, and `false` once it is closed, for example
+    /// when dismissed by a click, by a selection, or by a programmatic `close()`.
+    out property <bool> is-open;
     //! ## Functions
     //!
     //! ### show()
@@ -2463,7 +2580,7 @@ export component PopupWindow {
     //! Closes the popup. Use this if you set the `close-policy` property to `no-auto-close`.
 }
 
-// Internal hover tracker used with `ToolTip` lowering (the compiler inserts `TooltipArea` so `ToolTip` can react to hover and pointer position).
+// Internal hover tracker used with `Tooltip` lowering (the compiler inserts `TooltipArea` so `Tooltip` can react to hover and pointer position).
 export component TooltipArea inherits Empty {
     // Set when the mouse is over the parent's region while this area is expanded to fill it during lowering.
     out property <bool> has-hover;
@@ -2471,9 +2588,10 @@ export component TooltipArea inherits Empty {
     out property <length> mouse-x;
     // Pointer y within this area during hover.
     out property <length> mouse-y;
-    // Tooltip configuration folded from the user-facing ToolTip element during lowering.
-    in property <string> text;
-    in property <ToolTipPlacement> placement;
+    // Tooltip configuration folded from the user-facing Tooltip element during lowering.
+    in property <styled-text> text;
+    // Delay and offset are not user-facing in 1.17; the values used here are the
+    // built-in defaults applied to the synthesized element on instantiation.
     in property <duration> delay: 500ms;
     in property <length> offset: 8px;
     callback show();
@@ -2495,21 +2613,21 @@ export component TooltipArea inherits Empty {
 ///         Button {
 ///             text: "Hover me";
 ///
-///             ToolTip {
-///                 text: "This is a tooltip";
+///             Tooltip {
+///                 text: @markdown("This is a tooltip");
 ///             }
 ///         }
 ///     }
 /// }
 /// ```
 ///
-/// Place a `ToolTip` inside any element to show helpful information when hovering over it.
-/// The tooltip appears after a short delay and hides when the pointer leaves.
+/// Place a `Tooltip` inside any element to show helpful information when hovering over it.
+/// The tooltip appears after a short delay near the pointer and hides when the pointer leaves.
 ///
 /// Set the `text` property for a simple text tooltip,
 /// or add a child element instead for custom content.
 ///
-/// Each element can contain at most one `ToolTip`.
+/// Each element can contain at most one `Tooltip`.
 ///
 /// \footer
 /// ## Custom Content
@@ -2530,9 +2648,7 @@ export component TooltipArea inherits Empty {
 ///         Button {
 ///             text: "Custom tooltip";
 ///
-///             ToolTip {
-///                 placement: above-element;
-///
+///             Tooltip {
 ///                 VerticalBox {
 ///                     padding: 10px;
 ///                     spacing: 6px;
@@ -2577,16 +2693,10 @@ export component TooltipArea inherits Empty {
 /// }
 /// ```
 /// \group:window
-export component ToolTip inherits Empty {
+export component Tooltip inherits Empty {
     /// The text to display in the tooltip.
     /// Don't set this property when using custom content.
-    in property <string> text;
-    /// Position relative to the hovered element or pointer.
-    in property <ToolTipPlacement> placement;
-    /// How long to wait before showing the tooltip after hover begins.
-    in property <duration> delay: 500ms;
-    /// Space between the tooltip and the pointer or hovered element.
-    in property <length> offset: 8px;
+    in property <styled-text> text;
     //-can_be_declared_without_children_slot
     //-is_non_item_type
 }
@@ -2741,6 +2851,7 @@ component PropertyAnimation {
     in property <AnimationDirection> direction;
     in property <easing> easing;
     in property <float> iteration-count: 1.0;
+    in property <bool> enabled: true;
     //-is_non_item_type
 }
 
@@ -2783,14 +2894,16 @@ export global Platform {
     /// :::note{Note}
     /// When Slint is ported to new operating systems in the future, new enum values will be added.
     /// :::
-    /// \default known at runtime
     out property <OperatingSystemType> os;
     /// The name of the currently selected <Link type="StyleWidgets" label="widget style"/>. Some widget
     /// styles have dark and light variant suffixes, such as `fluent-light`. This property contains the
     /// style name without the suffix. Use <Link type="Palette" label="Palette"/>'s `color-scheme` to
     /// determine the currently used scheme.
-    /// \default known at runtime
     out property <string> style-name;
+    /// The decimal separator used when converting between `float` and `string`.
+    /// It defaults to the dot (`.`) and is determined by the locale.
+    /// See the <Link type="translations" label="translations guide"/> for details.
+    out property <string> decimal-separator;
     /// Opens the specified URL in an external browser. This function invokes the platform's URL opening mechanism.
     /// Returns `true` on success, or `false` if the platform doesn't support opening URLs or the operation failed.
     ///
@@ -2815,10 +2928,7 @@ export global Platform {
     /// to the top of the window stack. On other platforms this function is a no-op.
     ///
     /// This corresponds to the standard macOS **Window › Bring All to Front** menu item.
-    function bring-all-to-front() { }
-    /// The decimal separator currently used for localized float to string and vice versa conversions
-    /// For more information about localization and how to change the decimal separator see <Link type="translations" label="translations page"/>.
-    out property <string> decimal-separator;
+    function macos-bring-all-windows-to-front() { }
 }
 
 export component NativeButton {
@@ -3109,7 +3219,7 @@ export global NativePalette {
 /// A visible `SystemTrayIcon` keeps the event loop alive the same way a visible window does.
 ///
 /// A typical app instantiates both a main window and a tray, shows them, and runs the event loop.
-/// The snippets below also wire the built-in `activated` callback so a click on the tray icon
+/// The snippets below also wire the built-in `clicked` callback so a left-click on the tray icon
 /// brings the window back if the user has hidden it.
 ///
 /// <Tabs syncKey="dev-language">
@@ -3120,7 +3230,7 @@ export global NativePalette {
 ///     let tray = ExampleTray::new()?;
 ///
 ///     let window_weak = window.as_weak();
-///     tray.on_activated(move || {
+///     tray.on_clicked(move || {
 ///         if let Some(w) = window_weak.upgrade() {
 ///             let _ = w.show();
 ///         }
@@ -3139,7 +3249,7 @@ export global NativePalette {
 ///     auto tray = ExampleTray::create();
 ///
 ///     auto window_weak = slint::ComponentWeakHandle(window);
-///     tray->on_activated([window_weak] {
+///     tray->on_clicked([window_weak] {
 ///         if (auto w = window_weak.lock()) {
 ///             (*w)->show();
 ///         }
@@ -3155,7 +3265,7 @@ export global NativePalette {
 /// ```js
 /// const window = new ui.MainWindow();
 /// const tray = new ui.ExampleTray();
-/// tray.activated = () => window.show();
+/// tray.clicked = () => window.show();
 /// window.show();
 /// tray.show();
 /// await slint.runEventLoop();
@@ -3165,7 +3275,7 @@ export global NativePalette {
 /// ```python
 /// window = module.MainWindow()
 /// tray = module.ExampleTray()
-/// tray.activated = lambda: window.show()
+/// tray.clicked = lambda: window.show()
 /// window.show()
 /// tray.show()
 /// slint.run_event_loop()
@@ -3212,15 +3322,15 @@ export component SystemTrayIcon {
     /// | macOS         | The visible text label rendered next to the icon in the menu bar (think battery percent, clock). |
     /// | Windows       | Has no visible effect; the notification area renders only the icon.                              |
     in property <string> title;
-    /// Invoked when the user activates the tray icon itself, as opposed to picking an entry from its menu.
-    /// What counts as activation, and whether it's invoked at all, depends on the platform:
+    /// Invoked when the user left-clicks the tray icon itself, as opposed to picking an entry from its menu.
+    /// Whether it's invoked at all depends on the platform:
     ///
-    /// | Platform      | Activation behavior                                                                   |
+    /// | Platform      | Click behavior                                                                        |
     /// | ------------- | ------------------------------------------------------------------------------------- |
     /// | Linux, \*BSD  | Invoked on a left-click of the icon. The exact gesture is decided by the desktop environment or shell extension hosting the tray. |
-    /// | macOS         | Invoked on a click when no `Menu` is attached (or when an `if cond : Menu { ... }`'s condition is currently false). When a populated menu is attached, AppKit pops it open instead and `activated` doesn't fire. |
+    /// | macOS         | Invoked on a left-click when no `Menu` is attached (or when an `if cond : Menu { ... }`'s condition is currently false). When a populated menu is attached, AppKit pops it open instead and `clicked` doesn't fire. |
     /// | Windows       | Invoked on a left-click of the icon. Right-click opens the menu.                      |
-    callback activated();
+    callback clicked();
     Menu { }
     //-disallow_global_types_as_child_elements
     //-is_non_item_type

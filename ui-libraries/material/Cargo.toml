@@ -1,0 +1,49 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+# Workspace for the Material UI library and its gallery.
+#
+# The gallery is used for manual testing during development of the material
+# components. It lives in its own workspace (rather than the repository root)
+# so it does not slow down rust-analyzer / cargo for the library crates. It
+# shares the repository `target/` directory (see `.cargo/config.toml`) and
+# uses the same `[profile]` settings as the root workspace so common library
+# artifacts are reused. Developers working on the material library can load
+# both workspaces at once via `rust-analyzer.linkedProjects`.
+[workspace]
+members = ['examples/gallery']
+
+resolver = "3"
+
+[workspace.package]
+description = "GUI toolkit to efficiently develop fluid graphical user interfaces for embedded devices and desktop applications"
+authors = ["Slint Developers <info@slint.dev>"]
+documentation = "https://slint.dev/docs"
+edition = "2024"
+homepage = "https://slint.dev"
+keywords = ["gui", "toolkit", "graphics", "design", "ui"]
+license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+repository = "https://github.com/slint-ui/slint"
+rust-version = "1.92"
+version = "1.17.0"
+
+# WARNING: keep every `[profile.*]` setting below identical to the root
+# workspace's Cargo.toml. cargo keys its build cache on the profile, so any
+# divergence makes the shared `target/` directory (see `.cargo/config.toml`)
+# rebuild the common library crates for this workspace instead of reusing them.
+[profile.release]
+panic = "abort"
+
+[profile.dev]
+panic = "abort"
+
+# Always build resvg and its hot-path dependencies with optimizations,
+# as it otherwise causes freezes to load large SVGs in debug builds.
+[profile.dev.package.resvg]
+opt-level = 3
+[profile.dev.package.usvg]
+opt-level = 3
+[profile.dev.package.tiny-skia]
+opt-level = 3
+[profile.dev.package.rgb]
+opt-level = 3

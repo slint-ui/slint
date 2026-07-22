@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
-    property<int> value;
-    property<int> result : 3;
+export component TestCase inherits Rectangle {
+    in-out property<int> value;
+    in-out property<int> result : 3;
     callback action;
     action => {
         if value == 5 {
@@ -31,7 +31,7 @@ TestCase := Rectangle {
         }
     }
 
-    callback elseif(int) -> int;
+    pure callback elseif(int) -> int;
     elseif(v) => {
         if v == 1 {
             41

@@ -5,12 +5,12 @@
 
 import { VerticalBox, ListView } from "std-widgets.slint";
 
-TestCase := Window {
+export component TestCase inherits Window {
   width: 500px;
   height: 400px;
 
-  property <[string]> features : [ "f" ];
-  property <string> result;
+  in-out property <[string]> features : [ "f" ];
+  in-out property <string> result;
 
   VerticalBox {
     VerticalBox {

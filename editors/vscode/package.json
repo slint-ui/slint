@@ -11,7 +11,7 @@
     "live preview",
     "drag-and-drop editor"
   ],
-  "version": "1.17.0",
+  "version": "1.18.0",
   "publisher": "Slint",
   "icon": "extension-logo.png",
   "license": "GPL-3.0",
@@ -90,18 +90,6 @@
         "icon": "$(preview)"
       },
       {
-        "command": "slint.selectRemotePreview",
-        "title": "(Experimental) Connect to Remote Preview",
-        "category": "Slint",
-        "icon": "$(preview)"
-      },
-      {
-        "command": "slint.disconnectRemotePreview",
-        "title": "(Experimental) Disconnect Remote Preview",
-        "category": "Slint",
-        "icon": "$(debug-disconnect)"
-      },
-      {
         "command": "slint.reload",
         "title": "Restart server",
         "category": "Slint",
@@ -117,10 +105,6 @@
       "commandPalette": [
         {
           "command": "slint.showPreview",
-          "when": "editorLangId == slint"
-        },
-        {
-          "command": "slint.selectRemotePreview",
           "when": "editorLangId == slint"
         },
         {
@@ -253,18 +237,18 @@
     "clean": "shx rm -rf out bin LICENSE.txt slint-*.vsix"
   },
   "dependencies": {
-    "fs-extra": "11.3.5",
+    "fs-extra": "11.3.6",
     "simple-git": "3.36.0",
     "vscode-languageclient": "9.0.1",
     "vscode-languageserver": "9.0.1",
-    "vscode-languageserver-types": "3.17.5"
+    "vscode-languageserver-types": "3.18.0"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@types/fs-extra": "11.0.4",
     "@types/node": "catalog:",
     "@types/vscode": "1.82.0",
-    "esbuild": "0.28.0",
+    "esbuild": "0.28.1",
     "shx": "0.4.0",
     "typescript": "catalog:",
     "vscode-tmgrammar-test": "0.1.3"

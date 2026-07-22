@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore theproperty underscoresanddashespreserved xreadonly
+// cSpell: ignore theproperty underscoresanddashespreserved xreadonly noregress
 use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::PathData;
@@ -138,6 +138,9 @@ pub enum Value {
     Keys(Keys) = 15,
     /// Correspond to the `data-transfer` type in .slint
     DataTransfer(DataTransfer) = 16,
+    #[doc(hidden)]
+    /// A mouse cursor.
+    MouseCursorInner(i_slint_core::cursor::MouseCursorInner) = 17,
 }
 
 impl Value {
@@ -193,6 +196,9 @@ impl PartialEq for Value {
             Value::DataTransfer(lhs) => {
                 matches!(other, Value::DataTransfer(rhs) if lhs == rhs)
             }
+            Value::MouseCursorInner(lhs) => {
+                matches!(other, Value::MouseCursorInner(rhs) if lhs == rhs)
+            }
         }
     }
 }
@@ -223,6 +229,7 @@ impl std::fmt::Debug for Value {
             }
             Value::Keys(ks) => write!(f, "Value::Keys({ks:?})"),
             Value::DataTransfer(cd) => write!(f, "Value::DataTransfer({cd:?})"),
+            Value::MouseCursorInner(m) => write!(f, "Value::MouseCursor({m:?})"),
         }
     }
 }
@@ -269,6 +276,7 @@ declare_value_conversion!(StyledText => [StyledText] );
 declare_value_conversion!(ArrayOfU16 => [SharedVector<u16>] );
 declare_value_conversion!(Keys => [Keys]);
 declare_value_conversion!(DataTransfer => [DataTransfer]);
+declare_value_conversion!(MouseCursorInner => [i_slint_core::cursor::MouseCursorInner]);
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {
@@ -301,7 +309,7 @@ macro_rules! declare_value_struct_conversion {
     ($(
         $(#[$struct_attr:meta])*
         $vis:vis struct $Name:ident {
-            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
         }
     )*) => {
         $(
@@ -321,6 +329,8 @@ macro_rules! declare_value_struct_conversion {
                             type Ty = $Name;
                             #[allow(unused)]
                             let mut res: Ty = Ty::default();
+                            // Every field is required and overwritten, so declared field
+                            // defaults do not apply to this conversion
                             $(res.$field = x.get_field(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_|())?;)*
                             Ok(res)
                         }
@@ -849,11 +859,9 @@ impl Compiler {
         Self::default()
     }
 
-    #[cfg(feature = "internal-live-preview")]
-    pub(crate) fn set_embed_resources(
-        &mut self,
-        embed_resources: i_slint_compiler::EmbedResourcesKind,
-    ) {
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn set_embed_resources(&mut self, embed_resources: i_slint_compiler::EmbedResourcesKind) {
         self.config.embed_resources = embed_resources;
     }
 
@@ -972,7 +980,7 @@ impl Compiler {
                 return CompilationResult {
                     components: HashMap::new(),
                     diagnostics: diagnostics.into_iter().collect(),
-                    #[cfg(feature = "internal-file-watcher")]
+                    #[cfg(feature = "internal")]
                     watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
@@ -1012,7 +1020,7 @@ impl Compiler {
 pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
     pub(crate) diagnostics: Vec<Diagnostic>,
-    #[cfg(feature = "internal-file-watcher")]
+    #[cfg(feature = "internal")]
     pub(crate) watch_paths: Vec<PathBuf>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
@@ -1072,7 +1080,7 @@ impl CompilationResult {
 
     /// This is an internal function without API stability guarantees.
     #[doc(hidden)]
-    #[cfg(feature = "internal-file-watcher")]
+    #[cfg(feature = "internal")]
     pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[PathBuf] {
         &self.watch_paths
     }
@@ -1112,19 +1120,6 @@ pub struct ComponentDefinition {
 }
 
 impl ComponentDefinition {
-    /// Set a `debug(...)` handler
-    #[doc(hidden)]
-    #[cfg(feature = "internal")]
-    pub fn set_debug_handler(
-        &self,
-        handler: impl Fn(Option<&i_slint_compiler::diagnostics::SourceLocation>, &str) + 'static,
-        _: i_slint_core::InternalToken,
-    ) {
-        let handler = Rc::new(handler);
-
-        generativity::make_guard!(guard);
-        self.inner.unerase(guard).recursively_set_debug_handler(handler);
-    }
     /// Creates a new instance of the component and returns a shared handle to it.
     pub fn create(&self) -> Result<ComponentInstance, PlatformError> {
         let instance = self.create_with_options(Default::default())?;
@@ -1415,6 +1410,21 @@ impl ComponentInstance {
     fn is_system_tray_rooted(&self) -> bool {
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
         self.inner.unerase(guard).description().original.inherits_system_tray_icon()
+    }
+
+    /// Set `visible` directly on the root SystemTrayIcon native item, mirroring
+    /// what the Rust/C++ generators emit for tray-rooted public components:
+    /// the change-tracker on the item dispatches the value to the platform handle.
+    fn set_tray_icon_visible(&self, visible: bool) {
+        generativity::make_guard!(guard);
+        let description = self.inner.unerase(guard).description();
+        let item_info = &description.items[description.original.root_element.borrow().id.as_str()];
+        let item_rc =
+            ItemRc::new(vtable::VRc::into_dyn(self.inner.clone()), item_info.item_index());
+        let tray = item_rc
+            .downcast::<SystemTrayIcon>()
+            .expect("the root item of a SystemTrayIcon-rooted component is a SystemTrayIcon");
+        tray.as_pin_ref().visible.set(visible);
     }
 
     /// Return the value for a public property of this component.
@@ -1713,6 +1723,14 @@ impl ComponentInstance {
     ) -> Vec<(i_slint_compiler::object_tree::ElementRc, usize)> {
         crate::highlight::element_node_at_source_code_position(&self.inner, path, offset)
     }
+
+    /// Set a callback triggered by `Expression::DebugHook``.
+    #[cfg(feature = "internal")]
+    pub fn set_debug_hook_callback(&self, callback: Option<crate::debug_hook::DebugHookCallback>) {
+        generativity::make_guard!(guard);
+        let comp = self.inner.unerase(guard);
+        crate::debug_hook::set_debug_hook_callback(comp, callback);
+    }
 }
 
 impl StrongHandle for ComponentInstance {
@@ -1737,12 +1755,7 @@ impl ComponentHandle for ComponentInstance {
 
     fn show(&self) -> Result<(), PlatformError> {
         if self.is_system_tray_rooted() {
-            // Mirror what the Rust/C++ generators emit for tray-rooted public
-            // components: toggle the `visible` property; the change-tracker on
-            // the SystemTrayIcon native item dispatches to the platform handle.
-            self.set_property("visible", Value::Bool(true)).expect(
-                "setting `visible` on a SystemTrayIcon-rooted component should always succeed",
-            );
+            self.set_tray_icon_visible(true);
             return Ok(());
         }
         self.inner.window_adapter_ref()?.window().show()
@@ -1750,9 +1763,7 @@ impl ComponentHandle for ComponentInstance {
 
     fn hide(&self) -> Result<(), PlatformError> {
         if self.is_system_tray_rooted() {
-            self.set_property("visible", Value::Bool(false)).expect(
-                "setting `visible` on a SystemTrayIcon-rooted component should always succeed",
-            );
+            self.set_tray_icon_visible(false);
             return Ok(());
         }
         self.inner.window_adapter_ref()?.window().hide()
@@ -2248,10 +2259,10 @@ fn lang_type_to_value_type() {
     assert_eq!(ValueType::from(LangType::Array(Rc::new(LangType::Void))), ValueType::Model);
     assert_eq!(ValueType::from(LangType::Bool), ValueType::Bool);
     assert_eq!(
-        ValueType::from(LangType::Struct(Rc::new(LangStruct {
-            fields: BTreeMap::default(),
-            name: i_slint_compiler::langtype::StructName::None,
-        }))),
+        ValueType::from(LangType::Struct(Rc::new(LangStruct::new(
+            BTreeMap::default(),
+            i_slint_compiler::langtype::StructName::None
+        )))),
         ValueType::Struct
     );
     assert_eq!(ValueType::from(LangType::Image), ValueType::Image);
@@ -2372,8 +2383,3 @@ export component Foo2 inherits Window  {
         }
     }
 }
-
-#[cfg(feature = "ffi")]
-#[allow(missing_docs)]
-#[path = "ffi.rs"]
-pub(crate) mod ffi;

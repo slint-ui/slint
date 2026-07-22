@@ -7,24 +7,37 @@ name: Nightly snapshot
 on:
     workflow_dispatch:
         inputs:
-            private:
-                type: boolean
-                default: true
+            mode:
+                type: choice
+                default: test
                 required: false
-                description: "Private build? True means artifacts are only built. False means the artefacts are published (docs, vscode extension) to the web/marketplace"
-            release:
-                type: boolean
-                default: false
-                required: false
-                description: "Release? Enable options for building binaries for a release (i.e. don't have a -nightly suffix for the extension)"
+                description: "What to build and publish"
+                options:
+                    - release       # Publish a versioned release: a draft GitHub release and a non-nightly extension.
+                    - full-nightly  # Publish the website snapshot, plus the VS Code extension and the `nightly` release tag.
+                    - website-only  # Publish the website snapshot (docs, demos, editor) only.
+                    - test          # Build everything, publish nothing.
 
 env:
     # Keep in sync with features in slint_tool_binary.yaml, cpp_package.yaml, api/node/Cargo.toml, and api/python/slint/Cargo.toml
     SLINT_BINARY_FEATURES: "backend-linuxkms-noseat,backend-winit,renderer-femtovg,renderer-skia,renderer-software"
     MACOSX_DEPLOYMENT_TARGET: "11.0"
+    SLINT_BUILD_NUMBER: ${{ github.run_number }}
+    # Use fat LTO for distributed binaries: smaller size and better runtime perf.
+    # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+    CARGO_PROFILE_RELEASE_LTO: "fat"
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
 
 jobs:
+    # Rebuild and push the `cross` container images first, so every `cross` build
+    # below (the ARM tool binaries and the cross LSP) runs against images built
+    # from this commit rather than stale ones.
+    cross_containers:
+        uses: ./.github/workflows/cross_containers.yaml
+        secrets: inherit
+
     slint-viewer-binary:
+        needs: [cross_containers]
         uses: ./.github/workflows/slint_tool_binary.yaml
         with:
             program: "viewer"
@@ -34,6 +47,7 @@ jobs:
             keychain_password: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
             developer_id: ${{ secrets.APPLE_DEV_ID }}
     slint-lsp-binary:
+        needs: [cross_containers]
         uses: ./.github/workflows/slint_tool_binary.yaml
         with:
             program: "lsp"
@@ -46,7 +60,7 @@ jobs:
         uses: ./.github/workflows/build_docs.yaml
         secrets: inherit
         with:
-          release: ${{ github.event.inputs.release }}
+          release: ${{ github.event.inputs.mode == 'release' }}
           app-id: ${{ vars.READ_WRITE_APP_ID }}
 
     wasm_demo:
@@ -58,7 +72,7 @@ jobs:
     cpp_package:
         uses: ./.github/workflows/cpp_package.yaml
         with:
-            extra_cmake_flags: ${{ github.event.inputs.release != 'true' && '-DCPACK_PACKAGE_VERSION=nightly' || '' }}
+            extra_cmake_flags: ${{ github.event.inputs.mode != 'release' && '-DCPACK_PACKAGE_VERSION=nightly' || '' }}
 
     check-for-secrets:
         runs-on: ubuntu-latest
@@ -91,7 +105,7 @@ jobs:
                       artifact_name: slint-lsp-aarch64-pc-windows-msvc.exe
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.toolchain }}
@@ -114,7 +128,7 @@ jobs:
             SLINT_NO_QT: 1
         runs-on: macos-15-intel
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: x86_64-apple-darwin
@@ -139,7 +153,7 @@ jobs:
             SLINT_NO_QT: 1
         runs-on: macos-26
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-apple-darwin
@@ -160,7 +174,7 @@ jobs:
         needs: [build_vscode_lsp_macos_x86_64, build_vscode_lsp_macos_aarch64]
         runs-on: macos-15
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
               with:
                   path: "src"
             - uses: actions/download-artifact@v8
@@ -191,6 +205,7 @@ jobs:
                   path: .
 
     build_vscode_cross_linux_lsp:
+        needs: [cross_containers]
         env:
             SLINT_NO_QT: 1
         strategy:
@@ -200,7 +215,7 @@ jobs:
                     - aarch64-unknown-linux-gnu
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.target }}
@@ -231,13 +246,13 @@ jobs:
         runs-on: macos-14
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
         steps:
-            - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
             - name: Install GNU Sed
               run: brew install gnu-sed
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                   node-version: 24
                   package-manager-cache: false
@@ -269,7 +284,7 @@ jobs:
               run: chmod 755 editors/vscode/bin/* editors/vscode/bin/*.app/Contents/MacOS/*
             - name: "Prepare meta-data files for nightly package"
               env:
-                  RELEASE_INPUT: ${{ github.event.inputs.release }}
+                  RELEASE_INPUT: ${{ github.event.inputs.mode == 'release' }}
               working-directory: editors/vscode
               run: |
                   if grep -q 'lines below this marker are stripped from the release' README.md; then
@@ -293,12 +308,12 @@ jobs:
               with:
                   pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
                   registryUrl: https://marketplace.visualstudio.com
-                  dryRun: ${{ github.event.inputs.private == 'true' || (github.ref != 'refs/heads/master' && github.event.inputs.release != 'true') }}
+                  dryRun: ${{ github.event.inputs.mode != 'full-nightly' && github.event.inputs.mode != 'release' }}
                   packagePath: editors/vscode
                   dependencies: false
             - name: Publish to Open VSX Registry
               continue-on-error: true
-              if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
+              if: ${{ github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release' }}
               uses: HaaLeo/publish-vscode-extension@v2
               with:
                   pat: ${{ secrets.OPENVSX_PAT }}
@@ -314,13 +329,13 @@ jobs:
     build-figma-plugin:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
-            - uses: actions/setup-node@v6
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
             - name: Run pnpm install
@@ -342,10 +357,10 @@ jobs:
                   path: tools/figma-inspector/zip
 
     #  publish_tree_sitter:
-    #    if: github.event.inputs.private != 'true'
+    #    if: github.event.inputs.mode != 'test'
     #    runs-on: ubuntu-22.04
     #    steps:
-    #      - uses: actions/checkout@v6
+    #      - uses: actions/checkout@v7
     #      - name: Upload artifact
     #        uses: actions/upload-artifact@v7
     #        with:
@@ -353,7 +368,7 @@ jobs:
     #            path: editors/tree-sitter-slint
 
     publish_artifacts:
-        if: ${{ github.event.inputs.private != 'true' }}
+        if: ${{ github.event.inputs.mode != 'test' }}
         needs: [docs, wasm_demo, wasm, check-for-secrets, android]
         runs-on: ubuntu-22.04
         steps:
@@ -371,7 +386,7 @@ jobs:
                 private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
                 repositories: website
             - name: Clone website directory
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                 repository: slint-ui/website
                 ref: prod
@@ -400,10 +415,10 @@ jobs:
                   name: wasm_demo
             - uses: actions/download-artifact@v8
               with:
-                  name: android-demo
+                  name: android-demos
                   path: android
 
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
               with:
                 path: "slint-src"
                 sparse-checkout: .
@@ -426,8 +441,8 @@ jobs:
                 repositories: www-releases
 
             - name: Clone www-releases/releases and slintpad directory
-              uses: actions/checkout@v6
-              if: ${{ github.event.inputs.release  == 'true' }}
+              uses: actions/checkout@v7
+              if: ${{ github.event.inputs.mode == 'release' }}
               with:
                 repository: slint-ui/www-releases
                 path: www-releases
@@ -437,8 +452,8 @@ jobs:
                   slintpad
 
             - name: Clone www-releases/snapshots directory
-              uses: actions/checkout@v6
-              if: ${{ github.event.inputs.release  != 'true' }}
+              uses: actions/checkout@v7
+              if: ${{ github.event.inputs.mode != 'release' }}
               with:
                 repository: slint-ui/www-releases
                 path: www-releases
@@ -449,7 +464,7 @@ jobs:
             - name: Publish Docs and Demos
               working-directory: ./www-releases
               run: |
-                if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
+                if [[ "${{ github.event.inputs.mode == 'release' }}" == "true" ]]; then
                   output_path="releases/${{ steps.version.outputs.VERSION }}"
                 else
                   output_path="snapshots/${GITHUB_REF##*/}"
@@ -458,7 +473,7 @@ jobs:
                 rm -rf $output_path/demos
                 mkdir -p $output_path/demos
 
-                for demo_subdir in examples,gallery, demos,printerdemo,rust examples,todo,rust examples,todo-mvc,rust examples,slide_puzzle, examples,speedometer,rust examples,memory, examples,imagefilter,rust examples,plotter, examples,opengl_underlay, examples,carousel,rust demos,energy-monitor, demos,weather-demo, demos,home-automation,rust demos,usecases,rust; do
+                for demo_subdir in examples,gallery, demos,printerdemo,rust examples,todo,rust examples,todo-mvc,rust examples,slide_puzzle, examples,speedometer,rust examples,memory, examples,dnd-kanban, examples,imagefilter,rust examples,plotter, examples,opengl_underlay, examples,carousel,rust demos,energy-monitor, demos,weather-demo, demos,home-automation,rust demos,usecases,rust; do
                   IFS=',' read example_or_demo demo subdir <<< "${demo_subdir}"
 
                   mkdir -p $output_path/demos/$demo
@@ -467,6 +482,20 @@ jobs:
 
                 mkdir -p $output_path/demos/android
                 cp -a ../android/* $output_path/demos/android/
+                # slint-viewer APK/AAB are too big for the web server (APK is a release asset, AAB a CI artifact).
+                rm -f $output_path/demos/android/slint-viewer.apk \
+                      $output_path/demos/android/slint-viewer.aab
+
+                # A directory listing so the published folder is browsable.
+                {
+                  echo '<!DOCTYPE html><meta charset="utf-8"><title>Slint Android Demos</title>'
+                  echo '<h1>Slint Android Demos</h1>'
+                  echo '<p>Install an APK on a device.</p><ul>'
+                  for f in $(cd $output_path/demos/android && ls *.apk 2>/dev/null); do
+                    echo "<li><a href=\"$f\">$f</a></li>"
+                  done
+                  echo '</ul>'
+                } > $output_path/demos/android/index.html
 
                 rm -rf $output_path/wasm-interpreter
                 mkdir -p $output_path/wasm-interpreter
@@ -476,7 +505,7 @@ jobs:
                 mkdir -p $output_path/editor
                 cp -a ../slintpad/* $output_path/editor/
 
-                if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
+                if [[ "${{ github.event.inputs.mode == 'release' }}" == "true" ]]; then
                   version="${{ steps.version.outputs.VERSION }}"
                 else
                   version="development snapshot"
@@ -490,26 +519,26 @@ jobs:
                 sed -i "s!https://slint.dev/releases/.*/docs/!../../!" $output_path/docs/rust/slint/*.html
 
             - name: Adjust redirections
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               run: |
                 sed -i "/1.0.2/! s,[0-9]*\.[0-9]*\.[0-9]*/\(.*\),${{ steps.version.outputs.VERSION }}/\1," www-releases/releases/_redirects
 
             - name: Adjust slintpad default tag
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               run: sed -i "s,XXXX_DEFAULT_TAG_XXXX,v${{ steps.version.outputs.VERSION }}," www-releases/releases/${{ steps.version.outputs.VERSION }}/editor/assets/*.js
 
             - name: Update versions.txt
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               working-directory: www-releases/releases
               run: ls -1d */ | cut -f1 -d'/' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort --version-sort -r > versions.txt
 
             - name: Print contents before update
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               working-directory: www-releases/releases
               run: cat versions.json
 
             - name: Update version in versions.json
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               working-directory: www-releases/releases
               run: |
                   sed -i '/"name": "development snapshot"/,/"preferred": true,/c\
@@ -524,12 +553,12 @@ jobs:
                       {' versions.json
 
             - name: Print contents before update
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               working-directory: www-releases/releases
               run: cat versions.json
 
             - name: Update SlintPad
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               run: |
                 rm -rf www-releases/slintpad
                 cp -r www-releases/releases/${{ steps.version.outputs.VERSION }}/editor www-releases/slintpad
@@ -562,8 +591,8 @@ jobs:
                 git push
 
     prepare_release:
-        if: github.event.inputs.private != 'true'
-        needs: [cpp_package, slint-viewer-binary, slint-lsp-binary, build-figma-plugin]
+        if: github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release'
+        needs: [cpp_package, slint-viewer-binary, slint-lsp-binary, build-figma-plugin, android]
         runs-on: ubuntu-22.04
         permissions:
             contents: write
@@ -591,32 +620,43 @@ jobs:
             - uses: actions/download-artifact@v8
               with:
                   name: figma-plugin
+            - uses: actions/download-artifact@v8
+              with:
+                  name: android-demos
+                  path: android-demos
             - name: Extract files
               run: |
+                  # Backwards compatibility: also publish under the old artifact names.
+                  # These cp steps can be removed once no tools depend on the old names.
+                  cp slint-lsp-universal-apple-darwin.tar.gz slint-lsp-macos.tar.gz
+                  cp slint-lsp-x86_64-unknown-linux-gnu.tar.gz slint-lsp-linux.tar.gz
+                  cp slint-lsp-x86_64-pc-windows-msvc.zip slint-lsp-windows-x86_64.zip
+                  cp slint-lsp-aarch64-pc-windows-msvc.zip slint-lsp-windows-arm64.zip
+                  cp slint-viewer-universal-apple-darwin.tar.gz slint-viewer-macos.tar.gz
+                  cp slint-viewer-x86_64-unknown-linux-gnu.tar.gz slint-viewer-linux.tar.gz
+                  cp slint-viewer-x86_64-pc-windows-msvc.zip slint-viewer-windows-x86_64.zip
+                  cp slint-viewer-aarch64-pc-windows-msvc.zip slint-viewer-windows-arm64.zip
+                  # Now move everything into the artifacts dir
                   ls -l
                   mkdir artifacts
                   mv Slint-cpp-*-win64*.exe artifacts/
                   mv Slint-cpp-*.tar.gz artifacts/
-                  mv slint-viewer-linux.tar.gz artifacts/
-                  mv slint-viewer-armv7-unknown-linux-gnueabihf.tar.gz artifacts/
-                  mv slint-viewer-aarch64-unknown-linux-gnu.tar.gz artifacts/
-                  mv slint-viewer-macos.tar.gz artifacts/
-                  mv slint-viewer-windows*.zip artifacts/
-                  mv slint-lsp-linux.tar.gz artifacts/
-                  mv slint-lsp-armv7-unknown-linux-gnueabihf.tar.gz artifacts/
-                  mv slint-lsp-aarch64-unknown-linux-gnu.tar.gz artifacts/
-                  mv slint-lsp-macos.tar.gz artifacts/
-                  mv slint-lsp-windows*.zip artifacts/
+                  mv slint-viewer-*.tar.gz artifacts/
+                  mv slint-viewer-*.zip artifacts/
+                  mv slint-lsp-*.tar.gz artifacts/
+                  mv slint-lsp-*.zip artifacts/
                   mv slint-compiler-*.tar.gz artifacts/
                   mv figma-plugin.zip artifacts/
-            - uses: actions/checkout@v6
+                  # slint-viewer APK ships as a release asset (too big for the web server).
+                  mv android-demos/slint-viewer.apk artifacts/
+            - uses: actions/checkout@v7
               with:
                 path: "slint-src"
                 sparse-checkout: docs
             - name: prepare release notes
               id: version
               env:
-                   RELEASE_INPUT: ${{ github.event.inputs.release }}
+                   RELEASE_INPUT: ${{ github.event.inputs.mode == 'release' }}
               run: |
                   if [ "$RELEASE_INPUT" != "true" ]; then
                     notes_file=slint-src/docs/nightly-release-notes.md
@@ -647,7 +687,7 @@ jobs:
 
             - name: generate STM32 template packages
               env:
-                RELEASE_INPUT: ${{ github.event.inputs.release }}
+                RELEASE_INPUT: ${{ github.event.inputs.mode == 'release' }}
               run: |
                 git clone https://github.com/slint-ui/slint-cpp-templates-stm32 --depth 1
                 cd slint-cpp-templates-stm32
@@ -660,7 +700,7 @@ jobs:
                 done
 
             - uses: ncipollo/release-action@v1
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               with:
                   draft: true
                   artifacts: "artifacts/*"
@@ -669,7 +709,7 @@ jobs:
                   tag: v${{ steps.version.outputs.VERSION }}
                   commit: ${{ github.sha }}
             - uses: ncipollo/release-action@v1
-              if: github.event.inputs.release != 'true' && github.ref == 'refs/heads/master'
+              if: github.event.inputs.mode == 'full-nightly'
               with:
                   allowUpdates: true
                   prerelease: true
@@ -681,7 +721,7 @@ jobs:
                   tag: nightly
                   commit: ${{ github.sha }}
             - name: trigger stm32 build
-              if: github.ref == 'refs/heads/master'
+              if: github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release'
               run: |
                 curl -L \
                 -X POST \
@@ -691,32 +731,62 @@ jobs:
                 https://api.github.com/repos/slint-ui/slint-cpp-templates-stm32/actions/workflows/ci.yaml/dispatches \
                 -d '{"ref":"main"}'
 
+    trigger_package_publishing:
+        if: github.event.inputs.mode == 'release'
+        needs: [prepare_release]
+        runs-on: ubuntu-latest
+        steps:
+            - name: Trigger PyPI publish (slint)
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh workflow run upload_pypi.yaml --ref ${{ github.ref_name }} --repo ${{ github.repository }} -f release=true
+            - name: Trigger PyPI publish (slint-compiler)
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh workflow run upload_pypi_slint_compiler.yaml --ref ${{ github.ref_name }} --repo ${{ github.repository }} -f release=true
+            - name: Trigger PyPI publish (briefcasex-slint)
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh workflow run upload_pypi_briefcase.yaml --ref ${{ github.ref_name }} --repo ${{ github.repository }} -f release=true
+            - name: Trigger npm publish
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh workflow run publish_npm_package.yaml --ref ${{ github.ref_name }} --repo ${{ github.repository }} -f private=false -f release=true
+
     android:
         env:
             CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
             CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+            # cargo-apk does not honor the repository's relative `build.target-dir`.
+            CARGO_TARGET_DIR: ${{ github.workspace }}/target
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Install Android API level 30
-              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
-            - name: Cache cargo-apk
-              id: cargo-apk-cache
-              uses: actions/cache@v5
+            - name: Install Android API platforms
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30" "platforms;android-35" "build-tools;35.0.1"
+            - name: Cache cargo-apk, cargo-ndk and resvg
+              id: cargo-tools-cache
+              uses: actions/cache@v6
               with:
-                  path: ~/.cargo/bin/cargo-apk
-                  key: cargo-apk-cache
-            # Only build cargo-apk if not cached
+                  path: |
+                      ~/.cargo/bin/cargo-apk
+                      ~/.cargo/bin/cargo-ndk
+                      ~/.cargo/bin/resvg
+                  key: android-cargo-tools-cache
+            # Only build the tools if not cached
             - uses: dtolnay/rust-toolchain@stable
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-            - name: Install cargo-apk
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-              run: cargo install cargo-apk
+              if: steps.cargo-tools-cache.outputs.cache-hit != 'true'
+            - name: Install cargo-apk, cargo-ndk and resvg
+              if: steps.cargo-tools-cache.outputs.cache-hit != 'true'
+              run: cargo install --locked cargo-apk cargo-ndk resvg
 
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-linux-android
+            # The AAB packages all three ABIs; cargo-apk only needs arm64-v8a.
+            - name: Add extra Android Rust targets for the AAB
+              run: rustup target add armv7-linux-androideabi x86_64-linux-android
 
             - name: dump keystore
               run: |
@@ -724,23 +794,74 @@ jobs:
                   echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
 
             - name: Build energy-monitor example
-              run: cargo apk build -p energy-monitor --target aarch64-linux-android --lib --release
+              run: cargo apk build --manifest-path demos/Cargo.toml -p energy-monitor --target aarch64-linux-android --lib --release
             - name: Build todo demo
-              run: cargo apk build -p todo --target aarch64-linux-android --lib --release
+              run: cargo apk build --manifest-path examples/Cargo.toml -p todo --target aarch64-linux-android --lib --release
             - name: Build weather-demo example
-              run: cargo apk build -p weather-demo --target aarch64-linux-android --lib --release
+              run: cargo apk build --manifest-path demos/Cargo.toml -p weather-demo --target aarch64-linux-android --lib --release
             - name: Build usecases demo
-              run: cargo apk build -p usecases --target aarch64-linux-android --lib --release
+              run: cargo apk build --manifest-path demos/Cargo.toml -p usecases --target aarch64-linux-android --lib --release
             - name: Build home automation demo
-              run: cargo apk build -p home-automation --target aarch64-linux-android --lib --release
+              run: cargo apk build --manifest-path demos/Cargo.toml -p home-automation --target aarch64-linux-android --lib --release
+
+            # Play Store accepts only AABs for new submissions. Build the
+            # bundle, then derive the nightly slint-viewer APK from it so the
+            # viewer is only compiled once.
+            - name: Set up JDK 17 for Android Gradle Plugin
+              uses: actions/setup-java@v5
+              with:
+                  distribution: temurin
+                  java-version: "17"
+            - name: Set up Gradle
+              uses: gradle/actions/setup-gradle@v6
+              with:
+                  # Installs Gradle on PATH; the AAB project has no wrapper jar.
+                  gradle-version: "8.10.2"
+            - name: Build slint-viewer AAB
+              env:
+                  ANDROID_KEYSTORE_PATH: ${{ env.CARGO_APK_RELEASE_KEYSTORE }}
+                  ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+                  ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+              run: tools/viewer/android/build-aab.sh
+            # A universal APK works on every ABI the bundle carries.
+            - name: Build slint-viewer APK from the AAB
+              env:
+                  ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+                  ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+              run: |
+                  curl --fail -L -o bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+                  java -jar bundletool.jar build-apks --mode=universal \
+                      --bundle=tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab \
+                      --output=slint-viewer.apks \
+                      --ks="$CARGO_APK_RELEASE_KEYSTORE" \
+                      --ks-pass="pass:$ANDROID_KEYSTORE_PASSWORD" \
+                      --ks-key-alias="$ANDROID_KEYSTORE_ALIAS"
+                  mkdir -p target/release/apk
+                  unzip -p slint-viewer.apks universal.apk > target/release/apk/slint-viewer.apk
+
+            # A full-nightly goes to internal testing; a release goes to
+            # production as a draft that a human publishes, so an accidental
+            # `release` run never reaches users.
+            - name: Upload slint-viewer to Google Play
+              if: github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release'
+              uses: r0adkll/upload-google-play@v1
+              with:
+                  serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+                  packageName: dev.slint.viewer
+                  releaseFiles: tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab
+                  track: ${{ github.event.inputs.mode == 'release' && 'production' || 'internal' }}
+                  status: ${{ github.event.inputs.mode == 'release' && 'draft' || 'completed' }}
+
+            # Flatten into one directory so the artifact holds bare files.
+            - name: Collect Android artifacts
+              if: always()
+              run: |
+                  mkdir -p android-demos
+                  cp -a target/release/apk/*.apk android-demos/ || true
+                  cp -a tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab android-demos/ || true
             - name: "upload APK artifact"
+              if: always()
               uses: actions/upload-artifact@v7
               with:
-                  name: android-demo
-                  path: |
-                    target/release/apk/energy-monitor.apk
-                    target/release/apk/todo_lib.apk
-                    target/release/apk/weather_demo.apk
-                    target/release/apk/usecases_lib.apk
-                    target/release/apk/usecases_lib.apk
-                    target/release/apk/home_automation_lib.apk
+                  name: android-demos
+                  path: android-demos/

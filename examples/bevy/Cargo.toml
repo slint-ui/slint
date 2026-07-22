@@ -1,9 +1,0 @@
-# Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: MIT
-
-# This example is not part of the Slint Cargo workspace because of the git dependency to bevy. Once bevy
-# releases a version to crates.io that depends on WGPU 26, we can re-insert the example into the workspace.
-[workspace]
-members = ['slint-hosts-bevy', 'bevy-hosts-slint', 'bevy-hosts-slint-gpu']
-
-resolver = "3"

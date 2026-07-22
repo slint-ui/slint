@@ -1,35 +1,35 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Lowers `ToolTip { text: ... }` to an input-transparent popup overlay.
+//! Lowers `Tooltip { text: ... }` to an input-transparent popup overlay.
 //!
-//! For each `ToolTip` child, this pass synthesizes a `PopupWindow` anchored around
-//! the hovered parent element and contains the tooltip content.
-//! The `ToolTip.placement` enum controls whether it appears at the mouse pointer position
-//! (`pointer`) or relative to the hovered element (`above-element`/`below-element`/`left-element`/`right-element`).
+//! For each `Tooltip` child, this pass synthesizes a `PopupWindow` anchored at
+//! the pointer position and contains the tooltip content.
 //! Visibility is driven by runtime behavior in `TooltipArea`:
 //! - hover enters: start/restart internal delay timer
 //! - timer fires: invoke `show()` callback
 //! - hover leaves: stop timer and invoke `hide()` callback
-//!   `TooltipArea` also tracks the last known pointer position (`mouse-x`/`mouse-y`) for
-//!   the `pointer` placement mode.
+//!   `TooltipArea` also tracks the last known pointer position
+//!   (`mouse-x`/`mouse-y`) for positioning the popup near the cursor.
 //!
 //! Runtime popup handling marks tooltip popups as input-transparent overlays.
-//! Tooltip show/hide delay uses `ToolTip.delay`.
 //!
 //! Tooltip content contract:
-//! - A parent element may have **at most one** `ToolTip` child.
-//! - `ToolTip` supports exactly one content mode:
+//! - A parent element may have **at most one** `Tooltip` child.
+//! - `Tooltip` supports exactly one content mode:
 //!   - text mode: `text` binding is present, no children
 //!   - custom mode: children are present, no `text` binding
-//! - placement uses effective popup size:
-//!   - explicit size from tooltip content (`width`/`height`) if set (> 0)
-//!   - otherwise `preferred-width`/`preferred-height`
 //! - custom mode expects one root child element which is used directly as tooltip content.
+//!
+//! Placement around `for`/`if`:
+//! - `for ... : Tooltip { ... }` is rejected at compile time.
+//! - `if cond : Tooltip { ... }` is allowed; the condition is forwarded onto the synthesized
+//!   `TooltipArea` (which owns the generated `PopupWindow` as its child), so the area only
+//!   exists while `cond` is true.
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Unit};
-use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
+use crate::langtype::{ElementType, EnumerationValue};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use crate::typeregister::{BUILTIN, TypeRegister};
@@ -37,7 +37,7 @@ use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-const TOOLTIP_ELEMENT: &str = "ToolTip";
+const TOOLTIP_ELEMENT: &str = "Tooltip";
 const TOOLTIP_IMPL_ELEMENT: &str = "ToolTipImpl";
 const TOOLTIP_AREA_ELEMENT: &str = "TooltipArea";
 const POPUP_WINDOW_ELEMENT: &str = "PopupWindow";
@@ -49,9 +49,7 @@ const MOUSE_X: &str = "mouse-x";
 const MOUSE_Y: &str = "mouse-y";
 const WIDTH: &str = "width";
 const HEIGHT: &str = "height";
-const PLACEMENT: &str = "placement";
 const OFFSET: &str = "offset";
-const DELAY: &str = "delay";
 const TEXT: &str = "text";
 
 /// Report an error and replace any named reference that points to the tooltip element itself.
@@ -81,7 +79,7 @@ fn check_no_reference_to_tooltip(
                 format!("property or callback '{id}.{prop_name}'")
             };
             diag.push_error(
-                format!("Cannot access {what} inside of a ToolTip from enclosing component"),
+                format!("Cannot access {what} inside of a Tooltip from enclosing component"),
                 &*tooltip_element.borrow(),
             );
             *nr = dummy_ref.clone();
@@ -118,8 +116,8 @@ fn bind_popup_effective_size_from_content(
     popup_window_rc: &ElementRc,
     tooltip_content_rc: &ElementRc,
 ) {
-    let content_has_width = tooltip_content_rc.borrow().bindings.contains_key(WIDTH);
-    let content_has_height = tooltip_content_rc.borrow().bindings.contains_key(HEIGHT);
+    let content_has_width = tooltip_content_rc.borrow().binding(WIDTH).is_some();
+    let content_has_height = tooltip_content_rc.borrow().binding(HEIGHT).is_some();
 
     if content_has_width {
         let explicit_width = NamedReference::new(tooltip_content_rc, SmolStr::new_static(WIDTH));
@@ -167,8 +165,9 @@ fn build_tooltip_area(
     popup_id: &SmolStr,
     enclosing_component: &std::rc::Weak<Component>,
     tooltip_area_type: &ElementType,
+    repeated: Option<RepeatedElementInfo>,
 ) -> ElementRc {
-    Element {
+    let mut elem = Element {
         id: format_smolstr!("{}-area", popup_id),
         base_type: tooltip_area_type.clone(),
         enclosing_component: enclosing_component.clone(),
@@ -192,120 +191,23 @@ fn build_tooltip_area(
         ]
         .into_iter()
         .collect(),
+        repeated,
         ..Default::default()
-    }
-    .make_rc()
+    };
+    // `Element::from_node` runs `apply_default_type_properties` on user-written elements;
+    // synthesized elements need the same treatment so the builtin defaults (`delay`,
+    // `offset`) declared on `TooltipArea` reach the runtime.
+    crate::object_tree::apply_default_type_properties(&mut elem);
+    elem.make_rc()
 }
 
 fn wire_tooltip_placement(
     popup_window_rc: &ElementRc,
-    parent_width: NamedReference,
-    parent_height: NamedReference,
     pointer_x: NamedReference,
     pointer_y: NamedReference,
     tooltip_offset: NamedReference,
-    tooltip_placement: NamedReference,
-    placement_enum: Rc<Enumeration>,
 ) {
-    let popup_width = NamedReference::new(popup_window_rc, SmolStr::new_static("width"));
-    let popup_height = NamedReference::new(popup_window_rc, SmolStr::new_static("height"));
-    let popup_preferred_width =
-        NamedReference::new(popup_window_rc, SmolStr::new_static("preferred-width"));
-    let popup_preferred_height =
-        NamedReference::new(popup_window_rc, SmolStr::new_static("preferred-height"));
-    let placement_value = |name: &str| -> EnumerationValue {
-        EnumerationValue {
-            value: placement_enum
-                .values
-                .iter()
-                .position(|v| v == name)
-                .expect("ToolTipPlacement variant must exist"),
-            enumeration: placement_enum.clone(),
-        }
-    };
-
-    let is_pointer = Expression::BinaryExpression {
-        lhs: Box::new(Expression::PropertyReference(tooltip_placement.clone())),
-        rhs: Box::new(Expression::EnumerationValue(placement_value("pointer"))),
-        op: '=',
-    };
-    let is_left = Expression::BinaryExpression {
-        lhs: Box::new(Expression::PropertyReference(tooltip_placement.clone())),
-        rhs: Box::new(Expression::EnumerationValue(placement_value("left-element"))),
-        op: '=',
-    };
-    let is_right = Expression::BinaryExpression {
-        lhs: Box::new(Expression::PropertyReference(tooltip_placement.clone())),
-        rhs: Box::new(Expression::EnumerationValue(placement_value("right-element"))),
-        op: '=',
-    };
-    let is_above = Expression::BinaryExpression {
-        lhs: Box::new(Expression::PropertyReference(tooltip_placement.clone())),
-        rhs: Box::new(Expression::EnumerationValue(placement_value("above-element"))),
-        op: '=',
-    };
-    let is_below = Expression::BinaryExpression {
-        lhs: Box::new(Expression::PropertyReference(tooltip_placement)),
-        rhs: Box::new(Expression::EnumerationValue(placement_value("below-element"))),
-        op: '=',
-    };
-    let effective_popup_width = Expression::Condition {
-        condition: Box::new(Expression::BinaryExpression {
-            lhs: Box::new(Expression::PropertyReference(popup_width.clone())),
-            rhs: Box::new(Expression::NumberLiteral(0., Unit::None)),
-            op: '>',
-        }),
-        true_expr: Box::new(Expression::PropertyReference(popup_width.clone())),
-        false_expr: Box::new(Expression::PropertyReference(popup_preferred_width.clone())),
-    };
-    let effective_popup_height = Expression::Condition {
-        condition: Box::new(Expression::BinaryExpression {
-            lhs: Box::new(Expression::PropertyReference(popup_height.clone())),
-            rhs: Box::new(Expression::NumberLiteral(0., Unit::None)),
-            op: '>',
-        }),
-        true_expr: Box::new(Expression::PropertyReference(popup_height.clone())),
-        false_expr: Box::new(Expression::PropertyReference(popup_preferred_height.clone())),
-    };
-    let centered_x = Expression::BinaryExpression {
-        lhs: Box::new(Expression::BinaryExpression {
-            lhs: Box::new(Expression::PropertyReference(parent_width.clone())),
-            rhs: Box::new(effective_popup_width.clone()),
-            op: '-',
-        }),
-        rhs: Box::new(Expression::NumberLiteral(2., Unit::None)),
-        op: '/',
-    };
-    let centered_y = Expression::BinaryExpression {
-        lhs: Box::new(Expression::BinaryExpression {
-            lhs: Box::new(Expression::PropertyReference(parent_height.clone())),
-            rhs: Box::new(effective_popup_height.clone()),
-            op: '-',
-        }),
-        rhs: Box::new(Expression::NumberLiteral(2., Unit::None)),
-        op: '/',
-    };
     let tooltip_offset_expr = Expression::PropertyReference(tooltip_offset);
-    let x_left = Expression::BinaryExpression {
-        lhs: Box::new(Expression::UnaryOp { sub: Box::new(effective_popup_width), op: '-' }),
-        rhs: Box::new(tooltip_offset_expr.clone()),
-        op: '-',
-    };
-    let x_right = Expression::BinaryExpression {
-        lhs: Box::new(Expression::PropertyReference(parent_width)),
-        rhs: Box::new(tooltip_offset_expr.clone()),
-        op: '+',
-    };
-    let y_above = Expression::BinaryExpression {
-        lhs: Box::new(Expression::UnaryOp { sub: Box::new(effective_popup_height), op: '-' }),
-        rhs: Box::new(tooltip_offset_expr.clone()),
-        op: '-',
-    };
-    let y_below = Expression::BinaryExpression {
-        lhs: Box::new(Expression::PropertyReference(parent_height)),
-        rhs: Box::new(tooltip_offset_expr.clone()),
-        op: '+',
-    };
     let x_pointer = Expression::PropertyReference(pointer_x);
     let y_pointer = Expression::BinaryExpression {
         lhs: Box::new(Expression::PropertyReference(pointer_y)),
@@ -313,37 +215,11 @@ fn wire_tooltip_placement(
         op: '+',
     };
 
-    let mut x_binding: BindingExpression = Expression::Condition {
-        condition: Box::new(is_pointer.clone()),
-        true_expr: Box::new(x_pointer),
-        false_expr: Box::new(Expression::Condition {
-            condition: Box::new(is_left),
-            true_expr: Box::new(x_left),
-            false_expr: Box::new(Expression::Condition {
-                condition: Box::new(is_right),
-                true_expr: Box::new(x_right),
-                false_expr: Box::new(centered_x),
-            }),
-        }),
-    }
-    .into();
+    let mut x_binding: BindingExpression = x_pointer.into();
     x_binding.priority = 1;
     popup_window_rc.borrow_mut().bindings.insert(SmolStr::new_static("x"), RefCell::new(x_binding));
 
-    let mut y_binding: BindingExpression = Expression::Condition {
-        condition: Box::new(is_pointer.clone()),
-        true_expr: Box::new(y_pointer),
-        false_expr: Box::new(Expression::Condition {
-            condition: Box::new(is_above),
-            true_expr: Box::new(y_above),
-            false_expr: Box::new(Expression::Condition {
-                condition: Box::new(is_below),
-                true_expr: Box::new(y_below),
-                false_expr: Box::new(centered_y),
-            }),
-        }),
-    }
-    .into();
+    let mut y_binding: BindingExpression = y_pointer.into();
     y_binding.priority = 1;
     popup_window_rc.borrow_mut().bindings.insert(SmolStr::new_static("y"), RefCell::new(y_binding));
 }
@@ -375,12 +251,11 @@ fn wire_tooltip_visibility_behavior(
         RefCell::new(Expression::CodeBlock(vec![close_popup]).into()),
     );
 
-    {
-        let mut elem_borrow = elem.borrow_mut();
-        elem_borrow.children.insert(tooltip_child_index, tooltip_area.clone());
-        elem_borrow.children.insert(tooltip_child_index + 1, popup_window_rc);
-        elem_borrow.has_popup_child = true;
-    }
+    // Make the PopupWindow a child of the TooltipArea so that the popup's bindings
+    // (`x`/`y` referring to `TooltipArea.mouse-x`/`mouse-y`) and the conditional
+    // gating (`repeated` on `TooltipArea`) stay in the same scope.
+    tooltip_area.borrow_mut().children.push(popup_window_rc);
+    elem.borrow_mut().children.insert(tooltip_child_index, tooltip_area.clone());
 }
 
 fn lower_tooltips_in_component(
@@ -414,7 +289,7 @@ fn lower_tooltips_in_component(
             matches!(&elem.borrow().builtin_type(), Some(b) if b.name == TOOLTIP_ELEMENT);
         let is_direct_tooltip = matches!(&elem.borrow().base_type, t if *t == tooltip_type);
         if is_tooltip_like && !is_direct_tooltip {
-            diag.push_error("ToolTip cannot be inherited".into(), &*elem.borrow());
+            diag.push_error("Tooltip cannot be inherited".into(), &*elem.borrow());
             return;
         }
 
@@ -435,7 +310,7 @@ fn lower_tooltips_in_component(
             for idx in tooltip_indices.iter().skip(1) {
                 let child = &children[*idx];
                 diag.push_error(
-                    "Only one ToolTip is allowed as a child of an element".into(),
+                    "Only one Tooltip is allowed as a child of an element".into(),
                     &*child.borrow(),
                 );
             }
@@ -444,42 +319,57 @@ fn lower_tooltips_in_component(
         let tooltip_child_index = tooltip_indices[0];
 
         let tooltip_candidate = elem.borrow().children[tooltip_child_index].clone();
-        if elem.borrow().builtin_type().is_some_and(|builtin| {
-            LAYOUT_ELEMENTS_DISALLOWING_TOOLTIP.contains(&builtin.name.as_str())
-        }) {
+        // `if cond : Tooltip { ... }` is allowed (the wrapper switches the synthesized
+        // TooltipArea + PopupWindow on/off with the condition); `for ... : Tooltip { ... }`
+        // is not.
+        let tooltip_repeated = tooltip_candidate.borrow_mut().repeated.take();
+        if tooltip_repeated.as_ref().is_some_and(|r| !r.is_conditional_element) {
             diag.push_error(
-                "ToolTip cannot be used inside layout elements".into(),
+                "Tooltip cannot be in a `for` element".into(),
                 &*tooltip_candidate.borrow(),
             );
             return;
         }
-        if elem.borrow().builtin_type().is_some_and(|builtin| builtin.is_non_item_type) {
+        let parent_name = elem.borrow().builtin_type().map(|b| b.name.clone());
+        if parent_name
+            .as_ref()
+            .is_some_and(|name| LAYOUT_ELEMENTS_DISALLOWING_TOOLTIP.contains(&name.as_str()))
+        {
             diag.push_error(
-                "ToolTip cannot be used inside non-item elements".into(),
+                format!("Tooltip cannot be added to {}", parent_name.as_ref().unwrap()),
+                &*tooltip_candidate.borrow(),
+            );
+            return;
+        }
+        if elem.borrow().builtin_type().is_some_and(|builtin| {
+            builtin.is_non_item_type || builtin.disallow_global_types_as_child_elements
+        }) {
+            diag.push_error(
+                format!("Tooltip cannot be added to {}", parent_name.as_ref().unwrap()),
                 &*tooltip_candidate.borrow(),
             );
             return;
         }
 
         let has_custom_content = !tooltip_candidate.borrow().children.is_empty();
-        let has_text_binding = tooltip_candidate.borrow().bindings.contains_key("text");
+        let has_text_binding = tooltip_candidate.borrow().binding("text").is_some();
         if has_custom_content && has_text_binding {
             diag.push_error(
-                "ToolTip cannot have both text and custom content".into(),
+                "Tooltip cannot have both text and custom content".into(),
                 &*tooltip_candidate.borrow(),
             );
             return;
         }
         if !has_custom_content && !has_text_binding {
             diag.push_error(
-                "ToolTip must provide either text or custom content".into(),
+                "Tooltip must provide either text or custom content".into(),
                 &*tooltip_candidate.borrow(),
             );
             return;
         }
         if has_custom_content && tooltip_candidate.borrow().children.len() > 1 {
             diag.push_error(
-                "ToolTip custom content must have exactly one root child element".into(),
+                "Tooltip custom content must have exactly one root child element".into(),
                 &*tooltip_candidate.borrow(),
             );
             return;
@@ -502,26 +392,27 @@ fn lower_tooltips_in_component(
             (tooltip_config, enclosing_component, popup_id, custom_children)
         };
 
-        let parent_width = NamedReference::new(elem, SmolStr::new_static(WIDTH));
-        let parent_height = NamedReference::new(elem, SmolStr::new_static(HEIGHT));
-
-        let tooltip_area = build_tooltip_area(&popup_id, &enclosing_component, &tooltip_area_type);
-        let copied_binding = |source_property: &str, target_property: &str| {
-            if let Some(binding) = tooltip_config.borrow().bindings.get(source_property) {
+        let tooltip_area = build_tooltip_area(
+            &popup_id,
+            &enclosing_component,
+            &tooltip_area_type,
+            tooltip_repeated,
+        );
+        // Propagate a user-set binding from the `Tooltip` element onto the synthesized
+        // `TooltipArea`, keyed by the same property name. Currently only `text` is shared,
+        // but the helper is kept so adding more shared properties later is a one-liner.
+        let copy_binding = |property: &str| {
+            if let Some(binding) = tooltip_config.borrow().bindings.get(property) {
                 tooltip_area
                     .borrow_mut()
                     .bindings
-                    .insert(SmolStr::new(target_property), RefCell::new(binding.borrow().clone()));
+                    .insert(SmolStr::new(property), RefCell::new(binding.borrow().clone()));
             }
         };
-        copied_binding(PLACEMENT, PLACEMENT);
-        copied_binding(OFFSET, OFFSET);
-        copied_binding(DELAY, DELAY);
         if has_text_binding {
-            copied_binding(TEXT, TEXT);
+            copy_binding(TEXT);
         }
 
-        let tooltip_placement = NamedReference::new(&tooltip_area, SmolStr::new_static(PLACEMENT));
         let tooltip_offset = NamedReference::new(&tooltip_area, SmolStr::new_static(OFFSET));
         let pointer_x = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_X));
         let pointer_y = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_Y));
@@ -535,17 +426,6 @@ fn lower_tooltips_in_component(
             custom_children,
         );
         let popup_children = vec![tooltip_content.clone()];
-
-        let placement_enum = match tooltip_area.borrow().lookup_property(PLACEMENT).property_type {
-            Type::Enumeration(en) => en,
-            _ => {
-                diag.push_error(
-                    "ToolTip.placement must be an enum value".into(),
-                    &*tooltip_area.borrow(),
-                );
-                return;
-            }
-        };
 
         let popup_window = Element {
             id: popup_id,
@@ -561,23 +441,14 @@ fn lower_tooltips_in_component(
             )]
             .into_iter()
             .collect(),
-            // Carry the ToolTip's source location so diagnostics from
-            // lower_popups point back to the original ToolTip element.
+            // Carry the Tooltip's source location so diagnostics from
+            // lower_popups point back to the original Tooltip element.
             debug: tooltip_config.borrow().debug.clone(),
             ..Default::default()
         };
         let popup_window_rc = popup_window.make_rc();
         bind_popup_effective_size_from_content(&popup_window_rc, &tooltip_content);
-        wire_tooltip_placement(
-            &popup_window_rc,
-            parent_width,
-            parent_height,
-            pointer_x,
-            pointer_y,
-            tooltip_offset,
-            tooltip_placement,
-            placement_enum,
-        );
+        wire_tooltip_placement(&popup_window_rc, pointer_x, pointer_y, tooltip_offset);
 
         wire_tooltip_visibility_behavior(elem, tooltip_child_index, &tooltip_area, popup_window_rc);
     });
@@ -603,7 +474,7 @@ pub async fn lower_tooltips(
 
     let mut import_diag = BuildDiagnostics::default();
     let tooltip_component = type_loader
-        .import_component("std-widgets.slint", TOOLTIP_IMPL_ELEMENT, &mut import_diag)
+        .import_component("std-widgets-impl.slint", TOOLTIP_IMPL_ELEMENT, &mut import_diag)
         .await;
     for diagnostic in import_diag {
         diag.push_compiler_error(diagnostic);
@@ -611,7 +482,7 @@ pub async fn lower_tooltips(
     let Some(tooltip_component) = tooltip_component else {
         let generic_location = doc.node.as_ref().map(|n| n.to_source_location());
         diag.push_error(
-            "`ToolTip` style implementation could not be loaded from std-widgets".into(),
+            "`Tooltip` style implementation could not be loaded from std-widgets".into(),
             &generic_location,
         );
         return;

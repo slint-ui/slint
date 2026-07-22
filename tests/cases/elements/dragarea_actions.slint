@@ -24,7 +24,6 @@ export component TestCase inherits Window {
                 allow-copy: false;
                 allow-move: true;
                 allow-link: false;
-                preferred-action: DragAction.move;
                 drag-finished(action) => {
                     last-finished = action;
                     finished-count += 1;
@@ -45,10 +44,10 @@ export component TestCase inherits Window {
 /*
 ```rust
 use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
-use slint::private_unstable_api::re_exports::{DragAction, MouseCursor};
+use slint::private_unstable_api::re_exports::{DragAction, MouseCursorInner, BuiltInMouseCursor};
 
 let instance = TestCase::new().unwrap();
-instance.on_make_data(|| Default::default());
+instance.on_make_data(|| slint::SharedString::from("payload").into());
 
 // --- Successful drag with preferred move action ---
 assert_eq!(instance.get_dragging(), false);
@@ -63,7 +62,7 @@ assert_eq!(instance.get_dragging(), true);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(22.0, 120.0) });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_current_action(), DragAction::Move);
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Move);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Move));
 
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(22.0, 120.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(20);
@@ -83,7 +82,7 @@ slint_testing::mock_elapsed_time(20);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(22.0, 120.0) });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_current_action(), DragAction::None);
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::NoDrop);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::NoDrop));
 
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(22.0, 120.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(20);

@@ -3,15 +3,15 @@
 
 
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 100phx;
     height: 100phx;
 
-    property <int> creation-count: 0;
+    in-out property <int> creation-count: 0;
 
-    property <length> test-height: preferred-height;
+    in-out property <length> test-height: root.preferred-height;
 
-    property <int> repeater-count: -10;
+    in-out property <int> repeater-count: -10;
 
     VerticalLayout {
         for _ in repeater-count: Rectangle {

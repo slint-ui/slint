@@ -1,45 +1,55 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+
 //include_path: ../../../demos/printerdemo/ui/images/
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     img := Image {
+        x:0;y:0;
         source: @image-url("cat.jpg");
     }
 
     img2 := Image {
+        x:0;y:0;
         source: @image-url("cat.jpg");
         source-clip-x: 20;
     }
 
     img3 := Image {
+        x:0;y:0;
         source: @image-url("image.slint");
     }
 
     img4 := Image {
+        x:0;y:0;
         source: @image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC");
     }
 
     img5 := Image {
+        x:0;y:0;
         source: @image-url("data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%2295%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpolygon%20fill%3D%22%23231815%22%20points%3D%2250%2C0%2065.451%2C31.271%20100%2C36.287%2075%2C60.729%2081.902%2C95%2050%2C78.361%2018.098%2C95%2025%2C60.729%200%2C36.287%2034.549%2C31.271%22%2F%3E%3C%2Fsvg%3E");
     }
 
     img6 := Image {
+        x:0;y:0;
         source: @image-url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjUiIGN5PSIyMCIgcj0iMTUiIGZpbGw9InJlZCIvPjwvc3ZnPg==");
     }
 
     // same data URI as img4, tests deduplication
     img7 := Image {
+        x:0;y:0;
         source: @image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC");
     }
 
     out property <image> with-border: @image-url("dog.jpg", nine-slice(12 13 14 15));
 
-    property <length> img_width: img.width;
-    property <length> img_height: img.height;
+    in-out property <length> img_width: img.width;
+    in-out property <length> img_height: img.height;
     in-out property <float> test_no_overflow: (21 - img.source.width) / 2; // (21 - 320)/2 = -149.5
-    property <bool> test: img2.source-clip-height * 1px == img2.height && img2.source-clip-width * 1px == img2.width &&
+    in-out property <bool> test: img2.source-clip-height * 1px == img2.height && img2.source-clip-width * 1px == img2.width &&
          img2.width/1px == img2.source.width - 20 && img3.source.width == 0 && img3.source.height == 0 && test_no_overflow == -149.5 &&
          img4.source.width == 1 && img4.source.height == 1 &&
          img5.source.width > 0 && img5.source.height > 0 &&
@@ -59,7 +69,7 @@ assert(instance.get_test());
 auto img_search = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::img");
 assert_eq(img_search.size(), 1);
 auto img = img_search[0];
-assert(*img.accessible_role() == slint::testing::AccessibleRole::Image);
+assert(*img.accessible_role() == slint::language::AccessibleRole::Image);
 ```
 
 

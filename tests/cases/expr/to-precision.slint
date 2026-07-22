@@ -1,21 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
-    property<string> t1: 5.123456.to-precision(0.0);
-    property<string> t2: 5.123456.to-precision(5);
-    property<string> t3: 5.123456.to-precision(2);
-    property<string> t4: 5.123456.to-precision(1);
-    property<string> t5: 0.000123.to-precision(0);
-    property<string> t6: 0.000123.to-precision(5.0);
-    property<string> t7: 0.000123.to-precision(2);
-    property<string> t8: 0.000123.to-precision(1);
-    property<string> t9: (-1234.5).to-precision(1);
-    property<string> t10: (-1234.5).to-precision(2);
-    property<string> t11: (-1234.5).to-precision(6.0);
-    property<string> t12: 0.00000012345.to-precision(1);
-    property<string> t13: 0.00000012345.to-precision(10.0);
-    property<string> t14: 5.123456.to-precision(-1);
+export component TestCase inherits Rectangle {
+    in-out property<string> t1: 5.123456.to-precision(0.0);
+    in-out property<string> t2: 5.123456.to-precision(5);
+    in-out property<string> t3: 5.123456.to-precision(2);
+    in-out property<string> t4: 5.123456.to-precision(1);
+    in-out property<string> t5: 0.000123.to-precision(0);
+    in-out property<string> t6: 0.000123.to-precision(5.0);
+    in-out property<string> t7: 0.000123.to-precision(2);
+    in-out property<string> t8: 0.000123.to-precision(1);
+    in-out property<string> t9: (-1234.5).to-precision(1);
+    in-out property<string> t10: (-1234.5).to-precision(2);
+    in-out property<string> t11: (-1234.5).to-precision(6.0);
+    in-out property<string> t12: 0.00000012345.to-precision(1);
+    in-out property<string> t13: 0.00000012345.to-precision(10.0);
+    in-out property<string> t14: 5.123456.to-precision(-1);
 }
 /*
 ```cpp

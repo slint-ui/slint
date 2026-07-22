@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for issue #12251: colspan was ignored when both the Row and
+// the cell inside it are conditional (`if cond: Row { if cond: ... colspan: 2 }`).
+// The spanned cell collapsed to a single column.
+
+export component TestCase inherits Window {
+    width: 400phx;
+    height: 200phx;
+
+    in property <bool> cond: true;
+
+    GridLayout {
+        spacing: 0phx;
+        padding: 0phx;
+
+        // The cell and its Row are both conditional, and the cell spans two columns.
+        if cond: Row {
+            if cond: Rectangle {
+                background: green;
+                colspan: 2;
+                min-width: 200phx;
+            }
+        }
+
+        // Reference row: two stretchy columns. When the colspan above is honored,
+        // its minimum width applies to both columns combined, so the two columns
+        // stay equal. When it is ignored, the minimum lands on column 0 alone and
+        // the columns become unequal.
+        Row {
+            a := Rectangle { horizontal-stretch: 1; background: red; }
+            b := Rectangle { horizontal-stretch: 1; background: blue; }
+        }
+    }
+
+    out property <length> a-width: a.width;
+    out property <length> b-width: b.width;
+    out property <bool> test: a.width == b.width && a.width == 200phx;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_a_width(), 200.);
+assert_eq(instance.get_b_width(), 200.);
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_a_width(), 200.);
+assert_eq!(instance.get_b_width(), 200.);
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+*/

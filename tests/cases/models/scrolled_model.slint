@@ -3,11 +3,11 @@
 
 import { Button, ListView } from "std-widgets.slint";
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 50phx;
 
-    property<[{name: string}]> model: [
+    in-out property<[{name: string}]> model: [
         { name: "1Olivier", },
         { name: "1Simon", },
         { name: "2Olivier", },

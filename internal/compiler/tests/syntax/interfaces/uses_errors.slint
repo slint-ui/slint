@@ -1,38 +1,47 @@
 // Copyright © 2025 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export component UsesBuiltin uses { Rectangle from base } {
-//                                  >        <error{'Rectangle' is not an interface}
+export component UsesBuiltin {
+    implement Rectangle <=> base;
+//            >        <error{Cannot implement Rectangle. It is not an interface}
     base := Rectangle { }
 }
 
 component ComponentA { }
 
-export component UsesComponent uses { ComponentA from base } {
-//                                    >         <error{'ComponentA' is not an interface}
+export component UsesComponent {
+    implement ComponentA <=> base;
+//            >         <error{Cannot implement ComponentA. It is not an interface}
     base := ComponentA { }
 }
 
-export component UsesMissing uses { MissingInterface from base } {
-//                                  >               <error{Unknown element 'MissingInterface'}
+export component UsesMissing {
+    implement MissingInterface <=> base;
+//            >               <error{Unknown element 'MissingInterface'}
     base := ComponentA { }
 }
 
-export component UsesRow uses { Row from base } {
-//                              >  <error{Row can only be within a GridLayout element}
+export component UsesRow {
+    implement Row <=> base;
+//            >  <error{Row can only be within a GridLayout element}
     base := ComponentA { }
 }
 
-export component UsesRowInGridLayout uses { Row from base } inherits GridLayout {
-//                                          >  <error{Row can only be within a GridLayout element}
+export component UsesRowInGridLayout inherits GridLayout {
+    implement Row <=> base;
+//            >  <error{Row can only be within a GridLayout element}
     base := ComponentA { }
 }
 
-export component MultipleErrors uses { MissingInterface from base, Rectangle from base, ComponentA from base, Row from base } {
-//                                     >               <error{Unknown element 'MissingInterface'}
-//                                                                 >        <^error{'Rectangle' is not an interface}
-//                                                                                      >         <^^error{'ComponentA' is not an interface}
-//                                                                                                            >  <^^^error{Row can only be within a GridLayout element}
+export component MultipleErrors {
+    implement MissingInterface <=> base;
+//            >               <error{Unknown element 'MissingInterface'}
+    implement Rectangle <=> base;
+//            >        <error{Cannot implement Rectangle. It is not an interface}
+    implement ComponentA <=> base;
+//            >         <error{Cannot implement ComponentA. It is not an interface}
+    implement Row <=> base;
+//            >  <error{Row can only be within a GridLayout element}
     base := ComponentA { }
 }
 
@@ -42,13 +51,16 @@ export interface ValidInterface {
     public pure function reset();
 }
 
-export component MissingChild uses { ValidInterface from base} { }
-//                                                       >  <error{'base' does not exist}
+export component MissingChild {
+    implement ValidInterface <=> base;
+//                               >  <error{'base' does not exist}
+}
 
-export component ChildDoesNotImplementInterface1 uses { ValidInterface from base } {
-//                                                                          >  <error{'base' does not implement 'reset' from 'ValidInterface' - not found}
-//                                                                          >  <^error{'base' does not implement 'speak' from 'ValidInterface' - not found}
-//                                                                          >  <^^error{'base' does not implement 'value' from 'ValidInterface' - not found}
+export component ChildDoesNotImplementInterface1 {
+    implement ValidInterface <=> base;
+//                               >  <error{'base' does not implement 'reset' from 'ValidInterface' - not found}
+//                               >  <^error{'base' does not implement 'speak' from 'ValidInterface' - not found}
+//                               >  <^^error{'base' does not implement 'value' from 'ValidInterface' - not found}
     base := ComponentA { }
 }
 
@@ -59,8 +71,9 @@ component IncorrectPropertyVisibility {
     }
 }
 
-export component ChildDoesNotImplementInterfaceProperty1 uses { ValidInterface from impl } {
-//                                                                                  >  <error{'impl' does not implement 'value' from 'ValidInterface' - expected visibility: 'input output'}
+export component ChildDoesNotImplementInterfaceProperty1 {
+    implement ValidInterface <=> impl;
+//                               >  <error{'impl' does not implement 'value' from 'ValidInterface' - expected visibility: 'input output'}
     impl := IncorrectPropertyVisibility { }
 }
 
@@ -71,8 +84,9 @@ component IncorrectPropertyType {
     }
 }
 
-export component ChildDoesNotImplementInterfaceProperty2 uses { ValidInterface from impl } {
-//                                                                                  >  <error{'impl' does not implement 'value' from 'ValidInterface' - expected type: 'int'}
+export component ChildDoesNotImplementInterfaceProperty2 {
+    implement ValidInterface <=> impl;
+//                               >  <error{'impl' does not implement 'value' from 'ValidInterface' - expected type: 'int'}
     impl := IncorrectPropertyType { }
 }
 
@@ -83,8 +97,9 @@ component IncorrectCallbackReturnType {
     }
 }
 
-export component ChildDoesNotImplementInterfaceCallback1 uses { ValidInterface from impl } {
-//                                                                                  >  <error{'impl' does not implement 'speak' from 'ValidInterface' - expected type: 'callback-> void'}
+export component ChildDoesNotImplementInterfaceCallback1 {
+    implement ValidInterface <=> impl;
+//                               >  <error{'impl' does not implement 'speak' from 'ValidInterface' - expected type: 'callback-> void'}
     impl := IncorrectCallbackReturnType { }
 }
 
@@ -95,8 +110,9 @@ component IncorrectSpeakType {
     }
 }
 
-export component ChildDoesNotImplementInterfaceCallback uses { ValidInterface from impl } {
-//                                                                                 >  <error{'impl' does not implement 'speak' from 'ValidInterface' - expected type: 'callback-> void', visibility: 'input output'}
+export component ChildDoesNotImplementInterfaceCallback {
+    implement ValidInterface <=> impl;
+//                               >  <error{'impl' does not implement 'speak' from 'ValidInterface' - expected type: 'callback-> void', visibility: 'input output'}
     impl := IncorrectSpeakType { }
 }
 
@@ -110,8 +126,9 @@ export component IncorrectPurity {
     }
 }
 
-export component ChildDoesNotImplementInterface2 uses { FunctionInterface from base } {
-//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected purity declaration: 'true'}
+export component ChildDoesNotImplementInterface2 {
+    implement FunctionInterface <=> base;
+//                                  >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected purity declaration: 'true'}
     base := IncorrectPurity { }
 }
 
@@ -121,8 +138,9 @@ export component IncorrectArgTypes {
     }
 }
 
-export component ChildDoesNotImplementInterface3 uses { FunctionInterface from base } {
-//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected type: 'function(int,string) -> bool'}
+export component ChildDoesNotImplementInterface3 {
+    implement FunctionInterface <=> base;
+//                                  >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected type: 'function(int,string) -> bool'}
     base := IncorrectArgTypes { }
 }
 
@@ -132,8 +150,9 @@ export component IncorrectArgNames {
     }
 }
 
-export component ChildDoesNotImplementInterface4 uses { FunctionInterface from base } {
-//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected type: 'function(int,string) -> bool'}
+export component ChildDoesNotImplementInterface4 {
+    implement FunctionInterface <=> base;
+//                                  >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected type: 'function(int,string) -> bool'}
     base := IncorrectArgNames { }
 }
 
@@ -142,17 +161,21 @@ export component IncorrectReturnType {
     }
 }
 
-export component ChildDoesNotImplementInterface5 uses { FunctionInterface from base } {
-//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected type: 'function(int,string) -> bool'}
+export component ChildDoesNotImplementInterface5 {
+    implement FunctionInterface <=> base;
+//                                  >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected type: 'function(int,string) -> bool'}
     base := IncorrectReturnType { }
 }
 
-component ValidBase implements ValidInterface {
+component ValidBase {
+    implement ValidInterface <=> self;
+
     public pure function reset() {
     }
 }
 
-export component ConflictingNames uses { ValidInterface from base } {
+export component ConflictingNames {
+    implement ValidInterface <=> base;
     base := ValidBase { }
 
     in-out property <int> value;
@@ -167,17 +190,18 @@ export component ConflictingNames uses { ValidInterface from base } {
 }
 
 component BaseWithConflicts {
-    in-out property <int> value: 10;
+    in-out property <int> value;
     callback speak();
     public pure function reset() {
     }
     @children
 }
 
-export component DuplicatePropertyOnBase uses { ValidInterface from base } inherits BaseWithConflicts {
-//                                              >             <error{Cannot use interface 'ValidInterface' because 'reset' conflicts with an existing function in 'BaseWithConflicts'}
-//                                              >             <^error{Cannot use interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'BaseWithConflicts'}
-//                                              >             <^^error{Cannot use interface 'ValidInterface' because 'value' conflicts with an existing property in 'BaseWithConflicts'}
+export component DuplicatePropertyOnBase inherits BaseWithConflicts {
+    implement ValidInterface <=> base;
+//            >             <error{Cannot use interface 'ValidInterface' because 'reset' conflicts with an existing function in 'BaseWithConflicts'}
+//            >             <^error{Cannot use interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'BaseWithConflicts'}
+//            >             <^^error{Cannot use interface 'ValidInterface' because 'value' conflicts with an existing property in 'BaseWithConflicts'}
     base := ValidBase { }
 }
 
@@ -187,34 +211,44 @@ interface InterfaceA {
     pure public function test-function();
 }
 
-component AImpl implements InterfaceA {
+component AImpl {
+    implement InterfaceA <=> self;
+
     pure public function test-function() {
     }
 }
 
 interface InterfaceB {
-    out property <bool> test: true;
+    out property <bool> test;
     callback test-callback(string);
     pure public function test-function(i: int) -> int;
 }
 
-component BImpl implements InterfaceB {
+component BImpl {
+    implement InterfaceB <=> self;
+
     pure public function test-function(i: int) -> int {
         return i;
     }
 }
 
-export component ConflictingUses uses { InterfaceA from a, InterfaceB from b } {
-//                                                         >         <error{'test' occurs in 'InterfaceB' and 'InterfaceA'}
-//                                                         >         <^error{'test-callback' occurs in 'InterfaceB' and 'InterfaceA'}
-//                                                         >         <^^error{'test-function' occurs in 'InterfaceB' and 'InterfaceA'}
+export component ConflictingUses {
+    implement InterfaceA <=> a;
+    implement InterfaceB <=> b;
+//            >         <error{'test' occurs in 'InterfaceB' and 'InterfaceA'}
+//            >         <^error{'test-callback' occurs in 'InterfaceB' and 'InterfaceA'}
+//            >         <^^error{'test-function' occurs in 'InterfaceB' and 'InterfaceA'}
+
     a := AImpl { }
 
     b := BImpl { }
 }
 
-export component DuplicateUses uses { InterfaceA from a, InterfaceA from b } {
-//                                                       >         <error{'InterfaceA' is used multiple times}
+export component DuplicateUses {
+    implement InterfaceA <=> a;
+    implement InterfaceA <=> b;
+//  >                         <error{'InterfaceA' is implemented multiple times}
+
     a := AImpl { }
 
     b := AImpl { }

@@ -25,24 +25,16 @@ x11 = ["glutin/x11", "glutin/glx", "softbuffer/x11", "softbuffer/x11-dlopen"]
 opengl = []
 vulkan = ["skia-safe/vulkan", "dep:ash", "vulkano"]
 kms = ["softbuffer/kms"]
-# wgpu-{28,29} enables the wgpu surface module for internal use (e.g. linuxkms DRM rendering).
-# unstable-wgpu-{28,29} additionally exposes public API integration (GraphicsAPI, texture import).
-wgpu-28 = [
-  "i-slint-core/wgpu-28",
-  "dep:wgpu-28",
-  "dep:spin_on",
-  "dep:metal",
-  "dep:foreign-types",
-  "dep:ash",
-  "dep:windows-core",
-]
-unstable-wgpu-28 = ["i-slint-core/unstable-wgpu-28", "wgpu-28"]
-wgpu-29 = ["i-slint-core/wgpu-29", "dep:wgpu-29", "dep:spin_on", "dep:ash", "dep:windows-core"]
+# wgpu-{29,30} enables the wgpu surface module for internal use (e.g. linuxkms DRM rendering).
+# unstable-wgpu-{29,30} additionally exposes public API integration (GraphicsAPI, texture import).
+wgpu-29 = ["i-slint-core/wgpu-29", "dep:wgpu-29", "dep:spin_on", "dep:ash", "dep:windows-core", "dep:wgpu-hal-29"]
 unstable-wgpu-29 = ["i-slint-core/unstable-wgpu-29", "wgpu-29"]
+wgpu-30 = ["i-slint-core/wgpu-30", "dep:wgpu-30", "dep:spin_on", "dep:ash", "dep:windows-core", "dep:wgpu-hal-30"]
+unstable-wgpu-30 = ["i-slint-core/unstable-wgpu-30", "wgpu-30"]
 default = ["softbuffer"]
 
 [dependencies]
-i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-parley"] }
+i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-parley", "image-decoders", "svg"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default"] }
 
@@ -57,15 +49,15 @@ scoped-tls-hkt = "0.1"
 raw-window-handle = { version = "0.6", features = ["std"] }
 clru = { workspace = true }
 
-skia-safe = { version = "0.90", features = ["gl"] }
+skia-safe = { version = "0.99.0", features = ["gl"] }
 glow = { workspace = true }
 unicode-segmentation = { workspace = true }
 
 ash = { version = "^0.38.0", optional = true }
 vulkano = { version = "0.35.0", optional = true, default-features = false }
 
-wgpu-28 = { workspace = true, optional = true }
 wgpu-29 = { workspace = true, optional = true }
+wgpu-30 = { workspace = true, optional = true }
 spin_on = { version = "0.1", optional = true }
 
 [target.'cfg(any(not(target_vendor = "apple"), target_os = "macos"))'.dependencies]
@@ -79,9 +71,9 @@ bytemuck = { workspace = true }
 [target.'cfg(target_family = "windows")'.dependencies]
 windows = { workspace = true, features = ["Win32", "Win32_System_Com", "Win32_Graphics", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12", "Win32_Graphics_Direct3D", "Win32_Foundation", "Win32_Graphics_Dxgi_Common", "Win32_System_Threading", "Win32_Security"] }
 windows-core = { workspace = true, optional = true }
-skia-safe = { version = "0.90", features = ["d3d"] }
-wgpu-28 = { workspace = true, optional = true, features = ["dx12"] }
+skia-safe = { version = "0.99.0", features = ["d3d"] }
 wgpu-29 = { workspace = true, optional = true, features = ["dx12"] }
+wgpu-30 = { workspace = true, optional = true, features = ["dx12"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 objc2 = { version = "0.6.0" }
@@ -90,26 +82,28 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = ["s
 objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["std", "objc2-metal", "CALayer", "CAMetalLayer", "objc2-core-foundation"] }
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSResponder", "NSView"] }
 objc2-core-foundation = { version = "0.3.2", default-features = false, features = ["CFCGTypes"] }
-skia-safe = { version = "0.90", features = ["metal"] }
+skia-safe = { version = "0.99.0", features = ["metal"] }
 raw-window-metal = "1.0"
 
-metal = { version = "0.31", optional = true }
-foreign-types = { version = "0.5.0", optional = true }
-wgpu-28 = { workspace = true, optional = true, features = ["metal"] }
 wgpu-29 = { workspace = true, optional = true, features = ["metal"] }
+wgpu-30 = { workspace = true, optional = true, features = ["metal"] }
+# Version floor for `metal::Queue::as_raw` (used in wgpu_29_surface/metal.rs),
+# which was added in wgpu-hal 29.0.4. Enabled by the `wgpu-29` feature; only
+# declared here (Apple) because that is the only target using the API.
+wgpu-hal-29 = { workspace = true, optional = true }
+wgpu-hal-30 = { workspace = true, optional = true }
 
 read-fonts = { workspace = true }
-# Pinned to 0.48 to align with read-fonts from parley and avoid duplicated dependencies
-write-fonts = { version = "0.48" }
+# Pinned to 0.49 to align with read-fonts from parley and avoid duplicated dependencies
+write-fonts = { version = "0.49" }
 
 [target.'cfg(not(any(target_vendor = "apple", target_family = "windows")))'.dependencies]
-skia-safe = { version = "0.90", features = ["gl", "vulkan"] }
-wgpu-28 = { workspace = true, optional = true, features = ["vulkan"] }
+skia-safe = { version = "0.99.0", features = ["gl", "vulkan"] }
 wgpu-29 = { workspace = true, optional = true, features = ["vulkan"] }
+wgpu-30 = { workspace = true, optional = true, features = ["vulkan"] }
 
-[target.'cfg(any(target_os = "ios", target_os="macos", target_os="windows", target_os="android", target_os="linux"))'.dependencies]
-# Text layout is enabled here just so that we can make use of the pre-built Skia libraries.
-skia-safe = { version = "0.90", features = ["textlayout"] }
+[target.'cfg(all(any(target_os = "ios", target_os="macos", target_os="windows", target_os="android", target_os="linux"), not(target_arch = "arm")))'.dependencies]
+skia-safe = { version = "0.99.0", features = ["textlayout"] }
 
 [target.aarch64-apple-ios-sim.dependencies]
 # Disabling encoding assertions until https://github.com/madsmtm/objc2/issues/795 is fixed.

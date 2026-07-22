@@ -415,9 +415,8 @@ export component Example inherits Window {
 The GridLayout lays the element in a grid.
 Each element gains the properties `row`, `col`, `rowspan`, and `colspan`.
 You can either use a `Row` sub-element, or set the `row` property explicitly.
-These properties must be statically known at compile time, so it's impossible
-to use arithmetic or depend on properties. As of now, the use of `for` or `if`
-isn't allowed in a grid layout.
+These properties can be changed at runtime, and `for` and `if` are supported
+in a grid layout.
 
 This example use the `Row` element
 

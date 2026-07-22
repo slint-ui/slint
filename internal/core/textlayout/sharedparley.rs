@@ -102,6 +102,13 @@ pub type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
 type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
 
+/// Outline drawn around a rectangle filled via [`GlyphRenderer::fill_rectangle`].
+#[derive(Clone)]
+pub struct RectangleBorder<Brush> {
+    pub brush: Brush,
+    pub width: PhysicalLength,
+}
+
 /// Trait used for drawing text and text input elements with parley, where parley does the
 /// shaping and positioning, and the renderer is responsible for drawing just the glyphs.
 pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
@@ -141,18 +148,33 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     );
 
+    /// Convenience wrapper around `fill_rectangle` that resolves `color` to a platform
+    /// brush and fills `physical_rect` with sharp corners and no outline.
     fn fill_rectangle_with_color(&mut self, physical_rect: PhysicalRect, color: Color) {
         if let Some(platform_brush) = self.platform_brush_for_color(&color) {
-            self.fill_rectangle(physical_rect, platform_brush);
+            self.fill_rectangle(physical_rect, platform_brush, PhysicalLength::zero(), None);
         }
     }
 
-    /// Fills the given rectangle with the specified color. This is used for drawing selection
-    /// rectangles as well as the text cursor.
-    fn fill_rectangle(&mut self, physical_rect: PhysicalRect, brush: Self::PlatformBrush);
+    /// Fills `physical_rect` with `brush`, optionally rounding the corners by `radius`
+    /// and outlining it with `border`. Passing a zero `radius` produces sharp corners;
+    /// passing `None` for `border` skips the outline.
+    fn fill_rectangle(
+        &mut self,
+        physical_rect: PhysicalRect,
+        brush: Self::PlatformBrush,
+        radius: PhysicalLength,
+        border: Option<RectangleBorder<Self::PlatformBrush>>,
+    );
 }
 
-pub const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12.);
+pub use super::DEFAULT_FONT_SIZE;
+
+/// Font size of inline `code` runs, as a fraction of the surrounding body
+/// text. Matches the convention used by GitHub-style markdown renderers — the
+/// glyphs sit a little smaller than body text, inside a translucent capsule
+/// that visually marks them as code.
+const INLINE_CODE_FONT_SCALE: f32 = 0.85;
 
 std::thread_local! {
     static LAYOUT_CONTEXT: RefCell<parley::LayoutContext<Brush>> = Default::default();
@@ -166,9 +188,12 @@ struct Brush {
     link_color: Option<Color>,
 }
 
+#[derive(Default)]
 struct LayoutOptions {
     max_width: Option<LogicalLength>,
     max_height: Option<LogicalLength>,
+    /// Maximum number of visible lines across all paragraphs.
+    max_lines: Option<usize>,
     horizontal_align: TextHorizontalAlignment,
     vertical_align: TextVerticalAlignment,
     text_overflow: TextOverflow,
@@ -183,6 +208,7 @@ impl LayoutOptions {
         Self {
             max_width,
             max_height,
+            max_lines: None,
             horizontal_align: text_input.horizontal_alignment(),
             vertical_align: text_input.vertical_alignment(),
             text_overflow: TextOverflow::Clip,
@@ -219,7 +245,28 @@ impl LayoutWithoutLineBreaksBuilder {
         font_ctx: &'a mut parley::FontContext,
         text: &'a str,
     ) -> parley::RangedBuilder<'a, Brush> {
+        // Pin the line height to the requested font's metrics so fallback runs (e.g.
+        // password chars rendered by a wider-descender symbol font) don't grow the
+        // line box. FontSizeRelative makes the ratio scale with any per-span FontSize.
+        let line_height_ratio = self.font_request.as_ref().and_then(|font_request| {
+            let font = font_request
+                .clone()
+                .query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)?;
+            let face = skrifa::FontRef::from_index(font.blob.data(), font.index).ok()?;
+            let location = face.axes().location(font.synthesis.variation_settings());
+            let metrics = face.metrics(skrifa::instance::Size::unscaled(), &location);
+            let units_per_em = metrics.units_per_em as f32;
+            (units_per_em > 0.0)
+                .then(|| (metrics.ascent - metrics.descent + metrics.leading) / units_per_em)
+        });
+
         let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), false);
+
+        if let Some(ratio) = line_height_ratio {
+            builder.push_default(parley::StyleProperty::LineHeight(
+                parley::style::LineHeight::FontSizeRelative(ratio),
+            ));
+        }
 
         if let Some(ref font_request) = self.font_request {
             let mut fallback_family_iter = sharedfontique::FALLBACK_FAMILIES
@@ -341,6 +388,15 @@ impl LayoutWithoutLineBreaksBuilder {
                                     parley::style::GenericFamily::Monospace,
                                 ),
                             )),
+                            span.range.clone(),
+                        );
+                        // Inline `code` reads as slightly smaller text on top of a
+                        // translucent capsule (drawn separately in `TextParagraph::draw`),
+                        // matching the convention used by common markdown renderers.
+                        builder.push(
+                            parley::StyleProperty::FontSize(
+                                self.pixel_size.get() * INLINE_CODE_FONT_SCALE,
+                            ),
                             span.range,
                         );
                     }
@@ -376,6 +432,19 @@ impl LayoutWithoutLineBreaksBuilder {
     }
 }
 
+/// Splits plain text into paragraph byte ranges at `'\n'`. The `'\n'` and any preceding `'\r'`
+/// are excluded from the range: parley treats a lone CR as a mandatory line break, so a CRLF
+/// left in the paragraph would render an extra empty line.
+fn paragraph_ranges(text: &str) -> impl Iterator<Item = Range<usize>> + '_ {
+    let mut start = 0;
+    text.split('\n').map(move |paragraph| {
+        let end = start + paragraph.len();
+        let range = if paragraph.ends_with('\r') { start..end - 1 } else { start..end };
+        start = end + 1;
+        range
+    })
+}
+
 fn create_text_paragraphs(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
     font_context: &mut parley::FontContext,
@@ -401,38 +470,23 @@ fn create_text_paragraphs(
                 }
             });
 
+            let code_ranges: alloc::vec::Vec<Range<usize>> = formatting
+                .iter()
+                .filter(|s| matches!(s.style, i_slint_common::styled_text::Style::Code))
+                .map(|s| s.range.clone())
+                .collect();
+
             let layout =
                 layout_builder.build(font_context, text, selection, formatting, Some(link_color));
 
-            TextParagraph { range, y: PhysicalLength::default(), layout, links }
+            TextParagraph { range, y: PhysicalLength::default(), layout, links, code_ranges }
         };
 
     let mut paragraphs = Vec::with_capacity(1);
 
     match text {
         PlainOrStyledText::Plain(ref text) => {
-            let paragraph_ranges = core::iter::from_fn({
-                let mut start = 0;
-                let mut char_it = text.char_indices().peekable();
-                let mut eot = false;
-                move || {
-                    for (idx, ch) in char_it.by_ref() {
-                        if ch == '\n' {
-                            let next_range = start..idx;
-                            start = idx + ch.len_utf8();
-                            return Some(next_range);
-                        }
-                    }
-
-                    if eot {
-                        return None;
-                    }
-                    eot = true;
-                    Some(start..text.len())
-                }
-            });
-
-            for range in paragraph_ranges {
+            for range in paragraph_ranges(text) {
                 paragraphs.push(paragraph_from_text(
                     font_context,
                     &text[range.clone()],
@@ -516,19 +570,53 @@ fn layout(
         para_y += para.layout.height();
     }
 
+    let line_limit_cut =
+        options.max_lines.and_then(|max_lines| line_limit_cut(&paragraphs, max_lines));
+    let visible_paragraph_count =
+        line_limit_cut.map_or(paragraphs.len(), |(last_paragraph, _)| last_paragraph + 1);
+
     let max_width = paragraphs
         .iter()
-        .map(|p| {
+        .take(visible_paragraph_count)
+        .enumerate()
+        .map(|(paragraph_index, p)| {
             // The max width is used for the ellipsis computation when eliding text. We *want* to exclude whitespace
             // for that, but we can't at the glyph run level, so the glyph runs always *do* include whitespace glyphs,
             // and as such we must also accept the full width here including trailing whitespace, otherwise text with
             // trailing whitespace will assigned a smaller width for rendering and thus the ellipsis will be placed.
-            PhysicalLength::new(p.layout.full_width())
+            match line_limit_cut {
+                // In the paragraph where the line limit lands, only the kept lines count towards
+                // the width; `full_width()` would also span the dropped lines below the cut. Per
+                // line, mirror parley's `full_width` formula (Slint doesn't use indentation).
+                Some((last_paragraph, last_line)) if paragraph_index == last_paragraph => p
+                    .layout
+                    .lines()
+                    .take(last_line + 1)
+                    .map(|line| {
+                        let metrics = line.metrics();
+                        PhysicalLength::new(metrics.inline_min_coord + metrics.advance)
+                    })
+                    .fold(PhysicalLength::zero(), PhysicalLength::max),
+                _ => PhysicalLength::new(p.layout.full_width()),
+            }
         })
         .fold(PhysicalLength::zero(), PhysicalLength::max);
-    let height = paragraphs
-        .last()
-        .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height()));
+    // With an active line limit, the height only extends to the bottom of the last kept line, so
+    // that the preferred height and vertical alignment are based on what is actually shown.
+    let height = match line_limit_cut {
+        Some((last_paragraph, last_line)) => {
+            let para = &paragraphs[last_paragraph];
+            let line = para
+                .layout
+                .lines()
+                .nth(last_line)
+                .expect("line_limit_cut returns an existing line index");
+            para.y + PhysicalLength::new(line.metrics().block_max_coord)
+        }
+        None => paragraphs
+            .last()
+            .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height())),
+    };
 
     let y_offset = match (max_physical_height, options.vertical_align) {
         (Some(max_height), TextVerticalAlignment::Center) => (max_height - height) / 2.0,
@@ -536,7 +624,37 @@ fn layout(
         (None, _) | (Some(_), TextVerticalAlignment::Top) => PhysicalLength::new(0.0),
     };
 
-    Layout { paragraphs, y_offset, elision_info, max_width, height, max_physical_height }
+    Layout {
+        paragraphs,
+        y_offset,
+        elision_info,
+        max_width,
+        height,
+        max_physical_height,
+        line_limit_cut,
+    }
+}
+
+/// Where a `max-lines` limit cuts the text off: the (paragraph index, line index within that
+/// paragraph) of the last kept line. Returns `None` when all lines fit the limit, so an active
+/// cut always means that at least one line was dropped.
+fn line_limit_cut(paragraphs: &[TextParagraph], max_lines: usize) -> Option<(usize, usize)> {
+    let total_lines: usize = paragraphs.iter().map(|p| p.layout.lines().len()).sum();
+    if total_lines <= max_lines {
+        return None;
+    }
+
+    let mut seen_lines = 0;
+    for (paragraph_index, para) in paragraphs.iter().enumerate() {
+        let line_count = para.layout.lines().len();
+        // seen_lines < max_lines holds on entry, so the cut line index can't underflow and
+        // lands within this paragraph's lines.
+        if seen_lines + line_count >= max_lines {
+            return Some((paragraph_index, max_lines - seen_lines - 1));
+        }
+        seen_lines += line_count;
+    }
+    unreachable!("total_lines > max_lines, so the paragraph with the last kept line exists")
 }
 
 /// RAII guard: takes Vec out of the cache on creation, puts it back on drop.
@@ -599,20 +717,33 @@ struct ElisionInfo {
     max_physical_width: PhysicalLength,
 }
 
+/// Whether a line whose bottom edge is at `block_max_coord` fits within `max_physical_height`,
+/// rounding the height up so a sub-pixel overflow still counts as fitting.
+fn line_fits_height(block_max_coord: f32, max_physical_height: PhysicalLength) -> bool {
+    max_physical_height.get().ceil() >= block_max_coord
+}
+
 struct TextParagraph {
     range: Range<usize>,
     y: PhysicalLength,
     layout: parley::Layout<Brush>,
     links: std::vec::Vec<(Range<usize>, std::string::String)>,
+    /// Byte ranges within the paragraph's text that carry `Style::Code`. Drawn with a
+    /// translucent rounded background by `draw` for visual parity with common markdown
+    /// renderers.
+    code_ranges: std::vec::Vec<Range<usize>>,
 }
 
 impl TextParagraph {
     fn draw<R: GlyphRenderer>(
         &self,
         layout: &Layout,
+        paragraph_index: usize,
+        visible_extent: Option<ElisionCut>,
         item_renderer: &mut R,
         default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
+        default_text_color: Color,
         draw_glyphs: &mut dyn FnMut(
             &mut R,
             &parley::FontData,
@@ -626,31 +757,61 @@ impl TextParagraph {
     ) {
         let para_y = layout.y_offset + self.y;
 
-        let mut lines = self
-            .layout
-            .lines()
-            .take_while(|line| {
-                let metrics = line.metrics();
-                match layout.max_physical_height {
-                    // If overflow: clip is set, we apply a hard pixel clip, but with overflow: elide,
-                    // we want to place an ellipsis on the last line and not draw any lines beyond the
-                    // given max height.
-                    Some(max_physical_height) if layout.elision_info.is_some() => {
-                        max_physical_height.get().ceil() >= metrics.block_max_coord
-                    }
-                    _ => true,
-                }
-            })
-            .peekable();
+        let line_count = self.layout.lines().len();
 
-        while let Some(line) = lines.next() {
-            let last_line = lines.peek().is_none();
+        // For `overflow: elide` with a height limit (`overflow: clip` applies a hard pixel clip
+        // instead) and for `max-lines`, `visible_extent` decides -- across all paragraphs -- the
+        // last line to keep and where the vertical-truncation ellipsis goes. Translate it to this
+        // paragraph. `last_drawn` is the deepest line of this paragraph that we draw; it carries
+        // the horizontal ellipsis when it overflows the width. `vertical_truncation` marks the
+        // single global last kept line that must also show an ellipsis when lines below it were
+        // dropped.
+        let (last_drawn, vertical_truncation) = match visible_extent {
+            // Entirely below the kept block: drop the paragraph (don't redraw a stray first line,
+            // and don't paint inline-code backgrounds under text that isn't rendered).
+            Some(cut) if paragraph_index > cut.last_paragraph => return,
+            // The paragraph where the cut falls: stop at the global last kept line.
+            Some(cut) if paragraph_index == cut.last_paragraph => {
+                (cut.last_line, cut.needs_ellipsis)
+            }
+            // A paragraph fully above the cut, or no cut at all: draw every line that fits
+            // the box; the last visual line still elides horizontally when it is too wide.
+            _ => (line_count.saturating_sub(1), false),
+        };
+
+        self.draw_inline_code_backgrounds(item_renderer, para_y, default_text_color, last_drawn);
+
+        for (index, line) in self.layout.lines().enumerate() {
+            // Stop once we are past the last kept line of the last kept paragraph.
+            if index > last_drawn {
+                break;
+            }
+            let metrics = line.metrics();
+            // The kept line is always drawn, even when it slightly exceeds the box (#12197); other
+            // lines are kept only while they fall within the box, taking vertical alignment into
+            // account (bottom/center alignment clips lines off the top, not the bottom).
+            let last_line = index == last_drawn;
+            if !last_line
+                && !layout.paragraph_line_within_box(
+                    self,
+                    metrics.block_min_coord,
+                    metrics.block_max_coord,
+                )
+            {
+                continue;
+            }
+            // The last drawn line should show an ellipsis if real lines below it were dropped for
+            // the height, even when it fits the width.
+            let vertically_truncated = last_line && vertical_truncation;
             for item in line.items() {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
                         let ellipsis = if last_line {
-                            let (truncated_glyphs, ellipsis) =
-                                layout.glyphs_with_elision(&glyph_run);
+                            let (truncated_glyphs, ellipsis) = layout.glyphs_with_elision(
+                                &glyph_run,
+                                vertically_truncated,
+                                metrics.trailing_whitespace,
+                            );
 
                             Self::draw_glyph_run(
                                 &glyph_run,
@@ -691,6 +852,120 @@ impl TextParagraph {
                     }
                     parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
                 };
+            }
+        }
+    }
+
+    /// Paints a translucent rounded capsule under every glyph run that lies inside one of
+    /// this paragraph's `Style::Code` ranges. Capsule colors are derived from the luminance
+    /// of `default_text_color`, so light and dark themes both get a sensible default
+    /// without any user-facing styling property.
+    fn draw_inline_code_backgrounds<R: GlyphRenderer>(
+        &self,
+        item_renderer: &mut R,
+        para_y: PhysicalLength,
+        default_text_color: Color,
+        last_drawn: usize,
+    ) {
+        if self.code_ranges.is_empty() {
+            return;
+        }
+
+        // Neutral gray fill (low alpha) on both themes — contrast against the page
+        // background carries the "this is code" cue. The border picks up the same hue
+        // but a higher alpha so the rounded outline stays visible against the fill.
+        // Pick brighter values on dark backgrounds (luminance of the text gives us
+        // that signal without poking at the window background).
+        let fg_luminance = 0.299 * default_text_color.red() as f32
+            + 0.587 * default_text_color.green() as f32
+            + 0.114 * default_text_color.blue() as f32;
+        let fill = Color::from_argb_u8(28, 128, 128, 128);
+        let border = if fg_luminance > 140.0 {
+            Color::from_argb_u8(88, 170, 170, 170)
+        } else {
+            Color::from_argb_u8(56, 128, 128, 128)
+        };
+        // Border width and radius bounds are logical so that the capsule looks the
+        // same at every DPI; the part of the radius derived from the capsule height
+        // already scales with the (physical) font size.
+        const BORDER_WIDTH: LogicalLength = LogicalLength::new(1.0);
+        const MIN_RADIUS: LogicalLength = LogicalLength::new(2.0);
+        const MAX_RADIUS: LogicalLength = LogicalLength::new(5.0);
+        // A touch of vertical padding above and below the cap-height / descender band
+        // so the capsule edge doesn't sit flush against tall glyphs.
+        const VERTICAL_PADDING_RATIO: f32 = 0.15;
+
+        let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
+        let border_width = BORDER_WIDTH * scale_factor;
+
+        // Capsules only under lines that are drawn: lines past the visible-extent cut
+        // (`overflow: elide` height limit or `max-lines`) don't render their glyphs either.
+        for line in self.layout.lines().take(last_drawn + 1) {
+            for item in line.items() {
+                let parley::PositionedLayoutItem::GlyphRun(glyph_run) = item else {
+                    continue;
+                };
+                let run = glyph_run.run();
+                let run_range = run.text_range();
+                if run_range.is_empty() {
+                    continue;
+                }
+                // `Style::Code` pushes its own FontFamily + FontSize, which forces a
+                // run boundary, so a code run is always fully contained in one of the
+                // recorded ranges — a single containment check is enough.
+                let is_code = self
+                    .code_ranges
+                    .iter()
+                    .any(|cr| cr.start <= run_range.start && run_range.end <= cr.end);
+                if !is_code {
+                    continue;
+                }
+
+                let metrics = run.metrics();
+                let ascent = metrics.ascent;
+                let descent = metrics.descent;
+                let cap_height = metrics.cap_height.unwrap_or(ascent * 0.72);
+
+                // Center the capsule on the midpoint between cap-top and a shallow
+                // approximation of the descender bottom (roughly where parens, commas
+                // and dots reach). This gives equal visible padding above and below
+                // for typical code text (which has caps but rarely real descenders).
+                let upper_extent = cap_height;
+                let lower_extent = descent * 0.4;
+                let center = glyph_run.baseline() + (lower_extent - upper_extent) / 2.0;
+                let inner_half_height = (upper_extent + lower_extent) / 2.0;
+                let extra_padding = ascent * VERTICAL_PADDING_RATIO;
+                let half_height = inner_half_height + extra_padding;
+                let bg_height = (half_height * 2.0).max(1.0);
+                let bg_top = center - half_height;
+
+                // Width hugs the glyphs tightly — `glyph_run.advance()` is exactly
+                // the horizontal extent of the rendered run. The underlying text is
+                // not modified, so selection, hit-testing and copy/paste keep working
+                // on the underlying characters.
+                let bg_width = glyph_run.advance().max(0.0);
+                if bg_width <= 0.0 {
+                    continue;
+                }
+                let bg_left = glyph_run.offset();
+
+                let bg_rect = PhysicalRect::new(
+                    PhysicalPoint::from_lengths(
+                        PhysicalLength::new(bg_left),
+                        PhysicalLength::new(bg_top) + para_y,
+                    ),
+                    PhysicalSize::new(bg_width, bg_height),
+                );
+                let radius = PhysicalLength::new(bg_height * 0.22)
+                    .max(MIN_RADIUS * scale_factor)
+                    .min(MAX_RADIUS * scale_factor);
+                let Some(fill_brush) = item_renderer.platform_brush_for_color(&fill) else {
+                    continue;
+                };
+                let border_brush = item_renderer
+                    .platform_brush_for_color(&border)
+                    .map(|brush| RectangleBorder { brush, width: border_width });
+                item_renderer.fill_rectangle(bg_rect, fill_brush, radius, border_brush);
             }
         }
     }
@@ -816,6 +1091,8 @@ impl TextParagraph {
                     PhysicalSize::new(glyph_run.advance(), metrics.underline_size),
                 ),
                 fill_brush.clone(),
+                PhysicalLength::zero(),
+                None,
             );
         }
 
@@ -832,9 +1109,23 @@ impl TextParagraph {
                     PhysicalSize::new(glyph_run.advance(), metrics.strikethrough_size),
                 ),
                 fill_brush,
+                PhysicalLength::zero(),
+                None,
             );
         }
     }
+}
+
+/// Where `overflow: elide` cuts text off, computed across all paragraphs (each explicit `\n`
+/// produces one paragraph). See [`Layout::elision_extent`].
+#[derive(Clone, Copy)]
+struct ElisionCut {
+    /// Paragraph holding the last kept line.
+    last_paragraph: usize,
+    /// Last kept line within `last_paragraph`.
+    last_line: usize,
+    /// A line below the kept one was dropped for the height, so the kept line shows an ellipsis.
+    needs_ellipsis: bool,
 }
 
 struct Layout {
@@ -844,22 +1135,148 @@ struct Layout {
     height: PhysicalLength,
     max_physical_height: Option<PhysicalLength>,
     elision_info: Option<ElisionInfo>,
+    /// Where an active `max-lines` limit drops lines, in the same coordinates as [`ElisionCut`]:
+    /// the (paragraph index, line index) of the last kept line. See [`line_limit_cut`].
+    line_limit_cut: Option<(usize, usize)>,
 }
 
 impl Layout {
+    /// The paragraphs that have at least one line to show. Only differs from `paragraphs` when a
+    /// `max-lines` limit drops lines: paragraphs entirely below the cut don't take part in
+    /// hit-testing or selection.
+    fn visible_paragraphs(&self) -> &[TextParagraph] {
+        match self.line_limit_cut {
+            Some((last_paragraph, _)) => &self.paragraphs[..=last_paragraph],
+            None => &self.paragraphs,
+        }
+    }
+
+    /// True when an active line limit dropped lines and `y` (in item coordinates) falls below
+    /// the last kept line, i.e. into the item region where the dropped lines would have been.
+    /// Nothing is shown there, so nothing there should hit-test. With an active cut, `height`
+    /// is the bottom of the last kept line.
+    fn below_line_limit(&self, y: PhysicalLength) -> bool {
+        self.line_limit_cut.is_some() && y >= self.y_offset + self.height
+    }
+
+    /// The last line to draw, combining the height-based elision cut with the `max-lines` limit:
+    /// whichever cuts earlier wins. Unlike the elision cut, the line limit also applies with
+    /// `overflow: clip` -- just without the ellipsis.
+    fn visible_extent(&self) -> Option<ElisionCut> {
+        let line_limit_cut = self.line_limit_cut.map(|(last_paragraph, last_line)| ElisionCut {
+            last_paragraph,
+            last_line,
+            // The cut only exists when lines were dropped below it, so when eliding, the last
+            // kept line always signals the truncation.
+            needs_ellipsis: self.elision_info.is_some(),
+        });
+        match (self.elision_extent(), line_limit_cut) {
+            (Some(elision), Some(line_limit)) => {
+                Some(core::cmp::min_by_key(elision, line_limit, |cut| {
+                    (cut.last_paragraph, cut.last_line)
+                }))
+            }
+            (elision, line_limit) => elision.or(line_limit),
+        }
+    }
+
+    /// Returns true if the very first line is taller than the available height, meaning the
+    /// vertical line dropping used for `overflow: elide` would discard it and render nothing.
+    /// In that case the caller keeps drawing the first line but applies a hard pixel clip to
+    /// trim its vertical overflow, so it is shown (clipped) rather than disappearing entirely.
+    fn first_line_exceeds_height(&self) -> bool {
+        let Some(max_physical_height) = self.max_physical_height else {
+            return false;
+        };
+        self.paragraphs.first().and_then(|paragraph| paragraph.layout.lines().next()).is_some_and(
+            |line| !line_fits_height(line.metrics().block_max_coord, max_physical_height),
+        )
+    }
+
+    /// Whether a line of `paragraph` (with the metrics block range `block_min`..`block_max` in the
+    /// paragraph's local coordinates) falls within the box for `overflow: elide` with a height
+    /// limit. Accounts for vertical alignment via `y_offset`, which is negative for bottom/center
+    /// alignment. Without a height limit, or when not eliding, every line counts as within the box.
+    fn paragraph_line_within_box(
+        &self,
+        paragraph: &TextParagraph,
+        block_min: f32,
+        block_max: f32,
+    ) -> bool {
+        match self.max_physical_height {
+            Some(max_physical_height) if self.elision_info.is_some() => {
+                let para_y = self.y_offset + paragraph.y;
+                // `line_fits_height` rounds the bottom up by a pixel; allow the same slack at the
+                // top so a line sitting right on the box edge isn't dropped to a rounding error.
+                line_fits_height(para_y.get() + block_max, max_physical_height)
+                    && para_y.get() + block_min >= -0.5
+            }
+            _ => true,
+        }
+    }
+
+    /// For `overflow: elide` with a height limit, work out the last line to keep across all
+    /// paragraphs. Explicit `\n` line breaks each produce a paragraph, and they have to elide as a
+    /// single block: lines below the box are dropped and the ellipsis goes on the last visible
+    /// line. Returns `None` when there is no height limit or elision (draw everything). When
+    /// nothing fits at all the very first line is kept (#12197) so the text never vanishes
+    /// entirely; `draw_text` then clips its vertical overflow.
+    fn elision_extent(&self) -> Option<ElisionCut> {
+        self.max_physical_height?;
+        self.elision_info.as_ref()?;
+
+        // The deepest line still within the box, scanning paragraphs and their lines from the
+        // bottom up. Bottom/center alignment clips lines off the top, so the visible block can
+        // start partway down, but its last line is always the lowest one that fits.
+        let last_within_box = self.paragraphs.iter().enumerate().rev().find_map(|(pi, para)| {
+            para.layout
+                .lines()
+                .enumerate()
+                .rev()
+                .find(|(_, line)| {
+                    let m = line.metrics();
+                    self.paragraph_line_within_box(para, m.block_min_coord, m.block_max_coord)
+                })
+                .map(|(li, _)| (pi, li))
+        });
+
+        // The very last line in document order, used to tell whether anything was dropped below
+        // the kept line (and so whether an ellipsis is needed).
+        let final_line = self
+            .paragraphs
+            .iter()
+            .enumerate()
+            .rev()
+            .find_map(|(pi, para)| para.layout.lines().len().checked_sub(1).map(|li| (pi, li)));
+
+        let (last_paragraph, last_line) = last_within_box.unwrap_or((0, 0));
+        let needs_ellipsis =
+            final_line.is_some_and(|final_line| final_line != (last_paragraph, last_line));
+        Some(ElisionCut { last_paragraph, last_line, needs_ellipsis })
+    }
+
+    /// Returns the last paragraph starting at or before the given byte offset. An offset in the
+    /// gap between two paragraph ranges (between a '\r' and its '\n') thus maps to the preceding
+    /// paragraph; callers have to clamp their local offset to the paragraph's range.
     fn paragraph_by_byte_offset(&self, byte_offset: usize) -> Option<&TextParagraph> {
-        self.paragraphs.iter().find(|p| byte_offset >= p.range.start && byte_offset <= p.range.end)
+        self.visible_paragraphs().iter().take_while(|p| p.range.start <= byte_offset).last()
     }
 
     fn paragraph_by_y(&self, y: PhysicalLength) -> Option<&TextParagraph> {
+        // Positions on lines dropped by `max-lines` (within the cut paragraph, when the item is
+        // taller than the visible text) don't hit-test: nothing is rendered there.
+        if self.below_line_limit(y) {
+            return None;
+        }
+
         // Adjust for vertical alignment
         let y = y - self.y_offset;
 
         if y < PhysicalLength::zero() {
-            return self.paragraphs.first();
+            return self.visible_paragraphs().first();
         }
 
-        let idx = self.paragraphs.binary_search_by(|paragraph| {
+        let idx = self.visible_paragraphs().binary_search_by(|paragraph| {
             if y < paragraph.y {
                 core::cmp::Ordering::Greater
             } else if y >= paragraph.y + PhysicalLength::new(paragraph.layout.height()) {
@@ -870,8 +1287,8 @@ impl Layout {
         });
 
         match idx {
-            Ok(i) => self.paragraphs.get(i),
-            Err(_) => self.paragraphs.last(),
+            Ok(i) => self.visible_paragraphs().get(i),
+            Err(_) => self.visible_paragraphs().last(),
         }
     }
 
@@ -880,7 +1297,7 @@ impl Layout {
         selection_range: Range<usize>,
         mut callback: impl FnMut(PhysicalRect),
     ) {
-        for paragraph in &self.paragraphs {
+        for paragraph in self.visible_paragraphs() {
             let selection_start = selection_range.start.max(paragraph.range.start);
             let selection_end = selection_range.end.min(paragraph.range.end);
 
@@ -935,7 +1352,7 @@ impl Layout {
             return PhysicalRect::new(PhysicalPoint::default(), PhysicalSize::new(1.0, 1.0));
         };
 
-        let local_offset = byte_offset - paragraph.range.start;
+        let local_offset = (byte_offset - paragraph.range.start).min(paragraph.range.len());
         let cursor = parley::editing::Cursor::from_byte_index(
             &paragraph.layout,
             local_offset,
@@ -958,6 +1375,13 @@ impl Layout {
     fn glyphs_with_elision<'a>(
         &'a self,
         glyph_run: &'a parley::layout::GlyphRun<Brush>,
+        // When set, place an ellipsis even if the run fits the width. Used when lines below were
+        // dropped for the height, so the last visible line signals the vertical truncation.
+        force_elision: bool,
+        // Advance width of the line's trailing whitespace. A vertically truncated line that fits
+        // the width anchors the appended ellipsis after the last non-whitespace glyph, so trailing
+        // spaces (e.g. left at a word-wrap break) don't push it away from the text.
+        trailing_whitespace: f32,
     ) -> (
         impl Iterator<Item = parley::layout::Glyph> + Clone + 'a,
         Option<(parley::layout::Glyph, parley::FontData, PhysicalLength)>,
@@ -975,8 +1399,9 @@ impl Layout {
 
         // Run starts after where the ellipsis would go - skip entirely
         let run_beyond_elision = run_start > max_width;
-        // Run extends beyond max width and needs truncation + ellipsis
-        let needs_elision = !run_beyond_elision && run_end.get().floor() > max_width.get().ceil();
+        // Run extends beyond max width (or the lines below it were dropped) and needs an ellipsis
+        let needs_elision = !run_beyond_elision
+            && (force_elision || run_end.get().floor() > max_width.get().ceil());
 
         let truncated_glyphs = glyph_run.positioned_glyphs().take_while(move |glyph| {
             !run_beyond_elision
@@ -993,10 +1418,15 @@ impl Layout {
                             > info.max_physical_width
                     })
                     .map(|g| g.x)
-                    .unwrap_or(0.0);
+                    // Nothing overflows horizontally (force_elision): put the ellipsis right after
+                    // the run's last non-whitespace glyph, i.e. before any trailing whitespace.
+                    .unwrap_or(run_end.get() - trailing_whitespace);
 
                 let mut ellipsis_glyph = info.ellipsis_glyph;
                 ellipsis_glyph.x = ellipsis_x;
+                // The ellipsis glyph comes from a standalone layout; place it on this run's
+                // baseline so it lands on the right line (not just the first one).
+                ellipsis_glyph.y = glyph_run.baseline();
 
                 let font_size = PhysicalLength::new(glyph_run.run().font_size());
                 (ellipsis_glyph, info.font_for_ellipsis_glyph.clone(), font_size)
@@ -1013,6 +1443,7 @@ impl Layout {
         item_renderer: &mut R,
         default_fill_brush: <R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: Option<<R as GlyphRenderer>::PlatformBrush>,
+        default_text_color: Color,
         draw_glyphs: &mut dyn FnMut(
             &mut R,
             &parley::FontData,
@@ -1024,12 +1455,18 @@ impl Layout {
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
     ) {
-        for paragraph in &self.paragraphs {
+        // Compute the cut once: explicit `\n` breaks produce one paragraph each, but they must
+        // elide as a single block (drop lines below the box, ellipsis on the last visible one).
+        let visible_extent = self.visible_extent();
+        for (paragraph_index, paragraph) in self.paragraphs.iter().enumerate() {
             paragraph.draw(
                 self,
+                paragraph_index,
+                visible_extent,
                 item_renderer,
                 &default_fill_brush,
                 &default_stroke_brush,
+                default_text_color,
                 draw_glyphs,
             );
         }
@@ -1101,13 +1538,21 @@ pub fn draw_text(
             vertical_align,
             max_height: Some(max_height),
             max_width: Some(max_width),
+            max_lines: text.line_limit(),
             text_overflow: text.overflow(),
         },
     );
 
     drop(font_ctx);
 
-    let render = if text_overflow == TextOverflow::Clip {
+    // When `overflow: elide` can't even fit the first line, the line is still drawn (rather than
+    // dropped, which would render nothing) but its vertical overflow needs to be clipped like
+    // `overflow: clip` would. Horizontal elision still applies, so a line that is both too tall
+    // and too wide is clipped vertically and gets an ellipsis horizontally.
+    let clip_overflowing_first_line =
+        text_overflow == TextOverflow::Elide && layout.first_line_exceeds_height();
+
+    let render = if text_overflow == TextOverflow::Clip || clip_overflowing_first_line {
         item_renderer.save_state();
 
         item_renderer.combine_clip(
@@ -1124,6 +1569,7 @@ pub fn draw_text(
             item_renderer,
             platform_fill_brush,
             platform_stroke_brush,
+            text.color().color(),
             &mut |item_renderer: &mut _,
                   font,
                   font_size,
@@ -1145,7 +1591,7 @@ pub fn draw_text(
         );
     }
 
-    if text_overflow == TextOverflow::Clip {
+    if text_overflow == TextOverflow::Clip || clip_overflowing_first_line {
         item_renderer.restore_state();
     }
 
@@ -1186,6 +1632,7 @@ pub fn link_under_cursor(
             vertical_align,
             max_height: Some(size.height_length()),
             max_width: Some(size.width_length()),
+            max_lines: text.line_limit(),
             text_overflow: text.overflow(),
         },
     );
@@ -1245,6 +1692,7 @@ pub fn draw_text_input(
 
     let visual_representation = text_input.visual_representation(password_character);
 
+    let text_color = visual_representation.text_color.color();
     let Some(platform_fill_brush) =
         item_renderer.platform_text_fill_brush(visual_representation.text_color, size)
     else {
@@ -1315,6 +1763,7 @@ pub fn draw_text_input(
             item_renderer,
             platform_fill_brush,
             None,
+            text_color,
             &mut |item_renderer: &mut _,
                   font,
                   font_size,
@@ -1381,6 +1830,7 @@ pub fn text_size(
         LayoutOptions {
             max_width,
             max_height: None,
+            max_lines: text_item.line_limit(),
             horizontal_align: TextHorizontalAlignment::Left,
             vertical_align: TextVerticalAlignment::Top,
             text_overflow: TextOverflow::Clip,
@@ -1557,4 +2007,191 @@ pub fn text_input_cursor_rect_for_byte_offset(
     );
     let cursor_rect = layout.cursor_rect_for_byte_offset(byte_offset, cursor_width);
     cursor_rect / scale_factor
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn paragraphs(text: &str) -> Vec<&str> {
+        paragraph_ranges(text).map(|r| &text[r]).collect()
+    }
+
+    fn layout_text_with_options(text: &str, options: LayoutOptions) -> Layout {
+        // Don't load system fonts: that goes through fontconfig FFI, which Miri
+        // can't execute. Use the bundled Inter font instead.
+        let mut font_ctx = parley::FontContext {
+            collection: fontique::Collection::new(fontique::CollectionOptions {
+                system_fonts: false,
+                ..Default::default()
+            }),
+            source_cache: Default::default(),
+        };
+        let data = include_bytes!("../../common/sharedfontique/Inter-VariableFont.ttf");
+        let families =
+            font_ctx.collection.register_fonts(fontique::Blob::new(Arc::new(data)), None);
+        font_ctx.collection.set_generic_families(
+            fontique::GenericFamily::SansSerif,
+            families.iter().map(|(id, _)| *id),
+        );
+        let builder = LayoutWithoutLineBreaksBuilder::new(
+            None,
+            TextWrap::NoWrap,
+            None,
+            ScaleFactor::new(1.0),
+        );
+        let paragraphs = create_text_paragraphs(
+            &builder,
+            &mut font_ctx,
+            PlainOrStyledText::Plain(text.into()),
+            None,
+            Color::default(),
+        );
+        layout(&builder, &mut font_ctx, paragraphs, ScaleFactor::new(1.0), options)
+    }
+
+    fn layout_text(text: &str) -> Layout {
+        layout_text_with_options(text, LayoutOptions::default())
+    }
+
+    fn visual_line_count(text: &str) -> usize {
+        layout_text(text).paragraphs.iter().map(|p| p.layout.lines().len()).sum()
+    }
+
+    #[test]
+    fn test_crlf_line_count() {
+        assert_eq!(visual_line_count("hello\r\nworld"), visual_line_count("hello\nworld"));
+        assert_eq!(visual_line_count("hello\r\nworld"), 2);
+    }
+
+    #[test]
+    fn test_cursor_between_cr_and_lf() {
+        // The cursor can land between the '\r' and the '\n' (e.g. moving left from the start of
+        // the next line); it draws at the end of the preceding paragraph, like on the '\r'.
+        let layout = layout_text("hello\r\nworld");
+        let cursor_width = PhysicalLength::new(1.0);
+        assert_eq!(
+            layout.cursor_rect_for_byte_offset(6, cursor_width),
+            layout.cursor_rect_for_byte_offset(5, cursor_width)
+        );
+        assert_ne!(
+            layout.cursor_rect_for_byte_offset(6, cursor_width),
+            layout.cursor_rect_for_byte_offset(0, cursor_width)
+        );
+    }
+
+    #[test]
+    fn test_paragraph_ranges() {
+        assert_eq!(paragraphs(""), [""]);
+        assert_eq!(paragraphs("hello"), ["hello"]);
+        assert_eq!(paragraphs("hello\nworld"), ["hello", "world"]);
+        assert_eq!(paragraphs("hello\n"), ["hello", ""]);
+        assert_eq!(paragraphs("\n\n"), ["", "", ""]);
+    }
+
+    #[test]
+    fn test_paragraph_ranges_crlf() {
+        assert_eq!(paragraphs("hello\r\nworld"), ["hello", "world"]);
+        assert_eq!(paragraphs("hello\r\n"), ["hello", ""]);
+        assert_eq!(paragraphs("\r\n\r\n"), ["", "", ""]);
+        assert_eq!(paragraphs("a\r\n\nb"), ["a", "", "b"]);
+        // A lone CR stays in the paragraph; parley breaks the line there.
+        assert_eq!(paragraphs("hello\rworld"), ["hello\rworld"]);
+    }
+
+    fn layout_with_max_lines(text: &str, max_lines: usize) -> Layout {
+        layout_text_with_options(
+            text,
+            LayoutOptions { max_lines: Some(max_lines), ..LayoutOptions::default() },
+        )
+    }
+
+    #[test]
+    fn test_max_lines_cut_across_paragraphs() {
+        // Three paragraphs with one line each; the limit lands on the paragraph boundary.
+        let layout = layout_with_max_lines("a\nb\nc", 2);
+        assert_eq!(layout.line_limit_cut, Some((1, 0)));
+        assert_eq!(layout.visible_paragraphs().len(), 2);
+
+        // Empty paragraphs still synthesize a line that counts towards the limit.
+        let layout = layout_with_max_lines("a\n\nb", 2);
+        assert_eq!(layout.line_limit_cut, Some((1, 0)));
+    }
+
+    #[test]
+    fn test_max_lines_cut_within_paragraph() {
+        // A lone CR breaks lines within a single paragraph, so the limit lands mid-paragraph.
+        let layout = layout_with_max_lines("a\rb\rc", 2);
+        assert_eq!(layout.line_limit_cut, Some((0, 1)));
+        assert_eq!(layout.visible_paragraphs().len(), 1);
+    }
+
+    #[test]
+    fn test_max_lines_no_cut_when_all_lines_fit() {
+        // The limit only cuts when lines are actually dropped, and layout results (notably the
+        // height) are unchanged when it doesn't.
+        let unlimited = layout_text("a\nb\nc");
+        for max_lines in [3, 4] {
+            let layout = layout_with_max_lines("a\nb\nc", max_lines);
+            assert_eq!(layout.line_limit_cut, None);
+            assert_eq!(layout.visible_paragraphs().len(), 3);
+            assert_eq!(layout.height, unlimited.height);
+        }
+    }
+
+    #[test]
+    fn test_max_lines_caps_preferred_width() {
+        // The cut lands mid-paragraph (a lone CR breaks lines within one paragraph); the
+        // dropped, longer line must not count towards the preferred width, so the layout is
+        // exactly as wide as the kept line alone.
+        let limited = layout_with_max_lines("ab\rlonger", 1);
+        assert_eq!(limited.line_limit_cut, Some((0, 0)));
+        assert!(limited.max_width < layout_text("ab\rlonger").max_width);
+        assert_eq!(limited.max_width, layout_text("ab").max_width);
+
+        // The per-line width formula used for the cut paragraph mirrors parley's `full_width`;
+        // pin the equivalence so a change in parley's formula doesn't silently diverge.
+        let unlimited = layout_text("ab\rlonger");
+        let per_line_max = unlimited.paragraphs[0]
+            .layout
+            .lines()
+            .map(|line| {
+                let metrics = line.metrics();
+                metrics.inline_min_coord + metrics.advance
+            })
+            .fold(0.0f32, f32::max);
+        assert_eq!(per_line_max, unlimited.paragraphs[0].layout.full_width());
+    }
+
+    #[test]
+    fn test_max_lines_below_line_limit() {
+        let limited = layout_with_max_lines("a\nb\nc", 2);
+        // Within the visible text: hit-testing stays active.
+        assert!(!limited.below_line_limit(PhysicalLength::zero()));
+        assert!(!limited.below_line_limit(limited.height - PhysicalLength::new(1.0)));
+        // At and below the bottom of the last kept line: dropped-line territory.
+        assert!(limited.below_line_limit(limited.height));
+        assert!(limited.below_line_limit(limited.height + PhysicalLength::new(100.0)));
+
+        // Without an active cut nothing is below the limit, no matter the y.
+        let unlimited = layout_text("a\nb\nc");
+        assert!(!unlimited.below_line_limit(unlimited.height + PhysicalLength::new(100.0)));
+
+        // paragraph_by_y honors the guard, so no hit-testing consumer sees dropped lines.
+        assert!(limited.paragraph_by_y(limited.height).is_none());
+        assert!(limited.paragraph_by_y(PhysicalLength::zero()).is_some());
+    }
+
+    #[test]
+    fn test_max_lines_caps_height() {
+        let unlimited = layout_text("a\nb\nc");
+        let limited = layout_with_max_lines("a\nb\nc", 1);
+        assert!(limited.height < unlimited.height);
+        assert!(limited.height > PhysicalLength::zero());
+        // The capped height matches the bottom of the last kept line.
+        let first_line_bottom = PhysicalLength::new(
+            limited.paragraphs[0].layout.lines().next().unwrap().metrics().block_max_coord,
+        );
+        assert_eq!(limited.height, first_line_bottom);
+    }
 }

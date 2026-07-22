@@ -144,9 +144,9 @@ pub async fn lower_menus(
     let mut build_diags_to_ignore = BuildDiagnostics::default();
 
     let menubar_impl = type_loader
-        .import_component("std-widgets.slint", "MenuBarImpl", &mut build_diags_to_ignore)
+        .import_component("std-widgets-impl.slint", "MenuBarImpl", &mut build_diags_to_ignore)
         .await
-        .expect("MenuBarImpl should be in std-widgets.slint");
+        .expect("MenuBarImpl should be in std-widgets-impl.slint");
 
     let menu_item_element = type_loader
         .global_type_registry
@@ -219,9 +219,9 @@ pub async fn lower_menus(
     }
     if has_menu {
         let popup_menu_impl = type_loader
-            .import_component("std-widgets.slint", "PopupMenuImpl", &mut build_diags_to_ignore)
+            .import_component("std-widgets-impl.slint", "PopupMenuImpl", &mut build_diags_to_ignore)
             .await
-            .expect("PopupMenuImpl should be in std-widgets.slint");
+            .expect("PopupMenuImpl should be in std-widgets-impl.slint");
         {
             let mut root = popup_menu_impl.root_element.borrow_mut();
 
@@ -657,10 +657,10 @@ fn lower_menu_items(
                 element.borrow_mut().enclosing_component = component_weak.clone();
                 element.borrow_mut().geometry_props = None;
 
-                if !in_menubar && let Some(binding) = element.borrow().bindings.get("shortcut") {
+                if !in_menubar && let Some(binding) = element.borrow().binding("shortcut") {
                     diag.push_error(
                         "MenuItem shortcuts are currently only supported in the MenuBar".into(),
-                        &*binding.borrow(),
+                        &*binding,
                     );
                 }
 

@@ -5,7 +5,7 @@ use crate::{common, preview};
 
 use std::{cell::RefCell, io::BufRead};
 
-use i_slint_preview_protocol::PreviewTarget;
+use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewTarget, PreviewToLspMessage};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt},
     sync::mpsc,
@@ -23,15 +23,11 @@ struct ChildProcessLspToPreviewInner {
 
 pub struct ChildProcessLspToPreview {
     inner: RefCell<Option<ChildProcessLspToPreviewInner>>,
-    preview_to_lsp_channel: mpsc::UnboundedSender<i_slint_preview_protocol::PreviewToLspMessage>,
+    preview_to_lsp_channel: mpsc::UnboundedSender<PreviewToLspMessage>,
 }
 
 impl ChildProcessLspToPreview {
-    pub fn new(
-        preview_to_lsp_channel: mpsc::UnboundedSender<
-            i_slint_preview_protocol::PreviewToLspMessage,
-        >,
-    ) -> Self {
+    pub fn new(preview_to_lsp_channel: mpsc::UnboundedSender<PreviewToLspMessage>) -> Self {
         Self { inner: RefCell::new(None), preview_to_lsp_channel }
     }
 
@@ -78,14 +74,12 @@ impl ChildProcessLspToPreview {
                         .to_string();
                 tracing::error!("{message}");
 
-                let _ = preview_to_lsp_channel.send(
-                    i_slint_preview_protocol::PreviewToLspMessage::SendShowMessage {
-                        message: lsp_types::ShowMessageParams {
-                            typ: lsp_types::MessageType::ERROR,
-                            message,
-                        },
+                let _ = preview_to_lsp_channel.send(PreviewToLspMessage::SendShowMessage {
+                    message: lsp_types::ShowMessageParams {
+                        typ: lsp_types::MessageType::ERROR,
+                        message,
                     },
-                );
+                });
             }
             Ok(())
         });
@@ -111,16 +105,14 @@ impl ChildProcessLspToPreview {
 impl Drop for ChildProcessLspToPreview {
     fn drop(&mut self) {
         if let Some(inner) = self.inner.borrow_mut().take() {
-            let message =
-                serde_json::to_string(&i_slint_preview_protocol::LspToPreviewMessage::Quit)
-                    .unwrap();
+            let message = serde_json::to_string(&LspToPreviewMessage::Quit).unwrap();
             let _ = inner.to_child_sender.send(message);
         }
     }
 }
 
 impl common::LspToPreview for ChildProcessLspToPreview {
-    fn send(&self, message: &i_slint_preview_protocol::LspToPreviewMessage) {
+    fn send(&self, message: &LspToPreviewMessage) {
         if self.preview_is_running() {
             let mut inner = self.inner.borrow_mut();
             let inner = inner.as_mut().unwrap();
@@ -129,7 +121,7 @@ impl common::LspToPreview for ChildProcessLspToPreview {
                 return;
             };
             let _ = inner.to_child_sender.send(message);
-        } else if let i_slint_preview_protocol::LspToPreviewMessage::ShowPreview(_) = message {
+        } else if let LspToPreviewMessage::ShowPreview(_) = message {
             tracing::debug!("Starting preview process");
             self.start_preview().unwrap();
         } else {
@@ -153,10 +145,8 @@ impl EmbeddedLspToPreview {
 }
 
 impl common::LspToPreview for EmbeddedLspToPreview {
-    fn send(&self, message: &i_slint_preview_protocol::LspToPreviewMessage) {
-        let _ = self
-            .server_notifier
-            .send_notification::<i_slint_preview_protocol::LspToPreviewMessage>(message.clone());
+    fn send(&self, message: &LspToPreviewMessage) {
+        let _ = self.server_notifier.send_notification::<LspToPreviewMessage>(message.clone());
     }
 
     fn preview_target(&self) -> PreviewTarget {
@@ -224,7 +214,7 @@ impl RemoteControlledPreviewToLsp {
 
 impl common::PreviewToLsp for RemoteControlledPreviewToLsp {
     #[allow(clippy::print_stdout)]
-    fn send(&self, message: &i_slint_preview_protocol::PreviewToLspMessage) -> common::Result<()> {
+    fn send(&self, message: &PreviewToLspMessage) -> common::Result<()> {
         let message = serde_json::to_string(message).map_err(|e| e.to_string())?;
         println!("{message}");
         Ok(())

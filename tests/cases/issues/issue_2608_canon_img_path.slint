@@ -3,9 +3,9 @@
 
 //include_path: ../../../demos/printerdemo/ui/images/
 
-TestCase := Rectangle {
-    property <image> img1: @image-url("cat.jpg");
-    property <image> img2: @image-url("../images/cat.jpg");
+export component TestCase inherits Rectangle {
+    in-out property <image> img1: @image-url("cat.jpg");
+    in-out property <image> img2: @image-url("../images/cat.jpg");
 }
 
 /*

@@ -27,6 +27,7 @@ component VirtualKeyboardButton {
 
         HorizontalLayout {
             padding: 8px;
+            cross-axis-alignment: center;
 
             if (root.key != "") : Text {
                 text: root.key;
@@ -37,7 +38,6 @@ component VirtualKeyboardButton {
             }
 
             if (root.key == "") : Image {
-                y: (parent.height - self.height) / 2;
                 source: root.icon;
                 height: 18px;
                 colorize: Palette.color-scheme == ColorScheme.dark ? #ffffff : #000000;

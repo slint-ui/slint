@@ -84,7 +84,11 @@ void run()
     app->run();
 }
 
+#ifdef __ANDROID__
+extern "C" void slint_main()
+#else
 int main()
+#endif
 {
     run();
 }

@@ -1,6 +1,3 @@
-# cargo-about output (requires `cargo install cargo-about` in CI)
-public/thirdparty/
-
 # starlight-typedoc output (requires `pnpm -C api/node run build` first)
 src/content/docs/api/
 
@@ -10,6 +7,7 @@ dist/
 cf-assets/
 # generated types
 .astro/
+/src/content/docs/generated/
 
 # dependencies
 node_modules/

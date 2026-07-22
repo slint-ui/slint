@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore falsevar truevar
-TestCase := Rectangle {
-    property<bool> truevar: true;
-    property<bool> falsevar: false;
+export component TestCase inherits Rectangle {
+    in-out property<bool> truevar: true;
+    in-out property<bool> falsevar: false;
 }
 /*
 ```cpp

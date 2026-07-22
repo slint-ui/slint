@@ -2,18 +2,20 @@
 title: Android
 description: Android Platform Guide
 ---
-{/* cSpell: ignore xbuild textfields */}
+{/* cSpell: ignore xbuild textfields abifilters gradlew logcat armeabi androideabi myproject libapp */}
 
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
 import { Image } from 'astro:assets';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-:::note[Note]
-When developing Slint applications for Android, you can only use Rust as the programming language.
-:::
-
-Also see the documentation of the <LangRefLink lang="rust-slint" relpath="android/">android module in our Rust API documentation</LangRefLink>.
+Slint supports building Android applications in both Rust and C++.
+Also see the <LangRefLink lang="rust-slint" relpath="android/">android module</LangRefLink> in the Rust API documentation.
 
 ## Project Setup
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
 
 Slint uses the [android-activity crate](https://github.com/rust-mobile/android-activity) as the interface to
 the operating system, which is re-exported as `slint::android::android_activity`. To get started, follow these steps:
@@ -29,7 +31,7 @@ You also need to select the version of android-activity you want to use:
 
 ```toml
 [dependencies]
-slint = { version = "1.15.0", features = ["backend-android-activity-06"] }
+slint = { version = "1.18.0", features = ["backend-android-activity-06"] }
 ```
 
 This feature compiles with any target\_os and can safely be enabled anywhere.
@@ -53,6 +55,105 @@ listener by replacing the call to `slint::android::init` with `slint::android::i
 That's all of the necessary code changes. In the next section, we're going to set up the environment to
 build the project.
 
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+
+A Slint C++ Android application is a standard CMake project (see the <Link type="getting_started" label="getting started tutorial" />) with an Android-specific Gradle wrapper.
+The C++ code lives at the project root and works for both desktop and Android builds.
+The only Android-specific difference in CMake is building a shared library instead of an executable:
+
+```cmake
+if(ANDROID)
+    add_library(app SHARED main.cpp)
+else()
+    add_executable(app main.cpp)
+endif()
+```
+
+When Slint is configured with the Android NDK toolchain, its `CMakeLists.txt` automatically:
+- Detects the Android target and maps the ABI to the correct Rust target.
+- Selects Slint's Android backend and a suitable renderer.
+- Sets the Material style as default.
+
+The `android/` subdirectory contains the Gradle project that wraps the CMake build:
+
+```
+my-app/
+├── CMakeLists.txt                # Builds your app (desktop & Android)
+├── main.cpp                      # Your application code
+├── main.slint                    # Your Slint UI
+├── android/
+│   ├── build.gradle.kts          # Gradle config: SDK versions, CMake path
+│   ├── settings.gradle.kts
+│   ├── gradle.properties
+│   └── src/main/
+│       └── AndroidManifest.xml
+```
+
+### android/build.gradle.kts
+
+```kotlin
+plugins {
+    id("com.android.application") version "8.7.0"
+}
+
+android {
+    namespace = "com.myproject.app"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "com.myproject.app"
+        // API 26 (Android 8.0) is the minimum supported by the Slint Android backend.
+        minSdk = 26
+        targetSdk = 35
+
+        ndk {
+            // Add other ABIs as needed: "armeabi-v7a", "x86_64", "x86"
+            abiFilters += "arm64-v8a"
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("../CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+}
+```
+
+### android/src/main/AndroidManifest.xml
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:label="My Slint App"
+        android:hasCode="false">
+        <activity
+            android:name="android.app.NativeActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <meta-data
+                android:name="android.app.lib_name"
+                android:value="app" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+```
+
+:::note[Note]
+The `android:value="app"` must match the CMake library name in `add_library(app SHARED ...)`.
+Mismatches cause the app to crash on startup with `couldn't find "libapp.so"`.
+:::
+
+</TabItem>
+</Tabs>
+
 ## Android Setup
 
 The Android development workflow centers around the `adb` command line tool. Use it to connect to
@@ -70,6 +171,34 @@ import androidSdkManager from '/src/assets/android/android_sdk_manager.png';
 
 Also note the SDK location on top, this path might have to be used for the `ANDROID_HOME` environment
 variable if the build tools can't detect it automatically.
+
+In the SDK Manager, also install:
+- The Android NDK (under the "SDK Tools" tab).
+- Only when building C++ applications: CMake (under the "SDK Tools" tab).
+
+Set up these environment variables so the build can find the NDK:
+
+```sh
+export ANDROID_HOME=$HOME/Android/Sdk
+export ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/<version>
+```
+
+### Rust Toolchain
+
+Slint is written in Rust, so a Rust toolchain is needed to compile it for Android.
+Install Rust via the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started), then add the Android target:
+
+```sh
+rustup target add aarch64-linux-android
+```
+
+Add other targets if you need to support additional ABIs:
+
+```sh
+rustup target add armv7-linux-androideabi  # armeabi-v7a
+rustup target add x86_64-linux-android     # x86_64 (emulator)
+rustup target add i686-linux-android       # x86 (emulator)
+```
 
 Add the `platform-tools` directory to your `PATH` so that the `adb` tool is available on the command
 line.
@@ -139,7 +268,55 @@ import keyboardSettings from '/src/assets/android/android_keyboard_settings.png'
 Select "Write in textfields" in the list and then disable that feature. This enables the
 regular virtual keyboard.
 
-### Running the Application
+## Writing Your Application
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+
+Define your main function and UI in your `lib.rs`:
+
+```rs
+#[cfg(target_os = "android")]
+#[unsafe(no_mangle)]
+fn android_main(app: slint::android::AndroidApp) {
+    slint::android::init(app).unwrap();
+    let main_window = MainWindow::new().unwrap();
+    main_window.run().unwrap();
+}
+```
+
+You can also add an Android event
+([`android_activity::PollEvent`](https://docs.rs/android-activity/latest/android_activity/enum.PollEvent.html))
+listener by replacing the call to `slint::android::init` with `slint::android::init_with_event_listener`.
+
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+
+On Android, the entry point is `slint_main` instead of `main`.
+Slint provides the actual `android_main` entry point internally,
+and calls your `slint_main` once the platform is initialized.
+
+To share a `main.cpp` between desktop and Android builds, use a preprocessor guard:
+
+```cpp
+#ifdef __ANDROID__
+extern "C" void slint_main()
+#else
+int main()
+#endif
+{
+    auto window = MainWindow::create();
+    window->run();
+}
+```
+
+</TabItem>
+</Tabs>
+
+## Building and Running
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
 
 There are multiple ways to build, upload and run Android apps written in Rust. This page describes a
 way using [xbuild](https://github.com/rust-mobile/xbuild). This doesn't use Android Studio at all.
@@ -177,12 +354,12 @@ automatically.
 To recompile and test changes, press ctrl-c and run the same command again. The running version on the
 device is replaced automatically.
 
-#### Troubleshooting
+### Troubleshooting
 
 If `x run` doesn't work, run `x doctor` to check if you have all required tools installed and that
 they're found by xbuild.
 
-### Building
+### Distribution
 
 There are many ways to distribute Android applications and xbuild supports all of them via `x build`.
 To get information about the configuration, use `x build --help`.
@@ -194,3 +371,75 @@ x build --platform android --arch arm64 --format apk --release
 ```
 
 The apk is then located in `target/x/release/android/<name>.apk`.
+
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+
+Connect a device or start an emulator, then:
+
+```sh
+./gradlew installDebug
+```
+
+This builds the native library (Rust + C++),
+packages it into an APK,
+and installs it on the connected device.
+
+:::note[Note]
+The first build takes longer because it compiles Slint and the Skia renderer from source.
+Subsequent builds are faster thanks to Cargo's incremental compilation.
+:::
+
+### View Logs
+
+```sh
+adb logcat -s "slint"
+```
+
+### Release Builds
+
+```sh
+./gradlew assembleRelease
+```
+
+The APK is in `app/build/outputs/apk/release/`.
+
+### Multiple ABIs
+
+To build for multiple ABIs, add them to `abiFilters` in `build.gradle.kts`:
+
+```kotlin
+ndk {
+    abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+}
+```
+
+Each ABI requires the corresponding Rust target to be installed,
+and triggers a separate Rust compilation that increases build time.
+
+### Troubleshooting
+
+#### `Rust target not installed`
+
+Run `rustup target add aarch64-linux-android` (or the target matching your ABI).
+
+#### `ANDROID_NDK_ROOT not set`
+
+The NDK path must be available to the Rust build.
+Set it as an environment variable or ensure the NDK is installed via Android Studio's SDK Manager.
+
+#### Build fails with Skia errors
+
+The Skia renderer requires `clang` to be available on your host system.
+Install it with your system package manager.
+
+#### App crashes on startup
+
+Check `adb logcat` for errors.
+Common causes:
+- The library name in `AndroidManifest.xml` doesn't match the CMake target name.
+- The `slint_main` function is missing (it must be `extern "C"`).
+- The API level is below 26.
+
+</TabItem>
+</Tabs>

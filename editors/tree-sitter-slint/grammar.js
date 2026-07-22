@@ -6,48 +6,62 @@
 module.exports = grammar({
   name: "slint",
 
-  extras: ($) => [/[\s\r\n]+/, $.comment],
-  conflicts: ($) => [[$._assignment_value_block], [$.assignment_block]],
+  extras: ($) => [/[\s\r\n]+/, $.line_comment, $.block_comment],
+  conflicts: ($) => [
+    [$._assignment_value_block],
+    [$.assignment_block],
+    // Caused by accepting arbitrary expressions in the radial-gradient/conical-gradient without a separator!
+    [$.unary_prec_operator, $.add_prec_operator]
+],
+
+  externals: ($) => [$.block_comment],
 
   rules: {
     sourcefile: ($) => repeat($._definition),
 
     _definition: ($) =>
-      choice($.import_statement, $._exported_type, $._local_type),
-
-    export: (_) => "export",
+      choice($.import_statement, $._export, $._local_type, $.rust_attr),
 
     _local_type: ($) =>
       choice(
         $.struct_definition,
         $.enum_definition,
         $.global_definition,
+        $.interface_definition,
         $.component_definition,
       ),
 
-    _exported_type: ($) =>
-      prec.left(
-        seq(
-          $.export,
-          choice(
-            optional(seq("{", commaSep($.export_type), "}")),
-            $._local_type,
-          ),
-        ),
-      ),
+    _export: ($) => prec.left(choice(
+      $.exported_definition,
+      $.export_statement
+    )),
+
+    export_type: ($) => seq(
+      field("local_name", $._type_identifier),
+      optional(seq("as", field("export_name", $._type_identifier))),
+    ),
+
+    exported_definition: ($) => seq(
+      "export",
+      $._local_type
+    ),
+
+    export_statement: ($) => seq(
+      "export",
+      "{", commaSep($.export_type), optional(","), "}",
+      optional(seq("from", field("from", $.string_value), ";"))
+    ),
+
+    _rust_attr_args: ($) => seq("(", repeat(choice(/[^()"]+/, $.string_value, $._rust_attr_args)), ")"),
+
+    rust_attr: ($) => seq(repeat1(seq("@rust-attr", $._rust_attr_args)), choice($.exported_definition, $._local_type)),
 
     import_statement: ($) =>
       seq(
         "import",
-        optional(seq("{", commaSep($.import_type), "}", "from")),
+        optional(seq("{", commaSep($.import_type), optional(","), "}", "from")),
         $.string_value,
         ";",
-      ),
-
-    export_type: ($) =>
-      seq(
-        field("local_name", $._type_identifier),
-        optional(seq("as", field("export_name", $._type_identifier))),
       ),
 
     import_type: ($) =>
@@ -70,9 +84,6 @@ module.exports = grammar({
             // new syntax
             "component",
             field("name", $.user_type_identifier),
-            optional(
-              seq("inherits", field("base_type", $.user_type_identifier)),
-            ),
           ),
           seq(
             // old syntax
@@ -81,27 +92,36 @@ module.exports = grammar({
             field("base_type", $.user_type_identifier),
           ),
         ),
+        repeat($.component_modifier),
         $.block,
       ),
+
+    component_modifier: ($) => seq("inherits", field("base_type", $.user_type_identifier)),
 
     _property_type: ($) => seq("<", field("type", $.type), ">"),
 
     imperative_block: ($) =>
-      seq("{", repeat($._imperative_block_statement), "}"),
+      seq("{", repeat($.imperative_statement), "}"),
 
-    _imperative_block_statement: ($) =>
-      prec(
+    imperative_statement: ($) =>
+      // use right-precedence here (e.g. prefer rules that end later)
+      // Because we want to attach the trailing ";" to the statement,
+      // and not parse it as a separate ";" statement.
+      prec.right(
         1,
         choice(
           seq($.assignment_block, optional(";")),
           seq($.assignment_expr, optional(";")),
           seq($.if_expr, optional(";")),
-          $.callback_event,
-          $.binding,
+          $.let_statement,
           seq($.expression, optional(";")),
-          seq("return", optional($.expression), ";"),
+          $.return_statement,
+          // An empty/duplicate `;` is valid Slint
+          ";",
         ),
       ),
+
+    return_statement: ($) => seq("return", optional($.expression), ";"),
 
     _binding: ($) =>
       field(
@@ -134,7 +154,14 @@ module.exports = grammar({
         ";",
       ),
 
-    binding: ($) => seq(field("name", $.simple_identifier), ":", $._binding),
+    implement_statement: ($) =>
+      seq(
+        "implement",
+        field("interface", $.user_type_identifier),
+        "<=>",
+        field("target", $.simple_identifier),
+        ";",
+      ),
 
     global_block: ($) =>
       seq(
@@ -144,7 +171,9 @@ module.exports = grammar({
             $.property,
             $.binding_alias,
             $.callback,
+            $.callback_alias,
             $.callback_event,
+            $.changed_event,
             $.function_definition,
           ),
         ),
@@ -159,12 +188,28 @@ module.exports = grammar({
         $.global_block,
       ),
 
+    interface_block: ($) =>
+      seq(
+        "{",
+        repeat(choice($.property, $.callback, $.function_declaration)),
+        "}",
+      ),
+
+    interface_definition: ($) =>
+      seq("interface", field("name", $.user_type_identifier), $.interface_block),
+
+    struct_field_definition: ($) =>
+      seq(
+        field("name", $.simple_identifier),
+        ":",
+        field("type", $.type),
+        optional(seq("=", field("default_value", $.expression))),
+      ),
+
     struct_block: ($) =>
       seq(
         "{",
-        commaSep(
-          seq(field("name", $.simple_identifier), ":", field("type", $.type)),
-        ),
+        commaSep($.struct_field_definition),
         optional(","),
         "}",
       ),
@@ -188,12 +233,19 @@ module.exports = grammar({
     enum_definition: ($) =>
       seq("enum", field("name", $.user_type_identifier), $.enum_block),
 
+    anon_struct_assignment: ($) =>
+      seq(
+        field("member", $.simple_identifier),
+        ":",
+        field("value", $.expression)
+      ),
+
     anon_struct_block: ($) =>
       prec(
         100,
         seq(
           "{",
-          commaSep(seq($.simple_identifier, ":", $.expression)),
+          commaSep($.anon_struct_assignment),
           optional(","),
           "}",
         ),
@@ -208,12 +260,14 @@ module.exports = grammar({
         $.callback,
         $.callback_alias,
         $.callback_event,
+        $.changed_event,
         $.children_identifier, // No `;` after this one!
-        $.changed_callback,
         $.component,
         $.for_loop,
         $.function_definition,
         $.if_statement,
+        $.implement_statement,
+        $.match_statement,
         $.property,
         $.property_assignment,
         $.states_definition,
@@ -245,35 +299,36 @@ module.exports = grammar({
     transitions_definition: ($) =>
       seq("transitions", "[", repeat($.in_out_transition), "]"),
 
+    state_definition: ($) =>
+      seq(
+        field("name", $.simple_identifier),
+        optional(seq("when", field("condition", $.expression))),
+        ":",
+        "{",
+        repeat(
+          choice(
+            $.in_out_transition,
+            $.assignment_block,
+            seq($.assignment_expr, ";"),
+          ),
+        ),
+        optional($.assignment_expr),
+        "}",
+      ),
+
     states_definition: ($) =>
       seq(
         "states",
         "[",
-        repeat(
-          seq(
-            field("name", $.simple_identifier),
-            "when",
-            $.expression,
-            ":",
-            "{",
-            repeat(
-              choice(
-                $.in_out_transition,
-                $.assignment_block,
-                seq($.assignment_expr, ";"),
-              ),
-            ),
-            optional($.assignment_expr),
-            "}",
-          ),
-        ),
+        repeat($.state_definition),
         "]",
       ),
 
-    animate_statement: ($) => seq("animate", $.expression, $.animate_body),
+    animate_statement: ($) =>
+      seq("animate", choice("*", commaSep1($.expression)), $.animate_body),
 
     animate_option_identifier: (_) =>
-      choice("delay", "duration", "iteration-count", "direction", "easing"),
+      choice("delay", "duration", "iteration-count", "direction", "easing", "enabled"),
 
     animate_option: ($) =>
       seq(
@@ -308,9 +363,39 @@ module.exports = grammar({
 
     for_range: ($) => choice($.value_list, $.expression),
 
+    match_statement: ($) =>
+      seq("match",
+        field("value", $.simple_identifier),
+        "{",
+        repeat($.match_case),
+        optional($.wildcard_match_case),
+        "}",
+      ),
+
+    match_case: ($) =>
+      seq(
+        field("case", choice($._basic_value,
+          seq($.user_type_identifier, ".", $.user_type_identifier))),
+        ":",
+        choice($.component, seq("{", "}"))
+      ),
+
+    wildcard_match_case: ($) =>
+      seq("*", ":", $.component),
+
     type_list: ($) => seq("[", commaSep($.type), optional(","), "]"),
 
     type: ($) => choice($._type_identifier, $.type_list, $.struct_block),
+
+    let_statement: ($) =>
+      seq(
+        "let",
+        field("name", $.simple_identifier),
+        optional(seq(":", field("type", $.type))),
+        "=",
+        field("value", $.expression),
+        ";",
+      ),
 
     _assignment_setup: ($) =>
       seq(field("name", $.expression), field("op", $.assignment_prec_operator)),
@@ -330,6 +415,8 @@ module.exports = grammar({
           $.parens_op,
           $.index_op,
           $.tr,
+          $.markdown,
+          $.adjacent_string_expression,
           $.value,
           $.gradient_call,
           $.image_call,
@@ -378,6 +465,12 @@ module.exports = grammar({
         ")",
       ),
 
+    // @markdown(...)
+    markdown: ($) => seq("@markdown", $.arguments),
+
+    adjacent_string_expression: ($) =>
+      prec.left(15, seq(choice($.string_value, $.adjacent_string_expression), $.string_value)),
+
     // @keys(...)
     _keys_entry: ($) => choice(seq($.simple_identifier, optional("?")), $.string_value),
     keys: ($) =>
@@ -398,13 +491,20 @@ module.exports = grammar({
     member_access: ($) =>
       prec.left(
         17,
-        seq(field("base", $.expression), ".", field("member", $.expression)),
+        seq(
+          field("base", $.expression),
+          ".",
+          field(
+            "member",
+            $.expression,
+          ),
+        ),
       ),
 
     unary_expression: ($) =>
       prec.left(
         14,
-        seq(field("op", $.unary_prec_operator), field("left", $.expression)),
+        seq(field("op", $.unary_prec_operator), field("expr", $.expression)),
       ),
 
     binary_expression: ($) =>
@@ -489,13 +589,13 @@ module.exports = grammar({
         "callback",
         field("name", $.simple_identifier),
         optional($._callback_signature),
-        optional(seq("->", field("return_type", $._type_identifier))),
+        optional(seq("->", field("return_type", $.type))),
         ";",
       ),
 
     purity: (_) => field("value", "pure"),
 
-    function_visibility: (_) => field("value", choice("public", "private")),
+    function_visibility: (_) => field("value", choice("public", "private", "protected")),
 
     function_definition: ($) =>
       seq(
@@ -505,6 +605,16 @@ module.exports = grammar({
         optional($._function_signature),
         optional(seq("->", field("return_type", $.type))),
         $.imperative_block,
+      ),
+
+    function_declaration: ($) =>
+      seq(
+        repeat(choice($.purity, $.function_visibility)),
+        "function",
+        field("name", $.simple_identifier),
+        optional($._function_signature),
+        optional(seq("->", field("return_type", $.type))),
+        ";",
       ),
 
     callback_alias: ($) =>
@@ -517,17 +627,26 @@ module.exports = grammar({
         ";",
       ),
 
+    // We need to add an alias for the changed contextual keyword here.
+    // in a $.block, the callback_event is competing with the changed_event.
+    //
+    // If Tree-sitter finds the text "changed", it will already at the lexer stage decide
+    // that this is not an identifier because it matches the "changed" in changed_event,
+    // which takes precedence over the regex-based identifier lexer rule.
+    //
+    // By using the alias here we can force Tree-sitter to treat it also as an identifier.
     callback_event: ($) =>
       seq(
-        field("name", choice($.function_call, $.simple_identifier)),
+        field("name", choice($.simple_identifier, alias("changed", $.simple_identifier))),
+        optional(field("arguments", $.arguments)),
         "=>",
         field("action", $._binding),
       ),
 
-    changed_callback: ($) =>
+    changed_event: ($) =>
       seq(
         "changed",
-        field("name", $.simple_identifier),
+        field("property", $.simple_identifier),
         "=>",
         field("action", $._binding),
       ),
@@ -549,7 +668,7 @@ module.exports = grammar({
           field(
             "arguments",
             seq(
-              field("angle", choice($.angle_value, $.int_value, $.float_value)),
+              field("angle", $.expression),
               ",",
               field("colors", commaSep2($.gradient_color)),
               optional(","),
@@ -564,6 +683,12 @@ module.exports = grammar({
             "arguments",
             seq(
               field("type", $.radial_gradient_kind),
+              optional(field("radius", $.length_value)),
+              optional(seq(
+                "at",
+                field("center_x", $.expression),
+                field("center_y", $.expression),
+              )),
               ",",
               field("colors", commaSep2($.gradient_color)),
               optional(","),
@@ -577,7 +702,13 @@ module.exports = grammar({
           field(
             "arguments",
             seq(
-              optional(seq("from", field("from_angle", $.angle_value), ",")),
+              optional(seq("from", field("from_angle", $.angle_value))),
+              optional(seq(
+                "at",
+                field("center_x", $.expression),
+                field("center_y", $.expression),
+              )),
+              optional(","),
               field("colors", commaSep2($.conic_gradient_color)),
               optional(","),
             ),
@@ -586,15 +717,15 @@ module.exports = grammar({
         ),
       ),
 
-    gradient_color: ($) => seq($.argument, optional($.percent_value)),
-    conic_gradient_color: ($) => seq($.argument, $.angle_value),
+    gradient_color: ($) => seq($.argument, optional($.expression)),
+    conic_gradient_color: ($) => seq($.argument, $.expression),
 
     image_call: ($) =>
       seq(
         field("name", "@image-url"),
         "(",
         field("image", $.string_value),
-        optional(seq(",", "nine-slice", "(", repeat($._int_number), ")")),
+        optional(seq(",", "nine-slice", "(", repeat($.int_value), ")")),
         ")",
       ),
 
@@ -615,7 +746,7 @@ module.exports = grammar({
       prec.left(
         seq(
           "(",
-            field("arguments", optional(seq(commaSep1(choice($.typed_identifier, $.type)), optional(",")))),
+          field("arguments", optional(seq(commaSep1(choice($.typed_identifier, $.type)), optional(",")))),
           ")",
         ),
       ),
@@ -663,7 +794,7 @@ module.exports = grammar({
       ),
     /////////////////////////////////////////////////////////////////////
 
-    property_visibility: (_) => choice("private", "in", "out", "in-out"),
+    property_visibility: (_) => choice("private", "in", "out", "in-out", "in_out"),
 
     _identifier: (_) => /[a-zA-Z_][a-zA-Z0-9_-]*/,
     simple_identifier: ($) => $._identifier,
@@ -681,6 +812,7 @@ module.exports = grammar({
         "string",
         "color",
         "brush",
+        "styled-text",
         "physical-length",
         "length",
         "duration",
@@ -743,7 +875,7 @@ module.exports = grammar({
       choice("@linear-gradient", "@linear_gradient"),
     radial_gradient_identifier: (_) =>
       choice("@radial-gradient", "@radial_gradient"),
-    radial_gradient_kind: (_) => choice("circle"),
+    radial_gradient_kind: (_) => "circle", // currently only one
     conic_gradient_identifier: (_) =>
       choice("@conic-gradient", "@conic_gradient"),
 
@@ -787,13 +919,12 @@ module.exports = grammar({
         $.easing_kind_identifier,
       ),
 
-    comment: (_) =>
-      token(
-        choice(
-          seq("//", /[^\n\r]*/),
-          seq("/*", /[^*]*\*+([^/*][^*]*\*+)*/, "/"),
-        ),
-      ),
+    // Single-line comment
+    line_comment: (_) => token(seq("//", /[^\n\r]*/)),
+
+    // Multi-line comment — handled by the external scanner (src/scanner.c)
+    // because Slint supports balanced nesting: /* /* */ */ is valid.
+    // block_comment is defined in externals above.
   },
 });
 

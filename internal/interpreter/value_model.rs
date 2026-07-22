@@ -139,4 +139,25 @@ impl<T: TryFrom<Value> + Into<Value> + 'static> Model for ValueMapModel<T> {
             self.0.set_row_data(row, data)
         }
     }
+
+    fn push_row(&self, data: Self::Data) {
+        if let Ok(data) = data.try_into() {
+            self.0.push_row(data)
+        }
+    }
+
+    fn remove_row(&self, row: isize) {
+        if row >= 0 && row < self.0.row_count() as isize {
+            self.0.remove_row(row);
+        }
+    }
+
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        if row < 0 || row > self.0.row_count() as isize {
+            return;
+        }
+        if let Ok(data) = data.try_into() {
+            self.0.insert_row(row, data);
+        }
+    }
 }

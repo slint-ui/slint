@@ -1,13 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-PopupWindow := Rectangle {}
-Rectangle := Image {}
-TabWidget := Text {}
-VerticalLayout := PopupWindow {}
+component PopupWindow inherits Rectangle {}
+component Rectangle inherits Image {}
+component TabWidget inherits Text {}
+component VerticalLayout inherits PopupWindow {}
 
 
-TestCase := Window {
+export component TestCase inherits Window {
     HorizontalLayout {
         pw := PopupWindow {
             background: orangered;

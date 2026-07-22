@@ -14,7 +14,7 @@ jobs:
     upgrade_version_number:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - name: Do replacements
               run: |
                   # Each Cargo.toml need to have the version updated
@@ -26,12 +26,18 @@ jobs:
                   sed -i 's/ VERSION [0-9]*\.[0-9]*\.[0-9]*)$/ VERSION ${{ github.event.inputs.new_version }})/' api/cpp/CMakeLists.txt
 
                   # The version is also in these files
-                  sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\(.*\)\"/version = \"${{ github.event.inputs.new_version }}\1\"/" api/cpp/docs/conf.py api/python/slint/pyproject.toml api/python/briefcase/pyproject.toml tools/compiler/pyproject.toml editors/zed/extension.toml
+                  sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\(.*\)\"/version = \"${{ github.event.inputs.new_version }}\1\"/" api/python/slint/pyproject.toml api/python/slint-dev/pyproject.toml api/python/briefcase/pyproject.toml tools/compiler/pyproject.toml editors/zed/extension.toml
+
+                  # Keep the slint-dev pin in slint's [dev] extra in sync
+                  sed -i "s/slint-dev==[0-9]*\.[0-9]*\.[0-9]*\(.*\)\"/slint-dev==${{ github.event.inputs.new_version }}\1\"/" api/python/slint/pyproject.toml
 
                   # Version in package.json files
                   git ls-files | grep package.json | xargs sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/'
                   # Update version in Node.js binary package config
-                  sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/' api/node/binaries.json
+                  sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/' api/node/binaries.json api/node/binaries-dev.json
+
+                  # Version in the AI plugins (cursor, claude, ...) mirrored to the ai-plugins repo
+                  git ls-files | grep '^ai-plugins/.*\(plugin\|marketplace\)\.json$' | xargs sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/'
 
                   # VersionCheck
                   sed -i "s/VersionCheck_[0-9]*_[0-9]*_[0-9]*;/VersionCheck_`echo ${{ github.event.inputs.new_version }} | sed "s/\([0-9]*\)\.\([0-9]*\).\([0-9]*\)/\1/"`_`echo ${{ github.event.inputs.new_version }} | sed "s/\([0-9]*\)\.\([0-9]*\).\([0-9]*\)/\2/"`_`echo ${{ github.event.inputs.new_version }} | sed "s/\([0-9]*\)\.\([0-9]*\).\([0-9]*\)/\3/"`;/" api/rs/slint/lib.rs
@@ -40,7 +46,7 @@ jobs:
                   sed -i "s/Version [0-9]*\.[0-9]*\.[0-9]*\\\\n/Version ${{ github.event.inputs.new_version }}\\\\n/" internal/compiler/widgets/common/about-slint.slint
 
                   # Version in the docs (cargo add slint@<VERSION>):
-                  git ls-files | grep "\(^\|/\)docs/.*\.\(md\|rst\)\$" | xargs sed -i 's/slint@[0-9]\+\.[0-9]\+\.[0-9]\+/slint@${{ github.event.inputs.new_version }}/'
+                  git ls-files | grep "\(^\|/\)docs/.*\.\(md\|rst\)\$" | grep -v "/LICENSES/" | xargs sed --follow-symlinks -i 's/slint@[0-9]\+\.[0-9]\+\.[0-9]\+/slint@${{ github.event.inputs.new_version }}/'
 
                   # Version in esp-idf component
                   sed -i 's/^version: "[0-9]*\.[0-9]*\.[0-9]*.*"/version: "${{ github.event.inputs.new_version }}"/' api/cpp/esp-idf/slint/idf_component.yml
@@ -49,6 +55,9 @@ jobs:
 
                   # Version in the Android docs
                   sed -i 's/^slint = { version = "[^"]+"/slint = { version = "${{ github.event.inputs.new_version }}"/' docs/astro/src/content/docs/guide/platforms/mobile/android.mdx
+
+                  # Marketing version for the iOS viewer
+                  sed -i 's/^\( *MARKETING_VERSION: \)"[0-9]*\.[0-9]*\.[0-9]*"/\1"${{ github.event.inputs.new_version }}"/' tools/viewer/ios-project.yml
 
                   # Some documentation use the ~syntax
                   sed -i 's/\(slint.*version = \)"~[0-9]*\.[0-9]*"/\1"~'"$(echo ${{ github.event.inputs.new_version }} | sed 's/\([0-9]*\.[0-9]*\)\.[0-9]*/\1/')"'"/' api/rs/slint/Cargo.toml api/rs/slint/lib.rs
@@ -82,7 +91,7 @@ jobs:
                   private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
                   repositories: www-releases
             - name: Clone www-releases directory
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   repository: slint-ui/www-releases
                   sparse-checkout: |

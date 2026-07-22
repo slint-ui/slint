@@ -12,7 +12,7 @@ import {
     quitEventLoop,
     private_api,
 } from "../dist/index.js";
-import { hasIntegratedEventLoop } from "../rust-module.cjs";
+import { hasIntegratedEventLoop } from "../binding.cjs";
 
 afterEach(() => {
     quitEventLoop();

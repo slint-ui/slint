@@ -4,21 +4,18 @@
 use pyo3::PyTraverseError;
 use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
-use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 
 use std::any::Any;
 use std::rc::Rc;
 
 /// Python representation of some form of type-indexed possibly-lazy data transfer.
 /// Used for accessing the platform clipboard and drag-and-drop APIs.
-#[gen_stub_pyclass]
 #[pyclass(unsendable, name = "DataTransfer", skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyDataTransfer {
     pub data_transfer: i_slint_core::data_transfer::DataTransfer,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyDataTransfer {
     /// Constructs an empty `DataTransfer`.
@@ -27,34 +24,44 @@ impl PyDataTransfer {
         Self { data_transfer: Default::default() }
     }
 
-    /// Sets the plaintext representation of this `DataTransfer`. Calling this again overwrites
-    /// the previous plaintext.
-    fn set_plaintext(&mut self, text: &str) {
-        self.data_transfer.set_plaintext(text.into());
-    }
-
-    /// Returns the plaintext representation of this `DataTransfer`, or `None` if no plaintext
-    /// is available.
-    fn fetch_plaintext(&self) -> Option<String> {
-        self.data_transfer.fetch_plaintext().ok().map(|s| s.to_string())
-    }
-
-    /// `True` if this `DataTransfer` advertises a plaintext representation.
+    /// The plain text representation of this `DataTransfer`, or `None` if no plain text
+    /// is available. Assigning `None` or the empty string clears any previously-set
+    /// plain text; assigning any other string overwrites it.
     #[getter]
-    fn has_plaintext(&self) -> bool {
-        self.data_transfer.has_plaintext()
+    fn plain_text(&self) -> Option<String> {
+        self.data_transfer.plain_text().ok().map(|s| s.to_string())
     }
 
-    /// Sets the image representation of this `DataTransfer`. Calling this again overwrites the
-    /// previous image.
-    fn set_image(&mut self, image: &crate::image::PyImage) {
-        self.data_transfer.set_image(image.image.clone());
+    /// Sets the plain text representation of this `DataTransfer`.
+    ///
+    /// Assigning `None` or the empty string clears any previously-set plain text;
+    /// assigning any other string overwrites it.
+    #[setter]
+    fn set_plain_text(&mut self, text: Option<&str>) {
+        self.data_transfer.set_plain_text(text.unwrap_or_default().into());
     }
 
-    /// Returns the image representation of this `DataTransfer`, or `None` if no image is
-    /// available.
-    fn fetch_image(&self) -> Option<crate::image::PyImage> {
-        self.data_transfer.fetch_image().ok().map(crate::image::PyImage::from)
+    /// `True` if this `DataTransfer` advertises a plain text representation.
+    #[getter]
+    fn has_plain_text(&self) -> bool {
+        self.data_transfer.has_plain_text()
+    }
+
+    /// The image representation of this `DataTransfer`, or `None` if no image is
+    /// available. Assigning `None` clears any previously-set image; assigning any
+    /// other image overwrites it.
+    #[getter]
+    fn image(&self) -> Option<crate::image::PyImage> {
+        self.data_transfer.image().ok().map(crate::image::PyImage::from)
+    }
+
+    /// Sets the image representation of this `DataTransfer`.
+    ///
+    /// Assigning `None` clears any previously-set image; assigning any other image
+    /// overwrites it.
+    #[setter]
+    fn set_image(&mut self, image: Option<&crate::image::PyImage>) {
+        self.data_transfer.set_image(image.map(|i| i.image.clone()).unwrap_or_default());
     }
 
     /// `True` if this `DataTransfer` advertises an image representation.
@@ -63,9 +70,16 @@ impl PyDataTransfer {
         self.data_transfer.has_image()
     }
 
+    /// `True` if this `DataTransfer` carries no data: no plain text, no image, and no
+    /// user data.
+    #[getter]
+    fn is_empty(&self) -> bool {
+        self.data_transfer.is_empty()
+    }
+
     /// Application-internal user data attached to this `DataTransfer`. Use this when the
     /// drag-and-drop or clipboard operation stays inside the current Python application and you
-    /// want to avoid serializing to plaintext or an image.
+    /// want to avoid serializing to plain text or an image.
     ///
     /// Reading returns the Python object previously assigned, or `None` if none was set (or the
     /// user data was set by a non-Python binding). Assigning `None` clears any previously
@@ -96,7 +110,6 @@ impl PyDataTransfer {
         self.data_transfer == other.data_transfer
     }
 
-    #[gen_stub(skip)]
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         if let Some(any) = self.data_transfer.user_data() {
             if let Some(py_any) = (*any).downcast_ref::<Py<PyAny>>() {
@@ -106,7 +119,6 @@ impl PyDataTransfer {
         Ok(())
     }
 
-    #[gen_stub(skip)]
     fn __clear__(&mut self) {
         // Drop our reference to the Python user-data by installing the same
         // sentinel the setter uses for `None`. If no other Rust clone shares

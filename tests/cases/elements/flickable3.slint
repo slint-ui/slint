@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
-TestCase := Window {
+export component TestCase inherits Window {
   width: 500phx;
   height: 500phx;
 
@@ -31,17 +31,18 @@ TestCase := Window {
     height: 300phx;
 
     t2 := TouchArea {
+      x:0;
       width: 50phx;
       Rectangle { background: parent.has-hover ? green: yellow; }
       pointer-event(event) => {
         if event.kind == PointerEventKind.cancel {
-            root.pointer-events += "C";
+            pointer-events += "C";
         } else if event.kind == PointerEventKind.down {
-            root.pointer-events += "D(" + self.mouse-y/1px + ")";
+            pointer-events += "D(" + self.mouse-y/1px + ")";
         } else if event.kind == PointerEventKind.up {
-            root.pointer-events += "U(" + self.mouse-y/1px + ")";
+            pointer-events += "U(" + self.mouse-y/1px + ")";
         } else if event.kind == PointerEventKind.move {
-            root.pointer-events += "M(" + self.mouse-y/1px + ")";
+            pointer-events += "M(" + self.mouse-y/1px + ")";
         }
         }
     }

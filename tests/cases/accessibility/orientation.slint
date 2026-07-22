@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+
 // Test the accessible-orientation property.
 
 export component TestCase inherits Window {
@@ -36,7 +39,7 @@ export component TestCase inherits Window {
 /*
 
 ```rust
-use slint_testing::Orientation;
+use slint::language::Orientation;
 
 let instance = TestCase::new().unwrap();
 
@@ -63,18 +66,18 @@ const TestCase &instance = *handle;
 auto h = slint::testing::ElementHandle::find_by_accessible_label(handle, "horizontal-slider");
 assert_eq(h.size(), 1);
 assert(h[0].accessible_orientation().has_value());
-assert(*h[0].accessible_orientation() == slint::Orientation::Horizontal);
+assert(*h[0].accessible_orientation() == slint::language::Orientation::Horizontal);
 
 auto v = slint::testing::ElementHandle::find_by_accessible_label(handle, "vertical-slider");
 assert_eq(v.size(), 1);
 assert(v[0].accessible_orientation().has_value());
-assert(*v[0].accessible_orientation() == slint::Orientation::Vertical);
+assert(*v[0].accessible_orientation() == slint::language::Orientation::Vertical);
 
 auto d = slint::testing::ElementHandle::find_by_accessible_label(handle, "dynamic-slider");
 assert_eq(d.size(), 1);
-assert(*d[0].accessible_orientation() == slint::Orientation::Horizontal);
-instance.set_slider_orientation(slint::Orientation::Vertical);
-assert(*d[0].accessible_orientation() == slint::Orientation::Vertical);
+assert(*d[0].accessible_orientation() == slint::language::Orientation::Horizontal);
+instance.set_slider_orientation(slint::language::Orientation::Vertical);
+assert(*d[0].accessible_orientation() == slint::language::Orientation::Vertical);
 
 auto b = slint::testing::ElementHandle::find_by_accessible_label(handle, "no-orientation");
 assert_eq(b.size(), 1);

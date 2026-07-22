@@ -99,12 +99,15 @@ impl SourceFileInner {
     /// Returns a tuple with the line (starting at 1) and column number (starting at 1)
     pub fn line_column(&self, offset: usize, format: ByteFormat) -> (usize, usize) {
         let adjust_utf16 = |line_begin, col| {
-            if format == ByteFormat::Utf8 {
-                col
-            } else {
-                let Some(source) = &self.source else { return col };
-                source[line_begin..][..col].encode_utf16().count()
+            if format == ByteFormat::Utf16
+                && let Some(source) = &self.source
+            {
+                return i_slint_common::unicode_utils::byte_offset_to_utf16_offset(
+                    &source[line_begin..],
+                    col,
+                );
             }
+            col
         };
 
         let line_offsets = self.line_offsets();
@@ -134,19 +137,15 @@ impl SourceFileInner {
     /// Returns the offset that corresponds to the line/column
     pub fn offset(&self, line: usize, column: usize, format: ByteFormat) -> usize {
         let adjust_utf16 = |line_begin, col| {
-            if format == ByteFormat::Utf8 {
-                col
-            } else {
-                let Some(source) = &self.source else { return col };
-                let mut utf16_counter = 0;
-                for (utf8_index, c) in source[line_begin..].char_indices() {
-                    if utf16_counter >= col {
-                        return utf8_index;
-                    }
-                    utf16_counter += c.len_utf16();
-                }
-                col
+            if format == ByteFormat::Utf16
+                && let Some(source) = &self.source
+            {
+                return i_slint_common::unicode_utils::utf16_offset_to_byte_offset_clamped(
+                    &source[line_begin..],
+                    col,
+                );
             }
+            col
         };
 
         let col_offset = column.saturating_sub(1);
@@ -515,9 +514,10 @@ impl BuildDiagnostics {
     #[cfg(feature = "display-diagnostics")]
     /// Print the diagnostics on the console
     pub fn print(self) {
+        use std::io::Write;
         let to_print = self.call_diagnostics(None);
         if !to_print.is_empty() {
-            std::eprintln!("{to_print}");
+            let _ = writeln!(std::io::stderr(), "{to_print}");
         }
     }
 

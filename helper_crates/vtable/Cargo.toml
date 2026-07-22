@@ -3,7 +3,7 @@
 
 [package]
 name = "vtable"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2024"
 rust-version = "1.88"
@@ -15,7 +15,7 @@ homepage = "https://slint.dev"
 [lib]
 
 [dependencies]
-vtable-macro = { version = "=0.4.0", path = "./macro" }
+vtable-macro = { version = "=0.5.0", path = "./macro" }
 const-field-offset = { version = "0.2", path = "../const-field-offset" }
 stable_deref_trait = { version = "1.2.0", default-features = false }
 portable-atomic = "1"

@@ -4,13 +4,13 @@
 // Regression test for a bug in which an alias to a model property was not
 // properly set because it was thought as constant
 
-MenuItem := Rectangle {
-    property <length> h <=> root.val;
+component MenuItem inherits Rectangle {
+    in-out property <length> h <=> val;
     height: val;
-    property <length> val;
+    in-out property <length> val;
 }
 
-export TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     VerticalLayout {
         for entry[idx] in [
             { val: 12px },
@@ -19,7 +19,7 @@ export TestCase := Rectangle {
         }
         Rectangle {}
     }
-    property <bool> test: root.preferred_height == 12px;
+    in-out property <bool> test: root.preferred_height == 12px;
 }
 
 /*

@@ -17,8 +17,8 @@ export component TabWidgetImpl inherits Rectangle {
     out property <length> content-y: orientation == Orientation.horizontal ? root.tabbar-preferred-height : 0;
     out property <length> content-height:orientation == Orientation.horizontal ? root.height - root.tabbar-preferred-height : root.height;
     out property <length> content-width: orientation == Orientation.horizontal ? root.width : root.width - root.tabbar-preferred-width;
-    out property <length> tabbar-x: 0;
-    out property <length> tabbar-y: 0;
+    out property <length> tabbar-x;
+    out property <length> tabbar-y;
     out property <length> tabbar-height: orientation == Orientation.horizontal ? root.tabbar-preferred-height : root.height;
     out property <length> tabbar-width: orientation == Orientation.horizontal ? root.width : root.tabbar-preferred-width;
     preferred-width: root.content-min-width;
@@ -82,8 +82,8 @@ export component TabImpl inherits Rectangle {
         i-text := Text {
             vertical-alignment: center;
             horizontal-alignment: left;
-            font-size: root.is-current ? FluentFontSettings.body-strong.font-size : FluentFontSettings.body.font-size;
-            font-weight: root.is-current ? FluentFontSettings.body-strong.font-weight : FluentFontSettings.body.font-weight;
+            font-size: root.is-current ? FluentFontSettings.body-strong.font-size : 1rem;
+            font-weight: root.is-current ? FluentFontSettings.body-strong.font-weight : FontWeight.normal;
             color: root.is-current ? FluentPalette.control-foreground : FluentPalette.text-secondary;
             accessible-role: none;
         }

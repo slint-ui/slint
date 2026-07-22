@@ -5,10 +5,10 @@ component Clip {
     // the presence of a Clip element should not impact the rest
 }
 
-MaybeClip := Rectangle {
+component MaybeClip inherits Rectangle {
     width: 10phx;
     height: 10phx;
-    property <int> touch;
+    in-out property <int> touch;
     Rectangle {
         background: red;
         x: 5phx;
@@ -34,12 +34,12 @@ component ClipAlias {
     }
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     height: 100phx;
     width: 100phx;
-    property <int> touch1 <=> el1.touch;
-    property <int> touch2 <=> el2.touch;
-    property <bool> el1clip;
+    in-out property <int> touch1 <=> el1.touch;
+    in-out property <int> touch2 <=> el2.touch;
+    in-out property <bool> el1clip;
 
     el1 := MaybeClip {
         clip <=> el1clip;
@@ -55,12 +55,12 @@ TestCase := Rectangle {
 
     // MaybeClip must be inlined when "clip" is set, but not when it isn't. Test that we can have
     // a combination of inlined and non inlined item
-    MaybeClip { x: 5000px; }
+    MaybeClip { y:0; x: 5000px; }
 
     ClipAlias { c: true; width: 100%; height:100%; }
 
     test_rect := Rectangle { clip: true; }
-    property <bool> test: test_rect.clip;
+    in-out property <bool> test: test_rect.clip;
 }
 
 /*

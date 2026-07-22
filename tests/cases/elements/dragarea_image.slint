@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 //
 // Exercises the `drag-image` / `drag-image-offset-*` properties on `DragArea`.
 // The rendering side (an overlay drawn under the cursor) requires a real renderer to
@@ -18,13 +19,14 @@ export component TestCase inherits Window {
     width: 100px;
     height: 200px;
     in-out property <string> result;
-    out property <bool> contains-drag <=> da.contains-drag;
+    out property <bool> has-drag <=> da.has-drag;
 
     VerticalLayout {
         Rectangle {
             background: red;
             DragArea {
                 data: Api.string-to-transfer("Hello World");
+                allow-copy: true;
                 drag-image: @image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC");
                 drag-image-offset-x: 4;
                 drag-image-offset-y: 8;
@@ -50,9 +52,9 @@ use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton
 
 let instance = TestCase::new().unwrap();
 instance.on_string_to_transfer(Into::into);
-instance.on_can_drop(|data| data.has_plaintext());
+instance.on_can_drop(|data| data.has_plain_text());
 
-assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_has_drag(), false);
 
 // Press, cross drag threshold, hover over the drop area, release.
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(20.0, 25.0), button: PointerEventButton::Left });
@@ -61,12 +63,12 @@ instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPo
 slint_testing::mock_elapsed_time(20);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(22.0, 120.0) });
 slint_testing::mock_elapsed_time(20);
-assert_eq!(instance.get_contains_drag(), true);
+assert_eq!(instance.get_has_drag(), true);
 
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(22.0, 120.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_result(), "drop;");
-assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_has_drag(), false);
 ```
 
 */

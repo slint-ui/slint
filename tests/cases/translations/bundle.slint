@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// C++ live preview: no bundled translations
+//ignore: cpp-live-preview
+
 // cSpell: ignore dans fichier fichiers Floup Même Plouf
 //bundle-translations
 
@@ -32,7 +35,7 @@ export component MyComponent {
 }
 
 export component TestCase inherits Window {
-    property <int> int_value: 42;
+    in-out property <int> int_value: 42;
 
     out property <string> t1: @tr("Hello World{{}}.");
     out property <string> t2: @tr("Hello {}.", "World");
@@ -43,7 +46,7 @@ export component TestCase inherits Window {
 
     my-component := MyComponent {}
 
-    property <string> c1: @tr("Context" => "xx{0}xx", @tr("CC" => "aa"));
+    in-out property <string> c1: @tr("Context" => "xx{0}xx", @tr("CC" => "aa"));
 
     function make_plural1(xx: int, yy: string) -> string { return @tr("there is one file in my {}" | "there are {n} files in my {}" % xx, yy); }
     function make_plural2(xx: int) -> string { return @tr("Ctx=>" => "xx{n}xx" | "yy{n}yy" % xx); }

@@ -26,7 +26,7 @@ bool is_supported_pixel_format(display_pixel_format current_pixel_format)
     case PIXEL_FORMAT_RGB_888:
         // Slint supports this format, but it uses more space.
         return false;
-    case PIXEL_FORMAT_BGR_565:
+    case PIXEL_FORMAT_RGB_565X:
 #ifdef CONFIG_SHIELD_RK055HDMIPI4MA0
         // Zephyr expects pixel data to be big endian [1].
 
@@ -191,8 +191,8 @@ std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device
     case PIXEL_FORMAT_ARGB_8888:
         LOG_WRN("Unsupported pixel format: ARGB_8888");
         break;
-    case PIXEL_FORMAT_BGR_565:
-        LOG_WRN("Unsupported pixel format: BGR_565");
+    case PIXEL_FORMAT_RGB_565X:
+        LOG_WRN("Unsupported pixel format: RGB_565X");
         break;
     }
 
@@ -206,8 +206,8 @@ std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device
             static_cast<bool>(capabilities.supported_pixel_formats & PIXEL_FORMAT_ARGB_8888));
     LOG_INF("Supports RGB_565: %d",
             static_cast<bool>(capabilities.supported_pixel_formats & PIXEL_FORMAT_RGB_565));
-    LOG_INF("Supports BGR_565: %d",
-            static_cast<bool>(capabilities.supported_pixel_formats & PIXEL_FORMAT_BGR_565));
+    LOG_INF("Supports RGB_565X: %d",
+            static_cast<bool>(capabilities.supported_pixel_formats & PIXEL_FORMAT_RGB_565X));
 
     if (!is_supported_pixel_format(capabilities.current_pixel_format)) {
         if (capabilities.supported_pixel_formats & PIXEL_FORMAT_RGB_565) {

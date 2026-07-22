@@ -4,7 +4,7 @@
 // cSpell: ignore Heade
 
 import { Button, TabWidget, Palette, Switch, ScrollView} from "std-widgets.slint";
-import { Api, ComponentItem, DiagnosticSummary } from "api.slint";
+import { Api, ComponentItem, DiagnosticSummary, PreviewMode, RemoteConnectionState } from "api.slint";
 
 import { EditorUi } from "./editor.slint";
 import { EditorSizeSettings, EditorSpaceSettings, Icons, PickerStyles, ConsoleStyles } from "./components/styling.slint";
@@ -18,6 +18,7 @@ import { OutlineView } from "./views/outline-view.slint";
 import { PreviewDataView } from "./views/preview-data-view.slint";
 import { WindowGlobal, WindowManager } from "windowglobal.slint";
 import { ColorPickerView } from "components/widgets/floating-brush-picker-widget.slint";
+import { RemotePreviewView } from "components/remote-preview-view.slint";
 import { TableEditorView } from "components/spreadsheet-dialog.slint";
 import "./assets/Inter-VariableFont.ttf";
 import "./assets/SourceCodePro-Medium.ttf";
@@ -45,6 +46,7 @@ export component PreviewUi inherits Window {
     property <bool> data-widget: false;
     property <bool> outline-widget: false;
     property <bool> library-widget: false;
+    property <bool> remote-mode: Api.preview-mode == PreviewMode.Remote;
     in-out property <bool> select-mode: false;
 
     title: @tr("Slint Live-Preview");
@@ -208,8 +210,10 @@ export component PreviewUi inherits Window {
                     vertical-stretch: 0;
                     height: self.preferred-height;
 
-                    current-style <=> Api.current-style;
+                    current-style-index <=> Api.current-style-index;
                     known-styles <=> Api.known-styles;
+                    preview-mode <=> Api.preview-mode;
+                    remote-mode: root.remote-mode;
                     library-widget <=> root.library-widget;
                     properties-widget <=> root.properties-widget;
                     outline-widget <=> root.outline-widget;
@@ -218,18 +222,27 @@ export component PreviewUi inherits Window {
                     style-selected => {
                         Api.style-changed();
                     }
+                    preview-mode-selected(mode) => {
+                        if mode == PreviewMode.Remote {
+                            Api.remote-start-discovery();
+                        } else {
+                            Api.remote-stop-discovery();
+                            Api.remote-disconnect();
+                        }
+                    }
                     edit := Button {
                         icon: Icons.inspect;
-                        colorize-icon: preview.select-mode ? false : true;
+                        colorize-icon: root.select-mode ? false : true;
                         checkable: true;
-                        checked <=> preview.select-mode;
-                        primary: preview.select-mode;
-                        enabled: preview.preview-is-current;
+                        checked <=> root.select-mode;
+                        primary: root.select-mode;
+                        enabled: !root.remote-mode && Api.diagnostic-summary != DiagnosticSummary.Errors;
                     }
                 }
 
-                HorizontalLayout {
-                    spacing: 0px;
+                if root.remote-mode: RemotePreviewView { }
+
+                if !root.remote-mode: HorizontalLayout {
 
                     if root.library-widget: LibraryView {
                         known-components: Api.known-components;
@@ -243,8 +256,44 @@ export component PreviewUi inherits Window {
                         }
                     }
 
-                    preview := PreviewView {
-                        visible-component <=> root.visible-component;
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        preview := PreviewView {
+                            select-mode <=> root.select-mode;
+                            visible-component <=> root.visible-component;
+                            // Hide while the preview is mirrored on a remote
+                            // viewer; the local renderer would only ever
+                            // show a stale frame.
+                            visible: Api.remote-connection-state != RemoteConnectionState.Connected;
+                        }
+                        if Api.remote-connection-state == RemoteConnectionState.Connected: Rectangle {
+                            background: Palette.background;
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: EditorSpaceSettings.default-spacing;
+                                Text {
+                                    text: @tr("Previewing on ") + Api.remote-connection-target;
+                                    horizontal-alignment: center;
+                                    font-weight: 700;
+                                    color: Palette.foreground;
+                                }
+                                Text {
+                                    text: @tr("Disconnect to view here.");
+                                    horizontal-alignment: center;
+                                    color: Palette.foreground;
+                                    opacity: 0.7;
+                                }
+                                HorizontalLayout {
+                                    alignment: center;
+                                    Button {
+                                        text: @tr("Disconnect");
+                                        clicked => {
+                                            Api.remote-disconnect();
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     if properties-widget || outline-widget || data-widget : right-panel := Rectangle {
@@ -355,7 +404,6 @@ export component PreviewUi inherits Window {
 
     if show-floating-table-editor: TableEditorView {
         init => {
-            self.initial-x = root.initial-floating-x;
             self.initial-y = 50px;
         }
     }

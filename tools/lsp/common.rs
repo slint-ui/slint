@@ -7,7 +7,7 @@
 
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
-use i_slint_preview_protocol::{
+use i_slint_live_preview::protocol::{
     LspToPreviewMessage, PreviewTarget, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
 };
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
@@ -19,10 +19,12 @@ pub mod component_catalog;
 pub mod document_cache;
 pub use document_cache::DocumentCache;
 pub use i_slint_compiler::diagnostics::ByteFormat;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod host_language_search;
+mod lsp_to_previews;
 pub mod rename_component;
 pub mod rename_element_id;
-mod switchable;
-pub use switchable::SwitchableLspToPreview;
+pub use lsp_to_previews::LspToPreviews;
 #[cfg(test)]
 pub mod test;
 #[cfg(any(test, feature = "preview-engine"))]
@@ -95,8 +97,13 @@ pub trait PreviewToLsp {
         selection: lsp_types::Range,
         take_focus: bool,
     ) -> Result<()> {
-        let file = lsp_types::Url::from_file_path(file)
-            .map_err(|_| "Failed to convert URL".to_string())?;
+        let file = match lsp_types::Url::from_file_path(file) {
+            Ok(file) => file,
+            Err(()) => {
+                tracing::error!("Failed to convert file path to URL for ShowDocument: {file}");
+                return Err("Failed to convert file path to URL".to_string().into());
+            }
+        };
         if selection.start.character == 0 || selection.end.character == 0 {
             return Ok(());
         }
@@ -112,7 +119,24 @@ pub trait PreviewToLsp {
             }
             object
         };
-        self.send(&PreviewToLspMessage::TelemetryEvent(object))
+        if let Err(err) = self.send(&PreviewToLspMessage::TelemetryEvent(object)) {
+            tracing::error!("Failed to send telemetry event: {err}");
+            return Err(err);
+        }
+        Ok(())
+    }
+}
+
+/// Converts a log message from the preview to a string to be logged by the LSP
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+pub fn preview_log_message_to_string(
+    location: &Option<(std::path::PathBuf, usize, usize)>,
+    message: &str,
+) -> String {
+    if let Some((file, line, column)) = location {
+        format!("DEBUG {file}:{line}:{column}> {message}", file = file.display())
+    } else {
+        format!("DEBUG> {message}")
     }
 }
 
@@ -431,6 +455,36 @@ pub fn create_workspace_edit_from_text_document_edits(
     WorkspaceEdit { document_changes, ..Default::default() }
 }
 
+/// Merge the document-change edits from `additional` into `base`. Test-only
+/// since the rename flow now sends two independent `workspace/applyEdit`
+/// requests; the helper exists for tests that want to assert on the
+/// combined edit shape.
+///
+/// Both `WorkspaceEdit`s must use the `document_changes: Edits(...)` form --
+/// the one produced by [`create_workspace_edit_from_single_text_edits`] and
+/// the other `create_workspace_edit*` helpers. Fields not in `document_changes`
+/// are not merged (`changes`, `change_annotations`, and the `Operations`
+/// variant); the assertion below catches the misuse in debug builds.
+#[cfg(test)]
+pub fn merge_workspace_edits(base: &mut WorkspaceEdit, additional: WorkspaceEdit) {
+    debug_assert!(
+        additional.changes.is_none() && additional.change_annotations.is_none(),
+        "merge_workspace_edits only merges document_changes; got changes/change_annotations on additional",
+    );
+    let Some(lsp_types::DocumentChanges::Edits(more)) = additional.document_changes else {
+        return;
+    };
+    match &mut base.document_changes {
+        Some(lsp_types::DocumentChanges::Edits(existing)) => existing.extend(more),
+        None => {
+            base.document_changes = Some(lsp_types::DocumentChanges::Edits(more));
+        }
+        Some(lsp_types::DocumentChanges::Operations(_)) => {
+            // Operations form is not produced by our codebase; nothing to merge into.
+        }
+    }
+}
+
 pub fn create_workspace_edit_from_single_text_edits(
     mut inputs: Vec<SingleTextEdit>,
 ) -> WorkspaceEdit {
@@ -550,6 +604,8 @@ pub struct ComponentInformation {
     pub is_std_widget: bool,
     /// This type was exported
     pub is_exported: bool,
+    /// This type is an interface
+    pub is_interface: bool,
     /// This is a primitive element that reacts to events in some way
     pub is_interactive: bool,
     /// This is a layout
@@ -562,18 +618,57 @@ pub struct ComponentInformation {
 
 impl ComponentInformation {
     pub fn import_file_name(&self, current_uri: &Option<lsp_types::Url>) -> Option<String> {
-        if self.is_std_widget {
-            Some("std-widgets.slint".to_string())
+        import_file_name_for_url(
+            self.defined_at.as_ref().map(|p| &p.url),
+            self.is_std_widget,
+            current_uri,
+        )
+    }
+}
+
+fn import_file_name_for_url(
+    url: Option<&lsp_types::Url>,
+    is_std_widget: bool,
+    current_uri: &Option<lsp_types::Url>,
+) -> Option<String> {
+    if is_std_widget {
+        Some("std-widgets.slint".to_string())
+    } else {
+        let url = url?;
+        if let Some(path) = url.path().strip_prefix("/@") {
+            Some(format!("@{path}"))
+        } else if let Some(current_uri) = current_uri {
+            lsp_types::Url::make_relative(current_uri, url)
         } else {
-            let url = self.defined_at.as_ref().map(|p| &p.url)?;
-            if let Some(path) = url.path().strip_prefix("/@") {
-                Some(format!("@{path}"))
-            } else if let Some(current_uri) = current_uri {
-                lsp_types::Url::make_relative(current_uri, url)
-            } else {
-                url.to_file_path().ok().map(|p| p.to_string_lossy().to_string())
-            }
+            url.to_file_path().ok().map(|path| path.to_string_lossy().to_string())
         }
+    }
+}
+
+/// Information on an exported value type (struct or enum) that can be named as a
+/// property type, callback argument type, or function return type.
+///
+/// Distinct from [`ComponentInformation`], which represents things instantiable as
+/// elements.  The two categories are disjoint: a struct/enum can never be an element
+/// base type, and a component can never be a property type.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TypeInformation {
+    /// The exported name of the type
+    pub name: String,
+    /// The URL to the file where this type is defined.
+    /// `None` for std-widget types (use `is_std_widget` to compute the import path).
+    pub defined_at: Option<lsp_types::Url>,
+    /// This type is exported from the standard widgets library
+    pub is_std_widget: bool,
+    /// The "kind" of type (e.g. struct/array, etc.).
+    /// This is a simplified representation of the real Type used by the compiler
+    /// that should be sufficient for the LSPs completions, etc.
+    pub kind: lsp_types::CompletionItemKind,
+}
+
+impl TypeInformation {
+    pub fn import_file_name(&self, current_uri: &Option<lsp_types::Url>) -> Option<String> {
+        import_file_name_for_url(self.defined_at.as_ref(), self.is_std_widget, current_uri)
     }
 }
 
@@ -581,13 +676,8 @@ impl ComponentInformation {
 /// or `None` otherwise.
 #[cfg(any(test, feature = "preview-engine"))]
 pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
-    struct DummyWaker();
-    impl std::task::Wake for DummyWaker {
-        fn wake(self: std::sync::Arc<Self>) {}
-    }
-
-    let waker = std::sync::Arc::new(DummyWaker()).into();
-    let mut ctx = std::task::Context::from_waker(&waker);
+    let waker = std::task::Waker::noop();
+    let mut ctx = std::task::Context::from_waker(waker);
 
     let future = std::pin::pin!(future);
 
@@ -689,6 +779,55 @@ pub fn fuzzy_filter_iter<T: std::fmt::Debug>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn mk_edit(uri: &str, new_text: &str) -> SingleTextEdit {
+        SingleTextEdit {
+            url: Url::parse(uri).unwrap(),
+            version: None,
+            edit: TextEdit {
+                range: lsp_types::Range::new(
+                    lsp_types::Position::new(0, 0),
+                    lsp_types::Position::new(0, 0),
+                ),
+                new_text: new_text.into(),
+            },
+        }
+    }
+
+    fn doc_edits(edit: &WorkspaceEdit) -> &Vec<lsp_types::TextDocumentEdit> {
+        match edit.document_changes.as_ref().unwrap() {
+            lsp_types::DocumentChanges::Edits(v) => v,
+            _ => panic!("expected DocumentChanges::Edits"),
+        }
+    }
+
+    #[test]
+    fn merge_workspace_edits_combines_edits_lists() {
+        let mut base =
+            create_workspace_edit_from_single_text_edits(vec![mk_edit("file:///a.slint", "a")]);
+        let additional =
+            create_workspace_edit_from_single_text_edits(vec![mk_edit("file:///b.rs", "b")]);
+        merge_workspace_edits(&mut base, additional);
+        assert_eq!(doc_edits(&base).len(), 2);
+    }
+
+    #[test]
+    fn merge_workspace_edits_into_empty_base() {
+        let mut base = WorkspaceEdit::default();
+        let additional =
+            create_workspace_edit_from_single_text_edits(vec![mk_edit("file:///b.rs", "b")]);
+        merge_workspace_edits(&mut base, additional);
+        assert_eq!(doc_edits(&base).len(), 1);
+    }
+
+    #[test]
+    fn merge_workspace_edits_noop_for_empty_additional() {
+        let mut base =
+            create_workspace_edit_from_single_text_edits(vec![mk_edit("file:///a.slint", "a")]);
+        let before_len = doc_edits(&base).len();
+        merge_workspace_edits(&mut base, WorkspaceEdit::default());
+        assert_eq!(doc_edits(&base).len(), before_len);
+    }
 
     #[test]
     fn test_uri_conversion_of_builtins() {

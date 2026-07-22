@@ -80,6 +80,16 @@ export component ComboBoxBase {
         root.update-current-value();
     }
 
+    // Writes to `current-value` from host code don't change the selection;
+    // the visible state still reflects `model[current-index]`. Warn on the
+    // divergence so the developer learns to use `current-index` instead.
+    // See https://github.com/slint-ui/slint/issues/11970.
+    changed current-value => {
+        if root.current-value != root.model[root.current-index] {
+            debug("ComboBox: `current-value` writes don't change the selection. Use `current-index` instead. See https://github.com/slint-ui/slint/issues/11970.");
+        }
+    }
+
     /// Minimum scroll delta so that the scroll wheel changes the value.
     in property <length> scroll-delta: 2px;
 

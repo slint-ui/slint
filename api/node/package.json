@@ -1,6 +1,6 @@
 {
   "name": "slint-ui",
-  "version": "1.17.0",
+  "version": "1.18.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "homepage": "https://github.com/slint-ui/slint",
@@ -21,11 +21,13 @@
   "description": "Slint is a declarative GUI toolkit to build native user interfaces for desktop and embedded applications.",
   "devDependencies": {
     "@biomejs/biome": "catalog:",
+    "@napi-rs/cli": "3.7.3",
     "@types/capture-console": "1.0.5",
     "@types/node": "catalog:",
     "capture-console": "1.0.2",
-    "image-js": "1.6.0",
+    "image-js": "1.7.0",
     "typescript": "catalog:",
+    "verdaccio": "6.8.0",
     "vitest": "catalog:"
   },
   "engines": {
@@ -35,10 +37,10 @@
     "artifacts": "napi artifacts",
     "compile": "tsc --build",
     "build": "napi build --platform --release --js rust-module.cjs --dts rust-module.d.cts -c binaries.json",
+    "build:dev": "napi build --platform --release --js rust-module-dev.cjs --dts rust-module.d.cts -c binaries-dev.json --features system-testing,mcp",
     "build:minimal": "napi build --platform --js rust-module.cjs --dts rust-module.d.cts -c binaries.json --no-default-features",
-    "build:debug": "napi build --platform --js rust-module.cjs --dts rust-module.d.cts -c binaries.json && pnpm compile",
+    "build:debug": "napi build --platform --js rust-module-dev.cjs --dts rust-module.d.cts -c binaries-dev.json --features system-testing,mcp && pnpm compile",
     "build:testing": "napi build --platform --js rust-module.cjs --dts rust-module.d.cts -c binaries.json --features testing && pnpm compile",
-    "install": "node build-on-demand.mjs",
     "docs": "pnpm build && pnpm -C ../../docs/nodejs run build",
     "docs:dev": "pnpm build && pnpm -C ../../docs/nodejs run dev",
     "docs:debug": "pnpm build:debug && pnpm -C ../../docs/nodejs run build",
@@ -48,8 +50,5 @@
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
     "test": "vitest run"
-  },
-  "dependencies": {
-    "@napi-rs/cli": "3.6.2"
   }
 }

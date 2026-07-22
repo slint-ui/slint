@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-SubElem := Rectangle {
-    property <int> value: sub.value;
+component SubElem inherits Rectangle {
+    in-out property <int> value: sub.value;
     callback change();
     change => { sub.value += 44; }
     sub := Rectangle {
@@ -10,10 +10,10 @@ SubElem := Rectangle {
     }
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     callback change();
     change => sub.change();
-    property <int> toplevel: sub.value + 1;
+    in-out property <int> toplevel: sub.value + 1;
     sub := SubElem { }
 }
 

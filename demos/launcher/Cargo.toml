@@ -1,0 +1,36 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "launcher"
+version = "1.18.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition.workspace = true
+build = "build.rs"
+license = "MIT"
+publish = false
+description = "Launcher to start the installed Slint demos and examples, for use on embedded devices"
+
+[[bin]]
+path = "main.rs"
+name = "slint-demo-launcher"
+
+[features]
+# The desktop flavor, for development: the demos run alongside the launcher.
+default = ["slint/default"]
+## Use this backend on embedded devices without a windowing system. The
+## launched demo then replaces the launcher, instead of running side by side.
+backend-linuxkms = ["slint/backend-linuxkms", "slint/unstable-libinput-09", "dep:input"]
+backend-linuxkms-noseat = ["slint/backend-linuxkms-noseat", "slint/unstable-libinput-09", "dep:input"]
+renderer-skia = ["slint/renderer-skia"]
+
+[dependencies]
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "accessibility", "compat-1-2", "renderer-femtovg", "renderer-software"] }
+
+# To inspect the events that slint::BackendSelector::with_libinput_event_hook
+# delivers, for detecting whether a keyboard is attached.
+[target.'cfg(target_os = "linux")'.dependencies]
+input = { version = "0.10.0", optional = true }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }

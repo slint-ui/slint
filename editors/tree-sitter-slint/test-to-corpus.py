@@ -4,17 +4,9 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# Usage:
-# ```sh
-# # install tree-sitter-tooling
-# cargo install tree-sitter-cli
-# # generate corpus from existing tests
-# find ../../tests/cases -type d -exec ./test-to-corpus.py --tests-directory {} \;
-# # generate parser and update contents of test with current state
-# tree-sitter generate && tree-sitter test -u
-# # Count ERROR in generated outputs:
-# rg ERROR corpus | wc -l
-# ````
+# Generate a corpus directory from a test or example directory
+#
+# Use this script through the `./run_tests.sh` shells script!
 
 import argparse
 import os
@@ -85,7 +77,7 @@ parser.add_argument(
     "--corpus-directory",
     dest="corpus_dir",
     action="store",
-    default="./corpus",
+    default="./test/corpus/gen",
     help="The directory containing the corpus data",
 )
 
@@ -96,7 +88,9 @@ corpus_dir = os.path.realpath(args.corpus_dir)
 
 corpus_file = os.path.join(corpus_dir, os.path.basename(tests_dir) + ".txt")
 
-with open(corpus_file, "w") as corpus:
+# Use "append" mode here, as some examples/demos have conflicting directory names
+# The run_tests.sh script will clean the corpus directory anyway, so we can always append.
+with open(corpus_file, "a") as corpus:
     for file in os.listdir(tests_dir):
         filename = os.fsdecode(file)
         if filename.endswith(".slint"):

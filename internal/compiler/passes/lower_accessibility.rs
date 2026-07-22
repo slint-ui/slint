@@ -4,8 +4,8 @@
 //! Pass that lowers synthetic `accessible-*` properties
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::EnumerationValue;
+use crate::expression_tree::{Callable, Expression, NamedReference};
+use crate::langtype::{EnumerationValue, Type};
 use crate::object_tree::{Component, ElementRc};
 
 use smol_str::SmolStr;
@@ -44,7 +44,7 @@ pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut Buil
 
             for prop_name in crate::typeregister::reserved_accessibility_properties()
                 .map(|x| x.0)
-                .chain(["accessible-role", "accessible-orientation", "accessible-live"])
+                .chain(["accessible-role", "accessible-orientation", "accessible-live-region"])
             {
                 if accessible_role_set {
                     if elem.borrow().is_binding_set(prop_name, false) {
@@ -96,6 +96,29 @@ fn apply_builtin(e: &ElementRc) {
         e.borrow_mut().set_binding_if_not_set("accessible-read-only".into(), || {
             Expression::PropertyReference(read_only_prop)
         });
+        {
+            // Setup callback for accessible-action-set-value
+            let text_prop = NamedReference::new(e, SmolStr::new_static("text"));
+            let edited_callback = NamedReference::new(e, SmolStr::new_static("edited"));
+            e.borrow_mut().set_binding_if_not_set("accessible-action-set-value".into(), || {
+                Expression::CodeBlock(vec![
+                    Expression::SelfAssignment {
+                        lhs: Box::new(Expression::PropertyReference(text_prop.clone())),
+                        rhs: Box::new(Expression::FunctionParameterReference {
+                            index: 0,
+                            ty: Type::String,
+                        }),
+                        op: '=',
+                        node: None,
+                    },
+                    Expression::FunctionCall {
+                        function: Callable::Callback(edited_callback),
+                        arguments: vec![],
+                        source_location: None,
+                    },
+                ])
+            });
+        }
     } else if bty.name == "Image" {
         e.borrow_mut().set_binding_if_not_set("accessible-role".into(), || {
             let enum_ty = crate::typeregister::BUILTIN.with(|e| e.enums.AccessibleRole.clone());

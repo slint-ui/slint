@@ -33,7 +33,7 @@ use super::PhysicalSize;
 use super::images::{Texture, TextureCacheKey};
 use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, font_cache};
 
-type FemtovgBoxShadowCache<R> = BoxShadowCache<ItemGraphicsCacheEntry<R>>;
+pub(super) type FemtovgBoxShadowCache<R> = BoxShadowCache<ItemGraphicsCacheEntry<R>>;
 
 pub use femtovg::Canvas;
 pub type CanvasRc<R> = Rc<RefCell<Canvas<R>>>;
@@ -88,7 +88,7 @@ pub struct GLItemRenderer<'a, R: femtovg::Renderer + TextureImporter> {
     graphics_cache: &'a ItemGraphicsCache<R>,
     layer_cache: &'a LayerCache<R>,
     texture_cache: &'a RefCell<super::images::TextureCache<R>>,
-    box_shadow_cache: FemtovgBoxShadowCache<R>,
+    box_shadow_cache: &'a FemtovgBoxShadowCache<R>,
     canvas: CanvasRc<R>,
     // Textures from layering or tiling that were scheduled for rendering where we can't delete the femtovg::ImageId yet
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
@@ -550,13 +550,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                         femtovg::Color::rgba(0, 0, 0, 0),
                     );
 
-                    let mut shadow_path = femtovg::Path::new();
-                    shadow_path.rounded_rect(
-                        blur.get(),
-                        blur.get(),
-                        width.get(),
-                        height.get(),
-                        radius.get(),
+                    let shadow_path = rect_with_radius_to_path(
+                        PhysicalRect::new(
+                            PhysicalPoint::from_lengths(blur, blur),
+                            PhysicalSize::from_lengths(width, height),
+                        ),
+                        radius,
                     );
                     canvas.fill_path(
                         &shadow_path,
@@ -1025,24 +1024,51 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         &mut self,
         physical_rect: sharedparley::PhysicalRect,
         brush: Self::PlatformBrush,
+        radius: sharedparley::PhysicalLength,
+        border: Option<sharedparley::RectangleBorder<Self::PlatformBrush>>,
     ) {
-        let paint = match brush {
+        let fill_paint = match brush {
             GlyphBrush::Fill(paint) => paint,
             GlyphBrush::Stroke(paint) => paint,
         };
 
         let mut path = femtovg::Path::new();
-        path.rect(
-            physical_rect.min_x(),
-            physical_rect.min_y(),
-            physical_rect.width(),
-            physical_rect.height(),
-        );
+        if radius.get() > 0.0 {
+            path.rounded_rect(
+                physical_rect.min_x(),
+                physical_rect.min_y(),
+                physical_rect.width(),
+                physical_rect.height(),
+                radius.get(),
+            );
+        } else {
+            path.rect(
+                physical_rect.min_x(),
+                physical_rect.min_y(),
+                physical_rect.width(),
+                physical_rect.height(),
+            );
+        }
+
+        let stroke_paint = border.and_then(|sharedparley::RectangleBorder { brush, width }| {
+            (width.get() > 0.0).then(|| {
+                let mut paint = match brush {
+                    GlyphBrush::Fill(paint) => paint,
+                    GlyphBrush::Stroke(paint) => paint,
+                };
+                paint.set_line_width(width.get());
+                paint.set_anti_alias(true);
+                paint
+            })
+        });
 
         // When rendering text we align to the pixel grid, so do the same for underlines,
         // selection, etc.
         Self::align_canvas_during(&mut *self.canvas.borrow_mut(), |canvas| {
-            canvas.fill_path(&path, &paint)
+            canvas.fill_path(&path, &fill_paint);
+            if let Some(sp) = stroke_paint.as_ref() {
+                canvas.stroke_path(&path, sp);
+            }
         });
     }
 }
@@ -1127,6 +1153,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         graphics_cache: &'a ItemGraphicsCache<R>,
         layer_cache: &'a LayerCache<R>,
         texture_cache: &'a RefCell<super::images::TextureCache<R>>,
+        box_shadow_cache: &'a FemtovgBoxShadowCache<R>,
         text_layout_cache: &'a sharedparley::TextLayoutCache,
         window: &'a i_slint_core::api::Window,
         width: u32,
@@ -1137,7 +1164,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             graphics_cache,
             layer_cache,
             texture_cache,
-            box_shadow_cache: Default::default(),
+            box_shadow_cache,
             canvas: canvas.clone(),
             textures_to_delete_after_flush: Default::default(),
             window,
@@ -1526,6 +1553,17 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 let path_width = path_bounds.width();
                 let path_height = path_bounds.height();
 
+                let (cx, cy) = gradient.center_or_default_scaled(
+                    path_width,
+                    path_height,
+                    self.scale_factor.get(),
+                );
+                let radius = gradient.radius_or_default_scaled(
+                    path_width,
+                    path_height,
+                    self.scale_factor.get(),
+                );
+
                 let mut stops: Vec<_> = gradient
                     .stops()
                     .map(|stop| (stop.position, to_femtovg_color(&stop.color)))
@@ -1538,13 +1576,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                     stops.push((1.0, last_stop.1));
                 }
 
-                femtovg::Paint::radial_gradient_stops(
-                    path_width / 2.,
-                    path_height / 2.,
-                    0.,
-                    0.5 * (path_width * path_width + path_height * path_height).sqrt(),
-                    stops,
-                )
+                femtovg::Paint::radial_gradient_stops(cx, cy, 0., radius, stops)
             }
             Brush::ConicGradient(gradient) => {
                 let path_bounds = path_bounding_box(&self.canvas, path);
@@ -1552,12 +1584,18 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 let path_width = path_bounds.width();
                 let path_height = path_bounds.height();
 
+                let (cx, cy) = gradient.center_or_default_scaled(
+                    path_width,
+                    path_height,
+                    self.scale_factor.get(),
+                );
+
                 let stops: Vec<_> = gradient
                     .stops()
                     .map(|stop| (stop.position, to_femtovg_color(&stop.color)))
                     .collect();
 
-                femtovg::Paint::conic_gradient_stops(path_width / 2., path_height / 2., stops)
+                femtovg::Paint::conic_gradient_stops(cx, cy, stops)
             }
             _ => return None,
         })

@@ -3,13 +3,13 @@
 
 export component Test inherits Window {
     Rectangle {
-        ToolTip {
-            text: "first";
+        Tooltip {
+            text: @markdown("first");
         }
 
-        ToolTip {
-//      >      <error{Only one ToolTip is allowed as a child of an element}
-            text: "second";
+        Tooltip {
+//      >      <error{Only one Tooltip is allowed as a child of an element}
+            text: @markdown("second");
         }
     }
 }

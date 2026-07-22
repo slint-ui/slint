@@ -7,11 +7,18 @@ use crate::graphics::Color;
 use crate::input::InternalKeyboardModifierState;
 use crate::item_tree::{ItemRc, ItemTreeRc};
 use crate::items::ColorScheme;
-use crate::platform::{EventLoopProxy, Platform};
+use crate::lengths::LogicalLength;
+use crate::platform::{EventLoopProxy, Platform, WindowAdapter, WindowEvent};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::Cell;
+use core::cell::RefCell;
 use pin_weak::rc::PinWeak;
+
+/// Type alias for the closure type installed via [`set_window_event_hook`].
+/// Exposed so callers (notably tests) can save and restore a previously-installed hook.
+pub type WindowEventHook =
+    Box<dyn Fn(&Rc<dyn WindowAdapter>, &WindowEvent, crate::api::WindowEventDispatchResult)>;
 
 crate::thread_local! {
     pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
@@ -45,8 +52,16 @@ pub(crate) struct SlintContextInner {
     /// transparent color when the platform doesn't expose one.
     #[pin]
     pub(crate) accent_color: Property<Color>,
+    /// Process-wide default font size as reported by the platform (e.g. iOS Dynamic
+    /// Type). Backends write here; `WindowItem::resolved_default_font_size` consults it
+    /// before falling back to `textlayout::DEFAULT_FONT_SIZE`. `None` when the backend
+    /// doesn't report one.
+    #[pin]
+    pub(crate) platform_default_font_size: Property<Option<LogicalLength>>,
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
+    pub(crate) window_event_hook: core::cell::RefCell<Option<WindowEventHook>>,
+    pub(crate) log_message_handler: RefCell<Option<crate::debug_log::LogMessageHandler>>,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "shared-parley")]
@@ -83,8 +98,13 @@ impl SlintContext {
 
             color_scheme: Property::new_named(ColorScheme::Unknown, "SlintContext::color_scheme"),
             accent_color: Property::new_named(Color::default(), "SlintContext::accent_color"),
+            platform_default_font_size: Property::new_named(
+                None,
+                "SlintContext::platform_default_font_size",
+            ),
             window_shown_hook: Default::default(),
-
+            window_event_hook: Default::default(),
+            log_message_handler: Default::default(),
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
             #[cfg(feature = "shared-parley")]
@@ -176,6 +196,37 @@ impl SlintContext {
     /// platform's system-theme observer; `Property::set` short-circuits no-op writes.
     pub fn set_accent_color(&self, color: Color) {
         self.0.as_ref().project_ref().accent_color.set(color);
+    }
+
+    /// Returns the platform-reported default font size, or `None` if the backend doesn't
+    /// report one. Reads register a property dependency, so bindings re-evaluate when the
+    /// platform reports a change (e.g. the user adjusts the system text size).
+    pub fn platform_default_font_size(&self) -> Option<LogicalLength> {
+        self.0.as_ref().project_ref().platform_default_font_size.get()
+    }
+
+    /// Backend-side write path for the platform-reported default font size. Called by
+    /// backends that track the system setting; `Property::set` short-circuits no-op writes.
+    pub fn set_platform_default_font_size(&self, size: Option<LogicalLength>) {
+        self.0.as_ref().project_ref().platform_default_font_size.set(size);
+    }
+
+    #[doc(hidden)]
+    pub fn dispatch_log_message(&self, message: crate::debug_log::LogMessage<'_>) {
+        if let Some(handler) = self.0.log_message_handler.borrow().as_ref() {
+            handler(message);
+        } else {
+            self.0.platform.debug_log(message.message_arguments());
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn set_log_message_handler(
+        &self,
+        handler: Option<crate::debug_log::LogMessageHandler>,
+    ) -> Option<crate::debug_log::LogMessageHandler> {
+        let mut slot = self.0.log_message_handler.borrow_mut();
+        core::mem::replace(&mut *slot, handler)
     }
 
     /// Add one to the counter of "things keeping the event loop alive".
@@ -292,6 +343,22 @@ pub fn set_window_shown_hook(
 ) -> Result<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>, PlatformError> {
     GLOBAL_CONTEXT.with(|p| match p.get() {
         Some(ctx) => Ok(ctx.0.window_shown_hook.replace(hook)),
+        None => Err(PlatformError::NoPlatform),
+    })
+}
+
+/// Internal function to set a hook that's invoked after a window event was dispatched.
+/// This is used by the system testing module. Returns a previously set hook, if any.
+pub fn set_window_event_hook(
+    hook: Option<WindowEventHook>,
+) -> Result<Option<WindowEventHook>, PlatformError> {
+    GLOBAL_CONTEXT.with(|p| match p.get() {
+        Some(ctx) => {
+            let mut slot = ctx.0.window_event_hook.try_borrow_mut().map_err(|_| {
+                PlatformError::Other(alloc::string::String::from("event hook is currently in use"))
+            })?;
+            Ok(core::mem::replace(&mut *slot, hook))
+        }
         None => Err(PlatformError::NoPlatform),
     })
 }

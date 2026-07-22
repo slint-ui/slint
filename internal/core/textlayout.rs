@@ -29,6 +29,12 @@ use euclid::num::{One, Zero};
 
 use crate::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
 
+/// The font size to lay text out with when neither the `.slint` code nor the platform
+/// provide one. Last level of the precedence chain in
+/// [`crate::items::WindowItem::resolved_default_font_size`].
+pub const DEFAULT_FONT_SIZE: crate::lengths::LogicalLength =
+    crate::lengths::LogicalLength::new(12 as crate::Coord);
+
 #[cfg(feature = "unicode-linebreak")]
 mod linebreak_unicode;
 #[cfg(feature = "unicode-linebreak")]
@@ -67,6 +73,7 @@ impl<Font: AbstractFont> TextLayout<'_, Font> {
         text: &str,
         max_width: Option<Font::Length>,
         text_wrap: TextWrap,
+        max_lines: Option<usize>,
     ) -> (Font::Length, Font::Length)
     where
         Font::Length: core::fmt::Debug,
@@ -75,7 +82,9 @@ impl<Font: AbstractFont> TextLayout<'_, Font> {
         let mut line_count: i16 = 0;
         let shape_buffer = ShapeBuffer::new(self, text);
 
-        for line in TextLineBreaker::<Font>::new(text, &shape_buffer, max_width, None, text_wrap) {
+        for line in
+            TextLineBreaker::<Font>::new(text, &shape_buffer, max_width, max_lines, text_wrap)
+        {
             max_line_width = euclid::approxord::max(max_line_width, line.text_width);
             line_count += 1;
         }
@@ -102,6 +111,7 @@ pub struct TextParagraphLayout<'a, Font: AbstractFont> {
     pub wrap: TextWrap,
     pub overflow: TextOverflow,
     pub single_line: bool,
+    pub max_lines: Option<usize>,
 }
 
 impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
@@ -131,12 +141,21 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
 
         let shape_buffer = ShapeBuffer::new(&self.layout, self.string);
 
+        // When eliding, always keep at least the first line: when it is taller than the box,
+        // dropping it would render nothing at all, which is more confusing than a clipped line.
+        // The software renderer already clips glyphs to the Text geometry, so the vertical
+        // overflow is trimmed; horizontal elision still places an ellipsis if it is too
+        // wide. Mirrors the parley path, which always keeps line index 0.
+        let max_lines_from_height =
+            elide.then(|| self.layout.font.max_lines(self.max_height).max(1));
+        let max_lines = [self.max_lines, max_lines_from_height].into_iter().flatten().min();
+
         let new_line_break_iter = || {
             TextLineBreaker::<Font>::new(
                 self.string,
                 &shape_buffer,
                 if wrap { Some(self.max_width) } else { None },
-                if elide { Some(self.layout.font.max_lines(self.max_height)) } else { None },
+                max_lines,
                 self.wrap,
             )
         };
@@ -160,18 +179,38 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
         };
 
         let mut y = baseline_y;
+        let mut line_index = 0usize;
 
         let mut process_line = |line: &TextLine<Font::Length>, glyphs: &[Glyph<Font::Length>]| {
             let elide_long_line =
                 elide && (self.single_line || !wrap) && line.text_width > self.max_width;
+            // The last line before the line limit carries the ellipsis just like the last line
+            // that fits the height, so `max-lines` truncation is signalled the same way.
+            let reached_line_limit = max_lines.is_some_and(|max_lines| line_index + 1 == max_lines);
             let elide_last_line = elide
                 && line.glyph_range.end < glyphs.len()
-                && y + self.layout.font.height() * two > self.max_height;
+                && (y + self.layout.font.height() * two > self.max_height || reached_line_limit);
+
+            // On a vertically truncated line the ellipsis is anchored right after the text by
+            // ignoring trailing whitespace, so it reads "please…" rather than "please   …". The
+            // line breaker already excludes trailing whitespace from `byte_range`, so the glyphs
+            // past its end are exactly that whitespace to trim. This trimmed range is what gets
+            // measured (for alignment) and drawn; other lines keep the full range.
+            let glyph_range = if elide_last_line {
+                let trailing_whitespace_glyphs = glyphs[line.glyph_range.clone()]
+                    .iter()
+                    .rev()
+                    .take_while(|glyph| glyph.text_byte_offset >= line.byte_range.end)
+                    .count();
+                line.glyph_range.start..line.glyph_range.end - trailing_whitespace_glyphs
+            } else {
+                line.glyph_range.clone()
+            };
 
             let text_width = || {
                 if elide_long_line || elide_last_line {
                     let mut text_width = Font::Length::zero();
-                    for glyph in &glyphs[line.glyph_range.clone()] {
+                    for glyph in &glyphs[glyph_range.clone()] {
                         if text_width + glyph.advance > max_width_without_elision {
                             break;
                         }
@@ -214,42 +253,66 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
                     begin..end
                 });
 
-            let glyph_it = glyphs[line.glyph_range.clone()].iter();
+            let glyph_it = glyphs[glyph_range.clone()].iter();
             let mut glyph_x = Font::Length::zero();
-            let mut positioned_glyph_it = glyph_it.enumerate().filter_map(|(index, glyph)| {
+            // Up to two output glyphs per input glyph: the glyph itself, plus -- on the last glyph
+            // of a vertically truncated line that still fits the width -- an ellipsis appended
+            // after it (trailing whitespace was already trimmed from `glyph_range`).
+            let mut positioned_glyph_it = glyph_it.enumerate().flat_map(|(index, glyph)| {
+                let mut output: [Option<PositionedGlyph<Font::Length>>; 2] = [None, None];
                 // TODO: cut off at grapheme boundaries
                 if glyph_x > self.max_width {
-                    return None;
+                    return output.into_iter().flatten();
                 }
+                // A line that is too wide gets the ellipsis placed *instead of* the first glyph
+                // that no longer fits (horizontal elision); the remaining glyphs are dropped.
                 let elide_long_line = (elide_long_line || elide_last_line)
                     && x + glyph_x + glyph.advance > max_width_without_elision;
-                let elide_last_line =
-                    elide_last_line && line.glyph_range.start + index == line.glyph_range.end - 1;
-                if elide_long_line || elide_last_line {
+                if elide_long_line {
                     if let Some(elide_glyph) = elide_glyph.take() {
                         let x = glyph_x;
                         glyph_x += elide_glyph.advance;
-                        return Some(PositionedGlyph {
+                        output[0] = Some(PositionedGlyph {
                             x,
                             y: Font::Length::zero(),
                             advance: elide_glyph.advance,
                             glyph_id: elide_glyph.glyph_id.unwrap(), // checked earlier when initializing elide_glyph
                             text_byte_offset: glyph.text_byte_offset,
                         });
-                    } else {
-                        return None;
                     }
+                    return output.into_iter().flatten();
                 }
-                let x = glyph_x;
-                glyph_x += glyph.advance;
 
-                glyph.glyph_id.map(|existing_glyph_id| PositionedGlyph {
-                    x,
+                let glyph_pos = glyph_x;
+                glyph_x += glyph.advance;
+                output[0] = glyph.glyph_id.map(|existing_glyph_id| PositionedGlyph {
+                    x: glyph_pos,
                     y: Font::Length::zero(),
                     advance: glyph.advance,
                     glyph_id: existing_glyph_id,
                     text_byte_offset: glyph.text_byte_offset,
-                })
+                });
+
+                // A line that only overflows vertically (it fits the width) keeps all its glyphs
+                // and gets the ellipsis *appended* after the last one rather than overwriting it,
+                // matching the parley path which renders e.g. "Line Two..." not "Line Tw...".
+                let last_glyph = glyph_range.start + index == glyph_range.end - 1;
+                if elide_last_line
+                    && last_glyph
+                    && let Some(elide_glyph) = elide_glyph.take()
+                {
+                    let x = glyph_x;
+                    glyph_x += elide_glyph.advance;
+                    output[1] = Some(PositionedGlyph {
+                        x,
+                        y: Font::Length::zero(),
+                        advance: elide_glyph.advance,
+                        glyph_id: elide_glyph.glyph_id.unwrap(), // checked earlier when initializing elide_glyph
+                        text_byte_offset: glyph.text_byte_offset,
+                    });
+                }
+
+                output.into_iter().flatten()
             });
 
             if let core::ops::ControlFlow::Break(break_val) =
@@ -258,6 +321,7 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
                 return core::ops::ControlFlow::Break(break_val);
             }
             y += self.layout.font.height();
+            line_index += 1;
 
             core::ops::ControlFlow::Continue(())
         };
@@ -448,6 +512,7 @@ fn test_elision() {
         wrap: TextWrap::NoWrap,
         overflow: TextOverflow::Elide,
         single_line: true,
+        max_lines: None,
     };
     paragraph
         .layout_lines::<()>(
@@ -474,6 +539,53 @@ fn test_elision() {
 }
 
 #[test]
+fn test_elision_vertical_truncation() {
+    // A line that only overflows vertically (more lines below it were dropped for the height) but
+    // fits the width keeps all its glyphs and gets the ellipsis appended -- "AB…", not "A…". The
+    // box is one line tall, so the second line ("CD") is dropped.
+    let font = FixedTestFont;
+    let text = "AB\nCD";
+
+    let mut lines = Vec::new();
+
+    let paragraph = TextParagraphLayout {
+        string: text,
+        layout: TextLayout { font: &font, letter_spacing: None },
+        max_width: 4. * 10., // room for "AB…" (3 glyphs) and more
+        max_height: 10.,     // one line tall
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::NoWrap,
+        overflow: TextOverflow::Elide,
+        single_line: false,
+        max_lines: None,
+    };
+    paragraph
+        .layout_lines::<()>(
+            |glyphs, _, _, _, _| {
+                lines.push(
+                    glyphs.map(|positioned_glyph| positioned_glyph.glyph_id).collect::<Vec<_>>(),
+                );
+                core::ops::ControlFlow::Continue(())
+            },
+            None,
+        )
+        .unwrap();
+
+    // Only the first line is drawn (the box is one line tall).
+    assert_eq!(lines.len(), 1);
+    let rendered_text = lines[0]
+        .iter()
+        .flat_map(|glyph_id| {
+            core::char::decode_utf16(core::iter::once(glyph_id.get()))
+                .map(|r| r.unwrap())
+                .collect::<Vec<char>>()
+        })
+        .collect::<std::string::String>();
+    assert_eq!(rendered_text, "AB…");
+}
+
+#[test]
 fn test_exact_fit() {
     let font = FixedTestFont;
     let text = "Fits";
@@ -490,6 +602,7 @@ fn test_exact_fit() {
         wrap: TextWrap::NoWrap,
         overflow: TextOverflow::Elide,
         single_line: true,
+        max_lines: None,
     };
     paragraph
         .layout_lines::<()>(
@@ -532,6 +645,7 @@ fn test_no_line_separators_characters_rendered() {
         wrap: TextWrap::NoWrap,
         overflow: TextOverflow::Clip,
         single_line: true,
+        max_lines: None,
     };
     paragraph
         .layout_lines::<()>(
@@ -563,6 +677,108 @@ fn test_no_line_separators_characters_rendered() {
 }
 
 #[test]
+fn test_max_lines_limits_visible_lines() {
+    let font = FixedTestFont;
+    let text = "Hello\nWorld\nAgain";
+
+    let paragraph = TextParagraphLayout {
+        string: text,
+        layout: TextLayout { font: &font, letter_spacing: None },
+        max_width: 100. * 10.,
+        max_height: 100.,
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::NoWrap,
+        overflow: TextOverflow::Clip,
+        single_line: false,
+        max_lines: Some(2),
+    };
+    assert_eq!(render_lines(&paragraph), std::vec!["Hello", "World"]);
+}
+
+#[cfg(test)]
+fn render_lines(paragraph: &TextParagraphLayout<'_, FixedTestFont>) -> Vec<std::string::String> {
+    let mut lines = Vec::new();
+    paragraph
+        .layout_lines::<()>(
+            |glyphs, _, _, _, _| {
+                lines.push(
+                    glyphs
+                        .flat_map(|positioned_glyph| {
+                            core::char::decode_utf16(core::iter::once(
+                                positioned_glyph.glyph_id.get(),
+                            ))
+                            .map(|r| r.unwrap())
+                            .collect::<Vec<char>>()
+                        })
+                        .collect::<std::string::String>(),
+                );
+                core::ops::ControlFlow::Continue(())
+            },
+            None,
+        )
+        .unwrap();
+    lines
+}
+
+#[test]
+fn test_max_lines_with_word_wrap() {
+    let font = FixedTestFont;
+    // Wraps to one word per line at 60px; the line limit counts the wrapped lines.
+    let text = "Hello World Again";
+
+    let paragraph = TextParagraphLayout {
+        string: text,
+        layout: TextLayout { font: &font, letter_spacing: None },
+        max_width: 6. * 10.,
+        max_height: 100.,
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::WordWrap,
+        overflow: TextOverflow::Clip,
+        single_line: false,
+        max_lines: Some(2),
+    };
+    assert_eq!(render_lines(&paragraph), std::vec!["Hello ", "World "]);
+}
+
+#[test]
+fn test_max_lines_elide_marks_cut_line() {
+    let font = FixedTestFont;
+    let text = "Hello\nWorld\nAgain";
+
+    // The box is tall enough for all three lines, but the line limit cuts after the second:
+    // with `overflow: elide` the ellipsis goes on the last kept line.
+    let paragraph = TextParagraphLayout {
+        string: text,
+        layout: TextLayout { font: &font, letter_spacing: None },
+        max_width: 100. * 10.,
+        max_height: 100.,
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::NoWrap,
+        overflow: TextOverflow::Elide,
+        single_line: false,
+        max_lines: Some(2),
+    };
+    assert_eq!(render_lines(&paragraph), std::vec!["Hello", "World…"]);
+}
+
+#[test]
+fn test_text_size_with_max_lines() {
+    let font = FixedTestFont;
+    let layout = TextLayout { font: &font, letter_spacing: None };
+    let text = "On\nFour\nLonger";
+
+    let (width, height) = layout.text_size(text, None, TextWrap::NoWrap, None);
+    assert_eq!((width, height), (6. * 10., 3. * 10.));
+
+    // With a line limit, both the height and the longest-line width only cover the kept lines.
+    let (width, height) = layout.text_size(text, None, TextWrap::NoWrap, Some(2));
+    assert_eq!((width, height), (4. * 10., 2. * 10.));
+}
+
+#[test]
 fn test_cursor_position() {
     let font = FixedTestFont;
     let text = "Hello                    World";
@@ -577,6 +793,7 @@ fn test_cursor_position() {
         wrap: TextWrap::WordWrap,
         overflow: TextOverflow::Clip,
         single_line: false,
+        max_lines: None,
     };
 
     assert_eq!(paragraph.cursor_pos_for_byte_offset(0), (0., 0.));
@@ -617,6 +834,7 @@ fn test_cursor_position_with_newline() {
         wrap: TextWrap::WordWrap,
         overflow: TextOverflow::Clip,
         single_line: false,
+        max_lines: None,
     };
 
     assert_eq!(paragraph.cursor_pos_for_byte_offset(5), (5. * 10., 0.));
@@ -637,6 +855,7 @@ fn byte_offset_for_empty_line() {
         wrap: TextWrap::WordWrap,
         overflow: TextOverflow::Clip,
         single_line: false,
+        max_lines: None,
     };
 
     assert_eq!(paragraph.byte_offset_for_position((0., 10.)), 6);
@@ -659,6 +878,7 @@ fn test_byte_offset() {
         wrap: TextWrap::WordWrap,
         overflow: TextOverflow::Clip,
         single_line: false,
+        max_lines: None,
     };
 
     assert_eq!(paragraph.byte_offset_for_position((0., 0.)), 0);

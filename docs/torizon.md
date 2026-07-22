@@ -1,4 +1,4 @@
-<!-- cSpell: ignore Torizon Toradex imx8 am62 imx95 Autorun sota
+<!-- cSpell: ignore Torizon Toradex imx8 am62 imx95 Autorun sota -->
 # Running Slint Demos on Torizon OS
 
 Toradex provides [Torizon OS](https://developer.toradex.com/torizon/) a Linux based platform for its embedded devices that packages applications in docker containers.

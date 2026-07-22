@@ -5,8 +5,8 @@ use std::rc::{Rc, Weak};
 
 use i_slint_core::timers::{Timer, TimerMode};
 
-#[cfg(target_os = "macos")]
-mod macos_display_link;
+#[cfg(target_vendor = "apple")]
+mod apple_display_link;
 
 use crate::winitwindowadapter::WinitWindowAdapter;
 
@@ -18,9 +18,9 @@ pub fn create_frame_throttle(
     if _is_wayland {
         WinitBasedFrameThrottle::create()
     } else {
-        #[cfg(target_os = "macos")]
+        #[cfg(target_vendor = "apple")]
         if let Some(throttle) =
-            macos_display_link::try_create(window_adapter.clone(), _winit_window)
+            apple_display_link::try_create(window_adapter.clone(), _winit_window)
         {
             return throttle;
         }

@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Type-directed resolution of bare literals still reports errors for values that
+// do not match the type expected at their position.
+
+struct S { c: color, a: TextHorizontalAlignment }
+
+export component Test inherits Rectangle {
+    // wrong type in a struct field
+    property<S> s1: { c: 42, a: center };
+//                  >                   <error{Cannot convert float to color}
+
+    // a name that is neither a color nor a valid enum variant
+    property<S> s2: { c: not_a_color, a: bogus };
+//                       >         <error{Unknown unqualified identifier 'not_a_color'}
+//                                       >    <^error{Unknown unqualified identifier 'bogus'}
+
+    // wrong element in an array of colors
+    property<[color]> arr: [red, nope, blue];
+//                               >  <error{Unknown unqualified identifier 'nope'}
+
+    // unknown identifier as a function argument
+    pure function f(c: color) -> color { c }
+    property<color> from_call: f(missing);
+//                               >     <error{Unknown unqualified identifier 'missing'}
+
+    // a bare color literal on the left of a comparison is not resolved
+    property<color> fg: white;
+    property<bool> cmp: red == fg;
+//                      >  <error{Unknown unqualified identifier 'red'}
+
+    // the condition of a ternary is bool, so `red` is not resolved as a color there
+    property<color> cond: red ? blue : green;
+//                        >  <error{Unknown unqualified identifier 'red'}
+    property<int> cond2: red ? 12 : 45;
+//                       >  <error{Unknown unqualified identifier 'red'}
+
+    // the operands of && and || are bool
+    property<bool> ok;
+    property<bool> logic: ok && red;
+//                              > <error{Unknown unqualified identifier 'red'}
+
+    // the operand of ! is bool
+    property<bool> negate: !red;
+//                          > <error{Unknown unqualified identifier 'red'}
+
+    // an array index is an integer
+    property<color> index: arr[red];
+//                             > <error{Unknown unqualified identifier 'red'}
+
+    // `length` is a property, not a method
+    property<int> len: arr.length();
+//                     >          <error{The expression is not a function}
+}

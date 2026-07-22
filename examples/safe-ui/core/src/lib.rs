@@ -25,6 +25,16 @@ compile_error!(
 
 extern crate alloc;
 
+/// Raw bindgen-generated FFI bindings from the C platform interface and
+/// event headers. Other modules should prefer the re-exports in
+/// [`ffi_event`] for event types.
+#[allow(non_upper_case_globals, non_camel_case_types, non_snake_case, dead_code)]
+mod bindings {
+    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+}
+
+pub mod event_dispatch;
+pub mod ffi_event;
 pub mod pixels;
 pub mod platform;
 

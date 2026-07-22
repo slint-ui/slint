@@ -78,6 +78,7 @@ component ItemTemplate {
 
     DragArea {
         data: Api.new-component-data(data.index);
+        allow-copy: true;
 
         touch-area := TouchArea {
             changed has-hover => {

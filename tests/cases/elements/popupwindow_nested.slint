@@ -32,14 +32,16 @@ export component ComboBox inherits Rectangle {
     }
 
     TouchArea {
-        clicked => { popup.show(); }
+        clicked => {
+            popup.show();
+        }
 
         width: 100%;
         height: 100%;
     }
 
     popup := PopupWindow {
-        x:0;
+        x: 0;
         y: root.height;
         width: root.width;
 
@@ -79,16 +81,32 @@ export component ComboBox inherits Rectangle {
     }
 }
 
+global MyGlobalProperty {
+    in-out property <bool> close: false;
+}
+
 export component TestCase inherits Window {
     width: 400px;
     height: 400px;
 
     in-out property <string> result;
 
-    TouchArea {
-        clicked => { result += "Root"; }
+    callback show-popup2();
+    show-popup2 => {
+        popup2.show();
     }
 
+    callback close-popup2();
+    close-popup2 => {
+        debug("Set close property");
+        MyGlobalProperty.close = true;
+    }
+
+    TouchArea {
+        clicked => {
+            result += "Root";
+        }
+    }
 
     VerticalLayout {
         alignment: start;
@@ -99,6 +117,7 @@ export component TestCase inherits Window {
                     popup1.show();
                 }
             }
+
             Button {
                 text: "Open Popup2";
                 clicked => {
@@ -109,12 +128,15 @@ export component TestCase inherits Window {
     }
 
     popup1 := PopupWindow {
-        x: 200px; y: 50px;
+        x: 200px;
+        y: 50px;
+
         Rectangle {
             border-width: 1px;
             border-color: green;
             background: red;
         }
+
         VerticalLayout {
             padding: 3px;
             ComboBox {
@@ -123,6 +145,7 @@ export component TestCase inherits Window {
                     result += value;
                 }
             }
+
             TouchArea {
                 height: 20px;
                 clicked => {
@@ -130,12 +153,26 @@ export component TestCase inherits Window {
                 }
             }
         }
+
         close-policy: close-on-click-outside;
     }
 
     popup2 := PopupWindow {
-        x: 20px; y: 200px;
+        x: 20px;
+        y: 200px;
         width: 350px;
+
+        in property <bool> closing: MyGlobalProperty.close;
+        changed closing => {
+            debug("Close popup2");
+            result += "P3";
+            self.close();
+        }
+
+        init => {
+            result += "P2";
+        }
+
         Rectangle {
             border-width: 1px;
             border-color: pink;
@@ -174,6 +211,55 @@ export component TestCase inherits Window {
     }
 }
 /*
+```rust
+// Use native popup window. Check that the popup gets closed even when the popup it self tries to close it
+#[allow(unused)]
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+slint_testing::access_testing_window(instance.window(), |w| w.use_native_popup(true));
+
+let inner =  slint_testing::WindowInner::from_pub(&instance.window());
+assert_eq!(inner.active_popups.borrow().len(), 0, "We don't have any open popup");
+
+// open popup2
+instance.invoke_show_popup2();
+
+// check P2 is open
+assert_eq!(instance.get_result(), "P2");
+assert_eq!(inner.active_popups.borrow().len(), 1, "We have one open popup. Popup2");
+instance.set_result("".into());
+
+instance.invoke_close_popup2();
+
+slint_testing::mock_elapsed_time(500); // Give the change tracker time to execute
+
+assert_eq!(inner.active_popups.borrow().len(), 0, "We don't have any open popup anymore");
+```
+
+```cpp
+// Use native popup window. Check that the popup gets closed even when the popup it self tries to close it
+auto handle = TestCase::create();
+TestCase &instance = *handle;
+
+slint_testing::set_use_native_popup(&instance, true);
+
+assert_eq(slint_testing::active_popup_count(&instance), 0);
+
+// open popup2
+instance.invoke_show_popup2();
+
+// check P2 is open
+assert_eq(instance.get_result(), "P2");
+assert_eq(slint_testing::active_popup_count(&instance), 1);
+instance.set_result("");
+
+instance.invoke_close_popup2();
+
+slint_testing::mock_elapsed_time(500); // Give the change tracker time to execute
+
+assert_eq(slint_testing::active_popup_count(&instance), 0);
+```
 
 ```rust
 #[allow(unused)]
@@ -200,7 +286,7 @@ slint_testing::send_mouse_click(&instance, 210., 10.);
 // go in the popup2 combobox
 slint_testing::send_mouse_click(&instance, 40., 210.);
 slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
-assert_eq!(instance.get_result(), "Aaaa");
+assert_eq!(instance.get_result(), "P2Aaaa");
 instance.set_result("".into());
 
 // "close this"
@@ -235,19 +321,19 @@ assert_eq!(instance.get_result(), "");
 
 // open popup2
 slint_testing::send_mouse_click(&instance, 210., 10.);
-assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_result(), "P2");
 
 // open its combobox
 slint_testing::send_mouse_click(&instance, 40., 210.);
 
 // click outside closes it
 slint_testing::send_mouse_click(&instance, 210., 90.);
-assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_result(), "P2");
 
 // but P2 is still open, so open its combobox again
 slint_testing::send_mouse_click(&instance, 40., 210.);
 slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
-assert_eq!(instance.get_result(), "Aaaa");
+assert_eq!(instance.get_result(), "P2Aaaa");
 instance.set_result("".into());
 
 // open popup1 from popup2
@@ -303,7 +389,7 @@ slint_testing::send_mouse_click(&instance, 210., 10.);
 // go in the popup2 combobox
 slint_testing::send_mouse_click(&instance, 40., 210.);
 slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
-assert_eq(instance.get_result(), "Aaaa");
+assert_eq(instance.get_result(), "P2Aaaa");
 instance.set_result("");
 
 // "close this"
@@ -338,19 +424,19 @@ assert_eq(instance.get_result(), "");
 
 // open popup2
 slint_testing::send_mouse_click(&instance, 210., 10.);
-assert_eq(instance.get_result(), "");
+assert_eq(instance.get_result(), "P2");
 
 // open its combobox
 slint_testing::send_mouse_click(&instance, 40., 210.);
 
 // click outside closes it
 slint_testing::send_mouse_click(&instance, 210., 90.);
-assert_eq(instance.get_result(), "");
+assert_eq(instance.get_result(), "P2");
 
 // but P2 is still open, so open its combobox again
 slint_testing::send_mouse_click(&instance, 40., 210.);
 slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
-assert_eq(instance.get_result(), "Aaaa");
+assert_eq(instance.get_result(), "P2Aaaa");
 instance.set_result("");
 
 // open popup1 from popup2

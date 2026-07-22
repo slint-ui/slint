@@ -1,16 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 400phx;
     height: 400phx;
     forward-focus: input2;
+    in property <bool> show: false;
 
     input1 := TextInput {
+        y:0;
         width: parent.width;
         height: 200phx;
         Rectangle {
             FocusScope {
+                x:0;
                 width: 75%;
                 key-pressed(event) => {
                     if (event.text != Key.Shift && event.text != Key.Control) {
@@ -19,25 +22,27 @@ TestCase := Rectangle {
                     accept
                 }
 
-                if (false) : Rectangle { FocusScope {} }
+                if (root.show) : Rectangle { FocusScope {} }
 
                 input2 := TextInput {
+                    x:0;
                     width: 75%;
                     height: 100%;
                 }
             }
         }
         Rectangle {
+            x:0;
             width: 0%;
             FocusScope {  }
         }
     }
 
-    property<bool> input1_focused: input1.has_focus;
-    property<string> input1_text: input1.text;
-    property<bool> input2_focused: input2.has_focus;
-    property<string> input2_text: input2.text;
-    property<string> received;
+    in-out property<bool> input1_focused: input1.has_focus;
+    in-out property<string> input1_text: input1.text;
+    in-out property<bool> input2_focused: input2.has_focus;
+    in-out property<string> input2_text: input2.text;
+    in-out property<string> received;
 }
 
 /*

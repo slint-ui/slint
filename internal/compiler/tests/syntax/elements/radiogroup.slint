@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioGroup } from "std-widgets.slint";
+
+export component Test inherits Rectangle {
+    RadioGroup {
+        Rectangle {}
+//      >        <error{Rectangle is not allowed within RadioGroup. Only RadioButton are valid children}
+    }
+
+    RadioButton {}
+//  >          <error{RadioButton can only be within a RadioGroup element}
+}

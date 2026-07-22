@@ -1,27 +1,29 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Sub := Rectangle {
+component Sub inherits Rectangle {
     width: 25%;
     height: 35%;
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 600phx;
     inner_rect := Rectangle {
+        x:0;
         width: 50%;
-        inner_inner := Sub { }
+        inner_inner := Sub { x:0;y:0; }
     }
-    property<length> test_length: inner_rect.width;
-    property<length> test_inner_inner_length: inner_inner.width;
+    in-out property<length> test_length: inner_rect.width;
+    in-out property<length> test_inner_inner_length: inner_inner.width;
 
 
     height: 200phx;
-    property<percent> controller: 10%;
+    in-out property<percent> controller: 10%;
     inner_rect_2 := Rectangle {
+        y:0;
         height: parent.controller;
     }
-    property<length> controlled_test_length: inner_rect_2.height;
+    in-out property<length> controlled_test_length: inner_rect_2.height;
 }
 
 

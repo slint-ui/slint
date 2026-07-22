@@ -1,12 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Window {
+export component TestCase inherits Window {
     width: 500px;
     height: 550px;
     background: #ecedeb;
 
-    property<[int]> xs: [1, 2, 3];
+    in-out property<[int]> xs: [1, 2, 3];
 
     VerticalLayout {
         padding: 0px;
@@ -36,7 +36,7 @@ TestCase := Window {
         }
     }
 
-    property<int> last_clicked;
+    in-out property<int> last_clicked;
 }
 /*
 ```cpp

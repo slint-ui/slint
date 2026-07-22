@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore qualname
-use i_slint_compiler::diagnostics::{ByteFormat, Diagnostic, DiagnosticLevel, SourceFile, Spanned};
+use i_slint_compiler::diagnostics::{ByteFormat, SourceFile, Spanned};
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::LookupCtx;
@@ -255,9 +255,14 @@ pub fn with_property_lookup_ctx<R>(
     }
 
     let mut build_diagnostics = Default::default();
-    let mut lookup_context = LookupCtx::empty_context(tr, &mut build_diagnostics);
+    let mut lookup_context = LookupCtx::empty_context(
+        tr,
+        &mut build_diagnostics,
+        i_slint_compiler::symbol_counters::SymbolCounters::shared(),
+    );
     lookup_context.property_name = Some(prop_name);
     lookup_context.property_type = ty.unwrap_or_default();
+    lookup_context.expected_type = lookup_context.return_type().clone();
     lookup_context.component_scope = &scope;
     lookup_context.current_token = Some((**element).clone().into());
 
@@ -389,47 +394,6 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<ExpressionContextInfo>
         }
     };
     Some(ExpressionContextInfo::new(element, prop_name, is_animate))
-}
-
-pub fn to_lsp_diag(d: &Diagnostic, format: ByteFormat) -> lsp_types::Diagnostic {
-    use i_slint_compiler::diagnostics;
-    let start_line_column = diagnostics::diagnostic_line_column_with_format(d, format);
-    let end_line_column = diagnostics::diagnostic_end_line_column_with_format(d, format);
-    lsp_types::Diagnostic::new(
-        to_range(start_line_column, end_line_column),
-        Some(to_lsp_diag_level(d.level())),
-        None,
-        None,
-        d.message().to_owned(),
-        None,
-        None,
-    )
-}
-
-/// Convert line-column pairs to an LSP range.
-///
-/// The start and end are tuples of 1-indexed line-column values.
-/// The end must be exclusive.
-fn to_range(start: (usize, usize), end: (usize, usize)) -> lsp_types::Range {
-    let start = lsp_types::Position::new(
-        (start.0 as u32).saturating_sub(1),
-        (start.1 as u32).saturating_sub(1),
-    );
-    let end = lsp_types::Position::new(
-        (end.0 as u32).saturating_sub(1),
-        (end.1 as u32).saturating_sub(1),
-    );
-    lsp_types::Range::new(start, end)
-}
-
-fn to_lsp_diag_level(level: DiagnosticLevel) -> lsp_types::DiagnosticSeverity {
-    use lsp_types::DiagnosticSeverity;
-    match level {
-        DiagnosticLevel::Error => DiagnosticSeverity::ERROR,
-        DiagnosticLevel::Warning => DiagnosticSeverity::WARNING,
-        DiagnosticLevel::Note => DiagnosticSeverity::HINT,
-        _ => DiagnosticSeverity::INFORMATION,
-    }
 }
 
 #[cfg(test)]

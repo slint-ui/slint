@@ -425,7 +425,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         fn new_box<X: HasStaticVTable<#vtable_name>>(value: X) -> VBox<#vtable_name> {
                             // Put the object on the heap and get a pointer to it
                             let ptr = ::core::ptr::NonNull::from(Box::leak(Box::new(value)));
-                            unsafe { VBox::from_raw(core::ptr::NonNull::from(X::static_vtable()), ptr.cast()) }
+                            unsafe { VBox::from_raw(core::ptr::NonNull::from(X::STATIC_VTABLE), ptr.cast()) }
                         }
                     }
                 });
@@ -750,9 +750,7 @@ and implements HasStaticVTable for it.
                     };
                     #[allow(unsafe_code)]
                     unsafe impl vtable::HasStaticVTable<#vtable_name> for $ty {
-                        fn static_vtable() -> &'static #vtable_name {
-                            &$ident
-                        }
+                        const STATIC_VTABLE: &'static #vtable_name = &$ident;
                     }
                 }
             }

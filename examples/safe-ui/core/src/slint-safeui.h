@@ -43,6 +43,18 @@ extern "C" {
 int slint_safeui_invoke_from_event_loop(void (*callback)(void *user_data), void *user_data,
                                         void (*drop_user_data)(void *user_data));
 
+/**
+ * Push an input event into the Slint event queue.
+ *
+ * ISR-safe: no heap allocation, no blocking, no FPU usage.
+ *
+ * @param event Pointer to a fully initialized FfiEvent (read-only, copied).
+ *              Must not be NULL.
+ * @return 0 on success, -1 if event is NULL or the queue is full (event
+ *         dropped).
+ */
+int slint_safeui_dispatch_event(const FfiEvent *event);
+
 #ifdef __cplusplus
 }
 #endif

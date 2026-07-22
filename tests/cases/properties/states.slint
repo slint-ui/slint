@@ -3,9 +3,9 @@
 
 // cSpell:ignore subcomp
 
-SubSubComp := Rectangle {
-    property <bool> active;
-    property <int> value: 10;
+component SubSubComp inherits Rectangle {
+    in-out property <bool> active;
+    in-out property <int> value: 10;
     states [
         active when active : {
             value: 150;
@@ -13,9 +13,9 @@ SubSubComp := Rectangle {
     ]
 }
 
-SubComp := SubSubComp {
+component SubComp inherits SubSubComp {
     states [
-        foobar when active : {
+        foobar when root.active : {
             r.background: red;
         }
     ]
@@ -23,11 +23,12 @@ SubComp := SubSubComp {
     r := Rectangle {}
 }
 
-TestCase := Rectangle {
-    property<int> top_level: 4;
-    property<int> active_index: 0;
-    property<int> some_prop: 5;
+export component TestCase inherits Rectangle {
+    in-out property<int> top_level: 4;
+    in-out property<int> active_index: 0;
+    in-out property<int> some_prop: 5;
     text1 := Text {
+        x:0;y:0;
         text: "hello";
         property<int> foo: 85 + top_level;
     }
@@ -43,7 +44,7 @@ TestCase := Rectangle {
         }
     ]
 
-    property<int> text1_foo: text1.foo;
+    in-out property<int> text1_foo: text1.foo;
 
     for xx in [1, 2] : Rectangle {
         states [
@@ -57,7 +58,7 @@ TestCase := Rectangle {
     sc := SubComp {
         active: active_index == 1;
     }
-    property <int> subcomp: sc.value;
+    in-out property <int> subcomp: sc.value;
 
 }
 

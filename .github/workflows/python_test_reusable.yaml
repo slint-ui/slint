@@ -30,7 +30,7 @@ jobs:
         name: ${{ inputs.name }}
         runs-on: ${{ inputs.os }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
@@ -56,4 +56,4 @@ jobs:
               working-directory: api/python/slint
               run: uv run pytest -s -v
             - name: Run python test driver
-              run: cargo test -p test-driver-python
+              run: cargo test --manifest-path tests/Cargo.toml -p test-driver-python

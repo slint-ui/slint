@@ -19,9 +19,14 @@ path = "main.rs"
 name = "test-driver-screenshot"
 
 [features]
-default = ["skia", "software"]
-software = ["slint/renderer-software", "dep:i-slint-compiler"]
+default = ["skia", "software", "software-embed-assets"]
+# The default software driver renders without pre-rendering resources at compile time: vector fonts
+# (parley) and runtime-decoded images. `configure_test_fonts()` makes that deterministic.
+software = ["slint/renderer-software", "dep:i-slint-compiler", "dep:i-slint-backend-testing"]
 skia = ["dep:i-slint-renderer-skia", "dep:slint-interpreter"]
+# Additionally render cases with everything pre-rendered at compile time: bitmap fonts and
+# pre-decoded textures (the MCU-style `EmbedTextures` path).
+software-embed-assets = ["software"]
 
 [dependencies]
 slint = { workspace = true, features = ["std", "compat-1-2"], optional = true }
@@ -29,12 +34,15 @@ i-slint-core = { workspace = true, features = ["unicode", "std"] }
 
 i-slint-renderer-skia = { workspace = true, optional = true }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2"], optional = true }
+# Provides `configure_test_fonts()` to register the bundled test fonts at runtime so the default
+# software driver resolves fonts deterministically without importing a .ttf.
+i-slint-backend-testing = { workspace = true, features = ["internal"], optional = true }
 
 image = { workspace = true }
 crossterm = "0.29"
 
 [build-dependencies]
-i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer"], optional = true }
+i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "renderer-software"], optional = true }
 walkdir = "2.3"
 spin_on = { workspace = true }
 test_driver_lib = { path = "../driver/driverlib" }

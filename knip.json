@@ -3,7 +3,7 @@
   "ignoreExportsUsedInFile": { "interface": true, "type": true },
   "workspaces": {
     ".": {
-      "ignoreBinaries": ["github-actions-ctrf", "local-package", "test_grammar", "build", "check", "biome"],
+      "ignoreBinaries": ["local-package", "test_grammar", "build", "check", "biome"],
       "ignoreDependencies": ["@cspell/dict-fr-fr"],
       "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
     },
@@ -73,7 +73,7 @@
     "examples/maps": { "ignoreBinaries": ["compile"] },
     "examples/memory": { "ignoreBinaries": ["compile"] },
     "examples/slide_puzzle": { "ignoreBinaries": ["compile"] },
-    "examples/system_tray": { "ignoreBinaries": ["compile"] },
+    "examples/system-tray": { "ignoreBinaries": ["compile"] },
     "docs/common": {
       "ignoreFiles": [
         "src/styles/starlight-slint-custom.css",
@@ -81,7 +81,9 @@
         "src/components/Banner.astro",
         "src/components/Footer.astro",
         "src/components/Header.astro",
+        "src/components/HeaderCppDocs.astro",
         "src/components/HeaderNodeDocs.astro",
+        "src/components/HeaderPythonDocs.astro",
         "src/components/HeaderSlintDocs.astro",
         "src/components/HeaderVersioned.astro",
         "src/components/ThemeSelect.astro",
@@ -91,9 +93,19 @@
       ],
       "ignoreDependencies": ["playwright-ctrf-json-reporter"]
     },
+    "docs/python": {
+      "ignoreBinaries": ["uv"],
+      "ignoreFiles": ["src/components/Signature.astro"]
+    },
     "docs/safety": {
       "ignoreFiles": [
         "src/styles/sls-ids.css"
+      ]
+    },
+    "docs/cpp": {
+      "ignoreBinaries": ["doxygen"],
+      "ignoreFiles": [
+        "src/styles/api-signature.css"
       ]
     }
   },

@@ -1,17 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
-    property<float> p1: 100%;
-    property<float> p2: 1%;
-    property<float> p3: 5.5%;
-    property<float> p4: 10 + 50%;
+export component TestCase inherits Rectangle {
+    in-out property<float> p1: 100%;
+    in-out property<float> p2: 1%;
+    in-out property<float> p3: 5.5%;
+    in-out property<float> p4: 10 + 50%;
 
-    property <percent> p_min: min(50%, 100%);
-    property <percent> p_max: max(50%, 0%);
-    property <percent> p_clamp: clamp(50%, 0%, 100%);
+    in-out property <percent> p_min: min(50%, 100%);
+    in-out property <percent> p_max: max(50%, 0%);
+    in-out property <percent> p_clamp: clamp(50%, 0%, 100%);
 
-    property <bool> test: p_min == 50% && p_max == 50% && p_clamp == 50%;
+    in-out property <bool> test: p_min == 50% && p_max == 50% && p_clamp == 50%;
 }
 
 

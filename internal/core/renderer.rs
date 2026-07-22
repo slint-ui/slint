@@ -12,15 +12,18 @@ use crate::items::{ItemRc, TextWrap};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use crate::window::WindowAdapter;
 
-/// Result of a single rendering attempt. WGPU-backed renderers can report `Occluded` or
-/// `Timeout` instead of rendering a frame; in those cases the caller should re-arm a
-/// redraw rather than wait for the next external event.
+/// Result of a single rendering attempt. WGPU-backed renderers can report `Occluded`,
+/// `Timeout` or `Skipped` instead of rendering a frame; in those cases the caller should
+/// re-arm a redraw rather than wait for the next external event.
 #[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DrawOutcome {
     Success,
     Occluded,
     Timeout,
+    /// The renderer wasn't ready to draw yet (e.g. the WGPU surface is still being set up
+    /// asynchronously). No frame was produced; the caller should re-arm a redraw.
+    Skipped,
 }
 
 /// This trait represents a Renderer that can render a slint scene.
@@ -144,8 +147,6 @@ pub trait RendererSealed {
         self.window_adapter()
             .map(|wa| crate::window::WindowInner::from_pub(wa.window()).context().clone())
     }
-
-    fn default_font_size(&self) -> LogicalLength;
 
     fn resize(&self, _size: crate::api::PhysicalSize) -> Result<(), PlatformError> {
         Ok(())

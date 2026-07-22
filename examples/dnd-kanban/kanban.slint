@@ -64,7 +64,6 @@ component Card inherits Rectangle {
         drag-image-offset-y: 28;
         allow-copy: true;
         allow-move: true;
-        preferred-action: DragAction.move;
         opacity: self.dragging ? 0.4 : 1.0;
 
         Text {
@@ -94,10 +93,10 @@ component KanbanColumn inherits Rectangle {
         floor((hover-y - Layout.card-height / 2) / Layout.card-stride) + 1,
         0, root.tasks.length);
 
-    background: drop-area.contains-drag ? Theme.column-drop-bg : Theme.column-bg;
+    background: drop-area.has-drag ? Theme.column-drop-bg : Theme.column-bg;
     border-radius: 10px;
     border-width: 1px;
-    border-color: drop-area.contains-drag ? root.accent : Theme.column-border;
+    border-color: drop-area.has-drag ? root.accent : Theme.column-border;
     animate background, border-color { duration: 120ms; }
 
     VerticalLayout {
@@ -106,10 +105,10 @@ component KanbanColumn inherits Rectangle {
 
         HorizontalLayout {
             spacing: 8px;
+            cross-axis-alignment: center;
             Rectangle {
                 width: 10px;
                 height: 10px;
-                y: (parent.height - self.height) / 2;
                 border-radius: 5px;
                 background: root.accent;
             }
@@ -153,7 +152,7 @@ component KanbanColumn inherits Rectangle {
 
             // Drop indicator: a 3px line centred in the gap above card `drop-index`
             // (or at the top / below the last card for the boundary positions).
-            if drop-area.contains-drag: Rectangle {
+            if drop-area.has-drag: Rectangle {
                 x: 0;
                 width: parent.width;
                 y: max(0px, root.drop-index * Layout.card-stride

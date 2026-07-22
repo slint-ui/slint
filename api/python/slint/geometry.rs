@@ -9,11 +9,9 @@
 //! `repr()` output, and a natural constructor: `slint.LogicalPosition(x, y)`.
 
 use pyo3::prelude::*;
-use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::hash::{Hash, Hasher};
 
 /// A 2D position in logical pixels.
-#[gen_stub_pyclass]
 #[pyclass(name = "LogicalPosition", eq, from_py_object)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct PyLogicalPosition {
@@ -25,7 +23,6 @@ pub struct PyLogicalPosition {
     pub y: f32,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyLogicalPosition {
     #[new]
@@ -47,7 +44,6 @@ impl PyLogicalPosition {
 }
 
 /// A 2D size in logical pixels.
-#[gen_stub_pyclass]
 #[pyclass(name = "LogicalSize", eq, from_py_object)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct PyLogicalSize {
@@ -59,7 +55,6 @@ pub struct PyLogicalSize {
     pub height: f32,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyLogicalSize {
     #[new]

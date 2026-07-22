@@ -2,20 +2,21 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 interface InterfaceWithDefaults {
-    in-out property <string> text: "Hello";
-    out property <bool> enabled: true;
-    in property <int> precision: 2;
-    in property <float> confidence: 1.0;
+    in-out property <string> text;
+    out property <bool> enabled;
+    in property <int> precision;
+    in property <float> confidence;
 
     public pure function length(text: string) -> int;
     callback checked();
 }
 
-export component TestCase implements InterfaceWithDefaults {
+export component TestCase {
+    implement InterfaceWithDefaults <=> self;
 
     confidence: 0.5;
 
-    out property <bool> test: self.text == "Hello" && self.enabled && self.precision == 2 && self.confidence == 0.5;
+    out property <bool> test: self.text == "" && !self.enabled && self.precision == 0 && self.confidence == 0.5;
 
     public pure function length(text: string) -> int {
         text.character-count
@@ -25,9 +26,9 @@ export component TestCase implements InterfaceWithDefaults {
 /*
 ```rust
 let instance = TestCase::new().unwrap();
-assert_eq!(instance.get_text(), "Hello");
-assert_eq!(instance.get_enabled(), true);
-assert_eq!(instance.get_precision(), 2);
+assert_eq!(instance.get_text(), "");
+assert_eq!(instance.get_enabled(), false);
+assert_eq!(instance.get_precision(), 0);
 assert_eq!(instance.get_confidence(), 0.5);
 assert!(instance.get_test());
 ```
@@ -35,18 +36,18 @@ assert!(instance.get_test());
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-assert_eq(instance.get_text(), "Hello");
-assert_eq(instance.get_enabled(), true);
-assert_eq(instance.get_precision(), 2);
+assert_eq(instance.get_text(), "");
+assert_eq(instance.get_enabled(), false);
+assert_eq(instance.get_precision(), 0);
 assert_eq(instance.get_confidence(), 0.5);
 assert(instance.get_test());
 ```
 
 ```js
 var instance = new slint.TestCase({});
-assert.equal(instance.text, "Hello");
-assert.equal(instance.enabled, true);
-assert.equal(instance.precision, 2);
+assert.equal(instance.text, "");
+assert.equal(instance.enabled, false);
+assert.equal(instance.precision, 0);
 assert.equal(instance.confidence, 0.5);
 assert(instance.test);
 ```

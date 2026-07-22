@@ -4,16 +4,13 @@
 use std::path::PathBuf;
 
 use pyo3::prelude::*;
-use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 
-#[gen_stub_pyclass]
 #[pyclass(name = "GeneratedAPI", unsendable)]
 pub struct PyGeneratedAPI {
     pub(crate) path: PathBuf,
     pub(crate) module: i_slint_compiler::generator::python::PyModule,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyGeneratedAPI {
     #[new]

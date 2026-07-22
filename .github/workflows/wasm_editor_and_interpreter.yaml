@@ -12,14 +12,18 @@ jobs:
         env:
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
             CARGO_INCREMENTAL: false
+            # Use fat LTO for the published WASMs to minimize download size.
+            # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+            CARGO_PROFILE_RELEASE_LTO: "fat"
+            CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
@@ -51,12 +55,12 @@ jobs:
         needs: [wasm]
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
-            - uses: actions/setup-node@v6
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
             - name: Download wasm_lsp Artifacts
@@ -101,7 +105,7 @@ jobs:
     #     options: --user 1001
     #
     #   steps:
-    #     - uses: actions/checkout@v6
+    #     - uses: actions/checkout@v7
     #     - uses: ./.github/actions/test-slintpad
     #       with:
     #         browser: "firefox"
@@ -116,7 +120,7 @@ jobs:
     #     options: --user 1001
     #
     #   steps:
-    #     - uses: actions/checkout@v6
+    #     - uses: actions/checkout@v7
     #     - uses: ./.github/actions/test-slintpad
     #       with:
     #         browser: "chrome"

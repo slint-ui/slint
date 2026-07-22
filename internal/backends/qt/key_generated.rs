@@ -6,7 +6,7 @@
 ```sh
 cargo install bindgen-cli
 export QT_INCLUDE_PATH="/usr/include/x86_64-linux-gnu/qt6"
-bindgen $QT_INCLUDE_PATH/QtCore/qnamespace.h --allowlist-type Qt::Key --allowlist-type Qt::KeyboardModifier --allowlist-type Qt::AlignmentFlag --allowlist-type Qt::TextFlag --allowlist-type Qt::FillRule --allowlist-type Qt::CursorShape --allowlist-type Qt::ScrollPhase --allowlist-type Qt::DropAction -o internal/backends/qt/key_generated.rs -- -I $QT_INCLUDE_PATH -xc++
+bindgen $QT_INCLUDE_PATH/QtCore/qnamespace.h --allowlist-type Qt::Key --allowlist-type Qt::KeyboardModifier --allowlist-type Qt::AlignmentFlag --allowlist-type Qt::TextFlag --allowlist-type Qt::FillRule --allowlist-type Qt::CursorShape --allowlist-type Qt::ScrollPhase --allowlist-type Qt::DropAction --allowlist-type Qt::WindowType -o internal/backends/qt/key_generated.rs -- -I $QT_INCLUDE_PATH -xc++
 ```
 then add license header and this doc
 */
@@ -45,6 +45,47 @@ pub const Qt_TextFlag_TextForceLeftToRight: Qt_TextFlag = 131072;
 pub const Qt_TextFlag_TextForceRightToLeft: Qt_TextFlag = 262144;
 pub const Qt_TextFlag_TextLongestVariant: Qt_TextFlag = 524288;
 pub type Qt_TextFlag = ::std::os::raw::c_uint;
+pub const Qt_WindowType_Widget: Qt_WindowType = 0;
+pub const Qt_WindowType_Window: Qt_WindowType = 1;
+pub const Qt_WindowType_Dialog: Qt_WindowType = 3;
+pub const Qt_WindowType_Sheet: Qt_WindowType = 5;
+pub const Qt_WindowType_Drawer: Qt_WindowType = 7;
+pub const Qt_WindowType_Popup: Qt_WindowType = 9;
+pub const Qt_WindowType_Tool: Qt_WindowType = 11;
+pub const Qt_WindowType_ToolTip: Qt_WindowType = 13;
+pub const Qt_WindowType_SplashScreen: Qt_WindowType = 15;
+pub const Qt_WindowType_Desktop: Qt_WindowType = 17;
+pub const Qt_WindowType_SubWindow: Qt_WindowType = 18;
+pub const Qt_WindowType_ForeignWindow: Qt_WindowType = 33;
+pub const Qt_WindowType_CoverWindow: Qt_WindowType = 65;
+pub const Qt_WindowType_WindowType_Mask: Qt_WindowType = 255;
+pub const Qt_WindowType_MSWindowsFixedSizeDialogHint: Qt_WindowType = 256;
+pub const Qt_WindowType_MSWindowsOwnDC: Qt_WindowType = 512;
+pub const Qt_WindowType_BypassWindowManagerHint: Qt_WindowType = 1024;
+pub const Qt_WindowType_X11BypassWindowManagerHint: Qt_WindowType = 1024;
+pub const Qt_WindowType_FramelessWindowHint: Qt_WindowType = 2048;
+pub const Qt_WindowType_WindowTitleHint: Qt_WindowType = 4096;
+pub const Qt_WindowType_WindowSystemMenuHint: Qt_WindowType = 8192;
+pub const Qt_WindowType_WindowMinimizeButtonHint: Qt_WindowType = 16384;
+pub const Qt_WindowType_WindowMaximizeButtonHint: Qt_WindowType = 32768;
+pub const Qt_WindowType_WindowMinMaxButtonsHint: Qt_WindowType = 49152;
+pub const Qt_WindowType_WindowContextHelpButtonHint: Qt_WindowType = 65536;
+pub const Qt_WindowType_WindowShadeButtonHint: Qt_WindowType = 131072;
+pub const Qt_WindowType_WindowStaysOnTopHint: Qt_WindowType = 262144;
+pub const Qt_WindowType_WindowTransparentForInput: Qt_WindowType = 524288;
+pub const Qt_WindowType_WindowOverridesSystemGestures: Qt_WindowType = 1048576;
+pub const Qt_WindowType_WindowDoesNotAcceptFocus: Qt_WindowType = 2097152;
+pub const Qt_WindowType_MaximizeUsingFullscreenGeometryHint: Qt_WindowType = 4194304;
+pub const Qt_WindowType_ExpandedClientAreaHint: Qt_WindowType = 4194304;
+pub const Qt_WindowType_NoTitleBarBackgroundHint: Qt_WindowType = 8388608;
+pub const Qt_WindowType_CustomizeWindowHint: Qt_WindowType = 33554432;
+pub const Qt_WindowType_WindowStaysOnBottomHint: Qt_WindowType = 67108864;
+pub const Qt_WindowType_WindowCloseButtonHint: Qt_WindowType = 134217728;
+pub const Qt_WindowType_MacWindowToolBarButtonHint: Qt_WindowType = 268435456;
+pub const Qt_WindowType_BypassGraphicsProxyWidget: Qt_WindowType = 536870912;
+pub const Qt_WindowType_NoDropShadowWindowHint: Qt_WindowType = 1073741824;
+pub const Qt_WindowType_WindowFullscreenButtonHint: Qt_WindowType = 2147483648;
+pub type Qt_WindowType = ::std::os::raw::c_uint;
 pub const Qt_Key_Key_Space: Qt_Key = 32;
 pub const Qt_Key_Key_Any: Qt_Key = 32;
 pub const Qt_Key_Key_Exclam: Qt_Key = 33;

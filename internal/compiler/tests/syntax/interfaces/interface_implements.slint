@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export interface TestInterface {
-    in-out property <bool> test: false;
+    in-out property <bool> test;
 }
 
-export interface ImplementingInterface implements
-//                                     >        <error{Interfaces cannot implement another interface}
- TestInterface { }
+export interface ImplementingInterface {
+    implement TestInterface <=> self;
+//  >                               <error{Interfaces cannot implement another interface}
+ }

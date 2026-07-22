@@ -226,6 +226,7 @@ class SlintInputView extends View {
         super.onConfigurationChanged(newConfig);
         int currentNightMode = newConfig.uiMode & Configuration.UI_MODE_NIGHT_MASK;
         SlintAndroidJavaHelper.setNightMode(currentNightMode);
+        SlintAndroidJavaHelper.setFontScale(newConfig.fontScale);
     }
 
     private InputHandle mCursorHandle;
@@ -485,7 +486,23 @@ public class SlintAndroidJavaHelper {
     }
 
     private WindowInsets dispatchInsets(WindowInsets insets) {
-        Insets safeAreaInsets = insets.getInsets(WindowInsets.Type.systemBars());
+        // The listener-supplied `insets` reflects what reaches the decor view
+        // AFTER any ancestor has consumed insets, so in edge-to-edge mode the
+        // system bars and the display cutout often arrive as zero. Read those
+        // straight from the WindowManager, which always returns the unconsumed
+        // values — matching what get_safe_area() does. The IME inset still
+        // comes from the listener stream so keyboard show/hide animates.
+        Insets sysBars;
+        Insets cutout;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsets src = mActivity.getWindowManager().getCurrentWindowMetrics().getWindowInsets();
+            sysBars = src.getInsets(WindowInsets.Type.systemBars());
+            cutout = src.getInsets(WindowInsets.Type.displayCutout());
+        } else {
+            sysBars = insets.getInsets(WindowInsets.Type.systemBars());
+            cutout = insets.getInsets(WindowInsets.Type.displayCutout());
+        }
+        Insets safeAreaInsets = Insets.max(sysBars, cutout);
         Insets keyboardAreaInsets = insets.getInsets(WindowInsets.Type.ime());
         Rect windowRect = get_view_rect();
         SlintAndroidJavaHelper.setInsets(
@@ -525,6 +542,8 @@ public class SlintAndroidJavaHelper {
             int preeditOffset);
 
     static public native void setNightMode(int nightMode);
+
+    static public native void setFontScale(float fontScale);
 
     static public native void moveCursorHandle(int id, int pos_x, int pos_y);
 
@@ -572,6 +591,10 @@ public class SlintAndroidJavaHelper {
         return nightModeFlags;
     }
 
+    public float font_scale() {
+        return mActivity.getResources().getConfiguration().fontScale;
+    }
+
     public int accent_color() {
         TypedValue typedValue = new TypedValue();
         if (mActivity.getTheme().resolveAttribute(android.R.attr.colorAccent, typedValue, true)) {
@@ -598,8 +621,10 @@ public class SlintAndroidJavaHelper {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             WindowMetrics metrics = mActivity.getWindowManager().getCurrentWindowMetrics();
             WindowInsets insets = metrics.getWindowInsets();
-            Insets systemBars = insets.getInsets(WindowInsets.Type.systemBars());
-            return new Rect(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            Insets safeArea = Insets.max(
+                    insets.getInsets(WindowInsets.Type.systemBars()),
+                    insets.getInsets(WindowInsets.Type.displayCutout()));
+            return new Rect(safeArea.left, safeArea.top, safeArea.right, safeArea.bottom);
         } else {
             View decorView = mActivity.getWindow().getDecorView();
             // Note: `View.getRootWindowInsets` requires API level 23 or above

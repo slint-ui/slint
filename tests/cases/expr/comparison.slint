@@ -2,20 +2,20 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore fooa foob
-TestCase := Rectangle {
-    property<int> hello: 44;
+export component TestCase inherits Rectangle {
+    in-out property<int> hello: 44;
 
-    property<bool> t1: hello == 44 || hello == 45;
-    property<bool> t2: hello > 44 && hello < 46;
-    property<bool> t3: hello >= 44 && hello <= 46;
-    property<bool> t4: t1 || (t2 && t3);
-    property<bool> t5: t2 || hello + 3 != 4*10+4;
-    property<bool> t6: !t1 || 1 == 0;
+    in-out property<bool> t1: hello == 44 || hello == 45;
+    in-out property<bool> t2: hello > 44 && hello < 46;
+    in-out property<bool> t3: hello >= 44 && hello <= 46;
+    in-out property<bool> t4: t1 || (t2 && t3);
+    in-out property<bool> t5: t2 || hello + 3 != 4*10+4;
+    in-out property<bool> t6: !t1 || 1 == 0;
 
-    property<string> my_str: "hello";
-    property<bool> t7: my_str == "hello";
+    in-out property<string> my_str: "hello";
+    in-out property<bool> t7: my_str == "hello";
 
-    property<bool> string-cmp: "fooa" < "foob";
+    in-out property<bool> string-cmp: "fooa" < "foob";
 
     out property <bool> test: t1 && !t2 && t3 && t4 && t5 && !t6 && t7 && string-cmp;
 }

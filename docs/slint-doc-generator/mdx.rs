@@ -48,7 +48,7 @@ slug: reference/global-structs-enums
     for name in structs.keys() {
         writeln!(
             file,
-            "import {0} from \"/src/content/docs/reference/generated/structs/{0}.md\"",
+            "import {0} from \"/src/content/docs/reference/generated/structs/_{0}.md\"",
             name
         )?;
     }
@@ -62,9 +62,13 @@ slug: reference/global-structs-enums
         if name == "keys" {
             continue;
         }
+        // Documented in the MouseCursor type.
+        if name == "BuiltInMouseCursor" {
+            continue;
+        }
         writeln!(
             file,
-            "import {0} from \"/src/content/docs/reference/generated/enums/{0}.md\"",
+            "import {0} from \"/src/content/docs/reference/generated/enums/_{0}.md\"",
             name
         )?;
     }
@@ -84,6 +88,9 @@ slug: reference/global-structs-enums
 
     for name in enums.keys() {
         if name == "keys" {
+            continue;
+        }
+        if name == "BuiltInMouseCursor" {
             continue;
         }
         writeln!(file, "### {name}")?;
@@ -106,7 +113,7 @@ fn write_individual_enum_files(
     ))?;
 
     for (k, e) in enums {
-        let path = enums_dir.join(format!("{k}.md"));
+        let path = enums_dir.join(format!("_{k}.md"));
         let mut file = BufWriter::new(
             std::fs::File::create(&path).context(format!("error creating {path:?}"))?,
         );
@@ -116,17 +123,19 @@ fn write_individual_enum_files(
             r#"---
 title: {0}
 description: {0} content
-slug: reference/enums/{0}
 ---
 
 <!-- Generated with slint-doc-generator from internal/commons/enums.rs -->
 
-`{0}`
-
-{1}
 "#,
-            k, e.description
+            k
         )?;
+        // BuiltInMouseCursor is embedded inline in the MouseCursor type documentation, where its
+        // internal name must not appear; emit only the description and the values.
+        if k != "BuiltInMouseCursor" {
+            writeln!(file, "`{k}`\n")?;
+        }
+        writeln!(file, "{}", e.description)?;
         for v in &e.values {
             writeln!(file, r#"* **`{}`**: {}"#, v.key, v.description)?;
         }
@@ -297,7 +306,7 @@ pub fn extract_builtin_structs(
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
             $vis:vis struct $Name:ident {
-                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident, )*
+                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident $(= $field_default:expr)?, )*
             }
         )*) => {
             $(
@@ -348,7 +357,7 @@ fn write_individual_struct_files(
     ))?;
 
     for (s, v) in &structs {
-        let path = structs_dir.join(format!("{s}.md"));
+        let path = structs_dir.join(format!("_{s}.md"));
         let mut file = BufWriter::new(
             std::fs::File::create(&path).context(format!("error creating {path:?}"))?,
         );
@@ -358,7 +367,6 @@ fn write_individual_struct_files(
             r#"---
 title: {0}
 description: {0} content
-slug: reference/structs/{0}
 ---
 
 <!-- Generated with slint-doc-generator from internal/common/builtin_structs.rs -->
@@ -407,13 +415,12 @@ fn generate_keys_docs(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         "Failed to create folder holding individual enum doc files {enums_dir:?}"
     ))?;
 
-    let path = enums_dir.join("keys.md");
+    let path = enums_dir.join("_keys.md");
     let mut file =
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
     writeln!(file, "---")?;
     writeln!(file, "title: keys")?;
-    writeln!(file, "slug: reference/enums/keys")?;
     writeln!(file, "---")?;
     writeln!(file)?;
 

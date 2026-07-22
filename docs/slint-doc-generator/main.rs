@@ -120,8 +120,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             mdx::generate(&cfg)?;
             if !cfg.skip_screenshots {
                 let docs_folder = cfg.astro_dir.join("src/content");
+                let reference_elements = cfg.astro_dir.join("src/content/docs/reference/elements");
                 screenshots::run(screenshots::ScreenshotsArgs {
-                    include_paths: vec![],
+                    include_paths: vec![reference_elements],
                     library_paths: vec![],
                     docs_folder,
                     style: None,

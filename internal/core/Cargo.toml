@@ -20,7 +20,7 @@ categories = ["gui", "development-tools", "no-std"]
 path = "lib.rs"
 
 [features]
-ffi = ["dep:static_assertions"]           # Expose C ABI
+ffi = ["dep:static_assertions", "i-slint-core-macros/ffi"] # Expose C ABI
 libm = ["num-traits/libm", "euclid/libm"]
 # Allow the viewer to query at runtime information about item types
 rtti = []
@@ -29,9 +29,6 @@ std = [
   "euclid/std",
   "once_cell/std",
   "dep:web-time",
-  "dep:lyon_extra",
-  "image-decoders",
-  "svg",
   "path",
   "raw-window-handle-06?/std",
   "chrono/std",
@@ -43,8 +40,6 @@ std = [
   "i-slint-common/color-parsing",
   "i-slint-common/markdown",
   "taffy/std",
-  "dep:ksni",
-  "dep:async-channel",
 ]
 # Unsafe feature meaning that there is only one core running and all thread_local are static.
 # You can only enable this feature if you are sure that any API of this crate is only called
@@ -53,9 +48,11 @@ unsafe-single-threaded = []
 
 unicode = ["unicode-script", "unicode-linebreak"]
 
+# Decode encoded images with the image crate. Not needed on wasm, where the
+# browser decodes encoded image data.
 image-decoders = ["dep:image", "dep:clru"]
 image-default-formats = ["image?/default-formats"]
-svg = ["dep:resvg"]
+svg = ["dep:resvg", "i-slint-common/svg-text"]
 
 box-shadow-cache = []
 
@@ -65,25 +62,36 @@ shared-fontique = ["i-slint-common/shared-fontique"]
 
 raw-window-handle-06 = ["dep:raw-window-handle-06"]
 
-# The wgpu-{28,29} feature enables the internal wgpu module (SurfaceTarget, init helpers)
+# The wgpu-{29,30} feature enables the internal wgpu module (SurfaceTarget, init helpers)
 # without exposing public API types (GraphicsAPI::WGPU*, WGPUTexture, WGPUConfiguration).
-# The unstable-wgpu-{28,29} feature additionally enables those public API types.
-wgpu-28 = ["dep:wgpu-28"]
+# The unstable-wgpu-{29,30} feature additionally enables those public API types.
 wgpu-29 = ["dep:wgpu-29"]
+wgpu-30 = ["dep:wgpu-30"]
 
-unstable-wgpu-28 = ["wgpu-28"]
 unstable-wgpu-29 = ["wgpu-29"]
+unstable-wgpu-30 = ["wgpu-30"]
+
+## If enabled, calls of `debug()` in `.slint` files use to the [`log::debug!()`] macro
+## of the [log](https://crates.io/crates/log) crate instead of just `println!()`.
+log = ["dep:log"]
 
 tr = ["dep:tr"]
 
 32-bit-color = []
 default = ["std", "unicode", "shared-parley"]
 
+# System tray (`SystemTrayIcon`) support. On Linux/BSD this pulls `ksni`; on
+# other platforms it gates the native backend. When disabled, `SystemTrayIcon`
+# constructs against a no-op backend. Opt-in (not part of `std`/`default`) so an
+# application that doesn't want the tray dependency can leave it off; the
+# user-facing crates list it in their own `default` so it stays on out of the box.
+system-tray = ["dep:ksni", "dep:async-channel", "ksni/async-io", "ksni/blocking"]
+
 shared-parley = ["shared-fontique", "dep:parley", "dep:skrifa", "dep:icu_normalizer"]
 
 shared-swash = ["dep:swash"]
 
-path = ["dep:auto_enums", "dep:lyon_path", "dep:lyon_geom", "dep:lyon_algorithms"]
+path = ["dep:auto_enums", "dep:lyon_path", "dep:lyon_geom", "dep:lyon_algorithms", "dep:lyon_extra"]
 
 [dependencies]
 i-slint-common = { workspace = true, features = ["default"] }
@@ -100,7 +108,7 @@ euclid = { workspace = true }
 lyon_algorithms = { version = "1.0", optional = true, default-features = false }
 lyon_geom = { version = "1.0", optional = true, default-features = false }
 lyon_path = { workspace = true, optional = true, default-features = false }
-lyon_extra = { version = "1.0.1", optional = true, default-features = false }
+lyon_extra = { version = "1.1", optional = true, default-features = false }
 num-traits = { version = "0.2", default-features = false }
 once_cell = { version = "1.5", default-features = false, features = ["critical-section"] }
 pin-project = "1"
@@ -112,6 +120,8 @@ slab = { version = "0.4.3", default-features = false }
 static_assertions = { version = "1.1", optional = true }
 strum = { workspace = true }
 
+log = { workspace = true, optional = true }
+
 # Note: We're migrating our unicode handling over to the icu family of crates.
 # Prefer using icu crates over adding more unicode-* dependencies
 # parley uses the icu crates internally as well, so we'll share the dependency there.
@@ -120,7 +130,7 @@ unicode-linebreak = { version = "0.1.5", optional = true }
 unicode-script = { version = "0.5.7", optional = true }
 icu_normalizer = { workspace = true, optional = true }
 sys-locale = { version = "0.3.2", optional = true, features = ["js"] }
-parley = { version = "0.9.0", optional = true }
+parley = { version = "0.11.0", optional = true, features = ["complex-scripts"] }
 
 image = { workspace = true, optional = true, default-features = false }
 clru = { workspace = true, optional = true }
@@ -135,12 +145,12 @@ chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 skrifa = { workspace = true, optional = true }
 swash = { workspace = true, optional = true, features = ["scale"] }
 
-wgpu-28 = { workspace = true, optional = true }
 wgpu-29 = { workspace = true, optional = true }
+wgpu-30 = { workspace = true, optional = true }
 
 tr = { workspace = true, optional = true }
 
-taffy = { version = "0.9", default-features = false, features = ["flexbox", "taffy_tree", "alloc"] }
+taffy = { version = "0.10", default-features = false, features = ["flexbox", "taffy_tree", "alloc"] }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7.1", optional = true, features = ["gettext-system"] }
@@ -155,13 +165,15 @@ image = { workspace = true, default-features = false, features = ["png"] }
 windows = { workspace = true, features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(all(target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))'.dependencies]
-ksni = { version = "0.3.3", optional = true, default-features = false, features = ["async-io", "blocking"] }
+ksni = { version = "0.3.3", optional = true, default-features = false }
 async-channel = { version = "2", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { version = "1.0", optional = true }
 wasm-bindgen = { version = "0.2" }
-web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator"] }
+js-sys = { version = "0.3" }
+clru = { workspace = true }
+web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator", "Blob", "BlobPropertyBag", "Url", "DomParser", "SupportedType", "Document", "Element"] }
 
 
 [dev-dependencies]

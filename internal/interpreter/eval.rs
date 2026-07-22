@@ -13,13 +13,14 @@ use corelib::items::{ItemRc, ItemRef, PropertyAnimation, WindowItem};
 use corelib::menus::{Menu, MenuFromItemTree};
 use corelib::model::{Model, ModelExt, ModelRc, VecModel};
 use corelib::rtti::AnimatedBindingKind;
-use corelib::window::WindowInner;
+use corelib::window::{WindowInner, WindowKind};
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
+use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{
-    BuiltinFunction, Callable, EasingCurve, Expression, MinMaxOp, Path as ExprPath,
-    PathElement as ExprPathElement,
+    BuiltinFunction, Callable, EasingCurve, Expression, MinMaxOp, MouseCursorInner,
+    Path as ExprPath, PathElement as ExprPathElement,
 };
-use i_slint_compiler::langtype::Type;
+use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::api::ToSharedString;
@@ -201,7 +202,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::Invalid => panic!("invalid expression while evaluating"),
         Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
         Expression::StringLiteral(s) => Value::String(s.as_str().into()),
-        Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
+        Expression::NumberLiteral(n, _unit) => Value::Number(*n),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::ElementReference(_) => todo!(
             "Element references are only supported in the context of built-in function calls at the moment"
@@ -252,19 +253,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 _ => Value::Void,
             }
         }
-        Expression::Cast { from, to } => {
-            let value = eval_expression(from, local_context);
-            match (value, to) {
-                (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
-                (Value::Number(n), Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
-                }
-                (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
-                (Value::Brush(brush), Type::Color) => brush.color().into(),
-                (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
-                (v, _) => v,
-            }
-        }
+        Expression::Cast { from, to } => cast_value(eval_expression(from, local_context), to),
         Expression::CodeBlock(sub) => {
             let mut v = Value::Void;
             for e in sub {
@@ -320,6 +309,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs = eval_expression(lhs, local_context);
+            // && and || short circuit like in the generated code, or else side
+            // effects in the rhs would run in the interpreter only
+            match (op, &lhs) {
+                ('&', Value::Bool(false)) => return Value::Bool(false),
+                ('|', Value::Bool(true)) => return Value::Bool(true),
+                _ => {}
+            }
             let rhs = eval_expression(rhs, local_context);
 
             match (op, lhs, rhs) {
@@ -357,41 +353,48 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::UnaryOp { sub, op } => {
             let sub = eval_expression(sub, local_context);
-            match (sub, op) {
-                (Value::Number(a), '+') => Value::Number(a),
-                (Value::Number(a), '-') => Value::Number(-a),
-                (Value::Bool(a), '!') => Value::Bool(!a),
-                (sub, op) => panic!("unsupported {op} {sub:?}"),
-            }
+            eval_unary_op(sub, *op).unwrap_or_else(|sub| panic!("unsupported {op} {sub:?}"))
         }
         Expression::ImageReference { resource_ref, nine_slice, .. } => {
             let mut image = match resource_ref {
                 i_slint_compiler::expression_tree::ImageReference::None => Ok(Default::default()),
-                i_slint_compiler::expression_tree::ImageReference::AbsolutePath(path) => {
-                    if path.starts_with("data:") {
-                        i_slint_compiler::data_uri::decode_data_uri(path)
-                            .ok()
-                            .and_then(|(data, extension)| {
-                                corelib::graphics::load_image_from_dynamic_data(&data, &extension)
-                                    .ok()
-                            })
-                            .ok_or_else(Default::default)
-                    } else {
-                        let path = std::path::Path::new(path);
-                        if path.starts_with("builtin:/") {
-                            i_slint_compiler::fileaccess::load_file(path)
-                                .and_then(|virtual_file| virtual_file.builtin_contents)
-                                .map(|virtual_file| {
-                                    let extension = path.extension().unwrap().to_str().unwrap();
-                                    corelib::graphics::load_image_from_embedded_data(
-                                        corelib::slice::Slice::from_slice(virtual_file),
-                                        corelib::slice::Slice::from_slice(extension.as_bytes()),
-                                    )
-                                })
-                                .ok_or_else(Default::default)
-                        } else {
-                            corelib::graphics::Image::load_from_path(path)
-                        }
+                i_slint_compiler::expression_tree::ImageReference::DataUri(data_uri) => {
+                    i_slint_compiler::data_uri::decode_data_uri(data_uri)
+                        .ok()
+                        .and_then(|(data, extension)| {
+                            corelib::graphics::load_image_from_data_uri(data_uri, &data, &extension)
+                                .ok()
+                        })
+                        .ok_or_else(Default::default)
+                }
+                i_slint_compiler::expression_tree::ImageReference::Url(url)
+                    if url.scheme() == "builtin" =>
+                {
+                    let path = std::path::Path::new(url.as_str());
+                    i_slint_compiler::fileaccess::load_file(path)
+                        .and_then(|virtual_file| virtual_file.builtin_contents)
+                        .map(|virtual_file| {
+                            let extension = path.extension().unwrap().to_str().unwrap();
+                            corelib::graphics::load_image_from_embedded_data(
+                                corelib::slice::Slice::from_slice(virtual_file),
+                                corelib::slice::Slice::from_slice(extension.as_bytes()),
+                            )
+                        })
+                        .ok_or_else(Default::default)
+                }
+                i_slint_compiler::expression_tree::ImageReference::Path(path) => {
+                    corelib::graphics::Image::load_from_path(std::path::Path::new(path))
+                }
+                i_slint_compiler::expression_tree::ImageReference::Url(url) => {
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        corelib::graphics::load_as_html_image(url.as_str())
+                    }
+                    // URL image references only work on the web, where the browser fetches them.
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        let _ = url;
+                        Err(Default::default())
                     }
                 }
                 i_slint_compiler::expression_tree::ImageReference::EmbeddedData { .. } => {
@@ -455,6 +458,18 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 corelib::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
             }
         }),
+        Expression::MouseCursor(cursor) => Value::MouseCursorInner(match cursor {
+            MouseCursorInner::BuiltIn(cursor) => corelib::cursor::MouseCursorInner::BuiltIn(
+                eval_expression(cursor, local_context).try_into().unwrap(),
+            ),
+            MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                let image = eval_expression(image, local_context).try_into().unwrap();
+                let hotspot_x = eval_expression(hotspot_x, local_context).try_into().unwrap();
+                let hotspot_y = eval_expression(hotspot_y, local_context).try_into().unwrap();
+
+                corelib::cursor::MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y }
+            }
+        }),
         Expression::LinearGradient { angle, stops } => {
             let angle = eval_expression(angle, local_context);
             Value::Brush(Brush::LinearGradient(LinearGradientBrush::new(
@@ -466,23 +481,39 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 }),
             )))
         }
-        Expression::RadialGradient { stops } => Value::Brush(Brush::RadialGradient(
-            RadialGradientBrush::new_circle(stops.iter().map(|(color, stop)| {
+        Expression::RadialGradient { stops, center, radius } => {
+            let mut g = RadialGradientBrush::new_circle(stops.iter().map(|(color, stop)| {
                 let color = eval_expression(color, local_context).try_into().unwrap();
                 let position = eval_expression(stop, local_context).try_into().unwrap();
                 GradientStop { color, position }
-            })),
-        )),
-        Expression::ConicGradient { from_angle, stops } => {
+            }));
+            if let Some((cx, cy)) = center {
+                let cx: f32 = eval_expression(cx, local_context).try_into().unwrap();
+                let cy: f32 = eval_expression(cy, local_context).try_into().unwrap();
+                g = g.with_center(cx, cy);
+            }
+            if let Some(r) = radius {
+                let r: f32 = eval_expression(r, local_context).try_into().unwrap();
+                g = g.with_radius(r);
+            }
+            Value::Brush(Brush::RadialGradient(g))
+        }
+        Expression::ConicGradient { from_angle, stops, center } => {
             let from_angle: f32 = eval_expression(from_angle, local_context).try_into().unwrap();
-            Value::Brush(Brush::ConicGradient(ConicGradientBrush::new(
+            let mut g = ConicGradientBrush::new(
                 from_angle,
                 stops.iter().map(|(color, stop)| {
                     let color = eval_expression(color, local_context).try_into().unwrap();
                     let position = eval_expression(stop, local_context).try_into().unwrap();
                     GradientStop { color, position }
                 }),
-            )))
+            );
+            if let Some((cx, cy)) = center {
+                let cx: f32 = eval_expression(cx, local_context).try_into().unwrap();
+                let cy: f32 = eval_expression(cy, local_context).try_into().unwrap();
+                g = g.with_center(cx, cy);
+            }
+            Value::Brush(Brush::ConicGradient(g))
         }
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
@@ -694,7 +725,19 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::EmptyComponentFactory => Value::ComponentFactory(Default::default()),
         Expression::EmptyDataTransfer => Value::DataTransfer(Default::default()),
-        Expression::DebugHook { expression, .. } => eval_expression(expression, local_context),
+        Expression::DebugHook { expression, id: _id, .. } => {
+            #[cfg(feature = "internal")]
+            {
+                if let Some(hook_value) = crate::debug_hook::trigger_debug_hook(
+                    &local_context.component_instance,
+                    _id.clone(),
+                ) {
+                    return hook_value;
+                }
+            }
+
+            eval_expression(expression, local_context)
+        }
     }
 }
 
@@ -717,12 +760,42 @@ fn call_builtin_function(
             Value::Number(i_slint_core::animations::animation_tick() as f64)
         }
         BuiltinFunction::Debug => {
+            use corelib::debug_log::*;
+
             let to_print: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
-            local_context.component_instance.description.debug_handler.borrow()(
-                source_location.as_ref(),
-                &to_print,
-            );
+            let location = source_location.as_ref().and_then(|location| {
+                location.source_file().map(|file| {
+                    let (line, column) = file.line_column(
+                        location.span.offset,
+                        i_slint_compiler::diagnostics::ByteFormat::Utf8,
+                    );
+                    let path = file.path().to_string_lossy();
+                    (line, column, path)
+                })
+            });
+            let location = location.as_ref().map(|(line, column, path)| LogMessageLocation {
+                path,
+                line: *line,
+                column: *column,
+            });
+            let root_weak =
+                vtable::VWeak::into_dyn(local_context.component_instance.root_weak().clone());
+            if let Some(root) = root_weak.upgrade()
+                && let Some(ctx) = corelib::window::context_for_root(&root)
+            {
+                ctx.dispatch_log_message(LogMessage::new(
+                    LogMessageSource::SlintCode,
+                    location,
+                    format_args!("{to_print}"),
+                ));
+            } else {
+                log_message(LogMessage::new(
+                    LogMessageSource::SlintCode,
+                    location,
+                    format_args!("{to_print}"),
+                ));
+            }
             Value::Void
         }
         BuiltinFunction::DecimalSeparator => Value::String(
@@ -813,6 +886,10 @@ fn call_builtin_function(
             let precision: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
             let precision: usize = precision.max(0) as usize;
             Value::String(i_slint_core::string::shared_string_from_number_precision(n, precision))
+        }
+        BuiltinFunction::ToStringUnlocalized => {
+            let n: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::String(i_slint_core::string::shared_string_from_number_unlocalized(n))
         }
         BuiltinFunction::SetFocusItem => {
             if arguments.len() != 1 {
@@ -1098,8 +1175,8 @@ fn call_builtin_function(
                     Box::new(move || position),
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
-                    false,
-                    true,
+                    WindowKind::Menu,
+                    Box::new(|_| {}),
                 );
                 context_menu_elem.popup_id.set(Some(id));
             });
@@ -1247,6 +1324,34 @@ fn call_builtin_function(
                 Value::String(s.to_uppercase().into())
             } else {
                 panic!("Argument not a string");
+            }
+        }
+        BuiltinFunction::StringStartsWith => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to StringStartsWith")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                if let Value::String(pat) = eval_expression(&arguments[1], local_context) {
+                    Value::Bool(s.starts_with(pat.as_str()))
+                } else {
+                    panic!("Second argument not a string");
+                }
+            } else {
+                panic!("First argument not a string");
+            }
+        }
+        BuiltinFunction::StringEndsWith => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to StringEndsWith")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                if let Value::String(pat) = eval_expression(&arguments[1], local_context) {
+                    Value::Bool(s.ends_with(pat.as_str()))
+                } else {
+                    panic!("Second argument not a string");
+                }
+            } else {
+                panic!("First argument not a string");
             }
         }
         BuiltinFunction::KeysToString => {
@@ -1427,6 +1532,59 @@ fn call_builtin_function(
                     panic!("First argument not an array: {:?}", arguments[0]);
                 }
             }
+        }
+        BuiltinFunction::ArrayPush => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ArrayPush")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let value = eval_expression(&arguments[1], local_context);
+
+            model.push_row(value);
+
+            Value::Void
+        }
+        BuiltinFunction::ArrayRemove => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ArrayRemove")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let index = match eval_expression(&arguments[1], local_context) {
+                Value::Number(i) => i,
+                _ => panic!("Second argument not an integer: {:?}", arguments[1]),
+            };
+
+            model.remove_row(index as isize);
+
+            Value::Void
+        }
+
+        BuiltinFunction::ArrayInsert => {
+            if arguments.len() != 3 {
+                panic!("internal error: incorrect argument count to ArrayInsert")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let index = match eval_expression(&arguments[1], local_context) {
+                Value::Number(i) => i,
+                _ => panic!("Second argument not an integer: {:?}", arguments[1]),
+            };
+
+            let value = eval_expression(&arguments[2], local_context);
+            model.insert_row(index as isize, value);
+
+            Value::Void
         }
         BuiltinFunction::Rgb => {
             let r: i32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
@@ -1674,7 +1832,9 @@ fn call_builtin_function(
                     item_info.item_index(),
                 );
 
-                item_rc.map_to_window(Default::default()).to_untyped().into()
+                // Map the item's own geometry origin through the ancestor transforms so the
+                // result is the item's absolute position (not its parent's).
+                item_rc.map_to_window(item_rc.geometry().origin).to_untyped().into()
             } else {
                 panic!("internal error: argument to SetFocusItem must be an element")
             }
@@ -1685,13 +1845,19 @@ fn call_builtin_function(
             }
             let component = local_context.component_instance;
             if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                if let Some(err) = component
-                    .window_adapter()
-                    .renderer()
-                    .register_font_from_path(&std::path::PathBuf::from(s.as_str()))
-                    .err()
-                {
-                    corelib::debug_log!("Error loading custom font {}: {}", s.as_str(), err);
+                // If the window adapter can't be created, log and skip the registration
+                // instead of panicking: the same error resurfaces when the window is
+                // actually used.
+                let result = component.try_window_adapter().map_err(|e| e.to_string()).and_then(
+                    |window_adapter| {
+                        window_adapter
+                            .renderer()
+                            .register_font_from_path(&std::path::PathBuf::from(s.as_str()))
+                            .map_err(|e| format!("Cannot load custom font {}: {e}", s.as_str()))
+                    },
+                );
+                if let Err(err) = result {
+                    corelib::debug_log!("{err}");
                 }
                 Value::Void
             } else {
@@ -1753,8 +1919,8 @@ fn call_builtin_function(
             let window_adapter = local_context.component_instance.window_adapter();
             Value::Bool(corelib::open_url(&url, window_adapter.window()).is_ok())
         }
-        BuiltinFunction::BringAllToFront => {
-            corelib::bring_all_to_front();
+        BuiltinFunction::MacosBringAllWindowsToFront => {
+            corelib::macos_bring_all_windows_to_front();
             Value::Void
         }
         BuiltinFunction::ParseMarkdown => {
@@ -1804,6 +1970,8 @@ fn call_item_member_function(nr: &NamedReference, local_context: &mut EvalLocalC
             "cut" => textinput.cut(&window_adapter, &item_rc),
             "copy" => textinput.copy(&window_adapter, &item_rc),
             "paste" => textinput.paste(&window_adapter, &item_rc),
+            "undo" => textinput.undo(&window_adapter, &item_rc),
+            "redo" => textinput.redo(&window_adapter, &item_rc),
             _ => panic!("internal: Unknown member function {name} called on TextInput"),
         }
     } else if let Some(s) = ItemRef::downcast_pin::<corelib::items::SwipeGestureHandler>(item_ref) {
@@ -2092,6 +2260,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         }
         Type::PathData => matches!(value, Value::PathData(_)),
         Type::Easing => matches!(value, Value::EasingCurve(_)),
+        Type::MouseCursor => matches!(value, Value::MouseCursorInner(_)),
         Type::Brush => matches!(value, Value::Brush(_)),
         Type::Array(inner) => {
             matches!(value, Value::Model(m) if m.iter().all(|mut v| check_value_type(&mut v, inner)))
@@ -2105,8 +2274,8 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
             {
                 return false;
             }
-            for (k, v) in &s.fields {
-                str.0.entry(k.clone()).or_insert_with(|| default_value_for_type(v));
+            for k in s.fields.keys() {
+                str.0.entry(k.clone()).or_insert_with(|| default_value_for_struct_field(s, k));
             }
             true
         }
@@ -2131,6 +2300,14 @@ pub(crate) fn invoke_callback(
     generativity::make_guard!(guard);
     match enclosing_component_instance_for_element(element, component_instance, guard) {
         ComponentInstance::InstanceRef(enclosing_component) => {
+            // Keep the component alive while the callback runs: the callback may close the popup
+            // that owns this callback, and Callback::call() restores the handler after returning.
+            let _component_guard = enclosing_component
+                .self_weak()
+                .get()
+                .expect("component self weak must be initialized before invoking callbacks")
+                .upgrade()
+                .expect("component must be alive while invoking callbacks");
             let description = enclosing_component.description;
             let element = element.borrow();
             if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
@@ -2227,6 +2404,14 @@ pub(crate) fn call_function(
     generativity::make_guard!(guard);
     match enclosing_component_instance_for_element(element, component_instance, guard) {
         ComponentInstance::InstanceRef(c) => {
+            // Keep the component alive while the function runs: the function may close the popup
+            // that owns this function or callbacks it invokes.
+            let _component_guard = c
+                .self_weak()
+                .get()
+                .expect("component self weak must be initialized before invoking functions")
+                .upgrade()
+                .expect("component must be alive while invoking functions");
             let mut ctx = EvalLocalContext::from_function_arguments(c, args);
             eval_expression(
                 &element.borrow().bindings.get(function_name)?.borrow().expression,
@@ -2405,8 +2590,8 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::Callback { .. } => Value::Void,
         Type::Struct(s) => Value::Struct(
             s.fields
-                .iter()
-                .map(|(n, t)| (n.to_string(), default_value_for_type(t)))
+                .keys()
+                .map(|n| (n.to_string(), default_value_for_struct_field(s, n)))
                 .collect::<Struct>(),
         ),
         Type::Array(_) | Type::Model => Value::Model(Default::default()),
@@ -2418,6 +2603,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::Keys => Value::Keys(Default::default()),
         Type::DataTransfer => Value::DataTransfer(Default::default()),
         Type::Easing => Value::EasingCurve(Default::default()),
+        Type::MouseCursor => Value::MouseCursorInner(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),
         Type::PathData => Value::PathData(Default::default()),
@@ -2431,6 +2617,77 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             panic!("There can't be such property")
         }
         Type::StyledText => Value::StyledText(Default::default()),
+    }
+}
+
+/// Create a value for the default of a struct field:
+/// the user-declared default value (`struct Foo { bar: int = 42 }`) if there is one,
+/// otherwise the default value for the field's type.
+pub fn default_value_for_struct_field(
+    s: &i_slint_compiler::langtype::Struct,
+    field_name: &str,
+) -> Value {
+    match s.field_defaults.get(field_name) {
+        Some(expr) => eval_constant_expression(expr),
+        None => default_value_for_type(
+            s.fields.get(field_name).expect("default value requested for unknown struct field"),
+        ),
+    }
+}
+
+/// Convert a value to the given type, as [`Expression::Cast`] does
+fn cast_value(value: Value, to: &Type) -> Value {
+    match (value, to) {
+        (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
+        (Value::Number(n), Type::String) => {
+            Value::String(i_slint_core::string::shared_string_from_number(n))
+        }
+        (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
+        (Value::Brush(brush), Type::Color) => brush.color().into(),
+        (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
+        (v, _) => v,
+    }
+}
+
+/// Apply a unary operator to a value; returns the unmodified value as the error
+/// for unsupported combinations
+fn eval_unary_op(sub: Value, op: char) -> Result<Value, Value> {
+    match (sub, op) {
+        (Value::Number(a), '+') => Ok(Value::Number(a)),
+        (Value::Number(a), '-') => Ok(Value::Number(-a)),
+        (Value::Bool(a), '!') => Ok(Value::Bool(!a)),
+        (sub, _) => Err(sub),
+    }
+}
+
+/// Evaluate a constant expression as stored in [`i_slint_compiler::langtype::Struct::field_defaults`],
+/// which needs no evaluation context.
+/// Mirrors [`eval_expression`] for the corresponding expressions.
+fn eval_constant_expression(expr: &ConstantExpression) -> Value {
+    match expr {
+        ConstantExpression::StringLiteral(s) => Value::String(s.as_str().into()),
+        ConstantExpression::NumberLiteral(n, _unit) => Value::Number(*n),
+        ConstantExpression::BoolLiteral(b) => Value::Bool(*b),
+        ConstantExpression::EnumerationValue(value) => {
+            Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
+        }
+        ConstantExpression::Cast { from, to } => cast_value(eval_constant_expression(from), to),
+        ConstantExpression::UnaryOp { sub, op } => {
+            // The resolver only accepts the unary operators on matching operand types
+            eval_unary_op(eval_constant_expression(sub), *op)
+                .unwrap_or_else(|sub| panic!("unsupported {op} {sub:?}"))
+        }
+        ConstantExpression::Struct { values, .. } => Value::Struct(
+            values
+                .iter()
+                .map(|(k, v)| (k.to_string(), eval_constant_expression(v)))
+                .collect::<Struct>(),
+        ),
+        ConstantExpression::Array { values, .. } => {
+            Value::Model(ModelRc::new(corelib::model::SharedVectorModel::from(
+                values.iter().map(eval_constant_expression).collect::<SharedVector<_>>(),
+            )))
+        }
     }
 }
 

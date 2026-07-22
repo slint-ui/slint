@@ -1,13 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 120px;
     height: 120px;
 
-    property <int> hello: a.hello;
-    property <int> binding_dep: a.binding_dep;
-    property <int> unset_property;
+    in-out property <int> hello: a.hello;
+    in-out property <int> binding_dep: a.binding_dep;
+    in-out property <int> unset_property;
     animate unset_property {
         duration: 1200ms;
     }
@@ -18,7 +18,7 @@ TestCase := Rectangle {
             duration: 1200ms;
         }
         property<bool> condition: true;
-        property<int> binding_dep: condition ? 100 : 150;
+        property<int> binding_dep: self.condition ? 100 : 150;
         animate binding_dep {
             duration: 1200ms;
         }

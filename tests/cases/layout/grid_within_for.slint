@@ -3,13 +3,13 @@
 
 // Regression test for a panic in the compiler
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 300phx;
-    property<int> value: 1;
+    in-out property<int> value: 1;
 
     for c[index] in [#f00, #00f, #0a0]: Rectangle {
-        y: index * height;
+        y: index * self.height;
         width: parent.width;
         height: 100phx;
         GridLayout {

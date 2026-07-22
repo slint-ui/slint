@@ -13,6 +13,7 @@ import {
     slintStarlightMarkdownRehypeExternalLinksOnly,
 } from "@slint/common-files/src/utils/starlight-site-defaults";
 import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
+import { THIRDPARTY_MD_LINK } from "@slint/common-files/src/utils/thirdparty.ts";
 import {
     NODE_DOCS_BASE_PATH,
     NODE_DOCS_BASE_URL,
@@ -66,7 +67,12 @@ export default defineConfig({
                         const p = (link.split("?")[0] ?? "").trim();
                         return (
                             p.startsWith("/#") ||
-                            p.startsWith("/thirdparty/") ||
+                            // The Third-Party Licenses page links to its own raw
+                            // markdown sibling (served by the [...slug].md.ts
+                            // endpoint). The relative form resolves correctly
+                            // under any deployment base, but the validator only
+                            // sees it as a relative link.
+                            p === THIRDPARTY_MD_LINK ||
                             // starlight-typedoc deletes every subdirectory README.md but
                             // typedoc-plugin-markdown still emits a "Namespaces" link to
                             // the deleted file in the parent README. The namespace's
@@ -156,6 +162,7 @@ export default defineConfig({
                         },
                     ],
                 },
+                { autogenerate: { directory: "generated" } },
             ],
         }),
     ],

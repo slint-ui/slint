@@ -3,11 +3,34 @@
 
 //! This module contains all builtin structures exposed in the .slint language.
 
+/// Maps the optional `$(= $field_default:expr)?` capture of a
+/// [`for_each_builtin_structs!`](crate::for_each_builtin_structs) consumer to an `Option`
+/// of the default's `stringify!`-ed tokens:
+/// `builtin_struct_field_default_tokens!($($field_default)?)`.
+/// Note that raw tokens stringify with spaces, such as `- 1.0` or `SortOrder :: Unsorted`.
+#[macro_export]
+macro_rules! builtin_struct_field_default_tokens {
+    () => {
+        None
+    };
+    ($field_default:expr) => {
+        Some(stringify!($field_default))
+    };
+}
+
 /// Call a macro with every builtin structures exposed in the .slint language
 ///
 /// Each struct is declared with `pub struct` if it should be re-exported in a public
 /// language-binding module (e.g. `slint::language` in the Rust crate), or plain `struct`
 /// to stay private. Consumers can dispatch on `$vis:vis`.
+///
+/// A field can declare a default value with `= expression` after its type.
+/// The expression is limited to number literals, bool literals, and enum values,
+/// because the consumers translate it to every target language: Rust and C++ use
+/// the expression verbatim, the other consumers apply their own minimal translation
+/// (see [`builtin_struct_field_default_tokens!`](crate::builtin_struct_field_default_tokens))
+/// and fail their build on anything outside the supported subset.
+/// Fields without a default value default to the zero value of their type.
 ///
 /// ## Example
 /// ```rust
@@ -15,7 +38,7 @@
 ///     ($(
 ///         $(#[$struct_attr:meta])*
 ///         $vis:vis struct $Name:ident {
-///             $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
+///             $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:tt)?, )*
 ///         }
 ///     )*) => {
 ///         $(println!("{} ({}) => [{}]", stringify!($Name), stringify!($vis), stringify!($($field),*));)*
@@ -26,7 +49,7 @@
 #[macro_export]
 macro_rules! for_each_builtin_structs {
     ($macro:ident) => {
-        $macro![
+        $macro! {
             /// The `KeyboardModifiers` struct provides booleans to indicate possible modifier keys on a keyboard, such as Shift, Control, etc.
             /// It is provided as part of `KeyEvent`'s `modifiers` field.
             ///
@@ -87,6 +110,7 @@ macro_rules! for_each_builtin_structs {
             }
 
             /// This structure is passed to the callbacks of the `DropArea` element
+            #[non_exhaustive]
             pub struct DropEvent {
                 /// The payload set on the source `DragArea`.
                 data: DataTransfer,
@@ -94,19 +118,10 @@ macro_rules! for_each_builtin_structs {
                 /// The cursor position in the `DropArea`'s local coordinates.
                 position: LogicalPosition,
 
-                /// Mirrors `DragArea.allow-copy`: true if the source allows the drop to copy the data.
-                allow_copy: bool,
-
-                /// Mirrors `DragArea.allow-move`: true if the source allows the drop to move the data.
-                allow_move: bool,
-
-                /// Mirrors `DragArea.allow-link`: true if the source allows the drop to link to the data.
-                allow_link: bool,
-
-                /// The action negotiated from current modifier state and the source's `preferred-action`,
-                /// clamped to the allowed set. Updated on every `DragMove`. The target's `can-drop`
-                /// callback can return this to honor the user's modifier choice, or override with
-                /// any other allowed action.
+                /// The action negotiated from current modifier state, clamped to the allowed set;
+                /// when no modifier is pressed, the first allowed of move, copy, link.
+                /// Updated on every `DragMove`. The target's `can-drop` callback can return this
+                /// to honor the user's modifier choice, or override with any other allowed action.
                 proposed_action: DragAction,
             }
 
@@ -117,18 +132,9 @@ macro_rules! for_each_builtin_structs {
                 text: SharedString,
             }
 
-            /// Represents one option in a `RadioGroup`.
-            #[non_exhaustive]
-            pub struct RadioEntry {
-                /// Label shown next to the radio button.
-                text: SharedString,
-                /// When `true`, this option is visible but not selectable.
-                disabled: bool,
-            }
-
             /// This is used to define the column and the column header of a TableView
             #[non_exhaustive]
-            struct TableColumn {
+            pub struct TableColumn {
                 /// The title of the column header
                 title: SharedString,
                 /// The minimum column width (logical length)
@@ -154,6 +160,22 @@ macro_rules! for_each_builtin_structs {
                 /// The distance between the baseline and the top of a regular upper-case glyph in the font,
                 /// or zero if not specified by the font.
                 cap_height: Coord,
+            }
+
+            /// This structure holds the hints that a `TextInput` gives to the platform's input method
+            /// (e.g. a soft keyboard) about the expected input.
+            /// The input method may take these hints into account, but might also ignore them.
+            #[non_exhaustive]
+            pub struct InputMethodHints {
+                /// The auto-capitalization behavior that the input method should apply.
+                /// Defaults to sentences.
+                capitalization: CapitalizationMode = (CapitalizationMode::Sentences),
+                /// Hint that the input method may automatically correct spelling mistakes as the user types.
+                /// Defaults to true.
+                auto_correct: bool = true,
+                /// Hint that the input method may offer auto-completion suggestions for the entered text.
+                /// Defaults to true.
+                auto_complete: bool = true,
             }
 
             /// An item in the menu of a menu bar or context menu
@@ -190,6 +212,6 @@ macro_rules! for_each_builtin_structs {
                 /// The bottom edge value
                 bottom: Coord,
             }
-        ];
+        }
     };
 }

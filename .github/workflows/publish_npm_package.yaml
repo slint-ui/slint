@@ -24,17 +24,23 @@ permissions:
     id-token: write  # Required for OIDC
     contents: read
 
+env:
+    # Use fat LTO for the published npm native binaries: smaller size and better runtime perf.
+    # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+    CARGO_PROFILE_RELEASE_LTO: "fat"
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+
 jobs:
     determine_version:
         runs-on: ubuntu-latest
         outputs:
             PKG_VERSION: ${{ steps.mkversion.outputs.PKG_VERSION }}
         steps:
-            - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                 package-manager-cache: false
             - name: Determine version
@@ -76,11 +82,25 @@ jobs:
                       rust-target: aarch64-pc-windows-msvc
                       napi-rs-target: win32-arm64-msvc
                       msvc-arch: arm64
+                    # musl binaries: cross-compiled in the musl cross containers
+                    # against their Alpine sysroot (which also provides the
+                    # build dependencies, so install-linux-dependencies is skipped).
+                    - os: ubuntu-22.04
+                      rust-target: x86_64-unknown-linux-musl
+                      napi-rs-target: linux-x64-musl
+                      container: ghcr.io/slint-ui/slint/x86_64-unknown-linux-musl
+                    - os: ubuntu-22.04
+                      rust-target: aarch64-unknown-linux-musl
+                      napi-rs-target: linux-arm64-musl
+                      container: ghcr.io/slint-ui/slint/aarch64-unknown-linux-musl
         needs: determine_version
         runs-on: ${{ matrix.os }}
+        container: ${{ matrix.container }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
+            # The musl containers bring their own dependencies (and no sudo).
             - uses: ./.github/actions/install-linux-dependencies
+              if: ${{ !matrix.container }}
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ilammy/msvc-dev-cmd@v1
               if: runner.os == 'Windows'
@@ -89,18 +109,16 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.rust-target }}
-            - uses: pnpm/action-setup@v6.0.8
+                  key: ${{ matrix.rust-target }}
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
             # Setup .npmrc file to publish to npm
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                   node-version: "24"
                   registry-url: "https://registry.npmjs.org"
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.0.8
-              with:
-                version: 10.29.3
             - name: Set version
               working-directory: api/node
               shell: bash
@@ -114,21 +132,24 @@ jobs:
               run: |
                   pnpm install --ignore-scripts
                   pnpm run build --target ${{ matrix.rust-target }}
+                  # Build the "dev" binary with the additional system-testing and
+                  # mcp features. It is published as a separate optional binary
+                  # package (distributed via the slint-ui-dev package) and loaded
+                  # conditionally at runtime (see binding.cjs).
+                  pnpm run build:dev --target ${{ matrix.rust-target }}
             - name: Create package
               shell: bash
               working-directory: api/node
               run: |
-                  npx napi create-npm-dirs --npm-dir . -c ./binaries.json
-                  mv slint-ui.${{ matrix.napi-rs-target }}.node ${{ matrix.napi-rs-target }}/
-                  cd ${{ matrix.napi-rs-target }}/
-                  pnpm pkg set repository.type=git
-                  pnpm pkg set repository.url=https://github.com/slint-ui/slint
-                  pnpm pack
+                  PACKED="$PWD/packed"
+                  PKG="$GITHUB_WORKSPACE/api/node/scripts/packaging.mts"
+                  node "$PKG" pack-binary binaries.json ${{ matrix.napi-rs-target }} slint-ui "$PACKED"
+                  node "$PKG" pack-binary binaries-dev.json ${{ matrix.napi-rs-target }} slint-ui-dev "$PACKED"
             - name: Upload artifact
               uses: actions/upload-artifact@v7
               with:
                   name: binaries-${{ matrix.rust-target }}
-                  path: "api/node/${{ matrix.napi-rs-target }}/*.tgz"
+                  path: "api/node/packed/*.tgz"
 
     build_and_publish_npm_package:
         runs-on: ubuntu-22.04
@@ -137,14 +158,14 @@ jobs:
             PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
             RELEASE_INPUT: ${{ github.event.inputs.release }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
             # Setup .npmrc file to publish to npm
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                   node-version: "24"
                   registry-url: "https://registry.npmjs.org"
@@ -161,12 +182,18 @@ jobs:
               if: github.event.inputs.release != 'true'
               run: |
                   echo "PKG_EXTRA_ARGS=--sha1=$GITHUB_SHA" >> $GITHUB_ENV
-                  echo "PUBLISH_TAG=--tag nightly" >> $GITHUB_ENV
+                  # dist-tag value (empty for a release → published as `latest`).
+                  echo "PUBLISH_DIST_TAG=nightly" >> $GITHUB_ENV
             - name: Compile index.js and index.d.ts
               working-directory: api/node
               run: |
                   pnpm install
                   pnpm run build
+                  # Generate the "dev" loader (rust-module-dev.cjs); it is shipped in the
+                  # separate slint-ui-dev package (see below), which binding.cjs loads by
+                  # name when present. It is intentionally kept out of the main package
+                  # (see .npmignore) so `npm i slint-ui` stays lean for production.
+                  pnpm run build:dev
                   pnpm run compile
             - name: Prepare binary packages
               working-directory: api/node
@@ -175,35 +202,17 @@ jobs:
             - name: Download artifacts
               uses: actions/download-artifact@v8
               with:
-                  name: binaries-x86_64-unknown-linux-gnu
+                  pattern: binaries-*
                   path: api/node/
-            - name: Download artifacts
-              uses: actions/download-artifact@v8
-              with:
-                  name: binaries-aarch64-unknown-linux-gnu
-                  path: api/node/
-            - name: Download artifacts
-              uses: actions/download-artifact@v8
-              with:
-                  name: binaries-aarch64-apple-darwin
-                  path: api/node/
-            - name: Download artifacts
-              uses: actions/download-artifact@v8
-              with:
-                  name: binaries-x86_64-pc-windows-msvc
-                  path: api/node/
-            - name: Download artifacts
-              uses: actions/download-artifact@v8
-              with:
-                  name: binaries-aarch64-pc-windows-msvc
-                  path: api/node/
+                  merge-multiple: true
             - name: Add binary dependencies
               working-directory: api/node
               run: |
-                  for package in @slint-ui/slint-ui-binary-linux-x64-gnu @slint-ui/slint-ui-binary-linux-arm64-gnu @slint-ui/slint-ui-binary-darwin-arm64 @slint-ui/slint-ui-binary-win32-x64-msvc @slint-ui/slint-ui-binary-win32-arm64-msvc; do
-                      jq --arg pkg "$package" --arg version "$PKG_VERSION" '.optionalDependencies[$pkg]=$version' package.json > new.json
-                      mv new.json package.json
-                  done
+                  node "$GITHUB_WORKSPACE/api/node/scripts/packaging.mts" set-main-deps "$PKG_VERSION"
+            - name: Build slint-ui-dev package
+              working-directory: api/node
+              run: |
+                  node "$GITHUB_WORKSPACE/api/node/scripts/packaging.mts" pack-dev-meta "$PKG_VERSION" "$GITHUB_WORKSPACE/api/node"
             - name: Build package
               run: |
                   cargo xtask node_package $PKG_EXTRA_ARGS
@@ -213,19 +222,19 @@ jobs:
                   name: slint-ui-node-package
                   path: |
                       api/node/slint-ui-${{ env.PKG_VERSION }}.tgz
-            - name: Smoke test package to see if it builds at least
-              run: |
-                  mkdir /tmp/nodetest
-                  cd /tmp/nodetest
-                  echo "neverBuiltDependencies: []" > pnpm-workspace.yaml
-                  pnpm init
-                  pnpm install --dangerously-allow-all-builds --verbose $GITHUB_WORKSPACE/api/node/slint-ui-$PKG_VERSION.tgz
+            - name: End-to-end test against a local registry
+              # Gate that always runs (including dry-run builds where `private=true`):
+              # publish the real, all-platform tarballs to a throwaway Verdaccio
+              # registry with the same `publishAll` routine used for the real publish
+              # below, then install them as a consumer (npm + pnpm) and verify the
+              # distribution. Blocks the real publish on failure.
+              working-directory: api/node
+              env:
+                  SLINT_E2E_TGZ_DIR: ${{ github.workspace }}/api/node
+                  SLINT_E2E_VERSION: ${{ env.PKG_VERSION }}
+                  SLINT_E2E_TAG: ${{ env.PUBLISH_DIST_TAG }}
+              run: node --test __test__/registry/e2e.test.mts
             - name: Build and publish packages
               if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
               run: |
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-x64-gnu-$PKG_VERSION.tgz
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-arm64-gnu-$PKG_VERSION.tgz
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-arm64-$PKG_VERSION.tgz
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-x64-msvc-$PKG_VERSION.tgz
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-arm64-msvc-$PKG_VERSION.tgz
-                  pnpm publish --no-git-checks $PUBLISH_TAG api/node/slint-ui-$PKG_VERSION.tgz
+                  node "$GITHUB_WORKSPACE/api/node/scripts/packaging.mts" publish-all "$GITHUB_WORKSPACE/api/node" https://registry.npmjs.org/ "$PUBLISH_DIST_TAG"

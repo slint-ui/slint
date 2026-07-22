@@ -2,21 +2,21 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore haha
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     pure callback test_func(int) -> int;
     pure callback test_func2(string, int) -> string;
     test_func2(str, val) => { str + "=" + (val + some_value) }
 
-    property <int> test_prop: 4 + test_func(2);
-    property <string> test_prop2: test_func2("hello", 42);
-    property <int> some_value: 8;
+    in-out property <int> test_prop: 4 + test_func(2);
+    in-out property <string> test_prop2: test_func2("hello", 42);
+    in-out property <int> some_value: 8;
 
-    callback dummy() -> int;
+    pure callback dummy() -> int;
     dummy => { 4.4 }
     callback returns_void;
     returns_void => { test_func2("haha", 8) }
 
-    property <bool> test: test_prop == 4 && test_prop2 == "hello=50";
+    in-out property <bool> test: test_prop == 4 && test_prop2 == "hello=50";
 }
 
 /*

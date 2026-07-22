@@ -1,0 +1,46 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cSpell: ignore cibuildwheel
+[build-system]
+requires = ["maturin>=1,<2"]
+build-backend = "maturin"
+
+[project]
+name = "slint-dev"
+version = "1.18.0b1"
+requires-python = ">= 3.12"
+authors = [{ name = "Slint Team", email = "info@slint.dev" }]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: MacOS X",
+  "Environment :: X11 Applications",
+  "Environment :: Win32 (MS Windows)",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python",
+  "Programming Language :: Rust",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "License :: Other/Proprietary License",
+  "Topic :: Software Development",
+]
+description = "Development binary for the slint package, enabling system-testing and MCP support. Install alongside slint at the same version in development environments."
+readme = "README.md"
+
+[project.urls]
+Homepage = "https://slint.dev"
+Documentation = "https://slint.dev/docs"
+Repository = "https://github.com/slint-ui/slint"
+
+[tool.cibuildwheel.ios]
+# Expose Rust toolchain to the restricted iOS build environment
+xbuild-tools = ["rustc", "cargo", "rustup", "cc", "ar"]
+
+[tool.maturin]
+# Build the same crate as the lean `slint` wheel, but with the development
+# capabilities compiled in, and expose it under a distinct top-level module name
+# (`slint_dev_native`) so both binaries can be installed side by side. `slint`
+# picks this binary up automatically when SLINT_TEST_SERVER or SLINT_MCP_PORT is
+# set; there is nothing to import from this package directly.
+manifest-path = "../slint/Cargo.toml"
+module-name = "slint_dev_native"
+features = ["dev-dist", "system-testing", "mcp"]

@@ -1,16 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-ExtraComponent := Rectangle {
-    for x in [{a: "0"}, {a: "1"}] : Text { text: x.a; }
+component ExtraComponent inherits Rectangle {
+    for x in [{a: "0"}, {a: "1"}] : Text { x:0;y:0; text: x.a; }
 }
 
 
-Extra2 := Rectangle {
-    property<int> top_level;
-    property<int> value;
+component Extra2 inherits Rectangle {
+    in-out property<int> top_level;
+    in-out property<int> value;
     callback update_value;
     for aaa[r] in [[10, top_level], [2, 3]] : blah := Rectangle {
+        y:0;
         width: parent.width;
         height: root.height;
         property <int> some_value: 1000;
@@ -21,19 +22,19 @@ Extra2 := Rectangle {
             x: r*10phx;
             y: l*10phx;
             clicked => {
-                root.value += bb + blah.some_value;
+                value += bb + blah.some_value;
                 update_value();
             }
         }
     }
 }
 
-export TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 100phx;
     height: 100phx;
     background: white;
-    property<float> top_level: 42;
-    property<int> value: 0;
+    in-out property<float> top_level: 42;
+    in-out property<int> value: 0;
 
    for pp[idx] in 5: Rectangle {
         s := Rectangle {
@@ -41,9 +42,9 @@ export TestCase := Rectangle {
             x: 2phx * idx;
             y: 200phx * pp;
             width: s.within;
-            height: root.top_level * 1phx;
+            height: top_level * 1phx;
             for nested in [1phx] : Rectangle {
-                x : s.width + root.top_level * 1phx + nested;
+                x : s.width + top_level * 1phx + nested;
             }
         }
     }
@@ -55,10 +56,11 @@ export TestCase := Rectangle {
 
     for pp[idx] in ["1","3","2"]: Rectangle {
         x: idx * 1phx;
-        Text { text: pp; }
+        Text { x:0;y:0; text: pp; }
     }
 
     for pp in [{a: 12, b: "aa", c: {a: #00f}}, {a: 13, b: "cc", c: { a: #f00}}]: Text {
+        y:0;
         x: pp.a * 1phx;
         text: pp.b;
         color: pp.c.a;
@@ -66,25 +68,27 @@ export TestCase := Rectangle {
         }
     }
     Extra2 {
+        y:0;
         width: parent.width;
         height: root.height;
-        top_level: root.top_level;
+        top_level: top_level;
         update_value => {
-            root.value = self.value;
+            value = self.value;
         }
     }
 
-    property<[{a: int}]> m;
+    in-out property<[{a: int}]> m;
     for x in m : TouchArea {
+        y:0;
         width: parent.width;
         height: root.height;
         clicked => {
-            root.value = x.a;
+            value = x.a;
         }
     }
 
     // issue #2977
-    for v in value + value : Text { text: v; }
+    for v in value + value : Text { x:0;y:0; text: v; }
 }
 
 

@@ -22,6 +22,8 @@ path = "lib.rs"
 internal = ["include_dir"]
 # ffi for C++ bindings
 ffi = []
+renderer-software = ["dep:i-slint-renderer-software", "i-slint-renderer-software/std"]
+renderer-skia = ["dep:i-slint-renderer-skia"]
 system-testing = [
   "prost",
   "pbjson",
@@ -35,6 +37,7 @@ system-testing = [
   "prost-types",
   "pbjson-build",
   "protox",
+  "renderer-software",
 ]
 mcp = [
   "prost",
@@ -51,6 +54,7 @@ mcp = [
   "prost-types",
   "pbjson-build",
   "protox",
+  "renderer-software",
 ]
 
 [dependencies]
@@ -69,8 +73,15 @@ futures-lite = { version = "2.3.0", optional = true }
 byteorder = { version = "1.5.0", optional = true }
 image = { workspace = true, optional = true, features = ["png"] }
 include_dir = { version = "0.7", optional = true }
+i-slint-renderer-software = { workspace = true, optional = true }
+i-slint-renderer-skia = { workspace = true, default-features = false, optional = true }
+
+# The browser decodes images on the web; decode with the image and resvg crates elsewhere.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
 
 [build-dependencies]
+cfg_aliases = { workspace = true }
 prost = { version = "0.14", optional = true }
 prost-build = { version = "0.14", optional = true }
 prost-types = { version = "0.14", optional = true }

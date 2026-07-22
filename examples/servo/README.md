@@ -17,7 +17,7 @@ Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Componen
 - Copy `webview.slint` from [src](https://github.com/slint-ui/slint/tree/master/examples/servo/src) and paste it in your project.
 - Use `Webview` to your `.slint` file.
 
-    ```slint
+    ```slint no-test
     import { Webview } from "webview.slint";
 
     export component MyApp inherits Window {
@@ -60,9 +60,9 @@ Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Componen
                 if !matches!(state, slint::RenderingState::RenderingSetup) || initialized.get() {
                     return;
                 }
-                let slint::GraphicsAPI::WGPU29 { device, queue, .. } = graphics_api else {
+                let slint::GraphicsAPI::WGPU30 { device, queue, .. } = graphics_api else {
                     panic!(
-                        "Slint did not select a wgpu-29 renderer; \
+                        "Slint did not select a wgpu-30 renderer; \
                         enable a wgpu-capable renderer feature"
                     );
                 };
@@ -75,18 +75,18 @@ Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Componen
     }
 
     fn setup_slint_with_wgpu() {
-        use slint::wgpu_29::{WGPUConfiguration, WGPUSettings};
+        use slint::wgpu_30::{WGPUConfiguration, WGPUSettings};
 
         #[allow(unused_mut)]
         let mut wgpu_settings = WGPUSettings::default();
 
         #[cfg(target_os = "windows")]
         {
-            wgpu_settings.backends = slint::wgpu_29::wgpu::Backends::DX12;
+            wgpu_settings.backends = slint::wgpu_30::wgpu::Backends::DX12;
         }
 
         slint::BackendSelector::new()
-            .require_wgpu_29(WGPUConfiguration::Automatic(wgpu_settings))
+            .require_wgpu_30(WGPUConfiguration::Automatic(wgpu_settings))
             .select()
             .unwrap();
     }

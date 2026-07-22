@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Window {
+export component TestCase inherits Window {
     width: 100phx;
     height: 100phx;
     FocusScope {
@@ -44,12 +44,12 @@ TestCase := Window {
         }
     }
 
-    property<bool> toggle: true;
-    property<string> r1;
-    property<string> r2;
-    property<string> r3;
-    property<string> r4;
-    property<string> r5;
+    in-out property<bool> toggle: true;
+    in-out property<string> r1;
+    in-out property<string> r2;
+    in-out property<string> r3;
+    in-out property<string> r4;
+    in-out property<string> r5;
 }
 
 // cSpell:disable

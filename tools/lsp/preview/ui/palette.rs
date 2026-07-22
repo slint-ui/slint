@@ -610,11 +610,11 @@ export component Main { }
                 init_param: Default::default(),
                 to_show: None,
                 open_urls: Default::default(),
-                to_preview: Rc::new(crate::common::SwitchableLspToPreview::with_one(
+                to_preview: crate::common::LspToPreviews::with_one(
                     crate::common::DummyLspToPreview::default(),
-                )),
+                ),
                 pending_recompile: Default::default(),
-                preview_to_lsp_sender: tokio::sync::mpsc::unbounded_channel().0,
+                host_language_rename_dont_ask_again: Default::default(),
             };
             let (url, _) = crate::language::test::load(
                 &mut ctx,

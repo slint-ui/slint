@@ -33,12 +33,13 @@ export component Example inherits Window {
             background: #f0c000;
             DragArea {
                 data: Api.string-to-transfer("Hello World");
+                allow-copy: true;
             }
             Text { text: "Drag me"; }
         }
 
         Rectangle {
-            background: drop.contains-drag ? #80e080 : #a0a0a0;
+            background: drop.has-drag ? #80e080 : #a0a0a0;
             drop := DropArea {
                 can-drop(event) => {
                     Api.can-drop(event.data) ? DragAction.copy : DragAction.none
@@ -58,7 +59,10 @@ Both `can-drop` and `dropped` return a <Link type="DragAction" />: `DragAction.c
 
 ## Drag actions
 
-A `DragArea` declares which actions it permits (`allow-copy`, `allow-move`, `allow-link`) and a `preferred-action` that applies when no modifier is pressed.
+A `DragArea` declares which actions it permits (`allow-copy`, `allow-move`, `allow-link`).
+At least one must be set to true; a `DragArea` that permits no action never starts a drag (the compiler warns).
+When no modifier key is pressed, the proposed action is the first allowed of move, copy, link;
+modifier keys request a specific action (Ctrl -> copy, Shift -> move, Ctrl+Shift -> link). On macOS, use Command (⌘) instead of Ctrl.
 The target picks the final action in `can-drop` (for hover) and `dropped` (final answer), the runtime clamps each against the source's allowed set, and when the drop completes the source's `drag-finished(action)` fires so a "move" source can remove the original data.
 
 ```slint no-test
@@ -66,7 +70,6 @@ DragArea {
     data: Api.make-data();
     allow-copy: false;
     allow-move: true;
-    preferred-action: DragAction.move;
     // Dim the source while the drag is in flight.
     opacity: self.dragging ? 0.4 : 1.0;
     drag-finished(action) => {
@@ -77,7 +80,8 @@ DragArea {
 }
 
 DropArea {
-    can-drop(event) => event.allow-move ? DragAction.move : DragAction.none;
+    // Accept the action the user is asking for; the runtime clamps it to what the source allows.
+    can-drop(event) => event.proposed-action;
     dropped(event) => {
         Api.accept-drop(event.data);
         return event.proposed-action;
@@ -88,33 +92,49 @@ DropArea {
 The hovering target's chosen action is also exposed as `current-action`, useful for visual feedback (a different cursor, icon, or highlight per action).
 
 <Tabs syncKey="dev-language">
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 
 ```rust
 fn main() {
     let app = Example::new();
-    // For simple plaintext and image transfers, a simple conversion is supplied
+    // For simple plain text and image transfers, a simple conversion is supplied
     // which handles the common case.
     let api = app.global::<Api>();
     api.on_string_to_transfer(Into::into);
-    // A helper for reading plaintext from a `DataTransfer` is also supplied.
-    api.on_transfer_to_string(|data| data.fetch_plaintext().unwrap_or_default());
+    // A helper for reading plain text from a `DataTransfer` is also supplied.
+    api.on_transfer_to_string(|data| data.plain_text().unwrap_or_default());
     api.on_can_drop(|data| {
-        // This helper abstracts over various "plaintext" MIME types
-        data.has_plaintext()
+        // This helper abstracts over various "plain text" MIME types
+        data.has_plain_text()
     });
     // ...
 }
 ```
 
 </TabItem>
-<TabItem label="C++">
+<TabItem label="C++" icon="seti:cpp">
 
 ```cpp
-// `DataTransfer` is currently not fully implemented in C++
+int main()
+{
+    auto app = Example::create();
+    auto api = app->global<Api>();
+    // For simple plain text and image transfers, a simple conversion is supplied
+    // which handles the common case.
+    api.on_string_to_transfer(
+            [](const slint::SharedString &text) { return slint::DataTransfer(text); });
+    // A helper for reading plain text from a `DataTransfer` is also supplied.
+    api.on_transfer_to_string(
+            [](const slint::DataTransfer &data) { return data.plain_text().value_or(""); });
+    api.on_can_drop([](const slint::DataTransfer &data) {
+        // This helper abstracts over various "plain text" MIME types
+        return data.has_plain_text();
+    });
+    // ...
+}
 ```
 </TabItem>
-<TabItem label="NodeJS">
+<TabItem label="NodeJS" icon="node">
 
 ```js
 import * as slint from "slint-ui";
@@ -124,18 +144,18 @@ const window = new ui.Example();
 
 window.Api.string_to_transfer = (text) => {
     const transfer = new slint.DataTransfer();
-    transfer.setPlaintext(text);
+    transfer.plainText = text;
     return transfer;
 };
 
-// A helper for reading plaintext from a `DataTransfer` is also supplied.
-window.Api.transfer_to_string = (data) => data.fetchPlaintext() ?? "";
+// A helper for reading plain text from a `DataTransfer` is also supplied.
+window.Api.transfer_to_string = (data) => data.plainText ?? "";
 
-// This helper abstracts over various "plaintext" MIME types
-window.Api.can_drop = (data) => data.hasPlaintext;
+// This helper abstracts over various "plain text" MIME types
+window.Api.can_drop = (data) => data.hasPlainText;
 ```
 </TabItem>
-<TabItem label="Python">
+<TabItem label="Python" icon="seti:python">
 
 ```python
 import slint
@@ -146,18 +166,18 @@ class App(slint.loader.example.Example):
     @slint.callback(global_name="Api", name="string-to-transfer")
     def string_to_transfer(self, text: str) -> DataTransfer:
         transfer = DataTransfer()
-        transfer.set_plaintext(text)
+        transfer.plain_text = text
         return transfer
 
-    # A helper for reading plaintext from a `DataTransfer` is also supplied.
+    # A helper for reading plain text from a `DataTransfer` is also supplied.
     @slint.callback(global_name="Api", name="transfer-to-string")
     def transfer_to_string(self, data: DataTransfer) -> str:
-        return data.fetch_plaintext() or ""
+        return data.plain_text or ""
 
-    # This helper abstracts over various "plaintext" MIME types
+    # This helper abstracts over various "plain text" MIME types
     @slint.callback(global_name="Api", name="can-drop")
     def can_drop(self, data: DataTransfer) -> bool:
-        return data.has_plaintext
+        return data.has_plain_text
 ```
 </TabItem>
 </Tabs>

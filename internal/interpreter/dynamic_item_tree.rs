@@ -36,7 +36,7 @@ use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use i_slint_core::slice::Slice;
 use i_slint_core::styled_text::StyledText;
 use i_slint_core::timers::Timer;
-use i_slint_core::window::{WindowAdapterRc, WindowInner};
+use i_slint_core::window::{WindowAdapterRc, WindowInner, WindowKind};
 use i_slint_core::{Brush, Color, DataTransfer, Property, SharedString, SharedVector};
 #[cfg(feature = "internal")]
 use itertools::Either;
@@ -504,10 +504,6 @@ pub struct ItemTreeDescription<'id> {
     #[cfg(feature = "internal-highlight")]
     pub(crate) raw_type_loader:
         std::cell::OnceCell<Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>>,
-
-    pub(crate) debug_handler: std::cell::RefCell<
-        Rc<dyn Fn(Option<&i_slint_compiler::diagnostics::SourceLocation>, &str)>,
-    >,
 }
 
 #[derive(Clone, derive_more::From)]
@@ -562,6 +558,11 @@ impl ItemTreeDescription<'_> {
     /// The name of this Component as written in the .slint file
     pub fn id(&self) -> &str {
         self.original.id.as_str()
+    }
+
+    #[cfg(feature = "internal")]
+    pub(crate) fn compiled_globals(&self) -> Option<Rc<CompiledGlobalCollection>> {
+        self.compiled_globals.clone()
     }
 
     /// List of publicly declared properties or callbacks
@@ -797,18 +798,6 @@ impl ItemTreeDescription<'_> {
         let g = extra_data.globals.get().unwrap().get(global_name).clone();
         g.ok_or(())
     }
-
-    pub fn recursively_set_debug_handler(
-        &self,
-        handler: Rc<dyn Fn(Option<&i_slint_compiler::diagnostics::SourceLocation>, &str)>,
-    ) {
-        *self.debug_handler.borrow_mut() = handler.clone();
-
-        for r in &self.repeater {
-            generativity::make_guard!(guard);
-            r.unerase(guard).item_tree_to_repeat.recursively_set_debug_handler(handler.clone());
-        }
-    }
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
@@ -853,7 +842,7 @@ pub(crate) struct ItemRTTI {
 fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>>()
 -> (&'static str, Rc<ItemRTTI>) {
     let rtti = ItemRTTI {
-        vtable: T::static_vtable(),
+        vtable: T::STATIC_VTABLE,
         type_info: dynamic_type::StaticTypeInfo::new::<T>(),
         properties: T::properties()
             .into_iter()
@@ -921,13 +910,13 @@ pub async fn load(
     #[cfg(not(feature = "internal-highlight"))]
     let (path, mut diag, loader) =
         i_slint_compiler::load_root_file(&path, &path, source, diag, compiler_config).await;
-    #[cfg(feature = "internal-file-watcher")]
+    #[cfg(feature = "internal")]
     let watch_paths = loader.all_files_to_watch().into_iter().collect();
     if diag.has_errors() {
         return CompilationResult {
             components: HashMap::new(),
             diagnostics: diag.into_iter().collect(),
-            #[cfg(feature = "internal-file-watcher")]
+            #[cfg(feature = "internal")]
             watch_paths,
             #[cfg(feature = "internal")]
             structs_and_enums: Vec::new(),
@@ -1014,7 +1003,7 @@ pub async fn load(
     CompilationResult {
         diagnostics: diag.into_iter().collect(),
         components,
-        #[cfg(feature = "internal-file-watcher")]
+        #[cfg(feature = "internal")]
         watch_paths,
         #[cfg(feature = "internal")]
         structs_and_enums,
@@ -1055,6 +1044,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<Layer>(),
             rtti_for::<DragArea>(),
             rtti_for::<DropArea>(),
+            rtti_for::<WindowMoveArea>(),
             rtti_for::<ContextMenu>(),
             rtti_for::<MenuItem>(),
             rtti_for::<SystemTrayIcon>(),
@@ -1092,8 +1082,6 @@ pub(crate) fn generate_item_tree<'id>(
     is_popup_menu_impl: bool,
     guard: generativity::Guard<'id>,
 ) -> Rc<ItemTreeDescription<'id>> {
-    //dbg!(&*component.root_element.borrow());
-
     thread_local! {
         static RTTI: Lazy<HashMap<&'static str, Rc<ItemRTTI>>> = Lazy::new(generate_rtti);
     }
@@ -1109,6 +1097,7 @@ pub(crate) fn generate_item_tree<'id>(
         repeater_names: HashMap<SmolStr, usize>,
         change_callbacks: Vec<(NamedReference, Expression)>,
         popup_menu_description: PopupMenuDescription,
+        compiled_globals: Option<Rc<CompiledGlobalCollection>>,
     }
     impl generator::ItemTreeBuilder for TreeBuilder<'_> {
         type SubComponentState = ();
@@ -1131,7 +1120,7 @@ pub(crate) fn generate_item_tree<'id>(
                 RepeaterWithinItemTree {
                     item_tree_to_repeat: generate_item_tree(
                         base_component,
-                        None,
+                        self.compiled_globals.clone(),
                         self.popup_menu_description.clone(),
                         false,
                         guard,
@@ -1218,6 +1207,7 @@ pub(crate) fn generate_item_tree<'id>(
         repeater_names: HashMap::new(),
         change_callbacks: Vec::new(),
         popup_menu_description,
+        compiled_globals: compiled_globals.clone(),
     };
 
     if !component.is_global() {
@@ -1288,6 +1278,7 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Struct(_) => property_info::<Value>(),
             Type::Array(_) => property_info::<Value>(),
             Type::Easing => property_info::<i_slint_core::animations::EasingCurve>(),
+            Type::MouseCursor => property_info::<i_slint_core::cursor::MouseCursorInner>(),
             Type::Percent => animated_property_info::<f32>(),
             Type::Enumeration(e) => {
                 macro_rules! match_enum_type {
@@ -1444,9 +1435,6 @@ pub(crate) fn generate_item_tree<'id>(
         type_loader: std::cell::OnceCell::new(),
         #[cfg(feature = "internal-highlight")]
         raw_type_loader: std::cell::OnceCell::new(),
-        debug_handler: std::cell::RefCell::new(Rc::new(|_, text| {
-            i_slint_core::debug_log!("{text}")
-        })),
     };
 
     Rc::new(t)
@@ -1589,6 +1577,7 @@ pub fn instantiate(
         assert!(Rc::ptr_eq(a, &b), "window not the same as parent window");
     }
 
+    let has_parent = parent_ctx.is_some();
     if let Some(parent) = parent_ctx {
         description
             .parent_item_tree_offset
@@ -1597,27 +1586,32 @@ pub fn instantiate(
             .set(parent)
             .ok()
             .unwrap();
-    } else if let Some(g) = description.compiled_globals.as_ref() {
+    }
+    let extra_data = description.extra_data_offset.apply(instance_ref.as_ref());
+    extra_data.globals.set(globals.clone()).ok().unwrap();
+
+    let resolved_root = if let Some(WindowOptions::Embed { .. }) = window_options {
+        self_weak.clone()
+    } else {
+        generativity::make_guard!(guard);
+        root.or_else(|| {
+            instance_ref.parent_instance(guard).map(|parent| parent.root_weak().clone())
+        })
+        .unwrap_or_else(|| self_weak.clone())
+    };
+    description.root_offset.apply(instance_ref.as_ref()).set(resolved_root).ok().unwrap();
+
+    if !has_parent && let Some(g) = description.compiled_globals.as_ref() {
         for g in g.compiled_globals.iter() {
             crate::global_component::instantiate(g, &globals, self_weak.clone());
         }
     }
-    let extra_data = description.extra_data_offset.apply(instance_ref.as_ref());
-    extra_data.globals.set(globals).ok().unwrap();
+
     if let Some(WindowOptions::Embed { parent_item_tree, parent_item_tree_index }) = window_options
     {
         vtable::VRc::borrow_pin(&self_rc)
             .as_ref()
             .embed_component(parent_item_tree, *parent_item_tree_index);
-        description.root_offset.apply(instance_ref.as_ref()).set(self_weak.clone()).ok().unwrap();
-    } else {
-        generativity::make_guard!(guard);
-        let root = root
-            .or_else(|| {
-                instance_ref.parent_instance(guard).map(|parent| parent.root_weak().clone())
-            })
-            .unwrap_or_else(|| self_weak.clone());
-        description.root_offset.apply(instance_ref.as_ref()).set(root).ok().unwrap();
     }
 
     if !description.original.is_global() {
@@ -1625,7 +1619,7 @@ pub fn instantiate(
             if let Some(WindowOptions::UseExistingWindow(adapter)) = window_options.as_ref() {
                 Some(adapter.clone())
             } else {
-                instance_ref.maybe_window_adapter()
+                extra_data.globals.get().unwrap().window_adapter().and_then(|wa| wa.get().cloned())
             };
 
         let component_rc = vtable::VRc::into_dyn(self_rc.clone());
@@ -1638,11 +1632,6 @@ pub fn instantiate(
             decl.property_type,
             Type::Struct { .. } | Type::Array(_) | Type::Enumeration(_)
         ) || decl.is_alias.is_some()
-        {
-            continue;
-        }
-        if let Some(b) = description.original.root_element.borrow().bindings.get(prop_name)
-            && b.borrow().two_way_bindings.is_empty()
         {
             continue;
         }
@@ -1674,6 +1663,15 @@ pub fn instantiate(
                 prop_rtti.set_debug_name(item, name);
             }
         }
+    }
+
+    // Register the fonts before the property bindings, so a property that needs them
+    // (image decoding, text sizing) finds them.
+    for code in description.original.init_code.borrow().font_registration_code.iter() {
+        eval::eval_expression(
+            code,
+            &mut eval::EvalLocalContext::from_component_instance(instance_ref),
+        );
     }
 
     generator::handle_property_bindings_init(
@@ -2090,7 +2088,9 @@ impl ErasedItemTreeBox {
         generativity::make_guard!(guard);
         let compo_box = self.unerase(guard);
         let instance_ref = compo_box.borrow_instance();
-        for extra_init_code in self.0.description.original.init_code.borrow().iter() {
+        for extra_init_code in
+            self.0.description.original.init_code.borrow().iter_without_font_registration()
+        {
             eval::eval_expression(
                 extra_init_code,
                 &mut eval::EvalLocalContext::from_component_instance(instance_ref),
@@ -2236,19 +2236,24 @@ extern "C" fn layout_info(component: ItemTreeRefPin, orientation: Orientation) -
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let orientation = crate::eval_layout::from_runtime(orientation);
 
-    // The vtable layout_info path is taken e.g. for repeater cells. When
-    // the component root has a parameterized layout-info function, route
-    // through it: reading the bare `layoutinfo-{h,v}` would cycle on
-    // `self.{w,h}` for the cross-axis case, and we have no explicit
-    // constraint at this entry point. `f32::MAX` (i.e. "unconstrained")
-    // tells the runtime's flex algorithm to behave as if items don't
-    // need to wrap, which gives the natural max-cell-cross-axis result
-    // — much closer to correct than the `sqrt(item-areas)` heuristic
-    // that a `-1` sentinel would trigger.
+    // Vtable entry (repeater cells, window auto-size). Pass the cross-axis size
+    // to the root's parameterized layout-info function explicitly, avoiding a
+    // cycle on `self.{w,h}`: for the vertical query the preferred width, so a
+    // height-for-width Image sizes its height to that and not to infinity; for
+    // the horizontal query `f32::MAX`, i.e. "don't wrap".
     let root = &instance_ref.description.original.root_element;
+    let window_adapter = instance_ref.window_adapter();
     let cross_axis_constraint = match orientation {
         i_slint_compiler::layout::Orientation::Vertical => {
-            root.borrow().layout_info_v_with_constraint.is_some().then_some(f32::MAX)
+            root.borrow().layout_info_v_with_constraint.is_some().then(|| {
+                crate::eval_layout::get_layout_info(
+                    root,
+                    instance_ref,
+                    &window_adapter,
+                    i_slint_compiler::layout::Orientation::Horizontal,
+                )
+                .preferred_bounded()
+            })
         }
         i_slint_compiler::layout::Orientation::Horizontal => {
             root.borrow().layout_info_h_with_constraint.is_some().then_some(f32::MAX)
@@ -2257,7 +2262,7 @@ extern "C" fn layout_info(component: ItemTreeRefPin, orientation: Orientation) -
     let mut result = crate::eval_layout::get_layout_info_with_constraint(
         root,
         instance_ref,
-        &instance_ref.window_adapter(),
+        &window_adapter,
         orientation,
         cross_axis_constraint,
     );
@@ -2681,18 +2686,11 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
     }
 
     pub fn window_adapter(&self) -> WindowAdapterRc {
-        let root_weak = vtable::VWeak::into_dyn(self.root_weak().clone());
-        let root = self.root_weak().upgrade().unwrap();
-        generativity::make_guard!(guard);
-        let comp = root.unerase(guard);
-        Self::get_or_init_window_adapter_ref(
-            &comp.description,
-            root_weak,
-            true,
-            comp.instance.as_pin_ref().get_ref(),
-        )
-        .unwrap()
-        .clone()
+        self.try_window_adapter().unwrap()
+    }
+
+    pub fn try_window_adapter(&self) -> Result<WindowAdapterRc, PlatformError> {
+        self.root_weak().upgrade().unwrap().window_adapter_ref().cloned()
     }
 
     pub fn get_or_init_window_adapter_ref<'b, 'id2>(
@@ -2797,7 +2795,6 @@ pub fn show_popup(
     parent_item: &ItemRc,
 ) {
     generativity::make_guard!(guard);
-    let debug_handler = instance.description.debug_handler.borrow().clone();
 
     // FIXME: we should compile once and keep the cached compiled component
     let compiled = generate_item_tree(
@@ -2807,15 +2804,15 @@ pub fn show_popup(
         false,
         guard,
     );
-    compiled.recursively_set_debug_handler(debug_handler);
 
     let extra_data = instance.description.extra_data_offset.apply(instance.as_ref());
     // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one.
     // Tooltips skip this to share the parent's adapter, ensuring they use the ChildWindow path
     // and renderer caches stay consistent.
-    let globals = if !popup.is_tooltip
-        && let Some(window_adapter) =
-            WindowInner::from_pub(parent_window_adapter.window()).create_popup_window_adapter()
+    let window_kind = if popup.is_tooltip { WindowKind::ToolTip } else { WindowKind::Popup };
+    let globals = if let Some(window_adapter) =
+        WindowInner::from_pub(parent_window_adapter.window())
+            .create_child_window_adapter(window_kind)
     {
         extra_data.globals.get().unwrap().clone_with_window_adapter(window_adapter)
     } else {
@@ -2827,6 +2824,9 @@ pub fn show_popup(
         .and_then(|window_adapter| window_adapter.get().cloned())
         .unwrap_or_else(|| parent_window_adapter.clone());
 
+    // Keep a weak handle to the parent before `parent_comp` is moved into `instantiate`, so the
+    // is-open setter (built below) can re-derive the parent instance when the popup closes.
+    let parent_comp_weak = popup.is_open.is_some().then(|| parent_comp.clone());
     let inst = instantiate(
         compiled,
         Some(parent_comp),
@@ -2842,17 +2842,39 @@ pub fn show_popup(
         pos_getter(instance_ref)
     });
     close_popup(element.clone(), instance, parent_window_adapter.clone());
-    instance.description.popup_ids.borrow_mut().insert(
-        element.borrow().id.clone(),
-        WindowInner::from_pub(parent_window_adapter.window()).show_popup(
-            &vtable::VRc::into_dyn(inst.clone()),
-            access_position,
-            close_policy,
-            parent_item,
-            popup.is_tooltip,
-            false,
-        ),
+    let window_kind = if popup.is_tooltip { WindowKind::ToolTip } else { WindowKind::Popup };
+    // Keep the parent's `is-open` property in sync: `show_popup` invokes this with `true` now and with
+    // `false` from every close path. Passing it directly into `show_popup` avoids an extra registration
+    // call and a second popup lookup. Popups without `is-open` get a no-op setter.
+    let is_open_setter: Box<dyn Fn(bool)> =
+        if let (Some(is_open), Some(parent_comp_weak)) = (&popup.is_open, parent_comp_weak) {
+            let is_open_element = is_open.element();
+            let is_open_name = is_open.name().to_string();
+            Box::new(move |value: bool| {
+                if let Some(parent) = parent_comp_weak.upgrade() {
+                    generativity::make_guard!(guard);
+                    let compo_box = parent.unerase(guard);
+                    let instance_ref = compo_box.borrow_instance();
+                    let _ = crate::eval::store_property(
+                        instance_ref,
+                        &is_open_element,
+                        &is_open_name,
+                        Value::Bool(value),
+                    );
+                }
+            })
+        } else {
+            Box::new(|_| {})
+        };
+    let popup_id = WindowInner::from_pub(parent_window_adapter.window()).show_popup(
+        &vtable::VRc::into_dyn(inst.clone()),
+        access_position,
+        close_policy,
+        parent_item,
+        window_kind,
+        is_open_setter,
     );
+    instance.description.popup_ids.borrow_mut().insert(element.borrow().id.clone(), popup_id);
     inst.run_setup_code();
 }
 

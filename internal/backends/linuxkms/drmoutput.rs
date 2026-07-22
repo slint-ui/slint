@@ -159,7 +159,11 @@ impl DrmOutput {
                     std::process::exit(1);
                 }
                 let mode_index: usize =
-                    mode_str.parse().map_err(|_| format!("Invalid mode index {mode_str}"))?;
+                    mode_str.parse().map_err(|_| {
+                        format!(
+                            "Invalid SLINT_DRM_MODE value '{mode_str}': expected a mode index or 'list' to list the available modes"
+                        )
+                    })?;
                 modes_and_index.nth(mode_index).map_or_else(
                     || Err(format!("Mode index is out of bounds: {mode_index}")),
                     |(_, mode)| Ok(mode),
@@ -313,31 +317,7 @@ impl DrmOutput {
         ((clock * 1_000_000 + (htotal * vtotal) / 2) / (htotal * vtotal)) as u32
     }
 
-    #[cfg(skia_wgpu_28)]
-    /// Creates a wgpu-28 DRM surface target from this output.
-    pub fn wgpu_28_surface_target(
-        &self,
-    ) -> Result<
-        (i_slint_core::graphics::wgpu_28::SurfaceTarget, i_slint_core::api::PhysicalSize),
-        PlatformError,
-    > {
-        use i_slint_core::graphics::wgpu_28::wgpu;
-        use std::os::fd::AsRawFd;
-        let plane = self.find_compatible_plane()?;
-        let (width, height) = self.size();
-        let target =
-            i_slint_core::graphics::wgpu_28::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
-                fd: self.drm_device.as_fd().as_raw_fd(),
-                plane: plane.handle().into(),
-                connector_id: self.connector.handle().into(),
-                width,
-                height,
-                refresh_rate: self.refresh_rate_millihertz(),
-            });
-        Ok((target, i_slint_core::api::PhysicalSize::new(width, height)))
-    }
-
-    #[cfg(any(feature = "unstable-wgpu-29", feature = "renderer-femtovg-wgpu"))]
+    #[cfg(skia_wgpu_29)]
     /// Creates a wgpu-29 DRM surface target from this output.
     pub fn wgpu_29_surface_target(
         &self,
@@ -351,6 +331,30 @@ impl DrmOutput {
         let (width, height) = self.size();
         let target =
             i_slint_core::graphics::wgpu_29::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
+                fd: self.drm_device.as_fd().as_raw_fd(),
+                plane: plane.handle().into(),
+                connector_id: self.connector.handle().into(),
+                width,
+                height,
+                refresh_rate: self.refresh_rate_millihertz(),
+            });
+        Ok((target, i_slint_core::api::PhysicalSize::new(width, height)))
+    }
+
+    #[cfg(any(feature = "unstable-wgpu-30", feature = "renderer-femtovg-wgpu"))]
+    /// Creates a wgpu-30 DRM surface target from this output.
+    pub fn wgpu_30_surface_target(
+        &self,
+    ) -> Result<
+        (i_slint_core::graphics::wgpu_30::SurfaceTarget, i_slint_core::api::PhysicalSize),
+        PlatformError,
+    > {
+        use i_slint_core::graphics::wgpu_30::wgpu;
+        use std::os::fd::AsRawFd;
+        let plane = self.find_compatible_plane()?;
+        let (width, height) = self.size();
+        let target =
+            i_slint_core::graphics::wgpu_30::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
                 fd: self.drm_device.as_fd().as_raw_fd(),
                 plane: plane.handle().into(),
                 connector_id: self.connector.handle().into(),

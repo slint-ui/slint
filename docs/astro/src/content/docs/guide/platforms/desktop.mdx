@@ -29,7 +29,7 @@ When running the application from the command line, if the subsystem is set to w
 See more details at [#3235](https://github.com/slint-ui/slint/issues/3235)
 
 <Tabs syncKey="dev-language">
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 
 Add the code to the top of .rs file which contains `fn main()`:
 
@@ -43,7 +43,7 @@ Or if you want to keep console output in debug mode:
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 ```
 </TabItem>
-<TabItem label="C++">
+<TabItem label="C++" icon="seti:cpp">
 
 
 Select the `WINDOWS` subsystem by setting the [`WIN32_EXECUTABLE`](https://cmake.org/cmake/help/latest/prop_tgt/WIN32_EXECUTABLE.html#prop_tgt:WIN32_EXECUTABLE) target property on your executable target:
@@ -55,7 +55,7 @@ set_property(TARGET my_program APPEND PROPERTY WIN32_EXECUTABLE TRUE)
 
 </TabItem>
 
-<TabItem label="Python">
+<TabItem label="Python" icon="seti:python">
 Change the extension of your Python script from `.py` to `.pyw`, the default Python interpreter associated with
 Python files will launch without a console window. Alternatively, use `pythonw.exe` instead of `python.exe` to launch
 your Python script.

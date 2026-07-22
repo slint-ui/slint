@@ -17,8 +17,28 @@ pub mod key_codes;
 pub mod sharedfontique;
 
 pub mod styled_text;
+pub mod unicode_utils;
 
 pub const DEFAULT_DECIMAL_SEPARATOR: char = '.';
+
+/// Formats a float the way Slint converts it to a string, before the locale's
+/// decimal separator is substituted.
+///
+/// Both the runtime conversion and the compiler's constant folding use this,
+/// so they can't diverge.
+pub struct FormattedNumber(pub f64);
+
+impl core::fmt::Display for FormattedNumber {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // Number from which the increment of f32 is 1, so that we print enough precision
+        // to be able to represent all integers
+        if self.0.abs() < 16777216. {
+            write!(f, "{}", self.0 as f32)
+        } else {
+            write!(f, "{}", self.0)
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct TranslationsBundled {
@@ -99,6 +119,21 @@ pub const MENU_SEPARATOR_PLACEHOLDER_TITLE: &str = "\u{E001}⸺";
 /// Use the value 65536, so it's outside u16 range and not as likely as -1
 /// (we can catch it as a literal at compile time, but not if it's a runtime value)
 pub const ROW_COL_AUTO: f32 = u16::MAX as f32 + 1.;
+
+#[test]
+fn test_formatted_number() {
+    let format = |n: f64| alloc::format!("{}", FormattedNumber(n));
+    assert_eq!(format(45.), "45");
+    assert_eq!(format(45.12), "45.12");
+    assert_eq!(format(-1325466.), "-1325466");
+    assert_eq!(format(0.), "0");
+    assert_eq!(format(16777216.), "16777216");
+    assert_eq!(format(16777217.), "16777217");
+    assert_eq!(format(-16777217.), "-16777217");
+    assert_eq!(format(16777215.5), "16777216");
+    assert_eq!(format(-16777215.5), "-16777216");
+    assert_eq!(format(f64::NAN), "NaN");
+}
 
 #[cfg(all(test, feature = "locale-decimal-separator"))]
 mod tests {

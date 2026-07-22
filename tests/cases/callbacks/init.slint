@@ -6,37 +6,37 @@
 
 import { ExportedGlobal } from "../../helper_components/export_globals.slint";
 
-export global InitOrder := {
-    property <string> observed-order: "start";
+export global InitOrder  {
+    in-out property <string> observed-order: "start";
 }
 
-Sub1 := Rectangle {
+component Sub1 inherits Rectangle {
     init => {
         InitOrder.observed-order += "|sub1";
     }
 }
 
-Sub2 := Rectangle {
+component Sub2 inherits Rectangle {
     init => {
         InitOrder.observed-order += "|sub2";
     }
 }
 
-SubSub := Rectangle {
+component SubSub inherits Rectangle {
     init => {
         InitOrder.observed-order += "|subsub";
     }
 }
 
-Sub3 := Rectangle {
-    property <string> some-value: "should-not-show-up";
+component Sub3 inherits Rectangle {
+    in-out property <string> some-value: "should-not-show-up";
     init => {
         InitOrder.observed-order += some-value;
     }
     SubSub {}
 }
 
-Container := Rectangle {
+component Container inherits Rectangle {
     in property <string> name-inside: "container";
     init => {
         InitOrder.observed-order += "|" + self.name-inside;
@@ -44,15 +44,15 @@ Container := Rectangle {
     @children
 }
 
-InsideRepeater := Rectangle {
-    property <int> index;
+component InsideRepeater inherits Rectangle {
+    in-out property <int> index;
     init => {
         InitOrder.observed-order += "(i" + self.index + ")";
     }
     @children
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 300phx;
     init => {
@@ -98,10 +98,10 @@ TestCase := Rectangle {
         Rectangle {}
     }
 
-    property <string> test_global_prop_value: InitOrder.observed-order;
+    in-out property <string> test_global_prop_value: InitOrder.observed-order;
 
-    property <string> expected_static_order: "start|sub1|sub2|subsub|sub3|container|root|sub1-use-site|container-instantiation|element";
-    property <string> expected_full_order: expected_static_order + "|repeater0(i0)|repeater1(i1)";
+    in-out property <string> expected_static_order: "start|sub1|sub2|subsub|sub3|container|root|sub1-use-site|container-instantiation|element";
+    in-out property <string> expected_full_order: expected_static_order + "|repeater0(i0)|repeater1(i1)";
 
     out property <bool> test: InitOrder.observed-order == expected_full_order;
 }

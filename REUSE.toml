@@ -50,8 +50,9 @@ path = [
   "Cargo.lock",
   "flake.nix",
   "flake.lock",
-  "examples/bevy/Cargo.lock",
-  "examples/servo/Cargo.lock",
+  "examples/Cargo.lock",
+  "demos/Cargo.lock",
+  "tests/Cargo.lock",
   "REUSE.toml",
   "biome.json",
   "knip.json",
@@ -75,9 +76,6 @@ path = [
   ".github/ISSUE_TEMPLATE/3-tracking-issue.md",
   ".github/pull_request_template.md",
 
-  "api/cpp/docs/**/**.css",
-  "api/cpp/docs/**/**.md",
-  "api/cpp/docs/**/**.html",
   "api/cpp/tests/redpixel.png",
 
   "demos/**.md",
@@ -163,11 +161,9 @@ path = [
   "ui-libraries/material/docs/src/config.yaml",
   "ui-libraries/material/examples/gallery/ui/themes/**.json",
 
-  ".claude-plugin/*.json",
-  ".cursor-plugin/*.json",
-  "skills/.claude-plugin/*.json",
-  "skills/.cursor-plugin/*.json",
-  "skills/**/SKILL.md",
+  "ai-plugins/.claude-plugin/*.json",
+  "ai-plugins/.cursor-plugin/*.json",
+  "ai-plugins/**/*.md",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -183,7 +179,7 @@ path = [
 
   "editors/**.md",
   "editors/sublime/LSP.sublime-settings",
-  "editors/tree-sitter-slint/corpus/**.txt",
+  "editors/tree-sitter-slint/test/corpus/**.txt",
   "editors/tree-sitter-slint/tree-sitter.json",
   "editors/vscode/**.json",
   "editors/vscode/css/**.css",
@@ -198,6 +194,9 @@ path = [
   "tools/figma-inspector/**.json",
   "tools/figma-inspector/**.html",
   "tools/figma-inspector/**.css",
+  "tools/viewer/TestFlight/WhatToTest.en-US.txt",
+  "tools/viewer/android/fastlane/metadata/android/**.txt",
+  "tools/viewer/android/fastlane/metadata/android/**.png",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -238,6 +237,7 @@ path = [
   "tools/lsp/ui/assets/library.svg",
   "tools/lsp/ui/assets/list-tree.svg",
   "tools/lsp/ui/assets/settings.svg",
+  "tools/viewer/remote/assets/**.svg",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Codicon Icons <https://github.com/microsoft/vscode-codicons/>"
@@ -329,4 +329,16 @@ SPDX-License-Identifier = "CC-BY-4.0"
 path = ["examples/bevy/bevy-hosts-slint/**.gltf"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright (c) 2024 e-verse"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["examples/**/android/**/gradle-wrapper.properties"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
+path = ["demos/**/android/**/gradle-wrapper.properties"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"

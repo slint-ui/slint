@@ -38,7 +38,7 @@ fn eval_expression(
 
     match expression {
         Expression::StringLiteral(s) => Value::String(s.as_str().into()),
-        Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
+        Expression::NumberLiteral(n, _unit) => Value::Number(*n),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::StructFieldAccess { base, name } => {
             if let Value::Struct(o) = eval_expression(
@@ -229,19 +229,32 @@ fn eval_expression(
                 ),
             ))
         }
-        Expression::RadialGradient { stops } => Value::Brush(slint::Brush::RadialGradient(
-            i_slint_core::graphics::RadialGradientBrush::new_circle(stops.iter().map(
-                |(color, stop)| {
+        Expression::RadialGradient { stops, center, radius } => {
+            let mut gradient = i_slint_core::graphics::RadialGradientBrush::new_circle(
+                stops.iter().map(|(color, stop)| {
                     let color =
                         eval_expression(color, local_context, None).try_into().unwrap_or_default();
                     let position =
                         eval_expression(stop, local_context, None).try_into().unwrap_or_default();
                     i_slint_core::graphics::GradientStop { color, position }
-                },
-            )),
-        )),
-        Expression::ConicGradient { from_angle, stops } => Value::Brush(
-            slint::Brush::ConicGradient(i_slint_core::graphics::ConicGradientBrush::new(
+                }),
+            );
+            if let Some((cx, cy)) = center {
+                let cx: f32 =
+                    eval_expression(cx, local_context, None).try_into().unwrap_or_default();
+                let cy: f32 =
+                    eval_expression(cy, local_context, None).try_into().unwrap_or_default();
+                gradient = gradient.with_center(cx, cy);
+            }
+            if let Some(radius) = radius {
+                let r: f32 =
+                    eval_expression(radius, local_context, None).try_into().unwrap_or_default();
+                gradient = gradient.with_radius(r);
+            }
+            Value::Brush(slint::Brush::RadialGradient(gradient))
+        }
+        Expression::ConicGradient { from_angle, stops, center } => {
+            let mut gradient = i_slint_core::graphics::ConicGradientBrush::new(
                 eval_expression(from_angle, local_context, None).try_into().unwrap_or_default(),
                 stops.iter().map(|(color, stop)| {
                     let color =
@@ -250,8 +263,16 @@ fn eval_expression(
                         eval_expression(stop, local_context, None).try_into().unwrap_or_default();
                     i_slint_core::graphics::GradientStop { color, position }
                 }),
-            )),
-        ),
+            );
+            if let Some((cx, cy)) = center {
+                let cx: f32 =
+                    eval_expression(cx, local_context, None).try_into().unwrap_or_default();
+                let cy: f32 =
+                    eval_expression(cy, local_context, None).try_into().unwrap_or_default();
+                gradient = gradient.with_center(cx, cy);
+            }
+            Value::Brush(slint::Brush::ConicGradient(gradient))
+        }
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
         }
@@ -415,6 +436,11 @@ fn handle_builtin_function(
                 eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
             let precision: usize = precision.max(0) as usize;
             Value::String(i_slint_core::string::shared_string_from_number_precision(n, precision))
+        }
+        BuiltinFunction::ToStringUnlocalized => {
+            let n: f64 =
+                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
+            Value::String(i_slint_core::string::shared_string_from_number_unlocalized(n))
         }
         BuiltinFunction::StringIsFloat => {
             if arguments.len() != 1 {
@@ -620,6 +646,59 @@ fn handle_builtin_function(
                 Value::Model(model) => Value::Number(model.row_count() as f64),
                 _ => Value::Void,
             }
+        }
+        BuiltinFunction::ArrayPush => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ArrayPush")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context, None) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let value = eval_expression(&arguments[1], local_context, None);
+
+            model.push_row(value);
+
+            Value::Void
+        }
+        BuiltinFunction::ArrayRemove => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ArrayRemove")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context, None) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+
+            let index = match eval_expression(&arguments[1], local_context, None) {
+                Value::Number(i) => i,
+                _ => panic!("Second argument not an integer: {:?}", arguments[1]),
+            };
+
+            model.remove_row(index as isize);
+
+            Value::Void
+        }
+        BuiltinFunction::ArrayInsert => {
+            if arguments.len() != 3 {
+                panic!("internal error: incorrect argument count to ArrayInsert")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context, None) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let index = match eval_expression(&arguments[1], local_context, None) {
+                Value::Number(i) => i,
+                _ => panic!("Second argument not an integer: {:?}", arguments[1]),
+            };
+
+            let value = eval_expression(&arguments[2], local_context, None);
+            model.insert_row(index as isize, value);
+
+            Value::Void
         }
         BuiltinFunction::Rgb => {
             let r: i32 =

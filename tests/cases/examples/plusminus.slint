@@ -1,15 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Btn := Rectangle {
-    property<string> button_text;
+component Btn inherits Rectangle {
+    in-out property<string> button_text;
     callback clicked;
     width: 100phx;
     height: 75phx;
     TouchArea {
+        x:0;y:0;
         width: 100phx;
         height: 75phx;
-        clicked => { root.clicked() }
+        clicked => { clicked() }
     }
     Text {
         x: 50phx;
@@ -19,12 +20,12 @@ Btn := Rectangle {
     }
 }
 
-PlusMinus := Rectangle {
+component PlusMinus inherits Rectangle {
     width: 100phx;
     height: 300phx;
     background: white;
 
-    property<int> counter;
+    in-out property<int> counter;
 
     GridLayout {
         Row {

@@ -14,7 +14,9 @@ export interface ValidInterfacePropertyDeclarations {
     in_out property <angle> in-out-underscore-property;
 }
 
-export component ComponentWithDuplicateProperty implements ValidInterfacePropertyDeclarations {
+export component ComponentWithDuplicateProperty {
+    implement ValidInterfacePropertyDeclarations <=> self;
+
     out property <string> out-property;
 //  >                                 <error{Conflict with 'ValidInterfacePropertyDeclarations' which declares a property with the same name}
 }
@@ -24,6 +26,38 @@ export interface Background {
     callback clip();
 }
 
-export component MyComponent implements Background inherits Rectangle { }
-//                                      >         <error{Cannot implement interface 'Background' because 'background' conflicts with an existing property in 'Rectangle'}
-//                                      >         <^error{Cannot implement interface 'Background' because 'clip' conflicts with an existing property in 'Rectangle'}
+export component MyComponent inherits Rectangle {
+    implement Background <=> self;
+//            >         <error{Cannot implement interface 'Background' because 'background' conflicts with an existing property in 'Rectangle'}
+//            >         <^error{Cannot implement interface 'Background' because 'clip' conflicts with an existing property in 'Rectangle'}
+}
+
+export interface InterfaceWithDefaultPropertyValues {
+    in property <int> in-property: 42;
+//                                 > <error{Interface properties cannot have default values}
+    out property <string> out-property: "Hello World";
+//                                      >            <error{Interface properties cannot have default values}
+
+    in-out property <angle> in-out-property: 90deg;
+//                                           >    <error{Interface properties cannot have default values}
+}
+
+export interface InterfaceWithDefaultPropertyBindings {
+    in property <int> in-property;
+    out property <int> out-property <=> self.in-property;
+//                                  >                   <error{Interface properties cannot have default bindings}
+}
+
+export interface InterfaceWithDefaultBindings {
+    in property <int> in-property;
+    out property <int> out-property;
+    out-property: self.in-property;
+//  >                             <error{An interface cannot have bindings}
+}
+
+export interface InterfaceWithDefaultTwoWayBindings {
+    in property <int> in-property;
+    out property <int> out-property;
+    out-property <=> self.in-property;
+//  >                                <error{An interface cannot have two-way bindings}
+}

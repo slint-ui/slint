@@ -220,8 +220,6 @@ export component StandardTableView {
                     Text {
                         vertical-alignment: center;
                         text: column.title;
-                        font-weight: CosmicFontSettings.body.font-weight;
-                        font-size: CosmicFontSettings.body.font-size;
                         color: CosmicPalette.foreground;
                         overflow: elide;
                     }
@@ -261,8 +259,6 @@ export component StandardTableView {
                             overflow: elide;
                             vertical-alignment: center;
                             text: cell.text;
-                            font-weight: CosmicFontSettings.body.font-weight;
-                            font-size: CosmicFontSettings.body.font-size;
                             color: mod(idx, 2) == 0 ? CosmicPalette.control-foreground : CosmicPalette.foreground;
 
                             states [

@@ -1,7 +1,7 @@
 ;; Copyright © Luke. D Jones <luke@ljones.dev>
 ;; SPDX-License-Identifier: MIT
 
-(comment) @comment @spell
+[(line_comment) (block_comment)] @comment @spell
 
 ; Different types:
 (string_value) @string @spell
@@ -75,6 +75,9 @@
 (function_definition
   name: (_) @function)
 
+(function_declaration
+  name: (_) @function)
+
 (struct_definition
   name: (_) @type)
 
@@ -133,23 +136,20 @@
 (property
   name: (simple_identifier) @property)
 
-(binding_alias
-  name: (simple_identifier) @property)
-
-(binding
-  name: (simple_identifier) @property)
-
-(struct_block
-  (simple_identifier) @variable.member)
-
-(anon_struct_block
-  (simple_identifier) @variable.member)
-
 (property_assignment
   property: (simple_identifier) @property)
 
-(states_definition
-  name: (simple_identifier) @variable)
+(binding_alias
+  name: (simple_identifier) @property)
+
+(struct_field_definition
+  name: (simple_identifier) @variable.member)
+
+(anon_struct_assignment
+  member: (simple_identifier) @variable.member)
+
+(property_assignment
+  property: (simple_identifier) @property)
 
 (callback
   name: (simple_identifier) @variable)
@@ -169,8 +169,9 @@
     (expression
       (simple_identifier) @property))
 
-(states_definition
-  name: (simple_identifier) @constant)
+(state_definition
+  name: (simple_identifier) @constant
+  "when" @keyword)
 
 ; Attributes:
 [
@@ -186,10 +187,32 @@
 (tr
   "@tr" @attribute)
 
+(rust_attr
+  "@rust-attr" @attribute)
+
+(keys
+  "@keys" @attribute)
+
+(markdown
+  "@markdown" @attribute)
+
+(keys
+  (simple_identifier) @constant)
+
+(keys
+  "+" @operator)
+
 ; Keywords:
 (animate_option_identifier) @keyword
 
-(export) @keyword
+(export_statement
+  "export" @keyword)
+
+(exported_definition
+  "export" @keyword)
+
+(export_type
+  "as" @keyword)
 
 (if_statement
   "if" @keyword.conditional)
@@ -209,14 +232,29 @@
 (animate_statement
   "animate" @keyword)
 
+(gradient_call
+  [
+    "at"
+    "from"
+  ] @keyword)
+
 (callback
   "callback" @keyword)
 
+(changed_event
+  "changed" @keyword)
+
 (component_definition
-  [
-    "component"
-    "inherits"
-  ] @keyword)
+  "component" @keyword)
+
+(component_modifier
+  "inherits" @keyword)
+
+(interface_definition
+  "interface" @keyword)
+
+(implement_statement
+  "implement" @keyword)
 
 (enum_definition
   "enum" @keyword)
@@ -230,10 +268,18 @@
 (function_definition
   "function" @keyword.function)
 
+(function_declaration
+  "function" @keyword.function)
+
 (global_definition
   "global" @keyword)
 
-(imperative_block
+(let_statement
+  "let" @keyword
+  name: (_) @variable
+  "=" @operator)
+
+(return_statement
   "return" @keyword.return)
 
 (import_statement
@@ -249,10 +295,7 @@
   "property" @keyword)
 
 (states_definition
-  [
-    "states"
-    "when"
-  ] @keyword)
+  "states" @keyword)
 
 (struct_definition
   "struct" @keyword)

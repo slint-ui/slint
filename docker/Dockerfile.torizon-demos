@@ -9,7 +9,11 @@ ARG BASE_VERSION=4
 ARG BASE_NAME=wayland-base
 ARG BUILD_HOME_AUTOMATION_SW_RENDERER=false
 
-FROM torizon/cross-toolchain-$TOOLCHAIN_ARCH:${BASE_VERSION} AS build
+# The cross-toolchain image is multi-arch. Without an explicit platform,
+# `docker buildx build --platform linux/arm64` selects the arm64 variant and
+# runs the entire Rust build under QEMU emulation. Pin the build stage to the
+# build host's platform and cross-compile instead.
+FROM --platform=$BUILDPLATFORM torizon/cross-toolchain-$TOOLCHAIN_ARCH:${BASE_VERSION} AS build
 ARG TOOLCHAIN_ARCH
 ARG RUST_TOOLCHAIN_ARCH=aarch64-unknown-linux-gnu
 ARG BUILD_HOME_AUTOMATION_SW_RENDERER
@@ -25,6 +29,14 @@ RUN rustup target add $RUST_TOOLCHAIN_ARCH
 ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
 ENV CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc
 
+# pkg-config and bindgen need to find the target-architecture libraries and
+# headers when cross-compiling (see docker/Dockerfile.aarch64-unknown-linux-gnu).
+ENV PKG_CONFIG_PATH_aarch64_unknown_linux_gnu=/usr/lib/aarch64-linux-gnu/pkgconfig
+ENV PKG_CONFIG_PATH_armv7_unknown_linux_gnueabihf=/usr/lib/arm-linux-gnueabihf/pkgconfig
+ENV PKG_CONFIG_ALLOW_CROSS=1
+ENV BINDGEN_EXTRA_CLANG_ARGS_aarch64_unknown_linux_gnu=-I/usr/include
+ENV BINDGEN_EXTRA_CLANG_ARGS_armv7_unknown_linux_gnueabihf=-I/usr/include
+
 # Install Slint build dependencies for linuxkms backend
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes --allow-change-held-packages pkg-config libfontconfig1-dev:$TOOLCHAIN_ARCH libxkbcommon-dev:$TOOLCHAIN_ARCH libinput-dev:$TOOLCHAIN_ARCH libudev-dev:$TOOLCHAIN_ARCH libgbm-dev:$TOOLCHAIN_ARCH libdrm2:$TOOLCHAIN_ARCH libdrm2- libdrm-amdgpu1- python3 clang libstdc++-11-dev:$TOOLCHAIN_ARCH ninja-build && \
@@ -33,28 +45,36 @@ RUN apt-get update && \
 # Build Demos
 COPY . /slint
 WORKDIR /slint
+# Each cargo invocation whose unified `slint` feature set differs from the
+# previous one recompiles the whole slint stack (i-slint-core and everything
+# above it), so keep the number of invocations minimal and their feature
+# unification identical: build all demos-workspace binaries (including the
+# launcher and home-automation) in a single invocation, and add slint/serde
+# so that the demos build unifies to the same feature set as the examples
+# build and both share the library artifacts via the common target directory.
 RUN mkdir demos_compiled \
-    && cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia,slint/backend-linuxkms-noseat \
-        -p printerdemo -p slide_puzzle -p gallery -p opengl_underlay -p carousel -p todo -p energy-monitor -p weather-demo \
-    && for demo in printerdemo slide_puzzle gallery opengl_underlay carousel todo energy-monitor weather-demo; do \
-        cp target/$RUST_TOOLCHAIN_ARCH/release/$demo ./demos_compiled/; \
-    done \
     && if [ "$BUILD_HOME_AUTOMATION_SW_RENDERER" = "true" ]; then \
-        cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia,slint/backend-linuxkms-noseat,home-automation/sw-renderer \
-            -p home-automation \
-        && cp target/$RUST_TOOLCHAIN_ARCH/release/home-automation ./demos_compiled/home-automation; \
+        HOME_AUTOMATION_FEATURES=",home-automation/sw-renderer"; \
     else \
-        cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia,slint/backend-linuxkms-noseat \
-            -p home-automation \
-        && cp target/$RUST_TOOLCHAIN_ARCH/release/home-automation ./demos_compiled/home-automation; \
-    fi
+        HOME_AUTOMATION_FEATURES=""; \
+    fi \
+    && cargo build --release --target $RUST_TOOLCHAIN_ARCH --manifest-path demos/Cargo.toml \
+        --features slint/renderer-skia,slint/backend-linuxkms-noseat,slint/serde,launcher/backend-linuxkms-noseat,launcher/renderer-skia$HOME_AUTOMATION_FEATURES \
+        -p printerdemo -p energy-monitor -p weather-demo -p home-automation -p launcher \
+    && cargo build --release --target $RUST_TOOLCHAIN_ARCH --manifest-path examples/Cargo.toml --features slint/renderer-skia,slint/backend-linuxkms-noseat \
+        -p slide_puzzle -p gallery -p opengl_underlay -p carousel -p todo \
+    && cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia,slint/backend-linuxkms-noseat \
+        -p slint-viewer \
+    && for demo in printerdemo slide_puzzle gallery opengl_underlay carousel todo energy-monitor weather-demo home-automation slint-demo-launcher slint-viewer; do \
+        cp target/$RUST_TOOLCHAIN_ARCH/release/$demo ./demos_compiled/; \
+    done
 
 # Create container for target
 FROM --platform=${IMAGE_ARCH} torizon/${BASE_NAME}:${BASE_VERSION} AS deploy
 ARG BUILD_HOME_AUTOMATION_SW_RENDERER
 
 LABEL org.opencontainers.image.source=https://github.com/slint-ui/slint
-LABEL org.opencontainers.image.description="Container image providing Slint demos for use on Torizon. Run with docker run  --user=torizon -v /run/udev:/run/udev -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' --device-cgroup-rule='c 13:* rmw' --device-cgroup-rule='c 4:* rmw'. Available demos: printerdemo slide_puzzle gallery opengl_underlay carousel todo"
+LABEL org.opencontainers.image.description="Container image providing Slint demos for use on Torizon. Run with docker run  --user=torizon -v /run/udev:/run/udev -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' --device-cgroup-rule='c 13:* rmw' --device-cgroup-rule='c 4:* rmw'. Available demos: printerdemo slide_puzzle gallery opengl_underlay carousel todo energy-monitor weather-demo home-automation. The demo launcher (slint-demo-launcher) shows a menu of the installed demos, and slint-viewer is included for its remote live-preview entry."
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install libfontconfig1 libxkbcommon0 libinput10 fonts-noto-core fonts-noto-cjk fonts-noto-cjk-extra fonts-noto-color-emoji fonts-noto-ui-core fonts-noto-ui-extra \

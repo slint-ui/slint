@@ -12,6 +12,12 @@ on:
         required: false
         description: "Release? If false, publish to test.pypi.org, if true, publish to pypi.org"
 
+env:
+  # Use fat LTO for the published Python wheels: smaller size and better runtime perf.
+  # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+  CARGO_PROFILE_RELEASE_LTO: "fat"
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+
 jobs:
   build-wheels:
     name: Build wheels on ${{ matrix.os }}
@@ -28,7 +34,7 @@ jobs:
             macos-14,
           ]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-rust
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -44,7 +50,7 @@ jobs:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
       - name: Build sdist
         run: uv build --sdist -o dist tools/compiler

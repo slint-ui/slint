@@ -77,7 +77,7 @@ export component MyApp inherits Window {
 }
 ```
 
-:::note{Note}
+:::note[Note]
 Names have to be valid [identifiers](#identifiers).
 :::
 
@@ -105,7 +105,7 @@ Single line comments are denoted by `//` and are terminated by a new line.
 
 ### Multi Line Comments
 
-Multi line comments are denoted by `/*` and `*/` and are terminated by a new line.
+Multi line comments are denoted by `/*` and `*/`, and can span multiple lines.
 
 ```slint
 /*
@@ -344,19 +344,7 @@ Use one of the following methods to help the Slint compiler resolve libraries to
 path on disk:
 
 <Tabs syncKey="dev-language">
-<TabItem label="C++">
-* Specify `LIBRARY_PATHS` with <LangRefLink lang="cpp" relpath="cmake_reference#slint-target-sources">`slint_target_sources`</LangRefLink>. For example:
-
-```cmake
-slint_target_sources(my_application
-    ui/main.slint
-    LIBRARY_PATHS
-        material=${CMAKE_CURRENT_SOURCE_DIR}/material-1.0/material.slint
-)
-```
-
-</TabItem>
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 * In `build.rs`, call <LangRefLink lang="rust-slint-build" relpath="struct.CompilerConfiguration#method.with_library_paths">`with_library_paths`</LangRefLink>
   to provide a mapping from library name to path. For example:
 
@@ -374,8 +362,20 @@ fn main() {
 ```
 
 </TabItem>
-<TabItem label="NodeJS">
-* Provide the `libraryPaths` map with <LangRefLink lang="nodejs" relpath="functions/loadFile">`loadFile`</LangRefLink> in `LoadFileOptions`. For example:
+<TabItem label="C++" icon="seti:cpp">
+* Specify `LIBRARY_PATHS` with <LangRefLink lang="cpp" relpath="cmake-reference/slint-target-sources/">`slint_target_sources`</LangRefLink>. For example:
+
+```cmake
+slint_target_sources(my_application
+    ui/main.slint
+    LIBRARY_PATHS
+        material=${CMAKE_CURRENT_SOURCE_DIR}/material-1.0/material.slint
+)
+```
+
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+* Provide the `libraryPaths` map with <LangRefLink lang="nodejs" relpath="api/functions/loadFile/">`loadFile`</LangRefLink> in `LoadFileOptions`. For example:
 
 ```javascript
 let ui = slint.loadFile("/path/to/main.slint", {
@@ -386,8 +386,8 @@ let ui = slint.loadFile("/path/to/main.slint", {
 ```
 
 </TabItem>
-<TabItem label="Python">
-* Provide the `library_paths` dict with <LangRefLink lang="python" relpath="slint#load_file">`load_file`</LangRefLink>. For example:
+<TabItem label="Python" icon="seti:python">
+* Provide the `library_paths` dict with <LangRefLink lang="python" relpath="api/functions/load_file/">`load_file`</LangRefLink>. For example:
 
 ```python
 ui = slint.load_file(

@@ -3,12 +3,13 @@
 
 use i_slint_core::input::Keys;
 
-/// Represents a key binding created by the `@keys(...)` macro in Slint.
+/// `Keys` represent a key combined with a list of modifiers (the `keys` type in the Slint language).
 ///
-/// This is an opaque type — instances are only obtained from Slint properties.
+/// To construct a `Keys` instance from JavaScript, use the `Keys.fromParts()` method.
+///
 /// Use `toString()` to get a platform-native representation of the key binding
 /// (e.g. "Ctrl+A" on Linux/Windows, "⌘A" on macOS).
-#[napi]
+#[napi(js_name = "Keys")]
 pub struct SlintKeys {
     pub(crate) inner: Keys,
 }
@@ -23,7 +24,7 @@ impl From<Keys> for SlintKeys {
 impl SlintKeys {
     /// Create a `Keys` from a list of string parts, e.g. `["Control", "Shift?", "Z"]`.
     ///
-    /// Each element is either a modifier name or a key name. Throws on parse failure.
+    /// Each element is either a modifier name or a key name. Throws an error on parse failure.
     #[napi(factory)]
     pub fn from_parts(parts: Vec<String>) -> napi::Result<Self> {
         Keys::from_parts(parts.iter().map(|s| s.as_str()))

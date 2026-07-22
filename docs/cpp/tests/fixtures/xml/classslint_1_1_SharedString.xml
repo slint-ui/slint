@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<!-- SPDX-FileCopyrightText: Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<!-- cSpell:ignore briefdescription classslint compounddef compoundname declname detaileddescription refid templateparamlist -->
+<!-- Carries a templateparamlist (not true of the real SharedString) purely to
+     exercise rendering of the template declaration line. -->
+<doxygen version="1.9.8">
+  <compounddef id="classslint_1_1_SharedString" kind="class" language="C++" prot="public">
+    <compoundname>slint::SharedString</compoundname>
+    <includes refid="slint__string_8h" local="no">slint_string.h</includes>
+    <templateparamlist>
+      <param>
+        <type>typename</type>
+        <declname>T</declname>
+      </param>
+    </templateparamlist>
+    <briefdescription><para>A reference-counted, UTF-8 encoded string.</para></briefdescription>
+    <detaileddescription></detaileddescription>
+  </compounddef>
+</doxygen>

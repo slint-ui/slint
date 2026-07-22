@@ -2,17 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use pyo3::prelude::*;
-use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 
 /// Python wrapper for Slint's `styled-text` type.
-#[gen_stub_pyclass]
 #[pyclass(name = "StyledText", skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyStyledText {
     pub styled_text: i_slint_core::styled_text::StyledText,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyStyledText {
     /// Creates empty styled text.

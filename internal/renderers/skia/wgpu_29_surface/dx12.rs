@@ -4,7 +4,7 @@
 use windows::Win32::Graphics::Direct3D12::{D3D12_RESOURCE_STATE_PRESENT, ID3D12Resource};
 use windows::Win32::Graphics::Dxgi::Common::DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN;
 use windows::Win32::Graphics::Dxgi::Common::{
-    DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+    DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
 };
 
 use wgpu_29 as wgpu;
@@ -65,6 +65,9 @@ pub unsafe fn make_dx12_surface(
             wgpu::TextureFormat::Rgba8UnormSrgb => {
                 (DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, skia_safe::ColorType::SRGBA8888)
             }
+            wgpu::TextureFormat::Bgra8Unorm => {
+                (DXGI_FORMAT_B8G8R8A8_UNORM, skia_safe::ColorType::BGRA8888)
+            }
             _ => return None,
         };
         wrap_dx12_texture(
@@ -95,6 +98,7 @@ pub unsafe fn import_dx12_texture(
         let color_type = match dxgi_texture_format {
             DXGI_FORMAT_R8G8B8A8_UNORM => skia_safe::ColorType::RGBA8888,
             DXGI_FORMAT_R8G8B8A8_UNORM_SRGB => skia_safe::ColorType::SRGBA8888,
+            DXGI_FORMAT_B8G8R8A8_UNORM => skia_safe::ColorType::BGRA8888,
             _ => return None,
         };
 

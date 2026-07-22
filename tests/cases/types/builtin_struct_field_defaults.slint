@@ -1,0 +1,80 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Builtin structs can declare field default values in builtin_structs.rs;
+// InputMethodHints declares auto-correct and auto-complete as true,
+// and capitalization as sentences.
+
+export component TestCase {
+    ti := TextInput {}
+
+    // A property that is never set is initialized with the declared defaults
+    in-out property <InputMethodHints> never-set;
+    // Missing fields in a struct literal take the declared defaults
+    in-out property <InputMethodHints> partial: { capitalization: CapitalizationMode.words };
+    in-out property <InputMethodHints> opt-out: { auto-correct: false, auto-complete: false };
+
+    out property <bool> test:
+        never-set.auto-correct && never-set.auto-complete
+        && never-set.capitalization == CapitalizationMode.sentences
+        && partial.auto-correct && partial.auto-complete
+        && partial.capitalization == CapitalizationMode.words
+        && !opt-out.auto-correct && !opt-out.auto-complete
+        && opt-out.capitalization == CapitalizationMode.sentences
+        && ti.input-method-hints.auto-correct && ti.input-method-hints.auto-complete
+        && ti.input-method-hints.capitalization == CapitalizationMode.sentences;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+let hints = slint::language::InputMethodHints::default();
+assert!(hints.auto_correct);
+assert!(hints.auto_complete);
+assert_eq!(hints.capitalization, slint::language::CapitalizationMode::Sentences);
+
+// The struct is non-exhaustive, so custom values start from the defaults
+let mut custom = slint::language::InputMethodHints::default();
+custom.capitalization = slint::language::CapitalizationMode::Words;
+assert!(custom.auto_correct);
+assert!(custom.auto_complete);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+slint::language::InputMethodHints hints{};
+assert(hints.auto_correct);
+assert(hints.auto_complete);
+assert(hints.capitalization == slint::language::CapitalizationMode::Sentences);
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+
+let hints = slintlib.language.InputMethodHints();
+assert.equal(hints.auto_correct, true);
+assert.equal(hints.auto_complete, true);
+assert.equal(hints.capitalization, "sentences");
+
+let custom = slintlib.language.InputMethodHints({ capitalization: "words" });
+assert.equal(custom.auto_correct, true);
+assert.equal(custom.auto_complete, true);
+```
+
+```python
+instance = TestCase()
+assert instance.test
+
+import slint
+hints = slint.language.InputMethodHints()
+assert hints.auto_correct
+assert hints.auto_complete
+assert hints.capitalization == slint.language.CapitalizationMode.sentences
+```
+*/

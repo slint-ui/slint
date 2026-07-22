@@ -58,8 +58,8 @@ class MainWindow(slint.loader.kanban.MainWindow):
         if isinstance(event.data.user_data, DragPayload):
             # Our own card: accept whatever modifier the user is holding.
             return event.proposed_action
-        if event.data.has_plaintext:
-            # External plaintext drop: always treated as a copy.
+        if event.data.has_plain_text:
+            # External plain text drop: always treated as a copy.
             return DragAction.copy
         return DragAction.none
 
@@ -95,7 +95,7 @@ class MainWindow(slint.loader.kanban.MainWindow):
                 del self._columns[source][source_index]
                 self._columns[target_column].insert(target_index, payload.task)
         else:
-            text = event.data.fetch_plaintext()
+            text = event.data.plain_text
             if text is not None:
                 self._columns[target_column].insert(target_index, TaskData(title=text))
 

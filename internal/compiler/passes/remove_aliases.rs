@@ -5,6 +5,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference, TwoWayBinding};
+use crate::langtype::Type;
 use crate::object_tree::*;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, btree_map::Entry};
@@ -106,6 +107,42 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
     // and only the master property will keep its binding
     for set in property_sets.all_sets {
         let set = set.borrow();
+
+        // Globals are singletons, so a callback aliased across globals must have at most
+        // one implementation. More than one handler in the set is an ambiguous conflict.
+        // (For non-global elements multiple handlers are fine: instances legitimately
+        // override a base's handler, resolved below by binding priority.)
+        let implementers: Vec<NamedReference> = set
+            .iter()
+            .filter(|nr| {
+                if !matches!(nr.ty(), Type::Callback(..)) {
+                    return false;
+                }
+                let elem = nr.element();
+                let elem = elem.borrow();
+                elem.enclosing_component.upgrade().is_some_and(|c| c.is_global())
+                    && elem.bindings.get(nr.name()).is_some_and(|b| {
+                        !matches!(
+                            super::ignore_debug_hooks(&b.borrow().expression),
+                            Expression::Invalid
+                        )
+                    })
+            })
+            .cloned()
+            .collect();
+        if implementers.len() > 1 {
+            for nr in &implementers {
+                let elem = nr.element();
+                let elem = elem.borrow();
+                if let Some(b) = elem.bindings.get(nr.name()) {
+                    diag.push_error(
+                        format!("Callback '{}' is implemented in more than one global", nr.name()),
+                        &*b.borrow(),
+                    );
+                }
+            }
+        }
+
         let mut set_iter = set.iter();
         if let Some(mut best) = set_iter.next().cloned() {
             for candidate in set_iter {
@@ -128,7 +165,12 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
         })
     });
 
-    // Remove the properties
+    // Process the removal in a deterministic order to ensure that changed callbacks
+    // are always merged in the same order.
+    let mut aliases_to_remove = aliases_to_remove.into_iter().collect::<Vec<_>>();
+    aliases_to_remove.sort_by_cached_key(|(remove, _)| {
+        (remove.element().borrow().id.clone(), remove.name().clone())
+    });
     for (remove, to) in aliases_to_remove {
         let elem = remove.element();
         let to_elem = to.element();
@@ -153,6 +195,11 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
             &elem.borrow().enclosing_component,
             &to_elem.borrow().enclosing_component,
         );
+        // Globals are singletons, so a handler an aliasing global provides for another
+        // global's callback must be carried over to the master, just like within a component.
+        let both_global =
+            elem.borrow().enclosing_component.upgrade().is_some_and(|c| c.is_global())
+                && to_elem.borrow().enclosing_component.upgrade().is_some_and(|c| c.is_global());
         match to_elem.borrow_mut().bindings.entry(to.name().clone()) {
             Entry::Occupied(mut e) => {
                 let b = e.get_mut().get_mut();
@@ -165,7 +212,7 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                 }
             }
             Entry::Vacant(e) => {
-                if same_component && old_binding.has_binding() {
+                if (same_component || both_global) && old_binding.has_binding() {
                     e.insert(old_binding.into());
                 }
             }

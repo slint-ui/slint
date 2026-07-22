@@ -54,7 +54,7 @@ export component TimePickerPopup inherits PopupWindow {
                     foreground: CosmicPalette.foreground,
                     foreground-selected: CosmicPalette.accent-foreground,
                     border-radius: 8px,
-                    font-size: 57 * 0.0625rem,
+                    font-size: 57pt * 1rem / 16pt,
                     font-weight: FontWeight.normal
                 },
                 period-selector-style: {
@@ -70,8 +70,6 @@ export component TimePickerPopup inherits PopupWindow {
                     }
                 },
                 title-style: {
-                    font-size: CosmicFontSettings.body.font-size,
-                    font-weight: CosmicFontSettings.body.font-weight,
                     foreground: CosmicPalette.foreground,
                 },
             };

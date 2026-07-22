@@ -1,22 +1,23 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 100phx;
     height: 100phx;
     background: white;
-    property<int> top_level: 42;
+    in-out property<int> top_level: 42;
 
-    property<bool> cond1;
-    property<bool> cond2;
-    property<bool> cond3;
+    in-out property<bool> cond1;
+    in-out property<bool> cond2;
+    in-out property<bool> cond3;
 
     if (cond1) : TouchArea {
+        y:0;
         width: parent.width;
         height: root.height;
-        property<int> xx: root.top_level;
+        property<int> xx: top_level;
         clicked => {
-            root.top_level += self.xx + 8;
+            top_level += self.xx + 8;
         }
     }
 

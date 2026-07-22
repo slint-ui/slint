@@ -4,6 +4,7 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::winit_compat::WindowSurfaceSizeExt;
 use crate::winitwindowadapter::physical_size_to_slint;
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::platform::PlatformError;
@@ -75,22 +76,22 @@ impl WinitSkiaRenderer {
         }))
     }
 
-    #[cfg(feature = "unstable-wgpu-28")]
-    pub fn new_wgpu_28_suspended(
-        shared_backend_data: &Rc<crate::SharedBackendData>,
-    ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
-        Ok(Box::new(Self {
-            renderer: SkiaRenderer::default_wgpu_28(&shared_backend_data.skia_context),
-            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
-        }))
-    }
-
     #[cfg(feature = "unstable-wgpu-29")]
     pub fn new_wgpu_29_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
         Ok(Box::new(Self {
             renderer: SkiaRenderer::default_wgpu_29(&shared_backend_data.skia_context),
+            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+        }))
+    }
+
+    #[cfg(feature = "unstable-wgpu-30")]
+    pub fn new_wgpu_30_suspended(
+        shared_backend_data: &Rc<crate::SharedBackendData>,
+    ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
+        Ok(Box::new(Self {
+            renderer: SkiaRenderer::default_wgpu_30(&shared_backend_data.skia_context),
             requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
         }))
     }
@@ -141,10 +142,10 @@ impl WinitSkiaRenderer {
                                 .into(),
                         );
                     }
-                    #[cfg(feature = "unstable-wgpu-28")]
-                    RequestedGraphicsAPI::WGPU28(..) => Ok(Self::new_wgpu_28_suspended),
                     #[cfg(feature = "unstable-wgpu-29")]
                     RequestedGraphicsAPI::WGPU29(..) => Ok(Self::new_wgpu_29_suspended),
+                    #[cfg(feature = "unstable-wgpu-30")]
+                    RequestedGraphicsAPI::WGPU30(..) => Ok(Self::new_wgpu_30_suspended),
                 }
             }
             None => Ok(Self::new_suspended),
@@ -170,6 +171,7 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
         &self,
         active_event_loop: &winit::event_loop::ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
+        _window_adapter_weak: std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
         let winit_window = Arc::new(active_event_loop.create_window(window_attributes).map_err(
             |winit_os_error| {
@@ -180,7 +182,7 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
             },
         )?);
 
-        let size = winit_window.inner_size();
+        let size = winit_window.surface_size();
 
         self.renderer.set_window_handle(
             winit_window.clone(),

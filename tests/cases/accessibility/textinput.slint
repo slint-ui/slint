@@ -1,0 +1,86 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+
+import { LineEdit } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 400px;
+
+    out property <string> text_input_text: ti.text;
+    out property <string> line_edit_text: le.text;
+
+    ti := TextInput {
+        text: "123";
+    }
+
+    le := LineEdit {
+        text: "456";
+        placeholder-text: "Password";
+        read-only: true;
+    }
+}
+
+/*
+```rust
+// Test that when setting the value of the TextInput using the accessible, the value is preserved
+
+let instance = TestCase::new().unwrap();
+
+{
+    let text_input = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::ti").next().unwrap();
+    assert_eq!(text_input.accessible_value(), Some("123".into()));
+    assert_eq!(instance.get_text_input_text(), "123");
+    text_input.set_accessible_value("Hello");
+    assert_eq!(text_input.accessible_value(), Some("Hello".into()));
+    assert_eq!(instance.get_text_input_text(), "Hello", "Test component was not notified");
+    assert_eq!(text_input.accessible_read_only(), Some(false));
+}
+
+{
+    let line_edit = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::le").next().unwrap();
+    assert_eq!(line_edit.accessible_value(), Some("456".into()));
+    assert_eq!(instance.get_line_edit_text(), "456");
+    line_edit.set_accessible_value("World");
+    assert_eq!(line_edit.accessible_value(), Some("World".into()));
+    assert_eq!(instance.get_line_edit_text(), "World", "Test component was not notified");
+    assert_eq!(line_edit.accessible_placeholder_text(), Some("Password".into()));
+    assert_eq!(line_edit.accessible_read_only(), Some(true));
+}
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+{
+    auto text_input = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::ti");
+    assert_eq(text_input.size(), 1);
+    auto textinput = text_input[0];
+
+    assert(textinput.accessible_value() == "123");
+    assert(instance.get_text_input_text() == "123");
+    textinput.set_accessible_value("Hello");
+    assert(textinput.accessible_value() == "Hello");
+    assert(instance.get_text_input_text() == "Hello");
+    assert(textinput.accessible_read_only() == false);
+}
+
+{
+    auto line_edit = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::le");
+    assert_eq(line_edit.size(), 1);
+    auto lineedit = line_edit[0];
+
+    assert(lineedit.accessible_value() == "456");
+    assert(instance.get_line_edit_text() == "456");
+    lineedit.set_accessible_value("World");
+    assert(lineedit.accessible_value() == "World");
+    assert(instance.get_line_edit_text() == "World" );
+    assert(lineedit.accessible_read_only() == true);
+}
+```
+
+*/

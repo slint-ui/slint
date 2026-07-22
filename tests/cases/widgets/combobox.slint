@@ -7,6 +7,7 @@ export component TestCase inherits Window {
     height: 200px;
 
     in-out property <string> output;
+    in property <bool> show: false;
     TouchArea {
         clicked => { output += "clicked-under\n"; }
     }
@@ -21,7 +22,7 @@ export component TestCase inherits Window {
         }
     }
 
-    if false : Rectangle {
+    if root.show : Rectangle {
         test-no-loop := ComboBox {
             width: 10 * self.height; // Test that there is no height for width dependency (loop)
         }
@@ -225,6 +226,44 @@ assert_selection(1, "Y");
 instance.set_model(Rc::new(VecModel::default()).into());
 mock_elapsed_time(500);
 assert_selection(0, "");
+
+// With the model still empty, set current-index from Rust. The widget must
+// accept the write (current-value stays "" because the model is empty), and
+// when a non-empty model arrives the user-supplied index must be preserved
+// rather than clobbered by the reset-on-model-change handler. This is the
+// "set index before model is populated" path that was a race condition in
+// older versions (see https://github.com/slint-ui/slint/issues/10805).
+instance.set_current_index(2);
+mock_elapsed_time(500);
+assert_selection(2, "");
+
+instance.set_model(Rc::new(VecModel::from_slice(&[SharedString::from("A"), SharedString::from("B"), SharedString::from("C"), SharedString::from("D")])).into());
+mock_elapsed_time(500);
+assert_selection(2, "C");
+
+// And the symmetric order — set_model then set_current_index in adjacent
+// calls — which is the exact reproducer from #7632. The earlier model-swap
+// assertions cover this implicitly; this block re-states it verbatim using
+// the values from the original bug report.
+instance.set_model(Rc::new(VecModel::from_slice(&[
+    SharedString::from("not this1"),
+    SharedString::from("not this2"),
+    SharedString::from("!!!THIS!!!"),
+    SharedString::from("not this3"),
+    SharedString::from("not this4"),
+])).into());
+instance.set_current_index(2);
+mock_elapsed_time(500);
+assert_selection(2, "!!!THIS!!!");
+
+// Writes to `current-value` from host code are not a supported way to change
+// the selection — the widget emits a debug warning but doesn't revert the
+// host write. The current-index (and therefore the visible selection in the
+// popup) stays where it was. See https://github.com/slint-ui/slint/issues/11970.
+instance.set_current_value(SharedString::from("not this3"));
+mock_elapsed_time(500);
+assert_eq!(instance.get_current_index(), 2);
+assert_eq!(instance.get_current_value(), SharedString::from("not this3"));
 ```
 
 */

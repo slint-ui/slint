@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Foo {
+    function compute() -> int {
+        x := 42;
+//      ^error{':=' is not valid in statements. Use 'let x = <expression>;' to declare a local variable}
+        return x;
+    }
+
+    function nested() -> int {
+        sum := 1 + 2;
+//      > <error{':=' is not valid in statements. Use 'let sum = <expression>;' to declare a local variable}
+        return sum;
+    }
+
+    function branches(cond: bool) -> int {
+        if (cond) {
+            a := 1;
+//          ^error{':=' is not valid in statements. Use 'let a = <expression>;' to declare a local variable}
+            return a;
+        } else {
+            b := 2;
+//          ^error{':=' is not valid in statements. Use 'let b = <expression>;' to declare a local variable}
+            return b;
+        }
+    }
+
+    function missing_brace() {
+        bar := Rectangle {
+//      > <error{':=' is not valid in statements}
+//      > <^error{Syntax error: expected '}'}
+            width: 10px;
+        }
+    }
+  }
+//^error{Parse error: expected a top-level item such as a component, a struct, or a global}

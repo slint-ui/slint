@@ -1,28 +1,28 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
-    property <int> xx : 1000;
+export component TestCase inherits Rectangle {
+    in-out property <int> xx : 1000;
 
-    property <easing> ea: ease;
+    in-out property <easing> ea: ease;
 
     animate x {
         duration: xx * 1ms;
         easing: ea;
     }
 
-    property<int> hello: 40;
+    in-out property<int> hello: 40;
     animate hello {
         duration: 1200ms;
     }
 
-    property<bool> condition: true;
-    property<int> binding_dep: condition ? 100 : 150;
+    in-out property<bool> condition: true;
+    in-out property<int> binding_dep: condition ? 100 : 150;
     animate binding_dep {
         duration: 1200ms;
     }
 
-    property<int> direction: 100;
+    in-out property<int> direction: 100;
     animate direction {
         duration: 600ms;
         direction: alternate-reverse;

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use super::accessor_names::{self, AccessorKind};
 use super::cpp::{Config, concatenate_ident, cpp_ast::*, ident};
 use crate::CompilerConfiguration;
 use crate::langtype::{EnumerationValue, StructName, Type};
@@ -15,13 +16,14 @@ pub fn generate(
     config: Config,
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<File> {
-    let mut file = super::cpp::generate_types(&doc.used_types.borrow().structs_and_enums, &config);
+    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
+
+    let mut file =
+        super::cpp::generate_types(&doc.used_types.borrow().structs_and_enums, &config, &llr);
 
     file.includes.push("<private/slint_live_preview.h>".into());
 
     generate_value_conversions(&mut file, &doc.used_types.borrow().structs_and_enums);
-
-    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
     let main_file = doc
         .node
@@ -129,7 +131,7 @@ fn generate_public_component(
             "{{ nullptr, nullptr, nullptr, nullptr, \
                 nullptr, nullptr, nullptr, nullptr, nullptr, \
                 nullptr, nullptr, nullptr, nullptr, \
-                nullptr, nullptr, nullptr, \
+                nullptr, nullptr, nullptr, nullptr, \
                 slint::private_api::drop_in_place<{component_id}>, slint::private_api::dealloc }}"
         )),
         ..Default::default()
@@ -144,14 +146,14 @@ fn generate_public_component(
                 .map(|p| format!("\"{}\"", escape_string(&p.to_string_lossy())))
                 .join(", ")
         ),
-        format!(
-            "slint::SharedVector<slint::SharedString> library_paths{{ {} }};",
-            compiler_config
-                .library_paths
-                .iter()
+        format!("slint::SharedVector<slint::SharedString> library_paths{{ {} }};", {
+            let mut library_paths: Vec<_> = compiler_config.library_paths.iter().collect();
+            library_paths.sort_by(|a, b| a.0.cmp(b.0));
+            library_paths
+                .into_iter()
                 .map(|(l, p)| format!("\"{l}={}\"", p.to_string_lossy()))
                 .join(", ")
-        ),
+        }),
         format!(
             "auto live_preview = slint::private_api::live_preview::LiveReloadingComponent({main_file:?}, {:?}, include_paths, library_paths, {:?}, {:?}, {});",
             component.name,
@@ -280,10 +282,7 @@ fn generate_public_api_for_properties(
     public_properties: &llr::PublicProperties,
     private_properties: &llr::PrivateProperties,
 ) {
-    for p in public_properties {
-        let prop_name = &p.name;
-        let prop_ident = concatenate_ident(prop_name);
-
+    for (prop_name, p) in public_properties {
         if let Type::Callback(callback) = &p.ty {
             let ret = callback.return_type.cpp_type().unwrap();
             let param_types =
@@ -296,7 +295,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format_smolstr!("invoke_{prop_ident}"),
+                    name: accessor_names::cpp_accessor_name(prop_name, AccessorKind::Invoker),
                     signature: format!(
                         "({}) const -> {ret}",
                         param_types
@@ -326,7 +325,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format_smolstr!("on_{}", concatenate_ident(&p.name)),
+                    name: accessor_names::cpp_accessor_name(prop_name, AccessorKind::Handler),
                     template_parameters: Some(format!(
                         "std::invocable<{}> Functor",
                         param_types.join(", "),
@@ -353,7 +352,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format_smolstr!("invoke_{}", concatenate_ident(&p.name)),
+                    name: accessor_names::cpp_accessor_name(prop_name, AccessorKind::Invoker),
                     signature: format!(
                         "({}) const -> {ret}",
                         param_types
@@ -375,14 +374,14 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format_smolstr!("get_{}", &prop_ident),
+                    name: accessor_names::cpp_accessor_name(prop_name, AccessorKind::Getter),
                     signature: format!("() const -> {cpp_property_type}"),
                     statements: Some(prop_getter),
                     ..Default::default()
                 }),
             ));
 
-            if !p.read_only {
+            if !p.read_only() {
                 let prop_setter: Vec<String> = vec![
                     "using slint::private_api::live_preview::into_slint_value;".into(),
                     format!(
@@ -393,7 +392,7 @@ fn generate_public_api_for_properties(
                 declarations.push((
                     Access::Public,
                     Declaration::Function(Function {
-                        name: format_smolstr!("set_{}", &prop_ident),
+                        name: accessor_names::cpp_accessor_name(prop_name, AccessorKind::Setter),
                         signature: format!("(const {} &value) const -> void", cpp_property_type),
                         statements: Some(prop_setter),
                         ..Default::default()
@@ -403,9 +402,9 @@ fn generate_public_api_for_properties(
                 declarations.push((
                     Access::Private,
                     Declaration::Function(Function {
-                        name: format_smolstr!("set_{}", &prop_ident),
+                        name: accessor_names::cpp_accessor_name(prop_name, AccessorKind::Setter),
                         signature: format!(
-                            "(const {cpp_property_type} &) const = delete /* property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter */", p.name
+                            "(const {cpp_property_type} &) const = delete /* property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter */", prop_name
                         ),
                         ..Default::default()
                     }),
@@ -415,14 +414,12 @@ fn generate_public_api_for_properties(
     }
 
     for (name, ty) in private_properties {
-        let prop_ident = concatenate_ident(name);
-
         if let Type::Function(function) = &ty {
             let param_types = function.args.iter().map(|t| t.cpp_type().unwrap()).join(", ");
             declarations.push((
                 Access::Private,
                 Declaration::Function(Function {
-                    name: format_smolstr!("invoke_{prop_ident}"),
+                    name: accessor_names::cpp_accessor_name(name, AccessorKind::Invoker),
                     signature: format!(
                         "({param_types}) const = delete /* the function '{name}' is declared as private. Declare it as 'public' */",
                     ),
@@ -433,7 +430,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Private,
                 Declaration::Function(Function {
-                    name: format_smolstr!("get_{prop_ident}"),
+                    name: accessor_names::cpp_accessor_name(name, AccessorKind::Getter),
                     signature: format!(
                         "() const = delete /* the property '{name}' is declared as private. Declare it as 'in', 'out', or 'in-out' to make it public */",
                     ),
@@ -443,7 +440,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Private,
                 Declaration::Function(Function {
-                    name: format_smolstr!("set_{}", &prop_ident),
+                    name: accessor_names::cpp_accessor_name(name, AccessorKind::Setter),
                     signature: format!(
                         "(const auto &) const = delete /* property '{name}' is declared as private. Declare it as 'in' or 'in-out' to make it public */",
                     ),

@@ -1,5 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//
+// cspell:ignore unwatch
 use std::{
     pin::Pin,
     rc::Rc,
@@ -8,20 +10,20 @@ use std::{
     time::Duration,
 };
 
-use i_slint_preview_protocol::{
-    LspToPreviewMessage, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
+use i_slint_live_preview::file_watcher::{FileWatcher, WatchEvent};
+use i_slint_live_preview::protocol::{
+    LspToPreviewMessage, PreviewComponent, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
 };
 use lsp_server::{Message, RequestId};
-use lsp_types::{FileChangeType, MessageType, Url, notification::Notification};
-use slint_interpreter::{FileChangeKind, FileWatcher, WatchEvent};
+use lsp_types::{MessageType, Url, notification::Notification};
 
 use crate::{
-    common::{self, Result, document_cache::OpenImportCallback},
+    common::{self, LspToPreviews, Result, document_cache::OpenImportCallback},
     language, preview,
-    preview::connector::{EmbeddedLspToPreview, SwitchableLspToPreview},
+    preview::connector::EmbeddedLspToPreview,
 };
 
-pub fn editor_main() {
+pub fn editor_main() -> std::result::Result<(), slint::PlatformError> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -44,11 +46,14 @@ pub fn editor_main() {
     let to_lsp =
         Rc::new(EmbeddedPreviewToLsp { sender: to_lsp }) as Rc<dyn common::PreviewToLsp + 'static>;
 
+    // Set up the Slint backend (installing the macOS unified-title-bar hook)
+    // *before* spawning the LSP thread, so that no other thread can lazily
+    // initialize the default platform first and lose the hook.
+    start_processing_lsp_messages_thread(from_lsp)?;
+
     start_lsp_thread(from_preview, to_preview, notifier, cli);
 
-    start_processing_lsp_messages_thread(from_lsp);
-
-    preview::run(to_lsp, false, true).unwrap();
+    preview::run(to_lsp, false, true)
 }
 
 // TODO: Deduplicate with main.rs
@@ -120,7 +125,7 @@ struct EmbeddedPreviewToLsp {
 }
 
 impl common::PreviewToLsp for EmbeddedPreviewToLsp {
-    fn send(&self, message: &i_slint_preview_protocol::PreviewToLspMessage) -> common::Result<()> {
+    fn send(&self, message: &PreviewToLspMessage) -> common::Result<()> {
         self.sender.send(message.clone())?;
         Ok(())
     }
@@ -132,18 +137,25 @@ struct Cli {
     component: Option<String>,
 }
 
-fn start_processing_lsp_messages_thread(from_lsp: crossbeam_channel::Receiver<Message>) {
+fn start_processing_lsp_messages_thread(
+    from_lsp: crossbeam_channel::Receiver<Message>,
+) -> std::result::Result<(), slint::PlatformError> {
     // Ensure the backend is set up before the reader thread starts. This fixes
     // bug #10274 on macOS where a race condition was causing the reader thread to already
     // process messages before the event loop was running.
-    //
-    // Use .ok() to ignore any errors, as the backend might already be set by the user and that's fine.
-    slint::BackendSelector::new().select().ok();
+    let selector = slint::BackendSelector::new();
+    // On macOS, request a unified title bar: the editor content extends underneath
+    // a transparent title bar (see `preview::macos_titlebar`).
+    #[cfg(target_os = "macos")]
+    let selector = selector
+        .with_winit_window_attributes_hook(crate::preview::macos_titlebar::apply_unified_titlebar);
+    selector.select()?;
     std::thread::spawn(move || {
         if let Err(err) = process_lsp_messages(from_lsp) {
             tracing::error!("LSP message processing thread exited with error: {err}");
         }
     });
+    Ok(())
 }
 
 fn process_lsp_messages(from_lsp: crossbeam_channel::Receiver<Message>) -> common::Result<()> {
@@ -198,22 +210,18 @@ fn start_lsp_thread(
 
 fn bridge_crossbeam_to_tokio(
     from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
-) -> (
-    tokio::sync::mpsc::UnboundedSender<PreviewToLspMessage>,
-    tokio::sync::mpsc::UnboundedReceiver<PreviewToLspMessage>,
-) {
+) -> tokio::sync::mpsc::UnboundedReceiver<PreviewToLspMessage> {
     let (from_preview_tx, from_preview_rx) =
         tokio::sync::mpsc::unbounded_channel::<PreviewToLspMessage>();
-    let inner_from_preview_tx = from_preview_tx.clone();
     std::thread::spawn(move || {
         while let Ok(msg) = from_preview.recv() {
-            if inner_from_preview_tx.send(msg).is_err() {
+            if from_preview_tx.send(msg).is_err() {
                 break;
             }
         }
         tracing::debug!("Preview->LSP crossbeam adapter thread exited");
     });
-    (from_preview_tx, from_preview_rx)
+    from_preview_rx
 }
 
 async fn lsp_main(
@@ -224,7 +232,7 @@ async fn lsp_main(
 ) -> Result<()> {
     use crate::common::document_cache::CompilerConfiguration;
 
-    let (from_preview_tx, mut from_preview_rx) = bridge_crossbeam_to_tokio(from_preview);
+    let mut from_preview_rx = bridge_crossbeam_to_tokio(from_preview);
     let (file_watcher_tx, mut file_watcher_rx) = tokio::sync::mpsc::unbounded_channel();
     let mut file_watcher = FileWatcher::start(
         move |event| {
@@ -236,7 +244,7 @@ async fn lsp_main(
     )?;
 
     // Wrap to_preview in Rc for sharing with the import callback and Context
-    let to_preview = Rc::new(SwitchableLspToPreview::with_one(to_preview));
+    let to_preview = LspToPreviews::with_one(to_preview);
 
     let open_import_callback = {
         let to_preview = Rc::clone(&to_preview);
@@ -283,7 +291,7 @@ async fn lsp_main(
         open_urls: Default::default(),
         to_preview,
         pending_recompile: Default::default(),
-        preview_to_lsp_sender: from_preview_tx,
+        host_language_rename_dont_ask_again: Default::default(),
     };
 
     // Load the initial document through the compiler. This triggers the import
@@ -293,9 +301,8 @@ async fn lsp_main(
     let root_path = full_path.clone();
     let url = Url::from_file_path(full_path)
         .map_err(|_| format!("Failed to convert {} to URL!", cli.file))?;
-    file_watcher.update_watched_paths(std::iter::once(root_path.clone()))?;
     language::show_preview(
-        i_slint_preview_protocol::PreviewComponent { url: url.clone(), component: cli.component },
+        PreviewComponent { url: url.clone(), component: cli.component },
         &mut ctx,
     );
 
@@ -304,7 +311,8 @@ async fn lsp_main(
     language::reload_document(&mut ctx, url)
         .await
         .map_err(|err| format!("Failed to load file: {}: {err}", cli.file))?;
-    sync_file_watcher(&mut file_watcher, &ctx, &root_path)?;
+    let mut watch_paths_revision = None;
+    sync_file_watcher_if_needed(&mut file_watcher, &ctx, &root_path, &mut watch_paths_revision)?;
 
     const RECOMPILE_IDLE_TIMEOUT: Duration = Duration::from_millis(50);
     loop {
@@ -335,9 +343,15 @@ async fn lsp_main(
                         tracing::error!("Failed document reload: {err}");
                     }
                 }
-                sync_file_watcher(&mut file_watcher, &ctx, &root_path)?;
             }
         }
+
+        sync_file_watcher_if_needed(
+            &mut file_watcher,
+            &ctx,
+            &root_path,
+            &mut watch_paths_revision,
+        )?;
     }
 }
 
@@ -350,22 +364,20 @@ async fn trigger_editor_file_watcher(
         return Ok(());
     };
 
-    language::trigger_file_watcher(ctx, url, lsp_file_change_type(kind)).await
+    language::trigger_file_watcher(ctx, url, kind).await
 }
 
-fn lsp_file_change_type(kind: FileChangeKind) -> FileChangeType {
-    match kind {
-        FileChangeKind::Created => FileChangeType::CREATED,
-        FileChangeKind::Changed => FileChangeType::CHANGED,
-        FileChangeKind::Deleted => FileChangeType::DELETED,
-    }
-}
-
-fn sync_file_watcher(
+fn sync_file_watcher_if_needed(
     watcher: &mut FileWatcher,
     ctx: &language::Context,
     root_path: &std::path::Path,
+    watch_paths_revision: &mut Option<u64>,
 ) -> Result<()> {
+    let current_revision = ctx.document_cache.revision();
+    if watch_paths_revision.is_some_and(|rev| rev == current_revision) {
+        return Ok(());
+    }
+
     watcher.update_watched_paths(
         std::iter::once(root_path.to_path_buf()).chain(
             ctx.document_cache
@@ -376,6 +388,7 @@ fn sync_file_watcher(
                 .filter_map(|url| common::uri_to_file(&url)),
         ),
     )?;
+    *watch_paths_revision = Some(current_revision);
     Ok(())
 }
 
@@ -398,10 +411,17 @@ fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {
                 _ => tracing::info!("Preview: {}", message.message),
             };
         }
+        DebugMessage { location, message } => {
+            eprintln!("{}", common::preview_log_message_to_string(location, message));
+        }
+
         Diagnostics { .. }
         | ShowDocument { .. }
         | PreviewTypeChanged { .. }
-        | TelemetryEvent(..) => {
+        | TelemetryEvent(..)
+        | ConnectRemote { .. }
+        | DisconnectRemote
+        | Pong => {
             tracing::debug!("Ignoring message from preview: {msg:?}");
         }
         SendWorkspaceEdit { .. } => {

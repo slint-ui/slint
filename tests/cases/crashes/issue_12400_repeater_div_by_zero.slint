@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A huge repeater count (e.g. from a division by zero) must not cause a giant allocation
+
+export component TestCase inherits Window {
+    in property <int> columns: 0;
+    out property <int> rows: Math.ceil(7 / columns);
+    for i in rows: Rectangle { }
+    for j in 7 / columns: Rectangle { }
+    for k in 2000000000: Rectangle { }
+    out property <bool> test: true;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.set_columns(2);
+assert_eq(instance.get_rows(), 4);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.set_columns(2);
+assert_eq!(instance.get_rows(), 4);
+```
+
+```js
+var instance = new slint.TestCase({});
+instance.columns = 2;
+assert.equal(instance.rows, 4);
+```
+*/

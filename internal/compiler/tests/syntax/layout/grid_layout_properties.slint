@@ -111,4 +111,72 @@ export X := Rectangle {
             }
         }
     }
+
+    // Inside a `for`/`if`, setting one axis but not the other still has to
+    // line up with the surrounding GridLayout's other children. This shape
+    // (runtime `row`, auto-numbered `col` next to an auto-numbered sibling)
+    // was silently accepted in older Slint versions; it is now reported but
+    // only as a warning so that those files keep compiling.
+    lay5 := GridLayout {
+        for _[idx] in 5: Text {
+//                       >   <warning{Cannot mix auto-numbering and runtime expressions for the 'col' property. This was accepted by previous versions of Slint, but may become an error in the future}
+            row: idx;
+        }
+        Text { }
+//      >   <warning{Cannot mix auto-numbering and runtime expressions for the 'row' property. This was accepted by previous versions of Slint, but may become an error in the future}
+    }
+
+    lay6 := GridLayout {
+        if true: Text {
+//               >   <warning{Cannot mix auto-numbering and runtime expressions for the 'col' property. This was accepted by previous versions of Slint, but may become an error in the future}
+            row: lay2.last_row;
+        }
+        Text { }
+//      >   <warning{Cannot mix auto-numbering and runtime expressions for the 'row' property. This was accepted by previous versions of Slint, but may become an error in the future}
+    }
+
+    // A single GridLayout that exercises both diagnostic levels. The first
+    // child seeds the numbering with auto (its row is missing); the second
+    // child has a runtime row only via piercing into the repeater body, so
+    // its `col` is still auto and the mix is reported as a warning; the
+    // third child has both row and col set directly so the lenient view
+    // also flags the mix, and it is reported as a real error.
+    lay7 := GridLayout {
+        Text { col: 1; }
+        for _[idx] in 5: Text {
+            row: idx;
+//               >  <warning{Cannot mix auto-numbering and runtime expressions for the 'row' property. This was accepted by previous versions of Slint, but may become an error in the future}
+        }
+        Text {
+            row: lay2.last_row;
+//               >            <error{Cannot mix auto-numbering and runtime expressions for the 'row' property}
+            col: lay2.last_row;
+        }
+    }
+
+    // Cover a mix of every shape that contributes a row/col classification:
+    // a plain auto-numbered element, a `for` that introduces the first
+    // runtime expression via piercing (warning), more auto siblings, a
+    // static element with direct runtime row/col (error), two more auto
+    // siblings, and finally an `if` with runtime row/col (warning).
+    lay8 := GridLayout {
+        Text { }
+        for _[idx] in 3: Text {
+            row: idx;
+//               >  <warning{Cannot mix auto-numbering and runtime expressions for the 'row' property. This was accepted by previous versions of Slint, but may become an error in the future}
+        }
+        Text { }
+        Text {
+            row: lay2.last_row;
+//               >            <error{Cannot mix auto-numbering and runtime expressions for the 'row' property}
+            col: lay2.last_row;
+        }
+        Text { }
+        Text { }
+        if true: Text {
+            row: lay2.last_row;
+//               >            <warning{Cannot mix auto-numbering and runtime expressions for the 'row' property. This was accepted by previous versions of Slint, but may become an error in the future}
+            col: lay2.last_row;
+        }
+    }
 }

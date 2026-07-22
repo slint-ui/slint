@@ -81,7 +81,8 @@ impl<T: 'static> Wake for FutureRunner<T> {
                 }
             }
         }))
-        .expect("No event loop despite we checked");
+        // The event loop may be gone during teardown; the future can't progress, so drop the wake.
+        .ok();
     }
 }
 

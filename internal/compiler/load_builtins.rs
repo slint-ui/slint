@@ -22,7 +22,10 @@ use crate::typeregister::TypeRegister;
 /// Parse the contents of builtins.slint and fill the builtin type registry
 /// `register` is the register to fill with the builtin types.
 /// At this point, it really should already contain the basic Types (string, int, ...)
-pub(crate) fn load_builtins(register: &mut TypeRegister) {
+pub(crate) fn load_builtins(
+    register: &mut TypeRegister,
+    symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
+) {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
     let node = crate::parser::parse(include_str!("builtins.slint").into(), None, &mut diag);
     if !diag.is_empty() {
@@ -94,10 +97,13 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                     }
 
                     info.docs = docs::doc_comment(&p);
+                    info.shadowable = has_shadowable_annotation(&p);
 
                     if let Some(e) = p.BindingExpression() {
+                        assert!(!info.shadowable, "shadowable property {id}::{prop_name} can't have a default value as it would end up on the shadowing declaration");
                         let ty = info.ty.clone();
-                        info.default_value = BuiltinPropertyDefault::Expr(compiled(e, register, ty));
+                        info.default_value =
+                            BuiltinPropertyDefault::Expr(compiled(e, register, ty, symbol_counters));
                     }
 
                     (prop_name, info)
@@ -123,6 +129,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                             .collect()
                     })));
                     info.docs = docs::doc_comment(&s);
+                    info.shadowable = has_shadowable_annotation(&s);
                     (identifier_text(&s.DeclaredIdentifier()).unwrap(), info)
                 }))
         );
@@ -178,6 +185,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                 Function { return_type, args, arg_names }.into(),
             ));
             info.docs = docs::doc_comment(&f);
+            info.shadowable = has_shadowable_annotation(&f);
             (name, info)
         }));
 
@@ -270,12 +278,15 @@ fn compiled(
     node: syntax_nodes::BindingExpression,
     type_register: &TypeRegister,
     ty: Type,
+    symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
 ) -> Expression {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
-    let mut ctx = crate::lookup::LookupCtx::empty_context(type_register, &mut diag);
+    let mut ctx =
+        crate::lookup::LookupCtx::empty_context(type_register, &mut diag, symbol_counters.clone());
     ctx.property_type = ty.clone();
+    ctx.expected_type = ty.clone();
     let e = Expression::from_binding_expression_node(node.clone().into(), &mut ctx)
-        .maybe_convert_to(ty, &node, &mut diag);
+        .maybe_convert_to(ty, &node, ctx.diag, &ctx.symbol_counters);
     if diag.has_errors() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]
@@ -283,6 +294,26 @@ fn compiled(
         panic!("Error parsing the builtin elements: {vec:?}");
     }
     e
+}
+
+/// Check for a `//-shadowable` annotation in the comments immediately before a
+/// member declaration. Marks members that a component may shadow with a local
+/// declaration of the same name.
+fn has_shadowable_annotation(node: &SyntaxNode) -> bool {
+    let mut cursor = node.node.prev_sibling_or_token();
+    while let Some(cur) = cursor {
+        match cur.kind() {
+            SyntaxKind::Whitespace => {}
+            SyntaxKind::Comment => {
+                if cur.as_token().unwrap().text().trim_end() == "//-shadowable" {
+                    return true;
+                }
+            }
+            _ => return false,
+        }
+        cursor = cur.prev_sibling_or_token();
+    }
+    false
 }
 
 /// Find out if there are comments that starts with `//-key` and returns `None`

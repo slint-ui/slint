@@ -188,6 +188,30 @@ impl TestingClient {
                     find_all,
                 )?)
             }
+            Req::RequestEventLog(proto::RequestEventLog {
+                window_handle,
+                since_sequence,
+                max_events,
+                clear_after_read,
+            }) => {
+                let window_index = window_handle.map(handle_to_index).transpose()?;
+                Resp::EventLogResponse(dispatch::event_log(
+                    &self.state,
+                    window_index,
+                    since_sequence,
+                    max_events,
+                    clear_after_read,
+                ))
+            }
+            Req::RequestClearEventLog(..) => {
+                Resp::ClearEventLogResponse(dispatch::clear_event_log(&self.state))
+            }
+            Req::RequestStartEventRecording(..) => {
+                Resp::StartEventRecordingResponse(dispatch::start_event_recording(&self.state))
+            }
+            Req::RequestStopEventRecording(..) => {
+                Resp::StopEventRecordingResponse(dispatch::stop_event_recording(&self.state))
+            }
             // MCP-only tools — not supported over the binary system-testing transport
             Req::RequestDispatchKeyEvent(..) | Req::RequestGetElementTree(..) => {
                 return Err("this request is only supported via the MCP transport".into());
@@ -341,6 +365,24 @@ fn convert_window_event(
         }
         Event::KeyReleased(proto::KeyReleasedEvent { text }) => {
             i_slint_core::platform::WindowEvent::KeyReleased { text: text.into() }
+        }
+        Event::ScaleFactorChanged(proto::ScaleFactorChangedEvent { scale_factor }) => {
+            i_slint_core::platform::WindowEvent::ScaleFactorChanged { scale_factor }
+        }
+        Event::Resized(proto::ResizedEvent { size }) => {
+            i_slint_core::platform::WindowEvent::Resized {
+                size: {
+                    let size =
+                        size.ok_or_else(|| "Missing logical size in resize event".to_string())?;
+                    i_slint_core::api::LogicalSize { width: size.width, height: size.height }
+                },
+            }
+        }
+        Event::CloseRequested(proto::CloseRequestedEvent {}) => {
+            i_slint_core::platform::WindowEvent::CloseRequested
+        }
+        Event::WindowActiveChanged(proto::WindowActiveChangedEvent { active }) => {
+            i_slint_core::platform::WindowEvent::WindowActiveChanged(active)
         }
     })
 }

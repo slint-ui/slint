@@ -1,11 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// C++ live preview: interpreted models don't write back
+//ignore: cpp-live-preview
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 300phx;
-    property<[{name: string, account: string, score: float}]> model: [
+    in-out property<[{name: string, account: string, score: float}]> model: [
         {
             name: "Olivier",
             account: "ogoffart",
@@ -18,9 +20,10 @@ TestCase := Rectangle {
         }
     ];
 
-    property <int> clicked_score;
+    in-out property <int> clicked_score;
 
     for person[i] in model: TouchArea {
+        y:0;
         x: i*10phx;
         width: 10phx;
         height: 10phx;
@@ -29,7 +32,7 @@ TestCase := Rectangle {
             person.score += 1;
             person.score = person.score + 1;
             person.score += 1;
-            clicked_score = score;
+            clicked_score = self.score;
         }
     }
 

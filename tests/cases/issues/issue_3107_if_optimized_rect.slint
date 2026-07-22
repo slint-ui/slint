@@ -10,8 +10,10 @@ export component App inherits Window {
     min-height: 600px;
     title: "Test";
 
+    in property <bool> cond: false;
+
     Rectangle {
-        i-test := TestComponent {}
+        i-test := TestComponent { check: root.cond; }
 
         if (i-test.check) : Rectangle {  }
     }

@@ -113,10 +113,11 @@ pub fn set_callback_handler<
 }
 
 pub fn debug(s: SharedString) {
-    #[cfg(feature = "log")]
-    log::debug!("{s}");
-    #[cfg(not(feature = "log"))]
-    i_slint_core::debug_log!("{s}");
+    i_slint_core::debug_log::log_message(i_slint_core::debug_log::LogMessage::new(
+        i_slint_core::debug_log::LogMessageSource::SlintCode,
+        None,
+        format_args!("{s}"),
+    ));
 }
 
 pub fn ensure_backend() -> Result<(), crate::PlatformError> {
@@ -176,9 +177,9 @@ pub mod re_exports {
     };
     pub use i_slint_core::animations::{EasingCurve, animation_tick, current_tick};
     pub use i_slint_core::api::LogicalPosition;
-    pub use i_slint_core::bring_all_to_front;
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::context::SlintContext;
+    pub use i_slint_core::cursor::MouseCursorInner;
     pub use i_slint_core::data_transfer::DataTransfer;
     pub use i_slint_core::date_time::*;
     pub use i_slint_core::detect_operating_system;
@@ -188,7 +189,7 @@ pub mod re_exports {
         Keys, MouseEvent, key_codes::Key, make_keys,
     };
     pub use i_slint_core::item_tree::{
-        IndexRange, ItemTree, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak,
+        IndexRange, ItemTree, ItemTreeRc, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak,
         ensure_item_tree_instantiated, register_item_tree, unregister_item_tree,
     };
     pub use i_slint_core::item_tree::{
@@ -200,6 +201,7 @@ pub mod re_exports {
     pub use i_slint_core::lengths::{
         LogicalLength, LogicalPoint, LogicalRect, logical_position_to_api,
     };
+    pub use i_slint_core::macos_bring_all_windows_to_front;
     pub use i_slint_core::menus::{Menu, MenuFromItemTree, MenuVTable};
     pub use i_slint_core::model::*;
     pub use i_slint_core::open_url;
@@ -210,12 +212,13 @@ pub mod re_exports {
     pub use i_slint_core::string::shared_string_from_number;
     pub use i_slint_core::string::shared_string_from_number_fixed;
     pub use i_slint_core::string::shared_string_from_number_precision;
+    pub use i_slint_core::string::shared_string_from_number_unlocalized;
     pub use i_slint_core::timers::{Timer, TimerMode};
     pub use i_slint_core::translations::{
         set_bundled_languages, translate_from_bundle, translate_from_bundle_with_plural,
     };
     pub use i_slint_core::window::{
-        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, accent_color,
+        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, WindowKind, accent_color,
         context_for_root,
     };
     pub use i_slint_core::{
@@ -232,5 +235,5 @@ pub mod re_exports {
     pub use vtable::{self, *};
 
     #[cfg(feature = "live-preview")]
-    pub use slint_interpreter::live_preview;
+    pub use i_slint_live_preview::live_component as live_preview;
 }

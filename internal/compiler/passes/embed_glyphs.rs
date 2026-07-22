@@ -23,6 +23,75 @@ struct Font {
     font: fontique::QueryFont,
 }
 
+/// The fontique collection shared by `embed_glyphs` and `embed_images`, together
+/// with the imported fonts' file paths (the collection only knows them as in-memory
+/// blobs, so the paths are tracked separately for embedding).
+#[cfg(feature = "renderer-software")]
+pub struct FontCollection {
+    pub collection: sharedfontique::Collection,
+    pub custom_font_paths: HashMap<fontique::FamilyId, std::path::PathBuf>,
+    pub custom_fonts: HashMap<std::path::PathBuf, fontique::QueryFont>,
+}
+
+/// Built once and shared (by reference) between the font and image passes. The
+/// `LazyLock` defers the system-font scan to the first lookup, so a build with no
+/// glyphs or text SVGs to embed never scans.
+#[cfg(feature = "renderer-software")]
+pub type SharedFontCollection = std::sync::Arc<
+    std::sync::LazyLock<
+        std::sync::Mutex<FontCollection>,
+        Box<dyn FnOnce() -> std::sync::Mutex<FontCollection> + Send + Sync>,
+    >,
+>;
+
+/// Reads every imported (`import "...ttf"`) font file, reporting load errors with
+/// their import span. The bytes feed [`shared_font_collection`].
+#[cfg(feature = "renderer-software")]
+pub fn read_custom_fonts<'a>(
+    all_docs: impl Iterator<Item = &'a Document>,
+    diag: &mut BuildDiagnostics,
+) -> Vec<(std::path::PathBuf, Vec<u8>)> {
+    let mut fonts = Vec::new();
+    for doc in all_docs {
+        for (font_path, import_token) in doc.custom_fonts.iter() {
+            match std::fs::read(font_path.as_str()) {
+                Err(e) => diag.push_error(format!("Error loading font: {e}"), import_token),
+                Ok(bytes) => fonts.push((font_path.as_str().into(), bytes)),
+            }
+        }
+    }
+    fonts
+}
+
+/// Wraps the system fonts plus the imported `custom_fonts` into a [`SharedFontCollection`].
+#[cfg(feature = "renderer-software")]
+pub fn shared_font_collection(
+    custom_fonts: Vec<(std::path::PathBuf, Vec<u8>)>,
+) -> SharedFontCollection {
+    let init: Box<dyn FnOnce() -> std::sync::Mutex<FontCollection> + Send + Sync> =
+        Box::new(move || {
+            let mut collection = sharedfontique::create_collection(true);
+            let mut custom_font_paths = HashMap::new();
+            let mut custom_font_map = HashMap::new();
+            for (path, bytes) in custom_fonts {
+                if let Some(font) = collection
+                    .register_fonts(bytes.into(), None)
+                    .first()
+                    .and_then(|(id, infos)| collection.get_font_for_info(*id, infos.first()?))
+                {
+                    custom_font_paths.insert(font.family.0, path.clone());
+                    custom_font_map.insert(path, font);
+                }
+            }
+            std::sync::Mutex::new(FontCollection {
+                collection,
+                custom_font_paths,
+                custom_fonts: custom_font_map,
+            })
+        });
+    std::sync::Arc::new(std::sync::LazyLock::new(init))
+}
+
 fn swash_font_ref(font: &Font) -> swash::FontRef<'_> {
     swash::FontRef::from_index(font.font.blob.data(), font.font.index as usize).unwrap()
 }
@@ -42,13 +111,13 @@ pub fn embed_glyphs<'a>(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn embed_glyphs<'a>(
+pub fn embed_glyphs(
     doc: &Document,
     compiler_config: &CompilerConfiguration,
     mut pixel_sizes: Vec<i16>,
     font_weights: Vec<u16>,
     mut characters_seen: HashSet<char>,
-    all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
+    font_collection: &SharedFontCollection,
     diag: &mut BuildDiagnostics,
 ) {
     use crate::diagnostics::Spanned;
@@ -90,41 +159,20 @@ pub fn embed_glyphs<'a>(
 
     let fallback_fonts = get_fallback_fonts();
 
-    let mut custom_fonts: HashMap<std::path::PathBuf, fontique::QueryFont> = Default::default();
-    let mut font_paths: HashMap<fontique::FamilyId, std::path::PathBuf> = Default::default();
-
-    let mut collection = sharedfontique::create_collection(false);
-
-    for doc in all_docs {
-        for (font_path, import_token) in doc.custom_fonts.iter() {
-            match std::fs::read(font_path) {
-                Err(e) => {
-                    diag.push_error(format!("Error loading font: {e}"), import_token);
-                }
-                Ok(bytes) => {
-                    if let Some(font) = collection
-                        .register_fonts(bytes.into(), None)
-                        .first()
-                        .and_then(|(id, infos)| {
-                            let info = infos.first()?;
-                            collection.get_font_for_info(*id, info)
-                        })
-                    {
-                        font_paths.insert(font.family.0, font_path.into());
-                        custom_fonts.insert(font_path.into(), font);
-                    }
-                }
-            }
-        }
-    }
+    // The collection (system fonts + imported fonts) is built once and shared with
+    // `embed_images`; the imported-font paths come with it.
+    let mut shared = font_collection.lock().unwrap();
+    let FontCollection { collection, custom_font_paths: font_paths, custom_fonts } = &mut *shared;
 
     let mut custom_face_error = false;
 
-    let default_fonts = if !collection.default_fonts.is_empty() {
+    let default_fonts: Vec<(std::path::PathBuf, fontique::QueryFont)> = if !collection
+        .default_fonts
+        .is_empty()
+    {
         collection.default_fonts.as_ref().clone()
     } else {
-        let mut default_fonts: HashMap<std::path::PathBuf, fontique::QueryFont> =
-            Default::default();
+        let mut default_fonts: Vec<(std::path::PathBuf, fontique::QueryFont)> = Vec::new();
 
         for c in doc.exported_roots() {
             let (family, source_location) = c
@@ -198,7 +246,7 @@ pub fn embed_glyphs<'a>(
                             }
                         };
                         font_paths.insert(query_font.family.0, path.clone());
-                        default_fonts.insert(path.clone(), query_font);
+                        default_fonts.push((path.clone(), query_font));
                     }
                 }
             }
@@ -294,13 +342,15 @@ pub fn embed_glyphs<'a>(
         }
     };
 
+    // default_fonts is in primary-first order (set up by sharedfontique from
+    // SLINT_DEFAULT_FONT then SLINT_FONT_PATH); preserve it.
     for (path, font) in default_fonts.iter() {
         custom_fonts.remove(path);
         embed_font_by_path(path, font);
     }
 
-    for (path, font) in custom_fonts {
-        embed_font_by_path(&path, &font);
+    for (path, font) in custom_fonts.iter() {
+        embed_font_by_path(path, font);
     }
 }
 

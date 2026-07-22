@@ -819,9 +819,9 @@ public:
             return PhysicalRegion { cbindgen_private::slint_software_renderer_render_by_line_rgb8(
                     inner, process_line_fn, &process_line_callback) };
         } else {
-            static_assert(std::is_same_v<PixelType, Rgba8Pixel>
+            static_assert(std::is_same_v<PixelType, Rgb8Pixel>
                                   || std::is_same_v<PixelType, Rgb565Pixel>,
-                          "Unsupported PixelType. It must be either Rgba8Pixel or Rgb565Pixel");
+                          "Unsupported PixelType. It must be either Rgb8Pixel or Rgb565Pixel");
         }
     }
 

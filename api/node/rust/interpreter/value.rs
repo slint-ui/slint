@@ -319,7 +319,7 @@ pub fn to_value(
                         let prop: Unknown =
                             js_object.get_named_property(&pro_name.replace('-', "_"))?;
                         let prop_value = if prop.get_type()? == napi::ValueType::Undefined {
-                            slint_interpreter::default_value_for_type(pro_ty)
+                            slint_interpreter::default_value_for_struct_field(s, pro_name)
                         } else {
                             to_value(env, prop, pro_ty, anchor_owner)?
                         };
@@ -386,7 +386,8 @@ pub fn to_value(
         | Type::PathData
         | Type::LayoutCache
         | Type::ArrayOfU16
-        | Type::ElementReference => Err(napi::Error::from_reason("reason")),
+        | Type::ElementReference
+        | Type::MouseCursor => Err(napi::Error::from_reason("reason")),
         Type::StyledText => {
             let obj = unknown.coerce_to_object()?;
             let styled_instance: ClassInstance<SlintStyledText> =

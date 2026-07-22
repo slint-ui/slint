@@ -605,6 +605,58 @@ fn touch_area_doesnt_cause_redraw() {
 }
 
 #[test]
+/// Regression test for #12173: when an item is rendering-dirty (here a color
+/// change) but keeps its geometry while its parent moves, the old position must
+/// still be cleared. The child is wider than its parent, so its protruding part
+/// is not covered by the parent's repaint and would otherwise leave a ghost.
+fn moving_rendering_dirty_item_clears_old_position() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <length> pos;
+            in property <color> c: red;
+            background: black;
+            Rectangle {
+                x: root.pos;
+                y: 50px;
+                width: 20px;
+                height: 20px;
+                background: skyblue;
+                Rectangle {
+                    // Same geometry every frame, but wider than the parent so
+                    // it protrudes onto the window background.
+                    x: 0px;
+                    y: 0px;
+                    width: 100px;
+                    height: 10px;
+                    background: root.c;
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(400, 200));
+    ui.set_pos(200.);
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 400, 200);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Move the rectangle left and recolor the child. The color change makes the
+    // child rendering-dirty; the move changes its transform. The dirty region
+    // must reach the child's old right edge (200 + 100 = 300), not stop at the
+    // parent's old geometry (220).
+    ui.set_pos(20.);
+    ui.set_c(slint::Color::from_rgb_u8(0, 0, 255));
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 20, 50, 300, 70);
+    }));
+}
+
+#[test]
 fn shadow_redraw_beyond_geometry() {
     slint::slint! {
         export component Ui inherits Window {

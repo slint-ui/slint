@@ -351,7 +351,7 @@ export component DatePickerPopup inherits PopupWindow {
     property <[int]> today: DatePickerAdapter.date_now();
     property <int> start_column: DatePickerAdapter.month_offset(root.display_date.month, root.display_date.year);
     property <string> current_month: DatePickerAdapter.format_date("%B %Y", root.display_date.day, root.display_date.month, root.display_date.year);
-    property <[int]> year_model: [2024, 2025, 2026, 2027, 2028, 2029, 2031, 2032, 2033, 2034, 2035, 2036, 2037, 2038, 2039, 2040, 2041, 2042, 2043];
+    property <[int]> year_model: [2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035, 2036, 2037, 2038, 2039, 2040, 2041, 2042, 2043];
     property <int> selected_year: root.display_date.year;
     property <int> today_year: root.today[2];
     property <string> current_day: DatePickerAdapter.format_date("%a, %b %d", root.current_date.day, root.current_date.month, root.current_date.year);

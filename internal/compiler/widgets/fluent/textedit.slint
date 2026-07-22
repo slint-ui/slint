@@ -8,6 +8,7 @@ import { TextEditBase } from "../common/textedit-base.slint";
 export component TextEdit {
     in property <TextWrap> wrap <=> base.wrap;
     in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
+    in property <InputMethodHints> input-method-hints <=> base.input-method-hints;
     in property <bool> read-only <=> base.read-only;
     in property <length> font-size <=> base.font-size;
     in property <string> font-family <=> base.font-family;
@@ -83,8 +84,6 @@ export component TextEdit {
         border-color: FluentPalette.text-control-border;
         scroll-view-padding: 12px;
         foreground: FluentPalette.foreground;
-        font-size: FluentFontSettings.body.font-size;
-        font-weight: FluentFontSettings.body.font-weight;
         placeholder-color: FluentPalette.text-secondary;
         selection-background-color: FluentPalette.selection-background;
         selection-foreground-color: FluentPalette.selection-foreground;

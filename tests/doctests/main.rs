@@ -26,9 +26,9 @@ fn do_test(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> 
     let code = if must_wrap {
         format!(
             "import {{
-                Button, CheckBox, ComboBox, DatePickerPopup, LineEdit, ProgressIndicator, ScrollView,
-                Slider, SpinBox, Spinner, StandardButton, StandardListView, StandardTableView,
-                RadioGroup,
+                Button, CheckBox, ComboBox, DatePickerPopup, LineEdit, Palette, ProgressIndicator,
+                ScrollView, Slider, SpinBox, Spinner, StandardButton, StandardListView,
+                StandardTableView, RadioGroup,
                 Switch, TabWidget, TextEdit, TimePickerPopup}} from\"std-widgets.slint\";
             component Example {{\n{snippet}\n}}"
         )

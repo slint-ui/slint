@@ -1,14 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use smol_str::{SmolStr, format_smolstr};
-use std::collections::{BTreeMap, HashMap};
+use smol_str::SmolStr;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use crate::expression_tree::Expression;
 use crate::langtype::{Struct, StructName, Type};
+use crate::symbol_counters::SymbolCounters;
 
-pub fn remove_return(doc: &crate::object_tree::Document) {
+pub fn remove_return(doc: &crate::object_tree::Document, symbol_counters: &SymbolCounters) {
     doc.visit_all_used_components(|component| {
         crate::object_tree::visit_all_expressions(component, |e, _| {
             let mut ret_ty = None;
@@ -26,8 +27,8 @@ pub fn remove_return(doc: &crate::object_tree::Document) {
             visit(e, &mut ret_ty);
             let Some(ret_ty) = ret_ty else { return };
             let ctx = RemoveReturnContext { ret_ty };
-            *e = process_expression(std::mem::take(e), true, &ctx, &ctx.ret_ty)
-                .into_expression(&ctx.ret_ty);
+            *e = process_expression(std::mem::take(e), true, &ctx, &ctx.ret_ty, symbol_counters)
+                .into_expression(&ctx.ret_ty, symbol_counters);
         })
     });
 }
@@ -37,18 +38,19 @@ fn process_expression(
     toplevel: bool,
     ctx: &RemoveReturnContext,
     ty: &Type,
+    symbol_counters: &SymbolCounters,
 ) -> ExpressionResult {
     match e {
         Expression::DebugHook { expression, .. } => {
-            process_expression(*expression, toplevel, ctx, ty)
+            process_expression(*expression, toplevel, ctx, ty, symbol_counters)
         }
         Expression::ReturnStatement(expr) => ExpressionResult::Return(expr.map(|e| *e)),
         Expression::CodeBlock(expr) => {
-            process_codeblock(expr.into_iter().peekable(), toplevel, ty, ctx)
+            process_codeblock(expr.into_iter().peekable(), toplevel, ty, ctx, symbol_counters)
         }
         Expression::Condition { condition, true_expr, false_expr } => {
-            let te = process_expression(*true_expr, false, ctx, ty);
-            let fe = process_expression(*false_expr, false, ctx, ty);
+            let te = process_expression(*true_expr, false, ctx, ty, symbol_counters);
+            let fe = process_expression(*false_expr, false, ctx, ty, symbol_counters);
             match (te, fe) {
                 (ExpressionResult::Just(te), ExpressionResult::Just(fe)) => {
                     Expression::Condition { condition, true_expr: te.into(), false_expr: fe.into() }
@@ -80,8 +82,8 @@ fn process_expression(
                 (te, fe) => {
                     let has_value = has_value(ty) && (te.has_value() || fe.has_value());
                     let ty = if has_value { ty } else { &Type::Void };
-                    let te = te.into_return_object(ty, &ctx.ret_ty);
-                    let fe = fe.into_return_object(ty, &ctx.ret_ty);
+                    let te = te.into_return_object(ty, &ctx.ret_ty, symbol_counters);
+                    let fe = fe.into_return_object(ty, &ctx.ret_ty, symbol_counters);
                     ExpressionResult::ReturnObject {
                         has_value,
                         has_return_value: self::has_value(&ctx.ret_ty),
@@ -96,12 +98,12 @@ fn process_expression(
         }
         Expression::Cast { from, to } => {
             let ty = if !has_value(ty) { ty.clone() } else { from.ty() };
-            process_expression(*from, toplevel, ctx, &ty)
-                .map_value(|e| Expression::Cast { from: e.into(), to })
+            process_expression(*from, toplevel, ctx, &ty, symbol_counters)
+                .map_value(symbol_counters, |e| Expression::Cast { from: e.into(), to })
         }
         Expression::StoreLocalVariable { name, value } => {
             let inner_ty = value.ty();
-            match process_expression(*value, false, ctx, &inner_ty) {
+            match process_expression(*value, false, ctx, &inner_ty, symbol_counters) {
                 ExpressionResult::Just(e) => {
                     ExpressionResult::Just(Expression::StoreLocalVariable {
                         name,
@@ -126,12 +128,7 @@ fn process_expression(
                     }),
                 },
                 ExpressionResult::ReturnObject { value, has_return_value, .. } => {
-                    static COUNT: std::sync::atomic::AtomicUsize =
-                        std::sync::atomic::AtomicUsize::new(0);
-                    let tmp_name: SmolStr = format_smolstr!(
-                        "return_check_store{}",
-                        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-                    );
+                    let tmp_name: SmolStr = symbol_counters.generate_name("return_check_store");
                     let value_ty = value.ty();
                     let load = |field: &str| Expression::StructFieldAccess {
                         base: Box::new(Expression::ReadLocalVariable {
@@ -179,11 +176,18 @@ fn process_codeblock(
     toplevel: bool,
     ty: &Type,
     ctx: &RemoveReturnContext,
+    symbol_counters: &SymbolCounters,
 ) -> ExpressionResult {
     let mut stmts = Vec::new();
     while let Some(e) = iter.next() {
         let is_last = iter.peek().is_none();
-        match process_expression(e, toplevel, ctx, if is_last { ty } else { &Type::Void }) {
+        match process_expression(
+            e,
+            toplevel,
+            ctx,
+            if is_last { ty } else { &Type::Void },
+            symbol_counters,
+        ) {
             ExpressionResult::Just(x) => stmts.push(x),
             ExpressionResult::Return(x) => {
                 stmts.extend(x);
@@ -206,7 +210,8 @@ fn process_codeblock(
                         actual_value,
                     };
                 } else if toplevel {
-                    let rest = process_codeblock(iter, true, ty, ctx).into_expression(&ctx.ret_ty);
+                    let rest = process_codeblock(iter, true, ty, ctx, symbol_counters)
+                        .into_expression(&ctx.ret_ty, symbol_counters);
                     let mut rest_ex = Expression::CodeBlock(
                         actual_value.into_iter().chain(core::iter::once(rest)).collect(),
                     );
@@ -231,9 +236,14 @@ fn process_codeblock(
                             returned_value,
                             actual_value,
                         }
-                        .into_return_object(ty, &ctx.ret_ty),
+                        .into_return_object(
+                            ty,
+                            &ctx.ret_ty,
+                            symbol_counters,
+                        ),
                         stmts,
                         has_value(&ctx.ret_ty),
+                        symbol_counters,
                     );
                 }
             }
@@ -245,7 +255,15 @@ fn process_codeblock(
                         has_return_value,
                     };
                 } else {
-                    return continue_codeblock(iter, ty, ctx, value, stmts, has_return_value);
+                    return continue_codeblock(
+                        iter,
+                        ty,
+                        ctx,
+                        value,
+                        stmts,
+                        has_return_value,
+                        symbol_counters,
+                    );
                 }
             }
         }
@@ -260,13 +278,14 @@ fn continue_codeblock(
     return_object: Expression,
     mut stmts: Vec<Expression>,
     has_return_value: bool,
+    symbol_counters: &SymbolCounters,
 ) -> ExpressionResult {
-    let rest = process_codeblock(iter, false, ty, ctx).into_return_object(ty, &ctx.ret_ty);
-    static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let unique_name = format_smolstr!(
-        "return_check_merge{}",
-        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    let rest = process_codeblock(iter, false, ty, ctx, symbol_counters).into_return_object(
+        ty,
+        &ctx.ret_ty,
+        symbol_counters,
     );
+    let unique_name = symbol_counters.generate_name("return_check_merge");
     let load = Box::new(Expression::ReadLocalVariable {
         name: unique_name.clone(),
         ty: return_object.ty(),
@@ -282,7 +301,7 @@ fn continue_codeblock(
         false_expr: ExpressionResult::Return(has_return_value.then(|| {
             Expression::StructFieldAccess { base: load.clone(), name: FIELD_RETURNED.into() }
         }))
-        .into_return_object(ty, &ctx.ret_ty)
+        .into_return_object(ty, &ctx.ret_ty, symbol_counters)
         .into(),
     });
     ExpressionResult::ReturnObject {
@@ -330,7 +349,7 @@ const FIELD_ACTUAL: &str = "actual";
 const FIELD_RETURNED: &str = "returned";
 
 impl ExpressionResult {
-    fn into_expression(self, ty: &Type) -> Expression {
+    fn into_expression(self, ty: &Type, symbol_counters: &SymbolCounters) -> Expression {
         match self {
             ExpressionResult::Just(e) => e,
             ExpressionResult::Return(e) => e.unwrap_or(Expression::CodeBlock(Vec::new())),
@@ -348,12 +367,7 @@ impl ExpressionResult {
                 Expression::CodeBlock(pre_statements)
             }
             ExpressionResult::ReturnObject { value, has_value, has_return_value } => {
-                static COUNT: std::sync::atomic::AtomicUsize =
-                    std::sync::atomic::AtomicUsize::new(0);
-                let name = format_smolstr!(
-                    "returned_expression{}",
-                    COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-                );
+                let name = symbol_counters.generate_name("returned_expression");
                 let load =
                     Box::new(Expression::ReadLocalVariable { name: name.clone(), ty: value.ty() });
                 Expression::CodeBlock(vec![
@@ -388,7 +402,12 @@ impl ExpressionResult {
         }
     }
 
-    fn into_return_object(self, ty: &Type, ret_ty: &Type) -> Expression {
+    fn into_return_object(
+        self,
+        ty: &Type,
+        ret_ty: &Type,
+        symbol_counters: &SymbolCounters,
+    ) -> Expression {
         match self {
             ExpressionResult::Just(e) => {
                 let ret_value = Expression::default_value_for_type(ret_ty);
@@ -423,13 +442,18 @@ impl ExpressionResult {
                 actual_value,
             } => {
                 let mut true_expr = match actual_value {
-                    Some(e) => ExpressionResult::Just(e).into_return_object(ty, ret_ty),
+                    Some(e) => {
+                        ExpressionResult::Just(e).into_return_object(ty, ret_ty, symbol_counters)
+                    }
                     None => make_struct(
                         [(FIELD_CONDITION, Type::Bool, Expression::BoolLiteral(true))].into_iter(),
                     ),
                 };
-                let mut false_expr =
-                    ExpressionResult::Return(returned_value).into_return_object(ty, ret_ty);
+                let mut false_expr = ExpressionResult::Return(returned_value).into_return_object(
+                    ty,
+                    ret_ty,
+                    symbol_counters,
+                );
                 let true_ty = true_expr.ty();
                 let false_ty = false_expr.ty();
                 if true_ty != false_ty {
@@ -437,11 +461,18 @@ impl ExpressionResult {
                         [&true_ty, &false_ty].into_iter().cloned(),
                     );
                     if common_ty != true_ty {
-                        true_expr =
-                            convert_struct(std::mem::take(&mut true_expr), common_ty.clone())
+                        true_expr = convert_struct(
+                            std::mem::take(&mut true_expr),
+                            common_ty.clone(),
+                            symbol_counters,
+                        )
                     }
                     if common_ty != false_ty {
-                        false_expr = convert_struct(std::mem::take(&mut false_expr), common_ty)
+                        false_expr = convert_struct(
+                            std::mem::take(&mut false_expr),
+                            common_ty,
+                            symbol_counters,
+                        )
                     }
                 }
                 let o = Expression::Condition {
@@ -463,7 +494,11 @@ impl ExpressionResult {
         }
     }
 
-    fn map_value(self, f: impl FnOnce(Expression) -> Expression) -> Self {
+    fn map_value(
+        self,
+        symbol_counters: &SymbolCounters,
+        f: impl FnOnce(Expression) -> Expression,
+    ) -> Self {
         match self {
             ExpressionResult::Just(e) => ExpressionResult::Just(f(e)),
             ExpressionResult::Return(e) => ExpressionResult::Return(e),
@@ -482,12 +517,7 @@ impl ExpressionResult {
                 if !has_value {
                     return ExpressionResult::ReturnObject { value, has_value, has_return_value };
                 }
-                static COUNT: std::sync::atomic::AtomicUsize =
-                    std::sync::atomic::AtomicUsize::new(0);
-                let name = format_smolstr!(
-                    "mapped_expression{}",
-                    COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-                );
+                let name = symbol_counters.generate_name("mapped_expression");
                 let value_ty = value.ty();
                 let load = |field: &str| Expression::StructFieldAccess {
                     base: Box::new(Expression::ReadLocalVariable {
@@ -538,7 +568,7 @@ fn codeblock_with_expr(mut pre_statements: Vec<Expression>, expr: Expression) ->
 
 fn make_struct(it: impl Iterator<Item = (&'static str, Type, Expression)>) -> Expression {
     let mut fields = BTreeMap::<SmolStr, Type>::new();
-    let mut values = HashMap::<SmolStr, Expression>::new();
+    let mut values = BTreeMap::<SmolStr, Expression>::new();
     let mut voids = Vec::new();
     for (name, ty, expr) in it {
         if !has_value(&ty) {
@@ -552,39 +582,35 @@ fn make_struct(it: impl Iterator<Item = (&'static str, Type, Expression)>) -> Ex
     }
     codeblock_with_expr(
         voids,
-        Expression::Struct { ty: Rc::new(Struct { fields, name: StructName::None }), values },
+        Expression::Struct { ty: Rc::new(Struct::new(fields, StructName::None)), values },
     )
 }
 
 /// Given an expression `from` of type Struct, convert to another type struct with more fields
 /// Add missing members in `from`
-fn convert_struct(from: Expression, to: Type) -> Expression {
+fn convert_struct(from: Expression, to: Type, symbol_counters: &SymbolCounters) -> Expression {
     let Type::Struct(to) = to else {
         assert_eq!(to, Type::Invalid);
         return Expression::Invalid;
     };
     if let Expression::Struct { mut values, .. } = from {
-        let mut new_values = HashMap::new();
-        for (key, ty) in &to.fields {
+        let mut new_values = BTreeMap::new();
+        for key in to.fields.keys() {
             let (key, expression) = values
                 .remove_entry(key)
-                .unwrap_or_else(|| (key.clone(), Expression::default_value_for_type(ty)));
+                .unwrap_or_else(|| (key.clone(), to.default_value_for_field(key)));
             new_values.insert(key, expression);
         }
         return Expression::Struct { values: new_values, ty: to };
     }
-    static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let var_name = format_smolstr!(
-        "tmpobj_ret_conv_{}",
-        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    );
+    let var_name = symbol_counters.generate_name("tmpobj_ret_conv_");
     let from_ty = from.ty();
-    let mut new_values = HashMap::new();
+    let mut new_values = BTreeMap::new();
     let Type::Struct(from_s) = &from_ty else {
         assert_eq!(from_ty, Type::Invalid);
         return Expression::Invalid;
     };
-    for (key, ty) in &to.fields {
+    for key in to.fields.keys() {
         let expression = if from_s.fields.contains_key(key) {
             Expression::StructFieldAccess {
                 base: Box::new(Expression::ReadLocalVariable {
@@ -594,7 +620,7 @@ fn convert_struct(from: Expression, to: Type) -> Expression {
                 name: key.clone(),
             }
         } else {
-            Expression::default_value_for_type(ty)
+            to.default_value_for_field(key)
         };
         new_values.insert(key.clone(), expression);
     }

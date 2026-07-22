@@ -26,16 +26,18 @@ pub fn collect_structs_and_enums(doc: &Document) {
     used_types.structs_and_enums = Vec::with_capacity(hash.len());
     while let Some(next) = hash.iter().next() {
         let key = next.0.clone();
-        if let Some(library_info) = doc.library_exports.get(key.as_str()) {
-            // This is a type imported from an external library, just skip it for code generation
-            hash.remove(&key);
-            used_types.library_types_imports.push((key, library_info.clone()));
-            continue;
-        }
 
-        // Here, using BTreeMap::pop_first would be great when it is stable
-        let used_struct_and_enums = &mut used_types.structs_and_enums;
-        sort_types(&mut hash, used_struct_and_enums, &key);
+        sort_types(&mut hash, &key, &mut |key, ty| {
+            // Here, using BTreeMap::pop_first would be great when it is stable
+            let used_struct_and_enums = &mut used_types.structs_and_enums;
+
+            if let Some(library_info) = doc.library_exports.get(key.as_str()) {
+                // This is a type imported from an external library, just skip it for code generation
+                used_types.library_types_imports.push((key.clone(), library_info.clone()));
+            } else {
+                used_struct_and_enums.push(ty.clone());
+            }
+        });
     }
 }
 
@@ -66,16 +68,20 @@ fn collect_types_in_component(root_component: &Rc<Component>, hash: &mut BTreeMa
 
 /// Move the object named `key` from hash to vector, making sure that all object used by
 /// it are placed before in the vector
-fn sort_types(hash: &mut BTreeMap<SmolStr, Type>, vec: &mut Vec<Type>, key: &str) {
+fn sort_types(
+    hash: &mut BTreeMap<SmolStr, Type>,
+    key: &SmolStr,
+    visitor: &mut impl FnMut(&SmolStr, &Type),
+) {
     let ty = if let Some(ty) = hash.remove(key) { ty } else { return };
     if let Type::Struct(s) = &ty
         && let StructName::User { .. } = &s.name
     {
         for sub_ty in s.fields.values() {
-            visit_declared_type(sub_ty, &mut |name, _| sort_types(hash, vec, name));
+            visit_declared_type(sub_ty, &mut |name, _| sort_types(hash, name, visitor));
         }
     }
-    vec.push(ty)
+    visitor(key, &ty)
 }
 
 /// Will call the `visitor` for every named struct or enum that is not builtin

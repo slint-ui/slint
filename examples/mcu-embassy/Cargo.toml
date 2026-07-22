@@ -2,9 +2,21 @@
 # SPDX-License-Identifier: MIT
 
 # cSpell: ignore tinybmp
+
+# Own workspace: mcu-embassy defaults to the `mcu` feature (cortex-m / embassy,
+# ARM-only) and so cannot be part of the host-buildable examples workspace. It
+# shares the repository `target/` directory via the root `.cargo/config.toml`,
+# and builds for its embedded target via the `.cargo/config.toml` in this
+# directory.
+[workspace]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+
 [package]
 name = "mcu-embassy"
-version = "1.17.0"
+version = "1.18.0"
 edition.workspace = true
 authors = ["David Haig <david@ninjametal.com>"]
 readme = "README.md"

@@ -302,6 +302,33 @@ TEST_CASE("SharedVector")
     REQUIRE(vec6 == vec2);
 }
 
+TEST_CASE("Slice comparison")
+{
+    using namespace slint;
+    using slint::cbindgen_private::Slice;
+
+    int a[] = { 1, 2, 3 };
+    int b[] = { 1, 2, 3 };
+    int c[] = { 1, 2, 4 };
+
+    // Compute the results outside of REQUIRE: Catch2's expression decomposition would
+    // call the comparison operators from its own namespace where ADL can't find them.
+    const bool equal_same = Slice<int> { a, 3 } == Slice<int> { b, 3 };
+    const bool notequal_same = Slice<int> { a, 3 } != Slice<int> { b, 3 };
+    REQUIRE(equal_same);
+    REQUIRE_FALSE(notequal_same);
+
+    const bool equal_diff = Slice<int> { a, 3 } == Slice<int> { c, 3 };
+    const bool notequal_diff = Slice<int> { a, 3 } != Slice<int> { c, 3 };
+    REQUIRE_FALSE(equal_diff);
+    REQUIRE(notequal_diff);
+
+    const bool equal_len = Slice<int> { a, 2 } == Slice<int> { a, 3 };
+    const bool notequal_len = Slice<int> { a, 2 } != Slice<int> { a, 3 };
+    REQUIRE_FALSE(equal_len);
+    REQUIRE(notequal_len);
+}
+
 TEST_CASE("StyledText")
 {
     auto empty_arguments = std::array<slint::StyledText, 0> {};
@@ -373,6 +400,7 @@ TEST_CASE("DataTransfer")
         DataTransfer a;
         DataTransfer b;
         REQUIRE(a == b);
+        REQUIRE(a.is_empty());
     }
 
     SECTION("Copy construction")
@@ -413,47 +441,48 @@ TEST_CASE("DataTransfer")
         REQUIRE(b == DataTransfer {});
     }
 
-    SECTION("Plaintext")
+    SECTION("Plain text")
     {
         DataTransfer a;
-        REQUIRE(!a.has_plaintext());
-        REQUIRE(!a.fetch_plaintext().has_value());
+        REQUIRE(!a.has_plain_text());
+        REQUIRE(!a.plain_text().has_value());
 
-        a.set_plaintext(slint::SharedString("hello"));
-        REQUIRE(a.has_plaintext());
-        REQUIRE(a.fetch_plaintext() == slint::SharedString("hello"));
+        a.set_plain_text(slint::SharedString("hello"));
+        REQUIRE(a.has_plain_text());
+        REQUIRE(!a.is_empty());
+        REQUIRE(a.plain_text() == slint::SharedString("hello"));
 
         // Overwrite.
-        a.set_plaintext(slint::SharedString("world"));
-        REQUIRE(a.fetch_plaintext() == slint::SharedString("world"));
+        a.set_plain_text(slint::SharedString("world"));
+        REQUIRE(a.plain_text() == slint::SharedString("world"));
 
         // Clones share data, modifying one diverges them.
         DataTransfer b(a);
         REQUIRE(a == b);
-        b.set_plaintext(slint::SharedString("other"));
+        b.set_plain_text(slint::SharedString("other"));
         REQUIRE(a != b);
-        REQUIRE(a.fetch_plaintext() == slint::SharedString("world"));
-        REQUIRE(b.fetch_plaintext() == slint::SharedString("other"));
+        REQUIRE(a.plain_text() == slint::SharedString("world"));
+        REQUIRE(b.plain_text() == slint::SharedString("other"));
     }
 
-    SECTION("Plaintext conversion constructor")
+    SECTION("Plain text conversion constructor")
     {
         DataTransfer a { slint::SharedString("hi") };
-        REQUIRE(a.has_plaintext());
+        REQUIRE(a.has_plain_text());
         REQUIRE(!a.has_image());
-        REQUIRE(a.fetch_plaintext() == slint::SharedString("hi"));
+        REQUIRE(a.plain_text() == slint::SharedString("hi"));
     }
 
     SECTION("Image")
     {
         DataTransfer a;
         REQUIRE(!a.has_image());
-        REQUIRE(!a.fetch_image().has_value());
+        REQUIRE(!a.image().has_value());
 
         slint::Image img(slint::SharedPixelBuffer<slint::Rgb8Pixel>(2, 1));
         a.set_image(img);
         REQUIRE(a.has_image());
-        auto fetched = a.fetch_image();
+        auto fetched = a.image();
         REQUIRE(fetched.has_value());
         REQUIRE(fetched->size().width == 2);
         REQUIRE(fetched->size().height == 1);
@@ -464,15 +493,37 @@ TEST_CASE("DataTransfer")
         slint::Image img(slint::SharedPixelBuffer<slint::Rgb8Pixel>(3, 4));
         DataTransfer a { img };
         REQUIRE(a.has_image());
-        REQUIRE(!a.has_plaintext());
+        REQUIRE(!a.has_plain_text());
     }
 
-    SECTION("Plaintext and image coexist")
+    SECTION("set_plain_text with empty string clears")
     {
         DataTransfer a;
-        a.set_plaintext(slint::SharedString("text"));
+        a.set_plain_text(slint::SharedString("hello"));
+        REQUIRE(a.has_plain_text());
+        a.set_plain_text(slint::SharedString(""));
+        REQUIRE(!a.has_plain_text());
+        REQUIRE(!a.plain_text().has_value());
+        REQUIRE(a.is_empty());
+    }
+
+    SECTION("set_image with default image clears")
+    {
+        DataTransfer a;
+        a.set_image(slint::Image(slint::SharedPixelBuffer<slint::Rgb8Pixel>(2, 2)));
+        REQUIRE(a.has_image());
+        a.set_image(slint::Image());
+        REQUIRE(!a.has_image());
+        REQUIRE(!a.image().has_value());
+        REQUIRE(a.is_empty());
+    }
+
+    SECTION("Plain text and image coexist")
+    {
+        DataTransfer a;
+        a.set_plain_text(slint::SharedString("text"));
         a.set_image(slint::Image(slint::SharedPixelBuffer<slint::Rgb8Pixel>(1, 1)));
-        REQUIRE(a.has_plaintext());
+        REQUIRE(a.has_plain_text());
         REQUIRE(a.has_image());
     }
 
@@ -561,13 +612,13 @@ TEST_CASE("DataTransfer")
         REQUIRE(observer.expired());
     }
 
-    SECTION("User data, plaintext, and image coexist")
+    SECTION("User data, plain text, and image coexist")
     {
         DataTransfer a;
-        a.set_plaintext(slint::SharedString("text"));
+        a.set_plain_text(slint::SharedString("text"));
         a.set_image(slint::Image(slint::SharedPixelBuffer<slint::Rgb8Pixel>(1, 1)));
         a.set_user_data(std::make_shared<int>(123));
-        REQUIRE(a.has_plaintext());
+        REQUIRE(a.has_plain_text());
         REQUIRE(a.has_image());
         REQUIRE(a.has_user_data());
         std::any v = a.user_data();

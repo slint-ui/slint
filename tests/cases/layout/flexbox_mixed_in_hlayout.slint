@@ -1,0 +1,56 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test: a width-for-height child (column FlexboxLayout) next to a
+// height-for-width child (wrapped Text) in the same HorizontalLayout used to
+// panic with "Recursion detected ... layoutinfo-h" in the interpreter. The
+// column flex's width-info read self.height, which depends back on the vertical
+// pass (the text's height-for-width). The layout must resolve instead.
+
+import { Button } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;   // tall enough that the column flex does not wrap
+    HorizontalLayout {
+        alignment: start;
+        cross-axis-alignment: start;   // don't stretch children vertically
+        spacing: 10px;
+        padding: 10px;
+
+        flex := FlexboxLayout {       // width-for-height (column)
+            flex-direction: column;
+            spacing: 4px;
+            Button { text: "A"; }
+            Button { text: "B"; }
+            Button { text: "C"; }
+        }
+
+        txt := Text {                 // height-for-width
+            text: "This is a long text that wraps across several lines when given a narrow width";
+            wrap: word-wrap;
+            horizontal-stretch: 1;     // let the layout decide its width
+        }
+    }
+
+    // Reading these forces the layout solve (before the fix it recursed). The
+    // text sits to the right of the flex, not overlapping it.
+    out property <bool> test: flex.width > 0px && txt.width > 0px
+        && txt.x >= flex.x + flex.width;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/
