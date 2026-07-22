@@ -103,7 +103,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 1,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -156,7 +156,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 2,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -190,7 +190,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 3,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -223,7 +223,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 4,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -256,7 +256,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 5,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -289,7 +289,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 6,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
@@ -322,7 +322,7 @@
     "Fill": {
       "brush": {
         "Image": {
-          "image": 7,
+          "image": 0,
           "sampler": {
             "alpha": 1.0,
             "quality": "Medium",
