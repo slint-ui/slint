@@ -115,7 +115,9 @@ fn check(pages: &[SpecPage], refs: &[TestRef]) -> Vec<String> {
 }
 
 /// Parse a `{#sls.…}` marker at the end of a line, mirroring `ID_MARKER` in
-/// docs/common/src/utils/rehype-sls-ids.mjs.
+/// docs/common/src/utils/rehype-sls-ids.mjs. The sources write the marker in
+/// its MDX-safe escaped form `\{#sls.…}`; the backslash sits before the `{`
+/// found via `rfind`, so both forms parse the same here.
 fn anchor_id(line: &str) -> Option<&str> {
     let t = line.trim_end().strip_suffix('}')?;
     let id = &t[t.rfind("{#")? + 2..];
@@ -317,6 +319,7 @@ tests marked `syntax:` are compiler syntax tests from `{syntax_root}/`.
 #[test]
 fn test_anchor_id() {
     assert_eq!(anchor_id("Some text. {#sls.foo.bar}"), Some("sls.foo.bar"));
+    assert_eq!(anchor_id(r"MDX-escaped. \{#sls.foo.bar}"), Some("sls.foo.bar"));
     assert_eq!(anchor_id("Text. {#sls.a-b_c.d2}  "), Some("sls.a-b_c.d2"));
     assert_eq!(anchor_id("{#sls.x}"), Some("sls.x"));
     assert_eq!(anchor_id("no marker here"), None);

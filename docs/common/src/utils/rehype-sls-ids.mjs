@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: MIT
 
 // Assign author-specified paragraph IDs to every `<p>` under `language/`.
-// Each normative paragraph ends with a Pandoc-style marker `{#sls_xxx}`;
-// the plugin strips the marker, sets it as the paragraph's `id`, and
-// appends a visible `[sls_xxx]` badge that doubles as an anchor.
+// Each normative paragraph ends with a Pandoc-style marker, written as
+// `\{#sls_xxx}` in the sources so that the brace also stays literal text in
+// MDX files (where an unescaped `{` starts a JSX expression). The escape is
+// consumed by the markdown parser, so this plugin sees `{#sls_xxx}`; it
+// strips the marker, sets it as the paragraph's `id`, and appends a visible
+// `[sls_xxx]` badge that doubles as an anchor.
 //
 // Cross-file references like `#sls_xxx` are validated by
 // `starlight-links-validator`. A paragraph that loses its marker (e.g.
