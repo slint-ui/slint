@@ -1536,7 +1536,8 @@ component WindowItem {
     /// Whether the window is maximized. Setting this to true maximizes the window.
     //-shadowable
     in-out property <bool> maximized;
-    /// The background brush of the `Window`.
+    /// The background brush of the `Window`. \{#sls.ref.window.background}
+    /// \sc
     /// \default depends on the style
     in property <brush> background; // StyleMetrics.background  set in apply_default_properties_from_style
     in property <brush> color <=> background;
