@@ -278,7 +278,7 @@ fn validate_interface_member_implementation(
         return;
     }
 
-    let error = format!("Cannot implement '{interface_name}'.\n- {conflicts}");
+    let error = format!("Cannot implement '{interface_name}'.\n{conflicts}");
     let source = element
         .property_declarations
         .get(member_name)
@@ -497,10 +497,10 @@ fn element_implements_interface(
     interface: &ElementRc,
     child_id: &SmolStr,
     interface_name: &SmolStr,
-    node: &syntax_nodes::ImplementStatement,
+    implement_node: &syntax_nodes::ImplementStatement,
     diagnostics: &mut BuildDiagnostics,
 ) -> bool {
-    let mut valid = true;
+    let mut errors = Vec::new();
     let mut check = |property_name: &SmolStr, property_declaration: &PropertyDeclaration| {
         let lookup_result = element.borrow().lookup_property(property_name);
         if let Err(conflicts) = property_matches_interface(
@@ -509,13 +509,7 @@ fn element_implements_interface(
             property_name,
             Some(child_id),
         ) {
-            diagnostics.push_error(
-                format!(
-                    "Cannot implement '{interface_name}' based on '{child_id}'.\n- {conflicts}",
-                ),
-                &node.DeclaredIdentifier(),
-            );
-            valid = false;
+            errors.push(conflicts);
         }
     };
 
@@ -523,7 +517,15 @@ fn element_implements_interface(
         check(property_name, property_declaration);
     }
 
-    valid
+    if !errors.is_empty() {
+        let errors = errors.join("\n");
+        diagnostics.push_error(
+            format!("Cannot implement '{}' based on '{}'.\n{}", interface_name, child_id, errors),
+            &implement_node.DeclaredIdentifier(),
+        );
+    }
+
+    errors.is_empty()
 }
 
 fn property_matches_interface(
@@ -552,7 +554,7 @@ fn property_matches_interface(
             };
 
         return Err(format!(
-            "missing '{name}', {}",
+            "- missing '{name}', {}",
             missing_type_description(
                 &interface_declaration.property_type,
                 &interface_declaration.pure,
@@ -581,22 +583,22 @@ fn property_matches_interface(
 
         let expected = type_description(&interface_declaration.property_type);
         let actual = type_description(&property.property_type);
-        errors.push(format!("'{member_name}' must be {expected} (found {actual})"));
+        errors.push(format!("- '{member_name}' must be {expected} (found {actual})"));
     }
 
     if property.property_visibility != interface_declaration.visibility {
         errors.push(format!(
-            "'{member_name}' must be '{}' (found '{}')",
+            "- '{member_name}' must be '{}' (found '{}')",
             interface_declaration.visibility, property.property_visibility
         ));
     }
 
     // The implementation can be "more pure" than the interface, but never less pure.
     if interface_declaration.pure.unwrap_or(false) && !property.declared_pure.unwrap_or(false) {
-        errors.push(format!("'{member_name}' must be 'pure'"));
+        errors.push(format!("- '{member_name}' must be 'pure'"));
     }
 
-    if errors.is_empty() { Ok(()) } else { Err(errors.into_iter().join("\n- ")) }
+    if errors.is_empty() { Ok(()) } else { Err(errors.into_iter().join("\n")) }
 }
 
 fn apply_uses_statement_function_binding(

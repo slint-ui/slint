@@ -21,9 +21,7 @@ export component MissingChild {
 // The child must carry every member of the interface.
 export component ChildMissingMembers {
     implement ValidInterface <=> base;
-//                               >  <error{Cannot implement 'ValidInterface' based on 'base'.↵- missing 'reset', a 'public pure function() -> void'}
-//                               >  <^error{Cannot implement 'ValidInterface' based on 'base'.↵- missing 'speak', a 'callback() -> void'}
-//                               >  <^^error{Cannot implement 'ValidInterface' based on 'base'.↵- missing 'value', an in-out 'int' property}
+//                               >  <error{Cannot implement 'ValidInterface' based on 'base'.↵- missing 'reset', a 'public pure function() -> void'↵- missing 'speak', a 'callback() -> void'↵- missing 'value', an in-out 'int' property}
     base := ComponentA { }
 }
 
@@ -113,9 +111,7 @@ component CrossKindImpl {
 
 export component ChildCrossKind {
     implement ValidInterface <=> impl;
-//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.reset' must be a 'function() -> void' (found a 'int' property)↵- 'impl.reset' must be 'public' (found 'in-out')↵- 'impl.reset' must be 'pure'}
-//                               >  <^error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.speak' must be a 'callback() -> void' (found a 'int' property)}
-//                               >  <^^error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.value' must be a 'int' property (found a 'callback() -> void')}
+//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.reset' must be a 'function() -> void' (found a 'int' property)↵- 'impl.reset' must be 'public' (found 'in-out')↵- 'impl.reset' must be 'pure'↵- 'impl.speak' must be a 'callback() -> void' (found a 'int' property)↵- 'impl.value' must be a 'int' property (found a 'callback() -> void')}
     impl := CrossKindImpl { }
 }
 
