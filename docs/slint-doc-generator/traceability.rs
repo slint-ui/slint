@@ -228,6 +228,13 @@ fn scan_test_refs(
     Ok(())
 }
 
+/// Whether a paragraph is informative rather than a testable requirement:
+/// the document conventions (`sls.meta.…`) and examples. These are excluded
+/// from the matrix; examples are compiled by the doctests test instead.
+fn informative(id: &str) -> bool {
+    id.starts_with("sls.meta.") || id.split('.').any(|s| s == "example")
+}
+
 /// The commit to link test files to on GitHub.
 fn git_head(repo_root: &Path) -> String {
     std::process::Command::new("git")
@@ -253,11 +260,11 @@ fn write_matrix(
     let mut file =
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
-    let total: usize = pages.iter().map(|p| p.anchors.len()).sum();
+    let total = pages.iter().flat_map(|p| &p.anchors).filter(|(id, _)| !informative(id)).count();
     let covered = pages
         .iter()
         .flat_map(|p| &p.anchors)
-        .filter(|(id, _)| tests_by_id.contains_key(id.as_str()))
+        .filter(|(id, _)| !informative(id) && tests_by_id.contains_key(id.as_str()))
         .count();
 
     writeln!(
@@ -273,6 +280,8 @@ shown as a `[sls.…]` badge at the end of the paragraph.
 A test case declares which requirements it verifies by listing their identifiers in `//#sls.…` comments.
 This matrix lists every requirement paragraph with the test cases that declare it.
 Requirements not yet covered by any test are marked ❌.
+Informative paragraphs — the document conventions (`sls.meta.…`) and examples — are not listed;
+the examples are compiled by the doctests test instead.
 
 Tests marked `case:` are executed test cases from `{case_root}/`,
 tests marked `syntax:` are compiler syntax tests from `{syntax_root}/`.
@@ -284,12 +293,16 @@ tests marked `syntax:` are compiler syntax tests from `{syntax_root}/`.
 
     // The index page's title heads the section; the other pages nest under it.
     for page in pages {
-        if page.anchors.is_empty() {
+        let anchors: Vec<&(String, usize)> =
+            page.anchors.iter().filter(|(id, _)| !informative(id)).collect();
+        if page.stem == "index" {
+            writeln!(file, "\n## {}", page.title)?;
+        }
+        if anchors.is_empty() {
             continue;
         }
         // The matrix page is two levels deep, so `../../` is the site root.
         let base = if page.stem == "index" {
-            writeln!(file, "\n## {}", page.title)?;
             "../../language/".to_string()
         } else {
             writeln!(file, "\n### {}", page.title)?;
@@ -297,7 +310,7 @@ tests marked `syntax:` are compiler syntax tests from `{syntax_root}/`.
         };
         writeln!(file, "\n| Paragraph | Tests |")?;
         writeln!(file, "| --- | --- |")?;
-        for (id, _) in &page.anchors {
+        for (id, _) in anchors {
             let tests = match tests_by_id.get(id.as_str()) {
                 Some(files) => files
                     .iter()
@@ -312,6 +325,15 @@ tests marked `syntax:` are compiler syntax tests from `{syntax_root}/`.
         }
     }
     Ok(())
+}
+
+#[test]
+fn test_informative() {
+    assert!(informative("sls.meta.purpose"));
+    assert!(informative("sls.file.example.intro"));
+    assert!(informative("sls.file.example.description"));
+    assert!(!informative("sls.lex.identifier.normalization-example"));
+    assert!(!informative("sls.file.component.body"));
 }
 
 #[test]
