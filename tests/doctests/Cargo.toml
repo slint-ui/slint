@@ -20,5 +20,6 @@ name = "doctests"
 walkdir = "2"
 
 [dev-dependencies]
+i-slint-compiler = { workspace = true, features = ["slint-sc", "display-diagnostics"] }
 slint-interpreter = { workspace = true, features = ["default", "display-diagnostics"] }
 spin_on = { workspace = true }
