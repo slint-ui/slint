@@ -52,7 +52,10 @@ pub(crate) fn root_dir() -> PathBuf {
 pub struct Config {
     /// Absolute path to the Astro project root (containing `package.json`).
     pub astro_dir: PathBuf,
-    /// Absolute path to the `reference/generated` directory to write into.
+    /// Absolute path to the root of the generated content. Everything below
+    /// it is written by this tool and gitignored; one subdirectory per section
+    /// of the site the pages belong to. Pages carry an explicit `slug`, so
+    /// this location doesn't determine their URL.
     pub generated_dir: PathBuf,
     /// Skip items that don't carry a `\sc` marker in their doc comment.
     pub sc_only: bool,
@@ -62,11 +65,16 @@ pub struct Config {
     pub include_experimental: bool,
 }
 
+/// Path of the generated content root, relative to the site's `src` directory.
+/// Also the prefix of the `import` paths the generated pages use, and the sole
+/// entry each site's `.gitignore` needs for generated content.
+pub const GENERATED_DIR: &str = "content/docs/generated";
+
 impl Config {
     pub fn slint_docs(include_experimental: bool) -> Self {
         let astro_dir = root_dir().join("docs/astro");
         Self {
-            generated_dir: astro_dir.join("src/content/docs/reference/generated"),
+            generated_dir: astro_dir.join("src").join(GENERATED_DIR),
             astro_dir,
             sc_only: false,
             skip_screenshots: false,
@@ -76,12 +84,22 @@ impl Config {
     pub fn safety_manual(include_experimental: bool) -> Self {
         let astro_dir = root_dir().join("docs/safety");
         Self {
-            generated_dir: astro_dir.join("src/content/docs/reference/generated"),
+            generated_dir: astro_dir.join("src").join(GENERATED_DIR),
             astro_dir,
             sc_only: true,
             skip_screenshots: true,
             include_experimental,
         }
+    }
+
+    /// Generated pages of the API reference.
+    pub fn reference_dir(&self) -> PathBuf {
+        self.generated_dir.join("reference")
+    }
+
+    /// Generated pages of the qualification plan (safety manual only).
+    pub fn qualification_plan_dir(&self) -> PathBuf {
+        self.generated_dir.join("qualification-plan")
     }
 }
 

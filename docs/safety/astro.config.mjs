@@ -109,7 +109,7 @@ export default defineConfig({
                         { label: "Overview", slug: "reference" },
                         {
                             autogenerate: {
-                                directory: "reference/generated",
+                                directory: "generated/reference",
                             },
                         },
                     ],

@@ -26,8 +26,8 @@ const SPEC_PAGE_ORDER: &[&str] =
 const TEST_ROOTS: &[(&str, &str)] =
     &[("case", "api/slint-sc/tests/cases"), ("syntax", "internal/compiler/tests/syntax/slint-sc")];
 
-/// Name of the matrix this module writes into [`Config::generated_dir`]. It
-/// isn't a source of anchors, so scanning skips it.
+/// Name of the matrix this module writes into
+/// [`Config::qualification_plan_dir`], the section it belongs to.
 const MATRIX_FILE: &str = "traceability-matrix.md";
 
 const REPO_URL: &str = env!("CARGO_PKG_REPOSITORY");
@@ -248,12 +248,10 @@ fn scan_reference_pages(
     repo_root: &Path,
 ) -> Result<Vec<SpecPage>, Box<dyn std::error::Error>> {
     let mut pages = Vec::new();
-    for entry in walkdir::WalkDir::new(&cfg.generated_dir).sort_by_file_name() {
+    for entry in walkdir::WalkDir::new(cfg.reference_dir()).sort_by_file_name() {
         let entry = entry?;
         let path = entry.path();
-        if !entry.file_type().is_file()
-            || path.extension().is_none_or(|e| e != "md" && e != "mdx")
-            || path.file_name().is_some_and(|n| n == MATRIX_FILE)
+        if !entry.file_type().is_file() || path.extension().is_none_or(|e| e != "md" && e != "mdx")
         {
             continue;
         }
@@ -328,8 +326,9 @@ fn write_matrix(
     tests_by_id: &HashMap<&str, Vec<&TestRef>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let sha = git_head(repo_root);
-    std::fs::create_dir_all(&cfg.generated_dir)?;
-    let path = cfg.generated_dir.join(MATRIX_FILE);
+    let dir = cfg.qualification_plan_dir();
+    std::fs::create_dir_all(&dir)?;
+    let path = dir.join(MATRIX_FILE);
     let mut file =
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 

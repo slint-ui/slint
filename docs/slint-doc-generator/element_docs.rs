@@ -782,8 +782,8 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         &i_slint_compiler::symbol_counters::SymbolCounters::shared(),
     );
     let register = register.borrow();
-    let generated_dir = &cfg.generated_dir;
-    create_dir_all(generated_dir)?;
+    let generated_dir = cfg.reference_dir();
+    create_dir_all(&generated_dir)?;
 
     // Include all types for resolution, regardless of experimental or SC flag,
     // so property types still resolve their kind even when the target page
@@ -883,7 +883,8 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
                 || all_text.contains(&format!("<{sname}/>"))
             {
                 extra_imports.push(format!(
-                    "import {sname} from '/src/content/docs/reference/generated/structs/_{sname}.md';"
+                    "import {sname} from '/src/{}/reference/structs/_{sname}.md';",
+                    crate::GENERATED_DIR
                 ));
             }
         }
@@ -892,7 +893,8 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
                 || all_text.contains(&format!("<{ename}/>"))
             {
                 extra_imports.push(format!(
-                    "import {ename} from '/src/content/docs/reference/generated/enums/_{ename}.md';"
+                    "import {ename} from '/src/{}/reference/enums/_{ename}.md';",
+                    crate::GENERATED_DIR
                 ));
             }
         }

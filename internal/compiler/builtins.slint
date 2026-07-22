@@ -2377,42 +2377,35 @@ export component Path {
     //! If non-zero, the path will be scaled to fit into the specified height.
     //! </SlintProperty>
     //!
+    in property <string> commands;  // 'fake' hardcoded in typeregister.rs
+    /// Defines how the path's view box is scaled to fit the element's width and height.
+    /// If no view box is defined, the implicit bounding rectangle is used.
+    /// \default contain
+    in property <ImageFit> fit: contain;
+    /// By default, when a path has a view box defined and the elements render
+    /// outside of it, they are still rendered. When this property is set to `true`, then rendering will be
+    /// clipped at the boundaries of the view box.
+    /// \default false
+    in property <bool> clip;
+    ///  By default, the fill and stroke of a path is rendered with anti-aliasing, for best quality. Some GPUs
+    ///  have performance issues when rendering with anti-aliasing and animation. Setting the value to `false`
+    ///  might improve the frame-rate at the expense of a smoother looking path.
+    /// \default true
+    in property <bool> anti-alias: true;
     //! ## Viewbox Properties
-    //! ### viewbox-x
-    //! <SlintProperty propName="viewbox-x" typeName="float"/>
-    //!
-    //! ### viewbox-y
-    //! <SlintProperty propName="viewbox-y" typeName="float"/>
-    //!
-    //! ### viewbox-width
-    //! <SlintProperty propName="viewbox-width" typeName="float"/>
-    //!
-    //! ### viewbox-height
-    //! <SlintProperty propName="viewbox-height" typeName="float"/>
     //!
     //! These four properties allow defining the position and size of the viewport of the path in path coordinates.
     //!
     //! If the `viewbox-width` or `viewbox-height` is less or equal than zero, the viewbox properties are
     //! ignored and instead the bounding rectangle of all path elements is used to define the view port.
-    in property <string> commands;  // 'fake' hardcoded in typeregister.rs
+    ///
     in property <float> viewbox-x;
+    ///
     in property <float> viewbox-y;
+    ///
     in property <float> viewbox-width;
+    ///
     in property <float> viewbox-height;
-    /// Defines how the path's view box is scaled to fit the element's width and height.
-    /// If no view box is defined, the implicit bounding rectangle is used.
-    /// \default contain
-    in property <ImageFit> fit: contain;
-    /// \default false
-    in property <bool> clip;
-    //!  By default, when a path has a view box defined and the elements render
-    //! outside of it, they are still rendered. When this property is set to `true`, then rendering will be
-    //! clipped at the boundaries of the view box.
-    /// \default true
-    in property <bool> anti-alias: true;
-    //!  By default, the fill and stroke of a path is rendered with anti-aliasing, for best quality. Some GPUs
-    //!  have performance issues when rendering with anti-aliasing and animation. Setting the value to `false`
-    //!  might improve the frame-rate at the expense of a smoother looking path.
     //!
     //! ## Path Using SVG Commands
     //!
