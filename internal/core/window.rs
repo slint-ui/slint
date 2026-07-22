@@ -486,18 +486,6 @@ impl crate::properties::PropertyDirtyHandler for PopupWindowPropertiesTracker {
     }
 }
 
-struct WindowRedrawTracker {
-    window_adapter_weak: Weak<dyn WindowAdapter>,
-}
-
-impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
-    fn notify(self: Pin<&Self>) {
-        if let Some(window_adapter) = self.window_adapter_weak.upgrade() {
-            window_adapter.request_redraw();
-        };
-    }
-}
-
 /// This enum describes the different ways a popup can be rendered by the back-end.
 pub enum PopupWindowLocation {
     /// The popup is rendered in its own top-level window that is know to the windowing system.
@@ -549,8 +537,6 @@ impl Drop for PopupWindow {
 
 #[pin_project::pin_project]
 struct WindowPinnedFields {
-    #[pin]
-    redraw_tracker: PropertyTracker<false, WindowRedrawTracker>,
     /// Gets dirty when the layout restrictions, or some other property of the windows change
     #[pin]
     window_properties_tracker: PropertyTracker<true, WindowPropertiesTracker>,
@@ -632,15 +618,10 @@ impl WindowInner {
                 window_adapter_weak: window_adapter_weak.clone(),
             });
 
-        let mut redraw_tracker = PropertyTracker::new_with_dirty_handler(WindowRedrawTracker {
-            window_adapter_weak: window_adapter_weak.clone(),
-        });
-
         #[cfg(slint_debug_property)]
         {
             window_properties_tracker
                 .set_debug_name("i_slint_core::Window::window_properties_tracker".into());
-            redraw_tracker.set_debug_name("i_slint_core::Window::redraw_tracker".into());
         }
 
         Self {
@@ -650,7 +631,6 @@ impl WindowInner {
             mouse_input_state: Default::default(),
             touch_state: Default::default(),
             pinned_fields: Box::pin(WindowPinnedFields {
-                redraw_tracker,
                 window_properties_tracker,
                 scale_factor: Property::new_named(1., "i_slint_core::Window::scale_factor"),
                 active: Property::new_named(false, "i_slint_core::Window::active"),
@@ -1696,32 +1676,30 @@ impl WindowInner {
         let post_render = |renderer: &mut dyn crate::item_rendering::ItemRenderer| {
             self.render_drag_image_overlay(renderer);
         };
-        Some(self.pinned_fields.as_ref().project_ref().redraw_tracker.evaluate_as_dependency_root(
-            || {
-                if !self
-                    .active_popups
-                    .borrow()
-                    .iter()
-                    .any(|p| matches!(p.location, PopupWindowLocation::ChildWindow(..)))
-                {
-                    render_components(&[(component_weak, LogicalPoint::default())], &post_render)
-                } else {
-                    let borrow = self.active_popups.borrow();
-                    let mut item_trees = Vec::with_capacity(borrow.len() + 1);
-                    item_trees.push((component_weak, LogicalPoint::default()));
-                    for popup in borrow.iter() {
-                        // If the popup is not a real window and does not have its own coordinate system.
-                        // We have to draw the popup and consider the location for subelements because everything must
-                        // be rendered relative to the main window position
-                        if let PopupWindowLocation::ChildWindow(location) = &popup.location {
-                            item_trees.push((ItemTreeRc::downgrade(&popup.component), *location));
-                        }
+        Some(
+            if !self
+                .active_popups
+                .borrow()
+                .iter()
+                .any(|p| matches!(p.location, PopupWindowLocation::ChildWindow(..)))
+            {
+                render_components(&[(component_weak, LogicalPoint::default())], &post_render)
+            } else {
+                let borrow = self.active_popups.borrow();
+                let mut item_trees = Vec::with_capacity(borrow.len() + 1);
+                item_trees.push((component_weak, LogicalPoint::default()));
+                for popup in borrow.iter() {
+                    // If the popup is not a real window and does not have its own coordinate system.
+                    // We have to draw the popup and consider the location for subelements because everything must
+                    // be rendered relative to the main window position
+                    if let PopupWindowLocation::ChildWindow(location) = &popup.location {
+                        item_trees.push((ItemTreeRc::downgrade(&popup.component), *location));
                     }
-                    drop(borrow);
-                    render_components(&item_trees, &post_render)
                 }
+                drop(borrow);
+                render_components(&item_trees, &post_render)
             },
-        ))
+        )
     }
 
     /// Draws the source `DragArea`'s `drag-image` under the cursor when a drag is in flight.
@@ -1981,7 +1959,8 @@ impl WindowInner {
                     popup::Placement::Fixed(LogicalRect::new(position, size)),
                     &clip_region,
                 );
-                self.window_adapter().request_redraw();
+                // Not needed here, because we will do it in update_popup_properties()
+                //self.window_adapter().request_redraw();
                 (
                     PopupWindowLocation::ChildWindow(rect.origin),
                     Box::pin(PropertyTracker::new_with_dirty_handler(
