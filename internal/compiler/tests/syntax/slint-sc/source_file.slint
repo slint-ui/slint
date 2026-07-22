@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Enum declarations are rejected in Slint SC mode.
-
+// A source file is a sequence of top-level items.
+//#sls.file.source-file
 //#sls.file.top-level-item
-enum MyEnum { a, b, c }
-//   >    <error{Enum declarations are not supported in Slint SC}
+//#sls.file.component.name
+//#sls.file.component.body-braces
 
-export component Test inherits Window {
+export component MyComponent inherits Window {
 }

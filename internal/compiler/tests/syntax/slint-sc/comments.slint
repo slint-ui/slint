@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Comments are equivalent to whitespace and carry no semantic effect.
+//#sls.source.comment.line
+//#sls.source.comment.block
+//#sls.source.comment.whitespace-equivalent
+//#sls.source.comment.no-doc-comments
+
+// A line comment.
+
+/* A block comment. */
+
+/* Block comments /* may be nested */ like this. */
+
+/// Triple-slash is an ordinary line comment.
+
+/** Double-star-slash is an ordinary block comment. */
+
+export component Test inherits Window {
+    // comment inside component body
+    Rectangle {
+        /* comment inside element body */
+    }
+}
