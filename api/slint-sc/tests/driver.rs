@@ -172,13 +172,18 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
             .to_string_lossy()
             .replace('\\', "/");
         let mut content = String::new();
+        // no_std so that accidental use of std in the generated code doesn't compile
+        writeln!(content, "#![no_std]").unwrap();
+        writeln!(content, "extern crate std;").unwrap();
+        writeln!(content).unwrap();
         writeln!(content, "#[macro_use]").unwrap();
         writeln!(content, r#"#[path = "{harness_path}"]"#).unwrap();
         writeln!(content, "mod harness;").unwrap();
         writeln!(content).unwrap();
         writeln!(content, r#"include!("{gen_path}");"#).unwrap();
         writeln!(content).unwrap();
-        writeln!(content, "fn main() -> Result<(), Box<dyn std::error::Error>> {{").unwrap();
+        writeln!(content, "fn main() -> Result<(), std::boxed::Box<dyn std::error::Error>> {{")
+            .unwrap();
         writeln!(content, "    {}", test_code.replace('\n', "\n    ")).unwrap();
         writeln!(content, "    Ok(())").unwrap();
         writeln!(content, "}}").unwrap();

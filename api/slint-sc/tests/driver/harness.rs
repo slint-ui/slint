@@ -6,6 +6,9 @@
 
 #![allow(dead_code, unused_macros)]
 
+use std::boxed::Box;
+use std::format;
+
 /// Render the component and write the screenshot to a file in the current
 /// directory, for the driver to compare against the PNG reference afterwards.
 /// The optional second argument distinguishes multiple screenshots of the same
