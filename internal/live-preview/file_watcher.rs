@@ -104,6 +104,10 @@ impl FileWatcherImpl for notify::RecommendedWatcher {
 pub struct FileWatcher<Impl: FileWatcherImpl = notify::RecommendedWatcher> {
     tx: mpsc::Sender<WorkerMessage<Impl>>,
 
+    /// Base for resolving relative watch paths, captured at startup so it stays stable if the
+    /// process later changes its working directory.
+    base: PathBuf,
+
     /// Use a worker thread for processing file events and updating watches.
     ///
     /// `notify` already invokes callbacks from backend-managed threads/event loops, but
@@ -167,7 +171,11 @@ impl<Impl: FileWatcherImpl> FileWatcher<Impl> {
         });
 
         match startup_rx.recv() {
-            Ok(Ok(())) => Ok(Self { tx, worker: Some(worker) }),
+            Ok(Ok(())) => Ok(Self {
+                tx,
+                worker: Some(worker),
+                base: std::env::current_dir().unwrap_or_default(),
+            }),
             Ok(Err(err)) => {
                 let _ = worker.join();
                 Err(err)
@@ -181,15 +189,18 @@ impl<Impl: FileWatcherImpl> FileWatcher<Impl> {
 
     /// Replaces the watched path set with `paths`.
     ///
-    /// Paths must be absolute: they are compared by value against the paths the backend reports
-    /// for events, which are absolute, and relative paths are never resolved against a base.
+    /// Relative paths are resolved against the working directory captured at watcher startup,
+    /// so that they compare equal to the absolute paths the backend reports for events.
     pub fn update_watched_paths<I>(&mut self, paths: I) -> Result<(), Impl::Error>
     where
         I: IntoIterator<Item = PathBuf>,
     {
         let watched_files = paths
             .into_iter()
-            .map(|path| i_slint_compiler::pathutils::clean_path(&path))
+            .map(|path| {
+                let path = i_slint_compiler::pathutils::join(&self.base, &path).unwrap_or(path);
+                i_slint_compiler::pathutils::clean_path(&path)
+            })
             .collect::<HashSet<_>>();
 
         let (response_tx, response_rx) = mpsc::sync_channel(1);

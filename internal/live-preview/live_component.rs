@@ -30,7 +30,6 @@ pub struct LiveReloadingComponent {
     callbacks: RefCell<HashMap<String, Rc<dyn Fn(&[Value]) -> Value + 'static>>>,
     post_reload_hook: Option<Box<dyn Fn(&ComponentInstance)>>,
     extra_watch_paths: Vec<PathBuf>,
-    working_directory: PathBuf,
 }
 
 impl LiveReloadingComponent {
@@ -41,10 +40,6 @@ impl LiveReloadingComponent {
         component_name: Option<String>,
     ) -> Result<Rc<RefCell<Self>>, PlatformError> {
         compiler.set_embed_resources(i_slint_compiler::EmbedResourcesKind::ListAllResources);
-
-        // Base for the compiler's relative watch paths; captured once so it stays stable across
-        // reloads.
-        let working_directory = std::env::current_dir().unwrap_or_default();
 
         let self_rc = Rc::<RefCell<Self>>::new_cyclic(move |self_weak| {
             let watcher = Watcher::new(self_weak.clone());
@@ -59,7 +54,6 @@ impl LiveReloadingComponent {
                 callbacks: Default::default(),
                 post_reload_hook: None,
                 extra_watch_paths: Vec::new(),
-                working_directory,
             })
         });
 
@@ -127,16 +121,11 @@ impl LiveReloadingComponent {
         else {
             unreachable!("Compiler returned Pending")
         };
-        let base = &self.working_directory;
         Watcher::update_watched_paths(
             &self.watcher,
             std::iter::once(self.file_name.clone())
                 .chain(result.watch_paths(i_slint_core::InternalToken).iter().cloned())
-                .chain(self.extra_watch_paths.iter().cloned())
-                // Resolve relative paths so they match the absolute paths the OS reports; the
-                // compiler keeps them relative for diagnostics. `join` leaves absolute paths and
-                // URLs untouched.
-                .map(|path| i_slint_compiler::pathutils::join(base, &path).unwrap_or(path)),
+                .chain(self.extra_watch_paths.iter().cloned()),
         );
         result
     }
