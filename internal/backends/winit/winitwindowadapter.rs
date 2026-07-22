@@ -430,6 +430,25 @@ impl WinitWindowAdapter {
         self.renderer.as_ref()
     }
 
+    /// The preferred logical size of the component, or None if it has no positive preferred size.
+    fn preferred_size(&self) -> Option<winit::dpi::LogicalSize<Coord>> {
+        let runtime_window = WindowInner::from_pub(self.window());
+        let component_rc = runtime_window.try_component()?;
+        let component = ItemTreeRc::borrow_pin(&component_rc);
+        let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
+        if let Some(window_item) = runtime_window.window_item() {
+            // Setting the width to its preferred size before querying the vertical layout info
+            // is important in case the height depends on the width
+            window_item.width.set(LogicalLength::new(layout_info_h.preferred_bounded()));
+        }
+        let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
+        let size = winit::dpi::LogicalSize::new(
+            layout_info_h.preferred_bounded(),
+            layout_info_v.preferred_bounded(),
+        );
+        (size.width > 0 as Coord && size.height > 0 as Coord).then_some(size)
+    }
+
     pub fn ensure_window(
         &self,
         active_event_loop: &ActiveEventLoop,
@@ -477,6 +496,15 @@ impl WinitWindowAdapter {
             window_attributes = window_attributes.with_transparent(false);
         }
 
+        // Create the window at its preferred size: the renderer's surface is created together
+        // with the window, and on Wayland resizing it afterwards only takes effect after the
+        // next present, so the first frame would be rendered at the pre-show size.
+        if !self.has_explicit_size.get() && window_attributes.fullscreen.is_none() {
+            if let Some(preferred_size) = self.preferred_size() {
+                window_attributes.inner_size = Some(preferred_size.into());
+            }
+        }
+
         let winit_window =
             self.renderer.resume(active_event_loop, window_attributes, self.self_weak.clone())?;
 
@@ -509,7 +537,8 @@ impl WinitWindowAdapter {
 
         let scale_factor =
             overriding_scale_factor.unwrap_or_else(|| winit_window.scale_factor() as f32);
-        self.window().try_dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor })?;
+        self.window()
+            .dispatch_event_with_result(WindowEvent::ScaleFactorChanged { scale_factor })?;
 
         #[cfg(target_os = "ios")]
         let (content_view, keyboard_curve_self) = {
@@ -837,7 +866,7 @@ impl WinitWindowAdapter {
             let scale_factor = WindowInner::from_pub(self.window()).scale_factor();
 
             let size = physical_size.to_logical(scale_factor);
-            self.window().try_dispatch_event(WindowEvent::Resized { size })?;
+            self.window().dispatch_event_with_result(WindowEvent::Resized { size })?;
 
             WindowInner::from_pub(self.window())
                 .set_window_item_safe_area(self.safe_area_inset().to_logical(scale_factor));
@@ -1040,7 +1069,7 @@ impl WinitWindowAdapter {
         // We don't render popups as separate windows yet, so treat
         // focus to be the same as being active.
         if have_focus != runtime_window.active() {
-            slint_window.try_dispatch_event(
+            slint_window.dispatch_event_with_result(
                 corelib::platform::WindowEvent::WindowActiveChanged(have_focus),
             )?;
         }
@@ -1091,21 +1120,8 @@ impl WinitWindowAdapter {
 
             let scale_factor = runtime_window.scale_factor() as f64;
 
-            let component_rc = runtime_window.component();
-            let component = ItemTreeRc::borrow_pin(&component_rc);
-
-            let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
-            if let Some(window_item) = runtime_window.window_item() {
-                // Setting the width to its preferred size before querying the vertical layout info
-                // is important in case the height depends on the width
-                window_item.width.set(LogicalLength::new(layout_info_h.preferred_bounded()));
-            }
-            let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
             #[allow(unused_mut)]
-            let mut preferred_size = winit::dpi::LogicalSize::new(
-                layout_info_h.preferred_bounded(),
-                layout_info_v.preferred_bounded(),
-            );
+            let mut preferred_size = self.preferred_size().unwrap_or_default();
 
             #[cfg(target_arch = "wasm32")]
             if let Some(html_canvas) = winit_window.canvas() {
@@ -1375,7 +1391,7 @@ impl WindowAdapter for WinitWindowAdapter {
 
         if must_resize {
             self.window()
-                .try_dispatch_event(WindowEvent::Resized {
+                .dispatch_event_with_result(WindowEvent::Resized {
                     size: i_slint_core::api::LogicalSize::new(width, height),
                 })
                 .unwrap();

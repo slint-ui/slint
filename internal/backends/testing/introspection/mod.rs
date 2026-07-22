@@ -91,7 +91,7 @@ fn ensure_event_tracking() -> Result<(), i_slint_core::api::EventLoopError> {
         i_slint_core::context::set_window_event_hook(Some(Box::new(
             move |adapter, event, result| {
                 if let Some(prev) = previous_hook.as_ref() {
-                    prev(adapter, event, result);
+                    prev(adapter, event, result.clone());
                 }
                 state.record_window_event(adapter, event, result);
             },
@@ -294,7 +294,7 @@ impl IntrospectionState {
         &self,
         adapter: &Rc<dyn WindowAdapter>,
         event: &i_slint_core::platform::WindowEvent,
-        result: i_slint_core::context::WindowEventDispatchResult,
+        result: i_slint_core::api::WindowEventDispatchResult,
     ) {
         if !self.recording_enabled.get() {
             return;
@@ -529,18 +529,19 @@ fn convert_pointer_event_button_to_proto(
 }
 
 fn convert_event_dispatch_result(
-    result: i_slint_core::context::WindowEventDispatchResult,
+    result: i_slint_core::api::WindowEventDispatchResult,
 ) -> proto::RecordedEventResult {
     match result {
-        i_slint_core::context::WindowEventDispatchResult::Accepted => {
+        i_slint_core::api::WindowEventDispatchResult::Accepted => {
             proto::RecordedEventResult::Accepted
         }
-        i_slint_core::context::WindowEventDispatchResult::Rejected => {
+        i_slint_core::api::WindowEventDispatchResult::Rejected => {
             proto::RecordedEventResult::Rejected
         }
-        i_slint_core::context::WindowEventDispatchResult::Ignored => {
+        i_slint_core::api::WindowEventDispatchResult::Ignored => {
             proto::RecordedEventResult::Ignored
         }
+        _ => unreachable!(),
     }
 }
 
@@ -1118,14 +1119,14 @@ fn test_accessibility_role_mapping_complete() {
 }
 
 // `WindowEventDispatchResult` honesty for pointer events: verify that
-// `Window::try_dispatch_event` reports `Accepted` only when an item consumed the
+// `Window::dispatch_event_with_result` reports `Accepted` only when an item consumed the
 // event, and `Ignored` otherwise. Tests install the window-event hook directly
 // since that's the consumer the public contract is for.
 
 #[cfg(test)]
 mod dispatch_result_tests {
     use i_slint_core::api::LogicalPosition;
-    use i_slint_core::context::WindowEventDispatchResult;
+    use i_slint_core::api::WindowEventDispatchResult;
     use i_slint_core::items::PointerEventButton;
     use i_slint_core::platform::WindowEvent;
     use std::cell::RefCell;
@@ -1420,7 +1421,7 @@ mod dispatch_result_tests {
             .iter()
             .rev()
             .find(|(e, _)| matches!(e, WindowEvent::PointerReleased { .. }))
-            .map(|(_, r)| *r)
+            .map(|(_, r)| r.clone())
             .expect("PointerReleased recorded");
         assert_eq!(release, WindowEventDispatchResult::Accepted);
     }
@@ -1458,7 +1459,7 @@ mod dispatch_result_tests {
             .iter()
             .rev()
             .find(|(e, _)| matches!(e, WindowEvent::PointerReleased { .. }))
-            .map(|(_, r)| *r)
+            .map(|(_, r)| r.clone())
             .expect("PointerReleased recorded");
         assert_eq!(release, WindowEventDispatchResult::Ignored);
     }

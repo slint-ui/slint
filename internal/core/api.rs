@@ -7,7 +7,6 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
-use crate::context::WindowEventDispatchResult;
 use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
@@ -23,6 +22,20 @@ pub use crate::graphics::{
 pub use crate::input::Keys;
 pub use crate::sharedvector::SharedVector;
 pub use crate::{format, string::SharedString, string::ToSharedString};
+
+/// Result of dispatching a window event through Slint's runtime with [`Window::dispatch_event_with_result`].
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum WindowEventDispatchResult {
+    /// The event was handled. For example, a key handler consumed a key press, or
+    /// the window acted on a resize or close request.
+    Accepted,
+    /// The event was actively refused. For example, a `close-requested` callback
+    /// returned `reject` to prevent the window from closing.
+    Rejected,
+    /// The event was not handled by any element.
+    Ignored,
+}
 
 impl From<crate::input::KeyEventResult> for WindowEventDispatchResult {
     fn from(value: crate::input::KeyEventResult) -> Self {
@@ -644,10 +657,10 @@ impl Window {
     /// the top left corner of the window.
     ///
     /// This function panics if there is an error processing the event.
-    /// Use [`Self::try_dispatch_event()`] to handle the error.
+    /// Use [`Self::dispatch_event_with_result()`] to handle the error.
     #[track_caller]
     pub fn dispatch_event(&self, event: crate::platform::WindowEvent) {
-        self.try_dispatch_event(event).unwrap()
+        self.dispatch_event_with_result(event).unwrap();
     }
 
     /// Dispatch a window event to the scene.
@@ -656,10 +669,26 @@ impl Window {
     ///
     /// Any position fields in the event must be in the logical pixel coordinate system relative to
     /// the top left corner of the window.
+    #[deprecated(note = "use `dispatch_event_with_result` instead")]
     pub fn try_dispatch_event(
         &self,
         event: crate::platform::WindowEvent,
     ) -> Result<(), PlatformError> {
+        self.dispatch_event_with_result(event).map(|_| ())
+    }
+
+    /// Dispatch a window event to the scene.
+    ///
+    /// Use this when you're implementing your own backend and want to forward user input events.
+    ///
+    /// Any position fields in the event must be in the logical pixel coordinate system relative to
+    /// the top left corner of the window.
+    ///
+    /// Returns a [`WindowEventDispatchResult`] indicating how the event was handled.
+    pub fn dispatch_event_with_result(
+        &self,
+        event: crate::platform::WindowEvent,
+    ) -> Result<WindowEventDispatchResult, PlatformError> {
         // Only clone the event when a hook is installed to avoid allocation on the hot path.
         let event_for_hook = self
             .0
@@ -761,9 +790,9 @@ impl Window {
             && let Some(ctx) = self.0.try_context()
             && let Some(hook) = ctx.0.window_event_hook.borrow().as_ref()
         {
-            hook(&self.0.window_adapter(), &event_for_hook, dispatch_result);
+            hook(&self.0.window_adapter(), &event_for_hook, dispatch_result.clone());
         }
-        Ok(())
+        Ok(dispatch_result)
     }
 
     /// Returns true if there is an animation currently active on any property in the Window; false otherwise.
