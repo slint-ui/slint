@@ -6,11 +6,24 @@ use anyhow::Context;
 use std::fs::create_dir_all;
 use std::io::{BufWriter, Write};
 
+/// Whether `dir` is the directory this tool generates into, and may therefore
+/// delete wholesale: everything below it is machine-written. A `Config`
+/// pointing anywhere else would take hand-written content with it.
+fn is_generated_dir(dir: &std::path::Path, astro_dir: &std::path::Path) -> bool {
+    dir.starts_with(astro_dir) && dir.file_name().is_some_and(|name| name == "generated")
+}
+
 /// Generate all markdown/mdx documentation files.
 pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     // Start from an empty directory: a page left behind by an earlier run
     // (of a version that named or grouped it differently) still renders, and
     // its paragraph ids still count as duplicates of the current ones.
+    assert!(
+        is_generated_dir(&cfg.generated_dir, &cfg.astro_dir),
+        "refusing to clear {:?}: not a `generated` directory inside {:?}",
+        cfg.generated_dir,
+        cfg.astro_dir,
+    );
     if cfg.generated_dir.exists() {
         std::fs::remove_dir_all(&cfg.generated_dir)
             .context(format!("error clearing {:?}", cfg.generated_dir))?;
@@ -450,4 +463,15 @@ fn generate_keys_docs(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     file.flush()?;
 
     Ok(())
+}
+
+#[test]
+fn test_is_generated_dir() {
+    let astro = std::path::Path::new("/repo/docs/astro");
+    assert!(is_generated_dir(&astro.join("src/content/docs/reference/generated"), astro));
+    // Hand-written content, an empty path, and a directory of another
+    // project are all refused.
+    assert!(!is_generated_dir(&astro.join("src/content/docs/reference"), astro));
+    assert!(!is_generated_dir(std::path::Path::new(""), astro));
+    assert!(!is_generated_dir(std::path::Path::new("/elsewhere/generated"), astro));
 }
