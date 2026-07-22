@@ -18,8 +18,8 @@
     text-decoration: underline;
 }
 
-/* Highlight the targeted paragraph when navigating via #sls_xxxxxx. */
-p[id^="sls_"]:target {
+/* Highlight the targeted paragraph when navigating via #sls.xxxxxx. */
+p[id^="sls."]:target {
     background-color: var(--sl-color-accent-low);
     border-radius: 2px;
 }
