@@ -75,7 +75,7 @@ export component MissingCallback {
 
 export component MissingFunction {
     implement Calculator <=> self;
-//            >         <error{Missing implementation of function 'add'}
+//            >         <error{Cannot implement 'Calculator'.↵- missing 'add', a 'public pure function(int, int) -> int'}
 
     in-out property <int> value;
     callback notify();
@@ -138,10 +138,10 @@ export component ImpureFunction {
     callback notify();
 
     public function add(a: int, b: int) -> int {
-//  >error{Implementation of pure function 'add' from interface 'Calculator' cannot be impure}
+//  >error{'Calculator' error.↵- 'add' must be 'pure'}
         return a + b;
     }
-//  <error{Implementation of pure function 'add' from interface 'Calculator' cannot be impure}
+//  <error{'Calculator' error.↵- 'add' must be 'pure'}
     public function format(value: int) -> string {
         return "";
     }
@@ -158,10 +158,10 @@ export component IncorrectFunctionArguments {
         return a + b;
     }
     public function format(fmt: string, value: int) -> string {
-//  >error{Incorrect arguments for implementation of 'format' from interface 'Calculator'. Expected (int) but got (string, int)}
+//  >error{'Calculator' error.↵- 'format' must be a 'function(int) -> string' (found a 'function(string, int) -> string')}
         return "";
     }
-//  <error{Incorrect arguments for implementation of 'format' from interface 'Calculator'. Expected (int) but got (string, int)}
+//  <error{'Calculator' error.↵- 'format' must be a 'function(int) -> string' (found a 'function(string, int) -> string')}
     public function reset() {}
 }
 
@@ -175,9 +175,9 @@ export component IncorrectFunctionReturnType {
         return a + b;
     }
     public function format(value: int) {
-//  >error{Incorrect return type for implementation of 'format' from interface 'Calculator'. Expected 'string' but got 'void'}
+//  >error{'Calculator' error.↵- 'format' must be a 'function(int) -> string' (found a 'function(int) -> void')}
     }
-//  <error{Incorrect return type for implementation of 'format' from interface 'Calculator'. Expected 'string' but got 'void'}
+//  <error{'Calculator' error.↵- 'format' must be a 'function(int) -> string' (found a 'function(int) -> void')}
     public function reset() {}
 }
 
@@ -194,7 +194,7 @@ export component IncorrectFunctionVisibility {
         return "";
     }
     protected function reset() {}
-//  >                           <error{Incorrect visibility for implementation of 'reset' from interface 'Calculator'. Expected 'public'}
+//  >                           <error{'Calculator' error.↵- 'reset' must be 'public' (found 'protected')}
 }
 
 // A member name resolving to the wrong kind (function name declared as a property / callback).
@@ -208,9 +208,9 @@ export component CannotOverrideFunction {
         return a + b;
     }
     in property <string> format;
-//  >                          <error{Cannot override 'format' from interface 'Calculator'}
+//  >                          <error{'Calculator' error.↵- 'format' must be a 'function(int) -> string' (found a 'string' property)↵- 'format' must be 'public' (found 'in')}
     callback reset();
-//  >               <error{Cannot override 'reset' from interface 'Calculator'}
+//  >               <error{'Calculator' error.↵- 'reset' must be a 'function() -> void' (found a 'callback() -> void')↵- 'reset' must be 'public' (found 'in-out')}
 }
 
 // Conflicts with an inherited (non-local) member: property, callback and function variants.
@@ -249,7 +249,7 @@ export component CrossKindMismatch {
     in-out property <int> speak;
 //  >                          <error{'ValidInterface' error.↵- 'speak' must be a 'callback() -> void' (found a 'int' property)}
     in-out property <int> reset;
-//  >                          <error{Cannot override 'reset' from interface 'ValidInterface'}
+//  >                          <error{'ValidInterface' error.↵- 'reset' must be a 'function() -> void' (found a 'int' property)↵- 'reset' must be 'public' (found 'in-out')}
 }
 
 // A single member that violates several constraints at once, joined into one message.
