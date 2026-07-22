@@ -5,7 +5,6 @@
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::fmt::Display;
 use std::rc::Rc;
 
 use itertools::Itertools;
@@ -24,24 +23,23 @@ use crate::parser::{SyntaxKind, syntax_nodes};
 use crate::reject_experimental_feature;
 use crate::typeregister::TypeRegister;
 
-fn validate_property_declaration_for_interface(
+fn check_property_declaration_conflicts(
     result: &PropertyLookupResult,
     base_type: &ElementType,
-    interface_name: &dyn Display,
 ) -> Result<(), String> {
     match result.property_type {
         Type::Invalid => Ok(()),
         Type::Callback { .. } => Err(format!(
-            "Cannot implement interface '{}' because '{}' conflicts with an existing callback in '{}'",
-            interface_name, result.resolved_name, base_type
+            "- '{}' conflicts with an existing callback in '{}'",
+            result.resolved_name, base_type
         )),
         Type::Function { .. } => Err(format!(
-            "Cannot implement interface '{}' because '{}' conflicts with an existing function in '{}'",
-            interface_name, result.resolved_name, base_type
+            "- '{}' conflicts with an existing function in '{}'",
+            result.resolved_name, base_type
         )),
         _ => Err(format!(
-            "Cannot implement interface '{}' because '{}' conflicts with an existing property in '{}'",
-            interface_name, result.resolved_name, base_type
+            "- '{}' conflicts with an existing property in '{}'",
+            result.resolved_name, base_type
         )),
     }
 }
@@ -268,12 +266,13 @@ fn validate_interface_member_implementation(
     };
 
     if !lookup_result.is_local_to_component {
-        if let Err(message) = validate_property_declaration_for_interface(
-            &lookup_result,
-            &element.base_type,
-            &interface_name,
-        ) {
-            diagnostics.push_error(message, &implement_node.QualifiedName());
+        if let Err(message) =
+            check_property_declaration_conflicts(&lookup_result, &element.base_type)
+        {
+            diagnostics.push_error(
+                format!("Cannot implement interface '{}'.\n{message}", interface_name),
+                &implement_node.QualifiedName(),
+            );
         }
         return;
     }
@@ -436,14 +435,13 @@ pub(super) fn apply_child_implement_statements(
             continue;
         }
 
+        let mut conflicts = Vec::new();
         for (name, prop_decl) in interface.borrow().property_declarations.iter() {
             let lookup_result = element.borrow().base_type.lookup_property(name);
-            if let Err(message) = validate_property_declaration_for_interface(
-                &lookup_result,
-                &element.borrow().base_type,
-                &interface_name,
-            ) {
-                diagnostics.push_error(message, &node.QualifiedName());
+            if let Err(message) =
+                check_property_declaration_conflicts(&lookup_result, &element.borrow().base_type)
+            {
+                conflicts.push(message);
                 continue;
             }
 
@@ -487,6 +485,16 @@ pub(super) fn apply_child_implement_statements(
             debug_assert!(
                 existing_binding.is_none(),
                 "Duplicate bindings should have been caught earlier"
+            );
+        }
+
+        if !conflicts.is_empty() {
+            diagnostics.push_error(
+                format!(
+                    "Cannot implement '{interface_name}' based on '{child_id}'.\n{}",
+                    conflicts.join("\n")
+                ),
+                &node.QualifiedName(),
             );
         }
     }
