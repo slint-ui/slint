@@ -9,5 +9,6 @@ export component TestCase inherits Window {
 ```rust
 let x = TestCase::new();
 screenshot!(x);
+assert_eq!(x.render_rgb8(64, 64, &mut [0u8; 8]), Err(slint_sc::RenderError::InvalidFrameBufferSize));
 ```
 */

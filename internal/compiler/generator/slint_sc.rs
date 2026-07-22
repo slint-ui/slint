@@ -44,9 +44,12 @@ pub fn generate(
 
                 /// Render the window into a frame buffer of packed RGB triplets,
                 /// whose length must be `width * height * 3`.
-                pub fn render_rgb8(&self, width: u32, height: u32, frame_buffer: &mut [u8]) {
-                    assert_eq!(frame_buffer.len(), width as usize * height as usize * 3);
+                pub fn render_rgb8(&self, width: u32, height: u32, frame_buffer: &mut [u8]) -> Result<(), slint_sc::RenderError> {
+                    if frame_buffer.len() != width as usize * height as usize * 3 {
+                        return Err(slint_sc::RenderError::InvalidFrameBufferSize);
+                    }
                     slint_sc::private_unstable_api::renderer::fill_rgb8(frame_buffer, #red, #green, #blue);
+                    Ok(())
                 }
             }
         });
