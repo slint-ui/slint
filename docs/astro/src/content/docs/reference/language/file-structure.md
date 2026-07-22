@@ -56,14 +56,12 @@ The child relationship forms a tree rooted at the elements that appear directly 
 The following is a complete, well-formed `.slint` source file: \{#sls.file.example.intro}
 
 ```slint
-component Hello {
+export component Hello inherits Window {
     Rectangle {
-        Rectangle {
-        }
     }
     Rectangle {
     }
 }
 ```
 
-It defines one component, `Hello`, whose body contains two top-level `Rectangle` instantiations; the first of those has one nested `Rectangle` child. \{#sls.file.example.description}
+It exports one component, `Hello`, which inherits from `Window` and whose body contains two top-level `Rectangle` instantiations. \{#sls.file.example.description}

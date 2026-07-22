@@ -38,6 +38,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         writeln!(tests_file, "\nmod {stem} {{")?;
 
+        // Language Specification examples are additionally compiled in
+        // Slint SC mode, unless the fence carries `no-sc-test`.
+        let language_spec = path
+            .strip_prefix(&prefix)?
+            .starts_with("docs/astro/src/content/docs/reference/language");
+
         let mut lines = file.lines().enumerate();
         while let Some((n, opening)) = lines.next() {
             let trimmed = opening.trim_start();
@@ -88,6 +94,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 snippet.escape_default(),
                 path.to_string_lossy().escape_default()
             )?;
+
+            if language_spec && !info.contains("no-sc-test") {
+                write!(
+                    tests_file,
+                    r##"
+    #[test]
+    fn line_{}_sc() {{
+        crate::do_test_sc("{}", "{}").unwrap();
+    }}
+
+                "##,
+                    n + 1,
+                    snippet.escape_default(),
+                    path.to_string_lossy().escape_default()
+                )?;
+            }
         }
         writeln!(tests_file, "}}")?;
         println!("cargo:rerun-if-changed={}", path.display());

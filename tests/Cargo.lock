@@ -1387,6 +1387,7 @@ dependencies = [
 name = "doctests"
 version = "1.18.0"
 dependencies = [
+ "i-slint-compiler",
  "slint-interpreter",
  "spin_on",
  "walkdir",
