@@ -12,7 +12,10 @@ import {
     language,
     CompileError,
     StyledText,
+    private_api,
 } from "../dist/index.js";
+
+private_api.initTesting();
 
 const dirname = path.dirname(
     fileURLToPath(import.meta.url).replace("build", "__test__"),
