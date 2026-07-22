@@ -150,8 +150,6 @@ component BaseWithConflicts {
 
 export component ConflictsWithBase inherits BaseWithConflicts {
     implement ValidInterface <=> base;
-//            >             <error{Cannot implement interface 'ValidInterface' because 'reset' conflicts with an existing function in 'BaseWithConflicts'}
-//            >             <^error{Cannot implement interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'BaseWithConflicts'}
-//            >             <^^error{Cannot implement interface 'ValidInterface' because 'value' conflicts with an existing property in 'BaseWithConflicts'}
+//            >             <error{Cannot implement 'ValidInterface' based on 'base'.↵- 'reset' conflicts with an existing function in 'BaseWithConflicts'↵- 'speak' conflicts with an existing callback in 'BaseWithConflicts'↵- 'value' conflicts with an existing property in 'BaseWithConflicts'}
     base := ValidBase { }
 }

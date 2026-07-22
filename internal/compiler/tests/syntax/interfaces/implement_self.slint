@@ -223,8 +223,8 @@ component BaseWithMembers {
 
 export component DerivedConflicts inherits BaseWithMembers {
     implement ValidInterface <=> self;
-//            >             <error{Cannot implement interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'BaseWithMembers'}
-//            >             <^error{Cannot implement interface 'ValidInterface' because 'value' conflicts with an existing property in 'BaseWithMembers'}
+//            >             <error{Cannot implement interface 'ValidInterface'.↵- 'speak' conflicts with an existing callback in 'BaseWithMembers'}
+//            >             <^error{Cannot implement interface 'ValidInterface'.↵- 'value' conflicts with an existing property in 'BaseWithMembers'}
 }
 
 interface CallbackInterface {
@@ -238,7 +238,7 @@ component BaseWithFunction {
 
 export component ImplementFunctionConflict inherits BaseWithFunction {
     implement CallbackInterface <=> self;
-//            >                <error{Cannot implement interface 'CallbackInterface' because 'action' conflicts with an existing function in 'BaseWithFunction'}
+//            >                <error{Cannot implement interface 'CallbackInterface'.↵- 'action' conflicts with an existing function in 'BaseWithFunction'}
 }
 
 // Each member declared as the wrong kind of member.
