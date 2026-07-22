@@ -7,7 +7,7 @@
 //!
 //! This is currently in the shape:
 //!
-//!     Slint # Winit # Xkb # Win # Mac
+//! Slint # Winit # Xkb # Win # Mac
 //!
 //! `Xkb`/`Win`/`Mac` are the native key codes for:
 //! Xkb: Linux X11/Wayland
