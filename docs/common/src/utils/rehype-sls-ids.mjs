@@ -43,10 +43,18 @@ const SPEC_PATH = /[\\/]content[\\/]docs[\\/](reference[\\/])?language[\\/]/;
 const GENERATED_REFERENCE_PATH =
     /[\\/]content[\\/]docs[\\/]generated[\\/]reference[\\/]/;
 
-function walk(node, fn, depth = 0) {
-    if (node.type === "element") fn(node, depth);
+// A feature outside the certified subset is wrapped in the `<NotInSC>`
+// component: the safety manual renders nothing for it, but rehype runs before
+// any component does, so the paragraphs are still here to be skipped.
+const NOT_IN_SC = "NotInSC";
+
+function walk(node, fn, depth = 0, inNotInSc = false) {
+    if (node.type === "element") fn(node, depth, inNotInSc);
+    const nested =
+        inNotInSc ||
+        (node.type === "mdxJsxFlowElement" && node.name === NOT_IN_SC);
     for (const child of node.children ?? []) {
-        walk(child, fn, depth + 1);
+        walk(child, fn, depth + 1, nested);
     }
 }
 
@@ -104,11 +112,11 @@ export default function rehypeSlsIds({
         const claimedHere = new Set();
         const missing = [];
 
-        walk(tree, (node, depth) => {
+        walk(tree, (node, depth, inNotInSc) => {
             if (node.tagName !== "p") return;
-            // A feature outside the certified subset states no requirement, so
-            // it carries no identifier. See rehype-not-in-sc.mjs.
-            if (node.data?.notInSc) return;
+            // Such a paragraph documents what Slint SC leaves out, so it
+            // states no requirement and carries no identifier.
+            if (inNotInSc) return;
             const last = node.children.at(-1);
             const match =
                 last?.type === "text" ? last.value.match(ID_MARKER) : null;

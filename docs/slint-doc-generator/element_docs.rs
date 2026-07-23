@@ -905,6 +905,12 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         if all_text.contains("<Link ") {
             writeln!(file, "import Link from '@slint/common-files/src/components/Link.astro';")?;
         }
+        if all_text.contains("<NotInSC>") {
+            writeln!(
+                file,
+                "import NotInSC from '@slint/common-files/src/components/NotInSC.astro';"
+            )?;
+        }
         if all_text.contains("<Tabs ") || all_text.contains("<TabItem ") {
             writeln!(file, "import {{ Tabs, TabItem }} from '@astrojs/starlight/components';")?;
         }
