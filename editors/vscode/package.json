@@ -28,8 +28,7 @@
   "qna": "https://github.com/slint-ui/slint/discussions/categories/q-a",
   "activationEvents": [
     "onLanguage:rust",
-    "onWebviewPanel:slint-preview",
-    "workspaceContains:{**/CMakeLists.txt,**/Cargo.toml,**/*.slint}"
+    "onWebviewPanel:slint-preview"
   ],
   "main": "./out/extension.js",
   "browser": "./out/browser.js",
