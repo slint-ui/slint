@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    background: #202020;
+    //#sls.paint.model
+    Rectangle {
+        // Default position and size: covers the whole window
+        background: #303040;
+    }
+    Rectangle {
+        x: 8px;
+        y: 8px;
+        width: 32px;
+        height: 32px;
+        background: #cc0000;
+        //#sls.geom.relative
+        //#sls.geom.default-size
+        //#sls.paint.no-parent-clip
+        Rectangle {
+            // Offset relative to the red rectangle, default size: same size as
+            // the red rectangle, so it sticks out of it without being clipped
+            x: 4px;
+            y: 4px;
+            background: #00cc00;
+            //#sls.geom.default-position
+            //#sls.paint.order
+            Rectangle {
+                // Default position: centered in the green rectangle, painted
+                // over it
+                width: 8px;
+                height: 8px;
+                background: #0000cc;
+            }
+        }
+    }
+    //#sls.paint.order
+    Rectangle {
+        // Later in the source: painted over the green rectangle
+        x: 40px;
+        y: 40px;
+        width: 12px;
+        height: 12px;
+        background: #cccc00;
+    }
+    //#sls.paint.clip
+    Rectangle {
+        // Extends past the bottom-right corner: clipped to the frame buffer
+        x: 56px;
+        y: 56px;
+        width: 20px;
+        height: 20px;
+        background: #cc00cc;
+    }
+}
+
+/*
+```rust
+let x = TestCase::new();
+screenshot!(x);
+```
+*/
