@@ -335,6 +335,7 @@ libglx
 libgstreamer
 libgstrtspserver
 Libinput
+libintl
 libloading
 libm
 librsvg
