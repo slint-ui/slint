@@ -36,4 +36,30 @@ x.set_tint(slint_sc::Color::from_rgb_u8(1, 2, 3));
 let tint = x.get_tint();
 assert_eq!((tint.red(), tint.green(), tint.blue(), tint.alpha()), (1, 2, 3, 0xff));
 ```
+
+An out property has no setter:
+```rust compile_fail
+let mut x = TestCase::new();
+//#sls.gen.prop.set
+x.set_gap(5);
+//~ ERROR no method named `set_gap`
+```
+
+A private property has no getter:
+```rust compile_fail
+let x = TestCase::new();
+//#sls.prop.decl.private
+//#sls.gen.prop.get
+x.get_internal();
+//~ ERROR no method named `get_internal`
+```
+
+A private property has no setter:
+```rust compile_fail
+let mut x = TestCase::new();
+//#sls.prop.decl.private
+//#sls.gen.prop.set
+x.set_internal(slint_sc::Color::default());
+//~ ERROR no method named `set_internal`
+```
 */
