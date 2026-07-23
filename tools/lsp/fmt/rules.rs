@@ -68,6 +68,24 @@ fn break_braced_body(selection: &Selection, open: SyntaxKind, close: SyntaxKind)
     }
 }
 
+// Create a CodeBlock selection with the same measure_span as the input selection (e.g. the
+// function).
+// This causes the code block to be broken onto multiple lines when
+// the function spans multiple lines.
+// Otherwise the argument list may be split onto multiple lines while the implementation is
+// not.
+fn break_sub_code_block(selection: &Selection<'_>) {
+    for code_block in selection
+        .children()
+        .iter()
+        .filter(|node| node.kind() == SyntaxKind::CodeBlock)
+        .cloned()
+        .map(|code_block| selection.at(code_block))
+    {
+        break_braced_body(&code_block, SyntaxKind::LBrace, SyntaxKind::RBrace);
+    }
+}
+
 /// Break the comma-separated list delimited by `open`/`close` (call
 /// arguments, declared parameters, array elements). Delimiters and items are
 /// two separate groups: a moderately wide list can break at the delimiters
@@ -201,7 +219,6 @@ pub fn make_rules() -> FormatRules {
     // otherwise.
     for kind in [
         SyntaxKind::Element,
-        SyntaxKind::CodeBlock,
         SyntaxKind::MatchElement,
         SyntaxKind::ObjectType,
         SyntaxKind::EnumDeclaration,
@@ -214,6 +231,20 @@ pub fn make_rules() -> FormatRules {
             break_braced_body(body, SyntaxKind::LBrace, SyntaxKind::RBrace);
         });
     }
+    // CodeBlock is handled by the SyntaxKind::Function rule as well.
+    // Dis-ambiguate by excluding those CodeBlocks here
+    rules.node(SyntaxKind::CodeBlock, |code_block| {
+        let is_function_block = code_block.iter().any(|node| {
+            node.as_node().is_some_and(|node| {
+                node.parent().is_some_and(|parent| {
+                    [SyntaxKind::Function, SyntaxKind::CallbackConnection].contains(&parent.kind())
+                })
+            })
+        });
+        if !is_function_block {
+            break_braced_body(code_block, SyntaxKind::LBrace, SyntaxKind::RBrace);
+        }
+    });
 
     // `transitions [ ... ]` breaks the same way, inside brackets.
     rules.node(SyntaxKind::Transitions, |transitions| {
@@ -287,12 +318,14 @@ pub fn make_rules() -> FormatRules {
     });
     rules.node(SyntaxKind::CallbackConnection, |connection| {
         break_parenthesized_list(connection, connection.node(SyntaxKind::DeclaredIdentifier));
+        break_sub_code_block(connection);
     });
     rules.node(SyntaxKind::CallbackDeclaration, |callback| {
         break_parenthesized_list(callback, callback.node(SyntaxKind::CallbackDeclarationParameter));
     });
     rules.node(SyntaxKind::Function, |function| {
         break_parenthesized_list(function, function.node(SyntaxKind::ArgumentDeclaration));
+        break_sub_code_block(function);
     });
 
     // `states [ ... ]`
