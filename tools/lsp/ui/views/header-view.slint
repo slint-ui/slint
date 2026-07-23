@@ -5,7 +5,7 @@ import { Button, HorizontalBox, Switch, Palette, ComboBox } from "std-widgets.sl
 import { BodyText } from "../components/body-text.slint";
 import { HeaderText } from "../components/header-text.slint";
 import { Api, ComponentItem, PreviewMode } from "../api.slint";
-import { EditorSpaceSettings, Icons, ConsoleStyles } from "../components/styling.slint";
+import { EditorSpaceSettings, Icons, ConsoleStyles, Brand } from "../components/styling.slint";
 
 
 export component HeaderView {
@@ -26,8 +26,10 @@ export component HeaderView {
         mode-combobox.current-index = root.preview-mode == PreviewMode.Remote ? 1 : 0;
     }
 
+    property <bool> brand-dark: Api.runs-in-slintpad && Palette.color-scheme == ColorScheme.dark;
+
     background-layer := Rectangle {
-        background: Palette.alternate-background;
+        background: root.brand-dark ? Brand.surface : Palette.alternate-background;
 
         content-layer := HorizontalBox {
             horizontal-stretch: 1;
@@ -37,6 +39,32 @@ export component HeaderView {
                 horizontal-stretch: 0;
                 spacing: EditorSpaceSettings.default-spacing / 2;
 
+                // SlintPad brand mark: a gradient chip with the Slint bolt,
+                // matching the loader and the rest of the brand chrome.
+                if Api.runs-in-slintpad: Rectangle {
+                    width: 26px;
+                    height: 26px;
+                    border-radius: 7px;
+                    background: @linear-gradient(103deg, #2379f4 4%, #6b0dff 96%);
+                    Path {
+                        width: 13px;
+                        height: 18px;
+                        viewbox-width: 30;
+                        viewbox-height: 42;
+                        fill: #ffffff;
+                        commands: "M5.49 41.62 28.6 25.5s1.04-.6 1.04-1.55c0-1.27-1.32-1.68-1.32-1.68L15.61 17.2c-.45-.18-1.08.32-.49.96l4.2 4.24s1.17 1.16 1.17 1.92c0 .76-.72 1.43-.72 1.43L4.46 40.65c-.55.53.19 1.49 1.03.97Z M24.15.76 1.04 16.88S0 17.48 0 18.43c0 1.27 1.32 1.68 1.32 1.68l12.71 5.07c.46.17 1.08-.33.5-.97l-4.21-4.25s-1.17-1.16-1.17-1.92c0-.76.72-1.43.72-1.43L25.17 1.73c.56-.53-.18-1.49-1.02-.97Z";
+                    }
+                }
+
+                if Api.runs-in-slintpad: Text {
+                    vertical-alignment: center;
+                    text: "SlintPad";
+                    color: root.brand-dark ? Brand.text : Palette.foreground;
+                    font-family: "Inter";
+                    font-size: 15px;
+                    font-weight: 800;
+                }
+
                 Button {
                     icon: Icons.sync;
                     colorize-icon: true;
@@ -45,7 +73,7 @@ export component HeaderView {
                     }
                 }
 
-                label := Text {
+                if !Api.runs-in-slintpad: Text {
                     horizontal-alignment: left;
                     vertical-alignment: center;
                     color: ConsoleStyles.text-color;
@@ -159,7 +187,7 @@ export component HeaderView {
             y: parent.height - self.height;
             height: 1px;
 
-            background: Palette.border;
+            background: root.brand-dark ? Brand.line : Palette.border;
         }
     }
 }
