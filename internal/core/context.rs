@@ -194,6 +194,9 @@ pub(crate) struct SlintContextInner {
     pub(crate) change_handler_queue: crate::properties::ChangeHandlerQueue,
 
     pub(crate) animation_driver: crate::animations::AnimationDriver,
+
+    /// Reactive state of the property system (the binding currently being evaluated).
+    property_context: crate::properties::PropertyContext,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -274,6 +277,7 @@ impl SlintContext {
             timers,
             change_handler_queue: Default::default(),
             animation_driver: Default::default(),
+            property_context: Default::default(),
         }));
         // The list's deadlines are measured on this context's clock from now on. Done after
         // construction because it needs a handle to the context that owns it.
@@ -307,6 +311,11 @@ impl SlintContext {
     pub fn update_animations(&self) {
         let now = crate::animations::Instant::now(self);
         self.0.animation_driver.update_animations(crate::animations::slowed_tick(now));
+    }
+
+    /// Return a reference to the reactive state of the property system.
+    pub(crate) fn property_context(&self) -> &crate::properties::PropertyContext {
+        &self.0.property_context
     }
 
     /// Return a reference to the platform abstraction

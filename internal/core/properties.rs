@@ -419,9 +419,16 @@ crate::thread_local! {
     static FALLBACK_PROPERTY_CONTEXT: PropertyContext = PropertyContext::default();
 }
 
-/// Run `f` with the [`PropertyContext`] of the current thread.
+/// Run `f` with the [`PropertyContext`] of the current [`SlintContext`](crate::SlintContext).
+///
+/// Property evaluation is expected to happen within a context. When none is set
+/// (isolated unit tests, or properties touched before the platform is installed),
+/// a thread-local fallback is used instead.
 pub(crate) fn with_property_context<R>(f: impl FnOnce(&PropertyContext) -> R) -> R {
-    FALLBACK_PROPERTY_CONTEXT.with(|pc| f(pc))
+    crate::context::GLOBAL_CONTEXT.with(|c| match c.get() {
+        Some(ctx) => f(ctx.property_context()),
+        None => FALLBACK_PROPERTY_CONTEXT.with(|pc| f(pc)),
+    })
 }
 
 /// Thin forwarders over [`with_property_context`] kept while call sites are migrated.
