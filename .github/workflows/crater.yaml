@@ -10,6 +10,9 @@ on:
     workflow_dispatch:
 
 jobs:
+    # The crater matrix is split across two jobs (crater and crater_subpath) because GitHub
+    # limits a matrix to 256 jobs; the combined project list exceeds that. crater builds the
+    # projects that live at the repository root; crater_subpath builds those in a sub-directory.
     crater:
         env:
             SLINT_NO_QT: 1
@@ -261,6 +264,51 @@ jobs:
                 sub_path: ["."]
                 os: ["ubuntu-24.04"]
 
+        runs-on: "ubuntu-latest"
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+              if: runner.os == 'Linux'
+              with:
+                  extra-packages: libpango1.0-dev libgtk-3-dev libatk1.0-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev  ${{ matrix.extra_packages }}
+            # Don't use the cache because we don't run this job often, and it would cache the .cargo/config.toml with extra keys
+            - uses: dtolnay/rust-toolchain@master
+              with:
+                  toolchain: ${{ matrix.toolchain || 'stable' }}
+            - name: setup patch
+              run: |
+                  echo "" >> ~/.cargo/config.toml
+                  echo [patch.crates-io] >> ~/.cargo/config.toml
+                  echo slint = { path = \"$GITHUB_WORKSPACE/api/rs/slint\" } >> ~/.cargo/config.toml
+                  echo slint-build = { path = \"$GITHUB_WORKSPACE/api/rs/build\" }  >> ~/.cargo/config.toml
+                  echo slint-interpreter = { path = \"$GITHUB_WORKSPACE/internal/interpreter\" }  >> ~/.cargo/config.toml
+                  echo i-slint-backend-winit = { path = \"$GITHUB_WORKSPACE/internal/backends/winit\" }  >> ~/.cargo/config.toml
+                  echo i-slint-core = { path = \"$GITHUB_WORKSPACE/internal/core\" }  >> ~/.cargo/config.toml
+            - name: Checkout the repo
+              run: |
+                  cd $HOME
+                  git clone ${{ matrix.git_url }}  the_repo --depth 1
+                  cd the_repo
+                  git submodule update --init --recursive
+            - name: build
+              run: |
+                  cd $HOME/the_repo
+                  rm -r rust-toolchain.toml .cargo/config.toml || true
+                  cd ./${{ matrix.sub_path }}
+                  sed -i "s/{{project-name}}/the-project/" Cargo.toml
+                  ${{ matrix.extra_commands || 'cargo update' }}
+                  cargo check ${{ matrix.extra_args }}
+
+    # Projects whose Slint crate lives in a sub-directory of the repository. Kept in a separate
+    # job from crater so that neither matrix exceeds GitHub's 256-job limit (see crater above).
+    crater_subpath:
+        env:
+            SLINT_NO_QT: 1
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+        strategy:
+            fail-fast: false
+            matrix:
                 include:
                     - git_url: "https://github.com/jturcotte/chiptrack"
                       sub_path: "."
@@ -597,8 +645,6 @@ jobs:
                       sub_path: "luna_src"
                     - git_url: "https://github.com/Montel/ruqola-rust"
                       sub_path: "ruqola-rust-slint"
-
-
 
         runs-on: "ubuntu-latest"
         steps:
