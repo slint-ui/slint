@@ -298,6 +298,10 @@ export default defineConfig({
                                         slug: "reference/language/bindings",
                                     },
                                     {
+                                        label: "Types",
+                                        slug: "reference/language/types",
+                                    },
+                                    {
                                         label: "Geometry",
                                         slug: "reference/language/geometry",
                                     },
