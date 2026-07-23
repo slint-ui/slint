@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in property <length> width-input;
+    in property <color> tint;
+    out property <length> gap: 5px;
+    out property <color> shade: #12345678;
+    in-out property <length> offset;
+    property <color> internal: #ff0000;
+}
+
+/*
+```rust
+let mut x = TestCase::new();
+//#sls.prop.decl.default
+//#sls.type.length
+assert_eq!(x.get_width_input(), 0);
+assert_eq!(x.get_tint(), slint_sc::Color::default());
+assert_eq!(x.get_tint().alpha(), 0);
+//#sls.prop.decl.form
+//#sls.prop.decl.out
+assert_eq!(x.get_gap(), 5);
+assert_eq!(x.get_shade(), slint_sc::Color::from_argb_encoded(0x78123456));
+//#sls.gen.prop.get
+//#sls.gen.prop.set
+//#sls.gen.prop.names
+//#sls.prop.decl.in
+x.set_width_input(42);
+assert_eq!(x.get_width_input(), 42);
+//#sls.prop.decl.in-out
+x.set_offset(7);
+assert_eq!(x.get_offset(), 7);
+//#sls.gen.prop.types
+x.set_tint(slint_sc::Color::from_rgb_u8(1, 2, 3));
+let tint = x.get_tint();
+assert_eq!((tint.red(), tint.green(), tint.blue(), tint.alpha()), (1, 2, 3, 0xff));
+```
+*/

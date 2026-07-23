@@ -5,6 +5,53 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+/// An RGBA color, as held by properties of the `color` type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Color {
+    red: u8,
+    green: u8,
+    blue: u8,
+    alpha: u8,
+}
+
+impl Color {
+    /// Construct a color from its ARGB value, e.g. `0xff123456`.
+    pub const fn from_argb_encoded(argb: u32) -> Self {
+        let [alpha, red, green, blue] = argb.to_be_bytes();
+        Self { red, green, blue, alpha }
+    }
+
+    /// Construct a fully opaque color from its red, green, and blue channels.
+    pub const fn from_rgb_u8(red: u8, green: u8, blue: u8) -> Self {
+        Self { red, green, blue, alpha: 0xff }
+    }
+
+    pub const fn red(self) -> u8 {
+        self.red
+    }
+
+    pub const fn green(self) -> u8 {
+        self.green
+    }
+
+    pub const fn blue(self) -> u8 {
+        self.blue
+    }
+
+    pub const fn alpha(self) -> u8 {
+        self.alpha
+    }
+}
+
+#[test]
+fn test_color() {
+    let c = Color::from_argb_encoded(0x87123456);
+    assert_eq!((c.red(), c.green(), c.blue(), c.alpha()), (0x12, 0x34, 0x56, 0x87));
+    assert_eq!(Color::from_rgb_u8(0x12, 0x34, 0x56).alpha(), 0xff);
+    // The default color is transparent
+    assert_eq!(Color::default().alpha(), 0);
+}
+
 /// Error returned by the generated render functions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
