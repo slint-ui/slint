@@ -3685,6 +3685,8 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         let function_name = ident(&sub_component.functions[*function_index].name);
                         path.with_member(format!("->{compo_path}fn_{function_name}"))
                     }
+                    llr::LocalMemberIndex::Timer(timer_index) => path
+                        .with_member(format!("->{compo_path}timer{}", usize::from(*timer_index))),
                     llr::LocalMemberIndex::Native { item_index, prop_name, .. } => {
                         let item_name = field_name(&sub_component.items[*item_index].name);
                         if prop_name.is_empty()
@@ -5413,8 +5415,9 @@ fn compile_builtin_function_call(
         BuiltinFunction::StartTimer => unreachable!(),
         BuiltinFunction::StopTimer => unreachable!(),
         BuiltinFunction::RestartTimer => {
-            if let [llr::Expression::NumberLiteral(timer_index)] = arguments {
-                format!("const_cast<slint::Timer&>(self->timer{}).restart()", timer_index)
+            if let [llr::Expression::PropertyReference(pr)] = arguments {
+                access_member(pr, ctx)
+                    .then(|x| format!("const_cast<slint::Timer&>({x}).restart()"))
             } else {
                 panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }

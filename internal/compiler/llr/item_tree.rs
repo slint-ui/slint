@@ -26,6 +26,8 @@ pub struct SubComponentInstanceIdx(usize);
 pub struct ItemInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct RepeatedElementIdx(usize);
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct TimerIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct GridLayoutChildIdx(usize);
 
@@ -174,6 +176,10 @@ pub enum LocalMemberIndex {
     Function(FunctionIdx),
     #[from]
     Callback(CallbackIdx),
+    /// A `Timer` in [`SubComponent::timers`].
+    /// Only valid as the argument of a `RestartTimer` builtin function call.
+    #[from]
+    Timer(TimerIdx),
     Native {
         item_index: ItemInstanceIdx,
         prop_name: SmolStr,
@@ -497,7 +503,7 @@ pub struct SubComponent {
     pub popup_windows: Vec<PopupWindow>,
     /// The MenuItem trees. The index is stored in a Expression::NumberLiteral in the arguments of BuiltinFunction::ShowPopupMenu and BuiltinFunction::SetupMenuBar
     pub menu_item_trees: Vec<ItemTree>,
-    pub timers: Vec<Timer>,
+    pub timers: TiVec<TimerIdx, Timer>,
     pub sub_components: TiVec<SubComponentInstanceIdx, SubComponentInstance>,
     /// The initial value or binding for properties.
     /// This is ordered in the order they must be set.

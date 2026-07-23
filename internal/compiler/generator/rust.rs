@@ -2947,7 +2947,9 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                 let fn_id = ident(&format!("fn_{}", g.functions[*function_idx].name));
                 MemberAccess::Direct(quote!(#_self.#fn_id))
             }
-            llr::LocalMemberIndex::Native { .. } => unreachable!(),
+            llr::LocalMemberIndex::Native { .. } | llr::LocalMemberIndex::Timer(_) => {
+                unreachable!()
+            }
         }
     }
 
@@ -3021,6 +3023,22 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         || MemberAccess::Direct(quote!(#compo_path.#fn_id)),
                         |parent_path| {
                             MemberAccess::OptionFn(parent_path, quote!(|x| #compo_path.#fn_id))
+                        },
+                    )
+                }
+                llr::LocalMemberIndex::Timer(timer_index) => {
+                    let (compo_path, sub_component) = follow_sub_component_path(
+                        ctx.compilation_unit,
+                        ctx.parent_sub_component_idx(*parent_level).unwrap(),
+                        &local_reference.sub_component_path,
+                    );
+                    let component_id = inner_component_id(sub_component);
+                    let timer_ident = format_ident!("timer{}", usize::from(*timer_index));
+                    let timer_field = access_component_field_offset(&component_id, &timer_ident);
+                    parent_path.map_or_else(
+                        || MemberAccess::Direct(quote!((#compo_path #timer_field).apply_pin(_self))),
+                        |parent_path| {
+                            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #timer_field).apply_pin(x.as_pin_ref()))))
                         },
                     )
                 }
@@ -4876,9 +4894,8 @@ fn compile_builtin_function_call(
         BuiltinFunction::StartTimer => unreachable!(),
         BuiltinFunction::StopTimer => unreachable!(),
         BuiltinFunction::RestartTimer => {
-            if let [Expression::NumberLiteral(timer_index)] = arguments {
-                let ident = format_ident!("timer{}", *timer_index as usize);
-                quote!(_self.#ident.restart())
+            if let [Expression::PropertyReference(pr)] = arguments {
+                access_member(pr, ctx).then(|timer| quote!(#timer.restart()))
             } else {
                 panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }

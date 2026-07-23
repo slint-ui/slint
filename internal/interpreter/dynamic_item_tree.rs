@@ -2984,6 +2984,11 @@ pub fn update_timers(instance: InstanceRef) {
 }
 
 pub fn restart_timer(element: ElementWeak, instance: InstanceRef) {
+    // The calling expression can be in a repeated or conditional child of the
+    // component that declares the timer.
+    let element_rc = element.upgrade().unwrap();
+    generativity::make_guard!(guard);
+    let instance = eval::enclosing_component_for_element(&element_rc, instance, guard);
     let timers = instance.description.original.timers.borrow();
     if let Some((_, offset)) = timers
         .iter()

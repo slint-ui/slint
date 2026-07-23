@@ -8,7 +8,7 @@
 
 use crate::expression_tree::{BuiltinFunction, ImageReference};
 use crate::langtype::Type;
-use crate::llr::{CompilationUnit, EvaluationContext, Expression};
+use crate::llr::{CompilationUnit, ContextMap, EvaluationContext, Expression};
 
 const PROPERTY_ACCESS_COST: isize = 1000;
 const ALLOC_COST: isize = 700;
@@ -199,7 +199,7 @@ fn inline_simple_expressions_in_expression(
     // in the body are preserved by the move, so no adjustment is needed.
     if let Expression::FunctionCall { function, .. } = expr {
         let inline_target = ctx.function_info(function).and_then(|(f, map)| {
-            if f.use_count.get() != 1 || !body_is_inline_safe(&f.code.borrow()) {
+            if f.use_count.get() != 1 || !body_is_inline_safe(&f.code.borrow(), &map) {
                 return None;
             }
             f.use_count.set(0);
@@ -282,26 +282,30 @@ fn inline_simple_expressions_in_expression(
     expr.visit_mut(|e| inline_simple_expressions_in_expression(e, ctx, counter));
 }
 
-/// Whether a function body can be moved to its single call site.
+/// Whether a function body can be moved to its single call site through `map`.
 ///
-/// Unsafe when it shows or closes a popup — the popup state lives in the
-/// declaring component and is reached by an upward `parent_level`, so a caller
-/// in an ancestor component cannot reach it — or reads a parameter more than
-/// once: a real call clones each read (`args.N.clone()`), but the inlined body
-/// reads a local that a second read would move.
-fn body_is_inline_safe(exp: &Expression) -> bool {
+/// Unsafe when it references state that only exists in the declaring component
+/// and cannot be remapped by `ContextMap::map_expression`:
+/// popups are reached by an upward `parent_level`,
+/// and `UpdateTimers` refers to the enclosing component implicitly,
+/// so it can only move within the same component.
+/// Also unsafe when it reads a parameter more than once:
+/// a real call clones each read (`args.N.clone()`),
+/// but the inlined body reads a local that a second read would move.
+fn body_is_inline_safe(exp: &Expression, map: &ContextMap) -> bool {
     let mut params = std::collections::HashSet::new();
     let mut safe = true;
     exp.visit_recursive(&mut |e| match e {
         Expression::FunctionParameterReference { index } => safe &= params.insert(*index),
         Expression::BuiltinFunctionCall { function, .. } => {
-            safe &= !matches!(
-                function,
+            safe &= match function {
                 BuiltinFunction::ShowPopupWindow
-                    | BuiltinFunction::ClosePopupWindow
-                    | BuiltinFunction::ShowPopupMenu
-                    | BuiltinFunction::ShowPopupMenuInternal
-            )
+                | BuiltinFunction::ClosePopupWindow
+                | BuiltinFunction::ShowPopupMenu
+                | BuiltinFunction::ShowPopupMenuInternal => false,
+                BuiltinFunction::UpdateTimers => matches!(map, ContextMap::Identity),
+                _ => true,
+            }
         }
         _ => {}
     });
