@@ -3,19 +3,19 @@
         "href": "reference/common/#accessibility-properties"
     },
     "AnimationRef": {
-        "href": "reference/primitive-types/#animation"
+        "href": "reference/language/builtin-types/#animation"
     },
     "AnimationTick": {
         "href": "reference/global-functions/builtinfunctions/#animation-tick---duration"
     },
     "angle": {
-        "href": "reference/primitive-types/#angle"
+        "href": "reference/language/builtin-types/#angle"
     },
     "bool": {
-        "href": "reference/primitive-types/#bool"
+        "href": "reference/language/builtin-types/#bool"
     },
     "brush": {
-        "href": "reference/primitive-types/#brush"
+        "href": "reference/language/builtin-types/#brush"
     },
     "BuiltInMouseCursor": {
         "href": "reference/global-structs-enums/#builtinmousecursor"
@@ -27,16 +27,16 @@
         "href": "reference/common/#cache-rendering-hint"
     },
     "ColorsRef": {
-        "href": "reference/colors-and-brushes/"
+        "href": "reference/language/colors-and-brushes/"
     },
     "color": {
-        "href": "reference/primitive-types/#color"
+        "href": "reference/language/builtin-types/#color"
     },
     "DragAndDrop": {
         "href": "guide/development/drag-and-drop/"
     },
     "data_transfer": {
-        "href": "reference/primitive-types/#data-transfer"
+        "href": "reference/language/builtin-types/#data-transfer"
     },
     "DragAction": {
         "href": "reference/global-structs-enums/#dragaction"
@@ -57,13 +57,13 @@
         "href": "reference/common/"
     },
     "duration": {
-        "href": "reference/primitive-types/#duration"
+        "href": "reference/language/builtin-types/#duration"
     },
     "DebugFn": {
         "href": "reference/global-functions/builtinfunctions/#debug"
     },
     "easing": {
-        "href": "reference/primitive-types/#easing"
+        "href": "reference/language/builtin-types/#easing"
     },
     "Edges": {
         "href": "reference/global-structs-enums/#edges"
@@ -78,7 +78,7 @@
         "href": "guide/language/coding/expressions-and-statements/"
     },
     "float": {
-        "href": "reference/primitive-types/#float"
+        "href": "reference/language/builtin-types/#float"
     },
     "FocusReason": {
         "href": "reference/global-structs-enums/#focusreason"
@@ -108,10 +108,10 @@
         "href": "reference/elements/image/"
     },
     "ImageType": {
-        "href": "reference/primitive-types/#image"
+        "href": "reference/language/builtin-types/#image"
     },
     "int": {
-        "href": "reference/primitive-types/#int"
+        "href": "reference/language/builtin-types/#int"
     },
     "KeyEvent": {
         "href": "reference/keyboard-input/overview/"
@@ -126,10 +126,10 @@
         "href": "reference/keyboard-input/focusscope/#keybinding"
     },
     "keys": {
-        "href": "reference/primitive-types/#keys"
+        "href": "reference/language/builtin-types/#keys"
     },
     "length": {
-        "href": "reference/primitive-types/#length"
+        "href": "reference/language/builtin-types/#length"
     },
     "ListView": {
         "href": "reference/std-widgets/views/listview/"
@@ -156,10 +156,10 @@
         "href": "reference/global-functions/math/"
     },
     "MouseCursor": {
-        "href": "reference/primitive-types/#mousecursor"
+        "href": "reference/language/builtin-types/#mousecursor"
     },
     "NumericTypes": {
-        "href": "reference/primitive-types/#numeric-types"
+        "href": "reference/language/builtin-types/#numeric-types"
     },
     "Palette": {
         "href": "reference/std-widgets/globals/palette/"
@@ -168,10 +168,10 @@
         "href": "reference/elements/path/"
     },
     "percent": {
-        "href": "reference/primitive-types/#percent"
+        "href": "reference/language/builtin-types/#percent"
     },
     "physicalLength": {
-        "href": "reference/primitive-types/#physical-length"
+        "href": "reference/language/builtin-types/#physical-length"
     },
     "PopupWindow": {
         "href": "reference/window/popupwindow/"
@@ -189,7 +189,7 @@
         "href": "reference/elements/rectangle/"
     },
     "relativeFontSize": {
-        "href": "reference/primitive-types/#relative-font-size"
+        "href": "reference/language/builtin-types/#relative-font-size"
     },
     "Size": {
         "href": "reference/global-structs-enums/#size"
@@ -207,7 +207,7 @@
         "href": "reference/window/systemtrayicon/"
     },
     "styled_text": {
-        "href": "reference/primitive-types/#styled-text"
+        "href": "reference/language/builtin-types/#styled-text"
     },
     "callback": {
         "href": "guide/language/coding/functions-and-callbacks/#callbacks"
@@ -219,7 +219,7 @@
         "href": "reference/std-widgets/basic-widgets/standardbutton/"
     },
     "StringType": {
-        "href": "reference/primitive-types/#string"
+        "href": "reference/language/builtin-types/#string"
     },
     "StructType": {
         "href": "reference/global-structs-enums/"
@@ -246,10 +246,10 @@
         "href": "reference/timer/"
     },
     "Types": {
-        "href": "reference/primitive-types/"
+        "href": "reference/language/builtin-types/"
     },
     "NumberStringConversion": {
-        "href": "reference/primitive-types/#converting-between-numbers-and-strings"
+        "href": "reference/language/builtin-types/#converting-between-numbers-and-strings"
     },
     "VerticalBox": {
         "href": "reference/std-widgets/layouts/verticalbox/"

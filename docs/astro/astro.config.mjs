@@ -36,6 +36,12 @@ export default defineConfig({
     site: `${BASE_URL}${BASE_PATH}`,
     base: BASE_PATH,
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
+    // Pages that moved into the language reference.
+    redirects: {
+        "/reference/primitive-types/": "/reference/language/builtin-types/",
+        "/reference/colors-and-brushes/":
+            "/reference/language/colors-and-brushes/",
+    },
     markdown: {
         gfm: true,
         rehypePlugins: [
@@ -310,6 +316,22 @@ export default defineConfig({
                                         slug: "reference/language/types",
                                     },
                                     {
+                                        label: "Built-In Types",
+                                        slug: "reference/language/builtin-types",
+                                    },
+                                    {
+                                        label: "Colors and Brushes",
+                                        slug: "reference/language/colors-and-brushes",
+                                    },
+                                    {
+                                        label: "Structs and Enums",
+                                        slug: "reference/language/structs-and-enums",
+                                    },
+                                    {
+                                        label: "Arrays and Models",
+                                        slug: "reference/language/arrays-and-models",
+                                    },
+                                    {
                                         label: "Geometry",
                                         slug: "reference/language/geometry",
                                     },
@@ -320,16 +342,8 @@ export default defineConfig({
                                 collapsed: true,
                                 items: [
                                     {
-                                        label: "Primitive Types",
-                                        slug: "reference/primitive-types",
-                                    },
-                                    {
                                         label: "Common Properties & Callbacks",
                                         slug: "reference/common",
-                                    },
-                                    {
-                                        label: "Colors & Brushes",
-                                        slug: "reference/colors-and-brushes",
                                     },
                                     {
                                         label: "Timer",

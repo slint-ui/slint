@@ -1,0 +1,53 @@
+---
+title: Arrays and Models
+description: Array types, array literals, and their operations.
+notInSC: true
+---
+
+An array type is written by wrapping `[` and `]` square brackets around the element type: `[int]`.
+
+An array literal lists the elements between `[` and `]` square brackets, separated by commas:
+
+```slint
+export component Example {
+    in-out property<[int]> list-of-int: [1,2,3];
+    in-out property<[{a: int, b: string}]> list-of-structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
+}
+```
+
+Array literals and properties holding arrays act as models in [`for` expressions](../../../guide/language/coding/repetition-and-data-models/).
+The native code of the application can also provide a model implementation for an array property.
+
+## Operations
+
+- **`array.length`**: the number of elements, as a property.
+- **`array[index]`**: the index operator retrieves individual elements.
+- **`array.push(value)`**: appends an element.
+- **`array.remove(index)`**: removes the element at `index`.
+  The accepted index range is `0 <= index < array.length`.
+- **`array.insert(index, value)`**: inserts an element at `index`.
+  The accepted index range is `0 <= index <= array.length`.
+
+Out of bounds access into an array returns default-constructed values:
+
+```slint
+export component Example {
+    in-out property<[int]> list-of-int: [1,2,3];
+
+    out property <int> list-len: list-of-int.length;
+    out property <int> first-int: list-of-int[0];
+}
+```
+
+Out of bounds indexes in the `remove` and `insert` methods make the methods do nothing:
+
+```slint
+export component Example {
+    in-out property<[int]> list-of-int: [1,2,3];
+    init => {
+        // Both do nothing; list-of-int still holds [1, 2, 3].
+        list-of-int.remove(4);
+        list-of-int.insert(4, 10);
+    }
+}
+```
