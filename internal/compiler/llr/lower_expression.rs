@@ -20,7 +20,7 @@ use crate::langtype::{BuiltinStruct, ConstantExpression, Struct, StructName, Typ
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Component, Element, ElementRc, PropertyAnimation};
+use crate::object_tree::{Component, Element, ElementRc, ElementWeak, PropertyAnimation};
 use crate::typeregister::BUILTIN;
 
 pub struct ExpressionLoweringCtxInner<'a> {
@@ -643,21 +643,40 @@ fn lower_restart_timer(args: &[tree_Expression], ctx: &ExpressionLoweringCtx) ->
     }
 }
 
+/// Resolve the component that declares the popup referenced by `e`: a reference to its root,
+/// where the `popup_id` and scope live, and the popup's index in that component. The declaring
+/// component is the parent item's enclosing component, which is not always the parent item
+/// itself (it may be a nested sub-component instance), so this reference must be resolved
+/// separately from the parent item used for positioning.
+fn lower_popup_owner(
+    e: &ElementWeak,
+    ctx: &mut ExpressionLoweringCtx,
+) -> (Rc<Component>, llr_Expression, usize) {
+    let popup_window = e.upgrade().unwrap();
+    let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
+    let parent_elem = pop_comp.parent_element().unwrap();
+    let parent_component = parent_elem.borrow().enclosing_component.upgrade().unwrap();
+    let owner_ref = lower_expression(
+        &tree_Expression::ElementReference(Rc::downgrade(&parent_component.root_element)),
+        ctx,
+    );
+    let popup_index = parent_component
+        .popup_windows
+        .borrow()
+        .iter()
+        .position(|p| Rc::ptr_eq(&p.component, &pop_comp))
+        .unwrap();
+    (parent_component, owner_ref, popup_index)
+}
+
 fn lower_show_popup_window(
     args: &[tree_Expression],
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     if let [tree_Expression::ElementReference(e)] = args {
-        let popup_window = e.upgrade().unwrap();
-        let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-        let parent_elem = pop_comp.parent_element().unwrap();
-        let parent_component = parent_elem.borrow().enclosing_component.upgrade().unwrap();
+        let (parent_component, owner_ref, popup_index) = lower_popup_owner(e, ctx);
         let popup_list = parent_component.popup_windows.borrow();
-        let (popup_index, popup) = popup_list
-            .iter()
-            .enumerate()
-            .find(|(_, p)| Rc::ptr_eq(&p.component, &pop_comp))
-            .unwrap();
+        let popup = &popup_list[popup_index];
         let item_ref = lower_expression(
             &tree_Expression::ElementReference(Rc::downgrade(&popup.parent_element)),
             ctx,
@@ -666,6 +685,7 @@ fn lower_show_popup_window(
         let mut arguments = vec![
             llr_Expression::NumberLiteral(popup_index as _),
             llr_Expression::EnumerationValue(popup.close_policy.clone()),
+            owner_ref,
             item_ref,
         ];
         // Map `is-open` here, at the show site, so it resolves in the same frame as `item_ref`. The
@@ -688,27 +708,13 @@ fn lower_close_popup_window(
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     if let [tree_Expression::ElementReference(e)] = args {
-        let popup_window = e.upgrade().unwrap();
-        let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-        let parent_elem = pop_comp.parent_element().unwrap();
-        let parent_component = parent_elem.borrow().enclosing_component.upgrade().unwrap();
-        let popup_list = parent_component.popup_windows.borrow();
-        let (popup_index, popup) = popup_list
-            .iter()
-            .enumerate()
-            .find(|(_, p)| Rc::ptr_eq(&p.component, &pop_comp))
-            .unwrap();
-        let item_ref = lower_expression(
-            &tree_Expression::ElementReference(Rc::downgrade(&popup.parent_element)),
-            ctx,
-        );
-
+        let (_, owner_ref, popup_index) = lower_popup_owner(e, ctx);
         llr_Expression::BuiltinFunctionCall {
             function: BuiltinFunction::ClosePopupWindow,
-            arguments: vec![llr_Expression::NumberLiteral(popup_index as _), item_ref],
+            arguments: vec![llr_Expression::NumberLiteral(popup_index as _), owner_ref],
         }
     } else {
-        panic!("invalid arguments to ShowPopupWindow");
+        panic!("invalid arguments to ClosePopupWindow");
     }
 }
 

@@ -5158,26 +5158,26 @@ fn compile_builtin_function_call(
             format!("{}.text_input_focused()", access_window_field(ctx))
         }
         BuiltinFunction::ShowPopupWindow => {
-            // A trailing argument may carry the synthesized `is-open` property reference, resolved in
-            // this call's own frame (see lower_show_popup_window).
-            if let [llr::Expression::NumberLiteral(popup_index), close_policy, llr::Expression::PropertyReference(parent_ref), is_open_args @ ..] =
+            // `owner_ref` is the popup's declaring component (its `popup_id` and scope); `anchor_ref`
+            // is the parent item for positioning. A trailing argument may carry the synthesized
+            // `is-open` property reference, resolved in this call's own frame (see
+            // lower_show_popup_window).
+            if let [llr::Expression::NumberLiteral(popup_index), close_policy, llr::Expression::PropertyReference(owner_ref), llr::Expression::PropertyReference(anchor_ref), is_open_args @ ..] =
                 arguments
             {
                 let mut component_access = MemberAccess::Direct("self".into());
-                let llr::MemberReference::Relative { parent_level, local_reference } = parent_ref else {unreachable!()};
+                let llr::MemberReference::Relative { parent_level, local_reference } = owner_ref else {unreachable!()};
                 for _ in 0..*parent_level {
                     component_access = component_access.and_then(|x| format!("{x}->parent.lock()"));
                 }
 
                 let window = access_window_field(ctx);
-                // The popup is declared in the component of the parent item;
-                // `compo_path` descends the item reference's path.
                 let (compo_path, _) = follow_sub_component_path(
                     ctx.compilation_unit,
                     ctx.parent_sub_component_idx(*parent_level).unwrap(),
                     &local_reference.sub_component_path,
                 );
-                let parent_component = access_item_rc(parent_ref, ctx);
+                let parent_component = access_item_rc(anchor_ref, ctx);
                 ctx.with_reference_scope(*parent_level, &local_reference.sub_component_path, |parent_ctx| {
                 let popup = &ctx.compilation_unit.sub_components[parent_ctx.sub_component]
                     .popup_windows[*popup_index as usize];
