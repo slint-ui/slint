@@ -51,6 +51,7 @@ export component TestCase inherits Window {
                 var3 += self.xx;
             }
         }
+        *: { }
     }
     in-out property <bool> test: var1 == 20 && var2 == 50 && var3 == 70 && primary == Colors.blue;
 }

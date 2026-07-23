@@ -147,7 +147,10 @@ fn resolve_match_elements(
             );
             check_case_value(&case.value, &case.node, diag);
         }
-        check_duplicate_cases(&match_element.cases, diag);
+        let values: Vec<Option<CaseValue>> =
+            match_element.cases.iter().map(|case| CaseValue::new(&case.value)).collect();
+        check_duplicate_cases(&match_element.cases, &values, diag);
+        check_exhaustiveness(match_element, &values, diag);
         match_element.lower_to_conditional_elements();
     }
 }
@@ -205,17 +208,85 @@ impl CaseValue {
 }
 
 /// Reports every case whose value is already covered by an earlier case
-fn check_duplicate_cases(cases: &[MatchCaseInfo], diag: &mut BuildDiagnostics) {
-    let mut seen = Vec::with_capacity(cases.len());
-    for case in cases {
-        let Some(value) = CaseValue::new(&case.value) else {
-            continue;
+fn check_duplicate_cases(
+    cases: &[MatchCaseInfo],
+    values: &[Option<CaseValue>],
+    diag: &mut BuildDiagnostics,
+) {
+    let mut seen: Vec<&CaseValue> = Vec::with_capacity(values.len());
+    for (case, value) in cases.iter().zip(values) {
+        let Some(value) = value else {
+            continue; // not a valid literal
         };
         if seen.contains(&value) {
             diag.push_error("Duplicate case value".into(), &case.node);
         } else {
             seen.push(value);
         }
+    }
+}
+
+impl std::fmt::Display for CaseValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CaseValue::Number(number, _) => write!(f, "{number}"),
+            CaseValue::String(string) => write!(f, "{string:?}"),
+            CaseValue::Bool(boolean) => write!(f, "{boolean}"),
+            CaseValue::Enumeration(value) => write!(f, "{value}"),
+        }
+    }
+}
+
+/// Reports a match element that does not cover every value its subject can take
+fn check_exhaustiveness(
+    match_element: &MatchElementInfo,
+    values: &[Option<CaseValue>],
+    diag: &mut BuildDiagnostics,
+) {
+    if !matches!(match_element.wildcard, WildcardMatchCaseInfo::None) {
+        return;
+    }
+    // Prevents duplicated errors if both not a literal and not exhaustive
+    let mut covered: Vec<&CaseValue> = Vec::with_capacity(values.len());
+    for value in values {
+        let Some(value) = value else {
+            return;
+        };
+        covered.push(value);
+    }
+    let subject_node = match_element.node.Expression();
+    let subject_type = match_element.subject.ty();
+    let expected: Vec<CaseValue> = match &subject_type {
+        Type::Bool => vec![CaseValue::Bool(true), CaseValue::Bool(false)],
+        Type::Enumeration(enumeration) => (0..enumeration.values.len())
+            .map(|value| {
+                CaseValue::Enumeration(langtype::EnumerationValue {
+                    value,
+                    enumeration: enumeration.clone(),
+                })
+            })
+            .collect(),
+        Type::Invalid => return,
+        _ => {
+            diag.push_error(
+                format!("Non-exhaustive match on {subject_type}: a '*' case is required"),
+                &subject_node,
+            );
+            return;
+        }
+    };
+
+    let mut missing = Vec::new();
+    for value in &expected {
+        if !covered.contains(&value) {
+            missing.push(value.to_string());
+        }
+    }
+    if !missing.is_empty() {
+        diag.push_error(
+            format!("Non-exhaustive match on {subject_type}: missing {}", missing.join(", ")),
+            &subject_node,
+        );
     }
 }
 
