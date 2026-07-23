@@ -63,6 +63,18 @@ jobs:
           release: ${{ github.event.inputs.mode == 'release' }}
           app-id: ${{ vars.READ_WRITE_APP_ID }}
 
+    # Upload the per-page docs Markdown to the R2 bucket that Cloudflare AI Search
+    # indexes for the docs MCP server (docs-mcp.slint.dev). Same publish gate as
+    # publish_artifacts; consumes the docs-* artifacts from the `docs` job.
+    upload-docs-mcp:
+        if: ${{ github.event.inputs.private != 'true' }}
+        needs: docs
+        uses: ./.github/workflows/docs-mcp-upload.yaml
+        secrets: inherit
+        with:
+          release: ${{ github.event.inputs.release }}
+          r2-bucket: slint-docs-mcp
+
     wasm_demo:
         uses: ./.github/workflows/wasm_demos.yaml
         with:
