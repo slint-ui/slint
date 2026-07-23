@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore premultiply
+// cSpell: ignore premultiply blits
 #![allow(clippy::identity_op)] // We use x + 0 a lot here for symmetry
 
 //! This is the module for the functions that are drawing the pixels
@@ -81,6 +81,50 @@ pub(super) fn draw_texture_line(
             }
         }
         end = end.min(len);
+
+        // Straight-blit fast paths for 1:1, fully-opaque, non-rotated blits: copy the
+        // source row directly instead of walking it pixel by pixel. `pos` is the image
+        // x-offset; the row start is added separately as `row_offset`.
+        #[allow(unsafe_code)]
+        if alpha == 0xff && delta == Fixed::from_integer(1) && end == len {
+            let pos = row_offset + pos.truncate() as usize;
+            if format == TexturePixelFormat::Rgb && colorize.alpha() == 0 {
+                // SAFETY: `data` is packed image bytes and Rgb8Pixel is a repr(C) {u8,u8,u8}
+                // with alignment 1, so any &[u8] is validly aligned and every byte pattern is
+                // a valid Rgb8Pixel; the fast path is skipped if the prefix isn't aligned.
+                let (unaligned_part, data, _tail) = unsafe { data.align_to::<Rgb8Pixel>() };
+                if unaligned_part.is_empty() {
+                    TargetPixel::blend_texture_slice_rgb(
+                        &mut line_buffer[..end],
+                        &data[pos..pos + end],
+                    );
+                    return;
+                }
+            }
+            if format == TexturePixelFormat::RgbaPremultiplied && colorize.alpha() == 0 {
+                // SAFETY: `data` is packed image bytes and PremultipliedRgbaColor is a repr(C)
+                // {u8,u8,u8,u8} with alignment 1, so any &[u8] is validly aligned and every
+                // byte pattern is a valid value; the fast path is skipped if unaligned.
+                let (unaligned_part, data, _tail) =
+                    unsafe { data.align_to::<PremultipliedRgbaColor>() };
+                if unaligned_part.is_empty() {
+                    TargetPixel::blend_texture_slice_rgba(
+                        &mut line_buffer[..end],
+                        &data[pos..pos + end],
+                    );
+                    return;
+                }
+            }
+            if format == TexturePixelFormat::AlphaMap && colorize.alpha() == 0xff {
+                TargetPixel::blend_texture_slice_alpha(
+                    &mut line_buffer[..end],
+                    Rgb8Pixel { r: colorize.red(), g: colorize.green(), b: colorize.blue() },
+                    &data[pos..pos + end],
+                );
+                return;
+            }
+        }
+
         let mut begin = 0;
         let row_fract = row.fract();
         while begin < len {
@@ -855,6 +899,30 @@ pub trait TargetPixel: Sized + Copy {
     /// Pixel which will be filled as the background in case the slint view has transparency
     fn background() -> Self {
         Self::from_rgb(0, 0, 0)
+    }
+
+    /// Blend a premultiplied-RGBA texture slice into this slice of pixels
+    fn blend_texture_slice_rgba(slice: &mut [Self], color: &[PremultipliedRgbaColor]) {
+        for (p, c) in slice.iter_mut().zip(color.iter()) {
+            p.blend(*c);
+        }
+    }
+
+    /// Overwrite this slice of pixels with an opaque RGB texture slice
+    fn blend_texture_slice_rgb(slice: &mut [Self], color: &[Rgb8Pixel]) {
+        for (p, c) in slice.iter_mut().zip(color.iter()) {
+            *p = Self::from_rgb(c.r, c.g, c.b);
+        }
+    }
+
+    /// Blend an alpha-map slice colorized with `color` into this slice of pixels
+    fn blend_texture_slice_alpha(slice: &mut [Self], color: Rgb8Pixel, alpha: &[u8]) {
+        for (p, a) in slice.iter_mut().zip(alpha.iter()) {
+            let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                *a, color.r, color.g, color.b,
+            ));
+            p.blend(c);
+        }
     }
 }
 
