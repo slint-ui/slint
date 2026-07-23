@@ -202,13 +202,8 @@ fn emit_element(elem: &ElementRc, root: &ElementRc) -> TokenStream {
     let h = resolve(geometry.as_ref().map(|g| &g.height)).expect("element without a height");
     let x = resolve(geometry.as_ref().map(|g| &g.x)).unwrap_or_else(|| quote!(0i32));
     let y = resolve(geometry.as_ref().map(|g| &g.y)).unwrap_or_else(|| quote!(0i32));
-    let mut background =
+    let background =
         elem.borrow().bindings.get("background").map(|b| b.borrow().expression.clone());
-    if matches!(background, Some(Expression::PropertyReference(_))) {
-        // The style sets the window background to a StyleMetrics reference;
-        // Slint SC uses the default below instead
-        background = None;
-    }
     let mut color = background.map(|expr| compile_expression(&expr, root));
     if std::rc::Rc::ptr_eq(elem, root) {
         // The window background defaults to black, so that the whole frame
