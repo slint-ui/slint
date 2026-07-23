@@ -7343,7 +7343,7 @@ dependencies = [
  "slint-interpreter",
  "smol_str 0.3.2",
  "spin_on",
- "windows 0.62.2",
+ "windows",
 ]
 
 [[package]]

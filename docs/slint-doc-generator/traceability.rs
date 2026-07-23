@@ -55,6 +55,9 @@ struct SpecPage {
     anchors: Vec<(String, usize)>,
     /// Draft pages aren't published, so their anchors don't exist.
     draft: bool,
+    /// Covers the full language only: the safety manual leaves the chapter
+    /// out, so its anchors, if any, aren't part of the traceability corpus.
+    not_in_sc: bool,
 }
 
 struct TestRef {
@@ -170,6 +173,7 @@ fn parse_spec_page(file: &str, text: &str) -> (SpecPage, Option<String>) {
         top_level: false,
         anchors: Vec::new(),
         draft: false,
+        not_in_sc: false,
     };
     let mut in_comment = false;
     let mut in_fence = false;
@@ -188,6 +192,8 @@ fn parse_spec_page(file: &str, text: &str) -> (SpecPage, Option<String>) {
                 slug = Some(s.trim().to_string());
             } else if t == "draft: true" {
                 page.draft = true;
+            } else if t == "notInSC: true" {
+                page.not_in_sc = true;
             }
             continue;
         }
@@ -256,6 +262,9 @@ fn scan_spec_pages(dir: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Erro
         let text = std::fs::read_to_string(&path).context(format!("error reading {path:?}"))?;
         let file = path.file_name().unwrap_or_default().to_string_lossy();
         let (mut page, _) = parse_spec_page(&format!("{SPEC_DIR}/{file}"), &text);
+        if page.not_in_sc {
+            continue;
+        }
         // The index page is served at the root of the specification.
         page.top_level = stem == "index";
         page.base = if page.top_level {
@@ -557,6 +566,15 @@ Another paragraph. {#sls.two}
     assert!(draft.draft);
     assert_eq!(draft.anchors, [("sls.d".to_string(), 5)]);
 
+    assert!(!page.not_in_sc);
+    // The flag is parsed; scan_spec_pages skips such pages, anchors and all.
+    let (flagged, _) = parse_spec_page(
+        "spec/functions.mdx",
+        "---\ntitle: Functions\nnotInSC: true\n---\nFull-language prose. \\{#sls.fn.decl}\n",
+    );
+    assert!(flagged.not_in_sc);
+    assert_eq!(flagged.anchors, [("sls.fn.decl".to_string(), 5)]);
+
     let (reference, slug) = parse_spec_page(
         "generated/elements/rectangle.mdx",
         "---\ntitle: Rectangle\nslug: reference/elements/rectangle\n---\nProse. \\{#sls.ref.rectangle.purpose}\n",
@@ -574,6 +592,7 @@ fn test_check_reports_all_errors() {
         top_level: false,
         anchors: anchors.iter().map(|(id, line)| (id.to_string(), *line)).collect(),
         draft: false,
+        not_in_sc: false,
     };
     let test_ref = |id: &str, file: &str, line| TestRef {
         id: id.to_string(),
