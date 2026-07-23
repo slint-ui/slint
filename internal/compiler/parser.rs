@@ -306,6 +306,7 @@ declare_syntax! {
         ColorLiteral -> &crate::lexer::lex_color,
         Identifier -> &crate::lexer::lex_identifier,
         DoubleArrow -> "<=>",
+        DoubleLess -> "<<",
         PlusEqual -> "+=",
         MinusEqual -> "-=",
         StarEqual -> "*=",
@@ -354,7 +355,8 @@ declare_syntax! {
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
                      *CallbackDeclaration, *ConditionalElement, *MatchElement, *Function, *SubElement,
                      *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
-                     *TwoWayBinding, *States, *Transitions, *ImplementStatement, ?ChildrenPlaceholder ],
+                     *TwoWayBinding, *States, *Transitions, *ImplementStatement, ?ChildrenPlaceholder,
+                     *SlotDeclaration, *SlotAssignment, *SlotForwarding ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , SubElement],
@@ -383,6 +385,8 @@ declare_syntax! {
         /// Wraps single identifier (to disambiguate when there are other identifier in the production)
         DeclaredIdentifier -> [],
         ChildrenPlaceholder -> [],
+        SlotAssignment -> [ DeclaredIdentifier, SubElement ],
+        SlotForwarding -> [ DeclaredIdentifier, ?Expression ],
         Binding-> [ BindingExpression ],
         /// `xxx <=> something`
         TwoWayBinding -> [ Expression ],
@@ -408,6 +412,8 @@ declare_syntax! {
         /// `@tr("foo", ...)`  // the string is a StringLiteral
         AtTr -> [?TrContext, ?TrPlural, *Expression],
         AtMarkdown -> [*Expression],
+        /// `slot header;`
+        SlotDeclaration -> [ DeclaredIdentifier ],
         /// `"foo" =>`  in a `AtTr` node
         TrContext -> [],
         /// `| "foo" % n`  in a `AtTr` node
@@ -725,7 +731,10 @@ impl Parser for DefaultParser<'_> {
     fn error(&mut self, e: impl Into<String>) {
         let current_token = self.current_token();
         #[allow(unused_mut)]
-        let mut span = crate::diagnostics::Span::new(current_token.offset, current_token.length);
+        let mut span = crate::diagnostics::Span::new(
+            current_token.offset,
+            if current_token.kind == SyntaxKind::DoubleLess { 1 } else { current_token.length },
+        );
         #[cfg(feature = "proc_macro_span")]
         {
             span.span = current_token.span;
@@ -744,7 +753,10 @@ impl Parser for DefaultParser<'_> {
     fn warning(&mut self, e: impl Into<String>) {
         let current_token = self.current_token();
         #[allow(unused_mut)]
-        let mut span = crate::diagnostics::Span::new(current_token.offset, current_token.length);
+        let mut span = crate::diagnostics::Span::new(
+            current_token.offset,
+            if current_token.kind == SyntaxKind::DoubleLess { 1 } else { current_token.length },
+        );
         #[cfg(feature = "proc_macro_span")]
         {
             span.span = current_token.span;

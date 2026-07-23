@@ -270,9 +270,21 @@ module.exports = grammar({
         $.match_statement,
         $.property,
         $.property_assignment,
+        $.slot_declaration,
+        $.slot_assignment,
+        $.slot_forwarding,
         $.states_definition,
         $.transitions_definition,
       ),
+
+    slot_declaration: ($) =>
+      seq("slot", field("name", $.simple_identifier), ";"),
+
+    slot_assignment: ($) =>
+      seq(field("name", $.simple_identifier), "<<", $.component),
+
+    slot_forwarding: ($) =>
+      seq(field("name", $.simple_identifier), "<<", field("value", $.expression), ";"),
 
     property_assignment: ($) =>
       seq(

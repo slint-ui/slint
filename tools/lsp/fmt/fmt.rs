@@ -146,6 +146,9 @@ fn format_node(
         SyntaxKind::ChildrenPlaceholder => {
             return format_children_placeholder(node, writer, state);
         }
+        SyntaxKind::SlotDeclaration => {
+            return format_slot_declaration(node, writer, state);
+        }
         SyntaxKind::RepeatedElement => {
             return format_repeated_element(node, writer, state);
         }
@@ -1226,6 +1229,20 @@ fn format_children_placeholder(
     for n in node.children_with_tokens() {
         fold(n, writer, state)?;
     }
+    state.new_line();
+    Ok(())
+}
+
+fn format_slot_declaration(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?
+        && whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+    finish_node(sub, writer, state)?;
     state.new_line();
     Ok(())
 }

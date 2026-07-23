@@ -2165,6 +2165,16 @@ fn lookup_qualified_name_node(
     let global_lookup = crate::lookup::global_lookup();
     let result = match global_lookup.lookup(ctx, &first_str) {
         None => {
+            if let Some(slot_element) =
+                resolve_slot_reference_element(first_str.as_str(), ctx, &node)
+            {
+                return continue_lookup_within_element(&slot_element, &mut it, node, ctx);
+            }
+            if first_str == "children" || is_declared_slot_in_scope(first_str.as_str(), ctx) {
+                // resolve_slot_reference_element() already emitted a slot-specific diagnostic.
+                return None;
+            }
+
             if let Some(minus_pos) = first.text().find('-') {
                 // Attempt to recover if the user wanted to write "-" for minus
                 let first_str = &first.text()[0..minus_pos];
@@ -2228,6 +2238,63 @@ fn lookup_qualified_name_node(
         }
         result => maybe_lookup_object(result, it, ctx),
     }
+}
+
+fn resolve_slot_reference_element(
+    name: &str,
+    ctx: &mut LookupCtx,
+    node: &dyn Spanned,
+) -> Option<ElementRc> {
+    if name == "children" {
+        ctx.diag.push_error(
+            "The default slot '@children' cannot be referenced in expressions".into(),
+            node,
+        );
+        return None;
+    }
+
+    for scope_elem in ctx.component_scope.iter().rev() {
+        let scope_elem_ref = scope_elem.borrow();
+        let repeated = scope_elem_ref.repeated.is_some();
+        let mut matches = scope_elem_ref.children.iter().filter(|child| {
+            child.borrow().slot_target.as_ref().is_some_and(|slot| slot.as_str() == name)
+        });
+        if let Some(found) = matches.next() {
+            if matches.next().is_some() {
+                ctx.diag.push_error(format!("Duplicate assignment to slot '{name}'"), node);
+                return None;
+            }
+
+            if repeated {
+                ctx.diag.push_error(
+                    format!(
+                        "Slot '{name}' cannot be referenced inside repeated or conditional elements"
+                    ),
+                    node,
+                );
+                return None;
+            }
+
+            return Some(found.clone());
+        }
+    }
+
+    if is_declared_slot_in_scope(name, ctx) {
+        ctx.diag.push_error(format!("Slot '{name}' is not assigned in this instance"), node);
+        return None;
+    }
+
+    None
+}
+
+fn is_declared_slot_in_scope(name: &str, ctx: &LookupCtx) -> bool {
+    ctx.component_scope.iter().rev().any(|scope_elem| {
+        let scope_elem_ref = scope_elem.borrow();
+        let ElementType::Component(component) = &scope_elem_ref.base_type else {
+            return false;
+        };
+        component.declared_slots.borrow().iter().any(|slot| slot.name == name)
+    })
 }
 
 fn continue_lookup_within_element(

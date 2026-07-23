@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Base inherits Rectangle {
+    slot header;
+    slot footer;
+
+    VerticalLayout {
+        header {}
+        @children
+        footer {}
+    }
+}
+
+export component Test inherits Rectangle {
+    Base {
+        header << Rectangle {
+            background: blue;
+        }
+        Text { text: "Main Content"; }
+        footer << Rectangle {
+            background: gray;
+        }
+    }
+}
+
+export component FailReservedSlotName inherits Rectangle {
+    slot children;
+//       >      <error{The name 'children' is reserved for the default slot. Use @children instead}
+}
+
+export component FailDuplicateSlotDeclaration inherits Rectangle {
+    slot header;
+    slot header;
+//       >    <error{Duplicate slot declaration 'header'}
+
+    header {}
+}
+
+export component FailUnusedSlotDeclaration inherits Rectangle {
+    slot header;
+//       >    <error{The slot 'header' is declared but not used}
+}

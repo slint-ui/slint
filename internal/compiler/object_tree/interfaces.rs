@@ -9,7 +9,7 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use itertools::Itertools;
-use smol_str::{SmolStr, ToSmolStr};
+use smol_str::SmolStr;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, Callable, Expression};

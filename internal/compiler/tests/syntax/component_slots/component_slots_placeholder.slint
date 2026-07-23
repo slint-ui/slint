@@ -1,0 +1,56 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>, Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component NotInIf inherits Rectangle {
+    slot header;
+    if true: Rectangle {
+        header {}
+//      >       <error{The slot 'header' cannot appear in a conditional element}
+    }
+}
+
+export component NotInFor inherits Rectangle {
+    slot header;
+    HorizontalLayout {
+        for xxx in 12: Rectangle {
+            VerticalLayout {
+                header {}
+//              >       <error{The slot 'header' cannot appear in a repeated element}
+            }
+        }
+    }
+}
+
+export component FailDuplicateUse inherits Rectangle {
+    slot header;
+    header {}
+    header {}
+//  >       <error{The slot 'header' can only appear once in an element}
+}
+
+export component FailDuplicateUse2 inherits Rectangle {
+    slot header;
+    Rectangle {
+        header {}
+    }
+    header {}
+//  >       <error{The slot 'header' can only appear once in an element}
+}
+
+export component NestedPlaceholder inherits Rectangle {
+    slot header;
+    Rectangle {
+        header {}
+    }
+}
+
+export component NotInMatch inherits Rectangle {
+    slot header;
+    in-out property <int> value;
+    match value {
+        0: Rectangle {
+            header {}
+//          >       <error{The slot 'header' cannot appear in a match element}
+        }
+    }
+}

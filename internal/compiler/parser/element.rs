@@ -54,6 +54,10 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// changed foo => {}
 /// match (foo) { 1: Elem { } }
 /// match bar.property { 1: Elem { } }
+/// slot header;
+/// header {}
+/// header << HeaderComponent {}
+/// header << parentHeader;
 /// ```
 pub fn parse_element_content(p: &mut impl Parser) {
     let mut had_parse_error = false;
@@ -62,9 +66,13 @@ pub fn parse_element_content(p: &mut impl Parser) {
             SyntaxKind::RBrace => return,
             SyntaxKind::Eof => return,
             SyntaxKind::Identifier => match p.nth(1).kind() {
+                _ if p.peek().as_str() == "slot" => parse_slot_declaration(&mut *p),
                 SyntaxKind::Colon => parse_property_binding(&mut *p),
+                SyntaxKind::DoubleLess => {
+                    had_parse_error |= !parse_slot_assignment_or_forwarding(&mut *p)
+                }
                 SyntaxKind::ColonEqual | SyntaxKind::LBrace => {
-                    had_parse_error |= !parse_sub_element(&mut *p)
+                    had_parse_error |= !parse_sub_element(&mut *p);
                 }
                 SyntaxKind::FatArrow | SyntaxKind::LParent
                     if !["if", "match"].contains(&p.peek().as_str()) =>
@@ -193,6 +201,68 @@ fn parse_sub_element(p: &mut impl Parser) -> bool {
         p.expect(SyntaxKind::ColonEqual);
     }
     parse_element(&mut *p)
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,SlotDeclaration
+/// slot header;
+/// ```
+fn parse_slot_declaration(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "slot");
+    let mut p = p.start_node(SyntaxKind::SlotDeclaration);
+    p.expect(SyntaxKind::Identifier); // "slot"
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    p.expect(SyntaxKind::Semicolon);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,SlotAssignment
+/// header << HeaderComponent {}
+/// ```
+fn parse_slot_assignment(p: &mut impl Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::SlotAssignment);
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    p.expect(SyntaxKind::DoubleLess);
+    if !parse_sub_element(&mut *p) {
+        p.error("Expected element after '<<'");
+        return false;
+    }
+    true
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,SlotForwarding
+/// hostHeader << header;
+/// hostHeader << header + 1;
+/// ```
+fn parse_slot_forwarding(p: &mut impl Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::SlotForwarding);
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    p.expect(SyntaxKind::DoubleLess);
+    if !parse_expression(&mut *p) {
+        return false;
+    }
+    p.expect(SyntaxKind::Semicolon)
+}
+
+fn parse_slot_assignment_or_forwarding(p: &mut impl Parser) -> bool {
+    debug_assert_eq!(p.nth(1).kind(), SyntaxKind::DoubleLess);
+    let rhs_first = p.nth(2).kind();
+    let rhs_second = p.nth(3).kind();
+
+    let is_slot_assignment = rhs_first == SyntaxKind::Identifier
+        && matches!(rhs_second, SyntaxKind::LBrace | SyntaxKind::ColonEqual);
+
+    if is_slot_assignment { parse_slot_assignment(p) } else { parse_slot_forwarding(p) }
 }
 
 #[cfg_attr(test, parser_test)]
