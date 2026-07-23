@@ -104,6 +104,11 @@ async fn load_from_network(opt: &Opt) -> Result<figmatypes::File, Box<dyn std::e
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // reqwest is built without a default TLS provider; see Cargo.toml.
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("failed to install the rustls crypto provider");
+
     let opt = Opt::parse();
 
     let r = if !opt.read_from_cache {
