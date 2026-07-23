@@ -229,26 +229,37 @@ impl ItemConsts for Path {
 
 struct FittedPathInner(RefCell<Option<FittedPath>>);
 
-/// Opaque box holding the FittedPath
+/// Opaque box holding the FittedPath, allocated lazily on first use
 #[repr(C)]
-pub struct FittedPathBox(core::ptr::NonNull<FittedPathInner>);
+pub struct FittedPathBox(core::cell::Cell<*mut FittedPathInner>);
 
 impl Default for FittedPathBox {
     fn default() -> Self {
-        FittedPathBox(Box::leak(Box::new(FittedPathInner(Default::default()))).into())
+        FittedPathBox(core::cell::Cell::new(core::ptr::null_mut()))
+    }
+}
+impl FittedPathBox {
+    fn get_or_init(&self) -> &FittedPathInner {
+        if self.0.get().is_null() {
+            self.0.set(Box::leak(Box::new(FittedPathInner(Default::default()))));
+        }
+        // Safety: the pointer is guaranteed non-null above, and was created from a Box::leak
+        unsafe { &*self.0.get() }
     }
 }
 impl Drop for FittedPathBox {
     fn drop(&mut self) {
-        // Safety: self.0 was constructed from a Box::leak in FittedPathBox::default
-        drop(unsafe { Box::from_raw(self.0.as_ptr()) });
+        let ptr = self.0.get();
+        if !ptr.is_null() {
+            // Safety: ptr was constructed from a Box::leak in get_or_init
+            drop(unsafe { Box::from_raw(ptr) });
+        }
     }
 }
 impl core::ops::Deref for FittedPathBox {
     type Target = RefCell<Option<FittedPath>>;
     fn deref(&self) -> &Self::Target {
-        // Safety: initialized in FittedPathBox::default
-        unsafe { &self.0.as_ref().0 }
+        &self.get_or_init().0
     }
 }
 

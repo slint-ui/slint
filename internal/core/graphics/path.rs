@@ -439,6 +439,163 @@ impl PathData {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lengths::LogicalLength;
+    use alloc::vec;
+    use alloc::vec::Vec;
+    use lyon_path::math::{Point, Transform};
+
+    // Two equivalent representations of the same L-shaped path (Begin, Line, Line, EndOpen):
+    // one built from high-level elements, one from low-level events/coordinates. Used to check
+    // that `PathDataIterator::to_lyon_path` applies `self.transform` the same way regardless of
+    // which `LyonPathIteratorVariant` backs it.
+    fn elements_path() -> PathData {
+        PathData::Elements(
+            [
+                PathElement::MoveTo(PathMoveTo { x: 0., y: 0. }),
+                PathElement::LineTo(PathLineTo { x: 10., y: 0. }),
+                PathElement::LineTo(PathLineTo { x: 10., y: 10. }),
+            ]
+            .as_slice()
+            .into(),
+        )
+    }
+
+    fn events_path() -> PathData {
+        let events: crate::SharedVector<PathEvent> =
+            [PathEvent::Begin, PathEvent::Line, PathEvent::Line, PathEvent::EndOpen]
+                .as_slice()
+                .into();
+        let coordinates: crate::SharedVector<Point> = [
+            Point::new(0., 0.),
+            Point::new(0., 0.),
+            Point::new(10., 0.),
+            Point::new(10., 0.),
+            Point::new(10., 10.),
+        ]
+        .as_slice()
+        .into();
+        PathData::Events(events, coordinates)
+    }
+
+    fn line_path() -> PathData {
+        PathData::Elements(
+            [
+                PathElement::MoveTo(PathMoveTo { x: 0., y: 0. }),
+                PathElement::LineTo(PathLineTo { x: 10., y: 0. }),
+            ]
+            .as_slice()
+            .into(),
+        )
+    }
+
+    fn points_of(path: &lyon_path::Path) -> Vec<Point> {
+        path.iter()
+            .flat_map(|ev| match ev {
+                lyon_path::Event::Begin { at } => vec![at],
+                lyon_path::Event::Line { from, to } => vec![from, to],
+                lyon_path::Event::Quadratic { from, ctrl, to } => vec![from, ctrl, to],
+                lyon_path::Event::Cubic { from, ctrl1, ctrl2, to } => vec![from, ctrl1, ctrl2, to],
+                lyon_path::Event::End { .. } => vec![],
+            })
+            .collect()
+    }
+
+    #[test]
+    fn to_lyon_path_applies_transform_for_elements_variant() {
+        let mut it = elements_path().iter().unwrap();
+        it.transform = Transform::translation(5., 7.);
+        assert_eq!(
+            points_of(&it.to_lyon_path()),
+            vec![
+                Point::new(5., 7.),
+                Point::new(5., 7.),
+                Point::new(15., 7.),
+                Point::new(15., 7.),
+                Point::new(15., 17.),
+            ]
+        );
+    }
+
+    #[test]
+    fn to_lyon_path_applies_transform_for_events_variant() {
+        let mut it = events_path().iter().unwrap();
+        it.transform = Transform::translation(5., 7.);
+        assert_eq!(
+            points_of(&it.to_lyon_path()),
+            vec![
+                Point::new(5., 7.),
+                Point::new(5., 7.),
+                Point::new(15., 7.),
+                Point::new(15., 7.),
+                Point::new(15., 17.),
+            ]
+        );
+    }
+
+    #[test]
+    fn to_lyon_path_transform_stays_consistent_across_variants_after_fit() {
+        let mut elements_it = elements_path().iter().unwrap();
+        let mut events_it = events_path().iter().unwrap();
+
+        // fit() derives a scale+translate transform from the (untransformed) bounding box;
+        // both variants describe the same geometry so they must end up with the same transform.
+        elements_it.fit(100., 50., None, ImageFit::Contain);
+        events_it.fit(100., 50., None, ImageFit::Contain);
+
+        assert_ne!(elements_it.transform, Transform::identity());
+        assert_eq!(elements_it.transform, events_it.transform);
+        assert_eq!(points_of(&elements_it.to_lyon_path()), points_of(&events_it.to_lyon_path()));
+    }
+
+    #[test]
+    fn fitted_path_sample_at_adds_offset_to_position() {
+        let it = line_path().iter().unwrap();
+        let offset = LogicalVector::from_lengths(LogicalLength::new(3.), LogicalLength::new(4.));
+        let fitted = it.to_fitted_path(offset);
+
+        let (start, _) = fitted.sample_at(0.0).unwrap();
+        assert_eq!(start, Point2D::new(3., 4.));
+
+        let (end, _) = fitted.sample_at(1.0).unwrap();
+        assert_eq!(end, Point2D::new(13., 4.));
+    }
+
+    #[test]
+    fn fitted_path_sample_at_wraps_percent_for_open_path() {
+        let it = line_path().iter().unwrap();
+        let fitted = it.to_fitted_path(LogicalVector::default());
+
+        // 1.0 is a special case (sampled directly, not wrapped) and must land on the actual
+        // end of the path, not back at the start the way rem_euclid(1.0, 1.0) == 0.0 would.
+        let (end, _) = fitted.sample_at(1.0).unwrap();
+        assert_eq!(end, Point2D::new(10., 0.));
+
+        let (mid, _) = fitted.sample_at(0.5).unwrap();
+        assert_eq!(mid, Point2D::new(5., 0.));
+
+        // Percentages outside of [0, 1) wrap around via rem_euclid.
+        let (wrapped_up, _) = fitted.sample_at(1.5).unwrap();
+        assert_eq!(wrapped_up, mid);
+        let (wrapped_down, _) = fitted.sample_at(-0.5).unwrap();
+        assert_eq!(wrapped_down, mid);
+    }
+
+    #[test]
+    fn fitted_path_sample_at_returns_none_for_zero_length_path() {
+        let elements = PathData::Elements(
+            [PathElement::MoveTo(PathMoveTo { x: 0., y: 0. })].as_slice().into(),
+        );
+        let it = elements.iter().unwrap();
+        let fitted = it.to_fitted_path(LogicalVector::default());
+
+        assert!(fitted.sample_at(0.0).is_none());
+        assert!(fitted.sample_at(0.5).is_none());
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]

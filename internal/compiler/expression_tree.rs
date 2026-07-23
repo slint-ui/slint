@@ -138,8 +138,8 @@ pub enum BuiltinFunction {
     /// because `parse_interpolated` takes `StyledText` arguments.
     ColorToStyledText,
     DecimalSeparator,
-    PointAt,
-    AngleAt,
+    PathPointAt,
+    PathAngleAt,
 }
 
 #[derive(Debug, Clone)]
@@ -320,8 +320,8 @@ declare_builtin_function_types!(
     ColorToStyledText: (Type::Color) -> Type::StyledText
     OpenUrl: (Type::String) -> Type::Bool,
     MacosBringAllWindowsToFront: () -> Type::Void,
-    PointAt: (Type::ElementReference, Type::Float32) -> typeregister::logical_point_type().into(),
-    AngleAt: (Type::ElementReference, Type::Float32) -> Type::Angle,
+    PathPointAt: (Type::ElementReference, Type::Float32) -> typeregister::logical_point_type().into(),
+    PathAngleAt: (Type::ElementReference, Type::Float32) -> Type::Angle,
 );
 
 impl Default for BuiltinFunctionTypes {
@@ -439,8 +439,8 @@ impl BuiltinFunction {
             BuiltinFunction::ColorToStyledText => true,
             BuiltinFunction::OpenUrl => false,
             BuiltinFunction::MacosBringAllWindowsToFront => false,
-            BuiltinFunction::PointAt => true,
-            BuiltinFunction::AngleAt => true,
+            BuiltinFunction::PathPointAt => true,
+            BuiltinFunction::PathAngleAt => true,
         }
     }
 
@@ -535,8 +535,8 @@ impl BuiltinFunction {
             BuiltinFunction::ColorToStyledText => true,
             BuiltinFunction::OpenUrl => false,
             BuiltinFunction::MacosBringAllWindowsToFront => false,
-            BuiltinFunction::PointAt => true,
-            BuiltinFunction::AngleAt => true,
+            BuiltinFunction::PathPointAt => true,
+            BuiltinFunction::PathAngleAt => true,
         }
     }
 }

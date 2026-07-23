@@ -5440,7 +5440,7 @@ fn compile_builtin_function_call(
             let color = a.next().unwrap();
             format!("slint::private_api::color_to_styled_text({})", color)
         }
-        BuiltinFunction::PointAt => {
+        BuiltinFunction::PathPointAt => {
             if let [llr::Expression::PropertyReference(pr), percent] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
                 let percent = compile_expression(percent, ctx);
@@ -5448,10 +5448,10 @@ fn compile_builtin_function_call(
                     "slint::LogicalPosition(slint::cbindgen_private::slint_path_point_at(&{item_rc}, static_cast<float>({percent})))"
                 )
             } else {
-                panic!("internal error: invalid args to PointAt {arguments:?}")
+                panic!("internal error: invalid args to PathPointAt {arguments:?}")
             }
         }
-        BuiltinFunction::AngleAt => {
+        BuiltinFunction::PathAngleAt => {
             if let [llr::Expression::PropertyReference(pr), percent] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
                 let percent = compile_expression(percent, ctx);
@@ -5459,7 +5459,7 @@ fn compile_builtin_function_call(
                     "slint::cbindgen_private::slint_path_angle_at(&{item_rc}, static_cast<float>({percent}))"
                 )
             } else {
-                panic!("internal error: invalid args to AngleAt {arguments:?}")
+                panic!("internal error: invalid args to PathAngleAt {arguments:?}")
             }
         }
     }
