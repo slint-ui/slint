@@ -37,11 +37,11 @@ pub fn handle_visible(
         return;
     }
 
-    if let Some(b) = component.root_element.borrow().bindings.get("visible") {
+    if let Some(b) = component.root_element.borrow().binding("visible") {
         diag.push_warning(
             "The visible property cannot be used on the root element, it will not be applied"
                 .into(),
-            &*b.borrow(),
+            &*b,
         );
     }
 
@@ -68,7 +68,7 @@ pub fn handle_visible(
 
             let has_visible_binding = |e: &ElementRc| {
                 e.borrow().base_type.lookup_property("visible").property_type != Type::Invalid
-                    && (e.borrow().bindings.contains_key("visible")
+                    && (e.borrow().binding("visible").is_some()
                         || e.borrow()
                             .property_analysis
                             .borrow()

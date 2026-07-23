@@ -909,7 +909,7 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
         return true;
     }
 
-    for (prop, binding) in &root_element.borrow().bindings {
+    for (prop, binding) in root_element.borrow().real_bindings() {
         let binding = binding.borrow();
         // The passes that dp the drop shadow or the opacity currently won't allow this property
         // on the top level of a component. This could be changed in the future.
@@ -961,7 +961,7 @@ fn element_require_inlining(elem: &ElementRc) -> bool {
         return true;
     }
 
-    for (prop, binding) in &elem.borrow().bindings {
+    for (prop, binding) in elem.borrow().real_bindings() {
         if prop == "clip" {
             // otherwise the children of the clipped items won't get moved as child of the Clip element
             return true;

@@ -177,7 +177,7 @@ fn lower_transitions_in_element(
     for (ne, (span, animations)) in props {
         let e = ne.element();
         // We check earlier that the property is in the set of changed properties, so a binding bust have been assigned
-        let old_anim = e.borrow().bindings.get(ne.name()).unwrap().borrow_mut().animation.replace(
+        let old_anim = e.borrow().binding_mut(ne.name()).unwrap().animation.replace(
             PropertyAnimation::Transition { state_ref: state_property.clone(), animations },
         );
         if old_anim.is_some() {

@@ -48,32 +48,22 @@ fn lower_popup_window(
     window_type: &ElementType,
     diag: &mut BuildDiagnostics,
 ) {
-    if let Some(binding) = popup_window_element.borrow().bindings.get(CLOSE_ON_CLICK) {
-        if popup_window_element.borrow().bindings.contains_key(CLOSE_POLICY) {
+    if let Some(binding) = popup_window_element.borrow().binding(CLOSE_ON_CLICK) {
+        if popup_window_element.borrow().binding(CLOSE_POLICY).is_some() {
             diag.push_error(
                 "close-policy and close-on-click cannot be set at the same time".into(),
-                &binding.borrow().span,
+                &binding.span,
             );
         } else {
-            diag.push_property_deprecation_warning(
-                CLOSE_ON_CLICK,
-                CLOSE_POLICY,
-                &binding.borrow().span,
-            );
-            if !matches!(
-                super::ignore_debug_hooks(&binding.borrow().expression),
-                Expression::BoolLiteral(_)
-            ) {
-                report_const_error(CLOSE_ON_CLICK, &binding.borrow().span, diag);
+            diag.push_property_deprecation_warning(CLOSE_ON_CLICK, CLOSE_POLICY, &binding.span);
+            if !matches!(binding.expression.ignore_debug_hooks(), Expression::BoolLiteral(_)) {
+                report_const_error(CLOSE_ON_CLICK, &binding.span, diag);
             }
         }
-    } else if let Some(binding) = popup_window_element.borrow().bindings.get(CLOSE_POLICY)
-        && !matches!(
-            super::ignore_debug_hooks(&binding.borrow().expression),
-            Expression::EnumerationValue(_)
-        )
+    } else if let Some(binding) = popup_window_element.borrow().binding(CLOSE_POLICY)
+        && !matches!(binding.expression.ignore_debug_hooks(), Expression::EnumerationValue(_))
     {
-        report_const_error(CLOSE_POLICY, &binding.borrow().span, diag);
+        report_const_error(CLOSE_POLICY, &binding.span, diag);
     }
 
     let parent_component = popup_window_element.borrow().enclosing_component.upgrade().unwrap();
@@ -150,11 +140,9 @@ fn lower_popup_window(
                 let base_policy = b
                     .root_element
                     .borrow()
-                    .bindings
-                    .get(CLOSE_POLICY)
+                    .binding(CLOSE_POLICY)
                     .and_then(|b| {
-                        let b = b.borrow();
-                        if let Expression::EnumerationValue(v) = &b.expression {
+                        if let Expression::EnumerationValue(v) = b.expression.ignore_debug_hooks() {
                             return Some(v.clone());
                         }
                         assert!(diag.has_errors());
@@ -163,9 +151,8 @@ fn lower_popup_window(
                     .or_else(|| {
                         b.root_element
                             .borrow()
-                            .bindings
-                            .get(CLOSE_ON_CLICK)
-                            .and_then(|b| map_close_on_click_value(&b.borrow()))
+                            .binding(CLOSE_ON_CLICK)
+                            .and_then(|b| map_close_on_click_value(&b))
                     });
                 if let Some(base_policy) = base_policy {
                     return Some(base_policy);

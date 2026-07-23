@@ -92,7 +92,7 @@ pub fn ensure_window(
 
     let mut base_props: HashSet<SmolStr> =
         new_root.borrow().base_type.property_list().into_iter().map(|x| x.0).collect();
-    base_props.extend(win_elem.borrow().bindings.keys().cloned());
+    base_props.extend(win_elem.borrow().real_bindings().map(|(name, _)| name.clone()));
     for prop in base_props {
         if prop == "width" || prop == "height" {
             continue;

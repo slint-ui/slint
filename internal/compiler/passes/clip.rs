@@ -30,7 +30,7 @@ pub fn handle_clip(
             if elem.native_class().is_some_and(|n| Arc::ptr_eq(&n, &native_clip)) {
                 return;
             }
-            if elem.bindings.contains_key("clip")
+            if elem.binding("clip").is_some()
                 || elem
                     .property_analysis
                     .borrow()
@@ -46,7 +46,7 @@ pub fn handle_clip(
                     _ => {
                         diag.push_error(
                             "The 'clip' property can only be applied to a Rectangle or a Path for now".into(),
-                            &elem.bindings.get("clip").and_then(|x| x.borrow().span.clone()).unwrap_or_else(|| elem.to_source_location()),
+                            &elem.binding("clip").and_then(|binding| binding.span.clone()).unwrap_or_else(|| elem.to_source_location()),
                         );
                         return;
                     }

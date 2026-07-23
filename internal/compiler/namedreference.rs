@@ -92,11 +92,11 @@ impl NamedReference {
                 return false;
             }
 
-            if let Some(b) = e.bindings.get(self.name()) {
-                if check_binding && !b.borrow().analysis.as_ref().is_some_and(|a| a.is_const) {
+            if let Some(binding) = e.binding(self.name()) {
+                if check_binding && !binding.analysis.as_ref().is_some_and(|a| a.is_const) {
                     return false;
                 }
-                if !b.borrow().two_way_bindings.iter().all(|n| n.is_constant()) {
+                if !binding.two_way_bindings.iter().all(|n| n.is_constant()) {
                     return false;
                 }
                 check_binding = false;

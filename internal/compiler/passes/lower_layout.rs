@@ -1370,8 +1370,8 @@ fn optimize_single_cell_layout(
         else {
             continue;
         };
-        if let Some(binding) = nr.element().borrow().bindings.get(nr.name()) {
-            binding.borrow_mut().expression = info;
+        if let Some(mut binding) = nr.element().borrow().binding_mut(nr.name()) {
+            *binding.expression.ignore_debug_hooks_mut() = info;
         }
     }
 }
@@ -2574,7 +2574,7 @@ fn check_no_layout_properties(
     diag: &mut BuildDiagnostics,
 ) {
     let elem = item.borrow();
-    for (prop, expr) in elem.bindings.iter() {
+    for (prop, expr) in elem.real_bindings() {
         if !matches!(parent_layout_type.as_deref(), Some("GridLayout") | Some("Row"))
             && matches!(prop.as_ref(), "col" | "row" | "colspan" | "rowspan")
         {
