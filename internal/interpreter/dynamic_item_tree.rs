@@ -1619,7 +1619,7 @@ pub fn instantiate(
             if let Some(WindowOptions::UseExistingWindow(adapter)) = window_options.as_ref() {
                 Some(adapter.clone())
             } else {
-                extra_data.globals.get().unwrap().window_adapter().and_then(|wa| wa.get().cloned())
+                instance_ref.maybe_window_adapter()
             };
 
         let component_rc = vtable::VRc::into_dyn(self_rc.clone());
@@ -2746,14 +2746,11 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
 
     pub fn maybe_window_adapter(&self) -> Option<WindowAdapterRc> {
         let root_weak = vtable::VWeak::into_dyn(self.root_weak().clone());
-        let root = self.root_weak().upgrade()?;
-        generativity::make_guard!(guard);
-        let comp = root.unerase(guard);
         Self::get_or_init_window_adapter_ref(
-            &comp.description,
+            &self.description,
             root_weak,
             false,
-            comp.instance.as_pin_ref().get_ref(),
+            self.instance.get_ref(),
         )
         .ok()
         .cloned()
