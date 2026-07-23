@@ -178,6 +178,7 @@ endforeach
 endfunction
 endrst
 enim
+epoll
 entrancy
 enummember
 eprintln
@@ -285,6 +286,7 @@ incpath
 inputchip
 intprop
 intval
+iocp
 IRAM
 Irqs
 isinstance
@@ -340,6 +342,7 @@ libseat
 libslint
 libstdc
 libudev
+libuv
 libx
 libxcb
 libxcursor

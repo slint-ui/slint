@@ -72,6 +72,10 @@ smol_str = { workspace = true }
 libloading = "0.9"
 async-io = "2"
 
+[target.'cfg(windows)'.dependencies]
+libloading = "0.9"
+windows = { workspace = true, features = ["Wdk_Foundation", "Win32_Foundation", "Win32_System_IO", "Win32_System_WindowsProgramming"] }
+
 [build-dependencies]
 napi-build = "2"
 i-slint-common = { workspace = true }
