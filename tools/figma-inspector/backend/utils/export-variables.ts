@@ -364,7 +364,7 @@ function generateStructsAndInstances(
 
                 if (childName === "mode" && hasRootModeVariable) {
                     exportInfo.renamedVariables.add(
-                        `"${childName}" → "${sanitizedChildName}" in ${collectionData.formattedName} (to avoid conflict with scheme mode)`,
+                        `"${childName}" -> "${sanitizedChildName}" in ${collectionData.formattedName} (to avoid conflict with scheme mode)`,
                     ); // Use formattedName
 
                     try {

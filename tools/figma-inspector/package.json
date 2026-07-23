@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite build --watch --mode dev",
+    "dev:testdata": "cross-env NODE_ENV=development vite build --watch --mode dev",
     "devcode": "vite build --watch --mode dev --config vite.config.code.ts",
     "build": "vite build",
     "buildcode": "vite build --config vite.config.code.ts",
