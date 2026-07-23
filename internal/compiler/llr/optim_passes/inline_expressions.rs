@@ -286,9 +286,9 @@ fn inline_simple_expressions_in_expression(
 ///
 /// Unsafe when it references state that only exists in the declaring component
 /// and cannot be remapped by `ContextMap::map_expression`:
-/// popups are reached by an upward `parent_level`,
-/// and `UpdateTimers` refers to the enclosing component implicitly,
-/// so it can only move within the same component.
+/// the menu item tree of a popup menu, and `UpdateTimers`,
+/// refer to the enclosing component implicitly,
+/// so they can only move within the same component.
 /// Also unsafe when it reads a parameter more than once:
 /// a real call clones each read (`args.N.clone()`),
 /// but the inlined body reads a local that a second read would move.
@@ -299,11 +299,9 @@ fn body_is_inline_safe(exp: &Expression, map: &ContextMap) -> bool {
         Expression::FunctionParameterReference { index } => safe &= params.insert(*index),
         Expression::BuiltinFunctionCall { function, .. } => {
             safe &= match function {
-                BuiltinFunction::ShowPopupWindow
-                | BuiltinFunction::ClosePopupWindow
-                | BuiltinFunction::ShowPopupMenu
-                | BuiltinFunction::ShowPopupMenuInternal => false,
-                BuiltinFunction::UpdateTimers => matches!(map, ContextMap::Identity),
+                BuiltinFunction::ShowPopupMenu
+                | BuiltinFunction::ShowPopupMenuInternal
+                | BuiltinFunction::UpdateTimers => matches!(map, ContextMap::Identity),
                 _ => true,
             }
         }

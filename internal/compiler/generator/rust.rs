@@ -3186,6 +3186,23 @@ fn follow_sub_component_path<'a>(
     (compo_path, sub_component)
 }
 
+/// Like [`follow_sub_component_path`],
+/// but returns a plain field access suffix (`.sub1.sub2`) instead of a field offset expression.
+fn follow_sub_component_path_fields<'a>(
+    compilation_unit: &'a llr::CompilationUnit,
+    root: llr::SubComponentIdx,
+    sub_component_path: &[llr::SubComponentInstanceIdx],
+) -> (TokenStream, &'a llr::SubComponent) {
+    let mut compo_path = quote!();
+    let mut sub_component = &compilation_unit.sub_components[root];
+    for i in sub_component_path {
+        let sub_component_name = ident(&sub_component.sub_components[*i].name);
+        compo_path = quote!(#compo_path.#sub_component_name);
+        sub_component = &compilation_unit.sub_components[sub_component.sub_components[*i].ty];
+    }
+    (compo_path, sub_component)
+}
+
 fn access_window_adapter_field(ctx: &EvaluationContext) -> TokenStream {
     let global_access = &ctx.generator_state.global_access;
     quote!(&#global_access.window_adapter_impl())
@@ -3209,13 +3226,12 @@ fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> TokenSt
             quote!(#component_access_tokens.parent.upgrade().unwrap().as_pin_ref());
     }
 
-    let mut sub_component =
-        &ctx.compilation_unit.sub_components[ctx.parent_sub_component_idx(*parent_level).unwrap()];
-    for i in &local_reference.sub_component_path {
-        let sub_component_name = ident(&sub_component.sub_components[*i].name);
-        component_access_tokens = quote!(#component_access_tokens . #sub_component_name);
-        sub_component = &ctx.compilation_unit.sub_components[sub_component.sub_components[*i].ty];
-    }
+    let (suffix, sub_component) = follow_sub_component_path_fields(
+        ctx.compilation_unit,
+        ctx.parent_sub_component_idx(*parent_level).unwrap(),
+        &local_reference.sub_component_path,
+    );
+    let component_access_tokens = quote!(#component_access_tokens #suffix);
     let component_rc_tokens = quote!(#component_access_tokens.origin_rc());
     let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
     let item_index_tokens = if item_index_in_tree == 0 {
@@ -4141,7 +4157,8 @@ fn compile_builtin_function_call(
             ] = arguments
             {
                 let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
-                let llr::MemberReference::Relative { parent_level, .. } = parent_ref else {
+                let llr::MemberReference::Relative { parent_level, local_reference } = parent_ref
+                else {
                     unreachable!()
                 };
                 for _ in 0..*parent_level {
@@ -4155,15 +4172,23 @@ fn compile_builtin_function_call(
                         _ => unreachable!(),
                     };
                 }
-
-                let current_sub_component = &ctx.compilation_unit.sub_components
-                    [ctx.parent_sub_component_idx(*parent_level).unwrap()];
-                let popup = &current_sub_component.popup_windows[*popup_index as usize];
-                let popup_window_id =
-                    inner_component_id(&ctx.compilation_unit.sub_components[popup.item_tree.root]);
+                // The popup is declared in the component of the parent item;
+                // descend the item reference's path with plain field accesses.
+                let (suffix, _) = follow_sub_component_path_fields(
+                    ctx.compilation_unit,
+                    ctx.parent_sub_component_idx(*parent_level).unwrap(),
+                    &local_reference.sub_component_path,
+                );
                 let parent_item = access_item_rc(parent_ref, ctx);
 
-                let parent_ctx = ParentScope::new(ctx, None);
+                ctx.with_reference_scope(
+                    *parent_level,
+                    &local_reference.sub_component_path,
+                    |parent_ctx| {
+                let popup = &ctx.compilation_unit.sub_components[parent_ctx.sub_component]
+                    .popup_windows[*popup_index as usize];
+                let popup_window_id =
+                    inner_component_id(&ctx.compilation_unit.sub_components[popup.item_tree.root]);
                 let popup_ctx = EvaluationContext::new_sub_component(
                     ctx.compilation_unit,
                     popup.item_tree.root,
@@ -4194,9 +4219,10 @@ fn compile_builtin_function_call(
                             "ShowPopupWindow is-open argument must be a property reference"
                         )
                     };
-                    access_member(is_open_ref, ctx).then(|p| quote!(#p.set(value);))
+                    access_member(is_open_ref, ctx).then(|p| quote!(#p.set(value)))
                 });
                 component_access_tokens.then(|component_access_tokens| {
+                    let compo = quote!(#component_access_tokens #suffix);
                     // Keep the parent's `is-open` in sync: `show_popup` invokes this setter with `true`
                     // immediately and with `false` from every close path (see window.rs). Passing it
                     // directly into `show_popup` avoids an extra registration call and a second popup
@@ -4218,14 +4244,14 @@ fn compile_builtin_function_call(
                     quote!({
                         let parent_item = #parent_item;
                         // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
-                        let shared_global = #component_access_tokens.globals.get().unwrap();
+                        let shared_global = #compo.globals.get().unwrap();
                         let window_adapter = shared_global.window_adapter_impl();
                         let window = sp::WindowInner::from_pub(window_adapter.window());
                         let globals = #globals_init;
 
-                        let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone(), globals).unwrap();
+                        let popup_instance = #popup_window_id::new(#compo.self_weak.get().unwrap().clone(), globals).unwrap();
                         let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
-                        if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
+                        if let Some(current_id) = #compo.#popup_id_name.take() {
                             window.close_popup(current_id);
                         }
 
@@ -4243,10 +4269,12 @@ fn compile_builtin_function_call(
                             #window_kind,
                             #is_open_setter,
                         );
-                        #component_access_tokens.#popup_id_name.set(Some(popup_id));
+                        #compo.#popup_id_name.set(Some(popup_id));
                         #popup_window_id::user_init(popup_instance_vrc.clone());
                     })
                 })
+                    },
+                )
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
             }
@@ -4258,7 +4286,8 @@ fn compile_builtin_function_call(
             ] = arguments
             {
                 let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
-                let llr::MemberReference::Relative { parent_level, .. } = parent_ref else {
+                let llr::MemberReference::Relative { parent_level, local_reference } = parent_ref
+                else {
                     unreachable!()
                 };
                 for _ in 0..*parent_level {
@@ -4272,13 +4301,18 @@ fn compile_builtin_function_call(
                         _ => unreachable!(),
                     };
                 }
+                let (suffix, _) = follow_sub_component_path_fields(
+                    ctx.compilation_unit,
+                    ctx.parent_sub_component_idx(*parent_level).unwrap(),
+                    &local_reference.sub_component_path,
+                );
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 let current_id_tokens = match component_access_tokens {
                     MemberAccess::Option(token_stream) => quote!(
-                        #token_stream.and_then(|a| a.as_pin_ref().#popup_id_name.take().map(|id| (a.as_pin_ref().globals.get().unwrap().clone(), id)))
+                        #token_stream.and_then(|a| a.as_pin_ref() #suffix.#popup_id_name.take().map(|id| (a.as_pin_ref() #suffix.globals.get().unwrap().clone(), id)))
                     ),
                     MemberAccess::Direct(token_stream) => {
-                        quote!(#token_stream.as_ref().#popup_id_name.take().map(|id|(#token_stream.as_ref().globals.get().unwrap().clone(), id)))
+                        quote!(#token_stream.as_ref() #suffix.#popup_id_name.take().map(|id|(#token_stream.as_ref() #suffix.globals.get().unwrap().clone(), id)))
                     }
                     _ => unreachable!(),
                 };
