@@ -6,12 +6,9 @@
 component Foo inherits Window { }
 //        > <error{Component declarations are not supported in Slint SC}
 
-//#sls.export.forms
-//#sls.export.list
 export { Foo }
 //       >  <error{Export specifiers are not supported in Slint SC}
 
-//#sls.export.rename
 export { Foo as Bar }
 //       >        <error{Export specifiers are not supported in Slint SC}
 

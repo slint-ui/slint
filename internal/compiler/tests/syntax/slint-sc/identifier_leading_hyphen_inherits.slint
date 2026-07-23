@@ -3,7 +3,7 @@
 
 // A `-` shall not appear as the first character of an identifier:
 // base type name.
-//#sls.lex.identifier.no-leading-hyphen
 
+//#sls.lex.identifier.no-leading-hyphen
 export component Foo inherits -Window {}
 //                            ^error{Syntax error: expected Identifier}

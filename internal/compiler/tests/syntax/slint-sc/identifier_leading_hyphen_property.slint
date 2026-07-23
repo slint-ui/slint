@@ -3,9 +3,9 @@
 
 // A `-` shall not appear as the first character of an identifier:
 // property name.
-//#sls.lex.identifier.no-leading-hyphen
 
 export component Foo inherits Window {
+    //#sls.lex.identifier.no-leading-hyphen
     property <int> -prop;
 //                 ^error{Syntax error: expected Identifier}
 //                 ^^error{Syntax error: expected ';'}

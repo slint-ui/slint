@@ -3,9 +3,9 @@
 
 // Repeated and conditional elements are rejected in Slint SC mode.
 
-//#sls.file.component.body
 export component Test inherits Window {
 
+    //#sls.file.component.body
     for i in [1, 2, 3]: Rectangle { }
 //  >                               <error{Repeated elements (for-in) are not supported in Slint SC}
 //           >       <^error{Array expressions are not supported in Slint SC}
