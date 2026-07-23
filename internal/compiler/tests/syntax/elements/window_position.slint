@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Base inherits Window { }
+
+export component Indirect inherits Base {
+    x: 10px;
+//     >   <warning{Setting 'x' on a Window is deprecated, it doesn't affect the position of the window}
+}
+
+export component Test inherits Window {
+    x: 10px;
+//     >   <warning{Setting 'x' on a Window is deprecated, it doesn't affect the position of the window}
+    y: 10px;
+//     >   <warning{Setting 'y' on a Window is deprecated, it doesn't affect the position of the window}
+    width: 100px;
+    height: 100px;
+}
+
+// The position of a component that isn't a window is meaningful
+component NotAWindow inherits Rectangle {
+    x: 10px;
+}
+
+export component User inherits Window {
+    NotAWindow { }
+}
