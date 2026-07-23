@@ -36,11 +36,21 @@ export default defineConfig({
     site: `${BASE_URL}${BASE_PATH}`,
     base: BASE_PATH,
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
-    // Pages that moved into the language reference.
+    // Pages that moved into the language reference. Astro serves the source
+    // routes under the base path but uses the destinations verbatim, so they
+    // need the prefix.
     redirects: {
-        "/reference/primitive-types/": "/reference/language/builtin-types/",
-        "/reference/colors-and-brushes/":
-            "/reference/language/colors-and-brushes/",
+        "/reference/primitive-types/": `${BASE_PATH}reference/language/builtin-types/`,
+        "/reference/colors-and-brushes/": `${BASE_PATH}reference/language/colors-and-brushes/`,
+        "/guide/language/coding/expressions-and-statements/": `${BASE_PATH}reference/language/expressions/`,
+        "/guide/language/coding/properties/": `${BASE_PATH}reference/language/properties/`,
+        "/guide/language/coding/functions-and-callbacks/": `${BASE_PATH}reference/language/functions/`,
+        "/guide/language/coding/name-resolution/": `${BASE_PATH}reference/language/name-resolution/`,
+        "/guide/language/coding/structs-and-enums/": `${BASE_PATH}reference/language/structs-and-enums/`,
+        "/guide/language/coding/globals/": `${BASE_PATH}reference/language/globals/`,
+        "/guide/language/coding/repetition-and-data-models/": `${BASE_PATH}reference/language/repetition-and-conditional-elements/`,
+        "/guide/language/coding/animation/": `${BASE_PATH}reference/language/animations/`,
+        "/guide/language/coding/states/": `${BASE_PATH}reference/language/states-and-transitions/`,
     },
     markdown: {
         gfm: true,
@@ -131,44 +141,8 @@ export default defineConfig({
                                                 slug: "guide/language/coding/file",
                                             },
                                             {
-                                                label: "Properties",
-                                                slug: "guide/language/coding/properties",
-                                            },
-                                            {
-                                                label: "Expressions and Statements",
-                                                slug: "guide/language/coding/expressions-and-statements",
-                                            },
-                                            {
                                                 label: "Positioning & Layouts",
                                                 slug: "guide/language/coding/positioning-and-layouts",
-                                            },
-                                            {
-                                                label: "Globals",
-                                                slug: "guide/language/coding/globals",
-                                            },
-                                            {
-                                                label: "Repetition and Data Models",
-                                                slug: "guide/language/coding/repetition-and-data-models",
-                                            },
-                                            {
-                                                label: "Animations",
-                                                slug: "guide/language/coding/animation",
-                                            },
-                                            {
-                                                label: "States and Transitions",
-                                                slug: "guide/language/coding/states",
-                                            },
-                                            {
-                                                label: "Functions and Callbacks",
-                                                slug: "guide/language/coding/functions-and-callbacks",
-                                            },
-                                            {
-                                                label: "Name Resolution (Scope)",
-                                                slug: "guide/language/coding/name-resolution",
-                                            },
-                                            {
-                                                label: "Structs and Enums",
-                                                slug: "guide/language/coding/structs-and-enums",
                                             },
                                         ],
                                     },

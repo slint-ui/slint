@@ -75,7 +75,7 @@
         "href": "reference/global-structs-enums/#eventresult"
     },
     "Expressions": {
-        "href": "guide/language/coding/expressions-and-statements/"
+        "href": "reference/language/expressions/"
     },
     "float": {
         "href": "reference/language/builtin-types/#float"
@@ -96,7 +96,7 @@
         "href": "reference/layouts/gridlayout/"
     },
     "Globals": {
-        "href": "guide/language/coding/globals/"
+        "href": "reference/language/globals/"
     },
     "HorizontalBox": {
         "href": "reference/std-widgets/layouts/horizontalbox/"
@@ -147,10 +147,10 @@
         "href": "reference/window/contextmenuarea/#menu"
     },
     "Modules": {
-        "href": "guide/language/coding/file/#modules"
+        "href": "reference/language/imports/"
     },
     "Models": {
-        "href": "guide/language/coding/repetition-and-data-models/#models"
+        "href": "reference/language/arrays-and-models/"
     },
     "MathRef": {
         "href": "reference/global-functions/math/"
@@ -183,7 +183,7 @@
         "href": "reference/std-widgets/basic-widgets/progressindicator/"
     },
     "Purity": {
-        "href": "guide/language/concepts/reactivity/"
+        "href": "reference/language/evaluation-and-purity/"
     },
     "Rectangle": {
         "href": "reference/elements/rectangle/"
@@ -210,7 +210,7 @@
         "href": "reference/language/builtin-types/#styled-text"
     },
     "callback": {
-        "href": "guide/language/coding/functions-and-callbacks/#callbacks"
+        "href": "reference/language/callbacks/"
     },
     "Flickable": {
         "href": "reference/gestures/flickable/"
@@ -294,7 +294,7 @@
         "href": "guide/backends-and-renderers/backends_and_renderers/#skia-renderer"
     },
     "globals": {
-        "href": "guide/language/coding/globals/"
+        "href": "reference/language/globals/"
     },
     "quickstart": {
         "href": "tutorial/quickstart/"
@@ -303,7 +303,7 @@
         "href": "tutorial/getting_started/"
     },
     "modules": {
-        "href": "guide/language/coding/file/#modules"
+        "href": "reference/language/imports/"
     },
     "ManualEditorSetup": {
         "href": "guide/tooling/manual-setup/"
