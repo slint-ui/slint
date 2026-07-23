@@ -49,6 +49,7 @@ jobs:
       outputs:
         slint: ${{ inputs.full || steps.filter.outputs.slint == 'true' }}
         framework: ${{ inputs.full || steps.filter.outputs.framework == 'true' }}
+        integration: ${{ inputs.full || steps.filter.outputs.integration == 'true' }}
         figma_inspector: ${{ inputs.full || steps.filter.outputs.figma_inspector == 'true' }}
         material_components: ${{ inputs.full || steps.filter.outputs.material_components == 'true' }}
         internal: ${{ inputs.full || steps.filter.outputs.internal == 'true' }}
@@ -81,7 +82,7 @@ jobs:
 
     build_and_test:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.slint == 'true' || needs.files-changed.outputs.examples == 'true' }}
+        if: ${{ needs.files-changed.outputs.slint == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.tests == 'true' }}
         strategy:
             matrix:
                 include:
@@ -101,7 +102,7 @@ jobs:
             extra_args: ${{ matrix.extra_args }}
             run_qt: ${{ needs.files-changed.outputs.qt == 'true' }}
             test_workspace: ${{ needs.files-changed.outputs.slint == 'true' }}
-            test_integration: ${{ needs.files-changed.outputs.framework == 'true' || needs.files-changed.outputs.tests == 'true' }}
+            test_integration: ${{ needs.files-changed.outputs.integration == 'true' || needs.files-changed.outputs.tests == 'true' }}
             build_examples: ${{ needs.files-changed.outputs.framework == 'true' || needs.files-changed.outputs.examples == 'true' }}
             save_if: ${{ github.ref == 'refs/heads/master' }}
 
