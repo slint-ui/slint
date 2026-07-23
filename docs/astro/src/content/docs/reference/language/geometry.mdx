@@ -1,0 +1,42 @@
+---
+title: Geometry
+description: Position and size of elements.
+---
+
+## Properties
+
+Every element has the four geometry properties `x`, `y`, `width`, and `height`, of type `length`. \{#sls.geom.properties}
+
+`x` and `y` are the offsets from the element's parent's top-left corner to the element's top-left corner.
+`width` and `height` are the element's size, extending to the right and downwards from that corner. \{#sls.geom.relative}
+
+The `x` and `y` properties of the root element are meaningless and shall not be used.
+Binding a geometry property of the root element is an error. \{#sls.geom.window}
+
+<NotInSC>
+In the full Slint language, only binding `x` or `y` of the root element is deprecated;
+the window size can be set through `width` and `height`.
+</NotInSC>
+
+## Defaults
+
+When `x` or `y` has no binding, the element is centered within its parent along that axis. \{#sls.geom.default-position}
+
+When `width` or `height` has no binding, the default depends on the element type:
+a `Rectangle` has the same width or height as its parent. \{#sls.geom.default-size}
+
+<NotInSC>
+Elements inside a layout are positioned and sized by the layout instead of these defaults.
+</NotInSC>
+
+In this example, both rectangles cover the whole window: \{#sls.geom.example.intro}
+
+```slint
+export component Example inherits Window {
+    Rectangle {
+        background: #2a6e3f;
+        Rectangle {
+        }
+    }
+}
+```
