@@ -1,11 +1,13 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-name: Auto-triage on Comment
+name: Issue triage and PR welcome
 
 on:
   issue_comment:
     types: [created]
+  pull_request_target:
+    types: [opened]
 
 permissions:
   issues: write
@@ -13,6 +15,7 @@ permissions:
 
 jobs:
   update_labels:
+    if: github.event_name == 'issue_comment'
     runs-on: ubuntu-latest
     steps:
       - name: Check whether we should update the tags
@@ -34,3 +37,39 @@ jobs:
         run: |
           gh api --method DELETE -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/labels/needs%20info
           gh api --method POST -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/labels -f labels[]='need triaging'
+
+  welcome_first_time_contributor:
+    if: >
+      github.event_name == 'pull_request_target' &&
+      (github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' ||
+       github.event.pull_request.author_association == 'FIRST_TIMER')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post welcome comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          # Slint team members opening their first PR don't need the welcome:
+          # skip when a commit is authored from a @slint.dev address or the
+          # author is a member of the organization that owns the repository.
+          ORG="${REPO%%/*}"
+          if gh api "/repos/$REPO/pulls/$PR/commits" --jq '.[].commit.author.email' | grep -qiE '@slint\.dev$' \
+             || gh api "/orgs/$ORG/members/$AUTHOR" >/dev/null 2>&1; then
+            echo "Author is a Slint team or organization member; skipping welcome."
+            exit 0
+          fi
+          gh pr comment "$PR" --repo "$REPO" --body-file - <<'EOF'
+          👋 Welcome, and thank you for your first contribution to Slint!
+
+          If you haven't yet, take a look at our [CONTRIBUTING.md](https://github.com/slint-ui/slint/blob/master/CONTRIBUTING.md).
+
+          We're a small team, and reviews can take a while. If you don't hear back, nudge us in our [public chat](https://chat.slint.dev) so your pull request doesn't slip through the cracks.
+
+          📄 **Licensing:** by opening this pull request, you agree to license your contribution under the [MIT No Attribution license (MIT-0)](https://opensource.org/license/mit-0).
+          This keeps Slint flexible to license, while leaving you free to reuse your own code in other projects.
+          Make sure you wrote it yourself, and that no third party — such as your employer — holds rights to it; if not, tell us first.
+          If you don't agree, close this pull request and let us know.
+          EOF

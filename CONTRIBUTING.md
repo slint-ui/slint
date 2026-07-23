@@ -22,12 +22,26 @@ architecture notes specific to this repository.
 ## License
 
 By contributing to this project, you agree to license your contributions under
-the [MIT No Attribution License (MIT-0)](https://opensource.org/license/mit-0).
+the [MIT No Attribution license (MIT-0)](https://opensource.org/license/mit-0).
+This doesn't assign copyright or transfer ownership:
+you keep full rights to your code, and stay free to reuse it
+in other projects under any license you choose.
 
-To confirm this, you'll be asked to sign a simple [Contributor License Agreement (CLA)](https://cla-assistant.io/slint-ui/slint)
-when you open a pull request.
-The CLA does not assign copyright or transfer ownership, it simply confirms that
-you wrote the code yourself and are licensing it under MIT-0.
+Make sure you wrote the contribution yourself, and that no rights
+have been transferred to a third party, such as your employer.
+If that isn't the case, let us know before opening the pull request.
+
+### Our Open-Source Pledge
+
+We believe that open-source software development and communities are the foundation
+for a healthy ecosystem of high-quality software,
+where everyone can learn, improve and give back.
+We commit to upholding this foundation and pledge by promising to continue
+to develop Slint in the open under an open-source license compliant with the [Open Source Definition](https://opensource.org/osd).
+
+Further, we commit to provide a royalty-free license
+for those who develop desktop, mobile, or web applications
+and do not want to use open-source components under copyleft licenses.
 
 ## Coding Style
 
