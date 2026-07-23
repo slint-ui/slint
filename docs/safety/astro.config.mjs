@@ -107,6 +107,10 @@ export default defineConfig({
                     label: "Reference",
                     items: [
                         { label: "Overview", slug: "reference" },
+                        {
+                            label: "Generated Code",
+                            slug: "reference/generated-code",
+                        },
                         { label: "Rendering", slug: "reference/rendering" },
                         {
                             autogenerate: {

@@ -1,0 +1,40 @@
+---
+title: Generated Code
+description: The Rust API that the Slint SC compiler generates.
+---
+
+The Slint SC compiler translates a `.slint` file into Rust code that depends
+only on the `slint-sc` runtime crate.
+
+## The Component Struct
+
+The generated code contains a struct named after the exported component.
+\{#sls.gen.component}
+
+## `new()`
+
+```rust
+pub fn new() -> Self
+```
+
+Creates an instance of the component. \{#sls.gen.new}
+
+## `render_rgb8()`
+
+```rust
+pub fn render_rgb8(&self, width: u32, height: u32, frame_buffer: &mut [u8]) -> Result<(), slint_sc::RenderError>
+```
+
+Renders the window into `frame_buffer` as described in
+[Rendering](../rendering/):
+`width * height` pixels in row-major order, each pixel three bytes — red,
+green, blue. \{#sls.gen.render-rgb8}
+
+```rust
+let mut frame_buffer = [0u8; 320 * 240 * 3];
+instance.render_rgb8(320, 240, &mut frame_buffer)?;
+```
+
+When the length of `frame_buffer` isn't `width * height * 3`, `render_rgb8`
+returns `Err(RenderError::InvalidFrameBufferSize)` and paints nothing.
+\{#sls.gen.render-error}
