@@ -702,8 +702,9 @@ impl FlexboxLayout {
         match self.direction.as_ref() {
             None => Some(FlexboxLayoutDirection::Row),
             Some(nr) => nr.element().borrow().bindings.get(nr.name()).and_then(|binding| {
+                let binding = binding.borrow();
                 if let crate::expression_tree::Expression::EnumerationValue(ev) =
-                    &binding.borrow().expression
+                    binding.expression.ignore_debug_hooks()
                 {
                     match ev.enumeration.values[ev.value].as_str() {
                         "row" => Some(FlexboxLayoutDirection::Row),
