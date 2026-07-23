@@ -31,7 +31,7 @@ The braces `{` and `}` delimit the *component body*. \{#sls.file.component.body-
 
 ## Component Bodies
 
-A component body is a sequence of zero or more *element instantiations*, separated only by whitespace and comments. \{#sls.file.component.body}
+A component body is a sequence of zero or more *element instantiations* and [bindings](../bindings/), separated only by whitespace and comments. \{#sls.file.component.body}
 
 A component body that contains no element instantiations is well-formed. \{#sls.file.component.body.empty}
 
@@ -46,7 +46,7 @@ TypeName { /* element body */ }
 The identifier `TypeName` shall resolve to a built-in or user-defined component. \{#sls.file.element.instantiation-typename}
 
 The braces delimit the *element body*.
-An element body is a sequence of zero or more nested element instantiations, separated only by whitespace and comments. \{#sls.file.element.body}
+An element body is a sequence of zero or more nested element instantiations and [bindings](../bindings/), separated only by whitespace and comments. \{#sls.file.element.body}
 
 A nested element instantiation is a *child* of the element instantiation in whose body it appears.
 The child relationship forms a tree rooted at the elements that appear directly in a component body. \{#sls.file.element.tree}
