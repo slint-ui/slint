@@ -333,6 +333,7 @@ jobs:
             - uses: Swatinem/rust-cache@v2
               with:
                 key: "vsce_1" # increment this to bust the cache if needed
+                save-if: ${{ github.ref == 'refs/heads/master' }}
             - uses: ./.github/actions/install-linux-dependencies
             - uses: actions/setup-node@v7
               with:
@@ -513,6 +514,8 @@ jobs:
                   buildtargets: esp32
                   ldproxy: false
             - uses: Swatinem/rust-cache@v2
+              with:
+                save-if: ${{ github.ref == 'refs/heads/master' }}
             - name: Build and Test Printer demo
               shell: bash
               working-directory: demos/printerdemo_mcu/esp-idf

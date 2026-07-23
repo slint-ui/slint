@@ -40,6 +40,7 @@ jobs:
               if: steps.cache-wasm.outputs.cache-hit != 'true'
               with:
                   key: wasm-build
+                  save-if: ${{ github.ref == 'refs/heads/master' }}
             - name: Build
               if: steps.cache-wasm.outputs.cache-hit != 'true'
               working-directory: ui-libraries/material/examples/gallery
