@@ -14,6 +14,10 @@ if(BOARD STREQUAL "native_sim/native/64")
 elseif(BOARD STREQUAL "mimxrt1170_evk@B/mimxrt1176/cm7")
     set(Rust_CARGO_TARGET "thumbv7em-none-eabihf")
     set(BOARD_CONF_NAME "mimxrt1170_evk_mimxrt1176_cm7")
+elseif(BOARD STREQUAL "rza3m_ek")
+    set(Rust_CARGO_TARGET "aarch64-unknown-none")
+    set(SLINT_LIBRARY_CARGO_FLAGS "-Zbuild-std=core,alloc")
+    set(BOARD_CONF_NAME "rza3m_ek")
 else()
     # See rustc --print target-list for available targets. Match that up with you supported board
     # https://docs.zephyrproject.org/latest/boards
