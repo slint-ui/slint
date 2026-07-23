@@ -4,6 +4,7 @@ description: Position and size of elements.
 ---
 
 import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
+import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
 
 ## Properties
 
@@ -12,12 +13,15 @@ Every element has the four geometry properties `x`, `y`, `width`, and `height`, 
 `x` and `y` are the offsets from the element's parent's top-left corner to the element's top-left corner.
 `width` and `height` are the element's size, extending to the right and downwards from that corner. \{#sls.geom.relative}
 
-The `x` and `y` properties of the root element are meaningless and shall not be used.
+The `x` and `y` properties of the root element are meaningless and shall not be used. \{#sls.geom.window.root}
+
+<OnlyInSC>
 Binding a geometry property of the root element is an error. \{#sls.geom.window}
+</OnlyInSC>
 
 <NotInSC>
-In the full Slint language, only binding `x` or `y` of the root element is deprecated;
-the window size can be set through `width` and `height`.
+Binding `x` or `y` of the root element is deprecated.
+The window size can be set through `width` and `height`.
 </NotInSC>
 
 ## Defaults
