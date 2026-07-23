@@ -183,6 +183,10 @@ export default defineConfig({
                             slug: "language/bindings",
                         },
                         {
+                            label: "Expressions",
+                            slug: "language/expressions",
+                        },
+                        {
                             label: "Types",
                             slug: "language/types",
                         },

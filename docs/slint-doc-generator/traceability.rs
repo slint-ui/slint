@@ -18,8 +18,19 @@ const SPEC_DIR: &str = "docs/astro/src/content/docs/reference/language";
 
 /// Sidebar order of the specification pages in docs/safety/astro.config.mjs.
 /// Pages not listed here are ordered alphabetically.
-const SPEC_PAGE_ORDER: &[&str] =
-    &["index", "source-files", "lexical-structure", "file-structure", "imports", "exports"];
+const SPEC_PAGE_ORDER: &[&str] = &[
+    "index",
+    "source-files",
+    "lexical-structure",
+    "file-structure",
+    "imports",
+    "exports",
+    "properties",
+    "bindings",
+    "expressions",
+    "types",
+    "geometry",
+];
 
 /// Directories scanned for `.slint` test cases with `//#sls.…` references,
 /// as (kind label shown in the matrix, path relative to the repository root).

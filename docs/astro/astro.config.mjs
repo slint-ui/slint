@@ -302,6 +302,10 @@ export default defineConfig({
                                         slug: "reference/language/bindings",
                                     },
                                     {
+                                        label: "Expressions",
+                                        slug: "reference/language/expressions",
+                                    },
+                                    {
                                         label: "Types",
                                         slug: "reference/language/types",
                                     },
