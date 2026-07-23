@@ -472,9 +472,17 @@
             if (durationMarker !== null) {
                 window = Math.max(window, durationMarker * 1.05);
             }
-            window = Math.min(Math.max(window, 0.3), 10);
 
-            const samples = 300;
+            // scale samples/window by frequency
+            const SAMPLES = 500;
+            const SAMPLES_PER_PERIOD = 40;
+            if (regime.kind === "underdamped") {
+                const period = (2 * Math.PI) / (regime.wd as number);
+                window = Math.min(window, (SAMPLES / SAMPLES_PER_PERIOD) * period);
+            }
+            window = Math.min(Math.max(window, 0), 10);
+
+            const samples = SAMPLES;
             const points: [number, number][] = [];
             let minVal = 0;
             let maxVal = 1;
@@ -539,16 +547,17 @@
                 }
             }
 
-            // X ticks.
+            // X ticks. Sub-second values are shown in ms — "0.05s" reads worse than "50ms".
             const xTickCount = 5;
             for (let i = 0; i <= xTickCount; i++) {
                 const t = (window * i) / xTickCount;
                 const x = xAt(t);
+                const label = t < 1 ? `${Math.round(t * 1000)}ms` : `${t.toFixed(2)}s`;
                 parts.push(
                     `<line x1="${x}" y1="${marginTop}" x2="${x}" y2="${height - marginBottom}" stroke="${hairline}" stroke-width="1" stroke-dasharray="2 3" />`,
                 );
                 parts.push(
-                    `<text x="${x}" y="${height - marginBottom + 20}" text-anchor="middle" fill="${tickLabel}" font-size="${tickFontSize}">${t.toFixed(2)}s</text>`,
+                    `<text x="${x}" y="${height - marginBottom + 20}" text-anchor="middle" fill="${tickLabel}" font-size="${tickFontSize}">${label}</text>`,
                 );
             }
 
