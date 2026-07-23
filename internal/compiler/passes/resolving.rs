@@ -137,12 +137,10 @@ fn resolve_match_elements(
             diag,
         );
         let case_type = match_element.subject.ty();
-        for (value, _) in &mut match_element.cases {
-            let node =
-                if let Expression::Uncompiled(node) = &value { Some(node.clone()) } else { None };
+        for case in &mut match_element.cases {
             resolve_expression(
                 elem,
-                value,
+                &mut case.value,
                 None,
                 case_type.clone(),
                 scope,
@@ -150,31 +148,30 @@ fn resolve_match_elements(
                 type_loader,
                 diag,
             );
-            if let Some(node) = &node {
-                check_case_value(value, node, diag);
-            }
+            check_case_value(&case.value, &case.node, diag);
         }
+        check_duplicate_cases(&match_element.cases, diag);
         match_element.lower_to_conditional_elements();
     }
 }
 
 /// Confirms that each case is a literal value and matches the type of the subject
 fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagnostics) {
-    let is_literal = matches!(
-        value,
-        Expression::NumberLiteral(..)
-            | Expression::StringLiteral(..)
-            | Expression::BoolLiteral(..)
-            | Expression::EnumerationValue(..)
-    );
+    let is_literal = as_number_literal(value).is_some()
+        || matches!(
+            value,
+            Expression::StringLiteral(..)
+                | Expression::BoolLiteral(..)
+                | Expression::EnumerationValue(..)
+        );
     let is_valid_cast = matches!(
         value,
         Expression::Cast { from, to, .. }
-            if matches!(from.as_ref(), Expression::NumberLiteral(..))
+            if as_number_literal(from).is_some()
                 && matches!(to, Type::Color | Type::Int32)
     );
 
-    if let Expression::NumberLiteral(number, Unit::None) = value
+    if let Some((number, Unit::None)) = as_number_literal(value)
         && number.fract() != 0.0
     {
         diag.push_warning("Floating point comparison is not recommended".into(), node);
@@ -186,6 +183,54 @@ fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagn
         diag.push_error("Cannot perform type conversion".into(), node);
     } else {
         diag.push_error("Cases must be literal values".into(), node);
+    }
+}
+
+fn as_number_literal(value: &Expression) -> Option<(f64, Unit)> {
+    match value {
+        Expression::NumberLiteral(number, unit) => Some((*number, *unit)),
+        Expression::UnaryOp { sub, op: '-' } => as_number_literal(sub).map(|(n, u)| (-n, u)),
+        _ => None,
+    }
+}
+
+#[derive(PartialEq)]
+enum CaseValue {
+    Number(f64, Unit),
+    String(SmolStr),
+    Bool(bool),
+    Enumeration(langtype::EnumerationValue),
+}
+
+impl CaseValue {
+    fn new(value: &Expression) -> Option<Self> {
+        match value {
+            Expression::Cast { from, .. } => Self::new(from),
+            Expression::UnaryOp { sub, op: '-' } => match Self::new(sub)? {
+                Self::Number(number, unit) => Some(Self::Number(-number, unit)),
+                _ => None,
+            },
+            Expression::NumberLiteral(number, unit) => Some(Self::Number(*number, *unit)),
+            Expression::StringLiteral(string) => Some(Self::String(string.clone())),
+            Expression::BoolLiteral(boolean) => Some(Self::Bool(*boolean)),
+            Expression::EnumerationValue(value) => Some(Self::Enumeration(value.clone())),
+            _ => None, // For invalid non-literals
+        }
+    }
+}
+
+/// Reports every case whose value is already covered by an earlier case
+fn check_duplicate_cases(cases: &[MatchCaseInfo], diag: &mut BuildDiagnostics) {
+    let mut seen = Vec::with_capacity(cases.len());
+    for case in cases {
+        let Some(value) = CaseValue::new(&case.value) else {
+            continue;
+        };
+        if seen.contains(&value) {
+            diag.push_error("Duplicate case value".into(), &case.node);
+        } else {
+            seen.push(value);
+        }
     }
 }
 
