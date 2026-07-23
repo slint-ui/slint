@@ -40,3 +40,43 @@ instance.render_rgb8(320, 240, &mut frame_buffer)?;
 When the length of `frame_buffer` isn't `width * height * 3`, `render_rgb8`
 returns `Err(RenderError::InvalidFrameBufferSize)` and paints nothing.
 \{#sls.gen.render-error}
+
+## Properties
+
+The struct holds the value of each
+[property declared](../../language/properties/#sls.prop.decl.form) on the
+root element in a private field. \{#sls.gen.prop.field}
+
+Kebab-case property names become snake_case in the generated names:
+the accessors of a property `foo-bar` are `get_foo_bar()` and
+`set_foo_bar()`. \{#sls.gen.prop.names}
+
+### `get_foo()`
+
+```rust
+pub fn get_foo(&self) -> T
+```
+
+Returns the value of the property `foo`.
+It is generated for `in`, `out`, and `in-out` properties,
+but not for private ones. \{#sls.gen.prop.get}
+
+### `set_foo()`
+
+```rust
+pub fn set_foo(&mut self, value: T)
+```
+
+Sets the value of the property `foo`.
+It is generated for `in` and `in-out` properties,
+but not for `out` and private ones. \{#sls.gen.prop.set}
+
+### Property Types
+
+The Rust type `T` of a property maps from its Slint type:
+\{#sls.gen.prop.types}
+
+| Slint type | Rust type |
+| --- | --- |
+| `color` | `slint_sc::Color` |
+| `length` | `i32` |

@@ -9,7 +9,7 @@ pub fn fill_rect(
     buffer_size: [u32; 2],
     position: [i32; 2],
     size: [i32; 2],
-    color: [u8; 3],
+    color: crate::Color,
 ) {
     // The drawn span on each axis is the intersection of
     // [position, position + size) with [0, buffer_size): a rectangle sticking
@@ -19,10 +19,11 @@ pub fn fill_rect(
     let y0 = position[1].clamp(0, buffer_size[1] as i32) as usize;
     let y1 = position[1].saturating_add(size[1]).clamp(0, buffer_size[1] as i32) as usize;
     let stride = buffer_size[0] as usize * 3;
+    let rgb = [color.red(), color.green(), color.blue()];
     for row in y0..y1 {
         let row_range = row * stride + x0 * 3..row * stride + x1 * 3;
         for pixel in frame_buffer[row_range].chunks_exact_mut(3) {
-            pixel.copy_from_slice(&color);
+            pixel.copy_from_slice(&rgb);
         }
     }
 }
@@ -32,7 +33,7 @@ fn test_fill_rect_negative_position() {
     // A 3x2 rectangle at (-2, -1) intersects a 4x4 buffer in the single
     // pixel (0, 0)
     let mut buffer = [0u8; 4 * 4 * 3];
-    fill_rect(&mut buffer, [4, 4], [-2, -1], [3, 2], [1, 2, 3]);
+    fill_rect(&mut buffer, [4, 4], [-2, -1], [3, 2], crate::Color::from_rgb_u8(1, 2, 3));
     for y in 0..4 {
         for x in 0..4 {
             let expected = if (x, y) == (0, 0) { [1, 2, 3] } else { [0, 0, 0] };
@@ -42,6 +43,6 @@ fn test_fill_rect_negative_position() {
 
     // A rectangle entirely outside the buffer paints nothing
     let mut buffer = [7u8; 4 * 4 * 3];
-    fill_rect(&mut buffer, [4, 4], [-5, -5], [3, 2], [1, 2, 3]);
+    fill_rect(&mut buffer, [4, 4], [-5, -5], [3, 2], crate::Color::from_rgb_u8(1, 2, 3));
     assert_eq!(buffer, [7u8; 4 * 4 * 3]);
 }
