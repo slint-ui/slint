@@ -26,6 +26,14 @@ const SPEC_PAGE_ORDER: &[&str] =
 const TEST_ROOTS: &[(&str, &str)] =
     &[("case", "api/slint-sc/tests/cases"), ("syntax", "internal/compiler/tests/syntax/slint-sc")];
 
+/// Handwritten safety-manual pages may also state requirements.
+const SAFETY_DOCS_DIR: &str = "docs/safety/src/content/docs";
+
+/// Subdirectories of [`SAFETY_DOCS_DIR`] whose anchors are already scanned
+/// from their canonical source: the generated pages and the specification
+/// chapters synced from [`SPEC_DIR`].
+const SAFETY_DOCS_EXCLUDE: &[&str] = &["generated", "language"];
+
 /// Name of the matrix this module writes into
 /// [`Config::qualification_plan_dir`], the section it belongs to.
 const MATRIX_FILE: &str = "traceability-matrix.mdx";
@@ -69,13 +77,14 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let root = crate::root_dir();
     let spec_pages = scan_spec_pages(&root.join(SPEC_DIR))?;
     let reference_pages = scan_reference_pages(cfg, &root)?;
+    let safety_pages = scan_safety_pages(&root)?;
 
     let mut refs = Vec::new();
     for kind in TEST_ROOTS {
         scan_test_refs(&root, kind, &mut refs)?;
     }
 
-    let errors = check(&spec_pages, &reference_pages, &refs);
+    let errors = check(&[&spec_pages, &reference_pages, &safety_pages], &refs);
     if !errors.is_empty() {
         eprintln!("error: traceability:");
         for e in &errors {
@@ -92,16 +101,16 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    write_matrix(cfg, &root, &spec_pages, &reference_pages, &tests_by_id)
+    write_matrix(cfg, &root, &spec_pages, &reference_pages, &safety_pages, &tests_by_id)
 }
 
 /// Validate the parsed pages and test references, returning one message per
-/// problem: duplicate anchor ids across the specification and the SC
-/// reference, and test references without a matching anchor.
-fn check(spec_pages: &[SpecPage], reference_pages: &[SpecPage], refs: &[TestRef]) -> Vec<String> {
+/// problem: duplicate anchor ids across all the scanned pages, and test
+/// references without a matching anchor.
+fn check(page_sets: &[&[SpecPage]], refs: &[TestRef]) -> Vec<String> {
     let mut errors = Vec::new();
     let mut seen: HashMap<&str, (&str, usize)> = HashMap::new();
-    for p in spec_pages.iter().chain(reference_pages) {
+    for p in page_sets.iter().flat_map(|set| set.iter()) {
         for (id, line) in &p.anchors {
             match seen.get(id.as_str()) {
                 Some((file, first)) => errors.push(format!(
@@ -117,7 +126,7 @@ fn check(spec_pages: &[SpecPage], reference_pages: &[SpecPage], refs: &[TestRef]
     for r in refs {
         if !seen.contains_key(r.id.as_str()) {
             errors.push(format!(
-                "{}:{}: `//#{}` has no `{{#{}}}` anchor in the specification or the SC reference",
+                "{}:{}: `//#{}` has no `{{#{}}}` anchor in the specification, the SC reference, or the safety manual",
                 r.file, r.line, r.id, r.id
             ));
         }
@@ -291,6 +300,47 @@ fn scan_reference_pages(
     Ok(pages)
 }
 
+/// The site slug of a handwritten safety-manual page, derived from its path
+/// relative to [`SAFETY_DOCS_DIR`] like Astro does.
+fn safety_page_slug(relative: &str) -> &str {
+    let slug =
+        relative.strip_suffix(".mdx").or_else(|| relative.strip_suffix(".md")).unwrap_or(relative);
+    slug.strip_suffix("index").unwrap_or(slug).trim_end_matches('/')
+}
+
+/// Parse the handwritten safety-manual pages for their anchors.
+fn scan_safety_pages(repo_root: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Error>> {
+    let dir = repo_root.join(SAFETY_DOCS_DIR);
+    let mut pages = Vec::new();
+    for entry in walkdir::WalkDir::new(&dir)
+        .sort_by_file_name()
+        .into_iter()
+        .filter_entry(|e| {
+            !(e.file_type().is_dir()
+                && e.depth() == 1
+                && SAFETY_DOCS_EXCLUDE.contains(&e.file_name().to_string_lossy().as_ref()))
+        })
+        .flatten()
+    {
+        let path = entry.path();
+        if !entry.file_type().is_file() || path.extension().is_none_or(|e| e != "md" && e != "mdx")
+        {
+            continue;
+        }
+        let file = repo_relative(path, repo_root);
+        let text = std::fs::read_to_string(path).context(format!("error reading {path:?}"))?;
+        let (mut page, slug) = parse_spec_page(&file, &text);
+        if page.anchors.is_empty() || page.draft {
+            continue;
+        }
+        let relative = repo_relative(path, &dir);
+        let slug = slug.unwrap_or_else(|| safety_page_slug(&relative).to_string());
+        page.base = format!("../../{slug}/");
+        pages.push(page);
+    }
+    Ok(pages)
+}
+
 fn scan_test_refs(
     repo_root: &Path,
     kind: &'static (&'static str, &'static str),
@@ -343,6 +393,7 @@ fn write_matrix(
     repo_root: &Path,
     spec_pages: &[SpecPage],
     reference_pages: &[SpecPage],
+    safety_pages: &[SpecPage],
     tests_by_id: &HashMap<&str, Vec<&TestRef>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let sha = git_head(repo_root);
@@ -352,7 +403,7 @@ fn write_matrix(
     let mut file =
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
-    let all = || spec_pages.iter().chain(reference_pages);
+    let all = || spec_pages.iter().chain(reference_pages).chain(safety_pages);
     let total = all().flat_map(|p| &p.anchors).filter(|(id, _)| !informative(id)).count();
     let covered = all()
         .flat_map(|p| &p.anchors)
@@ -367,7 +418,7 @@ description: Mapping between the requirement paragraphs of the Language Specific
 slug: qualification-plan/traceability-matrix
 ---
 
-Each requirement paragraph in the [Language Specification](../../language/) and the [SC API Reference](../../reference/) carries a unique identifier,
+Each requirement paragraph in the [Language Specification](../../language/), the [SC API Reference](../../reference/), and the other chapters of this manual carries a unique identifier,
 shown as a `[sls.…]` badge at the end of the paragraph.
 A test case declares which requirements it verifies by listing their identifiers in `//#sls.…` comments.
 This matrix lists every requirement paragraph with the test cases that declare it.
@@ -387,10 +438,16 @@ tests marked `syntax:` are compiler syntax tests from `{syntax_root}/`.
         write_page(&mut file, page, tests_by_id, &sha)?;
     }
 
-    // Skipped entirely when the reference states no testable requirement.
+    // Sections are skipped entirely when they state no testable requirement.
     if reference_pages.iter().flat_map(|p| &p.anchors).any(|(id, _)| !informative(id)) {
         writeln!(file, "\n## SC API Reference")?;
         for page in reference_pages {
+            write_page(&mut file, page, tests_by_id, &sha)?;
+        }
+    }
+    if safety_pages.iter().flat_map(|p| &p.anchors).any(|(id, _)| !informative(id)) {
+        writeln!(file, "\n## Safety Manual")?;
+        for page in safety_pages {
             write_page(&mut file, page, tests_by_id, &sha)?;
         }
     }
@@ -533,7 +590,7 @@ fn test_check_reports_all_errors() {
     ];
 
     // All errors are reported in one pass, not just the first.
-    let errors = check(&pages, &[], &refs);
+    let errors = check(&[&pages], &refs);
     assert_eq!(errors.len(), 3);
     assert!(errors[0].contains("b.md:3"), "{}", errors[0]);
     assert!(errors[0].contains("{#sls.one}") && errors[0].contains("a.md:5"), "{}", errors[0]);
@@ -549,12 +606,20 @@ fn test_check_reports_all_errors() {
     );
 
     let clean_pages = [page("a", &[("sls.one", 5), ("sls.two", 8)])];
-    assert!(check(&clean_pages, &[], &refs[..1]).is_empty());
+    assert!(check(&[&clean_pages], &refs[..1]).is_empty());
 
     // A duplicate between the specification and the reference pages is
     // caught, and a test may reference a reference anchor.
     let reference = [page("rectangle", &[("sls.one", 2), ("sls.ref.covered", 4)])];
-    let errors = check(&clean_pages, &reference, &[test_ref("sls.ref.covered", "t.slint", 1)]);
+    let errors = check(&[&clean_pages, &reference], &[test_ref("sls.ref.covered", "t.slint", 1)]);
     assert_eq!(errors.len(), 1);
     assert!(errors[0].contains("{#sls.one}"), "{}", errors[0]);
+}
+
+#[test]
+fn test_safety_page_slug() {
+    assert_eq!(safety_page_slug("reference/rendering.md"), "reference/rendering");
+    assert_eq!(safety_page_slug("safety-policy.md"), "safety-policy");
+    assert_eq!(safety_page_slug("reference/index.md"), "reference");
+    assert_eq!(safety_page_slug("index.mdx"), "");
 }
