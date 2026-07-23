@@ -535,14 +535,26 @@ impl Component {
             ..Default::default()
         };
         let c = Rc::new(c);
-        // The root element's geometry comes from the window, so binding it is
-        // not part of the subset. width and height are already rejected as
-        // WindowItem properties without the \sc marker; x and y would
-        // otherwise be accepted as reserved geometry properties.
-        #[cfg(feature = "slint-sc")]
-        for prop in ["x", "y"] {
-            if let Some(b) = c.root_element.borrow().bindings.get(prop) {
-                diag.slint_sc_error(&format!("The property '{prop}' is"), &*b.borrow());
+        // x and y on a Window are meaningless
+        if c.root_element
+            .borrow()
+            .builtin_type()
+            .is_some_and(|b| matches!(b.name.as_str(), "Window" | "Dialog"))
+        {
+            for prop in ["x", "y"] {
+                if let Some(b) = c.root_element.borrow().bindings.get(prop) {
+                    #[cfg(feature = "slint-sc")]
+                    if diag.slint_sc {
+                        diag.slint_sc_error(&format!("The property '{prop}' is"), &*b.borrow());
+                        continue;
+                    }
+                    diag.push_warning(
+                        format!(
+                            "Setting '{prop}' on a Window is deprecated, it doesn't affect the position of the window"
+                        ),
+                        &*b.borrow(),
+                    );
+                }
             }
         }
         let weak = Rc::downgrade(&c);
