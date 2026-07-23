@@ -5164,18 +5164,25 @@ fn compile_builtin_function_call(
                 arguments
             {
                 let mut component_access = MemberAccess::Direct("self".into());
-                let llr::MemberReference::Relative { parent_level, .. } = parent_ref else {unreachable!()};
+                let llr::MemberReference::Relative { parent_level, local_reference } = parent_ref else {unreachable!()};
                 for _ in 0..*parent_level {
                     component_access = component_access.and_then(|x| format!("{x}->parent.lock()"));
                 }
 
                 let window = access_window_field(ctx);
-                let current_sub_component = &ctx.compilation_unit.sub_components[ctx.parent_sub_component_idx(*parent_level).unwrap()];
-                let popup = &current_sub_component.popup_windows[*popup_index as usize];
+                // The popup is declared in the component of the parent item;
+                // `compo_path` descends the item reference's path.
+                let (compo_path, _) = follow_sub_component_path(
+                    ctx.compilation_unit,
+                    ctx.parent_sub_component_idx(*parent_level).unwrap(),
+                    &local_reference.sub_component_path,
+                );
+                let parent_component = access_item_rc(parent_ref, ctx);
+                ctx.with_reference_scope(*parent_level, &local_reference.sub_component_path, |parent_ctx| {
+                let popup = &ctx.compilation_unit.sub_components[parent_ctx.sub_component]
+                    .popup_windows[*popup_index as usize];
                 let popup_window_id =
                     ident(&ctx.compilation_unit.sub_components[popup.item_tree.root].name);
-                let parent_component = access_item_rc(parent_ref, ctx);
-                let parent_ctx = ParentScope::new(ctx, None);
                 let popup_ctx = EvaluationContext::new_sub_component(
                     ctx.compilation_unit,
                     popup.item_tree.root,
@@ -5209,17 +5216,25 @@ fn compile_builtin_function_call(
                     }
                     _ => "[](bool) {}".to_string(),
                 };
-                component_access.then(|component_access| format!(
-                    // Use a block statement to create own globals and popup instance
-                    "{window}.close_popup({component_access}->popup_id_{popup_index}); \
-                    {component_access}->popup_id_{popup_index} =  \
-                        {window}.template show_popup<{popup_window_id}>(&*({component_access}),  \
-                                                                        [=](auto self) {{ return {position}; }},  \
-                                                                        {close_policy},  \
-                                                                        {{ {parent_component} }},  \
-                                                                        {window_kind},  \
-                                                                        {is_open_setter})"
-                ))
+                component_access.then(|component_access| {
+                    let compo_ptr = if compo_path.is_empty() {
+                        format!("&*({component_access})")
+                    } else {
+                        format!("&({component_access}->{})", compo_path.trim_end_matches('.'))
+                    };
+                    format!(
+                        // Use a block statement to create own globals and popup instance
+                        "{window}.close_popup({component_access}->{compo_path}popup_id_{popup_index}); \
+                        {component_access}->{compo_path}popup_id_{popup_index} =  \
+                            {window}.template show_popup<{popup_window_id}>({compo_ptr},  \
+                                                                            [=](auto self) {{ return {position}; }},  \
+                                                                            {close_policy},  \
+                                                                            {{ {parent_component} }},  \
+                                                                            {window_kind},  \
+                                                                            {is_open_setter})"
+                    )
+                })
+                })
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
             }
@@ -5227,12 +5242,17 @@ fn compile_builtin_function_call(
         BuiltinFunction::ClosePopupWindow => {
             if let [llr::Expression::NumberLiteral(popup_index), llr::Expression::PropertyReference(parent_ref)] = arguments {
                 let mut component_access = MemberAccess::Direct("self".into());
-                let llr::MemberReference::Relative { parent_level, .. } = parent_ref else {unreachable!()};
+                let llr::MemberReference::Relative { parent_level, local_reference } = parent_ref else {unreachable!()};
                 for _ in 0..*parent_level {
                     component_access = component_access.and_then(|x| format!("{x}->parent.lock()"));
                 }
+                let (compo_path, _) = follow_sub_component_path(
+                    ctx.compilation_unit,
+                    ctx.parent_sub_component_idx(*parent_level).unwrap(),
+                    &local_reference.sub_component_path,
+                );
 
-                component_access.then(|component_access| format!("{component_access}->globals->window().window_handle().close_popup({component_access}->popup_id_{popup_index})"))
+                component_access.then(|component_access| format!("{component_access}->{compo_path}globals->window().window_handle().close_popup({component_access}->{compo_path}popup_id_{popup_index})"))
             } else {
                 panic!("internal error: invalid args to ClosePopupWindow {arguments:?}")
             }
