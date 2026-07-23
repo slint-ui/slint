@@ -13,288 +13,442 @@
 #![allow(unsafe_code)]
 #![warn(missing_docs)]
 
-/// A singly linked list whose nodes are pinned in raw allocations.
-/// Nodes are also referenced through external raw pointers in the
-/// dependency tracking system.
-mod single_linked_list_pin {
-    #![allow(unsafe_code)]
-    use core::pin::Pin;
-    use core::ptr::NonNull;
-
-    type NodePtr<T> = Option<NonNull<SingleLinkedListPinNode<T>>>;
-    struct SingleLinkedListPinNode<T> {
-        next: NodePtr<T>,
-        value: T,
-    }
-
-    pub struct SingleLinkedListPinHead<T>(NodePtr<T>);
-    impl<T> Default for SingleLinkedListPinHead<T> {
-        fn default() -> Self {
-            Self(None)
-        }
-    }
-
-    impl<T> Drop for SingleLinkedListPinHead<T> {
-        fn drop(&mut self) {
-            // Iterative drop to avoid stack overflow on long lists.
-            let mut cur = self.0.take();
-            while let Some(node) = cur {
-                // Safety: we own this node.
-                // drop_in_place keeps the value at its pinned address.
-                unsafe {
-                    cur = (*node.as_ptr()).next;
-                    core::ptr::drop_in_place(&raw mut (*node.as_ptr()).value);
-                    alloc::alloc::dealloc(
-                        node.as_ptr().cast(),
-                        core::alloc::Layout::new::<SingleLinkedListPinNode<T>>(),
-                    );
-                }
-            }
-        }
-    }
-
-    impl<T> SingleLinkedListPinHead<T> {
-        pub fn push_front(&mut self, value: T) -> Pin<&T> {
-            let node = SingleLinkedListPinNode { next: self.0.take(), value };
-            // Safety: raw allocation, written once and never moved
-            let ptr = unsafe {
-                let layout = core::alloc::Layout::new::<SingleLinkedListPinNode<T>>();
-                let mem = alloc::alloc::alloc(layout) as *mut SingleLinkedListPinNode<T>;
-                assert!(!mem.is_null(), "allocation failed");
-                core::ptr::write(mem, node);
-                NonNull::new_unchecked(mem)
-            };
-            self.0 = Some(ptr);
-            // Safety: the value is pinned because we never move it out of the allocation
-            unsafe { Pin::new_unchecked(&(*ptr.as_ptr()).value) }
-        }
-
-        #[allow(unused)]
-        pub fn iter(&self) -> impl Iterator<Item = Pin<&T>> {
-            struct I<'a, T>(&'a NodePtr<T>);
-
-            impl<'a, T> Iterator for I<'a, T> {
-                type Item = Pin<&'a T>;
-                fn next(&mut self) -> Option<Self::Item> {
-                    if let Some(node) = self.0 {
-                        // Safety: node is a valid allocation we own
-                        let r = unsafe { Pin::new_unchecked(&(*node.as_ptr()).value) };
-                        self.0 = unsafe { &(*node.as_ptr()).next };
-                        Some(r)
-                    } else {
-                        None
-                    }
-                }
-            }
-            I(&self.0)
-        }
-
-        /// Returns true if the list is empty
-        pub fn is_empty(&self) -> bool {
-            self.0.is_none()
-        }
-    }
-
-    #[test]
-    fn test_list() {
-        let mut head = SingleLinkedListPinHead::default();
-        head.push_front(1);
-        head.push_front(2);
-        head.push_front(3);
-        assert_eq!(
-            head.iter().map(|x: Pin<&i32>| *x.get_ref()).collect::<std::vec::Vec<i32>>(),
-            std::vec![3, 2, 1]
-        );
-    }
-    #[test]
-    fn big_list() {
-        // should not stack overflow
-        let mut head = SingleLinkedListPinHead::default();
-        for x in 0..100000 {
-            head.push_front(x);
-        }
-    }
-}
-
 pub(crate) mod dependency_tracker {
-    //! This module contains an implementation of a double linked list that can be used
-    //! to track dependency, such that when a node is dropped, the nodes are automatically
-    //! removed from the list.
-    //! This is unsafe to use for various reason, so it is kept internal.
+    //! Intrusive dependency-tracking lists backed by a per-thread slab.
+    //!
+    //! Each tracked relationship is a *node* living in a thread-local slab (a
+    //! chunked arena). Nodes are referenced by 32-bit [`Key`]s rather than raw
+    //! pointers, which keeps the per-node links small. The slab never moves or
+    //! frees a slot's backing storage until thread exit, so a slot's address is
+    //! stable for its whole life; only the keys are used for linkage.
+    //!
+    //! A node participates in two lists at once:
+    //!  * the *dependents ring* of the property/tracker it depends on
+    //!    ([`DependencyListHead`]) — a circular doubly-linked list anchored by a
+    //!    lazily-allocated sentinel slot; and
+    //!  * its *owner chain* ([`OwnerChain`]) — the list of all the nodes a single
+    //!    binding registered — so re-evaluating or dropping the binding frees them
+    //!    all at once.
+    //!
+    //! Recycling slots through the slab's free list avoids the malloc/free churn
+    //! of rebuilding these lists on every property re-evaluation.
+    //!
+    //! This is unsafe to use for various reasons, so it is kept internal.
 
+    use alloc::boxed::Box;
+    use alloc::vec::Vec;
     use core::cell::Cell;
+    use core::marker::PhantomData;
+    use core::mem::MaybeUninit;
+    use core::num::NonZeroU32;
     use core::pin::Pin;
 
-    #[repr(transparent)]
-    pub struct DependencyListHead<T>(Cell<*const DependencyNode<T>>);
+    /// A 32-bit handle to a slab slot; `None` is the NIL handle.
+    type Key = Option<NonZeroU32>;
 
-    impl<T> Default for DependencyListHead<T> {
+    /// Number of slots per arena chunk (a power of two).
+    const CHUNK_BITS: u32 = 9;
+    const CHUNK_SIZE: usize = 1 << CHUNK_BITS;
+
+    /// One slot in the slab.
+    pub struct Slot<T> {
+        /// Next node in the dependents ring (circular, through the sentinel).
+        next: Cell<Key>,
+        /// Previous node in the dependents ring.
+        prev: Cell<Key>,
+        /// Next node in the owner chain. Doubles as the free-list link for free
+        /// slots, and stores the sentinel's own key for sentinel slots.
+        owner_next: Cell<Key>,
+        /// The tracked value. Left uninitialized for sentinel and free slots.
+        payload: Cell<MaybeUninit<T>>,
+    }
+
+    impl<T> Slot<T> {
+        const fn blank() -> Self {
+            Self {
+                next: Cell::new(None),
+                prev: Cell::new(None),
+                owner_next: Cell::new(None),
+                payload: Cell::new(MaybeUninit::uninit()),
+            }
+        }
+    }
+
+    /// A chunked arena of [`Slot`]s with an embedded free list.
+    ///
+    /// Chunks are boxed and only ever appended, so a slot's address is stable for
+    /// the lifetime of the slab; only [`Key`]s are used to link slots together.
+    pub struct Slab<T> {
+        chunks: Vec<Box<[Slot<T>; CHUNK_SIZE]>>,
+        /// Head of the free list (chained via `owner_next`).
+        free: Key,
+        /// Number of slots ever created (index of the next fresh slot).
+        len: u32,
+    }
+
+    impl<T> Slab<T> {
+        pub const fn new() -> Self {
+            Self { chunks: Vec::new(), free: None, len: 0 }
+        }
+
+        #[inline]
+        fn slot(&self, key: NonZeroU32) -> &Slot<T> {
+            let index = (key.get() - 1) as usize;
+            let chunk_index = index >> CHUNK_BITS;
+            let slot_index = index & (CHUNK_SIZE - 1);
+            debug_assert!(chunk_index < self.chunks.len());
+            // SAFETY: keys are only minted by `alloc`, so `chunk_index` is always in range
+            // and `slot_index` is masked < CHUNK_SIZE.
+            unsafe { self.chunks.get_unchecked(chunk_index).get_unchecked(slot_index) }
+        }
+
+        /// Allocate a slot with all links NIL and return its key.
+        fn alloc(&mut self) -> NonZeroU32 {
+            if let Some(key) = self.free {
+                let slot = self.slot(key);
+                let next_free = slot.owner_next.get();
+                slot.next.set(None);
+                slot.prev.set(None);
+                slot.owner_next.set(None);
+                self.free = next_free;
+                return key;
+            }
+            let index = self.len;
+            if (index as usize) >> CHUNK_BITS >= self.chunks.len() {
+                // Manually initialize the slice as that produces much smaller and faster code in
+                // debug mode compared to using a Vec.
+                let mut chunk = Box::<[Slot<T>; CHUNK_SIZE]>::new_uninit();
+                let p = chunk.as_mut_ptr() as *mut Slot<T>;
+                // SAFETY: `p` is the start of an allocation for CHUNK_SIZE slots; every index in
+                // 0..CHUNK_SIZE is written exactly once, so the array is fully initialized below.
+                for i in 0..CHUNK_SIZE {
+                    unsafe { p.add(i).write(Slot::blank()) };
+                }
+                let chunk = unsafe { chunk.assume_init() };
+                self.chunks.push(chunk);
+            }
+            // `+ 1` so the key is never zero (enabling the niche of `Option<NonZeroU32>`).
+            let key = index.checked_add(1).expect("dependency slab exhausted");
+            self.len = key;
+            NonZeroU32::new(key).unwrap()
+        }
+
+        /// Return a slot to the free list. It must already be unlinked from any
+        /// dependents ring.
+        fn free(&mut self, key: NonZeroU32) {
+            let old_free = self.free;
+            let slot = self.slot(key);
+            slot.next.set(None);
+            slot.prev.set(None);
+            slot.owner_next.set(old_free);
+            // No need to clear `payload`: `T: Copy` has no destructor, and a freed
+            // slot's payload is never read before the next `alloc` overwrites it.
+            self.free = Some(key);
+        }
+    }
+
+    /// Unlink a node from whatever dependents ring (or detached chain) it is in,
+    /// leaving its slot allocated with NIL links. A no-op on an already unlinked
+    /// node. Does not free the slot.
+    #[inline]
+    fn unlink<T>(slab: &Slab<T>, node: NonZeroU32) {
+        let n = slab.slot(node);
+        let prev = n.prev.get();
+        let next = n.next.get();
+        if let Some(p) = prev {
+            slab.slot(p).next.set(next);
+        }
+        if let Some(nx) = next {
+            slab.slot(nx).prev.set(prev);
+        }
+        n.next.set(None);
+        n.prev.set(None);
+    }
+
+    /// Implemented for the concrete payload types that can be tracked. Provides
+    /// access to a per-thread slab dedicated to that type.
+    ///
+    /// A `thread_local!` cannot be generic, and a `static` inside a generic fn is
+    /// shared across monomorphizations, so each concrete type wires up its own
+    /// slab through this trait — see the impls in `properties.rs` and `model_peer.rs`.
+    pub trait SlabbedDep: Copy + 'static {
+        /// Access the per-thread slab. Returns `None` only if the slab's
+        /// thread-local storage has already been destroyed, which can happen while
+        /// a thread is tearing down and a still-live tracker is dropped after the
+        /// slab. In that case the whole slab is being reclaimed anyway, so the
+        /// `Drop` paths treat `None` as "nothing to do".
+        fn try_with_slab<R>(f: impl FnOnce(&mut Slab<Self>) -> R) -> Option<R>;
+
+        /// Access the per-thread slab, panicking if it is unavailable. Used by all
+        /// the non-`Drop` operations, which can only run while the slab is alive.
+        fn with_slab<R>(f: impl FnOnce(&mut Slab<Self>) -> R) -> R {
+            Self::try_with_slab(f).expect("dependency slab accessed after thread-local destruction")
+        }
+    }
+
+    /// Head of a circular doubly-linked "dependents" list.
+    ///
+    /// An empty list stores a null pointer; a non-empty list lazily allocates a
+    /// sentinel slot and stores a (stable) pointer to it. Because the nodes
+    /// reference the sentinel by key and the sentinel never moves, relocating the
+    /// head ([`Self::mem_move`]/[`Self::swap`]) is a plain pointer copy with no
+    /// fix-up — which is why this is `#[repr(transparent)]` over a single pointer
+    /// and can share storage with the tagged `PropertyHandle`.
+    #[repr(transparent)]
+    pub struct DependencyListHead<T: SlabbedDep>(Cell<*const Slot<T>>);
+
+    impl<T: SlabbedDep> Default for DependencyListHead<T> {
         fn default() -> Self {
             Self(Cell::new(core::ptr::null()))
         }
     }
-    impl<T> Drop for DependencyListHead<T> {
+
+    impl<T: SlabbedDep> Drop for DependencyListHead<T> {
         fn drop(&mut self) {
             unsafe { DependencyListHead::drop(self as *mut Self) };
         }
     }
 
-    impl<T> DependencyListHead<T> {
+    impl<T: SlabbedDep> DependencyListHead<T> {
+        /// Move the list head from `from` to `to`. Since the head only stores a
+        /// pointer to the (immovable) sentinel, this is a plain pointer copy.
+        ///
+        /// Safety: both pointers must be valid and point to a `DependencyListHead`.
         pub unsafe fn mem_move(from: *mut Self, to: *mut Self) {
             unsafe {
                 (*to).0.set((*from).0.get());
-                if let Some(next) = (*from).0.get().as_ref() {
-                    debug_assert_eq!(from as *const _, next.prev.get() as *const _);
-                    next.debug_assert_valid();
-                    next.prev.set(to as *const _);
-                    next.debug_assert_valid();
-                }
+                (*from).0.set(core::ptr::null());
             }
         }
 
-        /// Swap two list head
+        /// Swap two list heads.
         pub fn swap(from: Pin<&Self>, to: Pin<&Self>) {
             Cell::swap(&from.0, &to.0);
-            unsafe {
-                if let Some(n) = from.0.get().as_ref() {
-                    debug_assert_eq!(n.prev.get() as *const _, &to.0 as *const _);
-                    n.prev.set(&from.0 as *const _);
-                    n.debug_assert_valid();
-                }
-
-                if let Some(n) = to.0.get().as_ref() {
-                    debug_assert_eq!(n.prev.get() as *const _, &from.0 as *const _);
-                    n.prev.set(&to.0 as *const _);
-                    n.debug_assert_valid();
-                }
-            }
         }
 
-        /// Return true is the list is empty
+        /// The sentinel's own key, recovered from the stable sentinel pointer.
+        ///
+        /// Safety: `sentinel` must point to a live sentinel slot.
+        unsafe fn sentinel_key(sentinel: *const Slot<T>) -> NonZeroU32 {
+            unsafe { (*sentinel).owner_next.get().unwrap() }
+        }
+
+        /// Return true if the list has no nodes.
         pub fn is_empty(&self) -> bool {
-            self.0.get().is_null()
+            let s = self.0.get();
+            if s.is_null() {
+                return true;
+            }
+            // An empty ring has `sentinel.next == sentinel` (its own key, kept in
+            // `owner_next`).
+            unsafe { (*s).next.get() == (*s).owner_next.get() }
         }
 
+        /// Drop the list head: detach the surviving nodes (which are owned
+        /// elsewhere) into a NIL-terminated chain and free the sentinel.
+        ///
+        /// Safety: `_self` must point to a valid `DependencyListHead`.
         pub unsafe fn drop(_self: *mut Self) {
-            unsafe {
-                if let Some(next) = (*_self).0.get().as_ref() {
-                    #[cfg(not(miri))]
-                    debug_assert_eq!(_self as *const _, next.prev.get() as *const _);
-                    next.debug_assert_valid();
-                    next.prev.set(core::ptr::null());
-                    next.debug_assert_valid();
-                }
+            let s = unsafe { (*_self).0.get() };
+            unsafe { (*_self).0.set(core::ptr::null()) };
+            if s.is_null() {
+                return;
             }
-        }
-        pub fn append(&self, node: Pin<&DependencyNode<T>>) {
-            unsafe {
-                node.remove();
-                node.debug_assert_valid();
-                let old = self.0.get();
-                if let Some(x) = old.as_ref() {
-                    x.debug_assert_valid();
+            // All accesses to the (possibly already-reclaimed) sentinel slot happen
+            // inside the closure, which does not run if the slab is gone.
+            let _ = T::try_with_slab(|slab| {
+                let sentinel_key = unsafe { Self::sentinel_key(s) };
+                let first = slab.slot(sentinel_key).next.get();
+                let last = slab.slot(sentinel_key).prev.get();
+                if first != Some(sentinel_key) {
+                    // Real nodes remain: turn the ring into a NIL-terminated chain
+                    // so they can later be unlinked safely by their owners.
+                    slab.slot(first.unwrap()).prev.set(None);
+                    slab.slot(last.unwrap()).next.set(None);
                 }
-                self.0.set(node.get_ref() as *const DependencyNode<_>);
-                node.next.set(old);
-                node.prev.set(&self.0 as *const _);
-                if let Some(old) = old.as_ref() {
-                    old.prev.set((&node.next) as *const _);
-                    old.debug_assert_valid();
-                }
-                node.debug_assert_valid();
-            }
+                slab.free(sentinel_key);
+            });
         }
 
+        /// Append a node (identified by its slab key) to this list, first
+        /// unlinking it from any list it is currently in.
+        pub fn append(&self, node: NonZeroU32) {
+            T::with_slab(|slab| {
+                unlink(slab, node);
+                // Lazily create the sentinel on first use.
+                let sentinel_key = {
+                    let s = self.0.get();
+                    if s.is_null() {
+                        let key = slab.alloc();
+                        let sentinel = slab.slot(key);
+                        sentinel.next.set(Some(key));
+                        sentinel.prev.set(Some(key));
+                        sentinel.owner_next.set(Some(key));
+                        self.0.set(slab.slot(key) as *const Slot<T>);
+                        key
+                    } else {
+                        unsafe { Self::sentinel_key(s) }
+                    }
+                };
+                // Insert `node` right after the sentinel.
+                let first = slab.slot(sentinel_key).next.get();
+                {
+                    let n = slab.slot(node);
+                    n.prev.set(Some(sentinel_key));
+                    n.next.set(first);
+                }
+                slab.slot(sentinel_key).next.set(Some(node));
+                slab.slot(first.unwrap()).prev.set(Some(node));
+            });
+        }
+
+        /// Call `f` with the payload of each node in the list.
         pub fn for_each(&self, mut f: impl FnMut(&T)) {
-            unsafe {
-                let mut next = self.0.get();
-                while let Some(node) = next.as_ref() {
-                    node.debug_assert_valid();
-                    next = node.next.get();
-                    f(&node.binding);
-                }
+            let slot = self.0.get();
+            if slot.is_null() {
+                return;
+            }
+            let sentinel_key = unsafe { Self::sentinel_key(slot) };
+            let mut cur = unsafe { (*slot).next.get() };
+            while cur != Some(sentinel_key) {
+                let node = cur.unwrap();
+                // Read the next link and a copy of the payload under a short slab
+                // borrow, then run the callback with no borrow held — it may
+                // re-enter the slab (mark dependencies dirty, remove this node…).
+                let (next, payload) = T::with_slab(|slab| {
+                    let n = slab.slot(node);
+                    (n.next.get(), unsafe { n.payload.get().assume_init() })
+                });
+                f(&payload);
+                cur = next;
             }
         }
 
-        /// Returns the first node of the list, if any
-        pub fn take_head(&self) -> Option<T>
-        where
-            T: Copy,
-        {
-            unsafe {
-                if let Some(node) = self.0.get().as_ref() {
-                    node.debug_assert_valid();
-                    node.remove();
-                    Some(node.binding)
-                } else {
-                    None
-                }
+        /// Remove and return the payload of the first node, if any. Only unlinks
+        /// the node from this list; the slot stays allocated (owned elsewhere).
+        pub fn take_head(&self) -> Option<T> {
+            let slot = self.0.get();
+            if slot.is_null() {
+                return None;
             }
+            let sentinel_key = unsafe { Self::sentinel_key(slot) };
+            let first = unsafe { (*slot).next.get() };
+            if first == Some(sentinel_key) {
+                return None;
+            }
+            let node = first.unwrap();
+            Some(T::with_slab(|slab| {
+                let payload = unsafe { slab.slot(node).payload.get().assume_init() };
+                unlink(slab, node);
+                payload
+            }))
         }
     }
 
-    /// The node is owned by the binding; so the binding is always valid
-    /// The next and pref
-    pub struct DependencyNode<T> {
-        next: Cell<*const DependencyNode<T>>,
-        /// This is either null, or a pointer to a pointer to ourself
-        prev: Cell<*const Cell<*const DependencyNode<T>>>,
-        binding: T,
+    /// The set of nodes a single binding registered, chained through each slot's
+    /// `owner_next`. Dropping the chain unlinks each node from its dependents ring
+    /// and frees its slot — this is what reclaims dependency nodes on re-evaluation.
+    pub struct OwnerChain<T: SlabbedDep> {
+        head: Cell<Key>,
+        _t: PhantomData<T>,
     }
 
-    impl<T> DependencyNode<T> {
-        pub fn new(binding: T) -> Self {
-            Self { next: Cell::new(core::ptr::null()), prev: Cell::new(core::ptr::null()), binding }
-        }
-
-        /// Assert that the invariant of `next` and `prev` are met.
-        pub fn debug_assert_valid(&self) {
-            // Under Miri with Tree Borrows, reading through prev/next creates
-            // foreign accesses that conflict with active protectors.
-            #[cfg(not(miri))]
-            unsafe {
-                debug_assert!(
-                    self.prev.get().is_null() || core::ptr::eq((*self.prev.get()).get(), self)
-                );
-                debug_assert!(
-                    self.next.get().is_null()
-                        || core::ptr::eq((*self.next.get()).prev.get(), &self.next)
-                );
-                // infinite loop?
-                debug_assert_ne!(self.next.get(), self as *const DependencyNode<T>);
-                debug_assert_ne!(
-                    self.prev.get(),
-                    (&self.next) as *const Cell<*const DependencyNode<T>>
-                );
-            }
-        }
-
-        pub fn remove(&self) {
-            self.debug_assert_valid();
-            unsafe {
-                if let Some(prev) = self.prev.get().as_ref() {
-                    prev.set(self.next.get());
-                }
-                if let Some(next) = self.next.get().as_ref() {
-                    next.debug_assert_valid();
-                    next.prev.set(self.prev.get());
-                    next.debug_assert_valid();
-                }
-            }
-            self.prev.set(core::ptr::null());
-            self.next.set(core::ptr::null());
+    impl<T: SlabbedDep> Default for OwnerChain<T> {
+        fn default() -> Self {
+            Self { head: Cell::new(None), _t: PhantomData }
         }
     }
 
-    impl<T> Drop for DependencyNode<T> {
+    impl<T: SlabbedDep> OwnerChain<T> {
+        /// Allocate a node carrying `payload`, prepend it to the chain, and return
+        /// its key so it can be appended to a dependents list.
+        pub fn push_front(&self, payload: T) -> NonZeroU32 {
+            T::with_slab(|slab| {
+                let key = slab.alloc();
+                let slot = slab.slot(key);
+                slot.payload.set(MaybeUninit::new(payload));
+                slot.owner_next.set(self.head.get());
+                self.head.set(Some(key));
+                key
+            })
+        }
+
+        pub fn is_empty(&self) -> bool {
+            self.head.get().is_none()
+        }
+
+        /// The most recently added node, if any.
+        pub fn first(&self) -> Option<NonZeroU32> {
+            self.head.get()
+        }
+
+        /// The number of nodes in this owner chain.
+        #[cfg(test)]
+        #[allow(dead_code)]
+        pub fn count(&self) -> usize {
+            T::with_slab(|slab| {
+                let mut n = 0;
+                let mut cur = self.head.get();
+                while let Some(key) = cur {
+                    n += 1;
+                    cur = slab.slot(key).owner_next.get();
+                }
+                n
+            })
+        }
+    }
+
+    impl<T: SlabbedDep> Drop for OwnerChain<T> {
         fn drop(&mut self) {
-            self.remove();
+            let _ = T::try_with_slab(|slab| {
+                let mut cur = self.head.get();
+                while let Some(key) = cur {
+                    let next = slab.slot(key).owner_next.get();
+                    unlink(slab, key);
+                    slab.free(key);
+                    cur = next;
+                }
+            });
+            self.head.set(None);
         }
+    }
+
+    /// Allocate a standalone node carrying `payload` (owned by the caller directly,
+    /// not by an owner chain). Used for model peers, which own exactly one node.
+    pub fn alloc_node<T: SlabbedDep>(payload: T) -> NonZeroU32 {
+        T::with_slab(|slab| {
+            let key = slab.alloc();
+            slab.slot(key).payload.set(MaybeUninit::new(payload));
+            key
+        })
+    }
+
+    /// Unlink a standalone node from its dependents ring and free its slot.
+    /// Called from `Drop`, so it tolerates the slab already being torn down.
+    pub fn free_node<T: SlabbedDep>(node: NonZeroU32) {
+        let _ = T::try_with_slab(|slab| {
+            unlink(slab, node);
+            slab.free(node);
+        });
     }
 }
 
 type DependencyListHead = dependency_tracker::DependencyListHead<*const BindingHolder>;
-type DependencyNode = dependency_tracker::DependencyNode<*const BindingHolder>;
+type OwnerChain = dependency_tracker::OwnerChain<*const BindingHolder>;
+
+/// Wires up the per-thread slab that stores the dependency nodes whose payload is
+/// a `*const BindingHolder` (all property and tracker dependents share it).
+impl dependency_tracker::SlabbedDep for *const BindingHolder {
+    #[inline]
+    fn try_with_slab<R>(f: impl FnOnce(&mut dependency_tracker::Slab<Self>) -> R) -> Option<R> {
+        crate::thread_local!(static SLAB: UnsafeCell<dependency_tracker::Slab<*const BindingHolder>>
+            = const { UnsafeCell::new(dependency_tracker::Slab::new()) });
+        // SAFETY: no `with_slab` closure re-enters `with_slab` (`for_each` releases its
+        // slab borrow before running the callback), and the `&mut` never escapes `f`
+        // (every closure returns Copy/owned data), so this reference is never aliased.
+        SLAB.try_with(|s| f(unsafe { &mut *s.get() })).ok()
+    }
+}
 
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell, UnsafeCell};
@@ -440,10 +594,10 @@ pub fn is_currently_tracking() -> bool {
 struct BindingHolder<B = ()> {
     /// Head of the list of bindings that depend on this binding.
     dependencies: Cell<*mut ()>,
-    /// Nodes that link this binding into the dependency lists of
-    /// the properties it reads.
-    /// UnsafeCell allows in-place mutation without moving the allocation.
-    dep_nodes: UnsafeCell<single_linked_list_pin::SingleLinkedListPinHead<DependencyNode>>,
+    /// Owner chain of the slab nodes that link this binding into the dependency
+    /// lists of the properties it reads (freed together on re-evaluation/drop).
+    /// UnsafeCell allows replacing the whole chain (`= Default::default()`).
+    dep_nodes: UnsafeCell<OwnerChain>,
     vtable: &'static BindingVTable,
     /// The binding is dirty and need to be re_evaluated
     dirty: Cell<bool>,
@@ -463,12 +617,11 @@ impl BindingHolder {
         property_that_will_notify: *mut DependencyListHead,
         #[cfg(slint_debug_property)] _other_debug_name: &str,
     ) {
-        let node = DependencyNode::new(self_ptr);
         // Safety: self_ptr is valid and pinned
         unsafe {
-            let dep_nodes = &mut *(*self_ptr).dep_nodes.get();
-            let node = dep_nodes.push_front(node);
-            DependencyListHead::append(&*property_that_will_notify, node);
+            let dep_nodes = &*(*self_ptr).dep_nodes.get();
+            let node = dep_nodes.push_front(self_ptr);
+            (*property_that_will_notify).append(node);
         }
     }
 }
