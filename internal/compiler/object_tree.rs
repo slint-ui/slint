@@ -535,6 +535,16 @@ impl Component {
             ..Default::default()
         };
         let c = Rc::new(c);
+        // The root element's geometry comes from the window, so binding it is
+        // not part of the subset. width and height are already rejected as
+        // WindowItem properties without the \sc marker; x and y would
+        // otherwise be accepted as reserved geometry properties.
+        #[cfg(feature = "slint-sc")]
+        for prop in ["x", "y"] {
+            if let Some(b) = c.root_element.borrow().bindings.get(prop) {
+                diag.slint_sc_error(&format!("The property '{prop}' is"), &*b.borrow());
+            }
+        }
         let weak = Rc::downgrade(&c);
         recurse_elem(&c.root_element, &(), &mut |e, _| {
             e.borrow_mut().enclosing_component = weak.clone();

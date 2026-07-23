@@ -362,6 +362,8 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
     {
         return PropertyLookupResult {
             property_type: ty,
+            #[cfg(feature = "slint-sc")]
+            is_slint_sc: matches!(name.as_ref(), "x" | "y" | "width" | "height"),
             resolved_name: name,
             is_local_to_component: false,
             is_in_direct_base: false,
@@ -369,8 +371,6 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
             property_visibility: visibility,
             declared_pure: None,
             builtin_function,
-            #[cfg(feature = "slint-sc")]
-            is_slint_sc: false,
         };
     }
 

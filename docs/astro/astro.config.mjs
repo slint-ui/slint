@@ -299,6 +299,10 @@ export default defineConfig({
                                         label: "Bindings",
                                         slug: "reference/language/bindings",
                                     },
+                                    {
+                                        label: "Geometry",
+                                        slug: "reference/language/geometry",
+                                    },
                                 ],
                             },
                             {
