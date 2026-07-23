@@ -1,0 +1,90 @@
+---
+title: Macros
+description: The built-in @-macros of the Slint language.
+notInSC: true
+---
+
+A macro invocation consists of `@` followed by the macro name and arguments in parentheses.
+The macros are built into the language; new ones can't be declared.
+
+## `@tr`
+
+The `@tr` macro marks a string for translation.
+It supports formatting and pluralization, and can include contextual information.
+The first argument must be a plain string literal, followed by the arguments:
+
+```slint
+export component Example {
+    property <string> name;
+    Text {
+        text: @tr("Hello, {}", name);
+    }
+}
+```
+
+See the [translations guide](../../../guide/development/translations/) for extracting and shipping the translations.
+
+### Formatting
+
+The `@tr` macro replaces each `{}` placeholder in the string with the corresponding argument.
+The arguments can be re-ordered with `{0}`, `{1}`, and so on.
+Translators can use ordered placeholders even if the original string didn't.
+
+The literal characters `{` and `}` are escaped by doubling them: `{{` and `}}`.
+
+### Plurals
+
+Plural formatting chooses between two strings depending on a count.
+Given an expression `count` that represents the count of something,
+the plural form is written with the `|` and `%` symbols:
+
+```slint no-test
+@tr("I have {n} item" | "I have {n} items" % count)
+```
+
+`{n}` in the format string accesses the expression after the `%`.
+
+```slint
+export component Example inherits Text {
+    in property <int> score;
+    in property <int> name;
+    text: @tr("Hello {0}, you have one point" | "Hello {0}, you have {n} points" % score, name);
+}
+```
+
+### Context
+
+A context disambiguates strings with the same source text but different meanings,
+with the `"..." =>` syntax:
+
+```slint
+export component MenuItem {
+    property <string> name : @tr("Default Name"); // Default: `MenuItem` will be the context.
+    property <string> tooltip : @tr("ToolTip" => "ToolTip for {}", name); // Specified: The context will be `ToolTip`.
+}
+```
+
+The context must be a plain string literal;
+it appears as `msgctx` in the `.pot` files.
+Without one, the context defaults to the name of the surrounding component.
+
+## `@image-url`
+
+`@image-url("...")` loads an [image](../builtin-types/#image) from a path resolved at compile time.
+
+## `@linear-gradient`, `@radial-gradient`, `@conic-gradient`
+
+The gradient macros create [brushes](../colors-and-brushes/) with color gradients.
+
+## `@markdown`
+
+`@markdown("...")` creates [styled text](../builtin-types/#styled-text) from markdown.
+
+## `@keys`
+
+`@keys(...)` creates a [key combination](../builtin-types/#keys) for key bindings.
+
+## `@children`
+
+`@children` isn't a macro but a placeholder expression marking where a
+[container component](../container-components/) places its children.

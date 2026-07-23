@@ -1,0 +1,32 @@
+---
+title: Container Components
+description: Controlling where child elements are placed with @children.
+notInSC: true
+---
+
+By default, the child elements written at a component's use site become direct children of the component's root element.
+The `@children` expression changes that placement:
+it marks the position within the component's element hierarchy where those children go.
+
+For example, a component that draws a label above its children:
+
+```slint
+component BoxWithLabel inherits GridLayout {
+    Row {
+        Text { text: "label text here"; }
+    }
+    Row {
+        @children
+    }
+}
+
+export component MyApp inherits Window {
+    preferred-height: 100px;
+    BoxWithLabel {
+        Rectangle { background: blue; }
+        Rectangle { background: yellow; }
+    }
+}
+```
+
+Here the two rectangles become children of the `GridLayout`'s second row instead of direct children of `BoxWithLabel`.

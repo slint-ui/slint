@@ -292,6 +292,10 @@ export default defineConfig({
                                         slug: "reference/language/file-structure",
                                     },
                                     {
+                                        label: "Name Resolution",
+                                        slug: "reference/language/name-resolution",
+                                    },
+                                    {
                                         label: "Imports",
                                         slug: "reference/language/imports",
                                     },
@@ -308,8 +312,32 @@ export default defineConfig({
                                         slug: "reference/language/bindings",
                                     },
                                     {
+                                        label: "Two-Way Bindings",
+                                        slug: "reference/language/two-way-bindings",
+                                    },
+                                    {
                                         label: "Expressions",
                                         slug: "reference/language/expressions",
+                                    },
+                                    {
+                                        label: "Operators",
+                                        slug: "reference/language/operators",
+                                    },
+                                    {
+                                        label: "Statements",
+                                        slug: "reference/language/statements",
+                                    },
+                                    {
+                                        label: "Functions",
+                                        slug: "reference/language/functions",
+                                    },
+                                    {
+                                        label: "Callbacks",
+                                        slug: "reference/language/callbacks",
+                                    },
+                                    {
+                                        label: "Evaluation and Purity",
+                                        slug: "reference/language/evaluation-and-purity",
                                     },
                                     {
                                         label: "Types",
@@ -332,8 +360,32 @@ export default defineConfig({
                                         slug: "reference/language/arrays-and-models",
                                     },
                                     {
+                                        label: "Globals",
+                                        slug: "reference/language/globals",
+                                    },
+                                    {
+                                        label: "Repetition and Conditional Elements",
+                                        slug: "reference/language/repetition-and-conditional-elements",
+                                    },
+                                    {
+                                        label: "Container Components",
+                                        slug: "reference/language/container-components",
+                                    },
+                                    {
+                                        label: "Animations",
+                                        slug: "reference/language/animations",
+                                    },
+                                    {
+                                        label: "States and Transitions",
+                                        slug: "reference/language/states-and-transitions",
+                                    },
+                                    {
                                         label: "Geometry",
                                         slug: "reference/language/geometry",
+                                    },
+                                    {
+                                        label: "Macros",
+                                        slug: "reference/language/macros",
                                     },
                                 ],
                             },

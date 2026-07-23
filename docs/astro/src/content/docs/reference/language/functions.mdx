@@ -1,0 +1,118 @@
+---
+title: Functions
+description: Declaring and calling functions.
+notInSC: true
+---
+
+A function names a reusable piece of logic.
+Functions are declared as part of a component or of an element within a component.
+Global (top-level) functions, functions in a struct or enum, and functions nested within other functions aren't possible.
+
+## Declaring Functions
+
+The `function` keyword declares a function:
+
+```slint
+export component Example {
+    // ...
+    function my-function(parameter: int) -> string {
+        // Function code goes here
+        return "result";
+    }
+}
+```
+
+Parameters are declared within parentheses in the format `name: type` and are passed by value.
+They can be referenced by their names within the function body.
+
+The return type is specified after `->` in the function signature;
+without one, the return type is `void`.
+The `return` [statement](../statements/#return) returns an expression of the declared type.
+A function without an explicit return statement returns the value of its last statement.
+
+The `pure` keyword marks a function free of side effects;
+see [Evaluation and Purity](../evaluation-and-purity/).
+
+## Calling Functions
+
+A function can be called without an element name (like a function call in other languages)
+or with an element name (like a method call in other languages);
+the [lookup rules](../name-resolution/#lookup-rules) describe how the name resolves:
+
+```slint
+import { Button, VerticalBox } from "std-widgets.slint";
+
+export component Example {
+    // Call without an element name:
+    property <string> my-property: my-function();
+    // Call with an element name:
+    property <int> my-other-property: my_button.my-other-function();
+
+    pure function my-function() -> string {
+        return "result";
+    }
+
+    VerticalBox {
+        Text {
+            // Called with a pre-defined element:
+            text: root.my-function();
+        }
+
+        my_button := Button {
+            text: "Click me";
+            clicked => { self.text = root.my-other-property; }
+            pure function my-other-function() -> int {
+                return 42;
+            }
+        }
+    }
+}
+```
+
+## Visibility
+
+Functions are private by default: they can't be accessed from other components.
+The `public` and `protected` keywords widen the access:
+
+- A root-level function annotated with `public` can be accessed by any component.
+- A function annotated with `protected` can only be accessed by components that directly inherit from it.
+
+Accessing a function from a different component always needs a target:
+the calling component declares the called component as one of its child elements.
+
+```slint
+export component HasFunction {
+    public pure function double(x: int) -> int {
+        return x * 2;
+    }
+}
+
+export component CallsFunction {
+    property <int> test: my-friend.double(1);
+
+    my-friend := HasFunction {
+    }
+}
+```
+
+A public function declared in a child element can't be called from another component:
+the child elements themselves aren't public, so no valid target exists.
+
+Functions marked `public` in an exported component can also be invoked from native code (Rust, C++, JavaScript, Python).
+See the language-specific documentation for the generated code to use.
+
+## Functions vs. Callbacks
+
+Functions and [callbacks](../callbacks/) are both callable blocks of logic:
+they are invoked in the same way, can have parameters and return values, and can be declared `pure`.
+
+They differ in these ways:
+
+- A callback's handler can be set from native code and implemented in the native language;
+  a function must be defined entirely in Slint.
+- The declaration syntax differs.
+- A callback can be declared without assigning a block of code to it.
+- A callback can declare an [alias](../callbacks/#aliases) with the two-way binding operator `<=>`.
+- Callback visibility is always like that of `public` functions.
+
+Use a callback to handle it from native code; use a function otherwise.

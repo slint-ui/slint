@@ -1,0 +1,129 @@
+---
+title: Callbacks
+description: Declaring callbacks, setting handlers, aliases, and change callbacks.
+notInSC: true
+---
+
+A component declares callbacks to communicate changes of state to the outside.
+A callback is invoked by calling it like a [function](../functions/).
+
+The `=>` arrow syntax declares a handler that reacts to the callback's invocation.
+The built-in `TouchArea` element declares a `clicked` callback, invoked when the user touches or clicks the element.
+In this example, that callback's invocation is forwarded to a custom callback:
+
+```slint
+export component Example inherits Rectangle {
+    // declare a callback
+    callback hello;
+
+    area := TouchArea {
+        // sets a handler with `=>`
+        clicked => {
+            // emit the callback
+            root.hello()
+        }
+    }
+}
+```
+
+## Parameters and Return Values
+
+A callback declares its parameter types in parentheses:
+
+```slint
+export component Example inherits Rectangle {
+    // declares a callback
+    callback hello(int, string);
+    hello(aa, bb) => { /* ... */ }
+}
+```
+
+A callback may return a value.
+The return type is specified after `->`:
+
+```slint
+export component Example inherits Rectangle {
+    // declares a callback with a return value
+    callback hello(int, int) -> int;
+    hello(aa, bb) => { aa + bb }
+}
+```
+
+Callback parameters can have names.
+The names currently carry no semantic value, but they improve readability.
+The handler can name its parameters freely:
+
+```slint
+export component Example inherits Rectangle {
+    // Declare a callback with named argument
+    callback hello(foo: int, bar: string);
+    // The names can be overridden with
+    // anything when setting a handler
+    hello(aa, bb) => { /* ... */ }
+}
+```
+
+## Aliases
+
+A callback alias forwards one callback to another, with the same syntax as a [two-way binding](../two-way-bindings/):
+
+```slint
+export component Example inherits Rectangle {
+    callback clicked <=> area.clicked;
+    area := TouchArea {}
+}
+```
+
+## Change Callbacks
+
+The `changed` keyword declares a callback that is invoked when a property's value changes:
+
+```slint
+import { LineEdit } from "std-widgets.slint";
+export component Example inherits Window  {
+    VerticalLayout {
+        LineEdit {
+            // This callback is invoked when the `text` property of the LineEdit changes
+            changed text => { t.text = self.text; }
+        }
+        t := Text {}
+    }
+}
+```
+
+Change callbacks aren't invoked immediately:
+they are queued for invocation in the subsequent iteration of the event loop.
+A callback is invoked only if the property's value has indeed changed.
+If a property's value changes multiple times within the same event loop cycle, the callback is invoked only once.
+If a property's value changes and then reverts to its original state before the callback executes, the callback isn't invoked.
+
+Altering properties during a change callback in a way that could lead to the same property being affected is undefined behavior:
+
+```slint
+export component Example {
+    in-out property <int> foo;
+    property <int> bar: foo + 1;
+    // This setup creates a potential loop between `foo` and `bar`, and the outcome is undefined.
+    changed bar => { foo += 1; }
+}
+```
+
+The above represents an infinite loop.
+Slint breaks the loop after a few iterations,
+so a sequence of change callbacks where one triggers another may stop without invoking the rest.
+
+Use a change callback only when a [binding](../bindings/) can't express the relationship.
+Avoid this:
+
+```slint no-test
+changed bar => { foo = bar + 1; }
+```
+
+Instead, opt for:
+
+```slint no-test
+foo: bar + 1;
+```
+
+Declarative bindings manage their dependencies automatically and evaluate [lazily](../evaluation-and-purity/).
+A change callback forces immediate evaluation and compromises the purity of bindings.

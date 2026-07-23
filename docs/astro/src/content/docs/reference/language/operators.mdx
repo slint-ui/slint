@@ -1,0 +1,67 @@
+---
+title: Operators
+description: The operators of the Slint language.
+notInSC: true
+---
+
+## Arithmetic Operators
+
+Arithmetic on numbers works like in most programming languages with the operators `*`, `+`, `-`, and `/`:
+
+```slint
+export component Example {
+    in-out property <int> p: 1 * 2 + 3 * 4; // same as (1 * 2) + (3 * 4)
+}
+```
+
+Arithmetic also works on types with a unit, like `length` or `duration`:
+values of the same type can be added and subtracted, multiplied by a number, and divided by a number.
+Dividing two values of the same unit yields a number:
+`self.width / 1px` is the width as a `float`.
+
+The `+` operator also concatenates strings.
+
+## Comparison Operators
+
+The operators `==`, `!=`, `>`, `<`, `>=`, and `<=` compare values of the same type.
+
+## Logical Operators
+
+The operators `&&` and `||` express logical *and* and *or* between boolean values.
+The `!` operator negates a boolean value.
+
+## Ternary Operator
+
+The ternary operator `condition ? value1 : value2` selects between two values, like in C or JavaScript:
+
+```slint
+export component Example inherits Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+
+    Rectangle {
+        touch := TouchArea {}
+        background: touch.pressed ? #111 : #eee;
+        border-width: 5px;
+        border-color: !touch.enabled ? #888
+            : touch.pressed ? #aaa
+            : #555;
+    }
+}
+```
+
+## Member Access
+
+A `.` accesses a property, function, or callback of an element by [name](../name-resolution/),
+and a field of a [struct](../structs-and-enums/) value:
+
+```slint
+export component Example {
+    foo := Rectangle {
+        x: 42px;
+    }
+    x: foo.x;
+}
+```
+
+An `[index]` in square brackets accesses an element of an [array](../arrays-and-models/).
