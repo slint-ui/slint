@@ -4,15 +4,11 @@
 // Non-exported component declarations are rejected in Slint SC mode.
 // Only one exported component per file is allowed.
 
-//#sls.export.default-private
 component Helper inherits Window { }
 //        >    <error{Component declarations are not supported in Slint SC}
 //>                                  <^<<warning{Component is neither used nor exported}
 
-//#sls.export.declaration-site
-//#sls.file.component.definition-forms
 export component First inherits Window { }
 
-//#sls.export.no-duplicates
 export component Second inherits Window { }
 //               >    <error{Multiple exported components per file are not supported in Slint SC}
