@@ -1329,15 +1329,34 @@ pub struct MatchElementInfo {
     /// The value that is matched on
     pub subject: Expression,
     /// Each case and the corresponding element
-    pub cases: Vec<(Expression, ElementRc)>,
-    /// The element shown by the `*` case
-    pub wildcard: Option<ElementRc>,
+    pub cases: Vec<MatchCaseInfo>,
+    /// The `*` case of the match element, if any
+    pub wildcard: WildcardMatchCaseInfo,
+}
+
+pub enum WildcardMatchCaseInfo {
+    None,
+    Empty,
+    Element(ElementRc),
+}
+
+/// One case of a match element
+pub struct MatchCaseInfo {
+    /// The value the subject is compared against
+    pub value: Expression,
+    /// The syntax node
+    pub node: syntax_nodes::Expression,
+    /// The element to potentially show. None for the empty case
+    pub element: Option<ElementRc>,
 }
 
 impl MatchElementInfo {
-    /// The elements of all the cases
+    /// The elements of all the cases, skipping the empty cases
     pub fn elements(&self) -> impl Iterator<Item = ElementRc> + '_ {
-        self.cases.iter().map(|(_, element)| element.clone()).chain(self.wildcard.clone())
+        self.cases.iter().filter_map(|case| case.element.clone()).chain(match &self.wildcard {
+            WildcardMatchCaseInfo::Element(e) => Some(e.clone()),
+            WildcardMatchCaseInfo::None | WildcardMatchCaseInfo::Empty => None,
+        })
     }
 
     /// Make every case a conditional element
@@ -1357,12 +1376,14 @@ impl MatchElementInfo {
             });
         };
 
-        for (value, element) in &self.cases {
-            show_when(element, compare(value, '='));
+        for case in &self.cases {
+            if let Some(element) = &case.element {
+                show_when(element, compare(&case.value, '='));
+            }
         }
-        if let Some(wildcard) = &self.wildcard {
+        if let WildcardMatchCaseInfo::Element(wildcard) = &self.wildcard {
             let condition =
-                self.cases.iter().map(|(value, _)| compare(value, '!')).reduce(|lhs, rhs| {
+                self.cases.iter().map(|case| compare(&case.value, '!')).reduce(|lhs, rhs| {
                     Expression::BinaryExpression { lhs: Box::new(lhs), rhs: Box::new(rhs), op: '&' }
                 });
             if let Some(condition) = condition {
@@ -2802,15 +2823,25 @@ impl Element {
                 tr,
             )
         };
+        // A case without a sub element is an empty case that shows nothing
         let cases = node
             .MatchCase()
-            .filter_map(|case| {
-                let sub_element = case.SubElement()?;
-                let value = Expression::Uncompiled(case.Expression().into());
-                Some((value, element_of(sub_element)))
+            .map(|case| {
+                let node = case.Expression();
+                MatchCaseInfo {
+                    value: Expression::Uncompiled(node.clone().into()),
+                    node,
+                    element: case.SubElement().map(&mut element_of),
+                }
             })
             .collect();
-        let wildcard = node.WildcardMatchCase().and_then(|w| w.SubElement()).map(element_of);
+        let wildcard = match node.WildcardMatchCase() {
+            None => WildcardMatchCaseInfo::None,
+            Some(w) => match w.SubElement().map(&mut element_of) {
+                None => WildcardMatchCaseInfo::Empty,
+                Some(element) => WildcardMatchCaseInfo::Element(element),
+            },
+        };
         MatchElementInfo {
             subject: Expression::Uncompiled(node.Expression().into()),
             cases,
