@@ -174,6 +174,10 @@ export default defineConfig({
                             slug: "language/bindings",
                         },
                         {
+                            label: "Types",
+                            slug: "language/types",
+                        },
+                        {
                             label: "Geometry",
                             slug: "language/geometry",
                         },

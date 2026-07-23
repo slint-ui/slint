@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The type of a binding expression must match the type of the property.
+
+export component Test inherits Window {
+    //#sls.binding.type
+    //#sls.type.conversions
+    Rectangle {
+        width: #123456;
+//             >      <error{Cannot convert color to length}
+        background: 12px;
+//                  >   <error{Cannot convert length to brush}
+    }
+    //#sls.binding.type
+    //#sls.type.conversions
+    Rectangle {
+        width: 12px;
+        background: #123456;
+    }
+}

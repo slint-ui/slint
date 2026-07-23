@@ -1,0 +1,31 @@
+---
+title: Types
+description: The types of properties and expressions.
+---
+
+import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
+
+Every property and every expression has a type: `color`, `length`, or
+`brush`. \{#sls.type.kinds}
+
+<NotInSC>
+The full Slint language has more types; this specification doesn't cover
+them yet.
+</NotInSC>
+
+A `color` is a color with red, green, blue, and alpha channels.
+\{#sls.type.color}
+
+A `length` is a distance. \{#sls.type.length}
+
+A `brush` defines the content that an element is filled with.
+\{#sls.type.brush}
+
+## Conversions
+
+An expression whose type isn't the type of the property only binds to it if a
+conversion below applies: \{#sls.type.conversions}
+
+| From | To | Meaning |
+| --- | --- | --- |
+| `color` | `brush` | The brush that fills with that single color |
