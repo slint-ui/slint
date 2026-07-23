@@ -1458,6 +1458,8 @@ pub struct RepeatedElementInfo {
 
 /// Struct for a match element that later is resolved into standard conditional elements
 pub struct MatchElementInfo {
+    /// The match element node, used for diagnostics related to the match element as a whole
+    pub node: syntax_nodes::MatchElement,
     /// The value that is matched on
     pub subject: Expression,
     /// Each case and the corresponding element
@@ -2960,6 +2962,7 @@ impl Element {
         };
         MatchElementInfo {
             subject: Expression::Uncompiled(node.Expression().into()),
+            node,
             cases,
             wildcard,
         }
