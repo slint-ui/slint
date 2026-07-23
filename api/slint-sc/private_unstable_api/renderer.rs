@@ -26,3 +26,22 @@ pub fn fill_rect(
         }
     }
 }
+
+#[test]
+fn test_fill_rect_negative_position() {
+    // A 3x2 rectangle at (-2, -1) intersects a 4x4 buffer in the single
+    // pixel (0, 0)
+    let mut buffer = [0u8; 4 * 4 * 3];
+    fill_rect(&mut buffer, [4, 4], [-2, -1], [3, 2], [1, 2, 3]);
+    for y in 0..4 {
+        for x in 0..4 {
+            let expected = if (x, y) == (0, 0) { [1, 2, 3] } else { [0, 0, 0] };
+            assert_eq!(buffer[(y * 4 + x) * 3..][..3], expected, "pixel ({x}, {y})");
+        }
+    }
+
+    // A rectangle entirely outside the buffer paints nothing
+    let mut buffer = [7u8; 4 * 4 * 3];
+    fill_rect(&mut buffer, [4, 4], [-5, -5], [3, 2], [1, 2, 3]);
+    assert_eq!(buffer, [7u8; 4 * 4 * 3]);
+}
