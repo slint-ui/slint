@@ -20,7 +20,7 @@ use crate::langtype::{BuiltinStruct, ConstantExpression, Struct, StructName, Typ
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Element, ElementRc, PropertyAnimation};
+use crate::object_tree::{Component, Element, ElementRc, PropertyAnimation};
 use crate::typeregister::BUILTIN;
 
 pub struct ExpressionLoweringCtxInner<'a> {
@@ -37,23 +37,30 @@ pub struct ExpressionLoweringCtx<'a> {
 }
 
 impl ExpressionLoweringCtx<'_> {
+    /// How many parent contexts up `enclosing` is, together with its lowering context.
+    fn find_component(
+        &self,
+        enclosing: &Rc<Component>,
+    ) -> (usize, &ExpressionLoweringCtxInner<'_>) {
+        let mut level = 0;
+        let mut map = &self.inner;
+        while !Rc::ptr_eq(enclosing, map.component) {
+            map = map.parent.unwrap_or_else(|| {
+                panic!(
+                    "Could not find component {:?} from component {:?}",
+                    enclosing.id, self.component.id
+                )
+            });
+            level += 1;
+        }
+        (level, map)
+    }
+
     pub fn map_property_reference(&self, from: &NamedReference) -> MemberReference {
         let element = from.element();
         let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
-        let mut level = 0;
-        let mut map = &self.inner;
-        if !enclosing.is_global() {
-            while !Rc::ptr_eq(enclosing, map.component) {
-                map = map.parent.unwrap_or_else(|| {
-                    panic!(
-                        "Could not find component for property reference {from:?} in component {:?}. Started with enclosing={:?}",
-                        self.component.id,
-                        enclosing.id
-                    )
-                });
-                level += 1;
-            }
-        }
+        let (level, map) =
+            if enclosing.is_global() { (0, &self.inner) } else { self.find_component(enclosing) };
         let mut r = map.mapping.map_property_reference(from, self.state);
         if let MemberReference::Relative { parent_level, .. } = &mut r {
             *parent_level += level;
@@ -279,7 +286,7 @@ fn lower_function_call(
         unreachable!()
     };
     match function {
-        Callable::Builtin(BuiltinFunction::RestartTimer) => lower_restart_timer(arguments),
+        Callable::Builtin(BuiltinFunction::RestartTimer) => lower_restart_timer(arguments, ctx),
         Callable::Builtin(BuiltinFunction::ShowPopupWindow) => {
             lower_show_popup_window(arguments, ctx)
         }
@@ -606,10 +613,14 @@ pub fn repeater_special_property(
     }
 }
 
-fn lower_restart_timer(args: &[tree_Expression]) -> llr_Expression {
+/// Lowers to `RestartTimer(timer_reference)`.
+/// The argument is a `PropertyReference` with a [`LocalMemberIndex::Timer`]
+/// locating the timer in the component that declares it.
+fn lower_restart_timer(args: &[tree_Expression], ctx: &ExpressionLoweringCtx) -> llr_Expression {
     if let [tree_Expression::ElementReference(e)] = args {
         let timer_element = e.upgrade().unwrap();
         let timer_comp = timer_element.borrow().enclosing_component.upgrade().unwrap();
+        let (parent_level, _) = ctx.find_component(&timer_comp);
 
         let timer_list = timer_comp.timers.borrow();
         let timer_index = timer_list
@@ -619,7 +630,13 @@ fn lower_restart_timer(args: &[tree_Expression]) -> llr_Expression {
 
         llr_Expression::BuiltinFunctionCall {
             function: BuiltinFunction::RestartTimer,
-            arguments: vec![llr_Expression::NumberLiteral(timer_index as _)],
+            arguments: vec![llr_Expression::PropertyReference(MemberReference::Relative {
+                parent_level,
+                local_reference: LocalMemberReference {
+                    sub_component_path: Vec::new(),
+                    reference: crate::llr::TimerIdx::from(timer_index).into(),
+                },
+            })],
         }
     } else {
         panic!("invalid arguments to RestartTimer");

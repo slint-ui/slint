@@ -466,6 +466,9 @@ fn print_local_ref<T>(
                 let i = &sc.items[*item_index];
                 write!(f, "{}.{}", i.name, prop_name)
             }
+            LocalMemberIndex::Timer(timer_index) => {
+                write!(f, "timer#{}", usize::from(*timer_index))
+            }
         }
     }
 }
