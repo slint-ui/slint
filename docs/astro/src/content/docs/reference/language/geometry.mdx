@@ -46,3 +46,9 @@ export component Example inherits Window {
     }
 }
 ```
+
+<NotInSC>
+A binding of `width` or `height` that evaluates to a [percentage](../builtin-types/#percent)
+is relative to the parent's property of the same name:
+`width: 50%;` is short for `width: parent.width * 50%;`.
+</NotInSC>
