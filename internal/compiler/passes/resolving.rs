@@ -556,17 +556,34 @@ impl Expression {
                         .unwrap_or(Self::Invalid);
                     }
                     SyntaxKind::NumberLiteral => {
-                        #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Number literals are", &token);
-                        return crate::literals::parse_number_literal(token.text().into())
-                            .map(|(value, unit)| {
+                        return match crate::literals::parse_number_literal(token.text().into()) {
+                            Ok((value, unit)) => {
+                                #[cfg(feature = "slint-sc")]
+                                {
+                                    use crate::expression_tree::WrittenUnit;
+                                    match unit {
+                                        WrittenUnit::Px if value.fract() != 0. => ctx
+                                            .diag
+                                            .slint_sc_error("Non-integral lengths are", &token),
+                                        WrittenUnit::Px => {}
+                                        WrittenUnit::None => ctx.diag.slint_sc_error(
+                                            "Number literals without a unit are",
+                                            &token,
+                                        ),
+                                        _ => ctx.diag.slint_sc_error(
+                                            &format!("Number literals with the unit '{unit}' are"),
+                                            &token,
+                                        ),
+                                    }
+                                }
                                 let (value, unit) = unit.normalize(value);
                                 Expression::NumberLiteral(value, unit)
-                            })
-                            .unwrap_or_else(|e| {
+                            }
+                            Err(e) => {
                                 ctx.diag.push_error(e.to_string(), &node);
                                 Self::Invalid
-                            });
+                            }
+                        };
                     }
                     SyntaxKind::ColorLiteral => {
                         return i_slint_common::color_parsing::parse_color_literal(token.text())

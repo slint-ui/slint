@@ -1,55 +1,72 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Number literals with units are rejected in Slint SC mode.
+// Only integral length literals with the `px` unit are allowed in Slint SC mode.
 
 export component Test inherits Window {
-    property <length> a: 100px;
-//  >                         <error{Property declarations are not supported in Slint SC}
-//            >    <^error{The type 'length' is not supported in Slint SC}
-//                       >   <^^error{Number literals are not supported in Slint SC}
-    property <length> b: 50phx;
-//  >                         <error{Property declarations are not supported in Slint SC}
-//            >    <^error{The type 'length' is not supported in Slint SC}
-//                       >   <^^error{Number literals are not supported in Slint SC}
-    property <length> c: 2cm;
-//  >                       <error{Property declarations are not supported in Slint SC}
-//            >    <^error{The type 'length' is not supported in Slint SC}
-//                       > <^^error{Number literals are not supported in Slint SC}
-    property <length> d: 10mm;
-//  >                        <error{Property declarations are not supported in Slint SC}
-//            >    <^error{The type 'length' is not supported in Slint SC}
-//                       >  <^^error{Number literals are not supported in Slint SC}
-    property <length> e: 1in;
-//  >                       <error{Property declarations are not supported in Slint SC}
-//            >    <^error{The type 'length' is not supported in Slint SC}
-//                       > <^^error{Number literals are not supported in Slint SC}
-    property <length> f: 72pt;
-//  >                        <error{Property declarations are not supported in Slint SC}
-//            >    <^error{The type 'length' is not supported in Slint SC}
-//                       >  <^^error{Number literals are not supported in Slint SC}
-    property <duration> g: 100ms;
-//  >                           <error{Property declarations are not supported in Slint SC}
-//            >      <^error{The type 'duration' is not supported in Slint SC}
-//                         >   <^^error{Number literals are not supported in Slint SC}
-    property <duration> h: 1s;
-//  >                        <error{Property declarations are not supported in Slint SC}
-//            >      <^error{The type 'duration' is not supported in Slint SC}
-//                         ><^^error{Number literals are not supported in Slint SC}
-    property <angle> i: 90deg;
-//  >                        <error{Property declarations are not supported in Slint SC}
-//            >   <^error{The type 'angle' is not supported in Slint SC}
-//                      >   <^^error{Number literals are not supported in Slint SC}
-    property <angle> j: 0.5turn;
-//  >                          <error{Property declarations are not supported in Slint SC}
-//            >   <^error{The type 'angle' is not supported in Slint SC}
-//                      >     <^^error{Number literals are not supported in Slint SC}
-    property <float> k: 50%;
-//  >                      <error{Property declarations are not supported in Slint SC}
-//            >   <^error{The type 'float' is not supported in Slint SC}
-//                      > <^^error{Number literals are not supported in Slint SC}
-    property <length> l: 2rem;
-//  >                        <error{Property declarations are not supported in Slint SC}
-//            >    <^error{The type 'length' is not supported in Slint SC}
-//                       >  <^^error{Number literals are not supported in Slint SC}
+    //#sls.geom.properties
+    //#sls.expr.length.form
+    Rectangle {
+        x: 10px;
+        y: 20px;
+        width: 100px;
+        height: 200px;
+    }
+    //#sls.expr.length.integral
+    Rectangle {
+        x: 10.5px;
+//         >    <error{Non-integral lengths are not supported in Slint SC}
+    }
+    //#sls.expr.length.px-only
+    Rectangle {
+        x: 123;
+//         > <error{Number literals without a unit are not supported in Slint SC}
+//         >  <^error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
+        y: 50%;
+//         > <error{Number literals with the unit '%' are not supported in Slint SC}
+//         >  <^error{Automatic conversion from percentage to length is only possible for the following properties: width, height, preferred-width, preferred-height}
+        width: 50phx;
+//             >   <error{Number literals with the unit 'phx' are not supported in Slint SC}
+        height: 2cm;
+//              > <error{Number literals with the unit 'cm' are not supported in Slint SC}
+    }
+    //#sls.expr.length.px-only
+    Rectangle {
+        x: 10mm;
+//         >  <error{Number literals with the unit 'mm' are not supported in Slint SC}
+        y: 1in;
+//         > <error{Number literals with the unit 'in' are not supported in Slint SC}
+        width: 72pt;
+//             >  <error{Number literals with the unit 'pt' are not supported in Slint SC}
+        height: 2rem;
+//              >  <error{Number literals with the unit 'rem' are not supported in Slint SC}
+    }
+    //#sls.expr.length.px-only
+    Rectangle {
+        x: 100ms;
+//         >   <error{Number literals with the unit 'ms' are not supported in Slint SC}
+//         >    <^error{Cannot convert duration to length}
+        y: 1s;
+//         ><error{Number literals with the unit 's' are not supported in Slint SC}
+//         > <^error{Cannot convert duration to length}
+        width: 90deg;
+//             >   <error{Number literals with the unit 'deg' are not supported in Slint SC}
+//             >    <^error{Cannot convert angle to length}
+        height: 0.5turn;
+//              >     <error{Number literals with the unit 'turn' are not supported in Slint SC}
+//              >      <^error{Cannot convert angle to length}
+    }
+    //#sls.expr.length.px-only
+    Rectangle {
+        x: 100grad;
+//         >     <error{Number literals with the unit 'grad' are not supported in Slint SC}
+//         >      <^error{Cannot convert angle to length}
+        y: 1rad;
+//         >  <error{Number literals with the unit 'rad' are not supported in Slint SC}
+//         >   <^error{Cannot convert angle to length}
+    }
+    Rectangle {
+        x: -10px;
+//         >   <error{Unary expressions are not supported in Slint SC}
+    }
 }

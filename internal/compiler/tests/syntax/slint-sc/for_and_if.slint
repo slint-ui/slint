@@ -9,9 +9,9 @@ export component Test inherits Window {
     for i in [1, 2, 3]: Rectangle { }
 //  >                               <error{Repeated elements (for-in) are not supported in Slint SC}
 //           >       <^error{Array expressions are not supported in Slint SC}
-//            ^^^error{Number literals are not supported in Slint SC}
-//               ^^^^error{Number literals are not supported in Slint SC}
-//                  ^^^^^error{Number literals are not supported in Slint SC}
+//            ^^^error{Number literals without a unit are not supported in Slint SC}
+//               ^^^^error{Number literals without a unit are not supported in Slint SC}
+//                  ^^^^^error{Number literals without a unit are not supported in Slint SC}
 
     if true: Rectangle { }
 //  >                    <error{Conditional elements (if) are not supported in Slint SC}

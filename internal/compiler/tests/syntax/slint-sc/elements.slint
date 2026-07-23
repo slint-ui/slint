@@ -7,24 +7,17 @@ export component Test inherits Window {
     //#sls.geom.window
     x: 1px;
 //     >  <error{The property 'x' is not supported in Slint SC}
-//     > <^error{Number literals are not supported in Slint SC}
     y: 1px;
 //     >  <error{The property 'y' is not supported in Slint SC}
-//     > <^error{Number literals are not supported in Slint SC}
     width: 100px;
 //  >   <error{The property 'width' is not supported in Slint SC}
-//         >   <^error{Number literals are not supported in Slint SC}
     height: 100px;
 //  >    <error{The property 'height' is not supported in Slint SC}
-//          >   <^error{Number literals are not supported in Slint SC}
 
     Rectangle {
         x: 10px;
-//         >  <error{Number literals are not supported in Slint SC}
         width: 20px;
-//             >  <error{Number literals are not supported in Slint SC}
         height: 20px;
-//              >  <error{Number literals are not supported in Slint SC}
         background: red;
 //                  > <error{Identifier references are not supported in Slint SC}
     }
@@ -36,10 +29,8 @@ export component Test inherits Window {
 //              >            <^error{@image-url() expressions are not supported in Slint SC}
         width: 10px;
 //      >   <error{The property 'width' is not supported in Slint SC}
-//             >  <^error{Number literals are not supported in Slint SC}
         height: 10px;
 //      >    <error{The property 'height' is not supported in Slint SC}
-//              >  <^error{Number literals are not supported in Slint SC}
     }
 
     Text {
