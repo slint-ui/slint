@@ -4149,15 +4149,18 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ShowPopupWindow => {
+            // `owner_ref` is the popup's declaring component (its `popup_id` and scope);
+            // `anchor_ref` is the parent item for positioning.
             if let [
                 Expression::NumberLiteral(popup_index),
                 close_policy,
-                Expression::PropertyReference(parent_ref),
+                Expression::PropertyReference(owner_ref),
+                Expression::PropertyReference(anchor_ref),
                 is_open_args @ ..,
             ] = arguments
             {
                 let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
-                let llr::MemberReference::Relative { parent_level, local_reference } = parent_ref
+                let llr::MemberReference::Relative { parent_level, local_reference } = owner_ref
                 else {
                     unreachable!()
                 };
@@ -4172,14 +4175,12 @@ fn compile_builtin_function_call(
                         _ => unreachable!(),
                     };
                 }
-                // The popup is declared in the component of the parent item;
-                // descend the item reference's path with plain field accesses.
                 let (suffix, _) = follow_sub_component_path_fields(
                     ctx.compilation_unit,
                     ctx.parent_sub_component_idx(*parent_level).unwrap(),
                     &local_reference.sub_component_path,
                 );
-                let parent_item = access_item_rc(parent_ref, ctx);
+                let parent_item = access_item_rc(anchor_ref, ctx);
 
                 ctx.with_reference_scope(
                     *parent_level,
