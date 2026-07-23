@@ -137,7 +137,7 @@ def test_plain_text_and_user_data_coexist() -> None:
 
 def test_equality() -> None:
     a = DataTransfer()
-    assert a == a
+    assert a == a  # noqa: PLR0124 -- deliberately checks reflexive equality
     # Modifying one of two independently-constructed transfers makes them
     # unequal — equality is identity-based on the inner content, so two transfers
     # holding distinct payloads are different.

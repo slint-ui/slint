@@ -290,7 +290,7 @@ jobs:
               run: uv run pytest
               working-directory: docs/python
             - name: "Lint the Python docs generator"
-              run: uv tool run ruff@0.15.8 check
+              run: uv tool run ruff@0.16.0 check
               working-directory: docs/python
             - name: "Type-check the Python docs generator"
               run: uvx ty check

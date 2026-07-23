@@ -48,10 +48,10 @@ jobs:
               run: uvx ty check
             - name: Run ruff linter
               working-directory: api/python/slint
-              run: uv tool run ruff@0.15.8 check
+              run: uv tool run ruff@0.16.0 check
             - name: Run ruff linter
               working-directory: api/python/briefcase
-              run: uv tool run ruff@0.15.8 check
+              run: uv tool run ruff@0.16.0 check
             - name: Run python tests
               working-directory: api/python/slint
               run: uv run pytest -s -v

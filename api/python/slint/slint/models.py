@@ -1,11 +1,12 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from ._native import native
-from collections.abc import Iterable
-from abc import abstractmethod
 import typing
-from typing import Any, cast, Iterator
+from abc import abstractmethod
+from collections.abc import Iterable, Iterator
+from typing import Any, cast
+
+from ._native import native
 
 
 class Model[T](native.PyModelBase, Iterable[T]):
@@ -24,7 +25,7 @@ class Model[T](native.PyModelBase, Iterable[T]):
     def __len__(self) -> int:
         return self.row_count()
 
-    def __getitem__(self, index: int) -> typing.Optional[T]:
+    def __getitem__(self, index: int) -> T | None:
         return self.row_data(index)
 
     def __setitem__(self, index: int, value: T) -> None:
@@ -40,7 +41,7 @@ class Model[T](native.PyModelBase, Iterable[T]):
         super().set_row_data(row, value)
 
     @abstractmethod
-    def row_data(self, row: int) -> typing.Optional[T]:
+    def row_data(self, row: int) -> T | None:
         """Returns the data for the given row.
         Re-implement this method in a sub-class to provide the data."""
         return cast(T, super().row_data(row))
@@ -86,7 +87,7 @@ class ListModel[T](Model[T]):
     in UI they're used with.
     """
 
-    def __init__(self, iterable: typing.Optional[Iterable[T]] = None):
+    def __init__(self, iterable: Iterable[T] | None = None):
         """Constructs a new ListModel from the give iterable. All the values
         the iterable produces are stored in a list."""
 
@@ -100,7 +101,7 @@ class ListModel[T](Model[T]):
     def row_count(self) -> int:
         return len(self.list)
 
-    def row_data(self, row: int) -> typing.Optional[T]:
+    def row_data(self, row: int) -> T | None:
         return self.list[row]
 
     def set_row_data(self, row: int, value: T) -> None:

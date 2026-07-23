@@ -1,10 +1,11 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from slint import slint as native
-from slint import models as models
 import typing
 from pathlib import Path
+
+from slint import models
+from slint import slint as native
 
 
 def test_model_notify() -> None:
@@ -272,14 +273,14 @@ def test_model_modifications() -> None:
     assert model[1] == 20
 
     instance.invoke("remove_one", -1)
-    assert len(model), 4
+    assert len(model) == 4
     instance.invoke("remove_one", 10)
-    assert len(model), 4
+    assert len(model) == 4
 
     instance.invoke("insert_one", -1, 30)
-    assert len(model), 4
+    assert len(model) == 4
     instance.invoke("insert_one", 10, 30)
-    assert len(model), 4
+    assert len(model) == 4
 
     model = instance.get_property("empty_ints")
     assert len(model) == 0

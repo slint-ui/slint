@@ -5,27 +5,29 @@ r"""
 .. include:: ../README.md
 """
 
-import os
-import sys
-from ._native import native
-from . import language
-
-import types
-import logging
-import copy
-import typing
-from typing import Any
-import pathlib
-from .models import ListModel, Model
-from .loop import SlintEventLoop
-from pathlib import Path
-from collections.abc import Coroutine
 import asyncio
-import signal
-import threading
+import base64
+import copy
 import gettext
 import gzip
-import base64
+import logging
+import os
+import pathlib
+import signal
+import sys
+import threading
+import types
+import typing
+from collections.abc import Coroutine
+from pathlib import Path
+from typing import Any
+
+from . import language
+from ._native import native
+from .loop import SlintEventLoop
+from .models import ListModel, Model
+
+_logger = logging.getLogger(__name__)
 
 Image = native.Image
 Color = native.Color
@@ -88,10 +90,10 @@ def _normalize_prop(name: str) -> str:
 def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -> Any:
     properties_and_callbacks = {}
 
-    for prop_name in compdef.global_properties(global_name).keys():
+    for prop_name in compdef.global_properties(global_name):
         python_prop = _normalize_prop(prop_name)
         if python_prop in properties_and_callbacks:
-            logging.warning(f"Duplicated property {prop_name}")
+            _logger.warning(f"Duplicated property {prop_name}")
             continue
 
         def mk_setter_getter(prop_or_callback_name: str) -> property:
@@ -112,7 +114,7 @@ def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -
     for callback_name in compdef.global_callbacks(global_name):
         python_prop = _normalize_prop(callback_name)
         if python_prop in properties_and_callbacks:
-            logging.warning(f"Duplicated property {prop_name}")
+            _logger.warning(f"Duplicated property {prop_name}")
             continue
 
         def mk_setter_getter(prop_or_callback_name: str) -> property:
@@ -136,7 +138,7 @@ def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -
     for function_name in compdef.global_functions(global_name):
         python_prop = _normalize_prop(function_name)
         if python_prop in properties_and_callbacks:
-            logging.warning(f"Duplicated function {prop_name}")
+            _logger.warning(f"Duplicated function {prop_name}")
             continue
 
         def mk_getter(function_name: str) -> property:
@@ -211,10 +213,10 @@ def _build_class(
 
     properties_and_callbacks: dict[Any, Any] = {"__init__": cls_init}
 
-    for prop_name in compdef.properties.keys():
+    for prop_name in compdef.properties:
         python_prop = _normalize_prop(prop_name)
         if python_prop in properties_and_callbacks:
-            logging.warning(f"Duplicated property {prop_name}")
+            _logger.warning(f"Duplicated property {prop_name}")
             continue
 
         def mk_setter_getter(prop_or_callback_name: str) -> property:
@@ -231,7 +233,7 @@ def _build_class(
     for callback_name in compdef.callbacks:
         python_prop = _normalize_prop(callback_name)
         if python_prop in properties_and_callbacks:
-            logging.warning(f"Duplicated property {prop_name}")
+            _logger.warning(f"Duplicated property {prop_name}")
             continue
 
         def mk_setter_getter(prop_or_callback_name: str) -> property:
@@ -251,7 +253,7 @@ def _build_class(
     for function_name in compdef.functions:
         python_prop = _normalize_prop(function_name)
         if python_prop in properties_and_callbacks:
-            logging.warning(f"Duplicated function {prop_name}")
+            _logger.warning(f"Duplicated function {prop_name}")
             continue
 
         def mk_getter(function_name: str) -> property:
@@ -271,7 +273,7 @@ def _build_class(
         def mk_global(global_class: typing.Callable[..., Any]) -> property:
             def global_getter(self: Component) -> Any:
                 wrapper = global_class()
-                setattr(wrapper, "__instance__", self.__instance__)
+                wrapper.__instance__ = self.__instance__
                 return wrapper
 
             return property(global_getter)
@@ -300,13 +302,11 @@ def _build_struct(name: str, struct_prototype: native.PyStruct) -> type:
 def _load_file(
     path: str | os.PathLike[Any] | pathlib.Path,
     quiet: bool = False,
-    style: typing.Optional[str] = None,
-    include_paths: typing.Optional[typing.List[os.PathLike[Any] | pathlib.Path]] = None,
-    library_paths: typing.Optional[
-        typing.Dict[str, os.PathLike[Any] | pathlib.Path]
-    ] = None,
-    translation_domain: typing.Optional[str] = None,
-) -> typing.Tuple[types.SimpleNamespace, native.CompilationResult]:
+    style: str | None = None,
+    include_paths: list[os.PathLike[Any] | pathlib.Path] | None = None,
+    library_paths: dict[str, os.PathLike[Any] | pathlib.Path] | None = None,
+    translation_domain: str | None = None,
+) -> tuple[types.SimpleNamespace, native.CompilationResult]:
     """This function is the low-level entry point into Slint for instantiating components. It loads the `.slint` file at
     the specified `path` and returns a namespace with all exported components as Python classes, as well as enums, and structs.
 
@@ -338,9 +338,9 @@ def _load_file(
         if not quiet:
             for diag in diagnostics:
                 if diag.level == native.DiagnosticLevel.Warning:
-                    logging.warning(diag)
+                    _logger.warning(diag)
                 if diag.level == native.DiagnosticLevel.Note:
-                    logging.debug(diag)
+                    _logger.debug(diag)
 
         errors = [
             diag for diag in diagnostics if diag.level == native.DiagnosticLevel.Error
@@ -376,12 +376,10 @@ def _load_file(
 def load_file(
     path: str | os.PathLike[Any] | pathlib.Path,
     quiet: bool = False,
-    style: typing.Optional[str] = None,
-    include_paths: typing.Optional[typing.List[os.PathLike[Any] | pathlib.Path]] = None,
-    library_paths: typing.Optional[
-        typing.Dict[str, os.PathLike[Any] | pathlib.Path]
-    ] = None,
-    translation_domain: typing.Optional[str] = None,
+    style: str | None = None,
+    include_paths: list[os.PathLike[Any] | pathlib.Path] | None = None,
+    library_paths: dict[str, os.PathLike[Any] | pathlib.Path] | None = None,
+    translation_domain: str | None = None,
 ) -> types.SimpleNamespace:
     """This function is the low-level entry point into Slint for instantiating components. It loads the `.slint` file at
     the specified `path` and returns a namespace with all exported components as Python classes, as well as enums, and structs.
@@ -426,7 +424,7 @@ def _load_file_checked(
 
 class SlintAutoLoader:
     def __init__(self, base_dir: Path | None = None):
-        self.local_dirs: typing.List[Path] | None = None
+        self.local_dirs: list[Path] | None = None
         if base_dir:
             self.local_dirs = [base_dir]
 
@@ -477,7 +475,7 @@ main_window.show()
 
 
 def _callback_decorator(
-    callable: typing.Callable[..., Any], info: typing.Dict[str, Any]
+    callable: typing.Callable[..., Any], info: dict[str, Any]
 ) -> typing.Callable[..., Any]:
     if "name" not in info:
         info["name"] = typing.cast(Any, callable).__name__
@@ -554,7 +552,7 @@ quit_event = asyncio.Event()
 
 
 def run_event_loop(
-    main_coro: typing.Optional[Coroutine[None, None, None]] = None,
+    main_coro: Coroutine[None, None, None] | None = None,
 ) -> None:
     """Runs the main Slint event loop. If specified, the coroutine `main_coro` is run in parallel. The event loop doesn't
     terminate when the coroutine finishes, it terminates when calling `quit_event_loop()`.
@@ -595,12 +593,11 @@ def run_event_loop(
     )
 
     async def run_inner() -> None:
-        global quit_event
         loop = typing.cast(SlintEventLoop, asyncio.get_event_loop())
 
         quit_task = asyncio.ensure_future(quit_event.wait(), loop=loop)
 
-        tasks: typing.List[asyncio.Task[typing.Any]] = [quit_task]
+        tasks: list[asyncio.Task[typing.Any]] = [quit_task]
 
         main_task = None
         if main_coro:
@@ -638,11 +635,10 @@ def run_event_loop(
 def quit_event_loop() -> None:
     """Quits the running event loop in the next event processing cycle. This will make an earlier call to `run_event_loop()`
     return."""
-    global quit_event
     quit_event.set()
 
 
-def init_translations(translations: typing.Optional[gettext.GNUTranslations]) -> None:
+def init_translations(translations: gettext.GNUTranslations | None) -> None:
     """Installs the specified translations object to handle translations originating from the Slint code.
 
     Example:
@@ -662,27 +658,27 @@ def init_translations(translations: typing.Optional[gettext.GNUTranslations]) ->
 
 
 __all__ = [
+    "Brush",
+    "Color",
     "CompileError",
     "Component",
-    "load_file",
-    "_load_file_checked",
-    "loader",
-    "Image",
-    "Color",
-    "Brush",
-    "Keys",
     "DataTransfer",
+    "Image",
+    "Keys",
+    "ListModel",
     "LogicalPosition",
     "LogicalSize",
-    "StyledText",
     "Model",
-    "ListModel",
+    "StyledText",
     "Timer",
     "TimerMode",
-    "set_xdg_app_id",
+    "_load_file_checked",
     "callback",
-    "run_event_loop",
-    "quit_event_loop",
     "init_translations",
     "language",
+    "load_file",
+    "loader",
+    "quit_event_loop",
+    "run_event_loop",
+    "set_xdg_app_id",
 ]
