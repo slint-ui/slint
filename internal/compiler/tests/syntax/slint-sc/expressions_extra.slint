@@ -6,16 +6,14 @@
 export component Test inherits Window {
     // @markdown
     property <string> a: @markdown("hello");
-//  >                                      <error{Property declarations are not supported in Slint SC}
-//            >    <^error{The type 'string' is not supported in Slint SC}
-//                       >                <^^error{@markdown() expressions are not supported in Slint SC}
-//                       >                 <^^^error{Cannot convert styled-text to string}
+//            >    <error{The type 'string' is not supported in Slint SC}
+//                       >                <^error{@markdown() expressions are not supported in Slint SC}
+//                       >                 <^^error{Cannot convert styled-text to string}
     // @keys (used in key-event-filter context)
     property <string> b: @keys(Return);
-//  >                                 <error{Property declarations are not supported in Slint SC}
-//            >    <^error{The type 'string' is not supported in Slint SC}
-//                       >           <^^error{@keys() expressions are not supported in Slint SC}
-//                       >            <^^^error{Cannot convert keys to string}
+//            >    <error{The type 'string' is not supported in Slint SC}
+//                       >           <^error{@keys() expressions are not supported in Slint SC}
+//                       >            <^^error{Cannot convert keys to string}
     // self-assignment
     callback clicked();
 //  >                 <error{Callback declarations are not supported in Slint SC}

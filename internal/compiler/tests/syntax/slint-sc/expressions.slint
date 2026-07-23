@@ -6,111 +6,93 @@
 export component Test inherits Window {
     // number literals
     property <int> a: 42;
-//  >                   <error{Property declarations are not supported in Slint SC}
-//            > <^error{The type 'int' is not supported in Slint SC}
-//                    ><^^error{Number literals without a unit are not supported in Slint SC}
+//            > <error{The type 'int' is not supported in Slint SC}
+//                    ><^error{Number literals without a unit are not supported in Slint SC}
     // binary expressions and identifier references
     property <int> b: a + 1;
-//  >                      <error{Property declarations are not supported in Slint SC}
-//            > <^error{The type 'int' is not supported in Slint SC}
-//                    >   <^^error{Binary expressions are not supported in Slint SC}
-//                    ><^^^error{Identifier references are not supported in Slint SC}
-//                        ^^^^^error{Number literals without a unit are not supported in Slint SC}
+//            > <error{The type 'int' is not supported in Slint SC}
+//                    >   <^error{Binary expressions are not supported in Slint SC}
+//                    ><^^error{Identifier references are not supported in Slint SC}
+//                        ^^^^error{Number literals without a unit are not supported in Slint SC}
     // comparison
     property <bool> c: a > 0;
-//  >                       <error{Property declarations are not supported in Slint SC}
-//            >  <^error{The type 'bool' is not supported in Slint SC}
-//                     >   <^^error{Binary expressions are not supported in Slint SC}
-//                     ><^^^error{Identifier references are not supported in Slint SC}
-//                         ^^^^^error{Number literals without a unit are not supported in Slint SC}
+//            >  <error{The type 'bool' is not supported in Slint SC}
+//                     >   <^error{Binary expressions are not supported in Slint SC}
+//                     ><^^error{Identifier references are not supported in Slint SC}
+//                         ^^^^error{Number literals without a unit are not supported in Slint SC}
     // conditional (ternary)
     property <int> d: c ? 1 : 0;
-//  >                          <error{Property declarations are not supported in Slint SC}
-//            > <^error{The type 'int' is not supported in Slint SC}
-//                    >       <^^error{Conditional expressions are not supported in Slint SC}
-//                    ><^^^error{Identifier references are not supported in Slint SC}
-//                        ^^^^^error{Number literals without a unit are not supported in Slint SC}
-//                            ^^^^^^error{Number literals without a unit are not supported in Slint SC}
+//            > <error{The type 'int' is not supported in Slint SC}
+//                    >       <^error{Conditional expressions are not supported in Slint SC}
+//                    ><^^error{Identifier references are not supported in Slint SC}
+//                        ^^^^error{Number literals without a unit are not supported in Slint SC}
+//                            ^^^^^error{Number literals without a unit are not supported in Slint SC}
     // string literals
     property <string> e: "hello";
-//  >                           <error{Property declarations are not supported in Slint SC}
-//            >    <^error{The type 'string' is not supported in Slint SC}
-//                       >     <^^error{String literals are not supported in Slint SC}
+//            >    <error{The type 'string' is not supported in Slint SC}
+//                       >     <^error{String literals are not supported in Slint SC}
     // string interpolation
     property <string> f: "val: \{a}";
-//  >                               <error{Property declarations are not supported in Slint SC}
-//            >    <^error{The type 'string' is not supported in Slint SC}
-//                       >         <^^error{String interpolation expressions are not supported in Slint SC}
-//                               ^^^^error{Identifier references are not supported in Slint SC}
+//            >    <error{The type 'string' is not supported in Slint SC}
+//                       >         <^error{String interpolation expressions are not supported in Slint SC}
+//                               ^^^error{Identifier references are not supported in Slint SC}
     // color literals
     property <color> g: #ff0000;
-//  >                          <error{Property declarations are not supported in Slint SC}
-//            >   <^error{The type 'color' is not supported in Slint SC}
     // unary expressions
     property <int> h: -a;
-//  >                   <error{Property declarations are not supported in Slint SC}
-//            > <^error{The type 'int' is not supported in Slint SC}
-//                    ><^^error{Unary expressions are not supported in Slint SC}
-//                     ^^^^error{Identifier references are not supported in Slint SC}
+//            > <error{The type 'int' is not supported in Slint SC}
+//                    ><^error{Unary expressions are not supported in Slint SC}
+//                     ^^^error{Identifier references are not supported in Slint SC}
     // @image-url
     property <image> i: @image-url("");
-//  >                                 <error{Property declarations are not supported in Slint SC}
-//            >   <^error{The type 'image' is not supported in Slint SC}
-//                      >            <^^error{@image-url() expressions are not supported in Slint SC}
+//            >   <error{The type 'image' is not supported in Slint SC}
+//                      >            <^error{@image-url() expressions are not supported in Slint SC}
     // @tr
     property <string> j: @tr("hello");
-//  >                                <error{Property declarations are not supported in Slint SC}
-//            >    <^error{The type 'string' is not supported in Slint SC}
-//                       >          <^^error{@tr() expressions are not supported in Slint SC}
+//            >    <error{The type 'string' is not supported in Slint SC}
+//                       >          <^error{@tr() expressions are not supported in Slint SC}
     // @gradient
     property <brush> k: @linear-gradient(0deg, red, blue);
-//  >                                                    <error{Property declarations are not supported in Slint SC}
-//            >   <^error{The type 'brush' is not supported in Slint SC}
-//                      >                               <^^error{@gradient expressions are not supported in Slint SC}
-//                                       >  <^^^error{Number literals with the unit 'deg' are not supported in Slint SC}
-//                                             > <^^^^error{Identifier references are not supported in Slint SC}
-//                                                  >  <^^^^^error{Identifier references are not supported in Slint SC}
+//            >   <error{The type 'brush' is not supported in Slint SC}
+//                      >                               <^error{@gradient expressions are not supported in Slint SC}
+//                                       >  <^^error{Number literals with the unit 'deg' are not supported in Slint SC}
+//                                             > <^^^error{Identifier references are not supported in Slint SC}
+//                                                  >  <^^^^error{Identifier references are not supported in Slint SC}
     // array expression
     property <[int]> l: [1, 2, 3];
-//  >                            <error{Property declarations are not supported in Slint SC}
-//            >   <^error{Array types are not supported in Slint SC}
-//             > <^^error{The type 'int' is not supported in Slint SC}
-//                      >       <^^^error{Array expressions are not supported in Slint SC}
-//                       ^^^^^error{Number literals without a unit are not supported in Slint SC}
-//                          ^^^^^^error{Number literals without a unit are not supported in Slint SC}
-//                             ^^^^^^^error{Number literals without a unit are not supported in Slint SC}
+//            >   <error{Array types are not supported in Slint SC}
+//             > <^error{The type 'int' is not supported in Slint SC}
+//                      >       <^^error{Array expressions are not supported in Slint SC}
+//                       ^^^^error{Number literals without a unit are not supported in Slint SC}
+//                          ^^^^^error{Number literals without a unit are not supported in Slint SC}
+//                             ^^^^^^error{Number literals without a unit are not supported in Slint SC}
     // object literal
     property <{x: int, y: int}> m: { x: 1, y: 2 };
-//  >                                            <error{Property declarations are not supported in Slint SC}
-//            >              <^error{Inline struct types are not supported in Slint SC}
-//                > <^^error{The type 'int' is not supported in Slint SC}
-//                        > <^^^error{The type 'int' is not supported in Slint SC}
-//                                 >            <^^^^error{Object literal expressions are not supported in Slint SC}
-//                                      ^^^^^^error{Number literals without a unit are not supported in Slint SC}
-//                                            ^^^^^^^error{Number literals without a unit are not supported in Slint SC}
+//            >              <error{Inline struct types are not supported in Slint SC}
+//                > <^error{The type 'int' is not supported in Slint SC}
+//                        > <^^error{The type 'int' is not supported in Slint SC}
+//                                 >            <^^^error{Object literal expressions are not supported in Slint SC}
+//                                      ^^^^^error{Number literals without a unit are not supported in Slint SC}
+//                                            ^^^^^^error{Number literals without a unit are not supported in Slint SC}
     // member access
     property <int> n: m.x;
-//  >                    <error{Property declarations are not supported in Slint SC}
-//            > <^error{The type 'int' is not supported in Slint SC}
-//                    > <^^error{Identifier references are not supported in Slint SC}
+//            > <error{The type 'int' is not supported in Slint SC}
+//                    > <^error{Identifier references are not supported in Slint SC}
     // self-assignment (via callback handler context)
     // index expression
     property <int> o: l[0];
-//  >                     <error{Property declarations are not supported in Slint SC}
-//            > <^error{The type 'int' is not supported in Slint SC}
-//                    >  <^^error{Index expressions are not supported in Slint SC}
-//                    ^^^^error{Identifier references are not supported in Slint SC}
-//                      ^^^^^error{Number literals without a unit are not supported in Slint SC}
+//            > <error{The type 'int' is not supported in Slint SC}
+//                    >  <^error{Index expressions are not supported in Slint SC}
+//                    ^^^error{Identifier references are not supported in Slint SC}
+//                      ^^^^error{Number literals without a unit are not supported in Slint SC}
     // function call
     property <int> p: Math.max(1, 2);
-//  >                               <error{Property declarations are not supported in Slint SC}
-//            > <^error{The type 'int' is not supported in Slint SC}
-//                    >            <^^error{Function calls are not supported in Slint SC}
-//                             ^^^^error{Number literals without a unit are not supported in Slint SC}
-//                                ^^^^^error{Number literals without a unit are not supported in Slint SC}
+//            > <error{The type 'int' is not supported in Slint SC}
+//                    >            <^error{Function calls are not supported in Slint SC}
+//                             ^^^error{Number literals without a unit are not supported in Slint SC}
+//                                ^^^^error{Number literals without a unit are not supported in Slint SC}
     // code block
     property <int> q: { 42 };
-//  >                       <error{Property declarations are not supported in Slint SC}
-//            > <^error{The type 'int' is not supported in Slint SC}
-//                      ><^^error{Number literals without a unit are not supported in Slint SC}
+//            > <error{The type 'int' is not supported in Slint SC}
+//                      ><^error{Number literals without a unit are not supported in Slint SC}
 }
