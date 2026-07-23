@@ -102,6 +102,9 @@ export default function rehypeSlsIds({
 
         walk(tree, (node, depth) => {
             if (node.tagName !== "p") return;
+            // A feature outside the certified subset states no requirement, so
+            // it carries no identifier. See rehype-not-in-sc.mjs.
+            if (node.data?.notInSc) return;
             const last = node.children.at(-1);
             const match =
                 last?.type === "text" ? last.value.match(ID_MARKER) : null;

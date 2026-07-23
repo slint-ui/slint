@@ -146,7 +146,9 @@ component BasicBorderRectangle inherits Rectangle {
 /// By default, a `Rectangle` is just an empty item that shows nothing. By setting a color or configuring a border,
 /// it's then possible to draw a rectangle on the screen. \{#sls.meta.rectangle.purpose}
 ///
-/// When not part of a layout, its width and height default to 100% of the parent element. \{#sls.ref.rectangle.default-size}
+/// <NotInSC>
+/// When not part of a layout, its width and height default to 100% of the parent element.
+/// </NotInSC>
 ///
 /// ```slint playground imageAlt="rectangle example"
 /// export component ExampleRectangle inherits Window {
@@ -1582,11 +1584,15 @@ component WindowItem {
 
 /// `Window` is the root of the tree of elements that are visible on the screen. \{#sls.meta.window.purpose}
 ///
+/// <NotInSC>
 /// The `Window` geometry will be restricted by its layout constraints: Setting the `width` will result in a fixed width,
 /// and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
-/// or smaller. The initial width can be controlled with the `preferred-width` property. The same applies to the `Window`s height. \{#sls.ref.window.geometry-constraints}
+/// or smaller. The initial width can be controlled with the `preferred-width` property. The same applies to the `Window`s height.
+/// </NotInSC>
 ///
-/// Use the <Link type="MenuBar" /> element to declare a menu bar for the window. \{#sls.meta.window.menu-bar}
+/// <NotInSC>
+/// Use the <Link type="MenuBar" /> element to declare a menu bar for the window.
+/// </NotInSC>
 /// \group:window
 /// \sc
 export component Window inherits WindowItem {

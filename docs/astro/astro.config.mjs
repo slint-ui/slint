@@ -12,6 +12,7 @@ import {
 } from "@slint/common-files/src/utils/starlight-site-defaults";
 import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
 import rehypeSlsIds from "@slint/common-files/src/utils/rehype-sls-ids.mjs";
+import rehypeNotInSc from "@slint/common-files/src/utils/rehype-not-in-sc.mjs";
 import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 import {
     BASE_PATH,
@@ -38,7 +39,7 @@ export default defineConfig({
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
     markdown: {
         gfm: true,
-        rehypePlugins: [rehypeExternalLinksSlint, rehypeSlsIds],
+        rehypePlugins: [rehypeExternalLinksSlint, rehypeNotInSc, rehypeSlsIds],
     },
     integrations: [
         sitemap(),

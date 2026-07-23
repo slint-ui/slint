@@ -206,7 +206,15 @@ fn clean_builtin_doc(raw: &str) -> String {
         if trimmed.starts_with('\\') {
             continue;
         }
-        if trimmed.starts_with('<') && trimmed.ends_with("/>") {
+        // A line that is nothing but a tag is markup for the documentation
+        // site, not prose. That covers `<Link … />` as well as the
+        // `<NotInSC>` … `</NotInSC>` pair marking what the safety-certified
+        // subset leaves out, whose text the tooltip keeps: it documents the
+        // full language.
+        // TODO: once the LSP serves Slint SC development too, it should tell
+        // the reader that a feature inside `<NotInSC>` is unavailable there
+        // instead of presenting it like the rest.
+        if trimmed.starts_with('<') && trimmed.ends_with('>') && !trimmed[1..].contains('<') {
             continue;
         }
         if !result.is_empty() {
