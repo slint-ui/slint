@@ -15,7 +15,6 @@ import {
     SAFETY_DOCS_BASE_PATH,
 } from "./src/safety-site-config.mjs";
 import rehypeSlsIds from "@slint/common-files/src/utils/rehype-sls-ids.mjs";
-import rehypeNotInSc from "@slint/common-files/src/utils/rehype-not-in-sc.mjs";
 
 const _safetyOrigin = String(SAFETY_DOCS_BASE_URL).replace(/\/+$/, "");
 const _safetyAtRoot = SAFETY_DOCS_BASE_PATH === "/";
@@ -36,9 +35,6 @@ export default defineConfig({
         // every paragraph of it carries a traceability id.
         rehypePlugins: [
             rehypeExternalLinksSlint,
-            // Before the identifiers are assigned: paragraphs this site omits
-            // state no requirement and carry none.
-            [rehypeNotInSc, { omit: true }],
             [rehypeSlsIds, { generatedReferenceRequiresIds: true }],
         ],
     },

@@ -87,6 +87,7 @@
         "src/components/HeaderPythonDocs.astro",
         "src/components/HeaderSlintDocs.astro",
         "src/components/HeaderVersioned.astro",
+        "src/components/NotInSC.astro",
         "src/components/ThemeSelect.astro",
         "src/components/VersionSelector.astro",
         "src/components/ThreeCardGrid.astro",

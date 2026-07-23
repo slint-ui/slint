@@ -12,7 +12,6 @@ import {
 } from "@slint/common-files/src/utils/starlight-site-defaults";
 import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
 import rehypeSlsIds from "@slint/common-files/src/utils/rehype-sls-ids.mjs";
-import rehypeNotInSc from "@slint/common-files/src/utils/rehype-not-in-sc.mjs";
 import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 import {
     BASE_PATH,
@@ -41,7 +40,6 @@ export default defineConfig({
         gfm: true,
         rehypePlugins: [
             rehypeExternalLinksSlint,
-            rehypeNotInSc,
             // The traceability identifiers anchor the paragraphs here too, but
             // only the safety manual displays them.
             [rehypeSlsIds, { renderBadge: false }],
