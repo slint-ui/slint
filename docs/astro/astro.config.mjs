@@ -250,6 +250,10 @@ export default defineConfig({
                                                   label: "Match Elements",
                                                   slug: "guide/experimental/match-elements",
                                               },
+                                              {
+                                                  label: "Deprecated Properties",
+                                                  slug: "guide/experimental/deprecated",
+                                              },
                                           ],
                                       },
                                   ]
