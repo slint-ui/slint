@@ -28,7 +28,7 @@ const TEST_ROOTS: &[(&str, &str)] =
 
 /// Name of the matrix this module writes into
 /// [`Config::qualification_plan_dir`], the section it belongs to.
-const MATRIX_FILE: &str = "traceability-matrix.md";
+const MATRIX_FILE: &str = "traceability-matrix.mdx";
 
 const REPO_URL: &str = env!("CARGO_PKG_REPOSITORY");
 
@@ -183,7 +183,7 @@ fn parse_spec_page(file: &str, text: &str) -> (SpecPage, Option<String>) {
             continue;
         }
         if in_comment {
-            in_comment = !t.contains("-->");
+            in_comment = !t.contains("-->") && !t.contains("*/}");
             continue;
         }
         if t.starts_with("```") {
@@ -204,8 +204,13 @@ fn parse_spec_page(file: &str, text: &str) -> (SpecPage, Option<String>) {
         if in_not_in_sc {
             continue;
         }
+        // Both comment forms: markdown pages use `<!-- -->`, MDX `{/* */}`.
         if t.starts_with("<!--") {
             in_comment = !t.contains("-->");
+            continue;
+        }
+        if t.starts_with("{/*") {
+            in_comment = !t.contains("*/}");
             continue;
         }
         if let Some(id) = anchor_id(line) {
@@ -229,7 +234,7 @@ fn scan_spec_pages(dir: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Erro
     let mut paths: Vec<std::path::PathBuf> = std::fs::read_dir(dir)
         .context(format!("error reading {dir:?}"))?
         .filter_map(|e| Some(e.ok()?.path()))
-        .filter(|p| p.extension().is_some_and(|e| e == "md"))
+        .filter(|p| p.extension().is_some_and(|e| e == "md" || e == "mdx"))
         .collect();
     paths.sort_by_key(|p| {
         let stem = p.file_stem().unwrap_or_default().to_string_lossy().into_owned();
@@ -240,7 +245,8 @@ fn scan_spec_pages(dir: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Erro
     for path in paths {
         let stem = path.file_stem().unwrap_or_default().to_string_lossy().into_owned();
         let text = std::fs::read_to_string(&path).context(format!("error reading {path:?}"))?;
-        let (mut page, _) = parse_spec_page(&format!("{SPEC_DIR}/{stem}.md"), &text);
+        let file = path.file_name().unwrap_or_default().to_string_lossy();
+        let (mut page, _) = parse_spec_page(&format!("{SPEC_DIR}/{file}"), &text);
         // The index page is served at the root of the specification.
         page.top_level = stem == "index";
         page.base = if page.top_level {
