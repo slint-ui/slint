@@ -1,13 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore codingame lumino mimetypes printerdemo
+// cSpell: ignore ccfe codingame lumino mimetypes printerdemo
 
 import * as monaco from "monaco-editor";
 
 import { slint_language } from "./highlighting";
 import type { Lsp } from "./lsp";
 import * as github from "./github";
+import type { Template } from "./welcome";
 
 import { BoxLayout, TabPanel, Widget } from "@lumino/widgets";
 import type { Message as LuminoMessage } from "@lumino/messaging";
@@ -37,6 +38,41 @@ let EDITOR_WIDGET: EditorWidget | null = null;
 
 const FILESYSTEM_PROVIDER: RegisteredFileSystemProvider =
     new RegisteredFileSystemProvider(false);
+
+const SLINT_DARK_THEME = "slint-dark";
+
+// A dark editor theme that matches the slint.dev brand syntax palette.
+// Token names correspond to the Monarch grammar in `highlighting.ts`.
+function define_slint_dark_theme(): void {
+    monaco.editor.defineTheme(SLINT_DARK_THEME, {
+        base: "vs-dark",
+        inherit: true,
+        rules: [
+            { token: "comment", foreground: "5d6b78", fontStyle: "italic" },
+            { token: "keyword", foreground: "c792ea" },
+            { token: "keyword.type", foreground: "5ccfe6" },
+            { token: "string", foreground: "a9dc76" },
+            { token: "string.escape", foreground: "ffc26b" },
+            { token: "string.escape.invalid", foreground: "ff6a3d" },
+            { token: "number", foreground: "ffc26b" },
+            { token: "variable.parameter", foreground: "7ea9ff" },
+            { token: "identifier", foreground: "cdd6e0" },
+        ],
+        colors: {
+            "editor.background": "#0f1418",
+            "editor.foreground": "#cdd6e0",
+            "editorLineNumber.foreground": "#3b4854",
+            "editorLineNumber.activeForeground": "#7e8b96",
+            "editor.selectionBackground": "#2a3f66",
+            "editor.lineHighlightBackground": "#161f26",
+            "editorCursor.foreground": "#7fb6ff",
+            "editorWidget.background": "#141c20",
+            "editorWidget.border": "#243139",
+            "editorGutter.background": "#0f1418",
+            "editorIndentGuide.background1": "#1e2a31",
+        },
+    });
+}
 
 export function initialize(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -173,6 +209,8 @@ export function initialize(): Promise<void> {
                             slint_language,
                         );
                     });
+
+                    define_slint_dark_theme();
 
                     resolve();
                 })
@@ -313,6 +351,7 @@ class EditorPaneWidget extends Widget {
 
         this.#editor = monaco.editor.create(this.contentNode, {
             model: model_ref.object.textEditorModel,
+            theme: SLINT_DARK_THEME,
         });
 
         this.#editor.onDidFocusEditorText((_) => {
@@ -425,8 +464,25 @@ export class EditorWidget extends Widget {
             void this.project_from_url(load_url);
         } else if (load_demo) {
             void this.set_demo(load_demo);
-        } else if (!this.restore_from_history_state()) {
-            void this.set_demo("");
+        } else {
+            // On reload, restore the previous project. On a true first run this
+            // does nothing and the editor stays empty: the startup screen
+            // (index.ts) offers starter templates and applies the chosen one
+            // through apply_template().
+            this.restore_from_history_state();
+        }
+    }
+
+    // Load a starter template chosen on the first-run startup screen.
+    public apply_template(template: Template) {
+        if (template.demo) {
+            void this.set_demo(template.demo);
+        } else {
+            this.clear_editors();
+            this.open_file_with_content(
+                internal_file_uri("/main.slint"),
+                template.code ?? "",
+            );
         }
     }
 
