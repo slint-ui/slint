@@ -7,7 +7,10 @@
 // MDX files (where an unescaped `{` starts a JSX expression). The escape is
 // consumed by the markdown parser, so this plugin sees `{#sls.xxx}`; it strips
 // the marker, sets it as the paragraph's `id`, and appends a visible
-// `[sls.xxx]` badge that doubles as an anchor.
+// `[sls.xxx]` badge that doubles as an anchor. The badge is what makes an
+// identifier citable at a glance, which the safety manual needs and the main
+// documentation doesn't: pass `{ renderBadge: false }` there to keep the
+// identifiers as anchors without showing them.
 //
 // The markers are authoring syntax, so no page ever renders one verbatim:
 // where a page carries no identifiers -- the same doc comments feed the main
@@ -61,6 +64,7 @@ function textPreview(node) {
 
 export default function rehypeSlsIds({
     generatedReferenceRequiresIds = false,
+    renderBadge = true,
 } = {}) {
     // Closure-scoped: persists across files in one build, so a duplicate
     // id assigned in two different pages fails the build. The (id ->
@@ -151,6 +155,9 @@ export default function rehypeSlsIds({
             }
 
             node.properties = { ...(node.properties || {}), id };
+            // The identifier stays an anchor either way: the specification
+            // cites paragraphs across chapters with `#sls.…` links.
+            if (!renderBadge) return;
             node.children.push({
                 type: "element",
                 tagName: "a",

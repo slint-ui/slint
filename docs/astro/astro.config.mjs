@@ -39,7 +39,13 @@ export default defineConfig({
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
     markdown: {
         gfm: true,
-        rehypePlugins: [rehypeExternalLinksSlint, rehypeNotInSc, rehypeSlsIds],
+        rehypePlugins: [
+            rehypeExternalLinksSlint,
+            rehypeNotInSc,
+            // The traceability identifiers anchor the paragraphs here too, but
+            // only the safety manual displays them.
+            [rehypeSlsIds, { renderBadge: false }],
+        ],
     },
     integrations: [
         sitemap(),
