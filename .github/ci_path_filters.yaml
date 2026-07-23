@@ -23,22 +23,43 @@ js_config: &js_config
  - '.npmrc'
  - 'pnpm-lock.yaml'
 
-# Runtime, compiler and Rust API: changes here can break the examples, demos
-# and integration tests, unlike changes to the tools (which only affect the
-# root workspace) or to the examples themselves.
-framework: &framework
- - '.github/workflows/build_and_test_reusable.yaml'
- - 'api/rs/**'
+# Compiler and runtime shared by all language APIs; they need the Qt widgets
+# and the testing backend, but no renderer. Language-specific generators and
+# the compiler's own test data are left to the api_* and `slint` groups.
+internal: &internal
+ - 'internal/!({compiler,renderers,backends}/**)'
+ - 'internal/compiler/!({tests,generator}/**)'
+ - 'internal/compiler/generator/!(cpp*|python*|rust*|slint_sc*){,/**}'
+ - 'internal/backends/qt/**'
+ - 'internal/backends/testing/**'
  - 'helper_crates/**'
- - 'internal/**'
- - 'Cargo.toml'
+ - 'Cargo.toml' # the root Cargo.toml
  - '.cargo/**'
  - *ci_config
 
-# Everything the root-workspace `cargo test` covers
+# What the integration tests in the tests/ workspace build against.
+integration: &integration
+ - *internal
+ - '.github/workflows/build_and_test_reusable.yaml'
+ - 'api/rs/**'
+ - 'internal/compiler/generator/rust*{,/**}'
+ - 'internal/renderers/{skia,software}/**'
+ - 'internal/backends/winit/**'
+
+# Runtime, compiler and Rust API: changes here can break the examples and
+# demos, unlike changes to the tools or to the examples themselves.
+framework: &framework
+ - *integration
+ - 'internal/renderers/**'
+ - 'internal/backends/**'
+
+# Everything the root-workspace `cargo test` covers: all of internal/ (also
+# what the groups above exclude), the tools, and the screenshots that the
+# testing backend and the viewer tests embed.
 slint:
  - *framework
- - 'tests/**'
+ - 'internal/**'
+ - 'tests/screenshots/**'
  - 'tools/compiler/**'
  - 'tools/figma_import/**'
  - 'tools/lsp/**'
@@ -89,22 +110,11 @@ material_components:
  - *js_config
  - *ci_config
 
-
-internal: &internal
- # The API specific tests don't depends on renderer or backend, but they do depend on the Qt widgets and the testing backend
- - 'internal/!({renderers,backends}/**)'
- - 'internal/backends/qt/**'
- - 'internal/backends/testing/**'
- - 'helper_crates/**'
- - 'Cargo.toml' # the root Cargo.toml
- - '.cargo/**'
- - *ci_config
-
 api_cpp:
  - 'api/cpp/**'
  - 'cmake/**'
  - 'tools/compiler/**'
- - 'internal/compiler/generator/cpp*'
+ - 'internal/compiler/generator/cpp*{,/**}'
  # The renderers are not part of the `internal` group, but are exposed in the C++ API
  - 'internal/renderers/{skia,software}/**'
 
@@ -113,6 +123,7 @@ android_backend:
 
 api_python:
  - 'api/python/**'
+ - 'internal/compiler/generator/python*{,/**}'
  - '.github/workflows/python_test_reusable.yaml'
 
 api_node:
@@ -123,10 +134,11 @@ api_node:
 api_rs:
  - 'api/rs/**'
  - 'Cargo.toml'
- - 'internal/compiler/generator/rust*'
+ - 'internal/compiler/generator/rust*{,/**}'
 
+# All the test drivers except doctests, which only the docs build runs.
 tests:
- - 'tests/**'
+ - 'tests/!(doctests/**)'
 
 examples:
  # Some examples are tested separately and can be excluded from here
