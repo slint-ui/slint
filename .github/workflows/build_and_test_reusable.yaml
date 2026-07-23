@@ -169,6 +169,19 @@ jobs:
                 SLINT_LIVE_PREVIEW: 1
               run: cargo test --locked --verbose --all-features --manifest-path tests/Cargo.toml --features slint/live-preview -p test-driver-rust -- --skip=_qt::t
               shell: bash
+            # The linked Skia libraries are plain files in out/skia; the
+            # subdirectories are ninja intermediates from a source build and
+            # .cache holds the downloaded archives. Neither belongs in the
+            # multi-gigabyte rust-cache blob this job saves on master.
+            - name: Trim Skia build intermediates before the cache is saved
+              if: always()
+              shell: bash
+              run: |
+                  for dir in target/*/build/skia-bindings-*/out; do
+                      [ -d "$dir" ] || continue
+                      find "$dir/skia" -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
+                      rm -rf "$dir/.cache"
+                  done
             - name: Upload build timing reports
               if: always()
               uses: actions/upload-artifact@v7

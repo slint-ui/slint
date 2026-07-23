@@ -84,6 +84,7 @@ jobs:
         if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
         with:
           key: android-build
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Install xbuild
         if: (steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true') && steps.xbuild-cache.outputs.cache-hit != 'true'

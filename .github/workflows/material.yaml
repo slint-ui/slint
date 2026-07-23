@@ -63,6 +63,7 @@ jobs:
           - uses: Swatinem/rust-cache@v2
             with:
                 key: tests
+                save-if: ${{ github.ref == 'refs/heads/master' }}
           - name: Build & run tests
             run: cargo test -p material-gallery
 
