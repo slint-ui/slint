@@ -1174,6 +1174,11 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
+        // A child element's parent_type is the type of its parent; the root
+        // gets a sentinel from Component::from_node
+        #[cfg(feature = "slint-sc")]
+        let is_component_root =
+            !matches!(parent_type, ElementType::Builtin(_) | ElementType::Component(_));
         let base_type = if let Some(base_node) = node.QualifiedName() {
             let base = QualifiedTypeName::from_node(base_node.clone());
             let base_string = base.to_smolstr();
@@ -1299,8 +1304,14 @@ impl Element {
         )> = Vec::new();
 
         for prop_decl in node.PropertyDeclaration() {
+            // Only the root element's properties become part of the component's API
             #[cfg(feature = "slint-sc")]
-            diag.slint_sc_error("Property declarations are", &prop_decl);
+            if !is_component_root {
+                diag.slint_sc_error(
+                    "Declaring a property on an element other than the root is",
+                    &prop_decl,
+                );
+            }
             let prop_type = prop_decl
                 .Type()
                 .map(|type_node| type_from_node(type_node, diag, tr))
@@ -2727,7 +2738,9 @@ pub fn type_from_node(
         let prop_type = tr.lookup_qualified(&qualified_type.members);
 
         #[cfg(feature = "slint-sc")]
-        diag.slint_sc_error(&format!("The type '{qualified_type}' is"), &qualified_type_node);
+        if !prop_type.is_slint_sc() {
+            diag.slint_sc_error(&format!("The type '{qualified_type}' is"), &qualified_type_node);
+        }
 
         if prop_type == Type::Invalid && tr.lookup_element(&qualified_type.to_smolstr()).is_err() {
             diag.push_error(format!("Unknown type '{qualified_type}'"), &qualified_type_node);

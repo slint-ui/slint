@@ -1,0 +1,55 @@
+---
+title: Properties
+description: Declaring properties on elements.
+---
+
+import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
+import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
+
+An element has a set of named *properties*, determined by the type of the element.
+A property holds a value. \{#sls.prop.def}
+
+A *property declaration* adds a property to the element in whose body it appears.
+It consists of the keyword `property`, the type in angle brackets, and a name,
+optionally preceded by a visibility modifier,
+optionally followed by `:` and an expression giving the initial value,
+and ends with `;`. \{#sls.prop.decl.form}
+
+```slint
+export component Example inherits Window {
+    in property <color> tint;
+    in-out property <length> gap: 10px;
+}
+```
+
+The modifier declares the property's *visibility*:
+which side may read and set the property's value. \{#sls.prop.decl.visibility}
+
+An `in` property is an input of the component: the application sets its value. \{#sls.prop.decl.in}
+
+An `out` property is an output of the component:
+the component determines its value, and the application reads it. \{#sls.prop.decl.out}
+
+An `in-out` property is both: the application sets and reads its value. \{#sls.prop.decl.in-out}
+
+A `private` property is internal to the component:
+the application can neither set nor read it.
+Private is the default: a declaration without a modifier declares a private property. \{#sls.prop.decl.private}
+
+<OnlyInSC>
+Properties shall only be declared on the root element. \{#sls.prop.decl.root-only}
+</OnlyInSC>
+
+<NotInSC>
+Properties can be declared on any element;
+see [Properties](../../../guide/language/coding/properties/).
+</NotInSC>
+
+The declared type shall be `length` or `color`. \{#sls.prop.decl.types}
+
+<NotInSC>
+Any [property type](../../primitive-types/) can be declared.
+</NotInSC>
+
+Without an initial value, the property has the default value of its
+[type](../types/). \{#sls.prop.decl.default}

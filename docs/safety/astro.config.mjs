@@ -175,6 +175,10 @@ export default defineConfig({
                             slug: "language/exports",
                         },
                         {
+                            label: "Properties",
+                            slug: "language/properties",
+                        },
+                        {
                             label: "Bindings",
                             slug: "language/bindings",
                         },

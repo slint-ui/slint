@@ -1,19 +1,26 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Property declarations are rejected in Slint SC mode.
+// Properties of type length or color can be declared on the root element.
 
 export component Test inherits Window {
-    in-out property <int> a: 1;
-//  >                         <error{Property declarations are not supported in Slint SC}
-//                   > <^error{The type 'int' is not supported in Slint SC}
-//                           ^^^error{Number literals without a unit are not supported in Slint SC}
-    property <string> s: "hello";
-//  >                           <error{Property declarations are not supported in Slint SC}
-//            >    <^error{The type 'string' is not supported in Slint SC}
-//                       >     <^^error{String literals are not supported in Slint SC}
-    out property <color> c: red;
-//  >                          <error{Property declarations are not supported in Slint SC}
-//                >   <^error{The type 'color' is not supported in Slint SC}
-//                          > <^^error{Identifier references are not supported in Slint SC}
+    //#sls.prop.decl.form
+    //#sls.prop.decl.visibility
+    in property <length> a;
+    out property <length> b: 1px;
+    in-out property <color> c: #123456;
+    property <color> d;
+    private property <length> e;
+    //#sls.prop.decl.types
+    in property <int> f;
+//               > <error{The type 'int' is not supported in Slint SC}
+    in property <string> g;
+//               >    <error{The type 'string' is not supported in Slint SC}
+    in property <brush> h;
+//               >   <error{The type 'brush' is not supported in Slint SC}
+    //#sls.prop.decl.root-only
+    Rectangle {
+        property <length> i;
+//      >                  <error{Declaring a property on an element other than the root is not supported in Slint SC}
+    }
 }

@@ -208,6 +208,12 @@ impl From<Rc<Struct>> for Type {
 }
 
 impl Type {
+    /// Whether the type is part of the Slint SC subset
+    #[cfg(feature = "slint-sc")]
+    pub fn is_slint_sc(&self) -> bool {
+        matches!(self, Self::LogicalLength | Self::Color)
+    }
+
     /// valid type for properties
     pub fn is_property_type(&self) -> bool {
         matches!(

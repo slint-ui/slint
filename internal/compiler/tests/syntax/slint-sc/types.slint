@@ -5,30 +5,20 @@
 
 export component Test inherits Window {
     property <[string]> a;
-//  >                    <error{Property declarations are not supported in Slint SC}
-//            >      <^error{Array types are not supported in Slint SC}
-//             >    <^^error{The type 'string' is not supported in Slint SC}
+//            >      <error{Array types are not supported in Slint SC}
+//             >    <^error{The type 'string' is not supported in Slint SC}
     property <{foo: int, bar: color}> b;
-//  >                                  <error{Property declarations are not supported in Slint SC}
-//            >                    <^error{Inline struct types are not supported in Slint SC}
-//                  > <^^error{The type 'int' is not supported in Slint SC}
-//                            >   <^^^error{The type 'color' is not supported in Slint SC}
+//            >                    <error{Inline struct types are not supported in Slint SC}
+//                  > <^error{The type 'int' is not supported in Slint SC}
     property <bool> c;
-//  >                <error{Property declarations are not supported in Slint SC}
-//            >  <^error{The type 'bool' is not supported in Slint SC}
+//            >  <error{The type 'bool' is not supported in Slint SC}
     property <float> d;
-//  >                 <error{Property declarations are not supported in Slint SC}
-//            >   <^error{The type 'float' is not supported in Slint SC}
+//            >   <error{The type 'float' is not supported in Slint SC}
     property <image> e;
-//  >                 <error{Property declarations are not supported in Slint SC}
-//            >   <^error{The type 'image' is not supported in Slint SC}
+//            >   <error{The type 'image' is not supported in Slint SC}
     property <length> f;
-//  >                  <error{Property declarations are not supported in Slint SC}
-//            >    <^error{The type 'length' is not supported in Slint SC}
     property <duration> g;
-//  >                    <error{Property declarations are not supported in Slint SC}
-//            >      <^error{The type 'duration' is not supported in Slint SC}
+//            >      <error{The type 'duration' is not supported in Slint SC}
     property <brush> h;
-//  >                 <error{Property declarations are not supported in Slint SC}
-//            >   <^error{The type 'brush' is not supported in Slint SC}
+//            >   <error{The type 'brush' is not supported in Slint SC}
 }
