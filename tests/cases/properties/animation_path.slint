@@ -6,8 +6,8 @@ export component TestCase inherits Window {
     height: 100px;
 
     // viewbox-x/y is non-zero and the viewbox is stretched non-uniformly relative to the
-    // element (200x100 element vs 25x50 viewbox, via `fit: fill`) so that point-at-percent/
-    // angle-at-percent are exercised in the Path element's own coordinate space rather than
+    // element (200x100 element vs 25x50 viewbox, via `fit: fill`) so that point-at/
+    // angle-at are exercised in the Path element's own coordinate space rather than
     // in raw viewbox coordinates (which would give different, non-round numbers below).
     path := Path {
         width: 200px;
@@ -26,9 +26,24 @@ export component TestCase inherits Window {
         duration: 2000ms;
     }
 
-    out property <float> px: path.point-at-percent(t).x / 1px;
-    out property <float> py: path.point-at-percent(t).y / 1px;
-    out property <angle> angle: path.angle-at-percent(t);
+    out property <float> px: path.point-at(t).x / 1px;
+    out property <float> py: path.point-at(t).y / 1px;
+    out property <angle> angle: path.angle-at(t);
+
+    // testing multi-loop
+    in-out property <float> u: 0;
+    animate u {
+        duration: 4000ms;
+    }
+    out property <float> ux: path.point-at(u).x / 1px;
+    out property <float> uy: path.point-at(u).y / 1px;
+
+    in-out property <float> v: 2;
+    animate v {
+        duration: 4000ms;
+    }
+    out property <float> vx: path.point-at(v).x / 1px;
+    out property <float> vy: path.point-at(v).y / 1px;
 }
 
 /*
@@ -72,6 +87,65 @@ slint_testing::mock_elapsed_time(500);
 assert_eq!(instance.get_px(), 100.0);
 assert_eq!(instance.get_py(), 100.0);
 assert_almost_eq(instance.get_angle(), 0.0);
+
+// Animating u from 0 to 2 traverses the path twice forwards: each 0..1 segment
+// of u must retrace the exact same (x, y) sequence as the first traversal above.
+instance.set_u(2.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_ux(), 0.0);
+assert_eq!(instance.get_uy(), 50.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_ux(), 0.0);
+assert_eq!(instance.get_uy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_ux(), 50.0);
+assert_eq!(instance.get_uy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+// u == 1.0 exactly: the true end of the (single) path, not the wrapped start.
+assert_eq!(instance.get_ux(), 100.0);
+assert_eq!(instance.get_uy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+// u == 1.25: second forward loop begins, retracing the same points as u == 0.25.
+assert_eq!(instance.get_ux(), 0.0);
+assert_eq!(instance.get_uy(), 50.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_ux(), 0.0);
+assert_eq!(instance.get_uy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_ux(), 50.0);
+assert_eq!(instance.get_uy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_ux(), 0.0);
+assert_eq!(instance.get_uy(), 0.0);
+
+// Animating v from 2 down to 0 traverses the path twice backwards: positions
+// mirror the forward trace above, retreating back towards the path's start.
+instance.set_v(0.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_vx(), 50.0);
+assert_eq!(instance.get_vy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_vx(), 0.0);
+assert_eq!(instance.get_vy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_vx(), 0.0);
+assert_eq!(instance.get_vy(), 50.0);
+slint_testing::mock_elapsed_time(500);
+// v == 1.0 exactly: the true end of the path again, same special case as above.
+assert_eq!(instance.get_vx(), 100.0);
+assert_eq!(instance.get_vy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_vx(), 50.0);
+assert_eq!(instance.get_vy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_vx(), 0.0);
+assert_eq!(instance.get_vy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_vx(), 0.0);
+assert_eq!(instance.get_vy(), 50.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_vx(), 0.0);
+assert_eq!(instance.get_vy(), 0.0);
 ```
 
 
@@ -111,6 +185,65 @@ slint_testing::mock_elapsed_time(500);
 assert_eq(instance.get_px(), 100.0);
 assert_eq(instance.get_py(), 100.0);
 assert(std::abs(instance.get_angle() - 0.0) < 0.05);
+
+// Animating u from 0 to 2 traverses the path twice forwards: each 0..1 segment
+// of u must retrace the exact same (x, y) sequence as the first traversal above.
+instance.set_u(2.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_ux(), 0.0);
+assert_eq(instance.get_uy(), 50.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_ux(), 0.0);
+assert_eq(instance.get_uy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_ux(), 50.0);
+assert_eq(instance.get_uy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+// u == 1.0 exactly: the true end of the (single) path, not the wrapped start.
+assert_eq(instance.get_ux(), 100.0);
+assert_eq(instance.get_uy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+// u == 1.25: second forward loop begins, retracing the same points as u == 0.25.
+assert_eq(instance.get_ux(), 0.0);
+assert_eq(instance.get_uy(), 50.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_ux(), 0.0);
+assert_eq(instance.get_uy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_ux(), 50.0);
+assert_eq(instance.get_uy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_ux(), 0.0);
+assert_eq(instance.get_uy(), 0.0);
+
+// Animating v from 2 down to 0 traverses the path twice backwards: positions
+// mirror the forward trace above, retreating back towards the path's start.
+instance.set_v(0.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_vx(), 50.0);
+assert_eq(instance.get_vy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_vx(), 0.0);
+assert_eq(instance.get_vy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_vx(), 0.0);
+assert_eq(instance.get_vy(), 50.0);
+slint_testing::mock_elapsed_time(500);
+// v == 1.0 exactly: the true end of the path again, same special case as above.
+assert_eq(instance.get_vx(), 100.0);
+assert_eq(instance.get_vy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_vx(), 50.0);
+assert_eq(instance.get_vy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_vx(), 0.0);
+assert_eq(instance.get_vy(), 100.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_vx(), 0.0);
+assert_eq(instance.get_vy(), 50.0);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_vx(), 0.0);
+assert_eq(instance.get_vy(), 0.0);
 ```
 
 ```js
@@ -148,6 +281,65 @@ slintlib.private_api.mock_elapsed_time(500);
 assert.equal(instance.px, 100.0);
 assert.equal(instance.py, 100.0);
 assert(Math.abs(instance.angle - 0.0) < 0.05);
+
+// Animating u from 0 to 2 traverses the path twice forwards: each 0..1 segment
+// of u must retrace the exact same (x, y) sequence as the first traversal above.
+instance.u = 2.0;
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.ux, 0.0);
+assert.equal(instance.uy, 50.0);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.ux, 0.0);
+assert.equal(instance.uy, 100.0);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.ux, 50.0);
+assert.equal(instance.uy, 100.0);
+slintlib.private_api.mock_elapsed_time(500);
+// u == 1.0 exactly: the true end of the (single) path, not the wrapped start.
+assert.equal(instance.ux, 100.0);
+assert.equal(instance.uy, 100.0);
+slintlib.private_api.mock_elapsed_time(500);
+// u == 1.25: second forward loop begins, retracing the same points as u == 0.25.
+assert.equal(instance.ux, 0.0);
+assert.equal(instance.uy, 50.0);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.ux, 0.0);
+assert.equal(instance.uy, 100.0);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.ux, 50.0);
+assert.equal(instance.uy, 100.0);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.ux, 0.0);
+assert.equal(instance.uy, 0.0);
+
+// Animating v from 2 down to 0 traverses the path twice backwards: positions
+// mirror the forward trace above, retreating back towards the path's start.
+instance.v = 0.0;
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.vx, 50.0);
+assert.equal(instance.vy, 100.0);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.vx, 0.0);
+assert.equal(instance.vy, 100.0);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.vx, 0.0);
+assert.equal(instance.vy, 50.0);
+slintlib.private_api.mock_elapsed_time(500);
+// v == 1.0 exactly: the true end of the path again, same special case as above.
+assert.equal(instance.vx, 100.0);
+assert.equal(instance.vy, 100.0);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.vx, 50.0);
+assert.equal(instance.vy, 100.0);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.vx, 0.0);
+assert.equal(instance.vy, 100.0);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.vx, 0.0);
+assert.equal(instance.vy, 50.0);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.vx, 0.0);
+assert.equal(instance.vy, 0.0);
 ```
 
 */
