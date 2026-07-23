@@ -134,12 +134,10 @@ fn resolve_match_elements(
             diag,
         );
         let case_type = match_element.subject.ty();
-        for (value, _) in &mut match_element.cases {
-            let node =
-                if let Expression::Uncompiled(node) = &value { Some(node.clone()) } else { None };
+        for case in &mut match_element.cases {
             resolve_expression(
                 elem,
-                value,
+                &mut case.value,
                 None,
                 case_type.clone(),
                 scope,
@@ -147,10 +145,9 @@ fn resolve_match_elements(
                 type_loader,
                 diag,
             );
-            if let Some(node) = &node {
-                check_case_value(value, node, diag);
-            }
+            check_case_value(&case.value, &case.node, diag);
         }
+        check_duplicate_cases(&match_element.cases, diag);
         match_element.lower_to_conditional_elements();
     }
 }
@@ -183,6 +180,42 @@ fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagn
         diag.push_error("Cannot perform type conversion".into(), node);
     } else {
         diag.push_error("Cases must be literal values".into(), node);
+    }
+}
+
+#[derive(PartialEq)]
+enum CaseValue {
+    Number(f64, Unit),
+    String(SmolStr),
+    Bool(bool),
+    Enumeration(langtype::EnumerationValue),
+}
+
+impl CaseValue {
+    fn new(value: &Expression) -> Option<Self> {
+        match value {
+            Expression::Cast { from, .. } => Self::new(from),
+            Expression::NumberLiteral(number, unit) => Some(Self::Number(*number, *unit)),
+            Expression::StringLiteral(string) => Some(Self::String(string.clone())),
+            Expression::BoolLiteral(boolean) => Some(Self::Bool(*boolean)),
+            Expression::EnumerationValue(value) => Some(Self::Enumeration(value.clone())),
+            _ => None, // For invalid non-literals
+        }
+    }
+}
+
+/// Reports every case whose value is already covered by an earlier case
+fn check_duplicate_cases(cases: &[MatchCaseInfo], diag: &mut BuildDiagnostics) {
+    let mut seen = Vec::with_capacity(cases.len());
+    for case in cases {
+        let Some(value) = CaseValue::new(&case.value) else {
+            continue;
+        };
+        if seen.contains(&value) {
+            diag.push_error("Duplicate case value".into(), &case.node);
+        } else {
+            seen.push(value);
+        }
     }
 }
 
