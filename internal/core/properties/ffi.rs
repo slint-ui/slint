@@ -570,8 +570,8 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
         let inner = unsafe { core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap() };
         unsafe { *(*core::ptr::addr_of!((*_self).dep_nodes)).get() = Default::default() };
-        let notify = super::current_binding_storage::set(Some(_self_raw), || {
-            (inner.eval_fn)(inner.user_data)
+        let notify = super::with_property_context(|pc| {
+            pc.set_current_binding(Some(_self_raw), || (inner.eval_fn)(inner.user_data))
         });
         if notify {
             (inner.notify_fn)(inner.user_data);
@@ -617,8 +617,10 @@ pub unsafe extern "C" fn slint_change_tracker_init(
     unsafe { ct.set_internal(raw as *mut BindingHolder) };
 
     let inner = unsafe { core::ptr::addr_of_mut!((*raw).binding).as_mut().unwrap() };
-    super::current_binding_storage::set(Some(raw as *const BindingHolder), || {
-        (inner.eval_fn)(inner.user_data)
+    super::with_property_context(|pc| {
+        pc.set_current_binding(Some(raw as *const BindingHolder), || {
+            (inner.eval_fn)(inner.user_data)
+        })
     });
 }
 

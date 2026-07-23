@@ -431,28 +431,15 @@ pub(crate) fn with_property_context<R>(f: impl FnOnce(&PropertyContext) -> R) ->
     })
 }
 
-/// Thin forwarders over [`with_property_context`] kept while call sites are migrated.
-mod current_binding_storage {
-    use super::{with_property_context, BindingHolder};
-
-    pub(super) fn set<T>(value: Option<*const BindingHolder>, f: impl FnOnce() -> T) -> T {
-        with_property_context(|pc| pc.set_current_binding(value, f))
-    }
-
-    pub(super) fn with<T>(f: impl FnOnce(Option<*const BindingHolder>) -> T) -> T {
-        with_property_context(|pc| pc.with_current_binding(f))
-    }
-}
-
 /// Evaluate a function without registering any property dependencies.
 pub fn evaluate_no_tracking<T>(f: impl FnOnce() -> T) -> T {
-    current_binding_storage::set(None, f)
+    with_property_context(|pc| pc.set_current_binding(None, f))
 }
 
 /// Returns true if a binding is currently being evaluated
 /// so that property accesses register dependencies.
 pub fn is_currently_tracking() -> bool {
-    current_binding_storage::with(|x| x.is_some())
+    with_property_context(|pc| pc.with_current_binding(|x| x.is_some()))
 }
 
 /// This structure erase the `B` type with a vtable.
@@ -790,8 +777,10 @@ impl PropertyHandle {
                 // clear all the nodes so that we can start from scratch
                 unsafe { *(*binding_ptr).dep_nodes.get() = Default::default() };
                 let r = unsafe {
-                    current_binding_storage::set(Some(binding_ptr), || {
-                        ((*binding_ptr).vtable.evaluate)(binding_ptr, value as *mut c_void)
+                    with_property_context(|pc| {
+                        pc.set_current_binding(Some(binding_ptr), || {
+                            ((*binding_ptr).vtable.evaluate)(binding_ptr, value as *mut c_void)
+                        })
                     })
                 };
                 unsafe { (*binding_ptr).dirty.set(false) };
@@ -811,7 +800,7 @@ impl PropertyHandle {
         self: Pin<&Self>,
         #[cfg(slint_debug_property)] debug_name: &str,
     ) {
-        current_binding_storage::with(|cur_binding| {
+        with_property_context(|pc| pc.with_current_binding(|cur_binding| {
             if let Some(cur_binding) = cur_binding {
                 let dependencies = self.dependencies();
                 if unsafe { *(dependencies as *mut *mut ()) } != const_sentinel() {
@@ -823,7 +812,7 @@ impl PropertyHandle {
                     );
                 }
             }
-        });
+        }));
     }
 
     fn mark_dirty(&self, #[cfg(slint_debug_property)] debug_name: &str) {
@@ -1407,7 +1396,7 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
         if !NEEDS_SET_DIRTY && unsafe { (*self.holder.dep_nodes.get()).is_empty() } {
             return;
         }
-        current_binding_storage::with(|cur_binding| {
+        with_property_context(|pc| pc.with_current_binding(|cur_binding| {
             if let Some(cur_binding) = cur_binding {
                 debug_assert!(self.holder.dependencies.get() != const_sentinel());
                 BindingHolder::register_self_as_dependency(
@@ -1417,7 +1406,7 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
                     &self.holder.debug_name,
                 );
             }
-        });
+        }));
     }
 
     /// Any of the properties accessed during the last evaluation of the closure called
@@ -1443,7 +1432,7 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
         unsafe { *self.holder.dep_nodes.get() = Default::default() };
 
         let holder_ptr = &raw const self.holder as *const BindingHolder;
-        let r = current_binding_storage::set(Some(holder_ptr), f);
+        let r = with_property_context(|pc| pc.set_current_binding(Some(holder_ptr), f));
         self.holder.dirty.set(false);
         r
     }

@@ -159,8 +159,8 @@ impl ChangeTracker {
                 *(*core::ptr::addr_of!((*_self).dep_nodes)).get() = Default::default();
                 assert!(!inner.evaluating.get());
                 inner.evaluating.set(true);
-                let new_value = super::current_binding_storage::set(Some(_self_raw), || {
-                    (inner.eval_fn)(&inner.data)
+                let new_value = super::with_property_context(|pc| {
+                    pc.set_current_binding(Some(_self_raw), || (inner.eval_fn)(&inner.data))
                 });
                 {
                     // Safety: We just set `evaluating` to true which means we can borrow
@@ -238,8 +238,10 @@ impl ChangeTracker {
         }
         let value = unsafe {
             let inner = core::ptr::addr_of!((*raw).binding).as_ref().unwrap();
-            super::current_binding_storage::set(Some(raw as *const BindingHolder), || {
-                (inner.eval_fn)(&inner.data)
+            super::with_property_context(|pc| {
+                pc.set_current_binding(Some(raw as *const BindingHolder), || {
+                    (inner.eval_fn)(&inner.data)
+                })
             })
         };
         unsafe {
