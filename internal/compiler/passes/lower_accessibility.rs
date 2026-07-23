@@ -20,10 +20,9 @@ pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut Buil
                 return;
             };
             apply_builtin(elem);
-            let accessible_role_set = match elem.borrow().bindings.get("accessible-role") {
+            let accessible_role_set = match elem.borrow().binding("accessible-role") {
                 Some(role) => {
-                    if let Expression::EnumerationValue(val) =
-                        super::ignore_debug_hooks(&role.borrow().expression)
+                    if let Expression::EnumerationValue(val) = role.expression.ignore_debug_hooks()
                     {
                         debug_assert_eq!(val.enumeration.name, "AccessibleRole");
                         debug_assert_eq!(val.enumeration.values[0], "none");
@@ -33,7 +32,7 @@ pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut Buil
                     } else {
                         diag.push_error(
                             "The `accessible-role` property must be a constant expression".into(),
-                            &*role.borrow(),
+                            &*role,
                         );
                     }
                     true
@@ -51,10 +50,10 @@ pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut Buil
                         let nr = NamedReference::new(elem, SmolStr::new_static(prop_name));
                         elem.borrow_mut().accessibility_props.0.insert(prop_name.into(), nr);
                     }
-                } else if let Some(b) = elem.borrow().bindings.get(prop_name) {
+                } else if let Some(b) = elem.borrow().binding(prop_name) {
                     diag.push_error(
                         format!("The `{prop_name}` property can only be set in combination to `accessible-role`"),
-                        &*b.borrow(),
+                        &*b,
                     );
                 }
             }

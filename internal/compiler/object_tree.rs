@@ -4325,12 +4325,12 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
         for prop in
             ["flex-grow", "flex-shrink", "flex-basis", "flex-order", "flex-align-self"].iter()
         {
-            if old_root.borrow().bindings.contains_key(*prop) {
-                new_root.borrow_mut().bindings.insert(
+            if old_root.borrow().binding(prop).is_some() {
+                new_root.borrow_mut().set_binding(
                     SmolStr::new_static(prop),
-                    RefCell::new(BindingExpression::new_two_way(
+                    BindingExpression::new_two_way(
                         NamedReference::new(old_root, SmolStr::new_static(prop)).into(),
-                    )),
+                    ),
                 );
             }
         }

@@ -39,7 +39,7 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
     });
 
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-        for prop in elem.borrow().bindings.keys() {
+        for prop in elem.borrow().real_bindings().map(|(name, _)| name) {
             let nr = NamedReference::new(elem, prop.clone());
             if let std::collections::hash_map::Entry::Vacant(entry) = to_materialize.entry(nr) {
                 let elem = elem.borrow();

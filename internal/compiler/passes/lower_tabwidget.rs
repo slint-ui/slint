@@ -127,14 +127,11 @@ fn process_tabwidget(
             rhs: Expression::NumberLiteral(index as _, Unit::None).into(),
             op: '=',
         };
-        let old = child
-            .borrow_mut()
-            .bindings
-            .insert(SmolStr::new_static("visible"), RefCell::new(condition.into()));
+        let old = child.borrow_mut().set_binding(SmolStr::new_static("visible"), condition.into());
         if let Some(old) = old {
             diag.push_error(
                 "The property 'visible' cannot be set for Tabs inside a TabWidget".to_owned(),
-                &old.into_inner(),
+                &old,
             );
         }
         let role = crate::typeregister::BUILTIN
@@ -143,26 +140,25 @@ fn process_tabwidget(
             .clone()
             .try_value_from_string("tab-panel")
             .unwrap();
-        let old = child.borrow_mut().bindings.insert(
+        let old = child.borrow_mut().set_binding(
             SmolStr::new_static("accessible-role"),
-            RefCell::new(Expression::EnumerationValue(role).into()),
+            Expression::EnumerationValue(role).into(),
         );
         if let Some(old) = old {
             diag.push_error(
                 "The property 'accessible-role' cannot be set for Tabs inside a TabWidget"
                     .to_owned(),
-                &old.into_inner(),
+                &old,
             );
         }
-        let title_ref = RefCell::new(
-            Expression::PropertyReference(NamedReference::new(child, "title".into())).into(),
-        );
-        let old = child.borrow_mut().bindings.insert("accessible-label".into(), title_ref);
+        let title_ref =
+            Expression::PropertyReference(NamedReference::new(child, "title".into())).into();
+        let old = child.borrow_mut().set_binding("accessible-label".into(), title_ref);
         if let Some(old) = old {
             diag.push_error(
                 "The property 'accessible-label' cannot be set for Tabs inside a TabWidget"
                     .to_owned(),
-                &old.into_inner(),
+                &old,
             );
         }
 

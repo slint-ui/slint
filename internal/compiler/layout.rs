@@ -656,7 +656,7 @@ fn init_fake_property(
     lazy_default: impl Fn() -> Option<NamedReference>,
 ) {
     if grid_layout_element.borrow().property_declarations.contains_key(name)
-        && !grid_layout_element.borrow().bindings.contains_key(name)
+        && grid_layout_element.borrow().binding(name).is_none()
         && let Some(e) = lazy_default()
     {
         if e.name() == name && Rc::ptr_eq(&e.element(), grid_layout_element) {
@@ -665,8 +665,7 @@ fn init_fake_property(
         }
         grid_layout_element
             .borrow_mut()
-            .bindings
-            .insert(name.into(), RefCell::new(Expression::PropertyReference(e).into()));
+            .set_binding(name.into(), Expression::PropertyReference(e).into());
     }
 }
 
@@ -790,8 +789,7 @@ impl FlexboxLayout {
     fn compile_time_direction(&self) -> Option<FlexboxLayoutDirection> {
         match self.direction.as_ref() {
             None => Some(FlexboxLayoutDirection::Row),
-            Some(nr) => nr.element().borrow().bindings.get(nr.name()).and_then(|binding| {
-                let binding = binding.borrow();
+            Some(nr) => nr.element().borrow().binding(nr.name()).and_then(|binding| {
                 if let crate::expression_tree::Expression::EnumerationValue(ev) =
                     binding.expression.ignore_debug_hooks()
                 {
