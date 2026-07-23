@@ -372,7 +372,14 @@ fn fix_percent_size(
         diag: &mut BuildDiagnostics,
         symbol_counters: &SymbolCounters,
     ) -> bool {
-        if let Expression::Condition { true_expr, false_expr, .. } = expression
+        if let Expression::DebugHook { expression, .. } = expression {
+            // If the Condition is inside a DebugHook we still need to visit it to fix the
+            // percentages, but ignore the result because the debug hook may override the
+            // expression.
+            inner(expression, span, parent, property, diag, symbol_counters);
+
+            false
+        } else if let Expression::Condition { true_expr, false_expr, .. } = expression
             && true_expr.ty() != false_expr.ty()
         {
             // The lower_states pass can generate a Condition with mixed types of percents and
