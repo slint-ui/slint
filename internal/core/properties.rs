@@ -379,57 +379,61 @@ impl<T, F: Fn(&mut T) -> BindingResult> BindingCallable<T> for F {
     }
 }
 
-/// Stores a raw pointer to the binding currently being evaluated.
-mod current_binding_storage {
-    use super::BindingHolder;
-    use core::cell::Cell;
+/// Per-thread reactive state of the property system.
+///
+/// Owns the binding currently being evaluated, which property accesses read to
+/// register themselves as dependencies. Reached through [`with_property_context`].
+pub(crate) struct PropertyContext {
+    /// Raw pointer to the binding currently being evaluated, or null.
+    current_binding: Cell<*const BindingHolder>,
+}
 
-    #[cfg(feature = "std")]
-    std::thread_local! {
-        static CURRENT_BINDING: Cell<*const BindingHolder> = const { Cell::new(core::ptr::null()) };
+impl Default for PropertyContext {
+    fn default() -> Self {
+        Self { current_binding: Cell::new(core::ptr::null()) }
     }
+}
 
-    #[cfg(feature = "std")]
-    pub(super) fn set<T>(value: Option<*const BindingHolder>, f: impl FnOnce() -> T) -> T {
-        CURRENT_BINDING.with(|cell| {
-            let old = cell.replace(value.unwrap_or(core::ptr::null()));
-            let res = f();
-            cell.set(old);
-            res
-        })
-    }
-
-    #[cfg(feature = "std")]
-    pub(super) fn with<T>(f: impl FnOnce(Option<*const BindingHolder>) -> T) -> T {
-        CURRENT_BINDING.with(|cell| {
-            let ptr = cell.get();
-            f(if ptr.is_null() { None } else { Some(ptr) })
-        })
-    }
-
-    #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-    static CURRENT_BINDING: ScopedRawPtr = ScopedRawPtr(Cell::new(core::ptr::null()));
-
-    #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-    struct ScopedRawPtr(Cell<*const BindingHolder>);
-    // Safety: the unsafe_single_threaded feature means only one thread accesses this
-    #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-    unsafe impl Send for ScopedRawPtr {}
-    #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-    unsafe impl Sync for ScopedRawPtr {}
-
-    #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-    pub(super) fn set<T>(value: Option<*const BindingHolder>, f: impl FnOnce() -> T) -> T {
-        let old = CURRENT_BINDING.0.replace(value.unwrap_or(core::ptr::null()));
+impl PropertyContext {
+    /// Set the current binding to `value` for the duration of `f`, restoring the
+    /// previous binding afterwards so nested evaluations are balanced.
+    fn set_current_binding<T>(
+        &self,
+        value: Option<*const BindingHolder>,
+        f: impl FnOnce() -> T,
+    ) -> T {
+        let old = self.current_binding.replace(value.unwrap_or(core::ptr::null()));
         let res = f();
-        CURRENT_BINDING.0.set(old);
+        self.current_binding.set(old);
         res
     }
 
-    #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-    pub(super) fn with<T>(f: impl FnOnce(Option<*const BindingHolder>) -> T) -> T {
-        let ptr = CURRENT_BINDING.0.get();
+    /// Call `f` with the binding currently being evaluated, if any.
+    fn with_current_binding<T>(&self, f: impl FnOnce(Option<*const BindingHolder>) -> T) -> T {
+        let ptr = self.current_binding.get();
         f(if ptr.is_null() { None } else { Some(ptr) })
+    }
+}
+
+crate::thread_local! {
+    static FALLBACK_PROPERTY_CONTEXT: PropertyContext = PropertyContext::default();
+}
+
+/// Run `f` with the [`PropertyContext`] of the current thread.
+pub(crate) fn with_property_context<R>(f: impl FnOnce(&PropertyContext) -> R) -> R {
+    FALLBACK_PROPERTY_CONTEXT.with(|pc| f(pc))
+}
+
+/// Thin forwarders over [`with_property_context`] kept while call sites are migrated.
+mod current_binding_storage {
+    use super::{with_property_context, BindingHolder};
+
+    pub(super) fn set<T>(value: Option<*const BindingHolder>, f: impl FnOnce() -> T) -> T {
+        with_property_context(|pc| pc.set_current_binding(value, f))
+    }
+
+    pub(super) fn with<T>(f: impl FnOnce(Option<*const BindingHolder>) -> T) -> T {
+        with_property_context(|pc| pc.with_current_binding(f))
     }
 }
 
