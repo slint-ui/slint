@@ -442,6 +442,10 @@ fn process_file_source(
     };
     #[cfg(not(feature = "slint-sc"))]
     let output_format = i_slint_compiler::generator::OutputFormat::Interpreter;
+    #[cfg(feature = "slint-sc")]
+    let is_slint_sc = matches!(output_format, i_slint_compiler::generator::OutputFormat::SlintSc);
+    #[cfg(not(feature = "slint-sc"))]
+    let is_slint_sc = false;
     let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(output_format);
     compiler_config.library_paths = [(
         "test-lib".into(),
@@ -453,7 +457,8 @@ fn process_file_source(
     compiler_config.enable_experimental = true;
     compiler_config.style = Some("fluent".into());
     compiler_config.components_to_generate =
-        if source.contains("config:generate_all_exported_windows") {
+        if is_slint_sc || source.contains("config:generate_all_exported_windows") {
+            // Slint SC always compiles the exported windows
             ComponentSelection::ExportedWindows
         } else {
             // Otherwise we'd have lots of warnings about not inheriting Window
