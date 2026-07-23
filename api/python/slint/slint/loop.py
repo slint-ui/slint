@@ -1,14 +1,15 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from ._native import native
-import asyncio.selector_events
 import asyncio
 import asyncio.events
+import asyncio.selector_events
+import datetime
 import selectors
 import typing
 from collections.abc import Mapping
-import datetime
+
+from ._native import native
 
 
 class HasFileno(typing.Protocol):
@@ -42,9 +43,9 @@ class _SlintSelectorMapping(Mapping[typing.Any, selectors.SelectorKey]):
 
 class _SlintSelector(selectors.BaseSelector):
     def __init__(self) -> None:
-        self.fd_to_selector_key: typing.Dict[typing.Any, selectors.SelectorKey] = {}
+        self.fd_to_selector_key: dict[typing.Any, selectors.SelectorKey] = {}
         self.mapping = _SlintSelectorMapping(self)
-        self.adapters: typing.Dict[int, native.AsyncAdapter] = {}
+        self.adapters: dict[int, native.AsyncAdapter] = {}
 
     def register(
         self, fileobj: typing.Any, events: typing.Any, data: typing.Any = None
@@ -91,7 +92,7 @@ class _SlintSelector(selectors.BaseSelector):
 
     def select(
         self, timeout: float | None = None
-    ) -> typing.List[typing.Tuple[selectors.SelectorKey, int]]:
+    ) -> list[tuple[selectors.SelectorKey, int]]:
         raise NotImplementedError
 
     def close(self) -> None:
@@ -102,21 +103,21 @@ class _SlintSelector(selectors.BaseSelector):
 
     def read_notify(self, fd: int) -> None:
         key = self.fd_to_selector_key[fd]
-        (reader, writer) = key.data
+        (reader, _writer) = key.data
         reader._run()
 
     def write_notify(self, fd: int) -> None:
         key = self.fd_to_selector_key[fd]
-        (reader, writer) = key.data
+        (_reader, writer) = key.data
         writer._run()
 
 
 class SlintEventLoop(asyncio.SelectorEventLoop):
     def __init__(self) -> None:
         self._is_running = False
-        self._timers: typing.Set[native.Timer] = set()
+        self._timers: set[native.Timer] = set()
         self.stop_run_forever_event = asyncio.Event()
-        self._soon_tasks: typing.List[asyncio.TimerHandle] = []
+        self._soon_tasks: list[asyncio.TimerHandle] = []
         super().__init__(_SlintSelector())
 
     def run_forever(self) -> None:

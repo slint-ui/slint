@@ -1,12 +1,13 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from slint import slint as native
-import slint
-import weakref
 import gc
 import typing
+import weakref
 from pathlib import Path
+
+import slint
+from slint import slint as native
 
 
 def test_callback_gc() -> None:
@@ -66,7 +67,7 @@ def test_struct_gc() -> None:
     instance: native.ComponentInstance | None = compdef.create()
     assert instance is not None
 
-    model: typing.Optional[slint.ListModel[int]] = slint.ListModel([1, 2, 3])
+    model: slint.ListModel[int] | None = slint.ListModel([1, 2, 3])
     assert model
     assert model.row_count() == 3
 
@@ -94,7 +95,7 @@ def test_properties_gc() -> None:
     instance: native.ComponentInstance | None = compdef.create()
     assert instance is not None
 
-    model: typing.Optional[slint.ListModel[int]] = slint.ListModel([1, 2, 3])
+    model: slint.ListModel[int] | None = slint.ListModel([1, 2, 3])
     assert model
     assert model.row_count() == 3
 
