@@ -7,7 +7,9 @@
 //! 1. Runs `slint-compiler --slint-sc` to generate Rust code
 //! 2. Extracts test code from `` ```rust `` blocks in comments
 //! 3. Calls `rustc` directly to compile the generated + test code
-//! 4. Runs the resulting binary
+//! 4. Runs the resulting binary; `` ```rust compile_fail `` blocks are
+//!    compiled separately and must fail with every `//~ ERROR` substring in
+//!    the rustc output
 //! 5. Compares the screenshots taken with the `screenshot!` macro against the
 //!    PNG references in `tests/references/` (set `SLINT_CREATE_SCREENSHOTS=1`
 //!    to create or update them)
@@ -17,7 +19,6 @@
 use rayon::prelude::*;
 use regex::Regex;
 use std::fmt::Write as _;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -35,7 +36,7 @@ fn main() {
     let instrument_coverage = std::env::var_os("LLVM_PROFILE_FILE").is_some();
     let compiler = build_compiler(&target_dir, instrument_coverage);
     let slint_sc_rlib = find_slint_sc_rlib(&target_dir);
-    let rx = Regex::new(r"(?sU)\r?\n```rust\r?\n(.+)\r?\n```\r?\n").unwrap();
+    let rx = Regex::new(r"(?sU)\r?\n```rust( compile_fail)?\r?\n(.+)\r?\n```\r?\n").unwrap();
 
     let config = TestConfig {
         compiler: &compiler,
@@ -157,65 +158,47 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
     // Step 2: Extract test code from ```rust blocks in comments
     let source = std::fs::read_to_string(slint_path)
         .map_err(|e| format!("read {}: {e}", slint_path.display()))?;
-    let test_code = extract_rust_test_code(&source, config.rx);
+    let (test_code, compile_fail_blocks) = extract_rust_test_code(&source, config.rx);
     if test_code.is_empty() {
         return Err("no ```rust test code found in comments".into());
     }
+    let gen_path = generated_rs.to_string_lossy().replace('\\', "/");
 
     // Step 3: Create test .rs file
     let test_rs = tmp.path().join("test.rs");
-    {
-        let mut f = std::fs::File::create(&test_rs).map_err(|e| format!("create test.rs: {e}"))?;
-        let gen_path = generated_rs.to_string_lossy().replace('\\', "/");
-        let harness_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/driver/harness.rs")
-            .to_string_lossy()
-            .replace('\\', "/");
-        let mut content = String::new();
-        // no_std so that accidental use of std in the generated code doesn't compile
-        writeln!(content, "#![no_std]").unwrap();
-        writeln!(content, "extern crate std;").unwrap();
-        writeln!(content).unwrap();
-        writeln!(content, "#[macro_use]").unwrap();
-        writeln!(content, r#"#[path = "{harness_path}"]"#).unwrap();
-        writeln!(content, "mod harness;").unwrap();
-        writeln!(content).unwrap();
-        writeln!(content, r#"include!("{gen_path}");"#).unwrap();
-        writeln!(content).unwrap();
-        writeln!(content, "fn main() -> Result<(), std::boxed::Box<dyn std::error::Error>> {{")
-            .unwrap();
-        writeln!(content, "    {}", test_code.replace('\n', "\n    ")).unwrap();
-        writeln!(content, "    Ok(())").unwrap();
-        writeln!(content, "}}").unwrap();
-        f.write_all(content.as_bytes()).map_err(|e| format!("write test.rs: {e}"))?;
-    }
+    std::fs::write(&test_rs, assemble_program(&gen_path, &test_code))
+        .map_err(|e| format!("write test.rs: {e}"))?;
 
     // Step 4: Compile with rustc
     let test_bin = tmp.path().join("test_bin");
-    let deps_dir = config.slint_sc_rlib.parent().unwrap_or_else(|| Path::new("."));
-    let mut rustc_cmd = Command::new(config.rustc);
-    rustc_cmd
-        .arg(&test_rs)
-        .arg("--edition=2024")
-        .arg("-o")
-        .arg(&test_bin)
-        .arg("-L")
-        .arg(deps_dir)
-        .arg("--extern")
-        .arg(format!("slint_sc={}", config.slint_sc_rlib.display()));
-
-    // When running under cargo-llvm-cov, propagate coverage instrumentation
-    // so that slint-sc runtime code exercised by the test is included in the
-    // coverage report.
-    if config.instrument_coverage {
-        rustc_cmd.arg("-Cinstrument-coverage");
-    }
-
-    let rustc_output = rustc_cmd.output().map_err(|e| format!("rustc spawn: {e}"))?;
-
+    let rustc_output = compile(config, &test_rs, &test_bin)?;
     if !rustc_output.status.success() {
         let stderr = String::from_utf8_lossy(&rustc_output.stderr);
         return Err(format!("rustc failed:\n{stderr}"));
+    }
+
+    // The compile_fail blocks must fail to compile with the expected errors
+    for (i, block) in compile_fail_blocks.iter().enumerate() {
+        let expected: Vec<&str> =
+            block.lines().filter_map(|l| l.trim().strip_prefix("//~ ERROR ")).collect();
+        if expected.is_empty() {
+            return Err(format!("compile_fail block {i} has no //~ ERROR line"));
+        }
+        let fail_rs = tmp.path().join(format!("compile_fail_{i}.rs"));
+        std::fs::write(&fail_rs, assemble_program(&gen_path, block))
+            .map_err(|e| format!("write compile_fail_{i}.rs: {e}"))?;
+        let output = compile(config, &fail_rs, &tmp.path().join(format!("compile_fail_{i}")))?;
+        if output.status.success() {
+            return Err(format!("compile_fail block {i} compiled successfully:\n{block}"));
+        }
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        for e in expected {
+            if !stderr.contains(e) {
+                return Err(format!(
+                    "compile_fail block {i} failed without the expected error `{e}`:\n{stderr}"
+                ));
+            }
+        }
     }
 
     // Step 5: Run the test binary
@@ -344,15 +327,75 @@ fn parse_ppm(data: &[u8]) -> Option<(u32, u32, &[u8])> {
     (rest.len() == width as usize * height as usize * 3).then_some((width, height, rest))
 }
 
-fn extract_rust_test_code(source: &str, rx: &Regex) -> String {
+/// The concatenated regular test code, and each compile_fail block separately.
+fn extract_rust_test_code(source: &str, rx: &Regex) -> (String, Vec<String>) {
     let mut code = String::new();
+    let mut compile_fail = Vec::new();
     for cap in rx.captures_iter(source) {
-        if !code.is_empty() {
-            code.push('\n');
+        if cap.get(1).is_some() {
+            compile_fail.push(cap[2].to_string());
+        } else {
+            if !code.is_empty() {
+                code.push('\n');
+            }
+            code.push_str(&cap[2]);
         }
-        code.push_str(&cap[1]);
     }
-    code
+    (code, compile_fail)
+}
+
+/// A test program: the generated code, the harness, and `body` as the main
+/// function.
+fn assemble_program(gen_path: &str, body: &str) -> String {
+    let harness_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/driver/harness.rs")
+        .to_string_lossy()
+        .replace('\\', "/");
+    let mut content = String::new();
+    // no_std so that accidental use of std in the generated code doesn't compile
+    writeln!(content, "#![no_std]").unwrap();
+    writeln!(content, "extern crate std;").unwrap();
+    writeln!(content).unwrap();
+    writeln!(content, "#[macro_use]").unwrap();
+    writeln!(content, r#"#[path = "{harness_path}"]"#).unwrap();
+    writeln!(content, "mod harness;").unwrap();
+    writeln!(content).unwrap();
+    writeln!(content, r#"include!("{gen_path}");"#).unwrap();
+    writeln!(content).unwrap();
+    writeln!(content, "fn main() -> Result<(), std::boxed::Box<dyn std::error::Error>> {{")
+        .unwrap();
+    writeln!(content, "    {}", body.replace('\n', "\n    ")).unwrap();
+    writeln!(content, "    Ok(())").unwrap();
+    writeln!(content, "}}").unwrap();
+    content
+}
+
+/// Invoke rustc on `rs_path`, linking against the slint-sc rlib.
+fn compile(
+    config: &TestConfig,
+    rs_path: &Path,
+    out_path: &Path,
+) -> Result<std::process::Output, String> {
+    let deps_dir = config.slint_sc_rlib.parent().unwrap_or_else(|| Path::new("."));
+    let mut rustc_cmd = Command::new(config.rustc);
+    rustc_cmd
+        .arg(rs_path)
+        .arg("--edition=2024")
+        .arg("-o")
+        .arg(out_path)
+        .arg("-L")
+        .arg(deps_dir)
+        .arg("--extern")
+        .arg(format!("slint_sc={}", config.slint_sc_rlib.display()));
+
+    // When running under cargo-llvm-cov, propagate coverage instrumentation
+    // so that slint-sc runtime code exercised by the test is included in the
+    // coverage report.
+    if config.instrument_coverage {
+        rustc_cmd.arg("-Cinstrument-coverage");
+    }
+
+    rustc_cmd.output().map_err(|e| format!("rustc spawn: {e}"))
 }
 
 fn collect_slint_files(dir: &Path) -> Vec<PathBuf> {
