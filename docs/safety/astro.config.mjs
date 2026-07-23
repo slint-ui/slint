@@ -107,6 +107,7 @@ export default defineConfig({
                     label: "Reference",
                     items: [
                         { label: "Overview", slug: "reference" },
+                        { label: "Rendering", slug: "reference/rendering" },
                         {
                             autogenerate: {
                                 directory: "generated/reference",

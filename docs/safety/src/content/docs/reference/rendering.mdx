@@ -1,0 +1,51 @@
+---
+title: Rendering
+description: How a window is rendered into a frame buffer.
+---
+
+The application renders by calling the `render_rgb8` function of the
+[generated code](../generated-code/).
+
+## Model
+
+Rendering fills a *frame buffer*: a memory region holding a rectangle of
+pixels that the application eventually shows on a display.
+The frame buffer covers the *window*, the root element of the component,
+whose size is the size of the buffer.
+The coordinate origin is the top-left corner of the window; x grows to the
+right, y grows downwards, and one unit of `length` is one pixel.
+\{#sls.paint.model}
+
+## Order
+
+Element instantiations paint in the order of their sequence, and an element
+paints before its children:
+an element that comes later in a sequence, or is nested deeper, appears on
+top. \{#sls.paint.order}
+
+## Clipping
+
+Painting is clipped to the frame buffer. \{#sls.paint.clip}
+
+An element is not clipped to its parent: it may paint outside of its parent's
+geometry. \{#sls.paint.no-parent-clip}
+
+```slint
+export component Example inherits Window {
+    background: #d0d8e8;
+    Rectangle {
+        x: 20px;
+        y: 20px;
+        width: 120px;
+        height: 80px;
+        background: #2a6e3f;
+        Rectangle {
+            x: 10px;
+            y: 10px;
+            width: 60px;
+            height: 40px;
+            background: #dfe98b;
+        }
+    }
+}
+```
