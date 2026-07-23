@@ -220,19 +220,11 @@ pub fn extract_enum_docs(
 
     if sc_only {
         enums.retain(|_, e| crate::element_docs::is_sc_covered(&e.description));
-        for e in enums.values_mut() {
-            e.description = crate::element_docs::strip_sc(&e.description);
-            for v in &mut e.values {
-                v.description = crate::element_docs::strip_sc(&v.description);
-            }
-        }
-    } else {
-        // Even outside SC mode, the marker should never leak into output.
-        for e in enums.values_mut() {
-            e.description = crate::element_docs::strip_sc(&e.description);
-            for v in &mut e.values {
-                v.description = crate::element_docs::strip_sc(&v.description);
-            }
+    }
+    for e in enums.values_mut() {
+        e.description = crate::element_docs::strip_sc(&e.description);
+        for v in &mut e.values {
+            v.description = crate::element_docs::strip_sc(&v.description);
         }
     }
 

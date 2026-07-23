@@ -164,6 +164,9 @@ fn parse_spec_page(file: &str, text: &str) -> (SpecPage, Option<String>) {
     };
     let mut in_comment = false;
     let mut in_fence = false;
+    // `<NotInSC>` regions aren't published in the safety manual, so whatever
+    // they enclose states no requirement. See rehype-not-in-sc.mjs.
+    let mut in_not_in_sc = false;
     let mut frontmatter_delimiters = 0;
     for (i, line) in text.lines().enumerate() {
         let t = line.trim();
@@ -188,6 +191,17 @@ fn parse_spec_page(file: &str, text: &str) -> (SpecPage, Option<String>) {
             continue;
         }
         if in_fence {
+            continue;
+        }
+        if t == "<NotInSC>" {
+            in_not_in_sc = true;
+            continue;
+        }
+        if t == "</NotInSC>" {
+            in_not_in_sc = false;
+            continue;
+        }
+        if in_not_in_sc {
             continue;
         }
         if t.starts_with("<!--") {
