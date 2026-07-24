@@ -1122,7 +1122,7 @@ fn lower_global_expressions(
     let inner = ExpressionLoweringCtxInner { mapping: &mapping, parent: None, component: global };
     let mut ctx = ExpressionLoweringCtx { inner, state };
 
-    for (prop, binding) in &global.root_element.borrow().bindings {
+    for (prop, binding) in global.root_element.borrow().bindings_including_synthetic() {
         assert!(binding.borrow().two_way_bindings.is_empty());
         assert!(binding.borrow().animation.is_none());
         let expression =

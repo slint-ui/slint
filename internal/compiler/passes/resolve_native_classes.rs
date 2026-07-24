@@ -33,8 +33,8 @@ pub fn resolve_native_classes(component: &Component) {
 
             let analysis = elem.property_analysis.borrow();
             let native_properties_used: HashSet<_> = elem
-                .bindings
-                .keys()
+                .bindings_including_synthetic()
+                .map(|(k, _)| k)
                 .chain(analysis.iter().filter(|(_, v)| v.is_used()).map(|(k, _)| k))
                 .filter(|k| {
                     !elem.property_declarations.contains_key(*k)
