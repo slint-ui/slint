@@ -185,8 +185,8 @@ jobs:
             # extension's direct DT_NEEDED libraries; apt pulls the rest.
             - name: Install runtime system libraries
               run: |
-                  sudo apt-get update
-                  sudo apt-get install -y \
+                  sudo timeout 300 apt-get update
+                  sudo timeout 300 apt-get install -y \
                     libxkbcommon-x11-0 libxkbcommon0 libgbm1 libinput10 \
                     libfontconfig1 libfreetype6
             - uses: actions/download-artifact@v8
