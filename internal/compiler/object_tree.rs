@@ -3778,6 +3778,42 @@ impl std::iter::IntoIterator for Exports {
     }
 }
 
+/// Re-declare the constrained layout-info functions on an injected wrapper, forwarding
+/// to the element that carries them.
+///
+/// `inherited_layout_info_*_with_constraint` walks the base-type chain, but the element
+/// declaring those functions is now the wrapper's *child*, so without this the wrapper
+/// reports "not height-for-width / width-for-height" and the layout falls back to reading
+/// the cell's own width/height — which the parent layout is still computing (binding loop).
+///
+/// The function must be re-declared rather than the `NamedReference` copied: callers
+/// assert it points at the component's root element, which the wrapper now is.
+fn forward_layout_info_with_constraint(new_root: &ElementRc, old_root: &ElementRc) {
+    let span = old_root.borrow().to_source_location();
+    let forward_to = |nr: NamedReference| Expression::FunctionCall {
+        function: Callable::Function(NamedReference::new(old_root, nr.name().clone())),
+        arguments: vec![Expression::FunctionParameterReference {
+            index: 0,
+            ty: Type::LogicalLength,
+        }],
+        source_location: None,
+    };
+    if let Some(nr) = old_root.borrow().inherited_layout_info_v_with_constraint() {
+        crate::passes::lower_layout::synthesize_layoutinfo_v_with_constraint_on(
+            new_root,
+            span.clone(),
+            forward_to(nr),
+        );
+    }
+    if let Some(nr) = old_root.borrow().inherited_layout_info_h_with_constraint() {
+        crate::passes::lower_layout::synthesize_layoutinfo_h_with_constraint_on(
+            new_root,
+            span,
+            forward_to(nr),
+        );
+    }
+}
+
 /// This function replace the root element of a repeated element. the previous root becomes the only
 /// child of the new root element.
 /// Note that no reference to the base component must exist outside of repeated_element.base_type
@@ -3864,6 +3900,7 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
         Some((li_h.clone(), li_v.clone()))
     });
     new_root.borrow_mut().layout_info_prop = layout_info_prop;
+    forward_layout_info_with_constraint(&new_root, old_root);
 
     // Replace the repeated component's element with our shadow element. That requires a bit of reference counting
     // surgery and relies on nobody having a strong reference left to the component, which we take out of the Rc.
