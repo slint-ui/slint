@@ -205,8 +205,8 @@ jobs:
             - name: Install 32-bit build dependencies
               run: |
                   sudo dpkg --add-architecture i386
-                  sudo apt-get update
-                  sudo apt-get install -y gcc-multilib g++-multilib libfontconfig-dev:i386
+                  sudo timeout 300 apt-get update
+                  sudo timeout 300 apt-get install -y gcc-multilib g++-multilib libfontconfig-dev:i386
             - uses: ./.github/actions/setup-rust
               with:
                   target: i686-unknown-linux-gnu
@@ -506,7 +506,7 @@ jobs:
                   cd $IDF_PYTHON_ENV_PATH
                   bin/pip install pydantic==2.11.10
             - uses: actions/checkout@v7
-            - run: apt-get update && apt-get install -y libfontconfig1-dev
+            - run: timeout 300 apt-get update && timeout 300 apt-get install -y libfontconfig1-dev
             - uses: dtolnay/rust-toolchain@stable
             - uses: esp-rs/xtensa-toolchain@v1.7
               with:
@@ -709,9 +709,9 @@ jobs:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install ffmpeg and alsa (Linux)
-              run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
+              run: sudo timeout 300 apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
             - name: Install gstreamer and libunwind (Linux)
-              run: sudo apt-get install libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+              run: sudo timeout 300 apt-get install libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
             - uses: ./.github/actions/setup-rust
             - name: Run Clippy
               run: ./scripts/run_clippy.sh
@@ -762,7 +762,7 @@ jobs:
             # provides the unversioned tool names. nasm assembles aws-lc-sys' x86 assembly
             # (pulled in via rustls/aws-lc-rs, e.g. by the servo example and live-preview).
             - name: Install LLVM tools and nasm
-              run: sudo apt-get update && sudo apt-get install -y llvm nasm
+              run: sudo timeout 300 apt-get update && sudo timeout 300 apt-get install -y llvm nasm
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: cargo-xwin
@@ -830,7 +830,7 @@ jobs:
                   wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
                   chmod +x /tmp/llvm.sh
                   sudo /tmp/llvm.sh 20
-                  sudo apt-get install --assume-yes libclang-20-dev
+                  sudo timeout 300 apt-get install --assume-yes libclang-20-dev
                   rm -f /tmp/llvm.sh
             - name: C++ Build
               run: |
@@ -1057,7 +1057,7 @@ jobs:
         steps:
             - uses: actions/checkout@v7
             - name: Install system dependencies
-              run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev
+              run: sudo timeout 300 apt-get update && sudo timeout 300 apt-get install -y libfontconfig-dev
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: nightly

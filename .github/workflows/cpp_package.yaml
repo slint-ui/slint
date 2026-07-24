@@ -100,7 +100,7 @@ jobs:
               with:
                   target: ${{ matrix.target }}
             - name: Install GNU Arm Embedded Toolchain
-              run: sudo apt-get update && sudo apt-get install gcc-arm-none-eabi
+              run: sudo timeout 300 apt-get update && sudo timeout 300 apt-get install gcc-arm-none-eabi
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/

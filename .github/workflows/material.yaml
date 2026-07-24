@@ -55,8 +55,8 @@ jobs:
           - name: Install Linux dependencies
             if: runner.os == 'Linux'
             run: |
-              sudo apt-get update
-              sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig-dev
+              sudo timeout 300 apt-get update
+              sudo timeout 300 apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig-dev
             shell: bash
           - name: Install Rust
             uses: dtolnay/rust-toolchain@stable
@@ -83,8 +83,8 @@ jobs:
         uses: actions/checkout@v7
       - name: Install Linux dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig-dev
+          sudo timeout 300 apt-get update
+          sudo timeout 300 apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig-dev
         shell: bash
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
