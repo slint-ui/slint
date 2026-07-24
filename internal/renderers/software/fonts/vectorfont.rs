@@ -20,9 +20,32 @@ struct FontUnit;
 type FontLength = euclid::Length<i32, FontUnit>;
 type FontScaleFactor = euclid::Scale<f32, FontUnit, PhysicalPx>;
 
-/// Cache key includes blob id, font index, pixel size, glyph id, and a hash of normalized
-/// variation coordinates so that different variable font instances produce distinct cache entries.
-type GlyphCacheKey = (u64, u32, PhysicalLength, core::num::NonZeroU16, u64);
+/// Number of horizontal sub-pixel positions a glyph can be placed at. The
+/// shaper produces sub-pixel accurate pen positions, but glyph bitmaps live on
+/// the integer pixel grid; rendering each glyph at the nearest 1/N pixel bin
+/// (instead of snapping the pen to a whole pixel) keeps inter-glyph spacing
+/// even. 4 bins (quarter-pixel) is enough to remove the visible unevenness at
+/// UI text sizes while keeping the glyph cache small.
+pub(crate) const SUBPIXEL_BIN_COUNT: i32 = 4;
+
+/// Cache key includes blob id, font index, pixel size, glyph id, a hash of normalized
+/// variation coordinates (so different variable font instances produce distinct cache
+/// entries) and the horizontal sub-pixel bin.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+struct GlyphCacheKey {
+    /// Font blob id.
+    font_blob_id: u64,
+    /// Font index within the blob.
+    font_index: u32,
+    /// Rendered pixel size.
+    pixel_size: PhysicalLength,
+    /// Glyph id.
+    glyph_id: core::num::NonZeroU16,
+    /// Hash of the normalized variation coordinates.
+    coords_hash: u64,
+    /// Horizontal sub-pixel bin.
+    subpixel_bin: u8,
+}
 
 struct RenderableGlyphWeightScale;
 
@@ -152,17 +175,26 @@ impl VectorFont {
     pub fn render_vector_glyph(
         &self,
         glyph_id: core::num::NonZeroU16,
+        subpixel_bin: u8,
         slint_context: &i_slint_core::SlintContext,
     ) -> Option<RenderableVectorGlyph> {
         GLYPH_CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
 
-            let cache_key =
-                (self.font_blob.id(), self.font_index, self.pixel_size, glyph_id, self.coords_hash);
+            let cache_key = GlyphCacheKey {
+                font_blob_id: self.font_blob.id(),
+                font_index: self.font_index,
+                pixel_size: self.pixel_size,
+                glyph_id,
+                coords_hash: self.coords_hash,
+                subpixel_bin,
+            };
 
             if let Some(entry) = cache.get(&cache_key) {
                 return Some(entry.clone());
             }
+
+            let subpixel_offset_x = subpixel_bin as f32 / SUBPIXEL_BIN_COUNT as f32;
 
             let glyph = {
                 let font_ref = self.swash_font_ref();
@@ -174,6 +206,7 @@ impl VectorFont {
                     .build();
                 let image = swash::scale::Render::new(&[swash::scale::Source::Outline])
                     .format(swash::zeno::Format::Alpha)
+                    .offset(swash::zeno::Vector::new(subpixel_offset_x, 0.0))
                     .render(&mut scaler, glyph_id.get())?;
 
                 let placement = image.placement;
@@ -275,7 +308,7 @@ impl super::GlyphRenderer for VectorFont {
         glyph_id: core::num::NonZeroU16,
         slint_context: &i_slint_core::SlintContext,
     ) -> Option<super::RenderableGlyph> {
-        self.render_vector_glyph(glyph_id, slint_context).map(|glyph| super::RenderableGlyph {
+        self.render_vector_glyph(glyph_id, 0, slint_context).map(|glyph| super::RenderableGlyph {
             x: glyph.x,
             y: glyph.y,
             width: glyph.width,
