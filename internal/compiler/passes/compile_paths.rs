@@ -14,7 +14,6 @@ use crate::expression_tree::*;
 use crate::langtype::{BuiltinStruct, Struct, Type};
 use crate::object_tree::*;
 use smol_str::SmolStr;
-use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -33,8 +32,7 @@ pub fn compile_paths(
 
         let element_types = &path_type.additional_accepted_child_types;
 
-        let commands_binding =
-            elem_.borrow_mut().bindings.remove("commands").map(RefCell::into_inner);
+        let commands_binding = elem_.borrow_mut().take_binding("commands");
 
         let path_data_binding = if let Some(commands_expr) = commands_binding {
             if let Some(path_child) = elem_.borrow().children.iter().find(|child| {
@@ -97,8 +95,8 @@ pub fn compile_paths(
                         {
                             let mut child = child.borrow_mut();
                             for k in element_type.properties.keys() {
-                                if let Some(binding) = child.bindings.remove(k) {
-                                    bindings.insert(k.clone(), binding);
+                                if let Some(binding) = child.take_binding(k) {
+                                    bindings.insert(k.clone(), binding.into());
                                 }
                             }
                         }

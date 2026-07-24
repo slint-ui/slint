@@ -3148,6 +3148,17 @@ impl Element {
         }
     }
 
+    /// Remove the binding for `property_name` and return it.
+    ///
+    /// The map entry is removed whether it held a real binding or only a synthetic debug hook,
+    /// but the result is `Some` only for a real binding — a synthetic-only slot reads as `None`,
+    /// matching "nothing was ever bound here". Dropping a leftover synthetic hook is safe for the
+    /// lowering passes that consume, rename, or delete a property this way.
+    pub fn take_binding(&mut self, property_name: &str) -> Option<BindingExpression> {
+        let binding = self.bindings.remove(property_name)?.into_inner();
+        (!binding.expression.is_synthetic_debug_hook()).then_some(binding)
+    }
+
     pub fn sub_component(&self) -> Option<&Rc<Component>> {
         if self.repeated.is_some() {
             None

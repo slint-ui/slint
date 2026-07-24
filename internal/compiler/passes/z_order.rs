@@ -31,20 +31,19 @@ fn reorder_children_by_zorder(
     for (idx, child_elm) in elem.borrow().children.iter().enumerate() {
         let z = child_elm
             .borrow_mut()
-            .bindings
-            .remove("z")
-            .and_then(|e| eval_const_expr(&e.borrow().expression, "z", &*e.borrow(), diag));
-        let z =
-            z.or_else(|| {
-                child_elm.borrow().repeated.as_ref()?;
-                if let ElementType::Component(c) = &child_elm.borrow().base_type {
-                    c.root_element.borrow_mut().bindings.remove("z").and_then(|e| {
-                        eval_const_expr(&e.borrow().expression, "z", &*e.borrow(), diag)
-                    })
-                } else {
-                    None
-                }
-            });
+            .take_binding("z")
+            .and_then(|e| eval_const_expr(&e.expression, "z", &e, diag));
+        let z = z.or_else(|| {
+            child_elm.borrow().repeated.as_ref()?;
+            if let ElementType::Component(c) = &child_elm.borrow().base_type {
+                c.root_element
+                    .borrow_mut()
+                    .take_binding("z")
+                    .and_then(|e| eval_const_expr(&e.expression, "z", &e, diag))
+            } else {
+                None
+            }
+        });
 
         if let Some(z) = z {
             if children_z_order.is_empty() {

@@ -115,23 +115,20 @@ fn lower_popup_window(
         })
     };
 
-    let close_policy =
-        popup_window_element.borrow_mut().bindings.remove(CLOSE_POLICY).and_then(|b| {
-            let b = b.into_inner();
-            if let Expression::EnumerationValue(v) = super::ignore_debug_hooks(&b.expression) {
-                Some(v.clone())
-            } else {
-                assert!(diag.has_errors());
-                None
-            }
-        });
+    let close_policy = popup_window_element.borrow_mut().take_binding(CLOSE_POLICY).and_then(|b| {
+        if let Expression::EnumerationValue(v) = super::ignore_debug_hooks(&b.expression) {
+            Some(v.clone())
+        } else {
+            assert!(diag.has_errors());
+            None
+        }
+    });
     let close_policy = close_policy
         .or_else(|| {
             popup_window_element
                 .borrow_mut()
-                .bindings
-                .remove(CLOSE_ON_CLICK)
-                .and_then(|b| map_close_on_click_value(&b.borrow()))
+                .take_binding(CLOSE_ON_CLICK)
+                .and_then(|b| map_close_on_click_value(&b))
         })
         .or_else(|| {
             // check bases
