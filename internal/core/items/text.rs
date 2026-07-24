@@ -2061,9 +2061,26 @@ impl TextInput {
             .platform()
             .clipboard_text(clipboard)
         {
-            self.preedit_text.set(Default::default());
-            self.insert(&text, window_adapter, self_rc);
+            self.insert_text(&text, window_adapter, self_rc);
         }
+    }
+
+    /// Inserts `text` at the cursor position, replacing the current selection, as a paste does.
+    ///
+    /// Unlike [`Self::paste`], the text is provided by the caller instead of being read from
+    /// [`Platform::clipboard_text`](crate::platform::Platform::clipboard_text). This is meant for
+    /// backends that receive clipboard contents through their own channels — for example the web
+    /// backend, whose `paste` browser event delivers the text directly and whose clipboard access
+    /// is asynchronous and gesture-gated, so the synchronous `Platform` clipboard hook cannot serve
+    /// it.
+    pub fn insert_text(
+        self: Pin<&Self>,
+        text: &str,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        self.preedit_text.set(Default::default());
+        self.insert(text, window_adapter, self_rc);
     }
 
     /// Returns a [`TextInputVisualRepresentation`] struct that contains all the fields necessary for rendering the text input,

@@ -3383,7 +3383,6 @@ dependencies = [
  "pin-weak",
  "raw-window-handle",
  "rgb",
- "scoped-tls-hkt",
  "scopeguard",
  "slint",
  "softbuffer",
