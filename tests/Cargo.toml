@@ -60,7 +60,7 @@ i-slint-core = { version = "=1.18.0", path = "../internal/core", default-feature
 i-slint-renderer-skia = { version = "=1.18.0", path = "../internal/renderers/skia" }
 
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
-itertools = { version = "0.14" }
+itertools = { version = "0.15" }
 spin_on = { version = "0.1" }
 
 [profile.release]

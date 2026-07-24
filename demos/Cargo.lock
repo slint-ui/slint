@@ -2519,7 +2519,7 @@ dependencies = [
  "i-slint-common",
  "icu_normalizer",
  "image",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "linked_hash_set",
  "lyon_extra",
  "lyon_path",
