@@ -2893,7 +2893,7 @@ fn check_callback_alias_validity(
         }
         return;
     };
-    let Some(b) = elem_borrow.bindings.get(name) else { return };
+    let Some(b) = elem_borrow.binding_cell_including_synthetic(name) else { return };
     // `try_borrow` because we might be called for the current binding
     let Some(alias) = b
         .try_borrow()

@@ -317,9 +317,18 @@ fn analyze_binding(
     let element = current.prop.element();
     let name = current.prop.name();
     if (context.currently_analyzing.back() == Some(current))
-        && !element.borrow().bindings[name].borrow().two_way_bindings.is_empty()
+        && !element
+            .borrow()
+            .binding_cell_including_synthetic(name)
+            .unwrap()
+            .borrow()
+            .two_way_bindings
+            .is_empty()
     {
-        let span = element.borrow().bindings[name]
+        let span = element
+            .borrow()
+            .binding_cell_including_synthetic(name)
+            .unwrap()
             .borrow()
             .span
             .clone()
@@ -363,7 +372,7 @@ fn analyze_binding(
             let p = &it.prop;
             let elem = p.element();
             let elem = elem.borrow();
-            let binding = elem.bindings[p.name()].borrow();
+            let binding = elem.binding_cell_including_synthetic(p.name()).unwrap().borrow();
             if binding.analysis.as_ref().unwrap().is_in_binding_loop.replace(true) {
                 break;
             }
@@ -381,7 +390,8 @@ fn analyze_binding(
         return depends_on_external;
     }
 
-    let binding = &element.borrow().bindings[name];
+    let element_borrow = element.borrow();
+    let binding = element_borrow.binding_cell_including_synthetic(name).unwrap();
     if binding.borrow().analysis.as_ref().is_some_and(|a| a.no_external_dependencies) {
         return depends_on_external;
     } else if !context.visited.insert(current.clone()) {
