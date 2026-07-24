@@ -531,6 +531,7 @@ fn gen_corelib(
         "Callback",
         "slint_property_listener_scope_evaluate",
         "slint_property_listener_scope_is_dirty",
+        "PropertyTracker",
         "PropertyTrackerOpaque",
         "CallbackOpaque",
         "ChangeTracker",
@@ -947,6 +948,8 @@ fn gen_corelib(
         .body
         .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
+    config.export.body.insert("Path".to_owned(), "    inline Path(); inline ~Path();".into());
+    config.export.pre_body.insert("FittedPathBox".to_owned(), "struct FittedPathInner;".into());
     config.export.body.insert(
         "SystemTrayIcon".to_owned(),
         "    inline SystemTrayIcon(); inline ~SystemTrayIcon();".into(),
@@ -1029,6 +1032,7 @@ namespace slint {
         using slint::private_api::WindowAdapterRc;
         using namespace vtable;
         using private_api::Property;
+        using private_api::PropertyTracker;
         using private_api::PathData;
         using private_api::Point;
         struct ItemTreeVTable;

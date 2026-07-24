@@ -592,6 +592,22 @@ impl TypeRegister {
             _ => unreachable!(),
         }
 
+        match &mut register.elements.get_mut("Path").unwrap() {
+            ElementType::Builtin(b) => {
+                let path = Rc::get_mut(b).unwrap();
+                for (name, func) in [
+                    ("point-at", BuiltinFunction::PathPointAt),
+                    ("angle-at", BuiltinFunction::PathAngleAt),
+                ] {
+                    let existing_docs = path.properties.get(name).and_then(|p| p.docs.clone());
+                    let mut info = BuiltinPropertyInfo::from(func);
+                    info.docs = existing_docs;
+                    path.properties.insert(name.into(), info);
+                }
+            }
+            _ => unreachable!(),
+        }
+
         let font_metrics_prop = crate::langtype::BuiltinPropertyInfo {
             property_visibility: PropertyVisibility::Output,
             default_value: BuiltinPropertyDefault::WithElement(|elem| {

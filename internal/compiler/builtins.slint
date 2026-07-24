@@ -2416,6 +2416,19 @@ export component Path {
     ///
     in property <float> viewbox-height;
     //!
+    //! ## Functions
+    //!
+    //! These functions sample the path at a given point along its length, allowing an object to be animated along the path.
+    //! Animating percent between 0 and N traverses the path N times forwards (in the direction the path was defined in).
+    //! Animating percent between N and 0 traverses the path N times backwards.
+    /// Returns a point at the given percent along the path in the Path element's coordinate space.
+    /// Returns (0, 0) if the path is empty.
+    function point-at(percent: float) -> Point {}
+    /// Returns the angle (in degrees) between the x-axis and the path's tangent vector at the given percent.
+    /// The tangent points in the direction the path was defined, so this reflects the path's shape and not
+    /// the object's current direction of travel. Returns 0 if the path is empty.
+    function angle-at(percent: float) -> angle {}
+    //!
     //! ## Path Using SVG Commands
     //!
     //! SVG is a popular file format for defining scalable graphics, which are often composed of paths. In SVG

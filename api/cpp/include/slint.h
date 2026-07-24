@@ -595,6 +595,15 @@ cbindgen_private::Flickable::~Flickable()
     slint_flickable_data_free(&data);
 }
 
+cbindgen_private::Path::Path()
+{
+    slint_path_fitted_cache_init(&fitted_path);
+}
+cbindgen_private::Path::~Path()
+{
+    slint_path_fitted_cache_free(&fitted_path);
+}
+
 cbindgen_private::SystemTrayIcon::SystemTrayIcon()
 {
     slint_system_tray_icon_data_init(&data);

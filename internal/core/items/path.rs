@@ -11,7 +11,7 @@ Lookup the [`crate::items`] module documentation.
 use super::{
     FillRule, Item, ItemConsts, ItemRc, ItemRendererRef, LineCap, LineJoin, RenderingResult,
 };
-use crate::graphics::{Brush, PathData, PathDataIterator};
+use crate::graphics::{Brush, FittedPath, PathData, PathDataIterator};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
@@ -21,15 +21,19 @@ use crate::item_rendering::CachedRenderingData;
 use crate::items::ImageFit;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalRect, LogicalSize, LogicalVector, RectLengths,
+    LogicalBorderRadius, LogicalLength, LogicalPx, LogicalRect, LogicalSize, LogicalVector,
+    RectLengths,
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
 use crate::{Coord, Property};
+use alloc::boxed::Box;
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
+use core::cell::RefCell;
 use core::pin::Pin;
+use euclid::Point2D;
 use euclid::num::Zero;
 use i_slint_core_macros::*;
 
@@ -54,6 +58,8 @@ pub struct Path {
     pub clip: Property<bool>,
     pub anti_alias: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
+    fitted_path: FittedPathBox,
+    tracker: crate::properties::PropertyTracker,
 }
 
 impl Item for Path {
@@ -191,9 +197,109 @@ impl Path {
         );
         (offset, elements_iter).into()
     }
+
+    fn sample_at(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        percent: f32,
+    ) -> Option<(Point2D<f32, LogicalPx>, f32)> {
+        if let Some(new_path) =
+            Path::FIELD_OFFSETS.tracker().apply_pin(self).evaluate_if_dirty(|| {
+                let (offset, elements_iter) = self.fitted_path_events(self_rc)?;
+                Some(elements_iter.to_fitted_path(offset))
+            })
+        {
+            *self.fitted_path.borrow_mut() = new_path;
+        }
+        self.fitted_path.borrow().as_ref()?.sample_at(percent)
+    }
+
+    pub fn point_at(self: Pin<&Self>, self_rc: &ItemRc, percent: f32) -> Point2D<f32, LogicalPx> {
+        self.sample_at(self_rc, percent).map(|(pos, _)| pos).unwrap_or_default()
+    }
+    pub fn angle_at(self: Pin<&Self>, self_rc: &ItemRc, percent: f32) -> f32 {
+        self.sample_at(self_rc, percent).map(|(_, tangent)| tangent).unwrap_or_default()
+    }
 }
 
 impl ItemConsts for Path {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Path, CachedRenderingData> =
         Path::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
+struct FittedPathInner(RefCell<Option<FittedPath>>);
+
+/// Opaque box holding the FittedPath, allocated lazily on first use
+#[repr(C)]
+pub struct FittedPathBox(core::cell::Cell<*mut FittedPathInner>);
+
+impl Default for FittedPathBox {
+    fn default() -> Self {
+        FittedPathBox(core::cell::Cell::new(core::ptr::null_mut()))
+    }
+}
+impl FittedPathBox {
+    fn get_or_init(&self) -> &FittedPathInner {
+        if self.0.get().is_null() {
+            self.0.set(Box::leak(Box::new(FittedPathInner(Default::default()))));
+        }
+        // Safety: the pointer is guaranteed non-null above, and was created from a Box::leak
+        unsafe { &*self.0.get() }
+    }
+}
+impl Drop for FittedPathBox {
+    fn drop(&mut self) {
+        let ptr = self.0.get();
+        if !ptr.is_null() {
+            // Safety: ptr was constructed from a Box::leak in get_or_init
+            drop(unsafe { Box::from_raw(ptr) });
+        }
+    }
+}
+impl core::ops::Deref for FittedPathBox {
+    type Target = RefCell<Option<FittedPath>>;
+    fn deref(&self) -> &Self::Target {
+        &self.get_or_init().0
+    }
+}
+
+/// # Safety
+/// This must be called using a non-null pointer pointing to a chunk of memory big enough to
+/// hold a FittedPathBox
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_path_fitted_cache_init(cache: *mut FittedPathBox) {
+    unsafe { core::ptr::write(cache, FittedPathBox::default()) };
+}
+
+/// # Safety
+/// This must be called using a non-null pointer pointing to an initialized FittedPathBox
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_path_fitted_cache_free(cache: *mut FittedPathBox) {
+    unsafe {
+        core::ptr::drop_in_place(cache);
+    }
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_path_point_at(
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+    percent: f32,
+) -> crate::lengths::LogicalPoint {
+    let self_rc = ItemRc::new(self_component.clone(), self_index);
+    self_rc.downcast::<Path>().unwrap().as_pin_ref().point_at(&self_rc, percent)
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_path_angle_at(
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+    percent: f32,
+) -> f32 {
+    let self_rc = ItemRc::new(self_component.clone(), self_index);
+    self_rc.downcast::<Path>().unwrap().as_pin_ref().angle_at(&self_rc, percent)
 }

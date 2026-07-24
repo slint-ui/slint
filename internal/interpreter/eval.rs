@@ -3,6 +3,7 @@
 
 use crate::api::{SetPropertyError, Struct, Value};
 use crate::dynamic_item_tree::{CallbackHandler, InstanceRef};
+use core::cell::RefCell;
 use core::ffi::c_void;
 use core::pin::Pin;
 use corelib::graphics::{
@@ -22,12 +23,12 @@ use i_slint_compiler::expression_tree::{
 };
 use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::namedreference::NamedReference;
-use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::object_tree::{Element, ElementRc};
 use i_slint_core::api::ToSharedString;
 use i_slint_core::{self as corelib};
 use smol_str::SmolStr;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 pub trait ErasedPropertyInfo {
     fn get(&self, item: Pin<ItemRef>) -> Value;
@@ -1817,20 +1818,7 @@ fn call_builtin_function(
             let component = local_context.component_instance;
 
             if let Expression::ElementReference(item) = &arguments[0] {
-                generativity::make_guard!(guard);
-
-                let item = item.upgrade().unwrap();
-                let enclosing_component = enclosing_component_for_element(&item, component, guard);
-                let description = enclosing_component.description;
-
-                let item_info = &description.items[item.borrow().id.as_str()];
-
-                let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
-
-                let item_rc = corelib::items::ItemRc::new(
-                    vtable::VRc::into_dyn(item_comp),
-                    item_info.item_index(),
-                );
+                let item_rc = item_rc_for_element(item, component);
 
                 // Map the item's own geometry origin through the ancestor transforms so the
                 // result is the item's absolute position (not its parent's).
@@ -1943,7 +1931,62 @@ fn call_builtin_function(
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
             Value::StyledText(corelib::styled_text::color_to_styled_text(color))
         }
+        BuiltinFunction::PathPointAt => {
+            let component = local_context.component_instance;
+
+            if let Expression::ElementReference(item) = &arguments[0] {
+                let item_rc = item_rc_for_element(item, component);
+
+                let percent: f32 =
+                    eval_expression(&arguments[1], local_context).try_into().unwrap();
+
+                item_rc
+                    .downcast::<corelib::items::Path>()
+                    .unwrap()
+                    .as_pin_ref()
+                    .point_at(&item_rc, percent)
+                    .to_untyped()
+                    .into()
+            } else {
+                panic!("internal error: argument to PathPointAt must be an element")
+            }
+        }
+        BuiltinFunction::PathAngleAt => {
+            let component = local_context.component_instance;
+
+            if let Expression::ElementReference(item) = &arguments[0] {
+                let item_rc = item_rc_for_element(item, component);
+
+                let percent: f32 =
+                    eval_expression(&arguments[1], local_context).try_into().unwrap();
+
+                item_rc
+                    .downcast::<corelib::items::Path>()
+                    .unwrap()
+                    .as_pin_ref()
+                    .angle_at(&item_rc, percent)
+                    .into()
+            } else {
+                panic!("internal error: argument to PathAngleAt must be an element")
+            }
+        }
     }
+}
+
+fn item_rc_for_element(
+    item: &Weak<RefCell<Element>>,
+    component: InstanceRef,
+) -> corelib::items::ItemRc {
+    generativity::make_guard!(guard);
+    let item = item.upgrade().unwrap();
+    let enclosing_component = enclosing_component_for_element(&item, component, guard);
+    let description = enclosing_component.description;
+
+    let item_info = &description.items[item.borrow().id.as_str()];
+
+    let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+
+    corelib::items::ItemRc::new(vtable::VRc::into_dyn(item_comp), item_info.item_index())
 }
 
 fn call_item_member_function(nr: &NamedReference, local_context: &mut EvalLocalContext) -> Value {
