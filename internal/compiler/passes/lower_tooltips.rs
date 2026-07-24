@@ -124,40 +124,28 @@ fn bind_popup_effective_size_from_content(
         let mut width_binding: BindingExpression =
             Expression::PropertyReference(explicit_width).into();
         width_binding.priority = 1;
-        popup_window_rc
-            .borrow_mut()
-            .bindings
-            .insert(SmolStr::new_static(WIDTH), RefCell::new(width_binding));
+        popup_window_rc.borrow_mut().set_binding(SmolStr::new_static(WIDTH), width_binding);
     } else {
         let preferred_width =
             NamedReference::new(tooltip_content_rc, SmolStr::new_static("preferred-width"));
         let mut width_binding: BindingExpression =
             Expression::PropertyReference(preferred_width).into();
         width_binding.priority = 1;
-        popup_window_rc
-            .borrow_mut()
-            .bindings
-            .insert(SmolStr::new_static(WIDTH), RefCell::new(width_binding));
+        popup_window_rc.borrow_mut().set_binding(SmolStr::new_static(WIDTH), width_binding);
     }
     if content_has_height {
         let explicit_height = NamedReference::new(tooltip_content_rc, SmolStr::new_static(HEIGHT));
         let mut height_binding: BindingExpression =
             Expression::PropertyReference(explicit_height).into();
         height_binding.priority = 1;
-        popup_window_rc
-            .borrow_mut()
-            .bindings
-            .insert(SmolStr::new_static(HEIGHT), RefCell::new(height_binding));
+        popup_window_rc.borrow_mut().set_binding(SmolStr::new_static(HEIGHT), height_binding);
     } else {
         let preferred_height =
             NamedReference::new(tooltip_content_rc, SmolStr::new_static("preferred-height"));
         let mut height_binding: BindingExpression =
             Expression::PropertyReference(preferred_height).into();
         height_binding.priority = 1;
-        popup_window_rc
-            .borrow_mut()
-            .bindings
-            .insert(SmolStr::new_static(HEIGHT), RefCell::new(height_binding));
+        popup_window_rc.borrow_mut().set_binding(SmolStr::new_static(HEIGHT), height_binding);
     }
 }
 
@@ -217,11 +205,11 @@ fn wire_tooltip_placement(
 
     let mut x_binding: BindingExpression = x_pointer.into();
     x_binding.priority = 1;
-    popup_window_rc.borrow_mut().bindings.insert(SmolStr::new_static("x"), RefCell::new(x_binding));
+    popup_window_rc.borrow_mut().set_binding(SmolStr::new_static("x"), x_binding);
 
     let mut y_binding: BindingExpression = y_pointer.into();
     y_binding.priority = 1;
-    popup_window_rc.borrow_mut().bindings.insert(SmolStr::new_static("y"), RefCell::new(y_binding));
+    popup_window_rc.borrow_mut().set_binding(SmolStr::new_static("y"), y_binding);
 }
 
 fn wire_tooltip_visibility_behavior(
@@ -242,14 +230,12 @@ fn wire_tooltip_visibility_behavior(
         source_location: None,
     };
 
-    tooltip_area.borrow_mut().bindings.insert(
-        SmolStr::new_static("show"),
-        RefCell::new(Expression::CodeBlock(vec![show_popup]).into()),
-    );
-    tooltip_area.borrow_mut().bindings.insert(
-        SmolStr::new_static("hide"),
-        RefCell::new(Expression::CodeBlock(vec![close_popup]).into()),
-    );
+    tooltip_area
+        .borrow_mut()
+        .set_binding(SmolStr::new_static("show"), Expression::CodeBlock(vec![show_popup]).into());
+    tooltip_area
+        .borrow_mut()
+        .set_binding(SmolStr::new_static("hide"), Expression::CodeBlock(vec![close_popup]).into());
 
     // Make the PopupWindow a child of the TooltipArea so that the popup's bindings
     // (`x`/`y` referring to `TooltipArea.mouse-x`/`mouse-y`) and the conditional
@@ -402,11 +388,8 @@ fn lower_tooltips_in_component(
         // `TooltipArea`, keyed by the same property name. Currently only `text` is shared,
         // but the helper is kept so adding more shared properties later is a one-liner.
         let copy_binding = |property: &str| {
-            if let Some(binding) = tooltip_config.borrow().bindings.get(property) {
-                tooltip_area
-                    .borrow_mut()
-                    .bindings
-                    .insert(SmolStr::new(property), RefCell::new(binding.borrow().clone()));
+            if let Some(binding) = tooltip_config.borrow().binding(property) {
+                tooltip_area.borrow_mut().set_binding(SmolStr::new(property), binding.clone());
             }
         };
         if has_text_binding {

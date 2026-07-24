@@ -33,7 +33,7 @@ pub fn const_propagation(component: &Component, global_analysis: &GlobalAnalysis
     // simplification folded the conversion away, the binding is constant after all:
     // promote it back.
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-        for binding in elem.borrow().bindings.values() {
+        for (_, binding) in elem.borrow().real_bindings() {
             let Ok(mut binding) = binding.try_borrow_mut() else { continue };
             let Some(analysis) = binding.analysis.as_ref() else { continue };
             if analysis.is_const || matches!(binding.expression, Expression::Invalid) {
@@ -438,14 +438,13 @@ fn extract_constant_property_reference_impl(
     // find the binding.
     let mut element = nr.element();
     let mut expression = loop {
-        if let Some(binding) = element.borrow().bindings.get(nr.name()) {
-            let binding = binding.borrow();
+        if let Some(binding) = element.borrow().binding(nr.name()) {
             if !binding.two_way_bindings.is_empty() {
                 // TODO: In practice, we should still find out what the real binding is
                 // and solve that.
                 return None;
             }
-            if !matches!(binding.expression, Expression::Invalid) {
+            if !matches!(binding.expression.ignore_debug_hooks(), Expression::Invalid) {
                 break binding.expression.clone();
             }
         };
@@ -584,18 +583,18 @@ export component Foo {
 
     let expected_p = 3.0 * 2.0 + 15.0;
     let expected_w = -expected_p / 2.0;
-    let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
-    let out1_binding = bindings.get("out1").unwrap().borrow().expression.clone();
+    let root_element = doc.inner_components.last().unwrap().root_element.clone();
+    let out1_binding = root_element.borrow().binding("out1").unwrap().expression.clone();
     match &out1_binding {
         Expression::NumberLiteral(n, _) => assert_eq!(*n, expected_w),
         _ => panic!("not number {out1_binding:?}"),
     }
-    let out2_binding = bindings.get("out2").unwrap().borrow().expression.clone();
+    let out2_binding = root_element.borrow().binding("out2").unwrap().expression.clone();
     match &out2_binding {
         Expression::NumberLiteral(n, _) => assert_eq!(*n, expected_p),
         _ => panic!("not number {out2_binding:?}"),
     }
-    let out3_binding = bindings.get("out3").unwrap().borrow().expression.clone();
+    let out3_binding = root_element.borrow().binding("out3").unwrap().expression.clone();
     match &out3_binding {
         // We have a code block because the first entry stores the value of `input` in a local variable
         Expression::CodeBlock(stmts) => match &stmts[1] {
@@ -635,10 +634,11 @@ export component Foo {
         spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
     assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
 
-    let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
-    let binding = |name: &str| bindings.get(name).unwrap().borrow().clone();
-    let is_const =
-        |name: &str| bindings.get(name).unwrap().borrow().analysis.as_ref().unwrap().is_const;
+    let root_element = doc.inner_components.last().unwrap().root_element.clone();
+    let binding = |name: &str| root_element.borrow().binding(name).unwrap().clone();
+    let is_const = |name: &str| {
+        root_element.borrow().binding(name).unwrap().analysis.as_ref().unwrap().is_const
+    };
 
     // Conversions whose result contains no decimal separator are folded and stay constant
     assert!(
@@ -771,8 +771,8 @@ export component Foo inherits Window {{
             spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
         assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
 
-        let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
-        let out1_binding = bindings.get("test").unwrap().borrow().expression.clone();
+        let root_element = doc.inner_components.last().unwrap().root_element.clone();
+        let out1_binding = root_element.borrow().binding("test").unwrap().expression.clone();
         check_expression(&out1_binding);
     }
 }
@@ -798,8 +798,8 @@ export component Foo inherits Window {
         spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
     assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
 
-    let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
-    let mut test_binding = bindings.get("test").unwrap().borrow().expression.clone();
+    let root_element = doc.inner_components.last().unwrap().root_element.clone();
+    let mut test_binding = root_element.borrow().binding("test").unwrap().expression.clone();
     if let Expression::Cast { from, to: _ } = test_binding {
         test_binding = *from;
     }
@@ -824,10 +824,8 @@ fn test_unit_normalization() {
         );
         let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
         assert!(!diag.has_errors(), "{expr}: {:#?}", diag.to_string_vec());
-        doc.inner_components.last().unwrap().root_element.borrow().bindings["a"]
-            .borrow()
-            .expression
-            .clone()
+        let root_element = doc.inner_components.last().unwrap().root_element.clone();
+        root_element.borrow().binding("a").unwrap().expression.clone()
     }
 
     // A literal is stored in its type's canonical unit, not the one it was written in.

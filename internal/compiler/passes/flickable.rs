@@ -15,7 +15,6 @@ use crate::langtype::{ElementType, NativeClass, Type};
 use crate::layout::is_layout;
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
-use core::cell::RefCell;
 use smol_str::{SmolStr, format_smolstr};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -67,16 +66,14 @@ fn create_content_element(flickable: &ElementRc, native_empty: &Arc<NativeClass>
                 Type::LogicalLength,
             );
             new_y.mark_as_set();
-            inner_elem.borrow_mut().bindings.insert(
+            inner_elem.borrow_mut().set_binding(
                 "y".into(),
-                RefCell::new(
-                    Expression::BinaryExpression {
-                        lhs: Expression::PropertyReference(new_y.clone()).into(),
-                        rhs: Expression::PropertyReference(listview.content_y.clone()).into(),
-                        op: '-',
-                    }
-                    .into(),
-                ),
+                Expression::BinaryExpression {
+                    lhs: Expression::PropertyReference(new_y.clone()).into(),
+                    rhs: Expression::PropertyReference(listview.content_y.clone()).into(),
+                    op: '-',
+                }
+                .into(),
             );
             inner_elem.borrow_mut().geometry_props.as_mut().unwrap().y = new_y;
         }
@@ -98,10 +95,9 @@ fn create_content_element(flickable: &ElementRc, native_empty: &Arc<NativeClass>
                 //don't bind content-y for ListView because the layout is handled by the runtime
                 continue;
             }
-            content.borrow_mut().bindings.insert(
+            content.borrow_mut().set_binding(
                 content_prop.into(),
-                BindingExpression::new_two_way(NamedReference::new(flickable, prop.clone()).into())
-                    .into(),
+                BindingExpression::new_two_way(NamedReference::new(flickable, prop.clone()).into()),
             );
         }
     }
@@ -213,8 +209,7 @@ fn set_binding_if_not_explicit(
     expression: impl FnOnce() -> Option<Expression>,
 ) {
     // we can't use `set_binding_if_not_set` directly because `expression()` may borrow `elem`
-    // (`has_binding` treats a synthetic debug hook as "no binding")
-    if elem.borrow().bindings.get(property).is_none_or(|b| !b.borrow().has_binding())
+    if elem.borrow().binding(property).is_none()
         && let Some(e) = expression()
     {
         elem.borrow_mut().set_binding_if_not_set(property.into(), || e);

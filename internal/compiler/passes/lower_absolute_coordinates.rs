@@ -4,7 +4,6 @@
 //! This pass creates bindings to the `absolute-position` property that can be used to compute
 //! the window-absolute coordinates of elements.
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::expression_tree::{BuiltinFunction, Expression};
@@ -37,6 +36,6 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
             source_location: None,
         };
 
-        elem.borrow_mut().bindings.insert(nr.name().clone(), RefCell::new(binding.into()));
+        elem.borrow_mut().set_binding(nr.name().clone(), binding.into());
     }
 }

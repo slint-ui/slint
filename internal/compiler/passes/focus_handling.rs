@@ -235,10 +235,8 @@ impl<'a> LocalFocusForwards<'a> {
                             ..Default::default()
                         },
                     );
-                    elem.borrow_mut().bindings.insert(
-                        function.name().into(),
-                        RefCell::new(set_or_clear_focus_code.into()),
-                    );
+                    elem.borrow_mut()
+                        .set_binding(function.name().into(), set_or_clear_focus_code.into());
                 }
             }
         }

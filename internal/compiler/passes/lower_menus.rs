@@ -353,12 +353,9 @@ fn process_context_menu(
         }
     };
 
-    let old = context_menu_elem
-        .borrow_mut()
-        .bindings
-        .insert(SmolStr::new_static(SHOW), RefCell::new(expr.into()));
+    let old = context_menu_elem.borrow_mut().set_binding(SmolStr::new_static(SHOW), expr.into());
     if let Some(old) = old {
-        diag.push_error("'show' is not a callback in ContextMenuArea".into(), &old.borrow().span);
+        diag.push_error("'show' is not a callback in ContextMenuArea".into(), &old.span);
     }
 
     true
@@ -548,7 +545,7 @@ fn process_window(
         } else {
             Expression::PropertyReference(nr)
         };
-        menubar_impl.borrow_mut().bindings.insert(prop.into(), RefCell::new(forward_expr.into()));
+        menubar_impl.borrow_mut().set_binding(prop.into(), forward_expr.into());
         let old = menu_bar
             .borrow_mut()
             .property_declarations
@@ -563,8 +560,7 @@ fn process_window(
     if let Some(visible_binding) = &visible_binding {
         menubar_impl
             .borrow_mut()
-            .bindings
-            .insert(SmolStr::new_static("menubar-visible"), visible_binding.clone());
+            .set_binding(SmolStr::new_static("menubar-visible"), visible_binding.borrow().clone());
     }
 
     // Transform the MenuBar in a layout
@@ -665,14 +661,12 @@ fn lower_menu_items(
                 }
 
                 if element.borrow().base_type.type_name() == Some("MenuSeparator") {
-                    element.borrow_mut().bindings.insert(
+                    element.borrow_mut().set_binding(
                         "title".into(),
-                        RefCell::new(
-                            Expression::StringLiteral(SmolStr::new_static(
-                                MENU_SEPARATOR_PLACEHOLDER_TITLE,
-                            ))
-                            .into(),
-                        ),
+                        Expression::StringLiteral(SmolStr::new_static(
+                            MENU_SEPARATOR_PLACEHOLDER_TITLE,
+                        ))
+                        .into(),
                     );
                 }
                 // Menu/MenuSeparator -> MenuItem

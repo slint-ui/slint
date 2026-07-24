@@ -11,7 +11,6 @@ use crate::langtype::ElementType;
 use crate::langtype::Type;
 use crate::object_tree::*;
 use smol_str::SmolStr;
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
 
@@ -119,10 +118,7 @@ fn lower_state_in_element(
             ..PropertyDeclaration::default()
         },
     );
-    root_element
-        .borrow_mut()
-        .bindings
-        .insert(state_property_name, RefCell::new(state_value.into()));
+    root_element.borrow_mut().set_binding(state_property_name, state_value.into());
 
     lower_transitions_in_element(
         root_element,

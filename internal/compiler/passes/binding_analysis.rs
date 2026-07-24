@@ -206,7 +206,7 @@ fn analyze_element(
     reverse_aliases: &ReverseAliases,
     diag: &mut BuildDiagnostics,
 ) {
-    for (name, binding) in &elem.borrow().bindings {
+    for (name, binding) in elem.borrow().real_bindings() {
         if binding.borrow().analysis.is_some() {
             continue;
         }
@@ -503,7 +503,7 @@ fn process_property(
 
     loop {
         let element = prop.prop.element();
-        if element.borrow().bindings.contains_key(prop.prop.name()) {
+        if element.borrow().binding(prop.prop.name()).is_some() {
             analyze_binding(&prop, context, reverse_aliases, diag);
             break;
         }
@@ -908,11 +908,10 @@ fn visit_cell_cross_axis_implicit_dependency(
     }
     let reads_opposite = item
         .borrow()
-        .bindings
-        .get(prop)
+        .binding(prop)
         .map(|b| {
             let mut seen = false;
-            b.borrow().expression.visit_recursive(&mut |sub| {
+            b.expression.visit_recursive(&mut |sub| {
                 if let Expression::PropertyReference(nr) = sub
                     && nr.name() == opposite_dim
                     && Rc::ptr_eq(&nr.element(), item)
@@ -1101,7 +1100,7 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
     });
 
     fn visit_element(e: &ElementRc, reverse_aliases: &mut ReverseAliases) {
-        for (name, binding) in &e.borrow().bindings {
+        for (name, binding) in e.borrow().real_bindings() {
             if !binding.borrow().two_way_bindings.is_empty() {
                 check_alias(e, name, &binding.borrow());
 
@@ -1149,9 +1148,9 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
     fn mark_alias(alias: &NamedReference) {
         alias.mark_as_set();
         if !alias.is_externally_modified()
-            && let Some(bind) = alias.element().borrow().bindings.get(alias.name())
+            && let Some(bind) = alias.element().borrow().binding(alias.name())
         {
-            propagate_alias(&bind.borrow())
+            propagate_alias(&bind)
         }
     }
 }
@@ -1167,7 +1166,7 @@ fn mark_used_base_properties(doc: &Document) {
                 if !matches!(element.borrow().base_type, ElementType::Component(_)) {
                     return;
                 }
-                for (name, binding) in &element.borrow().bindings {
+                for (name, binding) in element.borrow().real_bindings() {
                     if binding.borrow().has_binding() {
                         crate::namedreference::mark_property_set_derived_in_base(
                             element.clone(),

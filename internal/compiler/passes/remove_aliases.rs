@@ -74,7 +74,7 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
     let mut property_sets = PropertySets::default();
 
     let mut process_element = |e: &ElementRc| {
-        'bindings: for (name, binding) in &e.borrow().bindings {
+        'bindings: for (name, binding) in e.borrow().real_bindings() {
             for twb in &binding.borrow().two_way_bindings {
                 if let TwoWayBinding::Property { property, field_access } = twb {
                     if !field_access.is_empty() {
@@ -120,11 +120,8 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                 let elem = nr.element();
                 let elem = elem.borrow();
                 elem.enclosing_component.upgrade().is_some_and(|c| c.is_global())
-                    && elem.bindings.get(nr.name()).is_some_and(|b| {
-                        !matches!(
-                            super::ignore_debug_hooks(&b.borrow().expression),
-                            Expression::Invalid
-                        )
+                    && elem.binding(nr.name()).is_some_and(|b| {
+                        !matches!(b.expression.ignore_debug_hooks(), Expression::Invalid)
                     })
             })
             .cloned()
@@ -133,10 +130,10 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
             for nr in &implementers {
                 let elem = nr.element();
                 let elem = elem.borrow();
-                if let Some(b) = elem.bindings.get(nr.name()) {
+                if let Some(b) = elem.binding(nr.name()) {
                     diag.push_error(
                         format!("Callback '{}' is implemented in more than one global", nr.name()),
-                        &*b.borrow(),
+                        &*b,
                     );
                 }
             }
@@ -281,9 +278,9 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                 }
             } else {
                 // This is not a declaration, we must re-create the binding
-                elem.bindings.insert(
+                elem.set_binding(
                     remove.name().clone(),
-                    BindingExpression::new_two_way(to.clone().into()).into(),
+                    BindingExpression::new_two_way(to.clone().into()),
                 );
                 drop(elem);
                 if remove.is_externally_modified() {

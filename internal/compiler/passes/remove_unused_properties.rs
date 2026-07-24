@@ -23,9 +23,8 @@ pub fn remove_unused_properties(doc: &Document) {
                         // Keep properties that carry model-data two-way bindings:
                         // these bridge repeater data to other properties (e.g. globals)
                         // and must survive for the interpreter to wire them up at runtime.
-                        && !elem.bindings.get(prop).is_some_and(|b| {
-                            b.borrow()
-                                .two_way_bindings
+                        && !elem.binding(prop).is_some_and(|b| {
+                            b.two_way_bindings
                                 .iter()
                                 .any(|t| matches!(t, TwoWayBinding::ModelData { .. }))
                         })

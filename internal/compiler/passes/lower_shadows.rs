@@ -92,15 +92,13 @@ fn create_box_shadow_element(
 
         if let Some(source_property) = source_property {
             let target_property = SmolStr::new_static(property_name);
-            element.bindings.insert(
+            element.set_binding(
                 target_property,
-                RefCell::new(
-                    Expression::PropertyReference(NamedReference::new(
-                        sibling_element,
-                        source_property,
-                    ))
-                    .into(),
-                ),
+                Expression::PropertyReference(NamedReference::new(
+                    sibling_element,
+                    source_property,
+                ))
+                .into(),
             );
         }
     }
@@ -112,15 +110,13 @@ fn prepend_inner_shadow_child(parent: &ElementRc, inner_elem: Element) {
     let inner_rc = ElementRc::new(inner_elem.into());
     inner_rc.borrow_mut().geometry_props = Some(GeometryProps::new(&inner_rc));
     for property_name in ["width", "height"] {
-        inner_rc.borrow_mut().bindings.insert(
+        inner_rc.borrow_mut().set_binding(
             property_name.into(),
-            RefCell::new(
-                Expression::PropertyReference(NamedReference::new(
-                    parent,
-                    SmolStr::new_static(property_name),
-                ))
-                .into(),
-            ),
+            Expression::PropertyReference(NamedReference::new(
+                parent,
+                SmolStr::new_static(property_name),
+            ))
+            .into(),
         );
     }
     parent.borrow_mut().children.insert(0, inner_rc);

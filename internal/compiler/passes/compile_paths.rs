@@ -128,10 +128,7 @@ pub fn compile_paths(
             Expression::PathData(crate::expression_tree::Path::Elements(path_data)).into()
         };
 
-        elem_
-            .borrow_mut()
-            .bindings
-            .insert(SmolStr::new_static("elements"), RefCell::new(path_data_binding));
+        elem_.borrow_mut().set_binding(SmolStr::new_static("elements"), path_data_binding);
     });
 }
 

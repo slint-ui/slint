@@ -96,24 +96,21 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Arc<NativeClass>) 
         }
     } else if parent_elem.borrow().binding("border-radius").is_some() {
         for prop in super::border_radius::BORDER_RADIUS_PROPERTIES.iter() {
-            clip.borrow_mut().bindings.insert(
+            clip.borrow_mut().set_binding(
                 SmolStr::new(prop),
-                RefCell::new(
-                    Expression::PropertyReference(NamedReference::new(
-                        parent_elem,
-                        SmolStr::new_static("border-radius"),
-                    ))
-                    .into(),
-                ),
+                Expression::PropertyReference(NamedReference::new(
+                    parent_elem,
+                    SmolStr::new_static("border-radius"),
+                ))
+                .into(),
             );
         }
     }
-    clip.borrow_mut().bindings.insert(
+    clip.borrow_mut().set_binding(
         SmolStr::new_static("clip"),
         BindingExpression::new_two_way(
             NamedReference::new(parent_elem, SmolStr::new_static("clip")).into(),
-        )
-        .into(),
+        ),
     );
 }
 
@@ -123,15 +120,13 @@ fn copy_optional_binding(
     clip: &ElementRc,
 ) {
     if parent_elem.borrow().binding(optional_binding).is_some() {
-        clip.borrow_mut().bindings.insert(
+        clip.borrow_mut().set_binding(
             optional_binding.into(),
-            RefCell::new(
-                Expression::PropertyReference(NamedReference::new(
-                    parent_elem,
-                    SmolStr::new_static(optional_binding),
-                ))
-                .into(),
-            ),
+            Expression::PropertyReference(NamedReference::new(
+                parent_elem,
+                SmolStr::new_static(optional_binding),
+            ))
+            .into(),
         );
     }
 }

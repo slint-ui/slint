@@ -624,10 +624,10 @@ fn find_binding<R>(
     let mut element = element.clone();
     let mut depth = 0;
     loop {
-        if let Some(b) = element.borrow().bindings.get(name)
-            && b.borrow().has_binding()
+        if let Some(b) = element.borrow().binding(name)
+            && b.has_binding()
         {
-            return Some(f(&b.borrow(), &element.borrow().enclosing_component, depth));
+            return Some(f(&b, &element.borrow().enclosing_component, depth));
         }
         let e = match &element.borrow().base_type {
             ElementType::Component(base) => base.root_element.clone(),
