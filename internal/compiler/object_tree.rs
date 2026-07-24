@@ -650,9 +650,9 @@ impl Display for PropertyVisibility {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PropertyVisibility::Private => f.write_str("private"),
-            PropertyVisibility::Input => f.write_str("input"),
-            PropertyVisibility::Output => f.write_str("output"),
-            PropertyVisibility::InOut => f.write_str("input output"),
+            PropertyVisibility::Input => f.write_str("in"),
+            PropertyVisibility::Output => f.write_str("out"),
+            PropertyVisibility::InOut => f.write_str("in-out"),
             PropertyVisibility::Constexpr => f.write_str("constexpr"),
             PropertyVisibility::Public => f.write_str("public"),
             PropertyVisibility::Protected => f.write_str("protected"),
