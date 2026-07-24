@@ -4,6 +4,8 @@
 #include <ranges>
 #include <chrono>
 #include <filesystem>
+#include <fstream>
+#include <vector>
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch_all.hpp"
 
@@ -205,6 +207,27 @@ TEST_CASE("Image")
         auto actual_path = img.path();
         REQUIRE(actual_path.has_value());
         REQUIRE(*actual_path == SOURCE_DIR "/../../../logo/slint-logo-square-light-128x128.png");
+    }
+
+    {
+        std::ifstream file(SOURCE_DIR "/redpixel.png", std::ios::binary);
+        std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)),
+                                  std::istreambuf_iterator<char>());
+        auto from_data = Image::load_from_data(data);
+        auto size = from_data.size();
+        REQUIRE(size.width == 1);
+        REQUIRE(size.height == 1);
+        REQUIRE(!from_data.path().has_value());
+    }
+
+    {
+        static constexpr unsigned char svg[] =
+                R"(<svg xmlns="http://www.w3.org/2000/svg" width="16" height="8"></svg>)";
+        // The format is guessed from the leading `<svg` tag.
+        auto from_data = Image::load_from_data(std::span(svg, sizeof(svg) - 1));
+        auto size = from_data.size();
+        REQUIRE(size.width == 16);
+        REQUIRE(size.height == 8);
     }
 #endif
 
