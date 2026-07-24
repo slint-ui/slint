@@ -2400,6 +2400,14 @@ impl Element {
                     &lookup_result.resolved_name,
                     &name_token,
                 );
+            } else if let Some(message) =
+                lookup_result.deprecated.as_ref().filter(|_| !lookup_result.is_local_to_component)
+            {
+                diag.push_property_deprecation_warning_with_message(
+                    &unresolved_name,
+                    message,
+                    &name_token,
+                );
             }
 
             match self.bindings.entry(lookup_result.resolved_name.into()) {
