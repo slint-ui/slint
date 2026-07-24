@@ -42,9 +42,7 @@ def test_async_aiohttp() -> None:
     async def hello(request: web.Request) -> web.Response:
         return web.Response(text="Hello, world")
 
-    async def run_network_requests(
-        port: int, exceptions: list[Exception]
-    ) -> None:
+    async def run_network_requests(port: int, exceptions: list[Exception]) -> None:
         try:
             app = web.Application()
             app.add_routes([web.get("/", hello)])
