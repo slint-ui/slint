@@ -1201,6 +1201,44 @@ impl From<LayoutItemInfo> for FlexboxLayoutItemInfo {
     }
 }
 
+impl FlexboxLayoutItemInfo {
+    /// The item's size along the main axis before growing or shrinking:
+    /// `flex-basis` when set (>= 0), otherwise the preferred size,
+    /// clamped to the item's min/max. This is CSS's hypothetical main size.
+    ///
+    /// Only meaningful for the main-axis cell list,
+    /// since `flex-basis` always refers to the main axis.
+    /// The cross axis must use `preferred_bounded()`.
+    #[must_use]
+    fn hypothetical_main_size(&self) -> Coord {
+        if self.flex_basis >= 0 as Coord {
+            self.flex_basis.min(self.constraint.max).max(self.constraint.min)
+        } else {
+            self.constraint.preferred_bounded()
+        }
+    }
+
+    /// What the item contributes to the container's preferred main size.
+    ///
+    /// A growable item treats its basis as a floor to grow from rather than a cap,
+    /// so it still needs room for its content: `flex-basis: 0` with `flex-grow: 1`
+    /// (the CSS `flex: 1 1 0` idiom) must not collapse the container to nothing.
+    ///
+    /// Taking the larger of the two is what taffy does: its max-content flex
+    /// fraction divides by the grow factor and then multiplies by it again, so the
+    /// factor cancels and an item contributes `max(content, basis)`. The spec would
+    /// scale every item by the line's largest fraction instead, but taffy, Chrome
+    /// and Firefox all skip that step.
+    #[must_use]
+    fn flex_preferred_main(&self) -> Coord {
+        if self.flex_grow > 0. {
+            self.hypothetical_main_size().max(self.constraint.preferred_bounded())
+        } else {
+            self.hypothetical_main_size()
+        }
+    }
+}
+
 /// Solve a BoxLayout
 pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> SharedVector<Coord> {
     let mut result = SharedVector::<Coord>::default();
@@ -1905,7 +1943,7 @@ pub fn flexbox_layout_unwrapped_main(
         return extra_pad;
     }
     let num_spacings = cells.len().saturating_sub(1) as Coord;
-    cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>()
+    cells.iter().map(|c| c.flex_preferred_main()).sum::<Coord>()
         + spacing * num_spacings
         + extra_pad
 }
@@ -1951,18 +1989,17 @@ pub fn flexbox_layout_info_main_axis(
         // products (and their sum) would overflow for large items.
         let total_area: f64 = cells
             .iter()
-            .map(|c| c.constraint.preferred_bounded() as f64 + spacing as f64)
+            .map(|c| c.flex_preferred_main() as f64 + spacing as f64)
             .map(|w| w * w)
             .sum();
         let target = Float::sqrt(total_area as f32) as Coord;
         let mut acc = 0 as Coord;
         let mut started = false;
         for c in cells.iter() {
-            acc += if started {
-                spacing + c.constraint.preferred_bounded()
-            } else {
-                c.constraint.preferred_bounded()
-            };
+            // taffy breaks the lines on the hypothetical size, before any growing,
+            // so the line fitting has to measure the items the same way.
+            let size = c.hypothetical_main_size();
+            acc += if started { spacing + size } else { size };
             started = true;
             if acc >= target {
                 break;
@@ -2054,9 +2091,7 @@ pub fn flexbox_layout_info_cross_axis(
         let total_area: f64 = main_cells
             .iter()
             .zip(cross_cells.iter())
-            .map(|(m, c)| {
-                m.constraint.preferred_bounded() as f64 * c.constraint.preferred_bounded() as f64
-            })
+            .map(|(m, c)| m.flex_preferred_main() as f64 * c.constraint.preferred_bounded() as f64)
             .sum();
         let count = main_cells.len();
         Float::sqrt(total_area as f32) as Coord
