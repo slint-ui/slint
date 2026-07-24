@@ -387,6 +387,7 @@ mimxrt
 minmax
 MIPI
 mipidsi
+miscompile
 modalnavigationdrawer
 modelprop
 MOSI
