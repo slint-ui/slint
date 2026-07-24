@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The navigator destinations form a compiler-checked closed set: each route
+// must resolve to a component.
+
+enum Route {
+    Home,
+    Settings,
+}
+
+component HomeScreen inherits Rectangle { }
+
+export component App inherits Window {
+    in-out property <Route> current-route: Route.Home;
+    navigator (current-route) {
+        // A user-defined component is a valid destination.
+        Route.Home: HomeScreen { }
+        // An unknown name is rejected.
+        Route.Settings: DoesNotExist { }
+//                      >           <error{Unknown element 'DoesNotExist'}
+    }
+}
+
+export component App2 inherits Window {
+    in-out property <Route> current-route: Route.Home;
+    navigator (current-route) {
+        // A builtin element is not a component, so it is rejected.
+        Route.Home: Rectangle { }
+//                  >           <error{navigator route destination must be a component, but 'Rectangle' is not}
+    }
+}

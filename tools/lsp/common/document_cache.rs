@@ -4,7 +4,8 @@
 //! Data structures common between LSP and previewer
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
-use i_slint_compiler::object_tree::Document;
+use i_slint_compiler::langtype::ElementType;
+use i_slint_compiler::object_tree::{Document, ElementRc};
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
@@ -79,6 +80,27 @@ impl CompilerConfiguration {
 
         (result, self.open_import_callback)
     }
+}
+
+/// One resolved entry of a `navigator` route table.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NavigatorRouteEntry {
+    /// The route enum value name, e.g. `Home` for `Route.Home`.
+    pub route_name: String,
+    /// Empty when the destination did not resolve to a component.
+    pub destination_component: String,
+    pub destination_uri: Option<Url>,
+    pub destination_offset: Option<TextSize>,
+}
+
+/// The resolved route table for one `navigator`: the declaring component and its routes.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NavigatorTable {
+    pub entry_component: String,
+    pub entry_uri: Option<Url>,
+    pub entry_offset: Option<TextSize>,
+    /// The resolved routes, in declaration order.
+    pub routes: Vec<NavigatorRouteEntry>,
 }
 
 /// A cache of loaded documents
@@ -480,6 +502,85 @@ impl DocumentCache {
     pub fn all_paths_to_watch(&self) -> HashSet<PathBuf> {
         self.type_loader.all_files_to_watch()
     }
+
+    /// Return the resolved navigator route tables declared in `text_document_uri`.
+    ///
+    /// Walks `inner_components` so it sees the same un-inlined object tree as
+    /// `element_at_document_and_offset`.
+    pub fn navigator_tables(&self, text_document_uri: &Url) -> Vec<NavigatorTable> {
+        fn component_location(
+            node: &Option<syntax_nodes::Component>,
+        ) -> (Option<Url>, Option<TextSize>) {
+            let Some(node) = node else { return (None, None) };
+            match file_to_uri(node.source_file.path()) {
+                Some(uri) => (Some(uri), Some(node.text_range().start())),
+                None => (None, None),
+            }
+        }
+
+        // A navigator may be nested below the root, so walk children too.
+        fn collect(element: &ElementRc, out: &mut Vec<ElementRc>) {
+            let elem = element.borrow();
+            if !elem.navigator_routes().is_empty() {
+                out.push(element.clone());
+            }
+            for child in &elem.children {
+                collect(child, out);
+            }
+        }
+
+        let Some(document) = self.get_document(text_document_uri) else {
+            return Vec::new();
+        };
+
+        let mut tables = Vec::new();
+        for component in &document.inner_components {
+            let mut navigator_elements = Vec::new();
+            collect(&component.root_element, &mut navigator_elements);
+            if navigator_elements.is_empty() {
+                continue;
+            }
+
+            let (entry_uri, entry_offset) = component_location(&component.node);
+            for element in &navigator_elements {
+                let element = element.borrow();
+                let routes = element
+                    .navigator_routes()
+                    .iter()
+                    .map(|route| {
+                        let route_name = route
+                            .route
+                            .text()
+                            .to_string()
+                            .rsplit('.')
+                            .next()
+                            .unwrap_or_default()
+                            .trim()
+                            .to_string();
+                        let destination = route.component.borrow();
+                        let (destination_component, dest_node) = match &destination.base_type {
+                            ElementType::Component(c) => (c.id.to_string(), c.node.clone()),
+                            _ => (String::new(), None),
+                        };
+                        let (destination_uri, destination_offset) = component_location(&dest_node);
+                        NavigatorRouteEntry {
+                            route_name,
+                            destination_component,
+                            destination_uri,
+                            destination_offset,
+                        }
+                    })
+                    .collect();
+                tables.push(NavigatorTable {
+                    entry_component: component.id.to_string(),
+                    entry_uri: entry_uri.clone(),
+                    entry_offset,
+                    routes,
+                });
+            }
+        }
+        tables
+    }
 }
 
 #[cfg(test)]
@@ -558,5 +659,59 @@ mod tests {
         assert_eq!(base_type_at_position(&dc, &url, 27, 4), Some("VerticalBox".to_string()));
         assert_eq!(base_type_at_position(&dc, &url, 28, 8), Some("Text".to_string()));
         assert_eq!(base_type_at_position(&dc, &url, 51, 4), Some("VerticalBox".to_string()));
+    }
+
+    #[test]
+    fn test_navigator_tables() {
+        use i_slint_compiler::diagnostics::BuildDiagnostics;
+
+        let content = r#"
+enum Route { A, B }
+component A inherits Rectangle { }
+component B inherits Rectangle { }
+export component App inherits Window {
+    in-out property <Route> current-route: Route.A;
+    navigator (current-route) {
+        Route.A: A { }
+        Route.B: B { }
+    }
+}
+"#;
+
+        let mut dc = crate::language::test::empty_document_cache_with_experimental();
+        spin_on::spin_on(dc.preload_builtins());
+        let path =
+            if cfg!(target_family = "windows") { "c://foo/nav.slint" } else { "/foo/nav.slint" };
+        let url = Url::from_file_path(path).unwrap();
+
+        // The load path derives the experimental flag from the compiler config,
+        // so a default BuildDiagnostics compiles the experimental `navigator`.
+        let mut diag = BuildDiagnostics::default();
+        assert!(!diag.enable_experimental, "the diag must start without the flag");
+        let _ = spin_on::spin_on(dc.load_url(&url, Some(1), content.to_string(), &mut diag));
+        assert!(diag.enable_experimental, "load path did not propagate enable_experimental");
+        assert!(
+            !diag.has_errors(),
+            "unexpected errors: {:?}",
+            diag.iter().map(|d| d.message().to_string()).collect::<Vec<_>>()
+        );
+
+        let tables = dc.navigator_tables(&url);
+        assert_eq!(tables.len(), 1, "expected exactly one navigator table");
+        let table = &tables[0];
+        assert_eq!(table.entry_component, "App");
+        assert_eq!(table.entry_uri.as_ref(), Some(&url));
+
+        let routes: Vec<(&str, &str)> = table
+            .routes
+            .iter()
+            .map(|r| (r.route_name.as_str(), r.destination_component.as_str()))
+            .collect();
+        assert_eq!(routes, vec![("A", "A"), ("B", "B")]);
+
+        for route in &table.routes {
+            assert_eq!(route.destination_uri.as_ref(), Some(&url));
+            assert!(route.destination_offset.is_some(), "missing offset for {}", route.route_name);
+        }
     }
 }

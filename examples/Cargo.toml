@@ -22,6 +22,8 @@ members = [
   'maps',
   'mcu-board-support',
   'memory',
+  'navigation',
+  'navigation-std',
   'native-gestures',
   'opengl_texture',
   'opengl_underlay',

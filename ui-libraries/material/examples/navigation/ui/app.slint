@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialWindow, NavigationBar, FilledButton, MaterialText } from "../../../src/material.slint";
+
+enum Route {
+    Home,
+    Details,
+    Settings,
+}
+
+component HomeScreen inherits Rectangle {
+    callback go(index: int);
+    VerticalLayout {
+        alignment: center;
+        spacing: 12px;
+        padding-bottom: 96px;
+        MaterialText { text: "Home"; horizontal-alignment: center; }
+        FilledButton { text: "Go to Details"; clicked => { root.go(1); } }
+        FilledButton { text: "Open Settings"; clicked => { root.go(2); } }
+    }
+}
+
+component DetailsScreen inherits Rectangle {
+    callback go(index: int);
+    VerticalLayout {
+        alignment: center;
+        spacing: 12px;
+        padding-bottom: 96px;
+        MaterialText { text: "Details"; horizontal-alignment: center; }
+        FilledButton { text: "Back to Home"; clicked => { root.go(0); } }
+    }
+}
+
+component SettingsScreen inherits Rectangle {
+    callback go(index: int);
+    VerticalLayout {
+        alignment: center;
+        spacing: 12px;
+        padding-bottom: 96px;
+        MaterialText { text: "Settings"; horizontal-alignment: center; }
+        FilledButton { text: "Back to Home"; clicked => { root.go(0); } }
+    }
+}
+
+export component App inherits MaterialWindow {
+    preferred-width: 400px;
+    preferred-height: 640px;
+    title: "Slint Navigation - Material";
+
+    in-out property <Route> current-route: Route.Home;
+
+    in-out property <int> bar-index;
+
+    callback request-index(index: int);
+
+    navigator (current-route) {
+        Route.Home: HomeScreen { go(i) => { root.request-index(i); } }
+        Route.Details: DetailsScreen { go(i) => { root.request-index(i); } }
+        Route.Settings: SettingsScreen { go(i) => { root.request-index(i); } }
+    }
+
+    NavigationBar {
+        y: root.height - self.height;
+        width: 100%;
+        items: [
+            { text: "Home" },
+            { text: "Details" },
+            { text: "Settings" },
+        ];
+        current_index: root.bar-index;
+        index_changed(i) => { root.request-index(i); }
+    }
+}

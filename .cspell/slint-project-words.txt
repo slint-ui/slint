@@ -134,6 +134,7 @@ deinit
 delenv
 depfile
 deque
+desugars
 devcode
 devenv
 dfaure
@@ -284,6 +285,7 @@ incididunt
 Inconsolata
 incpath
 inputchip
+interp
 intprop
 intval
 iocp
@@ -519,6 +521,7 @@ rlib
 Roboto
 RODATA
 rowcol
+rsplit
 rspolib
 rsvg
 rtti
@@ -644,6 +647,7 @@ udivdi
 uintptr
 ullamco
 unfocusable
+ungated
 unhinted
 unicodes
 uninit
@@ -664,6 +668,7 @@ vbus
 vecmodel
 veniam
 venv
+versionable
 verticalbox
 verticallayout
 VGWGPU
@@ -706,9 +711,11 @@ xcent
 xchg
 xcrun
 xfer
+XFILE
 xfixes
 xlib
 xmark
+xmount
 Xrgb
 xshell
 xxaaxx

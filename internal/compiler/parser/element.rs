@@ -55,6 +55,8 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// changed foo => {}
 /// match (foo) { 1: Elem { } }
 /// match bar.property { 1: Elem { } }
+/// navigator (current-route) { Route.Home: Sub { } }
+/// navigator current-route { Route.Home: Sub { } }
 /// ```
 pub fn parse_element_content(p: &mut impl Parser) {
     let mut had_parse_error = false;
@@ -68,7 +70,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                     had_parse_error |= !parse_sub_element(&mut *p)
                 }
                 SyntaxKind::FatArrow | SyntaxKind::LParent
-                    if !["if", "match"].contains(&p.peek().as_str()) =>
+                    if !["if", "match", "navigator"].contains(&p.peek().as_str()) =>
                 {
                     parse_callback_connection(&mut *p)
                 }
@@ -122,6 +124,31 @@ pub fn parse_element_content(p: &mut impl Parser) {
                             }
                             SyntaxKind::LBrace => {
                                 parse_match_element(&mut *p);
+                                break;
+                            }
+                            SyntaxKind::Eof => {
+                                if !had_parse_error {
+                                    p.error("Error: Expected '{'");
+                                    had_parse_error = true;
+                                }
+                                break;
+                            }
+                            _ => i += 1,
+                        }
+                    }
+                }
+                SyntaxKind::Identifier | SyntaxKind::LParent
+                    if p.peek().as_str() == "navigator" =>
+                {
+                    let mut i = 2;
+                    loop {
+                        match p.nth(i).kind() {
+                            SyntaxKind::FatArrow => {
+                                parse_callback_connection(&mut *p);
+                                break;
+                            }
+                            SyntaxKind::LBrace => {
+                                parse_navigation(&mut *p);
                                 break;
                             }
                             SyntaxKind::Eof => {
@@ -337,6 +364,54 @@ fn parse_wildcard_case(p: &mut impl Parser) {
         if p.peek().kind() == SyntaxKind::Identifier {
             p.error("Remove '{ }' around case element");
             return;
+        }
+        p.expect(SyntaxKind::RBrace);
+        return;
+    }
+    parse_sub_element(&mut *p);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,Navigator
+/// navigator (current-route) { Route.Home: Home { } }
+/// navigator current-route { Route.Home: Home { } Route.Settings: Settings { } }
+/// navigator (current-route) { }
+/// ```
+fn parse_navigation(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "navigator");
+    let mut p = p.start_node(SyntaxKind::Navigator);
+    p.expect(SyntaxKind::Identifier);
+    parse_expression(&mut *p);
+    if !p.test(SyntaxKind::LBrace) {
+        p.error("Expected '{' to start routes");
+    }
+    while ![SyntaxKind::RBrace, SyntaxKind::Eof].contains(&p.peek().kind()) {
+        parse_route(&mut *p);
+    }
+    p.expect(SyntaxKind::RBrace);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,Route
+/// Route.Home: Home { }
+/// (Route.Home): Home { }
+/// Route.Home: { }
+/// ```
+fn parse_route(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::Route);
+    parse_expression(&mut *p);
+    if !p.test(SyntaxKind::Colon) {
+        p.error("Expected ':' after route");
+        if p.peek().kind() != SyntaxKind::Identifier {
+            p.consume();
+        }
+    }
+    if p.peek().kind() == SyntaxKind::LBrace {
+        // empty route
+        p.expect(SyntaxKind::LBrace);
+        if p.peek().kind() == SyntaxKind::Identifier {
+            p.error("Remove '{ }' around route component");
+            parse_sub_element(&mut *p);
         }
         p.expect(SyntaxKind::RBrace);
         return;

@@ -184,6 +184,10 @@ export default defineConfig({
                                         label: "Drag and Drop",
                                         slug: "guide/development/drag-and-drop",
                                     },
+                                    {
+                                        label: "Navigation",
+                                        slug: "guide/development/navigation",
+                                    },
                                     "guide/development/best-practices",
                                     "guide/development/third-party-libraries",
                                 ],

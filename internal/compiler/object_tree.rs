@@ -901,6 +901,8 @@ pub struct Element {
 
     /// This element is part of a `for <xxx> in <model>`:
     pub repeated: Option<RepeatedElementInfo>,
+    /// The resolved `navigator` route table, in declaration order.
+    pub navigator_routes: Vec<NavigatorRoute>,
     /// This element is a placeholder to embed an Component at
     pub is_component_placeholder: bool,
 
@@ -1156,6 +1158,19 @@ pub struct RepeatedElementInfo {
     pub is_conditional_element: bool,
     /// When the for is the delegate of a ListView
     pub is_listview: Option<ListViewInfo>,
+}
+
+#[derive(Debug, Clone)]
+/// One `navigator` route: an uncompiled route enum value and its resolved component.
+pub struct NavigatorRoute {
+    pub route: syntax_nodes::Expression,
+    pub component: ElementRc,
+}
+
+impl Element {
+    pub fn navigator_routes(&self) -> &[NavigatorRoute] {
+        &self.navigator_routes
+    }
 }
 
 pub type ElementRc = Rc<RefCell<Element>>;
@@ -1974,6 +1989,23 @@ impl Element {
                     )
                 }
                 r.borrow_mut().children.extend(rep);
+            } else if se.kind() == SyntaxKind::Navigator {
+                let mut sub_child_insertion_point = None;
+                let rep = Element::from_navigator_node(
+                    se.into(),
+                    &r,
+                    &mut sub_child_insertion_point,
+                    is_legacy_syntax,
+                    diag,
+                    tr,
+                );
+                if let Some(ChildrenInsertionPoint { node: se, .. }) = sub_child_insertion_point {
+                    diag.push_error(
+                        "The @children placeholder cannot appear in a navigator".into(),
+                        &se,
+                    )
+                }
+                r.borrow_mut().children.extend(rep);
             } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
                 #[cfg(feature = "slint-sc")]
                 diag.slint_sc_error("The @children placeholder is", &se);
@@ -2291,6 +2323,110 @@ impl Element {
             cases.push(e);
         }
         cases
+    }
+
+    /// Lower a `navigator`: each route becomes a conditional child and is recorded on `parent`.
+    fn from_navigator_node(
+        node: syntax_nodes::Navigator,
+        parent: &ElementRc,
+        component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
+        is_in_legacy_component: bool,
+        diag: &mut BuildDiagnostics,
+        tr: &TypeRegister,
+    ) -> Vec<ElementRc> {
+        if !diag.enable_experimental {
+            diag.push_error("navigator is an experimental feature".into(), &node);
+            return Vec::new();
+        }
+        let parent_type = parent.borrow().base_type.clone();
+        let expr = node.Expression();
+        let mut cases: Vec<ElementRc> = Vec::new();
+        let mut routes: Vec<NavigatorRoute> = Vec::new();
+        for route in node.Route() {
+            let Some(sub_element) = route.SubElement() else {
+                continue;
+            };
+            let rei = RepeatedElementInfo {
+                model: Expression::BinaryExpression {
+                    lhs: Box::new(Expression::Uncompiled(expr.clone().into())),
+                    rhs: Box::new(Expression::Uncompiled(route.Expression().into())),
+                    op: '=',
+                },
+                model_data_id: SmolStr::default(),
+                index_id: SmolStr::default(),
+                is_conditional_element: true,
+                is_listview: None,
+            };
+            let e = Element::from_sub_element_node(
+                sub_element.clone(),
+                parent_type.clone(),
+                component_child_insertion_point,
+                is_in_legacy_component,
+                diag,
+                tr,
+            );
+            match &e.borrow().base_type {
+                ElementType::Component(_) | ElementType::Error => {}
+                other => {
+                    diag.push_error(
+                        format!(
+                            "navigator route destination must be a component, but '{other}' is not"
+                        ),
+                        &sub_element,
+                    );
+                }
+            }
+            e.borrow_mut().repeated = Some(rei);
+            routes.push(NavigatorRoute { route: route.Expression(), component: e.clone() });
+            cases.push(e);
+        }
+        // Members must be declared before expression resolution so chrome can bind them.
+        if !routes.is_empty() {
+            Self::declare_navigator_members(parent, &routes, tr);
+        }
+        parent.borrow_mut().navigator_routes = routes;
+        cases
+    }
+
+    /// Declare the navigator's public members; `lower_navigator` fills the bodies later.
+    fn declare_navigator_members(elem: &ElementRc, routes: &[NavigatorRoute], tr: &TypeRegister) {
+        // Recover the route enum from a route case for navigate(route).
+        let route_ty = routes.iter().find_map(|r| {
+            let name = QualifiedTypeName::from_node(r.route.QualifiedName()?)
+                .members
+                .into_iter()
+                .next()?;
+            let ty = tr.lookup(&name);
+            matches!(ty, Type::Enumeration(_)).then_some(ty)
+        });
+        let func = |args: Vec<Type>, arg_names: Vec<SmolStr>| {
+            Type::Function(Rc::new(Function { return_type: Type::Void, args, arg_names }))
+        };
+
+        let mut e = elem.borrow_mut();
+        let mut declare = |name, property_type, visibility, pure| {
+            e.property_declarations.insert(
+                SmolStr::new_static(name),
+                PropertyDeclaration { property_type, visibility, pure, ..Default::default() },
+            );
+        };
+        declare("current-route-index", Type::Int32, PropertyVisibility::Output, None);
+        declare("can-go-back", Type::Bool, PropertyVisibility::Output, None);
+        declare("back", func(vec![], vec![]), PropertyVisibility::Public, Some(false));
+        declare(
+            "navigate-index",
+            func(vec![Type::Int32], vec![SmolStr::new_static("index")]),
+            PropertyVisibility::Public,
+            Some(false),
+        );
+        if let Some(route_ty) = route_ty {
+            declare(
+                "navigate",
+                func(vec![route_ty], vec![SmolStr::new_static("route")]),
+                PropertyVisibility::Public,
+                Some(false),
+            );
+        }
     }
 
     /// Return the type of a property in this element or its base, along with the final name, in case

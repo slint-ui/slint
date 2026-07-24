@@ -280,3 +280,560 @@ export component TestCase {
     instance.invoke("close-a", &[]).unwrap();
     assert_eq!(instance.get_property("a-open").unwrap(), Value::from(false), "a after close");
 }
+
+// Each destination records its name in `NavProbe.active` on `init`, so `active`
+// tells us which route's screen is currently instantiated.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_shows_current_route() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+    let code = r#"
+enum Route { Home, Settings }
+global NavProbe { in-out property <string> active; }
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "home"; } }
+component SettingsScreen inherits Rectangle { init => { NavProbe.active = "settings"; } }
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <Route> current-route: Route.Home;
+    out property <string> active: NavProbe.active;
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Settings: SettingsScreen { }
+    }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
+
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("home")),
+        "Route.Home renders HomeScreen"
+    );
+
+    instance.set_property("current-route", route("Settings")).unwrap();
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("settings")),
+        "Route.Settings renders SettingsScreen"
+    );
+
+    instance.set_property("current-route", route("Home")).unwrap();
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("home")),
+        "Route.Home renders HomeScreen again"
+    );
+}
+
+#[test]
+fn navigator_requires_experimental() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+    let code = r#"
+enum Route { Home }
+component HomeScreen inherits Rectangle { }
+export component TestCase inherits Window {
+    in-out property <Route> current-route: Route.Home;
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+    }
+}
+"#;
+    let compiler = Compiler::default();
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(result.has_errors(), "navigator must be rejected without experimental");
+    assert!(
+        result.diagnostics().any(|d| d.message().contains("navigator is an experimental feature")),
+        "expected the experimental-feature diagnostic, got: {:?}",
+        result.diagnostics().map(|d| d.message().to_owned()).collect::<Vec<_>>()
+    );
+}
+
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_back_stack() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+    let code = r#"
+enum Route { Home, Details, Settings }
+global NavProbe { in-out property <string> active; }
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "home"; } }
+component DetailsScreen inherits Rectangle { init => { NavProbe.active = "details"; } }
+component SettingsScreen inherits Rectangle { init => { NavProbe.active = "settings"; } }
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <Route> current-route: Route.Home;
+    out property <string> active: NavProbe.active;
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Details: DetailsScreen { }
+        Route.Settings: SettingsScreen { }
+    }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
+    let rendered = |instance: &crate::ComponentInstance| {
+        i_slint_backend_testing::mock_elapsed_time(100);
+        instance.get_property("active").unwrap()
+    };
+
+    assert_eq!(rendered(&instance), Value::from(SharedString::from("home")));
+    assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(false), "root");
+
+    instance.invoke("navigate", &[route("Details")]).unwrap();
+    assert_eq!(rendered(&instance), Value::from(SharedString::from("details")));
+    assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(true), "after Details");
+
+    instance.invoke("navigate", &[route("Settings")]).unwrap();
+    assert_eq!(rendered(&instance), Value::from(SharedString::from("settings")));
+    assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(true), "after Settings");
+
+    instance.invoke("back", &[]).unwrap();
+    assert_eq!(rendered(&instance), Value::from(SharedString::from("details")), "back to Details");
+    assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(true), "one left");
+
+    instance.invoke("back", &[]).unwrap();
+    assert_eq!(rendered(&instance), Value::from(SharedString::from("home")), "back to Home");
+    assert_eq!(
+        instance.get_property("can-go-back").unwrap(),
+        Value::from(false),
+        "back at the root"
+    );
+
+    instance.invoke("back", &[]).unwrap();
+    assert_eq!(rendered(&instance), Value::from(SharedString::from("home")), "no-op at root");
+    assert_eq!(instance.get_property("can-go-back").unwrap(), Value::from(false), "still root");
+}
+
+// The int-index adapter (`current-route-index` / `navigate-index`) must agree
+// with the route enum both ways.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_index_adapter() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, Value};
+    let code = r#"
+enum Route { Home, Details, Settings }
+global NavProbe { in-out property <string> active; }
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "home"; } }
+component DetailsScreen inherits Rectangle { init => { NavProbe.active = "details"; } }
+component SettingsScreen inherits Rectangle { init => { NavProbe.active = "settings"; } }
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <Route> current-route: Route.Home;
+    out property <string> active: NavProbe.active;
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Details: DetailsScreen { }
+        Route.Settings: SettingsScreen { }
+    }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
+    let index = |instance: &crate::ComponentInstance| {
+        i_slint_backend_testing::mock_elapsed_time(100);
+        instance.get_property("current-route-index").unwrap()
+    };
+
+    assert_eq!(index(&instance), Value::from(0.), "Home is ordinal 0");
+    instance.set_property("current-route", route("Details")).unwrap();
+    assert_eq!(index(&instance), Value::from(1.), "Details is ordinal 1");
+    instance.set_property("current-route", route("Settings")).unwrap();
+    assert_eq!(index(&instance), Value::from(2.), "Settings is ordinal 2");
+
+    instance.invoke("navigate-index", &[Value::from(2.)]).unwrap();
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Settings"),
+        "navigate-index(2) selects Settings"
+    );
+    assert_eq!(index(&instance), Value::from(2.));
+
+    instance.invoke("navigate-index", &[Value::from(0.)]).unwrap();
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Home"),
+        "navigate-index(0) selects Home"
+    );
+    assert_eq!(index(&instance), Value::from(0.));
+
+    instance.invoke("navigate-index", &[Value::from(9.)]).unwrap();
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Home"),
+        "out-of-range navigate-index is a no-op"
+    );
+    assert_eq!(index(&instance), Value::from(0.));
+}
+
+// A std-widgets Button-row tab bar driving the navigator through its int-index
+// adapter. The adapter is synthesized after resolve, so the host bridges it to
+// the tab bar's `current-index` / `selected(int)`.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_std_chrome_index_binding() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+    let code = r#"
+import { Button, HorizontalBox, VerticalBox } from "std-widgets.slint";
+
+enum Route { Home, Details, Settings }
+global NavProbe { in-out property <string> active; }
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "home"; } }
+component DetailsScreen inherits Rectangle { init => { NavProbe.active = "details"; } }
+component SettingsScreen inherits Rectangle { init => { NavProbe.active = "settings"; } }
+
+// The std presentation: a Button row whose active segment follows current-index.
+component NavBar inherits HorizontalBox {
+    in property <[string]> titles;
+    in property <int> current-index;
+    callback selected(index: int);
+    for title[index] in titles: Button {
+        text: title;
+        primary: index == root.current-index;
+        clicked => { root.selected(index); }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+    in-out property <Route> current-route: Route.Home;
+    out property <string> active: NavProbe.active;
+    // The chrome inputs the host bridges to the navigator adapter.
+    in property <int> nav-index;
+    callback nav-select(index: int);
+
+    NavBar {
+        titles: ["Home", "Details", "Settings"];
+        current-index: root.nav-index;
+        selected(index) => { root.nav-select(index); }
+    }
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Details: DetailsScreen { }
+        Route.Settings: SettingsScreen { }
+    }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
+    let settle = || i_slint_backend_testing::mock_elapsed_time(100);
+
+    settle();
+    instance.set_property("current-route", route("Details")).unwrap();
+    settle();
+    let highlight = instance.get_property("current-route-index").unwrap();
+    assert_eq!(highlight, Value::from(1.), "highlight source follows the current route");
+    instance.set_property("nav-index", highlight).unwrap();
+    settle();
+    assert_eq!(
+        instance.get_property("nav-index").unwrap(),
+        Value::from(1.),
+        "the tab bar's current-index reflects the current route"
+    );
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("details")),
+        "the navigator renders the Details screen"
+    );
+
+    instance.invoke("navigate-index", &[Value::from(2.)]).unwrap();
+    settle();
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Settings"),
+        "activating the Settings tab navigates by ordinal"
+    );
+    assert_eq!(
+        instance.get_property("current-route-index").unwrap(),
+        Value::from(2.),
+        "the highlight source moves with the activated tab"
+    );
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("settings")),
+        "the navigator renders the Settings screen"
+    );
+}
+
+// An int-index chrome mimicking Material's `BaseNavigation` drives the navigator
+// through the adapter, both ways, bound from the host.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_int_chrome_binding() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+    let code = r#"
+enum Route { Home, Details, Settings }
+global NavProbe { in-out property <string> active; }
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "home"; } }
+component DetailsScreen inherits Rectangle { init => { NavProbe.active = "details"; } }
+component SettingsScreen inherits Rectangle { init => { NavProbe.active = "settings"; } }
+
+// Mirrors Material's BaseNavigation int API (items/current_index/index_changed/select).
+component IntChrome {
+    in property <[string]> items;
+    in-out property <int> current_index;
+    callback index_changed(index: int);
+    public function select(index: int) {
+        if (index < 0 || index >= root.items.length) {
+            return;
+        }
+        root.current_index = index;
+        root.index_changed(index);
+    }
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <Route> current-route: Route.Home;
+    out property <string> active: NavProbe.active;
+
+    // Adapter members are synthesized after expression resolution, so they are a
+    // native/runtime surface, not source-referenceable. The test copies
+    // current-route-index into `chrome-index` and forwards index_changed out, then
+    // binds both to the adapter through the runtime API, as native code does.
+    in property <int> chrome-index;
+    out property <int> chrome-index-out: chrome.current_index;
+    callback chrome-index-changed(index: int);
+
+    chrome := IntChrome {
+        items: ["Home", "Details", "Settings"];
+        current_index: root.chrome-index;              // display <- current-route-index
+        index_changed(i) => { root.chrome-index-changed(i); }  // tap forwarded out
+    }
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Details: DetailsScreen { }
+        Route.Settings: SettingsScreen { }
+    }
+    // Simulate an item tap (Material fires select() from a NavigationItem click).
+    public function tap(index: int) { chrome.select(index); }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
+    let settle = || i_slint_backend_testing::mock_elapsed_time(100);
+
+    // index_changed(i) => navigate-index(i), wired as native Material code would.
+    let weak = instance.as_weak();
+    instance
+        .set_callback("chrome-index-changed", move |args| {
+            let i: i32 = args[0].clone().try_into().unwrap();
+            weak.unwrap().invoke("navigate-index", &[Value::from(i as f64)]).unwrap();
+            Value::Void
+        })
+        .unwrap();
+
+    // current_index <- current-route-index, pushed after each route change.
+    let mirror = |instance: &crate::ComponentInstance| {
+        let idx = instance.get_property("current-route-index").unwrap();
+        instance.set_property("chrome-index", idx).unwrap();
+        settle();
+    };
+
+    mirror(&instance);
+    assert_eq!(instance.get_property("chrome-index-out").unwrap(), Value::from(0.), "Home -> 0");
+    instance.set_property("current-route", route("Details")).unwrap();
+    mirror(&instance);
+    assert_eq!(instance.get_property("chrome-index-out").unwrap(), Value::from(1.), "Details -> 1");
+    instance.set_property("current-route", route("Settings")).unwrap();
+    mirror(&instance);
+    assert_eq!(
+        instance.get_property("chrome-index-out").unwrap(),
+        Value::from(2.),
+        "Settings -> 2"
+    );
+
+    instance.invoke("tap", &[Value::from(0.)]).unwrap();
+    mirror(&instance);
+    assert_eq!(instance.get_property("current-route").unwrap(), route("Home"), "tap 0 -> Home");
+    assert_eq!(instance.get_property("chrome-index-out").unwrap(), Value::from(0.), "bar shows 0");
+
+    instance.invoke("tap", &[Value::from(2.)]).unwrap();
+    mirror(&instance);
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Settings"),
+        "tap 2 -> Settings"
+    );
+    assert_eq!(instance.get_property("chrome-index-out").unwrap(), Value::from(2.), "bar shows 2");
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("settings"))
+    );
+
+    instance.invoke("tap", &[Value::from(9.)]).unwrap();
+    mirror(&instance);
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Settings"),
+        "out-of-range tap is a no-op"
+    );
+}
+
+// The navigator's public members are declared before expression resolution, so
+// chrome can bind them INLINE in .slint (current-route-index, navigate-index,
+// can-go-back) rather than from the host, as navigator_int_chrome_binding does.
+#[cfg(feature = "internal")]
+#[test]
+fn navigator_inline_chrome_binding() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, SharedString, Value};
+    let code = r#"
+enum Route { Home, Details, Settings }
+global NavProbe { in-out property <string> active; }
+component HomeScreen inherits Rectangle { init => { NavProbe.active = "home"; } }
+component DetailsScreen inherits Rectangle { init => { NavProbe.active = "details"; } }
+component SettingsScreen inherits Rectangle { init => { NavProbe.active = "settings"; } }
+
+// Int-index chrome, same contract as Material's BaseNavigation: the host feeds
+// the highlighted index in, a tap fires index-changed out.
+component IntChrome {
+    in property <[string]> items;
+    in property <int> current-index;
+    callback index-changed(index: int);
+    public function select(index: int) {
+        if (index < 0 || index >= root.items.length) {
+            return;
+        }
+        root.index-changed(index);
+    }
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <Route> current-route: Route.Home;
+    out property <string> active: NavProbe.active;
+
+    // The chrome binds the navigator's synthesized members
+    // directly in .slint. These mirrors let the test observe the bound values.
+    out property <int> chrome-index: chrome.current-index;
+    out property <bool> chrome-can-back: root.can-go-back;
+
+    chrome := IntChrome {
+        items: ["Home", "Details", "Settings"];
+        current-index: root.current-route-index;            // display <- current-route-index
+        index-changed(i) => { root.navigate-index(i); }     // tap -> navigate-index
+    }
+    navigator (current-route) {
+        Route.Home: HomeScreen { }
+        Route.Details: DetailsScreen { }
+        Route.Settings: SettingsScreen { }
+    }
+    // Simulate an item tap (Material fires select() from a NavigationItem click).
+    public function tap(index: int) { chrome.select(index); }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window();
+
+    let route = |v: &str| Value::EnumerationValue("Route".into(), v.into());
+    let settle = || i_slint_backend_testing::mock_elapsed_time(100);
+
+    settle();
+    assert_eq!(instance.get_property("chrome-index").unwrap(), Value::from(0.), "Home -> 0");
+    assert_eq!(instance.get_property("chrome-can-back").unwrap(), Value::from(false), "root");
+
+    instance.set_property("current-route", route("Details")).unwrap();
+    settle();
+    assert_eq!(
+        instance.get_property("chrome-index").unwrap(),
+        Value::from(1.),
+        "the bar's current-index reflects the route, bound in .slint"
+    );
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("details"))
+    );
+
+    instance.invoke("tap", &[Value::from(2.)]).unwrap();
+    settle();
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Settings"),
+        "a .slint-wired tap navigates by ordinal"
+    );
+    assert_eq!(instance.get_property("chrome-index").unwrap(), Value::from(2.), "bar shows 2");
+    assert_eq!(
+        instance.get_property("active").unwrap(),
+        Value::from(SharedString::from("settings"))
+    );
+    assert_eq!(
+        instance.get_property("chrome-can-back").unwrap(),
+        Value::from(true),
+        "can-go-back reflects the push, read in a .slint binding"
+    );
+
+    instance.invoke("tap", &[Value::from(0.)]).unwrap();
+    settle();
+    assert_eq!(instance.get_property("current-route").unwrap(), route("Home"), "tap 0 -> Home");
+    assert_eq!(instance.get_property("chrome-index").unwrap(), Value::from(0.), "bar shows 0");
+
+    instance.invoke("tap", &[Value::from(9.)]).unwrap();
+    settle();
+    assert_eq!(
+        instance.get_property("current-route").unwrap(),
+        route("Home"),
+        "out-of-range tap is a no-op"
+    );
+}

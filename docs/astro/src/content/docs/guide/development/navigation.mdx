@@ -1,0 +1,126 @@
+---
+title: Navigation
+description: Move between screens with the navigator construct - an enum of routes, a current-route property, and a compiler-checked route table.
+---
+
+The `navigator` construct declares the screens of a multi-screen app and the
+route between them as one compiler-checked structure. The set of screens is
+static (the compiler resolves it), while the active screen is a value you drive
+at runtime, so tooling can read the whole navigation graph from the source and
+it always matches what runs.
+
+:::caution[Experimental]
+`navigator` is an experimental feature. Build with
+`SLINT_ENABLE_EXPERIMENTAL_FEATURES=1` (or set `enable_experimental` in the
+compiler configuration) to use it.
+:::
+
+## The navigator
+
+Three pieces make up a navigator:
+
+1. A user-declared `enum` with one value per screen.
+2. An `in-out property` of that enum type holding the current route.
+3. A `navigator (current-route) { ... }` block that maps each route to its screen.
+
+```slint
+import { Button, VerticalBox } from "std-widgets.slint";
+
+enum Route {
+    Home,
+    Details,
+    Settings,
+}
+
+component HomeScreen inherits VerticalBox {
+    callback show-details();
+    callback show-settings();
+    Text { text: "Home"; }
+    Button { text: "Go to Details"; clicked => { root.show-details(); } }
+    Button { text: "Open Settings"; clicked => { root.show-settings(); } }
+}
+
+component DetailsScreen inherits VerticalBox {
+    Text { text: "Details"; }
+}
+
+component SettingsScreen inherits VerticalBox {
+    Text { text: "Settings"; }
+}
+
+export component App inherits Window {
+    in-out property <Route> current-route: Route.Home;
+
+    navigator (current-route) {
+        Route.Home: HomeScreen {
+            show-details => { root.navigate(Route.Details); }
+            show-settings => { root.navigate(Route.Settings); }
+        }
+        Route.Details: DetailsScreen { }
+        Route.Settings: SettingsScreen { }
+    }
+}
+```
+
+{/* cSpell:ignore Detials */}
+The navigator instantiates only the screen for the current route. The route
+enum is a closed set, so `Route.Detials` (a typo) is a compile error rather than
+a screen that silently never shows.
+
+## Navigating
+
+The navigator adds a small history API to the component that declares it:
+
+- `navigate(route)` switches to `route` and pushes the previous one onto a
+  back-stack.
+- `back()` returns to the previous screen, or does nothing at the root.
+- `can-go-back` is `true` while there is somewhere to go back to.
+
+These members belong to the component that declares the `navigator` (`App`
+below), not to the screens. A screen that needs one, such as a Back button that
+disables at the root, takes it as a property that `App` binds when it maps the
+route:
+
+```slint
+component DetailsScreen inherits VerticalBox {
+    in property <bool> can-go-back;
+    callback go-back();
+    Text { text: "Details"; }
+    Button {
+        text: "Back";
+        enabled: can-go-back;
+        clicked => { root.go-back(); }
+    }
+}
+
+// ...in App, binding the navigator members next to the route:
+navigator (current-route) {
+    Route.Home: HomeScreen {
+        show-details => { root.navigate(Route.Details); }
+    }
+    Route.Details: DetailsScreen {
+        can-go-back: root.can-go-back;
+        go-back => { root.back(); }
+    }
+}
+```
+
+Assigning `current-route` directly still switches the screen, but it does not
+touch the history. Use `navigate()` and `back()` when you want a back-stack.
+
+For navigation bars that work by position rather than by route (a tab bar, a
+segmented control), the navigator also exposes an integer view: `current-route-index`
+is the ordinal of the active route, and `navigate-index(i)` navigates to the
+route at position `i`. A presentation widget can bind to these without knowing
+the route enum.
+
+## Why a construct
+
+Because the route table is declared structure and the destinations come from a
+compiler-known enum, the navigation graph is fully derivable from source. The
+visual editor's flow map reads the screens and the transitions between them
+straight from the navigator, references are checked at compile time, and the
+tool never disagrees with the running app.
+
+A runnable version of this example lives in `examples/navigation` in the Slint
+repository.

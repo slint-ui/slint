@@ -1,0 +1,84 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button, VerticalBox } from "std-widgets.slint";
+
+enum Route {
+    Home,
+    Details,
+    Settings,
+}
+
+component HomeScreen inherits VerticalBox {
+    callback show-details();
+    callback show-settings();
+
+    Text {
+        text: "Home";
+        font-size: 24px;
+        horizontal-alignment: center;
+    }
+    Button {
+        text: "Go to Details";
+        clicked => { root.show-details(); }
+    }
+    Button {
+        text: "Open Settings";
+        clicked => { root.show-settings(); }
+    }
+}
+
+component DetailsScreen inherits VerticalBox {
+    in property <bool> can-go-back;
+    callback go-back();
+
+    Text {
+        text: "Details";
+        font-size: 24px;
+        horizontal-alignment: center;
+    }
+    Button {
+        text: "Back";
+        enabled: can-go-back;
+        clicked => { root.go-back(); }
+    }
+}
+
+component SettingsScreen inherits VerticalBox {
+    in property <bool> can-go-back;
+    callback go-back();
+
+    Text {
+        text: "Settings";
+        font-size: 24px;
+        horizontal-alignment: center;
+    }
+    Button {
+        text: "Back";
+        enabled: can-go-back;
+        clicked => { root.go-back(); }
+    }
+}
+
+export component App inherits Window {
+    preferred-width: 360px;
+    preferred-height: 240px;
+    title: "Slint Navigation";
+
+    in-out property <Route> current-route: Route.Home;
+
+    navigator (current-route) {
+        Route.Home: HomeScreen {
+            show-details => { root.navigate(Route.Details); }
+            show-settings => { root.navigate(Route.Settings); }
+        }
+        Route.Details: DetailsScreen {
+            can-go-back: root.can-go-back;
+            go-back => { root.back(); }
+        }
+        Route.Settings: SettingsScreen {
+            can-go-back: root.can-go-back;
+            go-back => { root.back(); }
+        }
+    }
+}

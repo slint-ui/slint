@@ -1,0 +1,88 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button, HorizontalBox, VerticalBox } from "std-widgets.slint";
+
+enum Route {
+    Home,
+    Details,
+    Settings,
+}
+
+component NavBar inherits HorizontalBox {
+    in property <[string]> titles;
+    in property <int> current-index;
+    callback selected(index: int);
+
+    for title[index] in titles: Button {
+        text: title;
+        primary: index == root.current-index;
+        clicked => { root.selected(index); }
+    }
+}
+
+component HomeScreen inherits VerticalBox {
+    Text {
+        text: "Home";
+        font-size: 24px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component DetailsScreen inherits VerticalBox {
+    Text {
+        text: "Details";
+        font-size: 24px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component SettingsScreen inherits VerticalBox {
+    Text {
+        text: "Settings";
+        font-size: 24px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+export component App inherits Window {
+    preferred-width: 400px;
+    preferred-height: 300px;
+    title: "Slint Navigation (std-widgets)";
+
+    in-out property <Route> current-route: Route.Home;
+
+    in property <int> nav-index;
+    callback nav-select(index: int);
+
+    NavBar {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: 48px;
+        titles: ["Home", "Details", "Settings"];
+        current-index: root.nav-index;
+        selected(index) => { root.nav-select(index); }
+    }
+
+    navigator (current-route) {
+        Route.Home: HomeScreen {
+            y: 48px;
+            width: root.width;
+            height: root.height - 48px;
+        }
+        Route.Details: DetailsScreen {
+            y: 48px;
+            width: root.width;
+            height: root.height - 48px;
+        }
+        Route.Settings: SettingsScreen {
+            y: 48px;
+            width: root.width;
+            height: root.height - 48px;
+        }
+    }
+}
