@@ -383,7 +383,7 @@ impl<T, F: Fn(&mut T) -> BindingResult> BindingCallable<T> for F {
 ///
 /// Owns the binding currently being evaluated, which property accesses read to
 /// register themselves as dependencies. Reached through [`with_property_context`].
-pub(crate) struct PropertyContext {
+pub struct PropertyContext {
     /// Raw pointer to the binding currently being evaluated, or null.
     current_binding: Cell<*const BindingHolder>,
 }
@@ -413,6 +413,17 @@ impl PropertyContext {
         let ptr = self.current_binding.get();
         f(if ptr.is_null() { None } else { Some(ptr) })
     }
+
+    /// Evaluate `f` without registering any property dependencies.
+    pub(crate) fn evaluate_no_tracking<T>(&self, f: impl FnOnce() -> T) -> T {
+        self.set_current_binding(None, f)
+    }
+
+    /// Returns true if a binding is currently being evaluated, so that property
+    /// accesses register dependencies.
+    pub(crate) fn is_currently_tracking(&self) -> bool {
+        self.with_current_binding(|x| x.is_some())
+    }
 }
 
 crate::thread_local! {
@@ -432,14 +443,18 @@ pub(crate) fn with_property_context<R>(f: impl FnOnce(&PropertyContext) -> R) ->
 }
 
 /// Evaluate a function without registering any property dependencies.
+///
+/// Prefer [`PropertyContext::evaluate_no_tracking`] where a context is available.
 pub fn evaluate_no_tracking<T>(f: impl FnOnce() -> T) -> T {
-    with_property_context(|pc| pc.set_current_binding(None, f))
+    with_property_context(|pc| pc.evaluate_no_tracking(f))
 }
 
 /// Returns true if a binding is currently being evaluated
 /// so that property accesses register dependencies.
+///
+/// Prefer [`PropertyContext::is_currently_tracking`] where a context is available.
 pub fn is_currently_tracking() -> bool {
-    with_property_context(|pc| pc.with_current_binding(|x| x.is_some()))
+    with_property_context(|pc| pc.is_currently_tracking())
 }
 
 /// This structure erase the `B` type with a vtable.
@@ -764,7 +779,7 @@ impl PropertyHandle {
 
     // `value` is the content of the unsafe cell and will be only dereferenced if the
     // handle is not locked. (Upholding the requirements of UnsafeCell)
-    unsafe fn update<T>(&self, value: *mut T) {
+    unsafe fn update<T>(&self, value: *mut T, ctx: &PropertyContext) {
         let binding_ptr = Self::pointer_to_binding(self.handle.get());
 
         let remove = self.access(|binding| {
@@ -777,10 +792,8 @@ impl PropertyHandle {
                 // clear all the nodes so that we can start from scratch
                 unsafe { *(*binding_ptr).dep_nodes.get() = Default::default() };
                 let r = unsafe {
-                    with_property_context(|pc| {
-                        pc.set_current_binding(Some(binding_ptr), || {
-                            ((*binding_ptr).vtable.evaluate)(binding_ptr, value as *mut c_void)
-                        })
+                    ctx.set_current_binding(Some(binding_ptr), || {
+                        ((*binding_ptr).vtable.evaluate)(binding_ptr, value as *mut c_void)
                     })
                 };
                 unsafe { (*binding_ptr).dirty.set(false) };
@@ -798,9 +811,10 @@ impl PropertyHandle {
     /// Register this property as a dependency to the current binding being evaluated
     fn register_as_dependency_to_current_binding(
         self: Pin<&Self>,
+        ctx: &PropertyContext,
         #[cfg(slint_debug_property)] debug_name: &str,
     ) {
-        with_property_context(|pc| pc.with_current_binding(|cur_binding| {
+        ctx.with_current_binding(|cur_binding| {
             if let Some(cur_binding) = cur_binding {
                 let dependencies = self.dependencies();
                 if unsafe { *(dependencies as *mut *mut ()) } != const_sentinel() {
@@ -812,7 +826,7 @@ impl PropertyHandle {
                     );
                 }
             }
-        }));
+        });
     }
 
     fn mark_dirty(&self, #[cfg(slint_debug_property)] debug_name: &str) {
@@ -971,9 +985,16 @@ impl<T: Clone> Property<T> {
     /// Panics if this property is get while evaluating its own binding or
     /// cloning the value.
     pub fn get(self: Pin<&Self>) -> T {
-        unsafe { self.handle.update(self.value.get()) };
+        with_property_context(|ctx| self.get_with_context(ctx))
+    }
+
+    /// Same as [`Self::get`], but reads the reactive state from the given [`PropertyContext`]
+    /// instead of the one of the current [`SlintContext`](crate::SlintContext).
+    pub fn get_with_context(self: Pin<&Self>, ctx: &PropertyContext) -> T {
+        unsafe { self.handle.update(self.value.get(), ctx) };
         let handle = unsafe { Pin::new_unchecked(&self.handle) };
         handle.register_as_dependency_to_current_binding(
+            ctx,
             #[cfg(slint_debug_property)]
             self.debug_name.borrow().as_str(),
         );
@@ -1002,7 +1023,13 @@ impl<T: Clone> Property<T> {
     /// assert_eq!(prop2.as_ref().get(), 130);
     /// ```
     pub fn get_untracked(self: Pin<&Self>) -> T {
-        unsafe { self.handle.update(self.value.get()) };
+        with_property_context(|ctx| self.get_untracked_with_context(ctx))
+    }
+
+    /// Same as [`Self::get_untracked`], but evaluates a dirty binding using the given
+    /// [`PropertyContext`] instead of the one of the current [`SlintContext`](crate::SlintContext).
+    pub fn get_untracked_with_context(self: Pin<&Self>, ctx: &PropertyContext) -> T {
+        unsafe { self.handle.update(self.value.get(), ctx) };
         self.get_internal()
     }
 
@@ -1017,8 +1044,15 @@ impl<T: Clone> Property<T> {
     /// Only use this when the property has no binding or when its binding
     /// is known to be already evaluated.
     pub fn register_as_dependency(self: Pin<&Self>) {
+        with_property_context(|ctx| self.register_as_dependency_with_context(ctx));
+    }
+
+    /// Same as [`Self::register_as_dependency`], but registers into the given
+    /// [`PropertyContext`] instead of the one of the current [`SlintContext`](crate::SlintContext).
+    pub fn register_as_dependency_with_context(self: Pin<&Self>, ctx: &PropertyContext) {
         let handle = unsafe { Pin::new_unchecked(&self.handle) };
         handle.register_as_dependency_to_current_binding(
+            ctx,
             #[cfg(slint_debug_property)]
             self.debug_name.borrow().as_str(),
         );

@@ -22,8 +22,14 @@ pub unsafe extern "C" fn slint_property_init(out: *mut PropertyHandleOpaque) {
 pub unsafe extern "C" fn slint_property_update(handle: &PropertyHandleOpaque, val: *mut c_void) {
     unsafe {
         let handle = Pin::new_unchecked(&handle.0);
-        handle.update(val);
-        handle.register_as_dependency_to_current_binding();
+        super::with_property_context(|ctx| {
+            handle.update(val, ctx);
+            handle.register_as_dependency_to_current_binding(
+                ctx,
+                #[cfg(slint_debug_property)]
+                "",
+            );
+        });
     }
 }
 
@@ -33,7 +39,13 @@ pub unsafe extern "C" fn slint_property_update(handle: &PropertyHandleOpaque, va
 pub unsafe extern "C" fn slint_property_register_as_dependency(handle: &PropertyHandleOpaque) {
     unsafe {
         let handle = Pin::new_unchecked(&handle.0);
-        handle.register_as_dependency_to_current_binding();
+        super::with_property_context(|ctx| {
+            handle.register_as_dependency_to_current_binding(
+                ctx,
+                #[cfg(slint_debug_property)]
+                "",
+            );
+        });
     }
 }
 

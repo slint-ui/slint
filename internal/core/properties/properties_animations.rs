@@ -386,10 +386,13 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
 {
     fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
         let original_binding = self.project_ref().original_binding;
-        original_binding.register_as_dependency_to_current_binding(
-            #[cfg(slint_debug_property)]
-            "<AnimatedBindingCallable>",
-        );
+        super::with_property_context(|ctx| {
+            original_binding.register_as_dependency_to_current_binding(
+                ctx,
+                #[cfg(slint_debug_property)]
+                "<AnimatedBindingCallable>",
+            );
+        });
         match self.state.get() {
             AnimatedBindingState::Animating => {
                 let (val, finished) = self.animation_data.borrow_mut().compute_interpolated_value();
@@ -402,7 +405,11 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
             }
             AnimatedBindingState::NotAnimating => {
                 // Safety: `value` is a valid mutable reference
-                unsafe { self.original_binding.update(value as *mut T) };
+                unsafe {
+                    super::with_property_context(|ctx| {
+                        self.original_binding.update(value as *mut T, ctx)
+                    })
+                };
             }
             AnimatedBindingState::ShouldStart => {
                 let mut animation_data = self.animation_data.borrow_mut();
@@ -414,7 +421,11 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
                 let mut new_to_value = T::default();
                 // Safety: `new_to_value` is a valid mutable reference matching the
                 // original binding's value type
-                unsafe { self.original_binding.update(&mut new_to_value as *mut T) };
+                unsafe {
+                    super::with_property_context(|ctx| {
+                        self.original_binding.update(&mut new_to_value as *mut T, ctx)
+                    })
+                };
 
                 if previous_to_value.as_ref() != Some(&new_to_value)
                     && animation_data.apply_map(new_to_value.clone())
