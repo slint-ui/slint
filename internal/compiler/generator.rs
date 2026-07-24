@@ -413,7 +413,7 @@ pub fn handle_property_bindings_init(
 
     let mut processed = HashSet::new();
     crate::object_tree::recurse_elem(&component.root_element, &(), &mut |elem: &ElementRc, ()| {
-        for (prop_name, binding_expression) in &elem.borrow().bindings {
+        for (prop_name, binding_expression) in elem.borrow().bindings_including_synthetic() {
             handle_property_inner(
                 &Rc::downgrade(component),
                 elem,

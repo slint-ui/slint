@@ -3068,6 +3068,16 @@ impl Element {
             .filter(|(_, binding)| !binding.borrow().expression.is_synthetic_debug_hook())
     }
 
+    /// Iterate over every binding entry, including synthetic debug hooks.
+    ///
+    /// The counterpart to [`Self::real_bindings`]. Use only where synthetic hooks must be lowered
+    /// or emitted (codegen, LLR, native-class selection); prefer `real_bindings()` everywhere else.
+    pub fn bindings_including_synthetic(
+        &self,
+    ) -> impl Iterator<Item = (&SmolStr, &RefCell<BindingExpression>)> {
+        self.bindings.iter()
+    }
+
     /// Set the property `property_name` of this Element only if it was not set.
     /// the `expression_fn` will only be called if it isn't set.
     ///
@@ -3679,7 +3689,7 @@ pub fn visit_element_expressions_excluding_repeater_model(
         elem: &ElementRc,
         vis: &mut impl FnMut(&mut Expression, Option<&str>, &dyn Fn() -> Type),
     ) {
-        for (name, expr) in &elem.borrow().bindings {
+        for (name, expr) in elem.borrow().bindings_including_synthetic() {
             vis(&mut expr.borrow_mut(), Some(name.as_str()), &|| {
                 elem.borrow().lookup_property(name).property_type
             });
