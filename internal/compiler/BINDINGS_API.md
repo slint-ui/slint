@@ -55,7 +55,7 @@ C is left to a narrow escape hatch.
 | A5 | Set or insert a binding | `insert` on a fresh or existing property | `set_binding` / `set_binding_if_not_set` |
 | B6 | Take or remove a binding by ownership | `remove()` | `take_binding` (new) |
 | B7 | Codegen / lowering that must see synthetic hooks too | iterate / get without filtering | `bindings_including_synthetic` / `binding_cell_including_synthetic` (new) |
-| B8 | Hook-aware upsert, reentrant cell, hook-machinery bookkeeping | `Entry` + upgrade; `try_borrow`; self-only vacant insert | `modify_binding_expression`, `binding_cell_including_synthetic`, `insert_binding_if_absent`, `contains_own_binding_including_synthetic` (new) |
+| B8 | Replace a property's value while keeping its priority, animation and two-way binding; reentrant borrow | value swap + synthetic-hook upgrade; `try_borrow` | `binding_cell_including_synthetic` + `BindingExpression::set_value_expression` |
 | C | Bulk / whole-map transfer and construction | `mem::take`, `extend`, struct literal, `clone`, cross-element `Entry` merge | escape hatch + same-module access |
 
 ## Existing API (recap)
@@ -85,18 +85,6 @@ All treat a synthetic hook as "no binding".
 /// Use when a property is being consumed, renamed, or deleted and the caller
 /// wants to branch on whether it was really set (B6).
 pub fn take_binding(&mut self, name: &str) -> Option<BindingExpression>;
-
-/// Get-or-create the inner expression for `name`, then run `f` on it.
-///
-/// Creates a fresh binding at `priority` if the slot is empty, and upgrades a
-/// synthetic hook in place — preserving its `id` so the property stays
-/// live-editable. `f` sees the unwrapped inner `Expression`, never the hook.
-pub fn modify_binding_expression(
-    &mut self,
-    name: &str,
-    priority: i32,
-    f: impl FnOnce(&mut Expression),
-);
 ```
 
 ### Synthetic-inclusive
@@ -124,16 +112,6 @@ pub fn binding_cell_including_synthetic(
 ) -> Option<&RefCell<BindingExpression>>;
 ```
 
-### Hook-machinery bookkeeping
-
-`inject_debug_hooks` is a separate module, so it needs crate-visible accessors for its own "have I already put an entry here" checks and vacant inserts.
-These are self-only (no base-type walk) and count synthetic entries.
-
-```rust
-pub(crate) fn contains_own_binding_including_synthetic(&self, name: &str) -> bool;
-pub(crate) fn insert_binding_if_absent(&mut self, name: SmolStr, binding: BindingExpression) -> bool;
-```
-
 ### Bulk escape hatch
 
 The C sites move or rebuild the whole map across elements (`move_declarations`, `inlining`, `repeater_component`, the `typeloader` snapshot).
@@ -147,10 +125,11 @@ pub(crate) fn extend_bindings_including_synthetic(
 );
 ```
 
-### Ergonomic helper
+### Reading and writing past a hook wrapper
 
-The A2 pattern matches `binding.expression` against an expression variant, which silently stops matching once the hook wrapper appears (see `layout.rs:704` in the appendix).
-This helper makes the correct pattern the easy one.
+Reading: the A2 pattern matches `binding.expression` against an expression variant, which silently stops matching once the hook wrapper appears (see `layout.rs:704` in the appendix). `value_expression` makes the correct pattern the easy one.
+
+Writing: `lower_states` and `materialize_fake_properties` set a value onto a slot that may already hold a two-way binding or a synthetic hook. They reach the binding through `binding_cell_including_synthetic` and call `set_value_expression`, falling back to `set_binding` when the slot is empty.
 
 ```rust
 impl BindingExpression {
@@ -159,6 +138,11 @@ impl BindingExpression {
     pub fn value_expression(&self) -> &Expression {
         self.expression.ignore_debug_hooks()
     }
+
+    /// Replace the bound value, leaving priority, animation and two-way bindings
+    /// untouched. A synthetic hook is upgraded in place — its wrapper and id are
+    /// kept and it becomes real — so the property stays live-editable.
+    pub fn set_value_expression(&mut self, expr: Expression);
 }
 ```
 
@@ -180,14 +164,16 @@ impl BindingExpression {
 - **Separate `real_bindings` from `bindings_including_synthetic` rather than one parameterized accessor.**
   Two named methods keep the intent visible at the call site and guard against future A4-style bugs.
 
+- **Value replacement lives on `BindingExpression`, not on `Element`.**
+  The one thing the existing setters cannot do — swap a property's value while keeping its priority, animation and two-way binding, upgrading a synthetic hook in place — is `BindingExpression::set_value_expression`.
+  The two call sites reach the binding through `binding_cell_including_synthetic` and fall back to `set_binding` for an empty slot, so no dedicated upsert method is added to `Element`.
+
+- **`inject_debug_hooks` reuses the general API.**
+  It checks for and iterates entries with `bindings_including_synthetic`, and inserts its synthetic hooks with `set_binding` after filtering out names that already have an entry — so no hook-machinery-only accessors are needed.
+
 ## Open questions
 
 These are not yet settled and need a decision before or during implementation.
-
-- **Shape of `modify_binding_expression`.**
-  The signature above is a first cut.
-  `lower_states` and `materialize_fake_properties` hand-roll the same `Entry` + synthetic-upgrade logic, but they differ in how they set `priority` and build the expression incrementally.
-  Open: whether a single `f`-based upsert fits both, or whether an `Entry`-like return is cleaner.
 
 - **How far to lock down category C.**
   The two bulk helpers cover whole-map take and extend.
@@ -197,10 +183,6 @@ These are not yet settled and need a decision before or during implementation.
 - **Access from the external `tests/` crate.**
   `tests/consistent_styles.rs` and `tests/lower_shadows.rs` read `bindings` directly and must move to the accessors to compile once the field is private.
   Open: whether the reads all map onto `binding()` / `real_bindings()`, or whether a `#[cfg(test)]`-gated helper is warranted.
-
-- **Reentrant access in `binding_analysis` and `resolving`.**
-  `binding_cell_including_synthetic` returns the `&RefCell`, which supports the borrow/drop/re-borrow pattern and `try_borrow`.
-  Open: whether that is enough, or whether a dedicated non-panicking `try_binding` accessor reads better at `resolving.rs:2785`.
 
 - **Priority semantics at `remove_aliases.rs:184`.**
   Current code reads the priority off whatever occupies the slot, synthetic or not, and adds one.
