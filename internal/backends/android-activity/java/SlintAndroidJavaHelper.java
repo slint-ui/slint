@@ -203,8 +203,10 @@ class SlintInputView extends View {
 
     public void setText(String text, int cursorPosition, int anchorPosition, int preeditStart, int preeditEnd,
             int inputType) {
-        boolean restart = mInputType != inputType || !mText.equals(text) || mCursorPosition != cursorPosition
-                || mAnchorPosition != anchorPosition;
+        boolean typeChanged = mInputType != inputType;
+        boolean textChanged = !mText.equals(text);
+        boolean selectionChanged = mCursorPosition != cursorPosition || mAnchorPosition != anchorPosition;
+
         mText = text;
         mCursorPosition = cursorPosition;
         mAnchorPosition = anchorPosition;
@@ -212,12 +214,29 @@ class SlintInputView extends View {
         mPreeditEnd = preeditEnd;
         mInputType = inputType;
 
-        if (restart) {
+        if (typeChanged) {
             mEditable = new SlintEditable();
             Selection.setSelection(mEditable, cursorPosition, anchorPosition);
             InputMethodManager imm = (InputMethodManager) this.getContext()
                     .getSystemService(Context.INPUT_METHOD_SERVICE);
             imm.restartInput(this);
+        } else if (textChanged || selectionChanged) {
+            InputMethodManager imm = (InputMethodManager) this.getContext()
+                    .getSystemService(Context.INPUT_METHOD_SERVICE);
+            mInBatch += 1;
+            try {
+                if (textChanged) {
+                    mEditable.replace(0, mEditable.length(), text);
+                }
+                if (Selection.getSelectionStart(mEditable) != cursorPosition
+                        || Selection.getSelectionEnd(mEditable) != anchorPosition) {
+                    Selection.setSelection(mEditable, cursorPosition, anchorPosition);
+                }
+            } finally {
+                mInBatch -= 1;
+                mPending = false;
+            }
+            imm.updateSelection(this, cursorPosition, anchorPosition, preeditStart, preeditEnd);
         }
     }
 
