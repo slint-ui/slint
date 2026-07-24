@@ -56,12 +56,12 @@ fn lower_popup_window(
             );
         } else {
             diag.push_property_deprecation_warning(CLOSE_ON_CLICK, CLOSE_POLICY, &binding.span);
-            if !matches!(binding.expression.ignore_debug_hooks(), Expression::BoolLiteral(_)) {
+            if !matches!(binding.value_expression(), Expression::BoolLiteral(_)) {
                 report_const_error(CLOSE_ON_CLICK, &binding.span, diag);
             }
         }
     } else if let Some(binding) = popup_window_element.borrow().binding(CLOSE_POLICY)
-        && !matches!(binding.expression.ignore_debug_hooks(), Expression::EnumerationValue(_))
+        && !matches!(binding.value_expression(), Expression::EnumerationValue(_))
     {
         report_const_error(CLOSE_POLICY, &binding.span, diag);
     }
@@ -139,7 +139,7 @@ fn lower_popup_window(
                     .borrow()
                     .binding(CLOSE_POLICY)
                     .and_then(|b| {
-                        if let Expression::EnumerationValue(v) = b.expression.ignore_debug_hooks() {
+                        if let Expression::EnumerationValue(v) = b.value_expression() {
                             return Some(v.clone());
                         }
                         assert!(diag.has_errors());

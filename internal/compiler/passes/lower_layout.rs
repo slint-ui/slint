@@ -462,8 +462,7 @@ pub fn lower_layouts(
 fn check_preferred_size_100(elem: &ElementRc, prop: &str, diag: &mut BuildDiagnostics) -> bool {
     let ret = if let Some(p) = elem.borrow().binding(prop) {
         if p.expression.ty() == Type::Percent {
-            if !matches!(p.expression.ignore_debug_hooks(), Expression::NumberLiteral(val, _) if *val == 100.)
-            {
+            if !matches!(p.value_expression(), Expression::NumberLiteral(val, _) if *val == 100.) {
                 diag.push_error(
                     format!("{prop} must either be a length, or the literal '100%'"),
                     &*p,
@@ -1279,7 +1278,7 @@ pub fn optimize_single_cell_layouts(component: &Rc<Component>) {
         let solves = elem
             .borrow()
             .real_bindings()
-            .filter_map(|(name, b)| match b.borrow().expression.ignore_debug_hooks() {
+            .filter_map(|(name, b)| match b.borrow().value_expression() {
                 Expression::SolveBoxLayout(l, o) if *o == l.orientation && l.elems.len() == 1 => {
                     Some((name.clone(), l.clone()))
                 }
@@ -1404,7 +1403,7 @@ fn single_cell_box_layout(layout: &BoxLayout) -> Option<SingleCellBoxLayout> {
             if !binding.two_way_bindings.is_empty() {
                 return None;
             }
-            let Expression::EnumerationValue(ev) = binding.expression.ignore_debug_hooks() else {
+            let Expression::EnumerationValue(ev) = binding.value_expression() else {
                 return None;
             };
             Some(ev.enumeration.values[ev.value].clone())
@@ -1814,7 +1813,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
     // Warn if alignment is set to stretch, which behaves like start in flexbox
     // (CSS spec: justify-content:stretch acts as flex-start for flex items)
     if let Some(binding) = layout_element.borrow().binding("alignment") {
-        if matches!(binding.expression.ignore_debug_hooks(),
+        if matches!(binding.value_expression(),
             Expression::EnumerationValue(v) if v.enumeration.name == "LayoutAlignment"
                 && v.enumeration.values[v.value] == "stretch")
         {
@@ -2073,7 +2072,7 @@ fn lower_dialog_layout(
                                 layout_child.borrow().lookup_property("clicked").property_type;
                             if matches!(&clicked_ty, Type::Callback { .. })
                                 && layout_child.borrow().binding("clicked").is_none_or(|c| {
-                                    matches!(c.expression.ignore_debug_hooks(), Expression::Invalid)
+                                    matches!(c.value_expression(), Expression::Invalid)
                                 })
                             {
                                 dialog_element

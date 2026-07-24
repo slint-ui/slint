@@ -2580,7 +2580,7 @@ fn resolve_two_way_bindings_for_element(
         // global callback may both alias another global's callback and provide a handler:
         // the handler then occupies the expression slot and the alias node lives on the
         // callback declaration, in which case the handler expression must be preserved.
-        let twb_from_expression = match binding.expression.ignore_debug_hooks() {
+        let twb_from_expression = match binding.value_expression() {
             Expression::Uncompiled(node) => syntax_nodes::TwoWayBinding::new(node.clone()),
             _ => None,
         };

@@ -650,20 +650,20 @@ fn test_no_property_for_100pc() {
 
     // const propagation must have seen that the x and y property are literal 0
     assert!(matches!(
-        root_elem.binding("r2x").unwrap().expression.ignore_debug_hooks(),
+        root_elem.binding("r2x").unwrap().value_expression(),
         Expression::NumberLiteral(v, _) if *v == 0.
     ));
     assert!(matches!(
-        root_elem.binding("r2y").unwrap().expression.ignore_debug_hooks(),
+        root_elem.binding("r2y").unwrap().value_expression(),
         Expression::NumberLiteral(v, _) if *v == 0.
     ));
     assert!(matches!(
-        root_elem.binding("r3y").unwrap().expression.ignore_debug_hooks(),
+        root_elem.binding("r3y").unwrap().value_expression(),
         Expression::NumberLiteral(v, _) if *v == 0.
     ));
     // this one is 50% so it should be set to be in the center
     assert!(!matches!(
-        root_elem.binding("r3x").unwrap().expression.ignore_debug_hooks(),
+        root_elem.binding("r3x").unwrap().value_expression(),
         Expression::BinaryExpression { .. }
     ));
 }

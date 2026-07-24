@@ -198,7 +198,7 @@ fn process_tabwidget(
 
     let mut tabbar_impl = tabbar_horizontal_impl;
     if let Some(orientation) = elem.borrow().binding("orientation") {
-        if let Expression::EnumerationValue(val) = orientation.expression.ignore_debug_hooks() {
+        if let Expression::EnumerationValue(val) = orientation.value_expression() {
             if val.value == 1 {
                 tabbar_impl = tabbar_vertical_impl;
             }

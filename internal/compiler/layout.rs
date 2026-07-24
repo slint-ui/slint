@@ -778,7 +778,7 @@ impl FlexboxLayout {
         let target = nr.element();
         let target = target.borrow();
         let binding = target.bindings.get(nr.name())?;
-        match binding.borrow().expression.ignore_debug_hooks() {
+        match binding.borrow().value_expression() {
             Expression::ComputeFlexboxLayoutInfo { layout, .. } => Some(layout.clone()),
             _ => None,
         }
@@ -791,7 +791,7 @@ impl FlexboxLayout {
             None => Some(FlexboxLayoutDirection::Row),
             Some(nr) => nr.element().borrow().binding(nr.name()).and_then(|binding| {
                 if let crate::expression_tree::Expression::EnumerationValue(ev) =
-                    binding.expression.ignore_debug_hooks()
+                    binding.value_expression()
                 {
                     match ev.enumeration.values[ev.value].as_str() {
                         "row" => Some(FlexboxLayoutDirection::Row),

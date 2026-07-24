@@ -120,9 +120,9 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                 let elem = nr.element();
                 let elem = elem.borrow();
                 elem.enclosing_component.upgrade().is_some_and(|c| c.is_global())
-                    && elem.binding(nr.name()).is_some_and(|b| {
-                        !matches!(b.expression.ignore_debug_hooks(), Expression::Invalid)
-                    })
+                    && elem
+                        .binding(nr.name())
+                        .is_some_and(|b| !matches!(b.value_expression(), Expression::Invalid))
             })
             .cloned()
             .collect();

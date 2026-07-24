@@ -86,27 +86,16 @@ fn lower_state_in_element(
                 false_expr: Box::new(property_expr),
             };
 
-            match element.borrow_mut().bindings.entry(property_reference.name().clone()) {
-                std::collections::btree_map::Entry::Occupied(mut e) => {
-                    let binding = e.get_mut().get_mut();
-                    // A synthetic debug hook may occupy an unbound property: upgrade it in
-                    // place (keep the wrapper and id, clear `synthetic`) so the property
-                    // stays live-editable. A non-synthetic hook already survives inside
-                    // `property_expr` (the else-branch), so it is replaced as before.
-                    match &mut binding.expression {
-                        Expression::DebugHook { expression, synthetic, .. } if *synthetic => {
-                            **expression = new_expr;
-                            *synthetic = false;
-                        }
-                        expression => *expression = new_expr,
-                    }
-                }
-                std::collections::btree_map::Entry::Vacant(binding_entry) => {
-                    let mut r = BindingExpression::from(new_expr);
-                    r.priority = 1;
-                    binding_entry.insert(r.into());
-                }
-            };
+            let name = property_reference.name();
+            if let Some(cell) = element.borrow().binding_cell_including_synthetic(name) {
+                // A synthetic hook is upgraded in place; a real binding's hook survives inside
+                // `property_expr` (the false-branch of `new_expr`), so replacing it is correct.
+                cell.borrow_mut().set_value_expression(new_expr);
+            } else {
+                let mut r = BindingExpression::from(new_expr);
+                r.priority = 1;
+                element.borrow_mut().set_binding(name.clone(), r);
+            }
         }
         states_id.insert(state.id, idx as i32 + 1);
     }

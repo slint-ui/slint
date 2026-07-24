@@ -179,7 +179,7 @@ pub fn embed_glyphs(
                 .root_element
                 .borrow()
                 .binding("default-font-family")
-                .and_then(|binding| match binding.expression.ignore_debug_hooks() {
+                .and_then(|binding| match binding.value_expression() {
                     Expression::StringLiteral(family) => {
                         Some((Some(family.clone()), binding.span.clone()))
                     }
@@ -671,15 +671,13 @@ fn try_extract_literal_from_element(
     property_name: &str,
     unit: Unit,
 ) -> Option<f64> {
-    elem.borrow().binding(property_name).and_then(|binding| {
-        match binding.expression.ignore_debug_hooks() {
+    elem.borrow().binding(property_name).and_then(|binding| match binding.value_expression() {
+        Expression::NumberLiteral(value, u) if *u == unit => Some(*value),
+        Expression::Cast { from, .. } => match from.as_ref() {
             Expression::NumberLiteral(value, u) if *u == unit => Some(*value),
-            Expression::Cast { from, .. } => match from.as_ref() {
-                Expression::NumberLiteral(value, u) if *u == unit => Some(*value),
-                _ => None,
-            },
             _ => None,
-        }
+        },
+        _ => None,
     })
 }
 
