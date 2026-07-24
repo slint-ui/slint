@@ -115,7 +115,7 @@ euclid = { version = "0.22.1", default-features = false }
 swash = { version = "0.2.7", default-features = false }
 glutin = { version = "0.32.0", default-features = false }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
-itertools = { version = "0.14" }
+itertools = { version = "0.15" }
 log = { version = "0.4.17" }
 notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"] }
 tracing = { version = "0.1" }
