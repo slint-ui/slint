@@ -775,7 +775,8 @@ impl LookupObject for EasingSpecific {
             .or_else(|| curve("ease-in-out-elastic", EasingCurve::EaseInOutElastic))
             .or_else(|| curve("ease-in-bounce", EasingCurve::EaseInBounce))
             .or_else(|| curve("ease-out-bounce", EasingCurve::EaseOutBounce))
-            .or_else(|| curve("ease-in-out-bounce", EasingCurve::EaseInOutBounce));
+            .or_else(|| curve("ease-in-out-bounce", EasingCurve::EaseInOutBounce))
+            .or_else(|| curve("spring", EasingCurve::Spring));
         r.or_else(|| {
             f(&SmolStr::new_static("cubic-bezier"), BuiltinMacroFunction::CubicBezier.into())
         })

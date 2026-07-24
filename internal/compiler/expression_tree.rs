@@ -2123,6 +2123,7 @@ pub enum EasingCurve {
     EaseInBounce,
     EaseOutBounce,
     EaseInOutBounce,
+    Spring,
     // CubicBezierNonConst([Box<Expression>; 4]),
     // Custom(Box<dyn Fn(f32)->f32>),
 }

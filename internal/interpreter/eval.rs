@@ -457,6 +457,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             EasingCurve::CubicBezier(a, b, c, d) => {
                 corelib::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
             }
+            EasingCurve::Spring => corelib::animations::EasingCurve::Spring,
         }),
         Expression::MouseCursor(cursor) => Value::MouseCursorInner(match cursor {
             MouseCursorInner::BuiltIn(cursor) => corelib::cursor::MouseCursorInner::BuiltIn(

@@ -8,6 +8,7 @@ component EaseTest {
     in property <string> label: "None";
     in property <easing> easing: linear;
     in property <int> duration: 1000;
+    in property <float> bounce: 0;
 
     public function animate() {
         if (ball.x == 0) {
@@ -43,7 +44,7 @@ component EaseTest {
                     border-radius: 5px;
                     background: Palette.accent-background;
 
-                    animate x { duration: duration * 1ms; easing: easing; }
+                    animate x { duration: duration * 1ms; easing: easing; bounce: bounce; }
                 }
             }
         }
@@ -97,6 +98,9 @@ export component EasingsPage inherits Page {
                     ease-in-bounce-test.animate();
                     ease-out-bounce-test.animate();
                     ease-in-out-bounce-test.animate();
+                    spring-default-test.animate();
+                    spring-bouncy-test.animate();
+                    spring-slow-test.animate();
                 }
             }
             Text { text: @tr("Duration:"); vertical-alignment: center ;}
@@ -150,6 +154,10 @@ export component EasingsPage inherits Page {
             ease-in-bounce-test := EaseTest { label: "ease-in-bounce"; easing: ease-in-bounce; duration: curr-duration; }
             ease-out-bounce-test := EaseTest { label: "ease-out-bounce"; easing: ease-out-bounce; duration: curr-duration; }
             ease-in-out-bounce-test := EaseTest { label: "ease-in-out-bounce"; easing: ease-in-out-bounce; duration: curr-duration; }
+
+            spring-default-test := EaseTest { label: "Default spring"; easing: spring; duration: curr-duration; }
+            spring-bouncy-test := EaseTest { label: "Bouncy spring"; easing: spring; duration: curr-duration; bounce: 0.3; }
+            spring-slow-test := EaseTest { label: "Slow spring"; easing: spring; duration: curr-duration; bounce: -0.3; }
         }
     }
 }

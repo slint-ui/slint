@@ -11,7 +11,7 @@ use super::{
     VoidArg,
 };
 use crate::animations::Instant;
-use crate::animations::physics_simulation::ConstantDecelerationParameters;
+use crate::animations::simulations::constant_deceleration::ConstantDecelerationParameters;
 use crate::input::InternalKeyEvent;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent, TouchPhase,

@@ -33,4 +33,22 @@ export SuperSimple := Rectangle {
     animate text.x { duration: 100ms; }
 //          >     <error{Can only refer to property in the current element}
 
+    animate width { easing: spring; bounce: 0.0; }
+//                          >     <error{A spring easing must have a duration}
+    Rectangle {
+        animate x { easing: linear; bounce: 0.0; }
+//                                          >  <error{Cannot have 'bounce' with a non Spring easing curve}
+        animate y { easing: linear; mass: 0.0; }
+//                                        >  <error{Cannot have 'mass' with a non Spring easing curve}
+        animate width { easing: linear; stiffness: 0.0; }
+//                                                 >  <error{Cannot have 'stiffness' with a non Spring easing curve}
+        animate height { easing: linear; damping: 0.0; }
+//                                                >  <error{Cannot have 'damping' with a non Spring easing curve}
+    }
+    Rectangle {
+        animate x { easing: spring; bounce: 0.0; duration: 100ms; mass: 0.0; }
+//                          >     <error{Cannot mix 'bounce'/'duration' with 'mass'/'stiffness'/'damping' in a spring animation}
+        animate y { easing: spring; mass: 0.0; }
+//                          >     <error{'mass', 'stiffness' and 'damping' must all be set together in a spring animation}
+    }
 }

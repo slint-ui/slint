@@ -8,7 +8,8 @@ use alloc::boxed::Box;
 use core::cell::Cell;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
-pub(crate) mod physics_simulation;
+
+pub(crate) mod simulations;
 
 mod cubic_bezier {
     //! This is a copy from lyon_algorithms::geom::cubic_bezier implementation
@@ -160,6 +161,8 @@ pub enum EasingCurve {
     EaseOutBounce,
     /// Easing curve as defined at: <https://easings.net/#easeInOutBounce>
     EaseInOutBounce,
+    /// A spring animation, configured via `PropertyAnimation`'s `bounce` and `duration` or `mass`/`stiffness`/`damping`
+    Spring,
     // Custom(Box<dyn Fn(f32) -> f32>),
 }
 
@@ -314,7 +317,22 @@ fn ease_out_bounce_curve(value: f32) -> f32 {
     }
 }
 
+/// Evaluates a mass/stiffness/damping spring at `elapsed_secs`, returning `(progress, settled)`.
+pub fn spring_settle_progress(
+    regime: &simulations::spring::SpringRegime,
+    elapsed_secs: f32,
+) -> (f32, bool) {
+    use simulations::spring::{SPRING_SETTLE_POSITION_EPSILON, SPRING_SETTLE_VELOCITY_EPSILON};
+
+    let (rel_pos, rel_vel) = regime.evaluate(elapsed_secs);
+    let settled = rel_pos.abs() < SPRING_SETTLE_POSITION_EPSILON
+        && rel_vel.abs() < SPRING_SETTLE_VELOCITY_EPSILON;
+    (1.0 + rel_pos, settled)
+}
+
 /// map a value between 0 and 1 to another value between 0 and 1 according to the curve
+///
+/// `spring` must be `Some` when `curve` is `EasingCurve::Spring`.
 pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
     match curve {
         EasingCurve::Linear => value,
@@ -376,6 +394,9 @@ pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
             } else {
                 (1.0 + ease_out_bounce_curve(2.0 * value - 1.0)) / 2.0
             }
+        }
+        EasingCurve::Spring => {
+            panic!("Springs are handled separately");
         }
     }
 }

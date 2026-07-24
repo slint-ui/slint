@@ -1,0 +1,119 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Tests the `spring` easing curve driven by `mass`/`stiffness`/`damping` (physical style, see
+// `physics_simulation::SpringPhysicalParameters`). A non-zero `mass` takes precedence over
+// `bounce`. Unlike `bounce`, this style doesn't need (and ignores) `duration`: like
+// `physics_simulation::SpringSimulation`, it runs in real time and only finishes once the spring
+// has settled.
+export component TestCase inherits Rectangle {
+    // Critically damped: approaches the target without ever overshooting it.
+    in-out property <float> critical: 0;
+    animate critical {
+        easing: spring;
+        mass: 1;
+        stiffness: 39.4784176; // (2*PI)^2
+        damping: 12.566371; // 2 * sqrt(mass * stiffness) == 2 * 2*PI
+    }
+
+    // Underdamped: oscillates, overshooting the target before settling.
+    in-out property <float> underdamped: 0;
+    animate underdamped {
+        easing: spring;
+        mass: 1;
+        stiffness: 39.4784176; // (2*PI)^2
+        damping: 6.2831853; // 2 * zeta * sqrt(mass * stiffness), zeta == 0.5
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+fn assert_approx(value: f32, expected: f32) {
+    assert!((value - expected).abs() < 0.01, "Expected {value} to be close to {expected}");
+}
+
+instance.set_critical(1.0);
+instance.set_underdamped(1.0);
+
+slint_testing::mock_elapsed_time(250);
+assert_approx(instance.get_critical(), 0.4656);
+assert_approx(instance.get_underdamped(), 0.6473);
+
+slint_testing::mock_elapsed_time(250);
+// Critical damping never overshoots the target.
+assert_approx(instance.get_critical(), 0.8210);
+assert!(instance.get_critical() < 1.0);
+// The underdamped spring overshoots past the target.
+assert_approx(instance.get_underdamped(), 1.1407);
+
+// Not settled yet: still animating (no fixed duration is involved at all).
+slint_testing::mock_elapsed_time(300); // total elapsed: 800ms
+assert!(instance.get_critical() < 1.0 && instance.get_critical() > 0.9);
+assert!(instance.get_underdamped() != 1.0);
+
+// Critical damping has settled by ~1.38s; the underdamped spring (lighter damping) hasn't yet.
+slint_testing::mock_elapsed_time(700); // total elapsed: 1500ms
+assert_eq!(instance.get_critical(), 1.0);
+assert!(instance.get_underdamped() != 1.0);
+
+// The underdamped spring has settled by ~2.5s from its own start.
+slint_testing::mock_elapsed_time(1100); // total elapsed: 2600ms
+assert_eq!(instance.get_underdamped(), 1.0);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+instance.set_critical(1.0);
+instance.set_underdamped(1.0);
+
+slint_testing::mock_elapsed_time(250);
+assert(std::abs(instance.get_critical() - 0.4656) < 0.01);
+assert(std::abs(instance.get_underdamped() - 0.6473) < 0.01);
+
+slint_testing::mock_elapsed_time(250);
+assert(std::abs(instance.get_critical() - 0.8210) < 0.01);
+assert(instance.get_critical() < 1.0);
+assert(std::abs(instance.get_underdamped() - 1.1407) < 0.01);
+
+slint_testing::mock_elapsed_time(300);
+assert(instance.get_critical() < 1.0 && instance.get_critical() > 0.9);
+assert(instance.get_underdamped() != 1.0);
+
+slint_testing::mock_elapsed_time(700);
+assert_eq(instance.get_critical(), 1.0);
+assert(instance.get_underdamped() != 1.0);
+
+slint_testing::mock_elapsed_time(1100);
+assert_eq(instance.get_underdamped(), 1.0);
+```
+
+```js
+var instance = new slint.TestCase({});
+
+instance.critical = 1.0;
+instance.underdamped = 1.0;
+
+slintlib.private_api.mock_elapsed_time(250);
+assert(Math.abs(instance.critical - 0.4656) < 0.01);
+assert(Math.abs(instance.underdamped - 0.6473) < 0.01);
+
+slintlib.private_api.mock_elapsed_time(250);
+assert(Math.abs(instance.critical - 0.8210) < 0.01);
+assert(instance.critical < 1.0);
+assert(Math.abs(instance.underdamped - 1.1407) < 0.01);
+
+slintlib.private_api.mock_elapsed_time(300);
+assert(instance.critical < 1.0 && instance.critical > 0.9);
+assert(instance.underdamped != 1.0);
+
+slintlib.private_api.mock_elapsed_time(700);
+assert.equal(instance.critical, 1.0);
+assert(instance.underdamped != 1.0);
+
+slintlib.private_api.mock_elapsed_time(1100);
+assert.equal(instance.underdamped, 1.0);
+```
+*/

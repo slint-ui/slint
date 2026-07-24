@@ -328,6 +328,7 @@ struct BindingVTable {
     intercept_set: unsafe fn(_self: *const BindingHolder, value: *const c_void) -> bool,
     intercept_set_binding:
         unsafe fn(_self: *const BindingHolder, new_binding: *mut BindingHolder) -> bool,
+    velocity: unsafe fn(_self: *const BindingHolder) -> Option<f32>,
 }
 
 /// A binding trait object can be used to dynamically produces values for a property.
@@ -358,6 +359,12 @@ unsafe trait BindingCallable<T> {
     /// When returning true, the call was intercepted and the binding will not be removed.
     unsafe fn intercept_set_binding(self: Pin<&Self>, _new_binding: *mut BindingHolder) -> bool {
         false
+    }
+
+    /// Returns the current velocity in the property's units per second so a spring retarget can
+    /// maintain velocity. Non spring bindings return None
+    fn velocity(self: Pin<&Self>) -> Option<f32> {
+        None
     }
 
     /// Set to true if and only if Self is a TwoWayBinding<T>
@@ -519,6 +526,11 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
         }
     }
 
+    /// Safety: _self must be a pointer to a `BindingHolder<B>`
+    unsafe fn velocity<T, B: BindingCallable<T>>(_self: *const BindingHolder) -> Option<f32> {
+        unsafe { Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding)).velocity() }
+    }
+
     trait HasBindingVTable<T> {
         const VT: &'static BindingVTable;
     }
@@ -529,6 +541,7 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
             mark_dirty: mark_dirty::<T, B>,
             intercept_set: intercept_set::<T, B>,
             intercept_set_binding: intercept_set_binding::<T, B>,
+            velocity: velocity::<T, B>,
         };
     }
 
@@ -656,6 +669,17 @@ impl PropertyHandle {
             (*binding).dependencies.set(core::ptr::null_mut());
         }
         Some(binding)
+    }
+
+    /// Returns the velocity reported by the currently installed binding, if any (see
+    /// `BindingCallable::velocity`). Used to carry velocity over across a retarget.
+    fn current_velocity(&self) -> Option<f32> {
+        self.access(|b| {
+            b.and_then(|b| unsafe {
+                // Safety: b is a valid BindingHolder
+                (b.vtable.velocity)(&*b as *const BindingHolder)
+            })
+        })
     }
 
     fn remove_binding(&self) {
@@ -1237,6 +1261,7 @@ impl<const NEEDS_SET_DIRTY: bool> Default for PropertyTracker<NEEDS_SET_DIRTY, (
             mark_dirty: |_, _| (),
             intercept_set: |_, _| false,
             intercept_set_binding: |_, _| false,
+            velocity: |_| None,
         };
 
         let holder = BindingHolder {
@@ -1361,6 +1386,7 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
                 mark_dirty: mark_dirty::<B>,
                 intercept_set: |_, _| false,
                 intercept_set_binding: |_, _| false,
+                velocity: |_| None,
             };
         }
 
