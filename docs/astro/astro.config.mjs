@@ -377,7 +377,7 @@ export default defineConfig({
                                 ],
                             },
                             {
-                                label: "Visual Elements",
+                                label: "Elements",
                                 collapsed: true,
                                 items: [
                                     {
@@ -385,7 +385,7 @@ export default defineConfig({
                                         slug: "reference/common",
                                     },
                                     {
-                                        label: "Basic Elements",
+                                        label: "Basic Visual Elements",
                                         items: [
                                             {
                                                 autogenerate: {
@@ -477,8 +477,13 @@ export default defineConfig({
                                         ],
                                     },
                                     {
-                                        label: "Timer",
-                                        slug: "reference/timer",
+                                        label: "Non-Visual Elements",
+                                        items: [
+                                            {
+                                                label: "Timer",
+                                                slug: "reference/timer",
+                                            },
+                                        ],
                                     },
                                 ],
                             },
