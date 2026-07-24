@@ -98,6 +98,9 @@ fn format_node(
         SyntaxKind::PropertyDeclaration => {
             return format_property_declaration(node, writer, state);
         }
+        SyntaxKind::PropertyDeprecation => {
+            return format_property_deprecation(node, writer, state);
+        }
         SyntaxKind::Binding => {
             return format_binding(node, writer, state);
         }
@@ -584,6 +587,26 @@ fn format_property_declaration(
     if need_newline {
         state.new_line();
     }
+    Ok(())
+}
+
+fn format_property_deprecation(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::At, writer, state, "")?;
+    // The "deprecated" keyword and an optional `("message")`.
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    if node.child_token(SyntaxKind::LParent).is_some() {
+        let _ok = whitespace_to(&mut sub, SyntaxKind::LParent, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::StringLiteral, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::RParent, writer, state, "")?;
+    }
+    // Drop the whitespace between the deprecation and the property; the caller
+    // inserts a single space before the following keyword.
+    state.skip_all_whitespace = true;
     Ok(())
 }
 
@@ -2375,6 +2398,32 @@ Main := Window {
 
     pure callback some-fn({x: int}, string);
     in property <int> foo: 42;
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn deprecated_property() {
+        assert_formatting(
+            r#"
+component W {
+    in-out property <int> new-prop;
+    @deprecated  in-out    property   <int>   old-prop   <=>   new-prop;
+    @deprecated
+
+        in-out property <int> spaced-prop <=> new-prop;
+    @deprecated (   "Use 'new-prop' instead"   )   in-out property <int> older-prop <=> new-prop;
+    @deprecated("msg")in-out property<int>compact<=>new-prop;
+}
+"#,
+            r#"
+component W {
+    in-out property <int> new-prop;
+    @deprecated in-out property <int> old-prop <=> new-prop;
+    @deprecated in-out property <int> spaced-prop <=> new-prop;
+    @deprecated("Use 'new-prop' instead") in-out property <int> older-prop <=> new-prop;
+    @deprecated("msg") in-out property <int> compact <=> new-prop;
 }
 "#,
         );
