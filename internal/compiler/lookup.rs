@@ -712,6 +712,29 @@ impl ColorSpecific {
     }
 }
 
+/// Given a bare identifier `name` that failed to resolve, return the qualified forms that would
+/// resolve it as an enum value or a named color, e.g. `["Colors.red"]` or
+/// `["LayoutAlignment.center", "TextHorizontalAlignment.center"]`. This is the reverse of the
+/// `ColorSpecific` / enum lookups above, used to build "did you mean" suggestions. The result is
+/// sorted and deduplicated so it is deterministic.
+pub fn enum_or_color_suggestions(type_register: &TypeRegister, name: &str) -> Vec<SmolStr> {
+    let name = crate::parser::normalize_identifier(name);
+    let mut result = Vec::new();
+    if named_colors().contains_key(name.as_str()) {
+        result.push(smol_str::format_smolstr!("{}.{name}", BuiltinNamespace::Colors));
+    }
+    for ty in type_register.all_types().values() {
+        if let Type::Enumeration(e) = ty {
+            if e.values.contains(&name) {
+                result.push(smol_str::format_smolstr!("{}.{name}", e.name));
+            }
+        }
+    }
+    result.sort();
+    result.dedup();
+    result
+}
+
 pub struct KeysLookup;
 
 macro_rules! special_keys_lookup {
