@@ -13,8 +13,8 @@ struct TwoWayBinding<T> {
     common_property: Pin<Rc<Property<T>>>,
 }
 impl<T: PartialEq + Clone + 'static> BindingCallable<T> for TwoWayBinding<T> {
-    fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
-        *value = self.common_property.as_ref().get();
+    fn evaluate(self: Pin<&Self>, value: &mut T, ctx: &PropertyContext) -> BindingResult {
+        *value = self.common_property.as_ref().get_with_context(ctx);
         BindingResult::KeepBinding
     }
 
@@ -215,8 +215,8 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             M2: Fn(&mut T, &T2) + Clone + 'static,
         > BindingCallable<T2> for TwoWayBindingWithMap<T, T2, M1, M2>
         {
-            fn evaluate(self: Pin<&Self>, value: &mut T2) -> BindingResult {
-                *value = (self.map_to)(&self.common_property.0.as_ref().get());
+            fn evaluate(self: Pin<&Self>, value: &mut T2, ctx: &PropertyContext) -> BindingResult {
+                *value = (self.map_to)(&self.common_property.0.as_ref().get_with_context(ctx));
                 BindingResult::KeepBinding
             }
 
@@ -261,13 +261,14 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             M2: Fn(&mut T, &T2) + 'static,
         > BindingCallable<T> for BindingMapper<T, T2, M1, M2>
         {
-            fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
+            fn evaluate(self: Pin<&Self>, value: &mut T, ctx: &PropertyContext) -> BindingResult {
                 let mut sub_value = (self.map_to)(value);
                 // Safety: `self.b` is a BindingHolder that expects a `T2`
                 unsafe {
                     ((*self.b).vtable.evaluate)(
                         self.b,
                         (&mut sub_value as *mut T2).cast::<c_void>(),
+                        ctx,
                     );
                 }
                 (self.map_from)(value, &sub_value);
@@ -351,7 +352,7 @@ where
     Getter: Fn(&ItemTree) -> Option<T>,
     Setter: Fn(&ItemTree, &T),
 {
-    fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
+    fn evaluate(self: Pin<&Self>, value: &mut T, _ctx: &PropertyContext) -> BindingResult {
         if let Some(v) = (self.getter)(&self.item_tree) {
             *value = v;
         }

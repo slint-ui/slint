@@ -86,7 +86,7 @@ impl Drop for CFunctionBinding {
 }
 
 impl BindingCallable<c_void> for CFunctionBinding {
-    fn evaluate(self: Pin<&Self>, value: &mut c_void) -> BindingResult {
+    fn evaluate(self: Pin<&Self>, value: &mut c_void, _ctx: &PropertyContext) -> BindingResult {
         (self.binding_function)(self.user_data, value as *mut c_void);
         BindingResult::KeepBinding
     }
@@ -178,7 +178,9 @@ pub unsafe extern "C" fn slint_property_delete_binding(binding: *mut c_void) {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_evaluate_binding(binding: *mut c_void, value: *mut c_void) {
     let b = binding as *mut BindingHolder;
-    unsafe { ((*b).vtable.evaluate)(b, value) };
+    unsafe {
+        super::with_property_context(|ctx| ((*b).vtable.evaluate)(b, value, ctx));
+    };
 }
 
 /// Call `intercept_set` on a raw binding, returning whether the binding accepted the write
@@ -577,14 +579,17 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         });
     }
 
-    unsafe fn evaluate(_self: *const BindingHolder, _value: *mut c_void) -> BindingResult {
+    unsafe fn evaluate(
+        _self: *const BindingHolder,
+        _value: *mut c_void,
+        ctx: &PropertyContext,
+    ) -> BindingResult {
         let _self_raw = _self;
         let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
         let inner = unsafe { core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap() };
         unsafe { *(*core::ptr::addr_of!((*_self).dep_nodes)).get() = Default::default() };
-        let notify = super::with_property_context(|pc| {
-            pc.set_current_binding(Some(_self_raw), || (inner.eval_fn)(inner.user_data))
-        });
+        let notify =
+            ctx.set_current_binding(Some(_self_raw), || (inner.eval_fn)(inner.user_data));
         if notify {
             (inner.notify_fn)(inner.user_data);
         }

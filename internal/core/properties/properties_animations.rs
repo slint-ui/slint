@@ -384,15 +384,13 @@ pub(super) type AnimationDetail = (PropertyAnimation, Option<crate::animations::
 impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCallable<T>
     for AnimatedBindingCallable<T, A>
 {
-    fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
+    fn evaluate(self: Pin<&Self>, value: &mut T, ctx: &PropertyContext) -> BindingResult {
         let original_binding = self.project_ref().original_binding;
-        super::with_property_context(|ctx| {
-            original_binding.register_as_dependency_to_current_binding(
-                ctx,
-                #[cfg(slint_debug_property)]
-                "<AnimatedBindingCallable>",
-            );
-        });
+        original_binding.register_as_dependency_to_current_binding(
+            ctx,
+            #[cfg(slint_debug_property)]
+            "<AnimatedBindingCallable>",
+        );
         match self.state.get() {
             AnimatedBindingState::Animating => {
                 let (val, finished) = self.animation_data.borrow_mut().compute_interpolated_value();
@@ -405,11 +403,7 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
             }
             AnimatedBindingState::NotAnimating => {
                 // Safety: `value` is a valid mutable reference
-                unsafe {
-                    super::with_property_context(|ctx| {
-                        self.original_binding.update(value as *mut T, ctx)
-                    })
-                };
+                unsafe { self.original_binding.update(value as *mut T, ctx) };
             }
             AnimatedBindingState::ShouldStart => {
                 let mut animation_data = self.animation_data.borrow_mut();
@@ -422,9 +416,7 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
                 // Safety: `new_to_value` is a valid mutable reference matching the
                 // original binding's value type
                 unsafe {
-                    super::with_property_context(|ctx| {
-                        self.original_binding.update(&mut new_to_value as *mut T, ctx)
-                    })
+                    self.original_binding.update(&mut new_to_value as *mut T, ctx)
                 };
 
                 if previous_to_value.as_ref() != Some(&new_to_value)
@@ -641,7 +633,7 @@ struct AnimatedValueBinding<T> {
 impl<T: InterpolatedPropertyValue + Clone + 'static> BindingCallable<T>
     for AnimatedValueBinding<T>
 {
-    fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
+    fn evaluate(self: Pin<&Self>, value: &mut T, _ctx: &PropertyContext) -> BindingResult {
         let (val, finished) = self.animation_data.borrow_mut().compute_interpolated_value();
         *value = val;
         if finished {
@@ -825,7 +817,11 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
 impl<Unit, S: Simulation> BindingCallable<Length<crate::Coord, Unit>>
     for RefCell<PropertyPhysicsAnimationData<S>>
 {
-    fn evaluate(self: Pin<&Self>, value: &mut Length<crate::Coord, Unit>) -> BindingResult {
+    fn evaluate(
+        self: Pin<&Self>,
+        value: &mut Length<crate::Coord, Unit>,
+        _ctx: &PropertyContext,
+    ) -> BindingResult {
         let finished = self.borrow_mut().update_value(&mut value.0);
         if finished {
             BindingResult::RemoveBinding

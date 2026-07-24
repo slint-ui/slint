@@ -34,10 +34,13 @@ impl ChangeHandlerQueue {
         DependencyListHead::swap(list, old_list.as_ref());
         while let Some(node) = old_list.take_head() {
             unsafe {
-                ((*addr_of!((*node).vtable)).evaluate)(
-                    node as *mut BindingHolder,
-                    core::ptr::null_mut(),
-                );
+                super::with_property_context(|pc| {
+                    ((*addr_of!((*node).vtable)).evaluate)(
+                        node as *mut BindingHolder,
+                        core::ptr::null_mut(),
+                        pc,
+                    )
+                });
             }
         }
         true
@@ -151,6 +154,7 @@ impl ChangeTracker {
         >(
             _self: *const BindingHolder,
             _value: *mut c_void,
+            ctx: &super::PropertyContext,
         ) -> BindingResult {
             unsafe {
                 let _self_raw = _self;
@@ -159,9 +163,8 @@ impl ChangeTracker {
                 *(*core::ptr::addr_of!((*_self).dep_nodes)).get() = Default::default();
                 assert!(!inner.evaluating.get());
                 inner.evaluating.set(true);
-                let new_value = super::with_property_context(|pc| {
-                    pc.set_current_binding(Some(_self_raw), || (inner.eval_fn)(&inner.data))
-                });
+                let new_value =
+                    ctx.set_current_binding(Some(_self_raw), || (inner.eval_fn)(&inner.data));
                 {
                     // Safety: We just set `evaluating` to true which means we can borrow
                     let inner_value = &mut *inner.value.get();

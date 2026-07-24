@@ -324,7 +324,11 @@ enum BindingResult {
 
 struct BindingVTable {
     drop: unsafe fn(_self: *mut BindingHolder),
-    evaluate: unsafe fn(_self: *const BindingHolder, value: *mut c_void) -> BindingResult,
+    evaluate: unsafe fn(
+        _self: *const BindingHolder,
+        value: *mut c_void,
+        ctx: &PropertyContext,
+    ) -> BindingResult,
     mark_dirty: unsafe fn(_self: *const BindingHolder, was_dirty: bool),
     intercept_set: unsafe fn(_self: *const BindingHolder, value: *const c_void) -> bool,
     intercept_set_binding:
@@ -337,7 +341,10 @@ struct BindingVTable {
 trait BindingCallable<T> {
     /// This function is called by the property to evaluate the binding and produce a new value. The
     /// previous property value is provided in the value parameter.
-    fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult;
+    ///
+    /// `ctx` is the [`PropertyContext`] the binding is evaluated in; nested property reads should
+    /// use it (e.g. [`Property::get_with_context`]).
+    fn evaluate(self: Pin<&Self>, value: &mut T, ctx: &PropertyContext) -> BindingResult;
 
     /// This function is used to notify the binding that one of the dependencies was changed
     /// and therefore this binding may evaluate to a different value, too.
@@ -374,7 +381,7 @@ trait BindingCallable<T> {
 }
 
 impl<T, F: Fn(&mut T) -> BindingResult> BindingCallable<T> for F {
-    fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
+    fn evaluate(self: Pin<&Self>, value: &mut T, _ctx: &PropertyContext) -> BindingResult {
         self(value)
     }
 }
@@ -506,10 +513,11 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
     unsafe fn evaluate<T, B: BindingCallable<T>>(
         _self: *const BindingHolder,
         value: *mut c_void,
+        ctx: &PropertyContext,
     ) -> BindingResult {
         unsafe {
             Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding))
-                .evaluate(&mut *(value as *mut T))
+                .evaluate(&mut *(value as *mut T), ctx)
         }
     }
 
@@ -793,7 +801,7 @@ impl PropertyHandle {
                 unsafe { *(*binding_ptr).dep_nodes.get() = Default::default() };
                 let r = unsafe {
                     ctx.set_current_binding(Some(binding_ptr), || {
-                        ((*binding_ptr).vtable.evaluate)(binding_ptr, value as *mut c_void)
+                        ((*binding_ptr).vtable.evaluate)(binding_ptr, value as *mut c_void, ctx)
                     })
                 };
                 unsafe { (*binding_ptr).dirty.set(false) };
@@ -1302,7 +1310,7 @@ where
     T: Default + From<StateInfo> + 'static,
     StateInfo: TryFrom<T>,
 {
-    fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
+    fn evaluate(self: Pin<&Self>, value: &mut T, _ctx: &PropertyContext) -> BindingResult {
         let new_state = (self.binding)();
         let timestamp = self.dirty_time.take();
         // The conversion only fails on the property's initial value
@@ -1383,7 +1391,7 @@ impl<const NEEDS_SET_DIRTY: bool> Default for PropertyTracker<NEEDS_SET_DIRTY, (
     fn default() -> Self {
         static VT: &BindingVTable = &BindingVTable {
             drop: |_| (),
-            evaluate: |_, _| BindingResult::KeepBinding,
+            evaluate: |_, _, _| BindingResult::KeepBinding,
             mark_dirty: |_, _| (),
             intercept_set: |_, _| false,
             intercept_set_binding: |_, _| false,
@@ -1508,7 +1516,7 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
         impl<B: PropertyDirtyHandler> HasBindingVTable for B {
             const VT: &'static BindingVTable = &BindingVTable {
                 drop: |_| (),
-                evaluate: |_, _| BindingResult::KeepBinding,
+                evaluate: |_, _, _| BindingResult::KeepBinding,
                 mark_dirty: mark_dirty::<B>,
                 intercept_set: |_, _| false,
                 intercept_set_binding: |_, _| false,
