@@ -862,7 +862,8 @@ fn flexbox_layout_data(
                     .flex_shrink
                     .as_ref()
                     .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
-                    .unwrap_or(llr_Expression::NumberLiteral(0.0)),
+                    // CSS default, same as the interpreter and the repeated-cell path
+                    .unwrap_or(llr_Expression::NumberLiteral(1.0)),
                 basis: li
                     .flex_basis
                     .as_ref()
