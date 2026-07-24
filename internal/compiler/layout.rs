@@ -777,8 +777,8 @@ impl FlexboxLayout {
         }?;
         let target = nr.element();
         let target = target.borrow();
-        let binding = target.bindings.get(nr.name())?;
-        match binding.borrow().value_expression() {
+        let binding = target.binding(nr.name())?;
+        match binding.value_expression() {
             Expression::ComputeFlexboxLayoutInfo { layout, .. } => Some(layout.clone()),
             _ => None,
         }

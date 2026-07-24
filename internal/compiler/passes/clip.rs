@@ -4,7 +4,6 @@
 //! Pass that lowers synthetic `clip` properties to Clip element
 
 use smol_str::{SmolStr, format_smolstr};
-use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -70,21 +69,16 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Arc<NativeClass>) 
 
     parent.children.push(clip.clone());
     drop(parent); // NamedReference::new will borrow() the parent, so we can't hold a mutable ref
-    clip.borrow_mut().bindings = ["width", "height"]
-        .iter()
-        .map(|prop| {
-            (
+    for prop in ["width", "height"] {
+        clip.borrow_mut().set_binding(
+            SmolStr::new_static(prop),
+            Expression::PropertyReference(NamedReference::new(
+                parent_elem,
                 SmolStr::new_static(prop),
-                RefCell::new(
-                    Expression::PropertyReference(NamedReference::new(
-                        parent_elem,
-                        SmolStr::new_static(prop),
-                    ))
-                    .into(),
-                ),
-            )
-        })
-        .collect();
+            ))
+            .into(),
+        );
+    }
 
     copy_optional_binding(parent_elem, "border-width", &clip);
     if super::border_radius::BORDER_RADIUS_PROPERTIES
