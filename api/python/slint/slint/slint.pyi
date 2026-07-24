@@ -5,7 +5,6 @@
 # pyo3 classes and functions when changing the Rust API surface.
 # ruff: noqa: F401
 
-
 import builtins
 import datetime
 import gettext
