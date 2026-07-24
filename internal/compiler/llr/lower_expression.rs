@@ -226,7 +226,10 @@ pub fn lower_expression(
         },
         tree_Expression::EmptyComponentFactory => llr_Expression::EmptyComponentFactory,
         tree_Expression::EmptyDataTransfer => llr_Expression::EmptyDataTransfer,
-        tree_Expression::DebugHook { expression, .. } => lower_expression(expression, ctx),
+        tree_Expression::DebugHook { expression, id, .. } => llr_Expression::DebugHook {
+            expression: Box::new(lower_expression(expression, ctx)),
+            id: id.clone(),
+        },
     }
 }
 

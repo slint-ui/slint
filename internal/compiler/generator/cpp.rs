@@ -4767,6 +4767,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 ),
             }
         }
+        // Generated code has no debug hooks; use the wrapped expression.
+        Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),
     }
 }
 

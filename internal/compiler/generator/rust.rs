@@ -3518,6 +3518,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::EmptyComponentFactory => quote!(slint::ComponentFactory::default()),
         Expression::EmptyDataTransfer => quote!(slint::DataTransfer::default()),
         Expression::TranslationReference { .. } => compile_translation_reference(expr, ctx),
+        // Generated code has no debug hooks; use the wrapped expression.
+        Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),
     }
 }
 
