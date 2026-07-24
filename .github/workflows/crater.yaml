@@ -997,8 +997,9 @@ jobs:
             - name: Prepare slint-compiler
               run: |
                   chmod +x slint-compiler-bin/slint-compiler
-                  sudo apt-get update -qq
-                  sudo apt-get install -y --no-install-recommends libfontconfig1 libfreetype6
+                  # Bound apt so a stuck dpkg lock or mirror stall fails in minutes instead of hanging the job.
+                  sudo timeout 300 apt-get update -qq
+                  sudo timeout 300 apt-get install -y --no-install-recommends libfontconfig1 libfreetype6
             - name: Checkout the repo
               run: |
                   cd $HOME
