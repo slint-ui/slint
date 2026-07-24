@@ -484,10 +484,10 @@ jobs:
         steps:
           - id: set
             run: |
-              # v5.2 always runs; v5.5 only in full mode
+              # v5.2 always runs; v6.0 only in full mode (home-automation needs IDF 6)
               entries='[{"esp-idf-version":"release-v5.2","idf-extra-args":""}]'
               if [ "${{ inputs.full }}" = "true" ]; then
-                entries='[{"esp-idf-version":"release-v5.2","idf-extra-args":""},{"esp-idf-version":"release-v5.5","idf-extra-args":"-D SLINT_ESP_LOCAL_EXAMPLE=OFF"}]'
+                entries='[{"esp-idf-version":"release-v5.2","idf-extra-args":""},{"esp-idf-version":"release-v6.0","idf-extra-args":"-D SLINT_ESP_LOCAL_EXAMPLE=OFF"}]'
               fi
               echo "matrix={\"include\":$entries}" >> "$GITHUB_OUTPUT"
 
@@ -530,8 +530,8 @@ jobs:
                   . ${IDF_PATH}/export.sh
                   idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
             - name: Build Home Automation demo (ESP32-P4)
-              # The demo requires ESP-IDF >= 5.4, so skip the v5.2 matrix entry
-              if: ${{ inputs.full && matrix.esp-idf-version != 'release-v5.2' }}
+              # The demo requires ESP-IDF 6, so it only runs on the release-v6.0 entry
+              if: ${{ inputs.full && matrix.esp-idf-version == 'release-v6.0' }}
               shell: bash
               working-directory: demos/home-automation/esp-idf
               run: |
