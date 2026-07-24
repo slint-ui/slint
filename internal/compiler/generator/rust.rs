@@ -3587,6 +3587,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 |#arg_name| {#expression}
             }
         }
+        // Generated code has no debug hooks; use the wrapped expression.
+        Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),
     }
 }
 
