@@ -12,7 +12,7 @@ This lets a component evolve its public API while giving users a migration path 
 ## Syntax
 
 Prefix a property declaration with `@deprecated`.
-Without an argument, the property must have a two-way binding, and the replacement is derived from its target:
+Without an argument, the property must have a two-way binding whose target is a public property of the same element, and the replacement is derived from that target:
 
 ```slint no-test
 @deprecated in-out property <int> old-prop <=> new-prop;
@@ -50,7 +50,7 @@ export component Example {
 ## Rules
 
 - `@deprecated` can only be applied to property declarations.
-- Without a message, the declaration must use a two-way binding (`<=>`) so the replacement can be derived from its target. Otherwise, the compiler reports an error.
+- Without a message, the declaration must use a two-way binding (`<=>`) whose target is a public property of the same element, so the replacement can be derived and reached by callers. Otherwise, provide an explicit message.
 - The message must be a plain string literal, without any `\{}` expressions.
 - Accessing a deprecated property is only a warning, never an error, so existing code keeps compiling.
 - Accesses from within the declaring component do not warn, since that component still needs to implement the property.

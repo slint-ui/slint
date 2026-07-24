@@ -2583,6 +2583,23 @@ fn resolve_two_way_bindings_for_element(
                 }
                 rhs_lookup.is_local_to_component &= lookup_ctx.is_local_element(&nr.element());
 
+                // The derived replacement only helps callers if the target is a public property
+                // of the same element, reached through the same object. Otherwise the hint is
+                // unreachable, so require an explicit message instead.
+                if elem
+                    .borrow()
+                    .property_declarations
+                    .get(prop_name)
+                    .is_some_and(|d| d.has_derived_deprecation())
+                    && !(Rc::ptr_eq(&nr.element(), elem)
+                        && rhs_lookup.property_visibility != PropertyVisibility::Private)
+                {
+                    lookup_ctx.diag.push_error(
+                        "@deprecated without a message derives the replacement from the two-way binding target, which must be a public property of the same element; provide an explicit @deprecated(\"...\") message instead".into(),
+                        &node,
+                    );
+                }
+
                 if !rhs_lookup.is_valid_for_assignment() {
                     match (lhs_lookup.property_visibility, rhs_lookup.property_visibility) {
                         (PropertyVisibility::Input, PropertyVisibility::Input)

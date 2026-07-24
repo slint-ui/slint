@@ -691,6 +691,18 @@ impl PropertyDeclaration {
             node.clone().into()
         }
     }
+
+    /// True when declared `@deprecated` without a custom message, so the hint in
+    /// [`Self::deprecated`] is derived from the two-way binding target.
+    pub fn has_derived_deprecation(&self) -> bool {
+        self.deprecated.is_some()
+            && self
+                .node
+                .as_ref()
+                .and_then(|n| syntax_nodes::PropertyDeclaration::new(n.clone()))
+                .and_then(|p| p.PropertyDeprecation())
+                .is_some_and(|d| d.child_token(SyntaxKind::StringLiteral).is_none())
+    }
 }
 
 impl From<Type> for PropertyDeclaration {
@@ -1418,19 +1430,22 @@ impl Element {
                 }
                 if let Some(message) = deprecation.child_token(SyntaxKind::StringLiteral) {
                     crate::literals::unescape_string(message.text())
-                } else if let Some(target) = prop_decl
+                } else if let Some(qn) = prop_decl
                     .TwoWayBinding()
                     .and_then(|twb| twb.Expression().QualifiedName())
-                    .and_then(|qn| {
-                        qn.children_with_tokens()
-                            .filter(|t| t.kind() == SyntaxKind::Identifier)
-                            .last()
-                    })
                 {
-                    Some(format_smolstr!(
-                        "Please use '{}' instead",
-                        parser::normalize_identifier(target.as_token().unwrap().text())
-                    ))
+                    // Keep the full target path (e.g. `a-struct.field`), dropping a leading
+                    // `self`/`root`. The resolving pass checks the target is actually reachable.
+                    let mut segments = qn
+                        .children_with_tokens()
+                        .filter(|t| t.kind() == SyntaxKind::Identifier)
+                        .map(|t| parser::normalize_identifier(t.as_token().unwrap().text()))
+                        .peekable();
+                    if segments.peek().is_some_and(|s| matches!(s.as_str(), "self" | "root")) {
+                        segments.next();
+                    }
+                    let path = segments.collect::<Vec<_>>().join(".");
+                    (!path.is_empty()).then(|| format_smolstr!("Please use '{path}' instead"))
                 } else {
                     diag.push_error(
                         "@deprecated without a message requires a two-way binding to derive the replacement from".into(),
