@@ -730,6 +730,7 @@ pub struct Clip {
     pub border_width: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
     pub clip: Property<bool>,
+    pub is_visibility_clip: Property<bool>,
 }
 
 impl Item for Clip {

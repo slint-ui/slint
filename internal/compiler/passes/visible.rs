@@ -103,19 +103,26 @@ fn create_visibility_element(child: &ElementRc, native_clip: &Rc<NativeClass>) -
         id: format_smolstr!("{}-visibility", child.borrow().id),
         base_type: ElementType::Native(native_clip.clone()),
         enclosing_component: child.borrow().enclosing_component.clone(),
-        bindings: std::iter::once((
-            SmolStr::new_static("clip"),
-            RefCell::new(
-                Expression::UnaryOp {
-                    sub: Box::new(Expression::PropertyReference(NamedReference::new(
-                        child,
-                        SmolStr::new_static("visible"),
-                    ))),
-                    op: '!',
-                }
-                .into(),
+        bindings: [
+            (
+                SmolStr::new_static("clip"),
+                RefCell::new(
+                    Expression::UnaryOp {
+                        sub: Box::new(Expression::PropertyReference(NamedReference::new(
+                            child,
+                            SmolStr::new_static("visible"),
+                        ))),
+                        op: '!',
+                    }
+                    .into(),
+                ),
             ),
-        ))
+            (
+                SmolStr::new_static("is-visibility-clip"),
+                RefCell::new(Expression::BoolLiteral(true).into()),
+            ),
+        ]
+        .into_iter()
         .collect(),
         ..Default::default()
     };
