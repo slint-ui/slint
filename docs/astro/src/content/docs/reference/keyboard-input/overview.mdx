@@ -2,7 +2,7 @@
 title: Key Handling Overview
 description: Key Handling Overview
 ---
-{/* cSpell: ignore Backtab */}
+{/* cSpell: ignore Backtab WASD */}
 
 import Link from '@slint/common-files/src/components/Link.astro';
 import SpecialKeys from "/src/content/docs/reference/generated/enums/_keys.md"
@@ -104,10 +104,10 @@ As another example, `@keys(Control + Plus)` is equivalent to `@keys(Control + Sh
 
 ### Physical Key Bindings
 
-If you want to match a physical key position instead of the character produced on the current keyboard layout, use `@physical-keys(..)`.
+Use `@physical-keys(..)` to match a physical key position instead of the character produced on the current keyboard layout.
+For example, WASD bindings in a game should use `@physical-keys(..)` so the movement keys are always in the same position on all layouts.
 
-Physical key names reuse familiar `Key` names such as `A`, `Digit1`, `BackQuote`, or `LeftArrow`, but they refer to a physical key location instead of logical text.
-Today these names refer to positions on a U.S. keyboard layout.
+Physical key names reuse familiar `Key` names such as `A`, `Digit1`, `BackQuote`, or `LeftArrow`, but they refer to a physical key location on a U.S. keyboard layout, instead of logical text.
 Unlike `@keys(..)`, `@physical-keys(..)` does not currently accept string literals.
 
 ```slint
