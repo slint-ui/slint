@@ -444,7 +444,7 @@ fn extract_constant_property_reference_impl(
                 // and solve that.
                 return None;
             }
-            if !matches!(binding.expression.ignore_debug_hooks(), Expression::Invalid) {
+            if !matches!(binding.value_expression(), Expression::Invalid) {
                 break binding.expression.clone();
             }
         };

@@ -75,25 +75,16 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
         }
         if let Some(init_expr) = initialize(&elem, nr.name()) {
             let mut elem_mut = elem.borrow_mut();
-            let span = elem_mut.to_source_location();
-            match elem_mut.bindings.entry(nr.name().clone()) {
-                std::collections::btree_map::Entry::Vacant(e) => {
-                    let mut binding = BindingExpression::new_with_span(init_expr, span);
-                    binding.priority = i32::MAX;
-                    e.insert(binding.into());
-                }
-                std::collections::btree_map::Entry::Occupied(mut e) => {
-                    // A synthetic debug hook may occupy the slot (must_initialize treats it as
-                    // uninitialized): upgrade it in place — keep the wrapper and id so the
-                    // property stays live-editable.
-                    let mut binding_expression = &mut e.get_mut().get_mut().expression;
-                    if let Expression::DebugHook { expression, synthetic, .. } = binding_expression
-                    {
-                        *synthetic = false;
-                        binding_expression = &mut **expression;
-                    }
-                    *binding_expression = init_expr;
-                }
+            if let Some(cell) = elem_mut.binding_cell_including_synthetic(nr.name()) {
+                // A synthetic debug hook may occupy the slot (must_initialize treats it as
+                // uninitialized): upgrade it in place, keeping the wrapper and id so the
+                // property stays live-editable.
+                cell.borrow_mut().set_value_expression(init_expr);
+            } else {
+                let span = elem_mut.to_source_location();
+                let mut binding = BindingExpression::new_with_span(init_expr, span);
+                binding.priority = i32::MAX;
+                elem_mut.set_binding(nr.name().clone(), binding);
             }
         }
     }
@@ -104,7 +95,7 @@ fn must_initialize(elem: &Element, prop: &str) -> bool {
     match elem.binding(prop) {
         None => true,
         Some(b) => {
-            matches!(b.expression.ignore_debug_hooks(), Expression::Invalid)
+            matches!(b.value_expression(), Expression::Invalid)
         }
     }
 }

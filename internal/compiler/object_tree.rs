@@ -2860,7 +2860,7 @@ impl Element {
     pub fn two_way_binding_node(&self, name: &str) -> Option<syntax_nodes::TwoWayBinding> {
         if let Some(binding) = self.bindings.get(name)
             && let Ok(b) = binding.try_borrow()
-            && let Expression::Uncompiled(node) = b.expression.ignore_debug_hooks()
+            && let Expression::Uncompiled(node) = b.value_expression()
             && let Some(twb) = syntax_nodes::TwoWayBinding::new(node.clone())
         {
             return Some(twb);

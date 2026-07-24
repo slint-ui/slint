@@ -31,7 +31,7 @@ pub fn warn_duplicates(component: &Rc<Component>, diagnostics: &mut BuildDiagnos
                 })
                 .filter_map(|shortcut| {
                     let keys_expr = shortcut.binding("keys")?;
-                    if let Expression::Keys(keys) = keys_expr.expression.ignore_debug_hooks() {
+                    if let Expression::Keys(keys) = keys_expr.value_expression() {
                         Some((keys.clone(), keys_expr.clone()))
                     } else {
                         None

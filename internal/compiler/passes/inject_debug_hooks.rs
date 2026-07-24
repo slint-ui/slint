@@ -548,9 +548,7 @@ mod tests {
         }
         .into();
         assert!(!binding.merge_with(&real_binding(9.)));
-        assert!(
-            matches!(binding.expression.ignore_debug_hooks(), Expression::NumberLiteral(v, _) if *v == 1.)
-        );
+        assert!(matches!(binding.value_expression(), Expression::NumberLiteral(v, _) if *v == 1.));
     }
 
     /// The injected `transform-rotation` hook must cause the Transform wrapper element to be
