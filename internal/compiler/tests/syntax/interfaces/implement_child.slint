@@ -1,0 +1,166 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Delegation via `implement I <=> child`: the child is duck-typed (needs no `implement` of its own)
+// but must carry every member of `I`, and the forwarded members must not clash on the parent.
+
+interface ValidInterface {
+    in-out property <int> value;
+    callback speak();
+    public pure function reset();
+}
+
+component ComponentA { }
+
+// The child target must exist.
+export component MissingChild {
+    implement ValidInterface <=> base;
+//                               >  <error{'base' does not exist}
+}
+
+// The child must carry every member of the interface.
+export component ChildMissingMembers {
+    implement ValidInterface <=> base;
+//                               >  <error{Cannot implement 'ValidInterface' based on 'base'.↵- missing 'reset', a 'public pure function() -> void'↵- missing 'speak', a 'callback() -> void'↵- missing 'value', an in-out 'int' property}
+    base := ComponentA { }
+}
+
+// Member present but with the wrong visibility / type / callback signature / purity / arguments.
+component IncorrectVisibility {
+    out property <int> value;
+    callback speak();
+    public pure function reset() {}
+}
+
+export component ChildWrongVisibility {
+    implement ValidInterface <=> impl;
+//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.value' must be 'in-out' (found 'out')}
+    impl := IncorrectVisibility { }
+}
+
+component IncorrectType {
+    in-out property <float> value;
+    callback speak();
+    public pure function reset() {}
+}
+
+export component ChildWrongType {
+    implement ValidInterface <=> impl;
+//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.value' must be a 'int' property (found a 'float' property)}
+    impl := IncorrectType { }
+}
+
+component IncorrectCallback {
+    in-out property <int> value;
+    callback speak() -> string;
+    public pure function reset() {}
+}
+
+export component ChildWrongCallback {
+    implement ValidInterface <=> impl;
+//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.speak' must be a 'callback() -> void' (found a 'callback() -> string')}
+    impl := IncorrectCallback { }
+}
+
+interface FunctionInterface {
+    public pure function foo(i: int, s: string) -> bool;
+}
+
+component ChildWithDifferentParameterNames {
+    // The function is correct even though the parameter names differ
+    public pure function foo(int: int, string: string) -> bool {
+        return false;
+    }
+}
+
+export component ValidChildFunctionInterface {
+    implement FunctionInterface <=> base;
+    base := ChildWithDifferentParameterNames { }
+}
+
+interface ImpureFunctionInterface {
+    public function bar(i: int, s: string) -> bool;
+}
+
+component IncorrectPurity {
+    public function foo(i: int, s: string) -> bool {
+        return false;
+    }
+
+    // Implementation is pure, interface is not - this should not raise an error
+    public pure function bar(i: int, s: string) -> bool {
+        return false;
+    }
+}
+
+export component ChildWrongPurity {
+    implement FunctionInterface <=> base;
+//                                  >  <error{Cannot implement 'FunctionInterface' based on 'base'.↵- 'base.foo' must be 'pure'}
+    implement ImpureFunctionInterface <=> base;
+
+    base := IncorrectPurity { }
+}
+
+component IncorrectArguments {
+    pure public function foo(i: int, s: int) -> bool {
+        return false;
+    }
+}
+
+export component ChildWrongArguments {
+    implement FunctionInterface <=> base;
+//                                  >  <error{Cannot implement 'FunctionInterface' based on 'base'.↵- 'base.foo' must be a 'function(int, string) -> bool' (found a 'function(int, int) -> bool')}
+    base := IncorrectArguments { }
+}
+
+// Each member of the child declared as the wrong kind.
+component CrossKindImpl {
+    callback value();
+    in-out property <int> speak;
+    in-out property <int> reset;
+}
+
+export component ChildCrossKind {
+    implement ValidInterface <=> impl;
+//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.reset' must be a 'public pure function() -> void' (found a 'int' property)↵- 'impl.speak' must be a 'callback() -> void' (found a 'int' property)↵- 'impl.value' must be an in-out 'int' property (found a 'callback() -> void')}
+    impl := CrossKindImpl { }
+}
+
+component ValidBase {
+    in-out property <int> value;
+    callback speak();
+    public pure function reset() {}
+}
+
+// A child element may implicitly implement an interface
+export component ChildImplicitlyImplements {
+    implement ValidInterface <=> base;
+    base := ValidBase { }
+}
+
+// A forwarded member must not clash with a member already declared on the parent.
+export component OverridesDeclaration {
+    implement ValidInterface <=> base;
+    base := ValidBase { }
+
+    in-out property <int> value;
+//                        >   <error{Cannot override 'value' from 'ValidInterface'}
+    callback speak();
+//           >   <error{Cannot override 'speak' from 'ValidInterface'}
+    public pure function reset() {}
+//                       >   <error{Cannot override 'reset' from 'ValidInterface'}
+}
+
+// A forwarded member must not clash with a member inherited by the parent from its own base.
+component BaseWithConflicts {
+    in-out property <int> value;
+    callback speak();
+    public pure function reset() {}
+    @children
+}
+
+export component ConflictsWithBase inherits BaseWithConflicts {
+    implement ValidInterface <=> base;
+//            >             <error{Cannot implement 'ValidInterface' based on 'base'.↵- 'reset' conflicts with an existing function in 'BaseWithConflicts'↵- 'speak' conflicts with an existing callback in 'BaseWithConflicts'↵- 'value' conflicts with an existing property in 'BaseWithConflicts'}
+    base := ValidBase { }
+}

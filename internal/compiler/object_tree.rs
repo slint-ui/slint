@@ -2061,8 +2061,7 @@ impl Element {
             }
         }
 
-        interfaces::validate_properties_and_callbacks(&r.borrow(), &implemented_interfaces, diag);
-        interfaces::validate_function_implementations(&r.borrow(), &implemented_interfaces, diag);
+        interfaces::validate_self_implement_statements(&r.borrow(), &implemented_interfaces, diag);
         interfaces::apply_child_implement_statements(&r, child_implements, diag);
 
         r
