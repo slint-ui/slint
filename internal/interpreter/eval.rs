@@ -985,6 +985,7 @@ fn call_builtin_function(
                 .expect("Invalid internal enumeration representation for close policy");
                 let popup_x = popup.x.clone();
                 let popup_y = popup.y.clone();
+                let popup_anchor = popup.anchor.clone();
 
                 crate::dynamic_item_tree::show_popup(
                     popup_window,
@@ -999,6 +1000,18 @@ fn call_builtin_function(
                         corelib::api::LogicalPosition::new(
                             x.try_into().unwrap(),
                             y.try_into().unwrap(),
+                        )
+                    },
+                    move |instance_ref| {
+                        let comp = ComponentInstance::InstanceRef(instance_ref);
+                        let anchor = load_property_helper(
+                            &comp,
+                            &popup_anchor.element(),
+                            popup_anchor.name(),
+                        )
+                        .unwrap();
+                        anchor.try_into().expect(
+                            "Invalid internal struct representation for popup anchor",
                         )
                     },
                     close_policy,

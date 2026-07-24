@@ -18,10 +18,7 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{
-    ConstraintAdjustment, InputType, ItemRef, MenuEntry, MouseCursor, PopupAnchor,
-    PopupAnchorLocation, PopupClosePolicy, PopupGravity,
-};
+use crate::items::{InputType, ItemRef, MenuEntry, MouseCursor, PopupAnchor, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
@@ -2413,6 +2410,14 @@ pub mod ffi {
         }
     }
 
+    impl WithUserData<extern "C" fn(user_data: *mut c_void, anchor: &mut PopupAnchor)> {
+        fn call(&self) -> PopupAnchor {
+            let mut anchor = PopupAnchor::default();
+            (self.callback)(self.user_data, &mut anchor);
+            anchor
+        }
+    }
+
     impl WithUserData<extern "C" fn(user_data: *mut c_void, pos: &mut LogicalPosition)> {
         fn call(&self) -> LogicalPosition {
             let mut logical_position = LogicalPosition::default();
@@ -2600,6 +2605,9 @@ pub mod ffi {
         position: extern "C" fn(user_data: *mut c_void, pos: &mut LogicalPosition),
         drop_user_data: extern "C" fn(user_data: *mut c_void),
         user_data: *mut c_void,
+        anchor: extern "C" fn(user_data: *mut c_void, anchor: &mut PopupAnchor),
+        anchor_drop_user_data: extern "C" fn(user_data: *mut c_void),
+        anchor_user_data: *mut c_void,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
         window_kind: WindowKind,
@@ -2609,18 +2617,21 @@ pub mod ffi {
     ) -> NonZeroU32 {
         unsafe {
             let with_user_data = WithUserData { callback: position, drop_user_data, user_data };
+            let anchor_with_user_data = WithUserData {
+                callback: anchor,
+                drop_user_data: anchor_drop_user_data,
+                user_data: anchor_user_data,
+            };
             let is_open_with_user_data = WithUserData {
                 callback: is_open_setter,
                 drop_user_data: is_open_setter_drop_user_data,
                 user_data: is_open_setter_user_data,
             };
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            // The C++ generator does not yet expose the `anchor` property over this ABI, so
-            // popups shown from C++ use the default (unset) positioner data for now.
             WindowInner::from_pub(window_adapter.window()).show_popup(
                 popup,
                 Box::new(move || with_user_data.call()),
-                Box::new(PopupAnchor::default),
+                Box::new(move || anchor_with_user_data.call()),
                 close_policy,
                 parent_item,
                 window_kind,

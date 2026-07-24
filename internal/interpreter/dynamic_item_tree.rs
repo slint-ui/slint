@@ -2782,6 +2782,7 @@ pub fn show_popup(
     instance: InstanceRef,
     popup: &object_tree::PopupWindow,
     pos_getter: impl Fn(InstanceRef<'_, '_>) -> LogicalPosition + 'static,
+    anchor_getter: impl Fn(InstanceRef<'_, '_>) -> PopupAnchor + 'static,
     close_policy: PopupClosePolicy,
     parent_comp: ErasedItemTreeBoxWeak,
     parent_window_adapter: WindowAdapterRc,
@@ -2834,6 +2835,13 @@ pub fn show_popup(
         let instance_ref = compo_box.borrow_instance();
         pos_getter(instance_ref)
     });
+    let inst_for_anchor = inst.clone();
+    let access_anchor = Box::new(move || {
+        generativity::make_guard!(guard);
+        let compo_box = inst_for_anchor.unerase(guard);
+        let instance_ref = compo_box.borrow_instance();
+        anchor_getter(instance_ref)
+    });
     close_popup(element.clone(), instance, parent_window_adapter.clone());
     let window_kind = if popup.is_tooltip { WindowKind::ToolTip } else { WindowKind::Popup };
     // Keep the parent's `is-open` property in sync: `show_popup` invokes this with `true` now and with
@@ -2859,10 +2867,6 @@ pub fn show_popup(
         } else {
             Box::new(|_| {})
         };
-    // The interpreter doesn't yet track the `anchor` property dynamically (see the Rust
-    // codegen path in generator/rust.rs for the compiled equivalent); native Wayland
-    // positioning of interpreted popups is a follow-up.
-    let access_anchor = Box::new(|| PopupAnchor::default());
     let popup_id = WindowInner::from_pub(parent_window_adapter.window()).show_popup(
         &vtable::VRc::into_dyn(inst.clone()),
         access_position,

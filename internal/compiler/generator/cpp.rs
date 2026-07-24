@@ -4981,6 +4981,10 @@ fn compile_builtin_function_call(
                     Some(&parent_ctx),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
+                let anchor = compile_expression(
+                    &llr::Expression::PropertyReference(popup.anchor.clone()),
+                    &popup_ctx,
+                );
                 let close_policy = compile_expression(close_policy, ctx);
                 let window_kind = if popup.is_tooltip { "slint::cbindgen_private::WindowKind::ToolTip" } else { "slint::cbindgen_private::WindowKind::Popup" };
                 // Keep the parent's `is-open` property in sync. The setter is passed directly into
@@ -5013,6 +5017,7 @@ fn compile_builtin_function_call(
                     {component_access}->popup_id_{popup_index} =  \
                         {window}.template show_popup<{popup_window_id}>(&*({component_access}),  \
                                                                         [=](auto self) {{ return {position}; }},  \
+                                                                        [=](auto self) {{ return {anchor}; }},  \
                                                                         {close_policy},  \
                                                                         {{ {parent_component} }},  \
                                                                         {window_kind},  \
