@@ -556,11 +556,11 @@ fn process_window(
     }
 
     // Transfer the visible binding from MenuBar to MenuBarImpl
-    let visible_binding = menu_bar.borrow_mut().bindings.remove("visible");
+    let visible_binding = menu_bar.borrow_mut().take_binding("visible");
     if let Some(visible_binding) = &visible_binding {
         menubar_impl
             .borrow_mut()
-            .set_binding(SmolStr::new_static("menubar-visible"), visible_binding.borrow().clone());
+            .set_binding(SmolStr::new_static("menubar-visible"), visible_binding.clone());
     }
 
     // Transform the MenuBar in a layout
@@ -612,7 +612,7 @@ fn process_window(
     }
 
     if let Some(visible_binding) = visible_binding {
-        arguments.push(visible_binding.borrow().expression.clone());
+        arguments.push(visible_binding.expression.clone());
     } else {
         arguments.push(Expression::BoolLiteral(true));
     }

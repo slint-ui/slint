@@ -35,7 +35,7 @@ pub fn remove_unused_properties(doc: &Document) {
                 for x in &to_remove {
                     elem.property_declarations.remove(x);
                     elem.property_analysis.borrow_mut().remove(x);
-                    elem.bindings.remove(x);
+                    elem.take_binding(x);
                 }
                 // Remove changed callbacks over properties that are not materialized as they are not used
                 let mut change_callbacks = std::mem::take(&mut elem.change_callbacks);

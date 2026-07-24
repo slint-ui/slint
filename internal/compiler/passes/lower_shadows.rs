@@ -159,10 +159,10 @@ fn take_shadow_property_bindings(
         .flat_map(|(shadow_property_name, _)| {
             let shadow_property_name = SmolStr::new(shadow_property_name);
             let mut element = element.borrow_mut();
-            element.bindings.remove(&shadow_property_name).map(|binding| {
+            element.take_binding(&shadow_property_name).map(|binding| {
                 // Remove the shadow property that was also materialized as a fake property by now.
                 element.property_declarations.remove(&shadow_property_name);
-                (shadow_property_name, binding.into_inner())
+                (shadow_property_name, binding)
             })
         })
         .collect()

@@ -477,7 +477,7 @@ fn check_preferred_size_100(elem: &ElementRc, prop: &str, diag: &mut BuildDiagno
         false
     };
     if ret {
-        elem.borrow_mut().bindings.remove(prop).unwrap();
+        elem.borrow_mut().take_binding(prop).unwrap();
         return true;
     }
     false
@@ -1347,7 +1347,7 @@ fn optimize_single_cell_layout(
         );
         replace(size, size_expr);
     }
-    layout_element.borrow_mut().bindings.remove(cache_name);
+    layout_element.borrow_mut().take_binding(cache_name);
     layout_element.borrow_mut().property_declarations.remove(cache_name);
     for o in [Orientation::Horizontal, Orientation::Vertical] {
         let Some(nr) = layout_element.borrow().layout_info_prop(o).cloned() else { continue };
@@ -2007,9 +2007,8 @@ fn lower_dialog_layout(
     let layout_children = std::mem::take(&mut dialog_element.borrow_mut().children);
     for layout_child in &layout_children {
         let dialog_button_role_binding =
-            layout_child.borrow_mut().bindings.remove("dialog-button-role");
+            layout_child.borrow_mut().take_binding("dialog-button-role");
         let is_button = if let Some(role_binding) = dialog_button_role_binding {
-            let role_binding = role_binding.into_inner();
             if let Expression::EnumerationValue(val) =
                 super::ignore_debug_hooks(&role_binding.expression)
             {
@@ -2232,11 +2231,11 @@ fn create_layout_item(
             NamedReference::new(item, min_name.clone()),
         ));
         let mut item = item.borrow_mut();
-        let b = item.bindings.remove(prop).unwrap().into_inner();
+        let b = item.take_binding(prop).unwrap();
         min_ref.span = b.span.clone();
         min_ref.priority = b.priority;
-        item.bindings.insert(max_name.clone(), min_ref.into());
-        item.bindings.insert(min_name.clone(), b.into());
+        item.set_binding(max_name.clone(), min_ref);
+        item.set_binding(min_name.clone(), b);
         item.property_declarations.insert(
             min_name,
             PropertyDeclaration { property_type: Type::Percent, ..PropertyDeclaration::default() },
@@ -2621,18 +2620,15 @@ fn adjust_window_layout(component: &Rc<Component>, prop: &'static str) {
     );
     {
         let mut root = component.root_element.borrow_mut();
-        if let Some(b) = root.bindings.remove(prop) {
-            root.bindings.insert(new_prop.name().clone(), b);
+        if let Some(b) = root.take_binding(prop) {
+            root.set_binding(new_prop.name().clone(), b);
         };
         let mut analysis = root.property_analysis.borrow_mut();
         if let Some(a) = analysis.remove(prop) {
             analysis.insert(new_prop.name().clone(), a);
         };
         drop(analysis);
-        root.bindings.insert(
-            prop.into(),
-            RefCell::new(Expression::PropertyReference(new_prop.clone()).into()),
-        );
+        root.set_binding(prop.into(), Expression::PropertyReference(new_prop.clone()).into());
     }
 
     let old_prop = NamedReference::new(&component.root_element, SmolStr::new_static(prop));
