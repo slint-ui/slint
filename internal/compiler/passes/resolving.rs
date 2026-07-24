@@ -24,6 +24,7 @@ use smol_str::{SmolStr, ToSmolStr};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use unicode_segmentation::UnicodeSegmentation;
 
 mod remove_noop;
@@ -2195,12 +2196,10 @@ fn with_physical_key_map<R>(
         };
     }
 
-    thread_local! {
-        pub static PHYSICAL_KEY_MAP: std::collections::HashMap< &'static str, &'static str>  =
-            for_each_physical_keys!(generate_physical_key_map).into_iter().collect();
-    }
+    static PHYSICAL_KEY_MAP: LazyLock<std::collections::HashMap<&str, &str>> =
+        LazyLock::new(|| for_each_physical_keys!(generate_physical_key_map).into_iter().collect());
 
-    PHYSICAL_KEY_MAP.with(fun)
+    fun(&PHYSICAL_KEY_MAP)
 }
 
 fn lookup_physical_key(keycode: &str) -> Option<&'static str> {

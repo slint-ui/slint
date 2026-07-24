@@ -664,13 +664,13 @@ fn lower_menu_items(
                     );
                 }
                 if in_menubar
-                    && let Some(binding) = element.borrow().bindings.get("shortcut")
-                    && matches!(&binding.borrow().expression, Expression::Keys(k) if k.is_physical)
+                    && let Some(binding) = element.borrow().binding("shortcut")
+                    && matches!(&binding.expression.ignore_debug_hooks(), Expression::Keys(k) if k.is_physical)
                 {
-                    diag.push_warning(
-                        "Physical keys in MenuItem shortcuts are interpreted as logical keys by native menu bars. Use @keys(...) for menu shortcuts instead"
+                    diag.push_error(
+                        "@physical-keys(..) in MenuItem shortcuts are not supported.\nUse @keys(...) for menu shortcuts instead"
                             .into(),
-                        &*binding.borrow(),
+                        &*binding,
                     );
                 }
 
