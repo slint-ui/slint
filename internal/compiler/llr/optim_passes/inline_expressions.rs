@@ -194,15 +194,17 @@ fn inline_simple_expressions_in_expression(
     ctx: &EvaluationContext,
     counter: &mut usize,
 ) {
-    // Inline a call to a function that is called exactly once: move its body to
-    // the call site. Because it is the only call, the use counts of everything
-    // in the body are preserved by the move, so no adjustment is needed.
+    // Inline a call to a function that is called exactly once: move its body to the call site.
     if let Expression::FunctionCall { function, .. } = expr {
         let inline_target = ctx.function_info(function).and_then(|(f, map)| {
             if f.use_count.get() != 1 || !body_is_inline_safe(&f.code.borrow(), &map) {
                 return None;
             }
             f.use_count.set(0);
+            // count_property_use counts the body in the function's context; re-home the use
+            // counts to the call site, where a reference can resolve to a parent-set binding
+            // (e.g. `height: 100%`) that is invisible in the function and so under-counted.
+            adjust_use_count(&f.code.borrow(), &map.map_context(ctx), -1);
             // Take the body out so it isn't also inlined in place when
             // `for_each_expression` reaches it, which would double-count uses.
             let body = f.code.replace(Expression::CodeBlock(Vec::new()));
@@ -217,6 +219,8 @@ fn inline_simple_expressions_in_expression(
             let uid = *counter;
             *counter += 1;
             map.map_expression(&mut body);
+            // Re-count in the call-site context (see above).
+            adjust_use_count(&body, ctx, 1);
             substitute_function_parameters(&mut body, uid, &arg_types);
             *expr = if arguments.is_empty() {
                 body
