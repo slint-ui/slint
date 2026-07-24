@@ -2699,6 +2699,9 @@ export component Tooltip inherits Empty {
     /// The text to display in the tooltip.
     /// Don't set this property when using custom content.
     in property <styled-text> text;
+
+    /// If true, disables the style-provided tooltip frame, background, border, and padding.
+    in property <bool> no-frame;
     //-can_be_declared_without_children_slot
     //-is_non_item_type
 }

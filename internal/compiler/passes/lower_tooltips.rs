@@ -51,6 +51,7 @@ const WIDTH: &str = "width";
 const HEIGHT: &str = "height";
 const OFFSET: &str = "offset";
 const TEXT: &str = "text";
+const NO_FRAME: &str = "no-frame";
 
 /// Report an error and replace any named reference that points to the tooltip element itself.
 /// References to the tooltip's *children* are caught later by `lower_popups::check_no_reference_to_popup`
@@ -92,6 +93,7 @@ fn build_tooltip_content(
     enclosing_component: &std::rc::Weak<Component>,
     tooltip_impl_type: &ElementType,
     tooltip_text: Option<NamedReference>,
+    tooltip_no_frame: Option<BindingExpression>,
     children: Vec<ElementRc>,
 ) -> ElementRc {
     let mut bindings = std::collections::BTreeMap::new();
@@ -100,6 +102,9 @@ fn build_tooltip_content(
             SmolStr::new_static("text"),
             RefCell::new(Expression::PropertyReference(tooltip_text).into()),
         );
+    }
+    if let Some(tooltip_no_frame) = tooltip_no_frame {
+        bindings.insert(SmolStr::new_static(NO_FRAME), RefCell::new(tooltip_no_frame));
     }
     Element {
         id: format_smolstr!("{}-content", popup_id),
@@ -418,11 +423,14 @@ fn lower_tooltips_in_component(
         let pointer_y = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_Y));
         let tooltip_text = (!has_custom_content)
             .then(|| NamedReference::new(&tooltip_area, SmolStr::new_static(TEXT)));
+        let tooltip_no_frame =
+            tooltip_config.borrow().bindings.get(NO_FRAME).map(|binding| binding.borrow().clone());
         let tooltip_content = build_tooltip_content(
             &popup_id,
             &enclosing_component,
             tooltip_impl_type,
             tooltip_text,
+            tooltip_no_frame,
             custom_children,
         );
         let popup_children = vec![tooltip_content.clone()];
