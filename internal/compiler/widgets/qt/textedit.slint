@@ -18,10 +18,14 @@ export component TextEdit {
     out property <length> visible-width <=> base.visible-width;
     out property <length> visible-height <=> base.visible-height;
     in-out property <string> text <=> base.text;
-    in-out property <length> viewport-x <=> base.viewport-x;
-    in-out property <length> viewport-y <=> base.viewport-y;
-    in-out property <length> viewport-width <=> base.viewport-width;
-    in-out property <length> viewport-height <=> base.viewport-height;
+    in-out property <length> content-x <=> base.content-x;
+    in-out property <length> content-y <=> base.content-y;
+    in-out property <length> content-width <=> base.content-width;
+    in-out property <length> content-height <=> base.content-height;
+    @deprecated in-out property <length> viewport-width <=> content-width;
+    @deprecated in-out property <length> viewport-height <=> content-height;
+    @deprecated in-out property <length> viewport-x <=> content-x;
+    @deprecated in-out property <length> viewport-y <=> content-y;
 
     callback edited <=> base.edited;
     callback key-pressed <=> base.key-pressed;

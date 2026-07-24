@@ -3,7 +3,7 @@
 
 // cSpell: ignore signum underdamped
 //! This module contains various physics simulations which can be used as animation (internally only yet).
-//! Currently it is used in the flickable to animate the viewport position
+//! Currently it is used in the flickable to animate the content position of the Flickable
 //!
 //! Currently it contains two simulations:
 //! - `ConstantDeceleration`

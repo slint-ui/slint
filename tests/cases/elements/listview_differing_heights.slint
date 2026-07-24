@@ -31,8 +31,8 @@ export component Test inherits Window {
     }
 
     out property <length> height_ <=> self.height;
-    out property <length> viewport-y <=> listview.viewport-y;
-    out property <length> viewport-height <=> listview.viewport-height;
+    out property <length> content-y <=> listview.content-y;
+    out property <length> content-height <=> listview.content-height;
 
     out property <int> clicked-index: 0;
 }
@@ -113,14 +113,14 @@ let probe_index = |direction| {
 };
 
 let wait_for_scroll_animation = || {
-    let mut current_viewport_y = instance.get_viewport_y();
+    let mut current_content_y = instance.get_content_y();
     loop {
         slint_testing::mock_elapsed_time(16);
-        let new_viewport_y = instance.get_viewport_y();
-        if current_viewport_y == new_viewport_y {
+        let new_content_y = instance.get_content_y();
+        if current_content_y == new_content_y {
             break;
         }
-        current_viewport_y = new_viewport_y;
+        current_content_y = new_content_y;
     }
 };
 
@@ -142,8 +142,8 @@ let assert_scroll_progress = |current_index: &mut i32, direction: ScrollDirectio
 };
 
 let run_bidirectional_scroll_test = |method_name: &str, scroll_step: &mut dyn FnMut(ScrollDirection)| {
-    let target_viewport_y = |direction| match direction {
-        ScrollDirection::Down => -instance.get_viewport_height() + instance.get_height_(),
+    let target_content_y = |direction| match direction {
+        ScrollDirection::Down => -instance.get_content_height() + instance.get_height_(),
         ScrollDirection::Up => 0.0,
     };
 
@@ -155,8 +155,8 @@ let run_bidirectional_scroll_test = |method_name: &str, scroll_step: &mut dyn Fn
         };
 
         while match direction {
-            ScrollDirection::Down => instance.get_viewport_y() > target_viewport_y(direction),
-            ScrollDirection::Up => instance.get_viewport_y() < target_viewport_y(direction),
+            ScrollDirection::Down => instance.get_content_y() > target_content_y(direction),
+            ScrollDirection::Up => instance.get_content_y() < target_content_y(direction),
         } {
             // Note: probing the index sends click events, which would disturb the
             // active scroll gesture or its velocity calculation. Only probe before
@@ -167,16 +167,16 @@ let run_bidirectional_scroll_test = |method_name: &str, scroll_step: &mut dyn Fn
             assert_scroll_progress(&mut current_index, direction, method_name);
         }
 
-        let viewport_y = instance.get_viewport_y();
-        let expected_viewport_y = target_viewport_y(direction);
+        let content_y = instance.get_content_y();
+        let expected_content_y = target_content_y(direction);
         assert_eq!(
-            viewport_y,
-            expected_viewport_y,
+            content_y,
+            expected_content_y,
             "Expected {} scrolling with {} to reach {}, but got {}",
             direction.name(),
             method_name,
-            expected_viewport_y,
-            viewport_y
+            expected_content_y,
+            content_y
         );
         assert_eq!(
             instance.get_clicked_index(),

@@ -1311,7 +1311,7 @@ fn layer_visible_after_becoming_non_zero_sized() {
 fn layer_rendered_at_correct_position() {
     // Regression test for #11763: render_layer's compute_bounds used
     // item_rc.geometry() (parent coordinates) instead of a local-coords
-    // rect. Inside a Flickable the parent offset is the viewport position
+    // rect. Inside a Flickable the parent offset is the content position
     // (large x), while the clip is in item-local coords. The union mixes
     // coordinate systems, producing a wrong layer origin when the item is
     // partially scrolled out of the visible area. This makes the layer
@@ -1325,8 +1325,8 @@ fn layer_rendered_at_correct_position() {
             Flickable {
                 width: 64px;
                 height: 64px;
-                viewport-width: 200px;
-                viewport-x <=> root.vpx;
+                content-width: 200px;
+                content-x <=> root.vpx;
                 interactive: false;
 
                 Rectangle {
@@ -1355,7 +1355,7 @@ fn layer_rendered_at_correct_position() {
     ui.show().unwrap();
 
     // Frame 1: item partially scrolled off the left edge of the Flickable.
-    // viewport-x = -120 → visible range 120..184. Item at 100..140.
+    // content-x = -120 → visible range 120..184. Item at 100..140.
     // Item left edge (100) is 20px left of visible start (120).
     // Only the right 20px are visible in the Flickable.
     // The layer cache is created with the clip starting at x=20 in local

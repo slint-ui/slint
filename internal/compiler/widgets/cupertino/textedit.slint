@@ -10,10 +10,10 @@ component ScrollView {
     in property <bool> enabled: true;
     out property <length> visible-width <=> flickable.width;
     out property <length> visible-height <=> flickable.height;
-    in-out property <length> viewport-width <=> flickable.viewport-width;
-    in-out property <length> viewport-height <=> flickable.viewport-height;
-    in-out property <length> viewport-x <=> flickable.viewport-x;
-    in-out property <length> viewport-y <=> flickable.viewport-y;
+    in-out property <length> content-width <=> flickable.content-width;
+    in-out property <length> content-height <=> flickable.content-height;
+    in-out property <length> content-x <=> flickable.content-x;
+    in-out property <length> content-y <=> flickable.content-y;
 
     min-height: 50px;
     min-width: 50px;
@@ -26,8 +26,8 @@ component ScrollView {
         x: 2px;
         y: 2px;
         interactive: false;
-        viewport-y <=> vertical-bar.value;
-        viewport-x <=> horizontal-bar.value;
+        content-y <=> vertical-bar.value;
+        content-x <=> horizontal-bar.value;
         width: parent.width - 16px;
         height: 100%;
 
@@ -41,9 +41,9 @@ component ScrollView {
         width: self.has-hover ? 20px : 12px;
         height: horizontal-bar.visible ? parent.height - horizontal-bar.height : parent.height;
         horizontal: false;
-        maximum: flickable.viewport-height - flickable.height;
+        maximum: flickable.content-height - flickable.height;
         page-size: flickable.height;
-        visible: flickable.viewport-height > flickable.height;
+        visible: flickable.content-height > flickable.height;
     }
 
     horizontal-bar := ScrollBar {
@@ -53,9 +53,9 @@ component ScrollView {
         y: parent.height - self.height;
         x: 0;
         horizontal: true;
-        maximum: flickable.viewport-width - flickable.width;
+        maximum: flickable.content-width - flickable.width;
         page-size: flickable.width;
-        visible: flickable.viewport-width > flickable.width;
+        visible: flickable.content-width > flickable.width;
     }
 }
 
@@ -72,10 +72,14 @@ export component TextEdit {
     out property <length> visible-height <=> scroll-view.visible-height;
     out property <bool> has-focus: text-input.has-focus;
     in-out property <string> text <=> text-input.text;
-    in-out property <length> viewport-x <=> scroll-view.viewport-x;
-    in-out property <length> viewport-y <=> scroll-view.viewport-y;
-    in-out property <length> viewport-width <=> scroll-view.viewport-width;
-    in-out property <length> viewport-height <=> scroll-view.viewport-height;
+    in-out property <length> content-x <=> scroll-view.content-x;
+    in-out property <length> content-y <=> scroll-view.content-y;
+    in-out property <length> content-width <=> scroll-view.content-width;
+    in-out property <length> content-height <=> scroll-view.content-height;
+    @deprecated in-out property <length> viewport-width <=> content-width;
+    @deprecated in-out property <length> viewport-height <=> content-height;
+    @deprecated in-out property <length> viewport-x <=> content-x;
+    @deprecated in-out property <length> viewport-y <=> content-y;
     in property <string> placeholder-text;
 
     callback edited(text: string);
@@ -165,8 +169,8 @@ export component TextEdit {
             y: 8px;
             width: parent.width - 16px;
             height: parent.height - 16px;
-            viewport-width: root.wrap == TextWrap.no-wrap ? max(self.visible-width, text-input.preferred-width) : self.visible-width;
-            viewport-height: max(self.visible-height, text-input.preferred-height);
+            content-width: root.wrap == TextWrap.no-wrap ? max(self.visible-width, text-input.preferred-width) : self.visible-width;
+            content-height: max(self.visible-height, text-input.preferred-height);
 
             text-input := TextInput {
                 enabled: true;
@@ -192,16 +196,16 @@ export component TextEdit {
                 }
 
                 cursor-position-changed(cpos) => {
-                    if (cpos.x + root.viewport-x < 12px) {
-                        root.viewport-x = min(0px, max(parent.visible-width - self.width,  - cpos.x + 12px));
-                    } else if (cpos.x + root.viewport-x > parent.visible-width - 12px) {
-                        root.viewport-x = min(0px, max(parent.visible-width - self.width,  parent.visible-width - cpos.x - 12px));
+                    if (cpos.x + root.content-x < 12px) {
+                        root.content-x = min(0px, max(parent.visible-width - self.width,  - cpos.x + 12px));
+                    } else if (cpos.x + root.content-x > parent.visible-width - 12px) {
+                        root.content-x = min(0px, max(parent.visible-width - self.width,  parent.visible-width - cpos.x - 12px));
                     }
-                    if (cpos.y + root.viewport-y < 12px) {
-                        root.viewport-y = min(0px, max(parent.visible-height - self.height,  - cpos.y + 12px));
-                    } else if (cpos.y + root.viewport-y > parent.visible-height - 12px - 20px) {
+                    if (cpos.y + root.content-y < 12px) {
+                        root.content-y = min(0px, max(parent.visible-height - self.height,  - cpos.y + 12px));
+                    } else if (cpos.y + root.content-y > parent.visible-height - 12px - 20px) {
                         // FIXME: font-height hardcoded to 20px
-                        root.viewport-y = min(0px, max(parent.visible-height - self.height,  parent.visible-height - cpos.y - 12px - 20px));
+                        root.content-y = min(0px, max(parent.visible-height - self.height,  parent.visible-height - cpos.y - 12px - 20px));
                     }
                 }
             }

@@ -122,10 +122,10 @@ export component LauncherWindow inherits Window {
         }
         current-item = Math.clamp(index, 0, Launcher.entries.length - 1);
         // Scroll the selected entry into view.
-        if -flick.viewport-y > item-top(current-item) {
-            flick.viewport-y = -item-top(current-item);
-        } else if item-top(current-item) + item-height + flick.viewport-y > flick.height {
-            flick.viewport-y = flick.height - (item-top(current-item) + item-height);
+        if -flick.content-y > item-top(current-item) {
+            flick.content-y = -item-top(current-item);
+        } else if item-top(current-item) + item-height + flick.content-y > flick.height {
+            flick.content-y = flick.height - (item-top(current-item) + item-height);
         }
     }
 

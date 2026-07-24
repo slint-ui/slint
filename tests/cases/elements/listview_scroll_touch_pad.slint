@@ -7,16 +7,16 @@ export component TestCase inherits Window {
     height: 300px;
 
     in-out property <string> result;
-    in-out property <length> viewport-y <=> lv.viewport-y;
-    in-out property <length> viewport-width <=> lv.viewport-width;
-    in-out property <length> viewport-height <=> lv.viewport-height;
+    in-out property <length> content-y <=> lv.content-y;
+    in-out property <length> content-width <=> lv.content-width;
+    in-out property <length> content-height <=> lv.content-height;
     in-out property <length> height_ <=> self.height;
 
     lv := ListView {
         width: parent.width;
         height: parent.height;
-        viewport-height: 10000px;
-        viewport-width: 300px;
+        content-height: 10000px;
+        content-width: 300px;
         mouse-drag-pan-enabled: true;
         for _[num] in 2130000000: Rectangle {
             height: 20px;
@@ -39,7 +39,7 @@ let instance = TestCase::new().unwrap();
 let window = instance.window();
 let inner =  slint_testing::WindowInner::from_pub(&window);
 
-assert!(instance.get_viewport_height() > instance.get_height_(), "{} > {} not fulfilled", instance.get_viewport_height(), instance.get_height_());
+assert!(instance.get_content_height() > instance.get_height_(), "{} > {} not fulfilled", instance.get_content_height(), instance.get_height_());
 
 // // Scroll down
 let pressed_position = LogicalPoint::new(0., 0.);
@@ -47,31 +47,31 @@ inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_
 slint_testing::mock_elapsed_time(1);
 inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -10., phase: TouchPhase::Moved });
 slint_testing::mock_elapsed_time(10000); // No animation shall be triggered
-assert_eq!(instance.get_viewport_y(), -10.);
+assert_eq!(instance.get_content_y(), -10.);
 inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Moved }); // To reduce the delta t
 slint_testing::mock_elapsed_time(5);
-assert_eq!(instance.get_viewport_y(), -10.);
+assert_eq!(instance.get_content_y(), -10.);
 inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -10., phase: TouchPhase::Moved });
-assert_eq!(instance.get_viewport_y(), -20.);
+assert_eq!(instance.get_content_y(), -20.);
 slint_testing::mock_elapsed_time(5);
 inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended });
 slint_testing::mock_elapsed_time(10000000); // Let the animation finish
-assert!(instance.get_viewport_y() < -20., "Received: {}, Desired: smaller than {}", instance.get_viewport_y(), -20.);
+assert!(instance.get_content_y() < -20., "Received: {}, Desired: smaller than {}", instance.get_content_y(), -20.);
 
-let viewport_y = instance.get_viewport_y();
-println!("Viewport y: {}", viewport_y);
+let content_y = instance.get_content_y();
+println!("Viewport y: {}", content_y);
 
 // // Scroll up again until the limit
 inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Started });
 slint_testing::mock_elapsed_time(1);
 inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 10., phase: TouchPhase::Moved });
 slint_testing::mock_elapsed_time(10000); // No animation shall be triggered
-assert!(instance.get_viewport_y() == viewport_y + 10., "Received: {}, Desired: {}", instance.get_viewport_y(),viewport_y + 10.);
+assert!(instance.get_content_y() == content_y + 10., "Received: {}, Desired: {}", instance.get_content_y(),content_y + 10.);
 inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 100., phase: TouchPhase::Moved }); // To reduce the delta t
 slint_testing::mock_elapsed_time(1);
 inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended });
 slint_testing::mock_elapsed_time(10000); // Let the animation finish
-assert!(instance.get_viewport_y() == 0., "Received: {}, Desired: {}", instance.get_viewport_y(), 0.);
+assert!(instance.get_content_y() == 0., "Received: {}, Desired: {}", instance.get_content_y(), 0.);
 ```
 
 ```rust
@@ -84,7 +84,7 @@ let instance = TestCase::new().unwrap();
 let window = instance.window();
 let inner =  slint_testing::WindowInner::from_pub(&window);
 
-assert!(instance.get_viewport_height() > instance.get_height_(), "{} > {} not fulfilled", instance.get_viewport_height(), instance.get_height_());
+assert!(instance.get_content_height() > instance.get_height_(), "{} > {} not fulfilled", instance.get_content_height(), instance.get_height_());
 
 // Scroll down
 let pressed_position = LogicalPoint::new(0., 0.);

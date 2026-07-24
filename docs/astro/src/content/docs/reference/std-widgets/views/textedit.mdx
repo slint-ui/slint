@@ -96,24 +96,28 @@ The horizontal alignment of the text.
 A placeholder text being shown when there is no text in the edit field.
 </SlintProperty>
 
-### viewport-width
-<SlintProperty propName="viewport-width" typeName="length" propertyVisibility="in-out">
-The width of the viewport of the text edit.
+### content-width
+<SlintProperty propName="content-width" typeName="length" propertyVisibility="in-out">
+The width of the scrollable content of the text edit.
+This property was formerly known as `viewport-width`, which is still available as a deprecated alias.
 </SlintProperty>
 
-### viewport-height
-<SlintProperty propName="viewport-height" typeName="length" propertyVisibility="in-out">
-The height of the viewport of the text edit.
+### content-height
+<SlintProperty propName="content-height" typeName="length" propertyVisibility="in-out">
+The height of the scrollable content of the text edit.
+This property was formerly known as `viewport-height`, which is still available as a deprecated alias.
 </SlintProperty>
 
-### viewport-x
-<SlintProperty propName="viewport-x" typeName="length" propertyVisibility="in-out">
-The `x` position of the viewport relative to the text edit. This is usually a negative value.
+### content-x
+<SlintProperty propName="content-x" typeName="length" propertyVisibility="in-out">
+The `x` position of the scrollable content relative to the text edit. This is usually a negative value.
+This property was formerly known as `viewport-x`, which is still available as a deprecated alias.
 </SlintProperty>
 
-### viewport-y
-<SlintProperty propName="viewport-y" typeName="length" propertyVisibility="in-out">
-The `y` position of the viewport relative to the text edit. This is usually a negative value.
+### content-y
+<SlintProperty propName="content-y" typeName="length" propertyVisibility="in-out">
+The `y` position of the scrollable content relative to the text edit. This is usually a negative value.
+This property was formerly known as `viewport-y`, which is still available as a deprecated alias.
 </SlintProperty>
 
 ### visible-width

@@ -7,8 +7,8 @@ export component TestCase inherits Window {
     height: 500px;
     in-out property<string> result;
     f := Flickable {
-        viewport_width: 2100px;
-        viewport_height: 2100px;
+        content_width: 2100px;
+        content_height: 2100px;
         ta1 := TouchArea {
             x: 20px;
             y: 20px;
@@ -35,8 +35,8 @@ export component TestCase inherits Window {
     }
 
 
-    out property<length> offset_x: -f.viewport_x;
-    out property<length> offset_y: -f.viewport_y;
+    out property<length> offset_x: -f.content_x;
+    out property<length> offset_y: -f.content_y;
 }
 
 /*

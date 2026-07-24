@@ -110,26 +110,26 @@ export component PageScrollView {
     out property <length> selected-height : root.height - i-layout.spacing;
     out property <length> selected-width: i-flickable.width - i-layout.spacing * 2;
     out property <length> selected-h-offset:  (root.height - i-flick-container.height)/2;
-    private property <length> item-width: i-flickable.viewport-width / page-count;
+    private property <length> item-width: i-flickable.content-width / page-count;
     private property <length> saved-item-width: item-width;
 
     public function toggle-selection(idx: int, x: length) {
         if (selection >= 0) {
-            i-flickable.viewport-x = min(0px, max(i-flickable.width - saved-item-width * page-count , -x + i-flickable.width / 2 - saved-item-width / 2));
+            i-flickable.content-x = min(0px, max(i-flickable.width - saved-item-width * page-count , -x + i-flickable.width / 2 - saved-item-width / 2));
             selection = -1;
         } else {
             saved-item-width = item-width;
             selection = idx;
-            i-flickable.viewport-x = -x + i-layout.spacing;
+            i-flickable.content-x = -x + i-layout.spacing;
         }
     }
 
     function scroll-left() {
-        i-flickable.viewport-x = min(i-flickable.viewport-x + item-width, 0);
+        i-flickable.content-x = min(i-flickable.content-x + item-width, 0);
     }
 
     function scroll-right() {
-        i-flickable.viewport-x = max(i-flickable.viewport-x - item-width,  i-flickable.width - i-flickable.viewport-width);
+        i-flickable.content-x = max(i-flickable.content-x - item-width,  i-flickable.width - i-flickable.content-width);
     }
 
     VerticalLayout {
@@ -138,8 +138,8 @@ export component PageScrollView {
             i-flickable := Flickable {
                 y: 0;
                 height: selection == -1 ? parent.height : selected-height ;
-                animate viewport-x { duration: Theme.durations.medium;  }
-                viewport-height: i-flickable.height;
+                animate content-x { duration: Theme.durations.medium;  }
+                content-height: i-flickable.height;
                 i-layout := HorizontalLayout {
                     y: (i-flick-container.height - self.height)/2;
                     height: i-layout.preferred-height;
@@ -163,7 +163,7 @@ export component PageScrollView {
             animate opacity { duration: Theme.durations.medium; }
 
             FloatButton {
-                visible: i-flickable.viewport-x < 0;
+                visible: i-flickable.content-x < 0;
                 horizontal-stretch: 0;
                 icon: Images.arrow-left;
                 enabled: selection == -1;
@@ -175,14 +175,14 @@ export component PageScrollView {
 
             ScrollBar {
                 horizontal-stretch: 1;
-                maximum: i-flickable.viewport-width - i-flickable.width;
+                maximum: i-flickable.content-width - i-flickable.width;
                 page-size: i-flickable.width;
-                value <=> i-flickable.viewport-x;
+                value <=> i-flickable.content-x;
                 enabled: selection == -1;
             }
 
             FloatButton {
-                visible: i-flickable.viewport-x > i-flickable.width - i-flickable.viewport-width;
+                visible: i-flickable.content-x > i-flickable.width - i-flickable.content-width;
                 horizontal-stretch: 0;
                 icon: Images.arrow-right;
                 enabled: selection == -1;

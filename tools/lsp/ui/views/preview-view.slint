@@ -216,8 +216,8 @@ export component PreviewView inherits Rectangle {
 
             width: 100%;
             height: 100%;
-            viewport-width: drawing-rect.width;
-            viewport-height: drawing-rect.height;
+            content-width: drawing-rect.width;
+            content-height: drawing-rect.height;
 
             drawing-rect := Rectangle {
                 width: max(scroll-view.visible-width, main-resizer.width + scroll-view.border);

@@ -377,13 +377,13 @@ pub struct Function {
 /// The property references might be either in the parent context, or in the
 /// repeated's component context
 pub struct ListViewInfo {
-    pub viewport_y: MemberReference,
-    /// `None` when the user explicitly sets `viewport-height` on the ListView;
+    pub content_y: MemberReference,
+    /// `None` when the user explicitly sets `content-height` on the ListView;
     /// `Some` when the ListView computes it from the content.
-    pub viewport_height: Option<MemberReference>,
-    /// `None` when the user explicitly sets `viewport-width` on the ListView;
+    pub content_height: Option<MemberReference>,
+    /// `None` when the user explicitly sets `content-width` on the ListView;
     /// `Some` when the ListView computes it from the content.
-    pub viewport_width: Option<MemberReference>,
+    pub content_width: Option<MemberReference>,
     /// The ListView's inner visible height (not counting eventual scrollbar)
     pub listview_height: MemberReference,
     /// The ListView's inner visible width (not counting eventual scrollbar)
