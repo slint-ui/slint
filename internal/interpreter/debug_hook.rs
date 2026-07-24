@@ -1,32 +1,30 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::{Value, dynamic_item_tree};
+//! Runtime side of the `debug_hooks` compiler feature: evaluating an
+//! `Expression::DebugHook` calls the callback installed with
+//! `ComponentInstance::set_debug_hook_callback`, which may override the value.
+
+use crate::Value;
+use crate::eval::EvalContext;
 
 use smol_str::SmolStr;
 
-use std::pin::Pin;
-
 pub type DebugHookCallback = Box<dyn Fn(&str) -> Option<Value>>;
 
+#[cfg(feature = "internal")]
 pub(crate) fn set_debug_hook_callback(
-    component: Pin<&dynamic_item_tree::ItemTreeBox>,
+    instance: &vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>,
     func: Option<DebugHookCallback>,
 ) {
-    let Some(global_storage) = component.description().compiled_globals() else {
-        return;
-    };
-    *(global_storage.debug_hook_callback.borrow_mut()) = func;
+    *instance.globals.debug_hook_callback.borrow_mut() = func;
 }
 
-pub(crate) fn trigger_debug_hook(
-    component_instance: &dynamic_item_tree::InstanceRef,
-    id: SmolStr,
-) -> Option<Value> {
-    component_instance.description.compiled_globals().and_then(|global_storage| {
-        let callback = global_storage.debug_hook_callback.borrow();
-        callback.as_ref().and_then(|callback| callback(&id))
-    })
+/// `Some` when the installed callback overrides the value, `None` to evaluate the binding.
+pub(crate) fn trigger_debug_hook(ctx: &EvalContext, id: &SmolStr) -> Option<Value> {
+    let globals = ctx.globals.upgrade()?;
+    let callback = globals.debug_hook_callback.borrow();
+    callback.as_ref().and_then(|callback| callback(id))
 }
 
 #[cfg(test)]
@@ -35,7 +33,7 @@ mod tests {
     use crate::{Compiler, ComponentInstance};
     use i_slint_compiler::object_tree::Element;
     use i_slint_core::{Property, graphics::ApproxEq};
-    use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
+    use std::{cell::RefCell, collections::HashMap, path::PathBuf, pin::Pin, rc::Rc};
 
     fn compile_with_debug_hooks(code: &str) -> ComponentInstance {
         i_slint_backend_testing::init_no_event_loop();

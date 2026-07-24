@@ -1,8 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore theproperty underscoresanddashespreserved xreadonly noregress
-use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
+// cSpell: ignore theproperty underscoresanddashespreserved xreadonly
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
@@ -159,6 +158,8 @@ impl Value {
         }
     }
 }
+
+impl i_slint_core::rtti::ValueType for Value {}
 
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
@@ -806,7 +807,7 @@ impl ComponentCompiler {
             }
         };
 
-        let r = crate::dynamic_item_tree::load(source, path.into(), self.config.clone()).await;
+        let r = build_compilation_result(source, path.into(), self.config.clone()).await;
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
     }
@@ -832,7 +833,7 @@ impl ComponentCompiler {
         source_code: String,
         path: PathBuf,
     ) -> Option<ComponentDefinition> {
-        let r = crate::dynamic_item_tree::load(source_code, path, self.config.clone()).await;
+        let r = build_compilation_result(source_code, path, self.config.clone()).await;
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
     }
@@ -990,7 +991,7 @@ impl Compiler {
             }
         };
 
-        crate::dynamic_item_tree::load(source, path.into(), self.config.clone()).await
+        build_compilation_result(source, path.into(), self.config.clone()).await
     }
 
     /// Compile some .slint code
@@ -1006,7 +1007,30 @@ impl Compiler {
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
-        crate::dynamic_item_tree::load(source_code, path, self.config.clone()).await
+        build_compilation_result(source_code, path, self.config.clone()).await
+    }
+}
+
+async fn build_compilation_result(
+    source_code: String,
+    path: PathBuf,
+    config: i_slint_compiler::CompilerConfiguration,
+) -> CompilationResult {
+    let result = crate::component::build_from_source(source_code, path, config).await;
+    let components = result
+        .components
+        .into_iter()
+        .map(|(name, def)| (name, ComponentDefinition { inner: std::rc::Rc::new(def) }))
+        .collect::<HashMap<String, ComponentDefinition>>();
+    CompilationResult {
+        components,
+        diagnostics: result.diagnostics,
+        #[cfg(feature = "internal")]
+        watch_paths: result.watch_paths,
+        #[cfg(feature = "internal")]
+        structs_and_enums: result.structs_and_enums,
+        #[cfg(feature = "internal")]
+        named_exports: result.named_exports,
     }
 }
 
@@ -1116,7 +1140,7 @@ impl CompilationResult {
 /// creating the instances it is safe to drop the ComponentDefinition.
 #[derive(Clone)]
 pub struct ComponentDefinition {
-    pub(crate) inner: crate::dynamic_item_tree::ErasedItemTreeDescription,
+    pub(crate) inner: std::rc::Rc<crate::component::ComponentDefinitionInner>,
 }
 
 impl ComponentDefinition {
@@ -1163,10 +1187,36 @@ impl ComponentDefinition {
         &self,
         options: WindowOptions,
     ) -> Result<ComponentInstance, PlatformError> {
-        generativity::make_guard!(guard);
-        Ok(ComponentInstance { inner: self.inner.unerase(guard).clone().create(options)? })
+        let instance = match options {
+            WindowOptions::CreateNewWindow => self.inner.create(),
+            WindowOptions::UseExistingWindow(adapter) => {
+                self.inner.create_with_existing_window(adapter)
+            }
+            WindowOptions::Embed { parent_item_tree, parent_item_tree_index } => {
+                self.inner.create_embedded(parent_item_tree, parent_item_tree_index)
+            }
+        };
+        Ok(ComponentInstance { inner: instance })
     }
+}
 
+/// Controls how a [`ComponentInstance`] obtains its window on creation.
+///
+/// Live preview passes `UseExistingWindow` with the previous instance's
+/// adapter so reloads keep the same window frame.
+#[allow(dead_code)]
+#[derive(Default)]
+pub(crate) enum WindowOptions {
+    #[default]
+    CreateNewWindow,
+    UseExistingWindow(i_slint_core::window::WindowAdapterRc),
+    Embed {
+        parent_item_tree: i_slint_core::item_tree::ItemTreeWeak,
+        parent_item_tree_index: u32,
+    },
+}
+
+impl ComponentDefinition {
     /// List of publicly declared properties or callback.
     ///
     /// This is internal because it exposes the `Type` from compilerlib.
@@ -1180,53 +1230,31 @@ impl ComponentDefinition {
             (i_slint_compiler::langtype::Type, i_slint_compiler::object_tree::PropertyVisibility),
         ),
     > + '_ {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).properties().map(|(s, t, v)| (s.to_string(), (t, v)))
+        self.inner
+            .properties_and_callbacks()
+            .map(|(n, t, v)| (n.to_string(), (t, v)))
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 
     /// Returns an iterator over all publicly declared properties. Each iterator item is a tuple of property name
     /// and property type for each of them.
     pub fn properties(&self) -> impl Iterator<Item = (String, ValueType)> + '_ {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type, _)| {
-            if prop_type.is_property_type() {
-                Some((prop_name.to_string(), prop_type.into()))
-            } else {
-                None
-            }
-        })
+        self.inner
+            .properties()
+            .map(|(n, t)| (n.to_string(), t.into()))
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 
     /// Returns the names of all publicly declared callbacks.
     pub fn callbacks(&self) -> impl Iterator<Item = String> + '_ {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type, _)| {
-            if matches!(prop_type, LangType::Callback { .. }) {
-                Some(prop_name.to_string())
-            } else {
-                None
-            }
-        })
+        self.inner.callbacks().map(|s| s.to_string()).collect::<Vec<_>>().into_iter()
     }
 
     /// Returns the names of all publicly declared functions.
     pub fn functions(&self) -> impl Iterator<Item = String> + '_ {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type, _)| {
-            if matches!(prop_type, LangType::Function { .. }) {
-                Some(prop_name.to_string())
-            } else {
-                None
-            }
-        })
+        self.inner.functions().map(|s| s.to_string()).collect::<Vec<_>>().into_iter()
     }
 
     /// Returns the names of all exported global singletons
@@ -1234,10 +1262,7 @@ impl ComponentDefinition {
     /// **Note:** Only globals that are exported or re-exported from the main .slint file will
     /// be exposed in the API
     pub fn globals(&self) -> impl Iterator<Item = String> + '_ {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).global_names().map(|s| s.to_string())
+        self.inner.globals().map(|s| s.to_string()).collect::<Vec<_>>().into_iter()
     }
 
     /// List of publicly declared properties or callback in the exported global singleton specified by its name.
@@ -1259,13 +1284,13 @@ impl ComponentDefinition {
             ),
         > + '_,
     > {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner
-            .unerase(guard)
-            .global_properties(global_name)
-            .map(|o| o.map(|(s, t, v)| (s.to_string(), (t, v))))
+        Some(
+            self.inner
+                .global_properties_and_callbacks(global_name)?
+                .map(|(n, t, v)| (n.to_string(), (t, v)))
+                .collect::<Vec<_>>()
+                .into_iter(),
+        )
     }
 
     /// List of publicly declared properties in the exported global singleton specified by its name.
@@ -1273,58 +1298,40 @@ impl ComponentDefinition {
         &self,
         global_name: &str,
     ) -> Option<impl Iterator<Item = (String, ValueType)> + '_> {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).global_properties(global_name).map(|iter| {
-            iter.filter_map(|(prop_name, prop_type, _)| {
-                if prop_type.is_property_type() {
-                    Some((prop_name.to_string(), prop_type.into()))
-                } else {
-                    None
-                }
-            })
-        })
+        Some(
+            self.inner
+                .global_properties(global_name)?
+                .map(|(n, t)| (n.to_string(), t.into()))
+                .collect::<Vec<_>>()
+                .into_iter(),
+        )
     }
 
     /// List of publicly declared callbacks in the exported global singleton specified by its name.
     pub fn global_callbacks(&self, global_name: &str) -> Option<impl Iterator<Item = String> + '_> {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).global_properties(global_name).map(|iter| {
-            iter.filter_map(|(prop_name, prop_type, _)| {
-                if matches!(prop_type, LangType::Callback { .. }) {
-                    Some(prop_name.to_string())
-                } else {
-                    None
-                }
-            })
-        })
+        Some(
+            self.inner
+                .global_callbacks(global_name)?
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .into_iter(),
+        )
     }
 
     /// List of publicly declared functions in the exported global singleton specified by its name.
     pub fn global_functions(&self, global_name: &str) -> Option<impl Iterator<Item = String> + '_> {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).global_properties(global_name).map(|iter| {
-            iter.filter_map(|(prop_name, prop_type, _)| {
-                if matches!(prop_type, LangType::Function { .. }) {
-                    Some(prop_name.to_string())
-                } else {
-                    None
-                }
-            })
-        })
+        Some(
+            self.inner
+                .global_functions(global_name)?
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .into_iter(),
+        )
     }
 
     /// The name of this Component as written in the .slint file
     pub fn name(&self) -> &str {
-        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
-        // which is not required, but this is safe because there is only one instance of the unerased type
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).id()
+        self.inner.name()
     }
 
     /// True if instances of this component expose a `slint::Window`-shaped API
@@ -1333,16 +1340,19 @@ impl ComponentDefinition {
     #[doc(hidden)]
     #[cfg(feature = "internal")]
     pub fn is_window(&self) -> bool {
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        !self.inner.unerase(guard).original.inherits_system_tray_icon()
+        self.inner.top_level_type() == i_slint_compiler::llr::TopLevelComponentType::Window
     }
 
     /// This gives access to the tree of Elements.
     #[cfg(feature = "internal")]
     #[doc(hidden)]
     pub fn root_component(&self) -> Rc<i_slint_compiler::object_tree::Component> {
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).original.clone()
+        self.inner
+            .type_loaders
+            .originals
+            .get(self.inner.public_index)
+            .expect("root_component() called on a definition built without compiler state")
+            .clone()
     }
 
     /// Return the `TypeLoader` used when parsing the code in the interpreter.
@@ -1350,8 +1360,9 @@ impl ComponentDefinition {
     /// WARNING: this is not part of the public API
     #[cfg(feature = "internal-highlight")]
     pub fn type_loader(&self) -> std::rc::Rc<i_slint_compiler::typeloader::TypeLoader> {
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).type_loader.get().unwrap().clone()
+        self.inner.type_loaders.type_loader.clone().expect(
+            "TypeLoader was not retained for this ComponentDefinition (reconstructed from an instance)",
+        )
     }
 
     /// Return the `TypeLoader` used when parsing the code in the interpreter in
@@ -1363,12 +1374,9 @@ impl ComponentDefinition {
     /// WARNING: this is not part of the public API
     #[cfg(feature = "internal-highlight")]
     pub fn raw_type_loader(&self) -> Option<i_slint_compiler::typeloader::TypeLoader> {
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
         self.inner
-            .unerase(guard)
+            .type_loaders
             .raw_type_loader
-            .get()
-            .unwrap()
             .as_ref()
             .and_then(|tl| i_slint_compiler::typeloader::snapshot(tl))
     }
@@ -1397,30 +1405,25 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
 /// An instance can be put on screen with the [`ComponentInstance::run`] function.
 #[repr(C)]
 pub struct ComponentInstance {
-    pub(crate) inner: crate::dynamic_item_tree::DynamicComponentVRc,
+    pub(crate) inner: crate::component::ComponentInstanceInner,
 }
 
 impl ComponentInstance {
     /// Return the [`ComponentDefinition`] that was used to create this instance.
     pub fn definition(&self) -> ComponentDefinition {
-        generativity::make_guard!(guard);
-        ComponentDefinition { inner: self.inner.unerase(guard).description().into() }
+        ComponentDefinition { inner: std::rc::Rc::new(self.inner.definition()) }
     }
 
     fn is_system_tray_rooted(&self) -> bool {
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).description().original.inherits_system_tray_icon()
+        self.inner.top_level_type() == i_slint_compiler::llr::TopLevelComponentType::SystemTrayIcon
     }
 
     /// Set `visible` directly on the root SystemTrayIcon native item, mirroring
     /// what the Rust/C++ generators emit for tray-rooted public components:
     /// the change-tracker on the item dispatches the value to the platform handle.
     fn set_tray_icon_visible(&self, visible: bool) {
-        generativity::make_guard!(guard);
-        let description = self.inner.unerase(guard).description();
-        let item_info = &description.items[description.original.root_element.borrow().id.as_str()];
-        let item_rc =
-            ItemRc::new(vtable::VRc::into_dyn(self.inner.clone()), item_info.item_index());
+        // The native SystemTrayIcon is item 0 of the root sub-component.
+        let item_rc = ItemRc::new(vtable::VRc::into_dyn(self.inner.vrc().clone()), 0);
         let tray = item_rc
             .downcast::<SystemTrayIcon>()
             .expect("the root item of a SystemTrayIcon-rooted component is a SystemTrayIcon");
@@ -1447,43 +1450,12 @@ impl ComponentInstance {
     /// assert_eq!(instance.get_property("my_property").unwrap(), Value::from(42));
     /// ```
     pub fn get_property(&self, name: &str) -> Result<Value, GetPropertyError> {
-        generativity::make_guard!(guard);
-        let comp = self.inner.unerase(guard);
-        let name = normalize_identifier(name);
-
-        if comp
-            .description()
-            .original
-            .root_element
-            .borrow()
-            .property_declarations
-            .get(&name)
-            .is_none_or(|d| !d.expose_in_public_api)
-        {
-            return Err(GetPropertyError::NoSuchProperty);
-        }
-
-        comp.description()
-            .get_property(comp.borrow(), &name)
-            .map_err(|()| GetPropertyError::NoSuchProperty)
+        self.inner.get_property(name).ok_or(GetPropertyError::NoSuchProperty)
     }
 
     /// Set the value for a public property of this component.
     pub fn set_property(&self, name: &str, value: Value) -> Result<(), SetPropertyError> {
-        let name = normalize_identifier(name);
-        generativity::make_guard!(guard);
-        let comp = self.inner.unerase(guard);
-        let d = comp.description();
-        let elem = d.original.root_element.borrow();
-        let decl = elem.property_declarations.get(&name).ok_or(SetPropertyError::NoSuchProperty)?;
-
-        if !decl.expose_in_public_api {
-            return Err(SetPropertyError::NoSuchProperty);
-        } else if decl.visibility == i_slint_compiler::object_tree::PropertyVisibility::Output {
-            return Err(SetPropertyError::AccessDenied);
-        }
-
-        d.set_property(comp.borrow(), &name, value)
+        self.inner.set_property(name, value)
     }
 
     /// Set a handler for the callback with the given name. A callback with that
@@ -1525,11 +1497,7 @@ impl ComponentInstance {
         name: &str,
         callback: impl Fn(&[Value]) -> Value + 'static,
     ) -> Result<(), SetCallbackError> {
-        generativity::make_guard!(guard);
-        let comp = self.inner.unerase(guard);
-        comp.description()
-            .set_callback_handler(comp.borrow(), &normalize_identifier(name), Box::new(callback))
-            .map_err(|()| SetCallbackError::NoSuchCallback)
+        self.inner.set_callback(name, callback).map_err(|()| SetCallbackError::NoSuchCallback)
     }
 
     /// Call the given callback or function with the arguments
@@ -1537,11 +1505,7 @@ impl ComponentInstance {
     /// ## Examples
     /// See the documentation of [`Self::set_callback`] for an example
     pub fn invoke(&self, name: &str, args: &[Value]) -> Result<Value, InvokeError> {
-        generativity::make_guard!(guard);
-        let comp = self.inner.unerase(guard);
-        comp.description()
-            .invoke(comp.borrow(), &normalize_identifier(name), args)
-            .map_err(|()| InvokeError::NoSuchCallable)
+        self.inner.invoke(name, args).ok_or(InvokeError::NoSuchCallable)
     }
 
     /// Return the value for a property within an exported global singleton used by this component.
@@ -1573,14 +1537,7 @@ impl ComponentInstance {
         global: &str,
         property: &str,
     ) -> Result<Value, GetPropertyError> {
-        generativity::make_guard!(guard);
-        let comp = self.inner.unerase(guard);
-        comp.description()
-            .get_global(comp.borrow(), &normalize_identifier(global))
-            .map_err(|()| GetPropertyError::NoSuchProperty)? // FIXME: should there be a NoSuchGlobal error?
-            .as_ref()
-            .get_property(&normalize_identifier(property))
-            .map_err(|()| GetPropertyError::NoSuchProperty)
+        self.inner.get_global_property(global, property).ok_or(GetPropertyError::NoSuchProperty)
     }
 
     /// Set the value for a property within an exported global singleton used by this component.
@@ -1590,13 +1547,7 @@ impl ComponentInstance {
         property: &str,
         value: Value,
     ) -> Result<(), SetPropertyError> {
-        generativity::make_guard!(guard);
-        let comp = self.inner.unerase(guard);
-        comp.description()
-            .get_global(comp.borrow(), &normalize_identifier(global))
-            .map_err(|()| SetPropertyError::NoSuchProperty)? // FIXME: should there be a NoSuchGlobal error?
-            .as_ref()
-            .set_property(&normalize_identifier(property), value)
+        self.inner.set_global_property(global, property, value)
     }
 
     /// Set a handler for the callback in the exported global singleton. A callback with that
@@ -1639,13 +1590,8 @@ impl ComponentInstance {
         name: &str,
         callback: impl Fn(&[Value]) -> Value + 'static,
     ) -> Result<(), SetCallbackError> {
-        generativity::make_guard!(guard);
-        let comp = self.inner.unerase(guard);
-        comp.description()
-            .get_global(comp.borrow(), &normalize_identifier(global))
-            .map_err(|()| SetCallbackError::NoSuchCallback)? // FIXME: should there be a NoSuchGlobal error?
-            .as_ref()
-            .set_callback_handler(&normalize_identifier(name), Box::new(callback))
+        self.inner
+            .set_global_callback(global, name, callback)
             .map_err(|()| SetCallbackError::NoSuchCallback)
     }
 
@@ -1659,30 +1605,7 @@ impl ComponentInstance {
         callable_name: &str,
         args: &[Value],
     ) -> Result<Value, InvokeError> {
-        generativity::make_guard!(guard);
-        let comp = self.inner.unerase(guard);
-        let g = comp
-            .description()
-            .get_global(comp.borrow(), &normalize_identifier(global))
-            .map_err(|()| InvokeError::NoSuchCallable)?; // FIXME: should there be a NoSuchGlobal error?
-        let callable_name = normalize_identifier(callable_name);
-        if matches!(
-            comp.description()
-                .original
-                .root_element
-                .borrow()
-                .lookup_property(&callable_name)
-                .property_type,
-            LangType::Function { .. }
-        ) {
-            g.as_ref()
-                .eval_function(&callable_name, args.to_vec())
-                .map_err(|()| InvokeError::NoSuchCallable)
-        } else {
-            g.as_ref()
-                .invoke_callback(&callable_name, args)
-                .map_err(|()| InvokeError::NoSuchCallable)
-        }
+        self.inner.invoke_global(global, callable_name, args).ok_or(InvokeError::NoSuchCallable)
     }
 
     /// Find all positions of the components which are pointed by a given source location.
@@ -1694,7 +1617,7 @@ impl ComponentInstance {
         path: &Path,
         offset: u32,
     ) -> Vec<crate::highlight::HighlightedRect> {
-        crate::highlight::component_positions(&self.inner, path, offset)
+        crate::highlight::component_positions(self.inner.vrc(), path, offset)
     }
 
     /// Find the position of the `element`.
@@ -1706,7 +1629,7 @@ impl ComponentInstance {
         element: &i_slint_compiler::object_tree::ElementRc,
     ) -> Vec<crate::highlight::HighlightedRect> {
         crate::highlight::element_positions(
-            &self.inner,
+            self.inner.vrc(),
             element,
             crate::highlight::ElementPositionFilter::IncludeClipped,
         )
@@ -1721,23 +1644,21 @@ impl ComponentInstance {
         path: &Path,
         offset: u32,
     ) -> Vec<(i_slint_compiler::object_tree::ElementRc, usize)> {
-        crate::highlight::element_node_at_source_code_position(&self.inner, path, offset)
+        crate::highlight::element_node_at_source_code_position(self.inner.vrc(), path, offset)
     }
 
-    /// Set a callback triggered by `Expression::DebugHook``.
+    /// Set a callback triggered by `Expression::DebugHook`.
     #[cfg(feature = "internal")]
     pub fn set_debug_hook_callback(&self, callback: Option<crate::debug_hook::DebugHookCallback>) {
-        generativity::make_guard!(guard);
-        let comp = self.inner.unerase(guard);
-        crate::debug_hook::set_debug_hook_callback(comp, callback);
+        crate::debug_hook::set_debug_hook_callback(self.inner.vrc(), callback);
     }
 }
 
 impl StrongHandle for ComponentInstance {
-    type WeakInner = vtable::VWeak<ItemTreeVTable, crate::dynamic_item_tree::ErasedItemTreeBox>;
+    type WeakInner = vtable::VWeak<ItemTreeVTable, crate::instance::Instance>;
 
     fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> Option<Self> {
-        Some(Self { inner: inner.upgrade()? })
+        Some(Self { inner: crate::component::ComponentInstanceInner(inner.upgrade()?) })
     }
 }
 
@@ -1746,7 +1667,7 @@ impl ComponentHandle for ComponentInstance {
     where
         Self: Sized,
     {
-        Weak::new(vtable::VRc::downgrade(&self.inner))
+        Weak::new(vtable::VRc::downgrade(self.inner.vrc()))
     }
 
     fn clone_strong(&self) -> Self {
@@ -1758,7 +1679,12 @@ impl ComponentHandle for ComponentInstance {
             self.set_tray_icon_visible(true);
             return Ok(());
         }
-        self.inner.window_adapter_ref()?.window().show()
+        let adapter = self.inner.window_adapter_ref()?;
+        // Link the window adapter back to this item tree. Must happen from
+        // a lifecycle call site rather than from inside binding evaluation
+        // so `set_component` can touch window-item property trackers safely.
+        self.inner.0.attach_to_window();
+        adapter.window().show()
     }
 
     fn hide(&self) -> Result<(), PlatformError> {
@@ -1776,7 +1702,14 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn window(&self) -> &Window {
-        self.inner.window_adapter_ref().unwrap().window()
+        let adapter = self.inner.window_adapter_ref().unwrap();
+        // `window()` is always called from the public API, never from inside
+        // a property binding evaluation, so it's safe to attach the item
+        // tree to the window here. This lets test helpers (e.g.
+        // `send_mouse_click`) dispatch events even when the caller never
+        // called `show()`.
+        self.inner.0.attach_to_window();
+        adapter.window()
     }
 
     fn global<'a, T: Global<'a, Self>>(&'a self) -> T
@@ -1788,10 +1721,10 @@ impl ComponentHandle for ComponentInstance {
 }
 
 impl From<ComponentInstance>
-    for vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, ErasedItemTreeBox>
+    for vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>
 {
     fn from(value: ComponentInstance) -> Self {
-        value.inner
+        value.inner.0
     }
 }
 
@@ -1968,6 +1901,7 @@ fn globals() {
     export global My-Super_Global {
         in-out property <int> the-property : 21;
         callback my-callback();
+        callback int-callback() -> int;
     }
     export { My-Super_Global as AliasedGlobal }
     export component Dummy {
@@ -1985,7 +1919,7 @@ fn globals() {
     assert!(definition.global_properties("not-there").is_none());
     {
         let expected_properties = vec![("the-property".to_string(), ValueType::Number)];
-        let expected_callbacks = vec!["my-callback".to_string()];
+        let expected_callbacks = vec!["int-callback".to_string(), "my-callback".to_string()];
 
         let assert_properties_and_callbacks = |global_name| {
             assert_eq!(
@@ -2078,6 +2012,12 @@ fn globals() {
 
     // Alias to global don't crash (#8238)
     assert_eq!(instance.get_property("alias"), Err(GetPropertyError::NoSuchProperty));
+
+    // Invoking a callback without a handler returns the return type's default
+    assert_eq!(
+        instance.invoke_global("My_Super_Global", "int-callback", &[]),
+        Ok(Value::Number(0.))
+    );
 }
 
 #[test]
@@ -2382,4 +2322,69 @@ export component Foo2 inherits Window  {
             _ => assert!(elements.is_empty()),
         }
     }
+}
+
+/// `element_positions` must return one rect per *instantiation*: a component
+/// used twice yields only the queried use site's rect, and elements inside a
+/// `for` yield one rect per row.
+#[cfg(feature = "internal-highlight")]
+#[test]
+fn test_element_positions_instances_and_repeaters() {
+    use i_slint_core::graphics::euclid;
+    let code = r#"
+component MyBox inherits Rectangle {
+    width: 50px;
+    height: 50px;
+}
+
+export component Foo3 inherits Window {
+    width: 400px;
+    height: 400px;
+    b1 := MyBox { x: 0px; y: 0px; }
+    b2 := MyBox { x: 200px; y: 200px; }
+    for xo in [0, 1, 2]: Rectangle {
+        x: xo * 10px;
+        y: 300px;
+        width: 10px;
+        height: 10px;
+    }
+}"#;
+
+    let (handle, path) = compile(code);
+
+    let element_at = |pattern: &str| {
+        let offset = code.find(pattern).unwrap() as u32;
+        let elements = handle.element_node_at_source_code_position(&path, offset);
+        assert_eq!(elements.len(), 1, "expected one element at {pattern:?}");
+        elements.into_iter().next().unwrap().0
+    };
+
+    // Each MyBox use highlights only its own instance.
+    let b1_rects = handle.element_positions(&element_at("MyBox { x: 0px"));
+    assert_eq!(b1_rects.len(), 1, "{b1_rects:?}");
+    assert_eq!(b1_rects[0].rect.origin, euclid::point2(0., 0.));
+
+    let b2_rects = handle.element_positions(&element_at("MyBox { x: 200px"));
+    assert_eq!(b2_rects.len(), 1, "{b2_rects:?}");
+    assert_eq!(b2_rects[0].rect.origin, euclid::point2(200., 200.));
+
+    // An element inside the component's definition maps to both uses.
+    let def_rects = handle.element_positions(&element_at("Rectangle {\n    width: 50px"));
+    assert_eq!(def_rects.len(), 2, "{def_rects:?}");
+
+    // A repeated element yields one rect per row, in root coordinates.
+    let repeated = element_at("Rectangle {\n        x: xo");
+    let mut row_rects = handle.element_positions(&repeated);
+    row_rects.sort_by(|a, b| a.rect.origin.x.total_cmp(&b.rect.origin.x));
+    assert_eq!(row_rects.len(), 3, "{row_rects:?}");
+    for (i, r) in row_rects.iter().enumerate() {
+        assert_eq!(r.rect.origin, euclid::point2(i as f32 * 10., 300.));
+        assert_eq!(r.rect.size, euclid::size2(10., 10.));
+    }
+
+    // component_positions covers the same shapes, and an offset outside any
+    // element matches nothing.
+    let offset = code.find("Rectangle {\n        x: xo").unwrap() as u32;
+    assert_eq!(handle.component_positions(&path, offset).len(), 3);
+    assert!(handle.component_positions(&path, code.len() as u32 - 1).is_empty());
 }

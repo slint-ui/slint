@@ -79,6 +79,8 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::EmptyComponentFactory => 10,
         Expression::EmptyDataTransfer => 10,
         Expression::TranslationReference { .. } => PROPERTY_ACCESS_COST + 2 * ALLOC_COST,
+        // Don't inline: that could duplicate or relocate the hook.
+        Expression::DebugHook { .. } => return isize::MAX,
     };
 
     exp.visit(|e| cost = cost.saturating_add(expression_cost(e, ctx)));

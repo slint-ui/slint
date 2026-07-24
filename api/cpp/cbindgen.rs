@@ -1201,9 +1201,19 @@ fn gen_interpreter(
         "PropertyDescriptor",
         "Box",
         "LiveReloadingComponentInner",
+        // Opaque on the C++ side: slint-interpreter.h defines the struct
+        // itself, and the interpreter's `Instance` fields must not leak.
+        "Instance",
+        "ComponentInstanceInner",
     ])
     .map(String::from)
     .collect();
+    // `ComponentInstance.inner` wraps the instance VRc; spell the field
+    // with the VRc type the C++ side expects.
+    config
+        .export
+        .rename
+        .insert("ComponentInstanceInner".into(), "VRc<ItemTreeVTable, Instance>".into());
     let mut crate_dir = root_dir.to_owned();
 
     crate_dir.extend(["internal", "interpreter"].iter());
@@ -1253,6 +1263,7 @@ fn gen_interpreter(
                 using slint::interpreter::PropertyDescriptor;
                 using slint::interpreter::Diagnostic;
                 struct LiveReloadingComponentInner;
+                struct Instance;
                 template <typename T> using Box = T*;
             }",
         )

@@ -19,11 +19,11 @@ class QWidget;
 
 namespace slint::cbindgen_private {
 //  This has to stay opaque, but VRc don't compile if it is just forward declared
-struct ErasedItemTreeBox : vtable::Dyn
+struct Instance : vtable::Dyn
 {
-    ~ErasedItemTreeBox() = delete;
-    ErasedItemTreeBox() = delete;
-    ErasedItemTreeBox(ErasedItemTreeBox &) = delete;
+    ~Instance() = delete;
+    Instance() = delete;
+    Instance(Instance &) = delete;
 };
 }
 namespace slint::private_api::live_preview {
@@ -570,11 +570,11 @@ class ComponentInstance : vtable::Dyn
     ComponentInstance &operator=(ComponentInstance &) = delete;
     friend class ComponentDefinition;
 
-    // ComponentHandle<ComponentInstance>  is in fact a VRc<ItemTreeVTable, ErasedItemTreeBox>
-    const cbindgen_private::ErasedItemTreeBox *inner() const
+    // ComponentHandle<ComponentInstance> is in fact a VRc<ItemTreeVTable, Instance>
+    const cbindgen_private::Instance *inner() const
     {
         slint::private_api::assert_main_thread();
-        return reinterpret_cast<const cbindgen_private::ErasedItemTreeBox *>(this);
+        return reinterpret_cast<const cbindgen_private::Instance *>(this);
     }
 
 public:

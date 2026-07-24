@@ -173,6 +173,79 @@ fn update_all_instances(ops: &mut impl RepeaterInstanceOps, offset: usize, count
     }
 }
 
+/// Access to the ListView viewport properties.
+///
+/// `update_visible_instances` reads and writes the viewport geometry at
+/// several points; this trait abstracts whether the storage is a
+/// strongly-typed `Property<LogicalLength>` (rust and C++ generated code,
+/// see `TypedListViewProps`) or another backing such as the interpreter's
+/// `Property<Value>`, or a native-item property accessed through rtti.
+pub trait ListViewProperties {
+    fn viewport_y_get(&self) -> LogicalLength;
+    /// Read `viewport-y` without evaluating a binding on it
+    /// (see [`Property::get_internal`]).
+    fn viewport_y_get_internal(&self) -> LogicalLength;
+    fn viewport_y_set(&self, value: LogicalLength);
+    fn viewport_y_has_binding(&self) -> bool;
+    /// Returns `false` when the user explicitly sets `viewport-width` on the
+    /// ListView; the ListView must then not overwrite it.
+    fn has_viewport_width(&self) -> bool;
+    fn has_viewport_height(&self) -> bool;
+    /// Set `viewport-width`. A no-op when [`Self::has_viewport_width`] returns false.
+    fn viewport_width_set(&self, value: LogicalLength);
+    /// Set `viewport-height`. A no-op when [`Self::has_viewport_height`] returns false.
+    fn viewport_height_set(&self, value: LogicalLength);
+    /// Register the viewport properties as dependencies of the current
+    /// binding evaluation without reading them.
+    fn register_as_dependencies(&self);
+}
+
+struct TypedListViewProps<'a> {
+    viewport_width: Option<Pin<&'a Property<LogicalLength>>>,
+    viewport_height: Option<Pin<&'a Property<LogicalLength>>>,
+    viewport_y: Pin<&'a Property<LogicalLength>>,
+}
+
+impl ListViewProperties for TypedListViewProps<'_> {
+    fn viewport_y_get(&self) -> LogicalLength {
+        self.viewport_y.get()
+    }
+    fn viewport_y_get_internal(&self) -> LogicalLength {
+        self.viewport_y.get_internal()
+    }
+    fn viewport_y_set(&self, value: LogicalLength) {
+        self.viewport_y.set(value);
+    }
+    fn viewport_y_has_binding(&self) -> bool {
+        self.viewport_y.has_binding()
+    }
+    fn has_viewport_width(&self) -> bool {
+        self.viewport_width.is_some()
+    }
+    fn has_viewport_height(&self) -> bool {
+        self.viewport_height.is_some()
+    }
+    fn viewport_width_set(&self, value: LogicalLength) {
+        if let Some(viewport_width) = self.viewport_width {
+            viewport_width.set(value);
+        }
+    }
+    fn viewport_height_set(&self, value: LogicalLength) {
+        if let Some(viewport_height) = self.viewport_height {
+            viewport_height.set(value);
+        }
+    }
+    fn register_as_dependencies(&self) {
+        if let Some(viewport_width) = self.viewport_width {
+            viewport_width.register_as_dependency();
+        }
+        if let Some(viewport_height) = self.viewport_height {
+            viewport_height.register_as_dependency();
+        }
+        self.viewport_y.register_as_dependency();
+    }
+}
+
 /// Update only the instances visible in the ListView viewport.
 ///
 /// This is the core virtualization algorithm: it estimates which model rows
@@ -182,9 +255,7 @@ fn update_visible_instances(
     ops: &mut impl RepeaterInstanceOps,
     state: &mut RepeaterLayoutState,
     row_count: usize,
-    viewport_width: Option<Pin<&Property<LogicalLength>>>,
-    viewport_height: Option<Pin<&Property<LogicalLength>>>,
-    viewport_y: Pin<&Property<LogicalLength>>,
+    props: &dyn ListViewProperties,
     listview_width: LogicalLength,
     listview_height: LogicalLength,
 ) -> bool {
@@ -194,18 +265,14 @@ fn update_visible_instances(
 
     if row_count == 0 {
         ops.splice(0, ops.len(), 0);
-        if let Some(viewport_height) = viewport_height {
-            viewport_height.set(zero);
-        }
-        viewport_y.set(zero);
-        if let Some(viewport_width) = viewport_width {
-            viewport_width.set(listview_width);
-        }
+        props.viewport_height_set(zero);
+        props.viewport_y_set(zero);
+        props.viewport_width_set(listview_width);
         return false;
     }
 
-    let mut vp_y = viewport_y.get().get();
-    if !viewport_y.has_binding() {
+    let mut vp_y = props.viewport_y_get().get();
+    if !props.viewport_y_has_binding() {
         vp_y = vp_y.min(0 as Coord);
     }
 
@@ -244,7 +311,7 @@ fn update_visible_instances(
     let last_item_bottom = first_item_y + element_height * ops.len() as Coord;
 
     let (mut new_offset, mut new_offset_y) = if first_item_y > -vp_y + one_and_a_half_screen
-        || (viewport_height.is_some() && last_item_bottom + element_height < -vp_y)
+        || (props.has_viewport_height() && last_item_bottom + element_height < -vp_y)
     {
         // Jumping more than 1.5 screens: random seek.
         ops.splice(0, ops.len(), 0);
@@ -341,23 +408,20 @@ fn update_visible_instances(
         // Recompute coordinates for the scrollbar.
         state.cached_item_height = (y - new_offset_y) / ops.len() as Coord;
         state.anchor_y = state.cached_item_height * state.offset as Coord;
-        if let Some(viewport_height) = viewport_height {
-            viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
-        }
-        if let Some(viewport_width) = viewport_width {
-            viewport_width.set(LogicalLength::new(vp_width));
-        }
+        props
+            .viewport_height_set(LogicalLength::new(state.cached_item_height * row_count as Coord));
+        props.viewport_width_set(LogicalLength::new(vp_width));
         let new_viewport_y = -state.anchor_y + new_offset_y;
         // Important: Use get_internal here, the viewport_y may have a binding on it (especially
         // a physical animation).
         // We must not yet trigger a re-evaluation of that binding, as we have already updated the
         // viewport_width and viewport_height, but the viewport_y is not yet consistent.
         // So the physics animations limit value may be inconsistent.
-        if new_viewport_y != viewport_y.get_internal().get() {
+        if new_viewport_y != props.viewport_y_get_internal().get() {
             // If a physics animation is ongoing (e.g. due to a flick), we should not interrupt it.
             // The physics animation implements intercept_set, and is therefore not interrupted by
             // a call to set() - so it's okay to just use a normal set here.
-            viewport_y.set(LogicalLength::new(new_viewport_y));
+            props.viewport_y_set(LogicalLength::new(new_viewport_y));
         }
         state.previous_viewport_y = new_viewport_y;
 
@@ -641,18 +705,25 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
     ) {
-        if let Some(viewport_width) = viewport_width {
-            viewport_width.register_as_dependency();
-        }
-        if let Some(viewport_height) = viewport_height {
-            viewport_height.register_as_dependency();
-        }
-        viewport_y.register_as_dependency();
+        let props = TypedListViewProps { viewport_width, viewport_height, viewport_y };
+        self.track_changes_listview_callback(&props, listview_width);
+        listview_height.register_as_dependency();
+    }
+
+    /// Trait-based variant of [`Self::track_changes_listview`] for runtime
+    /// consumers that can't expose the viewport storage as strongly-typed
+    /// `Pin<&Property<LogicalLength>>` references. The caller is
+    /// responsible for registering the listview height as a dependency.
+    pub fn track_changes_listview_callback(
+        self: Pin<&Self>,
+        props: &dyn ListViewProperties,
+        listview_width: LogicalLength,
+    ) {
+        props.register_as_dependencies();
         // listview_width is passed as a value, not a property, so it cannot
         // be registered as a dependency. Kept in the signature for symmetry
         // with ensure_updated_listview.
         let _ = listview_width;
-        listview_height.register_as_dependency();
     }
 
     /// Same as `Self::ensure_updated` but for a ListView.
@@ -666,6 +737,22 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
     ) -> bool {
+        let props = TypedListViewProps { viewport_width, viewport_height, viewport_y };
+        self.ensure_updated_listview_callback(init, &props, listview_width, listview_height.get())
+    }
+
+    /// Trait-based variant of [`Self::ensure_updated_listview`] for runtime
+    /// consumers (the interpreter) that can't expose the viewport storage as
+    /// strongly-typed `Pin<&Property<LogicalLength>>` references — for
+    /// instance when the viewport is backed by a native item property
+    /// accessed through rtti.
+    pub fn ensure_updated_listview_callback(
+        self: Pin<&Self>,
+        init: impl Fn() -> ItemTreeRc<C>,
+        props: &dyn ListViewProperties,
+        listview_width: LogicalLength,
+        listview_height: LogicalLength,
+    ) -> bool {
         self.data().project_ref().is_dirty.set(false);
 
         let model = self.model();
@@ -678,11 +765,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             &mut ops,
             &mut layout_state,
             row_count,
-            viewport_width,
-            viewport_height,
-            viewport_y,
+            props,
             listview_width,
-            listview_height.get(),
+            listview_height,
         );
         data.inner.borrow_mut().layout_state = layout_state;
 
@@ -968,15 +1053,7 @@ mod ffi {
         listview_width: LogicalLength,
         listview_height: LogicalLength,
     ) -> bool {
-        update_visible_instances(
-            ops,
-            state,
-            row_count,
-            viewport_width,
-            viewport_height,
-            viewport_y,
-            listview_width,
-            listview_height,
-        )
+        let props = TypedListViewProps { viewport_width, viewport_height, viewport_y };
+        update_visible_instances(ops, state, row_count, &props, listview_width, listview_height)
     }
 }

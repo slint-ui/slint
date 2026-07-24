@@ -312,6 +312,13 @@ pub enum Expression {
         /// The `n` value to use for the plural form if it is a plural form
         plural: Option<Box<Expression>>,
     },
+
+    /// Wraps a binding so the live-preview can observe or override its value.
+    /// Only present when the `debug_hooks` compiler option is enabled.
+    DebugHook {
+        expression: Box<Expression>,
+        id: SmolStr,
+    },
 }
 
 /// The type of a binary expression with the given operator:
@@ -459,6 +466,7 @@ impl Expression {
             Self::EmptyComponentFactory => Type::ComponentFactory,
             Self::EmptyDataTransfer => Type::DataTransfer,
             Self::TranslationReference { .. } => Type::String,
+            Self::DebugHook { expression, .. } => expression.ty(ctx),
         }
     }
 }
@@ -626,6 +634,7 @@ macro_rules! visit_impl {
                     $visitor(plural);
                 }
             }
+            Expression::DebugHook { expression, id: _ } => $visitor(expression),
         }
     };
 }

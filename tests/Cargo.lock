@@ -1909,12 +1909,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "generativity"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2c81fb5260e37854d09d5c87183309fd8c555b75289427884b25660bc87a85e"
-
-[[package]]
 name = "gethostname"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5086,7 +5080,6 @@ name = "slint-interpreter"
 version = "1.18.0"
 dependencies = [
  "derive_more",
- "generativity",
  "i-slint-backend-selector",
  "i-slint-backend-winit",
  "i-slint-common",
@@ -5098,6 +5091,7 @@ dependencies = [
  "once_cell",
  "smol_str 0.3.6",
  "spin_on",
+ "typed-index-collections",
  "unicode-segmentation",
  "vtable",
  "web-sys",
