@@ -1,0 +1,32 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "i-slint-renderer-anyrender"
+description = "Slint renderer scaffolding generic over the anyrender backend"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+# Internal for now: no public API commitment yet, and no crates.io release.
+publish = false
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+i-slint-core = { workspace = true, features = ["default", "shared-fontique", "shared-parley", "image-decoders", "svg"] }
+
+vtable = { workspace = true }
+lyon_path = { workspace = true }
+rgb = "0.8.27"
+
+anyrender = { version = "0.11" }
+peniko = { version = "0.6" }
+kurbo = { version = "0.13" }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

@@ -1,0 +1,324 @@
+[
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L128,0 L128,128 L0,128 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L6,0 L6,6 L0,6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.0,
+        10.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        13.8571,
+        0.0,
+        0.0,
+        1.0,
+        -83.1429,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L97,0 L97,6 L0,6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        7.0,
+        10.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        -13.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L7,0 L7,6 L0,6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        104.0,
+        10.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        3.5,
+        0.0,
+        -21.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L6,0 L6,28 L0,28 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.0,
+        16.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        13.8571,
+        0.0,
+        0.0,
+        3.5,
+        -83.1429,
+        -21.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L97,0 L97,28 L0,28 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        7.0,
+        16.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        3.5,
+        -13.0,
+        -21.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L7,0 L7,28 L0,28 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        104.0,
+        16.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -14.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L6,0 L6,6 L0,6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.0,
+        44.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        13.8571,
+        0.0,
+        0.0,
+        1.0,
+        -83.1429,
+        -14.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L97,0 L97,6 L0,6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        7.0,
+        44.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        -13.0,
+        -14.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L7,0 L7,6 L0,6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        104.0,
+        44.0
+      ]
+    }
+  }
+]

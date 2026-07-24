@@ -5,3 +5,6 @@
 tests/driver/rust/tests/*.rs linguist-generated
 # These test files must keep their CRLF line terminators; the syntax test driver checks them.
 internal/compiler/tests/syntax/**/crlf-* -text
+# The anyrender command-stream goldens are compared byte-for-byte; keep LF
+# on every platform so Windows checkouts do not introduce CRLF.
+tests/screenshots/references/anyrender/**/*.json text eol=lf

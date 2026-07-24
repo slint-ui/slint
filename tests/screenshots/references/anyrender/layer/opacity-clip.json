@@ -1,0 +1,62 @@
+[
+  {
+    "PushClipLayer": {
+      "clip": "M0,0 C0,0 0,0 0,0 L50,0 C50,0 50,0 50,0 L50,50 C50,50 50,50 50,50 L0,50 C0,50 0,50 0,50 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        10.0,
+        -5.0
+      ]
+    }
+  },
+  {
+    "PushLayer": {
+      "alpha": 0.5,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcOver",
+        "mix": "Normal"
+      },
+      "clip": "M0,0 L1000000000,0 L1000000000,1000000000 L0,1000000000 Z",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L50,0 L50,50 L0,50 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        20.0,
+        25.0
+      ]
+    }
+  },
+  "PopLayer",
+  "PopLayer"
+]

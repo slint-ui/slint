@@ -186,6 +186,7 @@ path = [
   "editors/vscode/tests/grammar/**.slint",
 
   "tests/screenshots/**/**.png",
+  "tests/screenshots/references/anyrender/**.json",
 
   "tools/**.md",
   "tools/slintpad/**.html",
