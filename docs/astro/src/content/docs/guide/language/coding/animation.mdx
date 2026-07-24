@@ -1,12 +1,11 @@
 ---
 title: Animations
-description: UI Animations.
+description: Animating property changes.
 ---
 
-import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
-import Link from '@slint/common-files/src/components/Link.astro';
-
-Declare animations for properties with the `animate` keyword like this:
+Slint animates property changes for you: declare an animation for a property with the
+`animate` keyword, and every change of that property plays it —
+no matter whether the change comes from a binding, a state change, or your business logic.
 
 ```slint
 export component Example inherits Window {
@@ -22,55 +21,16 @@ export component Example inherits Window {
 }
 ```
 
-This will animate the color property for 250ms whenever it changes.
+This animates the color property for 250ms whenever it changes.
 
-It's also possible to animate several properties with the same animation, so:
+Fine-tune the animation with `delay`, `duration`, `iteration-count`, `easing`,
+`direction`, and `enabled`, and animate several properties with the same animation:
 
 ```slint no-test
 animate x, y { duration: 100ms; easing: ease-out-bounce; }
 ```
 
-is the same as:
-
-```slint no-test
-animate x { duration: 100ms; easing: ease-out-bounce; }
-animate y { duration: 100ms; easing: ease-out-bounce; }
-```
-
-
-Fine-tune animations using the following parameters:
-
-### delay
-<SlintProperty propName="delay" typeName="duration">
-The amount of time to wait before starting the animation.
-</SlintProperty>
-
-### duration
-
-<SlintProperty propName="duration" typeName="duration">
- The amount of time it takes for the animation to complete.
-</SlintProperty>
-
-### iteration-count
-
-<SlintProperty propName="iteration-count" typeName="float">
-The number of times an animation should run. A negative value specifies
-infinite reruns. Fractional values are possible.
-For permanently running animations, see <Link type="AnimationTick" label="`animation-tick()`" />.
-</SlintProperty>
-
-### easing
-
-<SlintProperty propName="easing" typeName="easing">
-Can be any of the following. See [`easings.net`](https://easings.net/) for a visual reference:
-</SlintProperty>
-
-### direction
-<SlintProperty propName="direction" typeName="enum" enumName="AnimationDirection">
-Use this to set or change the direction of the animation.
-</SlintProperty>
-
-### enabled
-<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
-Controls whether the animation runs. When set to `false`, the property value changes immediately to its target without delay, easing, or iterations.
-</SlintProperty>
+The [Animations](../../../../reference/language/animations/) chapter of the language
+reference describes every parameter, and the
+[`easing` type](../../../../reference/property-types/builtin-types/#easing) lists the
+available easing curves.

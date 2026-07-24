@@ -1,6 +1,6 @@
 ---
-title: Types
-description: All Slint types
+title: Built-In Types
+description: The built-in types of the Slint language.
 ---
 {/* cSpell: ignore Farbfeld rgbacolor */}
 
@@ -10,7 +10,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
 import BuiltInMouseCursor from '/src/content/docs/generated/reference/enums/_BuiltInMouseCursor.md';
 
-Slint is a statically typed language and offers a rich range of primitive types.
+Slint is a statically typed language and offers a rich range of built-in types.
 
 ## Primitive Types
 
@@ -142,8 +142,6 @@ export component StringEndsWith {
     property<bool> res2: "你好".ends-with("你"); // false
 }
 ```
-
-Returns a string with leading and trailing whitespace removed.
 
 #### to-float() -> float
 

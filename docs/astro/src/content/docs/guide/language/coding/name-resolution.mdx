@@ -1,21 +1,14 @@
 ---
 title: Name Resolution (Scope)
-description: Name Resolution (Scope)
+description: How Slint looks up properties, functions, and callbacks.
 ---
 
-Function calls have the same name resolution rules as properties and callbacks. When called without
-an element name:
+When you use a name without an element prefix, Slint looks it up on the current element first,
+then on its parent, and so on up to the root of the component.
+When you qualify a name with an element (or `self`, `parent`, `root`),
+only that element is searched.
 
-- If the element that the function is called in (`self`) defines a function with that name, it is chosen.
-- If not, name resolution continues to its parent element, and so on, until the root component.
-
-When called with an element name (or `self`, `parent` or `root`), the function must be defined on that
-element. Name resolution does not look at ancestor elements in this case. Note that this means
-calling a function without an element name is _not_ equivalent to calling it with `self` (which is how methods work in many languages).
-
-Multiple functions with the same name are allowed in the same component, as long as they are defined
-on different elements. Therefore it is possible for a function to shadow another function from an ancestor
-element.
+This means a function can shadow another function from an ancestor element:
 
 ```slint
 export component Example {
@@ -43,5 +36,8 @@ export component Example {
 }
 ```
 
-In the example above, the property `secret_number` will be set to 1, and the text labels will say "The
-secret number is 3" and "The other secret number is 2".
+In this example, `secret_number` is 1,
+and the labels say "The secret number is 3" and "The other secret number is 2".
+
+The exact rules are in the [Name Resolution](../../../../reference/language/name-resolution/)
+chapter of the language reference.

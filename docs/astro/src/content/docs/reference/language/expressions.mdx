@@ -1,0 +1,56 @@
+---
+title: Expressions
+description: The expression forms and what they evaluate to.
+---
+
+import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
+
+An expression is a color literal or a length literal. \{#sls.expr.forms}
+
+<NotInSC>
+Further expression forms exist:
+[operators](../operators/), [member access](../operators/#member-access),
+function and callback calls, and the literals of the other
+[built-in types](../../property-types/builtin-types/).
+</NotInSC>
+
+## Color Literals
+
+A color literal consists of `#` followed by 3, 4, 6, or 8 hexadecimal digits:
+`#rgb`, `#rgba`, `#rrggbb`, or `#rrggbbaa`.
+The digits are case-insensitive.
+Any other number of digits is an error. \{#sls.expr.color.forms}
+
+The digits specify the red, green, blue, and alpha channels, in this order.
+When the alpha channel is absent, the color is fully opaque. \{#sls.expr.color.channels}
+
+In the 3- and 4-digit forms, each digit specifies a channel with the digit duplicated:
+`#18f` is the same color as `#1188ff`. \{#sls.expr.color.short-forms}
+
+A color literal evaluates to a value of type `color`. \{#sls.expr.color.type}
+
+## Length Literals
+
+A length literal consists of a number directly followed by a unit, for example `120px`. \{#sls.expr.length.form}
+
+```slint
+export component Example inherits Window {
+    Rectangle {
+        width: 120px;
+        height: 80px;
+        background: #2a6e3f;
+    }
+}
+```
+
+The number shall be integral: `10.5px` is an error. \{#sls.expr.length.integral}
+
+`px` is the only unit.
+A number literal with another unit, or without a unit, is an error. \{#sls.expr.length.px-only}
+
+<NotInSC>
+These restrictions apply to Slint SC.
+The full Slint language accepts fractional values and other units.
+</NotInSC>
+
+A length literal evaluates to a value of type `length`. \{#sls.expr.length.type}

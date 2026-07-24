@@ -1,0 +1,86 @@
+---
+title: Name Resolution
+description: Element names, pre-defined names, and lookup rules.
+notInSC: true
+---
+
+## Element Names
+
+The `:=` syntax gives an element a name:
+
+```slint
+component MyButton inherits Text {
+    // ...
+}
+
+export component MyApp inherits Window {
+    preferred-width: 200px;
+    preferred-height: 100px;
+
+    hello := MyButton {
+        x:0;y:0;
+        text: "hello";
+    }
+    world := MyButton {
+        y:0;
+        text: "world";
+        x: 50px;
+    }
+}
+```
+
+Element names must be valid [identifiers](../lexical-structure/#sls.lex.identifier.classes).
+
+## Pre-Defined Names
+
+Some elements are accessible under pre-defined names:
+
+- `root` refers to the outermost element of a component.
+- `self` refers to the current element.
+- `parent` refers to the parent element of the current element.
+
+These names are reserved and can't be re-defined.
+
+## Lookup Rules
+
+Properties, callbacks, and functions share the same name resolution rules.
+When a name is used without an element name:
+
+- If the element that the name is used in (`self`) defines it, it is chosen.
+- If not, name resolution continues to its parent element, and so on, until the root of the component.
+
+When a name is qualified with an element name (or `self`, `parent`, or `root`), it must be defined on that element.
+Name resolution doesn't look at ancestor elements in this case.
+This means calling a function without an element name is *not* equivalent to calling it with `self`.
+
+Multiple functions with the same name are allowed in the same component, as long as they are defined on different elements.
+A function can therefore shadow another function from an ancestor element:
+
+```slint
+export component Example {
+    property <int> secret_number: my-function();
+    public pure function my-function() -> int {
+        return 1;
+    }
+
+    VerticalLayout {
+        public pure function my-function() -> int {
+            return 2;
+        }
+
+        Text {
+            text: "The secret number is " + my-function();
+            public pure function my-function() -> int {
+                return 3;
+            }
+        }
+
+        Text {
+            text: "The other secret number is " + my-function();
+        }
+    }
+}
+```
+
+In this example, the property `secret_number` is set to 1,
+and the text labels say "The secret number is 3" and "The other secret number is 2".

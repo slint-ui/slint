@@ -12,7 +12,7 @@ A property holds a value. \{#sls.prop.def}
 A *property declaration* adds a property to the element in whose body it appears.
 It consists of the keyword `property`, the type in angle brackets, and a name,
 optionally preceded by a visibility modifier,
-optionally followed by `:` and an expression giving the initial value,
+optionally followed by `:` and an expression that [binds](../bindings/) to the property,
 and ends with `;`. \{#sls.prop.decl.form}
 
 ```slint
@@ -41,15 +41,21 @@ Properties shall only be declared on the root element. \{#sls.prop.decl.root-onl
 </OnlyInSC>
 
 <NotInSC>
-Properties can be declared on any element;
-see [Properties](../../../guide/language/coding/properties/).
+Properties can be declared on any element.
 </NotInSC>
 
+<OnlyInSC>
 The declared type shall be `length` or `color`. \{#sls.prop.decl.types}
+</OnlyInSC>
 
 <NotInSC>
-Any [property type](../../primitive-types/) can be declared.
+Any [property type](../../property-types/) can be declared.
 </NotInSC>
 
-Without an initial value, the property has the default value of its
+Without a binding, the property has the default value of its
 [type](../types/). \{#sls.prop.decl.default}
+
+<NotInSC>
+A [change callback](../callbacks/#change-callbacks) reacts to a property's value changing,
+and a declaration with a [two-way binding](../two-way-bindings/) links the new property to an existing one.
+</NotInSC>

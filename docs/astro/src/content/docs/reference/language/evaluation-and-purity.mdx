@@ -1,0 +1,51 @@
+---
+title: Evaluation and Purity
+description: How bindings are evaluated, dependency tracking, and pure contexts.
+notInSC: true
+---
+
+## Dependency Tracking
+
+A [binding](../bindings/) is automatically re-evaluated when a property it depends on changes.
+While a binding is evaluated, a dependency is registered for every property it accesses.
+When a property changes, its dependent bindings are marked as dirty and their dependencies are notified.
+
+Re-evaluation happens lazily, when the property is queried.
+
+## Overwritten Bindings
+
+A binding is only active as long as the property is assigned with a binding expression (`x: other.value`) or a [two-way binding](../two-way-bindings/) (`<=>`).
+An imperative [assignment](../statements/#assignment) (`foo.bar = 42;`) breaks the binding:
+from that point on, the property no longer reacts to changes in the values it was bound to.
+The property can still be updated through further assignments, but the automatic reactivity is lost.
+
+This also applies to most built-in `in-out` properties, such as the `text` property of a `TextInput`:
+user interaction counts as an imperative assignment and breaks an existing binding to the property.
+
+To keep reactivity in such cases, use a two-way binding,
+or track updates with a [change callback](../callbacks/#change-callbacks).
+
+## Purity
+
+For a reactive system to work well, evaluating a property shouldn't change any observable state but the property itself.
+An expression with this quality is *pure*; otherwise it has side effects.
+Side effects are problematic because lazy evaluation may change their order or affect whether they happen at all.
+
+Bindings in Slint must be pure.
+The compiler enforces that code in pure contexts is free of side effects.
+Pure contexts are binding expressions, bodies of pure functions, and bodies of pure callback handlers.
+In such a context, changing a property or calling a non-pure callback or function is an error.
+
+The `pure` keyword annotates [callbacks](../callbacks/) and public [functions](../functions/)
+to make them callable from property bindings and other pure callbacks and functions.
+
+The purity of private functions is inferred automatically.
+A private function may still be declared `pure` to have the compiler enforce it.
+
+```slint
+export component Example {
+    pure callback foo() -> int;
+    public pure function bar(x: int) -> int
+    { return x + foo(); }
+}
+```

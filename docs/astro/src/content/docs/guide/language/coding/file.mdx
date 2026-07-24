@@ -78,7 +78,7 @@ export component MyApp inherits Window {
 ```
 
 :::note[Note]
-Names have to be valid [identifiers](#identifiers).
+Names have to be valid [identifiers](../../../../reference/language/lexical-structure/).
 :::
 
 Some elements are also accessible under pre-defined names:
@@ -180,77 +180,12 @@ any number of elements. This is explained in more detail later, it's not importa
 Properties are the values that are assigned to an element. They are set using the `property-name: value;` syntax.
 
 
-## Identifiers
-
-Identifiers can be composed of letter (`a-zA-Z`), of numbers (`0-9`), or of the underscore (`_`) or the dash (`-`).
-They can't start with a number or a dash (but they can start with underscore)
-The underscores are normalized to dashes. Which means that these two identifiers are the same: `foo_bar` and `foo-bar`.
-
-## Conditional Elements
-
-The `if` construct instantiates an element only if a given condition is true.
-The syntax is `if condition : id := Element { ... }`
-
-```slint playground
-export component Example inherits Window {
-    preferred-width: 50px;
-    preferred-height: 50px;
-    if area.pressed : foo := Rectangle { background: blue; }
-    if !area.pressed : Rectangle { background: red; }
-    area := TouchArea {}
-}
-```
-
-
 ## Modules
-Components declared in a `.slint` file can be used as elements in other
-`.slint` files, by means of exporting and importing them.
 
-By default, every type declared in a `.slint` file is private. The `export`
-keyword changes this.
-
-```slint
-component ButtonHelper inherits Rectangle {
-    // ...
-}
-
-component Button inherits Rectangle {
-    // ...
-    ButtonHelper {
-        // ...
-    }
-}
-
-export { Button }
-```
-
-In the above example, `Button` is accessible from other `.slint` files, but
-`ButtonHelper` isn't.
-
-It's also possible to change the name just for the purpose of exporting, without
-affecting its internal use:
-
-```slint
-component Button inherits Rectangle {
-    // ...
-}
-
-export { Button as ColorButton }
-```
-
-In the above example, `Button` isn't accessible from the outside, but
-is available under the name `ColorButton` instead.
-
-For convenience, a third way of exporting a component is to declare it exported
-right away:
-
-```slint
-export component Button inherits Rectangle {
-    // ...
-}
-```
-
-Similarly, components exported from other files may be imported:
+Components declared in a `.slint` file can be used as elements in other `.slint` files,
+by means of exporting and importing them.
+By default, every type declared in a `.slint` file is private.
+Export a component to make it available to other files, and import it where you need it:
 
 ```slint no-test
 import { Button } from "./button.slint";
@@ -263,62 +198,9 @@ export component App inherits Rectangle {
 }
 ```
 
-In the event that two files export a type under the same name, then you have the option
-of assigning a different name at import time:
-
-```slint no-test
-import { Button } from "./button.slint";
-import { Button as CoolButton } from "../other_theme/button.slint";
-
-export component App inherits Rectangle {
-    // ...
-    CoolButton {} // from other_theme/button.slint
-    Button {} // from button.slint
-}
-```
-
-Elements, globals and structs can be exported and imported.
-
-It's also possible to export globals (see <Link type="Globals" label="Global Singletons" />) imported from
-other files:
-
-```slint no-test
-import { Logic as MathLogic } from "math.slint";
-export { MathLogic } // known as "MathLogic" when using native APIs to access globals
-```
-
-## Module Syntax
-
-The following syntax is supported for importing types:
-
-```slint no-test
-import { MyButton } from "module.slint";
-import { MyButton, MySwitch } from "module.slint";
-import { MyButton as OtherButton } from "module.slint";
-import {
-    MyButton,
-    /* ... */,
-    MySwitch as OtherSwitch,
-} from "module.slint";
-```
-
-The following syntax is supported for exporting types:
-
-```slint no-test
-// Export declarations
-export component MyButton inherits Rectangle { /* ... */ }
-
-// Export lists
-component MySwitch inherits Rectangle { /* ... */ }
-export { MySwitch }
-export { MySwitch as Alias1, MyButton as Alias2 }
-
-// Re-export types from other module
-export { MyCheckBox, MyButton as OtherButton } from "other_module.slint";
-
-// Re-export all types from other module (only possible once per file)
-export * from "other_module.slint";
-```
+Elements, globals and structs can be exported and imported as well.
+The [Imports](../../../../reference/language/imports/) and [Exports](../../../../reference/language/exports/)
+chapters of the language reference describe all the forms, including renaming and re-exports.
 
 ## Component Libraries
 

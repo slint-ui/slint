@@ -26,7 +26,9 @@ The window size can be set through `width` and `height`.
 
 ## Defaults
 
-When `x` or `y` has no binding, the element is centered within its parent along that axis. \{#sls.geom.default-position}
+When `x` has no binding, it defaults to `(parent.width - self.width) / 2`,
+and `y` to `(parent.height - self.height) / 2`:
+the value that centers the element within its parent along that axis. \{#sls.geom.default-position}
 
 When `width` or `height` has no binding, the default depends on the element type:
 a `Rectangle` has the same width or height as its parent. \{#sls.geom.default-size}
@@ -46,3 +48,9 @@ export component Example inherits Window {
     }
 }
 ```
+
+<NotInSC>
+A binding of `width` or `height` that evaluates to a [percentage](../../property-types/builtin-types/#percent)
+is relative to the parent's property of the same name:
+`width: 50%;` is short for `width: parent.width * 50%;`.
+</NotInSC>

@@ -1,0 +1,98 @@
+---
+title: Statements
+description: The statements allowed in callback handlers and function bodies.
+notInSC: true
+---
+
+Statements appear in [function](../functions/) bodies, [callback](../callbacks/) handlers, and code-block bindings.
+
+## Code Blocks as Bindings
+
+A [binding](../bindings/) holds either a single expression, which ends with a semicolon (`;`),
+or a code block enclosed in `{ ... }`, which needs no semicolon.
+The two forms are interchangeable for simple values;
+a block is useful for multiple statements:
+
+```slint no-test
+background: touch-area.is-pressed ? red : blue;
+
+background: {
+    if (touch-area.is-pressed) {
+        return red;
+    } else {
+        return blue;
+    }
+}
+```
+
+Both forms are reactive:
+Slint tracks the dependencies used within the expression or block.
+
+## Let Statements
+
+The `let` keyword creates a local variable.
+Local variables are immutable and can't be redeclared, even in other scopes.
+The type annotation is optional:
+
+```slint no-test
+clicked => {
+    let foo = "hello world"; // no type annotation, inferred type
+    debug(foo); // prints "hello world"
+
+    let bar: int = 2; // explicit type annotation
+    debug(bar); // prints "2"
+}
+```
+
+## Assignment
+
+`=` assigns a new value to a property:
+
+```slint no-test
+clicked => { some-property = 42; }
+```
+
+The self-assignment operators `+=`, `-=`, `*=`, and `/=` combine an [operator](../operators/) with the assignment:
+
+```slint no-test
+clicked => { some-property += 42; }
+```
+
+## Calling a Callback or Function
+
+A call statement invokes a [callback](../callbacks/) or [function](../functions/):
+
+```slint no-test
+clicked => { root.some-callback(); }
+```
+
+## Conditional Statements
+
+`if`, `else if`, and `else` execute statements conditionally:
+
+```slint no-test
+clicked => {
+    if (condition) {
+        foo = 42;
+    } else if (other-condition) {
+        bar = 28;
+    } else {
+        foo = 4;
+    }
+}
+```
+
+## Return
+
+The `return` keyword returns an expression as the value of the enclosing function, callback handler, or code-block binding.
+Without an explicit return statement, the value of the last statement is returned.
+
+## Empty Statement
+
+A statement can be empty:
+
+```slint no-test
+clicked => { }
+// or
+clicked => { ; }
+```

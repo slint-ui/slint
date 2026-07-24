@@ -1,0 +1,98 @@
+---
+title: Structs and Enums
+description: Declaring named structures and enumerations.
+notInSC: true
+---
+
+## Structs
+
+A `struct` declaration defines a named structure with typed fields:
+
+```slint
+export struct Player  {
+    name: string,
+    score: int,
+}
+
+export component Example {
+    in-out property<Player> player: { name: "Foo", score: 100 };
+}
+```
+
+A struct literal initializes fields by name: `{ field1: expression1, field2: expression2 }`.
+A trailing comma is permitted after the last field, both in declarations and in literals.
+
+The default value of a struct has all fields set to their default value.
+
+### Field Default Values
+
+`= expression` after a field's type declares a default value for that field.
+The expression must be a compile-time constant.
+The default applies whenever an instance of the struct is created without a value for the field:
+in struct literals that omit the field, for properties that are never set,
+and when constructing the struct from Rust (`Player::default()`), C++ (`Player{}`),
+JavaScript (`new ui.Player()`), or Python (`ui.Player()`).
+
+```slint
+export struct Player  {
+    name: string = "unknown",
+    score: int = 100,
+}
+
+export component Example {
+    // player.name is "Foo", player.score is 100
+    in-out property<Player> player: { name: "Foo" };
+}
+```
+
+### Anonymous Structures
+
+`{ identifier1: type1, identifier2: type2 }` declares an anonymous structure type.
+It behaves like a named struct without a name:
+
+```slint
+export component Example {
+    in-out property<{name: string, score: int}> player: { name: "Foo", score: 100 };
+    in-out property<{a: int, }> foo: { a: 3 };
+}
+```
+
+## Enums
+
+An `enum` declaration defines an enumeration:
+
+```slint
+export enum CardSuit { clubs, diamonds, hearts, spade }
+
+export component Example {
+    in-out property<CardSuit> card: spade;
+    out property<bool> is-clubs: card == CardSuit.clubs;
+}
+```
+
+An enum value is referenced with the name of the enum and the name of the value separated by a dot: `CardSuit.spade`.
+
+The name of the enum can be omitted wherever a value of that enum type is expected:
+in a binding, a struct field, an array element, a function or callback argument, or a return value.
+
+```slint
+export enum CardSuit { clubs, diamonds, hearts, spade }
+export struct Card { suit: CardSuit, value: int }
+
+export component Example {
+    // in a struct field and an array element
+    out property<Card> card: { suit: hearts, value: 10 };
+    out property<[CardSuit]> deck: [clubs, diamonds, hearts, spade];
+
+    pure function is-red(suit: CardSuit) -> bool {
+        return suit == hearts || suit == diamonds;
+    }
+    // as a function argument
+    out property<bool> spade-is-red: is-red(spade);
+}
+```
+
+In a comparison, the name can be omitted only on the right-hand side, which takes the type of the left:
+`card.suit == hearts` works, but `hearts == card.suit` doesn't.
+
+The default value of an enum type is its first value.

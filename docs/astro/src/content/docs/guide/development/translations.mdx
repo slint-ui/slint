@@ -47,50 +47,9 @@ export component Example {
 }
 ```
 
-### Formatting
-
-The `@tr` macro replaces each `{}` placeholder in the string marked for translation with the corresponding argument.
-It's also possible to re-order the arguments using `{0}`, `{1}`, and so on. Translators can use ordered
-placeholders even if the original string did not.
-
-You can include the literal characters `{` and `}` in a string by preceding them with the same character.
-For example, escaping the `{` character with `{{` and the `}` character with `}}`.
-
-### Plurals
-
-Use plural formatting when the translation of text involving a variable number of elements should change
-depending on whether there is a single element or multiple.
-
-Given `count` and an expression that represents the count of something, form the plural with the `|` and `%` symbols like so:
-
-`@tr("I have {n} item" | "I have {n} items" % count)`.
-
-Use `{n}` in the format string to access the expression after the `%`.
-
-```slint
-export component Example inherits Text {
-    in property <int> score;
-    in property <int> name;
-    text: @tr("Hello {0}, you have one point" | "Hello {0}, you have {n} points" % score, name);
-}
-```
-
-### Context
-
-Disambiguate translations for strings with the same source text but different contextual meanings by adding a context
-to the `@tr(...)` macro using the `"..." =>` syntax.
-
-Use the context to provide additional context information to translators, ensuring accurate and contextually appropriate translations.
-
-The context must be a plain string literal and it appears as `msgctx` in the `.pot` files. If not specified, the context defaults
-to the name of the surrounding component.
-
-```slint
-export component MenuItem {
-    property <string> name : @tr("Default Name"); // Default: `MenuItem` will be the context.
-    property <string> tooltip : @tr("ToolTip" => "ToolTip for {}", name); // Specified: The context will be `ToolTip`.
-}
-```
+The `@tr` macro supports `{}` placeholders, plural forms, and translation contexts;
+the [Macros](../../../reference/language/macros/#tr) chapter of the language reference describes the full syntax.
+Without an explicit context, the context defaults to the name of the surrounding component.
 
 Pass the `--no-default-translation-context` flag to `slint-tr-extractor` if you don't want the component name to be the default context. The same option needs to be passed to the Slint compiler:
 

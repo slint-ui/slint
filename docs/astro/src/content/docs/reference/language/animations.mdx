@@ -1,0 +1,79 @@
+---
+title: Animations
+description: Animating property changes with the animate keyword.
+notInSC: true
+---
+
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
+
+The `animate` keyword declares an animation for a property:
+
+```slint
+export component Example inherits Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+
+    background: area.pressed ? blue : red;
+    animate background {
+        duration: 250ms;
+    }
+
+    area := TouchArea {}
+}
+```
+
+This animates the color property for 250ms whenever it changes.
+
+Several properties can share the same animation:
+
+```slint no-test
+animate x, y { duration: 100ms; easing: ease-out-bounce; }
+```
+
+is the same as:
+
+```slint no-test
+animate x { duration: 100ms; easing: ease-out-bounce; }
+animate y { duration: 100ms; easing: ease-out-bounce; }
+```
+
+## Animation Parameters
+
+### delay
+<SlintProperty propName="delay" typeName="duration">
+The amount of time to wait before starting the animation.
+</SlintProperty>
+
+### duration
+
+<SlintProperty propName="duration" typeName="duration">
+The amount of time it takes for the animation to complete.
+</SlintProperty>
+
+### iteration-count
+
+<SlintProperty propName="iteration-count" typeName="float">
+The number of times an animation should run.
+A negative value specifies infinite reruns.
+Fractional values are possible.
+For permanently running animations, see <Link type="AnimationTick" label="`animation-tick()`" />.
+</SlintProperty>
+
+### easing
+
+<SlintProperty propName="easing" typeName="easing">
+The <Link type="easing" label="easing curve" /> of the animation.
+See [`easings.net`](https://easings.net/) for a visual reference.
+</SlintProperty>
+
+### direction
+<SlintProperty propName="direction" typeName="enum" enumName="AnimationDirection">
+The direction of the animation.
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Controls whether the animation runs.
+When set to `false`, the property value changes immediately to its target without delay, easing, or iterations.
+</SlintProperty>

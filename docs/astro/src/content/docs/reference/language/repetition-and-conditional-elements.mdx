@@ -1,9 +1,25 @@
 ---
-title: Repetition and Data Models
-description: Creating elements from data with for and if.
+title: Repetition and Conditional Elements
+description: Instantiating elements with for and if.
+notInSC: true
 ---
 
-Use the `for`-`in` syntax to create an element multiple times, once per entry in a model:
+## Repetition
+
+The `for`-`in` syntax creates an element multiple times:
+
+```slint no-test
+for name[index] in model : id := Element { ... }
+```
+
+The *model* can be:
+
+- an integer, in which case the element is repeated that many times, or
+- an [array or model](../../property-types/arrays-and-models/), in which case the element is instantiated for each element of the model.
+
+The *name* is available for lookup within the element, like a pseudo-property set to the value of the model.
+The *index* is optional and is set to the index of this element in the model.
+The *id* is also optional.
 
 ```slint
 export component Example inherits Window {
@@ -17,11 +33,6 @@ export component Example inherits Window {
     }
 }
 ```
-
-The model can be an integer (repeat that many times), an array,
-or a model provided by your business logic.
-This is how you build lists and tables: the data lives in a model,
-and the UI declares what one entry looks like:
 
 ```slint
 export component Example inherits Window {
@@ -40,7 +51,13 @@ export component Example inherits Window {
 }
 ```
 
-Related to `for` is the `if` construct, which instantiates an element only while a condition holds:
+## Conditional Elements
+
+The `if` construct instantiates an element only while a condition is true:
+
+```slint no-test
+if condition : id := Element { ... }
+```
 
 ```slint
 export component Example inherits Window {
@@ -51,8 +68,3 @@ export component Example inherits Window {
     area := TouchArea {}
 }
 ```
-
-See [Repetition and Conditional Elements](../../../../reference/language/repetition-and-conditional-elements/)
-in the language reference for the exact syntax, and
-[Arrays and Models](../../../../reference/property-types/arrays-and-models/) for the array
-operations like `length`, indexing, `push`, `insert`, and `remove`.

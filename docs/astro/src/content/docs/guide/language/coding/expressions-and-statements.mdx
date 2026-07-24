@@ -1,13 +1,12 @@
 ---
-title: Expressions
-description: Expressions
+title: Expressions and Statements
+description: Declaring relationships between properties, and reacting in callbacks.
 ---
 
-Expressions are a powerful way to declare relationships and connections in your
-user interface. They´re typically used to combine basic arithmetic with access
-to properties of other elements. When these properties change, the expression
-is automatically re-evaluated and a new value is assigned to the property the
-expression is associated with:
+Expressions are a powerful way to declare relationships and connections in your user interface.
+They're typically used to combine basic arithmetic with access to properties of other elements.
+When these properties change, the expression is automatically re-evaluated
+and a new value is assigned to the property the expression is associated with:
 
 ```slint
 export component Example {
@@ -22,22 +21,7 @@ export component Example {
 
 When `my-property` changes, the width changes automatically, too.
 
-Arithmetic in expression with numbers works like in most programming languages with the operators `*`, `+`, `-`, `/`:
-
-```slint
-export component Example {
-    in-out property <int> p: 1 * 2 + 3 * 4; // same as (1 * 2) + (3 * 4)
-}
-```
-
-Concatenate strings with `+`.
-
-The operators `&&` and `||` express logical _and_ and _or_ between
-boolean values. The operators `==`, `!=`, `>`, `<`, `>=` and `<=` compare
-values of the same type.
-
-Access an element's properties by using its name, followed by a
-`.` and the property name:
+Access an element's properties by using its name, followed by a `.` and the property name:
 
 ```slint
 export component Example {
@@ -48,7 +32,8 @@ export component Example {
 }
 ```
 
-The ternary operator `... ? ... : ...` is also supported, like in C or JavaScript:
+Expressions support the arithmetic, comparison, and logical operators you know from other languages,
+string concatenation with `+`, and the ternary operator `... ? ... : ...`:
 
 ```slint
 export component Example inherits Window {
@@ -66,58 +51,26 @@ export component Example inherits Window {
 }
 ```
 
+The [Operators](../../../../reference/language/operators/) chapter of the language reference
+lists them all with their exact semantics.
+
 ## Statements
 
-### Let statements (local variables)
-The `let` keyword can be used to create local variables. Local variables are immutable and cannot be redeclared
-(even in other scopes). They optionally have a type annotation.
-```slint no-test
-clicked => {
-    let foo = "hello world"; // no type annotation, inferred type
-    debug(foo); // prints "hello world"
-
-    let bar: int = 2; // explicit type annotation
-    debug(bar); // prints "2"
-}
-```
-
-### Assignment
-
-```slint no-test
-clicked => { some-property = 42; }
-```
-
-### Self-assignment with `+=` `-=` `*=` `/=`
-
-```slint no-test
-clicked => { some-property += 42; }
-```
-
-### Calling a callback
-
-```slint no-test
-clicked => { root.some-callback(); }
-```
-
-### Conditional statements
+Inside callback handlers and functions you write *statements* that run when invoked —
+this is where imperative code lives.
+Assign to properties, declare local variables with `let`, branch with `if`/`else`,
+and call callbacks or functions:
 
 ```slint no-test
 clicked => {
+    let delta = 42; // local, immutable variable
     if (condition) {
-        foo = 42;
-    } else if (other-condition) {
-        bar = 28;
+        some-property += delta;
     } else {
-        foo = 4;
+        root.some-callback();
     }
 }
 ```
 
-### Empty expression
-
-```slint no-test
-clicked => { }
-// or
-clicked => { ; }
-```
-
+See [Statements](../../../../reference/language/statements/) in the language reference
+for every statement form.

@@ -1,0 +1,40 @@
+---
+title: Two-Way Bindings
+description: Linking two properties with the <=> operator.
+notInSC: true
+---
+
+The `<=>` syntax creates a two-way binding between properties.
+The linked properties always contain the same value:
+
+```slint
+struct Thing { name: string, price: int }
+
+export component Example  {
+    in property<brush> rect-color <=> r.background;
+    // It's allowed to omit the type to have it automatically inferred
+    in property rect-color2 <=> r.background;
+    in-out property<Thing> thing;
+    r:= Rectangle {
+        background: blue;
+    }
+    input := TextInput {
+        // The `thing.name` field is synced with the text when the user edits
+        text <=> root.thing.name;
+    }
+}
+```
+
+The right-hand side of the `<=>` must be a reference to a property of the same type,
+or a field of the same type within a property of struct type.
+Inside a [`for` element](../repetition-and-conditional-elements/), it can also be the value of a model, which is kept in sync.
+
+The property type is optional in a declaration with a two-way binding;
+it is inferred when not specified.
+
+The initial value of a linked property is the value of the right-hand side of the binding.
+
+The two linked properties must be compatible in terms of input and output:
+linking through the `<=>` requires that both sides can be read and written where the binding needs it.
+
+A [callback alias](../callbacks/#aliases) uses the same syntax to forward one callback to another.

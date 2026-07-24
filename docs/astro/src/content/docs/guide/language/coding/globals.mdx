@@ -1,12 +1,11 @@
 ---
 title: Globals
-description: Globals
+description: Sharing state across your whole project with global singletons.
 ---
-import Link from '@slint/common-files/src/components/Link.astro';
-import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 Declare a global singleton with `global Name { /* .. properties or callbacks .. */ }` to
-make properties and callbacks available throughout the entire project. Access them using `Name.property`.
+make properties and callbacks available throughout the entire project.
+Access them using `Name.property`.
 
 For example, this can be useful for a common color palette:
 
@@ -23,9 +22,10 @@ export component Example inherits Rectangle {
 }
 ```
 
-Export a global to make it accessible from other files (see <Link type="Modules" />). To make your global
-visible to native code with the business logic, re-export a global from the file also exporting the main
-application component.
+Export a global to make it accessible from other files.
+A global re-exported from the file that also exports your main application component
+becomes visible to the business logic, so you can set its properties and
+implement its callbacks from Rust, C++, JavaScript, or Python:
 
 ```slint
 export global Logic  {
@@ -34,103 +34,12 @@ export global Logic  {
 }
 // ...
 ```
-<Tabs syncKey="dev-language">
-<TabItem label="Rust" icon="seti:rust">
 
-```rust
-slint::slint!{
-export global Logic {
-    in-out property <int> the-value;
-    pure callback magic-operation(int) -> int;
-}
-
-export component App inherits Window {
-    // ...
-}
-}
-
-fn main() {
-    let app = App::new();
-    app.global::<Logic>().on_magic_operation(|value| {
-        eprintln!("magic operation input: {}", value);
-        value * 2
-    });
-    app.global::<Logic>().set_the_value(42);
-    // ...
-}
-```
-
-</TabItem>
-<TabItem label="C++" icon="seti:cpp">
-
-```cpp
-#include "app.h"
-
-int main() {
-    auto app = App::create();
-    app->global<Logic>().on_magic_operation([](int value) -> int {
-        return value * 2;
-    });
-    app->global<Logic>().set_the_value(42);
-    // ...
-}
-```
-</TabItem>
-<TabItem label="NodeJS" icon="node">
-
-```js
-let slint = require("slint-ui");
-let file = slint.loadFile("app.slint");
-let app = new file.App();
-app.Logic.magic_operation = (value) => {
-    return value * 2;
-};
-app.Logic.the_value = 42;
-// ...
-```
-</TabItem>
-<TabItem label="Python" icon="seti:python">
-
-```python
-import slint
-
-class App(slint.loader.app.App):
-    @slint.callback(global_name="Logic")
-    def magic_operation(self, value: int) -> int:
-        return value * 2
-
-app = App()
-app.Logic.the_value = 42
-
-# ...
-```
-</TabItem>
-</Tabs>
+The [Globals](../../../../reference/language/globals/) chapter of the language reference
+shows the native-code side for each language, and how to re-expose global properties
+on a component with two-way bindings.
 
 :::note[Note]
-Global singletons aren't shared between separate windows, or between a window and a <Link type="SystemTrayIcon" /> exported alongside it.
+Global singletons aren't shared between separate windows.
 You may need to initialize the global callbacks and properties for each instance you create.
 :::
-
-It's possible to re-expose a callback or properties from a global using the two way binding syntax.
-
-```slint
-global Logic  {
-    in-out property <int> the-value;
-    pure callback magic-operation(int) -> int;
-}
-
-component SomeComponent inherits Text {
-    // use the global in any component
-    text: "The magic value is:" + Logic.magic-operation(42);
-}
-
-export component MainWindow inherits Window {
-    // re-expose the global properties such that the native code
-    // can access or modify them
-    in-out property the-value <=> Logic.the-value;
-    pure callback magic-operation <=> Logic.magic-operation;
-
-    SomeComponent {}
-}
-```
