@@ -321,6 +321,13 @@ pub enum Expression {
         arg_name: SmolStr,
         expression: Box<Expression>,
     },
+
+    /// Wraps a binding so the live-preview can observe or override its value.
+    /// Only present when the `debug_hooks` compiler option is enabled.
+    DebugHook {
+        expression: Box<Expression>,
+        id: SmolStr,
+    },
 }
 
 /// The type of a binary expression with the given operator:
@@ -470,6 +477,7 @@ impl Expression {
             Self::EmptyDataTransfer => Type::DataTransfer,
             Self::TranslationReference { .. } => Type::String,
             Self::Closure { .. } => Type::Closure,
+            Self::DebugHook { expression, .. } => expression.ty(ctx),
         }
     }
 }
@@ -641,6 +649,7 @@ macro_rules! visit_impl {
             Expression::Closure { expression, .. } => {
                 $visitor(expression);
             }
+            Expression::DebugHook { expression, id: _ } => $visitor(expression),
         }
     };
 }
