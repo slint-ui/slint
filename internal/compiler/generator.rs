@@ -394,7 +394,7 @@ pub fn handle_property_bindings_init(
                 if let Expression::PropertyReference(nr) = e {
                     let elem = nr.element();
                     if Weak::ptr_eq(&elem.borrow().enclosing_component, component)
-                        && let Some(be) = elem.borrow().bindings.get(nr.name())
+                        && let Some(be) = elem.borrow().binding_cell_including_synthetic(nr.name())
                     {
                         handle_property_inner(
                             component,

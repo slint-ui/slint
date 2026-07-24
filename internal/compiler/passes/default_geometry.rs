@@ -580,11 +580,11 @@ fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Rc<BuiltinElement>) {
     debug_assert_eq!(builtin.native_class.class_name, "ClippedImage");
 
     if builtin.native_class.properties.keys().any(|p| {
-        // Deliberately count synthetic debug hooks here (raw map access): they also count as
+        // Deliberately count synthetic debug hooks here (via binding_cell_including_synthetic): they also count as
         // "used" in resolve_native_classes, so the ClippedImage native class gets selected —
         // and a ClippedImage without the synthesized clip defaults renders/measures as a
         // zero-size clip. This condition must match the class-selection semantics.
-        elem.borrow().bindings.contains_key(p)
+        elem.borrow().binding_cell_including_synthetic(p).is_some()
             || elem.borrow().property_analysis.borrow().get(p).is_some_and(|a| a.is_used())
     }) {
         let source = NamedReference::new(elem, SmolStr::new_static("source"));
