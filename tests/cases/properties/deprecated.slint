@@ -1,0 +1,94 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A `@deprecated` property keeps working exactly like the property it aliases: it can be
+// read, written, two-way bound, and stays part of the generated public API. The only effect
+// of the annotation is a compile-time warning when accessed from outside the component.
+
+component Inner {
+    in-out property <int> new-prop: 1;
+    in-out property <{ field: int }> a-struct;
+
+    @deprecated in-out property <int> old-prop <=> new-prop;
+    @deprecated in-out property <int> struct-alias <=> a-struct.field;
+
+    // A deprecated property declared on a nested element also works.
+    the-rect := Rectangle {
+        in-out property <int> nested: 7;
+        @deprecated in-out property <int> nested-alias <=> nested;
+    }
+    in-out property <int> nested-alias <=> the-rect.nested-alias;
+}
+
+export component TestCase inherits Window {
+    inner := Inner { }
+
+    // Aliasing a deprecated property is allowed and stays two-way.
+    in-out property <int> old-prop <=> inner.old-prop;
+    in-out property <int> new-prop <=> inner.new-prop;
+    in-out property <int> struct-alias <=> inner.struct-alias;
+    in-out property <int> nested-alias <=> inner.nested-alias;
+
+    // Reading a deprecated property reflects its two-way target.
+    out property <bool> test: old-prop == new-prop && old-prop == 1 && nested-alias == 7;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+// Writing the target is visible through the deprecated alias.
+instance.set_new_prop(5);
+assert_eq!(instance.get_old_prop(), 5);
+
+// Writing the deprecated property updates the target.
+instance.set_old_prop(8);
+assert_eq!(instance.get_new_prop(), 8);
+
+// The struct-member alias is a normal writable property.
+instance.set_struct_alias(42);
+assert_eq!(instance.get_struct_alias(), 42);
+
+// A deprecated property declared on a nested element works too.
+instance.set_nested_alias(9);
+assert_eq!(instance.get_nested_alias(), 9);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+instance.set_new_prop(5);
+assert_eq(instance.get_old_prop(), 5);
+
+instance.set_old_prop(8);
+assert_eq(instance.get_new_prop(), 8);
+
+instance.set_struct_alias(42);
+assert_eq(instance.get_struct_alias(), 42);
+
+instance.set_nested_alias(9);
+assert_eq(instance.get_nested_alias(), 9);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+
+instance.new_prop = 5;
+assert.equal(instance.old_prop, 5);
+
+instance.old_prop = 8;
+assert.equal(instance.new_prop, 8);
+
+instance.struct_alias = 42;
+assert.equal(instance.struct_alias, 42);
+
+instance.nested_alias = 9;
+assert.equal(instance.nested_alias, 9);
+```
+
+*/
