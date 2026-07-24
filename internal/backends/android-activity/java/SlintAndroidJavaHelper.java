@@ -263,11 +263,15 @@ class SlintInputView extends View {
             if (mRightHandle != null) {
                 mRightHandle.hide();
             }
-            if (mCursorHandle == null) {
-                mCursorHandle = new InputHandle(this, android.R.attr.textSelectHandle);
+            if (left_x != -1) {
+                if (mCursorHandle == null) {
+                    mCursorHandle = new InputHandle(this, android.R.attr.textSelectHandle);
+                }
+                mCursorHandle.setPosition(left_x, left_y);
+                handleHeight = mCursorHandle.getHeight();
+            } else if (mCursorHandle != null) {
+                mCursorHandle.hide();
             }
-            mCursorHandle.setPosition(left_x, left_y);
-            handleHeight = mCursorHandle.getHeight();
         } else if (num_handles == 2) {
             if (left_x != -1) {
                 if (mLeftHandle == null) {
