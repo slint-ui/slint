@@ -106,6 +106,18 @@ impl PropertyPath {
         if element.borrow().enclosing_component.upgrade().unwrap().is_global() {
             return second.clone();
         }
+        fn check_that_element_is_in_the_component(
+            e: &ElementRc,
+            c: &Rc<crate::object_tree::Component>,
+        ) -> bool {
+            let enclosing = e.borrow().enclosing_component.upgrade().unwrap();
+            Rc::ptr_eq(c, &enclosing)
+                || enclosing
+                    .parent_element
+                    .borrow()
+                    .upgrade()
+                    .is_some_and(|e| check_that_element_is_in_the_component(&e, c))
+        }
         let mut elements = self.elements.clone();
         loop {
             let enclosing = element.borrow().enclosing_component.upgrade().unwrap();
@@ -115,32 +127,27 @@ impl PropertyPath {
                 break;
             }
 
-            if let Some(last) = elements.pop() {
-                #[cfg(debug_assertions)]
-                fn check_that_element_is_in_the_component(
-                    e: &ElementRc,
-                    c: &Rc<crate::object_tree::Component>,
-                ) -> bool {
-                    let enclosing = e.borrow().enclosing_component.upgrade().unwrap();
-                    Rc::ptr_eq(c, &enclosing)
-                        || enclosing
-                            .parent_element
-                            .borrow()
-                            .upgrade()
-                            .is_some_and(|e| check_that_element_is_in_the_component(&e, c))
-                }
-                #[cfg(debug_assertions)]
+            let Some(last) = elements.last() else {
+                break;
+            };
+            let last_component = last.borrow().base_type.as_component().clone();
+            if !check_that_element_is_in_the_component(&element, &last_component) {
+                // `element` is not inside `last`'s sub-component. The reverse holds
+                // instead — `last`'s component is enclosed by `element`'s — meaning
+                // `second` is rooted in an enclosing scope (e.g. a repeated cell's
+                // input bound to an outer property). There is no descent prefix to
+                // lift it through, so return it unchanged. Neither containment
+                // holding is a malformed path (asserted in debug builds).
                 debug_assert!(
                     check_that_element_is_in_the_component(
-                        &element,
-                        last.borrow().base_type.as_component()
+                        &last_component.root_element,
+                        &enclosing
                     ),
                     "The element is not in the component pointed at by the path ({self:?} / {second:?})"
                 );
-                element = last.0;
-            } else {
-                break;
+                return second.clone();
             }
+            element = elements.pop().unwrap().0;
         }
         if second.elements.is_empty() {
             debug_assert!(elements.last().is_none_or(|x| *x != ByAddress(second.prop.element())));

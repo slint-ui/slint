@@ -1,0 +1,59 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test: a *repeated* cell in a FlexboxLayout whose layout-info depends
+// on an input property that is bound to an *outer* property used to panic the
+// compiler in `binding_analysis` ("The element is not in the component pointed at
+// by the path").
+//
+// The `flex-direction` here is set at runtime, so binding-analysis cannot tell
+// which axis is the cross axis and conservatively analyzes both. The vertical
+// cross-axis analysis descends into the repeated instance and follows its input up
+// to the outer property, and `PropertyPath::relative()` then tried to lift that
+// outer reference through the descent path.
+//
+// The assertions are font-independent (fixed sizes), so they hold on nodejs too.
+
+component Card {
+    in property <length> boxh;
+    VerticalLayout { Rectangle { height: root.boxh; } }
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 400px;
+
+    // Runtime direction: `axis_relation` is `Unknown`, so both cross-axes are
+    // analyzed. `horizontal` defaults to false, so the resolved direction is column.
+    in property <bool> horizontal: false;
+    property <length> outer-h: 40px;
+
+    FlexboxLayout {
+        width: 100px; height: 300px;
+        flex-direction: horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column;
+        for i in [0, 1]: Card { boxh: outer-h; }
+        anchor := Rectangle { width: 5px; height: 5px; }
+    }
+
+    out property <length> anchor-y: anchor.y;
+    // Two 40px cells stack above the anchor (column): no compile panic, laid out.
+    out property <bool> test: anchor-y >= 79px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test(), "anchor_y={}", instance.get_anchor_y());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/
