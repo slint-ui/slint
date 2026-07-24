@@ -1,0 +1,147 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An item with flex-shrink: 0 cannot go below its base size, so it must raise
+// the FlexboxLayout's reported minimum. Otherwise a parent squeezes the
+// flexbox below what its own children need and they overflow it.
+
+// No-wrap: the minimum is the sum of what the items refuse to give up
+component TestNoShrinkRow inherits Rectangle {
+    width: 200px;
+    height: 50px;
+    HorizontalLayout {
+        fl := FlexboxLayout {
+            flex-wrap: no-wrap;
+            r1 := Rectangle {
+                preferred-width: 150px;
+                flex-shrink: 0;
+                height: 50px;
+                background: red;
+            }
+            r2 := Rectangle {
+                preferred-width: 150px;
+                flex-shrink: 0;
+                height: 50px;
+                background: green;
+            }
+        }
+    }
+
+    // The parent is only 200px, but the items refuse to shrink below 150 each,
+    // so the flexbox reports (and gets) 300px and overflows the parent instead
+    // of overflowing itself.
+    out property <bool> test_fl: fl.width == 300px;
+    out property <bool> test_r1: r1.width == 150px;
+    out property <bool> test_r2: r2.width == 150px;
+    out property <bool> test: test_fl && test_r1 && test_r2;
+}
+
+// Contrast: the same layout with the default flex-shrink does compress
+component TestShrinkableRow inherits Rectangle {
+    width: 200px;
+    height: 50px;
+    HorizontalLayout {
+        fl := FlexboxLayout {
+            flex-wrap: no-wrap;
+            r1 := Rectangle {
+                preferred-width: 150px;
+                height: 50px;
+                background: red;
+            }
+            r2 := Rectangle {
+                preferred-width: 150px;
+                height: 50px;
+                background: green;
+            }
+        }
+    }
+
+    out property <bool> test_fl: fl.width == 200px;
+    out property <bool> test_r1: r1.width == 100px;
+    out property <bool> test_r2: r2.width == 100px;
+    out property <bool> test: test_fl && test_r1 && test_r2;
+}
+
+// An explicit flex-basis is the base size the item refuses to go below
+component TestNoShrinkBasis inherits Rectangle {
+    width: 100px;
+    height: 50px;
+    HorizontalLayout {
+        fl := FlexboxLayout {
+            flex-wrap: no-wrap;
+            r1 := Rectangle {
+                preferred-width: 20px;
+                flex-basis: 120px;
+                flex-shrink: 0;
+                height: 50px;
+                background: red;
+            }
+        }
+    }
+
+    out property <bool> test_fl: fl.width == 120px;
+    out property <bool> test_r1: r1.width == 120px;
+    out property <bool> test: test_fl && test_r1;
+}
+
+// Wrapping: only the widest item has to fit, not the sum
+component TestNoShrinkWrap inherits Rectangle {
+    width: 100px;
+    height: 200px;
+    HorizontalLayout {
+        fl := FlexboxLayout {
+            flex-wrap: wrap;
+            r1 := Rectangle {
+                preferred-width: 150px;
+                flex-shrink: 0;
+                height: 50px;
+                background: red;
+            }
+            r2 := Rectangle {
+                preferred-width: 150px;
+                flex-shrink: 0;
+                height: 50px;
+                background: green;
+            }
+        }
+    }
+
+    // One item per row, each keeping the width it refuses to shrink below. The
+    // parent stretches the flexbox vertically, so the rows are compared to each
+    // other rather than to a fixed y.
+    out property <bool> test_fl: fl.width == 150px;
+    out property <bool> test_r1: r1.width == 150px;
+    out property <bool> test_r2: r2.width == 150px && r2.y > r1.y;
+    out property <bool> test: test_fl && test_r1 && test_r2;
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 600px;
+
+    VerticalLayout {
+        t1 := TestNoShrinkRow { }
+        t2 := TestShrinkableRow { }
+        t3 := TestNoShrinkBasis { }
+        t4 := TestNoShrinkWrap { }
+    }
+
+    out property <bool> test: t1.test && t2.test && t3.test && t4.test;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

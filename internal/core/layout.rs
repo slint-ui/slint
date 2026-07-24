@@ -1237,6 +1237,17 @@ impl FlexboxLayoutItemInfo {
             self.hypothetical_main_size()
         }
     }
+
+    /// The item's minimum size along the main axis.
+    /// An item that cannot shrink (`flex-shrink: 0`) never goes below its hypothetical
+    /// main size, so that is what it contributes; anything else can be squeezed down
+    /// to its own minimum.
+    ///
+    /// Never below `constraint.min`, since `hypothetical_main_size()` is already clamped to it.
+    #[must_use]
+    fn flex_min_main(&self) -> Coord {
+        if self.flex_shrink <= 0. { self.hypothetical_main_size() } else { self.constraint.min }
+    }
 }
 
 /// Solve a BoxLayout
@@ -1967,10 +1978,10 @@ pub fn flexbox_layout_info_main_axis(
     }
     let num_spacings = cells.len().saturating_sub(1) as Coord;
     let min = if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
-        cells.iter().map(|c| c.constraint.min).sum::<Coord>() + spacing * num_spacings + extra_pad
+        cells.iter().map(|c| c.flex_min_main()).sum::<Coord>() + spacing * num_spacings + extra_pad
     } else {
         // Wrapping: the widest single item must fit
-        cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad
+        cells.iter().map(|c| c.flex_min_main()).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad
     };
     let preferred = if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
         // No wrapping: all items on one line
