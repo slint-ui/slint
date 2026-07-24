@@ -53,7 +53,7 @@ pub fn validate_no_orphan_synthetic_hooks(component: &std::rc::Rc<object_tree::C
         &(),
         &mut |elem, &()| {
             let elem = elem.borrow();
-            for (name, binding_expression) in elem.bindings.iter() {
+            for (name, binding_expression) in elem.bindings_including_synthetic() {
                 if !binding_expression.borrow().expression.is_synthetic_debug_hook() {
                     continue;
                 }
@@ -118,7 +118,7 @@ fn assign_element_hash(element: &ElementRc, random_state: &std::hash::RandomStat
 
 fn hook_existing_bindings(element: &ElementRc, element_hash: u64) {
     let elem = element.borrow();
-    elem.bindings.iter().for_each(|(name, be)| {
+    elem.bindings_including_synthetic().for_each(|(name, be)| {
         // Only hook properties — callback handlers and functions also live in
         // `bindings`, but hook ids are a property-only namespace and overriding a code
         // block with a value makes no sense.
@@ -159,7 +159,7 @@ fn property_defaults(
     base_props
         .into_iter()
         .chain(own_props)
-        .filter(|(name, _)| !elem.bindings.contains_key(name.as_str()))
+        .filter(|(name, _)| elem.binding_cell_including_synthetic(name.as_str()).is_none())
         .filter_map(|(name, _ty)| {
             let name_str = name.clone();
             let lookup = elem.lookup_property(&name_str);
@@ -258,19 +258,19 @@ fn add_hooks_for_non_existent_bindings(element: &ElementRc, element_hash: u64, i
     drop(elem);
     let unbound_properties = properties.into_iter().filter(|(name, _default, _synthetic)| {
         let elem = element.borrow();
-        !elem.bindings.contains_key(name)
+        elem.binding_cell_including_synthetic(name).is_none()
             // Filter invalid reserved properties (e.g. x/y on a Timer, etc.)
             && elem.lookup_property(name).property_type != crate::langtype::Type::Invalid
     });
 
     for (name, default, synthetic) in unbound_properties {
         let id = property_id(element_hash, &name);
-        let mut binding_expressions: crate::expression_tree::BindingExpression =
+        let mut binding: crate::expression_tree::BindingExpression =
             Expression::DebugHook { expression: Box::new(default), id, synthetic }.into();
-        binding_expressions.priority = 0;
-        use std::collections::btree_map::Entry;
-        if let Entry::Vacant(entry) = element.borrow_mut().bindings.entry(name) {
-            entry.insert(binding_expressions.into());
+        binding.priority = 0;
+        let mut elem = element.borrow_mut();
+        if elem.binding_cell_including_synthetic(&name).is_none() {
+            elem.set_binding(name, binding);
         }
     }
 }
@@ -341,7 +341,7 @@ mod tests {
     /// The inner expression of a property's DebugHook, or None if the binding is not a hook.
     fn hooked(elem: &ElementRc, name: &str) -> Option<Expression> {
         let e = elem.borrow();
-        let be = e.bindings.get(name)?;
+        let be = e.binding_cell_including_synthetic(name)?;
         match be.borrow().expression.clone() {
             Expression::DebugHook { expression, .. } => Some(*expression),
             _ => None,
@@ -351,7 +351,7 @@ mod tests {
     /// Whether the binding is a synthetic debug hook.
     fn is_synthetic(elem: &ElementRc, name: &str) -> bool {
         let e = elem.borrow();
-        let Some(be) = e.bindings.get(name) else { return false };
+        let Some(be) = e.binding_cell_including_synthetic(name) else { return false };
         matches!(be.borrow().expression, Expression::DebugHook { synthetic: true, .. })
     }
 
@@ -430,8 +430,7 @@ mod tests {
         let assert_background_preserved = |element: &ElementRc, what: &str| {
             let borrowed = element.borrow();
             let binding_expression = borrowed
-                .bindings
-                .get("background")
+                .binding_cell_including_synthetic("background")
                 .unwrap_or_else(|| panic!("{what}: background must be bound"));
             let expression = binding_expression.borrow().expression.clone();
             let Expression::DebugHook { expression: inner, id, synthetic } = expression else {
@@ -478,7 +477,7 @@ mod tests {
         let repeated_base = repeated.borrow().base_type.as_component().clone();
         let mut found = None;
         object_tree::recurse_elem(&repeated_base.root_element, &(), &mut |elem, &()| {
-            if elem.borrow().bindings.contains_key("background") {
+            if elem.borrow().binding_cell_including_synthetic("background").is_some() {
                 found = Some(elem.clone());
             }
         });
@@ -578,8 +577,7 @@ mod tests {
         // be non-synthetic and wrap the 0 default.
         let binding_holder = transform_element.borrow();
         let binding_expression = binding_holder
-            .bindings
-            .get("transform-rotation")
+            .binding_cell_including_synthetic("transform-rotation")
             .expect("the Transform element must bind transform-rotation");
         match &binding_expression.borrow().expression {
             Expression::DebugHook { id, synthetic, expression } => {
@@ -615,7 +613,7 @@ mod tests {
         let find_hook_by_id = |wanted_id: &smol_str::SmolStr| -> Option<Expression> {
             let mut found = None;
             object_tree::recurse_elem(&foo.root_element, &(), &mut |elem, &()| {
-                for (_, binding_expression) in elem.borrow().bindings.iter() {
+                for (_, binding_expression) in elem.borrow().bindings_including_synthetic() {
                     if let Expression::DebugHook { id, .. } =
                         &binding_expression.borrow().expression
                         && id == wanted_id
