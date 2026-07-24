@@ -308,7 +308,7 @@ The types used for properties in .slint design markup each translate to specific
 
 ### Arrays and Models
 
-[Array properties](https://slint.dev/docs/slint/reference/language/arrays-and-models/) can be set from JavaScript by passing
+[Array properties](https://slint.dev/docs/slint/reference/property-types/arrays-and-models/) can be set from JavaScript by passing
 either `Array` objects or implementations of the {@link Model} interface.
 
 When passing a JavaScript `Array` object, the contents of the array are copied. Any changes to the JavaScript afterwards will not be visible on the Slint side.

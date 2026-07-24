@@ -40,8 +40,11 @@ export default defineConfig({
     // routes under the base path but uses the destinations verbatim, so they
     // need the prefix.
     redirects: {
-        "/reference/primitive-types/": `${BASE_PATH}reference/language/builtin-types/`,
-        "/reference/colors-and-brushes/": `${BASE_PATH}reference/language/colors-and-brushes/`,
+        "/reference/primitive-types/": `${BASE_PATH}reference/property-types/builtin-types/`,
+        "/reference/colors-and-brushes/": `${BASE_PATH}reference/property-types/colors-and-brushes/`,
+        "/reference/language/builtin-types/": `${BASE_PATH}reference/property-types/builtin-types/`,
+        "/reference/language/colors-and-brushes/": `${BASE_PATH}reference/property-types/colors-and-brushes/`,
+        "/reference/language/arrays-and-models/": `${BASE_PATH}reference/property-types/arrays-and-models/`,
         "/guide/language/coding/expressions-and-statements/": `${BASE_PATH}reference/language/expressions/`,
         "/guide/language/coding/properties/": `${BASE_PATH}reference/language/properties/`,
         "/guide/language/coding/functions-and-callbacks/": `${BASE_PATH}reference/language/functions/`,
@@ -318,20 +321,8 @@ export default defineConfig({
                                         slug: "reference/language/types",
                                     },
                                     {
-                                        label: "Built-In Types",
-                                        slug: "reference/language/builtin-types",
-                                    },
-                                    {
-                                        label: "Colors and Brushes",
-                                        slug: "reference/language/colors-and-brushes",
-                                    },
-                                    {
                                         label: "Structs and Enums",
                                         slug: "reference/language/structs-and-enums",
-                                    },
-                                    {
-                                        label: "Arrays and Models",
-                                        slug: "reference/language/arrays-and-models",
                                     },
                                     {
                                         label: "Globals",
@@ -364,16 +355,24 @@ export default defineConfig({
                                 ],
                             },
                             {
-                                label: "Types and Properties",
+                                label: "Property Types",
                                 collapsed: true,
                                 items: [
                                     {
-                                        label: "Common Properties & Callbacks",
-                                        slug: "reference/common",
+                                        label: "Overview",
+                                        slug: "reference/property-types",
                                     },
                                     {
-                                        label: "Timer",
-                                        slug: "reference/timer",
+                                        label: "Built-In Types",
+                                        slug: "reference/property-types/builtin-types",
+                                    },
+                                    {
+                                        label: "Colors & Brushes",
+                                        slug: "reference/property-types/colors-and-brushes",
+                                    },
+                                    {
+                                        label: "Arrays and Models",
+                                        slug: "reference/property-types/arrays-and-models",
                                     },
                                 ],
                             },
@@ -381,6 +380,10 @@ export default defineConfig({
                                 label: "Visual Elements",
                                 collapsed: true,
                                 items: [
+                                    {
+                                        label: "Common Properties & Callbacks",
+                                        slug: "reference/common",
+                                    },
                                     {
                                         label: "Basic Elements",
                                         items: [
@@ -472,6 +475,10 @@ export default defineConfig({
                                                 },
                                             },
                                         ],
+                                    },
+                                    {
+                                        label: "Timer",
+                                        slug: "reference/timer",
                                     },
                                 ],
                             },
