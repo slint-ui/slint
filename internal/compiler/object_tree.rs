@@ -3181,6 +3181,24 @@ impl Element {
         (!binding.expression.is_synthetic_debug_hook()).then_some(binding)
     }
 
+    /// Remove and return the whole binding map, including synthetic debug hooks.
+    ///
+    /// For bulk transfers that move an element's bindings wholesale.
+    pub(crate) fn take_bindings_including_synthetic(&mut self) -> BindingsMap {
+        std::mem::take(&mut self.bindings)
+    }
+
+    /// Add the given binding entries, including synthetic debug hooks, to this element.
+    ///
+    /// For bulk transfers; like `BTreeMap::extend`, an entry with the same name is overwritten
+    /// (no merge or priority adjustment).
+    pub(crate) fn extend_bindings_including_synthetic(
+        &mut self,
+        bindings: impl IntoIterator<Item = (SmolStr, RefCell<BindingExpression>)>,
+    ) {
+        self.bindings.extend(bindings);
+    }
+
     pub fn sub_component(&self) -> Option<&Rc<Component>> {
         if self.repeated.is_some() {
             None
