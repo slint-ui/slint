@@ -65,7 +65,7 @@ export component ComponentDeclaresInterfaceAPIIncorrectly {
     in-out property <float> value;
 //  >                            <error{Incorrect implementation of 'value' from 'ValidInterface' - expected type: 'int'}
     callback speak(string);
-//  >                     <error{Incorrect implementation of 'speak' from 'ValidInterface' - expected type: 'callback-> void'}
+//  >                     <error{Incorrect implementation of 'speak' from 'ValidInterface' - expected type: 'callback() -> void'}
     public function reset(to: float) {
 //  >error{Incorrect arguments for implementation of 'reset' from interface 'ValidInterface'. Expected () but got (float)}
         self.value = to;
