@@ -45,15 +45,6 @@ export default defineConfig({
         "/reference/language/builtin-types/": `${BASE_PATH}reference/property-types/builtin-types/`,
         "/reference/language/colors-and-brushes/": `${BASE_PATH}reference/property-types/colors-and-brushes/`,
         "/reference/language/arrays-and-models/": `${BASE_PATH}reference/property-types/arrays-and-models/`,
-        "/guide/language/coding/expressions-and-statements/": `${BASE_PATH}reference/language/expressions/`,
-        "/guide/language/coding/properties/": `${BASE_PATH}reference/language/properties/`,
-        "/guide/language/coding/functions-and-callbacks/": `${BASE_PATH}reference/language/functions/`,
-        "/guide/language/coding/name-resolution/": `${BASE_PATH}reference/language/name-resolution/`,
-        "/guide/language/coding/structs-and-enums/": `${BASE_PATH}reference/language/structs-and-enums/`,
-        "/guide/language/coding/globals/": `${BASE_PATH}reference/language/globals/`,
-        "/guide/language/coding/repetition-and-data-models/": `${BASE_PATH}reference/language/repetition-and-conditional-elements/`,
-        "/guide/language/coding/animation/": `${BASE_PATH}reference/language/animations/`,
-        "/guide/language/coding/states/": `${BASE_PATH}reference/language/states-and-transitions/`,
     },
     markdown: {
         gfm: true,
@@ -144,8 +135,44 @@ export default defineConfig({
                                                 slug: "guide/language/coding/file",
                                             },
                                             {
+                                                label: "Properties",
+                                                slug: "guide/language/coding/properties",
+                                            },
+                                            {
+                                                label: "Expressions and Statements",
+                                                slug: "guide/language/coding/expressions-and-statements",
+                                            },
+                                            {
                                                 label: "Positioning & Layouts",
                                                 slug: "guide/language/coding/positioning-and-layouts",
+                                            },
+                                            {
+                                                label: "Globals",
+                                                slug: "guide/language/coding/globals",
+                                            },
+                                            {
+                                                label: "Repetition and Data Models",
+                                                slug: "guide/language/coding/repetition-and-data-models",
+                                            },
+                                            {
+                                                label: "Animations",
+                                                slug: "guide/language/coding/animation",
+                                            },
+                                            {
+                                                label: "States and Transitions",
+                                                slug: "guide/language/coding/states",
+                                            },
+                                            {
+                                                label: "Functions and Callbacks",
+                                                slug: "guide/language/coding/functions-and-callbacks",
+                                            },
+                                            {
+                                                label: "Name Resolution (Scope)",
+                                                slug: "guide/language/coding/name-resolution",
+                                            },
+                                            {
+                                                label: "Structs and Enums",
+                                                slug: "guide/language/coding/structs-and-enums",
                                             },
                                         ],
                                     },

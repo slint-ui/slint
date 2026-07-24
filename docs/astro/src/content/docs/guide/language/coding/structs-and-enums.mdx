@@ -1,0 +1,40 @@
+---
+title: Structs and Enums
+description: Modeling your data with named structures and enumerations.
+---
+
+When a single value isn't enough, model your data with structs and enums.
+Both can be exported and used from your business logic like any other type.
+
+Define a named structure with the `struct` keyword:
+
+```slint
+export struct Player  {
+    name: string,
+    score: int,
+}
+
+export component Example {
+    in-out property<Player> player: { name: "Foo", score: 100 };
+}
+```
+
+Fields can declare default values, and for one-off shapes you can use an anonymous
+struct type like `{name: string, score: int}` directly.
+
+Define an enumeration with the `enum` keyword:
+
+```slint
+export enum CardSuit { clubs, diamonds, hearts, spade }
+
+export component Example {
+    in-out property<CardSuit> card: spade;
+    out property<bool> is-clubs: card == CardSuit.clubs;
+}
+```
+
+Refer to a value as `CardSuit.spade`, or drop the enum name wherever the type is
+already known — like in the binding above.
+
+The [Structs and Enums](../../../../reference/language/structs-and-enums/) chapter of
+the language reference covers field defaults, name omission, and the default values.

@@ -1,0 +1,77 @@
+---
+title: Properties
+description: Storing and binding values with properties.
+---
+
+All elements have properties.
+Built-in elements come with common properties such as color or dimensional properties.
+You can assign values or entire expressions to them:
+
+```slint
+export component Example inherits Window {
+    // Simple expression: ends with a semi colon
+    width: 42px;
+    // or a code block (no semicolon needed)
+    height: { 42px }
+}
+```
+
+When you assign an expression, it becomes a *binding*:
+Slint re-evaluates it automatically whenever one of the properties it depends on changes.
+This is what makes the user interface [reactive](../../concepts/reactivity/) —
+you declare the relationship once, and the value stays up to date.
+
+A binding can also be a code block with multiple statements.
+These two bindings are equivalent:
+
+```slint no-test
+background: touch-area.is-pressed ? red : blue;
+
+background: {
+    if (touch-area.is-pressed) {
+        return red;
+    } else {
+        return blue;
+    }
+}
+```
+
+## Declaring Your Own Properties
+
+Define extra properties on a component by specifying the type, the name, and optionally a default value:
+
+```slint
+export component Example {
+    // declare a property of type int with the name `my-property`
+    property<int> my-property;
+
+    // declare a property with a default value
+    property<int> my-second-property: 42;
+}
+```
+
+Use a qualifier to declare who may read and write the property.
+Think of it as the interface of your component:
+
+```slint
+export component Button {
+    // This is meant to be set by the user of the component.
+    in property <string> text;
+    // This property is meant to be read by the user of the component.
+    out property <bool> pressed;
+    // This property is meant to both be changed by the user and the component itself.
+    in-out property <bool> checked;
+
+    // This property is internal to this component.
+    private property <bool> has-mouse;
+}
+```
+
+All properties declared at the top level of a component that aren't `private`
+are accessible from the outside when using the component as an element,
+and via the language bindings from the business logic.
+
+The [Properties](../../../../reference/language/properties/) and
+[Bindings](../../../../reference/language/bindings/) chapters of the language reference
+describe the exact rules, and [Property Types](../../../../reference/property-types/)
+lists every type a property can have.

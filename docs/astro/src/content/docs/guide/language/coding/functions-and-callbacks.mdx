@@ -1,0 +1,91 @@
+---
+title: Functions and Callbacks
+description: Organizing logic in Slint and connecting it to your business logic.
+---
+
+Slint gives you two ways to organize logic: *functions* and *callbacks*.
+Both are callable blocks of code with parameters and return values —
+the difference is who implements them.
+A function is defined entirely in Slint.
+A callback's handler can be set from your business logic in Rust, C++, JavaScript, or Python.
+Use a callback when the native code needs to react; use a function otherwise.
+
+## Functions
+
+Declare a function with the `function` keyword and call it like in other languages:
+
+```slint
+export component Example {
+    property <string> my-property: my-function();
+
+    pure function my-function() -> string {
+        return "result";
+    }
+}
+```
+
+By default, functions are private.
+Mark a root-level function `public` to call it from other components — or from your business logic:
+
+```slint
+export component HasFunction {
+    public pure function double(x: int) -> int {
+        return x * 2;
+    }
+}
+
+export component CallsFunction {
+    property <int> test: my-friend.double(1);
+
+    my-friend := HasFunction {
+    }
+}
+```
+
+The `pure` keyword marks a function free of side effects,
+which makes it callable from property bindings;
+see [Purity](../../../../reference/language/evaluation-and-purity/#purity).
+
+## Callbacks
+
+Components declare callbacks to communicate changes of state to the outside.
+React to a callback by declaring a handler with the `=>` arrow syntax.
+Here the built-in `TouchArea` element's `clicked` callback is forwarded to a custom callback:
+
+```slint
+export component Example inherits Rectangle {
+    // declare a callback
+    callback hello;
+
+    area := TouchArea {
+        // sets a handler with `=>`
+        clicked => {
+            // emit the callback
+            root.hello()
+        }
+    }
+}
+```
+
+Callbacks can take parameters and return values:
+
+```slint
+export component Example inherits Rectangle {
+    // declares a callback with a return value
+    callback hello(int, int) -> int;
+    hello(aa, bb) => { aa + bb }
+}
+```
+
+And you can forward one callback to another with an alias, using the two-way binding syntax:
+
+```slint
+export component Example inherits Rectangle {
+    callback clicked <=> area.clicked;
+    area := TouchArea {}
+}
+```
+
+The [Functions](../../../../reference/language/functions/) and
+[Callbacks](../../../../reference/language/callbacks/) chapters of the language reference
+cover visibility, name resolution, named arguments, and change callbacks in detail.

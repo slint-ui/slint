@@ -1,0 +1,60 @@
+---
+title: States and Transitions
+description: Switching multiple properties together with states.
+---
+
+When several properties should change together — a button that looks different when
+disabled, pressed, or hovered — declare *states* instead of writing a condition into
+every binding.
+The `states` statement names each state, gives it a condition,
+and sets the properties of multiple elements in one go:
+
+```slint
+export component Example inherits Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+    default-font-size: 24px;
+
+    label := Text { }
+    ta := TouchArea {
+        clicked => {
+            active = !active;
+        }
+    }
+    property <bool> active: true;
+    states [
+        active when active && !ta.has-hover: {
+            label.text: "Active";
+            root.background: blue;
+        }
+        active-hover when active && ta.has-hover: {
+            label.text: "Active\nHover";
+            root.background: green;
+        }
+        inactive when !active: {
+            label.text: "Inactive";
+            root.background: gray;
+        }
+    ]
+}
+```
+
+Hovering toggles between a blue and a green background and adjusts the label;
+clicking enters the `inactive` state.
+
+Transitions bind [animations](animation/) to state changes.
+Use `in` to animate when entering a state, `out` when leaving it, and `in-out` for both:
+
+```slint no-test
+states [
+    disabled when !root.is-enabled : {
+        background: gray;
+        out {
+            animate * { duration: 800ms; }
+        }
+    }
+]
+```
+
+See [States and Transitions](../../../../reference/language/states-and-transitions/)
+in the language reference for the full syntax.
