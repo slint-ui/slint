@@ -459,12 +459,18 @@ impl JavaHelper {
             let anchor_origin = data.anchor_point.to_physical(scale_factor);
             let cur_size = data.cursor_rect_size.to_physical(scale_factor);
 
-            let cur_visible = data.clip_rect.map_or(true, |r| {
+            // A caret at the last column or on the last line sits exactly on the clip rect's max
+            // edge (e.g. every right-aligned field), where the exclusive `Rect::contains` reports
+            // it invisible and the handle gets sent off-screen. Inflate the rect by one pixel so
+            // the max edge counts as visible.
+            let clip_rect = data.clip_rect.map(|r| r.inflate(1., 1.));
+
+            let cur_visible = clip_rect.map_or(true, |r| {
                 r.contains(i_slint_core::lengths::logical_point_from_api(data.cursor_rect_origin))
             });
-            let anchor_visible = data.clip_rect.map_or(true, |r| {
-                // anchor_point is `origin + cursor_size` for handle placement; check the
-                // anchor cursor's origin so we don't spuriously fail on the clip rect's edge.
+            let anchor_visible = clip_rect.map_or(true, |r| {
+                // anchor_point is `origin + cursor_size` for handle placement; check the anchor
+                // cursor's origin instead.
                 let anchor_origin =
                     i_slint_core::lengths::logical_point_from_api(data.anchor_point)
                         - i_slint_core::lengths::logical_size_from_api(data.cursor_rect_size)
