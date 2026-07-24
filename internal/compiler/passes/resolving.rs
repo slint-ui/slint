@@ -2574,7 +2574,7 @@ fn resolve_two_way_bindings_for_element(
     // borrow on `elem` that blocks `borrow_mut`.
     let mut to_infer: Vec<(SmolStr, Type)> = Vec::new();
 
-    for (prop_name, binding) in &elem.borrow().bindings {
+    for (prop_name, binding) in elem.borrow().real_bindings() {
         let mut binding = binding.borrow_mut();
         // The alias node is normally the binding's own (uncompiled) expression. But a
         // global callback may both alias another global's callback and provide a handler:

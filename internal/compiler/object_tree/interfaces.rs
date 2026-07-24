@@ -3,7 +3,6 @@
 
 //! Module containing interfaces related types and functions.
 
-use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -378,12 +377,11 @@ pub(super) fn apply_child_implement_statements(
                 Type::Function(func) => {
                     apply_uses_statement_function_binding(element, &child, name, func)
                 }
-                _ => element.borrow_mut().bindings.insert(
+                _ => element.borrow_mut().set_binding(
                     name.clone(),
                     BindingExpression::new_two_way(
                         NamedReference::new(&child, name.clone()).into(),
-                    )
-                    .into(),
+                    ),
                 ),
             };
             debug_assert!(
@@ -587,7 +585,7 @@ fn apply_uses_statement_function_binding(
     child: &ElementRc,
     name: &SmolStr,
     function: &Arc<Function>,
-) -> Option<RefCell<BindingExpression>> {
+) -> Option<BindingExpression> {
     let args_expr: Vec<Expression> = function
         .args
         .iter()
@@ -602,5 +600,5 @@ fn apply_uses_statement_function_binding(
     };
 
     let body = Expression::CodeBlock(vec![call_expr]);
-    element.borrow_mut().bindings.insert(name.clone(), RefCell::new(BindingExpression::from(body)))
+    element.borrow_mut().set_binding(name.clone(), BindingExpression::from(body))
 }

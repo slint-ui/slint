@@ -14,7 +14,6 @@ use crate::expression_tree::{Callable, Expression, NamedReference, Unit};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use smol_str::SmolStr;
-use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -128,9 +127,7 @@ fn process_radiogroup(
         },
         _ => Expression::NumberLiteral(children.len() as f64, Unit::None),
     };
-    elem.borrow_mut()
-        .bindings
-        .insert(SmolStr::new_static("item-count"), RefCell::new(count_expr.into()));
+    elem.borrow_mut().set_binding(SmolStr::new_static("item-count"), count_expr.into());
 
     for (position, child) in children.iter().enumerate() {
         let item_index_expr = match &child.borrow().repeated {
@@ -149,16 +146,11 @@ fn wire_radio_button(
 ) {
     child.borrow_mut().base_type = radio_button_impl.clone();
 
-    child
-        .borrow_mut()
-        .bindings
-        .insert(SmolStr::new_static("item-index"), RefCell::new(item_index_expr.into()));
+    child.borrow_mut().set_binding(SmolStr::new_static("item-index"), item_index_expr.into());
 
-    child.borrow_mut().bindings.insert(
+    child.borrow_mut().set_binding(
         SmolStr::new_static("group-enabled"),
-        RefCell::new(
-            Expression::PropertyReference(NamedReference::new(group, "enabled".into())).into(),
-        ),
+        Expression::PropertyReference(NamedReference::new(group, "enabled".into())).into(),
     );
 
     // row / col for the parent GridLayout — stack vertically (column 0,
@@ -186,8 +178,8 @@ fn wire_radio_button(
         true_expr: Expression::NumberLiteral(0.0, Unit::None).into(),
         false_expr: item_index_ref().into(),
     };
-    child.borrow_mut().bindings.insert(SmolStr::new_static("row"), RefCell::new(row_expr.into()));
-    child.borrow_mut().bindings.insert(SmolStr::new_static("col"), RefCell::new(col_expr.into()));
+    child.borrow_mut().set_binding(SmolStr::new_static("row"), row_expr.into());
+    child.borrow_mut().set_binding(SmolStr::new_static("col"), col_expr.into());
 
     // Bind `group-current-index` rather than `checked` directly: the latter
     // is `in-out` so users can toggle it from outside, and an imperative
@@ -196,10 +188,9 @@ fn wire_radio_button(
     // for syncing `checked`.
     let group_current_index_expr =
         Expression::PropertyReference(NamedReference::new(group, "current-index".into()));
-    child.borrow_mut().bindings.insert(
-        SmolStr::new_static("group-current-index"),
-        RefCell::new(group_current_index_expr.into()),
-    );
+    child
+        .borrow_mut()
+        .set_binding(SmolStr::new_static("group-current-index"), group_current_index_expr.into());
 
     let select_call = Expression::FunctionCall {
         function: Callable::Function(NamedReference::new(group, "select".into())),
@@ -209,18 +200,12 @@ fn wire_radio_button(
         ],
         source_location: None,
     };
-    child
-        .borrow_mut()
-        .bindings
-        .insert(SmolStr::new_static("group-select"), RefCell::new(select_call.into()));
+    child.borrow_mut().set_binding(SmolStr::new_static("group-select"), select_call.into());
 
     let focus_call = Expression::FunctionCall {
         function: Callable::Function(NamedReference::new(group, "on-focus-change".into())),
         arguments: vec![Expression::FunctionParameterReference { index: 0, ty: Type::Bool }],
         source_location: None,
     };
-    child
-        .borrow_mut()
-        .bindings
-        .insert(SmolStr::new_static("focus-change"), RefCell::new(focus_call.into()));
+    child.borrow_mut().set_binding(SmolStr::new_static("focus-change"), focus_call.into());
 }

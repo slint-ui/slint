@@ -11,7 +11,6 @@ use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Element};
 use crate::typeregister::TypeRegister;
 use smol_str::SmolStr;
-use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -78,11 +77,11 @@ pub fn ensure_window(
     drop(win_elem_mut);
 
     let make_two_way = |name: &'static str| {
-        new_root.borrow_mut().bindings.insert(
+        new_root.borrow_mut().set_binding(
             name.into(),
-            RefCell::new(BindingExpression::new_two_way(
+            BindingExpression::new_two_way(
                 NamedReference::new(&win_elem, SmolStr::new_static(name)).into(),
-            )),
+            ),
         );
     };
     make_two_way("width");

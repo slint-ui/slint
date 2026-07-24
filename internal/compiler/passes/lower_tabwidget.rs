@@ -13,7 +13,6 @@ use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedRefer
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use smol_str::{SmolStr, format_smolstr};
-use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -168,50 +167,45 @@ fn process_tabwidget(
             enclosing_component: elem.borrow().enclosing_component.clone(),
             ..Default::default()
         };
-        tab.bindings.insert(
+        tab.set_binding(
             SmolStr::new_static("title"),
             BindingExpression::new_two_way(
                 NamedReference::new(child, SmolStr::new_static("title")).into(),
-            )
-            .into(),
+            ),
         );
-        tab.bindings.insert(
+        tab.set_binding(
             SmolStr::new_static("current"),
             BindingExpression::new_two_way(
                 NamedReference::new(elem, SmolStr::new_static("current-index")).into(),
-            )
-            .into(),
+            ),
         );
-        tab.bindings.insert(
+        tab.set_binding(
             SmolStr::new_static("current-focused"),
             BindingExpression::new_two_way(
                 NamedReference::new(elem, SmolStr::new_static("current-focused")).into(),
-            )
-            .into(),
+            ),
         );
-        tab.bindings.insert(
+        tab.set_binding(
             SmolStr::new_static("tab-index"),
-            RefCell::new(Expression::NumberLiteral(index as _, Unit::None).into()),
+            Expression::NumberLiteral(index as _, Unit::None).into(),
         );
-        tab.bindings.insert(
+        tab.set_binding(
             SmolStr::new_static("num-tabs"),
-            RefCell::new(Expression::NumberLiteral(num_tabs as _, Unit::None).into()),
+            Expression::NumberLiteral(num_tabs as _, Unit::None).into(),
         );
         tabs.push(Element::make_rc(tab));
     }
 
     let mut tabbar_impl = tabbar_horizontal_impl;
-    if let Some(orientation) = elem.borrow().bindings.get("orientation") {
-        if let Expression::EnumerationValue(val) =
-            super::ignore_debug_hooks(&orientation.borrow().expression)
-        {
+    if let Some(orientation) = elem.borrow().binding("orientation") {
+        if let Expression::EnumerationValue(val) = orientation.expression.ignore_debug_hooks() {
             if val.value == 1 {
                 tabbar_impl = tabbar_vertical_impl;
             }
         } else {
             diag.push_error(
                 "The orientation property only supports constants at the moment".into(),
-                &orientation.borrow().span,
+                &orientation.span,
             );
         }
     }
@@ -227,37 +221,33 @@ fn process_tabwidget(
     set_tabbar_geometry_prop(elem, &tabbar, "y");
     set_tabbar_geometry_prop(elem, &tabbar, "width");
     set_tabbar_geometry_prop(elem, &tabbar, "height");
-    tabbar.borrow_mut().bindings.insert(
+    tabbar.borrow_mut().set_binding(
         SmolStr::new_static("num-tabs"),
-        RefCell::new(Expression::NumberLiteral(num_tabs as _, Unit::None).into()),
+        Expression::NumberLiteral(num_tabs as _, Unit::None).into(),
     );
-    tabbar.borrow_mut().bindings.insert(
+    tabbar.borrow_mut().set_binding(
         SmolStr::new_static("current"),
         BindingExpression::new_two_way(
             NamedReference::new(elem, SmolStr::new_static("current-index")).into(),
-        )
-        .into(),
+        ),
     );
-    elem.borrow_mut().bindings.insert(
+    elem.borrow_mut().set_binding(
         SmolStr::new_static("current-focused"),
         BindingExpression::new_two_way(
             NamedReference::new(&tabbar, SmolStr::new_static("current-focused")).into(),
-        )
-        .into(),
+        ),
     );
-    elem.borrow_mut().bindings.insert(
+    elem.borrow_mut().set_binding(
         SmolStr::new_static("tabbar-preferred-width"),
         BindingExpression::new_two_way(
             NamedReference::new(&tabbar, SmolStr::new_static("preferred-width")).into(),
-        )
-        .into(),
+        ),
     );
-    elem.borrow_mut().bindings.insert(
+    elem.borrow_mut().set_binding(
         SmolStr::new_static("tabbar-preferred-height"),
         BindingExpression::new_two_way(
             NamedReference::new(&tabbar, SmolStr::new_static("preferred-height")).into(),
-        )
-        .into(),
+        ),
     );
 
     if let Some(expr) = children
@@ -267,7 +257,7 @@ fn process_tabwidget(
         })
         .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, MinMaxOp::Max))
     {
-        elem.borrow_mut().bindings.insert("content-min-width".into(), RefCell::new(expr.into()));
+        elem.borrow_mut().set_binding("content-min-width".into(), expr.into());
     };
     if let Some(expr) = children
         .iter()
@@ -276,7 +266,7 @@ fn process_tabwidget(
         })
         .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, MinMaxOp::Max))
     {
-        elem.borrow_mut().bindings.insert("content-min-height".into(), RefCell::new(expr.into()));
+        elem.borrow_mut().set_binding("content-min-height".into(), expr.into());
     };
 
     elem.borrow_mut().children = std::iter::once(tabbar).chain(children).collect();
@@ -305,14 +295,12 @@ fn set_geometry_prop(
 }
 
 fn set_tabbar_geometry_prop(tab_widget: &ElementRc, tabbar: &ElementRc, prop: &str) {
-    tabbar.borrow_mut().bindings.insert(
+    tabbar.borrow_mut().set_binding(
         prop.into(),
-        RefCell::new(
-            Expression::PropertyReference(NamedReference::new(
-                tab_widget,
-                format_smolstr!("tabbar-{}", prop),
-            ))
-            .into(),
-        ),
+        Expression::PropertyReference(NamedReference::new(
+            tab_widget,
+            format_smolstr!("tabbar-{}", prop),
+        ))
+        .into(),
     );
 }

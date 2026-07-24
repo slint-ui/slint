@@ -58,7 +58,6 @@ export component TestCase inherits Window {
 
     let root = doc.exports.iter().next().unwrap().1.as_ref().left().unwrap().root_element.clone();
     let box_shadow = find_box_shadow(&root);
-    let bindings = &box_shadow.borrow().bindings;
 
     for property_name in [
         "border-top-left-radius",
@@ -66,10 +65,14 @@ export component TestCase inherits Window {
         "border-bottom-right-radius",
         "border-bottom-left-radius",
     ] {
-        assert!(bindings.contains_key(property_name), "{property_name} binding missing");
-        let binding = bindings.get(property_name).unwrap().borrow();
         assert!(
-            matches!(&binding.expression, Expression::PropertyReference(_)),
+            box_shadow.borrow().binding(property_name).is_some(),
+            "{property_name} binding missing"
+        );
+        let box_shadow_ref = box_shadow.borrow();
+        let binding = box_shadow_ref.binding(property_name).unwrap();
+        assert!(
+            matches!(binding.expression.ignore_debug_hooks(), Expression::PropertyReference(_)),
             "{property_name} should reference the source rectangle"
         );
     }
@@ -97,7 +100,6 @@ export component TestCase inherits Window {
 
     let root = doc.exports.iter().next().unwrap().1.as_ref().left().unwrap().root_element.clone();
     let box_shadow = find_box_shadow(&root);
-    let bindings = &box_shadow.borrow().bindings;
 
     for property_name in [
         "border-top-left-radius",
@@ -105,10 +107,14 @@ export component TestCase inherits Window {
         "border-bottom-right-radius",
         "border-bottom-left-radius",
     ] {
-        assert!(bindings.contains_key(property_name), "{property_name} binding missing");
-        let binding = bindings.get(property_name).unwrap().borrow();
         assert!(
-            matches!(&binding.expression, Expression::PropertyReference(_)),
+            box_shadow.borrow().binding(property_name).is_some(),
+            "{property_name} binding missing"
+        );
+        let box_shadow_ref = box_shadow.borrow();
+        let binding = box_shadow_ref.binding(property_name).unwrap();
+        assert!(
+            matches!(binding.expression.ignore_debug_hooks(), Expression::PropertyReference(_)),
             "{property_name} should reference the source rectangle"
         );
     }

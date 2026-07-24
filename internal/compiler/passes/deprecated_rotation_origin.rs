@@ -22,9 +22,8 @@ pub fn handle_rotation_origin(component: &Component, diag: &mut BuildDiagnostics
                 if elem.borrow().is_property_set(prop) {
                     let span = match elem
                         .borrow()
-                        .bindings
-                        .get(prop)
-                        .and_then(|b| b.borrow().span.clone())
+                        .binding(prop)
+                        .and_then(|binding| binding.span.clone())
                     {
                         Some(span) => span,
                         None => {

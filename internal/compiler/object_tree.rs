@@ -2539,7 +2539,7 @@ impl Element {
             // either under their own name or through the deprecated viewport-* aliases.
             let (content_width_is_explicitly_set, content_height_is_explicitly_set) = {
                 let has_binding =
-                    |name| parent_elem.bindings.get(name).is_some_and(|b| b.borrow().has_binding());
+                    |name| parent_elem.binding(name).is_some_and(|b| b.has_binding());
                 (
                     has_binding("content-width") || has_binding("viewport-width"),
                     has_binding("content-height") || has_binding("viewport-height"),
@@ -3856,7 +3856,7 @@ pub fn visit_all_named_references_in_element(
     }
 
     // visit two way bindings
-    for expr in elem.borrow().bindings.values() {
+    for (_, expr) in elem.borrow().real_bindings() {
         for twb in &mut expr.borrow_mut().two_way_bindings {
             if let expression_tree::TwoWayBinding::Property { property, .. } = twb {
                 vis(property);
@@ -4363,10 +4363,10 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
         .unwrap();
         let expr_v =
             BindingExpression::new_with_span(expr_v, old_root.borrow().to_source_location());
-        li_v.element().borrow_mut().bindings.insert(li_v.name().clone(), expr_v.into());
+        li_v.element().borrow_mut().set_binding(li_v.name().clone(), expr_v);
         let expr_h =
             BindingExpression::new_with_span(expr_h, old_root.borrow().to_source_location());
-        li_h.element().borrow_mut().bindings.insert(li_h.name().clone(), expr_h.into());
+        li_h.element().borrow_mut().set_binding(li_h.name().clone(), expr_h);
         Some((li_h.clone(), li_v.clone()))
     });
     new_root.borrow_mut().layout_info_prop = layout_info_prop;
@@ -4395,11 +4395,11 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
 /// will cover the `injected_parent`
 pub fn adjust_geometry_for_injected_parent(injected_parent: &ElementRc, old_elem: &ElementRc) {
     let mut injected_parent_mut = injected_parent.borrow_mut();
-    injected_parent_mut.bindings.insert(
+    injected_parent_mut.set_binding(
         "z".into(),
-        RefCell::new(BindingExpression::new_two_way(
+        BindingExpression::new_two_way(
             NamedReference::new(old_elem, SmolStr::new_static("z")).into(),
-        )),
+        ),
     );
     // (should be removed by const propagation in the llr)
     injected_parent_mut.property_declarations.insert(
