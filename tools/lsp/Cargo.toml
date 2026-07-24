@@ -129,7 +129,7 @@ raw-window-handle = "0.6"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { workspace = true }
 crossbeam-channel = "0.5"                                                                                                # must match the version used by lsp-server
-lsp-server = "0.7"
+lsp-server = "0.10"
 tokio = { version = "1.50.0", features = ["rt", "sync", "time", "macros", "io-std", "io-util", "net", "fs", "process"] }
 dashmap = "6.1.0"
 mdns-sd = "0.20.0"
