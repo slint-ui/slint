@@ -2,6 +2,12 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.18.0] - Unreleased
+
+### General
+
+- Added support for physical keys to `keys` and `KeyBinding`
+
 ## [1.17.1] - 2026-07-07
 
  - Fixed a panic/crash on startup when a global reads `Palette.color-scheme` (or accent-color) during its initialization.

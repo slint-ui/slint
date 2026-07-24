@@ -7,6 +7,10 @@ export component Test inherits Window {
             MenuItem {
                 shortcut: @keys(Control + N);
             }
+            MenuItem {
+                shortcut: @physical-keys(Control + N);
+//                        >                          <error{@physical-keys(..) in MenuItem shortcuts are not supported.↵Use @keys(...) for menu shortcuts instead}
+            }
         }
     }
 

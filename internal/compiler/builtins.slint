@@ -1326,6 +1326,8 @@ component MenuItem {
     /// The keyboard shortcut for this `MenuItem`.
     ///
     /// This property can only be set in a `MenuItem` that is part of a <Link type="MenuBar"/>.
+    ///
+    /// Only shortcuts created with @keys() are supported, @physical-keys() are not supported.
     in property <keys> shortcut;
     /// When true, a checkmark will be shown next to the title of the `MenuItem`.
     /// \default false

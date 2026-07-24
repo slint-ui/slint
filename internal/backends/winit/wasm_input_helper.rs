@@ -157,6 +157,24 @@ impl WasmInputHelper {
                 }
             }
         });
+
+        fn process_key_event(
+            window: &i_slint_core::api::Window,
+            event: &web_sys::KeyboardEvent,
+            text: SharedString,
+            event_type: KeyEventType,
+        ) {
+            let mut key_event = KeyEvent::default();
+            key_event.text = text;
+            key_event.physical_key = physical_key_name(&event.code());
+            key_event.repeat = event.repeat();
+            WindowInner::from_pub(window).process_key_input(InternalKeyEvent {
+                key_event,
+                event_type,
+                ..Default::default()
+            });
+        }
+
         let win = window_adapter.clone();
         let shared_state2 = shared_state.clone();
         h.add_event_listener("keydown", move |e: web_sys::KeyboardEvent| {
@@ -177,12 +195,7 @@ impl WasmInputHelper {
                 }
 
                 shared_state2.borrow_mut().has_key_down = true;
-                let win_event = if e.repeat() {
-                    WindowEvent::KeyPressRepeated { text }
-                } else {
-                    WindowEvent::KeyPressed { text }
-                };
-                window_adapter.window().dispatch_event(win_event);
+                process_key_event(window_adapter.window(), &e, text, KeyEventType::KeyPressed);
             }
         });
 
@@ -194,7 +207,7 @@ impl WasmInputHelper {
             {
                 e.prevent_default();
                 shared_state2.borrow_mut().has_key_down = false;
-                window_adapter.window().dispatch_event(WindowEvent::KeyReleased { text });
+                process_key_event(window_adapter.window(), &e, text, KeyEventType::KeyReleased);
             }
         });
 
@@ -324,6 +337,19 @@ fn event_text(e: &web_sys::KeyboardEvent, is_apple: bool) -> Option<SharedString
         Some(first_char) if chars.next().is_none() => Some(first_char.into()),
         _ => None,
     }
+}
+
+/// Maps a W3C `KeyboardEvent.code` to a Slint physical key name.
+fn physical_key_name(code: &str) -> SharedString {
+    macro_rules! code_to_name {
+        ($($name:ident # $code:ident # $_xkb:literal # $_win:literal # $($_mac:literal)?;)*) => {
+            match code {
+                $(stringify!($code) => stringify!($name).into(),)*
+                _ => Default::default(),
+            }
+        };
+    }
+    i_slint_common::for_each_physical_keys!(code_to_name)
 }
 
 scoped_tls_hkt::scoped_thread_local!(static CURRENT_WASM_CLIPBOARD_DATA : for<'a> &'a RefCell<String>);

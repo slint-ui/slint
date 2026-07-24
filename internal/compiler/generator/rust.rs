@@ -3340,7 +3340,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let s = s.as_str();
             quote!(sp::SharedString::from(#s))
         }
-        Expression::KeysLiteral(..) => compile_keys_literal(expr),
+        Expression::KeysLiteral(keys) => compile_keys_literal(&keys),
         Expression::NumberLiteral(n) => {
             if n.is_nan() {
                 quote!(f64::NAN)
@@ -3522,8 +3522,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
 }
 
 #[inline(never)]
-fn compile_keys_literal(expr: &Expression) -> TokenStream {
-    let Expression::KeysLiteral(keys) = expr else { unreachable!() };
+fn compile_keys_literal(keys: &crate::langtype::Keys) -> TokenStream {
     let key = &*keys.key;
     let alt = keys.modifiers.alt;
     let control = keys.modifiers.control;
@@ -3531,20 +3530,22 @@ fn compile_keys_literal(expr: &Expression) -> TokenStream {
     let meta = keys.modifiers.meta;
     let ignore_shift = keys.ignore_shift;
     let ignore_alt = keys.ignore_alt;
+    let is_physical = keys.is_physical;
 
     quote!(
         sp::make_keys(
-            #key.into(),
-            {
-                let mut modifiers = sp::KeyboardModifiers::default();
-                modifiers.alt = #alt;
-                modifiers.control = #control;
-                modifiers.shift = #shift;
-                modifiers.meta = #meta;
-                modifiers
-            },
-            #ignore_shift,
-            #ignore_alt))
+	    #key.into(),
+	    {
+	        let mut modifiers = sp::KeyboardModifiers::default();
+	        modifiers.alt = #alt;
+	        modifiers.control = #control;
+	        modifiers.shift = #shift;
+	        modifiers.meta = #meta;
+	        modifiers
+	    },
+	    #ignore_shift,
+	    #ignore_alt,
+	    #is_physical))
 }
 
 #[inline(never)]

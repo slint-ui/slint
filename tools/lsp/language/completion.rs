@@ -286,8 +286,10 @@ pub(crate) fn completion_at(
         return with_lookup_ctx(document_cache, node, Some(offset), |ctx| {
             resolve_expression_scope(ctx, document_cache, snippet_support)
         })?;
-    } else if node.kind() == SyntaxKind::AtKeys {
-        return with_lookup_ctx(document_cache, node, Some(offset), at_keys_completions);
+    } else if matches!(node.kind(), SyntaxKind::AtKeys | SyntaxKind::AtPhysicalKeys) {
+        return with_lookup_ctx(document_cache, node.clone(), Some(offset), |ctx| {
+            at_key_like_completions(ctx, node.kind() == SyntaxKind::AtPhysicalKeys)
+        });
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
         match q.parent()?.kind() {
             SyntaxKind::Element => {
@@ -1447,6 +1449,7 @@ fn macro_completions(token: SyntaxToken, snippet_support: bool) -> Option<Vec<Co
             [
                 ("tr(..)", "tr(\"$1\")"),
                 ("keys(..)", "keys($1)"),
+                ("physical-keys(..)", "physical-keys($1)"),
                 ("markdown(..)", "markdown(\"$1\")"),
                 ("image-url(..)", "image-url(\"$1\")"),
                 ("linear-gradient(..)", "linear-gradient($1)"),
@@ -1465,17 +1468,31 @@ fn macro_completions(token: SyntaxToken, snippet_support: bool) -> Option<Vec<Co
     }
 }
 
-fn at_keys_completions(ctx: &mut LookupCtx) -> Vec<CompletionItem> {
-    let keys = i_slint_compiler::lookup::KeysLookup;
-
+fn at_key_like_completions(ctx: &mut LookupCtx, physical: bool) -> Vec<CompletionItem> {
     let mut completions = Vec::new();
-    keys.for_each_entry(ctx, &mut |label, _expr| -> Option<()> {
+    let mut push_key = |label: &str| {
         completions.push(
             CompletionItem::new_simple(label.to_string(), "".into())
                 .with_kind(CompletionItemKind::ENUM_MEMBER),
         );
-        None
-    });
+    };
+    if physical {
+        macro_rules! add_physical_key_completions {
+            ($($name:ident # $code:ident # $_xkb:literal # $_win:literal # $($_mac:literal)?;)*) => {
+                $(push_key(stringify!($name));)*
+            };
+        }
+        i_slint_common::for_each_physical_keys!(add_physical_key_completions);
+        for modifier in ["Control", "Alt", "Shift", "Meta"] {
+            push_key(modifier);
+        }
+    } else {
+        let keys = i_slint_compiler::lookup::KeysLookup;
+        keys.for_each_entry(ctx, &mut |label, _expr| -> Option<()> {
+            push_key(label);
+            None
+        });
+    }
     for modifier in ["Shift", "Alt"] {
         completions.push(
             CompletionItem::new_simple(
@@ -2258,6 +2275,31 @@ mod tests {
             ..Default::default()
         }]);
         assert_completions_found(expected, &res);
+    }
+
+    #[test]
+    fn physical_key_completion() {
+        let source = r#"
+            component Foo {
+                property <keys> shortcut: @physical-keys(🔺);
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        for label in [
+            "A",
+            "Digit1",
+            "BackQuote",
+            "LeftArrow",
+            "Shift?",
+            "Alt?",
+            "Control",
+            "Alt",
+            "Shift",
+            "Meta",
+        ] {
+            res.iter().find(|ci| ci.label == label).unwrap();
+        }
+        assert!(!res.iter().any(|ci| ci.label == "Plus"));
     }
 
     #[test]
