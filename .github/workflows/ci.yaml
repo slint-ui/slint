@@ -484,10 +484,10 @@ jobs:
         steps:
           - id: set
             run: |
-              # v5.2 always runs; v6.0 only in full mode (home-automation needs IDF 6)
-              entries='[{"esp-idf-version":"release-v5.2","idf-extra-args":""}]'
+              # v5.3 (minimum supported) always runs; v6.0 (latest) only in full mode (home-automation needs IDF 6)
+              entries='[{"esp-idf-version":"release-v5.3","idf-extra-args":""}]'
               if [ "${{ inputs.full }}" = "true" ]; then
-                entries='[{"esp-idf-version":"release-v5.2","idf-extra-args":""},{"esp-idf-version":"release-v6.0","idf-extra-args":"-D SLINT_ESP_LOCAL_EXAMPLE=OFF"}]'
+                entries='[{"esp-idf-version":"release-v5.3","idf-extra-args":""},{"esp-idf-version":"release-v6.0","idf-extra-args":"-D SLINT_ESP_LOCAL_EXAMPLE=OFF"}]'
               fi
               echo "matrix={\"include\":$entries}" >> "$GITHUB_OUTPUT"
 
