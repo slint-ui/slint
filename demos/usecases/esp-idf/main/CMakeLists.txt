@@ -14,3 +14,8 @@ set_target_properties(${COMPONENT_LIB} PROPERTIES
     SLINT_BUNDLE_TRANSLATIONS "${CMAKE_CURRENT_SOURCE_DIR}/../../lang"
 )
 target_link_options(${COMPONENT_LIB} PUBLIC -Wl,--allow-multiple-definition)
+
+# ESP-IDF 6 builds with a global -Werror. The newer P4 board BSP added fields to
+# bsp_display_config_t that the demo's designated initializer doesn't set, so keep
+# that warning non-fatal for this component.
+target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-error=missing-field-initializers)
