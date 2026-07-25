@@ -13,13 +13,12 @@ use esp_hal::delay::Delay;
 use esp_hal::dma::{DmaRxBuf, DmaTxBuf};
 use esp_hal::dma_buffers;
 use esp_hal::i2c::master::{Config as I2cConfig, I2c};
-use esp_hal::peripherals::Peripherals;
 use esp_hal::spi::Mode;
 use esp_hal::spi::master::{Config as SpiConfig, Spi};
 use esp_hal::time::{Instant, Rate};
 use esp_println::logger::init_logger_from_env;
 use ft3x68_rs::{FT3168_DEVICE_ADDRESS, Ft3x68Driver, ResetInterface};
-use log::{error, info};
+use log::info;
 use sh8601_rs::{
     ColorMode, DMA_CHUNK_SIZE, DisplaySize, ResetDriver, Sh8601Driver, Ws18AmoledDriver,
     framebuffer_size,
@@ -58,9 +57,26 @@ where
     }
 }
 
+// Display configuration for Waveshare ESP32-S3-Touch-AMOLED-1.8
+const DISPLAY_SIZE: DisplaySize = DisplaySize::new(368, 448);
+const FB_SIZE: usize = framebuffer_size(DISPLAY_SIZE, ColorMode::Rgb888);
+const FRAME_PIXELS: usize = 368 * 448;
+
+type SharedI2c = RefCellDevice<'static, I2c<'static, esp_hal::Blocking>>;
+type BoardDisplay =
+    Sh8601Driver<Ws18AmoledDriver, ResetDriver<SharedI2c>, embedded_graphics::pixelcolor::Rgb888>;
+type BoardTouch = Ft3x68Driver<SharedI2c, Delay, TouchResetDriver<SharedI2c>>;
+
+/// Board hardware constructed in [`init`] and consumed by the event loop.
+struct BoardState {
+    display: BoardDisplay,
+    touch_driver: BoardTouch,
+    pixel_buffer: Box<[Rgb8Pixel; FRAME_PIXELS]>,
+}
+
 struct EspBackend {
     window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,
-    peripherals: RefCell<Option<Peripherals>>,
+    state: RefCell<Option<BoardState>>,
 }
 
 impl slint::platform::Platform for EspBackend {
@@ -85,117 +101,112 @@ impl slint::platform::Platform for EspBackend {
 
 impl Default for EspBackend {
     fn default() -> Self {
-        EspBackend { window: RefCell::new(None), peripherals: RefCell::new(None) }
+        EspBackend { window: RefCell::new(None), state: RefCell::new(None) }
     }
 }
 
-/// Initializes the heap and sets the Slint platform.
+/// Initializes the heap, the board peripherals and sets the Slint platform.
 pub fn init() {
-    // Initialize peripherals first.
     let peripherals = esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::_240MHz));
     init_logger_from_env();
     info!("Peripherals initialized");
 
-    // Initialize the PSRAM allocator.
-    esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
+    // Register the PSRAM heap before anything allocates. PSRAM is consumed here;
+    // every other peripheral is used field by field below, so the whole
+    // `Peripherals` struct is never stored and no `steal` is needed.
+    esp_alloc::psram_allocator!(
+        peripherals.PSRAM,
+        esp_hal::psram,
+        esp_hal::psram::PsramConfig {
+            mode: esp_hal::psram::PsramMode::OctalSpi,
+            ..Default::default()
+        }
+    );
 
-    // Create an EspBackend that now owns the peripherals.
+    let delay = Delay::new();
+
+    // --- Begin SPI and Display Initialization ---
+    // DMA Buffers for SPI
+    let (rx_buffer, rx_descriptors, tx_buffer, tx_descriptors) = dma_buffers!(DMA_CHUNK_SIZE);
+    let dma_rx_buf = DmaRxBuf::new(rx_descriptors, rx_buffer).unwrap();
+    let dma_tx_buf = DmaTxBuf::new(tx_descriptors, tx_buffer).unwrap();
+
+    // SPI Configuration for Waveshare ESP32-S3 1.8inch AMOLED Touch Display
+    let lcd_spi = Spi::new(
+        peripherals.SPI2,
+        SpiConfig::default().with_frequency(Rate::from_mhz(40_u32)).with_mode(Mode::_0),
+    )
+    .unwrap()
+    .with_sio0(peripherals.GPIO4)
+    .with_sio1(peripherals.GPIO5)
+    .with_sio2(peripherals.GPIO6)
+    .with_sio3(peripherals.GPIO7)
+    .with_cs(peripherals.GPIO12)
+    .with_sck(peripherals.GPIO11)
+    .with_dma(peripherals.DMA_CH0)
+    .with_buffers(dma_rx_buf, dma_tx_buf);
+
+    // Shared I2C bus for Waveshare ESP32-S3 1.8inch AMOLED Touch Display
+    // Using embedded-hal-bus RefCellDevice for shared access
+    let i2c_instance =
+        I2c::new(peripherals.I2C0, I2cConfig::default().with_frequency(Rate::from_khz(400)))
+            .unwrap()
+            .with_sda(peripherals.GPIO15)
+            .with_scl(peripherals.GPIO14);
+
+    // Use StaticCell to create a shared I2C bus
+    static I2C_BUS: StaticCell<RefCell<I2c<'static, esp_hal::Blocking>>> = StaticCell::new();
+    let i2c_bus = I2C_BUS.init(RefCell::new(i2c_instance));
+
+    // Initialize the FT3x68 touch driver FIRST using shared I2C bus
+    info!("Initializing FT3x68 Touch Driver first...");
+
+    let touch_reset = TouchResetDriver::new(RefCellDevice::new(i2c_bus));
+    let mut touch_driver =
+        Ft3x68Driver::new(RefCellDevice::new(i2c_bus), FT3168_DEVICE_ADDRESS, touch_reset, delay);
+    touch_driver.initialize().expect("Failed to initialize touch driver");
+    info!("Touch driver initialized successfully");
+
+    // NOW initialize I2C GPIO Reset Pin for the WaveShare 1.8" AMOLED display
+    let reset = ResetDriver::new(RefCellDevice::new(i2c_bus));
+
+    // Initialize display driver for the Waveshare 1.8" AMOLED display
+    let ws_driver = Ws18AmoledDriver::new(lcd_spi);
+
+    // Instantiate and Initialize Display AFTER touch
+    info!("Initializing SH8601 Display after touch...");
+    let display = Sh8601Driver::new_heap::<_, FB_SIZE>(
+        ws_driver,
+        reset,
+        ColorMode::Rgb888,
+        DISPLAY_SIZE,
+        delay,
+    )
+    .expect("Display initialization failed");
+
+    info!("Display initialized successfully after touch");
+
+    // Create a pixel buffer for Slint to render into (allocate once).
+    let pixel_buffer: Box<[Rgb8Pixel; FRAME_PIXELS]> =
+        Box::new([Rgb8Pixel { r: 0, g: 0, b: 0 }; FRAME_PIXELS]);
+
     slint::platform::set_platform(Box::new(EspBackend {
-        peripherals: RefCell::new(Some(peripherals)),
         window: RefCell::new(None),
+        state: RefCell::new(Some(BoardState { display, touch_driver, pixel_buffer })),
     }))
     .expect("backend already initialized");
 }
 
 impl EspBackend {
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-        // Take and configure peripherals.
-        let peripherals = self.peripherals.borrow_mut().take().expect("Peripherals already taken");
+        let BoardState { mut display, mut touch_driver, mut pixel_buffer } =
+            self.state.borrow_mut().take().expect("event loop already running");
+        let pixel_buf: &mut [Rgb8Pixel] = &mut *pixel_buffer;
         let mut delay = Delay::new();
-
-        // Display configuration for Waveshare ESP32-S3-Touch-AMOLED-1.8
-        const DISPLAY_SIZE: DisplaySize = DisplaySize::new(368, 448);
-        const FB_SIZE: usize = framebuffer_size(DISPLAY_SIZE, ColorMode::Rgb888);
-
-        // --- Begin SPI and Display Initialization ---
-        // DMA Buffers for SPI
-        let (rx_buffer, rx_descriptors, tx_buffer, tx_descriptors) = dma_buffers!(DMA_CHUNK_SIZE);
-        let dma_rx_buf = DmaRxBuf::new(rx_descriptors, rx_buffer).unwrap();
-        let dma_tx_buf = DmaTxBuf::new(tx_descriptors, tx_buffer).unwrap();
-
-        // SPI Configuration for Waveshare ESP32-S3 1.8inch AMOLED Touch Display
-        let lcd_spi = Spi::new(
-            peripherals.SPI2,
-            SpiConfig::default().with_frequency(Rate::from_mhz(40_u32)).with_mode(Mode::_0),
-        )
-        .unwrap()
-        .with_sio0(peripherals.GPIO4)
-        .with_sio1(peripherals.GPIO5)
-        .with_sio2(peripherals.GPIO6)
-        .with_sio3(peripherals.GPIO7)
-        .with_cs(peripherals.GPIO12)
-        .with_sck(peripherals.GPIO11)
-        .with_dma(peripherals.DMA_CH0)
-        .with_buffers(dma_rx_buf, dma_tx_buf);
-
-        // Shared I2C bus for Waveshare ESP32-S3 1.8inch AMOLED Touch Display
-        // Using embedded-hal-bus RefCellDevice for shared access
-        let i2c_instance =
-            I2c::new(peripherals.I2C0, I2cConfig::default().with_frequency(Rate::from_khz(400)))
-                .unwrap()
-                .with_sda(peripherals.GPIO15)
-                .with_scl(peripherals.GPIO14);
-
-        // Use StaticCell to create a shared I2C bus
-        static I2C_BUS: StaticCell<RefCell<I2c<'static, esp_hal::Blocking>>> = StaticCell::new();
-        let i2c_bus = I2C_BUS.init(RefCell::new(i2c_instance));
-
-        // Initialize the FT3x68 touch driver FIRST using shared I2C bus
-        info!("Initializing FT3x68 Touch Driver first...");
-
-        let touch_reset = TouchResetDriver::new(RefCellDevice::new(i2c_bus));
-        let mut touch_driver = Ft3x68Driver::new(
-            RefCellDevice::new(i2c_bus),
-            FT3168_DEVICE_ADDRESS,
-            touch_reset,
-            delay,
-        );
-        touch_driver.initialize().expect("Failed to initialize touch driver");
-        info!("Touch driver initialized successfully");
-
-        // NOW initialize I2C GPIO Reset Pin for the WaveShare 1.8" AMOLED display
-        let reset = ResetDriver::new(RefCellDevice::new(i2c_bus));
-
-        // Initialize display driver for the Waveshare 1.8" AMOLED display
-        let ws_driver = Ws18AmoledDriver::new(lcd_spi);
-
-        // Instantiate and Initialize Display AFTER touch
-        info!("Initializing SH8601 Display after touch...");
-        let mut display = Sh8601Driver::new_heap::<_, FB_SIZE>(
-            ws_driver,
-            reset,
-            ColorMode::Rgb888,
-            DISPLAY_SIZE,
-            delay,
-        )
-        .map_err(|e| {
-            error!("Error initializing display: {:?}", e);
-            slint::PlatformError::Other("Display initialization failed".into())
-        })?;
-
-        info!("Display initialized successfully after touch");
 
         // Update the Slint window size from the display
         let size = slint::PhysicalSize::new(DISPLAY_SIZE.width as u32, DISPLAY_SIZE.height as u32);
         self.window.borrow().as_ref().unwrap().set_size(size);
-
-        // --- End Initialization ---
-
-        // Create a pixel buffer for Slint to render into (allocate once outside the loop)
-        const FRAME_PIXELS: usize = (368 * 448) as usize;
-        let mut pixel_buffer: Box<[Rgb8Pixel; FRAME_PIXELS]> =
-            Box::new([Rgb8Pixel { r: 0, g: 0, b: 0 }; FRAME_PIXELS]);
-        let pixel_buf: &mut [Rgb8Pixel] = &mut *pixel_buffer;
 
         // Variable to track the last touch position
         let mut last_touch: Option<LogicalPosition> = None;

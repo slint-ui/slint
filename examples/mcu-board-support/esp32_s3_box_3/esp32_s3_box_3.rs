@@ -11,7 +11,6 @@ use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::clock::CpuClock;
 use esp_hal::gpio::DriveMode;
-use esp_hal::peripherals::Peripherals;
 use esp_hal::time::Instant;
 use esp_hal::{
     delay::Delay,
@@ -28,6 +27,7 @@ use log::{error, info, warn};
 use mipidsi::options::{ColorOrder, Orientation, Rotation};
 use slint::platform::PointerEventButton;
 use slint::platform::WindowEvent;
+use static_cell::StaticCell;
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
@@ -37,9 +37,30 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
+type BoardI2c = I2c<'static, esp_hal::Blocking>;
+type BoardDisplay = mipidsi::Display<
+    mipidsi::interface::SpiInterface<
+        'static,
+        ExclusiveDevice<Spi<'static, esp_hal::Blocking>, Output<'static>, Delay>,
+        Output<'static>,
+    >,
+    mipidsi::models::ILI9486Rgb565,
+    Output<'static>,
+>;
+
+/// Board hardware constructed in [`init`] and consumed by the event loop.
+struct BoardState {
+    buffer_provider: DrawBuffer<'static, BoardDisplay>,
+    touch: Gt911Blocking<BoardI2c>,
+    i2c: BoardI2c,
+    // Kept alive for the lifetime of the event loop.
+    _backlight: Output<'static>,
+    _int_pin: Output<'static>,
+}
+
 struct EspBackend {
     window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,
-    peripherals: RefCell<Option<Peripherals>>,
+    state: RefCell<Option<BoardState>>,
 }
 
 impl slint::platform::Platform for EspBackend {
@@ -64,154 +85,169 @@ impl slint::platform::Platform for EspBackend {
 
 impl Default for EspBackend {
     fn default() -> Self {
-        EspBackend { window: RefCell::new(None), peripherals: RefCell::new(None) }
+        EspBackend { window: RefCell::new(None), state: RefCell::new(None) }
     }
 }
 
-/// Initializes the heap and sets the Slint platform.
+/// Initializes the heap, the board peripherals and sets the Slint platform.
 pub fn init() {
-    // Initialize peripherals first.
     let peripherals = esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::_240MHz));
     init_logger_from_env();
     info!("Peripherals initialized");
 
-    // Initialize the PSRAM allocator.
-    esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
+    // Register the PSRAM heap before anything allocates. PSRAM is consumed here;
+    // every other peripheral is used field by field below, so the whole
+    // `Peripherals` struct is never stored and no `steal` is needed.
+    esp_alloc::psram_allocator!(
+        peripherals.PSRAM,
+        esp_hal::psram,
+        esp_hal::psram::PsramConfig {
+            mode: esp_hal::psram::PsramMode::OctalSpi,
+            ..Default::default()
+        }
+    );
 
-    // Create an EspBackend that now owns the peripherals.
+    let mut delay = Delay::new();
+
+    // The following sequence is necessary to properly initialize touch on ESP32-S3-BOX-3
+    // Based on issue from ESP-IDF: https://github.com/espressif/esp-bsp/issues/302#issuecomment-1971559689
+    // Related code: https://github.com/espressif/esp-bsp/blob/30f0111a97b8fbe2efb7e58366fcf4d26b380f23/components/lcd_touch/esp_lcd_touch_gt911/esp_lcd_touch_gt911.c#L101-L133
+    // --- Begin GT911 I²C Address Selection Sequence ---
+    const ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS: u8 = 0x14;
+    const ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP: u8 = 0x5D;
+
+    // Our desired address.
+    const DESIRED_ADDR: u8 = 0x14;
+    // For desired address 0x14, assume the configuration’s reset level is false (i.e. 0 means active).
+    let reset_level = Level::Low;
+
+    // Configure the INT pin (GPIO3) as output; starting high because of internal pull-up.
+    let mut int_pin = Output::new(peripherals.GPIO3, Level::High, OutputConfig::default());
+    // Force INT low to prepare for address selection.
+    int_pin.set_low();
+    delay.delay_ms(10);
+    int_pin.set_low();
+    delay.delay_ms(1);
+
+    // Configure the shared RESET pin (GPIO48) as output in open–drain mode.
+    let mut rst = Output::new(
+        peripherals.GPIO48,
+        Level::Low, // start in active state
+        OutputConfig::default().with_drive_mode(DriveMode::OpenDrain),
+    );
+
+    // Set RESET to the reset-active level (here, false).
+    rst.set_level(reset_level);
+    // (Ensure INT remains low.)
+    int_pin.set_low();
+    delay.delay_ms(10);
+
+    // Now, select the I²C address:
+    // For GT911 address 0x14, the desired INT level is low; otherwise, for backup (0x5D) it would be high.
+    let gpio_level = if DESIRED_ADDR == ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS {
+        Level::Low
+    } else if DESIRED_ADDR == ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP {
+        Level::High
+    } else {
+        Level::Low
+    };
+    int_pin.set_level(gpio_level);
+    delay.delay_ms(1);
+
+    // Toggle the RESET pin:
+    // Release RESET by setting it to the opposite of the reset level.
+    rst.set_level(!reset_level);
+    delay.delay_ms(10);
+    delay.delay_ms(50);
+    // --- End GT911 I²C Address Selection Sequence ---
+
+    // --- Begin SPI and Display Initialization ---
+    let spi = Spi::<esp_hal::Blocking>::new(
+        peripherals.SPI2,
+        SpiConfig::default().with_frequency(Rate::from_mhz(40)).with_mode(SpiMode::_0),
+    )
+    .unwrap()
+    .with_sck(peripherals.GPIO7)
+    .with_mosi(peripherals.GPIO6);
+
+    // Display control pins.
+    let dc = Output::new(peripherals.GPIO4, Level::Low, OutputConfig::default());
+    let cs = Output::new(peripherals.GPIO5, Level::Low, OutputConfig::default());
+
+    // Wrap SPI into a bus. The interface buffer must outlive the display, so it
+    // lives in a `StaticCell`.
+    let spi_device = ExclusiveDevice::new(spi, cs, Delay::new()).unwrap();
+    static SPI_BUFFER: StaticCell<[u8; 512]> = StaticCell::new();
+    let di = mipidsi::interface::SpiInterface::new(spi_device, dc, SPI_BUFFER.init([0u8; 512]));
+
+    // Initialize the display.
+    let display = mipidsi::Builder::new(mipidsi::models::ILI9486Rgb565, di)
+        .reset_pin(rst)
+        .orientation(Orientation::new().rotate(Rotation::Deg180))
+        .color_order(ColorOrder::Bgr)
+        .init(&mut delay)
+        .unwrap();
+
+    // Set up the backlight pin.
+    let mut backlight = Output::new(peripherals.GPIO47, Level::Low, OutputConfig::default());
+    backlight.set_high();
+    // --- End Display Initialization ---
+
+    let mut i2c = I2c::new(
+        peripherals.I2C0,
+        esp_hal::i2c::master::Config::default().with_frequency(Rate::from_khz(400)),
+    )
+    .unwrap()
+    .with_sda(peripherals.GPIO8)
+    .with_scl(peripherals.GPIO18);
+
+    // Initialize the touch driver.
+    let mut touch = Gt911Blocking::new(ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS);
+    match touch.init(&mut i2c) {
+        Ok(_) => info!("Touch initialized"),
+        Err(e) => {
+            warn!("Touch initialization failed: {:?}", e);
+            let touch_fallback = Gt911Blocking::new(ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP);
+            match touch_fallback.init(&mut i2c) {
+                Ok(_) => {
+                    info!("Touch initialized with backup address");
+                    touch = touch_fallback;
+                }
+                Err(e) => error!("Touch initialization failed with backup address: {:?}", e),
+            }
+        }
+    }
+
+    // Prepare a draw buffer for the Slint software renderer. The line buffer must
+    // outlive the platform, so it lives in a `StaticCell`.
+    static LINE_BUFFER: StaticCell<[slint::platform::software_renderer::Rgb565Pixel; 320]> =
+        StaticCell::new();
+    let buffer_provider = DrawBuffer {
+        display,
+        buffer: LINE_BUFFER.init([slint::platform::software_renderer::Rgb565Pixel(0); 320]),
+    };
+
     slint::platform::set_platform(Box::new(EspBackend {
-        peripherals: RefCell::new(Some(peripherals)),
         window: RefCell::new(None),
+        state: RefCell::new(Some(BoardState {
+            buffer_provider,
+            touch,
+            i2c,
+            _backlight: backlight,
+            _int_pin: int_pin,
+        })),
     }))
     .expect("backend already initialized");
 }
 
 impl EspBackend {
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-        // Take and configure peripherals.
-        let peripherals = self.peripherals.borrow_mut().take().expect("Peripherals already taken");
-        let mut delay = Delay::new();
-
-        // The following sequence is necessary to properly initialize touch on ESP32-S3-BOX-3
-        // Based on issue from ESP-IDF: https://github.com/espressif/esp-bsp/issues/302#issuecomment-1971559689
-        // Related code: https://github.com/espressif/esp-bsp/blob/30f0111a97b8fbe2efb7e58366fcf4d26b380f23/components/lcd_touch/esp_lcd_touch_gt911/esp_lcd_touch_gt911.c#L101-L133
-        // --- Begin GT911 I²C Address Selection Sequence ---
-        // Define constants for the two possible addresses.
-        const ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS: u8 = 0x14;
-        const ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP: u8 = 0x5D;
-
-        // Our desired address.
-        const DESIRED_ADDR: u8 = 0x14;
-        // For desired address 0x14, assume the configuration’s reset level is false (i.e. 0 means active).
-        let reset_level = Level::Low;
-
-        // Configure the INT pin (GPIO3) as output; starting high because of internal pull-up.
-        let mut int_pin = Output::new(peripherals.GPIO3, Level::High, OutputConfig::default());
-        // Force INT low to prepare for address selection.
-        int_pin.set_low();
-        delay.delay_ms(10);
-        int_pin.set_low();
-        delay.delay_ms(1);
-
-        // Configure the shared RESET pin (GPIO48) as output in open–drain mode.
-        let mut rst = Output::new(
-            peripherals.GPIO48,
-            Level::Low, // start in active state
-            OutputConfig::default().with_drive_mode(DriveMode::OpenDrain),
-        );
-
-        // Set RESET to the reset-active level (here, false).
-        rst.set_level(reset_level);
-        // (Ensure INT remains low.)
-        int_pin.set_low();
-        delay.delay_ms(10);
-
-        // Now, select the I²C address:
-        // For GT911 address 0x14, the desired INT level is low; otherwise, for backup (0x5D) it would be high.
-        let gpio_level = if DESIRED_ADDR == ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS {
-            Level::Low
-        } else if DESIRED_ADDR == ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP {
-            Level::High
-        } else {
-            Level::Low
-        };
-        int_pin.set_level(gpio_level);
-        delay.delay_ms(1);
-
-        // Toggle the RESET pin:
-        // Release RESET by setting it to the opposite of the reset level.
-        rst.set_level(!reset_level);
-        delay.delay_ms(10);
-        delay.delay_ms(50);
-        // --- End GT911 I²C Address Selection Sequence ---
-
-        // --- Begin SPI and Display Initialization ---
-        let spi = Spi::<esp_hal::Blocking>::new(
-            peripherals.SPI2,
-            SpiConfig::default().with_frequency(Rate::from_mhz(40)).with_mode(SpiMode::_0),
-        )
-        .unwrap()
-        .with_sck(peripherals.GPIO7)
-        .with_mosi(peripherals.GPIO6);
-
-        // Display control pins.
-        let dc = Output::new(peripherals.GPIO4, Level::Low, OutputConfig::default());
-        let cs = Output::new(peripherals.GPIO5, Level::Low, OutputConfig::default());
-
-        // Wrap SPI into a bus.
-        let spi_delay = Delay::new();
-        let spi_device = ExclusiveDevice::new(spi, cs, spi_delay).unwrap();
-        let mut buffer = [0u8; 512];
-        let di = mipidsi::interface::SpiInterface::new(spi_device, dc, &mut buffer);
-
-        // Initialize the display.
-        let display = mipidsi::Builder::new(mipidsi::models::ILI9486Rgb565, di)
-            .reset_pin(rst)
-            .orientation(Orientation::new().rotate(Rotation::Deg180))
-            .color_order(ColorOrder::Bgr)
-            .init(&mut delay)
-            .unwrap();
-
-        // Set up the backlight pin.
-        let mut backlight = Output::new(peripherals.GPIO47, Level::Low, OutputConfig::default());
-        backlight.set_high();
+        let BoardState { mut buffer_provider, touch, mut i2c, _backlight, _int_pin } =
+            self.state.borrow_mut().take().expect("event loop already running");
 
         // Update the Slint window size from the display.
         let size = slint::PhysicalSize::new(320, 240);
         self.window.borrow().as_ref().unwrap().set_size(size);
-
-        // --- End Display Initialization ---
-
-        let mut i2c = I2c::new(
-            peripherals.I2C0,
-            esp_hal::i2c::master::Config::default().with_frequency(Rate::from_khz(400)),
-        )
-        .unwrap()
-        .with_sda(peripherals.GPIO8)
-        .with_scl(peripherals.GPIO18);
-
-        // Initialize the touch driver.
-        let mut touch = Gt911Blocking::new(ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS);
-        match touch.init(&mut i2c) {
-            Ok(_) => info!("Touch initialized"),
-            Err(e) => {
-                warn!("Touch initialization failed: {:?}", e);
-                let touch_fallback = Gt911Blocking::new(ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP);
-                match touch_fallback.init(&mut i2c) {
-                    Ok(_) => {
-                        info!("Touch initialized with backup address");
-                        touch = touch_fallback;
-                    }
-                    Err(e) => error!("Touch initialization failed with backup address: {:?}", e),
-                }
-            }
-        }
-
-        // Prepare a draw buffer for the Slint software renderer.
-        let mut buffer_provider = DrawBuffer {
-            display,
-            buffer: &mut [slint::platform::software_renderer::Rgb565Pixel(0); 320],
-        };
 
         // Variable to track the last touch position.
         let mut last_touch = None;

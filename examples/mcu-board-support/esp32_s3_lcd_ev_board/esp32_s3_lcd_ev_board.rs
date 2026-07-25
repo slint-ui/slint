@@ -44,7 +44,6 @@ where
 use alloc::boxed::Box;
 use esp_hal::dma::{CHUNK_SIZE, DmaDescriptor, DmaTxBuf};
 use esp_hal::i2c;
-use esp_hal::peripherals::Peripherals;
 use slint::LogicalPosition;
 use slint::PhysicalPosition;
 use slint::PhysicalSize;
@@ -75,7 +74,8 @@ use log::{error, info};
 // === Display constants ===
 const LCD_H_RES: u16 = 480;
 const LCD_V_RES: u16 = 480;
-const FRAME_BYTES: usize = (LCD_H_RES as usize * LCD_V_RES as usize) * 2;
+const FRAME_PIXELS: usize = LCD_H_RES as usize * LCD_V_RES as usize;
+const FRAME_BYTES: usize = FRAME_PIXELS * 2;
 const NUM_DMA_DESC: usize = (FRAME_BYTES + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
 // Place DMA descriptors in DMA-capable RAM
@@ -88,31 +88,205 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
+/// Board hardware constructed in [`init`] and consumed by the event loop.
+struct BoardState {
+    dpi: Dpi<'static, Blocking>,
+    dma_tx: DmaTxBuf,
+    pixel_box: Box<[Rgb565Pixel; FRAME_PIXELS]>,
+    touch: Ft5x06<I2c<'static, Blocking>>,
+}
+
 struct EspBackend {
     window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,
-    peripherals: RefCell<Option<Peripherals>>,
+    state: RefCell<Option<BoardState>>,
 }
 
 impl Default for EspBackend {
     fn default() -> Self {
-        EspBackend { window: RefCell::new(None), peripherals: RefCell::new(None) }
+        EspBackend { window: RefCell::new(None), state: RefCell::new(None) }
     }
 }
 
-/// Initialize the heap and set the Slint platform.
+/// Initialize the heap, the board peripherals and set the Slint platform.
 pub fn init() {
-    // Initialize peripherals first.
     let peripherals = esp_hal::init(HalConfig::default().with_cpu_clock(_240MHz));
     init_logger_from_env();
     info!("Peripherals initialized");
 
-    // Initialize the PSRAM allocator.
-    esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
+    // Register the PSRAM heap before anything allocates. PSRAM is consumed here;
+    // every other peripheral is used field by field below, so the whole
+    // `Peripherals` struct is never stored and no `steal` is needed.
+    esp_alloc::psram_allocator!(
+        peripherals.PSRAM,
+        esp_hal::psram,
+        esp_hal::psram::PsramConfig {
+            mode: esp_hal::psram::PsramMode::OctalSpi,
+            ..Default::default()
+        }
+    );
 
-    // Create and install the Slint backend that owns the peripherals.
+    // Setup I2C for the TCA9554 IO expander
+    let i2c = I2c::new(
+        peripherals.I2C0,
+        i2c::master::Config::default().with_frequency(Rate::from_khz(400)),
+    )
+    .unwrap()
+    .with_sda(peripherals.GPIO47)
+    .with_scl(peripherals.GPIO48);
+
+    // Initialize the IO expander for controlling the display
+    let mut expander = Tca9554::new(i2c);
+    expander.write_output_reg(0b1111_0011).unwrap();
+    expander.write_direction_reg(0b1111_0001).unwrap();
+
+    let delay = Delay::new();
+    info!("Initializing display...");
+
+    // Set up the write_byte function for sending commands to the display
+    let mut write_byte = |b: u8, is_cmd: bool| {
+        const SCS_BIT: u8 = 0b0000_0010;
+        const SCL_BIT: u8 = 0b0000_0100;
+        const SDA_BIT: u8 = 0b0000_1000;
+
+        let mut output = 0b1111_0001 & !SCS_BIT;
+        expander.write_output_reg(output).unwrap();
+
+        for bit in core::iter::once(!is_cmd).chain((0..8).map(|i| (b >> i) & 0b1 != 0).rev()) {
+            let prev = output;
+            if bit {
+                output |= SDA_BIT;
+            } else {
+                output &= !SDA_BIT;
+            }
+            if prev != output {
+                expander.write_output_reg(output).unwrap();
+            }
+
+            output &= !SCL_BIT;
+            expander.write_output_reg(output).unwrap();
+
+            output |= SCL_BIT;
+            expander.write_output_reg(output).unwrap();
+        }
+
+        output &= !SCL_BIT;
+        expander.write_output_reg(output).unwrap();
+
+        output &= !SDA_BIT;
+        expander.write_output_reg(output).unwrap();
+
+        output |= SCS_BIT;
+        expander.write_output_reg(output).unwrap();
+    };
+
+    // VSYNC must be high during initialization
+    let mut vsync_pin = peripherals.GPIO3;
+    let vsync_guard = Output::new(vsync_pin.reborrow(), Level::High, OutputConfig::default());
+
+    // Initialize the display by sending the initialization commands
+    for &init in INIT_CMDS.iter() {
+        match init {
+            InitCmd::Cmd(cmd, args) => {
+                write_byte(cmd, true);
+                for &arg in args {
+                    write_byte(arg, false);
+                }
+            }
+            InitCmd::Delay(ms) => {
+                delay.delay_millis(ms as _);
+            }
+        }
+    }
+    drop(vsync_guard);
+
+    // Set up DMA channel for LCD
+    let tx_channel = peripherals.DMA_CH2;
+    let lcd_cam = LcdCam::new(peripherals.LCD_CAM);
+
+    // Configure the RGB display
+    let config = DpiConfig::default()
+        .with_clock_mode(ClockMode { polarity: Polarity::IdleLow, phase: Phase::ShiftLow })
+        .with_frequency(Rate::from_mhz(10))
+        .with_format(Format { enable_2byte_mode: true, ..Default::default() })
+        .with_timing(FrameTiming {
+            horizontal_active_width: LCD_H_RES as usize,
+            vertical_active_height: LCD_V_RES as usize,
+            horizontal_total_width: 600,
+            horizontal_blank_front_porch: 80,
+            vertical_total_height: 600,
+            vertical_blank_front_porch: 80,
+            hsync_width: 10,
+            vsync_width: 4,
+            hsync_position: 10,
+        })
+        .with_vsync_idle_level(Level::High)
+        .with_hsync_idle_level(Level::High)
+        .with_de_idle_level(Level::Low)
+        .with_disable_black_region(false);
+
+    let mut dpi = Dpi::new(lcd_cam.lcd, tx_channel, config)
+        .unwrap()
+        .with_vsync(vsync_pin)
+        .with_hsync(peripherals.GPIO46)
+        .with_de(peripherals.GPIO17)
+        .with_pclk(peripherals.GPIO9)
+        .with_data0(peripherals.GPIO10)
+        .with_data1(peripherals.GPIO11)
+        .with_data2(peripherals.GPIO12)
+        .with_data3(peripherals.GPIO13)
+        .with_data4(peripherals.GPIO14)
+        .with_data5(peripherals.GPIO21)
+        .with_data6(peripherals.GPIO8)
+        .with_data7(peripherals.GPIO18)
+        .with_data8(peripherals.GPIO45)
+        .with_data9(peripherals.GPIO38)
+        .with_data10(peripherals.GPIO39)
+        .with_data11(peripherals.GPIO40)
+        .with_data12(peripherals.GPIO41)
+        .with_data13(peripherals.GPIO42)
+        .with_data14(peripherals.GPIO2)
+        .with_data15(peripherals.GPIO1);
+
+    info!("Display initialized");
+
+    // Allocate a PSRAM-backed DMA buffer for the frame
+    let buf_box: Box<[u8; FRAME_BYTES]> = Box::new([0; FRAME_BYTES]);
+    let psram_buf: &'static mut [u8] = Box::leak(buf_box);
+    let mut dma_tx: DmaTxBuf = unsafe {
+        let descriptors = &mut *core::ptr::addr_of_mut!(TX_DESCRIPTORS);
+        DmaTxBuf::new(descriptors, psram_buf).unwrap()
+    };
+    let pixel_box: Box<[Rgb565Pixel; FRAME_PIXELS]> = Box::new([Rgb565Pixel(0); FRAME_PIXELS]);
+    // Initialize the DMA buffer from the (blank) pixel buffer.
+    {
+        let dst = dma_tx.as_mut_slice();
+        for (i, px) in pixel_box.iter().enumerate() {
+            let [lo, hi] = px.0.to_le_bytes();
+            dst[2 * i] = lo;
+            dst[2 * i + 1] = hi;
+        }
+    }
+    // Initial flush of the screen buffer
+    match dpi.send(false, dma_tx) {
+        Ok(xfer) => {
+            let (_res, dpi2, tx2) = xfer.wait();
+            dpi = dpi2;
+            dma_tx = tx2;
+        }
+        Err((e, dpi2, tx2)) => {
+            error!("Initial DMA send error: {:?}", e);
+            dpi = dpi2;
+            dma_tx = tx2;
+        }
+    }
+
+    // Initialize FT5x06 touch controller. Reclaim the I2C bus from the expander.
+    let i2c_bus = expander.into_i2c();
+    let touch = Ft5x06::new(i2c_bus, 0x38);
+
     slint::platform::set_platform(Box::new(EspBackend {
         window: RefCell::new(None),
-        peripherals: RefCell::new(Some(peripherals)),
+        state: RefCell::new(Some(BoardState { dpi, dma_tx, pixel_box, touch })),
     }))
     .expect("Slint platform already initialized");
 }
@@ -133,176 +307,14 @@ impl slint::platform::Platform for EspBackend {
     }
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-        // Reinitialize peripherals, PSRAM, and logger
-        let peripherals = self.peripherals.borrow_mut().take().expect("Peripherals already taken");
-
-        // Setup I2C for the TCA9554 IO expander
-        let i2c = I2c::new(
-            peripherals.I2C0,
-            i2c::master::Config::default().with_frequency(Rate::from_khz(400)),
-        )
-        .unwrap()
-        .with_sda(peripherals.GPIO47)
-        .with_scl(peripherals.GPIO48);
-
-        // Initialize the IO expander for controlling the display
-        let mut expander = Tca9554::new(i2c);
-        expander.write_output_reg(0b1111_0011).unwrap();
-        expander.write_direction_reg(0b1111_0001).unwrap();
-
-        let delay = Delay::new();
-        info!("Initializing display...");
-
-        // Set up the write_byte function for sending commands to the display
-        let mut write_byte = |b: u8, is_cmd: bool| {
-            const SCS_BIT: u8 = 0b0000_0010;
-            const SCL_BIT: u8 = 0b0000_0100;
-            const SDA_BIT: u8 = 0b0000_1000;
-
-            let mut output = 0b1111_0001 & !SCS_BIT;
-            expander.write_output_reg(output).unwrap();
-
-            for bit in core::iter::once(!is_cmd).chain((0..8).map(|i| (b >> i) & 0b1 != 0).rev()) {
-                let prev = output;
-                if bit {
-                    output |= SDA_BIT;
-                } else {
-                    output &= !SDA_BIT;
-                }
-                if prev != output {
-                    expander.write_output_reg(output).unwrap();
-                }
-
-                output &= !SCL_BIT;
-                expander.write_output_reg(output).unwrap();
-
-                output |= SCL_BIT;
-                expander.write_output_reg(output).unwrap();
-            }
-
-            output &= !SCL_BIT;
-            expander.write_output_reg(output).unwrap();
-
-            output &= !SDA_BIT;
-            expander.write_output_reg(output).unwrap();
-
-            output |= SCS_BIT;
-            expander.write_output_reg(output).unwrap();
-        };
-
-        // VSYNC must be high during initialization
-        let mut vsync_pin = peripherals.GPIO3;
-        let vsync_guard = Output::new(vsync_pin.reborrow(), Level::High, OutputConfig::default());
-
-        // Initialize the display by sending the initialization commands
-        for &init in INIT_CMDS.iter() {
-            match init {
-                InitCmd::Cmd(cmd, args) => {
-                    write_byte(cmd, true);
-                    for &arg in args {
-                        write_byte(arg, false);
-                    }
-                }
-                InitCmd::Delay(ms) => {
-                    delay.delay_millis(ms as _);
-                }
-            }
-        }
-        drop(vsync_guard);
-
-        // Set up DMA channel for LCD
-        let tx_channel = peripherals.DMA_CH2;
-        let lcd_cam = LcdCam::new(peripherals.LCD_CAM);
-
-        // Configure the RGB display
-        let config = DpiConfig::default()
-            .with_clock_mode(ClockMode { polarity: Polarity::IdleLow, phase: Phase::ShiftLow })
-            .with_frequency(Rate::from_mhz(10))
-            .with_format(Format { enable_2byte_mode: true, ..Default::default() })
-            .with_timing(FrameTiming {
-                horizontal_active_width: LCD_H_RES as usize,
-                vertical_active_height: LCD_V_RES as usize,
-                horizontal_total_width: 600,
-                horizontal_blank_front_porch: 80,
-                vertical_total_height: 600,
-                vertical_blank_front_porch: 80,
-                hsync_width: 10,
-                vsync_width: 4,
-                hsync_position: 10,
-            })
-            .with_vsync_idle_level(Level::High)
-            .with_hsync_idle_level(Level::High)
-            .with_de_idle_level(Level::Low)
-            .with_disable_black_region(false);
-
-        let mut dpi = Dpi::new(lcd_cam.lcd, tx_channel, config)
-            .unwrap()
-            .with_vsync(vsync_pin.reborrow())
-            .with_hsync(peripherals.GPIO46)
-            .with_de(peripherals.GPIO17)
-            .with_pclk(peripherals.GPIO9)
-            .with_data0(peripherals.GPIO10)
-            .with_data1(peripherals.GPIO11)
-            .with_data2(peripherals.GPIO12)
-            .with_data3(peripherals.GPIO13)
-            .with_data4(peripherals.GPIO14)
-            .with_data5(peripherals.GPIO21)
-            .with_data6(peripherals.GPIO8)
-            .with_data7(peripherals.GPIO18)
-            .with_data8(peripherals.GPIO45)
-            .with_data9(peripherals.GPIO38)
-            .with_data10(peripherals.GPIO39)
-            .with_data11(peripherals.GPIO40)
-            .with_data12(peripherals.GPIO41)
-            .with_data13(peripherals.GPIO42)
-            .with_data14(peripherals.GPIO2)
-            .with_data15(peripherals.GPIO1);
-
-        info!("Display initialized, entering main loop...");
-
-        const FRAME_PIXELS: usize = (LCD_H_RES as usize) * (LCD_V_RES as usize);
-        const FRAME_BYTES: usize = FRAME_PIXELS * 2;
-
-        // Allocate a PSRAM-backed DMA buffer for the frame
-        let buf_box: Box<[u8; FRAME_BYTES]> = Box::new([0; FRAME_BYTES]);
-        let psram_buf: &'static mut [u8] = Box::leak(buf_box);
-        let mut dma_tx: DmaTxBuf = unsafe {
-            let descriptors = &mut *core::ptr::addr_of_mut!(TX_DESCRIPTORS);
-            DmaTxBuf::new(descriptors, psram_buf).unwrap()
-        };
-        let mut pixel_box: Box<[Rgb565Pixel; FRAME_PIXELS]> =
-            Box::new([Rgb565Pixel(0); FRAME_PIXELS]);
+        let BoardState { mut dpi, mut dma_tx, mut pixel_box, mut touch } =
+            self.state.borrow_mut().take().expect("event loop already running");
         let pixel_buf: &mut [Rgb565Pixel] = &mut *pixel_box;
-        // Initialize pixel buffer and DMA buffer
-        // The pixel buffer will be filled by Slint's renderer in the main loop
-        let dst = dma_tx.as_mut_slice();
-        for (i, px) in pixel_buf.iter().enumerate() {
-            let [lo, hi] = px.0.to_le_bytes();
-            dst[2 * i] = lo;
-            dst[2 * i + 1] = hi;
-        }
-        // Initial flush of the screen buffer
-        match dpi.send(false, dma_tx) {
-            Ok(xfer) => {
-                let (_res, dpi2, tx2) = xfer.wait();
-                dpi = dpi2;
-                dma_tx = tx2;
-            }
-            Err((e, dpi2, tx2)) => {
-                error!("Initial DMA send error: {:?}", e);
-                dpi = dpi2;
-                dma_tx = tx2;
-            }
-        }
 
         // Tell Slint the window dimensions match the DPI display resolution
         let size = PhysicalSize::new(LCD_H_RES.into(), LCD_V_RES.into());
         self.window.borrow().as_ref().expect("Window adapter not created").set_size(size);
 
-        // Initialize FT5x06 touch controller on I2C1 (example pins)
-        // Reclaim the I2C bus from the expander for FT5x06
-        let i2c_bus = expander.into_i2c();
-        let mut touch = Ft5x06::new(i2c_bus, 0x38);
         let mut last_touch: Option<LogicalPosition> = None;
 
         loop {
