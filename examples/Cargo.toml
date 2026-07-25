@@ -20,7 +20,6 @@ members = [
   'gstreamer-player',
   'imagefilter/rust',
   'maps',
-  'mcu-board-support',
   'memory',
   'native-gestures',
   'opengl_texture',
@@ -40,16 +39,9 @@ members = [
   'servo',
 ]
 
-# safe-ui keeps its own workspace because of its custom MCU `[profile]`
-# (opt-level = "s"), which can only be set at a workspace root.
-#
-# mcu-embassy and uefi-demo keep their own workspaces because they cannot build
-# for the host: mcu-embassy defaults to its `mcu` feature (cortex-m / embassy,
-# ARM-only) and uefi-demo's dependencies are all `cfg(target_os = "uefi")`.
-# Keeping them out of this workspace lets a plain `cargo build` (and rust-analyzer)
-# work here without their embedded-only toolchains. They are built separately in
-# CI against their respective targets.
-exclude = ['safe-ui', 'mcu-embassy', 'uefi-demo']
+# These keep their own workspace (custom MCU profile, no host build, or
+# conflicting board-HAL riscv-rt versions) and are built separately in CI.
+exclude = ['safe-ui', 'mcu-board-support', 'mcu-embassy', 'uefi-demo']
 
 resolver = "3"
 

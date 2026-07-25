@@ -13,7 +13,6 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::RefCell;
 use embedded_graphics_core::draw_target::DrawTarget;
-use embedded_graphics_core::geometry::OriginDimensions;
 use embedded_graphics_core::pixelcolor::RgbColor;
 use embedded_hal::delay::DelayNs;
 use embedded_hal::digital::OutputPin;
@@ -21,7 +20,6 @@ use embedded_hal_bus::spi::ExclusiveDevice;
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::clock::CpuClock;
-use esp_hal::peripherals::Peripherals;
 use esp_hal::time::Instant;
 use esp_hal::{
     delay::Delay,
@@ -98,9 +96,29 @@ where
     }
 }
 
+type SharedI2c = RefCellDevice<'static, I2c<'static, esp_hal::Blocking>>;
+type BoardDisplay = mipidsi::Display<
+    mipidsi::interface::SpiInterface<
+        'static,
+        ExclusiveDevice<Spi<'static, esp_hal::Blocking>, Output<'static>, Delay>,
+        Output<'static>,
+    >,
+    mipidsi::models::ILI9342CRgb565,
+    Output<'static>,
+>;
+type BoardTouch = Ft3x68Driver<SharedI2c, Delay, TouchResetDriverAW9523<SharedI2c>>;
+
+/// Board hardware constructed in [`init`] and consumed by the event loop.
+struct BoardState {
+    buffer_provider: DrawBuffer<'static, BoardDisplay>,
+    touch_driver: BoardTouch,
+    // Kept alive for the lifetime of the event loop.
+    _backlight: Output<'static>,
+}
+
 struct EspBackend {
     window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,
-    peripherals: RefCell<Option<Peripherals>>,
+    state: RefCell<Option<BoardState>>,
 }
 
 impl slint::platform::Platform for EspBackend {
@@ -125,24 +143,136 @@ impl slint::platform::Platform for EspBackend {
 
 impl Default for EspBackend {
     fn default() -> Self {
-        EspBackend { window: RefCell::new(None), peripherals: RefCell::new(None) }
+        EspBackend { window: RefCell::new(None), state: RefCell::new(None) }
     }
 }
 
-/// Initializes the heap and sets the Slint platform.
+/// Initializes the heap, the board peripherals and sets the Slint platform.
 pub fn init() {
-    // Initialize peripherals first.
     let peripherals = esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::_240MHz));
     init_logger_from_env();
     info!("Peripherals initialized");
 
-    // Initialize the PSRAM allocator.
-    esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
+    // Register the PSRAM heap before anything allocates. PSRAM is consumed here;
+    // every other peripheral is used field by field below, so the whole
+    // `Peripherals` struct is never stored and no `steal` is needed.
+    esp_alloc::psram_allocator!(
+        peripherals.PSRAM,
+        esp_hal::psram,
+        esp_hal::psram::PsramConfig {
+            mode: esp_hal::psram::PsramMode::QuadSpi,
+            ..Default::default()
+        }
+    );
 
-    // Create an EspBackend that now owns the peripherals.
+    let mut delay = Delay::new();
+
+    // --- Initialize I2C bus for all I2C devices (AXP2101, AW9523, touch controller) ---
+    let power_i2c = I2c::new(
+        peripherals.I2C0,
+        esp_hal::i2c::master::Config::default().with_frequency(Rate::from_khz(400)),
+    )
+    .unwrap()
+    .with_sda(peripherals.GPIO12) // AXP2101 SDA
+    .with_scl(peripherals.GPIO11); // AXP2101 SCL
+
+    // --- Use StaticCell to create a shared I2C bus for all I2C devices ---
+    static I2C_BUS: StaticCell<RefCell<I2c<'static, esp_hal::Blocking>>> = StaticCell::new();
+    let i2c_bus = I2C_BUS.init(RefCell::new(power_i2c));
+
+    // --- Begin AXP2101 Power Management Initialization ---
+    // Initialize power management using shared I2C bus - critical for M5Stack CoreS3
+    init_axp2101_power(RefCellDevice::new(i2c_bus))
+        .expect("Failed to initialize AXP2101 power management");
+    info!("Power management initialized successfully");
+
+    // Small delay to let power rails stabilize
+    delay.delay_ms(100);
+
+    // --- Begin AW9523 GPIO Expander Initialization ---
+    // Initialize AW9523 GPIO expander using M5Stack CoreS3 specific sequence
+    init_aw9523_gpio_expander(RefCellDevice::new(i2c_bus))
+        .expect("Failed to initialize AW9523 GPIO expander");
+    info!("AW9523 GPIO expander initialized successfully");
+    // --- End AW9523 Initialization ---
+
+    // --- Begin SPI and Display Initialization ---
+    let spi = Spi::<esp_hal::Blocking>::new(
+        peripherals.SPI2,
+        SpiConfig::default().with_frequency(Rate::from_mhz(40)).with_mode(SpiMode::_0),
+    )
+    .unwrap()
+    .with_sck(peripherals.GPIO36) // SPI Clock
+    .with_mosi(peripherals.GPIO37); // SPI MOSI
+
+    // Display control pins
+    let dc = Output::new(peripherals.GPIO35, Level::Low, OutputConfig::default()); // D/C pin
+    let cs = Output::new(peripherals.GPIO3, Level::High, OutputConfig::default()); // CS pin
+    let reset = Output::new(peripherals.GPIO15, Level::High, OutputConfig::default()); // Reset pin
+
+    // Wrap SPI into a bus. The interface buffer must outlive the display, so it
+    // lives in a `StaticCell`.
+    let spi_device = ExclusiveDevice::new(spi, cs, Delay::new()).unwrap();
+    static SPI_BUFFER: StaticCell<[u8; 512]> = StaticCell::new();
+    let di = mipidsi::interface::SpiInterface::new(spi_device, dc, SPI_BUFFER.init([0u8; 512]));
+
+    // Add small delay before display initialization
+    delay.delay_ms(10);
+
+    // Initialize the display with settings
+    let mut display = mipidsi::Builder::new(mipidsi::models::ILI9342CRgb565, di)
+        .reset_pin(reset)
+        .display_size(320, 240)
+        .color_order(ColorOrder::Bgr)
+        .invert_colors(ColorInversion::Inverted)
+        .init(&mut delay)
+        .unwrap();
+
+    // Clear display to test it's working
+    use embedded_graphics::pixelcolor::Rgb565;
+    display.clear(Rgb565::BLUE).expect("Display clear failed");
+    info!("Display initialized and cleared to blue");
+
+    // Set up the backlight pin (controlled via AXP2101, but we can use GPIO for basic control)
+    let mut backlight = Output::new(peripherals.GPIO16, Level::Low, OutputConfig::default());
+    backlight.set_high(); // Enable backlight
+    // --- End Display Initialization ---
+
+    // --- Begin Touch Initialization ---
+    info!("Initializing FT6336U touch controller...");
+
+    // Create touch reset driver using shared I2C bus
+    let touch_reset = TouchResetDriverAW9523::new(RefCellDevice::new(i2c_bus));
+
+    // Initialize FT6336U touch driver using shared I2C bus
+    let mut touch_driver =
+        Ft3x68Driver::new(RefCellDevice::new(i2c_bus), FT6336U_DEVICE_ADDRESS, touch_reset, delay);
+
+    match touch_driver.initialize() {
+        Ok(_) => info!("FT6336U touch controller initialized successfully"),
+        Err(e) => {
+            error!("Touch initialization failed: {:?}", e);
+            // Continue without touch
+        }
+    }
+    // --- End Touch Initialization ---
+
+    // Prepare a draw buffer for the Slint software renderer. The line buffer must
+    // outlive the platform, so it lives in a `StaticCell`.
+    static LINE_BUFFER: StaticCell<[slint::platform::software_renderer::Rgb565Pixel; 320]> =
+        StaticCell::new();
+    let buffer_provider = DrawBuffer {
+        display,
+        buffer: LINE_BUFFER.init([slint::platform::software_renderer::Rgb565Pixel(0); 320]),
+    };
+
     slint::platform::set_platform(Box::new(EspBackend {
-        peripherals: RefCell::new(Some(peripherals)),
         window: RefCell::new(None),
+        state: RefCell::new(Some(BoardState {
+            buffer_provider,
+            touch_driver,
+            _backlight: backlight,
+        })),
     }))
     .expect("backend already initialized");
 }
@@ -246,133 +376,12 @@ where
 
 impl EspBackend {
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-        // Take and configure peripherals.
-        let peripherals = self.peripherals.borrow_mut().take().expect("Peripherals already taken");
-        let mut delay = Delay::new();
-
-        // --- Initialize I2C bus for all I2C devices (AXP2101, AW9523, touch controller) ---
-        let power_i2c = I2c::new(
-            peripherals.I2C0,
-            esp_hal::i2c::master::Config::default().with_frequency(Rate::from_khz(400)),
-        )
-        .unwrap()
-        .with_sda(peripherals.GPIO12) // AXP2101 SDA
-        .with_scl(peripherals.GPIO11); // AXP2101 SCL
-
-        // --- Use StaticCell to create a shared I2C bus for all I2C devices ---
-        static I2C_BUS: StaticCell<RefCell<I2c<'static, esp_hal::Blocking>>> = StaticCell::new();
-        let i2c_bus = I2C_BUS.init(RefCell::new(power_i2c));
-
-        // --- Begin AXP2101 Power Management Initialization ---
-        // Initialize power management using shared I2C bus - critical for M5Stack CoreS3
-        match init_axp2101_power(RefCellDevice::new(i2c_bus)) {
-            Ok(_) => {
-                info!("Power management initialized successfully");
-            }
-            Err(_) => {
-                error!("Failed to initialize AXP2101 power management");
-                // Return error since power management is critical
-                return Err(slint::PlatformError::Other("AXP2101 initialization failed".into()));
-            }
-        };
-
-        // Small delay to let power rails stabilize
-        delay.delay_ms(100);
-
-        // --- Begin AW9523 GPIO Expander Initialization ---
-        // Initialize AW9523 GPIO expander using M5Stack CoreS3 specific sequence
-        match init_aw9523_gpio_expander(RefCellDevice::new(i2c_bus)) {
-            Ok(_) => {
-                info!("AW9523 GPIO expander initialized successfully");
-            }
-            Err(_) => {
-                error!("Failed to initialize AW9523 GPIO expander");
-                // Return error since GPIO expander is needed for touch
-                return Err(slint::PlatformError::Other("AW9523 initialization failed".into()));
-            }
-        };
-        // --- End AW9523 Initialization ---
-
-        // --- Begin SPI and Display Initialization ---
-        let spi = Spi::<esp_hal::Blocking>::new(
-            peripherals.SPI2,
-            SpiConfig::default().with_frequency(Rate::from_mhz(40)).with_mode(SpiMode::_0),
-        )
-        .unwrap()
-        .with_sck(peripherals.GPIO36) // SPI Clock
-        .with_mosi(peripherals.GPIO37); // SPI MOSI
-
-        // Display control pins
-        let dc = Output::new(peripherals.GPIO35, Level::Low, OutputConfig::default()); // D/C pin
-        let cs = Output::new(peripherals.GPIO3, Level::High, OutputConfig::default()); // CS pin
-        let reset = Output::new(peripherals.GPIO15, Level::High, OutputConfig::default()); // Reset pin
-
-        // Wrap SPI into a bus.
-        let spi_delay = Delay::new();
-        let spi_device = ExclusiveDevice::new(spi, cs, spi_delay).unwrap();
-
-        // Create buffer for display interface
-        let mut buffer = [0u8; 512];
-        let di = mipidsi::interface::SpiInterface::new(spi_device, dc, &mut buffer);
-
-        // Add small delay before display initialization
-        delay.delay_ms(10);
-
-        // Initialize the display with settings
-        let mut display = mipidsi::Builder::new(mipidsi::models::ILI9342CRgb565, di)
-            .reset_pin(reset)
-            .display_size(320, 240)
-            .color_order(ColorOrder::Bgr)
-            .invert_colors(ColorInversion::Inverted)
-            .init(&mut delay)
-            .unwrap();
-
-        // Clear display to test it's working
-        use embedded_graphics::pixelcolor::Rgb565;
-        display
-            .clear(Rgb565::BLUE)
-            .map_err(|_| slint::PlatformError::Other("Display clear failed".into()))?;
-        info!("Display initialized and cleared to blue");
-
-        // Set up the backlight pin (controlled via AXP2101, but we can use GPIO for basic control)
-        let mut backlight = Output::new(peripherals.GPIO16, Level::Low, OutputConfig::default());
-        backlight.set_high(); // Enable backlight
+        let BoardState { mut buffer_provider, mut touch_driver, _backlight } =
+            self.state.borrow_mut().take().expect("event loop already running");
 
         // Update the Slint window size from the display (320x240 for M5Stack CoreS3)
-        let size = display.size();
-        let size = slint::PhysicalSize::new(size.width, size.height);
+        let size = slint::PhysicalSize::new(320, 240);
         self.window.borrow().as_ref().unwrap().set_size(size);
-
-        // --- End Display Initialization ---
-
-        // --- Begin Touch Initialization ---
-        info!("Initializing FT6336U touch controller...");
-
-        // Create touch reset driver using shared I2C bus
-        let touch_reset = TouchResetDriverAW9523::new(RefCellDevice::new(i2c_bus));
-
-        // Initialize FT6336U touch driver using shared I2C bus
-        let mut touch_driver = Ft3x68Driver::new(
-            RefCellDevice::new(i2c_bus),
-            FT6336U_DEVICE_ADDRESS,
-            touch_reset,
-            delay,
-        );
-
-        match touch_driver.initialize() {
-            Ok(_) => info!("FT6336U touch controller initialized successfully"),
-            Err(e) => {
-                error!("Touch initialization failed: {:?}", e);
-                // Continue without touch
-            }
-        }
-        // --- End Touch Initialization ---
-
-        // Prepare a draw buffer for the Slint software renderer
-        let mut buffer_provider = DrawBuffer {
-            display,
-            buffer: &mut [slint::platform::software_renderer::Rgb565Pixel(0); 320],
-        };
 
         // Variable to track the last touch position
         let mut last_touch = None;
