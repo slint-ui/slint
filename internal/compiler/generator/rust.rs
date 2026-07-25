@@ -1495,6 +1495,7 @@ fn generate_sub_component(
 
     let mut sub_component_names: Vec<Ident> = Vec::new();
     let mut sub_component_types: Vec<Ident> = Vec::new();
+    let mut sub_component_index_slots: Vec<TokenStream> = Vec::new();
 
     for sub in &component.sub_components {
         let field_name = ident(&sub.name);
@@ -1551,41 +1552,25 @@ fn generate_sub_component(
             ));
         }
 
+        // One data-table slot per sub-component instance; the per-index queries
+        // (geometry, accessibility, element infos) resolve through it at runtime
+        // via `sp::resolve_item_index` instead of per-query forwarding match arms.
         let sub_items_count = sc.child_item_count(root);
-        accessible_role_branch.push(quote!(
-            #local_tree_index => #sub_compo_field.apply_pin(_self).accessible_role(0),
+        let (children_begin, children_end) = if sub_items_count > 1 {
+            let begin = local_index_of_first_child;
+            (begin, begin + sub_items_count - 2 + sc.repeater_count(root))
+        } else {
+            // empty range: the sub-component consists only of its root item
+            (1, 0)
+        };
+        sub_component_index_slots.push(quote!(
+            sp::SubComponentIndexSlot {
+                apply: |base| #sub_compo_field.apply_pin(base),
+                tree_index: #local_tree_index,
+                children_begin: #children_begin,
+                children_end: #children_end,
+            }
         ));
-        accessible_string_property_branch.push(quote!(
-            (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(0, what),
-        ));
-        accessibility_action_branch.push(quote!(
-            (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessibility_action(0, action),
-        ));
-        supported_accessibility_actions_branch.push(quote!(
-            #local_tree_index => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(0),
-        ));
-        if sub_items_count > 1 {
-            let range_begin = local_index_of_first_child;
-            let range_end = range_begin + sub_items_count - 2 + sc.repeater_count(root);
-            accessible_role_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).accessible_role(index - #range_begin + 1),
-            ));
-            accessible_string_property_branch.push(quote!(
-                (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(index - #range_begin + 1, what),
-            ));
-            item_geometry_branch.push(quote!(
-                #range_begin..=#range_end => return #sub_compo_field.apply_pin(_self).item_geometry(index - #range_begin + 1),
-            ));
-            accessibility_action_branch.push(quote!(
-                (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessibility_action(index - #range_begin + 1, action),
-            ));
-            supported_accessibility_actions_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(index - #range_begin + 1),
-            ));
-            item_element_infos_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).item_element_infos(index - #range_begin + 1),
-            ));
-        }
 
         sub_component_names.push(field_name);
         sub_component_types.push(sub_component_id);
@@ -1889,71 +1874,24 @@ fn generate_sub_component(
                 #subtree_index_function
             }
 
-            fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
-                #![allow(unused)]
-                let _self = self;
-                // The result of the expression is an anonymous struct, `{height: length, width: length, x: length, y: length}`
-                // fields are in alphabetical order
-                let (h, w, x, y) = match index {
-                    #(#item_geometry_branch)*
-                    _ => return ::core::default::Default::default()
-                };
-                sp::euclid::rect(x, y, w, h)
-            }
-
-            fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
-                #![allow(unused)]
-                let _self = self;
-                match index {
-                    #(#accessible_role_branch)*
-                    //#(#forward_sub_ranges => #forward_sub_field.apply_pin(_self).accessible_role())*
-                    _ => sp::AccessibleRole::default(),
-                }
-            }
-
-            fn accessible_string_property(
-                self: ::core::pin::Pin<&Self>,
-                index: u32,
-                what: sp::AccessibleStringProperty,
-            ) -> sp::Option<sp::SharedString> {
-                #![allow(unused)]
-                let _self = self;
-                match (index, what) {
-                    #(#accessible_string_property_branch)*
-                    _ => sp::None,
-                }
-            }
-
-            fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
-                #![allow(unused)]
-                let _self = self;
-                match (index, action) {
-                    #(#accessibility_action_branch)*
-                    _ => (),
-                }
-            }
-
-            fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
-                #![allow(unused)]
-                let _self = self;
-                match index {
-                    #(#supported_accessibility_actions_branch)*
-                    _ => ::core::default::Default::default(),
-                }
-            }
-
-            fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
-                #![allow(unused)]
-                let _self = self;
-                match index {
-                    #(#item_element_infos_branch)*
-                    _ => { ::core::default::Default::default() }
-                }
+            fn sub_component_index_table() -> &'static [sp::SubComponentIndexSlot<Self>] {
+                const TABLE: &'static [sp::SubComponentIndexSlot<#inner_component_id>]
+                    = &[#(#sub_component_index_slots),*];
+                TABLE
             }
 
             #update_timers
 
             #(#declared_functions)*
+        }
+
+        sp::impl_indexed_item_tree!{#inner_component_id, _self, index, what, action,
+            geometry: { #(#item_geometry_branch)* },
+            role: { #(#accessible_role_branch)* },
+            string_property: { #(#accessible_string_property_branch)* },
+            action_arms: { #(#accessibility_action_branch)* },
+            supported_actions: { #(#supported_accessibility_actions_branch)* },
+            element_infos: { #(#item_element_infos_branch)* },
         }
 
         #(#extra_components)*
@@ -2268,7 +2206,7 @@ fn generate_item_tree(
     let parent_item_expression = parent_ctx.map(|parent| parent.repeater_index.map_or_else(|| {
         // No repeater index, this could be a PopupWindow
         quote!{
-            if let Some(parent_rc) = self.parent.clone().upgrade() {
+            if let Some(parent_rc) = _self.parent.clone().upgrade() {
                 let parent_origin = sp::VRcMapped::origin(&parent_rc);
                 // TODO: store popup index in ctx and set it here instead of 0?
                 *_result = sp::ItemRc::new_root(parent_origin).downgrade();
@@ -2279,7 +2217,7 @@ fn generate_item_tree(
         let sub_component_offset = current_sub_component.repeated[idx].index_in_tree;
 
         quote!{
-            if let Some((parent_component, parent_index)) = self
+            if let Some((parent_component, parent_index)) = _self
                 .parent
                 .clone()
                 .upgrade()
@@ -2356,7 +2294,7 @@ fn generate_item_tree(
 
     let element_info_body = if root.has_debug_info {
         quote!(
-            *_result = self.item_element_infos(_index).unwrap_or_default();
+            *_result = sp::IndexedItemTree::item_element_infos(_self, _index).unwrap_or_default();
             true
         )
     } else {
@@ -2387,9 +2325,9 @@ fn generate_item_tree(
                 }
             )),
             quote!(if do_create {
-                *result = sp::Some(self.globals.get().unwrap().window_adapter_impl());
+                *result = sp::Some(_self.globals.get().unwrap().window_adapter_impl());
             } else {
-                *result = self.globals.get().unwrap().maybe_window_adapter_impl();
+                *result = _self.globals.get().unwrap().maybe_window_adapter_impl();
             }),
         )
     } else {
@@ -2441,115 +2379,12 @@ fn generate_item_tree(
 
         #pinned_drop_impl
 
-        impl sp::ItemTree for #inner_component_id {
-            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>)
-                -> sp::VisitChildrenResult
-            {
-                return sp::visit_item_tree(self, &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic);
-                #[allow(unused)]
-                fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>, dyn_index: u32) -> sp::VisitChildrenResult  {
-                    _self.visit_dynamic_children(dyn_index, order, visitor)
-                }
-            }
-
-            fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<sp::ItemRef<'_>> {
-                match &self.get_item_tree().as_slice()[index as usize] {
-                    sp::ItemTreeNode::Item { item_array_index, .. } => {
-                        Self::item_array()[*item_array_index as usize].apply_pin(self)
-                    }
-                    sp::ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
-
-                }
-            }
-
-            fn get_item_tree(
-                self: ::core::pin::Pin<&Self>) -> sp::Slice<'_, sp::ItemTreeNode>
-            {
-                Self::item_tree().into()
-            }
-
-            fn get_subtree_range(
-                self: ::core::pin::Pin<&Self>, index: u32) -> sp::IndexRange
-            {
-                self.subtree_range(index)
-            }
-
-            fn get_subtree(
-                self: ::core::pin::Pin<&Self>, index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak)
-            {
-                self.subtree_component(index, subtree_index, result);
-            }
-
-            fn subtree_index(
-                self: ::core::pin::Pin<&Self>) -> usize
-            {
-                self.index_property()
-            }
-
-            fn parent_node(self: ::core::pin::Pin<&Self>, _result: &mut sp::ItemWeak) {
-                #parent_item_expression
-            }
-
-            fn embed_component(self: ::core::pin::Pin<&Self>, _parent_component: &sp::ItemTreeWeak, _item_tree_index: u32) -> bool {
-                #embedding_function
-            }
-
-            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
-                self.layout_info(orientation)
-            }
-
-            fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
-                self.ensure_instantiated()
-            }
-
-            fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
-                self.item_geometry(index)
-            }
-
-            fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
-                self.accessible_role(index)
-            }
-
-            fn accessible_string_property(
-                self: ::core::pin::Pin<&Self>,
-                index: u32,
-                what: sp::AccessibleStringProperty,
-                result: &mut sp::SharedString,
-            ) -> bool {
-                if let Some(r) = self.accessible_string_property(index, what) {
-                    *result = r;
-                    true
-                } else {
-                    false
-                }
-            }
-
-            fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
-                self.accessibility_action(index, action);
-            }
-
-            fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
-                self.supported_accessibility_actions(index)
-            }
-
-            fn item_element_infos(
-                self: ::core::pin::Pin<&Self>,
-                _index: u32,
-                _result: &mut sp::SharedString,
-            ) -> bool {
-                #element_info_body
-            }
-
-            fn window_adapter(
-                self: ::core::pin::Pin<&Self>,
-                do_create: bool,
-                result: &mut sp::Option<sp::Rc<dyn sp::WindowAdapter>>,
-            ) {
-                #window_adapter_vtable_body
-            }
+        sp::impl_item_tree_vtable!{#inner_component_id, _self, _result, _index, do_create, result,
+            parent_node: { #parent_item_expression },
+            embed_component: { #embedding_function },
+            element_infos: { #element_info_body },
+            window_adapter: { #window_adapter_vtable_body },
         }
-
-
     )
 }
 

@@ -232,6 +232,328 @@ pub fn unregister_item_tree<Base>(
     }
 }
 
+/// Shared implementation of [`ItemTreeVTable::get_item_ref`] for compiled components
+/// whose items live at compile-time known offsets: resolve the item at `index` by
+/// looking up its offset in the static `item_array`.
+pub fn get_item_ref<'a, Base>(
+    base: Pin<&'a Base>,
+    item_tree: &[ItemTreeNode],
+    item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
+    index: u32,
+) -> Pin<ItemRef<'a>> {
+    match &item_tree[index as usize] {
+        ItemTreeNode::Item { item_array_index, .. } => {
+            item_array[*item_array_index as usize].apply_pin(base)
+        }
+        ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
+    }
+}
+
+/// Per-item-index queries that a compiled component answers about the items of its
+/// part of the item tree. Implemented by every generated (sub-)component; the
+/// enclosing component dispatches into nested sub-components through
+/// [`resolve_item_index`] instead of generating one forwarding match arm per query.
+pub trait IndexedItemTree {
+    /// The geometry of the item at `index` (relative to its parent item).
+    fn item_geometry(self: Pin<&Self>, index: u32) -> LogicalRect;
+    /// The accessible role of the item at `index`.
+    fn accessible_role(self: Pin<&Self>, index: u32) -> AccessibleRole;
+    /// The accessible string property `what` of the item at `index`, if present.
+    fn accessible_string_property(
+        self: Pin<&Self>,
+        index: u32,
+        what: AccessibleStringProperty,
+    ) -> Option<SharedString>;
+    /// Perform the accessibility action `action` on the item at `index`.
+    fn accessibility_action(self: Pin<&Self>, index: u32, action: &AccessibilityAction);
+    /// The set of accessibility actions supported by the item at `index`.
+    fn supported_accessibility_actions(self: Pin<&Self>, index: u32)
+    -> SupportedAccessibilityAction;
+    /// The debug element infos of the item at `index`, if debug info is enabled.
+    fn item_element_infos(self: Pin<&Self>, index: u32) -> Option<SharedString>;
+}
+
+/// An entry in the static sub-component table used by [`resolve_item_index`]:
+/// which range of the enclosing component's item indices a nested sub-component
+/// instance covers, and how to obtain that instance from the enclosing component.
+#[repr(C)]
+pub struct SubComponentIndexSlot<Base> {
+    /// Project the enclosing component to the sub-component instance.
+    pub apply: for<'a> fn(Pin<&'a Base>) -> Pin<&'a dyn IndexedItemTree>,
+    /// Index of the sub-component's root item in the enclosing component's index space.
+    pub tree_index: u32,
+    /// First index covered by the sub-component's non-root nodes in the enclosing
+    /// component's index space. (`children_begin..=children_end` is empty when
+    /// `children_end < children_begin`.)
+    pub children_begin: u32,
+    /// Last index (inclusive) covered by the sub-component's non-root nodes.
+    pub children_end: u32,
+}
+
+/// Find the sub-component instance covering `index` within `base`, given the
+/// component's static sub-component `table`.
+///
+/// Returns the sub-component and `index` rebased to the sub-component's local index
+/// space, where 0 is the sub-component's root item. With `include_root` false, an
+/// `index` denoting a sub-component's root yields `None` because the enclosing
+/// component owns that item's data - e.g. the geometry of a child component instance
+/// is determined by the parent that places it.
+pub fn resolve_item_index<'a, Base>(
+    base: Pin<&'a Base>,
+    table: &[SubComponentIndexSlot<Base>],
+    index: u32,
+    include_root: bool,
+) -> Option<(Pin<&'a dyn IndexedItemTree>, u32)> {
+    for slot in table {
+        if include_root && index == slot.tree_index {
+            return Some(((slot.apply)(base), 0));
+        }
+        if index >= slot.children_begin && index <= slot.children_end {
+            return Some(((slot.apply)(base), index - slot.children_begin + 1));
+        }
+    }
+    None
+}
+
+/// Implement the [`ItemTree`] trait (and thus the `ItemTreeVTable`) for a generated
+/// component.
+///
+/// Only the bodies that genuinely differ between components are passed in
+/// (`parent_node`, `embed_component`, `element_infos`, `window_adapter` - each a
+/// fixed shape selected by the compiler); everything else is defined here once.
+/// The component is expected to provide the inherent methods `item_tree()`,
+/// `item_array()`, `origin_rc()`, `visit_dynamic_children()`, `subtree_range()`,
+/// `subtree_component()`, `index_property()`, `layout_info()` and
+/// `ensure_instantiated()`, as well as an [`IndexedItemTree`] impl.
+///
+/// The `$self_`/`$presult`/`$pindex`/`$do_create`/`$wresult` identifiers are
+/// provided by the caller so the supplied bodies can refer to them despite macro
+/// hygiene.
+#[macro_export]
+macro_rules! impl_item_tree_vtable {
+    ($ty:ty, $self_:ident, $presult:ident, $pindex:ident, $do_create:ident, $wresult:ident,
+     parent_node: { $($parent_node:tt)* },
+     embed_component: { $($embed:tt)* },
+     element_infos: { $($element_infos:tt)* },
+     window_adapter: { $($window_adapter:tt)* } $(,)?) => {
+        impl $crate::item_tree::ItemTree for $ty {
+            fn visit_children_item(
+                self: ::core::pin::Pin<&Self>,
+                index: isize,
+                order: $crate::item_tree::TraversalOrder,
+                visitor: $crate::item_tree::ItemVisitorRefMut<'_>,
+            ) -> $crate::item_tree::VisitChildrenResult {
+                return $crate::item_tree::visit_item_tree(
+                    self, &self.origin_rc(), Self::item_tree(), index, order, visitor, visit_dynamic);
+                fn visit_dynamic(
+                    _self: ::core::pin::Pin<&$ty>,
+                    order: $crate::item_tree::TraversalOrder,
+                    visitor: $crate::item_tree::ItemVisitorRefMut<'_>,
+                    dyn_index: u32,
+                ) -> $crate::item_tree::VisitChildrenResult {
+                    _self.visit_dynamic_children(dyn_index, order, visitor)
+                }
+            }
+
+            fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<$crate::items::ItemRef<'_>> {
+                $crate::item_tree::get_item_ref(self, Self::item_tree(), Self::item_array(), index)
+            }
+
+            fn get_item_tree(self: ::core::pin::Pin<&Self>) -> $crate::slice::Slice<'_, $crate::item_tree::ItemTreeNode> {
+                Self::item_tree().into()
+            }
+
+            fn get_subtree_range(self: ::core::pin::Pin<&Self>, index: u32) -> $crate::item_tree::IndexRange {
+                self.subtree_range(index)
+            }
+
+            fn get_subtree(
+                self: ::core::pin::Pin<&Self>,
+                index: u32,
+                subtree_index: usize,
+                result: &mut $crate::item_tree::ItemTreeWeak,
+            ) {
+                self.subtree_component(index, subtree_index, result);
+            }
+
+            fn subtree_index(self: ::core::pin::Pin<&Self>) -> usize {
+                self.index_property()
+            }
+
+            fn parent_node(self: ::core::pin::Pin<&Self>, $presult: &mut $crate::item_tree::ItemWeak) {
+                let $self_ = self;
+                $($parent_node)*
+            }
+
+            fn embed_component(
+                self: ::core::pin::Pin<&Self>,
+                _parent_component: &$crate::item_tree::ItemTreeWeak,
+                _item_tree_index: u32,
+            ) -> bool {
+                $($embed)*
+            }
+
+            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: $crate::layout::Orientation) -> $crate::layout::LayoutInfo {
+                self.layout_info(orientation)
+            }
+
+            fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
+                self.ensure_instantiated()
+            }
+
+            fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> $crate::lengths::LogicalRect {
+                $crate::item_tree::IndexedItemTree::item_geometry(self, index)
+            }
+
+            fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> $crate::items::AccessibleRole {
+                $crate::item_tree::IndexedItemTree::accessible_role(self, index)
+            }
+
+            fn accessible_string_property(
+                self: ::core::pin::Pin<&Self>,
+                index: u32,
+                what: $crate::accessibility::AccessibleStringProperty,
+                result: &mut $crate::SharedString,
+            ) -> bool {
+                if let ::core::option::Option::Some(r) =
+                    $crate::item_tree::IndexedItemTree::accessible_string_property(self, index, what)
+                {
+                    *result = r;
+                    true
+                } else {
+                    false
+                }
+            }
+
+            fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &$crate::accessibility::AccessibilityAction) {
+                $crate::item_tree::IndexedItemTree::accessibility_action(self, index, action);
+            }
+
+            fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> $crate::accessibility::SupportedAccessibilityAction {
+                $crate::item_tree::IndexedItemTree::supported_accessibility_actions(self, index)
+            }
+
+            fn item_element_infos(
+                self: ::core::pin::Pin<&Self>,
+                $pindex: u32,
+                $presult: &mut $crate::SharedString,
+            ) -> bool {
+                let $self_ = self;
+                $($element_infos)*
+            }
+
+            fn window_adapter(
+                self: ::core::pin::Pin<&Self>,
+                $do_create: bool,
+                $wresult: &mut ::core::option::Option<$crate::window::WindowAdapterRc>,
+            ) {
+                let $self_ = self;
+                $($window_adapter)*
+            }
+        }
+    };
+}
+
+/// Implement [`IndexedItemTree`] for a generated component.
+///
+/// The generated code supplies only the component-specific match arms and the
+/// sub-component table; the method signatures, the dispatch into nested
+/// sub-components (via [`resolve_item_index`]) and the fallback values live here,
+/// so they don't need to be repeated in every generated component.
+///
+/// The `$self_`/`$index`/`$what`/`$action` identifiers are provided by the caller
+/// so that the supplied match arms can refer to them despite macro hygiene.
+#[macro_export]
+macro_rules! impl_indexed_item_tree {
+    ($ty:ty, $self_:ident, $index:ident, $what:ident, $action:ident,
+     geometry: { $($geometry:tt)* },
+     role: { $($role:tt)* },
+     string_property: { $($string_property:tt)* },
+     action_arms: { $($action_arms:tt)* },
+     supported_actions: { $($supported_actions:tt)* },
+     element_infos: { $($element_infos:tt)* } $(,)?) => {
+        impl $crate::item_tree::IndexedItemTree for $ty {
+            fn item_geometry(self: ::core::pin::Pin<&Self>, $index: u32) -> $crate::lengths::LogicalRect {
+                #![allow(unused)]
+                let $self_ = self;
+                // The result of the expression is an anonymous struct, `{height: length, width: length, x: length, y: length}`
+                // fields are in alphabetical order
+                let (h, w, x, y) = match $index {
+                    $($geometry)*
+                    _ => return match $crate::item_tree::resolve_item_index(self, Self::sub_component_index_table(), $index, false) {
+                        ::core::option::Option::Some((sub, local_index)) => $crate::item_tree::IndexedItemTree::item_geometry(sub, local_index),
+                        ::core::option::Option::None => ::core::default::Default::default(),
+                    },
+                };
+                $crate::graphics::euclid::rect(x, y, w, h)
+            }
+
+            fn accessible_role(self: ::core::pin::Pin<&Self>, $index: u32) -> $crate::items::AccessibleRole {
+                #![allow(unused)]
+                let $self_ = self;
+                match $index {
+                    $($role)*
+                    _ => match $crate::item_tree::resolve_item_index(self, Self::sub_component_index_table(), $index, true) {
+                        ::core::option::Option::Some((sub, local_index)) => $crate::item_tree::IndexedItemTree::accessible_role(sub, local_index),
+                        ::core::option::Option::None => ::core::default::Default::default(),
+                    },
+                }
+            }
+
+            fn accessible_string_property(
+                self: ::core::pin::Pin<&Self>,
+                $index: u32,
+                $what: $crate::accessibility::AccessibleStringProperty,
+            ) -> ::core::option::Option<$crate::SharedString> {
+                #![allow(unused)]
+                let $self_ = self;
+                match ($index, $what) {
+                    $($string_property)*
+                    _ => match $crate::item_tree::resolve_item_index(self, Self::sub_component_index_table(), $index, true) {
+                        ::core::option::Option::Some((sub, local_index)) => $crate::item_tree::IndexedItemTree::accessible_string_property(sub, local_index, $what),
+                        ::core::option::Option::None => ::core::option::Option::None,
+                    },
+                }
+            }
+
+            fn accessibility_action(self: ::core::pin::Pin<&Self>, $index: u32, $action: &$crate::accessibility::AccessibilityAction) {
+                #![allow(unused)]
+                let $self_ = self;
+                match ($index, $action) {
+                    $($action_arms)*
+                    _ => if let ::core::option::Option::Some((sub, local_index)) = $crate::item_tree::resolve_item_index(self, Self::sub_component_index_table(), $index, true) {
+                        $crate::item_tree::IndexedItemTree::accessibility_action(sub, local_index, $action);
+                    },
+                }
+            }
+
+            fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, $index: u32) -> $crate::accessibility::SupportedAccessibilityAction {
+                #![allow(unused)]
+                let $self_ = self;
+                match $index {
+                    $($supported_actions)*
+                    _ => match $crate::item_tree::resolve_item_index(self, Self::sub_component_index_table(), $index, true) {
+                        ::core::option::Option::Some((sub, local_index)) => $crate::item_tree::IndexedItemTree::supported_accessibility_actions(sub, local_index),
+                        ::core::option::Option::None => ::core::default::Default::default(),
+                    },
+                }
+            }
+
+            fn item_element_infos(self: ::core::pin::Pin<&Self>, $index: u32) -> ::core::option::Option<$crate::SharedString> {
+                #![allow(unused)]
+                let $self_ = self;
+                match $index {
+                    $($element_infos)*
+                    _ => match $crate::item_tree::resolve_item_index(self, Self::sub_component_index_table(), $index, false) {
+                        ::core::option::Option::Some((sub, local_index)) => $crate::item_tree::IndexedItemTree::item_element_infos(sub, local_index),
+                        ::core::option::Option::None => ::core::default::Default::default(),
+                    },
+                }
+            }
+        }
+    };
+}
+
 fn find_sibling_outside_repeater(
     component: &ItemTreeRc,
     comp_ref_pin: Pin<VRef<ItemTreeVTable>>,
