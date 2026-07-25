@@ -74,7 +74,6 @@ cfg-if = "1"
 derive_more = { workspace = true }
 lyon_path = { workspace = true }
 pin-weak = "1"
-scoped-tls-hkt = "0.1"
 strum = { workspace = true }
 winit = { version = "0.30.2", default-features = false, features = ["rwh_06"] }
 raw-window-handle = { version = "0.6", features = ["alloc"] }

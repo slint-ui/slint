@@ -886,22 +886,17 @@ impl i_slint_core::platform::Platform for Backend {
         )))
     }
 
-    #[cfg(target_arch = "wasm32")]
-    fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
-        crate::wasm_input_helper::set_clipboard_text(text.into(), clipboard);
-    }
-
+    // On wasm, the clipboard hooks keep their default no-op implementations: the browser
+    // clipboard is asynchronous and gesture-gated, so copy/cut/paste are serviced entirely from
+    // the `ClipboardEvent` handlers in `wasm_input_helper`, via
+    // `Window::copy_focused_text_selection` / `cut_focused_text_selection` /
+    // `paste_into_focused_text`.
     #[cfg(not(target_arch = "wasm32"))]
     fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
         let mut pair = self.shared_data.clipboard.borrow_mut();
         if let Some(clipboard) = clipboard::select_clipboard(&mut pair, clipboard) {
             clipboard.set_contents(text.into()).ok();
         }
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
-        crate::wasm_input_helper::get_clipboard_text(clipboard)
     }
 
     #[cfg(not(target_arch = "wasm32"))]

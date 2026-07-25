@@ -842,6 +842,106 @@ impl Window {
     pub fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         self.0.window_adapter().renderer().take_snapshot()
     }
+
+    /// Returns the selected text of the currently focused text input, if any, as it would be
+    /// placed on the clipboard by a copy.
+    ///
+    /// The text is returned to the caller directly rather than written to the system clipboard
+    /// through [`Platform::set_clipboard_text`](crate::platform::Platform::set_clipboard_text).
+    /// This lets a custom backend service a copy from within its own clipboard-event handler —
+    /// most notably the web platform, where the browser clipboard is asynchronous and reachable
+    /// only from a `copy` [`ClipboardEvent`](https://developer.mozilla.org/en-US/docs/Web/API/ClipboardEvent)
+    /// during a user gesture, which the synchronous `Platform` clipboard hooks cannot satisfy.
+    ///
+    /// Returns `None` when the focused item is not a text input or has no selection.
+    pub fn copy_focused_text_selection(&self) -> Option<SharedString> {
+        self.with_focused_text_input(|text_input, _, _| {
+            let (anchor, cursor) = text_input.selection_anchor_and_cursor();
+            (anchor != cursor).then(|| text_input.text()[anchor..cursor].into())
+        })
+        .flatten()
+    }
+
+    /// Removes the selected text of the currently focused text input and returns it, as a cut
+    /// would place it on the clipboard.
+    ///
+    /// This is [`Self::copy_focused_text_selection`] followed by deleting the selection. See that
+    /// method for why the text is returned to the caller instead of routed through the `Platform`
+    /// clipboard.
+    ///
+    /// Returns `None` when the focused item is not a text input, has no selection, or refuses the
+    /// cut because it is read-only or disabled — the same gate the Cut keyboard shortcut honors.
+    /// Nothing is deleted in any of these cases.
+    pub fn cut_focused_text_selection(&self) -> Option<SharedString> {
+        self.with_focused_text_input(|text_input, window_adapter, focus_item| {
+            if text_input.read_only() || !text_input.enabled() {
+                return None;
+            }
+            let (anchor, cursor) = text_input.selection_anchor_and_cursor();
+            if anchor == cursor {
+                return None;
+            }
+            let selection: SharedString = text_input.text()[anchor..cursor].into();
+            text_input.delete_selection(
+                window_adapter,
+                focus_item,
+                crate::items::TextChangeNotify::TriggerCallbacks,
+            );
+            Some(selection)
+        })
+        .flatten()
+    }
+
+    /// Inserts `text` into the currently focused text input at the cursor position, replacing the
+    /// current selection, as a paste would.
+    ///
+    /// The text is supplied by the caller rather than read from
+    /// [`Platform::clipboard_text`](crate::platform::Platform::clipboard_text), so a custom backend
+    /// can service a paste from within its own clipboard-event handler — most notably the web
+    /// platform, whose `paste` [`ClipboardEvent`](https://developer.mozilla.org/en-US/docs/Web/API/ClipboardEvent)
+    /// carries the text directly.
+    ///
+    /// Returns `true` if a focused text input received the text, and `false` when the focused item
+    /// is not a text input or refuses the paste because it is read-only or disabled — the same
+    /// gate the Paste keyboard shortcut honors.
+    pub fn paste_into_focused_text(&self, text: &str) -> bool {
+        self.with_focused_text_input(|text_input, window_adapter, focus_item| {
+            if text_input.read_only() || !text_input.enabled() {
+                return false;
+            }
+            text_input.insert_text(text, window_adapter, focus_item);
+            true
+        })
+        .unwrap_or(false)
+    }
+
+    /// Returns `true` if a [`TextInput`](crate::items::TextInput) currently holds this window's
+    /// focus.
+    ///
+    /// This lets a custom backend decide when to route keyboard and clipboard input into the
+    /// focused text field — most notably the web platform, which keeps a hidden editable element
+    /// focused (so browser `ClipboardEvent`s and IME reach an editable context) exactly while a
+    /// Slint text input is being edited, and otherwise hands focus back to its render surface.
+    pub fn has_focused_text_input(&self) -> bool {
+        self.with_focused_text_input(|_, _, _| ()).is_some()
+    }
+
+    /// Runs `f` with the currently focused [`TextInput`](crate::items::TextInput) item, the window
+    /// adapter and the item's [`ItemRc`](crate::item_tree::ItemRc). Returns `None` (without running
+    /// `f`) when no text input holds the focus.
+    fn with_focused_text_input<R>(
+        &self,
+        f: impl FnOnce(
+            core::pin::Pin<&crate::items::TextInput>,
+            &alloc::rc::Rc<dyn WindowAdapter>,
+            &crate::item_tree::ItemRc,
+        ) -> R,
+    ) -> Option<R> {
+        let focus_item = self.0.focus_item.borrow().upgrade()?;
+        let text_input = focus_item.downcast::<crate::items::TextInput>()?;
+        let window_adapter = self.0.window_adapter();
+        Some(f(text_input.as_pin_ref(), &window_adapter, &focus_item))
+    }
 }
 
 #[i_slint_core_macros::slint_doc]
