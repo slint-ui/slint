@@ -1445,15 +1445,33 @@ fn generate_sub_component(
         }
     }
 
-    let mut accessible_role_branch = Vec::new();
-    let mut accessible_string_property_branch = Vec::new();
+    // Per-item-index queries (accessibility, geometry, element infos) are emitted
+    // as static data tables (`TypedItemIndexTables`) whenever the value is known at
+    // compile time; only genuinely dynamic expressions become match arms in one
+    // fallback function per query.
+    let mut accessible_role_consts = Vec::new();
+    let mut accessible_role_dyn_branch = Vec::new();
+    let mut accessible_string_property_consts = Vec::new();
+    let mut accessible_string_property_dyn_branch = Vec::new();
     let mut accessibility_action_branch = Vec::new();
     let mut supported_accessibility_actions = BTreeMap::<u32, BTreeSet<_>>::new();
     for ((index, what), expr) in &component.accessible_prop {
-        let e = compile_expression(&expr.borrow(), &ctx);
         if what == "Role" {
-            accessible_role_branch.push(quote!(#index => #e,));
+            if let Expression::EnumerationValue(v) = &*expr.borrow() {
+                let base_ident = ident(&v.enumeration.name);
+                let value_ident = ident(&v.to_pascal_case());
+                let value = if v.enumeration.node.is_some() {
+                    quote!(#base_ident::#value_ident)
+                } else {
+                    quote!(sp::#base_ident::#value_ident)
+                };
+                accessible_role_consts.push(quote!((#index, #value)));
+                continue;
+            }
+            let e = compile_expression(&expr.borrow(), &ctx);
+            accessible_role_dyn_branch.push(quote!(#index => #e,));
         } else if let Some(what) = what.strip_prefix("Action") {
+            let e = compile_expression(&expr.borrow(), &ctx);
             let what = ident(what);
             let has_args = matches!(&*expr.borrow(), Expression::CallBackCall { arguments, .. } if !arguments.is_empty());
             accessibility_action_branch.push(if has_args {
@@ -1464,38 +1482,56 @@ fn generate_sub_component(
             supported_accessibility_actions.entry(*index).or_default().insert(what);
         } else {
             let what = ident(what);
-            accessible_string_property_branch
+            if let Expression::StringLiteral(s) = &*expr.borrow() {
+                let s = s.as_str();
+                accessible_string_property_consts
+                    .push(quote!((#index, sp::AccessibleStringProperty::#what, #s)));
+                continue;
+            }
+            let e = compile_expression(&expr.borrow(), &ctx);
+            accessible_string_property_dyn_branch
                 .push(quote!((#index, sp::AccessibleStringProperty::#what) => sp::Some(#e),));
         }
     }
-    let mut supported_accessibility_actions_branch = supported_accessibility_actions
+    let supported_accessibility_actions_consts = supported_accessibility_actions
         .into_iter()
-        .map(|(index, values)| quote!(#index => #(sp::SupportedAccessibilityAction::#values)|*,))
-        .collect::<Vec<_>>();
-
-    let mut item_geometry_branch = component
-        .geometries
-        .iter()
-        .enumerate()
-        .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
-        .map(|(index, expr)| {
-            let expr = compile_expression(&expr.borrow(), &ctx);
-            let index = index as u32;
-            quote!(#index => #expr,)
+        .map(|(index, values)| {
+            quote!((#index, sp::SupportedAccessibilityAction::empty()
+                #(.union(sp::SupportedAccessibilityAction::#values))*))
         })
         .collect::<Vec<_>>();
 
-    let mut item_element_infos_branch = component
+    let mut item_geometry_consts = Vec::new();
+    let mut item_geometry_dyn_branch = Vec::new();
+    for (index, expr) in component
+        .geometries
+        .iter()
+        .enumerate()
+        .filter_map(|(i, x)| x.as_ref().map(|x| (i as u32, x)))
+    {
+        if let Some(fields) = geometry_offsets_tokens(component, root, &expr.borrow()) {
+            item_geometry_consts
+                .push(quote!(sp::GeometryTableEntry::new::<#inner_component_id>(#index, #fields)));
+        } else {
+            let e = compile_expression(&expr.borrow(), &ctx);
+            item_geometry_dyn_branch.push(quote!(#index => #e,));
+        }
+    }
+
+    let item_element_infos_consts = component
         .element_infos
         .iter()
-        .map(|(item_index, ids)| quote!(#item_index => { return sp::Some(#ids.into()); }))
+        .map(|(item_index, ids)| {
+            let ids = ids.as_str();
+            quote!((#item_index, #ids))
+        })
         .collect::<Vec<_>>();
 
     let mut user_init_code: Vec<TokenStream> = Vec::new();
 
     let mut sub_component_names: Vec<Ident> = Vec::new();
     let mut sub_component_types: Vec<Ident> = Vec::new();
-    let mut sub_component_index_slots: Vec<TokenStream> = Vec::new();
+    let mut sub_component_table_entries: Vec<TokenStream> = Vec::new();
 
     for sub in &component.sub_components {
         let field_name = ident(&sub.name);
@@ -1552,9 +1588,9 @@ fn generate_sub_component(
             ));
         }
 
-        // One data-table slot per sub-component instance; the per-index queries
+        // One data-table entry per sub-component instance; the per-index queries
         // (geometry, accessibility, element infos) resolve through it at runtime
-        // via `sp::resolve_item_index` instead of per-query forwarding match arms.
+        // instead of per-query forwarding match arms.
         let sub_items_count = sc.child_item_count(root);
         let (children_begin, children_end) = if sub_items_count > 1 {
             let begin = local_index_of_first_child;
@@ -1563,13 +1599,14 @@ fn generate_sub_component(
             // empty range: the sub-component consists only of its root item
             (1, 0)
         };
-        sub_component_index_slots.push(quote!(
-            sp::SubComponentIndexSlot {
-                apply: |base| #sub_compo_field.apply_pin(base),
-                tree_index: #local_tree_index,
-                children_begin: #children_begin,
-                children_end: #children_end,
-            }
+        sub_component_table_entries.push(quote!(
+            sp::SubComponentTableEntry::new(
+                #sub_compo_field,
+                &#sub_component_id::ITEM_INDEX_TABLES,
+                #local_tree_index,
+                #children_begin,
+                #children_end,
+            )
         ));
 
         sub_component_names.push(field_name);
@@ -1756,6 +1793,83 @@ fn generate_sub_component(
 
     let pin_macro = if pinned_drop { quote!(#[pin_drop]) } else { quote!(#[pin]) };
 
+    // Fallback functions for the dynamic entries of the item index tables. Only
+    // emitted when a query actually has dynamic entries, so purely-static
+    // components carry no code for these queries at all.
+    let item_geometry_fallback_fn = (!item_geometry_dyn_branch.is_empty()).then(|| quote!(
+        fn item_geometry_fallback(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::LogicalRect> {
+            #![allow(unused)]
+            let _self = self;
+            // The result of the expression is an anonymous struct, `{height: length, width: length, x: length, y: length}`
+            // fields are in alphabetical order
+            let (h, w, x, y) = match index {
+                #(#item_geometry_dyn_branch)*
+                _ => return sp::None,
+            };
+            sp::Some(sp::euclid::rect(x, y, w, h))
+        }
+    ));
+    let item_geometry_fn_arg = match item_geometry_fallback_fn.is_some() {
+        true => quote!(sp::Some(Self::item_geometry_fallback)),
+        false => quote!(sp::None),
+    };
+    let accessible_role_fallback_fn = (!accessible_role_dyn_branch.is_empty()).then(|| quote!(
+        fn accessible_role_fallback(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::AccessibleRole> {
+            #![allow(unused)]
+            let _self = self;
+            sp::Some(match index {
+                #(#accessible_role_dyn_branch)*
+                _ => return sp::None,
+            })
+        }
+    ));
+    let accessible_role_fn_arg = match accessible_role_fallback_fn.is_some() {
+        true => quote!(sp::Some(Self::accessible_role_fallback)),
+        false => quote!(sp::None),
+    };
+    let accessible_string_property_fallback_fn =
+        (!accessible_string_property_dyn_branch.is_empty()).then(|| {
+            quote!(
+                fn accessible_string_property_fallback(
+                    self: ::core::pin::Pin<&Self>,
+                    index: u32,
+                    what: sp::AccessibleStringProperty,
+                ) -> sp::Option<sp::SharedString> {
+                    #![allow(unused)]
+                    let _self = self;
+                    match (index, what) {
+                        #(#accessible_string_property_dyn_branch)*
+                        _ => sp::None,
+                    }
+                }
+            )
+        });
+    let accessible_string_property_fn_arg = match accessible_string_property_fallback_fn.is_some() {
+        true => quote!(sp::Some(Self::accessible_string_property_fallback)),
+        false => quote!(sp::None),
+    };
+    let accessibility_action_fallback_fn = (!accessibility_action_branch.is_empty()).then(|| {
+        quote!(
+            fn accessibility_action_fallback(
+                self: ::core::pin::Pin<&Self>,
+                index: u32,
+                action: &sp::AccessibilityAction,
+            ) -> bool {
+                #![allow(unused)]
+                let _self = self;
+                match (index, action) {
+                    #(#accessibility_action_branch)*
+                    _ => return false,
+                };
+                true
+            }
+        )
+    });
+    let accessibility_action_fn_arg = match accessibility_action_fallback_fn.is_some() {
+        true => quote!(sp::Some(Self::accessibility_action_fallback)),
+        false => quote!(sp::None),
+    };
+
     quote!(
         #[derive(sp::FieldOffsets, Default)]
         #[const_field_offset(sp::const_field_offset)]
@@ -1874,24 +1988,28 @@ fn generate_sub_component(
                 #subtree_index_function
             }
 
-            fn sub_component_index_table() -> &'static [sp::SubComponentIndexSlot<Self>] {
-                const TABLE: &'static [sp::SubComponentIndexSlot<#inner_component_id>]
-                    = &[#(#sub_component_index_slots),*];
-                TABLE
-            }
+            const ITEM_INDEX_TABLES: sp::TypedItemIndexTables<#inner_component_id>
+                = sp::TypedItemIndexTables::new(
+                    &[#(#accessible_role_consts),*],
+                    &[#(#supported_accessibility_actions_consts),*],
+                    &[#(#item_element_infos_consts),*],
+                    &[#(#accessible_string_property_consts),*],
+                    &[#(#item_geometry_consts),*],
+                    #item_geometry_fn_arg,
+                    #accessible_role_fn_arg,
+                    #accessible_string_property_fn_arg,
+                    #accessibility_action_fn_arg,
+                    &[#(#sub_component_table_entries),*],
+                );
+
+            #item_geometry_fallback_fn
+            #accessible_role_fallback_fn
+            #accessible_string_property_fallback_fn
+            #accessibility_action_fallback_fn
 
             #update_timers
 
             #(#declared_functions)*
-        }
-
-        sp::impl_indexed_item_tree!{#inner_component_id, _self, index, what, action,
-            geometry: { #(#item_geometry_branch)* },
-            role: { #(#accessible_role_branch)* },
-            string_property: { #(#accessible_string_property_branch)* },
-            action_arms: { #(#accessibility_action_branch)* },
-            supported_actions: { #(#supported_accessibility_actions_branch)* },
-            element_infos: { #(#item_element_infos_branch)* },
         }
 
         #(#extra_components)*
@@ -2294,7 +2412,7 @@ fn generate_item_tree(
 
     let element_info_body = if root.has_debug_info {
         quote!(
-            *_result = sp::IndexedItemTree::item_element_infos(_self, _index).unwrap_or_default();
+            *_result = sp::tables_element_infos(&Self::ITEM_INDEX_TABLES, _self, _index).unwrap_or_default();
             true
         )
     } else {
@@ -5431,6 +5549,79 @@ fn generate_solve_flexbox_layout_with_measure(
 /// local of any aggregate type.
 fn access_component_field_offset(component_id: &Ident, field: &Ident) -> TokenStream {
     quote!(#component_id::FIELD_OFFSETS.#field())
+}
+
+/// If the geometry expression is a struct of constants and plain property
+/// references within the current component (the shape produced by
+/// `lower_geometry`, possibly with fields replaced by literals through constant
+/// propagation), return tokens constructing an `sp::GeometryOffsets` so the
+/// geometry can be resolved from the static item index tables instead of
+/// generated code. Fields referring to a parent scope or computed values (e.g.
+/// layout cache accesses) return `None` and stay in the fallback function.
+fn geometry_offsets_tokens(
+    component: &llr::SubComponent,
+    root: &llr::CompilationUnit,
+    expr: &llr::Expression,
+) -> Option<TokenStream> {
+    let llr::Expression::Struct { values, .. } = expr else { return None };
+    let mut field_tokens = Vec::with_capacity(4);
+    for name in ["x", "y", "width", "height"] {
+        match values.get(name)? {
+            llr::Expression::NumberLiteral(v) => {
+                field_tokens.push(quote!(sp::TypedGeometryField::fixed(#v as sp::Coord)));
+            }
+            llr::Expression::PropertyReference(llr::MemberReference::Relative {
+                parent_level: 0,
+                local_reference,
+            }) => {
+                let mut sc = component;
+                let mut segs = Vec::new();
+                for i in &local_reference.sub_component_path {
+                    segs.push(access_component_field_offset(
+                        &inner_component_id(sc),
+                        &ident(&sc.sub_components[*i].name),
+                    ));
+                    sc = &root.sub_components[sc.sub_components[*i].ty];
+                }
+                let last = match &local_reference.reference {
+                    llr::LocalMemberIndex::Property(property_index) => {
+                        let prop = &sc.properties[*property_index];
+                        if !matches!(prop.ty, Type::LogicalLength) {
+                            return None;
+                        }
+                        access_component_field_offset(&inner_component_id(sc), &ident(&prop.name))
+                    }
+                    llr::LocalMemberIndex::Native {
+                        item_index,
+                        prop_name,
+                        kind: llr::NativeMemberKind::Property,
+                    } if !prop_name.is_empty() => {
+                        let item = &sc.items[*item_index];
+                        if !matches!(item.ty.lookup_property(prop_name), Some(&Type::LogicalLength))
+                        {
+                            return None;
+                        }
+                        let item_field = access_component_field_offset(
+                            &inner_component_id(sc),
+                            &ident(&item.name),
+                        );
+                        let item_ty = ident(&item.ty.class_name);
+                        let prop = ident(prop_name);
+                        quote!(sp::compose_field_offsets(#item_field, sp::#item_ty::FIELD_OFFSETS.#prop()))
+                    }
+                    _ => return None,
+                };
+                let offset = segs
+                    .into_iter()
+                    .rfold(last, |acc, seg| quote!(sp::compose_field_offsets(#seg, #acc)));
+                field_tokens.push(quote!(sp::TypedGeometryField::offset(#offset)));
+            }
+            _ => return None,
+        }
+    }
+    let (h, w) = (&field_tokens[3], &field_tokens[2]);
+    let (x, y) = (&field_tokens[0], &field_tokens[1]);
+    Some(quote!(#x, #y, #w, #h))
 }
 
 fn embedded_file_tokens(path: &str) -> TokenStream {

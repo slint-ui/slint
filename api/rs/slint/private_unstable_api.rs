@@ -189,9 +189,10 @@ pub mod re_exports {
         Keys, MouseEvent, key_codes::Key, make_keys,
     };
     pub use i_slint_core::item_tree::{
-        IndexRange, IndexedItemTree, ItemTree, ItemTreeRc, ItemTreeRefPin, ItemTreeVTable,
-        ItemTreeWeak, SubComponentIndexSlot, ensure_item_tree_instantiated, get_item_ref,
-        register_item_tree, resolve_item_index, unregister_item_tree,
+        GeometryTableEntry, IndexRange, ItemTree, ItemTreeRc, ItemTreeRefPin, ItemTreeVTable,
+        ItemTreeWeak, SubComponentTableEntry, TypedGeometryField, TypedItemIndexTables,
+        ensure_item_tree_instantiated, get_item_ref, register_item_tree, tables_element_infos,
+        unregister_item_tree,
     };
     pub use i_slint_core::item_tree::{
         ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
@@ -226,9 +227,7 @@ pub mod re_exports {
         Color, Coord, SharedString, SharedVector, format, string::ToSharedString,
         string::string_to_float,
     };
-    pub use i_slint_core::{
-        ItemTreeVTable_static, MenuVTable_static, impl_indexed_item_tree, impl_item_tree_vtable,
-    };
+    pub use i_slint_core::{ItemTreeVTable_static, MenuVTable_static, impl_item_tree_vtable};
     pub use num_traits::float::Float;
     pub use num_traits::ops::euclid::Euclid;
     pub use once_cell::race::OnceBox;

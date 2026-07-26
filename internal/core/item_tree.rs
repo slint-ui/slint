@@ -11,7 +11,7 @@ use crate::accessibility::{
 };
 use crate::items::{AccessibleRole, ItemRef, ItemVTable};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect};
+use crate::lengths::{ItemTransform, LogicalLength, LogicalPoint, LogicalRect};
 use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
 use alloc::vec::Vec;
@@ -249,70 +249,489 @@ pub fn get_item_ref<'a, Base>(
     }
 }
 
-/// Per-item-index queries that a compiled component answers about the items of its
-/// part of the item tree. Implemented by every generated (sub-)component; the
-/// enclosing component dispatches into nested sub-components through
-/// [`resolve_item_index`] instead of generating one forwarding match arm per query.
-pub trait IndexedItemTree {
-    /// The geometry of the item at `index` (relative to its parent item).
-    fn item_geometry(self: Pin<&Self>, index: u32) -> LogicalRect;
-    /// The accessible role of the item at `index`.
-    fn accessible_role(self: Pin<&Self>, index: u32) -> AccessibleRole;
-    /// The accessible string property `what` of the item at `index`, if present.
-    fn accessible_string_property(
-        self: Pin<&Self>,
-        index: u32,
-        what: AccessibleStringProperty,
-    ) -> Option<SharedString>;
-    /// Perform the accessibility action `action` on the item at `index`.
-    fn accessibility_action(self: Pin<&Self>, index: u32, action: &AccessibilityAction);
-    /// The set of accessibility actions supported by the item at `index`.
-    fn supported_accessibility_actions(self: Pin<&Self>, index: u32)
-    -> SupportedAccessibilityAction;
-    /// The debug element infos of the item at `index`, if debug info is enabled.
-    fn item_element_infos(self: Pin<&Self>, index: u32) -> Option<SharedString>;
+/// One field of a [`GeometryOffsets`] entry: either a compile-time constant
+/// coordinate or the byte offset of a `Property<LogicalLength>` within the
+/// component struct.
+enum GeometryField {
+    Fixed(crate::Coord),
+    Offset(usize),
 }
 
-/// An entry in the static sub-component table used by [`resolve_item_index`]:
-/// which range of the enclosing component's item indices a nested sub-component
-/// instance covers, and how to obtain that instance from the enclosing component.
+/// [`GeometryField`] tagged with the component type it belongs to, so that
+/// generated code can only assemble [`GeometryOffsets`] whose offsets match
+/// the enclosing component.
+pub struct TypedGeometryField<Base>(GeometryField, core::marker::PhantomData<fn(&Base)>);
+
+impl<Base> TypedGeometryField<Base> {
+    /// A compile-time constant coordinate.
+    pub const fn fixed(value: crate::Coord) -> Self {
+        Self(GeometryField::Fixed(value), core::marker::PhantomData)
+    }
+    /// The coordinate is read from a `Property<LogicalLength>` field of the component.
+    pub const fn offset(
+        offset: FieldOffset<Base, crate::Property<LogicalLength>, AllowPin>,
+    ) -> Self {
+        Self(GeometryField::Offset(offset.get_byte_offset()), core::marker::PhantomData)
+    }
+}
+
+/// The geometry of one item, stored in [`ItemIndexTables`] as data (constants
+/// and property offsets) instead of generated code.
+struct GeometryOffsets {
+    x: GeometryField,
+    y: GeometryField,
+    width: GeometryField,
+    height: GeometryField,
+}
+
+/// One row of the geometry table: item index and the four geometry fields.
 #[repr(C)]
-pub struct SubComponentIndexSlot<Base> {
-    /// Project the enclosing component to the sub-component instance.
-    pub apply: for<'a> fn(Pin<&'a Base>) -> Pin<&'a dyn IndexedItemTree>,
-    /// Index of the sub-component's root item in the enclosing component's index space.
-    pub tree_index: u32,
-    /// First index covered by the sub-component's non-root nodes in the enclosing
-    /// component's index space. (`children_begin..=children_end` is empty when
-    /// `children_end < children_begin`.)
-    pub children_begin: u32,
-    /// Last index (inclusive) covered by the sub-component's non-root nodes.
-    pub children_end: u32,
+pub struct GeometryTableEntry {
+    index: u32,
+    offsets: GeometryOffsets,
 }
 
-/// Find the sub-component instance covering `index` within `base`, given the
-/// component's static sub-component `table`.
-///
-/// Returns the sub-component and `index` rebased to the sub-component's local index
-/// space, where 0 is the sub-component's root item. With `include_root` false, an
-/// `index` denoting a sub-component's root yields `None` because the enclosing
-/// component owns that item's data - e.g. the geometry of a child component instance
-/// is determined by the parent that places it.
-pub fn resolve_item_index<'a, Base>(
-    base: Pin<&'a Base>,
-    table: &[SubComponentIndexSlot<Base>],
-    index: u32,
-    include_root: bool,
-) -> Option<(Pin<&'a dyn IndexedItemTree>, u32)> {
-    for slot in table {
-        if include_root && index == slot.tree_index {
-            return Some(((slot.apply)(base), 0));
-        }
-        if index >= slot.children_begin && index <= slot.children_end {
-            return Some(((slot.apply)(base), index - slot.children_begin + 1));
+impl GeometryTableEntry {
+    /// Assemble the geometry entry for the item at `index` from four typed fields.
+    ///
+    /// `Base` ties every field's offset to the component the entry belongs to.
+    /// Generated code names it explicitly, because an entry made up of fixed
+    /// values alone would not constrain it.
+    pub const fn new<Base>(
+        index: u32,
+        x: TypedGeometryField<Base>,
+        y: TypedGeometryField<Base>,
+        width: TypedGeometryField<Base>,
+        height: TypedGeometryField<Base>,
+    ) -> Self {
+        Self {
+            index,
+            offsets: GeometryOffsets { x: x.0, y: y.0, width: width.0, height: height.0 },
         }
     }
-    None
+}
+
+/// The boundary between the erased instance pointer and typed Rust.
+///
+/// A compiled component has no Rust type here.
+/// Its layout comes from whichever generator produced it, and for C++ the field
+/// offsets come from `offsetof`, so core reaches the instance through a
+/// `*const u8` plus offsets carried in the descriptor.
+///
+/// Every function below shares one invariant, stated here instead of at each of
+/// the call sites: `inst` points to a live, pinned instance of the component
+/// that the descriptor, table or entry being used with it was built for.
+/// The typed constructors are what establish it.
+#[allow(unsafe_code)]
+mod erased {
+    use super::*;
+
+    /// The instance as its component type.
+    ///
+    /// Safety: `inst` points to a live pinned `Base`.
+    pub(super) unsafe fn as_pin<'a, Base>(inst: *const u8) -> Pin<&'a Base> {
+        unsafe { Pin::new_unchecked(&*(inst as *const Base)) }
+    }
+
+    /// The field at `offset` within the instance.
+    ///
+    /// Safety: `inst` points to a live pinned instance whose field at `offset` is a `T`.
+    pub(super) unsafe fn field_at<'a, T>(inst: *const u8, offset: usize) -> Pin<&'a T> {
+        unsafe { as_pin(inst.add(offset)) }
+    }
+
+    /// The sub-component at `offset`, still erased.
+    ///
+    /// Safety: `inst` points to a live instance holding a sub-component at `offset`.
+    pub(super) unsafe fn sub_instance(inst: *const u8, offset: usize) -> *const u8 {
+        unsafe { inst.add(offset) }
+    }
+}
+
+/// The C++ generator stores a geometry property as `Property<float>`, and core
+/// reads it back as `Property<LogicalLength>`, so the two must agree on layout.
+/// `LogicalLength` is a transparent wrapper over `Coord`, and this stops
+/// compiling the day that changes.
+const _: () = {
+    // Check the payload, not just the property: `Property<T>` pads to the same
+    // size for any `T` that fits, so comparing the wrappers alone would still
+    // pass if `LogicalLength` grew.
+    assert!(core::mem::size_of::<LogicalLength>() == core::mem::size_of::<crate::Coord>());
+    assert!(core::mem::align_of::<LogicalLength>() == core::mem::align_of::<crate::Coord>());
+    assert!(
+        core::mem::size_of::<crate::Property<LogicalLength>>()
+            == core::mem::size_of::<crate::Property<crate::Coord>>()
+    );
+    assert!(
+        core::mem::align_of::<crate::Property<LogicalLength>>()
+            == core::mem::align_of::<crate::Property<crate::Coord>>()
+    );
+};
+
+impl GeometryField {
+    /// Safety: for `Offset`, `instance + offset` is a `Property<LogicalLength>`
+    /// (or the layout-compatible `Property<float>` the C++ generator emits) in a
+    /// pinned struct.
+    #[allow(unsafe_code)]
+    unsafe fn read(&self, instance: *const u8) -> LogicalLength {
+        match self {
+            GeometryField::Fixed(v) => LogicalLength::new(*v),
+            GeometryField::Offset(offset) => unsafe {
+                erased::field_at::<crate::Property<LogicalLength>>(instance, *offset).get()
+            },
+        }
+    }
+}
+
+impl GeometryOffsets {
+    /// Safety: `instance` must point to the `Base` the offsets were created for.
+    #[allow(unsafe_code)]
+    unsafe fn read(&self, instance: *const u8) -> LogicalRect {
+        let (x, y, w, h) = unsafe {
+            (
+                self.x.read(instance),
+                self.y.read(instance),
+                self.width.read(instance),
+                self.height.read(instance),
+            )
+        };
+        LogicalRect::new(
+            crate::lengths::LogicalPoint::from_lengths(x, y),
+            crate::lengths::LogicalSize::from_lengths(w, h),
+        )
+    }
+}
+
+/// The type-erased static tables answering per-item-index queries (geometry,
+/// accessibility, element infos) for one compiled component.
+///
+/// Values the compiler can evaluate at compile time are stored as plain data;
+/// only genuinely dynamic entries fall back to one (optional) function per
+/// query, so components without dynamic entries carry no code at all.
+/// The instance pointer paired with these tables is type-erased; soundness
+/// comes from the typed constructors on [`TypedItemIndexTables`],
+/// [`SubComponentTableEntry`] and [`GeometryOffsets`].
+pub struct ItemIndexTables {
+    roles: &'static [(u32, AccessibleRole)],
+    supported_actions: &'static [(u32, SupportedAccessibilityAction)],
+    element_infos: &'static [(u32, &'static str)],
+    string_properties: &'static [(u32, AccessibleStringProperty, &'static str)],
+    geometries: &'static [GeometryTableEntry],
+    geometry_fn: Option<unsafe fn(*const u8, u32) -> Option<LogicalRect>>,
+    role_fn: Option<unsafe fn(*const u8, u32) -> Option<AccessibleRole>>,
+    string_property_fn:
+        Option<unsafe fn(*const u8, u32, AccessibleStringProperty) -> Option<SharedString>>,
+    action_fn: Option<unsafe fn(*const u8, u32, &AccessibilityAction) -> bool>,
+    sub_components: &'static [SubComponentTableEntry],
+}
+
+/// [`ItemIndexTables`] together with the component type they were built for.
+/// This is what generated components expose as an associated const; the marker
+/// type makes the erased query entry points ([`tables_item_geometry`] etc.) safe.
+#[repr(transparent)]
+pub struct TypedItemIndexTables<Base> {
+    erased: ItemIndexTables,
+    _marker: core::marker::PhantomData<fn(&Base)>,
+}
+
+/// One nested sub-component instance in [`ItemIndexTables::sub_components`]:
+/// which range of the enclosing component's item indices it covers, and where
+/// it lives within the enclosing component struct.
+pub struct SubComponentTableEntry {
+    offset: usize,
+    tables: &'static ItemIndexTables,
+    tree_index: u32,
+    children_begin: u32,
+    children_end: u32,
+}
+
+impl SubComponentTableEntry {
+    /// Create an entry for a sub-component field. Typed: the field offset and the
+    /// child tables must agree on the child component type.
+    pub const fn new<Base, Child>(
+        offset: FieldOffset<Base, Child, AllowPin>,
+        tables: &'static TypedItemIndexTables<Child>,
+        tree_index: u32,
+        children_begin: u32,
+        children_end: u32,
+    ) -> Self {
+        Self {
+            offset: offset.get_byte_offset(),
+            tables: &tables.erased,
+            tree_index,
+            children_begin,
+            children_end,
+        }
+    }
+}
+
+impl<Base> TypedItemIndexTables<Base> {
+    /// Assemble the tables for a component. The fallback functions are typed
+    /// against `Base` and erased here; they are only ever called with an
+    /// instance pointer derived from a `Pin<&Base>`.
+    #[allow(unsafe_code)]
+    #[allow(clippy::too_many_arguments)]
+    pub const fn new(
+        roles: &'static [(u32, AccessibleRole)],
+        supported_actions: &'static [(u32, SupportedAccessibilityAction)],
+        element_infos: &'static [(u32, &'static str)],
+        string_properties: &'static [(u32, AccessibleStringProperty, &'static str)],
+        geometries: &'static [GeometryTableEntry],
+        geometry_fn: Option<fn(Pin<&Base>, u32) -> Option<LogicalRect>>,
+        role_fn: Option<fn(Pin<&Base>, u32) -> Option<AccessibleRole>>,
+        string_property_fn: Option<
+            fn(Pin<&Base>, u32, AccessibleStringProperty) -> Option<SharedString>,
+        >,
+        action_fn: Option<fn(Pin<&Base>, u32, &AccessibilityAction) -> bool>,
+        sub_components: &'static [SubComponentTableEntry],
+    ) -> Self {
+        // Safety of the function pointer casts: `Pin<&Base>` is a repr(transparent)
+        // wrapper over `&Base`, which is ABI-compatible with `*const u8` for sized
+        // `Base`. The erased pointers passed at call time always originate from a
+        // `Pin<&Base>` of the matching component (enforced by the typed entry
+        // points and by `SubComponentTableEntry::new`).
+        macro_rules! erase_fn {
+            ($f:expr, $from:ty, $to:ty) => {
+                match $f {
+                    Some(f) => Some(unsafe { core::mem::transmute::<$from, $to>(f) }),
+                    None => None,
+                }
+            };
+        }
+        Self {
+            erased: ItemIndexTables {
+                roles,
+                supported_actions,
+                element_infos,
+                string_properties,
+                geometries,
+                geometry_fn: erase_fn!(
+                    geometry_fn,
+                    fn(Pin<&Base>, u32) -> Option<LogicalRect>,
+                    unsafe fn(*const u8, u32) -> Option<LogicalRect>
+                ),
+                role_fn: erase_fn!(
+                    role_fn,
+                    fn(Pin<&Base>, u32) -> Option<AccessibleRole>,
+                    unsafe fn(*const u8, u32) -> Option<AccessibleRole>
+                ),
+                string_property_fn: erase_fn!(
+                    string_property_fn,
+                    fn(Pin<&Base>, u32, AccessibleStringProperty) -> Option<SharedString>,
+                    unsafe fn(*const u8, u32, AccessibleStringProperty) -> Option<SharedString>
+                ),
+                action_fn: erase_fn!(
+                    action_fn,
+                    fn(Pin<&Base>, u32, &AccessibilityAction) -> bool,
+                    unsafe fn(*const u8, u32, &AccessibilityAction) -> bool
+                ),
+                sub_components,
+            },
+            _marker: core::marker::PhantomData,
+        }
+    }
+}
+
+impl ItemIndexTables {
+    /// Find the sub-component covering `index`. With `include_root` false, an index
+    /// denoting a sub-component's root yields `None`: the enclosing component owns
+    /// that item's data (e.g. the geometry of a child component instance is
+    /// determined by the parent that places it).
+    fn lookup_sub_component(
+        &self,
+        index: u32,
+        include_root: bool,
+    ) -> Option<(&SubComponentTableEntry, u32)> {
+        for entry in self.sub_components {
+            if include_root && index == entry.tree_index {
+                return Some((entry, 0));
+            }
+            if index >= entry.children_begin && index <= entry.children_end {
+                return Some((entry, index - entry.children_begin + 1));
+            }
+        }
+        None
+    }
+}
+
+/// The geometry of the item at `index`, resolved from the component's static tables.
+pub fn tables_item_geometry<Base>(
+    tables: &TypedItemIndexTables<Base>,
+    base: Pin<&Base>,
+    index: u32,
+) -> LogicalRect {
+    #![allow(unsafe_code)]
+    let mut tables: &ItemIndexTables = &tables.erased;
+    let mut inst: *const u8 = Pin::get_ref(base) as *const _ as *const u8;
+    let mut index = index;
+    loop {
+        for entry in tables.geometries {
+            if entry.index == index {
+                // Safety: `inst` points to the component instance matching `tables`
+                // (both start from the typed pair and only change together below).
+                return unsafe { entry.offsets.read(inst) };
+            }
+        }
+        if let Some(f) = tables.geometry_fn
+            && let Some(r) = unsafe { f(inst, index) }
+        {
+            return r;
+        }
+        match tables.lookup_sub_component(index, false) {
+            Some((entry, local_index)) => {
+                inst = unsafe { erased::sub_instance(inst, entry.offset) };
+                tables = entry.tables;
+                index = local_index;
+            }
+            None => return LogicalRect::default(),
+        }
+    }
+}
+
+/// The accessible role of the item at `index`, resolved from the component's static tables.
+pub fn tables_accessible_role<Base>(
+    tables: &TypedItemIndexTables<Base>,
+    base: Pin<&Base>,
+    index: u32,
+) -> AccessibleRole {
+    #![allow(unsafe_code)]
+    let mut tables: &ItemIndexTables = &tables.erased;
+    let mut inst: *const u8 = Pin::get_ref(base) as *const _ as *const u8;
+    let mut index = index;
+    loop {
+        for (i, role) in tables.roles {
+            if *i == index {
+                return *role;
+            }
+        }
+        // Safety: `inst` points to the component instance matching `tables`
+        if let Some(f) = tables.role_fn
+            && let Some(r) = unsafe { f(inst, index) }
+        {
+            return r;
+        }
+        match tables.lookup_sub_component(index, true) {
+            Some((entry, local_index)) => {
+                inst = unsafe { erased::sub_instance(inst, entry.offset) };
+                tables = entry.tables;
+                index = local_index;
+            }
+            None => return AccessibleRole::default(),
+        }
+    }
+}
+
+/// The accessible string property `what` of the item at `index`, if present.
+pub fn tables_accessible_string_property<Base>(
+    tables: &TypedItemIndexTables<Base>,
+    base: Pin<&Base>,
+    index: u32,
+    what: AccessibleStringProperty,
+) -> Option<SharedString> {
+    #![allow(unsafe_code)]
+    let mut tables: &ItemIndexTables = &tables.erased;
+    let mut inst: *const u8 = Pin::get_ref(base) as *const _ as *const u8;
+    let mut index = index;
+    loop {
+        for (i, w, s) in tables.string_properties {
+            if *i == index && *w == what {
+                return Some(SharedString::from(*s));
+            }
+        }
+        // Safety: `inst` points to the component instance matching `tables`
+        if let Some(f) = tables.string_property_fn
+            && let Some(r) = unsafe { f(inst, index, what) }
+        {
+            return Some(r);
+        }
+        match tables.lookup_sub_component(index, true) {
+            Some((entry, local_index)) => {
+                inst = unsafe { erased::sub_instance(inst, entry.offset) };
+                tables = entry.tables;
+                index = local_index;
+            }
+            None => return None,
+        }
+    }
+}
+
+/// Perform the accessibility action `action` on the item at `index`.
+pub fn tables_accessibility_action<Base>(
+    tables: &TypedItemIndexTables<Base>,
+    base: Pin<&Base>,
+    index: u32,
+    action: &AccessibilityAction,
+) {
+    #![allow(unsafe_code)]
+    let mut tables: &ItemIndexTables = &tables.erased;
+    let mut inst: *const u8 = Pin::get_ref(base) as *const _ as *const u8;
+    let mut index = index;
+    loop {
+        // Safety: `inst` points to the component instance matching `tables`
+        if let Some(f) = tables.action_fn
+            && unsafe { f(inst, index, action) }
+        {
+            return;
+        }
+        match tables.lookup_sub_component(index, true) {
+            Some((entry, local_index)) => {
+                inst = unsafe { erased::sub_instance(inst, entry.offset) };
+                tables = entry.tables;
+                index = local_index;
+            }
+            None => return,
+        }
+    }
+}
+
+/// The set of supported accessibility actions of the item at `index`.
+pub fn tables_supported_accessibility_actions<Base>(
+    tables: &TypedItemIndexTables<Base>,
+    base: Pin<&Base>,
+    index: u32,
+) -> SupportedAccessibilityAction {
+    let mut tables: &ItemIndexTables = &tables.erased;
+    let _ = base;
+    let mut index = index;
+    loop {
+        for (i, s) in tables.supported_actions {
+            if *i == index {
+                return *s;
+            }
+        }
+        match tables.lookup_sub_component(index, true) {
+            Some((entry, local_index)) => {
+                tables = entry.tables;
+                index = local_index;
+            }
+            None => return SupportedAccessibilityAction::default(),
+        }
+    }
+}
+
+/// The debug element infos of the item at `index`, if debug info is enabled.
+pub fn tables_element_infos<Base>(
+    tables: &TypedItemIndexTables<Base>,
+    base: Pin<&Base>,
+    index: u32,
+) -> Option<SharedString> {
+    let mut tables: &ItemIndexTables = &tables.erased;
+    let _ = base;
+    let mut index = index;
+    loop {
+        for (i, s) in tables.element_infos {
+            if *i == index {
+                return Some(SharedString::from(*s));
+            }
+        }
+        match tables.lookup_sub_component(index, false) {
+            Some((entry, local_index)) => {
+                tables = entry.tables;
+                index = local_index;
+            }
+            None => return None,
+        }
+    }
 }
 
 /// Implement the [`ItemTree`] trait (and thus the `ItemTreeVTable`) for a generated
@@ -324,7 +743,8 @@ pub fn resolve_item_index<'a, Base>(
 /// The component is expected to provide the inherent methods `item_tree()`,
 /// `item_array()`, `origin_rc()`, `visit_dynamic_children()`, `subtree_range()`,
 /// `subtree_component()`, `index_property()`, `layout_info()` and
-/// `ensure_instantiated()`, as well as an [`IndexedItemTree`] impl.
+/// `ensure_instantiated()`, as well as an `ITEM_INDEX_TABLES` associated const
+/// of type [`TypedItemIndexTables<Self>`].
 ///
 /// The `$self_`/`$presult`/`$pindex`/`$do_create`/`$wresult` identifiers are
 /// provided by the caller so the supplied bodies can refer to them despite macro
@@ -402,11 +822,11 @@ macro_rules! impl_item_tree_vtable {
             }
 
             fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> $crate::lengths::LogicalRect {
-                $crate::item_tree::IndexedItemTree::item_geometry(self, index)
+                $crate::item_tree::tables_item_geometry(&Self::ITEM_INDEX_TABLES, self, index)
             }
 
             fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> $crate::items::AccessibleRole {
-                $crate::item_tree::IndexedItemTree::accessible_role(self, index)
+                $crate::item_tree::tables_accessible_role(&Self::ITEM_INDEX_TABLES, self, index)
             }
 
             fn accessible_string_property(
@@ -416,7 +836,7 @@ macro_rules! impl_item_tree_vtable {
                 result: &mut $crate::SharedString,
             ) -> bool {
                 if let ::core::option::Option::Some(r) =
-                    $crate::item_tree::IndexedItemTree::accessible_string_property(self, index, what)
+                    $crate::item_tree::tables_accessible_string_property(&Self::ITEM_INDEX_TABLES, self, index, what)
                 {
                     *result = r;
                     true
@@ -426,11 +846,11 @@ macro_rules! impl_item_tree_vtable {
             }
 
             fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &$crate::accessibility::AccessibilityAction) {
-                $crate::item_tree::IndexedItemTree::accessibility_action(self, index, action);
+                $crate::item_tree::tables_accessibility_action(&Self::ITEM_INDEX_TABLES, self, index, action);
             }
 
             fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> $crate::accessibility::SupportedAccessibilityAction {
-                $crate::item_tree::IndexedItemTree::supported_accessibility_actions(self, index)
+                $crate::item_tree::tables_supported_accessibility_actions(&Self::ITEM_INDEX_TABLES, self, index)
             }
 
             fn item_element_infos(
@@ -449,106 +869,6 @@ macro_rules! impl_item_tree_vtable {
             ) {
                 let $self_ = self;
                 $($window_adapter)*
-            }
-        }
-    };
-}
-
-/// Implement [`IndexedItemTree`] for a generated component.
-///
-/// The generated code supplies only the component-specific match arms and the
-/// sub-component table; the method signatures, the dispatch into nested
-/// sub-components (via [`resolve_item_index`]) and the fallback values live here,
-/// so they don't need to be repeated in every generated component.
-///
-/// The `$self_`/`$index`/`$what`/`$action` identifiers are provided by the caller
-/// so that the supplied match arms can refer to them despite macro hygiene.
-#[macro_export]
-macro_rules! impl_indexed_item_tree {
-    ($ty:ty, $self_:ident, $index:ident, $what:ident, $action:ident,
-     geometry: { $($geometry:tt)* },
-     role: { $($role:tt)* },
-     string_property: { $($string_property:tt)* },
-     action_arms: { $($action_arms:tt)* },
-     supported_actions: { $($supported_actions:tt)* },
-     element_infos: { $($element_infos:tt)* } $(,)?) => {
-        impl $crate::item_tree::IndexedItemTree for $ty {
-            fn item_geometry(self: ::core::pin::Pin<&Self>, $index: u32) -> $crate::lengths::LogicalRect {
-                #![allow(unused)]
-                let $self_ = self;
-                // The result of the expression is an anonymous struct, `{height: length, width: length, x: length, y: length}`
-                // fields are in alphabetical order
-                let (h, w, x, y) = match $index {
-                    $($geometry)*
-                    _ => return match $crate::item_tree::resolve_item_index(self, Self::sub_component_index_table(), $index, false) {
-                        ::core::option::Option::Some((sub, local_index)) => $crate::item_tree::IndexedItemTree::item_geometry(sub, local_index),
-                        ::core::option::Option::None => ::core::default::Default::default(),
-                    },
-                };
-                $crate::graphics::euclid::rect(x, y, w, h)
-            }
-
-            fn accessible_role(self: ::core::pin::Pin<&Self>, $index: u32) -> $crate::items::AccessibleRole {
-                #![allow(unused)]
-                let $self_ = self;
-                match $index {
-                    $($role)*
-                    _ => match $crate::item_tree::resolve_item_index(self, Self::sub_component_index_table(), $index, true) {
-                        ::core::option::Option::Some((sub, local_index)) => $crate::item_tree::IndexedItemTree::accessible_role(sub, local_index),
-                        ::core::option::Option::None => ::core::default::Default::default(),
-                    },
-                }
-            }
-
-            fn accessible_string_property(
-                self: ::core::pin::Pin<&Self>,
-                $index: u32,
-                $what: $crate::accessibility::AccessibleStringProperty,
-            ) -> ::core::option::Option<$crate::SharedString> {
-                #![allow(unused)]
-                let $self_ = self;
-                match ($index, $what) {
-                    $($string_property)*
-                    _ => match $crate::item_tree::resolve_item_index(self, Self::sub_component_index_table(), $index, true) {
-                        ::core::option::Option::Some((sub, local_index)) => $crate::item_tree::IndexedItemTree::accessible_string_property(sub, local_index, $what),
-                        ::core::option::Option::None => ::core::option::Option::None,
-                    },
-                }
-            }
-
-            fn accessibility_action(self: ::core::pin::Pin<&Self>, $index: u32, $action: &$crate::accessibility::AccessibilityAction) {
-                #![allow(unused)]
-                let $self_ = self;
-                match ($index, $action) {
-                    $($action_arms)*
-                    _ => if let ::core::option::Option::Some((sub, local_index)) = $crate::item_tree::resolve_item_index(self, Self::sub_component_index_table(), $index, true) {
-                        $crate::item_tree::IndexedItemTree::accessibility_action(sub, local_index, $action);
-                    },
-                }
-            }
-
-            fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, $index: u32) -> $crate::accessibility::SupportedAccessibilityAction {
-                #![allow(unused)]
-                let $self_ = self;
-                match $index {
-                    $($supported_actions)*
-                    _ => match $crate::item_tree::resolve_item_index(self, Self::sub_component_index_table(), $index, true) {
-                        ::core::option::Option::Some((sub, local_index)) => $crate::item_tree::IndexedItemTree::supported_accessibility_actions(sub, local_index),
-                        ::core::option::Option::None => ::core::default::Default::default(),
-                    },
-                }
-            }
-
-            fn item_element_infos(self: ::core::pin::Pin<&Self>, $index: u32) -> ::core::option::Option<$crate::SharedString> {
-                #![allow(unused)]
-                let $self_ = self;
-                match $index {
-                    $($element_infos)*
-                    _ => match $crate::item_tree::resolve_item_index(self, Self::sub_component_index_table(), $index, false) {
-                        ::core::option::Option::Some((sub, local_index)) => $crate::item_tree::IndexedItemTree::item_element_infos(sub, local_index),
-                        ::core::option::Option::None => ::core::default::Default::default(),
-                    },
-                }
             }
         }
     };
