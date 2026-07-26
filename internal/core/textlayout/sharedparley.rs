@@ -174,6 +174,10 @@ pub use super::DEFAULT_FONT_SIZE;
 /// text. Matches the convention used by GitHub-style markdown renderers — the
 /// glyphs sit a little smaller than body text, inside a translucent capsule
 /// that visually marks them as code.
+pub enum BlockType { Normal, Heading(u8) }
+
+const HEADING_FONT_SCALES: [f32; 6] = [2.0, 1.5, 1.17, 1.0, 0.83, 0.67];
+
 const INLINE_CODE_FONT_SCALE: f32 = 0.85;
 
 std::thread_local! {
@@ -358,6 +362,7 @@ impl LayoutWithoutLineBreaksBuilder {
         selection: Option<(Range<usize>, Color)>,
         formatting: impl IntoIterator<Item = i_slint_common::styled_text::FormattedSpan>,
         link_color: Option<Color>,
+        block_type: BlockType,
     ) -> parley::Layout<Brush> {
         use i_slint_common::styled_text::Style;
 
@@ -375,6 +380,19 @@ impl LayoutWithoutLineBreaksBuilder {
                         selection_range,
                     );
                 }
+            }
+
+            match block_type {
+                BlockType::Heading(level) => {
+                    let scale = HEADING_FONT_SCALES[level as usize - 1];
+                    builder.push_default(parley::StyleProperty::FontSize(
+                        self.pixel_size.get() * scale,
+                    ));
+                    builder.push_default(parley::StyleProperty::FontWeight(
+                        parley::style::FontWeight::BOLD,
+                    ));
+                }
+                BlockType::Normal => {}
             }
 
             // filter empty ranges otherwise parley will panic on assert
@@ -471,7 +489,9 @@ fn create_text_paragraphs(
          text: &str,
          range: std::ops::Range<usize>,
          formatting: Vec<i_slint_common::styled_text::FormattedSpan>,
-         links: Vec<(std::ops::Range<usize>, std::string::String)>| {
+         links: Vec<(std::ops::Range<usize>, std::string::String)>,
+         is_horizontal_rule: bool,
+         block_type: BlockType| {
             let selection = selection.clone().and_then(|(selection, selection_color)| {
                 let sel_start = selection.start.max(range.start);
                 let sel_end = selection.end.min(range.end);
@@ -491,9 +511,9 @@ fn create_text_paragraphs(
                 .collect();
 
             let layout =
-                layout_builder.build(font_context, text, selection, formatting, Some(link_color));
+                layout_builder.build(font_context, text, selection, formatting, Some(link_color), block_type);
 
-            TextParagraph { range, y: PhysicalLength::default(), layout, links, code_ranges }
+            TextParagraph { range, y: PhysicalLength::default(), layout, links, code_ranges, is_horizontal_rule }
         };
 
     let mut paragraphs = Vec::with_capacity(1);
@@ -507,23 +527,36 @@ fn create_text_paragraphs(
                     range,
                     Default::default(),
                     Default::default(),
+                    false,
+                    BlockType::Normal,
                 ));
             }
         }
         PlainOrStyledText::Styled(rich_text) => {
-            for paragraph in rich_text.paragraphs {
-                let Some(rt) =
-                    i_slint_common::styled_text::rich_text_content(&paragraph)
-                else {
-                    continue;
-                };
-                paragraphs.push(paragraph_from_text(
-                    font_context,
-                    &rt.text,
-                    0..0,
-                    rt.formatting.clone(),
-                    rt.links.clone(),
-                ));
+            for block in rich_text.paragraphs {
+                match block {
+                    i_slint_common::styled_text::ParagraphBlock::Text(content) => {
+                        paragraphs.push(paragraph_from_text(
+                            font_context, &content.text, 0..0,
+                            content.formatting.clone(), content.links.clone(),
+                            false, BlockType::Normal,
+                        ));
+                    }
+                    i_slint_common::styled_text::ParagraphBlock::Heading { level, content } => {
+                        paragraphs.push(paragraph_from_text(
+                            font_context, &content.text, 0..0,
+                            content.formatting.clone(), content.links.clone(),
+                            false, BlockType::Heading(level),
+                        ));
+                    }
+                    i_slint_common::styled_text::ParagraphBlock::HorizontalRule => {
+                        paragraphs.push(paragraph_from_text(
+                            font_context, "", 0..0,
+                            Default::default(), Default::default(),
+                            true, BlockType::Normal,
+                        ));
+                    }
+                }
             }
         }
     };
@@ -547,7 +580,7 @@ fn layout(
 
     // Returned None if failed to get the ellipsis glyph for some rare reason.
     let get_ellipsis_glyph = |font_context: &mut parley::FontContext| {
-        let mut layout = layout_builder.build(font_context, "…", None, None, None);
+        let mut layout = layout_builder.build(font_context, "…", None, None, None, BlockType::Normal);
         layout.break_all_lines(None);
         let line = layout.lines().next()?;
         let item = line.items().next()?;
@@ -569,8 +602,18 @@ fn layout(
         None
     };
 
+    let body_font_size = layout_builder.pixel_size.get();
+    let rule_height = PhysicalLength::new(body_font_size * 0.8);
+    let rule_margin = PhysicalLength::new(body_font_size * 0.3);
+
     let mut para_y = 0.0;
     for para in paragraphs.iter_mut() {
+        if para.is_horizontal_rule {
+            para.layout.break_all_lines(None);
+            para.y = PhysicalLength::new(para_y);
+            para_y += rule_height.get();
+            continue;
+        }
         para.layout.break_all_lines(max_physical_width.map(|width| width.get()));
         para.layout.align(
             match options.horizontal_align {
@@ -632,9 +675,13 @@ fn layout(
                 .expect("line_limit_cut returns an existing line index");
             para.y + PhysicalLength::new(line.metrics().block_max_coord)
         }
-        None => paragraphs
-            .last()
-            .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height())),
+        None => paragraphs.last().map_or(PhysicalLength::zero(), |p| {
+            if p.is_horizontal_rule {
+                p.y + rule_height
+            } else {
+                p.y + PhysicalLength::new(p.layout.height())
+            }
+        }),
     };
 
     let y_offset = match (max_physical_height, options.vertical_align) {
@@ -651,6 +698,8 @@ fn layout(
         height,
         max_physical_height,
         line_limit_cut,
+        rule_height,
+        rule_margin,
     }
 }
 
@@ -751,6 +800,7 @@ struct TextParagraph {
     /// translucent rounded background by `draw` for visual parity with common markdown
     /// renderers.
     code_ranges: std::vec::Vec<Range<usize>>,
+    is_horizontal_rule: bool,
 }
 
 impl TextParagraph {
@@ -1157,6 +1207,8 @@ struct Layout {
     /// Where an active `max-lines` limit drops lines, in the same coordinates as [`ElisionCut`]:
     /// the (paragraph index, line index) of the last kept line. See [`line_limit_cut`].
     line_limit_cut: Option<(usize, usize)>,
+    rule_height: PhysicalLength,
+    rule_margin: PhysicalLength,
 }
 
 impl Layout {
@@ -1478,6 +1530,21 @@ impl Layout {
         // elide as a single block (drop lines below the box, ellipsis on the last visible one).
         let visible_extent = self.visible_extent();
         for (paragraph_index, paragraph) in self.paragraphs.iter().enumerate() {
+            if paragraph.is_horizontal_rule {
+                if let Some(cut) = visible_extent {
+                    if paragraph_index > cut.last_paragraph {
+                        continue;
+                    }
+                }
+                let y = self.y_offset + paragraph.y;
+                let line_y = y.get() + self.rule_margin.get();
+                let rect = PhysicalRect::new(
+                    PhysicalPoint::new(0.0, line_y),
+                    PhysicalSize::new(self.max_width.get(), 1.0),
+                );
+                item_renderer.fill_rectangle_with_color(rect, default_text_color);
+                continue;
+            }
             paragraph.draw(
                 self,
                 paragraph_index,
