@@ -22,8 +22,6 @@ import {
     PYTHON_BASE_URL,
 } from "@slint/common-files/src/utils/site-config";
 
-const experimentalDocs = process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES === "1";
-
 // Starlight prepends the base path to every sidebar link that is not a full
 // URL (http/https). Strip BASE_PATH so the re-added prefix produces the
 // intended absolute path (e.g. "/docs/../cpp/" -> "../cpp/" -> Starlight
@@ -220,44 +218,40 @@ export default defineConfig({
                                     "guide/backends-and-renderers/backend_winit",
                                 ],
                             },
-                            ...(experimentalDocs
-                                ? [
-                                      {
-                                          label: "Experimental Features",
-                                          collapsed: true,
-                                          items: [
-                                              {
-                                                  label: "Overview",
-                                                  slug: "guide/experimental/overview",
-                                              },
-                                              {
-                                                  label: "FlexboxLayout",
-                                                  slug: "guide/experimental/flexboxlayout",
-                                              },
-                                              {
-                                                  label: "Interface",
-                                                  slug: "guide/experimental/interface",
-                                              },
-                                              {
-                                                  label: "ComponentContainer",
-                                                  slug: "guide/experimental/component-container",
-                                              },
-                                              {
-                                                  label: "Library Modules",
-                                                  slug: "guide/experimental/library-modules",
-                                              },
-                                              {
-                                                  label: "Match Elements",
-                                                  slug: "guide/experimental/match-elements",
-                                              },
-                                              {
-                                                  label: "Deprecated Properties",
-                                                  slug: "guide/experimental/deprecated",
-                                              },
-                                          ],
-                                      },
-                                  ]
-                                : []),
+                            {
+                                label: "Experimental Features",
+                                collapsed: true,
+                                items: [
+                                    {
+                                        label: "Overview",
+                                        slug: "guide/experimental/overview",
+                                    },
+                                    {
+                                        label: "FlexboxLayout",
+                                        slug: "guide/experimental/flexboxlayout",
+                                    },
+                                    {
+                                        label: "Interface",
+                                        slug: "guide/experimental/interface",
+                                    },
+                                    {
+                                        label: "ComponentContainer",
+                                        slug: "guide/experimental/component-container",
+                                    },
+                                    {
+                                        label: "Library Modules",
+                                        slug: "guide/experimental/library-modules",
+                                    },
+                                    {
+                                        label: "Match Elements",
+                                        slug: "guide/experimental/match-elements",
+                                    },
+                                    {
+                                        label: "Deprecated Properties",
+                                        slug: "guide/experimental/deprecated",
+                                    },
+                                ],
+                            },
                         ],
                     },
                     {
