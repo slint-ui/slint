@@ -65,7 +65,8 @@ pub trait TextShaper {
         glyphs: &mut GlyphStorage,
     );
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<Self::Length>>;
-    fn max_lines(&self, max_height: Self::Length) -> usize;
+    /// Returns how many lines of `line_height` fit in `max_height`.
+    fn max_lines(&self, max_height: Self::Length, line_height: Self::Length) -> usize;
 }
 
 pub trait FontMetrics<Length: Copy + core::ops::Sub<Output = Length>> {
@@ -286,8 +287,8 @@ impl TextShaper for &rustybuzz::Face<'_> {
         todo!()
     }
 
-    fn max_lines(&self, max_height: f32) -> usize {
-        (max_height / self.height()).floor() as _
+    fn max_lines(&self, max_height: f32, line_height: f32) -> usize {
+        (max_height / line_height).floor() as _
     }
 }
 
@@ -390,7 +391,7 @@ fn test_letter_spacing() {
             shaped_glyphs.iter().map(|g| g.advance).collect::<Vec<_>>()
         };
 
-        let layout = TextLayout { font: &face, letter_spacing: Some(20.) };
+        let layout = TextLayout { font: &face, letter_spacing: Some(20.), line_height: None };
         let buffer = ShapeBuffer::new(&layout, text);
 
         assert_eq!(buffer.glyphs.len(), advances.len());

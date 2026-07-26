@@ -1033,6 +1033,14 @@ fn visit_implicit_layout_info_dependencies(
             vis(&NamedReference::new(item, SmolStr::new_static("font-size")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("font-weight")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("letter-spacing")).into(), N);
+            // The line height only stretches the line boxes, so it feeds the vertical
+            // layout info but can never influence the preferred width.
+            if orientation == Orientation::Vertical {
+                vis(
+                    &NamedReference::new(item, SmolStr::new_static("line-height-factor")).into(),
+                    N,
+                );
+            }
             vis(&NamedReference::new(item, SmolStr::new_static("wrap")).into(), N);
             let wrap_set = item.borrow().is_binding_set("wrap", false)
                 || item

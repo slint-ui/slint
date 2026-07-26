@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The line height only stretches the line boxes: it feeds the implicit height, but not
+// the preferred width. Deriving it from the width must therefore not be reported as a
+// binding loop, even when the width comes out of the layout.
+export component WidthDependentFactor inherits Window {
+    VerticalLayout {
+        Text {
+            text: "One\nTwo";
+            line-height-factor: self.width / 100px;
+        }
+    }
+}

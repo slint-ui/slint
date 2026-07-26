@@ -59,6 +59,7 @@ pub struct ComplexText {
     pub wrap: Property<TextWrap>,
     pub overflow: Property<TextOverflow>,
     pub letter_spacing: Property<LogicalLength>,
+    pub line_height_factor: Property<f32>,
     pub stroke: Property<Brush>,
     pub stroke_width: Property<LogicalLength>,
     pub stroke_style: Property<TextStrokeStyle>,
@@ -173,6 +174,7 @@ impl HasFont for ComplexText {
             self.font_weight(),
             self.font_size(),
             self.letter_spacing(),
+            self.line_height_factor(),
             self.font_italic(),
         )
     }
@@ -397,6 +399,7 @@ impl HasFont for StyledTextItem {
             Default::default(),
             self.default_font_size(),
             Default::default(),
+            1.0,
             Default::default(),
         )
     }
@@ -581,6 +584,7 @@ impl HasFont for SimpleText {
             self.font_weight(),
             self.font_size(),
             LogicalLength::default(),
+            1.0,
             false,
         )
     }
@@ -756,6 +760,7 @@ pub struct TextInput {
     pub input_type: Property<InputType>,
     pub input_method_hints: Property<InputMethodHints>,
     pub letter_spacing: Property<LogicalLength>,
+    pub line_height_factor: Property<f32>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
     pub cursor_position_byte_offset: Property<i32>,
@@ -1306,6 +1311,7 @@ impl HasFont for TextInput {
             self.font_weight(),
             self.font_size(),
             self.letter_spacing(),
+            self.line_height_factor(),
             self.font_italic(),
         )
     }
