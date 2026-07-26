@@ -727,6 +727,374 @@ fn erased_element_infos(mut tables: &ItemIndexTables, mut index: u32) -> Option<
     }
 }
 
+/// One entry in a compiled component's repeater dispatch table: which range of
+/// the component's dynamic (repeater) indices it covers and how to reach the
+/// repeater. Local repeaters cover a single index; nested sub-components cover
+/// their whole rebased range through their own table.
+#[repr(C)]
+pub struct RepeaterSpan {
+    start: u32,
+    end: u32,
+    kind: RepeaterSpanKind,
+}
+
+enum RepeaterSpanKind {
+    Local(LocalRepeaterEntry),
+    Container { offset: usize },
+    Sub { offset: usize, table: &'static [RepeaterSpan] },
+}
+
+struct LocalRepeaterEntry {
+    offset: usize,
+    visit: unsafe fn(
+        *const u8,
+        &LocalRepeaterEntry,
+        TraversalOrder,
+        ItemVisitorRefMut,
+    ) -> VisitChildrenResult,
+    range: unsafe fn(*const u8, &LocalRepeaterEntry) -> IndexRange,
+    instance_at: unsafe fn(*const u8, &LocalRepeaterEntry, usize, &mut ItemTreeWeak),
+    ensure: unsafe fn(*const u8, &LocalRepeaterEntry) -> bool,
+}
+
+/// Implemented by a generated component for each `for` or `if` repeater it
+/// owns: instantiate one item tree of the repeated component.
+///
+/// The shared `ensure` shim is monomorphized per component and repeated type,
+/// so it resolves this statically; the repeater table itself carries no
+/// creation function pointer.
+pub trait RepeatedItemTreeFactory<C: crate::model::RepeatedItemTree> {
+    /// Create one instance of the repeated item tree.
+    fn create_repeated(&self) -> VRc<ItemTreeVTable, C>;
+}
+
+/// Implemented by a generated component for each ListView repeater it owns.
+///
+/// Visiting and instantiation additionally track the viewport, so unlike plain
+/// repeaters those two operations stay component code; `C` identifies which of
+/// the component's ListView repeaters is meant.
+pub trait ListViewRepeater<C: crate::model::RepeatedItemTree> {
+    /// Track the viewport, then visit the repeated children.
+    fn visit_listview(
+        self: Pin<&Self>,
+        order: TraversalOrder,
+        visitor: ItemVisitorRefMut<'_>,
+    ) -> VisitChildrenResult;
+    /// Instantiate the instances the current viewport requires.
+    fn ensure_listview_updated(self: Pin<&Self>) -> bool;
+}
+
+/// A component's repeater dispatch table, tagged with the component it was
+/// built for. Sub-component entries take one of these, so a table can only be
+/// paired with the field offset of the component it belongs to.
+#[repr(transparent)]
+pub struct RepeaterSpanTable<Base> {
+    spans: &'static [RepeaterSpan],
+    _marker: core::marker::PhantomData<fn(&Base)>,
+}
+
+impl<Base> RepeaterSpanTable<Base> {
+    /// Wrap the component's span table.
+    pub const fn new(spans: &'static [RepeaterSpan]) -> Self {
+        Self { spans, _marker: core::marker::PhantomData }
+    }
+}
+
+#[allow(unsafe_code)]
+mod repeater_shims {
+    use super::*;
+    use crate::model::{Conditional, RepeatedItemTree, Repeater};
+
+    pub(super) unsafe fn rep<'a, T>(inst: *const u8, e: &LocalRepeaterEntry) -> Pin<&'a T> {
+        unsafe { erased::field_at(inst, e.offset) }
+    }
+
+    macro_rules! local_shims {
+        ($mod_:ident, $ty:ident) => {
+            pub(super) mod $mod_ {
+                use super::*;
+                pub(in super::super) unsafe fn visit<C: RepeatedItemTree>(
+                    inst: *const u8,
+                    e: &LocalRepeaterEntry,
+                    order: TraversalOrder,
+                    visitor: ItemVisitorRefMut,
+                ) -> VisitChildrenResult {
+                    unsafe { rep::<$ty<C>>(inst, e) }.visit(order, visitor)
+                }
+                pub(in super::super) unsafe fn range<C: RepeatedItemTree>(
+                    inst: *const u8,
+                    e: &LocalRepeaterEntry,
+                ) -> IndexRange {
+                    let r = unsafe { rep::<$ty<C>>(inst, e) };
+                    r.track_instance_changes();
+                    IndexRange::from(r.get_ref().range())
+                }
+                pub(in super::super) unsafe fn instance_at<C: RepeatedItemTree>(
+                    inst: *const u8,
+                    e: &LocalRepeaterEntry,
+                    subtree_index: usize,
+                    result: &mut ItemTreeWeak,
+                ) {
+                    let r = unsafe { rep::<$ty<C>>(inst, e) };
+                    if let Some(instance) = r.get_ref().instance_at(subtree_index) {
+                        *result = VRc::downgrade(&VRc::into_dyn(instance));
+                    }
+                }
+                pub(in super::super) unsafe fn ensure<
+                    Base: RepeatedItemTreeFactory<C>,
+                    C: RepeatedItemTree,
+                >(
+                    inst: *const u8,
+                    e: &LocalRepeaterEntry,
+                ) -> bool {
+                    let r = unsafe { rep::<$ty<C>>(inst, e) };
+                    let base = unsafe { erased::as_pin::<Base>(inst) }.get_ref();
+                    r.ensure_updated(|| base.create_repeated())
+                }
+            }
+        };
+    }
+    local_shims!(repeater, Repeater);
+    local_shims!(conditional, Conditional);
+
+    pub(super) unsafe fn lv_visit<Base: ListViewRepeater<C>, C: RepeatedItemTree>(
+        inst: *const u8,
+        _e: &LocalRepeaterEntry,
+        order: TraversalOrder,
+        visitor: ItemVisitorRefMut,
+    ) -> VisitChildrenResult {
+        unsafe { erased::as_pin::<Base>(inst) }.visit_listview(order, visitor)
+    }
+
+    pub(super) unsafe fn lv_ensure<Base: ListViewRepeater<C>, C: RepeatedItemTree>(
+        inst: *const u8,
+        _e: &LocalRepeaterEntry,
+    ) -> bool {
+        unsafe { erased::as_pin::<Base>(inst) }.ensure_listview_updated()
+    }
+
+    pub(super) unsafe fn container<'a>(
+        inst: *const u8,
+        offset: usize,
+    ) -> Pin<&'a crate::items::ComponentContainer> {
+        unsafe { erased::field_at(inst, offset) }
+    }
+}
+
+impl RepeaterSpan {
+    const fn local(index: u32, entry: LocalRepeaterEntry) -> Self {
+        RepeaterSpan { start: index, end: index, kind: RepeaterSpanKind::Local(entry) }
+    }
+
+    /// A `for` repeater stored at `offset` within `Base`.
+    pub const fn repeater<Base, C: crate::model::RepeatedItemTree>(
+        index: u32,
+        offset: FieldOffset<Base, crate::model::Repeater<C>, AllowPin>,
+    ) -> Self
+    where
+        Base: RepeatedItemTreeFactory<C>,
+    {
+        Self::local(
+            index,
+            LocalRepeaterEntry {
+                offset: offset.get_byte_offset(),
+                visit: repeater_shims::repeater::visit::<C>,
+                range: repeater_shims::repeater::range::<C>,
+                instance_at: repeater_shims::repeater::instance_at::<C>,
+                ensure: repeater_shims::repeater::ensure::<Base, C>,
+            },
+        )
+    }
+
+    /// An `if` conditional element stored at `offset` within `Base`.
+    pub const fn conditional<Base, C: crate::model::RepeatedItemTree>(
+        index: u32,
+        offset: FieldOffset<Base, crate::model::Conditional<C>, AllowPin>,
+    ) -> Self
+    where
+        Base: RepeatedItemTreeFactory<C>,
+    {
+        Self::local(
+            index,
+            LocalRepeaterEntry {
+                offset: offset.get_byte_offset(),
+                visit: repeater_shims::conditional::visit::<C>,
+                range: repeater_shims::conditional::range::<C>,
+                instance_at: repeater_shims::conditional::instance_at::<C>,
+                ensure: repeater_shims::conditional::ensure::<Base, C>,
+            },
+        )
+    }
+
+    /// A ListView repeater: visiting and instantiation additionally track the
+    /// viewport, so those two operations stay component code, reached through
+    /// [`ListViewRepeater`].
+    pub const fn listview_repeater<Base, C: crate::model::RepeatedItemTree>(
+        index: u32,
+        offset: FieldOffset<Base, crate::model::Repeater<C>, AllowPin>,
+    ) -> Self
+    where
+        Base: ListViewRepeater<C>,
+    {
+        Self::local(
+            index,
+            LocalRepeaterEntry {
+                offset: offset.get_byte_offset(),
+                visit: repeater_shims::lv_visit::<Base, C>,
+                range: repeater_shims::repeater::range::<C>,
+                instance_at: repeater_shims::repeater::instance_at::<C>,
+                ensure: repeater_shims::lv_ensure::<Base, C>,
+            },
+        )
+    }
+
+    /// A `ComponentContainer` item at `offset` within `Base`.
+    pub const fn component_container<Base>(
+        index: u32,
+        offset: FieldOffset<Base, crate::items::ComponentContainer, AllowPin>,
+    ) -> Self {
+        RepeaterSpan {
+            start: index,
+            end: index,
+            kind: RepeaterSpanKind::Container { offset: offset.get_byte_offset() },
+        }
+    }
+
+    /// A nested sub-component covering the dynamic indices `start..=end`,
+    /// dispatched through its own table with the index rebased to `start`.
+    #[allow(unsafe_code)]
+    pub const fn sub_component<Base, Child>(
+        start: u32,
+        end: u32,
+        offset: FieldOffset<Base, Child, AllowPin>,
+        table: RepeaterSpanTable<Child>,
+    ) -> Self {
+        RepeaterSpan {
+            start,
+            end,
+            kind: RepeaterSpanKind::Sub { offset: offset.get_byte_offset(), table: table.spans },
+        }
+    }
+}
+
+/// Safety: `inst` must point to the component instance the table was built for.
+#[allow(unsafe_code)]
+unsafe fn repeaters_visit(
+    mut table: &[RepeaterSpan],
+    mut inst: *const u8,
+    mut dyn_index: u32,
+    order: TraversalOrder,
+    visitor: ItemVisitorRefMut,
+) -> VisitChildrenResult {
+    'outer: loop {
+        for span in table {
+            if dyn_index >= span.start && dyn_index <= span.end {
+                match &span.kind {
+                    RepeaterSpanKind::Local(e) => {
+                        return unsafe { (e.visit)(inst, e, order, visitor) };
+                    }
+                    RepeaterSpanKind::Container { offset } => {
+                        return unsafe { repeater_shims::container(inst, *offset) }
+                            .visit_children_item(-1, order, visitor);
+                    }
+                    RepeaterSpanKind::Sub { offset, table: sub } => {
+                        inst = unsafe { erased::sub_instance(inst, *offset) };
+                        dyn_index -= span.start;
+                        table = sub;
+                        continue 'outer;
+                    }
+                }
+            }
+        }
+        panic!("invalid dyn_index {dyn_index}");
+    }
+}
+
+/// Safety: `inst` must point to the component instance the table was built for.
+#[allow(unsafe_code)]
+unsafe fn repeaters_range(
+    mut table: &[RepeaterSpan],
+    mut inst: *const u8,
+    mut dyn_index: u32,
+) -> IndexRange {
+    'outer: loop {
+        for span in table {
+            if dyn_index >= span.start && dyn_index <= span.end {
+                match &span.kind {
+                    RepeaterSpanKind::Local(e) => return unsafe { (e.range)(inst, e) },
+                    RepeaterSpanKind::Container { offset } => {
+                        return unsafe { repeater_shims::container(inst, *offset) }.subtree_range();
+                    }
+                    RepeaterSpanKind::Sub { offset, table: sub } => {
+                        inst = unsafe { erased::sub_instance(inst, *offset) };
+                        dyn_index -= span.start;
+                        table = sub;
+                        continue 'outer;
+                    }
+                }
+            }
+        }
+        panic!("invalid dyn_index {dyn_index}");
+    }
+}
+
+/// Safety: `inst` must point to the component instance the table was built for.
+#[allow(unsafe_code)]
+unsafe fn repeaters_component(
+    mut table: &[RepeaterSpan],
+    mut inst: *const u8,
+    mut dyn_index: u32,
+    subtree_index: usize,
+    result: &mut ItemTreeWeak,
+) {
+    'outer: loop {
+        for span in table {
+            if dyn_index >= span.start && dyn_index <= span.end {
+                match &span.kind {
+                    RepeaterSpanKind::Local(e) => {
+                        return unsafe { (e.instance_at)(inst, e, subtree_index, result) };
+                    }
+                    RepeaterSpanKind::Container { offset } => {
+                        if subtree_index == 0 {
+                            *result = unsafe { repeater_shims::container(inst, *offset) }
+                                .subtree_component();
+                        }
+                        return;
+                    }
+                    RepeaterSpanKind::Sub { offset, table: sub } => {
+                        inst = unsafe { erased::sub_instance(inst, *offset) };
+                        dyn_index -= span.start;
+                        table = sub;
+                        continue 'outer;
+                    }
+                }
+            }
+        }
+        panic!("invalid dyn_index {dyn_index}");
+    }
+}
+
+/// Recursively materialize every repeater in the table.
+/// Safety: `inst` must point to the component instance the table was built for.
+#[allow(unsafe_code)]
+unsafe fn repeaters_ensure_instantiated(table: &[RepeaterSpan], inst: *const u8) -> bool {
+    let mut changed = false;
+    for span in table {
+        match &span.kind {
+            RepeaterSpanKind::Local(e) => changed |= unsafe { (e.ensure)(inst, e) },
+            RepeaterSpanKind::Container { offset } => {
+                changed |= unsafe { repeater_shims::container(inst, *offset) }.ensure_updated();
+            }
+            RepeaterSpanKind::Sub { offset, table: sub } => {
+                changed |= unsafe {
+                    repeaters_ensure_instantiated(sub, erased::sub_instance(inst, *offset))
+                };
+            }
+        }
+    }
+    changed
+}
+
 /// The type-erased static description of one compiled component: the data
 /// needed to serve every `ItemTreeVTable` entry, plus erased function pointers
 /// for the parts that are genuinely code (repeater dispatch, layout, parent
@@ -737,14 +1105,10 @@ pub struct ItemTreeDescriptor {
     item_tree: &'static [ItemTreeNode],
     item_array: &'static [vtable::VOffset<u8, ItemVTable, vtable::AllowPin>],
     tables: &'static ItemIndexTables,
+    repeaters: &'static [RepeaterSpan],
     origin: unsafe fn(*const u8) -> ItemTreeRc,
-    visit_dynamic_children:
-        unsafe fn(*const u8, u32, TraversalOrder, ItemVisitorRefMut) -> VisitChildrenResult,
-    subtree_range: unsafe fn(*const u8, u32) -> IndexRange,
-    subtree_component: unsafe fn(*const u8, u32, usize, &mut ItemTreeWeak),
     subtree_index: unsafe fn(*const u8) -> usize,
     layout_info: unsafe fn(*const u8, Orientation) -> LayoutInfo,
-    ensure_instantiated: unsafe fn(*const u8) -> bool,
     parent_node: Option<unsafe fn(*const u8, &mut ItemWeak)>,
     window_adapter: Option<unsafe fn(*const u8, bool, &mut Option<WindowAdapterRc>)>,
     has_debug_info: bool,
@@ -769,18 +1133,10 @@ impl<Base> TypedItemTreeDescriptor<Base> {
         item_tree: &'static [ItemTreeNode],
         item_array: &'static [vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
         tables: &'static TypedItemIndexTables<Base>,
+        repeaters: RepeaterSpanTable<Base>,
         origin: fn(&Base) -> ItemTreeRc,
-        visit_dynamic_children: fn(
-            Pin<&Base>,
-            u32,
-            TraversalOrder,
-            ItemVisitorRefMut,
-        ) -> VisitChildrenResult,
-        subtree_range: fn(Pin<&Base>, u32) -> IndexRange,
-        subtree_component: fn(Pin<&Base>, u32, usize, &mut ItemTreeWeak),
         subtree_index: fn(Pin<&Base>) -> usize,
         layout_info: fn(Pin<&Base>, Orientation) -> LayoutInfo,
-        ensure_instantiated: fn(Pin<&Base>) -> bool,
         parent_node: Option<fn(Pin<&Base>, &mut ItemWeak)>,
         window_adapter: Option<fn(Pin<&Base>, bool, &mut Option<WindowAdapterRc>)>,
         has_debug_info: bool,
@@ -819,30 +1175,11 @@ impl<Base> TypedItemTreeDescriptor<Base> {
                     >(item_array)
                 },
                 tables: &tables.erased,
+                repeaters: repeaters.spans,
                 origin: erase_fn!(
                     origin,
                     fn(&Base) -> ItemTreeRc,
                     unsafe fn(*const u8) -> ItemTreeRc
-                ),
-                visit_dynamic_children: erase_fn!(
-                    visit_dynamic_children,
-                    fn(Pin<&Base>, u32, TraversalOrder, ItemVisitorRefMut) -> VisitChildrenResult,
-                    unsafe fn(
-                        *const u8,
-                        u32,
-                        TraversalOrder,
-                        ItemVisitorRefMut,
-                    ) -> VisitChildrenResult
-                ),
-                subtree_range: erase_fn!(
-                    subtree_range,
-                    fn(Pin<&Base>, u32) -> IndexRange,
-                    unsafe fn(*const u8, u32) -> IndexRange
-                ),
-                subtree_component: erase_fn!(
-                    subtree_component,
-                    fn(Pin<&Base>, u32, usize, &mut ItemTreeWeak),
-                    unsafe fn(*const u8, u32, usize, &mut ItemTreeWeak)
                 ),
                 subtree_index: erase_fn!(
                     subtree_index,
@@ -853,11 +1190,6 @@ impl<Base> TypedItemTreeDescriptor<Base> {
                     layout_info,
                     fn(Pin<&Base>, Orientation) -> LayoutInfo,
                     unsafe fn(*const u8, Orientation) -> LayoutInfo
-                ),
-                ensure_instantiated: erase_fn!(
-                    ensure_instantiated,
-                    fn(Pin<&Base>) -> bool,
-                    unsafe fn(*const u8) -> bool
                 ),
                 parent_node: erase_opt_fn!(
                     parent_node,
@@ -918,7 +1250,7 @@ pub mod compiled {
             order,
             visitor,
             &mut |order, visitor, dyn_index| unsafe {
-                (d.visit_dynamic_children)(inst, dyn_index, order, visitor)
+                repeaters_visit(d.repeaters, inst, dyn_index, order, visitor)
             },
         )
     }
@@ -933,7 +1265,7 @@ pub mod compiled {
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
     pub extern "C" fn get_subtree_range(vref: ItemTreeRefPin<'_>, index: u32) -> IndexRange {
         let (d, inst) = parts(&vref);
-        unsafe { (d.subtree_range)(inst, index) }
+        unsafe { repeaters_range(d.repeaters, inst, index) }
     }
 
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
@@ -944,7 +1276,7 @@ pub mod compiled {
         result: &mut ItemTreeWeak,
     ) {
         let (d, inst) = parts(&vref);
-        unsafe { (d.subtree_component)(inst, index, subtree_index, result) }
+        unsafe { repeaters_component(d.repeaters, inst, index, subtree_index, result) }
     }
 
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
@@ -989,7 +1321,7 @@ pub mod compiled {
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
     pub extern "C" fn ensure_instantiated(vref: ItemTreeRefPin<'_>) -> bool {
         let (d, inst) = parts(&vref);
-        unsafe { (d.ensure_instantiated)(inst) }
+        unsafe { repeaters_ensure_instantiated(d.repeaters, inst) }
     }
 
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
