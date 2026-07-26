@@ -137,26 +137,24 @@ inline RepeaterSpan make_listview_repeater_span(
 }
 
 /// A constant geometry table field.
-inline cbindgen_private::GeometryField make_geometry_field_fixed(float value)
+constexpr inline cbindgen_private::GeometryField make_geometry_field_fixed(float value)
 {
-    cbindgen_private::GeometryField field;
-    field.fixed.tag = cbindgen_private::GeometryField::Tag::Fixed;
-    field.fixed._0 = value;
-    return field;
+    return cbindgen_private::GeometryField {
+        .fixed = { cbindgen_private::GeometryField::Tag::Fixed, value }
+    };
 }
 
 /// A geometry table field reading the `Property<float>` at `offset` within the
 /// component.
-inline cbindgen_private::GeometryField make_geometry_field_offset(uintptr_t offset)
+constexpr inline cbindgen_private::GeometryField make_geometry_field_offset(uintptr_t offset)
 {
-    cbindgen_private::GeometryField field;
-    field.offset.tag = cbindgen_private::GeometryField::Tag::Offset;
-    field.offset._0 = offset;
-    return field;
+    return cbindgen_private::GeometryField {
+        .offset = { cbindgen_private::GeometryField::Tag::Offset, offset }
+    };
 }
 
 /// One row of the geometry table for the item at `index`.
-inline cbindgen_private::GeometryTableEntry
+constexpr inline cbindgen_private::GeometryTableEntry
 make_geometry_entry(uint32_t index, cbindgen_private::GeometryField x,
                     cbindgen_private::GeometryField y, cbindgen_private::GeometryField width,
                     cbindgen_private::GeometryField height)
