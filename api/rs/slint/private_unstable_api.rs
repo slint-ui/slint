@@ -189,10 +189,12 @@ pub mod re_exports {
         Keys, MouseEvent, key_codes::Key, make_keys,
     };
     pub use i_slint_core::item_tree::{
-        GeometryTableEntry, IndexRange, ItemTree, ItemTreeRc, ItemTreeRefPin, ItemTreeVTable,
-        ItemTreeWeak, ListViewRepeater, RepeatedItemTreeFactory, RepeaterSpan, RepeaterSpanTable,
-        SubComponentTableEntry, TypedGeometryField, TypedItemIndexTables, TypedItemTreeDescriptor,
-        ensure_item_tree_instantiated, get_item_ref, register_item_tree, unregister_item_tree,
+        AccessibleRoleEntry, AccessibleStringPropertyEntry, ElementInfosEntry, GeometryTableEntry,
+        IndexRange, ItemTree, ItemTreeRc, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak,
+        ListViewRepeater, RepeatedItemTreeFactory, RepeaterSpan, RepeaterSpanTable,
+        SubComponentTableEntry, SupportedAccessibilityActionsEntry, TypedGeometryField,
+        TypedItemIndexTables, TypedItemTreeDescriptor, ensure_item_tree_instantiated, get_item_ref,
+        register_item_tree, unregister_item_tree,
     };
     pub use i_slint_core::item_tree::{
         ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,

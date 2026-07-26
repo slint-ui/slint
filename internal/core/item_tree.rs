@@ -262,6 +262,7 @@ pub fn get_item_ref<'a, Base>(
 /// One field of a [`GeometryOffsets`] entry: either a compile-time constant
 /// coordinate or the byte offset of a `Property<LogicalLength>` within the
 /// component struct.
+#[repr(u8)]
 enum GeometryField {
     Fixed(crate::Coord),
     Offset(usize),
@@ -287,6 +288,7 @@ impl<Base> TypedGeometryField<Base> {
 
 /// The geometry of one item, stored in [`ItemIndexTables`] as data (constants
 /// and property offsets) instead of generated code.
+#[repr(C)]
 struct GeometryOffsets {
     x: GeometryField,
     y: GeometryField,
@@ -412,6 +414,71 @@ impl GeometryOffsets {
     }
 }
 
+/// One row of the accessible-role table: item index and its constant role.
+#[repr(C)]
+pub struct AccessibleRoleEntry {
+    index: u32,
+    role: AccessibleRole,
+}
+
+impl AccessibleRoleEntry {
+    /// Create an entry for the item at `index`.
+    pub const fn new(index: u32, role: AccessibleRole) -> Self {
+        Self { index, role }
+    }
+}
+
+/// One row of the supported-accessibility-actions table.
+#[repr(C)]
+pub struct SupportedAccessibilityActionsEntry {
+    index: u32,
+    actions: SupportedAccessibilityAction,
+}
+
+impl SupportedAccessibilityActionsEntry {
+    /// Create an entry for the item at `index`.
+    pub const fn new(index: u32, actions: SupportedAccessibilityAction) -> Self {
+        Self { index, actions }
+    }
+}
+
+/// One row of the element-infos table (debug info): item index and the encoded
+/// element info string (UTF-8).
+#[repr(C)]
+pub struct ElementInfosEntry {
+    index: u32,
+    infos: Slice<'static, u8>,
+}
+
+impl ElementInfosEntry {
+    /// Create an entry for the item at `index`.
+    pub const fn new(index: u32, infos: &'static str) -> Self {
+        Self { index, infos: Slice::from_slice(infos.as_bytes()) }
+    }
+}
+
+/// One row of the constant accessible-string-property table (UTF-8 value).
+#[repr(C)]
+pub struct AccessibleStringPropertyEntry {
+    index: u32,
+    what: AccessibleStringProperty,
+    value: Slice<'static, u8>,
+}
+
+impl AccessibleStringPropertyEntry {
+    /// Create an entry for property `what` of the item at `index`.
+    pub const fn new(index: u32, what: AccessibleStringProperty, value: &'static str) -> Self {
+        Self { index, what, value: Slice::from_slice(value.as_bytes()) }
+    }
+}
+
+/// Safety: the table strings are constructed from `&str` (or must be valid
+/// UTF-8 when built by the C++ generator).
+#[allow(unsafe_code)]
+fn table_str(s: &Slice<'static, u8>) -> &'static str {
+    unsafe { core::str::from_utf8_unchecked(s.as_slice()) }
+}
+
 /// The type-erased static tables answering per-item-index queries (geometry,
 /// accessibility, element infos) for one compiled component.
 ///
@@ -421,18 +488,20 @@ impl GeometryOffsets {
 /// The instance pointer paired with these tables is type-erased; soundness
 /// comes from the typed constructors on [`TypedItemIndexTables`],
 /// [`SubComponentTableEntry`] and [`GeometryOffsets`].
+#[repr(C)]
 pub struct ItemIndexTables {
-    roles: &'static [(u32, AccessibleRole)],
-    supported_actions: &'static [(u32, SupportedAccessibilityAction)],
-    element_infos: &'static [(u32, &'static str)],
-    string_properties: &'static [(u32, AccessibleStringProperty, &'static str)],
-    geometries: &'static [GeometryTableEntry],
-    geometry_fn: Option<unsafe fn(*const u8, u32) -> Option<LogicalRect>>,
-    role_fn: Option<unsafe fn(*const u8, u32) -> Option<AccessibleRole>>,
-    string_property_fn:
-        Option<unsafe fn(*const u8, u32, AccessibleStringProperty) -> Option<SharedString>>,
-    action_fn: Option<unsafe fn(*const u8, u32, &AccessibilityAction) -> bool>,
-    sub_components: &'static [SubComponentTableEntry],
+    roles: Slice<'static, AccessibleRoleEntry>,
+    supported_actions: Slice<'static, SupportedAccessibilityActionsEntry>,
+    element_infos: Slice<'static, ElementInfosEntry>,
+    string_properties: Slice<'static, AccessibleStringPropertyEntry>,
+    geometries: Slice<'static, GeometryTableEntry>,
+    geometry_fn: Option<unsafe extern "C" fn(*const u8, u32, &mut LogicalRect) -> bool>,
+    role_fn: Option<unsafe extern "C" fn(*const u8, u32, &mut AccessibleRole) -> bool>,
+    string_property_fn: Option<
+        unsafe extern "C" fn(*const u8, u32, AccessibleStringProperty, &mut SharedString) -> bool,
+    >,
+    action_fn: Option<unsafe extern "C" fn(*const u8, u32, &AccessibilityAction) -> bool>,
+    sub_components: Slice<'static, SubComponentTableEntry>,
 }
 
 /// [`ItemIndexTables`] together with the component type they were built for.
@@ -447,6 +516,7 @@ pub struct TypedItemIndexTables<Base> {
 /// One nested sub-component instance in [`ItemIndexTables::sub_components`]:
 /// which range of the enclosing component's item indices it covers, and where
 /// it lives within the enclosing component struct.
+#[repr(C)]
 pub struct SubComponentTableEntry {
     offset: usize,
     tables: &'static ItemIndexTables,
@@ -482,17 +552,17 @@ impl<Base> TypedItemIndexTables<Base> {
     #[allow(unsafe_code)]
     #[allow(clippy::too_many_arguments)]
     pub const fn new(
-        roles: &'static [(u32, AccessibleRole)],
-        supported_actions: &'static [(u32, SupportedAccessibilityAction)],
-        element_infos: &'static [(u32, &'static str)],
-        string_properties: &'static [(u32, AccessibleStringProperty, &'static str)],
+        roles: &'static [AccessibleRoleEntry],
+        supported_actions: &'static [SupportedAccessibilityActionsEntry],
+        element_infos: &'static [ElementInfosEntry],
+        string_properties: &'static [AccessibleStringPropertyEntry],
         geometries: &'static [GeometryTableEntry],
-        geometry_fn: Option<fn(Pin<&Base>, u32) -> Option<LogicalRect>>,
-        role_fn: Option<fn(Pin<&Base>, u32) -> Option<AccessibleRole>>,
+        geometry_fn: Option<extern "C" fn(Pin<&Base>, u32, &mut LogicalRect) -> bool>,
+        role_fn: Option<extern "C" fn(Pin<&Base>, u32, &mut AccessibleRole) -> bool>,
         string_property_fn: Option<
-            fn(Pin<&Base>, u32, AccessibleStringProperty) -> Option<SharedString>,
+            extern "C" fn(Pin<&Base>, u32, AccessibleStringProperty, &mut SharedString) -> bool,
         >,
-        action_fn: Option<fn(Pin<&Base>, u32, &AccessibilityAction) -> bool>,
+        action_fn: Option<extern "C" fn(Pin<&Base>, u32, &AccessibilityAction) -> bool>,
         sub_components: &'static [SubComponentTableEntry],
     ) -> Self {
         // Safety of the function pointer casts: `Pin<&Base>` is a repr(transparent)
@@ -510,32 +580,42 @@ impl<Base> TypedItemIndexTables<Base> {
         }
         Self {
             erased: ItemIndexTables {
-                roles,
-                supported_actions,
-                element_infos,
-                string_properties,
-                geometries,
+                roles: Slice::from_slice(roles),
+                supported_actions: Slice::from_slice(supported_actions),
+                element_infos: Slice::from_slice(element_infos),
+                string_properties: Slice::from_slice(string_properties),
+                geometries: Slice::from_slice(geometries),
                 geometry_fn: erase_fn!(
                     geometry_fn,
-                    fn(Pin<&Base>, u32) -> Option<LogicalRect>,
-                    unsafe fn(*const u8, u32) -> Option<LogicalRect>
+                    extern "C" fn(Pin<&Base>, u32, &mut LogicalRect) -> bool,
+                    unsafe extern "C" fn(*const u8, u32, &mut LogicalRect) -> bool
                 ),
                 role_fn: erase_fn!(
                     role_fn,
-                    fn(Pin<&Base>, u32) -> Option<AccessibleRole>,
-                    unsafe fn(*const u8, u32) -> Option<AccessibleRole>
+                    extern "C" fn(Pin<&Base>, u32, &mut AccessibleRole) -> bool,
+                    unsafe extern "C" fn(*const u8, u32, &mut AccessibleRole) -> bool
                 ),
                 string_property_fn: erase_fn!(
                     string_property_fn,
-                    fn(Pin<&Base>, u32, AccessibleStringProperty) -> Option<SharedString>,
-                    unsafe fn(*const u8, u32, AccessibleStringProperty) -> Option<SharedString>
+                    extern "C" fn(
+                        Pin<&Base>,
+                        u32,
+                        AccessibleStringProperty,
+                        &mut SharedString,
+                    ) -> bool,
+                    unsafe extern "C" fn(
+                        *const u8,
+                        u32,
+                        AccessibleStringProperty,
+                        &mut SharedString,
+                    ) -> bool
                 ),
                 action_fn: erase_fn!(
                     action_fn,
-                    fn(Pin<&Base>, u32, &AccessibilityAction) -> bool,
-                    unsafe fn(*const u8, u32, &AccessibilityAction) -> bool
+                    extern "C" fn(Pin<&Base>, u32, &AccessibilityAction) -> bool,
+                    unsafe extern "C" fn(*const u8, u32, &AccessibilityAction) -> bool
                 ),
-                sub_components,
+                sub_components: Slice::from_slice(sub_components),
             },
             _marker: core::marker::PhantomData,
         }
@@ -552,7 +632,7 @@ impl ItemIndexTables {
         index: u32,
         include_root: bool,
     ) -> Option<(&SubComponentTableEntry, u32)> {
-        for entry in self.sub_components {
+        for entry in self.sub_components.as_slice() {
             if include_root && index == entry.tree_index {
                 return Some((entry, 0));
             }
@@ -640,16 +720,17 @@ unsafe fn erased_item_geometry(
     mut index: u32,
 ) -> LogicalRect {
     loop {
-        for entry in tables.geometries {
+        for entry in tables.geometries.as_slice() {
             if entry.index == index {
                 // Safety: `inst` matches `tables` (they only change together below)
                 return unsafe { entry.offsets.read(inst) };
             }
         }
-        if let Some(f) = tables.geometry_fn
-            && let Some(r) = unsafe { f(inst, index) }
-        {
-            return r;
+        if let Some(f) = tables.geometry_fn {
+            let mut result = LogicalRect::default();
+            if unsafe { f(inst, index, &mut result) } {
+                return result;
+            }
         }
         match tables.lookup_sub_component(index, false) {
             Some((entry, local_index)) => {
@@ -670,15 +751,16 @@ unsafe fn erased_accessible_role(
     mut index: u32,
 ) -> AccessibleRole {
     loop {
-        for (i, role) in tables.roles {
-            if *i == index {
-                return *role;
+        for entry in tables.roles.as_slice() {
+            if entry.index == index {
+                return entry.role;
             }
         }
-        if let Some(f) = tables.role_fn
-            && let Some(r) = unsafe { f(inst, index) }
-        {
-            return r;
+        if let Some(f) = tables.role_fn {
+            let mut result = AccessibleRole::default();
+            if unsafe { f(inst, index, &mut result) } {
+                return result;
+            }
         }
         match tables.lookup_sub_component(index, true) {
             Some((entry, local_index)) => {
@@ -700,15 +782,16 @@ unsafe fn erased_accessible_string_property(
     what: AccessibleStringProperty,
 ) -> Option<SharedString> {
     loop {
-        for (i, w, str) in tables.string_properties {
-            if *i == index && *w == what {
-                return Some(SharedString::from(*str));
+        for entry in tables.string_properties.as_slice() {
+            if entry.index == index && entry.what == what {
+                return Some(SharedString::from(table_str(&entry.value)));
             }
         }
-        if let Some(f) = tables.string_property_fn
-            && let Some(r) = unsafe { f(inst, index, what) }
-        {
-            return Some(r);
+        if let Some(f) = tables.string_property_fn {
+            let mut result = SharedString::default();
+            if unsafe { f(inst, index, what, &mut result) } {
+                return Some(result);
+            }
         }
         match tables.lookup_sub_component(index, true) {
             Some((entry, local_index)) => {
@@ -751,9 +834,9 @@ fn erased_supported_accessibility_actions(
     mut index: u32,
 ) -> SupportedAccessibilityAction {
     loop {
-        for (i, actions) in tables.supported_actions {
-            if *i == index {
-                return *actions;
+        for entry in tables.supported_actions.as_slice() {
+            if entry.index == index {
+                return entry.actions;
             }
         }
         match tables.lookup_sub_component(index, true) {
@@ -768,9 +851,9 @@ fn erased_supported_accessibility_actions(
 
 fn erased_element_infos(mut tables: &ItemIndexTables, mut index: u32) -> Option<SharedString> {
     loop {
-        for (i, str) in tables.element_infos {
-            if *i == index {
-                return Some(SharedString::from(*str));
+        for entry in tables.element_infos.as_slice() {
+            if entry.index == index {
+                return Some(SharedString::from(table_str(&entry.infos)));
             }
         }
         match tables.lookup_sub_component(index, false) {
@@ -794,23 +877,25 @@ pub struct RepeaterSpan {
     kind: RepeaterSpanKind,
 }
 
+#[repr(u8)]
 enum RepeaterSpanKind {
     Local(LocalRepeaterEntry),
     Container { offset: usize },
-    Sub { offset: usize, table: &'static [RepeaterSpan] },
+    Sub { offset: usize, table: Slice<'static, RepeaterSpan> },
 }
 
+#[repr(C)]
 struct LocalRepeaterEntry {
     offset: usize,
-    visit: unsafe fn(
+    visit: unsafe extern "C" fn(
         *const u8,
         &LocalRepeaterEntry,
         TraversalOrder,
         ItemVisitorRefMut,
     ) -> VisitChildrenResult,
-    range: unsafe fn(*const u8, &LocalRepeaterEntry) -> IndexRange,
-    instance_at: unsafe fn(*const u8, &LocalRepeaterEntry, usize, &mut ItemTreeWeak),
-    ensure: unsafe fn(*const u8, &LocalRepeaterEntry) -> bool,
+    range: unsafe extern "C" fn(*const u8, &LocalRepeaterEntry) -> IndexRange,
+    instance_at: unsafe extern "C" fn(*const u8, &LocalRepeaterEntry, usize, &mut ItemTreeWeak),
+    ensure: unsafe extern "C" fn(*const u8, &LocalRepeaterEntry) -> bool,
 }
 
 /// Implemented by a generated component for each `for` or `if` repeater it
@@ -845,14 +930,14 @@ pub trait ListViewRepeater<C: crate::model::RepeatedItemTree> {
 /// paired with the field offset of the component it belongs to.
 #[repr(transparent)]
 pub struct RepeaterSpanTable<Base> {
-    spans: &'static [RepeaterSpan],
+    spans: Slice<'static, RepeaterSpan>,
     _marker: core::marker::PhantomData<fn(&Base)>,
 }
 
 impl<Base> RepeaterSpanTable<Base> {
     /// Wrap the component's span table.
     pub const fn new(spans: &'static [RepeaterSpan]) -> Self {
-        Self { spans, _marker: core::marker::PhantomData }
+        Self { spans: Slice::from_slice(spans), _marker: core::marker::PhantomData }
     }
 }
 
@@ -869,7 +954,7 @@ mod repeater_shims {
         ($mod_:ident, $ty:ident) => {
             pub(super) mod $mod_ {
                 use super::*;
-                pub(in super::super) unsafe fn visit<C: RepeatedItemTree>(
+                pub(in super::super) unsafe extern "C" fn visit<C: RepeatedItemTree>(
                     inst: *const u8,
                     e: &LocalRepeaterEntry,
                     order: TraversalOrder,
@@ -877,7 +962,7 @@ mod repeater_shims {
                 ) -> VisitChildrenResult {
                     unsafe { rep::<$ty<C>>(inst, e) }.visit(order, visitor)
                 }
-                pub(in super::super) unsafe fn range<C: RepeatedItemTree>(
+                pub(in super::super) unsafe extern "C" fn range<C: RepeatedItemTree>(
                     inst: *const u8,
                     e: &LocalRepeaterEntry,
                 ) -> IndexRange {
@@ -885,7 +970,7 @@ mod repeater_shims {
                     r.track_instance_changes();
                     IndexRange::from(r.get_ref().range())
                 }
-                pub(in super::super) unsafe fn instance_at<C: RepeatedItemTree>(
+                pub(in super::super) unsafe extern "C" fn instance_at<C: RepeatedItemTree>(
                     inst: *const u8,
                     e: &LocalRepeaterEntry,
                     subtree_index: usize,
@@ -896,7 +981,7 @@ mod repeater_shims {
                         *result = VRc::downgrade(&VRc::into_dyn(instance));
                     }
                 }
-                pub(in super::super) unsafe fn ensure<
+                pub(in super::super) unsafe extern "C" fn ensure<
                     Base: RepeatedItemTreeFactory<C>,
                     C: RepeatedItemTree,
                 >(
@@ -913,7 +998,7 @@ mod repeater_shims {
     local_shims!(repeater, Repeater);
     local_shims!(conditional, Conditional);
 
-    pub(super) unsafe fn lv_visit<Base: ListViewRepeater<C>, C: RepeatedItemTree>(
+    pub(super) unsafe extern "C" fn lv_visit<Base: ListViewRepeater<C>, C: RepeatedItemTree>(
         inst: *const u8,
         _e: &LocalRepeaterEntry,
         order: TraversalOrder,
@@ -922,7 +1007,7 @@ mod repeater_shims {
         unsafe { erased::as_pin::<Base>(inst) }.visit_listview(order, visitor)
     }
 
-    pub(super) unsafe fn lv_ensure<Base: ListViewRepeater<C>, C: RepeatedItemTree>(
+    pub(super) unsafe extern "C" fn lv_ensure<Base: ListViewRepeater<C>, C: RepeatedItemTree>(
         inst: *const u8,
         _e: &LocalRepeaterEntry,
     ) -> bool {
@@ -1056,7 +1141,7 @@ unsafe fn repeaters_visit(
                     RepeaterSpanKind::Sub { offset, table: sub } => {
                         inst = unsafe { erased::sub_instance(inst, *offset) };
                         dyn_index -= span.start;
-                        table = sub;
+                        table = sub.as_slice();
                         continue 'outer;
                     }
                 }
@@ -1084,7 +1169,7 @@ unsafe fn repeaters_range(
                     RepeaterSpanKind::Sub { offset, table: sub } => {
                         inst = unsafe { erased::sub_instance(inst, *offset) };
                         dyn_index -= span.start;
-                        table = sub;
+                        table = sub.as_slice();
                         continue 'outer;
                     }
                 }
@@ -1120,7 +1205,7 @@ unsafe fn repeaters_component(
                     RepeaterSpanKind::Sub { offset, table: sub } => {
                         inst = unsafe { erased::sub_instance(inst, *offset) };
                         dyn_index -= span.start;
-                        table = sub;
+                        table = sub.as_slice();
                         continue 'outer;
                     }
                 }
@@ -1143,7 +1228,10 @@ unsafe fn repeaters_ensure_instantiated(table: &[RepeaterSpan], inst: *const u8)
             }
             RepeaterSpanKind::Sub { offset, table: sub } => {
                 changed |= unsafe {
-                    repeaters_ensure_instantiated(sub, erased::sub_instance(inst, *offset))
+                    repeaters_ensure_instantiated(
+                        sub.as_slice(),
+                        erased::sub_instance(inst, *offset),
+                    )
                 };
             }
         }
@@ -1157,18 +1245,20 @@ unsafe fn repeaters_ensure_instantiated(table: &[RepeaterSpan], inst: *const u8)
 /// linkage). One shared, non-generic set of vtable entry functions
 /// ([`compiled_item_tree_vtable!`]) reads this instead of every component
 /// getting a monomorphized `ItemTree` implementation.
+#[repr(C)]
 pub struct ItemTreeDescriptor {
-    item_tree: &'static [ItemTreeNode],
-    item_array: &'static [vtable::VOffset<u8, ItemVTable, vtable::AllowPin>],
+    item_tree: Slice<'static, ItemTreeNode>,
+    item_array: Slice<'static, vtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
     tables: &'static ItemIndexTables,
-    repeaters: &'static [RepeaterSpan],
-    origin: unsafe fn(*const u8) -> ItemTreeRc,
-    subtree_index: unsafe fn(*const u8) -> usize,
-    layout_info: unsafe fn(*const u8, Orientation) -> LayoutInfo,
-    parent_node: Option<unsafe fn(*const u8, &mut ItemWeak)>,
-    window_adapter: Option<unsafe fn(*const u8, bool, &mut Option<WindowAdapterRc>)>,
+    repeaters: Slice<'static, RepeaterSpan>,
+    /// Writes a weak reference to the ItemTreeRc that owns this instance.
+    origin: unsafe extern "C" fn(*const u8, &mut ItemTreeWeak),
+    subtree_index: unsafe extern "C" fn(*const u8) -> usize,
+    layout_info: unsafe extern "C" fn(*const u8, Orientation) -> LayoutInfo,
+    parent_node: Option<unsafe extern "C" fn(*const u8, &mut ItemWeak)>,
+    window_adapter: Option<unsafe extern "C" fn(*const u8, bool, &mut Option<WindowAdapterRc>)>,
     has_debug_info: bool,
-    drop_in_place: unsafe fn(*mut u8),
+    drop_in_place: unsafe extern "C" fn(*mut u8),
     layout: vtable::Layout,
 }
 
@@ -1190,11 +1280,11 @@ impl<Base> TypedItemTreeDescriptor<Base> {
         item_array: &'static [vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
         tables: &'static TypedItemIndexTables<Base>,
         repeaters: RepeaterSpanTable<Base>,
-        origin: fn(&Base) -> ItemTreeRc,
-        subtree_index: fn(Pin<&Base>) -> usize,
-        layout_info: fn(Pin<&Base>, Orientation) -> LayoutInfo,
-        parent_node: Option<fn(Pin<&Base>, &mut ItemWeak)>,
-        window_adapter: Option<fn(Pin<&Base>, bool, &mut Option<WindowAdapterRc>)>,
+        origin: extern "C" fn(&Base, &mut ItemTreeWeak),
+        subtree_index: extern "C" fn(Pin<&Base>) -> usize,
+        layout_info: extern "C" fn(Pin<&Base>, Orientation) -> LayoutInfo,
+        parent_node: Option<extern "C" fn(Pin<&Base>, &mut ItemWeak)>,
+        window_adapter: Option<extern "C" fn(Pin<&Base>, bool, &mut Option<WindowAdapterRc>)>,
         has_debug_info: bool,
     ) -> Self {
         // Safety of the erasing casts: `Pin<&Base>` / `&Base` are ABI-compatible
@@ -1215,47 +1305,47 @@ impl<Base> TypedItemTreeDescriptor<Base> {
             };
         }
         #[allow(unsafe_code)]
-        unsafe fn drop_impl<Base>(inst: *mut u8) {
+        unsafe extern "C" fn drop_impl<Base>(inst: *mut u8) {
             // Safety: only called by the shared `drop_in_place` vtable entry with
             // the instance pointer of a `Base` component.
             unsafe { core::ptr::drop_in_place(inst as *mut Base) }
         }
         Self {
             erased: ItemTreeDescriptor {
-                item_tree,
+                item_tree: Slice::from_slice(item_tree),
                 // Safety: VOffset is repr(C) and its Base parameter is only phantom
-                item_array: unsafe {
+                item_array: Slice::from_slice(unsafe {
                     core::mem::transmute::<
                         &'static [vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
                         &'static [vtable::VOffset<u8, ItemVTable, vtable::AllowPin>],
                     >(item_array)
-                },
+                }),
                 tables: &tables.erased,
                 repeaters: repeaters.spans,
                 origin: erase_fn!(
                     origin,
-                    fn(&Base) -> ItemTreeRc,
-                    unsafe fn(*const u8) -> ItemTreeRc
+                    extern "C" fn(&Base, &mut ItemTreeWeak),
+                    unsafe extern "C" fn(*const u8, &mut ItemTreeWeak)
                 ),
                 subtree_index: erase_fn!(
                     subtree_index,
-                    fn(Pin<&Base>) -> usize,
-                    unsafe fn(*const u8) -> usize
+                    extern "C" fn(Pin<&Base>) -> usize,
+                    unsafe extern "C" fn(*const u8) -> usize
                 ),
                 layout_info: erase_fn!(
                     layout_info,
-                    fn(Pin<&Base>, Orientation) -> LayoutInfo,
-                    unsafe fn(*const u8, Orientation) -> LayoutInfo
+                    extern "C" fn(Pin<&Base>, Orientation) -> LayoutInfo,
+                    unsafe extern "C" fn(*const u8, Orientation) -> LayoutInfo
                 ),
                 parent_node: erase_opt_fn!(
                     parent_node,
-                    fn(Pin<&Base>, &mut ItemWeak),
-                    unsafe fn(*const u8, &mut ItemWeak)
+                    extern "C" fn(Pin<&Base>, &mut ItemWeak),
+                    unsafe extern "C" fn(*const u8, &mut ItemWeak)
                 ),
                 window_adapter: erase_opt_fn!(
                     window_adapter,
-                    fn(Pin<&Base>, bool, &mut Option<WindowAdapterRc>),
-                    unsafe fn(*const u8, bool, &mut Option<WindowAdapterRc>)
+                    extern "C" fn(Pin<&Base>, bool, &mut Option<WindowAdapterRc>),
+                    unsafe extern "C" fn(*const u8, bool, &mut Option<WindowAdapterRc>)
                 ),
                 has_debug_info,
                 drop_in_place: drop_impl::<Base>,
@@ -1290,71 +1380,93 @@ pub mod compiled {
         (descriptor, vref.as_ptr())
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn visit_children_item(
+    pub extern "C" fn slint_compiled_item_tree_visit_children_item(
         vref: ItemTreeRefPin<'_>,
         index: isize,
         order: TraversalOrder,
         visitor: ItemVisitorRefMut<'_>,
     ) -> VisitChildrenResult {
         let (d, inst) = parts(&vref);
-        let origin = unsafe { (d.origin)(inst) };
+        let mut origin_weak = ItemTreeWeak::default();
+        unsafe { (d.origin)(inst, &mut origin_weak) };
+        let Some(origin) = origin_weak.upgrade() else {
+            return VisitChildrenResult::CONTINUE;
+        };
         // The `u8` stands in for the erased component instance: `visit_item_tree`
         // only passes it back to the `visit_dynamic` callback.
         let base = unsafe { erased::as_pin::<u8>(inst) };
         visit_item_tree(
             base,
             &origin,
-            d.item_tree,
+            d.item_tree.as_slice(),
             index,
             order,
             visitor,
             |_: Pin<&u8>, order, visitor, dyn_index| unsafe {
-                repeaters_visit(d.repeaters, inst, dyn_index, order, visitor)
+                repeaters_visit(d.repeaters.as_slice(), inst, dyn_index, order, visitor)
             },
         )
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn get_item_ref<'a>(vref: ItemTreeRefPin<'a>, index: u32) -> Pin<ItemRef<'a>> {
+    pub extern "C" fn slint_compiled_item_tree_get_item_ref<'a>(
+        vref: ItemTreeRefPin<'a>,
+        index: u32,
+    ) -> Pin<ItemRef<'a>> {
         let (d, inst) = parts(&vref);
         let base = unsafe { erased::as_pin::<u8>(inst) };
-        super::get_item_ref(base, d.item_tree, d.item_array, index)
+        super::get_item_ref(base, d.item_tree.as_slice(), d.item_array.as_slice(), index)
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn get_subtree_range(vref: ItemTreeRefPin<'_>, index: u32) -> IndexRange {
+    pub extern "C" fn slint_compiled_item_tree_get_subtree_range(
+        vref: ItemTreeRefPin<'_>,
+        index: u32,
+    ) -> IndexRange {
         let (d, inst) = parts(&vref);
-        unsafe { repeaters_range(d.repeaters, inst, index) }
+        unsafe { repeaters_range(d.repeaters.as_slice(), inst, index) }
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn get_subtree(
+    pub extern "C" fn slint_compiled_item_tree_get_subtree(
         vref: ItemTreeRefPin<'_>,
         index: u32,
         subtree_index: usize,
         result: &mut ItemTreeWeak,
     ) {
         let (d, inst) = parts(&vref);
-        unsafe { repeaters_component(d.repeaters, inst, index, subtree_index, result) }
+        unsafe { repeaters_component(d.repeaters.as_slice(), inst, index, subtree_index, result) }
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn get_item_tree(vref: ItemTreeRefPin<'_>) -> Slice<'_, ItemTreeNode> {
+    pub extern "C" fn slint_compiled_item_tree_get_item_tree(
+        vref: ItemTreeRefPin<'_>,
+    ) -> Slice<'_, ItemTreeNode> {
         let (d, _) = parts(&vref);
-        Slice::from_slice(d.item_tree)
+        d.item_tree
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn parent_node(vref: ItemTreeRefPin<'_>, result: &mut ItemWeak) {
+    pub extern "C" fn slint_compiled_item_tree_parent_node(
+        vref: ItemTreeRefPin<'_>,
+        result: &mut ItemWeak,
+    ) {
         let (d, inst) = parts(&vref);
         if let Some(f) = d.parent_node {
             unsafe { f(inst, result) }
         }
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn embed_component(
+    pub extern "C" fn slint_compiled_item_tree_embed_component(
         _vref: ItemTreeRefPin<'_>,
         _parent: &ItemTreeWeak,
         _parent_item_tree_index: u32,
@@ -1363,14 +1475,16 @@ pub mod compiled {
         false
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn subtree_index(vref: ItemTreeRefPin<'_>) -> usize {
+    pub extern "C" fn slint_compiled_item_tree_subtree_index(vref: ItemTreeRefPin<'_>) -> usize {
         let (d, inst) = parts(&vref);
         unsafe { (d.subtree_index)(inst) }
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn layout_info(
+    pub extern "C" fn slint_compiled_item_tree_layout_info(
         vref: ItemTreeRefPin<'_>,
         orientation: Orientation,
     ) -> LayoutInfo {
@@ -1378,26 +1492,38 @@ pub mod compiled {
         unsafe { (d.layout_info)(inst, orientation) }
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn ensure_instantiated(vref: ItemTreeRefPin<'_>) -> bool {
+    pub extern "C" fn slint_compiled_item_tree_ensure_instantiated(
+        vref: ItemTreeRefPin<'_>,
+    ) -> bool {
         let (d, inst) = parts(&vref);
-        unsafe { repeaters_ensure_instantiated(d.repeaters, inst) }
+        unsafe { repeaters_ensure_instantiated(d.repeaters.as_slice(), inst) }
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn item_geometry(vref: ItemTreeRefPin<'_>, index: u32) -> LogicalRect {
+    pub extern "C" fn slint_compiled_item_tree_item_geometry(
+        vref: ItemTreeRefPin<'_>,
+        index: u32,
+    ) -> LogicalRect {
         let (d, inst) = parts(&vref);
         unsafe { erased_item_geometry(d.tables, inst, index) }
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn accessible_role(vref: ItemTreeRefPin<'_>, index: u32) -> AccessibleRole {
+    pub extern "C" fn slint_compiled_item_tree_accessible_role(
+        vref: ItemTreeRefPin<'_>,
+        index: u32,
+    ) -> AccessibleRole {
         let (d, inst) = parts(&vref);
         unsafe { erased_accessible_role(d.tables, inst, index) }
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn accessible_string_property(
+    pub extern "C" fn slint_compiled_item_tree_accessible_string_property(
         vref: ItemTreeRefPin<'_>,
         index: u32,
         what: AccessibleStringProperty,
@@ -1412,8 +1538,9 @@ pub mod compiled {
         }
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn accessibility_action(
+    pub extern "C" fn slint_compiled_item_tree_accessibility_action(
         vref: ItemTreeRefPin<'_>,
         index: u32,
         action: &AccessibilityAction,
@@ -1422,8 +1549,9 @@ pub mod compiled {
         unsafe { erased_accessibility_action(d.tables, inst, index, action) }
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn supported_accessibility_actions(
+    pub extern "C" fn slint_compiled_item_tree_supported_accessibility_actions(
         vref: ItemTreeRefPin<'_>,
         index: u32,
     ) -> SupportedAccessibilityAction {
@@ -1431,8 +1559,9 @@ pub mod compiled {
         erased_supported_accessibility_actions(d.tables, index)
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn item_element_infos(
+    pub extern "C" fn slint_compiled_item_tree_item_element_infos(
         vref: ItemTreeRefPin<'_>,
         index: u32,
         result: &mut SharedString,
@@ -1446,8 +1575,9 @@ pub mod compiled {
         }
     }
 
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub extern "C" fn window_adapter(
+    pub extern "C" fn slint_compiled_item_tree_window_adapter(
         vref: ItemTreeRefPin<'_>,
         do_create: bool,
         result: &mut Option<WindowAdapterRc>,
@@ -1460,8 +1590,11 @@ pub mod compiled {
     }
 
     /// Safety: `vref` must point to the component the vtable was created for.
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub unsafe extern "C" fn drop_in_place(vref: VRefMut<ItemTreeVTable>) -> vtable::Layout {
+    pub unsafe extern "C" fn slint_compiled_item_tree_drop_in_place(
+        vref: VRefMut<ItemTreeVTable>,
+    ) -> vtable::Layout {
         let descriptor = vref
             .get_vtable()
             .descriptor
@@ -1471,8 +1604,9 @@ pub mod compiled {
     }
 
     /// Safety: `ptr` must have been allocated with `layout`.
+    #[unsafe(no_mangle)]
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-    pub unsafe extern "C" fn dealloc(
+    pub unsafe extern "C" fn slint_compiled_item_tree_dealloc(
         _vtable: &ItemTreeVTable,
         ptr: *mut u8,
         layout: vtable::Layout,
@@ -1489,29 +1623,29 @@ pub mod compiled {
 #[macro_export]
 macro_rules! compiled_item_tree_vtable {
     (static $id:ident for $ty:ty) => {
-        static $id: $crate::item_tree::ItemTreeVTable = $crate::item_tree::ItemTreeVTable {
-            visit_children_item: $crate::item_tree::compiled::visit_children_item,
-            get_item_ref: $crate::item_tree::compiled::get_item_ref,
-            get_subtree_range: $crate::item_tree::compiled::get_subtree_range,
-            get_subtree: $crate::item_tree::compiled::get_subtree,
-            get_item_tree: $crate::item_tree::compiled::get_item_tree,
-            parent_node: $crate::item_tree::compiled::parent_node,
-            embed_component: $crate::item_tree::compiled::embed_component,
-            subtree_index: $crate::item_tree::compiled::subtree_index,
-            layout_info: $crate::item_tree::compiled::layout_info,
-            ensure_instantiated: $crate::item_tree::compiled::ensure_instantiated,
-            item_geometry: $crate::item_tree::compiled::item_geometry,
-            accessible_role: $crate::item_tree::compiled::accessible_role,
-            accessible_string_property: $crate::item_tree::compiled::accessible_string_property,
-            accessibility_action: $crate::item_tree::compiled::accessibility_action,
-            supported_accessibility_actions:
-                $crate::item_tree::compiled::supported_accessibility_actions,
-            item_element_infos: $crate::item_tree::compiled::item_element_infos,
-            window_adapter: $crate::item_tree::compiled::window_adapter,
-            drop_in_place: $crate::item_tree::compiled::drop_in_place,
-            dealloc: $crate::item_tree::compiled::dealloc,
-            descriptor: ::core::option::Option::Some(<$ty>::ITEM_TREE_DESCRIPTOR.erased()),
-        };
+        static $id: $crate::item_tree::ItemTreeVTable =
+            $crate::item_tree::ItemTreeVTable {
+                visit_children_item: $crate::item_tree::compiled::slint_compiled_item_tree_visit_children_item,
+                get_item_ref: $crate::item_tree::compiled::slint_compiled_item_tree_get_item_ref,
+                get_subtree_range: $crate::item_tree::compiled::slint_compiled_item_tree_get_subtree_range,
+                get_subtree: $crate::item_tree::compiled::slint_compiled_item_tree_get_subtree,
+                get_item_tree: $crate::item_tree::compiled::slint_compiled_item_tree_get_item_tree,
+                parent_node: $crate::item_tree::compiled::slint_compiled_item_tree_parent_node,
+                embed_component: $crate::item_tree::compiled::slint_compiled_item_tree_embed_component,
+                subtree_index: $crate::item_tree::compiled::slint_compiled_item_tree_subtree_index,
+                layout_info: $crate::item_tree::compiled::slint_compiled_item_tree_layout_info,
+                ensure_instantiated: $crate::item_tree::compiled::slint_compiled_item_tree_ensure_instantiated,
+                item_geometry: $crate::item_tree::compiled::slint_compiled_item_tree_item_geometry,
+                accessible_role: $crate::item_tree::compiled::slint_compiled_item_tree_accessible_role,
+                accessible_string_property: $crate::item_tree::compiled::slint_compiled_item_tree_accessible_string_property,
+                accessibility_action: $crate::item_tree::compiled::slint_compiled_item_tree_accessibility_action,
+                supported_accessibility_actions: $crate::item_tree::compiled::slint_compiled_item_tree_supported_accessibility_actions,
+                item_element_infos: $crate::item_tree::compiled::slint_compiled_item_tree_item_element_infos,
+                window_adapter: $crate::item_tree::compiled::slint_compiled_item_tree_window_adapter,
+                drop_in_place: $crate::item_tree::compiled::slint_compiled_item_tree_drop_in_place,
+                dealloc: $crate::item_tree::compiled::slint_compiled_item_tree_dealloc,
+                descriptor: ::core::option::Option::Some(<$ty>::ITEM_TREE_DESCRIPTOR.erased()),
+            };
         #[allow(unsafe_code)]
         unsafe impl $crate::vtable::HasStaticVTable<$crate::item_tree::ItemTreeVTable> for $ty {
             const STATIC_VTABLE: &'static $crate::item_tree::ItemTreeVTable = &$id;
