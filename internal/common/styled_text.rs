@@ -744,11 +744,11 @@ fn assert_no_errors(
 fn markdown_parsing() {
     assert_eq!(
         assert_no_errors(parse_interpolated::<&[_]>("hello *world*", &[])),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan { range: 6..11, style: Style::Emphasis }],
             links: alloc::vec::Vec::new()
-        }]
+        })]
     );
 
     assert_eq!(
@@ -760,16 +760,16 @@ fn markdown_parsing() {
             &[]
         )),
         [
-            StyledTextParagraph {
+            ParagraphBlock::Text(RichText {
                 text: "• line 1".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
+            }),
+            ParagraphBlock::Text(RichText {
                 text: "• line 2".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            }
+            })
         ]
     );
 
@@ -783,21 +783,21 @@ fn markdown_parsing() {
             &[]
         )),
         [
-            StyledTextParagraph {
+            ParagraphBlock::Text(RichText {
                 text: "1. a".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
+            }),
+            ParagraphBlock::Text(RichText {
                 text: "2. b".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
+            }),
+            ParagraphBlock::Text(RichText {
                 text: "3. c".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            }
+            })
         ]
     );
 
@@ -810,7 +810,7 @@ new *line*
             &[]
         )),
         [
-            StyledTextParagraph {
+            ParagraphBlock::Text(RichText {
                 text: "Normal italic strong strikethrough code".into(),
                 formatting: alloc::vec![
                     FormattedSpan { range: 7..13, style: Style::Emphasis },
@@ -819,12 +819,12 @@ new *line*
                     FormattedSpan { range: 35..39, style: Style::Code }
                 ],
                 links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
+            }),
+            ParagraphBlock::Text(RichText {
                 text: "new line".into(),
                 formatting: alloc::vec![FormattedSpan { range: 4..8, style: Style::Emphasis },],
                 links: alloc::vec::Vec::new()
-            }
+            })
         ]
     );
 
@@ -839,48 +839,48 @@ new *line*
             &[]
         )),
         [
-            StyledTextParagraph {
+            ParagraphBlock::Text(RichText {
                 text: "• root".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
+            }),
+            ParagraphBlock::Text(RichText {
                 text: "    ◦ child".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
+            }),
+            ParagraphBlock::Text(RichText {
                 text: "        ▪ grandchild".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
+            }),
+            ParagraphBlock::Text(RichText {
                 text: "            • great grandchild".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            },
+            }),
         ]
     );
 
     assert_eq!(
         assert_no_errors(parse_interpolated::<&[_]>("hello [*world*](https://example.com)", &[])),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "hello world".into(),
             formatting: alloc::vec![
                 FormattedSpan { range: 6..11, style: Style::Emphasis },
                 FormattedSpan { range: 6..11, style: Style::Link }
             ],
             links: alloc::vec![(6..11, "https://example.com".into())]
-        }]
+        })]
     );
 
     assert_eq!(
         assert_no_errors(parse_interpolated::<&[_]>("<u>hello world</u>", &[])),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan { range: 0..11, style: Style::Underline },],
             links: alloc::vec::Vec::new()
-        }]
+        })]
     );
 
     assert_eq!(
@@ -888,14 +888,14 @@ new *line*
             r#"<font color="blue">hello world</font>"#,
             &[]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan {
                 range: 0..11,
                 style: Style::Color(0xff_00_00_ff)
             },],
             links: alloc::vec::Vec::new()
-        }]
+        })]
     );
 
     assert_eq!(
@@ -903,14 +903,14 @@ new *line*
             r#"<u><font color="red">hello world</font></u>"#,
             &[]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "hello world".into(),
             formatting: alloc::vec![
                 FormattedSpan { range: 0..11, style: Style::Color(0xff_ff_00_00) },
                 FormattedSpan { range: 0..11, style: Style::Underline },
             ],
             links: alloc::vec::Vec::new()
-        }]
+        })]
     );
 
     // Invalid color: text still renders, error is reported
@@ -919,14 +919,14 @@ new *line*
             parse_interpolated::<&[_]>(r#"<u><font color="\#a">hello world</font></u>"#, &[]);
         assert_eq!(
             paragraphs,
-            [StyledTextParagraph {
+            [ParagraphBlock::Text(RichText {
                 text: "hello world".into(),
                 formatting: alloc::vec![
                     FormattedSpan { range: 0..11, style: Style::Color(0) },
                     FormattedSpan { range: 0..11, style: Style::Underline },
                 ],
                 links: alloc::vec::Vec::new()
-            }]
+            })]
         );
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].to_string(), r"Invalid color value '\#a'");
@@ -942,33 +942,33 @@ fn markdown_parsing_interpolated() {
             &format!("Text: *{MARKDOWN_INTERPOLATION_PLACEHOLDER}*"),
             &[&[paragraph_from_plain_text("italic".into())]]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "Text: italic".into(),
             formatting: alloc::vec![FormattedSpan { range: 6..12, style: Style::Emphasis }],
             links: alloc::vec![]
-        }]
+        })]
     );
     assert_eq!(
         assert_no_errors(parse_interpolated(
             &format!("Escaped text: {MARKDOWN_INTERPOLATION_PLACEHOLDER}"),
             &[&[paragraph_from_plain_text("*bold*".into())]]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "Escaped text: *bold*".into(),
             formatting: alloc::vec![],
             links: alloc::vec![]
-        }]
+        })]
     );
     assert_eq!(
         assert_no_errors(parse_interpolated(
             &format!("Code block text: `{MARKDOWN_INTERPOLATION_PLACEHOLDER}`"),
             &[&[paragraph_from_plain_text("*bold*".into())]]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "Code block text: *bold*".into(),
             formatting: alloc::vec![FormattedSpan { range: 17..23, style: Style::Code }],
             links: alloc::vec![]
-        }]
+        })]
     );
     assert_eq!(
         assert_no_errors(parse_interpolated(
@@ -980,28 +980,28 @@ fn markdown_parsing_interpolated() {
                 parse_interpolated::<&[_]>("*World*", &[]).0
             ]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "Hello World".into(),
             formatting: alloc::vec![
                 FormattedSpan { range: 0..5, style: Style::Strong },
                 FormattedSpan { range: 6..11, style: Style::Emphasis }
             ],
             links: alloc::vec![]
-        }]
+        })]
     );
     assert_eq!(
         assert_no_errors(parse_interpolated(
             &format!("<u>{MARKDOWN_INTERPOLATION_PLACEHOLDER}</u>"),
             &[parse_interpolated::<&[_]>("*underline_and_italic*", &[]).0]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "underline_and_italic".into(),
             formatting: alloc::vec![
                 FormattedSpan { range: 0..20, style: Style::Emphasis },
                 FormattedSpan { range: 0..20, style: Style::Underline },
             ],
             links: alloc::vec![]
-        }]
+        })]
     );
     // Empty paragraph list might be caused by a StyledText::default()
     assert_eq!(
@@ -1009,7 +1009,7 @@ fn markdown_parsing_interpolated() {
             &format!("{MARKDOWN_INTERPOLATION_PLACEHOLDER}"),
             &[[]]
         )),
-        [StyledTextParagraph { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }]
+        [ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] })]
     );
     // Interpolation in link URL
     assert_eq!(
@@ -1017,11 +1017,11 @@ fn markdown_parsing_interpolated() {
             &format!("[Click here]({MARKDOWN_INTERPOLATION_PLACEHOLDER})"),
             &[&[paragraph_from_plain_text("https://example.com".into())]]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "Click here".into(),
             formatting: alloc::vec![FormattedSpan { range: 0..10, style: Style::Link }],
             links: alloc::vec![(0..10, "https://example.com".into())]
-        }]
+        })]
     );
     // Interpolation in link URL with surrounding text
     assert_eq!(
@@ -1029,11 +1029,11 @@ fn markdown_parsing_interpolated() {
             &format!("[link](https://{MARKDOWN_INTERPOLATION_PLACEHOLDER}/path) after"),
             &[&[paragraph_from_plain_text("example.com".into())]]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "link after".into(),
             formatting: alloc::vec![FormattedSpan { range: 0..4, style: Style::Link }],
             links: alloc::vec![(0..4, "https://example.com/path".into())]
-        }]
+        })]
     );
 }
 
@@ -1054,5 +1054,92 @@ fn markdown_interleaved_html_and_emphasis() {
     assert!(
         errors.iter().any(|e| e.to_string().contains("Closing html tag")),
         "Expected ClosingTagMismatch, got: {errors:?}"
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_heading_levels() {
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("# H1\n## H2\n### H3\n#### H4\n##### H5\n###### H6", &[])),
+        [
+            ParagraphBlock::Heading { level: 1, content: RichText { text: "H1".into(), formatting: alloc::vec![], links: alloc::vec![] } },
+            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Heading { level: 2, content: RichText { text: "H2".into(), formatting: alloc::vec![], links: alloc::vec![] } },
+            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Heading { level: 3, content: RichText { text: "H3".into(), formatting: alloc::vec![], links: alloc::vec![] } },
+            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Heading { level: 4, content: RichText { text: "H4".into(), formatting: alloc::vec![], links: alloc::vec![] } },
+            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Heading { level: 5, content: RichText { text: "H5".into(), formatting: alloc::vec![], links: alloc::vec![] } },
+            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Heading { level: 6, content: RichText { text: "H6".into(), formatting: alloc::vec![], links: alloc::vec![] } },
+            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+        ]
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_heading_with_inline() {
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("# *Italic* heading", &[])),
+        [
+            ParagraphBlock::Heading {
+                level: 1,
+                content: RichText {
+                    text: "Italic heading".into(),
+                    formatting: alloc::vec![FormattedSpan { range: 0..6, style: Style::Emphasis }],
+                    links: alloc::vec![],
+                }
+            },
+            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+        ]
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_heading_and_text() {
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("# Title\n\nBody text", &[])),
+        [
+            ParagraphBlock::Heading { level: 1, content: RichText { text: "Title".into(), formatting: alloc::vec![], links: alloc::vec![] } },
+            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Text(RichText { text: "Body text".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+        ]
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_horizontal_rules() {
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("---\n\n***\n\n___", &[])),
+        [
+            ParagraphBlock::HorizontalRule,
+            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::HorizontalRule,
+            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::HorizontalRule,
+            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+        ]
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_mixed_heading_and_rules() {
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("# Title\n\nContent\n\n---\n\n## Subtitle", &[])),
+        [
+            ParagraphBlock::Heading { level: 1, content: RichText { text: "Title".into(), formatting: alloc::vec![], links: alloc::vec![] } },
+            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Text(RichText { text: "Content".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::HorizontalRule,
+            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Heading { level: 2, content: RichText { text: "Subtitle".into(), formatting: alloc::vec![], links: alloc::vec![] } },
+            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+        ]
     );
 }
