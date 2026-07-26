@@ -156,7 +156,6 @@ fn begin_paragraph(indentation: u32, list_item_type: Option<ListItemType>) -> Pa
     ParagraphBlock::Text(RichText { text, formatting: Default::default(), links: Default::default() })
 }
 
-#[cfg(feature = "markdown")]
 pub fn rich_text_content(block: &ParagraphBlock) -> Option<&RichText> {
     match block {
         ParagraphBlock::Text(content) | ParagraphBlock::Heading { content, .. } => Some(content),
@@ -174,12 +173,6 @@ fn append_rich_text(target: &mut RichText, source: &RichText) {
     target.links.extend(source.links.iter().cloned().map(|(mut range, link)| {
         range.start += offset; range.end += offset; (range, link)
     }));
-}
-
-fn append_paragraph(target: &mut ParagraphBlock, source: &ParagraphBlock) {
-    let Some(source_rt) = rich_text_content(source) else { return };
-    let ParagraphBlock::Text(target_rt) = target else { return };
-    append_rich_text(target_rt, source_rt);
 }
 
 #[cfg(feature = "markdown")]
