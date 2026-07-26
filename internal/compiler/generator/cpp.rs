@@ -1822,15 +1822,30 @@ fn generate_item_tree(
 
     target_struct.members.push((
         Access::Private,
+        Declaration::Var(Var {
+            ty: "static const slint::private_api::ItemTreeNode".into(),
+            name: "item_tree_array".into(),
+            array_size: Some(item_tree_array.len()),
+            ..Default::default()
+        }),
+    ));
+    file.definitions.push(Declaration::Var(Var {
+        is_inline: true,
+        ty: "constinit const slint::private_api::ItemTreeNode".into(),
+        name: format_smolstr!("{}::item_tree_array", item_tree_class_name),
+        array_size: Some(item_tree_array.len()),
+        init: Some(format!("{{ {} }}", item_tree_array.join(", \n"))),
+        ..Default::default()
+    }));
+    target_struct.members.push((
+        Access::Private,
         Declaration::Function(Function {
             name: "item_tree".into(),
             signature: "() -> slint::cbindgen_private::Slice<slint::private_api::ItemTreeNode>"
                 .into(),
             is_static: true,
             statements: Some(vec![
-                "static const slint::private_api::ItemTreeNode children[] {".to_owned(),
-                format!("    {} }};", item_tree_array.join(", \n")),
-                "return slint::private_api::make_slice(std::span(children));".to_owned(),
+                "return slint::private_api::make_slice(std::span(item_tree_array));".to_owned(),
             ]),
             ..Default::default()
         }),
@@ -1838,14 +1853,29 @@ fn generate_item_tree(
 
     target_struct.members.push((
         Access::Private,
+        Declaration::Var(Var {
+            ty: "static const slint::private_api::ItemArrayEntry".into(),
+            name: "item_array_entries".into(),
+            array_size: Some(item_array.len()),
+            ..Default::default()
+        }),
+    ));
+    file.definitions.push(Declaration::Var(Var {
+        is_inline: true,
+        ty: "constinit const slint::private_api::ItemArrayEntry".into(),
+        name: format_smolstr!("{}::item_array_entries", item_tree_class_name),
+        array_size: Some(item_array.len()),
+        init: Some(format!("{{ {} }}", item_array.join(", \n"))),
+        ..Default::default()
+    }));
+    target_struct.members.push((
+        Access::Private,
         Declaration::Function(Function {
             name: "item_array".into(),
             signature: "() -> const slint::private_api::ItemArray".into(),
             is_static: true,
             statements: Some(vec![
-                "static const slint::private_api::ItemArrayEntry items[] {".to_owned(),
-                format!("    {} }};", item_array.join(", \n")),
-                "return slint::private_api::make_slice(std::span(items));".to_owned(),
+                "return slint::private_api::make_slice(std::span(item_array_entries));".to_owned(),
             ]),
             ..Default::default()
         }),
@@ -1860,10 +1890,12 @@ fn generate_item_tree(
         }),
     ));
     file.definitions.push(Declaration::Var(Var {
-        ty: "const slint::private_api::ItemTreeDescriptor".into(),
+        ty: "constinit const slint::private_api::ItemTreeDescriptor".into(),
         name: format_smolstr!("{}::item_tree_descriptor", item_tree_class_name),
         init: Some(format!(
-            "{{ {item_tree_class_name}::item_tree(), {item_tree_class_name}::item_array(),                &{item_tree_class_name}::item_index_tables(), {item_tree_class_name}::repeater_spans(),                &{item_tree_class_name}::origin_fn, &{item_tree_class_name}::subtree_index_fn,                &{item_tree_class_name}::layout_info_fn, {parent_node_descriptor_entry},                {window_adapter_descriptor_entry}, {}, &{item_tree_class_name}::drop_in_place_fn,                {{ sizeof({item_tree_class_name}), alignof({item_tree_class_name}) }} }}",
+            "{{ {{ const_cast<slint::private_api::ItemTreeNode*>({item_tree_class_name}::item_tree_array), {} }},                {{ const_cast<slint::private_api::ItemArrayEntry*>({item_tree_class_name}::item_array_entries), {} }},                &{item_tree_class_name}::item_index_tables, {item_tree_class_name}::repeater_spans_slice,                &{item_tree_class_name}::origin_fn, &{item_tree_class_name}::subtree_index_fn,                &{item_tree_class_name}::layout_info_fn, {parent_node_descriptor_entry},                {window_adapter_descriptor_entry}, {}, &{item_tree_class_name}::drop_in_place_fn,                {{ sizeof({item_tree_class_name}), alignof({item_tree_class_name}) }} }}",
+            item_tree_array.len(),
+            item_array.len(),
             root.has_debug_info
         )),
         ..Default::default()
@@ -1878,7 +1910,7 @@ fn generate_item_tree(
         }),
     ));
     file.definitions.push(Declaration::Var(Var {
-        ty: "const slint::private_api::ItemTreeVTable".into(),
+        ty: "constinit const slint::private_api::ItemTreeVTable".into(),
         name: format_smolstr!("{}::static_vtable", item_tree_class_name),
         init: Some(format!(
             "{{ slint::cbindgen_private::slint_compiled_item_tree_visit_children_item, \
@@ -2231,7 +2263,7 @@ fn generate_sub_component(
             let last_repeater = repeater_offset + sub_component_repeater_count - 1;
             let sub_type = ident(&sub_sc.name);
             repeater_span_entries.push(format!(
-                "slint::private_api::make_sub_component_span({repeater_offset}, {last_repeater}, offsetof({}, {sub_field}), {sub_type}::repeater_spans())",
+                "slint::private_api::make_sub_component_span({repeater_offset}, {last_repeater}, offsetof({}, {sub_field}), {sub_type}::repeater_spans_slice)",
                 ident(&component.name)
             ));
         }
@@ -2247,7 +2279,7 @@ fn generate_sub_component(
                 (1, 0)
             };
             sub_component_table_entries.push(format!(
-                "slint::private_api::SubComponentTableEntry {{ offsetof({}, {sub_field}), &{}::item_index_tables(), {local_tree_index}, {children_begin}, {children_end} }}",
+                "slint::private_api::SubComponentTableEntry {{ offsetof({}, {sub_field}), &{}::item_index_tables, {local_tree_index}, {children_begin}, {children_end} }}",
                 ident(&component.name),
                 ident(&sub_sc.name),
             ));
@@ -2558,8 +2590,8 @@ fn generate_sub_component(
     let mut accessible_string_entries: Vec<String> = Vec::new();
     // Byte arrays backing the constant string table entries (so the tables can
     // be fully constant-initialized: const_cast is a constant expression,
-    // casting a string literal is not).
-    let mut string_data_arrays: Vec<String> = Vec::new();
+    // casting a string literal is not). Pairs of (name, initializer).
+    let mut string_data_arrays: Vec<(String, String)> = Vec::new();
     for ((index, what), expr) in &component.accessible_prop {
         let e = compile_expression(&expr.borrow(), &ctx);
         if what == "Role" {
@@ -2583,8 +2615,12 @@ fn generate_sub_component(
                 .or_default()
                 .insert(format!("slint::cbindgen_private::SupportedAccessibilityAction_{what}"));
         } else if let llr::Expression::StringLiteral(str_value) = &*expr.borrow() {
-            let name = format!("string_property_bytes_{}", string_data_arrays.len());
-            string_data_arrays.push(byte_array_def(&name, str_value));
+            let name = format!(
+                "{}_string_property_bytes_{}",
+                ident(&component.name),
+                string_data_arrays.len()
+            );
+            string_data_arrays.push((name.clone(), byte_array_init(str_value)));
             accessible_string_entries.push(format!(
                 "slint::private_api::AccessibleStringPropertyEntry {{ {index}, slint::cbindgen_private::AccessibleStringProperty::{what}, {{ const_cast<uint8_t*>({name}), {} }} }}",
                 str_value.len()
@@ -2631,8 +2667,12 @@ fn generate_sub_component(
         .element_infos
         .iter()
         .map(|(index, ids)| {
-            let name = format!("element_infos_bytes_{}", string_data_arrays.len());
-            string_data_arrays.push(byte_array_def(&name, ids));
+            let name = format!(
+                "{}_element_infos_bytes_{}",
+                ident(&component.name),
+                string_data_arrays.len()
+            );
+            string_data_arrays.push((name.clone(), byte_array_init(ids)));
             format!(
                 "slint::private_api::ElementInfosEntry {{ {index}, {{ const_cast<uint8_t*>({name}), {} }} }}",
                 ids.len()
@@ -2704,141 +2744,131 @@ fn generate_sub_component(
         ));
     }
 
-    let slice_or_empty = |entries: &[String], ty: &str| {
+    let compo_ident = ident(&component.name);
+    // string data arrays first: the entry-array definitions below reference them
+    for (name, init) in string_data_arrays {
+        file.definitions.push(Declaration::Var(Var {
+            is_inline: true,
+            ty: "constexpr uint8_t".into(),
+            name: format_smolstr!("{name}[]"),
+            init: Some(init),
+            ..Default::default()
+        }));
+    }
+    // Each non-empty table becomes a constant-initialized static member array
+    // (a member so the initializers can use `offsetof` on private fields and
+    // take the address of private fallback functions).
+    let mut emit_entry_array = |entries: &[String], ty: &str, constexpr_def: bool| {
         if entries.is_empty() {
-            format!("slint::private_api::empty_slice<slint::private_api::{ty}>()")
-        } else {
-            format!(
-                "slint::private_api::make_slice(std::span(static_{ty}_entries))"
-            )
+            return format!("slint::private_api::empty_slice<slint::private_api::{ty}>()");
         }
+        target_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: format_smolstr!("static const slint::private_api::{ty}"),
+                name: format_smolstr!("static_{ty}_entries"),
+                array_size: Some(entries.len()),
+                ..Default::default()
+            }),
+        ));
+        file.definitions.push(Declaration::Var(Var {
+            is_inline: true,
+            ty: format_smolstr!(
+                "{} const slint::private_api::{ty}",
+                if constexpr_def { "constexpr" } else { "constinit" }
+            ),
+            name: format_smolstr!("{compo_ident}::static_{ty}_entries"),
+            array_size: Some(entries.len()),
+            init: Some(format!("{{ {} }}", entries.join(", "))),
+            ..Default::default()
+        }));
+        format!(
+            "{{ const_cast<slint::private_api::{ty}*>({compo_ident}::static_{ty}_entries), {} }}",
+            entries.len()
+        )
     };
-    let mut tables_stmts = Vec::new();
-    tables_stmts.extend(string_data_arrays);
-    if !accessible_role_entries.is_empty() {
-        tables_stmts.push(format!(
-            "static constexpr slint::private_api::AccessibleRoleEntry static_AccessibleRoleEntry_entries[] {{ {} }};",
-            accessible_role_entries.join(", ")
-        ));
-    }
-    if !accessible_string_entries.is_empty() {
-        tables_stmts.push(format!(
-            "static constexpr slint::private_api::AccessibleStringPropertyEntry static_AccessibleStringPropertyEntry_entries[] {{ {} }};",
-            accessible_string_entries.join(", ")
-        ));
-    }
-    if !item_geometry_entries.is_empty() {
-        tables_stmts.push(format!(
-            "static constexpr slint::private_api::GeometryTableEntry static_GeometryTableEntry_entries[] {{ {} }};",
-            item_geometry_entries.join(", ")
-        ));
-    }
-    if !supported_accessibility_actions_entries.is_empty() {
-        tables_stmts.push(format!(
-            "static constexpr slint::private_api::SupportedAccessibilityActionsEntry static_SupportedAccessibilityActionsEntry_entries[] {{ {} }};",
-            supported_accessibility_actions_entries.join(", ")
-        ));
-    }
-    if !element_infos_entries.is_empty() {
-        tables_stmts.push(format!(
-            "static constexpr slint::private_api::ElementInfosEntry static_ElementInfosEntry_entries[] {{ {} }};",
-            element_infos_entries.join(", ")
-        ));
-    }
-    if !sub_component_table_entries.is_empty() {
-        tables_stmts.push(format!(
-            "static const slint::private_api::SubComponentTableEntry static_SubComponentTableEntry_entries[] {{ {} }};",
-            sub_component_table_entries.join(", ")
-        ));
-    }
-    tables_stmts.push("static const slint::private_api::ItemIndexTables tables {".into());
-    tables_stmts.push(format!(
-        "    {},",
-        slice_or_empty(&accessible_role_entries, "AccessibleRoleEntry")
-    ));
-    tables_stmts.push(format!(
-        "    {},",
-        slice_or_empty(&supported_accessibility_actions_entries, "SupportedAccessibilityActionsEntry")
-    ));
-    tables_stmts.push(format!("    {},", slice_or_empty(&element_infos_entries, "ElementInfosEntry")));
-    tables_stmts.push(format!(
-        "    {},",
-        slice_or_empty(&accessible_string_entries, "AccessibleStringPropertyEntry")
-    ));
-    tables_stmts.push(format!(
-        "    {},",
-        slice_or_empty(&item_geometry_entries, "GeometryTableEntry")
-    ));
-    tables_stmts.push(format!(
-        "    {},",
-        if has_geometry { "&item_geometry_fallback" } else { "nullptr" }
-    ));
-    tables_stmts.push(format!(
-        "    {},",
-        if has_roles { "&accessible_role_fallback" } else { "nullptr" }
-    ));
-    tables_stmts.push(format!(
-        "    {},",
-        if has_strings { "&accessible_string_property_fallback" } else { "nullptr" }
-    ));
-    tables_stmts.push(format!(
-        "    {},",
-        if has_actions { "&accessibility_action_fallback" } else { "nullptr" }
-    ));
-    tables_stmts.push(format!(
-        "    {},",
-        slice_or_empty(&sub_component_table_entries, "SubComponentTableEntry")
-    ));
-    tables_stmts.push("};".into());
-    tables_stmts.push("return tables;".into());
+    let roles_slice = emit_entry_array(&accessible_role_entries, "AccessibleRoleEntry", true);
+    let actions_slice = emit_entry_array(
+        &supported_accessibility_actions_entries,
+        "SupportedAccessibilityActionsEntry",
+        true,
+    );
+    let element_infos_slice = emit_entry_array(&element_infos_entries, "ElementInfosEntry", true);
+    let strings_slice =
+        emit_entry_array(&accessible_string_entries, "AccessibleStringPropertyEntry", true);
+    let geometry_slice = emit_entry_array(&item_geometry_entries, "GeometryTableEntry", true);
+    let sub_components_slice =
+        emit_entry_array(&sub_component_table_entries, "SubComponentTableEntry", true);
+
     target_struct.members.push((
         Access::Public,
-        Declaration::Function(Function {
+        Declaration::Var(Var {
+            ty: "static const slint::private_api::ItemIndexTables".into(),
             name: "item_index_tables".into(),
-            signature: "() -> const slint::private_api::ItemIndexTables &".into(),
-            is_static: true,
-            statements: Some(tables_stmts),
             ..Default::default()
         }),
     ));
+    file.definitions.push(Declaration::Var(Var {
+        is_inline: true,
+        ty: "constinit const slint::private_api::ItemIndexTables".into(),
+        name: format_smolstr!("{compo_ident}::item_index_tables"),
+        init: Some(format!(
+            "{{ {roles_slice}, {actions_slice}, {element_infos_slice}, {strings_slice}, {geometry_slice}, {}, {}, {}, {}, {sub_components_slice} }}",
+            if has_geometry { format!("&{compo_ident}::item_geometry_fallback") } else { "nullptr".into() },
+            if has_roles { format!("&{compo_ident}::accessible_role_fallback") } else { "nullptr".into() },
+            if has_strings { format!("&{compo_ident}::accessible_string_property_fallback") } else { "nullptr".into() },
+            if has_actions { format!("&{compo_ident}::accessibility_action_fallback") } else { "nullptr".into() },
+        )),
+        ..Default::default()
+    }));
 
-    let spans_stmts = if repeater_span_entries.is_empty() {
-        vec!["return slint::private_api::empty_slice<slint::private_api::RepeaterSpan>();".to_owned()]
+    let spans_slice_init = if repeater_span_entries.is_empty() {
+        "slint::private_api::empty_slice<slint::private_api::RepeaterSpan>()".to_owned()
     } else {
-        let all_constant =
-            repeater_span_entries.iter().all(|e| !e.contains("make_sub_component_span"));
-        vec![
-            format!(
-                "static {} slint::private_api::RepeaterSpan spans[] {{ {} }};",
-                if all_constant { "constexpr" } else { "const" },
-                repeater_span_entries.join(", ")
-            ),
-            "return slint::private_api::make_slice(std::span(spans));".to_owned(),
-        ]
+        target_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: "static const slint::private_api::RepeaterSpan".into(),
+                name: "repeater_spans_array".into(),
+                array_size: Some(repeater_span_entries.len()),
+                ..Default::default()
+            }),
+        ));
+        file.definitions.push(Declaration::Var(Var {
+            is_inline: true,
+            ty: "constinit const slint::private_api::RepeaterSpan".into(),
+            name: format_smolstr!("{compo_ident}::repeater_spans_array"),
+            array_size: Some(repeater_span_entries.len()),
+            init: Some(format!("{{ {} }}", repeater_span_entries.join(", "))),
+            ..Default::default()
+        }));
+        format!(
+            "{{ const_cast<slint::private_api::RepeaterSpan*>(repeater_spans_array), {} }}",
+            repeater_span_entries.len()
+        )
     };
     target_struct.members.push((
         Access::Public,
-        Declaration::Function(Function {
-            name: "repeater_spans".into(),
-            signature: "() -> slint::cbindgen_private::Slice<slint::private_api::RepeaterSpan>"
+        Declaration::Var(Var {
+            ty: "static constexpr slint::cbindgen_private::Slice<slint::private_api::RepeaterSpan>"
                 .into(),
-            is_static: true,
-            statements: Some(spans_stmts),
+            name: "repeater_spans_slice".into(),
+            init: Some(spans_slice_init),
             ..Default::default()
         }),
     ));
 }
 
-/// A `static constexpr uint8_t` array definition holding `value`'s UTF-8
+/// The initializer list of a `constexpr uint8_t` array holding `value`'s UTF-8
 /// bytes, so string table entries can be constant-initialized.
-fn byte_array_def(name: &str, value: &str) -> String {
+fn byte_array_init(value: &str) -> String {
     let bytes = if value.is_empty() {
         // a zero-length array is not valid C++; the entry's length stays 0
         "0".to_string()
     } else {
         value.as_bytes().iter().map(|b| b.to_string()).collect::<Vec<_>>().join(", ")
     };
-    format!("static constexpr uint8_t {name}[] {{ {bytes} }};")
+    format!("{{ {bytes} }}")
 }
 
 /// If the geometry expression is a struct of constants and plain property
