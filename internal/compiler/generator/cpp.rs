@@ -1708,93 +1708,9 @@ fn generate_item_tree(
         }
     });
 
-    let mut visit_children_statements = vec![
-        "static const auto dyn_visit = [] (const void *base,  [[maybe_unused]] slint::private_api::TraversalOrder order, [[maybe_unused]] slint::private_api::ItemVisitorRefMut visitor, [[maybe_unused]] uint32_t dyn_index) -> uint64_t {".to_owned(),
-        format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", item_tree_class_name)];
-    let mut subtree_range_statement = vec!["    std::abort();".into()];
-    let mut subtree_component_statement = vec!["    std::abort();".into()];
-
-    if target_struct.members.iter().any(|(_, declaration)| {
-        matches!(&declaration, Declaration::Function(func @ Function { .. }) if func.name == "visit_dynamic_children")
-    }) {
-        visit_children_statements
-            .push("    return self->visit_dynamic_children(dyn_index, order, visitor);".into());
-        subtree_range_statement = vec![
-                format!("auto self = reinterpret_cast<const {}*>(component.instance);", item_tree_class_name),
-                "return self->subtree_range(dyn_index);".to_owned(),
-        ];
-        subtree_component_statement = vec![
-                format!("auto self = reinterpret_cast<const {}*>(component.instance);", item_tree_class_name),
-                "self->subtree_component(dyn_index, subtree_index, result);".to_owned(),
-        ];
-    } else {
-        visit_children_statements.push("    std::abort();".into());
-     }
-
-    visit_children_statements.extend([
-        "};".into(),
-        format!("auto self_rc = reinterpret_cast<const {item_tree_class_name}*>(component.instance)->self_weak.lock()->into_dyn();"),
-        "return slint::cbindgen_private::slint_visit_item_tree(&self_rc, get_item_tree(component) , index, order, visitor, dyn_visit);".to_owned(),
-    ]);
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "visit_children".into(),
-            signature: "(slint::private_api::ItemTreeRef component, intptr_t index, slint::private_api::TraversalOrder order, slint::private_api::ItemVisitorRefMut visitor) -> uint64_t".into(),
-            is_static: true,
-            statements: Some(visit_children_statements),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "get_item_ref".into(),
-            signature: "(slint::private_api::ItemTreeRef component, uint32_t index) -> slint::private_api::ItemRef".into(),
-            is_static: true,
-            statements: Some(vec![
-                "return slint::private_api::get_item_ref(component, get_item_tree(component), item_array(), index);".to_owned(),
-            ]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "get_subtree_range".into(),
-            signature: "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t dyn_index) -> slint::private_api::IndexRange".into(),
-            is_static: true,
-            statements: Some(subtree_range_statement),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "get_subtree".into(),
-            signature: "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t dyn_index, [[maybe_unused]] uintptr_t subtree_index, [[maybe_unused]] slint::private_api::ItemTreeWeak *result) -> void".into(),
-            is_static: true,
-            statements: Some(subtree_component_statement),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "get_item_tree".into(),
-            signature: "(slint::private_api::ItemTreeRef) -> slint::cbindgen_private::Slice<slint::private_api::ItemTreeNode>".into(),
-            is_static: true,
-            statements: Some(vec![
-                "return item_tree();".to_owned(),
-            ]),
-            ..Default::default()
-        }),
-    ));
+    // The ItemTreeVTable entries are the shared slint_compiled_item_tree_*
+    // functions from the runtime; everything component-specific they need is in
+    // the ItemTreeDescriptor (data tables plus a few function hooks).
 
     let parent_item_from_parent_component = parent_ctx.as_ref()
         .map(|parent| {
@@ -1804,7 +1720,7 @@ fn generate_item_tree(
                 // down), so leave `*result` empty rather than unwrapping a dead
                 // weak (matches the Rust backend).
                 vec![
-                    format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(component.instance);"),
+                    format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(inst);"),
                     "if (auto parent = self->parent.lock()) {".to_string(),
                     // TODO: store popup index in ctx and set it here instead of 0?
                     "    *result = { (*parent)->self_weak, 0 };".to_string(),
@@ -1814,45 +1730,98 @@ fn generate_item_tree(
                 let current_sub_component = &root.sub_components[parent.sub_component];
                 let parent_index = current_sub_component.repeated[idx].index_in_tree;
                 vec![
-                    format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(component.instance);"),
+                    format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(inst);"),
                     "if (auto parent = self->parent.lock()) {".to_string(),
                     format!("    *result = {{ (*parent)->self_weak, (*parent)->tree_index_of_first_child + {} }};", parent_index - 1),
                     "}".to_string(),
                 ]
             })
-        })
-        .unwrap_or_default();
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "parent_node".into(),
-            signature: "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] slint::private_api::ItemWeak *result) -> void".into(),
-            is_static: true,
-            statements: Some(parent_item_from_parent_component,),
-            ..Default::default()
-        }),
-    ));
+        });
+    let parent_node_descriptor_entry = if parent_item_from_parent_component.is_some() {
+        "&parent_node_fn"
+    } else {
+        "nullptr"
+    };
+    if let Some(statements) = parent_item_from_parent_component {
+        target_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
+                name: "parent_node_fn".into(),
+                signature: "(const uint8_t *inst, [[maybe_unused]] slint::private_api::ItemWeak *result) -> void".into(),
+                is_static: true,
+                statements: Some(statements),
+                ..Default::default()
+            }),
+        ));
+    }
 
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
-            name: "embed_component".into(),
-            signature: "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] const slint::private_api::ItemTreeWeak *parent_component, [[maybe_unused]] const uint32_t parent_index) -> bool".into(),
-            is_static: true,
-            statements: Some(vec!["return false; /* todo! */".into()]),
-            ..Default::default()
-        }),
-    ));
-
-    // Statements will be overridden for repeated components!
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "subtree_index".into(),
-            signature: "([[maybe_unused]] slint::private_api::ItemTreeRef component) -> uintptr_t"
+            name: "origin_fn".into(),
+            signature: "(const uint8_t *inst, slint::private_api::ItemTreeWeak *result) -> void"
                 .into(),
             is_static: true,
+            statements: Some(vec![format!(
+                "*result = reinterpret_cast<const {item_tree_class_name}*>(inst)->self_weak;"
+            )]),
+            ..Default::default()
+        }),
+    ));
+
+    // Overridden for repeated components (they read their index property)
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "subtree_index_fn".into(),
+            signature: "([[maybe_unused]] const uint8_t *inst) -> uintptr_t".into(),
+            is_static: true,
             statements: Some(vec!["return std::numeric_limits<uintptr_t>::max();".into()]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "layout_info_fn".into(),
+            signature: "(const uint8_t *inst, slint::cbindgen_private::Orientation o) -> slint::cbindgen_private::LayoutInfo".into(),
+            is_static: true,
+            statements: Some(vec![format!(
+                "return reinterpret_cast<const {item_tree_class_name}*>(inst)->layout_info(o);"
+            )]),
+            ..Default::default()
+        }),
+    ));
+
+    let window_adapter_descriptor_entry =
+        if needs_window_adapter { "&window_adapter_fn" } else { "nullptr" };
+    if needs_window_adapter {
+        target_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
+                name: "window_adapter_fn".into(),
+                signature:
+                    "(const uint8_t *inst, [[maybe_unused]] bool do_create, slint::cbindgen_private::Option<slint::private_api::WindowAdapterRc>* result) -> void"
+                        .into(),
+                is_static: true,
+                statements: Some(vec![format!(
+                    "*reinterpret_cast<slint::private_api::WindowAdapterRc*>(result) = reinterpret_cast<const {item_tree_class_name}*>(inst)->globals->window().window_handle();"
+                )]),
+                ..Default::default()
+            }),
+        ));
+    }
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "drop_in_place_fn".into(),
+            signature: "(uint8_t *inst) -> void".into(),
+            is_static: true,
+            statements: Some(vec![format!(
+                "reinterpret_cast<{item_tree_class_name}*>(inst)->~{item_tree_class_name}();"
+            )]),
             ..Default::default()
         }),
     ));
@@ -1891,155 +1860,26 @@ fn generate_item_tree(
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
-            name: "layout_info".into(),
-            signature:
-                "([[maybe_unused]] slint::private_api::ItemTreeRef component, slint::cbindgen_private::Orientation o) -> slint::cbindgen_private::LayoutInfo"
-                    .into(),
+            name: "item_tree_descriptor".into(),
+            signature: "() -> const slint::private_api::ItemTreeDescriptor &".into(),
             is_static: true,
-            statements: Some(vec![format!(
-                "return reinterpret_cast<const {}*>(component.instance)->layout_info(o);",
-                item_tree_class_name
-            )]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "ensure_instantiated".into(),
-            signature: "([[maybe_unused]] slint::private_api::ItemTreeRef component) -> bool"
-                .into(),
-            is_static: true,
-            statements: Some(vec![format!(
-                "return reinterpret_cast<const {}*>(component.instance)->ensure_instantiated();",
-                item_tree_class_name
-            )]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "item_geometry".into(),
-            signature:
-                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index) -> slint::cbindgen_private::LogicalRect"
-                    .into(),
-            is_static: true,
-            statements: Some(vec![format!(
-                "return reinterpret_cast<const {}*>(component.instance)->item_geometry(index);",
-                item_tree_class_name
-            ), ]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "accessible_role".into(),
-            signature:
-                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index) -> slint::cbindgen_private::AccessibleRole"
-                    .into(),
-            is_static: true,
-            statements: Some(vec![format!(
-                "return reinterpret_cast<const {}*>(component.instance)->accessible_role(index);",
-                item_tree_class_name
-            )]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "accessible_string_property".into(),
-            signature:
-                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index, slint::cbindgen_private::AccessibleStringProperty what, slint::SharedString *result) -> bool"
-                    .into(),
-            is_static: true,
-            statements: Some(vec![format!(
-                "if (auto r = reinterpret_cast<const {}*>(component.instance)->accessible_string_property(index, what)) {{ *result = *r; return true; }} else {{ return false; }}",
-                item_tree_class_name
-            )]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "accessibility_action".into(),
-            signature:
-                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index, const slint::cbindgen_private::AccessibilityAction *action) -> void"
-                    .into(),
-            is_static: true,
-            statements: Some(vec![format!(
-                "reinterpret_cast<const {}*>(component.instance)->accessibility_action(index, *action);",
-                item_tree_class_name
-            )]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "supported_accessibility_actions".into(),
-            signature:
-                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index) -> uint32_t"
-                    .into(),
-            is_static: true,
-            statements: Some(vec![format!(
-                "return reinterpret_cast<const {}*>(component.instance)->supported_accessibility_actions(index);",
-                item_tree_class_name
-            )]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "element_infos".into(),
-            signature:
-                "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] slint::SharedString *result) -> bool"
-                    .into(),
-            is_static: true,
-            statements: Some(if root.has_debug_info {
-                vec![
-                    format!("if (auto infos = reinterpret_cast<const {}*>(component.instance)->element_infos(index)) {{ *result = *infos; }};",
-                    item_tree_class_name),
-                    "return true;".into()
-                ]
-            } else {
-                vec!["return false;".into()]
-            }),
-            ..Default::default()
-        }),
-    ));
-
-    let window_adapter_vtable_statements = if needs_window_adapter {
-        vec![format!(
-            "*reinterpret_cast<slint::private_api::WindowAdapterRc*>(result) = reinterpret_cast<const {item_tree_class_name}*>(component.instance)->globals->window().window_handle();"
-        )]
-    } else {
-        // Tray-only units have no `WindowAdapter`. The runtime initializes
-        // `*result` to None before calling, so leaving it untouched reports
-        // "no adapter" — and crucially `do_create=true` no longer silently
-        // materializes a hidden window adapter.
-        vec![]
-    };
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "window_adapter".into(),
-            signature:
-                "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] bool do_create, [[maybe_unused]] slint::cbindgen_private::Option<slint::private_api::WindowAdapterRc>* result) -> void"
-                    .into(),
-            is_static: true,
-            statements: Some(window_adapter_vtable_statements),
+            statements: Some(vec![
+                "static const slint::private_api::ItemTreeDescriptor descriptor {".to_owned(),
+                "    item_tree(),".to_owned(),
+                "    item_array(),".to_owned(),
+                "    &item_index_tables(),".to_owned(),
+                "    repeater_spans(),".to_owned(),
+                "    &origin_fn,".to_owned(),
+                "    &subtree_index_fn,".to_owned(),
+                "    &layout_info_fn,".to_owned(),
+                format!("    {parent_node_descriptor_entry},"),
+                format!("    {window_adapter_descriptor_entry},"),
+                format!("    {},", root.has_debug_info),
+                "    &drop_in_place_fn,".to_owned(),
+                format!("    {{ sizeof({item_tree_class_name}), alignof({item_tree_class_name}) }},"),
+                "};".to_owned(),
+                "return descriptor;".to_owned(),
+            ]),
             ..Default::default()
         }),
     ));
@@ -2052,18 +1892,30 @@ fn generate_item_tree(
             ..Default::default()
         }),
     ));
-
     file.definitions.push(Declaration::Var(Var {
         ty: "const slint::private_api::ItemTreeVTable".into(),
         name: format_smolstr!("{}::static_vtable", item_tree_class_name),
         init: Some(format!(
-            "{{ visit_children, get_item_ref, get_subtree_range, get_subtree, \
-                get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
-                ensure_instantiated, \
-                item_geometry, accessible_role, accessible_string_property, accessibility_action, \
-                supported_accessibility_actions, element_infos, window_adapter, \
-                slint::private_api::drop_in_place<{item_tree_class_name}>, \
-                slint::private_api::dealloc, nullptr }}"
+            "{{ slint::cbindgen_private::slint_compiled_item_tree_visit_children_item, \
+                slint::cbindgen_private::slint_compiled_item_tree_get_item_ref, \
+                slint::cbindgen_private::slint_compiled_item_tree_get_subtree_range, \
+                slint::cbindgen_private::slint_compiled_item_tree_get_subtree, \
+                slint::cbindgen_private::slint_compiled_item_tree_get_item_tree, \
+                slint::cbindgen_private::slint_compiled_item_tree_parent_node, \
+                slint::cbindgen_private::slint_compiled_item_tree_embed_component, \
+                slint::cbindgen_private::slint_compiled_item_tree_subtree_index, \
+                slint::cbindgen_private::slint_compiled_item_tree_layout_info, \
+                slint::cbindgen_private::slint_compiled_item_tree_ensure_instantiated, \
+                slint::cbindgen_private::slint_compiled_item_tree_item_geometry, \
+                slint::cbindgen_private::slint_compiled_item_tree_accessible_role, \
+                slint::cbindgen_private::slint_compiled_item_tree_accessible_string_property, \
+                slint::cbindgen_private::slint_compiled_item_tree_accessibility_action, \
+                slint::cbindgen_private::slint_compiled_item_tree_supported_accessibility_actions, \
+                slint::cbindgen_private::slint_compiled_item_tree_item_element_infos, \
+                slint::cbindgen_private::slint_compiled_item_tree_window_adapter, \
+                slint::cbindgen_private::slint_compiled_item_tree_drop_in_place, \
+                slint::cbindgen_private::slint_compiled_item_tree_dealloc, \
+                &{item_tree_class_name}::item_tree_descriptor() }}"
         )),
         ..Default::default()
     }));
@@ -2351,10 +2203,11 @@ fn generate_sub_component(
 
     let mut user_init = vec!["[[maybe_unused]] auto self = this;".into()];
 
-    let mut children_visitor_cases = Vec::new();
-    let mut subtrees_ranges_cases = Vec::new();
-    let mut subtrees_components_cases = Vec::new();
-    let mut ensure_instantiated_stmts: Vec<String> = Vec::new();
+    // Static repeater dispatch table entries plus the per-ListView support
+    // functions they reference.
+    let mut repeater_span_entries: Vec<String> = Vec::new();
+    // One entry per nested sub-component instance for the per-item-index tables.
+    let mut sub_component_table_entries: Vec<String> = Vec::new();
 
     // The pre-init code (custom font registration) runs before the property initialization.
     init.extend(component.pre_init_code.iter().map(|e| {
@@ -2389,31 +2242,30 @@ fn generate_sub_component(
 
         let sub_component_repeater_count = sub_sc.repeater_count(root);
         if sub_component_repeater_count > 0 {
-            let mut case_code = String::new();
             let repeater_offset = sub.repeater_offset;
-
-            for local_repeater_index in 0..sub_component_repeater_count {
-                write!(case_code, "case {}: ", repeater_offset + local_repeater_index).unwrap();
-            }
-
-            children_visitor_cases.push(format!(
-                "\n        {case_code} {{
-                        return self->{sub_field}.visit_dynamic_children(dyn_index - {repeater_offset}, order, visitor);
-                    }}",
+            let last_repeater = repeater_offset + sub_component_repeater_count - 1;
+            let sub_type = ident(&sub_sc.name);
+            repeater_span_entries.push(format!(
+                "slint::private_api::make_sub_component_span({repeater_offset}, {last_repeater}, offsetof({}, {sub_field}), {sub_type}::repeater_spans())",
+                ident(&component.name)
             ));
-            subtrees_ranges_cases.push(format!(
-                "\n        {case_code} {{
-                        return self->{sub_field}.subtree_range(dyn_index - {repeater_offset});
-                    }}",
+        }
+        {
+            let sub_items_count = sub_sc.child_item_count(root);
+            let (children_begin, children_end) = if sub_items_count > 1 {
+                (
+                    local_index_of_first_child,
+                    local_index_of_first_child + sub_items_count - 2 + sub_sc.repeater_count(root),
+                )
+            } else {
+                // empty range: the sub-component consists only of its root item
+                (1, 0)
+            };
+            sub_component_table_entries.push(format!(
+                "slint::private_api::SubComponentTableEntry {{ offsetof({}, {sub_field}), &{}::item_index_tables(), {local_tree_index}, {children_begin}, {children_end} }}",
+                ident(&component.name),
+                ident(&sub_sc.name),
             ));
-            subtrees_components_cases.push(format!(
-                "\n        {case_code} {{
-                        self->{sub_field}.subtree_component(dyn_index - {repeater_offset}, subtree_index, result);
-                        return;
-                    }}",
-            ));
-            ensure_instantiated_stmts
-                .push(format!("_changed |= self->{sub_field}.ensure_instantiated();"));
         }
 
         target_struct.members.push((
@@ -2524,36 +2376,43 @@ fn generate_sub_component(
                 },
             );
 
-            children_visitor_cases.push(format!(
-                "\n        case {idx}: {{
-                self->{repeater_id}.track_changes_listview({content_w}, {content_h}, &{content_y}, {lv_w}.get(), &{lv_h});
-                return self->{repeater_id}.visit(order, visitor);
-            }}",
+            let compo = ident(&component.name);
+            target_struct.members.push((
+                Access::Private,
+                Declaration::Function(Function {
+                    name: format_smolstr!("listview_visit_{idx}"),
+                    signature: "(const uint8_t *inst, const slint::private_api::LocalRepeaterEntry *, slint::private_api::TraversalOrder order, slint::private_api::ItemVisitorRefMut visitor) -> uint64_t".into(),
+                    is_static: true,
+                    statements: Some(vec![
+                        format!("[[maybe_unused]] auto self = reinterpret_cast<const {compo}*>(inst);"),
+                        format!("self->{repeater_id}.track_changes_listview({content_w}, {content_h}, &{content_y}, {lv_w}.get(), &{lv_h});"),
+                        format!("return self->{repeater_id}.visit(order, visitor);"),
+                    ]),
+                    ..Default::default()
+                }),
             ));
-            ensure_instantiated_stmts.push(format!(
-                "_changed |= self->{repeater_id}.ensure_updated_listview(self, {content_w}, {content_h}, &{content_y}, {lv_w}.get(), {lv_h}.get());"
+            target_struct.members.push((
+                Access::Private,
+                Declaration::Function(Function {
+                    name: format_smolstr!("listview_ensure_{idx}"),
+                    signature: "(const uint8_t *inst, const slint::private_api::LocalRepeaterEntry *) -> bool".into(),
+                    is_static: true,
+                    statements: Some(vec![
+                        format!("[[maybe_unused]] auto self = reinterpret_cast<const {compo}*>(inst);"),
+                        format!("return self->{repeater_id}.ensure_updated_listview(self, {content_w}, {content_h}, &{content_y}, {lv_w}.get(), {lv_h}.get());"),
+                    ]),
+                    ..Default::default()
+                }),
+            ));
+            repeater_span_entries.push(format!(
+                "slint::private_api::make_listview_repeater_span<{compo}, decltype({compo}::{repeater_id})>({idx}, offsetof({compo}, {repeater_id}), &{compo}::listview_visit_{idx}, &{compo}::listview_ensure_{idx})"
             ));
         } else {
-            children_visitor_cases.push(format!(
-                "\n        case {idx}: {{
-                return self->{repeater_id}.visit(order, visitor);
-            }}",
+            let compo = ident(&component.name);
+            repeater_span_entries.push(format!(
+                "slint::private_api::make_repeater_span<{compo}, decltype({compo}::{repeater_id})>({idx}, offsetof({compo}, {repeater_id}))"
             ));
-            ensure_instantiated_stmts
-                .push(format!("_changed |= self->{repeater_id}.ensure_updated(self);"));
         }
-        subtrees_ranges_cases.push(format!(
-            "\n        case {idx}: {{
-                self->{repeater_id}.track_instance_changes();
-                return self->{repeater_id}.index_range();
-            }}",
-        ));
-        subtrees_components_cases.push(format!(
-            "\n        case {idx}: {{
-                *result = self->{repeater_id}.instance_at(subtree_index);
-                return;
-            }}",
-        ));
 
         let rep_type = match data_type {
             Some(data_type) => {
@@ -2661,50 +2520,25 @@ fn generate_sub_component(
         }),
     ));
 
-    let mut dispatch_item_function =
-        |name: &str, signature: &str, forward_args: &str, code: Vec<String>| {
-            let mut code = ["[[maybe_unused]] auto self = this;".into()]
-                .into_iter()
-                .chain(code)
-                .collect::<Vec<_>>();
-
-            let mut else_ = "";
-            for sub in &component.sub_components {
-                let sub_sc = &ctx.compilation_unit.sub_components[sub.ty];
-                let sub_items_count = sub_sc.child_item_count(ctx.compilation_unit);
-                code.push(format!("{else_}if (index == {}) {{", sub.index_in_tree,));
-                code.push(format!(
-                    "    return self->{}.{name}(0{forward_args});",
-                    field_name(&sub.name)
-                ));
-                if sub_items_count > 1 {
-                    code.push(format!(
-                        "}} else if (index >= {} && index < {}) {{",
-                        sub.index_of_first_child_in_tree,
-                        sub.index_of_first_child_in_tree + sub_items_count - 1
-                            + sub_sc.repeater_count(ctx.compilation_unit)
-                    ));
-                    code.push(format!(
-                        "    return self->{}.{name}(index - {}{forward_args});",
-                        field_name(&sub.name),
-                        sub.index_of_first_child_in_tree - 1
-                    ));
-                }
-                else_ = "} else ";
-            }
-            let ret =
-                if signature.contains("->") && !signature.contains("-> void") { "{}" } else { "" };
-            code.push(format!("{else_}return {ret};"));
-            target_struct.members.push((
-                field_access,
-                Declaration::Function(Function {
-                    name: name.into(),
-                    signature: signature.into(),
-                    statements: Some(code),
-                    ..Default::default()
-                }),
-            ));
-        };
+    // The per-index queries only carry this component's own entries: dispatch
+    // into nested sub-components happens through the static sub-component table
+    // resolved by the runtime.
+    let mut dispatch_item_function = |name: &str, signature: &str, code: Vec<String>| {
+        let mut code = ["[[maybe_unused]] auto self = this;".into()]
+            .into_iter()
+            .chain(code)
+            .collect::<Vec<_>>();
+        code.push("return {};".into());
+        target_struct.members.push((
+            field_access,
+            Declaration::Function(Function {
+                name: name.into(),
+                signature: signature.into(),
+                statements: Some(code),
+                ..Default::default()
+            }),
+        ));
+    };
 
     let mut item_geometry_cases = vec!["switch (index) {".to_string()];
     item_geometry_cases.extend(
@@ -2720,12 +2554,12 @@ fn generate_sub_component(
                 )
             }),
     );
+    let item_geometry_cases_count = item_geometry_cases.len() - 1;
     item_geometry_cases.push("}".into());
 
     dispatch_item_function(
         "item_geometry",
-        "(uint32_t index) const -> slint::cbindgen_private::Rect",
-        "",
+        "(uint32_t index) const -> std::optional<slint::cbindgen_private::Rect>",
         item_geometry_cases,
     );
 
@@ -2744,13 +2578,13 @@ fn generate_sub_component(
             );
             let arg_count = crate::generator::accessibility_action_argument_count(what);
             accessibility_action_cases.push(if arg_count == 0 {
-                format!("{label} return {e};")
+                format!("{label} {{ {e}; return true; }}")
             } else {
                 let member = ident(&crate::generator::to_kebab_case(what));
                 let args = (0..arg_count)
                     .map(|i| format!("[[maybe_unused]] auto arg_{i} = action.{member}._{i}; "))
                     .join("");
-                format!("{label} {{ {args}return {e}; }}")
+                format!("{label} {{ {args}{e}; return true; }}")
             });
             supported_accessibility_actions
                 .entry(*index)
@@ -2760,118 +2594,206 @@ fn generate_sub_component(
             accessible_string_cases.push(format!("    case ({index} << 8) | uintptr_t(slint::cbindgen_private::AccessibleStringProperty::{what}): return {e};"));
         }
     }
+    let accessible_role_cases_count = accessible_role_cases.len() - 1;
+    let accessible_string_cases_count = accessible_string_cases.len() - 1;
+    let accessibility_action_cases_count = accessibility_action_cases.len() - 1;
     accessible_role_cases.push("}".into());
     accessible_string_cases.push("}".into());
     accessibility_action_cases.push("}".into());
 
-    let mut supported_accessibility_actions_cases = vec!["switch (index) {".into()];
-    supported_accessibility_actions_cases.extend(supported_accessibility_actions.into_iter().map(
-        |(index, values)| format!("    case {index}: return {};", values.into_iter().join("|")),
-    ));
-    supported_accessibility_actions_cases.push("}".into());
+    let supported_accessibility_actions_entries = supported_accessibility_actions
+        .into_iter()
+        .map(|(index, values)| {
+            format!(
+                "slint::private_api::SupportedAccessibilityActionsEntry {{ {index}, {} }}",
+                values.into_iter().join("|")
+            )
+        })
+        .collect::<Vec<_>>();
 
     dispatch_item_function(
         "accessible_role",
-        "(uint32_t index) const -> slint::cbindgen_private::AccessibleRole",
-        "",
+        "(uint32_t index) const -> std::optional<slint::cbindgen_private::AccessibleRole>",
         accessible_role_cases,
     );
     dispatch_item_function(
         "accessible_string_property",
         "(uint32_t index, slint::cbindgen_private::AccessibleStringProperty what) const -> std::optional<slint::SharedString>",
-        ", what",
         accessible_string_cases,
     );
 
     dispatch_item_function(
         "accessibility_action",
-        "(uint32_t index, const slint::cbindgen_private::AccessibilityAction &action) const -> void",
-        ", action",
+        "(uint32_t index, const slint::cbindgen_private::AccessibilityAction &action) const -> bool",
         accessibility_action_cases,
     );
 
-    dispatch_item_function(
-        "supported_accessibility_actions",
-        "(uint32_t index) const -> uint32_t",
-        "",
-        supported_accessibility_actions_cases,
-    );
+    let element_infos_entries = component
+        .element_infos
+        .iter()
+        .map(|(index, ids)| {
+            format!(
+                "slint::private_api::ElementInfosEntry {{ {index}, slint::private_api::make_str_slice(\"{ids}\") }}"
+            )
+        })
+        .collect::<Vec<_>>();
 
-    let mut element_infos_cases = vec!["switch (index) {".to_string()];
-    element_infos_cases.extend(
-        component
-            .element_infos
-            .iter()
-            .map(|(index, ids)| format!("    case {index}: return \"{ids}\";")),
-    );
-    element_infos_cases.push("}".into());
-
-    dispatch_item_function(
-        "element_infos",
-        "(uint32_t index) const -> std::optional<slint::SharedString>",
-        "",
-        element_infos_cases,
-    );
-
-    {
-        let mut stmts = vec![
-            "[[maybe_unused]] auto self = this;".to_owned(),
-            "bool _changed = false;".to_owned(),
-        ];
-        stmts.extend(ensure_instantiated_stmts);
-        stmts.push("return _changed;".to_owned());
+    // Fallback adapters bridging the erased table hooks to the member functions.
+    // Only installed when the component has own entries for the query.
+    let compo_name = ident(&component.name);
+    let has_geometry = item_geometry_cases_count > 0;
+    let has_roles = accessible_role_cases_count > 0;
+    let has_strings = accessible_string_cases_count > 0;
+    let has_actions = accessibility_action_cases_count > 0;
+    if has_geometry {
         target_struct.members.push((
-            field_access,
+            Access::Private,
             Declaration::Function(Function {
-                name: "ensure_instantiated".into(),
-                signature: "() const -> bool".into(),
-                statements: Some(stmts),
+                name: "item_geometry_fallback".into(),
+                signature: "(const uint8_t *inst, uint32_t index, slint::cbindgen_private::LogicalRect *result) -> bool".into(),
+                is_static: true,
+                statements: Some(vec![format!(
+                    "if (auto r = reinterpret_cast<const {compo_name}*>(inst)->item_geometry(index)) {{ *result = *r; return true; }} return false;"
+                )]),
+                ..Default::default()
+            }),
+        ));
+    }
+    if has_roles {
+        target_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
+                name: "accessible_role_fallback".into(),
+                signature: "(const uint8_t *inst, uint32_t index, slint::cbindgen_private::AccessibleRole *result) -> bool".into(),
+                is_static: true,
+                statements: Some(vec![format!(
+                    "if (auto r = reinterpret_cast<const {compo_name}*>(inst)->accessible_role(index)) {{ *result = *r; return true; }} return false;"
+                )]),
+                ..Default::default()
+            }),
+        ));
+    }
+    if has_strings {
+        target_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
+                name: "accessible_string_property_fallback".into(),
+                signature: "(const uint8_t *inst, uint32_t index, slint::cbindgen_private::AccessibleStringProperty what, slint::SharedString *result) -> bool".into(),
+                is_static: true,
+                statements: Some(vec![format!(
+                    "if (auto r = reinterpret_cast<const {compo_name}*>(inst)->accessible_string_property(index, what)) {{ *result = *r; return true; }} return false;"
+                )]),
+                ..Default::default()
+            }),
+        ));
+    }
+    if has_actions {
+        target_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
+                name: "accessibility_action_fallback".into(),
+                signature: "(const uint8_t *inst, uint32_t index, const slint::cbindgen_private::AccessibilityAction *action) -> bool".into(),
+                is_static: true,
+                statements: Some(vec![format!(
+                    "return reinterpret_cast<const {compo_name}*>(inst)->accessibility_action(index, *action);"
+                )]),
                 ..Default::default()
             }),
         ));
     }
 
-    if !children_visitor_cases.is_empty() {
-        target_struct.members.push((
-            field_access,
-            Declaration::Function(Function {
-                name: "visit_dynamic_children".into(),
-                signature: "(uint32_t dyn_index, [[maybe_unused]] slint::private_api::TraversalOrder order, [[maybe_unused]] slint::private_api::ItemVisitorRefMut visitor) const -> uint64_t".into(),
-                statements: Some(vec![
-                    "    auto self = this;".to_owned(),
-                    format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
-                    "    std::abort();".to_owned(),
-                ]),
-                ..Default::default()
-            }),
-        ));
-        target_struct.members.push((
-            field_access,
-            Declaration::Function(Function {
-                name: "subtree_range".into(),
-                signature: "(uintptr_t dyn_index) const -> slint::private_api::IndexRange".into(),
-                statements: Some(vec![
-                    "[[maybe_unused]] auto self = this;".to_owned(),
-                    format!("    switch(dyn_index) {{ {} }};", subtrees_ranges_cases.join("")),
-                    "    std::abort();".to_owned(),
-                ]),
-                ..Default::default()
-            }),
-        ));
-        target_struct.members.push((
-            field_access,
-            Declaration::Function(Function {
-                name: "subtree_component".into(),
-                signature: "(uintptr_t dyn_index, [[maybe_unused]] uintptr_t subtree_index, [[maybe_unused]] slint::private_api::ItemTreeWeak *result) const -> void".into(),
-                statements: Some(vec![
-                    "[[maybe_unused]] auto self = this;".to_owned(),
-                    format!("    switch(dyn_index) {{ {} }};", subtrees_components_cases.join("")),
-                    "    std::abort();".to_owned(),
-                ]),
-                ..Default::default()
-            }),
+    let slice_or_empty = |entries: &[String], ty: &str| {
+        if entries.is_empty() {
+            format!("slint::private_api::empty_slice<slint::private_api::{ty}>()")
+        } else {
+            format!(
+                "slint::private_api::make_slice(std::span(static_{ty}_entries))"
+            )
+        }
+    };
+    let mut tables_stmts = Vec::new();
+    if !supported_accessibility_actions_entries.is_empty() {
+        tables_stmts.push(format!(
+            "static const slint::private_api::SupportedAccessibilityActionsEntry static_SupportedAccessibilityActionsEntry_entries[] {{ {} }};",
+            supported_accessibility_actions_entries.join(", ")
         ));
     }
+    if !element_infos_entries.is_empty() {
+        tables_stmts.push(format!(
+            "static const slint::private_api::ElementInfosEntry static_ElementInfosEntry_entries[] {{ {} }};",
+            element_infos_entries.join(", ")
+        ));
+    }
+    if !sub_component_table_entries.is_empty() {
+        tables_stmts.push(format!(
+            "static const slint::private_api::SubComponentTableEntry static_SubComponentTableEntry_entries[] {{ {} }};",
+            sub_component_table_entries.join(", ")
+        ));
+    }
+    tables_stmts.push("static const slint::private_api::ItemIndexTables tables {".into());
+    tables_stmts.push("    slint::private_api::empty_slice<slint::private_api::AccessibleRoleEntry>(),".into());
+    tables_stmts.push(format!(
+        "    {},",
+        slice_or_empty(&supported_accessibility_actions_entries, "SupportedAccessibilityActionsEntry")
+    ));
+    tables_stmts.push(format!("    {},", slice_or_empty(&element_infos_entries, "ElementInfosEntry")));
+    tables_stmts.push("    slint::private_api::empty_slice<slint::private_api::AccessibleStringPropertyEntry>(),".into());
+    tables_stmts.push("    slint::private_api::empty_slice<slint::private_api::GeometryTableEntry>(),".into());
+    tables_stmts.push(format!(
+        "    {},",
+        if has_geometry { "&item_geometry_fallback" } else { "nullptr" }
+    ));
+    tables_stmts.push(format!(
+        "    {},",
+        if has_roles { "&accessible_role_fallback" } else { "nullptr" }
+    ));
+    tables_stmts.push(format!(
+        "    {},",
+        if has_strings { "&accessible_string_property_fallback" } else { "nullptr" }
+    ));
+    tables_stmts.push(format!(
+        "    {},",
+        if has_actions { "&accessibility_action_fallback" } else { "nullptr" }
+    ));
+    tables_stmts.push(format!(
+        "    {},",
+        slice_or_empty(&sub_component_table_entries, "SubComponentTableEntry")
+    ));
+    tables_stmts.push("};".into());
+    tables_stmts.push("return tables;".into());
+    target_struct.members.push((
+        Access::Public,
+        Declaration::Function(Function {
+            name: "item_index_tables".into(),
+            signature: "() -> const slint::private_api::ItemIndexTables &".into(),
+            is_static: true,
+            statements: Some(tables_stmts),
+            ..Default::default()
+        }),
+    ));
+
+    let spans_stmts = if repeater_span_entries.is_empty() {
+        vec!["return slint::private_api::empty_slice<slint::private_api::RepeaterSpan>();".to_owned()]
+    } else {
+        vec![
+            format!(
+                "static const slint::private_api::RepeaterSpan spans[] {{ {} }};",
+                repeater_span_entries.join(", ")
+            ),
+            "return slint::private_api::make_slice(std::span(spans));".to_owned(),
+        ]
+    };
+    target_struct.members.push((
+        Access::Public,
+        Declaration::Function(Function {
+            name: "repeater_spans".into(),
+            signature: "() -> slint::cbindgen_private::Slice<slint::private_api::RepeaterSpan>"
+                .into(),
+            is_static: true,
+            statements: Some(spans_stmts),
+            ..Default::default()
+        }),
+    ));
 }
 
 /// Generates the `layout_item_info` member function for a repeated component struct.
@@ -2899,11 +2821,11 @@ fn generate_layout_item_info_decl(
                 };
                 format!(
                     "[[maybe_unused]] auto self = this; \
-                     return {{ layout_info({{&static_vtable, const_cast<void *>(static_cast<const void *>(this))}}, o), \
+                     return {{ layout_info(o), \
                      (o == slint::cbindgen_private::Orientation::{cross_o}) ? ({align_self}) : slint::cbindgen_private::CrossAxisSelfAlignment::Auto }};"
                 )
             }
-            None => "return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o), {} };".to_owned(),
+            None => "return { layout_info(o), {} };".to_owned(),
         };
         return Declaration::Function(Function {
             name: "layout_item_info".into(),
@@ -2972,7 +2894,7 @@ fn generate_layout_item_info_decl(
         // field order: max, max_percent, min, min_percent, preferred, stretch
         "return { slint::cbindgen_private::LayoutInfo{ std::numeric_limits<float>::max(), 100.f, 0, 0, 0, 0 }, {} };\n\
          }\n\
-         return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o), {} };",
+         return { layout_info(o), {} };",
     );
     Declaration::Function(Function {
         name: "layout_item_info".into(),
@@ -3294,7 +3216,8 @@ fn generate_repeated_component(
                     "[[maybe_unused]] auto self = this;".into(),
                     format!("{}.set(*offset_y);", p_y),
                     format!("*offset_y += {}.get();", p_height),
-                    "return layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, slint::cbindgen_private::Orientation::Horizontal).min;".into(),
+                    "return layout_info(slint::cbindgen_private::Orientation::Horizontal).min;"
+                        .into(),
                 ]),
                 ..Function::default()
             }),
@@ -3313,19 +3236,16 @@ fn generate_repeated_component(
     }
 
     if let Some(index_prop) = repeated.index_prop {
-        // Override default subtree_index function implementation
+        // Override default subtree_index descriptor hook implementation
         let subtree_index_func = repeater_struct
             .members
             .iter_mut()
-            .find(|(_, d)| matches!(d, Declaration::Function(f) if f.name == "subtree_index"));
+            .find(|(_, d)| matches!(d, Declaration::Function(f) if f.name == "subtree_index_fn"));
 
         if let Declaration::Function(f) = &mut subtree_index_func.unwrap().1 {
             let index = access_prop(&index_prop);
             f.statements = Some(vec![
-                format!(
-                    "auto self = reinterpret_cast<const {}*>(component.instance);",
-                    repeater_id
-                ),
+                format!("auto self = reinterpret_cast<const {}*>(inst);", repeater_id),
                 format!("return {index}.get();"),
             ]);
         }
