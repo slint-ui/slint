@@ -136,6 +136,36 @@ inline RepeaterSpan make_listview_repeater_span(
                                         ensure });
 }
 
+/// A constant geometry table field.
+inline cbindgen_private::GeometryField make_geometry_field_fixed(float value)
+{
+    cbindgen_private::GeometryField field;
+    field.fixed.tag = cbindgen_private::GeometryField::Tag::Fixed;
+    field.fixed._0 = value;
+    return field;
+}
+
+/// A geometry table field reading the `Property<float>` at `offset` within the
+/// component.
+inline cbindgen_private::GeometryField make_geometry_field_offset(uintptr_t offset)
+{
+    cbindgen_private::GeometryField field;
+    field.offset.tag = cbindgen_private::GeometryField::Tag::Offset;
+    field.offset._0 = offset;
+    return field;
+}
+
+/// One row of the geometry table for the item at `index`.
+inline cbindgen_private::GeometryTableEntry
+make_geometry_entry(uint32_t index, cbindgen_private::GeometryField x,
+                    cbindgen_private::GeometryField y, cbindgen_private::GeometryField width,
+                    cbindgen_private::GeometryField height)
+{
+    return cbindgen_private::GeometryTableEntry { index,
+                                                  cbindgen_private::GeometryOffsets {
+                                                          x, y, width, height } };
+}
+
 /// A span for a `ComponentContainer` item at `offset` within the component.
 inline RepeaterSpan make_container_span(uint32_t index, uintptr_t offset)
 {

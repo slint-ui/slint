@@ -2532,19 +2532,20 @@ fn generate_sub_component(
     };
 
     let mut item_geometry_cases = vec!["switch (index) {".to_string()];
-    item_geometry_cases.extend(
-        component
-            .geometries
-            .iter()
-            .enumerate()
-            .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
-            .map(|(index, expr)| {
-                format!(
-                    "    case {index}: return slint::private_api::convert_anonymous_rect({});",
-                    compile_expression(&expr.borrow(), &ctx)
-                )
-            }),
-    );
+    let mut item_geometry_entries: Vec<String> = Vec::new();
+    for (index, expr) in
+        component.geometries.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
+    {
+        if let Some(fields) = geometry_offsets_cpp(component, root, &expr.borrow()) {
+            item_geometry_entries
+                .push(format!("slint::private_api::make_geometry_entry({index}, {fields})"));
+        } else {
+            item_geometry_cases.push(format!(
+                "    case {index}: return slint::private_api::convert_anonymous_rect({});",
+                compile_expression(&expr.borrow(), &ctx)
+            ));
+        }
+    }
     let item_geometry_cases_count = item_geometry_cases.len() - 1;
     item_geometry_cases.push("}".into());
 
@@ -2559,10 +2560,17 @@ fn generate_sub_component(
     let mut accessibility_action_cases =
         vec!["switch ((index << 8) | uintptr_t(action.tag)) {".into()];
     let mut supported_accessibility_actions = BTreeMap::<u32, BTreeSet<_>>::new();
+    let mut accessible_role_entries: Vec<String> = Vec::new();
+    let mut accessible_string_entries: Vec<String> = Vec::new();
     for ((index, what), expr) in &component.accessible_prop {
         let e = compile_expression(&expr.borrow(), &ctx);
         if what == "Role" {
-            accessible_role_cases.push(format!("    case {index}: return {e};"));
+            if matches!(&*expr.borrow(), llr::Expression::EnumerationValue(_)) {
+                accessible_role_entries
+                    .push(format!("slint::private_api::AccessibleRoleEntry {{ {index}, {e} }}"));
+            } else {
+                accessible_role_cases.push(format!("    case {index}: return {e};"));
+            }
         } else if let Some(what) = what.strip_prefix("Action") {
             let has_args = matches!(&*expr.borrow(), llr::Expression::CallBackCall { arguments, .. } if !arguments.is_empty());
 
@@ -2576,6 +2584,11 @@ fn generate_sub_component(
                 .entry(*index)
                 .or_default()
                 .insert(format!("slint::cbindgen_private::SupportedAccessibilityAction_{what}"));
+        } else if let llr::Expression::StringLiteral(str_value) = &*expr.borrow() {
+            accessible_string_entries.push(format!(
+                "slint::private_api::AccessibleStringPropertyEntry {{ {index}, slint::cbindgen_private::AccessibleStringProperty::{what}, slint::private_api::make_str_slice(\"{}\") }}",
+                escape_string(str_value)
+            ));
         } else {
             accessible_string_cases.push(format!("    case ({index} << 8) | uintptr_t(slint::cbindgen_private::AccessibleStringProperty::{what}): return {e};"));
         }
@@ -2698,6 +2711,24 @@ fn generate_sub_component(
         }
     };
     let mut tables_stmts = Vec::new();
+    if !accessible_role_entries.is_empty() {
+        tables_stmts.push(format!(
+            "static const slint::private_api::AccessibleRoleEntry static_AccessibleRoleEntry_entries[] {{ {} }};",
+            accessible_role_entries.join(", ")
+        ));
+    }
+    if !accessible_string_entries.is_empty() {
+        tables_stmts.push(format!(
+            "static const slint::private_api::AccessibleStringPropertyEntry static_AccessibleStringPropertyEntry_entries[] {{ {} }};",
+            accessible_string_entries.join(", ")
+        ));
+    }
+    if !item_geometry_entries.is_empty() {
+        tables_stmts.push(format!(
+            "static const slint::private_api::GeometryTableEntry static_GeometryTableEntry_entries[] {{ {} }};",
+            item_geometry_entries.join(", ")
+        ));
+    }
     if !supported_accessibility_actions_entries.is_empty() {
         tables_stmts.push(format!(
             "static const slint::private_api::SupportedAccessibilityActionsEntry static_SupportedAccessibilityActionsEntry_entries[] {{ {} }};",
@@ -2717,14 +2748,23 @@ fn generate_sub_component(
         ));
     }
     tables_stmts.push("static const slint::private_api::ItemIndexTables tables {".into());
-    tables_stmts.push("    slint::private_api::empty_slice<slint::private_api::AccessibleRoleEntry>(),".into());
+    tables_stmts.push(format!(
+        "    {},",
+        slice_or_empty(&accessible_role_entries, "AccessibleRoleEntry")
+    ));
     tables_stmts.push(format!(
         "    {},",
         slice_or_empty(&supported_accessibility_actions_entries, "SupportedAccessibilityActionsEntry")
     ));
     tables_stmts.push(format!("    {},", slice_or_empty(&element_infos_entries, "ElementInfosEntry")));
-    tables_stmts.push("    slint::private_api::empty_slice<slint::private_api::AccessibleStringPropertyEntry>(),".into());
-    tables_stmts.push("    slint::private_api::empty_slice<slint::private_api::GeometryTableEntry>(),".into());
+    tables_stmts.push(format!(
+        "    {},",
+        slice_or_empty(&accessible_string_entries, "AccessibleStringPropertyEntry")
+    ));
+    tables_stmts.push(format!(
+        "    {},",
+        slice_or_empty(&item_geometry_entries, "GeometryTableEntry")
+    ));
     tables_stmts.push(format!(
         "    {},",
         if has_geometry { "&item_geometry_fallback" } else { "nullptr" }
@@ -2780,6 +2820,83 @@ fn generate_sub_component(
             ..Default::default()
         }),
     ));
+}
+
+/// If the geometry expression is a struct of constants and plain property
+/// references within the current component, return the four
+/// `make_geometry_field_*` argument strings (x, y, width, height) so the
+/// geometry can be resolved from the static item index tables instead of
+/// generated code. Mirrors `geometry_offsets_tokens` in the Rust generator.
+fn geometry_offsets_cpp(
+    component: &llr::SubComponent,
+    root: &llr::CompilationUnit,
+    expr: &llr::Expression,
+) -> Option<String> {
+    let llr::Expression::Struct { values, .. } = expr else { return None };
+    let mut fields = Vec::with_capacity(4);
+    for name in ["x", "y", "width", "height"] {
+        match values.get(name)? {
+            llr::Expression::NumberLiteral(v) => {
+                fields.push(format!("slint::private_api::make_geometry_field_fixed({v})"));
+            }
+            llr::Expression::PropertyReference(llr::MemberReference::Relative {
+                parent_level: 0,
+                local_reference,
+            }) => {
+                let mut sc = component;
+                let mut offset_terms = Vec::new();
+                for i in &local_reference.sub_component_path {
+                    offset_terms.push(format!(
+                        "offsetof({}, {})",
+                        ident(&sc.name),
+                        field_name(&sc.sub_components[*i].name)
+                    ));
+                    sc = &root.sub_components[sc.sub_components[*i].ty];
+                }
+                match &local_reference.reference {
+                    llr::LocalMemberIndex::Property(property_index) => {
+                        let prop = &sc.properties[*property_index];
+                        if !matches!(prop.ty, Type::LogicalLength) {
+                            return None;
+                        }
+                        offset_terms.push(format!(
+                            "offsetof({}, {})",
+                            ident(&sc.name),
+                            field_name(&prop.name)
+                        ));
+                    }
+                    llr::LocalMemberIndex::Native {
+                        item_index,
+                        prop_name,
+                        kind: llr::NativeMemberKind::Property,
+                    } if !prop_name.is_empty() => {
+                        let item = &sc.items[*item_index];
+                        if !matches!(item.ty.lookup_property(prop_name), Some(&Type::LogicalLength))
+                        {
+                            return None;
+                        }
+                        offset_terms.push(format!(
+                            "offsetof({}, {})",
+                            ident(&sc.name),
+                            field_name(&item.name)
+                        ));
+                        offset_terms.push(format!(
+                            "offsetof(slint::cbindgen_private::{}, {})",
+                            ident(&item.ty.class_name),
+                            ident(prop_name)
+                        ));
+                    }
+                    _ => return None,
+                }
+                fields.push(format!(
+                    "slint::private_api::make_geometry_field_offset({})",
+                    offset_terms.join(" + ")
+                ));
+            }
+            _ => return None,
+        }
+    }
+    Some(format!("{}, {}, {}, {}", fields[0], fields[1], fields[2], fields[3]))
 }
 
 /// Generates the `layout_item_info` member function for a repeated component struct.
