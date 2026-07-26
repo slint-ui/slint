@@ -190,9 +190,9 @@ pub mod re_exports {
     };
     pub use i_slint_core::item_tree::{
         GeometryTableEntry, IndexRange, ItemTree, ItemTreeRc, ItemTreeRefPin, ItemTreeVTable,
-        ItemTreeWeak, SubComponentTableEntry, TypedGeometryField, TypedItemIndexTables,
-        TypedItemTreeDescriptor, ensure_item_tree_instantiated, get_item_ref, register_item_tree,
-        unregister_item_tree,
+        ItemTreeWeak, ListViewRepeater, RepeatedItemTreeFactory, RepeaterSpan, RepeaterSpanTable,
+        SubComponentTableEntry, TypedGeometryField, TypedItemIndexTables, TypedItemTreeDescriptor,
+        ensure_item_tree_instantiated, get_item_ref, register_item_tree, unregister_item_tree,
     };
     pub use i_slint_core::item_tree::{
         ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,

@@ -1317,11 +1317,13 @@ fn generate_sub_component(
         }
     }
 
-    let mut repeated_visit_branch: Vec<TokenStream> = Vec::new();
     let mut repeated_element_components: Vec<TokenStream> = Vec::new();
-    let mut repeated_subtree_ranges: Vec<TokenStream> = Vec::new();
-    let mut repeated_subtree_components: Vec<TokenStream> = Vec::new();
-    let mut ensure_instantiated_stmts: Vec<TokenStream> = Vec::new();
+    // Static repeater dispatch table entries plus the small per-repeater support
+    // functions (instance creation, ListView tracking) they reference.
+    let mut repeater_span_tokens: Vec<TokenStream> = Vec::new();
+    // `RepeatedItemTreeFactory` / `ListViewRepeater` impls: the per-repeater
+    // operations the shared dispatch shims resolve statically.
+    let mut repeater_trait_impls: Vec<TokenStream> = Vec::new();
 
     for (idx, repeated) in component.repeated.iter_enumerated() {
         extra_components.push(generate_repeated_component(
@@ -1333,36 +1335,13 @@ fn generate_sub_component(
         let idx = usize::from(idx) as u32;
 
         if let Some(item_index) = repeated.container_item_index {
-            let embed_item = access_local_member(
-                &llr::LocalMemberIndex::Native {
-                    item_index,
-                    prop_name: Default::default(),
-                    kind: llr::NativeMemberKind::Property,
-                }
-                .into(),
-                &ctx,
-            );
-
-            repeated_visit_branch.push(quote!(
-                #idx => {
-                    #embed_item.visit_children_item(-1, order, visitor)
-                }
+            let item_name = ident(&component.items[item_index].name);
+            repeater_span_tokens.push(quote!(
+                sp::RepeaterSpan::component_container::<#inner_component_id>(
+                    #idx,
+                    #inner_component_id::FIELD_OFFSETS.#item_name(),
+                )
             ));
-            repeated_subtree_ranges.push(quote!(
-                #idx => {
-                    #embed_item.subtree_range()
-                }
-            ));
-            repeated_subtree_components.push(quote!(
-                #idx => {
-                    if subtree_index == 0 {
-                        *result = #embed_item.subtree_component()
-                    }
-                }
-            ));
-            ensure_instantiated_stmts.push(quote!({
-                _changed |= #embed_item.ensure_updated();
-            }));
         } else {
             let repeater_id = format_ident!("repeater{}", idx);
             let rep_inner_component_id =
@@ -1398,45 +1377,56 @@ fn generate_sub_component(
                     },
                 );
 
-                repeated_visit_branch.push(quote!(
-                    #idx => {
-                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).track_changes_listview(
-                            #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
-                        );
-                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit(order, visitor)
+                repeater_trait_impls.push(quote!(
+                    impl sp::ListViewRepeater<#rep_inner_component_id> for #inner_component_id {
+                        fn visit_listview(
+                            self: ::core::pin::Pin<&Self>,
+                            order: sp::TraversalOrder,
+                            visitor: sp::ItemVisitorRefMut<'_>,
+                        ) -> sp::VisitChildrenResult {
+                            #![allow(unused)]
+                            let _self = self;
+                            #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).track_changes_listview(
+                                #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
+                            );
+                            #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit(order, visitor)
+                        }
+                        fn ensure_listview_updated(self: ::core::pin::Pin<&Self>) -> bool {
+                            #![allow(unused)]
+                            let _self = self;
+                            #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
+                                || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
+                                #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
+                            )
+                        }
                     }
                 ));
-                ensure_instantiated_stmts.push(quote!({
-                    _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
-                        || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
-                        #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
-                    );
-                }));
+                repeater_span_tokens.push(quote!(
+                    sp::RepeaterSpan::listview_repeater::<#inner_component_id, #rep_inner_component_id>(
+                        #idx,
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id(),
+                    )
+                ));
             } else {
-                repeated_visit_branch.push(quote!(
-                    #idx => {
-                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit(order, visitor)
+                repeater_trait_impls.push(quote!(
+                    impl sp::RepeatedItemTreeFactory<#rep_inner_component_id> for #inner_component_id {
+                        fn create_repeated(&self) -> sp::VRc<sp::ItemTreeVTable, #rep_inner_component_id> {
+                            #rep_inner_component_id::new(self.self_weak.get().unwrap().clone()).unwrap().into()
+                        }
                     }
                 ));
-                ensure_instantiated_stmts.push(quote!({
-                    _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated(
-                        || #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into()
-                    );
-                }));
+                let ctor = if repeated.index_prop.is_some() {
+                    quote!(repeater)
+                } else {
+                    quote!(conditional)
+                };
+                repeater_span_tokens.push(quote!(
+                    sp::RepeaterSpan::#ctor::<#inner_component_id, #rep_inner_component_id>(
+                        #idx,
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id(),
+                    )
+                ));
             }
-            repeated_subtree_ranges.push(quote!(
-                #idx => {
-                    #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).track_instance_changes();
-                    sp::IndexRange::from(_self.#repeater_id.range())
-                }
-            ));
-            repeated_subtree_components.push(quote!(
-                #idx => {
-                    if let Some(instance) = _self.#repeater_id.instance_at(subtree_index) {
-                        *result = sp::VRc::downgrade(&sp::VRc::into_dyn(instance));
-                    }
-                }
-            ));
             repeated_element_components.push(if repeated.index_prop.is_some() {
                 quote!(#repeater_id: sp::Repeater<#rep_inner_component_id>)
             } else {
@@ -1568,23 +1558,13 @@ fn generate_sub_component(
         if sub_component_repeater_count > 0 {
             let repeater_offset = sub.repeater_offset;
             let last_repeater = repeater_offset + sub_component_repeater_count - 1;
-            repeated_visit_branch.push(quote!(
-                #repeater_offset..=#last_repeater => {
-                    #sub_compo_field.apply_pin(_self).visit_dynamic_children(dyn_index - #repeater_offset, order, visitor)
-                }
-            ));
-            repeated_subtree_ranges.push(quote!(
-                #repeater_offset..=#last_repeater => {
-                    #sub_compo_field.apply_pin(_self).subtree_range(dyn_index - #repeater_offset)
-                }
-            ));
-            repeated_subtree_components.push(quote!(
-                #repeater_offset..=#last_repeater => {
-                    #sub_compo_field.apply_pin(_self).subtree_component(dyn_index - #repeater_offset, subtree_index, result)
-                }
-            ));
-            ensure_instantiated_stmts.push(quote!(
-                _changed |= #sub_compo_field.apply_pin(_self).ensure_instantiated();
+            repeater_span_tokens.push(quote!(
+                sp::RepeaterSpan::sub_component::<#inner_component_id, #sub_component_id>(
+                    #repeater_offset,
+                    #last_repeater,
+                    #sub_compo_field,
+                    #sub_component_id::REPEATER_SPANS,
+                )
             ));
         }
 
@@ -1929,27 +1909,8 @@ fn generate_sub_component(
 
             #(#chunk_fns)*
 
-            fn visit_dynamic_children(
-                self: ::core::pin::Pin<&Self>,
-                dyn_index: u32,
-                order: sp::TraversalOrder,
-                visitor: sp::ItemVisitorRefMut<'_>
-            ) -> sp::VisitChildrenResult {
-                #![allow(unused)]
-                let _self = self;
-                match dyn_index {
-                    #(#repeated_visit_branch)*
-                    _ => panic!("invalid dyn_index {}", dyn_index),
-                }
-            }
-
-            fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
-                #![allow(unused)]
-                let _self = self;
-                let mut _changed = false;
-                #(#ensure_instantiated_stmts)*
-                _changed
-            }
+            const REPEATER_SPANS: sp::RepeaterSpanTable<#inner_component_id>
+                = sp::RepeaterSpanTable::new(&[#(#repeater_span_tokens),*]);
 
             fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
                 #![allow(unused)]
@@ -1963,24 +1924,6 @@ fn generate_sub_component(
             #grid_layout_input_for_repeated_fn
 
             #flexbox_layout_item_info_for_repeated_fn
-
-            fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
-                #![allow(unused)]
-                let _self = self;
-                match dyn_index {
-                    #(#repeated_subtree_ranges)*
-                    _ => panic!("invalid dyn_index {}", dyn_index),
-                }
-            }
-
-            fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak) {
-                #![allow(unused)]
-                let _self = self;
-                match dyn_index {
-                    #(#repeated_subtree_components)*
-                    _ => panic!("invalid dyn_index {}", dyn_index),
-                };
-            }
 
             fn index_property(self: ::core::pin::Pin<&Self>) -> usize {
                 #![allow(unused)]
@@ -2011,6 +1954,8 @@ fn generate_sub_component(
 
             #(#declared_functions)*
         }
+
+        #(#repeater_trait_impls)*
 
         #(#extra_components)*
     )
@@ -2502,13 +2447,10 @@ fn generate_item_tree(
                     &Self::ITEM_TREE,
                     &Self::ITEM_ARRAY,
                     &Self::ITEM_INDEX_TABLES,
+                    Self::REPEATER_SPANS,
                     Self::origin_rc,
-                    Self::visit_dynamic_children,
-                    Self::subtree_range,
-                    Self::subtree_component,
                     Self::index_property,
                     Self::layout_info,
-                    Self::ensure_instantiated,
                     #parent_node_arg,
                     #window_adapter_arg,
                     #has_debug_info,
