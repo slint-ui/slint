@@ -51,12 +51,17 @@ using LocalRepeaterEntry = cbindgen_private::LocalRepeaterEntry;
 using SubComponentTableEntry = cbindgen_private::SubComponentTableEntry;
 using ItemTreeWeak = cbindgen_private::ItemTreeWeak;
 
-/// An empty Slice. The pointer must stay non-null (it mirrors Rust's
-/// `NonNull::dangling()`), so use the alignment as the address.
+/// Storage backing `empty_slice` (the pointer must stay non-null, and a
+/// constexpr object gives an address constant so tables using empty slices
+/// can be constant-initialized).
 template<typename T>
-inline cbindgen_private::Slice<T> empty_slice()
+inline constexpr T empty_slice_storage[1] {};
+
+/// An empty Slice with a non-null pointer.
+template<typename T>
+constexpr cbindgen_private::Slice<T> empty_slice()
 {
-    return cbindgen_private::Slice<T> { reinterpret_cast<T *>(alignof(T)), 0 };
+    return cbindgen_private::Slice<T> { const_cast<T *>(empty_slice_storage<T>), 0 };
 }
 
 /// A Slice over the bytes of a string literal (must be valid UTF-8).
