@@ -572,14 +572,78 @@ pub fn tables_item_geometry<Base>(
     index: u32,
 ) -> LogicalRect {
     #![allow(unsafe_code)]
-    let mut tables: &ItemIndexTables = &tables.erased;
-    let mut inst: *const u8 = Pin::get_ref(base) as *const _ as *const u8;
-    let mut index = index;
+    // Safety: the instance pointer matches the tables by construction of
+    // `TypedItemIndexTables<Base>` (same for the other `tables_*` entry points).
+    unsafe { erased_item_geometry(&tables.erased, erase_base(base), index) }
+}
+
+/// The accessible role of the item at `index`, resolved from the component's static tables.
+pub fn tables_accessible_role<Base>(
+    tables: &TypedItemIndexTables<Base>,
+    base: Pin<&Base>,
+    index: u32,
+) -> AccessibleRole {
+    #![allow(unsafe_code)]
+    unsafe { erased_accessible_role(&tables.erased, erase_base(base), index) }
+}
+
+/// The accessible string property `what` of the item at `index`, if present.
+pub fn tables_accessible_string_property<Base>(
+    tables: &TypedItemIndexTables<Base>,
+    base: Pin<&Base>,
+    index: u32,
+    what: AccessibleStringProperty,
+) -> Option<SharedString> {
+    #![allow(unsafe_code)]
+    unsafe { erased_accessible_string_property(&tables.erased, erase_base(base), index, what) }
+}
+
+/// Perform the accessibility action `action` on the item at `index`.
+pub fn tables_accessibility_action<Base>(
+    tables: &TypedItemIndexTables<Base>,
+    base: Pin<&Base>,
+    index: u32,
+    action: &AccessibilityAction,
+) {
+    #![allow(unsafe_code)]
+    unsafe { erased_accessibility_action(&tables.erased, erase_base(base), index, action) }
+}
+
+/// The set of supported accessibility actions of the item at `index`.
+pub fn tables_supported_accessibility_actions<Base>(
+    tables: &TypedItemIndexTables<Base>,
+    base: Pin<&Base>,
+    index: u32,
+) -> SupportedAccessibilityAction {
+    let _ = base;
+    erased_supported_accessibility_actions(&tables.erased, index)
+}
+
+/// The debug element infos of the item at `index`, if debug info is enabled.
+pub fn tables_element_infos<Base>(
+    tables: &TypedItemIndexTables<Base>,
+    base: Pin<&Base>,
+    index: u32,
+) -> Option<SharedString> {
+    let _ = base;
+    erased_element_infos(&tables.erased, index)
+}
+
+fn erase_base<Base>(base: Pin<&Base>) -> *const u8 {
+    Pin::get_ref(base) as *const Base as *const u8
+}
+
+/// Safety: `inst` must point to the component instance the tables were built for.
+#[allow(unsafe_code)]
+unsafe fn erased_item_geometry(
+    mut tables: &ItemIndexTables,
+    mut inst: *const u8,
+    mut index: u32,
+) -> LogicalRect {
     loop {
         for entry in tables.geometries {
             if entry.index == index {
-                // Safety: `inst` points to the component instance matching `tables`
-                // (both start from the typed pair and only change together below).
+                // Safety: `inst` matches `tables` (they only change together below)
                 return unsafe { entry.offsets.read(inst) };
             }
         }
@@ -599,23 +663,19 @@ pub fn tables_item_geometry<Base>(
     }
 }
 
-/// The accessible role of the item at `index`, resolved from the component's static tables.
-pub fn tables_accessible_role<Base>(
-    tables: &TypedItemIndexTables<Base>,
-    base: Pin<&Base>,
-    index: u32,
+/// Safety: `inst` must point to the component instance the tables were built for.
+#[allow(unsafe_code)]
+unsafe fn erased_accessible_role(
+    mut tables: &ItemIndexTables,
+    mut inst: *const u8,
+    mut index: u32,
 ) -> AccessibleRole {
-    #![allow(unsafe_code)]
-    let mut tables: &ItemIndexTables = &tables.erased;
-    let mut inst: *const u8 = Pin::get_ref(base) as *const _ as *const u8;
-    let mut index = index;
     loop {
         for (i, role) in tables.roles {
             if *i == index {
                 return *role;
             }
         }
-        // Safety: `inst` points to the component instance matching `tables`
         if let Some(f) = tables.role_fn
             && let Some(r) = unsafe { f(inst, index) }
         {
@@ -632,24 +692,20 @@ pub fn tables_accessible_role<Base>(
     }
 }
 
-/// The accessible string property `what` of the item at `index`, if present.
-pub fn tables_accessible_string_property<Base>(
-    tables: &TypedItemIndexTables<Base>,
-    base: Pin<&Base>,
-    index: u32,
+/// Safety: `inst` must point to the component instance the tables were built for.
+#[allow(unsafe_code)]
+unsafe fn erased_accessible_string_property(
+    mut tables: &ItemIndexTables,
+    mut inst: *const u8,
+    mut index: u32,
     what: AccessibleStringProperty,
 ) -> Option<SharedString> {
-    #![allow(unsafe_code)]
-    let mut tables: &ItemIndexTables = &tables.erased;
-    let mut inst: *const u8 = Pin::get_ref(base) as *const _ as *const u8;
-    let mut index = index;
     loop {
-        for (i, w, s) in tables.string_properties {
+        for (i, w, str) in tables.string_properties {
             if *i == index && *w == what {
-                return Some(SharedString::from(*s));
+                return Some(SharedString::from(*str));
             }
         }
-        // Safety: `inst` points to the component instance matching `tables`
         if let Some(f) = tables.string_property_fn
             && let Some(r) = unsafe { f(inst, index, what) }
         {
@@ -666,19 +722,15 @@ pub fn tables_accessible_string_property<Base>(
     }
 }
 
-/// Perform the accessibility action `action` on the item at `index`.
-pub fn tables_accessibility_action<Base>(
-    tables: &TypedItemIndexTables<Base>,
-    base: Pin<&Base>,
-    index: u32,
+/// Safety: `inst` must point to the component instance the tables were built for.
+#[allow(unsafe_code)]
+unsafe fn erased_accessibility_action(
+    mut tables: &ItemIndexTables,
+    mut inst: *const u8,
+    mut index: u32,
     action: &AccessibilityAction,
 ) {
-    #![allow(unsafe_code)]
-    let mut tables: &ItemIndexTables = &tables.erased;
-    let mut inst: *const u8 = Pin::get_ref(base) as *const _ as *const u8;
-    let mut index = index;
     loop {
-        // Safety: `inst` points to the component instance matching `tables`
         if let Some(f) = tables.action_fn
             && unsafe { f(inst, index, action) }
         {
@@ -695,19 +747,14 @@ pub fn tables_accessibility_action<Base>(
     }
 }
 
-/// The set of supported accessibility actions of the item at `index`.
-pub fn tables_supported_accessibility_actions<Base>(
-    tables: &TypedItemIndexTables<Base>,
-    base: Pin<&Base>,
-    index: u32,
+fn erased_supported_accessibility_actions(
+    mut tables: &ItemIndexTables,
+    mut index: u32,
 ) -> SupportedAccessibilityAction {
-    let mut tables: &ItemIndexTables = &tables.erased;
-    let _ = base;
-    let mut index = index;
     loop {
-        for (i, s) in tables.supported_actions {
+        for (i, actions) in tables.supported_actions {
             if *i == index {
-                return *s;
+                return *actions;
             }
         }
         match tables.lookup_sub_component(index, true) {
@@ -720,19 +767,11 @@ pub fn tables_supported_accessibility_actions<Base>(
     }
 }
 
-/// The debug element infos of the item at `index`, if debug info is enabled.
-pub fn tables_element_infos<Base>(
-    tables: &TypedItemIndexTables<Base>,
-    base: Pin<&Base>,
-    index: u32,
-) -> Option<SharedString> {
-    let mut tables: &ItemIndexTables = &tables.erased;
-    let _ = base;
-    let mut index = index;
+fn erased_element_infos(mut tables: &ItemIndexTables, mut index: u32) -> Option<SharedString> {
     loop {
-        for (i, s) in tables.element_infos {
+        for (i, str) in tables.element_infos {
             if *i == index {
-                return Some(SharedString::from(*s));
+                return Some(SharedString::from(*str));
             }
         }
         match tables.lookup_sub_component(index, false) {
