@@ -603,8 +603,9 @@ fn layout(
     };
 
     let body_font_size = layout_builder.pixel_size.get();
-    let rule_height = PhysicalLength::new(body_font_size * 0.8);
-    let rule_margin = PhysicalLength::new(body_font_size * 0.3);
+    let scale = scale_factor.get();
+    let rule_height = PhysicalLength::new(body_font_size * 0.8 * scale);
+    let rule_margin = PhysicalLength::new(body_font_size * 0.3 * scale);
 
     let mut para_y = 0.0;
     for para in paragraphs.iter_mut() {
