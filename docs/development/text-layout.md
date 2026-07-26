@@ -14,6 +14,7 @@ Slint's text layout system handles the complex process of converting text string
 - **Script-aware boundaries**: Splitting text by Unicode script for font selection
 - **Line breaking**: Unicode-compliant line break algorithm
 - **Text wrapping**: Word wrap, character wrap, and no wrap modes
+- **Line height**: Natural font metrics or an explicit line height
 - **Text overflow**: Clipping and elision (ellipsis)
 - **Styled text**: Markdown parsing with formatting spans
 
@@ -111,8 +112,8 @@ pub trait TextShaper {
     /// Get glyph for a single character (e.g., ellipsis)
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<Self::Length>>;
 
-    /// Calculate max lines that fit in height
-    fn max_lines(&self, max_height: Self::Length) -> usize;
+    /// Returns how many lines of `line_height` fit in `max_height`.
+    fn max_lines(&self, max_height: Self::Length, line_height: Self::Length) -> usize;
 }
 ```
 
@@ -137,6 +138,28 @@ Combined trait for fonts:
 ```rust
 pub trait AbstractFont: TextShaper + FontMetrics<<Self as TextShaper>::Length> {}
 ```
+
+### TextLayout
+
+`TextLayout` combines a font with paragraph-wide spacing options:
+
+```rust
+pub struct TextLayout<'a, Font: AbstractFont> {
+    pub font: &'a Font,
+    pub letter_spacing: Option<<Font as TextShaper>::Length>,
+    pub line_height: Option<<Font as TextShaper>::Length>,
+}
+```
+
+Both spacing values use the font's `Length` unit.
+`None` leaves letter spacing unchanged and uses `FontMetrics::height()` for line height.
+The `.slint` `line-height-factor` value is converted to an absolute value before this stage.
+
+An explicit line height only stretches (or shrinks) the line boxes; the glyphs are centered
+within each box by distributing the leading half above and half below them
+(`TextLayout::half_leading()`), following the CSS model like the parley-based layout.
+Cursor and selection rectangles cover the full line box, clamped so they never get smaller
+than the glyph box when the leading is negative (`TextLayout::cursor_band()`).
 
 ## Script Boundary Detection
 
@@ -273,6 +296,7 @@ pub struct TextParagraphLayout<'a, Font: AbstractFont> {
     pub wrap: TextWrap,
     pub overflow: TextOverflow,
     pub single_line: bool,
+    pub max_lines: Option<usize>,
 }
 ```
 
@@ -432,11 +456,12 @@ impl StyledText {
 ### Measuring Text
 
 ```rust
-let layout = TextLayout { font: &font, letter_spacing: None };
+let layout = TextLayout { font: &font, letter_spacing: None, line_height: None };
 let (width, height) = layout.text_size(
     "Hello World",
     Some(max_width),  // None for unconstrained
     TextWrap::WordWrap,
+    None,             // No line limit
 );
 ```
 
@@ -445,7 +470,7 @@ let (width, height) = layout.text_size(
 ```rust
 let paragraph = TextParagraphLayout {
     string: text,
-    layout: TextLayout { font: &font, letter_spacing: None },
+    layout: TextLayout { font: &font, letter_spacing: None, line_height: None },
     max_width: 200.0,
     max_height: 100.0,
     horizontal_alignment: TextHorizontalAlignment::Left,
@@ -453,6 +478,7 @@ let paragraph = TextParagraphLayout {
     wrap: TextWrap::WordWrap,
     overflow: TextOverflow::Elide,
     single_line: false,
+    max_lines: None,
 };
 
 paragraph.layout_lines::<()>(
@@ -501,8 +527,8 @@ impl TextShaper for MyFont {
         // ... build glyph
     }
 
-    fn max_lines(&self, max_height: f32) -> usize {
-        (max_height / self.height()).floor() as usize
+    fn max_lines(&self, max_height: f32, line_height: f32) -> usize {
+        (max_height / line_height).floor() as usize
     }
 }
 ```

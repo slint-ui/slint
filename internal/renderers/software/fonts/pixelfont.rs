@@ -132,8 +132,8 @@ impl TextShaper for PixelFont {
             })
     }
 
-    fn max_lines(&self, max_height: PhysicalLength) -> usize {
-        (max_height / self.height()).get() as _
+    fn max_lines(&self, max_height: PhysicalLength, line_height: PhysicalLength) -> usize {
+        (max_height / line_height).get() as _
     }
 }
 

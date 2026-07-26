@@ -1450,6 +1450,7 @@ impl WindowItem {
         local_font_weight: i32,
         local_font_size: LogicalLength,
         local_letter_spacing: LogicalLength,
+        local_line_height_factor: f32,
         local_italic: bool,
     ) -> FontRequest {
         let Some(window_item_rc) = next_window_item(self_rc) else {
@@ -1489,6 +1490,9 @@ impl WindowItem {
                 }
             },
             letter_spacing: Some(local_letter_spacing),
+            line_height_factor: (local_line_height_factor.is_finite()
+                && local_line_height_factor > 0.0)
+                .then_some(local_line_height_factor),
             italic: local_italic,
         }
     }
