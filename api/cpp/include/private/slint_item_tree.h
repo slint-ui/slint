@@ -99,19 +99,15 @@ struct RepeaterEntryShims
     }
 };
 
-inline RepeaterSpan make_local_repeater_span(uint32_t index, LocalRepeaterEntry entry)
+constexpr inline RepeaterSpan make_local_repeater_span(uint32_t index, LocalRepeaterEntry entry)
 {
-    RepeaterSpan span;
-    span.start = index;
-    span.end = index;
-    span.kind.local.tag = RepeaterSpanKind::Tag::Local;
-    span.kind.local._0 = entry;
-    return span;
+    return RepeaterSpan { index, index,
+                          RepeaterSpanKind { .local = { RepeaterSpanKind::Tag::Local, entry } } };
 }
 
 /// A span for a plain `Repeater` or `Conditional` field.
 template<typename Base, typename RepeaterType>
-inline RepeaterSpan make_repeater_span(uint32_t index, uintptr_t offset)
+constexpr inline RepeaterSpan make_repeater_span(uint32_t index, uintptr_t offset)
 {
     using Shims = RepeaterEntryShims<Base, RepeaterType>;
     return make_local_repeater_span(
@@ -122,7 +118,7 @@ inline RepeaterSpan make_repeater_span(uint32_t index, uintptr_t offset)
 /// A span for a ListView repeater: visiting and instantiation track the
 /// viewport, so those two hooks are component functions.
 template<typename Base, typename RepeaterType>
-inline RepeaterSpan make_listview_repeater_span(
+constexpr inline RepeaterSpan make_listview_repeater_span(
         uint32_t index, uintptr_t offset,
         cbindgen_private::VisitChildrenResult (*visit)(const uint8_t *,
                                                        const LocalRepeaterEntry *,
@@ -165,28 +161,22 @@ make_geometry_entry(uint32_t index, cbindgen_private::GeometryField x,
 }
 
 /// A span for a `ComponentContainer` item at `offset` within the component.
-inline RepeaterSpan make_container_span(uint32_t index, uintptr_t offset)
+constexpr inline RepeaterSpan make_container_span(uint32_t index, uintptr_t offset)
 {
-    RepeaterSpan span;
-    span.start = index;
-    span.end = index;
-    span.kind.container.tag = RepeaterSpanKind::Tag::Container;
-    span.kind.container.offset = offset;
-    return span;
+    return RepeaterSpan {
+        index, index, RepeaterSpanKind { .container = { RepeaterSpanKind::Tag::Container, offset } }
+    };
 }
 
 /// A span forwarding the dynamic indices `start..=end` to a nested
 /// sub-component's own table, rebased to `start`.
-inline RepeaterSpan make_sub_component_span(uint32_t start, uint32_t end, uintptr_t offset,
-                                            cbindgen_private::Slice<RepeaterSpan> table)
+constexpr inline RepeaterSpan make_sub_component_span(uint32_t start, uint32_t end,
+                                                      uintptr_t offset,
+                                                      cbindgen_private::Slice<RepeaterSpan> table)
 {
-    RepeaterSpan span;
-    span.start = start;
-    span.end = end;
-    span.kind.sub.tag = RepeaterSpanKind::Tag::Sub;
-    span.kind.sub.offset = offset;
-    span.kind.sub.table = table;
-    return span;
+    return RepeaterSpan {
+        start, end, RepeaterSpanKind { .sub = { RepeaterSpanKind::Tag::Sub, offset, table } }
+    };
 }
 
 } // namespace private_api
