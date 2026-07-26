@@ -2713,7 +2713,7 @@ fn generate_sub_component(
     let mut tables_stmts = Vec::new();
     if !accessible_role_entries.is_empty() {
         tables_stmts.push(format!(
-            "static const slint::private_api::AccessibleRoleEntry static_AccessibleRoleEntry_entries[] {{ {} }};",
+            "static constexpr slint::private_api::AccessibleRoleEntry static_AccessibleRoleEntry_entries[] {{ {} }};",
             accessible_role_entries.join(", ")
         ));
     }
@@ -2725,13 +2725,13 @@ fn generate_sub_component(
     }
     if !item_geometry_entries.is_empty() {
         tables_stmts.push(format!(
-            "static const slint::private_api::GeometryTableEntry static_GeometryTableEntry_entries[] {{ {} }};",
+            "static constexpr slint::private_api::GeometryTableEntry static_GeometryTableEntry_entries[] {{ {} }};",
             item_geometry_entries.join(", ")
         ));
     }
     if !supported_accessibility_actions_entries.is_empty() {
         tables_stmts.push(format!(
-            "static const slint::private_api::SupportedAccessibilityActionsEntry static_SupportedAccessibilityActionsEntry_entries[] {{ {} }};",
+            "static constexpr slint::private_api::SupportedAccessibilityActionsEntry static_SupportedAccessibilityActionsEntry_entries[] {{ {} }};",
             supported_accessibility_actions_entries.join(", ")
         ));
     }
