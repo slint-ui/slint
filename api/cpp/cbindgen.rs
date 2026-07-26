@@ -447,6 +447,15 @@ fn gen_corelib(
     config.export.include = [
         "Clipboard",
         "ItemTreeVTable",
+        "ItemTreeDescriptor",
+        "ItemIndexTables",
+        "RepeaterSpan",
+        "SubComponentTableEntry",
+        "GeometryTableEntry",
+        "AccessibleRoleEntry",
+        "SupportedAccessibilityActionsEntry",
+        "ElementInfosEntry",
+        "AccessibleStringPropertyEntry",
         "Slice",
         "WindowAdapterRcOpaque",
         "PropertyAnimation",
@@ -498,6 +507,10 @@ fn gen_corelib(
     ];
 
     config.export.exclude = [
+        "TypedItemIndexTables",
+        "TypedGeometryField",
+        "RepeaterSpanTable",
+        "TypedItemTreeDescriptor",
         "SharedString",
         "StyledText",
         "SharedVector",
@@ -1043,6 +1056,8 @@ namespace slint {
         using private_api::Point;
         struct ItemTreeVTable;
         struct ItemVTable;
+        struct ItemIndexTables;
+        struct RepeaterSpan;
         using types::IntRect;
         using types::Size;
         using types::MouseEvent;
@@ -1057,7 +1072,14 @@ namespace slint {
         };
     }
     template<typename ModelData> class Model;
-}",
+}
+
+// A function declaration does not instantiate the specialization it returns, so
+// the C-linkage declaration of slint_compiled_item_tree_get_item_ref would
+// return an as-yet uninstantiated (hence incomplete) VRef<ItemVTable>, which
+// clang rejects under -Wreturn-type-c-linkage. Instantiate it up front; the
+// members are pointers, so ItemVTable may still be incomplete here.
+namespace vtable { template struct VRefMut<slint::cbindgen_private::ItemVTable>; }",
         )
         .with_trailer(gen_item_declarations(&items))
         .generate()

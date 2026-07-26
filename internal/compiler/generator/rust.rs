@@ -288,6 +288,7 @@ pub(super) fn generate_module_header() -> TokenStream {
         #![allow(unused_braces, unused_parens)]
         #![allow(clippy::all, clippy::pedantic, clippy::nursery)]
         #![allow(unknown_lints, if_let_rescope, tail_expr_drop_order)] // We don't have fancy Drop
+        #![allow(improper_ctypes_definitions)] // the extern "C" hooks are only called from Rust or through punned pointers
 
         use slint::private_unstable_api::re_exports as sp;
         #[allow(unused_imports)]
@@ -1500,7 +1501,7 @@ fn generate_sub_component(
                 } else {
                     quote!(sp::#base_ident::#value_ident)
                 };
-                accessible_role_consts.push(quote!((#index, #value)));
+                accessible_role_consts.push(quote!(sp::AccessibleRoleEntry::new(#index, #value)));
                 continue;
             }
             let e = compile_expression(&expr.borrow(), &ctx);
@@ -1520,19 +1521,20 @@ fn generate_sub_component(
             let what = ident(what);
             if let Expression::StringLiteral(s) = &*expr.borrow() {
                 let s = s.as_str();
-                accessible_string_property_consts
-                    .push(quote!((#index, sp::AccessibleStringProperty::#what, #s)));
+                accessible_string_property_consts.push(quote!(
+                    sp::AccessibleStringPropertyEntry::new(#index, sp::AccessibleStringProperty::#what, #s)
+                ));
                 continue;
             }
             let e = compile_expression(&expr.borrow(), &ctx);
             accessible_string_property_dyn_branch
-                .push(quote!((#index, sp::AccessibleStringProperty::#what) => sp::Some(#e),));
+                .push(quote!((#index, sp::AccessibleStringProperty::#what) => { *result = #e; },));
         }
     }
     let supported_accessibility_actions_consts = supported_accessibility_actions
         .into_iter()
         .map(|(index, values)| {
-            quote!((#index, sp::SupportedAccessibilityAction::empty()
+            quote!(sp::SupportedAccessibilityActionsEntry::new(#index, sp::SupportedAccessibilityAction::empty()
                 #(.union(sp::SupportedAccessibilityAction::#values))*))
         })
         .collect::<Vec<_>>();
@@ -1559,7 +1561,7 @@ fn generate_sub_component(
         .iter()
         .map(|(item_index, ids)| {
             let ids = ids.as_str();
-            quote!((#item_index, #ids))
+            quote!(sp::ElementInfosEntry::new(#item_index, #ids))
         })
         .collect::<Vec<_>>();
 
@@ -1829,16 +1831,17 @@ fn generate_sub_component(
     // emitted when a query actually has dynamic entries, so purely-static
     // components carry no code for these queries at all.
     let item_geometry_fallback_fn = (!item_geometry_dyn_branch.is_empty()).then(|| quote!(
-        fn item_geometry_fallback(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::LogicalRect> {
+        extern "C" fn item_geometry_fallback(self: ::core::pin::Pin<&Self>, index: u32, result: &mut sp::LogicalRect) -> bool {
             #![allow(unused)]
             let _self = self;
             // The result of the expression is an anonymous struct, `{height: length, width: length, x: length, y: length}`
             // fields are in alphabetical order
             let (h, w, x, y) = match index {
                 #(#item_geometry_dyn_branch)*
-                _ => return sp::None,
+                _ => return false,
             };
-            sp::Some(sp::euclid::rect(x, y, w, h))
+            *result = sp::euclid::rect(x, y, w, h);
+            true
         }
     ));
     let item_geometry_fn_arg = match item_geometry_fallback_fn.is_some() {
@@ -1846,13 +1849,14 @@ fn generate_sub_component(
         false => quote!(sp::None),
     };
     let accessible_role_fallback_fn = (!accessible_role_dyn_branch.is_empty()).then(|| quote!(
-        fn accessible_role_fallback(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::AccessibleRole> {
+        extern "C" fn accessible_role_fallback(self: ::core::pin::Pin<&Self>, index: u32, result: &mut sp::AccessibleRole) -> bool {
             #![allow(unused)]
             let _self = self;
-            sp::Some(match index {
+            *result = match index {
                 #(#accessible_role_dyn_branch)*
-                _ => return sp::None,
-            })
+                _ => return false,
+            };
+            true
         }
     ));
     let accessible_role_fn_arg = match accessible_role_fallback_fn.is_some() {
@@ -1862,17 +1866,19 @@ fn generate_sub_component(
     let accessible_string_property_fallback_fn =
         (!accessible_string_property_dyn_branch.is_empty()).then(|| {
             quote!(
-                fn accessible_string_property_fallback(
+                extern "C" fn accessible_string_property_fallback(
                     self: ::core::pin::Pin<&Self>,
                     index: u32,
                     what: sp::AccessibleStringProperty,
-                ) -> sp::Option<sp::SharedString> {
+                    result: &mut sp::SharedString,
+                ) -> bool {
                     #![allow(unused)]
                     let _self = self;
                     match (index, what) {
                         #(#accessible_string_property_dyn_branch)*
-                        _ => sp::None,
-                    }
+                        _ => return false,
+                    };
+                    true
                 }
             )
         });
@@ -1882,7 +1888,7 @@ fn generate_sub_component(
     };
     let accessibility_action_fallback_fn = (!accessibility_action_branch.is_empty()).then(|| {
         quote!(
-            fn accessibility_action_fallback(
+            extern "C" fn accessibility_action_fallback(
                 self: ::core::pin::Pin<&Self>,
                 index: u32,
                 action: &sp::AccessibilityAction,
@@ -1938,6 +1944,11 @@ fn generate_sub_component(
                 sp::VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap())
             }
 
+            #[allow(dead_code)]
+            extern "C" fn origin_weak(&self, result: &mut sp::ItemTreeWeak) {
+                *result = sp::VRc::downgrade(&self.origin_rc());
+            }
+
             fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
                     globals : sp::Rc<SharedGlobals>,
                     tree_index: u32, tree_index_of_first_child: u32)
@@ -1964,7 +1975,7 @@ fn generate_sub_component(
             const REPEATER_SPANS: sp::RepeaterSpanTable<#inner_component_id>
                 = sp::RepeaterSpanTable::new(&[#(#repeater_span_tokens),*]);
 
-            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
+            extern "C" fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
                 #![allow(unused)]
                 let _self = self;
                 match orientation {
@@ -1979,7 +1990,7 @@ fn generate_sub_component(
 
             #cross_axis_self_alignment_for_repeated_fn
 
-            fn index_property(self: ::core::pin::Pin<&Self>) -> usize {
+            extern "C" fn index_property(self: ::core::pin::Pin<&Self>) -> usize {
                 #![allow(unused)]
                 let _self = self;
                 #subtree_index_function
@@ -2408,7 +2419,7 @@ fn generate_item_tree(
     let (parent_node_fn, parent_node_arg) = match &parent_item_expression {
         Some(expr) => (
             Some(quote!(
-                fn parent_node_impl(self: ::core::pin::Pin<&Self>, _result: &mut sp::ItemWeak) {
+                extern "C" fn parent_node_impl(self: ::core::pin::Pin<&Self>, _result: &mut sp::ItemWeak) {
                     #![allow(unused)]
                     let _self = self;
                     #expr
@@ -2444,7 +2455,7 @@ fn generate_item_tree(
                 }
             )),
             Some(quote!(
-                fn window_adapter_impl(
+                extern "C" fn window_adapter_impl(
                     self: ::core::pin::Pin<&Self>,
                     do_create: bool,
                     result: &mut sp::Option<sp::Rc<dyn sp::WindowAdapter>>,
@@ -2502,7 +2513,7 @@ fn generate_item_tree(
                     &Self::ITEM_ARRAY,
                     &Self::ITEM_INDEX_TABLES,
                     Self::REPEATER_SPANS,
-                    Self::origin_rc,
+                    Self::origin_weak,
                     Self::index_property,
                     Self::layout_info,
                     #parent_node_arg,
