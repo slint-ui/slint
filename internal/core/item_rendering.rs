@@ -507,6 +507,7 @@ impl HasFont for (SharedString, Brush) {
             0,
             LogicalLength::default(),
             LogicalLength::default(),
+            0.0,
             false,
         )
     }

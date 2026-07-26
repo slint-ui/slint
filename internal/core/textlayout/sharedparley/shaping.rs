@@ -68,10 +68,14 @@ impl LayoutWithoutLineBreaksBuilder {
         font_ctx: &'a mut parley::FontContext,
         text: &'a str,
     ) -> parley::RangedBuilder<'a, Brush> {
-        // Pin the line height to the requested font's metrics so fallback runs (e.g.
-        // password chars rendered by a wider-descender symbol font) don't grow the
-        // line box. FontSizeRelative makes the ratio scale with any per-span FontSize.
+        // Use the requested font's natural line-height ratio for every run so fallback fonts,
+        // such as the symbol font used for password characters, don't enlarge the line box.
+        // An explicit line height replaces this ratio.
+        // `FontSizeRelative` scales the result with each styled span's font size.
         let line_height_ratio = self.font_request.as_ref().and_then(|font_request| {
+            if let Some(factor) = font_request.line_height_factor {
+                return Some(factor);
+            }
             let font = font_request
                 .clone()
                 .query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)?;
