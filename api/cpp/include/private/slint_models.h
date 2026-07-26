@@ -1061,8 +1061,10 @@ class Repeater
             },
             .height = [](void *ud, uintptr_t instance_idx) -> float {
                 auto &c = static_cast<Ctx *>(ud)->inner->data[instance_idx];
-                return c.ptr ? (*c.ptr)->item_geometry(0).height
-                             : std::numeric_limits<float>::quiet_NaN();
+                if (!c.ptr)
+                    return std::numeric_limits<float>::quiet_NaN();
+                auto geometry = (*c.ptr)->item_geometry(0);
+                return geometry ? geometry->height : std::numeric_limits<float>::quiet_NaN();
             },
             .listview_layout =
                     [] {
@@ -1079,7 +1081,12 @@ class Repeater
                     [](void *ud, uintptr_t instance_idx) {
                         auto &c = static_cast<Ctx *>(ud)->inner->data[instance_idx];
                         (*c.ptr)->init();
-                        (*c.ptr)->ensure_instantiated();
+                        {
+                            auto ref = vtable::VRef<private_api::ItemTreeVTable> {
+                                &C::static_vtable, const_cast<C *>(&(**c.ptr))
+                            };
+                            ref.vtable->ensure_instantiated(ref);
+                        }
                     },
         };
     }
