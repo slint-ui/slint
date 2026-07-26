@@ -6,7 +6,7 @@
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct StyledText {
     /// Paragraphs of styled text
-    pub(crate) paragraphs: crate::SharedVector<i_slint_common::styled_text::StyledTextParagraph>,
+    pub(crate) paragraphs: crate::SharedVector<i_slint_common::styled_text::ParagraphBlock>,
 }
 
 /// Error returned when [`StyledText::from_markdown`] cannot parse the provided markdown input.
@@ -52,7 +52,7 @@ impl StyledText {
     /// Parses markdown into styled text.
     pub fn from_markdown(markdown: &str) -> Result<Self, StyledTextFromMarkdownError> {
         let (paragraphs, errors) = i_slint_common::styled_text::parse_interpolated::<
-            &[i_slint_common::styled_text::StyledTextParagraph],
+            &[i_slint_common::styled_text::ParagraphBlock],
         >(markdown, &[]);
 
         if errors.is_empty() {
@@ -66,14 +66,18 @@ impl StyledText {
 pub fn get_raw_text(styled_text: &StyledText) -> alloc::borrow::Cow<'_, str> {
     match styled_text.paragraphs.as_slice() {
         [] => "".into(),
-        [paragraph] => paragraph.text.as_str().into(),
+        [single] => i_slint_common::styled_text::rich_text_content(single)
+            .map_or("".into(), |rt| rt.text.as_str().into()),
         _ => {
             let mut result = alloc::string::String::new();
-            for paragraph in styled_text.paragraphs.iter() {
+            for block in styled_text.paragraphs.iter() {
+                let Some(rt) = i_slint_common::styled_text::rich_text_content(&block) else {
+                    continue;
+                };
                 if !result.is_empty() {
                     result.push('\n');
                 }
-                result.push_str(paragraph.text.as_str());
+                result.push_str(rt.text.as_str());
             }
             result.into()
         }
