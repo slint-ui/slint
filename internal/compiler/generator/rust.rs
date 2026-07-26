@@ -2369,12 +2369,6 @@ fn generate_item_tree(
     };
     let globals_arg = is_popup.then(|| quote!(globals: sp::Rc<SharedGlobals>));
 
-    let embedding_function = if parent_ctx.is_some() {
-        quote!(todo!("Components written in Rust can not get embedded yet."))
-    } else {
-        quote!(false)
-    };
-
     let parent_item_expression = parent_ctx.map(|parent| parent.repeater_index.map_or_else(|| {
         // No repeater index, this could be a PopupWindow
         quote!{
@@ -2464,13 +2458,20 @@ fn generate_item_tree(
     let item_tree_array_len = item_tree_array.len();
     let item_array_len = item_array.len();
 
-    let element_info_body = if root.has_debug_info {
-        quote!(
-            *_result = sp::tables_element_infos(&Self::ITEM_INDEX_TABLES, _self, _index).unwrap_or_default();
-            true
-        )
-    } else {
-        quote!(false)
+    let has_debug_info = root.has_debug_info;
+
+    let (parent_node_fn, parent_node_arg) = match &parent_item_expression {
+        Some(expr) => (
+            Some(quote!(
+                fn parent_node_impl(self: ::core::pin::Pin<&Self>, _result: &mut sp::ItemWeak) {
+                    #![allow(unused)]
+                    let _self = self;
+                    #expr
+                }
+            )),
+            quote!(sp::Some(Self::parent_node_impl)),
+        ),
+        None => (None, quote!(sp::None)),
     };
 
     // SystemTrayIcon-only compilation units don't have a `WindowAdapter` on
@@ -2479,8 +2480,9 @@ fn generate_item_tree(
     // `WindowAdapter` there's no renderer to free graphics resources with
     // and tray-rooted items allocate none, so the `PinnedDrop` impl is
     // omitted entirely (the struct uses `#[pin]` instead of `#[pin_drop]`).
-    let (register_window_adapter_arg, pinned_drop_impl, window_adapter_vtable_body): (
+    let (register_window_adapter_arg, pinned_drop_impl, window_adapter_fn, window_adapter_arg): (
         TokenStream,
+        Option<TokenStream>,
         Option<TokenStream>,
         TokenStream,
     ) = if needs_window_adapter {
@@ -2489,30 +2491,35 @@ fn generate_item_tree(
             Some(quote!(
                 impl sp::PinnedDrop for #inner_component_id {
                     fn drop(self: ::core::pin::Pin<&mut #inner_component_id>) {
-                        sp::vtable::new_vref!(let vref : VRef<sp::ItemTreeVTable> for sp::ItemTree = self.as_ref().get_ref());
+                        let vref = sp::VRef::new(self.as_ref().get_ref());
                         if let Some(wa) = self.globals.get().unwrap().maybe_window_adapter_impl() {
                             sp::unregister_item_tree(self.as_ref(), vref, Self::item_array(), &wa);
                         }
                     }
                 }
             )),
-            quote!(if do_create {
-                *result = sp::Some(_self.globals.get().unwrap().window_adapter_impl());
-            } else {
-                *result = _self.globals.get().unwrap().maybe_window_adapter_impl();
-            }),
+            Some(quote!(
+                fn window_adapter_impl(
+                    self: ::core::pin::Pin<&Self>,
+                    do_create: bool,
+                    result: &mut sp::Option<sp::Rc<dyn sp::WindowAdapter>>,
+                ) {
+                    let _self = self;
+                    if do_create {
+                        *result = sp::Some(_self.globals.get().unwrap().window_adapter_impl());
+                    } else {
+                        *result = _self.globals.get().unwrap().maybe_window_adapter_impl();
+                    }
+                }
+            )),
+            quote!(sp::Some(Self::window_adapter_impl)),
         )
     } else {
-        (
-            quote!(::core::option::Option::None),
-            None,
-            // Always None for tray-rooted trees: there's no adapter to hand
-            // out and `do_create=true` must not silently materialize one.
-            quote!(
-                let _ = do_create;
-                *result = sp::None;
-            ),
-        )
+        // Always None for tray-rooted trees: there's no adapter to hand
+        // out and `do_create=true` must not silently materialize one - the
+        // shared window_adapter vtable entry sets `*result = None` when the
+        // descriptor has no window_adapter function.
+        (quote!(::core::option::Option::None), None, None, quote!(sp::None))
     };
 
     quote!(
@@ -2532,31 +2539,41 @@ fn generate_item_tree(
                 ::core::result::Result::Ok(self_rc)
             }
 
-            fn item_tree() -> &'static [sp::ItemTreeNode] {
-                const ITEM_TREE : [sp::ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
-                &ITEM_TREE
-            }
+            const ITEM_TREE: [sp::ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
+            const ITEM_ARRAY: [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
+                = [#(#item_array),*];
 
             fn item_array() -> &'static [sp::VOffset<Self, sp::ItemVTable, sp::AllowPin>] {
-                const ITEM_ARRAY : [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
-                    = [#(#item_array),*];
-                &ITEM_ARRAY
+                &Self::ITEM_ARRAY
             }
+
+            #parent_node_fn
+
+            #window_adapter_fn
+
+            const ITEM_TREE_DESCRIPTOR: sp::TypedItemTreeDescriptor<#inner_component_id> =
+                sp::TypedItemTreeDescriptor::new(
+                    &Self::ITEM_TREE,
+                    &Self::ITEM_ARRAY,
+                    &Self::ITEM_INDEX_TABLES,
+                    Self::origin_rc,
+                    Self::visit_dynamic_children,
+                    Self::subtree_range,
+                    Self::subtree_component,
+                    Self::index_property,
+                    Self::layout_info,
+                    Self::ensure_instantiated,
+                    #parent_node_arg,
+                    #window_adapter_arg,
+                    #has_debug_info,
+                );
         }
 
         const _ : () = {
-            use slint::private_unstable_api::re_exports::*;
-            ItemTreeVTable_static!(static VT for self::#inner_component_id);
+            sp::compiled_item_tree_vtable!(static VT for self::#inner_component_id);
         };
 
         #pinned_drop_impl
-
-        sp::impl_item_tree_vtable!{#inner_component_id, _self, _result, _index, do_create, result,
-            parent_node: { #parent_item_expression },
-            embed_component: { #embedding_function },
-            element_infos: { #element_info_body },
-            window_adapter: { #window_adapter_vtable_body },
-        }
     )
 }
 

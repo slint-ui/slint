@@ -12,6 +12,7 @@ use i_slint_core::SharedString;
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
+use i_slint_core::item_tree::ItemTreeConsts as _;
 use i_slint_core::item_tree::{
     IndexRange, ItemTree, ItemTreeNode, ItemTreeVTable, ItemVisitorVTable, ItemWeak,
     TraversalOrder, VisitChildrenResult,
@@ -23,6 +24,12 @@ use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapterRc;
 use std::pin::Pin;
 use vtable::{VRef, VRefMut, VWeak};
+
+impl i_slint_core::item_tree::ItemTreeConsts for Instance {
+    // The interpreter walks its own sub-component tree on demand, so the
+    // shared descriptor-driven entry points don't apply to it.
+    const descriptor: Option<&'static i_slint_core::item_tree::ItemTreeDescriptor> = None;
+}
 
 i_slint_core::ItemTreeVTable_static!(static INTERPRETER_INSTANCE_VT for Instance);
 

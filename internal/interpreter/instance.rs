@@ -270,7 +270,9 @@ impl Drop for Instance {
         }) else {
             return;
         };
-        vtable::new_vref!(let item_tree_ref : VRef<i_slint_core::item_tree::ItemTreeVTable> for i_slint_core::item_tree::ItemTree = self);
+        // `Instance` has a static `ItemTreeVTable` (see `item_tree_vtable.rs`),
+        // so borrow that instead of building a temporary vtable here.
+        let item_tree_ref = vtable::VRef::<i_slint_core::item_tree::ItemTreeVTable>::new(&*self);
         let items = collect_item_refs(&self.root_sub_component);
         // Same order as `i_slint_core::item_tree::unregister_item_tree`:
         // deinit each item (a focused TextInput resets
