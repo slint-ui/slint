@@ -719,7 +719,11 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
         errors.push(StyledTextParseError::without_range(E::UnterminatedTag));
     }
 
-    if let Some(paragraph) = current_paragraph.take() {
+    if let Some(level) = current_heading_level.take() {
+        if let Some(ParagraphBlock::Text(content)) = current_paragraph.take() {
+            paragraphs.push(ParagraphBlock::Heading { level, content });
+        }
+    } else if let Some(paragraph) = current_paragraph.take() {
         paragraphs.push(paragraph);
     }
 
