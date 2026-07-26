@@ -28,6 +28,9 @@ pub use crate::items::OperatingSystemType;
 pub use crate::unsafe_single_threaded::thread_local;
 #[cfg(feature = "std")]
 pub use std::thread_local;
+/// Re-export for the macros generated code uses (e.g. `compiled_item_tree_vtable!`)
+#[doc(hidden)]
+pub use vtable;
 
 pub mod accessibility;
 pub mod animations;

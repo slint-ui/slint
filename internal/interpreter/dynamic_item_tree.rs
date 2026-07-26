@@ -343,6 +343,14 @@ impl ItemTree for ErasedItemTreeBox {
     }
 }
 
+use i_slint_core::item_tree::ItemTreeConsts as _;
+
+impl i_slint_core::item_tree::ItemTreeConsts for ErasedItemTreeBox {
+    // The interpreter walks its own `ItemTreeDescription`, so none of the
+    // shared descriptor-driven entry points apply.
+    const descriptor: Option<&'static i_slint_core::item_tree::ItemTreeDescriptor> = None;
+}
+
 i_slint_core::ItemTreeVTable_static!(static COMPONENT_BOX_VT for ErasedItemTreeBox);
 
 impl Drop for ErasedItemTreeBox {
@@ -1408,6 +1416,7 @@ pub(crate) fn generate_item_tree<'id>(
         window_adapter,
         drop_in_place,
         dealloc,
+        descriptor: None,
     };
     let t = ItemTreeDescription {
         ct: t,

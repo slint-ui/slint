@@ -157,6 +157,16 @@ pub struct ItemTreeVTable {
 
     /// dealloc function (for VRc)
     pub dealloc: unsafe extern "C" fn(&ItemTreeVTable, ptr: *mut u8, layout: vtable::Layout),
+
+    /// For item trees emitted by the Slint compiler: the descriptor that the
+    /// shared entry functions in [`compiled`] read to serve every query. It is
+    /// reached from the vtable so those functions stay independent of the
+    /// component type.
+    ///
+    /// `None` for hand-written item trees (the interpreter, tests), whose
+    /// vtable entries are their own functions and never consult it.
+    #[allow(non_upper_case_globals)]
+    pub descriptor: Option<&'static ItemTreeDescriptor>,
 }
 
 #[cfg(test)]
@@ -773,142 +783,406 @@ fn erased_element_infos(mut tables: &ItemIndexTables, mut index: u32) -> Option<
     }
 }
 
-/// Implement the [`ItemTree`] trait (and thus the `ItemTreeVTable`) for a generated
-/// component.
-///
-/// Only the bodies that genuinely differ between components are passed in
-/// (`parent_node`, `embed_component`, `element_infos`, `window_adapter` - each a
-/// fixed shape selected by the compiler); everything else is defined here once.
-/// The component is expected to provide the inherent methods `item_tree()`,
-/// `item_array()`, `origin_rc()`, `visit_dynamic_children()`, `subtree_range()`,
-/// `subtree_component()`, `index_property()`, `layout_info()` and
-/// `ensure_instantiated()`, as well as an `ITEM_INDEX_TABLES` associated const
-/// of type [`TypedItemIndexTables<Self>`].
-///
-/// The `$self_`/`$presult`/`$pindex`/`$do_create`/`$wresult` identifiers are
-/// provided by the caller so the supplied bodies can refer to them despite macro
-/// hygiene.
+/// The type-erased static description of one compiled component: the data
+/// needed to serve every `ItemTreeVTable` entry, plus erased function pointers
+/// for the parts that are genuinely code (repeater dispatch, layout, parent
+/// linkage). One shared, non-generic set of vtable entry functions
+/// ([`compiled_item_tree_vtable!`]) reads this instead of every component
+/// getting a monomorphized `ItemTree` implementation.
+pub struct ItemTreeDescriptor {
+    item_tree: &'static [ItemTreeNode],
+    item_array: &'static [vtable::VOffset<u8, ItemVTable, vtable::AllowPin>],
+    tables: &'static ItemIndexTables,
+    origin: unsafe fn(*const u8) -> ItemTreeRc,
+    visit_dynamic_children:
+        unsafe fn(*const u8, u32, TraversalOrder, ItemVisitorRefMut) -> VisitChildrenResult,
+    subtree_range: unsafe fn(*const u8, u32) -> IndexRange,
+    subtree_component: unsafe fn(*const u8, u32, usize, &mut ItemTreeWeak),
+    subtree_index: unsafe fn(*const u8) -> usize,
+    layout_info: unsafe fn(*const u8, Orientation) -> LayoutInfo,
+    ensure_instantiated: unsafe fn(*const u8) -> bool,
+    parent_node: Option<unsafe fn(*const u8, &mut ItemWeak)>,
+    window_adapter: Option<unsafe fn(*const u8, bool, &mut Option<WindowAdapterRc>)>,
+    has_debug_info: bool,
+    drop_in_place: unsafe fn(*mut u8),
+    layout: vtable::Layout,
+}
+
+/// [`ItemTreeDescriptor`] together with the component type it describes.
+/// The typed constructor is the soundness boundary: all offsets and function
+/// pointers are checked against `Base` and only erased here in core.
+#[repr(transparent)]
+pub struct TypedItemTreeDescriptor<Base> {
+    erased: ItemTreeDescriptor,
+    _marker: core::marker::PhantomData<fn(&Base)>,
+}
+
+impl<Base> TypedItemTreeDescriptor<Base> {
+    /// Assemble the descriptor for a compiled component.
+    #[allow(unsafe_code)]
+    #[allow(clippy::too_many_arguments)]
+    pub const fn new(
+        item_tree: &'static [ItemTreeNode],
+        item_array: &'static [vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
+        tables: &'static TypedItemIndexTables<Base>,
+        origin: fn(&Base) -> ItemTreeRc,
+        visit_dynamic_children: fn(
+            Pin<&Base>,
+            u32,
+            TraversalOrder,
+            ItemVisitorRefMut,
+        ) -> VisitChildrenResult,
+        subtree_range: fn(Pin<&Base>, u32) -> IndexRange,
+        subtree_component: fn(Pin<&Base>, u32, usize, &mut ItemTreeWeak),
+        subtree_index: fn(Pin<&Base>) -> usize,
+        layout_info: fn(Pin<&Base>, Orientation) -> LayoutInfo,
+        ensure_instantiated: fn(Pin<&Base>) -> bool,
+        parent_node: Option<fn(Pin<&Base>, &mut ItemWeak)>,
+        window_adapter: Option<fn(Pin<&Base>, bool, &mut Option<WindowAdapterRc>)>,
+        has_debug_info: bool,
+    ) -> Self {
+        // Safety of the erasing casts: `Pin<&Base>` / `&Base` are ABI-compatible
+        // with `*const u8` for sized `Base`, and the erased pointers passed at
+        // call time always point to a `Base` (they originate from `VRef`s whose
+        // vtable was created for `Base` by `compiled_item_tree_vtable!`).
+        macro_rules! erase_fn {
+            ($f:expr, $from:ty, $to:ty) => {
+                unsafe { core::mem::transmute::<$from, $to>($f) }
+            };
+        }
+        macro_rules! erase_opt_fn {
+            ($f:expr, $from:ty, $to:ty) => {
+                match $f {
+                    Some(f) => Some(unsafe { core::mem::transmute::<$from, $to>(f) }),
+                    None => None,
+                }
+            };
+        }
+        #[allow(unsafe_code)]
+        unsafe fn drop_impl<Base>(inst: *mut u8) {
+            // Safety: only called by the shared `drop_in_place` vtable entry with
+            // the instance pointer of a `Base` component.
+            unsafe { core::ptr::drop_in_place(inst as *mut Base) }
+        }
+        Self {
+            erased: ItemTreeDescriptor {
+                item_tree,
+                // Safety: VOffset is repr(C) and its Base parameter is only phantom
+                item_array: unsafe {
+                    core::mem::transmute::<
+                        &'static [vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
+                        &'static [vtable::VOffset<u8, ItemVTable, vtable::AllowPin>],
+                    >(item_array)
+                },
+                tables: &tables.erased,
+                origin: erase_fn!(
+                    origin,
+                    fn(&Base) -> ItemTreeRc,
+                    unsafe fn(*const u8) -> ItemTreeRc
+                ),
+                visit_dynamic_children: erase_fn!(
+                    visit_dynamic_children,
+                    fn(Pin<&Base>, u32, TraversalOrder, ItemVisitorRefMut) -> VisitChildrenResult,
+                    unsafe fn(
+                        *const u8,
+                        u32,
+                        TraversalOrder,
+                        ItemVisitorRefMut,
+                    ) -> VisitChildrenResult
+                ),
+                subtree_range: erase_fn!(
+                    subtree_range,
+                    fn(Pin<&Base>, u32) -> IndexRange,
+                    unsafe fn(*const u8, u32) -> IndexRange
+                ),
+                subtree_component: erase_fn!(
+                    subtree_component,
+                    fn(Pin<&Base>, u32, usize, &mut ItemTreeWeak),
+                    unsafe fn(*const u8, u32, usize, &mut ItemTreeWeak)
+                ),
+                subtree_index: erase_fn!(
+                    subtree_index,
+                    fn(Pin<&Base>) -> usize,
+                    unsafe fn(*const u8) -> usize
+                ),
+                layout_info: erase_fn!(
+                    layout_info,
+                    fn(Pin<&Base>, Orientation) -> LayoutInfo,
+                    unsafe fn(*const u8, Orientation) -> LayoutInfo
+                ),
+                ensure_instantiated: erase_fn!(
+                    ensure_instantiated,
+                    fn(Pin<&Base>) -> bool,
+                    unsafe fn(*const u8) -> bool
+                ),
+                parent_node: erase_opt_fn!(
+                    parent_node,
+                    fn(Pin<&Base>, &mut ItemWeak),
+                    unsafe fn(*const u8, &mut ItemWeak)
+                ),
+                window_adapter: erase_opt_fn!(
+                    window_adapter,
+                    fn(Pin<&Base>, bool, &mut Option<WindowAdapterRc>),
+                    unsafe fn(*const u8, bool, &mut Option<WindowAdapterRc>)
+                ),
+                has_debug_info,
+                drop_in_place: drop_impl::<Base>,
+                layout: vtable::Layout {
+                    size: core::mem::size_of::<Base>(),
+                    align: core::mem::align_of::<Base>(),
+                },
+            },
+            _marker: core::marker::PhantomData,
+        }
+    }
+
+    /// Access the type-erased descriptor (used by [`compiled_item_tree_vtable!`]).
+    pub const fn erased(&'static self) -> &'static ItemTreeDescriptor {
+        &self.erased
+    }
+}
+
+/// The shared `ItemTreeVTable` entry implementations for compiled components.
+/// Every function reads the [`ItemTreeDescriptor`] from the vtable and serves
+/// the query from the descriptor's data tables and erased hooks.
+#[doc(hidden)]
+pub mod compiled {
+    #![allow(unsafe_code)]
+    use super::*;
+
+    fn parts(vref: &ItemTreeRefPin<'_>) -> (&'static ItemTreeDescriptor, *const u8) {
+        let descriptor = vref
+            .get_vtable()
+            .descriptor
+            .expect("a compiled item tree vtable always carries its descriptor");
+        (descriptor, vref.as_ptr())
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn visit_children_item(
+        vref: ItemTreeRefPin<'_>,
+        index: isize,
+        order: TraversalOrder,
+        visitor: ItemVisitorRefMut<'_>,
+    ) -> VisitChildrenResult {
+        let (d, inst) = parts(&vref);
+        let origin = unsafe { (d.origin)(inst) };
+        // The `u8` stands in for the erased component instance: `visit_item_tree`
+        // only passes it back to the `visit_dynamic` callback.
+        let base = unsafe { erased::as_pin::<u8>(inst) };
+        visit_item_tree(
+            base,
+            &origin,
+            d.item_tree,
+            index,
+            order,
+            visitor,
+            |_: Pin<&u8>, order, visitor, dyn_index| unsafe {
+                (d.visit_dynamic_children)(inst, dyn_index, order, visitor)
+            },
+        )
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn get_item_ref<'a>(vref: ItemTreeRefPin<'a>, index: u32) -> Pin<ItemRef<'a>> {
+        let (d, inst) = parts(&vref);
+        let base = unsafe { erased::as_pin::<u8>(inst) };
+        super::get_item_ref(base, d.item_tree, d.item_array, index)
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn get_subtree_range(vref: ItemTreeRefPin<'_>, index: u32) -> IndexRange {
+        let (d, inst) = parts(&vref);
+        unsafe { (d.subtree_range)(inst, index) }
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn get_subtree(
+        vref: ItemTreeRefPin<'_>,
+        index: u32,
+        subtree_index: usize,
+        result: &mut ItemTreeWeak,
+    ) {
+        let (d, inst) = parts(&vref);
+        unsafe { (d.subtree_component)(inst, index, subtree_index, result) }
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn get_item_tree(vref: ItemTreeRefPin<'_>) -> Slice<'_, ItemTreeNode> {
+        let (d, _) = parts(&vref);
+        Slice::from_slice(d.item_tree)
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn parent_node(vref: ItemTreeRefPin<'_>, result: &mut ItemWeak) {
+        let (d, inst) = parts(&vref);
+        if let Some(f) = d.parent_node {
+            unsafe { f(inst, result) }
+        }
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn embed_component(
+        _vref: ItemTreeRefPin<'_>,
+        _parent: &ItemTreeWeak,
+        _parent_item_tree_index: u32,
+    ) -> bool {
+        // Compiled components do not support embedding via ComponentFactory
+        false
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn subtree_index(vref: ItemTreeRefPin<'_>) -> usize {
+        let (d, inst) = parts(&vref);
+        unsafe { (d.subtree_index)(inst) }
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn layout_info(
+        vref: ItemTreeRefPin<'_>,
+        orientation: Orientation,
+    ) -> LayoutInfo {
+        let (d, inst) = parts(&vref);
+        unsafe { (d.layout_info)(inst, orientation) }
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn ensure_instantiated(vref: ItemTreeRefPin<'_>) -> bool {
+        let (d, inst) = parts(&vref);
+        unsafe { (d.ensure_instantiated)(inst) }
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn item_geometry(vref: ItemTreeRefPin<'_>, index: u32) -> LogicalRect {
+        let (d, inst) = parts(&vref);
+        unsafe { erased_item_geometry(d.tables, inst, index) }
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn accessible_role(vref: ItemTreeRefPin<'_>, index: u32) -> AccessibleRole {
+        let (d, inst) = parts(&vref);
+        unsafe { erased_accessible_role(d.tables, inst, index) }
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn accessible_string_property(
+        vref: ItemTreeRefPin<'_>,
+        index: u32,
+        what: AccessibleStringProperty,
+        result: &mut SharedString,
+    ) -> bool {
+        let (d, inst) = parts(&vref);
+        if let Some(r) = unsafe { erased_accessible_string_property(d.tables, inst, index, what) } {
+            *result = r;
+            true
+        } else {
+            false
+        }
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn accessibility_action(
+        vref: ItemTreeRefPin<'_>,
+        index: u32,
+        action: &AccessibilityAction,
+    ) {
+        let (d, inst) = parts(&vref);
+        unsafe { erased_accessibility_action(d.tables, inst, index, action) }
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn supported_accessibility_actions(
+        vref: ItemTreeRefPin<'_>,
+        index: u32,
+    ) -> SupportedAccessibilityAction {
+        let (d, _) = parts(&vref);
+        erased_supported_accessibility_actions(d.tables, index)
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn item_element_infos(
+        vref: ItemTreeRefPin<'_>,
+        index: u32,
+        result: &mut SharedString,
+    ) -> bool {
+        let (d, _) = parts(&vref);
+        if d.has_debug_info {
+            *result = erased_element_infos(d.tables, index).unwrap_or_default();
+            true
+        } else {
+            false
+        }
+    }
+
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub extern "C" fn window_adapter(
+        vref: ItemTreeRefPin<'_>,
+        do_create: bool,
+        result: &mut Option<WindowAdapterRc>,
+    ) {
+        let (d, inst) = parts(&vref);
+        match d.window_adapter {
+            Some(f) => unsafe { f(inst, do_create, result) },
+            None => *result = None,
+        }
+    }
+
+    /// Safety: `vref` must point to the component the vtable was created for.
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub unsafe extern "C" fn drop_in_place(vref: VRefMut<ItemTreeVTable>) -> vtable::Layout {
+        let descriptor = vref
+            .get_vtable()
+            .descriptor
+            .expect("a compiled item tree vtable always carries its descriptor");
+        unsafe { (descriptor.drop_in_place)(vref.as_ptr() as *mut u8) };
+        descriptor.layout
+    }
+
+    /// Safety: `ptr` must have been allocated with `layout`.
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    pub unsafe extern "C" fn dealloc(
+        _vtable: &ItemTreeVTable,
+        ptr: *mut u8,
+        layout: vtable::Layout,
+    ) {
+        use core::convert::TryInto;
+        unsafe { alloc::alloc::dealloc(ptr, layout.try_into().unwrap()) }
+    }
+}
+
+/// Emit the static vtable of a compiled component: an [`ItemTreeVTable`] whose
+/// entries are the shared functions from the [`compiled`] module and whose
+/// `descriptor` is the component's `ITEM_TREE_DESCRIPTOR`, plus an
+/// implementation of `HasStaticVTable` pointing at it.
 #[macro_export]
-macro_rules! impl_item_tree_vtable {
-    ($ty:ty, $self_:ident, $presult:ident, $pindex:ident, $do_create:ident, $wresult:ident,
-     parent_node: { $($parent_node:tt)* },
-     embed_component: { $($embed:tt)* },
-     element_infos: { $($element_infos:tt)* },
-     window_adapter: { $($window_adapter:tt)* } $(,)?) => {
-        impl $crate::item_tree::ItemTree for $ty {
-            fn visit_children_item(
-                self: ::core::pin::Pin<&Self>,
-                index: isize,
-                order: $crate::item_tree::TraversalOrder,
-                visitor: $crate::item_tree::ItemVisitorRefMut<'_>,
-            ) -> $crate::item_tree::VisitChildrenResult {
-                return $crate::item_tree::visit_item_tree(
-                    self, &self.origin_rc(), Self::item_tree(), index, order, visitor, visit_dynamic);
-                fn visit_dynamic(
-                    _self: ::core::pin::Pin<&$ty>,
-                    order: $crate::item_tree::TraversalOrder,
-                    visitor: $crate::item_tree::ItemVisitorRefMut<'_>,
-                    dyn_index: u32,
-                ) -> $crate::item_tree::VisitChildrenResult {
-                    _self.visit_dynamic_children(dyn_index, order, visitor)
-                }
-            }
-
-            fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<$crate::items::ItemRef<'_>> {
-                $crate::item_tree::get_item_ref(self, Self::item_tree(), Self::item_array(), index)
-            }
-
-            fn get_item_tree(self: ::core::pin::Pin<&Self>) -> $crate::slice::Slice<'_, $crate::item_tree::ItemTreeNode> {
-                Self::item_tree().into()
-            }
-
-            fn get_subtree_range(self: ::core::pin::Pin<&Self>, index: u32) -> $crate::item_tree::IndexRange {
-                self.subtree_range(index)
-            }
-
-            fn get_subtree(
-                self: ::core::pin::Pin<&Self>,
-                index: u32,
-                subtree_index: usize,
-                result: &mut $crate::item_tree::ItemTreeWeak,
-            ) {
-                self.subtree_component(index, subtree_index, result);
-            }
-
-            fn subtree_index(self: ::core::pin::Pin<&Self>) -> usize {
-                self.index_property()
-            }
-
-            fn parent_node(self: ::core::pin::Pin<&Self>, $presult: &mut $crate::item_tree::ItemWeak) {
-                let $self_ = self;
-                $($parent_node)*
-            }
-
-            fn embed_component(
-                self: ::core::pin::Pin<&Self>,
-                _parent_component: &$crate::item_tree::ItemTreeWeak,
-                _item_tree_index: u32,
-            ) -> bool {
-                $($embed)*
-            }
-
-            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: $crate::layout::Orientation) -> $crate::layout::LayoutInfo {
-                self.layout_info(orientation)
-            }
-
-            fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
-                self.ensure_instantiated()
-            }
-
-            fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> $crate::lengths::LogicalRect {
-                $crate::item_tree::tables_item_geometry(&Self::ITEM_INDEX_TABLES, self, index)
-            }
-
-            fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> $crate::items::AccessibleRole {
-                $crate::item_tree::tables_accessible_role(&Self::ITEM_INDEX_TABLES, self, index)
-            }
-
-            fn accessible_string_property(
-                self: ::core::pin::Pin<&Self>,
-                index: u32,
-                what: $crate::accessibility::AccessibleStringProperty,
-                result: &mut $crate::SharedString,
-            ) -> bool {
-                if let ::core::option::Option::Some(r) =
-                    $crate::item_tree::tables_accessible_string_property(&Self::ITEM_INDEX_TABLES, self, index, what)
-                {
-                    *result = r;
-                    true
-                } else {
-                    false
-                }
-            }
-
-            fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &$crate::accessibility::AccessibilityAction) {
-                $crate::item_tree::tables_accessibility_action(&Self::ITEM_INDEX_TABLES, self, index, action);
-            }
-
-            fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> $crate::accessibility::SupportedAccessibilityAction {
-                $crate::item_tree::tables_supported_accessibility_actions(&Self::ITEM_INDEX_TABLES, self, index)
-            }
-
-            fn item_element_infos(
-                self: ::core::pin::Pin<&Self>,
-                $pindex: u32,
-                $presult: &mut $crate::SharedString,
-            ) -> bool {
-                let $self_ = self;
-                $($element_infos)*
-            }
-
-            fn window_adapter(
-                self: ::core::pin::Pin<&Self>,
-                $do_create: bool,
-                $wresult: &mut ::core::option::Option<$crate::window::WindowAdapterRc>,
-            ) {
-                let $self_ = self;
-                $($window_adapter)*
-            }
+macro_rules! compiled_item_tree_vtable {
+    (static $id:ident for $ty:ty) => {
+        static $id: $crate::item_tree::ItemTreeVTable = $crate::item_tree::ItemTreeVTable {
+            visit_children_item: $crate::item_tree::compiled::visit_children_item,
+            get_item_ref: $crate::item_tree::compiled::get_item_ref,
+            get_subtree_range: $crate::item_tree::compiled::get_subtree_range,
+            get_subtree: $crate::item_tree::compiled::get_subtree,
+            get_item_tree: $crate::item_tree::compiled::get_item_tree,
+            parent_node: $crate::item_tree::compiled::parent_node,
+            embed_component: $crate::item_tree::compiled::embed_component,
+            subtree_index: $crate::item_tree::compiled::subtree_index,
+            layout_info: $crate::item_tree::compiled::layout_info,
+            ensure_instantiated: $crate::item_tree::compiled::ensure_instantiated,
+            item_geometry: $crate::item_tree::compiled::item_geometry,
+            accessible_role: $crate::item_tree::compiled::accessible_role,
+            accessible_string_property: $crate::item_tree::compiled::accessible_string_property,
+            accessibility_action: $crate::item_tree::compiled::accessibility_action,
+            supported_accessibility_actions:
+                $crate::item_tree::compiled::supported_accessibility_actions,
+            item_element_infos: $crate::item_tree::compiled::item_element_infos,
+            window_adapter: $crate::item_tree::compiled::window_adapter,
+            drop_in_place: $crate::item_tree::compiled::drop_in_place,
+            dealloc: $crate::item_tree::compiled::dealloc,
+            descriptor: ::core::option::Option::Some(<$ty>::ITEM_TREE_DESCRIPTOR.erased()),
+        };
+        #[allow(unsafe_code)]
+        unsafe impl $crate::vtable::HasStaticVTable<$crate::item_tree::ItemTreeVTable> for $ty {
+            const STATIC_VTABLE: &'static $crate::item_tree::ItemTreeVTable = &$id;
         }
     };
 }
@@ -2338,6 +2612,11 @@ mod tests {
         }
     }
 
+    impl crate::item_tree::ItemTreeConsts for TestItemTree {
+        // Hand-written item tree: the shared descriptor entries are unused.
+        const descriptor: Option<&'static ItemTreeDescriptor> = None;
+    }
+
     crate::item_tree::ItemTreeVTable_static!(static TEST_COMPONENT_VT for TestItemTree);
 
     fn create_one_node_component(
@@ -3306,6 +3585,11 @@ mod tests {
         ) -> SupportedAccessibilityAction {
             unimplemented!("Not needed for this test")
         }
+    }
+
+    impl crate::item_tree::ItemTreeConsts for TransformTestItemTree {
+        // Hand-written item tree: the shared descriptor entries are unused.
+        const descriptor: Option<&'static ItemTreeDescriptor> = None;
     }
 
     crate::item_tree::ItemTreeVTable_static!(static TRANSFORM_TEST_COMPONENT_VT for TransformTestItemTree);

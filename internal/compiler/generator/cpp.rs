@@ -2053,7 +2053,8 @@ fn generate_item_tree(
                 ensure_instantiated, \
                 item_geometry, accessible_role, accessible_string_property, accessibility_action, \
                 supported_accessibility_actions, element_infos, window_adapter, \
-                slint::private_api::drop_in_place<{item_tree_class_name}>, slint::private_api::dealloc }}"
+                slint::private_api::drop_in_place<{item_tree_class_name}>, \
+                slint::private_api::dealloc, nullptr }}"
         )),
         ..Default::default()
     }));
