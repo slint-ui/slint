@@ -1,6 +1,6 @@
 ---
-title: macOS Packaging
-description: Package a desktop Slint app for direct macOS distribution or the Mac App Store.
+title: macOS Packaging (Rust)
+description: Package a desktop Rust based Slint app for direct macOS distribution or the Mac App Store.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -9,27 +9,9 @@ There are two main routes for distributing macOS apps: the [Mac App Store](https
 Slint supports both routes by generating standard Xcode projects that work with Apple's build and distribution tools.
 
 <Aside type="note">
-To distribute an app outside the Mac App Store, you need an Apple Developer Program membership.
+To distribute an app outside the Mac App Store, you need an [Apple Developer Program](https://developer.apple.com/programs/) membership.
 Without one, you can only self-sign your app for local development and testing.
 </Aside>
-
-## XcodeGen
-
-[XcodeGen](https://github.com/yonaskolb/XcodeGen) creates an Xcode project that is compatible with Apple's build and distribution tools.
-Don't check in or edit the generated project file.
-Instead, edit the YAML project spec and regenerate the project whenever you change the app.
-
-This avoids checking a generated project into source control and keeping it up to date.
-
-<Aside type="note">
-If you open the project file in Xcode, you might see warnings that the project is out of date.
-This is because the project is generated from a YAML spec and not edited directly in Xcode.
-You can safely ignore these warnings.
-</Aside>
-
-To complement this flow, we also provide a preconfigured Cargo build script that builds the app and places the binary in the expected location.
-
-The project spec also configures the app icon, entitlements, launch assets, and bundled resources.
 
 ## Prerequisites
 
@@ -37,6 +19,25 @@ The project spec also configures the app icon, entitlements, launch assets, and 
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen?tab=readme-ov-file#installing).
 - Rust and the macOS target you build for, such as `aarch64-apple-darwin`.
 - An Apple Developer Program membership for signing, notarization, and Mac App Store distribution.
+
+## Native Xcode Project support
+
+To build and distribute for the Apple ecosystem, we need an Xcode project. To avoid the need to
+maintain an Xcode project and our own project files in parallel, we can use [XcodeGen](https://github.com/yonaskolb/XcodeGen),
+which creates an Xcode project that's compatible with Apple's native build and distribution tools.
+
+We recommend not checking in the Xcode project and instead generate it via the YAML file. That way Xcodegen can
+do the heavy lifting of keeping the project file up to date.
+
+<Aside type="note">
+If you open the project file in Xcode, you might see warnings that the project is out of date.
+This is because the project is generated from a YAML spec and not edited directly in Xcode.
+You can safely ignore these warnings.
+</Aside>
+
+A preconfigured Cargo build script that builds the app and places the binary in the expected location is included.
+
+The project spec also configures the app icon, entitlements, launch assets, and bundled resources.
 
 ## Generate the Xcode Project
 
@@ -117,9 +118,6 @@ cp "target/$RUST_TARGET/release/$APP_BINARY" "$TARGET_BUILD_DIR/$EXECUTABLE_PATH
 chmod +x "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
 ```
 
-This example builds an Apple silicon app.
-If you need to support Intel Macs, add the `x86_64-apple-darwin` target and create a universal binary before copying it into the app bundle.
-
 ## Distribute a DMG Outside the Mac App Store
 
 Use this route when users download the app directly from your website.
@@ -154,8 +152,8 @@ It uses App Store Connect and Apple's store signing flow, not the Developer ID s
 A typical TestFlight pipeline is:
 
 1. Create the app record in App Store Connect.
-2. Generate the Xcode project with `xcodegen generate`.
-3. Configure the bundle identifier, team, entitlements, and resources in the YAML spec.
+2. Configure the bundle identifier, team, entitlements, and resources in the YAML spec.
+3. Generate the Xcode project with `xcodegen generate`.
 4. Build, archive, sign, and upload the beta with Xcode or Xcode Cloud.
 5. Add the build to an internal or external testing group in App Store Connect.
 6. Invite testers and collect their feedback through TestFlight.
@@ -188,9 +186,9 @@ You remain responsible for the bundle identifier, signing settings, entitlements
 
 ## Important Xcode Cloud Information
 
-Xcode Cloud expects your app to have an Xcode project.
+Xcode Cloud expects your app to have an Xcode project file.
 You can meet this requirement without checking in the generated project.
-Open the project in Xcode and follow
+Open the project file in Xcode and follow
 [Apple's instructions](https://developer.apple.com/documentation/xcode/setting-up-your-project-to-use-xcode-cloud) for setting up Xcode Cloud.
 The generated project lets Xcode Cloud complete the build and archive steps.
 Use a `ci_scripts/ci_post_clone.sh` script to install the dependencies and generate the project in Xcode Cloud.
