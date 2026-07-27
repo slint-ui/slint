@@ -38,6 +38,8 @@ import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.view.inputmethod.BaseInputConnection;
 import android.os.Build;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 
 class InputHandle extends ImageView {
     private PopupWindow mPopupWindow;
@@ -423,6 +425,7 @@ class SlintInputView extends View {
 public class SlintAndroidJavaHelper {
     Activity mActivity;
     SlintInputView mInputView;
+    private OnBackInvokedCallback mBackCallback;
 
     public SlintAndroidJavaHelper(Activity activity) {
         this.mActivity = activity;
@@ -449,6 +452,13 @@ public class SlintAndroidJavaHelper {
                                     return dispatchInsets(insets);
                                 }
                             });
+                }
+                // On API 34+, Back arrives via OnBackInvokedDispatcher; forward
+                // it into Slint's key-event pipeline.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && mBackCallback == null) {
+                    mBackCallback = () -> SlintAndroidJavaHelper.onBackInvoked();
+                    mActivity.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                            OnBackInvokedDispatcher.PRIORITY_DEFAULT, mBackCallback);
                 }
             }
         });
@@ -561,12 +571,26 @@ public class SlintAndroidJavaHelper {
         });
     }
 
+    // Called from Rust when an OnBackInvokedCallback fires and Slint's key
+    // dispatch reports the Back key as unhandled — preserves the legacy
+    // Back-closes-the-activity default.
+    public void finish_activity() {
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mActivity.finish();
+            }
+        });
+    }
+
     static public native void updateText(String text, int cursorPosition, int anchorPosition, int preeditStart,
             int preeditOffset);
 
     static public native void setNightMode(int nightMode);
 
     static public native void setFontScale(float fontScale);
+
+    static public native void onBackInvoked();
 
     static public native void moveCursorHandle(int id, int pos_x, int pos_y);
 
