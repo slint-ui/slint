@@ -9,6 +9,7 @@ use smol_str::{SmolStr, ToSmolStr};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::expression_tree::Expression;
 use crate::langtype::{
@@ -109,7 +110,7 @@ pub(crate) fn load_builtins(
                     (prop_name, info)
                 })
                 .chain(e.CallbackDeclaration().map(|s| {
-                    let mut info = BuiltinPropertyInfo::new(Type::Callback(Rc::new(Function{
+                    let mut info = BuiltinPropertyInfo::new(Type::Callback(Arc::new(Function{
                         args: s
                             .CallbackDeclarationParameter()
                             .map(|a| {
@@ -189,7 +190,9 @@ pub(crate) fn load_builtins(
             (name, info)
         }));
 
-        let mut builtin = BuiltinElement::new(Rc::new(n));
+        // NativeClass is not Send yet; the Arc is for the shared langtype graph.
+        #[allow(clippy::arc_with_non_send_sync)]
+        let mut builtin = BuiltinElement::new(Arc::new(n));
         builtin.is_global = matches!(base, Base::Global);
         let properties = &mut builtin.properties;
         if let Base::NativeParent(parent) = &base {

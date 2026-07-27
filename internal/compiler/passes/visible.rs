@@ -6,6 +6,7 @@
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
@@ -52,7 +53,7 @@ pub fn handle_visible(
         &(),
         &mut |elem: &ElementRc, _| {
             let is_lowered_from_visible_property = elem.borrow().native_class().is_some_and(|n| {
-                Rc::ptr_eq(&n, &native_clip) && elem.borrow().id.ends_with("-visibility")
+                Arc::ptr_eq(&n, &native_clip) && elem.borrow().id.ends_with("-visibility")
             });
             if is_lowered_from_visible_property {
                 // This is the element we just created. Skip it.
@@ -98,7 +99,7 @@ pub fn handle_visible(
     );
 }
 
-fn create_visibility_element(child: &ElementRc, native_clip: &Rc<NativeClass>) -> ElementRc {
+fn create_visibility_element(child: &ElementRc, native_clip: &Arc<NativeClass>) -> ElementRc {
     let element = Element {
         id: format_smolstr!("{}-visibility", child.borrow().id),
         base_type: ElementType::Native(native_clip.clone()),

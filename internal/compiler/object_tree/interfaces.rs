@@ -7,6 +7,7 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use itertools::Itertools;
 use smol_str::{SmolStr, ToSmolStr};
@@ -577,7 +578,7 @@ fn apply_uses_statement_function_binding(
     element: &ElementRc,
     child: &ElementRc,
     name: &SmolStr,
-    function: &Rc<Function>,
+    function: &Arc<Function>,
 ) -> Option<RefCell<BindingExpression>> {
     let args_expr: Vec<Expression> = function
         .args

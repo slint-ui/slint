@@ -7,7 +7,7 @@ use derive_more::{From, Into};
 use smol_str::SmolStr;
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap};
-use std::rc::Rc;
+use std::sync::Arc;
 use typed_index_collections::TiVec;
 
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -421,7 +421,7 @@ pub struct ComponentContainerElement {
 }
 
 pub struct Item {
-    pub ty: Rc<NativeClass>,
+    pub ty: Arc<NativeClass>,
     pub name: SmolStr,
     /// Index in the item tree array
     pub index_in_tree: u32,

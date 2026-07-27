@@ -5,6 +5,7 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Display;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use itertools::Itertools;
 
@@ -27,8 +28,8 @@ pub enum Type {
     /// The type of a callback alias whose type was not yet inferred
     InferredCallback,
 
-    Callback(Rc<Function>),
-    Function(Rc<Function>),
+    Callback(Arc<Function>),
+    Function(Arc<Function>),
 
     ComponentFactory,
 
@@ -51,9 +52,9 @@ pub enum Type {
     Easing,
     Brush,
     /// This is usually a model
-    Array(Rc<Type>),
-    Struct(Rc<Struct>),
-    Enumeration(Rc<Enumeration>),
+    Array(Arc<Type>),
+    Struct(Arc<Struct>),
+    Enumeration(Arc<Enumeration>),
     Keys,
     /// `data-transfer` - a special type that handles reading a value from the system with
     /// some set of available MIME types.
@@ -182,8 +183,8 @@ impl Display for Type {
     }
 }
 
-impl From<Rc<Struct>> for Type {
-    fn from(value: Rc<Struct>) -> Self {
+impl From<Arc<Struct>> for Type {
+    fn from(value: Arc<Struct>) -> Self {
         Self::Struct(value)
     }
 }
@@ -231,7 +232,7 @@ impl Type {
     }
 
     /// Assume it is an enumeration, panic if it isn't
-    pub fn as_enum(&self) -> &Rc<Enumeration> {
+    pub fn as_enum(&self) -> &Arc<Enumeration> {
         match self {
             Type::Enumeration(e) => e,
             _ => panic!("should be an enumeration, bug in compiler pass"),
@@ -439,7 +440,7 @@ pub enum ElementType {
     /// The element is a builtin element
     Builtin(Rc<BuiltinElement>),
     /// The native type was resolved by the resolve_native_class pass.
-    Native(Rc<NativeClass>),
+    Native(Arc<NativeClass>),
     /// The base element couldn't be looked up
     #[default]
     Error,
@@ -454,7 +455,7 @@ impl PartialEq for ElementType {
         match (self, other) {
             (Self::Component(a), Self::Component(b)) => Rc::ptr_eq(a, b),
             (Self::Builtin(a), Self::Builtin(b)) => Rc::ptr_eq(a, b),
-            (Self::Native(a), Self::Native(b)) => Rc::ptr_eq(a, b),
+            (Self::Native(a), Self::Native(b)) => Arc::ptr_eq(a, b),
             (Self::Error, Self::Error)
             | (Self::Global, Self::Global)
             | (Self::Interface, Self::Interface) => true,
@@ -791,7 +792,7 @@ impl BuiltinStruct {
 
 #[derive(Debug, Clone, Default)]
 pub struct NativeClass {
-    pub parent: Option<Rc<NativeClass>>,
+    pub parent: Option<Arc<NativeClass>>,
     pub class_name: SmolStr,
     pub cpp_vtable_getter: String,
     pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
@@ -862,7 +863,7 @@ pub enum DefaultSizeBinding {
 #[derive(Debug, Clone, Default)]
 pub struct BuiltinElement {
     pub name: SmolStr,
-    pub native_class: Rc<NativeClass>,
+    pub native_class: Arc<NativeClass>,
     pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
     /// Additional builtin element that can be accepted as child of this element
     /// (example `Tab` in `TabWidget`, `Row` in `GridLayout` and the path elements in `Path`)
@@ -889,7 +890,7 @@ pub struct BuiltinElement {
 }
 
 impl BuiltinElement {
-    pub fn new(native_class: Rc<NativeClass>) -> Self {
+    pub fn new(native_class: Arc<NativeClass>) -> Self {
         Self { name: native_class.class_name.clone(), native_class, ..Default::default() }
     }
 }
@@ -1094,7 +1095,7 @@ pub enum ConstantExpression {
         op: char,
     },
     Struct {
-        ty: Rc<Struct>,
+        ty: Arc<Struct>,
         values: BTreeMap<SmolStr, ConstantExpression>,
     },
     Array {
@@ -1188,11 +1189,11 @@ impl PartialEq for Enumeration {
 }
 
 impl Enumeration {
-    pub fn default_value(self: Rc<Self>) -> EnumerationValue {
+    pub fn default_value(self: Arc<Self>) -> EnumerationValue {
         EnumerationValue { value: self.default_value, enumeration: self.clone() }
     }
 
-    pub fn try_value_from_string(self: Rc<Self>, value: &str) -> Option<EnumerationValue> {
+    pub fn try_value_from_string(self: Arc<Self>, value: &str) -> Option<EnumerationValue> {
         self.values.iter().enumerate().find_map(|(idx, name)| {
             if name == value {
                 Some(EnumerationValue { value: idx, enumeration: self.clone() })
@@ -1258,12 +1259,12 @@ impl std::fmt::Display for Keys {
 #[derive(Clone, Debug)]
 pub struct EnumerationValue {
     pub value: usize, // index in enumeration.values
-    pub enumeration: Rc<Enumeration>,
+    pub enumeration: Arc<Enumeration>,
 }
 
 impl PartialEq for EnumerationValue {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.enumeration, &other.enumeration) && self.value == other.value
+        Arc::ptr_eq(&self.enumeration, &other.enumeration) && self.value == other.value
     }
 }
 

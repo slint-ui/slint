@@ -4,6 +4,7 @@
 //! Helper to do lookup in expressions
 
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
@@ -121,7 +122,7 @@ pub enum LookupResult {
         /// "The property 'xxx' has been deprecated." (e.g. "Please use 'yyy' instead")
         deprecated: Option<SmolStr>,
     },
-    Enumeration(Rc<Enumeration>),
+    Enumeration(Arc<Enumeration>),
     Namespace(BuiltinNamespace),
     Callable(LookupResultCallable),
 }
@@ -803,7 +804,7 @@ impl LookupObject for FontWeightLookup {
     }
 }
 
-impl LookupObject for Rc<Enumeration> {
+impl LookupObject for Arc<Enumeration> {
     fn for_each_entry<R>(
         &self,
         _ctx: &LookupCtx,

@@ -3,7 +3,7 @@
 
 use smol_str::SmolStr;
 use std::collections::BTreeMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::expression_tree::Expression;
 use crate::langtype::{Struct, StructName, Type};
@@ -582,7 +582,7 @@ fn make_struct(it: impl Iterator<Item = (&'static str, Type, Expression)>) -> Ex
     }
     codeblock_with_expr(
         voids,
-        Expression::Struct { ty: Rc::new(Struct::new(fields, StructName::None)), values },
+        Expression::Struct { ty: Arc::new(Struct::new(fields, StructName::None)), values },
     )
 }
 

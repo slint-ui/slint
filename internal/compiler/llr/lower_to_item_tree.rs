@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use by_address::ByAddress;
+use std::sync::Arc;
 
 use super::lower_expression::{ExpressionLoweringCtx, ExpressionLoweringCtxInner};
 use crate::CompilerConfiguration;
@@ -869,7 +870,7 @@ fn lower_geometry(
         values
             .insert(f.into(), super::Expression::PropertyReference(ctx.map_property_reference(v)));
     }
-    super::Expression::Struct { ty: Rc::new(Struct::new(fields, StructName::None)), values }
+    super::Expression::Struct { ty: Arc::new(Struct::new(fields, StructName::None)), values }
 }
 
 fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::PropertyAnalysis {

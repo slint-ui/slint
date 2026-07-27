@@ -6,7 +6,7 @@
 
 use smol_str::SmolStr;
 use std::collections::HashSet;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::langtype::{ElementType, NativeClass};
 use crate::object_tree::{Component, recurse_elem_including_sub_components};
@@ -52,7 +52,7 @@ pub fn resolve_native_classes(component: &Component) {
     })
 }
 
-fn lookup_property_distance(mut class: Rc<NativeClass>, name: &str) -> (usize, Rc<NativeClass>) {
+fn lookup_property_distance(mut class: Arc<NativeClass>, name: &str) -> (usize, Arc<NativeClass>) {
     let mut distance = 0;
     loop {
         if class.properties.contains_key(name)
@@ -66,9 +66,9 @@ fn lookup_property_distance(mut class: Rc<NativeClass>, name: &str) -> (usize, R
 }
 
 fn select_minimal_class_based_on_property_usage<'a>(
-    class: &Rc<NativeClass>,
+    class: &Arc<NativeClass>,
     properties_used: impl Iterator<Item = &'a SmolStr>,
-) -> Rc<NativeClass> {
+) -> Arc<NativeClass> {
     let mut minimal_class = class.clone();
     while let Some(class) = minimal_class.parent.clone() {
         minimal_class = class;
@@ -92,7 +92,7 @@ fn select_minimal_class_based_on_property_usage<'a>(
 fn test_select_minimal_class_based_on_property_usage() {
     use crate::langtype::{BuiltinPropertyInfo, Type};
     use smol_str::ToSmolStr;
-    let first = Rc::new(NativeClass::new_with_properties(
+    let first = Arc::new(NativeClass::new_with_properties(
         "first_class",
         [("first_prop".to_smolstr(), BuiltinPropertyInfo::new(Type::Int32))].iter().cloned(),
     ));
@@ -102,7 +102,7 @@ fn test_select_minimal_class_based_on_property_usage() {
         [("second_prop".to_smolstr(), BuiltinPropertyInfo::new(Type::Int32))].iter().cloned(),
     );
     second.parent = Some(first.clone());
-    let second = Rc::new(second);
+    let second = Arc::new(second);
 
     let reduce_to_first =
         select_minimal_class_based_on_property_usage(&second, ["first_prop".to_smolstr()].iter());
