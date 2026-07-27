@@ -4,37 +4,47 @@ description: Linking two properties with the <=> operator.
 notInSC: true
 ---
 
-The `<=>` syntax creates a two-way binding between properties.
-The linked properties always contain the same value:
+A *two-way binding*, written with `<=>`, links two properties so that they always hold the same value;
+writing either side updates the other:
 
 ```slint
-struct Thing { name: string, price: int }
-
-export component Example  {
+export component Example {
     in property<brush> rect-color <=> r.background;
-    // It's allowed to omit the type to have it automatically inferred
+    // The type may be omitted; it is then inferred from the other side.
     in property rect-color2 <=> r.background;
-    in-out property<Thing> thing;
-    r:= Rectangle {
+    r := Rectangle {
         background: blue;
-    }
-    input := TextInput {
-        // The `thing.name` field is synced with the text when the user edits
-        text <=> root.thing.name;
     }
 }
 ```
 
-The right-hand side of the `<=>` must be a reference to a property of the same type,
-or a field of the same type within a property of struct type.
-Inside a [`for` element](../repetition-and-conditional-elements/), it can also be the value of a model, which is kept in sync.
+The left-hand side is the property or callback being declared or bound;
+the right-hand side references the property or callback it links to.
 
-The property type is optional in a declaration with a two-way binding;
-it is inferred when not specified.
+- Both sides must have the same type.
+  In a property declaration the type may be omitted and is inferred from the other side.
+- The right-hand side references a property — of the same element, another element, the root component,
+  or a [global](../globals/) (`Global.property`) — or a field of matching type within a property of struct type.
+  Linking to a global's property re-exposes that member on the component.
+- Inside a [`for` element](../repetition-and-conditional-elements/) the right-hand side may be the model value,
+  which stays in sync.
+- Both sides must be compatible in input and output: each must be readable and writable wherever the binding
+  reads or writes it.
+- The initial value of the linked pair is the value of the right-hand side.
 
-The initial value of a linked property is the value of the right-hand side of the binding.
+The same `<=>` syntax forms a *callback alias* that forwards one callback to another (see [Callbacks](../callbacks/#aliases)).
+A callback alias may target a [global](../globals/)'s callback, including from another global — the supported way
+for one global to implement another's callback.
 
-The two linked properties must be compatible in terms of input and output:
-linking through the `<=>` requires that both sides can be read and written where the binding needs it.
+```slint
+global Logic {
+    in-out property <int> the-value;
+    pure callback magic-operation(int) -> int;
+}
 
-A [callback alias](../callbacks/#aliases) uses the same syntax to forward one callback to another.
+export component MainWindow inherits Window {
+    // re-expose the global's members on the component
+    in-out property the-value <=> Logic.the-value;
+    pure callback magic-operation <=> Logic.magic-operation;
+}
+```
