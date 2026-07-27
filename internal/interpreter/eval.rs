@@ -2029,29 +2029,14 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
 
             match enclosing_component {
                 ComponentInstance::InstanceRef(enclosing_component) => {
-                    if op == '=' {
-                        store_property(enclosing_component, &element, nr.name(), rhs).unwrap();
-                        return;
-                    }
-
-                    let component = element.borrow().enclosing_component.upgrade().unwrap();
-                    if element.borrow().id == component.root_element.borrow().id
-                        && let Some(x) =
-                            enclosing_component.description.custom_properties.get(nr.name())
-                    {
-                        unsafe {
-                            let p =
-                                Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
-                            x.prop.set(p, eval(x.prop.get(p).unwrap()), None).unwrap();
-                        }
-                        return;
-                    }
-                    let item_info =
-                        &enclosing_component.description.items[element.borrow().id.as_str()];
-                    let item =
-                        unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-                    let p = &item_info.rtti.properties[nr.name().as_str()];
-                    p.set(item, eval(p.get(item)), None).unwrap();
+                    // Go through `store_property` (also for compound assignments) so the
+                    // property's animation is applied, instead of setting it directly.
+                    let value = if op == '=' {
+                        rhs
+                    } else {
+                        eval(load_property(enclosing_component, &element, nr.name()).unwrap())
+                    };
+                    store_property(enclosing_component, &element, nr.name(), value).unwrap();
                 }
                 ComponentInstance::GlobalComponent(global) => {
                     let val = if op == '=' {
