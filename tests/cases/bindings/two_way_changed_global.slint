@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A property carrying a `changed` handler, two-way bound through an intermediate
+// to a global. The handler runs in the component's context, so it must not be
+// hoisted onto the global (a singleton) when the alias set is collapsed.
+
+export global Glob {
+    in-out property <string> text;
+}
+
+export component TestCase {
+    in-out property <string> intermediate <=> Glob.text;
+    in-out property <string> alias <=> intermediate;
+    out property <int> change-count: 0;
+    changed alias => { change-count += 1; }
+
+    out property <bool> test: alias == "" && change-count == 0;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_change_count(), 0);
+instance.global::<Glob<'_>>().set_text("hello".into());
+assert_eq!(instance.get_alias(), "hello");
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_change_count(), 1);
+instance.set_alias("world".into());
+assert_eq!(instance.global::<Glob<'_>>().get_text(), "world");
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_change_count(), 2);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert_eq(instance.get_change_count(), 0);
+instance.global<Glob>().set_text("hello");
+assert_eq(instance.get_alias(), "hello");
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_change_count(), 1);
+instance.set_alias("world");
+assert_eq(instance.global<Glob>().get_text(), "world");
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_change_count(), 2);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+assert.equal(instance.change_count, 0);
+instance.Glob.text = "hello";
+assert.equal(instance.alias, "hello");
+slintlib.private_api.mock_elapsed_time(1);
+assert.equal(instance.change_count, 1);
+instance.alias = "world";
+assert.equal(instance.Glob.text, "world");
+slintlib.private_api.mock_elapsed_time(1);
+assert.equal(instance.change_count, 2);
+```
+*/
