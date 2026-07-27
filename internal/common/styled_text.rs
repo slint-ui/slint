@@ -176,7 +176,7 @@ fn begin_paragraph(indentation: u32, list_item_type: Option<ListItemType>) -> Pa
             let remainder = indentation % 3;
             text.push_str(if remainder == 0 { "• " } else if remainder == 1 { "◦ " } else { "▪ " });
         }
-        Some(ListItemType::Ordered(num)) => text.push_str(&alloc::format!("{}. ", num)),
+        Some(ListItemType::Ordered(num)) => text.push_str(&alloc::format!("{:>3}. ", num)),
         None => {}
     };
     ParagraphBlock::Text(RichText { text, formatting: Default::default(), links: Default::default() })
@@ -1068,17 +1068,17 @@ fn markdown_parsing() {
         )),
         [
             ParagraphBlock::Text(RichText {
-                text: "1. a".into(),
+                text: "  1. a".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
             }),
             ParagraphBlock::Text(RichText {
-                text: "2. b".into(),
+                text: "  2. b".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
             }),
             ParagraphBlock::Text(RichText {
-                text: "3. c".into(),
+                text: "  3. c".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
             })

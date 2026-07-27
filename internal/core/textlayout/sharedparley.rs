@@ -539,10 +539,12 @@ fn create_text_paragraphs(
                 .map(|s| s.range.clone())
                 .collect();
 
+            let heading_level = match block_type { BlockType::Heading(level) => level, _ => 0 };
+
             let layout =
                 layout_builder.build(font_context, text, selection, formatting, Some(link_color), block_type);
 
-            TextParagraph { range, y: PhysicalLength::default(), layout, links, code_ranges, is_horizontal_rule, block_quote_level, table: None }
+            TextParagraph { range, y: PhysicalLength::default(), layout, links, code_ranges, is_horizontal_rule, block_quote_level, heading_level, table: None }
         };
 
     let mut paragraphs = Vec::with_capacity(1);
@@ -595,35 +597,57 @@ fn create_text_paragraphs(
                     }
                     i_slint_common::styled_text::ParagraphBlock::Table { columns, header, body, .. } => {
                         let cell_border_spacing = PhysicalLength::new(8.0);
+                        let padding = PhysicalLength::new(4.0);
                         let mut max_col_widths: Vec<PhysicalLength> = alloc::vec::Vec::new();
                         max_col_widths.resize(columns, PhysicalLength::zero());
 
-                        let mut measure_cell = |text: &str, formatting: &[i_slint_common::styled_text::FormattedSpan]| -> PhysicalLength {
-                            let mut cell_layout = layout_builder.build(
-                                font_context, text, None,
-                                formatting.iter().cloned(),
-                                None, BlockType::Normal,
-                            );
-                            cell_layout.break_all_lines(None);
-                            PhysicalLength::new(cell_layout.full_width()) + cell_border_spacing
-                        };
+                        let mut table_header_data: Vec<Vec<TableCellData>> = Vec::new();
+                        let mut table_body_data: Vec<Vec<TableCellData>> = Vec::new();
 
-                        for row in header {
+                        for row in &header {
+                            let mut row_data = Vec::new();
                             for (col, cell) in row.iter().enumerate() {
                                 if col < columns {
-                                    let w = measure_cell(&cell.content.text, &cell.content.formatting);
+                                    let mut cell_layout = layout_builder.build(
+                                        font_context, &cell.content.text, None,
+                                        cell.content.formatting.iter().cloned(),
+                                        None, BlockType::Normal,
+                                    );
+                                    cell_layout.break_all_lines(None);
+                                    let w = PhysicalLength::new(cell_layout.full_width()) + cell_border_spacing;
                                     max_col_widths[col] = max_col_widths[col].max(w);
+                                    row_data.push(TableCellData {
+                                        text: cell.content.text.clone(),
+                                        formatting: cell.content.formatting.clone(),
+                                        links: cell.content.links.clone(),
+                                        is_header: true,
+                                    });
                                 }
                             }
+                            table_header_data.push(row_data);
                         }
 
-                        for row in body {
+                        for row in &body {
+                            let mut row_data = Vec::new();
                             for (col, cell) in row.iter().enumerate() {
                                 if col < columns {
-                                    let w = measure_cell(&cell.content.text, &cell.content.formatting);
+                                    let mut cell_layout = layout_builder.build(
+                                        font_context, &cell.content.text, None,
+                                        cell.content.formatting.iter().cloned(),
+                                        None, BlockType::Normal,
+                                    );
+                                    cell_layout.break_all_lines(None);
+                                    let w = PhysicalLength::new(cell_layout.full_width()) + cell_border_spacing;
                                     max_col_widths[col] = max_col_widths[col].max(w);
+                                    row_data.push(TableCellData {
+                                        text: cell.content.text.clone(),
+                                        formatting: cell.content.formatting.clone(),
+                                        links: cell.content.links.clone(),
+                                        is_header: false,
+                                    });
                                 }
                             }
+                            table_body_data.push(row_data);
                         }
 
                         let mut x = PhysicalLength::zero();
@@ -636,6 +660,58 @@ fn create_text_paragraphs(
                         }
                         let total_width = x;
 
+                        let mut row_heights = Vec::new();
+                        let mut row_positions = Vec::new();
+                        let mut current_y = PhysicalLength::zero();
+
+                        for row in &table_header_data {
+                            let mut max_h = PhysicalLength::new(layout_builder.pixel_size.get());
+                            for (col, cell) in row.iter().enumerate() {
+                                if col >= column_widths_resolved.len() { break; }
+                                let available_width = column_widths_resolved[col].get() - cell_border_spacing.get();
+                                let mut cell_layout = layout_builder.build(
+                                    font_context, &cell.text, None,
+                                    cell.formatting.iter().cloned(),
+                                    None, BlockType::Normal,
+                                );
+                                if available_width > 0.0 {
+                                    cell_layout.break_all_lines(Some(available_width));
+                                } else {
+                                    cell_layout.break_all_lines(None);
+                                }
+                                let h = PhysicalLength::new(cell_layout.height());
+                                max_h = max_h.max(h);
+                            }
+                            max_h = max_h + padding * 2.0;
+                            row_positions.push(current_y);
+                            row_heights.push(max_h);
+                            current_y += max_h;
+                        }
+                        for row in &table_body_data {
+                            let mut max_h = PhysicalLength::new(layout_builder.pixel_size.get());
+                            for (col, cell) in row.iter().enumerate() {
+                                if col >= column_widths_resolved.len() { break; }
+                                let available_width = column_widths_resolved[col].get() - cell_border_spacing.get();
+                                let mut cell_layout = layout_builder.build(
+                                    font_context, &cell.text, None,
+                                    cell.formatting.iter().cloned(),
+                                    None, BlockType::Normal,
+                                );
+                                if available_width > 0.0 {
+                                    cell_layout.break_all_lines(Some(available_width));
+                                } else {
+                                    cell_layout.break_all_lines(None);
+                                }
+                                let h = PhysicalLength::new(cell_layout.height());
+                                max_h = max_h.max(h);
+                            }
+                            max_h = max_h + padding * 2.0;
+                            row_positions.push(current_y);
+                            row_heights.push(max_h);
+                            current_y += max_h;
+                        }
+                        let total_height = current_y;
+
                         paragraphs.push(TextParagraph {
                             range: 0..0,
                             y: PhysicalLength::default(),
@@ -644,10 +720,16 @@ fn create_text_paragraphs(
                             code_ranges: Vec::new(),
                             is_horizontal_rule: false,
                             block_quote_level: 0,
+                            heading_level: 0,
                             table: Some(TableLayout {
                                 column_widths: column_widths_resolved,
                                 column_positions,
                                 total_width,
+                                header: table_header_data,
+                                body: table_body_data,
+                                row_heights,
+                                row_positions,
+                                total_height,
                             }),
                         });
                     }
@@ -703,35 +785,54 @@ fn layout(
     let rule_margin = PhysicalLength::new(body_font_size * 0.3 * scale);
 
     let mut para_y = 0.0;
+    let mut prev_heading_level: u8 = 0;
+    let mut prev_block_quote_level: u8 = 0;
     for para in paragraphs.iter_mut() {
+        let spacing = if para_y == 0.0 {
+            0.0
+        } else if para.heading_level > 0 && prev_heading_level == 0 {
+            body_font_size * 1.0
+        } else if para.block_quote_level > 0 && prev_block_quote_level == 0 {
+            body_font_size * 0.5
+        } else if prev_heading_level > 0 && para.heading_level == 0 {
+            body_font_size * 0.5
+        } else if para.heading_level > 0 && prev_heading_level > 0 {
+            0.0
+        } else {
+            body_font_size * 0.3
+        };
+
+        para_y += spacing;
+
         if para.is_horizontal_rule {
             para.layout.break_all_lines(None);
             para.y = PhysicalLength::new(para_y);
             para_y += rule_height.get();
-            continue;
-        }
-        if para.table.is_some() {
+        } else if let Some(ref table_info) = para.table {
             para.layout.break_all_lines(None);
             para.y = PhysicalLength::new(para_y);
-            para_y += body_font_size * 1.5 * 3.0; // estimated height for table
-            continue;
-        }
-        para.layout.break_all_lines(max_physical_width.map(|width| width.get()));
-        para.layout.align(
-            match options.horizontal_align {
-                TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
-                    parley::Alignment::Left
-                }
-                TextHorizontalAlignment::Center => parley::Alignment::Center,
-                TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
-                    parley::Alignment::Right
-                }
-            },
-            parley::AlignmentOptions::default(),
-        );
+            para_y += table_info.total_height.get();
+        } else {
+            para.layout.break_all_lines(max_physical_width.map(|width| width.get()));
+            para.layout.align(
+                match options.horizontal_align {
+                    TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
+                        parley::Alignment::Left
+                    }
+                    TextHorizontalAlignment::Center => parley::Alignment::Center,
+                    TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
+                        parley::Alignment::Right
+                    }
+                },
+                parley::AlignmentOptions::default(),
+            );
 
-        para.y = PhysicalLength::new(para_y);
-        para_y += para.layout.height();
+            para.y = PhysicalLength::new(para_y);
+            para_y += para.layout.height();
+        }
+
+        prev_heading_level = para.heading_level;
+        prev_block_quote_level = para.block_quote_level;
     }
 
     let line_limit_cut =
@@ -780,6 +881,8 @@ fn layout(
         None => paragraphs.last().map_or(PhysicalLength::zero(), |p| {
             if p.is_horizontal_rule {
                 p.y + rule_height
+            } else if let Some(ref table_info) = p.table {
+                p.y + table_info.total_height
             } else {
                 p.y + PhysicalLength::new(p.layout.height())
             }
@@ -893,10 +996,22 @@ fn line_fits_height(block_max_coord: f32, max_physical_height: PhysicalLength) -
     max_physical_height.get().ceil() >= block_max_coord
 }
 
+struct TableCellData {
+    text: std::string::String,
+    formatting: std::vec::Vec<i_slint_common::styled_text::FormattedSpan>,
+    links: std::vec::Vec<(std::ops::Range<usize>, std::string::String)>,
+    is_header: bool,
+}
+
 struct TableLayout {
     column_widths: Vec<PhysicalLength>,
     column_positions: Vec<PhysicalLength>,
     total_width: PhysicalLength,
+    header: Vec<Vec<TableCellData>>,
+    body: Vec<Vec<TableCellData>>,
+    row_heights: Vec<PhysicalLength>,
+    row_positions: Vec<PhysicalLength>,
+    total_height: PhysicalLength,
 }
 
 struct TextParagraph {
@@ -910,6 +1025,7 @@ struct TextParagraph {
     code_ranges: std::vec::Vec<Range<usize>>,
     is_horizontal_rule: bool,
     block_quote_level: u8,
+    heading_level: u8,
     table: Option<TableLayout>,
 }
 
@@ -1661,13 +1777,45 @@ impl Layout {
                         continue;
                     }
                 }
-                let y = self.y_offset + paragraph.y;
-                let header_bg = default_text_color.transparentize(0.8);
-                let rect = PhysicalRect::new(
-                    PhysicalPoint::new(0.0, y.get()),
-                    PhysicalSize::new(table_info.total_width.get(), 20.0),
-                );
-                item_renderer.fill_rectangle_with_color(rect, header_bg);
+                let table_y = self.y_offset + paragraph.y;
+                let border_color = default_text_color.transparentize(0.8);
+                let header_bg = default_text_color.transparentize(0.85);
+
+                // Draw header row background
+                if let Some(first_row_h) = table_info.row_heights.first() {
+                    let header_rect = PhysicalRect::new(
+                        PhysicalPoint::new(0.0, table_y.get()),
+                        PhysicalSize::new(table_info.total_width.get(), first_row_h.get()),
+                    );
+                    item_renderer.fill_rectangle_with_color(header_rect, header_bg);
+                }
+
+                // Draw horizontal grid lines
+                for row_idx in 0..=table_info.row_heights.len() {
+                    let y = table_y + table_info.row_positions.get(row_idx).copied().unwrap_or(table_info.total_height);
+                    let line = PhysicalRect::new(
+                        PhysicalPoint::new(0.0, y.get()),
+                        PhysicalSize::new(table_info.total_width.get(), 1.0),
+                    );
+                    item_renderer.fill_rectangle_with_color(line, border_color);
+                }
+
+                // Draw vertical grid lines
+                for col in 0..=table_info.column_widths.len() {
+                    let x = if col == 0 {
+                        PhysicalLength::zero()
+                    } else if col > 0 && col <= table_info.column_positions.len() {
+                        table_info.column_positions[col - 1] + table_info.column_widths[col - 1]
+                    } else {
+                        table_info.total_width
+                    };
+                    let line = PhysicalRect::new(
+                        PhysicalPoint::new(x.get(), table_y.get()),
+                        PhysicalSize::new(1.0, table_info.total_height.get()),
+                    );
+                    item_renderer.fill_rectangle_with_color(line, border_color);
+                }
+
                 continue;
             }
             if paragraph.block_quote_level > 0 {
@@ -1681,6 +1829,16 @@ impl Layout {
                 );
                 let color = default_text_color.transparentize(2.0 / 3.0);
                 item_renderer.fill_rectangle_with_color(rect, color);
+            }
+            if paragraph.heading_level == 1 || paragraph.heading_level == 2 {
+                let y = self.y_offset + paragraph.y + PhysicalLength::new(paragraph.layout.height());
+                let line_y = y.get() - 2.0;
+                let line_color = default_text_color.transparentize(0.7);
+                let rect = PhysicalRect::new(
+                    PhysicalPoint::new(0.0, line_y),
+                    PhysicalSize::new(self.max_width.get(), 1.0),
+                );
+                item_renderer.fill_rectangle_with_color(rect, line_color);
             }
             paragraph.draw(
                 self,
