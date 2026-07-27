@@ -4,7 +4,7 @@
   "workspaces": {
     ".": {
       "ignoreBinaries": ["local-package", "test_grammar", "build", "check", "biome"],
-      "ignoreDependencies": ["@cspell/dict-fr-fr"],
+      "ignoreDependencies": ["@cspell/dict-fr-fr", "cookie"],
       "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
     },
     "api/node": {
