@@ -103,8 +103,8 @@ pub fn ensure_window(
 
         must_update.insert(NamedReference::new(&win_elem, prop.clone()));
 
-        if let Some(b) = win_elem.borrow_mut().bindings.remove(&prop) {
-            new_root.borrow_mut().bindings.insert(prop.clone(), b);
+        if let Some(b) = win_elem.borrow_mut().take_binding_including_synthetic(&prop) {
+            new_root.borrow_mut().set_binding(prop.clone(), b);
         }
         if let Some(a) = win_elem.borrow().property_analysis.borrow_mut().remove(&prop) {
             new_root.borrow().property_analysis.borrow_mut().insert(prop.clone(), a);
