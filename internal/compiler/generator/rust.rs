@@ -781,7 +781,7 @@ fn generate_struct(the_struct: &Struct, unit: &llr::CompilationUnit) -> TokenStr
     }
 }
 
-fn generate_enum(en: &std::rc::Rc<Enumeration>) -> TokenStream {
+fn generate_enum(en: &std::sync::Arc<Enumeration>) -> TokenStream {
     let enum_name = ident(&en.name);
 
     let enum_values = (0..en.values.len()).map(|value| {

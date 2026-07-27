@@ -16,6 +16,7 @@ use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub fn compile_paths(
     component: &Rc<Component>,
@@ -147,7 +148,7 @@ fn compile_path_from_string_literal(
     let path = builder.build();
 
     let event_enum = crate::typeregister::BUILTIN.with(|e| e.enums.PathEvent.clone());
-    let point_type = Rc::new(Struct::new(
+    let point_type = Arc::new(Struct::new(
         IntoIterator::into_iter([
             (SmolStr::new_static("x"), Type::Float32),
             (SmolStr::new_static("y"), Type::Float32),

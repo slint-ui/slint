@@ -19,6 +19,8 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+#[cfg(test)]
+use std::sync::Arc;
 
 #[doc(inline)]
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
@@ -2256,10 +2258,10 @@ fn lang_type_to_value_type() {
     assert_eq!(ValueType::from(LangType::String), ValueType::String);
     assert_eq!(ValueType::from(LangType::Color), ValueType::Brush);
     assert_eq!(ValueType::from(LangType::Brush), ValueType::Brush);
-    assert_eq!(ValueType::from(LangType::Array(Rc::new(LangType::Void))), ValueType::Model);
+    assert_eq!(ValueType::from(LangType::Array(Arc::new(LangType::Void))), ValueType::Model);
     assert_eq!(ValueType::from(LangType::Bool), ValueType::Bool);
     assert_eq!(
-        ValueType::from(LangType::Struct(Rc::new(LangStruct::new(
+        ValueType::from(LangType::Struct(Arc::new(LangStruct::new(
             BTreeMap::default(),
             i_slint_compiler::langtype::StructName::None
         )))),

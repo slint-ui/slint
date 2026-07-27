@@ -10,6 +10,7 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{BuiltinFunction, Callable, Expression};
@@ -224,7 +225,7 @@ impl<'a> LocalFocusForwards<'a> {
                     elem.borrow_mut().property_declarations.insert(
                         function.name().into(),
                         PropertyDeclaration {
-                            property_type: Type::Function(Rc::new(Function {
+                            property_type: Type::Function(Arc::new(Function {
                                 return_type: Type::Void,
                                 args: Vec::new(),
                                 arg_names: Vec::new(),

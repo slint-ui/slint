@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::collections::BTreeMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use itertools::Either;
 use smol_str::SmolStr;
@@ -750,7 +750,7 @@ fn compute_flexbox_layout_info_for_direction(
                         arguments: vec![
                             llr_Expression::ReadLocalVariable {
                                 name: cells_var.into(),
-                                ty: Type::Array(Rc::new(
+                                ty: Type::Array(Arc::new(
                                     crate::typeregister::flexbox_layout_item_info_type(),
                                 )),
                             },
@@ -1024,11 +1024,11 @@ fn flexbox_layout_data(
         }
         let cells_h = llr_Expression::ReadLocalVariable {
             name: "cells_h".into(),
-            ty: Type::Array(Rc::new(crate::typeregister::flexbox_layout_item_info_type())),
+            ty: Type::Array(Arc::new(crate::typeregister::flexbox_layout_item_info_type())),
         };
         let cells_v = llr_Expression::ReadLocalVariable {
             name: "cells_v".into(),
-            ty: Type::Array(Rc::new(crate::typeregister::flexbox_layout_item_info_type())),
+            ty: Type::Array(Arc::new(crate::typeregister::flexbox_layout_item_info_type())),
         };
         FlexboxLayoutDataResult {
             alignment,
@@ -1163,7 +1163,7 @@ fn box_layout_data(
         }
         let cells = llr_Expression::ReadLocalVariable {
             name: "cells".into(),
-            ty: Type::Array(Rc::new(crate::typeregister::layout_info_type().into())),
+            ty: Type::Array(Arc::new(crate::typeregister::layout_info_type().into())),
         };
         BoxLayoutDataResult { alignment, cells, compute_cells: Some(("cells".into(), elements)) }
     }
@@ -1234,7 +1234,7 @@ fn flexbox_unwrapped_main_expr(
         Orientation::Horizontal => (spacing_h, padding_h),
         Orientation::Vertical => (spacing_v, padding_v),
     };
-    let array_ty = Type::Array(Rc::new(crate::typeregister::flexbox_layout_item_info_type()));
+    let array_ty = Type::Array(Arc::new(crate::typeregister::flexbox_layout_item_info_type()));
     let cells_expr = match &fld.compute_cells {
         Some((cells_h_var, cells_v_var, _)) => {
             let cells_var = match orientation {
@@ -1457,7 +1457,7 @@ fn grid_layout_cell_constraints(
         }
         let cells = llr_Expression::ReadLocalVariable {
             name: "cells".into(),
-            ty: Type::Array(Rc::new(crate::typeregister::layout_info_type().into())),
+            ty: Type::Array(Arc::new(crate::typeregister::layout_info_type().into())),
         };
         GridLayoutCellConstraintsResult { cells, compute_cells: Some(("cells".into(), elements)) }
     }
@@ -1556,14 +1556,14 @@ fn grid_layout_input_data(
         }
         let cells = llr_Expression::ReadLocalVariable {
             name: "cells".into(),
-            ty: Type::Array(Rc::new(element_ty)),
+            ty: Type::Array(Arc::new(element_ty)),
         };
         GridLayoutInputDataResult { cells, compute_cells: Some(("cells".into(), elements)) }
     }
 }
 
 pub(super) fn grid_layout_input_data_ty() -> Type {
-    Type::Struct(Rc::new(Struct::new(
+    Type::Struct(Arc::new(Struct::new(
         IntoIterator::into_iter([
             (SmolStr::new_static("new_row"), Type::Bool),
             (SmolStr::new_static("row"), Type::Int32),

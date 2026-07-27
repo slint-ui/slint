@@ -12,7 +12,7 @@ use crate::layout::Orientation;
 use itertools::Either;
 use smol_str::SmolStr;
 use std::collections::BTreeMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub enum ArrayOutput {
@@ -162,7 +162,7 @@ pub enum Expression {
         output: ArrayOutput,
     },
     Struct {
-        ty: Rc<crate::langtype::Struct>,
+        ty: Arc<crate::langtype::Struct>,
         values: BTreeMap<SmolStr, Expression>,
     },
 

@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use i_slint_compiler::generator::python::ident;
 use pyo3::IntoPyObjectExt;
@@ -249,7 +250,7 @@ impl CompilationResult {
 fn lookup_signature(
     definition: &slint_interpreter::ComponentDefinition,
     name: &str,
-) -> Option<Rc<SlintFunction>> {
+) -> Option<Arc<SlintFunction>> {
     let normalized = normalize_identifier(name);
     definition.properties_and_callbacks().find_map(|(prop_name, (ty, _))| {
         (normalize_identifier(&prop_name) == normalized)
@@ -266,7 +267,7 @@ fn lookup_global_signature(
     definition: &slint_interpreter::ComponentDefinition,
     global_name: &str,
     name: &str,
-) -> Option<Rc<SlintFunction>> {
+) -> Option<Arc<SlintFunction>> {
     let normalized = normalize_identifier(name);
     definition.global_properties_and_callbacks(global_name)?.find_map(|(prop_name, (ty, _))| {
         (normalize_identifier(&prop_name) == normalized)
@@ -653,7 +654,7 @@ impl GcVisibleCallbacks {
         &self,
         name: String,
         callable: Py<PyAny>,
-        signature: Option<Rc<SlintFunction>>,
+        signature: Option<Arc<SlintFunction>>,
     ) -> impl Fn(&[Value]) -> Value + 'static {
         self.callables.borrow_mut().insert(name.clone(), callable);
 

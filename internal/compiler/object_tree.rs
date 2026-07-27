@@ -28,6 +28,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Display;
 use std::path::PathBuf;
 use std::rc::{Rc, Weak};
+use std::sync::Arc;
 
 mod interfaces;
 
@@ -193,7 +194,7 @@ impl Document {
                 diag.push_error("Enums must have at least one value".into(), &n);
             }
 
-            let ty = Type::Enumeration(Rc::new(en));
+            let ty = Type::Enumeration(Arc::new(en));
             if !local_registry.insert_type_with_name(ty.clone(), name.clone()) {
                 diag.push_warning(
                     format!(
@@ -1611,7 +1612,7 @@ impl Element {
             r.property_declarations.insert(
                 name,
                 PropertyDeclaration {
-                    property_type: Type::Callback(Rc::new(Function {
+                    property_type: Type::Callback(Arc::new(Function {
                         return_type,
                         args,
                         arg_names,
@@ -1702,7 +1703,7 @@ impl Element {
             }
 
             let declaration = PropertyDeclaration {
-                property_type: Type::Function(Rc::new(Function { return_type, args, arg_names })),
+                property_type: Type::Function(Arc::new(Function { return_type, args, arg_names })),
                 node: Some(func.clone().into()),
                 visibility,
                 pure,
@@ -2460,7 +2461,7 @@ impl Element {
         self.callback_alias_declaration_node(name)
     }
 
-    pub fn native_class(&self) -> Option<Rc<NativeClass>> {
+    pub fn native_class(&self) -> Option<Arc<NativeClass>> {
         let mut base_type = self.base_type.clone();
         loop {
             match &base_type {
@@ -2839,7 +2840,7 @@ pub fn type_from_node(
     } else if let Some(array_node) = node.ArrayType() {
         #[cfg(feature = "slint-sc")]
         diag.slint_sc_error("Array types are", &array_node);
-        Type::Array(Rc::new(type_from_node(array_node.Type(), diag, tr)))
+        Type::Array(Arc::new(type_from_node(array_node.Type(), diag, tr)))
     } else {
         assert!(diag.has_errors());
         Type::Invalid
@@ -2883,7 +2884,7 @@ pub fn type_struct_from_node(
             (field_name, field_ty)
         })
         .collect();
-    Type::Struct(Rc::new(Struct {
+    Type::Struct(Arc::new(Struct {
         fields,
         field_defaults,
         name: name.map_or(StructName::None, |name| StructName::User { name, node: object_node }),

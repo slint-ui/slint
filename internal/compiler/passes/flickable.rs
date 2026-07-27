@@ -18,6 +18,7 @@ use crate::typeregister::TypeRegister;
 use core::cell::RefCell;
 use smol_str::{SmolStr, format_smolstr};
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub fn is_flickable_element(element: &ElementRc) -> bool {
     matches!(&element.borrow().base_type, ElementType::Builtin(n) if n.name == "Flickable")
@@ -43,7 +44,7 @@ pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
     )
 }
 
-fn create_content_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>) {
+fn create_content_element(flickable: &ElementRc, native_empty: &Arc<NativeClass>) {
     let children = std::mem::take(&mut flickable.borrow_mut().children);
     let is_listview = children
         .iter()

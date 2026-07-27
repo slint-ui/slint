@@ -10,6 +10,7 @@ use super::accessor_names::{self, AccessorKind};
 use crate::fileaccess;
 use std::collections::HashSet;
 use std::fmt::{Formatter, Write};
+use std::sync::Arc;
 use std::sync::OnceLock;
 
 use smol_str::{SmolStr, StrExt, format_smolstr};
@@ -1381,7 +1382,7 @@ fn generate_struct(
     file.declarations.push(Declaration::Struct(Struct { name, members, ..Default::default() }))
 }
 
-fn generate_enum(file: &mut File, en: &std::rc::Rc<Enumeration>) {
+fn generate_enum(file: &mut File, en: &std::sync::Arc<Enumeration>) {
     file.declarations.push(Declaration::Enum(Enum {
         name: ident(&en.name),
         values: (0..en.values.len())

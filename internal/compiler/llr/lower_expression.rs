@@ -4,6 +4,7 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::{Rc, Weak};
+use std::sync::Arc;
 
 use smol_str::SmolStr;
 
@@ -757,8 +758,8 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
         ])
     }
 
-    fn animation_ty() -> Rc<Struct> {
-        Rc::new(Struct::new(animation_fields().collect(), BuiltinStruct::PropertyAnimation))
+    fn animation_ty() -> Arc<Struct> {
+        Arc::new(Struct::new(animation_fields().collect(), BuiltinStruct::PropertyAnimation))
     }
 
     match a {
@@ -799,7 +800,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
             }
             let result = llr_Expression::Struct {
                 // This is going to be a tuple
-                ty: Rc::new(Struct::new(
+                ty: Arc::new(Struct::new(
                     IntoIterator::into_iter([
                         (SmolStr::new_static("0"), animation_ty),
                         // The type is an instant, which does not exist in our type system
@@ -850,7 +851,7 @@ fn compile_path(
             let converted_elements = elements
                 .iter()
                 .map(|element| {
-                    let element_type = Rc::new(Struct::new(
+                    let element_type = Arc::new(Struct::new(
                         element
                             .element_type
                             .properties
@@ -908,7 +909,7 @@ fn compile_path(
 
             llr_Expression::Cast {
                 from: llr_Expression::Struct {
-                    ty: Rc::new(Struct::new(
+                    ty: Arc::new(Struct::new(
                         IntoIterator::into_iter([
                             (SmolStr::new_static("events"), Type::Array(event_type.clone().into())),
                             (SmolStr::new_static("points"), Type::Array(point_type.clone().into())),
@@ -958,5 +959,5 @@ pub fn make_struct(
         values.insert(SmolStr::new(name), expr);
     }
 
-    llr_Expression::Struct { ty: Rc::new(Struct::new(fields, name)), values }
+    llr_Expression::Struct { ty: Arc::new(Struct::new(fields, name)), values }
 }

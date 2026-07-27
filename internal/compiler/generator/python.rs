@@ -7,8 +7,9 @@
 // cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals enumty fundecl pycompo pyenum structty
 
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::sync::Arc;
 use std::sync::OnceLock;
-use std::{collections::HashSet, rc::Rc};
 
 use smol_str::{SmolStr, StrExt, format_smolstr};
 
@@ -154,10 +155,10 @@ pub struct PyStruct {
 
 pub struct AnonymousStruct;
 
-impl TryFrom<&Rc<crate::langtype::Struct>> for PyStruct {
+impl TryFrom<&Arc<crate::langtype::Struct>> for PyStruct {
     type Error = AnonymousStruct;
 
-    fn try_from(structty: &Rc<crate::langtype::Struct>) -> Result<Self, Self::Error> {
+    fn try_from(structty: &Arc<crate::langtype::Struct>) -> Result<Self, Self::Error> {
         let StructName::User { name, .. } = &structty.name else {
             return Err(AnonymousStruct);
         };
@@ -234,8 +235,8 @@ pub struct PyEnum {
     aliases: Vec<SmolStr>,
 }
 
-impl From<&Rc<crate::langtype::Enumeration>> for PyEnum {
-    fn from(enumty: &Rc<crate::langtype::Enumeration>) -> Self {
+impl From<&Arc<crate::langtype::Enumeration>> for PyEnum {
+    fn from(enumty: &Arc<crate::langtype::Enumeration>) -> Self {
         Self {
             name: ident(&enumty.name),
             variants: enumty

@@ -22,6 +22,7 @@ use core::num::IntErrorKind;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
 
 mod remove_noop;
@@ -1963,7 +1964,7 @@ impl Expression {
                 (name, value)
             })
             .collect();
-        let ty = Rc::new(Struct::new(
+        let ty = Arc::new(Struct::new(
             values.iter().map(|(k, v)| (k.clone(), v.ty())).collect(),
             StructName::None,
         ));
@@ -2063,7 +2064,7 @@ impl Expression {
                         }
                         // The field defaults must come from the same struct as the name
                         let source = if result.name.is_some() { &result } else { &elem };
-                        Type::Struct(Rc::new(Struct {
+                        Type::Struct(Arc::new(Struct {
                             fields,
                             field_defaults: source.field_defaults.clone(),
                             name: source.name.clone(),
@@ -2115,7 +2116,7 @@ fn common_expression_type(true_expr: &Expression, false_expr: &Expression) -> Ty
     fn merge_struct(origin: &Struct, other: &Struct) -> Type {
         let mut fields = other.fields.clone();
         fields.extend(origin.fields.iter().map(|(k, v)| (k.clone(), v.clone())));
-        Rc::new(Struct::new(fields, StructName::None)).into()
+        Arc::new(Struct::new(fields, StructName::None)).into()
     }
 
     if let Expression::Struct { ty, values } = true_expr {
@@ -2133,7 +2134,7 @@ fn common_expression_type(true_expr: &Expression, false_expr: &Expression) -> Ty
                     fields.insert(k.clone(), v.ty());
                 }
             }
-            return Type::Struct(Rc::new(Struct::new(fields, StructName::None)));
+            return Type::Struct(Arc::new(Struct::new(fields, StructName::None)));
         } else if let Type::Struct(false_ty) = false_expr.ty() {
             return merge_struct(&false_ty, ty);
         }

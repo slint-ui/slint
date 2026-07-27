@@ -4,6 +4,7 @@
 //! This pass computes the layout constraint
 
 use lyon_path::geom::euclid::approxeq::ApproxEq;
+use std::sync::Arc;
 
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
 use crate::expression_tree::*;
@@ -26,7 +27,7 @@ pub(crate) fn synthesize_layoutinfo_v_with_constraint_on(
     span: crate::diagnostics::SourceLocation,
     body: Expression,
 ) {
-    let function_ty = Type::Function(Rc::new(crate::langtype::Function {
+    let function_ty = Type::Function(Arc::new(crate::langtype::Function {
         return_type: crate::typeregister::layout_info_type().into(),
         args: vec![Type::LogicalLength],
         arg_names: vec![SmolStr::new_static("width")],
@@ -174,7 +175,7 @@ pub(crate) fn synthesize_layoutinfo_h_with_constraint_on(
     span: crate::diagnostics::SourceLocation,
     body: Expression,
 ) {
-    let function_ty = Type::Function(Rc::new(crate::langtype::Function {
+    let function_ty = Type::Function(Arc::new(crate::langtype::Function {
         return_type: crate::typeregister::layout_info_type().into(),
         args: vec![Type::LogicalLength],
         arg_names: vec![SmolStr::new_static("height")],

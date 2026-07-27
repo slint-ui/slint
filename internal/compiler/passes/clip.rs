@@ -6,6 +6,7 @@
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
@@ -26,7 +27,7 @@ pub fn handle_clip(
         &(),
         &mut |elem_rc: &ElementRc, _| {
             let elem = elem_rc.borrow();
-            if elem.native_class().is_some_and(|n| Rc::ptr_eq(&n, &native_clip)) {
+            if elem.native_class().is_some_and(|n| Arc::ptr_eq(&n, &native_clip)) {
                 return;
             }
             if elem.bindings.contains_key("clip")
@@ -57,7 +58,7 @@ pub fn handle_clip(
     );
 }
 
-fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
+fn create_clip_element(parent_elem: &ElementRc, native_clip: &Arc<NativeClass>) {
     let mut parent = parent_elem.borrow_mut();
     let clip = Element::make_rc(Element {
         id: format_smolstr!("{}-clip", parent.id),

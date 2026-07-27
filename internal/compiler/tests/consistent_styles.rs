@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(PartialEq, Debug)]
 struct PropertyInfo {
@@ -103,7 +104,7 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                     result.properties.insert(
                         "focus".into(),
                         PropertyInfo {
-                            ty: Type::Function(Rc::new(Function {
+                            ty: Type::Function(Arc::new(Function {
                                 return_type: Type::Void,
                                 args: Vec::new(),
                                 arg_names: Vec::new(),
@@ -115,7 +116,7 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                     result.properties.insert(
                         "clear-focus".into(),
                         PropertyInfo {
-                            ty: Type::Function(Rc::new(Function {
+                            ty: Type::Function(Arc::new(Function {
                                 return_type: Type::Void,
                                 args: Vec::new(),
                                 arg_names: Vec::new(),
