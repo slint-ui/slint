@@ -7,13 +7,13 @@ use i_slint_common::unicode_utils::{
     byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
 };
 use i_slint_core::SharedString;
-use i_slint_core::api::{PhysicalPosition, PhysicalSize};
+use i_slint_core::api::{PhysicalPosition, PhysicalSize, WindowEventDispatchResult};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::items::{CapitalizationMode, ColorScheme, InputType};
 use i_slint_core::lengths::{LogicalLength, PhysicalEdges};
-use i_slint_core::platform::WindowAdapter;
+use i_slint_core::platform::{Key, WindowAdapter, WindowEvent};
 use jni::objects::{JClass, JClassLoader, JString, LoaderContext};
 use jni::sys::{jfloat, jint};
 use jni::{Env, JavaVM, bind_java_type};
@@ -62,6 +62,10 @@ bind_java_type! {
             name = "get_view_rect",
             sig = () -> AndroidRect,
         },
+        fn finish_activity {
+            name = "finish_activity",
+            sig = (),
+        },
         fn hide_keyboard {
             name = "hide_keyboard",
             sig = (),
@@ -105,6 +109,10 @@ bind_java_type! {
         pub static fn move_cursor_handle {
             sig = (id: jint, pos_x: jint, pos_y: jint) -> (),
             fn = callback_move_cursor_handle,
+        },
+        pub static fn on_back_invoked {
+            sig = () -> (),
+            fn = callback_on_back_invoked,
         },
         pub static fn popup_menu_action {
             sig = (id: jint) -> (),
@@ -557,6 +565,14 @@ impl JavaHelper {
     pub fn get_clipboard(&self) -> Result<String, jni::errors::Error> {
         self.with_jni_env(|env, helper| Ok(helper.get_clipboard(env)?.to_string()))
     }
+
+    /// Ask the Activity to finish. Used from `callback_on_back_invoked` when
+    /// Slint's key dispatch reports the Back key as unhandled so we preserve
+    /// the legacy Back-closes-the-activity behavior even under the
+    /// OnBackInvokedCallback flow.
+    pub fn finish_activity(&self) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.finish_activity(env))
+    }
 }
 
 fn callback_update_text<'local>(
@@ -766,6 +782,32 @@ fn callback_popup_menu_action<'local>(
         }
     })
     .unwrap();
+    Ok(())
+}
+
+fn callback_on_back_invoked<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
+) -> Result<(), jni::errors::Error> {
+    // Forward Back as a Key.Back KeyPressed + KeyReleased pair; fall back to
+    // Activity.finish() if unhandled.
+    let _ = i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            let text: SharedString = Key::Back.into();
+            let pressed = adaptor
+                .window
+                .dispatch_event_with_result(WindowEvent::KeyPressed { text: text.clone() });
+            let released =
+                adaptor.window.dispatch_event_with_result(WindowEvent::KeyReleased { text });
+            let handled = matches!(pressed, Ok(WindowEventDispatchResult::Accepted))
+                || matches!(released, Ok(WindowEventDispatchResult::Accepted));
+            if !handled {
+                if let Err(e) = adaptor.java_helper.finish_activity() {
+                    i_slint_core::debug_log!("finish_activity failed: {e:#?}");
+                }
+            }
+        }
+    });
     Ok(())
 }
 
