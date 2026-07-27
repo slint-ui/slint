@@ -101,6 +101,8 @@ pub struct FontRequest {
     pub letter_spacing: Option<LogicalLength>,
     /// Whether to select an italic face of the font family.
     pub italic: bool,
+    /// The font stretch (width) to select. None means the default stretch.
+    pub stretch: Option<fontique::FontWidth>,
 }
 
 #[cfg(feature = "shared-fontique")]
@@ -135,7 +137,7 @@ impl FontRequest {
             } else {
                 fontique::FontStyle::Normal
             },
-            ..Default::default()
+            width: self.stretch.unwrap_or_default(),
         });
 
         let mut font = None;

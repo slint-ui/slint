@@ -23,6 +23,8 @@ When adding an item or a property, it needs to be kept in sync with different pl
 use crate::api::LogicalPosition;
 use crate::cursor::MouseCursorInner;
 use crate::data_transfer::DataTransfer;
+#[cfg(feature = "shared-fontique")]
+use i_slint_common::sharedfontique::fontique;
 use crate::graphics::{Brush, Color, FontRequest, Image};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
@@ -1274,6 +1276,7 @@ pub struct WindowItem {
     pub default_font_family: Property<SharedString>,
     pub default_font_size: Property<LogicalLength>,
     pub default_font_weight: Property<i32>,
+    pub default_font_stretch: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -1405,6 +1408,11 @@ impl WindowItem {
         if font_weight == 0 { None } else { Some(font_weight) }
     }
 
+    pub fn font_stretch(self: Pin<&Self>) -> Option<i32> {
+        let font_stretch = self.default_font_stretch();
+        if font_stretch == 0 { None } else { Some(font_stretch) }
+    }
+
     pub fn resolved_default_font_size(item_tree: ItemTreeRc) -> LogicalLength {
         let first_item = ItemRc::new_root(item_tree);
         let window_item = next_window_item(&first_item).unwrap();
@@ -1454,6 +1462,7 @@ impl WindowItem {
         local_font_size: LogicalLength,
         local_letter_spacing: LogicalLength,
         local_italic: bool,
+        local_font_stretch: i32,
     ) -> FontRequest {
         let Some(window_item_rc) = next_window_item(self_rc) else {
             return FontRequest::default();
@@ -1493,6 +1502,15 @@ impl WindowItem {
             },
             letter_spacing: Some(local_letter_spacing),
             italic: local_italic,
+            stretch: if local_font_stretch == 0 {
+                Self::resolve_font_property(
+                    &window_item_rc,
+                    crate::items::WindowItem::font_stretch,
+                )
+                .map(|s| fontique::FontWidth::from_percentage(s as f32))
+            } else {
+                Some(fontique::FontWidth::from_percentage(local_font_stretch as f32))
+            },
         }
     }
 

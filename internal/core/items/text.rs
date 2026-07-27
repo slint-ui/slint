@@ -56,6 +56,7 @@ pub struct ComplexText {
 
     pub font_family: Property<SharedString>,
     pub font_italic: Property<bool>,
+    pub font_stretch: Property<i32>,
     pub wrap: Property<TextWrap>,
     pub overflow: Property<TextOverflow>,
     pub letter_spacing: Property<LogicalLength>,
@@ -174,6 +175,7 @@ impl HasFont for ComplexText {
             self.font_size(),
             self.letter_spacing(),
             self.font_italic(),
+            self.font_stretch(),
         )
     }
 }
@@ -402,6 +404,7 @@ impl HasFont for StyledTextItem {
             self.default_font_size(),
             Default::default(),
             Default::default(),
+            0,
         )
     }
 }
@@ -473,6 +476,7 @@ pub struct SimpleText {
     pub text: Property<SharedString>,
     pub font_size: Property<LogicalLength>,
     pub font_weight: Property<i32>,
+    pub font_stretch: Property<i32>,
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
@@ -590,6 +594,7 @@ impl HasFont for SimpleText {
             self.font_size(),
             LogicalLength::default(),
             false,
+            self.font_stretch(),
         )
     }
 }
@@ -1323,6 +1328,7 @@ impl HasFont for TextInput {
             self.font_size(),
             self.letter_spacing(),
             self.font_italic(),
+            0,
         )
     }
 }

@@ -545,6 +545,10 @@ component SimpleText inherits Empty {
     /// }
     /// ```
     in property <int> font-weight;
+    /// The stretch (width) of the font, as a percentage of normal width. Common values
+    /// include 50 (ultra-condensed), 75 (condensed), 100 (normal), 125 (expanded), 200 (ultra-expanded).
+    /// \default 0
+    in property <int> font-stretch;
     /// ```slint "horizontal-alignment: left;" imageAlt="text-horizontal-alignment" width="200" height="200" needsBackground
     /// Text {
     ///     x: 0;
@@ -1556,6 +1560,8 @@ component WindowItem {
     in property <length> default-font-size;
     /// The font weight to use as default in text elements inside this window, that don't have their `font-weight` property set. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight. Use the <Link type="FontWeight" /> namespace for predefined constants.
     in property <int> default-font-weight;
+    /// The font stretch to use as default in text elements inside this window, that don't have their `font-stretch` property set. Common values include 50 (ultra-condensed), 75 (condensed), 100 (normal), 125 (expanded), 200 (ultra-expanded).
+    in property <int> default-font-stretch;
     /// The window icon shown in the title bar or the task bar on window managers supporting it.
     in property <image> icon;
     /// Whether the window should be borderless/frameless or not.
