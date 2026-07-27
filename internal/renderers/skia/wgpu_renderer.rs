@@ -166,6 +166,18 @@ impl RendererSealed for SkiaWGPURenderer {
         self.renderer.text_input_cursor_rect_for_byte_offset(text_input, item_rc, byte_offset)
     }
 
+    fn text_input_move_cursor(
+        &self,
+        text_input: Pin<&i_slint_core::items::TextInput>,
+        item_rc: &i_slint_core::items::ItemRc,
+        current_offset: usize,
+        direction: i_slint_core::items::TextCursorDirection,
+        preferred_x: f32,
+        vertical_advance: f32,
+    ) -> Option<usize> {
+        self.renderer.text_input_move_cursor(text_input, item_rc, current_offset, direction, preferred_x, vertical_advance)
+    }
+
     fn register_font_from_memory(
         &self,
         data: &'static [u8],

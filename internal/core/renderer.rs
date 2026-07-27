@@ -107,6 +107,59 @@ pub trait RendererSealed {
         byte_offset: usize,
     ) -> LogicalRect;
 
+    /// Move the cursor in the given direction and return the new byte offset.
+    ///
+    /// The default implementation uses `text_input_cursor_rect_for_byte_offset`
+    /// and `text_input_byte_offset_for_position` (the old two-pass approach).
+    /// `vertical_advance` is the line height for NextLine/PreviousLine and the
+    /// page offset (page_height - font_height) for PageUp/PageDown.
+    /// Parley-based renderers override this with a single-pass layout optimization.
+    fn text_input_move_cursor(
+        &self,
+        text_input: Pin<&crate::items::TextInput>,
+        item_rc: &ItemRc,
+        current_offset: usize,
+        direction: crate::items::TextCursorDirection,
+        preferred_x: f32,
+        vertical_advance: f32,
+    ) -> Option<usize> {
+        let cursor_rect =
+            self.text_input_cursor_rect_for_byte_offset(text_input, item_rc, current_offset);
+        let mut cursor_xy_pos = cursor_rect.center();
+        let new_offset = match direction {
+            crate::items::TextCursorDirection::NextLine => {
+                cursor_xy_pos.y += vertical_advance;
+                cursor_xy_pos.x = preferred_x;
+                self.text_input_byte_offset_for_position(text_input, item_rc, cursor_xy_pos)
+            }
+            crate::items::TextCursorDirection::PreviousLine => {
+                cursor_xy_pos.y -= vertical_advance;
+                cursor_xy_pos.x = preferred_x;
+                self.text_input_byte_offset_for_position(text_input, item_rc, cursor_xy_pos)
+            }
+            crate::items::TextCursorDirection::StartOfLine => {
+                cursor_xy_pos.x = 0.0;
+                self.text_input_byte_offset_for_position(text_input, item_rc, cursor_xy_pos)
+            }
+            crate::items::TextCursorDirection::EndOfLine => {
+                cursor_xy_pos.x = f32::MAX;
+                self.text_input_byte_offset_for_position(text_input, item_rc, cursor_xy_pos)
+            }
+            crate::items::TextCursorDirection::PageUp => {
+                cursor_xy_pos.y -= vertical_advance;
+                cursor_xy_pos.x = preferred_x;
+                self.text_input_byte_offset_for_position(text_input, item_rc, cursor_xy_pos)
+            }
+            crate::items::TextCursorDirection::PageDown => {
+                cursor_xy_pos.y += vertical_advance;
+                cursor_xy_pos.x = preferred_x;
+                self.text_input_byte_offset_for_position(text_input, item_rc, cursor_xy_pos)
+            }
+            _ => return None,
+        };
+        Some(new_offset)
+    }
+
     /// Clear the caches for the items that are being removed
     fn free_graphics_resources(
         &self,

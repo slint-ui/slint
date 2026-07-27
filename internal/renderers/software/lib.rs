@@ -1222,6 +1222,18 @@ impl RendererSealed for SoftwareRenderer {
         }
     }
 
+    fn text_input_move_cursor(
+        &self,
+        text_input: Pin<&i_slint_core::items::TextInput>,
+        item_rc: &ItemRc,
+        current_offset: usize,
+        direction: i_slint_core::items::TextCursorDirection,
+        preferred_x: f32,
+        vertical_advance: f32,
+    ) -> Option<usize> {
+        sharedparley::text_input_move_cursor(self, text_input, item_rc, current_offset, direction, preferred_x, vertical_advance)
+    }
+
     fn free_graphics_resources(
         &self,
         _component: i_slint_core::item_tree::ItemTreeRef,

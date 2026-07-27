@@ -946,6 +946,18 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         sharedparley::text_input_cursor_rect_for_byte_offset(self, text_input, item_rc, byte_offset)
     }
 
+    fn text_input_move_cursor(
+        &self,
+        text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
+        current_offset: usize,
+        direction: i_slint_core::items::TextCursorDirection,
+        preferred_x: f32,
+        vertical_advance: f32,
+    ) -> Option<usize> {
+        sharedparley::text_input_move_cursor(self, text_input, item_rc, current_offset, direction, preferred_x, vertical_advance)
+    }
+
     fn register_font_from_memory(
         &self,
         data: &'static [u8],

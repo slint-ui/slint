@@ -37,7 +37,7 @@ use core::pin::Pin;
 #[allow(unused)]
 use euclid::num::Ceil;
 use i_slint_core_macros::*;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::{GraphemeCursor, UnicodeSegmentation};
 
 /// The implementation of the `Text` element
 #[repr(C)]
@@ -1520,7 +1520,8 @@ impl TextInput {
         self.cursor_visible.set(false);
     }
 
-    /// Moves the cursor (and/or anchor) and returns true if the cursor position changed; false otherwise.
+    /// Moves the cursor (and/or anchor) using Parley Cursor for layout-based directions.
+    /// Returns true if the cursor position changed; false otherwise.
     fn move_cursor(
         self: Pin<&Self>,
         direction: TextCursorDirection,
@@ -1538,13 +1539,14 @@ impl TextInput {
         let last_cursor_pos = self.cursor_position(&text);
 
         let mut grapheme_cursor =
-            unicode_segmentation::GraphemeCursor::new(last_cursor_pos, text.len(), true);
+            GraphemeCursor::new(last_cursor_pos, text.len(), true);
 
         let font_height = window_adapter.renderer().char_size(self, self_rc, ' ').height;
 
         let mut reset_preferred_x_pos = true;
 
         let new_cursor_pos = match direction {
+            // Forward/Backward: GraphemeCursor (fast, handles combining chars correctly)
             TextCursorDirection::Forward => {
                 if anchor == cursor || anchor_mode == AnchorMode::KeepAnchor {
                     grapheme_cursor
@@ -1563,27 +1565,26 @@ impl TextInput {
                     anchor
                 }
             }
-            TextCursorDirection::NextLine => {
-                reset_preferred_x_pos = false;
-
-                let cursor_rect =
-                    self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter, self_rc);
-                let mut cursor_xy_pos = cursor_rect.center();
-
-                cursor_xy_pos.y += font_height;
-                cursor_xy_pos.x = self.preferred_x_pos.get();
-                self.byte_offset_for_position(cursor_xy_pos, window_adapter, self_rc)
+            // Word boundaries: string-based (fast, preserves old MacOS-style behavior)
+            TextCursorDirection::ForwardByWord => next_word_boundary(&text, last_cursor_pos + 1),
+            TextCursorDirection::BackwardByWord => {
+                prev_word_boundary(&text, last_cursor_pos.saturating_sub(1))
             }
-            TextCursorDirection::PreviousLine => {
+            // Line navigation: renderer trait method (Parley overrides with single pass)
+            TextCursorDirection::NextLine
+            | TextCursorDirection::PreviousLine
+            | TextCursorDirection::StartOfLine
+            | TextCursorDirection::EndOfLine => {
                 reset_preferred_x_pos = false;
-
-                let cursor_rect =
-                    self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter, self_rc);
-                let mut cursor_xy_pos = cursor_rect.center();
-
-                cursor_xy_pos.y -= font_height;
-                cursor_xy_pos.x = self.preferred_x_pos.get();
-                self.byte_offset_for_position(cursor_xy_pos, window_adapter, self_rc)
+                window_adapter.renderer().text_input_move_cursor(
+                    self,
+                    self_rc,
+                    last_cursor_pos,
+                    direction,
+                    self.preferred_x_pos.get(),
+                    font_height,
+                )
+                .unwrap_or(last_cursor_pos)
             }
             TextCursorDirection::PreviousCharacter => {
                 let mut i = last_cursor_pos;
@@ -1593,27 +1594,6 @@ impl TextInput {
                         break i;
                     }
                 }
-            }
-            // Currently moving by word behaves like macos: next end of word(forward) or previous beginning of word(backward)
-            TextCursorDirection::ForwardByWord => next_word_boundary(&text, last_cursor_pos + 1),
-            TextCursorDirection::BackwardByWord => {
-                prev_word_boundary(&text, last_cursor_pos.saturating_sub(1))
-            }
-            TextCursorDirection::StartOfLine => {
-                let cursor_rect =
-                    self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter, self_rc);
-                let mut cursor_xy_pos = cursor_rect.center();
-
-                cursor_xy_pos.x = 0 as Coord;
-                self.byte_offset_for_position(cursor_xy_pos, window_adapter, self_rc)
-            }
-            TextCursorDirection::EndOfLine => {
-                let cursor_rect =
-                    self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter, self_rc);
-                let mut cursor_xy_pos = cursor_rect.center();
-
-                cursor_xy_pos.x = Coord::MAX;
-                self.byte_offset_for_position(cursor_xy_pos, window_adapter, self_rc)
             }
             TextCursorDirection::StartOfParagraph => {
                 prev_paragraph_boundary(&text, last_cursor_pos.saturating_sub(1))
@@ -1629,12 +1609,15 @@ impl TextInput {
                     return false;
                 }
                 reset_preferred_x_pos = false;
-                let cursor_rect =
-                    self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter, self_rc);
-                let mut cursor_xy_pos = cursor_rect.center();
-                cursor_xy_pos.y -= offset;
-                cursor_xy_pos.x = self.preferred_x_pos.get();
-                self.byte_offset_for_position(cursor_xy_pos, window_adapter, self_rc)
+                window_adapter.renderer().text_input_move_cursor(
+                    self,
+                    self_rc,
+                    last_cursor_pos,
+                    direction,
+                    self.preferred_x_pos.get(),
+                    offset,
+                )
+                .unwrap_or(last_cursor_pos)
             }
             TextCursorDirection::PageDown => {
                 let offset = self.page_height().get() - font_height;
@@ -1642,12 +1625,15 @@ impl TextInput {
                     return false;
                 }
                 reset_preferred_x_pos = false;
-                let cursor_rect =
-                    self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter, self_rc);
-                let mut cursor_xy_pos = cursor_rect.center();
-                cursor_xy_pos.y += offset;
-                cursor_xy_pos.x = self.preferred_x_pos.get();
-                self.byte_offset_for_position(cursor_xy_pos, window_adapter, self_rc)
+                window_adapter.renderer().text_input_move_cursor(
+                    self,
+                    self_rc,
+                    last_cursor_pos,
+                    direction,
+                    self.preferred_x_pos.get(),
+                    offset,
+                )
+                .unwrap_or(last_cursor_pos)
             }
         };
 
@@ -2366,7 +2352,6 @@ fn prev_paragraph_boundary(text: &str, last_cursor_pos: usize) -> usize {
 
 fn prev_word_boundary(text: &str, last_cursor_pos: usize) -> usize {
     let mut word_offset = 0;
-
     for (current_word_offset, _) in text.unicode_word_indices() {
         if current_word_offset <= last_cursor_pos {
             word_offset = current_word_offset;
@@ -2374,7 +2359,6 @@ fn prev_word_boundary(text: &str, last_cursor_pos: usize) -> usize {
             break;
         }
     }
-
     word_offset
 }
 
