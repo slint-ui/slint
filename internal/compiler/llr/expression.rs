@@ -381,7 +381,7 @@ impl Expression {
             },
             Type::Easing => Expression::EasingCurve(crate::expression_tree::EasingCurve::default()),
             Type::MouseCursor => {
-                let e = crate::typeregister::BUILTIN.with(|e| e.enums.BuiltInMouseCursor.clone());
+                let e = crate::typeregister::BUILTIN.enums.BuiltInMouseCursor.clone();
                 Expression::MouseCursor(MouseCursorInner::BuiltIn(Box::new(
                     Expression::EnumerationValue(e.default_value()),
                 )))

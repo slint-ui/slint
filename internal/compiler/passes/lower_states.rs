@@ -16,7 +16,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
 
 pub fn lower_states(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
-    let state_info_type = crate::typeregister::BUILTIN.with(|b| b.state_info_type.clone().into());
+    let state_info_type = crate::typeregister::BUILTIN.state_info_type.clone().into();
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         lower_state_in_element(elem, &state_info_type, diag)
     });

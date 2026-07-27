@@ -863,7 +863,7 @@ impl LookupObject for MouseCursorSpecific {
         _ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        let e = crate::typeregister::BUILTIN.with(|e| e.enums.BuiltInMouseCursor.clone());
+        let e = crate::typeregister::BUILTIN.enums.BuiltInMouseCursor.clone();
         let mut cursor = |n, e| f(n, Expression::MouseCursor(MouseCursorInner::BuiltIn(e)).into());
         let mut r = None;
         for value in &e.values {
@@ -892,10 +892,10 @@ impl LookupObject for SlintInternal {
             f(
                 "color-scheme",
                 if style.is_some_and(|s| s.ends_with("-light")) {
-                    let e = crate::typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone());
+                    let e = crate::typeregister::BUILTIN.enums.ColorScheme.clone();
                     Expression::EnumerationValue(e.try_value_from_string("light").unwrap())
                 } else if style.is_some_and(|s| s.ends_with("-dark")) {
-                    let e = crate::typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone());
+                    let e = crate::typeregister::BUILTIN.enums.ColorScheme.clone();
                     Expression::EnumerationValue(e.try_value_from_string("dark").unwrap())
                 } else {
                     Expression::FunctionCall {

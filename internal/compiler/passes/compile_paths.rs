@@ -147,7 +147,7 @@ fn compile_path_from_string_literal(
     )?;
     let path = builder.build();
 
-    let event_enum = crate::typeregister::BUILTIN.with(|e| e.enums.PathEvent.clone());
+    let event_enum = crate::typeregister::BUILTIN.enums.PathEvent.clone();
     let point_type = Arc::new(Struct::new(
         IntoIterator::into_iter([
             (SmolStr::new_static("x"), Type::Float32),

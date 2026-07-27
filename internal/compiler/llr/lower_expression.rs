@@ -750,7 +750,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
             (SmolStr::new_static("iteration-count"), Type::Float32),
             (
                 SmolStr::new_static("direction"),
-                Type::Enumeration(BUILTIN.with(|e| e.enums.AnimationDirection.clone())),
+                Type::Enumeration(BUILTIN.enums.AnimationDirection.clone()),
             ),
             (SmolStr::new_static("easing"), Type::Easing),
             (SmolStr::new_static("delay"), Type::Int32),

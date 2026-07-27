@@ -138,7 +138,9 @@ fn process_tabwidget(
             );
         }
         let role = crate::typeregister::BUILTIN
-            .with(|e| e.enums.AccessibleRole.clone())
+            .enums
+            .AccessibleRole
+            .clone()
             .try_value_from_string("tab-panel")
             .unwrap();
         let old = child.borrow_mut().bindings.insert(

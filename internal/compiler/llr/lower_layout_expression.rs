@@ -39,7 +39,7 @@ pub(super) fn compute_grid_layout_info(
     let constraints_result = grid_layout_cell_constraints(layout, o, ctx, cross_axis_size_override);
     let orientation_literal = llr_Expression::EnumerationValue(EnumerationValue {
         value: o as _,
-        enumeration: crate::typeregister::BUILTIN.with(|b| b.enums.Orientation.clone()),
+        enumeration: crate::typeregister::BUILTIN.enums.Orientation.clone(),
     });
 
     let sub_expression = llr_Expression::ExtraBuiltinFunctionCall {
@@ -125,7 +125,7 @@ pub(super) fn organize_grid_layout(
     let input_data = grid_layout_input_data(layout, ctx);
 
     if let Some(button_roles) = &layout.dialog_button_roles {
-        let e = crate::typeregister::BUILTIN.with(|e| e.enums.DialogButtonRole.clone());
+        let e = crate::typeregister::BUILTIN.enums.DialogButtonRole.clone();
         let roles = button_roles
             .iter()
             .map(|r| {
@@ -194,7 +194,7 @@ pub(super) fn solve_grid_layout(
     let size = layout_geometry_size(&layout.geometry.rect, o, ctx);
     let orientation_expr = llr_Expression::EnumerationValue(EnumerationValue {
         value: o as _,
-        enumeration: crate::typeregister::BUILTIN.with(|b| b.enums.Orientation.clone()),
+        enumeration: crate::typeregister::BUILTIN.enums.Orientation.clone(),
     });
     let data = make_struct(
         BuiltinStruct::GridLayoutData,
@@ -278,8 +278,7 @@ pub(super) fn solve_box_layout(
                 ("padding", padding.ty(ctx), padding),
                 (
                     "alignment",
-                    crate::typeregister::BUILTIN
-                        .with(|e| Type::Enumeration(e.enums.LayoutAlignment.clone())),
+                    Type::Enumeration(crate::typeregister::BUILTIN.enums.LayoutAlignment.clone()),
                     bld.alignment,
                 ),
                 ("cells", bld.cells.ty(ctx), bld.cells),
@@ -287,12 +286,12 @@ pub(super) fn solve_box_layout(
         );
         (data, "solve_box_layout")
     } else {
-        let cross_axis_alignment_ty = crate::typeregister::BUILTIN
-            .with(|e| Type::Enumeration(e.enums.CrossAxisAlignment.clone()));
+        let cross_axis_alignment_ty =
+            Type::Enumeration(crate::typeregister::BUILTIN.enums.CrossAxisAlignment.clone());
         let cross_axis_alignment = if let Some(nr) = &layout.cross_alignment {
             llr_Expression::PropertyReference(ctx.map_property_reference(nr))
         } else {
-            let e = crate::typeregister::BUILTIN.with(|e| e.enums.CrossAxisAlignment.clone());
+            let e = crate::typeregister::BUILTIN.enums.CrossAxisAlignment.clone();
             llr_Expression::EnumerationValue(EnumerationValue {
                 value: e.default_value,
                 enumeration: e,
@@ -376,32 +375,31 @@ pub(super) fn solve_flexbox_layout(
             ("padding_v", padding_v.ty(ctx), padding_v),
             (
                 "alignment",
-                crate::typeregister::BUILTIN
-                    .with(|e| Type::Enumeration(e.enums.LayoutAlignment.clone())),
+                Type::Enumeration(crate::typeregister::BUILTIN.enums.LayoutAlignment.clone()),
                 fld.alignment,
             ),
             (
                 "direction",
-                crate::typeregister::BUILTIN
-                    .with(|e| Type::Enumeration(e.enums.FlexboxLayoutDirection.clone())),
+                Type::Enumeration(
+                    crate::typeregister::BUILTIN.enums.FlexboxLayoutDirection.clone(),
+                ),
                 fld.direction,
             ),
             (
                 "align_content",
-                crate::typeregister::BUILTIN
-                    .with(|e| Type::Enumeration(e.enums.FlexboxLayoutAlignContent.clone())),
+                Type::Enumeration(
+                    crate::typeregister::BUILTIN.enums.FlexboxLayoutAlignContent.clone(),
+                ),
                 fld.align_content,
             ),
             (
                 "cross_axis_alignment",
-                crate::typeregister::BUILTIN
-                    .with(|e| Type::Enumeration(e.enums.CrossAxisAlignment.clone())),
+                Type::Enumeration(crate::typeregister::BUILTIN.enums.CrossAxisAlignment.clone()),
                 fld.cross_axis_alignment,
             ),
             (
                 "flex_wrap",
-                crate::typeregister::BUILTIN
-                    .with(|e| Type::Enumeration(e.enums.FlexboxLayoutWrap.clone())),
+                Type::Enumeration(crate::typeregister::BUILTIN.enums.FlexboxLayoutWrap.clone()),
                 fld.flex_wrap,
             ),
             ("cells_h", fld.cells_h.ty(ctx), fld.cells_h),
@@ -625,8 +623,7 @@ pub(super) fn compute_flexbox_layout_info(
             );
 
             // Condition: direction == Row || direction == RowReverse
-            let direction_enum =
-                crate::typeregister::BUILTIN.with(|e| e.enums.FlexboxLayoutDirection.clone());
+            let direction_enum = crate::typeregister::BUILTIN.enums.FlexboxLayoutDirection.clone();
             let direction_ref = llr_Expression::PropertyReference(
                 ctx.map_property_reference(layout.direction.as_ref().unwrap()),
             );
@@ -798,7 +795,7 @@ fn flexbox_layout_data(
     let alignment = if let Some(expr) = &layout.geometry.alignment {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
-        let e = crate::typeregister::BUILTIN.with(|e| e.enums.LayoutAlignment.clone());
+        let e = crate::typeregister::BUILTIN.enums.LayoutAlignment.clone();
         llr_Expression::EnumerationValue(EnumerationValue {
             value: e.default_value,
             enumeration: e,
@@ -808,7 +805,7 @@ fn flexbox_layout_data(
     let direction = if let Some(expr) = &layout.direction {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
-        let e = crate::typeregister::BUILTIN.with(|e| e.enums.FlexboxLayoutDirection.clone());
+        let e = crate::typeregister::BUILTIN.enums.FlexboxLayoutDirection.clone();
         llr_Expression::EnumerationValue(EnumerationValue {
             value: e.default_value,
             enumeration: e,
@@ -818,7 +815,7 @@ fn flexbox_layout_data(
     let align_content = if let Some(expr) = &layout.align_content {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
-        let e = crate::typeregister::BUILTIN.with(|e| e.enums.FlexboxLayoutAlignContent.clone());
+        let e = crate::typeregister::BUILTIN.enums.FlexboxLayoutAlignContent.clone();
         llr_Expression::EnumerationValue(EnumerationValue {
             value: e.default_value,
             enumeration: e,
@@ -828,7 +825,7 @@ fn flexbox_layout_data(
     let cross_axis_alignment = if let Some(expr) = &layout.cross_axis_alignment {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
-        let e = crate::typeregister::BUILTIN.with(|e| e.enums.CrossAxisAlignment.clone());
+        let e = crate::typeregister::BUILTIN.enums.CrossAxisAlignment.clone();
         llr_Expression::EnumerationValue(EnumerationValue {
             value: e.default_value,
             enumeration: e,
@@ -838,7 +835,7 @@ fn flexbox_layout_data(
     let flex_wrap = if let Some(expr) = &layout.flex_wrap {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
-        let e = crate::typeregister::BUILTIN.with(|e| e.enums.FlexboxLayoutWrap.clone());
+        let e = crate::typeregister::BUILTIN.enums.FlexboxLayoutWrap.clone();
         llr_Expression::EnumerationValue(EnumerationValue {
             value: e.default_value,
             enumeration: e,
@@ -1052,7 +1049,7 @@ struct BoxLayoutDataResult {
 }
 
 fn default_align_self() -> (Type, llr_Expression) {
-    let e = crate::typeregister::BUILTIN.with(|e| e.enums.FlexboxLayoutAlignSelf.clone());
+    let e = crate::typeregister::BUILTIN.enums.FlexboxLayoutAlignSelf.clone();
     (
         Type::Enumeration(e.clone()),
         llr_Expression::EnumerationValue(EnumerationValue {
@@ -1103,7 +1100,7 @@ fn box_layout_data(
     let alignment = if let Some(expr) = &layout.geometry.alignment {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
-        let e = crate::typeregister::BUILTIN.with(|e| e.enums.LayoutAlignment.clone());
+        let e = crate::typeregister::BUILTIN.enums.LayoutAlignment.clone();
         llr_Expression::EnumerationValue(EnumerationValue {
             value: e.default_value,
             enumeration: e,
@@ -1317,8 +1314,7 @@ fn clamp_wrapping_flex_cross_preferred(
     // wrapping flex is clamped. Decide at runtime when flex-wrap is dynamic.
     let new_preferred = match &flex.flex_wrap {
         Some(nr) => {
-            let wrap_enum =
-                crate::typeregister::BUILTIN.with(|e| e.enums.FlexboxLayoutWrap.clone());
+            let wrap_enum = crate::typeregister::BUILTIN.enums.FlexboxLayoutWrap.clone();
             let is_no_wrap = llr_Expression::BinaryExpression {
                 lhs: Box::new(llr_Expression::PropertyReference(ctx.map_property_reference(nr))),
                 rhs: Box::new(llr_Expression::EnumerationValue(EnumerationValue {
@@ -1350,8 +1346,7 @@ fn clamp_wrapping_flex_cross_preferred(
         FlexboxAxisRelation::MainAxis => clamped_struct,
         FlexboxAxisRelation::CrossAxis => unreachable!("returned early above"),
         FlexboxAxisRelation::Unknown => {
-            let direction_enum =
-                crate::typeregister::BUILTIN.with(|e| e.enums.FlexboxLayoutDirection.clone());
+            let direction_enum = crate::typeregister::BUILTIN.enums.FlexboxLayoutDirection.clone();
             let direction_ref = llr_Expression::PropertyReference(
                 ctx.map_property_reference(flex.direction.as_ref().unwrap()),
             );

@@ -49,7 +49,7 @@ pub const RESERVED_GRIDLAYOUT_PROPERTIES: &[(&str, Type)] = &[
 ];
 
 // Note: flex-align-self is also a flexbox property but is added in reserved_properties()
-// because Type::Enumeration requires a runtime Rc allocation.
+// because Type::Enumeration requires a runtime Arc allocation.
 pub const RESERVED_FLEXBOXLAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("flex-grow", Type::Float32),
     ("flex-shrink", Type::Float32),
@@ -203,9 +203,7 @@ impl BuiltinTypes {
     }
 }
 
-thread_local! {
-    pub static BUILTIN: BuiltinTypes = BuiltinTypes::new();
-}
+pub static BUILTIN: std::sync::LazyLock<BuiltinTypes> = std::sync::LazyLock::new(BuiltinTypes::new);
 
 const RESERVED_OTHER_PROPERTIES: &[(&str, Type)] = &[
     ("clip", Type::Bool),
@@ -245,11 +243,11 @@ pub const DEPRECATED_ROTATION_ORIGIN_PROPERTIES: [(&str, Type); 2] =
     [("rotation-origin-x", Type::LogicalLength), ("rotation-origin-y", Type::LogicalLength)];
 
 pub fn noarg_callback_type() -> Type {
-    BUILTIN.with(|types| types.noarg_callback_type.clone())
+    BUILTIN.noarg_callback_type.clone()
 }
 
 fn strarg_callback_type() -> Type {
-    BUILTIN.with(|types| types.strarg_callback_type.clone())
+    BUILTIN.strarg_callback_type.clone()
 }
 
 pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str, Type)> {
@@ -310,10 +308,10 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
                 .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input)),
         )
         // flex-align-self is a flexbox-layout property but can't be in the const array
-        // because Type::Enumeration requires a runtime Rc allocation.
+        // because Type::Enumeration requires a runtime Arc allocation.
         .chain(std::iter::once((
             "flex-align-self",
-            Type::Enumeration(BUILTIN.with(|e| e.enums.FlexboxLayoutAlignSelf.clone())),
+            Type::Enumeration(BUILTIN.enums.FlexboxLayoutAlignSelf.clone()),
             PropertyVisibility::Input,
         )))
         .chain(IntoIterator::into_iter([
@@ -331,22 +329,22 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
             ),
             (
                 "dialog-button-role",
-                Type::Enumeration(BUILTIN.with(|e| e.enums.DialogButtonRole.clone())),
+                Type::Enumeration(BUILTIN.enums.DialogButtonRole.clone()),
                 PropertyVisibility::Constexpr,
             ),
             (
                 "accessible-role",
-                Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleRole.clone())),
+                Type::Enumeration(BUILTIN.enums.AccessibleRole.clone()),
                 PropertyVisibility::Constexpr,
             ),
             (
                 "accessible-orientation",
-                Type::Enumeration(BUILTIN.with(|e| e.enums.Orientation.clone())),
+                Type::Enumeration(BUILTIN.enums.Orientation.clone()),
                 PropertyVisibility::Input,
             ),
             (
                 "accessible-live-region",
-                Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleLiveness.clone())),
+                Type::Enumeration(BUILTIN.enums.AccessibleLiveness.clone()),
                 PropertyVisibility::Input,
             ),
         ]))
@@ -355,12 +353,15 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
 
 /// lookup reserved property injected in every item
 pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResult<'_> {
-    thread_local! {
-        static RESERVED_PROPERTIES: HashMap<&'static str, (Type, PropertyVisibility, Option<BuiltinFunction>)>
-            = reserved_properties().map(|(name, ty, visibility)| (name, (ty, visibility, reserved_member_function(name)))).collect();
-    }
+    static RESERVED_PROPERTIES: std::sync::LazyLock<
+        HashMap<&'static str, (Type, PropertyVisibility, Option<BuiltinFunction>)>,
+    > = std::sync::LazyLock::new(|| {
+        reserved_properties()
+            .map(|(name, ty, visibility)| (name, (ty, visibility, reserved_member_function(name))))
+            .collect()
+    });
     if let Some((ty, visibility, builtin_function)) =
-        RESERVED_PROPERTIES.with(|reserved| reserved.get(name.as_ref()).cloned())
+        RESERVED_PROPERTIES.get(name.as_ref()).cloned()
     {
         return PropertyLookupResult {
             property_type: ty,
@@ -496,7 +497,7 @@ impl TypeRegister {
         register.types.insert("Point".into(), logical_point_type().into());
         register.types.insert("Size".into(), logical_size_type().into());
 
-        BUILTIN.with(|e| e.enums.fill_register(&mut register));
+        BUILTIN.enums.fill_register(&mut register);
 
         register.supported_property_animation_types.insert(Type::Float32.to_string());
         register.supported_property_animation_types.insert(Type::Int32.to_string());
@@ -827,9 +828,8 @@ pub mod builtin_structs {
     use super::*;
     use crate::langtype::ConstantExpression;
 
-    thread_local! {
-        pub static BUILTIN_STRUCTS: BuiltinStructs = BuiltinStructs::new();
-    }
+    pub static BUILTIN_STRUCTS: std::sync::LazyLock<BuiltinStructs> =
+        std::sync::LazyLock::new(BuiltinStructs::new);
 
     #[rustfmt::skip]
     macro_rules! map_type {
@@ -850,7 +850,7 @@ pub mod builtin_structs {
         };
         // builtin enums
         ($pub_type:ident, $_:ident) => {
-            BUILTIN.with(|e| Type::Enumeration(e.enums.$pub_type.clone()))
+            Type::Enumeration(BUILTIN.enums.$pub_type.clone())
         };
     }
 
@@ -859,11 +859,11 @@ pub mod builtin_structs {
         (false) => { ConstantExpression::BoolLiteral(false) };
         ($lit:literal) => { ConstantExpression::NumberLiteral($lit as _, Unit::None) };
         ($enum:ident :: $value:ident) => {
-            ConstantExpression::EnumerationValue(BUILTIN.with(|e| {
+            ConstantExpression::EnumerationValue({
                 let variant = crate::generator::to_kebab_case(stringify!($value));
-                e.enums.$enum.clone().try_value_from_string(&variant)
+                BUILTIN.enums.$enum.clone().try_value_from_string(&variant)
                     .expect(concat!("unknown enum variant in field default ", stringify!($enum), "::", stringify!($value)))
-            }))
+            })
         };
         (($($tt:tt)*)) => { parse_default_field!($($tt)*) };
     }
@@ -921,7 +921,7 @@ pub mod builtin_structs {
             $(
             #[allow(non_snake_case)]
             pub fn $Name() -> Arc<Struct> {
-                BUILTIN_STRUCTS.with(|types| types.$Name.clone())
+                BUILTIN_STRUCTS.$Name.clone()
             }
             )*
         };
@@ -930,33 +930,33 @@ pub mod builtin_structs {
 }
 
 pub fn logical_point_type() -> Arc<Struct> {
-    BUILTIN.with(|types| types.logical_point_type.clone())
+    BUILTIN.logical_point_type.clone()
 }
 
 pub fn logical_size_type() -> Arc<Struct> {
-    BUILTIN.with(|types| types.logical_size_type.clone())
+    BUILTIN.logical_size_type.clone()
 }
 
 pub fn font_metrics_type() -> Type {
-    BUILTIN.with(|types| types.font_metrics_type.clone())
+    BUILTIN.font_metrics_type.clone()
 }
 
 /// The [`Type`] for a runtime LayoutInfo structure
 pub fn layout_info_type() -> Arc<Struct> {
-    BUILTIN.with(|types| types.layout_info_type.clone())
+    BUILTIN.layout_info_type.clone()
 }
 
 /// The [`Type`] for a runtime PathElement structure
 pub fn path_element_type() -> Type {
-    BUILTIN.with(|types| types.path_element_type.clone())
+    BUILTIN.path_element_type.clone()
 }
 
 /// The [`Type`] for a runtime LayoutItemInfo structure
 pub fn layout_item_info_type() -> Type {
-    BUILTIN.with(|types| types.layout_item_info_type.clone())
+    BUILTIN.layout_item_info_type.clone()
 }
 
 /// The [`Type`] for a runtime FlexboxLayoutItemInfo structure
 pub fn flexbox_layout_item_info_type() -> Type {
-    BUILTIN.with(|types| types.flexbox_layout_item_info_type.clone())
+    BUILTIN.flexbox_layout_item_info_type.clone()
 }
