@@ -110,8 +110,7 @@ fn declared_properties(root: &ElementRc) -> Vec<DeclaredProperty> {
         .filter(|(_, decl)| decl.node.is_some())
         .map(|(name, decl)| {
             let init = root_borrowed
-                .bindings
-                .get(name)
+                .binding_cell_including_synthetic(name)
                 .map(|b| compile_expression(&b.borrow().expression, root))
                 .unwrap_or_else(|| default_value(&decl.property_type));
             let snake = name.replace('-', "_");
@@ -202,8 +201,10 @@ fn emit_element(elem: &ElementRc, root: &ElementRc) -> TokenStream {
     let h = resolve(geometry.as_ref().map(|g| &g.height)).expect("element without a height");
     let x = resolve(geometry.as_ref().map(|g| &g.x)).unwrap_or_else(|| quote!(0i32));
     let y = resolve(geometry.as_ref().map(|g| &g.y)).unwrap_or_else(|| quote!(0i32));
-    let background =
-        elem.borrow().bindings.get("background").map(|b| b.borrow().expression.clone());
+    let background = elem
+        .borrow()
+        .binding_cell_including_synthetic("background")
+        .map(|b| b.borrow().expression.clone());
     let mut color = background.map(|expr| compile_expression(&expr, root));
     if std::rc::Rc::ptr_eq(elem, root) {
         // The window background defaults to black, so that the whole frame
@@ -237,7 +238,10 @@ fn emit_element(elem: &ElementRc, root: &ElementRc) -> TokenStream {
 /// size for the root's unbound width and height.
 fn compile_property_reference(nr: &NamedReference, root: &ElementRc) -> Option<TokenStream> {
     let element = nr.element();
-    let binding = element.borrow().bindings.get(nr.name()).map(|b| b.borrow().expression.clone());
+    let binding = element
+        .borrow()
+        .binding_cell_including_synthetic(nr.name())
+        .map(|b| b.borrow().expression.clone());
     match binding {
         Some(expr) => Some(compile_expression(&expr, root)),
         None if std::rc::Rc::ptr_eq(&element, root) => match nr.name().as_str() {

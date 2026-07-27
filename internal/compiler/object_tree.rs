@@ -579,7 +579,7 @@ impl Component {
             .is_some_and(|b| matches!(b.name.as_str(), "Window" | "Dialog"))
         {
             for prop in ["x", "y"] {
-                if let Some(b) = c.root_element.borrow().bindings.get(prop) {
+                if let Some(b) = c.root_element.borrow().binding_cell_including_synthetic(prop) {
                     #[cfg(feature = "slint-sc")]
                     if diag.slint_sc {
                         diag.slint_sc_error(&format!("The property '{prop}' is"), &*b.borrow());
@@ -2576,8 +2576,7 @@ impl Element {
             // Check if content-width and content-height are explicitly set by the user,
             // either under their own name or through the deprecated viewport-* aliases.
             let (content_width_is_explicitly_set, content_height_is_explicitly_set) = {
-                let has_binding =
-                    |name| parent_elem.binding(name).is_some_and(|b| b.has_binding());
+                let has_binding = |name| parent_elem.binding(name).is_some_and(|b| b.has_binding());
                 (
                     has_binding("content-width") || has_binding("viewport-width"),
                     has_binding("content-height") || has_binding("viewport-height"),
