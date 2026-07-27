@@ -70,6 +70,7 @@ pub enum ParagraphBlock {
         body: alloc::vec::Vec<alloc::vec::Vec<TableCell>>,
         alignments: alloc::vec::Vec<TableAlignment>,
     },
+    CodeBlock { language: Option<alloc::string::String>, text: alloc::string::String },
 }
 
 /// Error returned by markdown styled text parsing
@@ -189,6 +190,7 @@ pub fn rich_text_content(block: &ParagraphBlock) -> Option<&RichText> {
         | ParagraphBlock::BlockQuote { content, .. } => Some(content),
         ParagraphBlock::HorizontalRule => None,
         ParagraphBlock::Table { .. } => None,
+        ParagraphBlock::CodeBlock { .. } => None,
     }
 }
 
@@ -324,7 +326,6 @@ fn unsupported_tag_name(tag: &pulldown_cmark::Tag<'_>) -> alloc::string::String 
         Heading { .. } => "headings",
         // Image { .. } => "images",            // handled inline
         // BlockQuote(_) => "block quotes",     // handled inline
-        CodeBlock(_) => "code blocks",
         // Table(_) => "tables",
         HtmlBlock => "HTML blocks",
         // FootnoteDefinition(_) => "footnotes", // handled inline
@@ -385,7 +386,7 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
     let mut skip_until_depth: usize = 0;
 
     let mut in_table = false;
-    let mut _table_alignments: Vec<TableAlignment> = Vec::new();
+    let mut table_alignments: Vec<TableAlignment> = Vec::new();
     let mut table_header_rows: Vec<Vec<RichText>> = Vec::new();
     let mut table_body_rows: Vec<Vec<RichText>> = Vec::new();
     let mut table_current_row: Vec<RichText> = Vec::new();
@@ -397,7 +398,13 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
     let mut current_heading_level: Option<u8> = None;
     let mut block_quote_level: u32 = 0;
 
+    let mut code_block_language: Option<alloc::string::String> = None;
+    let mut code_block_text: Option<alloc::string::String> = None;
+
     let mut current_paragraph: Option<ParagraphBlock> = None;
+    let mut footnote_definitions: Vec<(alloc::string::String, alloc::vec::Vec<ParagraphBlock>)> = Vec::new();
+    let mut current_footnote_name: Option<alloc::string::String> = None;
+    let mut footnote_start_index: usize = 0;
 
     for (event, event_range) in parser.into_offset_iter() {
         let indentation = list_state_stack.len().saturating_sub(1) as _;
@@ -472,7 +479,7 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                     columns: table_columns,
                     header,
                     body,
-                    alignments: alloc::vec::Vec::new(),
+                    alignments: core::mem::take(&mut table_alignments),
                 });
                 current_paragraph = None;
                 continue;
@@ -575,9 +582,14 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                     pulldown_cmark::Tag::Superscript => Style::Superscript,
                     pulldown_cmark::Tag::Subscript => Style::Subscript,
 
-                    pulldown_cmark::Tag::Table(_) => {
+                    pulldown_cmark::Tag::Table(alignments) => {
                         in_table = true;
-                        _table_alignments = Vec::new();
+                        table_alignments = alignments.iter().map(|a| match a {
+                            pulldown_cmark::Alignment::None => TableAlignment::None,
+                            pulldown_cmark::Alignment::Left => TableAlignment::Left,
+                            pulldown_cmark::Alignment::Center => TableAlignment::Center,
+                            pulldown_cmark::Alignment::Right => TableAlignment::Right,
+                        }).collect();
                         table_header_rows = Vec::new();
                         table_body_rows = Vec::new();
                         table_current_row = Vec::new();
@@ -601,11 +613,33 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                         continue;
                     }
 
-                    pulldown_cmark::Tag::FootnoteDefinition(_) => {
-                        skip_until_depth = 1;
+                    pulldown_cmark::Tag::FootnoteDefinition(name) => {
+                        if let Some(paragraph) = current_paragraph.take() {
+                            paragraphs.push(paragraph);
+                        }
+                        current_footnote_name = Some(name.into());
+                        footnote_start_index = paragraphs.len();
                         continue;
                     }
                     pulldown_cmark::Tag::Image { .. } => {
+                        skip_end_count += 1;
+                        continue;
+                    }
+                    pulldown_cmark::Tag::CodeBlock(kind) => {
+                        if let Some(paragraph) =
+                            current_paragraph.replace(begin_paragraph(indentation, None))
+                        {
+                            paragraphs.push(paragraph);
+                        }
+                        let language = match kind {
+                            pulldown_cmark::CodeBlockKind::Fenced(lang) => {
+                                let l = lang.trim();
+                                if l.is_empty() { None } else { Some(l.into()) }
+                            }
+                            pulldown_cmark::CodeBlockKind::Indented => None,
+                        };
+                        code_block_language = language;
+                        code_block_text = Some(alloc::string::String::new());
                         skip_end_count += 1;
                         continue;
                     }
@@ -635,10 +669,36 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                     table_current_cell.text.push_str(&text);
                     continue;
                 }
+                if let Some(ref mut code_text) = code_block_text {
+                    code_text.push_str(&text);
+                    continue;
+                }
                 let paragraph =
                     get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range);
 
                 substitute(paragraph, &text, args, &mut arg_index, &mut errors, &event_range);
+            }
+            pulldown_cmark::Event::End(pulldown_cmark::TagEnd::FootnoteDefinition) => {
+                if let Some(name) = current_footnote_name.take() {
+                    if let Some(paragraph) = current_paragraph.take() {
+                        paragraphs.push(paragraph);
+                    }
+                    let footnote_paras: Vec<ParagraphBlock> =
+                        if footnote_start_index < paragraphs.len() {
+                            paragraphs.drain(footnote_start_index..).collect()
+                        } else {
+                            Vec::new()
+                        };
+                    footnote_definitions.push((name, footnote_paras));
+                }
+            }
+            pulldown_cmark::Event::End(pulldown_cmark::TagEnd::CodeBlock) => {
+                skip_end_count = skip_end_count.saturating_sub(1);
+                if let Some(text) = code_block_text.take() {
+                    let language = code_block_language.take();
+                    paragraphs.push(ParagraphBlock::CodeBlock { language, text });
+                }
+                continue;
             }
             pulldown_cmark::Event::End(_) => {
                 if in_table {
@@ -1009,6 +1069,17 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
         }
     } else if let Some(paragraph) = current_paragraph.take() {
         paragraphs.push(paragraph);
+    }
+
+    if !footnote_definitions.is_empty() {
+        paragraphs.push(ParagraphBlock::HorizontalRule);
+        for (name, content) in footnote_definitions {
+            let ref_text = alloc::format!("[{}] ", name);
+            let mut rt = RichText::default();
+            rt.text = ref_text;
+            paragraphs.push(ParagraphBlock::Text(rt));
+            paragraphs.extend(content);
+        }
     }
 
     (paragraphs, errors)
@@ -1532,10 +1603,21 @@ fn markdown_footnote_reference() {
         "Text with a footnote[^1]\n\n[^1]: The footnote content",
         &[]
     ));
-    assert_eq!(result.len(), 1);
+    assert_eq!(result.len(), 4);
     assert_eq!(result[0], ParagraphBlock::Text(RichText {
         text: "Text with a footnote[1]".into(),
         formatting: alloc::vec![FormattedSpan { range: 20..23, style: Style::Superscript }],
+        links: alloc::vec![],
+    }));
+    assert_eq!(result[1], ParagraphBlock::HorizontalRule);
+    assert_eq!(result[2], ParagraphBlock::Text(RichText {
+        text: "[1] ".into(),
+        formatting: alloc::vec![],
+        links: alloc::vec![],
+    }));
+    assert_eq!(result[3], ParagraphBlock::Text(RichText {
+        text: "The footnote content".into(),
+        formatting: alloc::vec![],
         links: alloc::vec![],
     }));
 }
@@ -1565,6 +1647,53 @@ fn markdown_image() {
             formatting: alloc::vec![],
             links: alloc::vec![],
         })]
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_code_block() {
+    let empty: &[&[ParagraphBlock]] = &[];
+    let result = assert_no_errors(parse_interpolated(
+        "Text before\n\n```\ncode block\n```\n\nText after",
+        empty,
+    ));
+    assert!(
+        result.iter().any(|b| matches!(b, ParagraphBlock::CodeBlock { text, .. } if text == "code block\n")),
+        "Expected a CodeBlock with text 'code block\\n', got: {result:?}"
+    );
+    let code_blocks: alloc::vec::Vec<_> = result.iter().filter(|b| matches!(b, ParagraphBlock::CodeBlock { .. })).collect();
+    assert_eq!(code_blocks.len(), 1);
+    if let ParagraphBlock::CodeBlock { language, .. } = &code_blocks[0] {
+        assert_eq!(*language, None);
+    }
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_code_block_with_language() {
+    let empty: &[&[ParagraphBlock]] = &[];
+    let result = assert_no_errors(parse_interpolated(
+        "```rust\nfn main() {}\n```",
+        empty,
+    ));
+    assert!(
+        result.iter().any(|b| matches!(b, ParagraphBlock::CodeBlock { language: Some(lang), text } if lang == "rust" && text.contains("fn main"))),
+        "Expected a CodeBlock with language 'rust' containing 'fn main', got: {result:?}"
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_code_block_indented() {
+    let empty: &[&[ParagraphBlock]] = &[];
+    let result = assert_no_errors(parse_interpolated(
+        "    indented code block",
+        empty,
+    ));
+    assert!(
+        result.iter().any(|b| matches!(b, ParagraphBlock::CodeBlock { .. })),
+        "Expected a CodeBlock, got: {result:?}"
     );
 }
 

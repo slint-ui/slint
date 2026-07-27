@@ -519,6 +519,7 @@ fn create_text_paragraphs(
          formatting: Vec<i_slint_common::styled_text::FormattedSpan>,
          links: Vec<(std::ops::Range<usize>, std::string::String)>,
          is_horizontal_rule: bool,
+         is_code_block: bool,
          block_type: BlockType,
          block_quote_level: u8| {
             let selection = selection.clone().and_then(|(selection, selection_color)| {
@@ -544,7 +545,7 @@ fn create_text_paragraphs(
             let layout =
                 layout_builder.build(font_context, text, selection, formatting, Some(link_color), block_type);
 
-            TextParagraph { range, y: PhysicalLength::default(), layout, links, code_ranges, is_horizontal_rule, block_quote_level, heading_level, table: None }
+            TextParagraph { range, y: PhysicalLength::default(), layout, links, code_ranges, is_horizontal_rule, is_code_block, block_quote_level, heading_level, table: None }
         };
 
     let mut paragraphs = Vec::with_capacity(1);
@@ -559,6 +560,7 @@ fn create_text_paragraphs(
                     Default::default(),
                     Default::default(),
                     false,
+                    false,
                     BlockType::Normal,
                     0,
                 ));
@@ -571,28 +573,51 @@ fn create_text_paragraphs(
                         paragraphs.push(paragraph_from_text(
                             font_context, &content.text, 0..0,
                             content.formatting.clone(), content.links.clone(),
-                            false, BlockType::Normal, 0,
+                            false, false, BlockType::Normal, 0,
                         ));
                     }
                     i_slint_common::styled_text::ParagraphBlock::Heading { level, content } => {
                         paragraphs.push(paragraph_from_text(
                             font_context, &content.text, 0..0,
                             content.formatting.clone(), content.links.clone(),
-                            false, BlockType::Heading(level), 0,
+                            false, false, BlockType::Heading(level), 0,
                         ));
                     }
                     i_slint_common::styled_text::ParagraphBlock::BlockQuote { level, content } => {
+                        let indent_str = " ".repeat(level as usize + 2);
+                        let indented_text = alloc::format!("{}{}", indent_str, content.text);
+                        let shifted_formatting: Vec<_> = content.formatting.iter().map(|s| {
+                            i_slint_common::styled_text::FormattedSpan {
+                                range: (s.range.start + indent_str.len())..(s.range.end + indent_str.len()),
+                                style: s.style.clone(),
+                            }
+                        }).collect();
                         paragraphs.push(paragraph_from_text(
-                            font_context, &content.text, 0..0,
-                            content.formatting.clone(), content.links.clone(),
-                            false, BlockType::Normal, level,
+                            font_context, &indented_text, 0..0,
+                            shifted_formatting, content.links.clone(),
+                            false, false, BlockType::Normal, level,
                         ));
                     }
                     i_slint_common::styled_text::ParagraphBlock::HorizontalRule => {
                         paragraphs.push(paragraph_from_text(
                             font_context, "", 0..0,
                             Default::default(), Default::default(),
-                            true, BlockType::Normal, 0,
+                            true, false, BlockType::Normal, 0,
+                        ));
+                    }
+                    i_slint_common::styled_text::ParagraphBlock::CodeBlock { text, .. } => {
+                        let formatting = if text.is_empty() {
+                            Vec::new()
+                        } else {
+                            alloc::vec![i_slint_common::styled_text::FormattedSpan {
+                                range: 0..text.len(),
+                                style: i_slint_common::styled_text::Style::Code,
+                            }]
+                        };
+                        paragraphs.push(paragraph_from_text(
+                            font_context, &text, 0..0,
+                            formatting, Vec::new(),
+                            false, true, BlockType::Normal, 0,
                         ));
                     }
                     i_slint_common::styled_text::ParagraphBlock::Table { columns, header, body, .. } => {
@@ -719,6 +744,7 @@ fn create_text_paragraphs(
                             links: Vec::new(),
                             code_ranges: Vec::new(),
                             is_horizontal_rule: false,
+                            is_code_block: false,
                             block_quote_level: 0,
                             heading_level: 0,
                             table: Some(TableLayout {
@@ -787,17 +813,27 @@ fn layout(
     let mut para_y = 0.0;
     let mut prev_heading_level: u8 = 0;
     let mut prev_block_quote_level: u8 = 0;
+    let mut prev_is_code_block = false;
+    let mut prev_is_table = false;
     for para in paragraphs.iter_mut() {
         let spacing = if para_y == 0.0 {
             0.0
         } else if para.heading_level > 0 && prev_heading_level == 0 {
             body_font_size * 1.0
+        } else if para.is_code_block && !prev_is_code_block {
+            body_font_size * 0.5
         } else if para.block_quote_level > 0 && prev_block_quote_level == 0 {
             body_font_size * 0.5
         } else if prev_heading_level > 0 && para.heading_level == 0 {
             body_font_size * 0.5
         } else if para.heading_level > 0 && prev_heading_level > 0 {
             0.0
+        } else if !para.is_code_block && prev_is_code_block {
+            body_font_size * 0.3
+        } else if para.table.is_some() && !prev_is_table {
+            body_font_size * 0.5
+        } else if !para.table.is_some() && prev_is_table {
+            body_font_size * 0.3
         } else {
             body_font_size * 0.3
         };
@@ -833,6 +869,8 @@ fn layout(
 
         prev_heading_level = para.heading_level;
         prev_block_quote_level = para.block_quote_level;
+        prev_is_code_block = para.is_code_block;
+        prev_is_table = para.table.is_some();
     }
 
     let line_limit_cut =
@@ -1024,6 +1062,7 @@ struct TextParagraph {
     /// renderers.
     code_ranges: std::vec::Vec<Range<usize>>,
     is_horizontal_rule: bool,
+    is_code_block: bool,
     block_quote_level: u8,
     heading_level: u8,
     table: Option<TableLayout>,
@@ -1817,6 +1856,22 @@ impl Layout {
                 }
 
                 continue;
+            }
+            if paragraph.is_code_block {
+                if let Some(cut) = visible_extent {
+                    if paragraph_index > cut.last_paragraph {
+                        continue;
+                    }
+                }
+                let y = self.y_offset + paragraph.y;
+                let para_height = PhysicalLength::new(paragraph.layout.height());
+                let bg_color = default_text_color.transparentize(0.9);
+                let padding = PhysicalLength::new(8.0);
+                let bg_rect = PhysicalRect::new(
+                    PhysicalPoint::new(0.0, y.get() - padding.get()),
+                    PhysicalSize::new(self.max_width.get(), para_height.get() + padding.get() * 2.0),
+                );
+                item_renderer.fill_rectangle_with_color(bg_rect, bg_color);
             }
             if paragraph.block_quote_level > 0 {
                 let bar_width = PhysicalLength::new(3.0);
