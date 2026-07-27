@@ -71,16 +71,11 @@ catalogs:
       version: 4.1.10
 
 overrides:
-  lodash@>=4.0.0 <=4.17.22: '>=4.17.23'
   svgo@>=4.0.0 <4.0.2: '>=4.0.2'
-  devalue@<5.6.4: '>=5.6.4'
-  devalue@<=5.6.3: '>=5.6.4'
-  flatted@<3.4.0: '>=3.4.0'
   yaml@>=2.0.0 <2.8.3: '>=2.8.3'
   uuid@<14.0.0: '>=14.0.0'
   qs@>=6.11.1 <=6.15.1: '>=6.15.2'
   js-yaml@<=4.1.1: '>=4.2.0 <5.0.0'
-  brace-expansion@>=5.0.0 <5.0.8: '>=5.0.8'
   sharp@<0.35.0: '>=0.35.0'
 
 importers:
@@ -107,7 +102,7 @@ importers:
         version: 2.5.5
       '@napi-rs/cli':
         specifier: 3.7.4
-        version: 3.7.4(@emnapi/runtime@1.11.2)(@types/node@24.12.0)
+        version: 3.7.4(@emnapi/runtime@1.9.2)(@types/node@24.12.0)
       '@types/capture-console':
         specifier: 1.0.5
         version: 1.0.5
@@ -9804,7 +9799,7 @@ snapshots:
     dependencies:
       '@chevrotain/types': 11.1.2
 
-  '@napi-rs/cli@3.7.4(@emnapi/runtime@1.11.2)(@types/node@24.12.0)':
+  '@napi-rs/cli@3.7.4(@emnapi/runtime@1.9.2)(@types/node@24.12.0)':
     dependencies:
       '@inquirer/prompts': 8.5.2(@types/node@24.12.0)
       '@napi-rs/cross-toolchain': 1.0.3
@@ -9819,7 +9814,7 @@ snapshots:
       semver: 7.8.5
       typanion: 3.14.0
     optionalDependencies:
-      '@emnapi/runtime': 1.11.2
+      '@emnapi/runtime': 1.9.2
     transitivePeerDependencies:
       - '@napi-rs/cross-toolchain-arm64-target-aarch64'
       - '@napi-rs/cross-toolchain-arm64-target-armv7'
