@@ -113,6 +113,12 @@ pub fn count_property_use(root: &CompilationUnit) {
             }
         }
 
+        // 8. animations (`animate x { … }`): `remove_unused` keeps and remaps these,
+        // so the properties they read must be counted too.
+        for anim in sc.animations.values() {
+            anim.visit_property_references(ctx, &mut visit_property);
+        }
+
         // Function bodies are visited on demand from visit_property when a call to
         // them is found, so that an unreachable function keeps nothing alive.
 
