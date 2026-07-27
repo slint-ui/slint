@@ -939,7 +939,7 @@ fn test_texteditor_no_content_in_source_file() {
 fn test_texteditor_edit_out_of_range() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
-    let source_file = std::rc::Rc::new(SourceFileInner::new(
+    let source_file = std::sync::Arc::new(SourceFileInner::new(
         std::path::PathBuf::from("/tmp/foo.slint"),
         r#""#.to_string(),
     ));
@@ -960,7 +960,7 @@ fn test_texteditor_edit_out_of_range() {
 fn test_texteditor_delete_everything() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
-    let source_file = std::rc::Rc::new(SourceFileInner::new(
+    let source_file = std::sync::Arc::new(SourceFileInner::new(
         std::path::PathBuf::from("/tmp/foo.slint"),
         r#"abc
 def
@@ -990,7 +990,7 @@ geh"#
 fn test_texteditor_replace() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
-    let source_file = std::rc::Rc::new(SourceFileInner::new(
+    let source_file = std::sync::Arc::new(SourceFileInner::new(
         std::path::PathBuf::from("/tmp/foo.slint"),
         r#"abc
 def
@@ -1025,7 +1025,7 @@ geh"#
 fn test_texteditor_2step_replace_all() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
-    let source_file = std::rc::Rc::new(SourceFileInner::new(
+    let source_file = std::sync::Arc::new(SourceFileInner::new(
         std::path::PathBuf::from("/tmp/foo.slint"),
         r#"abc
 def

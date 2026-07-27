@@ -389,7 +389,7 @@ impl ElementRcNode {
             return false;
         };
 
-        std::rc::Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range()
+        std::sync::Arc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range()
     }
 
     pub fn contains_offset(&self, offset: TextSize) -> bool {

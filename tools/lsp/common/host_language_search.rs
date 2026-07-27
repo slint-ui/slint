@@ -18,7 +18,7 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use i_slint_compiler::diagnostics::{ByteFormat, SourceFile, SourceFileInner};
 use i_slint_compiler::generator::accessor_names::{self, DeclarationKind};
@@ -152,7 +152,7 @@ pub fn search_replace_host_language_accessors(
         };
         // Synthesize a SourceFile for line/column conversion. Host-language
         // files are not in the LSP document cache, so they have no version.
-        let source_file: SourceFile = Rc::new(SourceFileInner::new(path.clone(), contents));
+        let source_file: SourceFile = Arc::new(SourceFileInner::new(path.clone(), contents));
         for (range, new_text) in file_edits {
             let lsp_range = byte_range_to_lsp_range(&source_file, range, format);
             edits.push(SingleTextEdit {
