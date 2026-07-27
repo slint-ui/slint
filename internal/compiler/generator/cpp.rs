@@ -3509,7 +3509,7 @@ fn generate_public_api_for_properties(
                 format!("{}.set_handler(std::forward<Functor>(callback_handler));", access),
             ];
             if let Some(t) = &tracker {
-                on_stmts.push(format!("{t}.mark_dirty();"));
+                on_stmts.push(t.then(|x| format!("{x}.mark_dirty();")));
             }
             declarations.push((
                 Access::Public,
@@ -3656,14 +3656,20 @@ fn access_window_field(ctx: &EvaluationContext) -> String {
     format!("{}->window().window_handle()", ctx.generator_state.global_access)
 }
 
+/// Walks up `parent_level` parent pointers, starting from `self`.
+fn parent_access_path(parent_level: usize) -> MemberAccess {
+    let mut path = MemberAccess::Direct("self".to_string());
+    for _ in 0..parent_level {
+        path = path.and_then(|x| format!("{x}->parent.lock()"));
+    }
+    path
+}
+
 /// Returns the code that can access the given property (but without the set or get)
 fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> MemberAccess {
     match reference {
         llr::MemberReference::Relative { parent_level, local_reference } => {
-            let mut path = MemberAccess::Direct("self".to_string());
-            for _ in 0..*parent_level {
-                path = path.and_then(|x| format!("{x}->parent.lock()"));
-            }
+            let path = parent_access_path(*parent_level);
             if let Some(sub_component) = ctx.parent_sub_component_idx(*parent_level) {
                 let (compo_path, sub_component) = follow_sub_component_path(
                     ctx.compilation_unit,
@@ -3781,17 +3787,17 @@ fn field_name(name: &str) -> SmolStr {
 fn access_callback_tracker_cpp(
     reference: &llr::MemberReference,
     ctx: &EvaluationContext,
-) -> Option<String> {
+) -> Option<MemberAccess> {
     fn in_global(
         g: &llr::GlobalComponent,
         callback_idx: &llr::CallbackIdx,
         self_: &str,
-    ) -> Option<String> {
+    ) -> Option<MemberAccess> {
         if !g.callbacks[*callback_idx].needs_tracker {
             return None;
         }
         let tracker_name = callback_tracker_name(&g.callbacks[*callback_idx].name);
-        Some(format!("{self_}{tracker_name}"))
+        Some(MemberAccess::Direct(format!("{self_}{tracker_name}")))
     }
 
     match reference {
@@ -3808,22 +3814,25 @@ fn access_callback_tracker_cpp(
                 in_global(global, callback_idx, &format!("{global_access}->{global_id}->"))
             }
         }
-        llr::MemberReference::Relative { parent_level: 0, local_reference } => {
-            if let llr::LocalMemberIndex::Callback(callback_idx) = &local_reference.reference {
-                if let Some(current_global) = ctx.current_global() {
-                    return in_global(current_global, callback_idx, "this->");
-                }
-                if local_reference.sub_component_path.is_empty()
-                    && let Some(sc_idx) = ctx.parent_sub_component_idx(0)
-                {
-                    let sc = &ctx.compilation_unit.sub_components[sc_idx];
-                    if sc.callbacks[*callback_idx].needs_tracker {
-                        let tracker_name = callback_tracker_name(&sc.callbacks[*callback_idx].name);
-                        return Some(format!("self->{tracker_name}"));
-                    }
-                }
+        llr::MemberReference::Relative { parent_level, local_reference } => {
+            let llr::LocalMemberIndex::Callback(callback_idx) = &local_reference.reference else {
+                return None;
+            };
+            if let Some(current_global) = ctx.current_global() {
+                return in_global(current_global, callback_idx, "this->");
             }
-            None
+            let sc_idx = ctx.parent_sub_component_idx(*parent_level)?;
+            let (compo_path, sub_component) = follow_sub_component_path(
+                ctx.compilation_unit,
+                sc_idx,
+                &local_reference.sub_component_path,
+            );
+            if !sub_component.callbacks[*callback_idx].needs_tracker {
+                return None;
+            }
+            let tracker_name = callback_tracker_name(&sub_component.callbacks[*callback_idx].name);
+            let path = parent_access_path(*parent_level);
+            Some(path.with_member(format!("->{compo_path}{tracker_name}")))
         }
         _ => None,
     }
@@ -4019,7 +4028,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::CallBackCall { callback, arguments } => {
             let f = access_member(callback, ctx);
             let tracker_get = access_callback_tracker_cpp(callback, ctx)
-                .map(|t| format!("(void){t}.get(), "))
+                .map(|t| format!("(void)({}), ", t.get_property()))
                 .unwrap_or_default();
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
             if expr.ty(ctx) == Type::Void {
