@@ -105,7 +105,7 @@ fn build_tooltip_content(
         id: format_smolstr!("{}-content", popup_id),
         base_type: tooltip_impl_type.clone(),
         enclosing_component: enclosing_component.clone(),
-        bindings,
+        bindings: bindings.into(),
         children,
         ..Default::default()
     }

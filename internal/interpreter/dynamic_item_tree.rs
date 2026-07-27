@@ -227,11 +227,12 @@ impl RepeatedItemTree for ErasedItemTreeBox {
 
         let flex_grow = load_f32("flex-grow");
         let flex_shrink = load_f32("flex-shrink");
-        let flex_basis = if root_element.borrow().bindings.contains_key("flex-basis") {
-            load_f32("flex-basis")
-        } else {
-            -1.0
-        };
+        let flex_basis =
+            if root_element.borrow().binding_cell_including_synthetic("flex-basis").is_some() {
+                load_f32("flex-basis")
+            } else {
+                -1.0
+            };
         let flex_align_self = eval::load_property(instance_ref, root_element, "flex-align-self")
             .ok()
             .and_then(|v| v.try_into().ok())

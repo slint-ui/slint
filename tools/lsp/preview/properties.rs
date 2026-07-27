@@ -290,7 +290,7 @@ fn find_property_binding_offset(
 
     let element = element.element.borrow();
 
-    if let Some(v) = element.bindings.get(property_name)
+    if let Some(v) = element.binding_cell_including_synthetic(property_name)
         && let Some(span) = &v.borrow().span
     {
         let offset = span.span().offset as u32;

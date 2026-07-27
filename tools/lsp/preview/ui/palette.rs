@@ -105,7 +105,7 @@ fn find_binding_expression(
     let property_name = smol_str::SmolStr::from(property_name);
 
     let elem = element.borrow();
-    let be = elem.bindings.get(&property_name).map(|be| be.borrow().clone())?;
+    let be = elem.binding_cell_including_synthetic(&property_name).map(|be| be.borrow().clone())?;
     if matches!(be.expression, expression_tree::Expression::Invalid) {
         for twb in &be.two_way_bindings {
             let expression_tree::TwoWayBinding::Property { property, field_access } = twb else {

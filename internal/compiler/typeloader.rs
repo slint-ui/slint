@@ -486,8 +486,7 @@ impl Snapshotter {
             .collect();
 
         target_element.bindings = elem
-            .bindings
-            .iter()
+            .bindings_including_synthetic()
             .map(|(k, v)| {
                 let bm = v.borrow();
                 let binding = self.snapshot_binding_expression(&bm);

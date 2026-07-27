@@ -2167,7 +2167,7 @@ pub fn store_property(
         guard,
     ) {
         ComponentInstance::InstanceRef(enclosing_component) => {
-            let maybe_animation = match element.borrow().bindings.get(name) {
+            let maybe_animation = match element.borrow().binding_cell_including_synthetic(name) {
                 Some(b) => crate::dynamic_item_tree::animation_for_property(
                     enclosing_component,
                     &b.borrow().animation,
@@ -2399,7 +2399,11 @@ pub(crate) fn call_function(
                 .expect("component must be alive while invoking functions");
             let mut ctx = EvalLocalContext::from_function_arguments(c, args);
             eval_expression(
-                &element.borrow().bindings.get(function_name)?.borrow().expression,
+                &element
+                    .borrow()
+                    .binding_cell_including_synthetic(function_name)?
+                    .borrow()
+                    .expression,
                 &mut ctx,
             )
             .into()
@@ -2470,13 +2474,39 @@ pub(crate) fn enclosing_component_instance_for_element<'a, 'new_id>(
     }
 }
 
+/// Look up a binding by property name across the two binding containers the interpreter builds
+/// structs from: an element's sealed [`Bindings`](i_slint_compiler::object_tree::Bindings) and a
+/// `PathElement`'s raw binding map.
+pub(crate) trait BindingLookup {
+    fn lookup_binding(
+        &self,
+        name: &str,
+    ) -> Option<&std::cell::RefCell<i_slint_compiler::expression_tree::BindingExpression>>;
+}
+impl BindingLookup for i_slint_compiler::object_tree::BindingsMap {
+    fn lookup_binding(
+        &self,
+        name: &str,
+    ) -> Option<&std::cell::RefCell<i_slint_compiler::expression_tree::BindingExpression>> {
+        self.get(name)
+    }
+}
+impl BindingLookup for i_slint_compiler::object_tree::Bindings {
+    fn lookup_binding(
+        &self,
+        name: &str,
+    ) -> Option<&std::cell::RefCell<i_slint_compiler::expression_tree::BindingExpression>> {
+        self.binding_cell_including_synthetic(name)
+    }
+}
+
 pub fn new_struct_with_bindings<ElementType: 'static + Default + corelib::rtti::BuiltinItem>(
-    bindings: &i_slint_compiler::object_tree::BindingsMap,
+    bindings: &impl BindingLookup,
     local_context: &mut EvalLocalContext,
 ) -> ElementType {
     let mut element = ElementType::default();
     for (prop, info) in ElementType::fields::<Value>().into_iter() {
-        if let Some(binding) = &bindings.get(prop) {
+        if let Some(binding) = bindings.lookup_binding(prop) {
             let value = eval_expression(&binding.borrow(), local_context);
             info.set_field(&mut element, value).unwrap();
         }

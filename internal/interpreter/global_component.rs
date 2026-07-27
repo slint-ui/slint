@@ -323,8 +323,7 @@ impl GlobalComponent for GlobalComponentInstance {
                 .original
                 .root_element
                 .borrow()
-                .bindings
-                .get(fn_name)
+                .binding_cell_including_synthetic(fn_name)
                 .ok_or(())?
                 .borrow()
                 .expression,

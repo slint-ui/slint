@@ -926,6 +926,40 @@ impl GeometryProps {
 
 pub type BindingsMap = BTreeMap<SmolStr, RefCell<BindingExpression>>;
 
+/// A sealed wrapper around an element's binding map.
+///
+/// The inner map is private to the `object_tree` module, so other modules cannot read or mutate
+/// it in a hook-unaware way (treating a synthetic debug hook as a real binding). All access from
+/// outside goes through the hook-aware accessors on [`Element`]. The field itself can stay public
+/// — `Element` struct literals keep compiling — because the seal is on this inner map.
+#[derive(Clone, Default)]
+pub struct Bindings(BindingsMap);
+
+impl std::iter::FromIterator<(SmolStr, RefCell<BindingExpression>)> for Bindings {
+    fn from_iter<T: IntoIterator<Item = (SmolStr, RefCell<BindingExpression>)>>(iter: T) -> Self {
+        Bindings(iter.into_iter().collect())
+    }
+}
+
+impl From<BindingsMap> for Bindings {
+    fn from(map: BindingsMap) -> Self {
+        Bindings(map)
+    }
+}
+
+impl Bindings {
+    /// The raw binding cell for `name`, including a synthetic debug hook.
+    ///
+    /// The counterpart of [`Element::binding_cell_including_synthetic`], for code that holds a
+    /// `&Bindings` (e.g. an animation element's bindings) rather than a whole `Element`.
+    pub fn binding_cell_including_synthetic(
+        &self,
+        name: &str,
+    ) -> Option<&RefCell<BindingExpression>> {
+        self.0.get(name)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ElementDebugInfo {
     // The id qualified with the enclosing component name. Given `foo := Bar {}` this is `EnclosingComponent::foo`
@@ -984,7 +1018,7 @@ pub struct Element {
     //pub base: QualifiedTypeName,
     pub base_type: ElementType,
     /// Currently contains also the callbacks. FIXME: should that be changed?
-    pub bindings: BindingsMap,
+    pub bindings: Bindings,
     pub change_callbacks: BTreeMap<SmolStr, RefCell<Vec<Expression>>>,
     pub property_analysis: RefCell<BTreeMap<SmolStr, PropertyAnalysis>>,
 
@@ -1132,7 +1166,7 @@ pub fn pretty_print(
             writeln!(f, "property<{}> {};", ty.property_type, name)?
         }
     }
-    for (name, expr) in &e.bindings {
+    for (name, expr) in &e.bindings.0 {
         indent!();
         write!(f, "{name}: ")?;
         let Ok(expr) = expr.try_borrow() else {
@@ -1585,7 +1619,7 @@ impl Element {
             };
 
         for (prop_name, csn, source) in property_bindings {
-            match r.bindings.entry(prop_name.clone()) {
+            match r.bindings.0.entry(prop_name.clone()) {
                 Entry::Vacant(e) => {
                     e.insert(BindingExpression::new_uncompiled(csn.into()).into());
                 }
@@ -1597,6 +1631,7 @@ impl Element {
 
         for (prop_name, csn, source) in two_way_bindings {
             if r.bindings
+                .0
                 .insert(prop_name, BindingExpression::new_uncompiled(csn.into()).into())
                 .is_some()
             {
@@ -1666,6 +1701,7 @@ impl Element {
 
             if let Some(csn) = sig_decl.TwoWayBinding() {
                 r.bindings
+                    .0
                     .insert(name.clone(), BindingExpression::new_uncompiled(csn.into()).into());
                 r.property_declarations.insert(
                     name,
@@ -1820,6 +1856,7 @@ impl Element {
             }
 
             if r.bindings
+                .0
                 .insert(name.clone(), BindingExpression::new_uncompiled(func.clone().into()).into())
                 .is_some()
             {
@@ -1859,7 +1896,7 @@ impl Element {
                 }
                 continue;
             }
-            match r.bindings.entry(resolved_name.into()) {
+            match r.bindings.0.entry(resolved_name.into()) {
                 Entry::Vacant(e) => {
                     e.insert(BindingExpression::new_uncompiled(con_node.clone().into()).into());
                 }
@@ -1948,6 +1985,7 @@ impl Element {
 
                             let expr_binding = r
                                 .bindings
+                                .0
                                 .entry(lookup_result.resolved_name.into())
                                 .or_insert_with(|| {
                                     let mut r = BindingExpression::from(Expression::Invalid);
@@ -2801,7 +2839,7 @@ impl Element {
                 );
             }
 
-            match self.bindings.entry(lookup_result.resolved_name.into()) {
+            match self.bindings.0.entry(lookup_result.resolved_name.into()) {
                 Entry::Occupied(_) => {
                     diag.push_error("Duplicated property binding".into(), &name_token);
                 }
@@ -2858,7 +2896,7 @@ impl Element {
     /// and provide a handler (`foo => { ... }`): the handler then occupies the binding
     /// expression slot, so the alias node lives on the callback declaration instead.
     pub fn two_way_binding_node(&self, name: &str) -> Option<syntax_nodes::TwoWayBinding> {
-        if let Some(binding) = self.bindings.get(name)
+        if let Some(binding) = self.bindings.0.get(name)
             && let Ok(b) = binding.try_borrow()
             && let Expression::Uncompiled(node) = b.value_expression()
             && let Some(twb) = syntax_nodes::TwoWayBinding::new(node.clone())
@@ -3011,7 +3049,7 @@ impl Element {
     /// Synthetic debug hooks (materialized for unbound properties) are never considered set
     /// (`has_binding` treats them as "no expression").
     pub fn is_binding_set(self: &Element, property_name: &str, need_explicit: bool) -> bool {
-        if self.bindings.get(property_name).is_some_and(|b| {
+        if self.bindings.0.get(property_name).is_some_and(|b| {
             b.borrow().has_binding() && (!need_explicit || b.borrow().priority > 0)
         }) {
             true
@@ -3027,6 +3065,7 @@ impl Element {
     /// Synthetic debug hooks (materialized for unbound properties) are not considered set.
     pub fn is_property_set(self: &Element, property_name: &str) -> bool {
         self.bindings
+            .0
             .get(property_name)
             .is_some_and(|b| !b.borrow().expression.is_synthetic_debug_hook())
             || self
@@ -3045,6 +3084,7 @@ impl Element {
     /// property" or "what is this property's binding".
     pub fn binding(&self, property_name: &str) -> Option<Ref<'_, BindingExpression>> {
         self.bindings
+            .0
             .get(property_name)
             .filter(|binding| !binding.borrow().expression.is_synthetic_debug_hook())
             .map(|binding| binding.borrow())
@@ -3053,6 +3093,7 @@ impl Element {
     /// Same as [`Self::binding`], but returns a mutable reference to the binding.
     pub fn binding_mut(&self, property_name: &str) -> Option<RefMut<'_, BindingExpression>> {
         self.bindings
+            .0
             .get(property_name)
             .filter(|binding| !binding.borrow().expression.is_synthetic_debug_hook())
             .map(|binding| binding.borrow_mut())
@@ -3064,6 +3105,7 @@ impl Element {
     /// properties that are actually set on this element.
     pub fn real_bindings(&self) -> impl Iterator<Item = (&SmolStr, &RefCell<BindingExpression>)> {
         self.bindings
+            .0
             .iter()
             .filter(|(_, binding)| !binding.borrow().expression.is_synthetic_debug_hook())
     }
@@ -3075,7 +3117,7 @@ impl Element {
     pub fn bindings_including_synthetic(
         &self,
     ) -> impl Iterator<Item = (&SmolStr, &RefCell<BindingExpression>)> {
-        self.bindings.iter()
+        self.bindings.0.iter()
     }
 
     /// The raw binding cell for `property_name`, including a synthetic debug hook.
@@ -3087,7 +3129,7 @@ impl Element {
         &self,
         property_name: &str,
     ) -> Option<&RefCell<BindingExpression>> {
-        self.bindings.get(property_name)
+        self.bindings.0.get(property_name)
     }
 
     /// Set the property `property_name` of this Element only if it was not set.
@@ -3107,7 +3149,7 @@ impl Element {
             return false;
         }
 
-        match self.bindings.entry(property_name) {
+        match self.bindings.0.entry(property_name) {
             Entry::Vacant(vacant_entry) => {
                 let mut binding: BindingExpression = expression_fn().into();
                 binding.priority = i32::MAX;
@@ -3140,7 +3182,7 @@ impl Element {
         property_name: SmolStr,
         mut new_binding: BindingExpression,
     ) -> Option<BindingExpression> {
-        match self.bindings.entry(property_name) {
+        match self.bindings.0.entry(property_name) {
             Entry::Vacant(v) => {
                 v.insert(RefCell::new(new_binding));
                 None
@@ -3186,14 +3228,14 @@ impl Element {
         &mut self,
         property_name: &str,
     ) -> Option<BindingExpression> {
-        self.bindings.remove(property_name).map(RefCell::into_inner)
+        self.bindings.0.remove(property_name).map(RefCell::into_inner)
     }
 
     /// Remove and return the whole binding map, including synthetic debug hooks.
     ///
     /// For bulk transfers that move an element's bindings wholesale.
     pub(crate) fn take_bindings_including_synthetic(&mut self) -> BindingsMap {
-        std::mem::take(&mut self.bindings)
+        std::mem::take(&mut self.bindings.0)
     }
 
     /// Add the given binding entries, including synthetic debug hooks, to this element.
@@ -3204,7 +3246,7 @@ impl Element {
         &mut self,
         bindings: impl IntoIterator<Item = (SmolStr, RefCell<BindingExpression>)>,
     ) {
-        self.bindings.extend(bindings);
+        self.bindings.0.extend(bindings);
     }
 
     pub fn sub_component(&self) -> Option<&Rc<Component>> {
@@ -3264,7 +3306,7 @@ pub(crate) fn apply_default_type_properties(element: &mut Element) {
     if let ElementType::Builtin(builtin_base) = &element.base_type {
         for (prop, info) in &builtin_base.properties {
             if let BuiltinPropertyDefault::Expr(expr) = &info.default_value {
-                element.bindings.entry(prop.clone()).or_insert_with(|| {
+                element.bindings.0.entry(prop.clone()).or_insert_with(|| {
                     let mut binding = BindingExpression::from(expr.clone());
                     binding.priority = i32::MAX;
                     RefCell::new(binding)
