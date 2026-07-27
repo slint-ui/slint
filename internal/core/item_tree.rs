@@ -17,6 +17,7 @@ use crate::window::WindowAdapterRc;
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
 use core::pin::Pin;
+use num_traits::Float;
 use vtable::*;
 
 #[repr(C)]
