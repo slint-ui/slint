@@ -10,7 +10,6 @@ use super::accessor_names::{self, AccessorKind};
 use crate::fileaccess;
 use std::collections::HashSet;
 use std::fmt::{Formatter, Write};
-use std::sync::Arc;
 use std::sync::OnceLock;
 
 use smol_str::{SmolStr, StrExt, format_smolstr};
@@ -1330,7 +1329,7 @@ fn generate_struct(
     unit: &llr::CompilationUnit,
     conditional_includes: &ConditionalIncludes,
 ) {
-    let StructName::User { name: user_name, node } = &the_struct.name else {
+    let StructName::User { name: user_name, .. } = &the_struct.name else {
         panic!("internal error: Cannot generate anonymous struct");
     };
     // Constant expressions cannot access the globals; make sure a bug in that
@@ -1343,13 +1342,14 @@ fn generate_struct(
         },
     );
     let name = ident(user_name);
-    let mut members = node
-        .ObjectTypeMember()
-        .map(|n| crate::parser::identifier_text(&n).unwrap())
+    // Emit members in declaration order: C++ users initialize structs positionally.
+    let mut members = the_struct
+        .field_order()
+        .iter()
         .map(|name| {
             // When any field has a declared default value, initialize the remaining fields, too,
             // so that default construction is fully deterministic, like in the other language backends.
-            let init = match the_struct.field_defaults.get(&name) {
+            let init = match the_struct.field_defaults.get(name) {
                 Some(default_value) => {
                     Some(compile_expression(&lower_constant_expression(default_value), &ctx))
                 }
@@ -1359,8 +1359,8 @@ fn generate_struct(
             (
                 Access::Public,
                 Declaration::Var(Var {
-                    ty: the_struct.fields.get(&name).unwrap().cpp_type().unwrap(),
-                    name: ident(&name),
+                    ty: the_struct.fields.get(name).unwrap().cpp_type().unwrap(),
+                    name: ident(name),
                     init,
                     ..Default::default()
                 }),

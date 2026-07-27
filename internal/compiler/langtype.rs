@@ -13,7 +13,6 @@ use smol_str::SmolStr;
 
 use crate::expression_tree::{BuiltinFunction, Expression, Unit};
 use crate::object_tree::{Component, PropertyVisibility};
-use crate::parser::syntax_nodes;
 use crate::typeregister::TypeRegister;
 
 #[derive(Debug, Clone, Default)]
@@ -977,14 +976,60 @@ impl Display for Function {
     }
 }
 
+/// A `Send` + `Sync` reference to *where* a user-declared struct or enum was
+/// written: the source file and the text range of its declaration node.
+///
+/// It deliberately carries no syntax tree, so the langtype graph (and therefore
+/// the LLR) stays compact and `Send` without pinning parsed documents at
+/// runtime. Everything the code generators need from the declaration is captured
+/// into the type at build time (e.g. `@rust-attr` in `rust_attributes`); the
+/// language server, which keeps every open document, resolves the actual syntax
+/// node from its own `DocumentCache` using [`Self::text_range`].
+#[derive(Debug, Clone)]
+pub struct DeclNode {
+    source_file: crate::diagnostics::SourceFile,
+    range: rowan::TextRange,
+}
+
+impl DeclNode {
+    pub fn new(node: &crate::parser::SyntaxNode) -> Self {
+        Self { source_file: node.source_file.clone(), range: node.node.text_range() }
+    }
+
+    /// The absolute text range of the declaration node within its document.
+    pub fn text_range(&self) -> rowan::TextRange {
+        self.range
+    }
+
+    /// The source file the declaration was parsed from.
+    pub fn source_file(&self) -> &crate::diagnostics::SourceFile {
+        &self.source_file
+    }
+
+    /// The source location (file + span) of the declaration.
+    pub fn to_source_location(&self) -> crate::diagnostics::SourceLocation {
+        crate::diagnostics::SourceLocation {
+            source_file: Some(self.source_file.clone()),
+            span: crate::diagnostics::Span::new(self.range.start().into(), self.range.len().into()),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum StructName {
     None,
     /// When declared in .slint as  `struct Foo { }`, then the name is "Foo"
     User {
         name: SmolStr,
-        /// When declared in .slint, this is the node of the declaration.
-        node: syntax_nodes::ObjectType,
+        /// Where the declaration was written (for the language server).
+        node: DeclNode,
+        /// The raw text of each `@rust-attr(...)` on the declaration, captured
+        /// at build time so the Rust generator does not need the syntax tree.
+        rust_attributes: Vec<SmolStr>,
+        /// The field names in declaration order. The C++ generator emits struct
+        /// members in this order (positional aggregate initialization relies on
+        /// it), which `fields` — a sorted map — does not preserve.
+        field_order: Vec<SmolStr>,
     },
     Builtin(BuiltinStruct),
 }
@@ -992,10 +1037,9 @@ pub enum StructName {
 impl PartialEq for StructName {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (
-                Self::User { name: l_user_name, node: _ },
-                Self::User { name: r_user_name, node: _ },
-            ) => l_user_name == r_user_name,
+            (Self::User { name: l_user_name, .. }, Self::User { name: r_user_name, .. }) => {
+                l_user_name == r_user_name
+            }
             (Self::Builtin(l0), Self::Builtin(r0)) => l0 == r0,
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
@@ -1049,10 +1093,27 @@ impl Struct {
         Self { fields, field_defaults: Default::default(), name: name.into() }
     }
 
-    pub fn node(&self) -> Option<&syntax_nodes::ObjectType> {
+    /// Where a user-declared struct was written (for the language server).
+    pub fn node(&self) -> Option<&DeclNode> {
         match &self.name {
             StructName::User { node, .. } => Some(node),
             _ => None,
+        }
+    }
+
+    /// The raw text of each `@rust-attr(...)` on a user-declared struct.
+    pub fn rust_attributes(&self) -> &[SmolStr] {
+        match &self.name {
+            StructName::User { rust_attributes, .. } => rust_attributes,
+            _ => &[],
+        }
+    }
+
+    /// The field names in declaration order for a user-declared struct.
+    pub fn field_order(&self) -> &[SmolStr] {
+        match &self.name {
+            StructName::User { field_order, .. } => field_order,
+            _ => &[],
         }
     }
 
@@ -1178,8 +1239,11 @@ pub struct Enumeration {
     pub name: SmolStr,
     pub values: Vec<SmolStr>,
     pub default_value: usize, // index in values
-    // For non-builtins enums, this is the declaration node
-    pub node: Option<syntax_nodes::EnumDeclaration>,
+    // For non-builtins enums, this is where the declaration was written.
+    pub node: Option<DeclNode>,
+    /// The raw text of each `@rust-attr(...)` on the declaration, captured at
+    /// build time so the Rust generator does not need the syntax tree.
+    pub rust_attributes: Vec<SmolStr>,
 }
 
 impl PartialEq for Enumeration {

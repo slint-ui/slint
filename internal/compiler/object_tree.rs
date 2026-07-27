@@ -188,8 +188,16 @@ impl Document {
                     }
                 })
                 .collect();
-            let en =
-                Enumeration { name: name.clone(), values, default_value: 0, node: Some(n.clone()) };
+            let en = Enumeration {
+                name: name.clone(),
+                values,
+                default_value: 0,
+                node: Some(crate::langtype::DeclNode::new(&n)),
+                rust_attributes: n
+                    .AtRustAttr()
+                    .map(|a| SmolStr::from(a.text().to_string()))
+                    .collect(),
+            };
             if en.values.is_empty() {
                 diag.push_error("Enums must have at least one value".into(), &n);
             }
@@ -2842,10 +2850,12 @@ pub fn type_struct_from_node(
     symbol_counters: Option<&Rc<crate::symbol_counters::SymbolCounters>>,
 ) -> Type {
     let mut field_defaults = BTreeMap::default();
+    let mut field_order = Vec::new();
     let fields: BTreeMap<SmolStr, Type> = object_node
         .ObjectTypeMember()
         .map(|member| {
             let field_name = parser::identifier_text(&member).unwrap_or_default();
+            field_order.push(field_name.clone());
             let field_ty = type_from_node(member.Type(), diag, tr);
             if let Some(default_value_node) = member.Expression() {
                 if name.is_none() {
@@ -2867,10 +2877,21 @@ pub fn type_struct_from_node(
             (field_name, field_ty)
         })
         .collect();
+    // The `@rust-attr` attributes and the declaration node live on the
+    // enclosing `StructDeclaration` (the parent of the `ObjectType`).
+    let struct_decl = object_node.parent();
     Type::Struct(Arc::new(Struct {
         fields,
         field_defaults,
-        name: name.map_or(StructName::None, |name| StructName::User { name, node: object_node }),
+        name: name.map_or(StructName::None, |name| {
+            let rust_attributes = struct_decl
+                .as_ref()
+                .and_then(|p| syntax_nodes::StructDeclaration::new(p.clone()))
+                .map(|d| d.AtRustAttr().map(|a| SmolStr::from(a.text().to_string())).collect())
+                .unwrap_or_default();
+            let node = crate::langtype::DeclNode::new(struct_decl.as_ref().unwrap_or(&object_node));
+            StructName::User { name, node, rust_attributes, field_order }
+        }),
     }))
 }
 

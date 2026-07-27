@@ -17,7 +17,7 @@ pub fn goto_definition(
     token: SyntaxToken,
 ) -> Option<GotoDefinitionResponse> {
     let token_info = token_info(document_cache, token.clone())?;
-    if let Some(node) = token_info.declaration() {
+    if let Some(node) = token_info.declaration(document_cache) {
         return goto_node(&node, document_cache.format);
     }
     match token_info {

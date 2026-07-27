@@ -71,6 +71,7 @@ macro_rules! declare_enums {
                         values: vec![$(crate::generator::to_kebab_case(stringify!($Value).trim_start_matches("r#")).into()),*],
                         default_value: 0,
                         node: None,
+                        rust_attributes: Vec::new(),
                     })),*
                 }
             }
