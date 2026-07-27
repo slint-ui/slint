@@ -60,9 +60,15 @@ pub struct TableCell {
 pub enum ParagraphBlock {
     Text(RichText),
     /// level is 1-6
-    Heading { level: u8, content: RichText },
+    Heading {
+        level: u8,
+        content: RichText,
+    },
     /// level is the nesting depth (1 for `>`, 2 for `>>`, etc.)
-    BlockQuote { level: u8, content: RichText },
+    BlockQuote {
+        level: u8,
+        content: RichText,
+    },
     HorizontalRule,
     Table {
         columns: usize,
@@ -70,7 +76,10 @@ pub enum ParagraphBlock {
         body: alloc::vec::Vec<alloc::vec::Vec<TableCell>>,
         alignments: alloc::vec::Vec<TableAlignment>,
     },
-    CodeBlock { language: Option<alloc::string::String>, text: alloc::string::String },
+    CodeBlock {
+        language: Option<alloc::string::String>,
+        text: alloc::string::String,
+    },
 }
 
 /// Error returned by markdown styled text parsing
@@ -161,7 +170,11 @@ pub fn invalid_color_value(error: &StyledTextParseError) -> Option<&str> {
 
 #[cfg(feature = "markdown")]
 pub fn paragraph_from_plain_text(text: alloc::string::String) -> ParagraphBlock {
-    ParagraphBlock::Text(RichText { text, formatting: Default::default(), links: Default::default() })
+    ParagraphBlock::Text(RichText {
+        text,
+        formatting: Default::default(),
+        links: Default::default(),
+    })
 }
 
 #[cfg(feature = "markdown")]
@@ -171,16 +184,28 @@ pub const MARKDOWN_INTERPOLATION_PLACEHOLDER: char = '\u{e541}';
 #[cfg(feature = "markdown")]
 fn begin_paragraph(indentation: u32, list_item_type: Option<ListItemType>) -> ParagraphBlock {
     let mut text = alloc::string::String::with_capacity(indentation as usize * 4);
-    for _ in 0..indentation { text.push_str("    "); }
+    for _ in 0..indentation {
+        text.push_str("    ");
+    }
     match list_item_type {
         Some(ListItemType::Unordered) => {
             let remainder = indentation % 3;
-            text.push_str(if remainder == 0 { "• " } else if remainder == 1 { "◦ " } else { "▪ " });
+            text.push_str(if remainder == 0 {
+                "• "
+            } else if remainder == 1 {
+                "◦ "
+            } else {
+                "▪ "
+            });
         }
         Some(ListItemType::Ordered(num)) => text.push_str(&alloc::format!("{:>3}. ", num)),
         None => {}
     };
-    ParagraphBlock::Text(RichText { text, formatting: Default::default(), links: Default::default() })
+    ParagraphBlock::Text(RichText {
+        text,
+        formatting: Default::default(),
+        links: Default::default(),
+    })
 }
 
 pub fn rich_text_content(block: &ParagraphBlock) -> Option<&RichText> {
@@ -199,10 +224,14 @@ fn append_rich_text(target: &mut RichText, source: &RichText) {
     let offset = target.text.len();
     target.text.push_str(&source.text);
     target.formatting.extend(source.formatting.iter().cloned().map(|mut f| {
-        f.range.start += offset; f.range.end += offset; f
+        f.range.start += offset;
+        f.range.end += offset;
+        f
     }));
     target.links.extend(source.links.iter().cloned().map(|(mut range, link)| {
-        range.start += offset; range.end += offset; (range, link)
+        range.start += offset;
+        range.end += offset;
+        (range, link)
     }));
 }
 
@@ -391,7 +420,8 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
     let mut code_block_text: Option<alloc::string::String> = None;
 
     let mut current_paragraph: Option<ParagraphBlock> = None;
-    let mut footnote_definitions: Vec<(alloc::string::String, alloc::vec::Vec<ParagraphBlock>)> = Vec::new();
+    let mut footnote_definitions: Vec<(alloc::string::String, alloc::vec::Vec<ParagraphBlock>)> =
+        Vec::new();
     let mut current_footnote_name: Option<alloc::string::String> = None;
     let mut footnote_start_index: usize = 0;
 
@@ -412,14 +442,14 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                 if let Some(paragraph) =
                     current_paragraph.replace(begin_paragraph(indentation, None))
                 {
-                    if block_quote_level > 0 {
-                        if let ParagraphBlock::Text(content) = paragraph {
-                            paragraphs.push(ParagraphBlock::BlockQuote {
-                                level: block_quote_level as u8,
-                                content,
-                            });
-                            continue;
-                        }
+                    if block_quote_level > 0
+                        && let ParagraphBlock::Text(content) = paragraph
+                    {
+                        paragraphs.push(ParagraphBlock::BlockQuote {
+                            level: block_quote_level as u8,
+                            content,
+                        });
+                        continue;
                     }
                     paragraphs.push(paragraph);
                 }
@@ -457,12 +487,14 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
             pulldown_cmark::Event::End(pulldown_cmark::TagEnd::Table) => {
                 in_table = false;
 
-                let header: Vec<Vec<TableCell>> = table_header_rows.drain(..).map(|row| {
-                    row.into_iter().map(|content| TableCell { content }).collect()
-                }).collect();
-                let body: Vec<Vec<TableCell>> = table_body_rows.drain(..).map(|row| {
-                    row.into_iter().map(|content| TableCell { content }).collect()
-                }).collect();
+                let header: Vec<Vec<TableCell>> = table_header_rows
+                    .drain(..)
+                    .map(|row| row.into_iter().map(|content| TableCell { content }).collect())
+                    .collect();
+                let body: Vec<Vec<TableCell>> = table_body_rows
+                    .drain(..)
+                    .map(|row| row.into_iter().map(|content| TableCell { content }).collect())
+                    .collect();
 
                 paragraphs.push(ParagraphBlock::Table {
                     columns: table_columns,
@@ -482,21 +514,21 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                 pulldown_cmark::TagEnd::Paragraph | pulldown_cmark::TagEnd::Item,
             ) => {}
             pulldown_cmark::Event::End(pulldown_cmark::TagEnd::Heading(_)) => {
-                if let Some(level) = current_heading_level.take() {
-                    if let Some(ParagraphBlock::Text(content)) = current_paragraph.take() {
-                        paragraphs.push(ParagraphBlock::Heading { level, content });
-                    }
+                if let Some(level) = current_heading_level.take()
+                    && let Some(ParagraphBlock::Text(content)) = current_paragraph.take()
+                {
+                    paragraphs.push(ParagraphBlock::Heading { level, content });
                 }
                 current_paragraph = Some(begin_paragraph(indentation, None));
             }
             pulldown_cmark::Event::End(pulldown_cmark::TagEnd::BlockQuote(_)) => {
-                if let Some(paragraph) = current_paragraph.take() {
-                    if let ParagraphBlock::Text(content) = paragraph {
-                        paragraphs.push(ParagraphBlock::BlockQuote {
-                            level: block_quote_level as u8,
-                            content,
-                        });
-                    }
+                if let Some(paragraph) = current_paragraph.take()
+                    && let ParagraphBlock::Text(content) = paragraph
+                {
+                    paragraphs.push(ParagraphBlock::BlockQuote {
+                        level: block_quote_level as u8,
+                        content,
+                    });
                 }
                 block_quote_level = block_quote_level.saturating_sub(1);
                 current_paragraph = None;
@@ -507,14 +539,14 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                         if let Some(paragraph) =
                             current_paragraph.replace(begin_paragraph(indentation, None))
                         {
-                            if block_quote_level > 0 {
-                                if let ParagraphBlock::Text(content) = paragraph {
-                                    paragraphs.push(ParagraphBlock::BlockQuote {
-                                        level: block_quote_level as u8,
-                                        content,
-                                    });
-                                    continue;
-                                }
+                            if block_quote_level > 0
+                                && let ParagraphBlock::Text(content) = paragraph
+                            {
+                                paragraphs.push(ParagraphBlock::BlockQuote {
+                                    level: block_quote_level as u8,
+                                    content,
+                                });
+                                continue;
                             }
                             paragraphs.push(paragraph);
                         }
@@ -573,12 +605,15 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
 
                     pulldown_cmark::Tag::Table(alignments) => {
                         in_table = true;
-                        table_alignments = alignments.iter().map(|a| match a {
-                            pulldown_cmark::Alignment::None => TableAlignment::None,
-                            pulldown_cmark::Alignment::Left => TableAlignment::Left,
-                            pulldown_cmark::Alignment::Center => TableAlignment::Center,
-                            pulldown_cmark::Alignment::Right => TableAlignment::Right,
-                        }).collect();
+                        table_alignments = alignments
+                            .iter()
+                            .map(|a| match a {
+                                pulldown_cmark::Alignment::None => TableAlignment::None,
+                                pulldown_cmark::Alignment::Left => TableAlignment::Left,
+                                pulldown_cmark::Alignment::Center => TableAlignment::Center,
+                                pulldown_cmark::Alignment::Right => TableAlignment::Right,
+                            })
+                            .collect();
                         table_header_rows = Vec::new();
                         table_body_rows = Vec::new();
                         table_current_row = Vec::new();
@@ -648,7 +683,9 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                 } else {
                     let ParagraphBlock::Text(rt) =
                         get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range)
-                    else { unreachable!() };
+                    else {
+                        unreachable!()
+                    };
 
                     style_stack.push((style, rt.text.len(), false));
                 }
@@ -840,7 +877,9 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                                         &mut errors,
                                         &event_range,
                                     );
-                                    let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                                    let len = rich_text_content(paragraph)
+                                        .map(|r| r.text.len())
+                                        .unwrap_or(0);
                                     style_stack.push((Style::Underline, len, true));
                                 }
                                 "font" => {
@@ -852,7 +891,9 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                                         &mut errors,
                                         &event_range,
                                     );
-                                    let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                                    let len = rich_text_content(paragraph)
+                                        .map(|r| r.text.len())
+                                        .unwrap_or(0);
                                     style_stack.push((Style::Strikethrough, len, true));
                                 }
                                 "i" | "em" => {
@@ -861,7 +902,9 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                                         &mut errors,
                                         &event_range,
                                     );
-                                    let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                                    let len = rich_text_content(paragraph)
+                                        .map(|r| r.text.len())
+                                        .unwrap_or(0);
                                     style_stack.push((Style::Emphasis, len, true));
                                 }
                                 "b" | "strong" => {
@@ -870,7 +913,9 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                                         &mut errors,
                                         &event_range,
                                     );
-                                    let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                                    let len = rich_text_content(paragraph)
+                                        .map(|r| r.text.len())
+                                        .unwrap_or(0);
                                     style_stack.push((Style::Strong, len, true));
                                 }
                                 "sub" => {
@@ -879,7 +924,9 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                                         &mut errors,
                                         &event_range,
                                     );
-                                    let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                                    let len = rich_text_content(paragraph)
+                                        .map(|r| r.text.len())
+                                        .unwrap_or(0);
                                     style_stack.push((Style::Subscript, len, true));
                                 }
                                 "sup" => {
@@ -888,7 +935,9 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                                         &mut errors,
                                         &event_range,
                                     );
-                                    let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                                    let len = rich_text_content(paragraph)
+                                        .map(|r| r.text.len())
+                                        .unwrap_or(0);
                                     style_stack.push((Style::Superscript, len, true));
                                 }
                                 _ => {
@@ -946,7 +995,9 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                                                 &mut errors,
                                                 &event_range,
                                             );
-                                            let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                                            let len = rich_text_content(paragraph)
+                                                .map(|r| r.text.len())
+                                                .unwrap_or(0);
                                             style_stack.push((Style::Color(value), len, true));
                                         }
                                         None => {
@@ -962,7 +1013,9 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                                                 &mut errors,
                                                 &event_range,
                                             );
-                                            let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                                            let len = rich_text_content(paragraph)
+                                                .map(|r| r.text.len())
+                                                .unwrap_or(0);
                                             style_stack.push((Style::Color(0), len, true));
                                         }
                                     }
@@ -1022,10 +1075,8 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                 let start = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
                 substitute(paragraph, &text, args, &mut arg_index, &mut errors, &event_range);
                 if let ParagraphBlock::Text(rt) = paragraph {
-                    rt.formatting.push(FormattedSpan {
-                        range: start..rt.text.len(),
-                        style: Style::Math,
-                    });
+                    rt.formatting
+                        .push(FormattedSpan { range: start..rt.text.len(), style: Style::Math });
                 }
             }
             pulldown_cmark::Event::DisplayMath(text) => {
@@ -1039,10 +1090,8 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                 let start = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
                 substitute(paragraph, &text, args, &mut arg_index, &mut errors, &event_range);
                 if let ParagraphBlock::Text(rt) = paragraph {
-                    rt.formatting.push(FormattedSpan {
-                        range: start..rt.text.len(),
-                        style: Style::Math,
-                    });
+                    rt.formatting
+                        .push(FormattedSpan { range: start..rt.text.len(), style: Style::Math });
                 }
             }
             pulldown_cmark::Event::Html(ref html) => {
@@ -1396,7 +1445,11 @@ fn markdown_parsing_interpolated() {
             &format!("{MARKDOWN_INTERPOLATION_PLACEHOLDER}"),
             &[[]]
         )),
-        [ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] })]
+        [ParagraphBlock::Text(RichText {
+            text: "".into(),
+            formatting: alloc::vec![],
+            links: alloc::vec![]
+        })]
     );
     // Interpolation in link URL
     assert_eq!(
@@ -1448,20 +1501,89 @@ fn markdown_interleaved_html_and_emphasis() {
 #[test]
 fn markdown_heading_levels() {
     assert_eq!(
-        assert_no_errors(parse_interpolated::<&[_]>("# H1\n## H2\n### H3\n#### H4\n##### H5\n###### H6", &[])),
+        assert_no_errors(parse_interpolated::<&[_]>(
+            "# H1\n## H2\n### H3\n#### H4\n##### H5\n###### H6",
+            &[]
+        )),
         [
-            ParagraphBlock::Heading { level: 1, content: RichText { text: "H1".into(), formatting: alloc::vec![], links: alloc::vec![] } },
-            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
-            ParagraphBlock::Heading { level: 2, content: RichText { text: "H2".into(), formatting: alloc::vec![], links: alloc::vec![] } },
-            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
-            ParagraphBlock::Heading { level: 3, content: RichText { text: "H3".into(), formatting: alloc::vec![], links: alloc::vec![] } },
-            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
-            ParagraphBlock::Heading { level: 4, content: RichText { text: "H4".into(), formatting: alloc::vec![], links: alloc::vec![] } },
-            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
-            ParagraphBlock::Heading { level: 5, content: RichText { text: "H5".into(), formatting: alloc::vec![], links: alloc::vec![] } },
-            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
-            ParagraphBlock::Heading { level: 6, content: RichText { text: "H6".into(), formatting: alloc::vec![], links: alloc::vec![] } },
-            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Heading {
+                level: 1,
+                content: RichText {
+                    text: "H1".into(),
+                    formatting: alloc::vec![],
+                    links: alloc::vec![]
+                }
+            },
+            ParagraphBlock::Text(RichText {
+                text: "".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
+            ParagraphBlock::Heading {
+                level: 2,
+                content: RichText {
+                    text: "H2".into(),
+                    formatting: alloc::vec![],
+                    links: alloc::vec![]
+                }
+            },
+            ParagraphBlock::Text(RichText {
+                text: "".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
+            ParagraphBlock::Heading {
+                level: 3,
+                content: RichText {
+                    text: "H3".into(),
+                    formatting: alloc::vec![],
+                    links: alloc::vec![]
+                }
+            },
+            ParagraphBlock::Text(RichText {
+                text: "".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
+            ParagraphBlock::Heading {
+                level: 4,
+                content: RichText {
+                    text: "H4".into(),
+                    formatting: alloc::vec![],
+                    links: alloc::vec![]
+                }
+            },
+            ParagraphBlock::Text(RichText {
+                text: "".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
+            ParagraphBlock::Heading {
+                level: 5,
+                content: RichText {
+                    text: "H5".into(),
+                    formatting: alloc::vec![],
+                    links: alloc::vec![]
+                }
+            },
+            ParagraphBlock::Text(RichText {
+                text: "".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
+            ParagraphBlock::Heading {
+                level: 6,
+                content: RichText {
+                    text: "H6".into(),
+                    formatting: alloc::vec![],
+                    links: alloc::vec![]
+                }
+            },
+            ParagraphBlock::Text(RichText {
+                text: "".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
         ]
     );
 }
@@ -1480,7 +1602,11 @@ fn markdown_heading_with_inline() {
                     links: alloc::vec![],
                 }
             },
-            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Text(RichText {
+                text: "".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
         ]
     );
 }
@@ -1507,9 +1633,24 @@ fn markdown_heading_and_text() {
     assert_eq!(
         assert_no_errors(parse_interpolated::<&[_]>("# Title\n\nBody text", &[])),
         [
-            ParagraphBlock::Heading { level: 1, content: RichText { text: "Title".into(), formatting: alloc::vec![], links: alloc::vec![] } },
-            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
-            ParagraphBlock::Text(RichText { text: "Body text".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Heading {
+                level: 1,
+                content: RichText {
+                    text: "Title".into(),
+                    formatting: alloc::vec![],
+                    links: alloc::vec![]
+                }
+            },
+            ParagraphBlock::Text(RichText {
+                text: "".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
+            ParagraphBlock::Text(RichText {
+                text: "Body text".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
         ]
     );
 }
@@ -1521,11 +1662,23 @@ fn markdown_horizontal_rules() {
         assert_no_errors(parse_interpolated::<&[_]>("---\n\n***\n\n___", &[])),
         [
             ParagraphBlock::HorizontalRule,
-            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Text(RichText {
+                text: "".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
             ParagraphBlock::HorizontalRule,
-            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Text(RichText {
+                text: "".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
             ParagraphBlock::HorizontalRule,
-            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Text(RichText {
+                text: "".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
         ]
     );
 }
@@ -1551,7 +1704,7 @@ fn markdown_block_quote() {
 fn markdown_block_quote_multi_paragraph() {
     let result = assert_no_errors(parse_interpolated::<&[_]>(
         "> First paragraph\n>\n> Second paragraph",
-        &[]
+        &[],
     ));
     assert_eq!(result.len(), 2);
     assert!(matches!(result[0], ParagraphBlock::BlockQuote { level: 1, .. }));
@@ -1578,15 +1731,48 @@ fn markdown_block_quote_with_formatting() {
 #[test]
 fn markdown_mixed_heading_and_rules() {
     assert_eq!(
-        assert_no_errors(parse_interpolated::<&[_]>("# Title\n\nContent\n\n---\n\n## Subtitle", &[])),
+        assert_no_errors(parse_interpolated::<&[_]>(
+            "# Title\n\nContent\n\n---\n\n## Subtitle",
+            &[]
+        )),
         [
-            ParagraphBlock::Heading { level: 1, content: RichText { text: "Title".into(), formatting: alloc::vec![], links: alloc::vec![] } },
-            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
-            ParagraphBlock::Text(RichText { text: "Content".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Heading {
+                level: 1,
+                content: RichText {
+                    text: "Title".into(),
+                    formatting: alloc::vec![],
+                    links: alloc::vec![]
+                }
+            },
+            ParagraphBlock::Text(RichText {
+                text: "".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
+            ParagraphBlock::Text(RichText {
+                text: "Content".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
             ParagraphBlock::HorizontalRule,
-            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
-            ParagraphBlock::Heading { level: 2, content: RichText { text: "Subtitle".into(), formatting: alloc::vec![], links: alloc::vec![] } },
-            ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
+            ParagraphBlock::Text(RichText {
+                text: "".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
+            ParagraphBlock::Heading {
+                level: 2,
+                content: RichText {
+                    text: "Subtitle".into(),
+                    formatting: alloc::vec![],
+                    links: alloc::vec![]
+                }
+            },
+            ParagraphBlock::Text(RichText {
+                text: "".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![]
+            }),
         ]
     );
 }
@@ -1596,7 +1782,7 @@ fn markdown_mixed_heading_and_rules() {
 fn markdown_table_simple() {
     let result = assert_no_errors(parse_interpolated::<&[_]>(
         "| H1 | H2 |\n| --- | --- |\n| A1 | A2 |",
-        &[]
+        &[],
     ));
     assert_eq!(result.len(), 1);
     assert!(matches!(result[0], ParagraphBlock::Table { .. }));
@@ -1614,25 +1800,34 @@ fn markdown_table_simple() {
 fn markdown_footnote_reference() {
     let result = assert_no_errors(parse_interpolated::<&[_]>(
         "Text with a footnote[^1]\n\n[^1]: The footnote content",
-        &[]
+        &[],
     ));
     assert_eq!(result.len(), 4);
-    assert_eq!(result[0], ParagraphBlock::Text(RichText {
-        text: "Text with a footnote[1]".into(),
-        formatting: alloc::vec![FormattedSpan { range: 20..23, style: Style::Superscript }],
-        links: alloc::vec![],
-    }));
+    assert_eq!(
+        result[0],
+        ParagraphBlock::Text(RichText {
+            text: "Text with a footnote[1]".into(),
+            formatting: alloc::vec![FormattedSpan { range: 20..23, style: Style::Superscript }],
+            links: alloc::vec![],
+        })
+    );
     assert_eq!(result[1], ParagraphBlock::HorizontalRule);
-    assert_eq!(result[2], ParagraphBlock::Text(RichText {
-        text: "[1] ".into(),
-        formatting: alloc::vec![],
-        links: alloc::vec![],
-    }));
-    assert_eq!(result[3], ParagraphBlock::Text(RichText {
-        text: "The footnote content".into(),
-        formatting: alloc::vec![],
-        links: alloc::vec![],
-    }));
+    assert_eq!(
+        result[2],
+        ParagraphBlock::Text(RichText {
+            text: "[1] ".into(),
+            formatting: alloc::vec![],
+            links: alloc::vec![],
+        })
+    );
+    assert_eq!(
+        result[3],
+        ParagraphBlock::Text(RichText {
+            text: "The footnote content".into(),
+            formatting: alloc::vec![],
+            links: alloc::vec![],
+        })
+    );
 }
 
 #[cfg(feature = "markdown")]
@@ -1642,9 +1837,7 @@ fn markdown_math_inline() {
         assert_no_errors(parse_interpolated::<&[_]>("Math: $E=mc^2$", &[])),
         [ParagraphBlock::Text(RichText {
             text: "Math: E=mc^2".into(),
-            formatting: alloc::vec![
-                FormattedSpan { range: 6..12, style: Style::Math },
-            ],
+            formatting: alloc::vec![FormattedSpan { range: 6..12, style: Style::Math },],
             links: alloc::vec![],
         })]
     );
@@ -1672,10 +1865,13 @@ fn markdown_code_block() {
         empty,
     ));
     assert!(
-        result.iter().any(|b| matches!(b, ParagraphBlock::CodeBlock { text, .. } if text == "code block\n")),
+        result
+            .iter()
+            .any(|b| matches!(b, ParagraphBlock::CodeBlock { text, .. } if text == "code block\n")),
         "Expected a CodeBlock with text 'code block\\n', got: {result:?}"
     );
-    let code_blocks: alloc::vec::Vec<_> = result.iter().filter(|b| matches!(b, ParagraphBlock::CodeBlock { .. })).collect();
+    let code_blocks: alloc::vec::Vec<_> =
+        result.iter().filter(|b| matches!(b, ParagraphBlock::CodeBlock { .. })).collect();
     assert_eq!(code_blocks.len(), 1);
     if let ParagraphBlock::CodeBlock { language, .. } = &code_blocks[0] {
         assert_eq!(*language, None);
@@ -1686,10 +1882,7 @@ fn markdown_code_block() {
 #[test]
 fn markdown_code_block_with_language() {
     let empty: &[&[ParagraphBlock]] = &[];
-    let result = assert_no_errors(parse_interpolated(
-        "```rust\nfn main() {}\n```",
-        empty,
-    ));
+    let result = assert_no_errors(parse_interpolated("```rust\nfn main() {}\n```", empty));
     assert!(
         result.iter().any(|b| matches!(b, ParagraphBlock::CodeBlock { language: Some(lang), text } if lang == "rust" && text.contains("fn main"))),
         "Expected a CodeBlock with language 'rust' containing 'fn main', got: {result:?}"
@@ -1700,10 +1893,7 @@ fn markdown_code_block_with_language() {
 #[test]
 fn markdown_code_block_indented() {
     let empty: &[&[ParagraphBlock]] = &[];
-    let result = assert_no_errors(parse_interpolated(
-        "    indented code block",
-        empty,
-    ));
+    let result = assert_no_errors(parse_interpolated("    indented code block", empty));
     assert!(
         result.iter().any(|b| matches!(b, ParagraphBlock::CodeBlock { .. })),
         "Expected a CodeBlock, got: {result:?}"

@@ -174,7 +174,10 @@ pub use super::DEFAULT_FONT_SIZE;
 /// text. Matches the convention used by GitHub-style markdown renderers — the
 /// glyphs sit a little smaller than body text, inside a translucent capsule
 /// that visually marks them as code.
-pub enum BlockType { Normal, Heading(u8) }
+pub enum BlockType {
+    Normal,
+    Heading(u8),
+}
 
 const HEADING_FONT_SCALES: [f32; 6] = [2.0, 1.5, 1.17, 1.0, 0.83, 0.67];
 
@@ -512,41 +515,66 @@ fn create_text_paragraphs(
     selection: Option<(Range<usize>, Color)>,
     link_color: Color,
 ) -> Vec<TextParagraph> {
-    let paragraph_from_text =
-        |font_context: &mut parley::FontContext,
-         text: &str,
-         range: std::ops::Range<usize>,
-         formatting: Vec<i_slint_common::styled_text::FormattedSpan>,
-         links: Vec<(std::ops::Range<usize>, std::string::String)>,
-         is_horizontal_rule: bool,
-         is_code_block: bool,
-         block_type: BlockType,
-         block_quote_level: u8| {
-            let selection = selection.clone().and_then(|(selection, selection_color)| {
-                let sel_start = selection.start.max(range.start);
-                let sel_end = selection.end.min(range.end);
+    let paragraph_from_text = |font_context: &mut parley::FontContext,
+                               text: &str,
+                               range: std::ops::Range<usize>,
+                               formatting: Vec<i_slint_common::styled_text::FormattedSpan>,
+                               links: Vec<(std::ops::Range<usize>, std::string::String)>,
+                               is_horizontal_rule: bool,
+                               is_code_block: bool,
+                               block_type: BlockType,
+                               block_quote_level: u8| {
+        let selection = selection.clone().and_then(|(selection, selection_color)| {
+            let sel_start = selection.start.max(range.start);
+            let sel_end = selection.end.min(range.end);
 
-                if sel_start < sel_end {
-                    let local_selection = (sel_start - range.start)..(sel_end - range.start);
-                    Some((local_selection, selection_color))
-                } else {
-                    None
-                }
-            });
+            if sel_start < sel_end {
+                let local_selection = (sel_start - range.start)..(sel_end - range.start);
+                Some((local_selection, selection_color))
+            } else {
+                None
+            }
+        });
 
-            let code_ranges: alloc::vec::Vec<Range<usize>> = formatting
-                .iter()
-                .filter(|s| matches!(s.style, i_slint_common::styled_text::Style::Code | i_slint_common::styled_text::Style::Math))
-                .map(|s| s.range.clone())
-                .collect();
+        let code_ranges: alloc::vec::Vec<Range<usize>> = formatting
+            .iter()
+            .filter(|s| {
+                matches!(
+                    s.style,
+                    i_slint_common::styled_text::Style::Code
+                        | i_slint_common::styled_text::Style::Math
+                )
+            })
+            .map(|s| s.range.clone())
+            .collect();
 
-            let heading_level = match block_type { BlockType::Heading(level) => level, _ => 0 };
-
-            let layout =
-                layout_builder.build(font_context, text, selection, formatting, Some(link_color), block_type);
-
-            TextParagraph { range, y: PhysicalLength::default(), layout, links, code_ranges, is_horizontal_rule, is_code_block, block_quote_level, heading_level, table: None }
+        let heading_level = match block_type {
+            BlockType::Heading(level) => level,
+            _ => 0,
         };
+
+        let layout = layout_builder.build(
+            font_context,
+            text,
+            selection,
+            formatting,
+            Some(link_color),
+            block_type,
+        );
+
+        TextParagraph {
+            range,
+            y: PhysicalLength::default(),
+            layout,
+            links,
+            code_ranges,
+            is_horizontal_rule,
+            is_code_block,
+            block_quote_level,
+            heading_level,
+            table: None,
+        }
+    };
 
     let mut paragraphs = Vec::with_capacity(1);
 
@@ -571,38 +599,65 @@ fn create_text_paragraphs(
                 match block {
                     i_slint_common::styled_text::ParagraphBlock::Text(content) => {
                         paragraphs.push(paragraph_from_text(
-                            font_context, &content.text, 0..0,
-                            content.formatting.clone(), content.links.clone(),
-                            false, false, BlockType::Normal, 0,
+                            font_context,
+                            &content.text,
+                            0..0,
+                            content.formatting.clone(),
+                            content.links.clone(),
+                            false,
+                            false,
+                            BlockType::Normal,
+                            0,
                         ));
                     }
                     i_slint_common::styled_text::ParagraphBlock::Heading { level, content } => {
                         paragraphs.push(paragraph_from_text(
-                            font_context, &content.text, 0..0,
-                            content.formatting.clone(), content.links.clone(),
-                            false, false, BlockType::Heading(level), 0,
+                            font_context,
+                            &content.text,
+                            0..0,
+                            content.formatting.clone(),
+                            content.links.clone(),
+                            false,
+                            false,
+                            BlockType::Heading(level),
+                            0,
                         ));
                     }
                     i_slint_common::styled_text::ParagraphBlock::BlockQuote { level, content } => {
                         let indent_str = " ".repeat(level as usize + 2);
                         let indented_text = alloc::format!("{}{}", indent_str, content.text);
-                        let shifted_formatting: Vec<_> = content.formatting.iter().map(|s| {
-                            i_slint_common::styled_text::FormattedSpan {
-                                range: (s.range.start + indent_str.len())..(s.range.end + indent_str.len()),
+                        let shifted_formatting: Vec<_> = content
+                            .formatting
+                            .iter()
+                            .map(|s| i_slint_common::styled_text::FormattedSpan {
+                                range: (s.range.start + indent_str.len())
+                                    ..(s.range.end + indent_str.len()),
                                 style: s.style.clone(),
-                            }
-                        }).collect();
+                            })
+                            .collect();
                         paragraphs.push(paragraph_from_text(
-                            font_context, &indented_text, 0..0,
-                            shifted_formatting, content.links.clone(),
-                            false, false, BlockType::Normal, level,
+                            font_context,
+                            &indented_text,
+                            0..0,
+                            shifted_formatting,
+                            content.links.clone(),
+                            false,
+                            false,
+                            BlockType::Normal,
+                            level,
                         ));
                     }
                     i_slint_common::styled_text::ParagraphBlock::HorizontalRule => {
                         paragraphs.push(paragraph_from_text(
-                            font_context, "", 0..0,
-                            Default::default(), Default::default(),
-                            true, false, BlockType::Normal, 0,
+                            font_context,
+                            "",
+                            0..0,
+                            Default::default(),
+                            Default::default(),
+                            true,
+                            false,
+                            BlockType::Normal,
+                            0,
                         ));
                     }
                     i_slint_common::styled_text::ParagraphBlock::CodeBlock { text, .. } => {
@@ -615,12 +670,23 @@ fn create_text_paragraphs(
                             }]
                         };
                         paragraphs.push(paragraph_from_text(
-                            font_context, &text, 0..0,
-                            formatting, Vec::new(),
-                            false, true, BlockType::Normal, 0,
+                            font_context,
+                            &text,
+                            0..0,
+                            formatting,
+                            Vec::new(),
+                            false,
+                            true,
+                            BlockType::Normal,
+                            0,
                         ));
                     }
-                    i_slint_common::styled_text::ParagraphBlock::Table { columns, header, body, .. } => {
+                    i_slint_common::styled_text::ParagraphBlock::Table {
+                        columns,
+                        header,
+                        body,
+                        ..
+                    } => {
                         let cell_border_spacing = PhysicalLength::new(8.0);
                         let padding = PhysicalLength::new(4.0);
                         let mut max_col_widths: Vec<PhysicalLength> = alloc::vec::Vec::new();
@@ -634,12 +700,16 @@ fn create_text_paragraphs(
                             for (col, cell) in row.iter().enumerate() {
                                 if col < columns {
                                     let mut cell_layout = layout_builder.build(
-                                        font_context, &cell.content.text, None,
+                                        font_context,
+                                        &cell.content.text,
+                                        None,
                                         cell.content.formatting.iter().cloned(),
-                                        None, BlockType::Normal,
+                                        None,
+                                        BlockType::Normal,
                                     );
                                     cell_layout.break_all_lines(None);
-                                    let w = PhysicalLength::new(cell_layout.full_width()) + cell_border_spacing;
+                                    let w = PhysicalLength::new(cell_layout.full_width())
+                                        + cell_border_spacing;
                                     max_col_widths[col] = max_col_widths[col].max(w);
                                     row_data.push(TableCellData {
                                         text: cell.content.text.clone(),
@@ -657,12 +727,16 @@ fn create_text_paragraphs(
                             for (col, cell) in row.iter().enumerate() {
                                 if col < columns {
                                     let mut cell_layout = layout_builder.build(
-                                        font_context, &cell.content.text, None,
+                                        font_context,
+                                        &cell.content.text,
+                                        None,
                                         cell.content.formatting.iter().cloned(),
-                                        None, BlockType::Normal,
+                                        None,
+                                        BlockType::Normal,
                                     );
                                     cell_layout.break_all_lines(None);
-                                    let w = PhysicalLength::new(cell_layout.full_width()) + cell_border_spacing;
+                                    let w = PhysicalLength::new(cell_layout.full_width())
+                                        + cell_border_spacing;
                                     max_col_widths[col] = max_col_widths[col].max(w);
                                     row_data.push(TableCellData {
                                         text: cell.content.text.clone(),
@@ -692,12 +766,18 @@ fn create_text_paragraphs(
                         for row in &table_header_data {
                             let mut max_h = PhysicalLength::new(layout_builder.pixel_size.get());
                             for (col, cell) in row.iter().enumerate() {
-                                if col >= column_widths_resolved.len() { break; }
-                                let available_width = column_widths_resolved[col].get() - cell_border_spacing.get();
+                                if col >= column_widths_resolved.len() {
+                                    break;
+                                }
+                                let available_width =
+                                    column_widths_resolved[col].get() - cell_border_spacing.get();
                                 let mut cell_layout = layout_builder.build(
-                                    font_context, &cell.text, None,
+                                    font_context,
+                                    &cell.text,
+                                    None,
                                     cell.formatting.iter().cloned(),
-                                    None, BlockType::Normal,
+                                    None,
+                                    BlockType::Normal,
                                 );
                                 if available_width > 0.0 {
                                     cell_layout.break_all_lines(Some(available_width));
@@ -707,7 +787,7 @@ fn create_text_paragraphs(
                                 let h = PhysicalLength::new(cell_layout.height());
                                 max_h = max_h.max(h);
                             }
-                            max_h = max_h + padding * 2.0;
+                            max_h += padding * 2.0;
                             row_positions.push(current_y);
                             row_heights.push(max_h);
                             current_y += max_h;
@@ -715,12 +795,18 @@ fn create_text_paragraphs(
                         for row in &table_body_data {
                             let mut max_h = PhysicalLength::new(layout_builder.pixel_size.get());
                             for (col, cell) in row.iter().enumerate() {
-                                if col >= column_widths_resolved.len() { break; }
-                                let available_width = column_widths_resolved[col].get() - cell_border_spacing.get();
+                                if col >= column_widths_resolved.len() {
+                                    break;
+                                }
+                                let available_width =
+                                    column_widths_resolved[col].get() - cell_border_spacing.get();
                                 let mut cell_layout = layout_builder.build(
-                                    font_context, &cell.text, None,
+                                    font_context,
+                                    &cell.text,
+                                    None,
                                     cell.formatting.iter().cloned(),
-                                    None, BlockType::Normal,
+                                    None,
+                                    BlockType::Normal,
                                 );
                                 if available_width > 0.0 {
                                     cell_layout.break_all_lines(Some(available_width));
@@ -730,7 +816,7 @@ fn create_text_paragraphs(
                                 let h = PhysicalLength::new(cell_layout.height());
                                 max_h = max_h.max(h);
                             }
-                            max_h = max_h + padding * 2.0;
+                            max_h += padding * 2.0;
                             row_positions.push(current_y);
                             row_heights.push(max_h);
                             current_y += max_h;
@@ -738,53 +824,78 @@ fn create_text_paragraphs(
                         let total_height = current_y;
 
                         // Shape header cell layouts with correct column widths
-                        let header_layouts: Vec<Vec<parley::Layout<Brush>>> = table_header_data.iter().map(|row| {
-                            row.iter().enumerate().map(|(col, cell)| {
-                                let cell_width = if col < column_widths_resolved.len() {
-                                    column_widths_resolved[col].get() - 8.0
-                                } else {
-                                    0.0
-                                };
-                                let mut layout = layout_builder.build(
-                                    font_context, &cell.text, None,
-                                    cell.formatting.iter().cloned(),
-                                    None, BlockType::Normal,
-                                );
-                                if cell_width > 0.0 {
-                                    layout.break_all_lines(Some(cell_width));
-                                } else {
-                                    layout.break_all_lines(None);
-                                }
-                                layout
-                            }).collect()
-                        }).collect();
+                        let header_layouts: Vec<Vec<parley::Layout<Brush>>> = table_header_data
+                            .iter()
+                            .map(|row| {
+                                row.iter()
+                                    .enumerate()
+                                    .map(|(col, cell)| {
+                                        let cell_width = if col < column_widths_resolved.len() {
+                                            column_widths_resolved[col].get() - 8.0
+                                        } else {
+                                            0.0
+                                        };
+                                        let mut layout = layout_builder.build(
+                                            font_context,
+                                            &cell.text,
+                                            None,
+                                            cell.formatting.iter().cloned(),
+                                            None,
+                                            BlockType::Normal,
+                                        );
+                                        if cell_width > 0.0 {
+                                            layout.break_all_lines(Some(cell_width));
+                                        } else {
+                                            layout.break_all_lines(None);
+                                        }
+                                        layout
+                                    })
+                                    .collect()
+                            })
+                            .collect();
 
                         // Shape body cell layouts with correct column widths
-                        let body_layouts: Vec<Vec<parley::Layout<Brush>>> = table_body_data.iter().map(|row| {
-                            row.iter().enumerate().map(|(col, cell)| {
-                                let cell_width = if col < column_widths_resolved.len() {
-                                    column_widths_resolved[col].get() - 8.0
-                                } else {
-                                    0.0
-                                };
-                                let mut layout = layout_builder.build(
-                                    font_context, &cell.text, None,
-                                    cell.formatting.iter().cloned(),
-                                    None, BlockType::Normal,
-                                );
-                                if cell_width > 0.0 {
-                                    layout.break_all_lines(Some(cell_width));
-                                } else {
-                                    layout.break_all_lines(None);
-                                }
-                                layout
-                            }).collect()
-                        }).collect();
+                        let body_layouts: Vec<Vec<parley::Layout<Brush>>> = table_body_data
+                            .iter()
+                            .map(|row| {
+                                row.iter()
+                                    .enumerate()
+                                    .map(|(col, cell)| {
+                                        let cell_width = if col < column_widths_resolved.len() {
+                                            column_widths_resolved[col].get() - 8.0
+                                        } else {
+                                            0.0
+                                        };
+                                        let mut layout = layout_builder.build(
+                                            font_context,
+                                            &cell.text,
+                                            None,
+                                            cell.formatting.iter().cloned(),
+                                            None,
+                                            BlockType::Normal,
+                                        );
+                                        if cell_width > 0.0 {
+                                            layout.break_all_lines(Some(cell_width));
+                                        } else {
+                                            layout.break_all_lines(None);
+                                        }
+                                        layout
+                                    })
+                                    .collect()
+                            })
+                            .collect();
 
                         paragraphs.push(TextParagraph {
                             range: 0..0,
                             y: PhysicalLength::default(),
-                            layout: layout_builder.build(font_context, "", None, None, None, BlockType::Normal),
+                            layout: layout_builder.build(
+                                font_context,
+                                "",
+                                None,
+                                None,
+                                None,
+                                BlockType::Normal,
+                            ),
                             links: Vec::new(),
                             code_ranges: Vec::new(),
                             is_horizontal_rule: false,
@@ -829,7 +940,8 @@ fn layout(
 
     // Returned None if failed to get the ellipsis glyph for some rare reason.
     let get_ellipsis_glyph = |font_context: &mut parley::FontContext| {
-        let mut layout = layout_builder.build(font_context, "…", None, None, None, BlockType::Normal);
+        let mut layout =
+            layout_builder.build(font_context, "…", None, None, None, BlockType::Normal);
         layout.break_all_lines(None);
         let line = layout.lines().next()?;
         let item = line.items().next()?;
@@ -864,22 +976,20 @@ fn layout(
     for para in paragraphs.iter_mut() {
         let spacing = if para_y == 0.0 {
             0.0
-        } else if para.heading_level > 0 && prev_heading_level == 0 {
+        } else if (para.heading_level > 0 && prev_heading_level == 0)
+            || (para.is_code_block && !prev_is_code_block)
+        {
             body_font_size * 1.0
-        } else if para.is_code_block && !prev_is_code_block {
-            body_font_size * 1.0
-        } else if para.block_quote_level > 0 && prev_block_quote_level == 0 {
-            body_font_size * 0.5
-        } else if prev_heading_level > 0 && para.heading_level == 0 {
+        } else if (para.block_quote_level > 0 && prev_block_quote_level == 0)
+            || (prev_heading_level > 0 && para.heading_level == 0)
+        {
             body_font_size * 0.5
         } else if para.heading_level > 0 && prev_heading_level > 0 {
             0.0
-        } else if !para.is_code_block && prev_is_code_block {
+        } else if (!para.is_code_block && prev_is_code_block)
+            || (para.table.is_some() && !prev_is_table)
+        {
             body_font_size * 0.5
-        } else if para.table.is_some() && !prev_is_table {
-            body_font_size * 0.5
-        } else if !para.table.is_some() && prev_is_table {
-            body_font_size * 0.3
         } else {
             body_font_size * 0.3
         };
@@ -1844,10 +1954,10 @@ impl Layout {
         let visible_extent = self.visible_extent();
         for (paragraph_index, paragraph) in self.paragraphs.iter().enumerate() {
             if paragraph.is_horizontal_rule {
-                if let Some(cut) = visible_extent {
-                    if paragraph_index > cut.last_paragraph {
-                        continue;
-                    }
+                if let Some(cut) = visible_extent
+                    && paragraph_index > cut.last_paragraph
+                {
+                    continue;
                 }
                 let y = self.y_offset + paragraph.y;
                 let line_y = y.get() + self.rule_margin.get();
@@ -1859,10 +1969,10 @@ impl Layout {
                 continue;
             }
             if let Some(ref table_info) = paragraph.table {
-                if let Some(cut) = visible_extent {
-                    if paragraph_index > cut.last_paragraph {
-                        continue;
-                    }
+                if let Some(cut) = visible_extent
+                    && paragraph_index > cut.last_paragraph
+                {
+                    continue;
                 }
                 let table_y = self.y_offset + paragraph.y;
                 let border_color = default_text_color.transparentize(0.8);
@@ -1885,7 +1995,7 @@ impl Layout {
                         .zip([&table_info.header, &table_info.body].iter())
                         .enumerate()
                 {
-                    for (row_idx, (row_layouts, row_data)) in
+                    for (row_idx, (row_layouts, _row_data)) in
                         layouts_section.iter().zip(data_section.iter()).enumerate()
                     {
                         let flat_row_idx = if section_idx == 0 {
@@ -1893,10 +2003,18 @@ impl Layout {
                         } else {
                             table_info.header_layouts.len() + row_idx
                         };
-                        let row_y = table_y + *table_info.row_positions.get(flat_row_idx).unwrap_or(&PhysicalLength::zero());
+                        let row_y = table_y
+                            + *table_info
+                                .row_positions
+                                .get(flat_row_idx)
+                                .unwrap_or(&PhysicalLength::zero());
 
                         for (col, cell_layout) in row_layouts.iter().enumerate() {
-                            let col_x = table_info.column_positions.get(col).copied().unwrap_or(PhysicalLength::zero());
+                            let col_x = table_info
+                                .column_positions
+                                .get(col)
+                                .copied()
+                                .unwrap_or(PhysicalLength::zero());
                             let cell_x = col_x + padding;
 
                             for line in cell_layout.lines() {
@@ -1925,7 +2043,12 @@ impl Layout {
 
                 // Draw horizontal grid lines
                 for row_idx in 0..=table_info.row_heights.len() {
-                    let y = table_y + table_info.row_positions.get(row_idx).copied().unwrap_or(table_info.total_height);
+                    let y = table_y
+                        + table_info
+                            .row_positions
+                            .get(row_idx)
+                            .copied()
+                            .unwrap_or(table_info.total_height);
                     let line = PhysicalRect::new(
                         PhysicalPoint::new(0.0, y.get()),
                         PhysicalSize::new(table_info.total_width.get(), 1.0),
@@ -1952,10 +2075,10 @@ impl Layout {
                 continue;
             }
             if paragraph.is_code_block {
-                if let Some(cut) = visible_extent {
-                    if paragraph_index > cut.last_paragraph {
-                        continue;
-                    }
+                if let Some(cut) = visible_extent
+                    && paragraph_index > cut.last_paragraph
+                {
+                    continue;
                 }
                 let y = self.y_offset + paragraph.y;
                 let para_height = PhysicalLength::new(paragraph.layout.height());
@@ -1963,7 +2086,10 @@ impl Layout {
                 let padding = PhysicalLength::new(4.0);
                 let bg_rect = PhysicalRect::new(
                     PhysicalPoint::new(0.0, y.get() - padding.get()),
-                    PhysicalSize::new(self.max_width.get(), para_height.get() + padding.get() * 2.0),
+                    PhysicalSize::new(
+                        self.max_width.get(),
+                        para_height.get() + padding.get() * 2.0,
+                    ),
                 );
                 item_renderer.fill_rectangle_with_color(bg_rect, bg_color);
             }
@@ -1980,7 +2106,8 @@ impl Layout {
                 item_renderer.fill_rectangle_with_color(rect, color);
             }
             if paragraph.heading_level == 1 || paragraph.heading_level == 2 {
-                let y = self.y_offset + paragraph.y + PhysicalLength::new(paragraph.layout.height());
+                let y =
+                    self.y_offset + paragraph.y + PhysicalLength::new(paragraph.layout.height());
                 let line_y = y.get() + 4.0;
                 let line_color = default_text_color.transparentize(0.7);
                 let rect = PhysicalRect::new(
