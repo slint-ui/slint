@@ -574,8 +574,7 @@ fn duplicate_element_with_mapping(
         property_declarations: elem.property_declarations.clone(),
         // We will do the fixup of the references in bindings later
         bindings: elem
-            .bindings
-            .iter()
+            .bindings_including_synthetic()
             .map(|b| duplicate_binding(b, mapping, root_component, priority_delta))
             .collect(),
         change_callbacks: elem.change_callbacks.clone(),

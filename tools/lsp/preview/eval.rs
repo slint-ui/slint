@@ -54,7 +54,7 @@ fn eval_expression(
         Expression::PropertyReference(source) => {
             let elem = source.element();
             let elem = elem.borrow();
-            if let Some(binding) = elem.bindings.get(source.name()) {
+            if let Some(binding) = elem.binding_cell_including_synthetic(source.name()) {
                 let binding = binding.borrow();
                 let mut ctx = EvalLocalContext {
                     recursion_count: local_context.recursion_count + 1,

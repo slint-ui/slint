@@ -77,7 +77,7 @@ fn create_box_shadow_element(
         id: format_smolstr!("{}-{}", sibling_element.borrow().id, id_suffix),
         base_type: type_register.lookup_builtin_element("BoxShadow").unwrap(),
         enclosing_component: sibling_element.borrow().enclosing_component.clone(),
-        bindings,
+        bindings: bindings.into(),
         ..Default::default()
     };
 
