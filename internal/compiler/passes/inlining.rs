@@ -419,7 +419,7 @@ fn duplicate_element_with_mapping(
         named_references: Default::default(),
         item_index: Default::default(), // Not determined yet
         item_index_of_first_children: Default::default(),
-        is_flickable_viewport: elem.is_flickable_viewport,
+        is_flickable_content: elem.is_flickable_content,
         has_popup_child: elem.has_popup_child,
         is_tooltip: elem.is_tooltip,
         is_legacy_syntax: elem.is_legacy_syntax,

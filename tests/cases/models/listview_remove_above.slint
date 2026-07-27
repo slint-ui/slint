@@ -13,8 +13,8 @@ export component TestCase inherits Window {
     height: 200px;
 
     in-out property <[int]> model;
-    in-out property <length> viewport-y <=> lv.viewport-y;
-    out property <length> viewport-height <=> lv.viewport-height;
+    in-out property <length> content-y <=> lv.content-y;
+    out property <length> content-height <=> lv.content-height;
 
     out property <string> clicked-values;
 
@@ -56,17 +56,17 @@ assert_eq!(
     instance.get_clicked_values(),
     SharedString::from("[0=0][1=1][2=2][3=3][4=4][5=5][6=6][7=7][8=8][9=9]")
 );
-assert_eq!(instance.get_viewport_height(), 100. * 20.);
-assert_eq!(instance.get_viewport_y(), 0.);
+assert_eq!(instance.get_content_height(), 100. * 20.);
+assert_eq!(instance.get_content_y(), 0.);
 
 // Scroll to the bottom: items 90..99 should be visible.
-instance.set_viewport_y(-1800.);
+instance.set_content_y(-1800.);
 click_all(&instance);
 assert_eq!(
     instance.get_clicked_values(),
     SharedString::from("[90=90][91=91][92=92][93=93][94=94][95=95][96=96][97=97][98=98][99=99]")
 );
-assert_eq!(instance.get_viewport_y(), -1800.);
+assert_eq!(instance.get_content_y(), -1800.);
 
 // Remove the very first row. After the removal, indices have shifted by one:
 // row 89 contains value 90, ..., row 98 contains value 99. The viewport stays
@@ -77,8 +77,8 @@ assert_eq!(
     instance.get_clicked_values(),
     SharedString::from("[89=90][90=91][91=92][92=93][93=94][94=95][95=96][96=97][97=98][98=99]")
 );
-assert_eq!(instance.get_viewport_height(), 99. * 20.);
-assert_eq!(instance.get_viewport_y(), -1780.);
+assert_eq!(instance.get_content_height(), 99. * 20.);
+assert_eq!(instance.get_content_y(), -1780.);
 
 // Removing further rows from the top should keep the visible range consistent.
 model.remove(0);
@@ -88,21 +88,21 @@ assert_eq!(
     instance.get_clicked_values(),
     SharedString::from("[87=90][88=91][89=92][90=93][91=94][92=95][93=96][94=97][95=98][96=99]")
 );
-assert_eq!(instance.get_viewport_height(), 97. * 20.);
-assert_eq!(instance.get_viewport_y(), -1740.);
+assert_eq!(instance.get_content_height(), 97. * 20.);
+assert_eq!(instance.get_content_y(), -1740.);
 
 // === Coverage for the other model mutations ===
 // Reset to a fresh model and scroll to the middle so we can exercise
 // row_changed / row_added / row_removed in different positions.
 let model2 = Rc::new(VecModel::from((0..100).collect::<Vec<i32>>()));
 instance.set_model(model2.clone().into());
-instance.set_viewport_y(-800.);
+instance.set_content_y(-800.);
 click_all(&instance);
 assert_eq!(
     instance.get_clicked_values(),
     SharedString::from("[40=40][41=41][42=42][43=43][44=44][45=45][46=46][47=47][48=48][49=49]")
 );
-assert_eq!(instance.get_viewport_y(), -800.);
+assert_eq!(instance.get_content_y(), -800.);
 
 // row_changed on a visible row.
 model2.set_row_data(45, 999);
@@ -143,7 +143,7 @@ assert_eq!(
     instance.get_clicked_values(),
     SharedString::from("[40=40][41=41][42=42][43=43][44=44][45=999][46=46][47=47][48=48][49=49]")
 );
-assert_eq!(instance.get_viewport_y(), -800.);
+assert_eq!(instance.get_content_y(), -800.);
 
 // row_added entirely before the visible range (mirror of #11319): existing
 // instances stay anchored to the same values, but their model row index
@@ -154,7 +154,7 @@ assert_eq!(
     instance.get_clicked_values(),
     SharedString::from("[41=40][42=41][43=42][44=43][45=44][46=999][47=46][48=47][49=48][50=49]")
 );
-assert_eq!(instance.get_viewport_y(), -820.);
+assert_eq!(instance.get_content_y(), -820.);
 
 // row_removed entirely before the visible range while mid-list: symmetric
 // with the insert(0, ...) case above. Undoes that insert.
@@ -164,7 +164,7 @@ assert_eq!(
     instance.get_clicked_values(),
     SharedString::from("[40=40][41=41][42=42][43=43][44=44][45=999][46=46][47=47][48=48][49=49]")
 );
-assert_eq!(instance.get_viewport_y(), -800.);
+assert_eq!(instance.get_content_y(), -800.);
 ```
 
 ```cpp
@@ -185,36 +185,36 @@ auto click_all = [&]() {
 
 click_all();
 assert_eq(instance.get_clicked_values(), "[0=0][1=1][2=2][3=3][4=4][5=5][6=6][7=7][8=8][9=9]");
-assert_eq(instance.get_viewport_height(), 100. * 20.);
-assert_eq(instance.get_viewport_y(), 0.);
+assert_eq(instance.get_content_height(), 100. * 20.);
+assert_eq(instance.get_content_y(), 0.);
 
-instance.set_viewport_y(-1800.);
+instance.set_content_y(-1800.);
 click_all();
 assert_eq(instance.get_clicked_values(), "[90=90][91=91][92=92][93=93][94=94][95=95][96=96][97=97][98=98][99=99]");
-assert_eq(instance.get_viewport_y(), -1800.);
+assert_eq(instance.get_content_y(), -1800.);
 
 model->erase(0);
 click_all();
 assert_eq(instance.get_clicked_values(), "[89=90][90=91][91=92][92=93][93=94][94=95][95=96][96=97][97=98][98=99]");
-assert_eq(instance.get_viewport_height(), 99. * 20.);
-assert_eq(instance.get_viewport_y(), -1780.);
+assert_eq(instance.get_content_height(), 99. * 20.);
+assert_eq(instance.get_content_y(), -1780.);
 
 model->erase(0);
 model->erase(0);
 click_all();
 assert_eq(instance.get_clicked_values(), "[87=90][88=91][89=92][90=93][91=94][92=95][93=96][94=97][95=98][96=99]");
-assert_eq(instance.get_viewport_height(), 97. * 20.);
-assert_eq(instance.get_viewport_y(), -1740.);
+assert_eq(instance.get_content_height(), 97. * 20.);
+assert_eq(instance.get_content_y(), -1740.);
 
 // === Coverage for the other model mutations ===
 std::vector<int> initial2;
 for (int i = 0; i < 100; ++i) initial2.push_back(i);
 auto model2 = std::make_shared<slint::VectorModel<int>>(std::move(initial2));
 instance.set_model(model2);
-instance.set_viewport_y(-800.);
+instance.set_content_y(-800.);
 click_all();
 assert_eq(instance.get_clicked_values(), "[40=40][41=41][42=42][43=43][44=44][45=45][46=46][47=47][48=48][49=49]");
-assert_eq(instance.get_viewport_y(), -800.);
+assert_eq(instance.get_content_y(), -800.);
 
 // row_changed on a visible row.
 model2->set_row_data(45, 999);
@@ -240,19 +240,19 @@ assert_eq(instance.get_clicked_values(), "[40=40][41=41][42=42][43=43][44=44][45
 model2->erase(99);
 click_all();
 assert_eq(instance.get_clicked_values(), "[40=40][41=41][42=42][43=43][44=44][45=999][46=46][47=47][48=48][49=49]");
-assert_eq(instance.get_viewport_y(), -800.);
+assert_eq(instance.get_content_y(), -800.);
 
 // row_added entirely before the visible range (mirror of #11319).
 model2->insert(0, -10);
 click_all();
 assert_eq(instance.get_clicked_values(), "[41=40][42=41][43=42][44=43][45=44][46=999][47=46][48=47][49=48][50=49]");
-assert_eq(instance.get_viewport_y(), -820.);
+assert_eq(instance.get_content_y(), -820.);
 
 // row_removed entirely before the visible range while mid-list.
 model2->erase(0);
 click_all();
 assert_eq(instance.get_clicked_values(), "[40=40][41=41][42=42][43=43][44=44][45=999][46=46][47=47][48=48][49=49]");
-assert_eq(instance.get_viewport_y(), -800.);
+assert_eq(instance.get_content_y(), -800.);
 ```
 
 ```js
@@ -271,26 +271,26 @@ function click_all() {
 
 click_all();
 assert.equal(instance.clicked_values, "[0=0][1=1][2=2][3=3][4=4][5=5][6=6][7=7][8=8][9=9]");
-assert.equal(instance.viewport_height, 100. * 20.);
-assert.equal(instance.viewport_y, 0.);
+assert.equal(instance.content_height, 100. * 20.);
+assert.equal(instance.content_y, 0.);
 
-instance.viewport_y = -1800.;
+instance.content_y = -1800.;
 click_all();
 assert.equal(instance.clicked_values, "[90=90][91=91][92=92][93=93][94=94][95=95][96=96][97=97][98=98][99=99]");
-assert.equal(instance.viewport_y, -1800.);
+assert.equal(instance.content_y, -1800.);
 
 model.remove(0, 1);
 click_all();
 assert.equal(instance.clicked_values, "[89=90][90=91][91=92][92=93][93=94][94=95][95=96][96=97][97=98][98=99]");
-assert.equal(instance.viewport_height, 99. * 20.);
-assert.equal(instance.viewport_y, -1780.);
+assert.equal(instance.content_height, 99. * 20.);
+assert.equal(instance.content_y, -1780.);
 
 model.remove(0, 1);
 model.remove(0, 1);
 click_all();
 assert.equal(instance.clicked_values, "[87=90][88=91][89=92][90=93][91=94][92=95][93=96][94=97][95=98][96=99]");
-assert.equal(instance.viewport_height, 97. * 20.);
-assert.equal(instance.viewport_y, -1740.);
+assert.equal(instance.content_height, 97. * 20.);
+assert.equal(instance.content_y, -1740.);
 
 // === Coverage for the other model mutations ===
 // A small Model subclass to exercise row_added in arbitrary positions
@@ -308,10 +308,10 @@ let initial2 = [];
 for (let i = 0; i < 100; ++i) initial2.push(i);
 let model2 = new ListModel(initial2);
 instance.model = model2;
-instance.viewport_y = -800.;
+instance.content_y = -800.;
 click_all();
 assert.equal(instance.clicked_values, "[40=40][41=41][42=42][43=43][44=44][45=45][46=46][47=47][48=48][49=49]");
-assert.equal(instance.viewport_y, -800.);
+assert.equal(instance.content_y, -800.);
 
 // row_changed on a visible row.
 model2.setRowData(45, 999);
@@ -337,18 +337,18 @@ assert.equal(instance.clicked_values, "[40=40][41=41][42=42][43=43][44=44][45=99
 model2.remove(99);
 click_all();
 assert.equal(instance.clicked_values, "[40=40][41=41][42=42][43=43][44=44][45=999][46=46][47=47][48=48][49=49]");
-assert.equal(instance.viewport_y, -800.);
+assert.equal(instance.content_y, -800.);
 
 // row_added entirely before the visible range (mirror of #11319).
 model2.insert(0, -10);
 click_all();
 assert.equal(instance.clicked_values, "[41=40][42=41][43=42][44=43][45=44][46=999][47=46][48=47][49=48][50=49]");
-assert.equal(instance.viewport_y, -820.);
+assert.equal(instance.content_y, -820.);
 
 // row_removed entirely before the visible range while mid-list.
 model2.remove(0);
 click_all();
 assert.equal(instance.clicked_values, "[40=40][41=41][42=42][43=43][44=44][45=999][46=46][47=47][48=48][49=49]");
-assert.equal(instance.viewport_y, -800.);
+assert.equal(instance.content_y, -800.);
 ```
 */

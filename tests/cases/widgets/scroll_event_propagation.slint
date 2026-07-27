@@ -12,7 +12,7 @@ import { CheckBox, Button, ComboBox, Slider, SpinBox, Switch, LineEdit, TextEdit
 export component TestCase inherits Window {
     width: 400px;
     height: 800px;
-    out property <length> flickable_viewport_y: flickable.viewport-y;
+    out property <length> flickable_content_y: flickable.content-y;
     out property <string> style: Platform.style-name;
 
     public function focus_combobox(focus: bool) {
@@ -118,7 +118,7 @@ let flickable = ElementHandle::find_by_element_id(&instance, "TestCase::flickabl
 
 let reset = || {
     flickable.scroll(0., 10_000.);
-    assert_eq!(instance.get_flickable_viewport_y(), 0.0);
+    assert_eq!(instance.get_flickable_content_y(), 0.0);
 };
 
 reset();
@@ -127,11 +127,11 @@ let assert_scrolls = |id: &str| {
     let element = ElementHandle::find_by_element_id(&instance, id).next().unwrap();
     element.scroll(0., -100.);
 
-    let after_y = instance.get_flickable_viewport_y();
+    let after_y = instance.get_flickable_content_y();
     assert!(
         after_y < 0.0,
         "Element {id} should not consume scroll events - the Flickable should scroll.\
-         Initial viewport-y: 0.0, after scroll: {after_y}",
+         Initial content-y: 0.0, after scroll: {after_y}",
     );
     reset();
 };
@@ -139,11 +139,11 @@ let assert_does_not_scroll = |id: &str| {
     let element = ElementHandle::find_by_element_id(&instance, id).next().unwrap();
     element.scroll(0., -100.);
 
-    let after_y = instance.get_flickable_viewport_y();
+    let after_y = instance.get_flickable_content_y();
     assert_eq!(
         after_y, 0.0,
         "Element {id} should consume scroll events - the Flickable should not scroll.\
-         Initial viewport-y: 0.0, after scroll: {after_y}",
+         Initial content-y: 0.0, after scroll: {after_y}",
     );
 };
 
@@ -189,13 +189,13 @@ assert_does_not_scroll("TestCase::text-edit");
 // Also needs to ensure that the mouse position does not change -> always fire the scroll event in the
 // center of the flickable.
 for _ in 0..100 {
-    let before = instance.get_flickable_viewport_y();
+    let before = instance.get_flickable_content_y();
     flickable.scroll(0., -10.);
-    let after = instance.get_flickable_viewport_y();
+    let after = instance.get_flickable_content_y();
     assert!(
         after < before,
         "Should be able to scroll over the lower text edit if the scroll events are within the timeout.\
-         Before viewport-y: {before}, after scroll: {after}"
+         Before content-y: {before}, after scroll: {after}"
     );
 }
 
@@ -204,10 +204,10 @@ reset();
 // If scrolling with a slow timeout, the lower textedit will start consuming scroll events
 let mut found = false;
 for _ in 0..100 {
-    let before = instance.get_flickable_viewport_y();
+    let before = instance.get_flickable_content_y();
     timeout_scroll_capture();
     flickable.scroll(0., -10.);
-    let after = instance.get_flickable_viewport_y();
+    let after = instance.get_flickable_content_y();
     eprintln!("{before} -> {after}");
     if after == before {
         found = true;

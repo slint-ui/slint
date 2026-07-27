@@ -516,12 +516,9 @@ impl Snapshotter {
                 index_id: r.index_id.clone(),
                 is_conditional_element: r.is_conditional_element,
                 is_listview: r.is_listview.as_ref().map(|lv| object_tree::ListViewInfo {
-                    viewport_y: lv.viewport_y.snapshot(self),
-                    viewport_height: lv
-                        .viewport_height
-                        .as_ref()
-                        .map(|height| height.snapshot(self)),
-                    viewport_width: lv.viewport_width.as_ref().map(|width| width.snapshot(self)),
+                    content_y: lv.content_y.snapshot(self),
+                    content_height: lv.content_height.as_ref().map(|height| height.snapshot(self)),
+                    content_width: lv.content_width.as_ref().map(|width| width.snapshot(self)),
                     listview_height: lv.listview_height.snapshot(self),
                     listview_width: lv.listview_width.snapshot(self),
                 }),
@@ -565,7 +562,7 @@ impl Snapshotter {
         target_element.has_popup_child = elem.has_popup_child;
         target_element.inline_depth = elem.inline_depth;
         target_element.is_component_placeholder = elem.is_component_placeholder;
-        target_element.is_flickable_viewport = elem.is_flickable_viewport;
+        target_element.is_flickable_content = elem.is_flickable_content;
         target_element.is_legacy_syntax = elem.is_legacy_syntax;
         target_element.item_index = elem.item_index.clone();
         target_element.item_index_of_first_children = elem.item_index_of_first_children.clone();

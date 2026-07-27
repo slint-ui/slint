@@ -27,4 +27,16 @@ export component Test {
 //                                       >        <warning{The property 'older-prop' has been deprecated. Compute it from 'new-prop' instead}
     property <int> two-way <=> inner.old-prop;
 //                                   >      <warning{The property 'old-prop' has been deprecated. Please use 'new-prop' instead}
+
+    // Setting a deprecated property as a binding on an element warns too:
+    Inner {
+        old-prop: 1;
+//      >      <warning{The property 'old-prop' has been deprecated. Please use 'new-prop' instead}
+        older-prop: 2;
+//      >        <warning{The property 'older-prop' has been deprecated. Compute it from 'new-prop' instead}
+
+        // ... and so does animating it:
+        animate old-prop { duration: 100ms; }
+//              >       <warning{The property 'old-prop' has been deprecated. Please use 'new-prop' instead}
+    }
 }

@@ -900,15 +900,15 @@ fn lower_repeated_component(
     let listview = repeated.is_listview.as_ref().map(|lv| {
         let geom = component.root_element.borrow().geometry_props.clone().unwrap();
         ListViewInfo {
-            viewport_y: ctx.map_property_reference(&lv.viewport_y),
-            viewport_height: lv
-                .viewport_height
+            content_y: ctx.map_property_reference(&lv.content_y),
+            content_height: lv
+                .content_height
                 .as_ref()
-                .map(|viewport_height| ctx.map_property_reference(viewport_height)),
-            viewport_width: lv
-                .viewport_width
+                .map(|content_height| ctx.map_property_reference(content_height)),
+            content_width: lv
+                .content_width
                 .as_ref()
-                .map(|viewport_width| ctx.map_property_reference(viewport_width)),
+                .map(|content_width| ctx.map_property_reference(content_width)),
             listview_height: ctx.map_property_reference(&lv.listview_height),
             listview_width: ctx.map_property_reference(&lv.listview_width),
             prop_y: sc.mapping.map_property_reference(&geom.y, ctx.state),

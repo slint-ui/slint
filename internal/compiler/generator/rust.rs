@@ -991,24 +991,36 @@ fn handle_property_init(
     }
 }
 
+/// Token stream that walks up `parent_level` parent pointers (`_self.parent.upgrade()...`),
+/// or `None` when `parent_level` is 0 (the member lives on the current component).
+fn parent_access_path(parent_level: usize) -> Option<TokenStream> {
+    (parent_level != 0).then(|| {
+        let mut path = quote!(_self.parent.upgrade());
+        for _ in 1..parent_level {
+            path = quote!(#path.and_then(|x| x.parent.upgrade()));
+        }
+        path
+    })
+}
+
 /// Returns the code to access the change-tracker `Property<()>` for an exported callback.
 /// Returns `None` if the callback doesn't have a tracker.
 fn access_callback_tracker(
     reference: &llr::MemberReference,
     ctx: &EvaluationContext,
-) -> Option<TokenStream> {
+) -> Option<MemberAccess> {
     fn in_global(
         g: &llr::GlobalComponent,
         callback_idx: &llr::CallbackIdx,
         _self: TokenStream,
-    ) -> Option<TokenStream> {
+    ) -> Option<MemberAccess> {
         if !g.callbacks[*callback_idx].needs_tracker {
             return None;
         }
         let tracker_name = callback_tracker_ident(&g.callbacks[*callback_idx].name);
         let global_name = global_inner_name(g);
         let tracker_field = quote!({ *&#global_name::FIELD_OFFSETS.#tracker_name() });
-        Some(quote!(#tracker_field.apply_pin(#_self)))
+        Some(MemberAccess::Direct(quote!(#tracker_field.apply_pin(#_self))))
     }
 
     match reference {
@@ -1027,26 +1039,33 @@ fn access_callback_tracker(
             };
             in_global(global, callback_idx, s)
         }
-        llr::MemberReference::Relative { parent_level: 0, local_reference } => {
-            if let llr::LocalMemberIndex::Callback(callback_idx) = &local_reference.reference {
-                if let Some(current_global) = ctx.current_global() {
-                    return in_global(current_global, callback_idx, quote!(_self));
-                }
-                if local_reference.sub_component_path.is_empty()
-                    && let Some(sc_idx) = ctx.parent_sub_component_idx(0)
-                {
-                    let sc = &ctx.compilation_unit.sub_components[sc_idx];
-                    if sc.callbacks[*callback_idx].needs_tracker {
-                        let tracker_name =
-                            callback_tracker_ident(&sc.callbacks[*callback_idx].name);
-                        let component_id = inner_component_id(sc);
-                        let tracker_field =
-                            access_component_field_offset(&component_id, &tracker_name);
-                        return Some(quote!((#tracker_field).apply_pin(_self)));
-                    }
-                }
+        llr::MemberReference::Relative { parent_level, local_reference } => {
+            let llr::LocalMemberIndex::Callback(callback_idx) = &local_reference.reference else {
+                return None;
+            };
+            if let Some(current_global) = ctx.current_global() {
+                return in_global(current_global, callback_idx, quote!(_self));
             }
-            None
+            let sc_idx = ctx.parent_sub_component_idx(*parent_level)?;
+            let (compo_path, sub_component) = follow_sub_component_path(
+                ctx.compilation_unit,
+                sc_idx,
+                &local_reference.sub_component_path,
+            );
+            if !sub_component.callbacks[*callback_idx].needs_tracker {
+                return None;
+            }
+            let tracker_name = callback_tracker_ident(&sub_component.callbacks[*callback_idx].name);
+            let component_id = inner_component_id(sub_component);
+            let tracker_field = access_component_field_offset(&component_id, &tracker_name);
+
+            let parent_path = parent_access_path(*parent_level);
+            Some(parent_path.map_or_else(
+                || MemberAccess::Direct(quote!((#compo_path #tracker_field).apply_pin(_self))),
+                |parent_path| {
+                    MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #tracker_field).apply_pin(x.as_pin_ref()))))
+                },
+            ))
         }
         _ => None,
     }
@@ -1079,8 +1098,8 @@ fn public_api(
             ));
             let on_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Handler);
             let args_index = (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
-            let tracker_access = access_callback_tracker(&p.prop, ctx);
-            let set_dirty = tracker_access.map(|t| quote!(#t.mark_dirty();));
+            let set_dirty = access_callback_tracker(&p.prop, ctx)
+                .map(|t| t.then(|t| quote!({ #t.mark_dirty(); })));
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #on_ident(&self, mut f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
@@ -1380,17 +1399,17 @@ fn generate_sub_component(
                 });
             });
             if let Some(listview) = &repeated.listview {
-                let vp_y = access_member(&listview.viewport_y, &ctx).unwrap();
+                let content_y = access_member(&listview.content_y, &ctx).unwrap();
                 let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
                 let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
-                let vp_w = listview.viewport_width.as_ref().map_or_else(
+                let content_w = listview.content_width.as_ref().map_or_else(
                     || quote!(None),
                     |w| {
                         let w = access_member(w, &ctx).unwrap();
                         quote!(Some(#w))
                     },
                 );
-                let vp_h = listview.viewport_height.as_ref().map_or_else(
+                let content_h = listview.content_height.as_ref().map_or_else(
                     || quote!(None),
                     |h| {
                         let h = access_member(h, &ctx).unwrap();
@@ -1401,7 +1420,7 @@ fn generate_sub_component(
                 repeated_visit_branch.push(quote!(
                     #idx => {
                         #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).track_changes_listview(
-                            #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
+                            #content_w, #content_h, #content_y, #lv_w.get(), #lv_h
                         );
                         #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit(order, visitor)
                     }
@@ -1409,7 +1428,7 @@ fn generate_sub_component(
                 ensure_instantiated_stmts.push(quote!({
                     _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
                         || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
-                        #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
+                        #content_w, #content_h, #content_y, #lv_w.get(), #lv_h
                     );
                 }));
             } else {
@@ -2959,13 +2978,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                 return in_global(current_global, &local_reference.reference, quote!(_self));
             }
 
-            let parent_path = (*parent_level != 0).then(|| {
-                let mut path = quote!(_self.parent.upgrade());
-                for _ in 1..*parent_level {
-                    path = quote!(#path.and_then(|x| x.parent.upgrade()));
-                }
-                path
-            });
+            let parent_path = parent_access_path(*parent_level);
 
             match &local_reference.reference {
                 llr::LocalMemberIndex::Property(property_index) => {
@@ -3659,8 +3672,8 @@ fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
 fn compile_callback_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::CallBackCall { callback, arguments } = expr else { unreachable!() };
     let f = access_member(callback, ctx);
-    let tracker = access_callback_tracker(callback, ctx);
-    let register_dep = tracker.map(|t| quote!(#t.get();));
+    let register_dep =
+        access_callback_tracker(callback, ctx).map(|t| t.then(|t| quote!({ #t.get(); })));
     let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
     if expr.ty(ctx) == Type::Void {
         f.then(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)); }))

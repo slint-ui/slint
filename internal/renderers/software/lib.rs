@@ -3461,29 +3461,40 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             normalized_coords,
         );
 
-        let global_offset =
-            (self.current_state.offset.to_vector().cast() * self.scale_factor).cast();
+        let global_offset: euclid::Vector2D<f32, PhysicalPx> =
+            self.current_state.offset.to_vector().cast() * self.scale_factor;
+
+        const SUBPIXEL_BINS: i32 = fonts::vectorfont::SUBPIXEL_BIN_COUNT;
 
         for positioned_glyph in glyphs_it {
-            let Some(glyph) = std::num::NonZero::new(positioned_glyph.id as u16)
-                .and_then(|id| font.render_vector_glyph(id, slint_context))
-            else {
+            let Some(id) = std::num::NonZero::new(positioned_glyph.id as u16) else {
                 continue;
             };
 
-            let glyph_offset: euclid::Vector2D<i16, PhysicalPx> = euclid::Vector2D::from_lengths(
-                euclid::Length::new(positioned_glyph.x),
-                euclid::Length::new(positioned_glyph.y) + y_offset,
-            )
-            .cast();
+            // Absolute, sub-pixel-accurate device position of the pen for this glyph.
+            let abs_x = global_offset.x + positioned_glyph.x;
+            let abs_y = global_offset.y + positioned_glyph.y + y_offset.get();
+
+            // Quantize the horizontal position to SUBPIXEL_BINS positions per pixel.
+            // The integer part is the blit origin; the fractional part is rendered
+            // into the glyph coverage (see `render_vector_glyph`) instead of being
+            // discarded. This keeps inter-glyph spacing even: snapping the pen to a
+            // whole pixel (truncate or round) redistributes the sub-pixel advances
+            // unevenly between neighboring glyph pairs.
+            let quantized_x = (abs_x * SUBPIXEL_BINS as f32).round() as i32;
+            let dst_int_x = quantized_x.div_euclid(SUBPIXEL_BINS);
+            let subpixel_bin = quantized_x.rem_euclid(SUBPIXEL_BINS) as u8;
+
+            let Some(glyph) = font.render_vector_glyph(id, subpixel_bin, slint_context) else {
+                continue;
+            };
 
             let gl_y = PhysicalLength::new(glyph.y.truncate() as i16);
             let target_rect: PhysicalRect = euclid::Rect::<f32, PhysicalPx>::new(
-                (PhysicalPoint::from_lengths(PhysicalLength::new(0), -gl_y - glyph.height)
-                    + global_offset
-                    + glyph_offset)
-                    .cast()
-                    + euclid::vec2(glyph.glyph_origin_x, 0.0),
+                euclid::Point2D::new(
+                    dst_int_x as f32 + glyph.glyph_origin_x,
+                    abs_y.round() + (-gl_y - glyph.height).get() as f32,
+                ),
                 glyph.size().cast(),
             )
             .cast()
