@@ -903,6 +903,7 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                                 }
                             },
                             Ok(htmlparser::Token::ElementEnd { .. }) => {}
+                            Ok(htmlparser::Token::Comment { .. }) => {}
                             _ => {
                                 errors.push(StyledTextParseError::new(
                                     E::UnsupportedMarkdown(alloc::format!("{:?}", token)),
@@ -971,7 +972,18 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                     });
                 }
             }
-            pulldown_cmark::Event::TaskListMarker(_) | pulldown_cmark::Event::Html(_) => {
+            pulldown_cmark::Event::Html(ref html) => {
+                // HTML comments <!-- ... --> are silently skipped
+                if html.starts_with("<!--") {
+                    // skip
+                } else {
+                    errors.push(StyledTextParseError::new(
+                        E::UnsupportedMarkdown(unsupported_event_name(&event)),
+                        event_range,
+                    ));
+                }
+            }
+            pulldown_cmark::Event::TaskListMarker(_) => {
                 errors.push(StyledTextParseError::new(
                     E::UnsupportedMarkdown(unsupported_event_name(&event)),
                     event_range,
@@ -1550,6 +1562,19 @@ fn markdown_image() {
         assert_no_errors(parse_interpolated::<&[_]>("An image ![alt text](url.png)", &[])),
         [ParagraphBlock::Text(RichText {
             text: "An image alt text".into(),
+            formatting: alloc::vec![],
+            links: alloc::vec![],
+        })]
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_html_comment() {
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("before<!-- comment --> after", &[])),
+        [ParagraphBlock::Text(RichText {
+            text: "before after".into(),
             formatting: alloc::vec![],
             links: alloc::vec![],
         })]
