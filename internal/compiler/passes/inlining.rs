@@ -444,17 +444,20 @@ fn inline_element(
         };
     }
 
-    for (k, val) in inlined_component.root_element.borrow().bindings.iter() {
-        match elem_mut.bindings.entry(k.clone()) {
-            std::collections::btree_map::Entry::Vacant(entry) => {
-                let priority = &mut entry.insert(val.clone()).get_mut().priority;
-                *priority = priority.saturating_add(priority_delta);
-            }
-            std::collections::btree_map::Entry::Occupied(mut entry) => {
-                let entry = entry.get_mut().get_mut();
-                if entry.merge_with(&val.borrow()) {
-                    entry.priority = entry.priority.saturating_add(priority_delta);
+    for (property, root_binding) in
+        inlined_component.root_element.borrow().bindings_including_synthetic()
+    {
+        match elem_mut.binding_cell_including_synthetic(property) {
+            Some(elem_binding) => {
+                let mut binding = elem_binding.borrow_mut();
+                if binding.merge_with(&root_binding.borrow()) {
+                    binding.priority = binding.priority.saturating_add(priority_delta);
                 }
+            }
+            None => {
+                let mut elem_binding = root_binding.borrow().clone();
+                elem_binding.priority = elem_binding.priority.saturating_add(priority_delta);
+                elem_mut.set_binding(property.clone(), elem_binding);
             }
         }
     }

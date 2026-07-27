@@ -3177,8 +3177,16 @@ impl Element {
     /// matching "nothing was ever bound here". Dropping a leftover synthetic hook is safe for the
     /// lowering passes that consume, rename, or delete a property this way.
     pub fn take_binding(&mut self, property_name: &str) -> Option<BindingExpression> {
-        let binding = self.bindings.remove(property_name)?.into_inner();
-        (!binding.expression.is_synthetic_debug_hook()).then_some(binding)
+        self.take_binding_including_synthetic(property_name)
+            .filter(|binding| !binding.expression.is_synthetic_debug_hook())
+    }
+
+    /// Remove the binding for `property_name` and return it (including synthetic debug hooks).
+    pub fn take_binding_including_synthetic(
+        &mut self,
+        property_name: &str,
+    ) -> Option<BindingExpression> {
+        self.bindings.remove(property_name).map(RefCell::into_inner)
     }
 
     /// Remove and return the whole binding map, including synthetic debug hooks.
