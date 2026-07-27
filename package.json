@@ -4,6 +4,7 @@
   "description": "",
   "devDependencies": {
     "@cspell/dict-fr-fr": "2.3.2",
+    "cookie": "2.0.1",
     "cspell": "catalog:",
     "knip": "6.27.0"
   },
