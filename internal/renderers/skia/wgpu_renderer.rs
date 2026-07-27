@@ -175,7 +175,14 @@ impl RendererSealed for SkiaWGPURenderer {
         preferred_x: f32,
         vertical_advance: f32,
     ) -> Option<usize> {
-        self.renderer.text_input_move_cursor(text_input, item_rc, current_offset, direction, preferred_x, vertical_advance)
+        self.renderer.text_input_move_cursor(
+            text_input,
+            item_rc,
+            current_offset,
+            direction,
+            preferred_x,
+            vertical_advance,
+        )
     }
 
     fn register_font_from_memory(

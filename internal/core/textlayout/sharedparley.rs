@@ -1420,15 +1420,18 @@ impl Layout {
             crate::items::TextCursorDirection::NextLine => {
                 let rect = cursor.geometry(&paragraph.layout, 1.0);
                 let para_y_in_layout = (self.y_offset + paragraph.y).get();
-                let target_y = para_y_in_layout + rect.y0 as f32 + rect.height() as f32 + vertical_advance;
+                let target_y =
+                    para_y_in_layout + rect.y0 as f32 + rect.height() as f32 + vertical_advance;
                 let target_para = self.paragraph_by_y(PhysicalLength::new(target_y));
                 if let Some(target_para) = target_para {
                     let local_y = target_y - (self.y_offset + target_para.y).get();
-                    target_para.range.start + parley::editing::Cursor::from_point(
-                        &target_para.layout,
-                        preferred_x,
-                        local_y.max(0.0),
-                    ).index()
+                    target_para.range.start
+                        + parley::editing::Cursor::from_point(
+                            &target_para.layout,
+                            preferred_x,
+                            local_y.max(0.0),
+                        )
+                        .index()
                 } else {
                     paragraph.range.end
                 }
@@ -1443,30 +1446,28 @@ impl Layout {
                 let target_para = self.paragraph_by_y(PhysicalLength::new(target_y));
                 if let Some(target_para) = target_para {
                     let local_y = target_y - (self.y_offset + target_para.y).get();
-                    target_para.range.start + parley::editing::Cursor::from_point(
-                        &target_para.layout,
-                        preferred_x,
-                        local_y.max(0.0),
-                    ).index()
+                    target_para.range.start
+                        + parley::editing::Cursor::from_point(
+                            &target_para.layout,
+                            preferred_x,
+                            local_y.max(0.0),
+                        )
+                        .index()
                 } else {
                     paragraph.range.start
                 }
             }
             crate::items::TextCursorDirection::StartOfLine => {
                 let y = cursor.geometry(&paragraph.layout, 1.0).y0 as f32;
-                paragraph.range.start + parley::editing::Cursor::from_point(
-                    &paragraph.layout,
-                    f32::NEG_INFINITY,
-                    y,
-                ).index()
+                paragraph.range.start
+                    + parley::editing::Cursor::from_point(&paragraph.layout, f32::NEG_INFINITY, y)
+                        .index()
             }
             crate::items::TextCursorDirection::EndOfLine => {
                 let y = cursor.geometry(&paragraph.layout, 1.0).y0 as f32;
-                paragraph.range.start + parley::editing::Cursor::from_point(
-                    &paragraph.layout,
-                    f32::INFINITY,
-                    y,
-                ).index()
+                paragraph.range.start
+                    + parley::editing::Cursor::from_point(&paragraph.layout, f32::INFINITY, y)
+                        .index()
             }
             crate::items::TextCursorDirection::StartOfParagraph => paragraph.range.start,
             crate::items::TextCursorDirection::EndOfParagraph => paragraph.range.end,
@@ -1474,13 +1475,17 @@ impl Layout {
             crate::items::TextCursorDirection::EndOfText => {
                 self.paragraphs.last().map_or(0, |p| p.range.end)
             }
-            crate::items::TextCursorDirection::PageUp | crate::items::TextCursorDirection::PageDown => {
+            crate::items::TextCursorDirection::PageUp
+            | crate::items::TextCursorDirection::PageDown => {
                 let rect = cursor.geometry(&paragraph.layout, 1.0);
                 let para_y_in_layout = (self.y_offset + paragraph.y).get();
                 let target_y = match direction {
-                    crate::items::TextCursorDirection::PageUp =>
-                        para_y_in_layout + rect.y0 as f32 - vertical_advance,
-                    _ => para_y_in_layout + rect.y0 as f32 + rect.height() as f32 + vertical_advance,
+                    crate::items::TextCursorDirection::PageUp => {
+                        para_y_in_layout + rect.y0 as f32 - vertical_advance
+                    }
+                    _ => {
+                        para_y_in_layout + rect.y0 as f32 + rect.height() as f32 + vertical_advance
+                    }
                 };
                 if target_y < self.y_offset.get() {
                     return current_byte_offset;
@@ -1488,11 +1493,13 @@ impl Layout {
                 let target_para = self.paragraph_by_y(PhysicalLength::new(target_y));
                 if let Some(target_para) = target_para {
                     let local_y = target_y - (self.y_offset + target_para.y).get();
-                    target_para.range.start + parley::editing::Cursor::from_point(
-                        &target_para.layout,
-                        preferred_x,
-                        local_y.max(0.0),
-                    ).index()
+                    target_para.range.start
+                        + parley::editing::Cursor::from_point(
+                            &target_para.layout,
+                            preferred_x,
+                            local_y.max(0.0),
+                        )
+                        .index()
                 } else if matches!(direction, crate::items::TextCursorDirection::PageDown) {
                     self.paragraphs.last().map_or(0, |p| p.range.end)
                 } else {
@@ -2244,7 +2251,8 @@ pub fn text_input_move_cursor(
     let byte_offset =
         visual_representation.map_byte_offset_from_actual_to_visual_text(current_offset);
 
-    let new_offset = layout.move_cursor_in_direction(byte_offset, direction, preferred_x, vertical_advance);
+    let new_offset =
+        layout.move_cursor_in_direction(byte_offset, direction, preferred_x, vertical_advance);
 
     Some(visual_representation.map_byte_offset_from_visual_text_to_actual_text(new_offset))
 }
@@ -2436,36 +2444,83 @@ mod tests {
     }
 
     fn layout_text_with_width(text: &str, width: f32) -> Layout {
-        layout_text_with_options(text, LayoutOptions {
-            max_width: Some(LogicalLength::new(width)),
-            ..Default::default()
-        })
+        layout_text_with_options(
+            text,
+            LayoutOptions { max_width: Some(LogicalLength::new(width)), ..Default::default() },
+        )
     }
 
     #[test]
     fn test_move_cursor_forward_backward() {
         let layout = layout_text_with_width("abc", 100.0);
         // Forward from start
-        assert_eq!(layout.move_cursor_in_direction(0, crate::items::TextCursorDirection::Forward, 0.0, 0.0), 1);
+        assert_eq!(
+            layout.move_cursor_in_direction(
+                0,
+                crate::items::TextCursorDirection::Forward,
+                0.0,
+                0.0
+            ),
+            1
+        );
         // Backward from end
-        assert_eq!(layout.move_cursor_in_direction(3, crate::items::TextCursorDirection::Backward, 0.0, 0.0), 2);
+        assert_eq!(
+            layout.move_cursor_in_direction(
+                3,
+                crate::items::TextCursorDirection::Backward,
+                0.0,
+                0.0
+            ),
+            2
+        );
         // Backward from start stays at start
-        assert_eq!(layout.move_cursor_in_direction(0, crate::items::TextCursorDirection::Backward, 0.0, 0.0), 0);
+        assert_eq!(
+            layout.move_cursor_in_direction(
+                0,
+                crate::items::TextCursorDirection::Backward,
+                0.0,
+                0.0
+            ),
+            0
+        );
         // Forward from end stays at end
-        assert_eq!(layout.move_cursor_in_direction(3, crate::items::TextCursorDirection::Forward, 0.0, 0.0), 3);
+        assert_eq!(
+            layout.move_cursor_in_direction(
+                3,
+                crate::items::TextCursorDirection::Forward,
+                0.0,
+                0.0
+            ),
+            3
+        );
     }
 
     #[test]
     fn test_move_cursor_word_boundaries() {
         let layout = layout_text_with_width("Hello World", 200.0);
         // BackwardByWord from middle of "Hello" -> start of "Hello"
-        let pos = layout.move_cursor_in_direction(3, crate::items::TextCursorDirection::BackwardByWord, 0.0, 0.0);
+        let pos = layout.move_cursor_in_direction(
+            3,
+            crate::items::TextCursorDirection::BackwardByWord,
+            0.0,
+            0.0,
+        );
         assert_eq!(pos, 0, "BackwardByWord from middle of 'Hello' should go to 0, got {pos}");
         // ForwardByWord from middle of "Hello" -> end of "Hello"
-        let pos = layout.move_cursor_in_direction(3, crate::items::TextCursorDirection::ForwardByWord, 0.0, 0.0);
+        let pos = layout.move_cursor_in_direction(
+            3,
+            crate::items::TextCursorDirection::ForwardByWord,
+            0.0,
+            0.0,
+        );
         assert_eq!(pos, 5, "ForwardByWord from middle of 'Hello' should go to 5, got {pos}");
         // ForwardByWord from end of "Hello" -> start of "World"
-        let pos = layout.move_cursor_in_direction(5, crate::items::TextCursorDirection::ForwardByWord, 0.0, 0.0);
+        let pos = layout.move_cursor_in_direction(
+            5,
+            crate::items::TextCursorDirection::ForwardByWord,
+            0.0,
+            0.0,
+        );
         assert_eq!(pos, 6, "ForwardByWord from end of 'Hello' should go to 6, got {pos}");
     }
 
@@ -2474,23 +2529,44 @@ mod tests {
         let layout = layout_text_with_width("e\u{0301}", 100.0); // e + combining accent
         // Parley treats combining marks as separate visual clusters.
         // Backward from end moves to start of the last visual cluster (the combining mark).
-        let pos = layout.move_cursor_in_direction(3, crate::items::TextCursorDirection::Backward, 0.0, 0.0);
-        assert_eq!(pos, 1, "Backward from end of 'e\\u{{0301}}' should go to 1 (combining mark start), got {pos}");
+        let pos = layout.move_cursor_in_direction(
+            3,
+            crate::items::TextCursorDirection::Backward,
+            0.0,
+            0.0,
+        );
+        assert_eq!(
+            pos, 1,
+            "Backward from end of 'e\\u{{0301}}' should go to 1 (combining mark start), got {pos}"
+        );
         // Forward from start moves to end of first visual cluster ('e')
-        let pos = layout.move_cursor_in_direction(0, crate::items::TextCursorDirection::Forward, 0.0, 0.0);
-        assert_eq!(pos, 1, "Forward from start of 'e\\u{{0301}}' should go to 1 (end of 'e'), got {pos}");
+        let pos = layout.move_cursor_in_direction(
+            0,
+            crate::items::TextCursorDirection::Forward,
+            0.0,
+            0.0,
+        );
+        assert_eq!(
+            pos, 1,
+            "Forward from start of 'e\\u{{0301}}' should go to 1 (end of 'e'), got {pos}"
+        );
         // Forward from combining mark moves to end of text
-        let pos = layout.move_cursor_in_direction(1, crate::items::TextCursorDirection::Forward, 0.0, 0.0);
+        let pos = layout.move_cursor_in_direction(
+            1,
+            crate::items::TextCursorDirection::Forward,
+            0.0,
+            0.0,
+        );
         assert_eq!(pos, 3, "Forward from combining mark should go to 3 (text end), got {pos}");
     }
 
     #[cfg(feature = "std")]
     #[test]
     fn bench_cursor_movement() {
-        use std::string::String;
+        use alloc::vec::Vec;
         use std::format;
         use std::println;
-        use alloc::vec::Vec;
+        use std::string::String;
         // Build multi-line text (100 lines)
         let text: String = (0..100)
             .map(|i| format!("Line {}: The quick brown fox jumps over the lazy dog", i))
@@ -2503,34 +2579,61 @@ mod tests {
         let mut pos = 0;
         for _ in 0..100 {
             pos = layout.move_cursor_in_direction(
-                pos, crate::items::TextCursorDirection::NextLine, 0.0, 20.0);
+                pos,
+                crate::items::TextCursorDirection::NextLine,
+                0.0,
+                20.0,
+            );
         }
         let t = start.elapsed();
-        println!("cursor_bench: line_down 100x = {:?} ({:.1}µs/move)", t, t.as_secs_f64() * 1_000_000.0 / 100.0);
+        println!(
+            "cursor_bench: line_down 100x = {:?} ({:.1}µs/move)",
+            t,
+            t.as_secs_f64() * 1_000_000.0 / 100.0
+        );
 
         // Line up 100 lines
         let start = std::time::Instant::now();
         for _ in 0..100 {
             pos = layout.move_cursor_in_direction(
-                pos, crate::items::TextCursorDirection::PreviousLine, 0.0, 20.0);
+                pos,
+                crate::items::TextCursorDirection::PreviousLine,
+                0.0,
+                20.0,
+            );
         }
         let t = start.elapsed();
-        println!("cursor_bench: line_up 100x = {:?} ({:.1}µs/move)", t, t.as_secs_f64() * 1_000_000.0 / 100.0);
+        println!(
+            "cursor_bench: line_up 100x = {:?} ({:.1}µs/move)",
+            t,
+            t.as_secs_f64() * 1_000_000.0 / 100.0
+        );
 
         // Word forward 100 words
-        let words: Vec<&str> = (0..100).map(|i| {
-            ["apple", "banana", "cherry", "date", "elderberry", "fig", "grape", "honeydew"][i % 8]
-        }).collect();
+        let words: Vec<&str> = (0..100)
+            .map(|i| {
+                ["apple", "banana", "cherry", "date", "elderberry", "fig", "grape", "honeydew"]
+                    [i % 8]
+            })
+            .collect();
         let text2 = words.join(" ");
         let layout2 = layout_text_with_width(&text2, 500.0);
         let start = std::time::Instant::now();
         let mut pos = 0;
         for _ in 0..100 {
             pos = layout2.move_cursor_in_direction(
-                pos, crate::items::TextCursorDirection::ForwardByWord, 0.0, 20.0);
+                pos,
+                crate::items::TextCursorDirection::ForwardByWord,
+                0.0,
+                20.0,
+            );
         }
         let t = start.elapsed();
-        println!("cursor_bench: word_jump 100x = {:?} ({:.1}µs/move)", t, t.as_secs_f64() * 1_000_000.0 / 100.0);
+        println!(
+            "cursor_bench: word_jump 100x = {:?} ({:.1}µs/move)",
+            t,
+            t.as_secs_f64() * 1_000_000.0 / 100.0
+        );
 
         // Forward 1000 chars
         let text3 = "a".repeat(1000);
@@ -2539,27 +2642,35 @@ mod tests {
         let mut pos = 0;
         for _ in 0..1000 {
             pos = layout3.move_cursor_in_direction(
-                pos, crate::items::TextCursorDirection::Forward, 0.0, 20.0);
+                pos,
+                crate::items::TextCursorDirection::Forward,
+                0.0,
+                20.0,
+            );
         }
         let t = start.elapsed();
-        println!("cursor_bench: forward 1000x = {:?} ({:.3}µs/move)", t, t.as_secs_f64() * 1_000_000.0 / 1000.0);
+        println!(
+            "cursor_bench: forward 1000x = {:?} ({:.3}µs/move)",
+            t,
+            t.as_secs_f64() * 1_000_000.0 / 1000.0
+        );
     }
 
     #[cfg(feature = "std")]
     #[test]
     fn bench_old_style_cursor_movement() {
         // Simulates the OLD code path that built 2 layouts per cursor operation.
-        use std::string::String;
+        use alloc::vec::Vec;
         use std::format;
         use std::println;
+        use std::string::String;
         use std::time::Instant;
-        use alloc::vec::Vec;
 
         fn make_layout(text: &str, width: f32) -> Layout {
-            layout_text_with_options(text, LayoutOptions {
-                max_width: Some(LogicalLength::new(width)),
-                ..Default::default()
-            })
+            layout_text_with_options(
+                text,
+                LayoutOptions { max_width: Some(LogicalLength::new(width)), ..Default::default() },
+            )
         }
 
         let text: String = (0..100)
@@ -2579,11 +2690,15 @@ mod tests {
             let target_y = PhysicalLength::new(rect.origin.y + rect.size.height + line_height);
             let layout2 = make_layout(&text, 500.0);
             pos = layout2.byte_offset_from_point(PhysicalPoint::from_lengths(
-                PhysicalLength::new(0.0), target_y,
+                PhysicalLength::new(0.0),
+                target_y,
             ));
         }
         let t = start.elapsed();
-        println!("cursor_bench OLD: line_down 100x (2 layouts) = {:?} ({:.1}µs/move)",
-            t, t.as_secs_f64() * 1_000_000.0 / 100.0);
+        println!(
+            "cursor_bench OLD: line_down 100x (2 layouts) = {:?} ({:.1}µs/move)",
+            t,
+            t.as_secs_f64() * 1_000_000.0 / 100.0
+        );
     }
 }

@@ -1231,7 +1231,15 @@ impl RendererSealed for SoftwareRenderer {
         preferred_x: f32,
         vertical_advance: f32,
     ) -> Option<usize> {
-        sharedparley::text_input_move_cursor(self, text_input, item_rc, current_offset, direction, preferred_x, vertical_advance)
+        sharedparley::text_input_move_cursor(
+            self,
+            text_input,
+            item_rc,
+            current_offset,
+            direction,
+            preferred_x,
+            vertical_advance,
+        )
     }
 
     fn free_graphics_resources(

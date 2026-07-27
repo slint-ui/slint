@@ -416,7 +416,15 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         preferred_x: f32,
         vertical_advance: f32,
     ) -> Option<usize> {
-        sharedparley::text_input_move_cursor(self, text_input, item_rc, current_offset, direction, preferred_x, vertical_advance)
+        sharedparley::text_input_move_cursor(
+            self,
+            text_input,
+            item_rc,
+            current_offset,
+            direction,
+            preferred_x,
+            vertical_advance,
+        )
     }
 
     fn register_font_from_memory(

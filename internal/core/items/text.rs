@@ -1538,8 +1538,7 @@ impl TextInput {
         let (anchor, cursor) = self.selection_anchor_and_cursor();
         let last_cursor_pos = self.cursor_position(&text);
 
-        let mut grapheme_cursor =
-            GraphemeCursor::new(last_cursor_pos, text.len(), true);
+        let mut grapheme_cursor = GraphemeCursor::new(last_cursor_pos, text.len(), true);
 
         let font_height = window_adapter.renderer().char_size(self, self_rc, ' ').height;
 
@@ -1576,15 +1575,17 @@ impl TextInput {
             | TextCursorDirection::StartOfLine
             | TextCursorDirection::EndOfLine => {
                 reset_preferred_x_pos = false;
-                window_adapter.renderer().text_input_move_cursor(
-                    self,
-                    self_rc,
-                    last_cursor_pos,
-                    direction,
-                    self.preferred_x_pos.get(),
-                    font_height,
-                )
-                .unwrap_or(last_cursor_pos)
+                window_adapter
+                    .renderer()
+                    .text_input_move_cursor(
+                        self,
+                        self_rc,
+                        last_cursor_pos,
+                        direction,
+                        self.preferred_x_pos.get(),
+                        font_height,
+                    )
+                    .unwrap_or(last_cursor_pos)
             }
             TextCursorDirection::PreviousCharacter => {
                 let mut i = last_cursor_pos;
@@ -1609,15 +1610,17 @@ impl TextInput {
                     return false;
                 }
                 reset_preferred_x_pos = false;
-                window_adapter.renderer().text_input_move_cursor(
-                    self,
-                    self_rc,
-                    last_cursor_pos,
-                    direction,
-                    self.preferred_x_pos.get(),
-                    offset,
-                )
-                .unwrap_or(last_cursor_pos)
+                window_adapter
+                    .renderer()
+                    .text_input_move_cursor(
+                        self,
+                        self_rc,
+                        last_cursor_pos,
+                        direction,
+                        self.preferred_x_pos.get(),
+                        offset,
+                    )
+                    .unwrap_or(last_cursor_pos)
             }
             TextCursorDirection::PageDown => {
                 let offset = self.page_height().get() - font_height;
@@ -1625,15 +1628,17 @@ impl TextInput {
                     return false;
                 }
                 reset_preferred_x_pos = false;
-                window_adapter.renderer().text_input_move_cursor(
-                    self,
-                    self_rc,
-                    last_cursor_pos,
-                    direction,
-                    self.preferred_x_pos.get(),
-                    offset,
-                )
-                .unwrap_or(last_cursor_pos)
+                window_adapter
+                    .renderer()
+                    .text_input_move_cursor(
+                        self,
+                        self_rc,
+                        last_cursor_pos,
+                        direction,
+                        self.preferred_x_pos.get(),
+                        offset,
+                    )
+                    .unwrap_or(last_cursor_pos)
             }
         };
 
