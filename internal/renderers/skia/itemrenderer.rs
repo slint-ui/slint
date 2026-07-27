@@ -926,11 +926,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         let skew_y_rad = skew_y.to_radians();
         let sx = skew_x_rad.tan();
         let sy = skew_y_rad.tan();
-        let skew_transform = euclid::Transform2D::new(
-            1.0, sy,
-            sx, 1.0,
-            0.0, 0.0,
-        );
+        let skew_transform = euclid::Transform2D::new(1.0, sy, sx, 1.0, 0.0, 0.0);
         self.current_state.transform = skew_transform.then(&self.current_state.transform);
         self.canvas.skew((skew_x_rad, skew_y_rad));
     }

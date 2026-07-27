@@ -944,9 +944,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let clip = &mut self.state.last_mut().unwrap().scissor;
         let tan_x = skew_x_rad.tan();
         let tan_y = skew_y_rad.tan();
-        let skew_point = |p: LogicalPoint| {
-            (p.x + p.y * tan_x, p.y + p.x * tan_y)
-        };
+        let skew_point = |p: LogicalPoint| (p.x + p.y * tan_x, p.y + p.x * tan_y);
         let corners = [
             skew_point(clip.origin),
             skew_point(clip.origin + euclid::vec2(clip.width(), 0.)),
@@ -956,11 +954,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let origin: LogicalPoint = (
             corners.iter().fold(f32::MAX, |a, b| b.0.min(a)),
             corners.iter().fold(f32::MAX, |a, b| b.1.min(a)),
-        ).into();
+        )
+            .into();
         let end: LogicalPoint = (
             corners.iter().fold(f32::MIN, |a, b| b.0.max(a)),
             corners.iter().fold(f32::MIN, |a, b| b.1.max(a)),
-        ).into();
+        )
+            .into();
         *clip = LogicalRect::new(origin, (end - origin).into());
     }
 
