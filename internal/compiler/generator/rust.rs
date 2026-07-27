@@ -2464,11 +2464,15 @@ fn generate_item_tree(
             fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>)
                 -> sp::VisitChildrenResult
             {
-                return sp::visit_item_tree(self, &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic);
-                #[allow(unused)]
-                fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>, dyn_index: u32) -> sp::VisitChildrenResult  {
-                    _self.visit_dynamic_children(dyn_index, order, visitor)
-                }
+                let item_tree = sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap());
+                sp::visit_item_tree(
+                    &item_tree,
+                    self.get_item_tree().as_slice(),
+                    index,
+                    order,
+                    visitor,
+                    &mut |order, visitor, dyn_index| self.visit_dynamic_children(dyn_index, order, visitor),
+                )
             }
 
             fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<sp::ItemRef<'_>> {
