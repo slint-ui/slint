@@ -851,15 +851,14 @@ impl<'a, T> EvaluationContext<'a, T> {
             r: &'_ LocalMemberIndex,
             map: ContextMap,
         ) -> PropertyInfoResult<'a> {
-            let binding = g.init_values.get(r).map(|b| (b, map.clone()));
-            let animation = g.animations.get(r).map(|a| (a, map));
+            let binding = g.init_values.get(r).map(|b| (b, map));
             match r {
                 LocalMemberIndex::Property(index) => {
                     let property_decl = &g.properties[*index];
                     PropertyInfoResult {
                         analysis: Some(&g.prop_analysis[*index]),
                         binding,
-                        animation,
+                        animation: None,
                         ty: property_decl.ty.clone(),
                         use_count: Some(&property_decl.use_count),
                     }
