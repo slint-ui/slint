@@ -3,7 +3,7 @@
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::parser::TextSize;
 use std::collections::BTreeSet;
@@ -73,7 +73,7 @@ pub struct SourceFileInner {
     source: Option<String>,
 
     /// The offset of each linebreak
-    line_offsets: std::cell::OnceCell<Vec<usize>>,
+    line_offsets: std::sync::OnceLock<Vec<usize>>,
 }
 
 impl std::fmt::Debug for SourceFileInner {
@@ -92,8 +92,8 @@ impl SourceFileInner {
     }
 
     /// Create a SourceFile that has just a path, but no contents
-    pub fn from_path_only(path: PathBuf) -> Rc<Self> {
-        Rc::new(Self { path, ..Default::default() })
+    pub fn from_path_only(path: PathBuf) -> Arc<Self> {
+        Arc::new(Self { path, ..Default::default() })
     }
 
     /// Returns a tuple with the line (starting at 1) and column number (starting at 1)
@@ -187,7 +187,7 @@ pub enum ByteFormat {
     Utf16,
 }
 
-pub type SourceFile = Rc<SourceFileInner>;
+pub type SourceFile = Arc<SourceFileInner>;
 
 pub fn load_from_path(path: &Path) -> Result<String, Diagnostic> {
     let string = (if path == Path::new("-") {

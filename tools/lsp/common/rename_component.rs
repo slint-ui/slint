@@ -57,6 +57,7 @@
 
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::{common, util};
 
@@ -678,7 +679,7 @@ fn matching_decl_in_inheritance_chain(
         if let Some(decl) = element_borrow.property_declarations.get(name)
             && let Some(node) = decl.node.as_ref()
             && node.text_range() == declaration_node.text_range()
-            && Rc::ptr_eq(&node.source_file, source_file)
+            && Arc::ptr_eq(&node.source_file, source_file)
         {
             if decl.visibility == object_tree::PropertyVisibility::Private {
                 return false;
@@ -754,7 +755,7 @@ impl TokenInformation {
             node: &SyntaxNode,
         ) -> bool {
             if element.borrow().debug.iter().any(|di| {
-                Rc::ptr_eq(&di.node.source_file, &node.source_file)
+                Arc::ptr_eq(&di.node.source_file, &node.source_file)
                     && di.node.text_range() == node.text_range()
             }) {
                 return true;
@@ -783,7 +784,7 @@ impl TokenInformation {
             (
                 common::token_info::TokenInfo::LocalProperty(s),
                 common::token_info::TokenInfo::LocalProperty(o),
-            ) => Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range(),
+            ) => Arc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range(),
             (
                 common::token_info::TokenInfo::NamedReference(nl),
                 common::token_info::TokenInfo::NamedReference(nr),
@@ -837,7 +838,7 @@ impl TokenInformation {
             (
                 common::token_info::TokenInfo::LocalCallback(s),
                 common::token_info::TokenInfo::LocalCallback(o),
-            ) => Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range(),
+            ) => Arc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range(),
             (
                 common::token_info::TokenInfo::NamedReference(nr),
                 common::token_info::TokenInfo::LocalCallback(s),
@@ -866,7 +867,7 @@ impl TokenInformation {
             (
                 common::token_info::TokenInfo::LocalFunction(s),
                 common::token_info::TokenInfo::LocalFunction(o),
-            ) => Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range(),
+            ) => Arc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range(),
             (
                 common::token_info::TokenInfo::NamedReference(nr),
                 common::token_info::TokenInfo::LocalFunction(s),
