@@ -439,8 +439,50 @@ pub struct ComponentContainerElement {
     pub component_placeholder_item_tree_index: u32,
 }
 
+/// A `Send` snapshot of the parts of [`NativeClass`] the LLR needs at code
+/// generation and interpretation time.
+///
+/// The full `NativeClass` is not `Send`: it keeps compile-time default-value
+/// expressions that reference the object tree, but those are already lowered
+/// into bindings by the time the LLR is built, so the LLR only needs the class
+/// identity and the property types.
+#[derive(Debug)]
+pub struct NativeItemType {
+    pub class_name: SmolStr,
+    pub cpp_vtable_getter: String,
+    pub parent: Option<Arc<NativeItemType>>,
+    /// The type of each property declared directly on this class; parent
+    /// classes are consulted through `parent`.
+    pub property_types: BTreeMap<SmolStr, Type>,
+}
+
+impl NativeItemType {
+    pub fn from_native_class(nc: &NativeClass) -> Arc<Self> {
+        Arc::new(Self {
+            class_name: nc.class_name.clone(),
+            cpp_vtable_getter: nc.cpp_vtable_getter.clone(),
+            parent: nc.parent.as_ref().map(|p| Self::from_native_class(p)),
+            property_types: nc
+                .properties
+                .iter()
+                .map(|(name, info)| (name.clone(), info.ty.clone()))
+                .collect(),
+        })
+    }
+
+    pub fn lookup_property(&self, name: &str) -> Option<&Type> {
+        if let Some(ty) = self.property_types.get(name) {
+            Some(ty)
+        } else if let Some(parent) = &self.parent {
+            parent.lookup_property(name)
+        } else {
+            None
+        }
+    }
+}
+
 pub struct Item {
-    pub ty: Arc<NativeClass>,
+    pub ty: Arc<NativeItemType>,
     pub name: SmolStr,
     /// Index in the item tree array
     pub index_in_tree: u32,

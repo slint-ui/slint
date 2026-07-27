@@ -475,7 +475,7 @@ pub mod cpp_ast {
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp};
 use crate::langtype::{
-    BuiltinStruct, Enumeration, EnumerationValue, NativeClass, StructName, Type,
+    BuiltinStruct, Enumeration, EnumerationValue, StructName, Type,
 };
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
@@ -4224,7 +4224,7 @@ impl MemberAccess {
 fn native_prop_info<'a, 'b>(
     item_ref: &'b llr::MemberReference,
     ctx: &'a EvaluationContext,
-) -> (&'a NativeClass, &'b str) {
+) -> (&'a llr::NativeItemType, &'b str) {
     let llr::MemberReference::Relative { parent_level, local_reference } = item_ref else {
         unreachable!()
     };
