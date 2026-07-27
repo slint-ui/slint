@@ -456,6 +456,18 @@ impl LayoutWithoutLineBreaksBuilder {
                             span.range,
                         );
                     }
+                    Style::Superscript => {
+                        builder.push(
+                            parley::StyleProperty::FontSize(self.pixel_size.get() * 0.7),
+                            span.range,
+                        );
+                    }
+                    Style::Subscript => {
+                        builder.push(
+                            parley::StyleProperty::FontSize(self.pixel_size.get() * 0.7),
+                            span.range,
+                        );
+                    }
                 }
             }
 

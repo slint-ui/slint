@@ -13,6 +13,8 @@ pub enum Style {
     Underline,
     // ARGB encoded
     Color(u32),
+    Superscript,
+    Subscript,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -302,8 +304,8 @@ fn unsupported_tag_name(tag: &pulldown_cmark::Tag<'_>) -> alloc::string::String 
         DefinitionList | DefinitionListTitle | DefinitionListDefinition => "definition lists",
         TableHead | TableRow | TableCell => "tables",
         MetadataBlock(_) => "metadata blocks",
-        Superscript => "superscript",
-        Subscript => "subscript",
+        // Superscript => "superscript",
+        // Subscript => "subscript",
         other => return alloc::format!("{:?}", other.to_end()),
     }
     .into()
@@ -331,7 +333,9 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
 
     let parser = pulldown_cmark::Parser::new_ext(
         format_string,
-        pulldown_cmark::Options::ENABLE_STRIKETHROUGH,
+        pulldown_cmark::Options::ENABLE_STRIKETHROUGH
+            | pulldown_cmark::Options::ENABLE_SUBSCRIPT
+            | pulldown_cmark::Options::ENABLE_SUPERSCRIPT,
     );
 
     let mut list_state_stack: alloc::vec::Vec<Option<u64>> = alloc::vec::Vec::new();
@@ -450,6 +454,9 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                         current_heading_level = Some(level as u8);
                         continue;
                     }
+
+                    pulldown_cmark::Tag::Superscript => Style::Superscript,
+                    pulldown_cmark::Tag::Subscript => Style::Subscript,
 
                     ref unsupported => {
                         errors.push(StyledTextParseError::new(
@@ -1095,6 +1102,22 @@ fn markdown_heading_with_inline() {
             },
             ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
         ]
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_subscript_superscript() {
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("~sub~ and ^super^", &[])),
+        [ParagraphBlock::Text(RichText {
+            text: "sub and super".into(),
+            formatting: alloc::vec![
+                FormattedSpan { range: 0..3, style: Style::Subscript },
+                FormattedSpan { range: 8..13, style: Style::Superscript },
+            ],
+            links: alloc::vec![],
+        })]
     );
 }
 
