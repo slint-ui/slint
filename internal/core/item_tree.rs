@@ -213,27 +213,38 @@ pub fn unregister_item_tree<Base>(
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
     window_adapter: &WindowAdapterRc,
 ) {
-    item_array.iter().for_each(|item| {
-        item.apply_pin(base).as_ref().deinit(window_adapter);
-    });
-    window_adapter.renderer().free_graphics_resources(item_tree, &mut item_array.iter().map(|item| item.apply_pin(base))).expect(
-        "Fatal error encountered when freeing graphics resources while destroying Slint component",
-    );
+    // Only resolving the items via `apply_pin` needs `Base`; keep the rest in a non-generic
+    // helper so it isn't duplicated per component. Each consumer walks the items once.
+    fn unregister_item_tree_impl(
+        item_tree: ItemTreeRef,
+        items_to_deinit: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
+        items_to_free: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
+        items_to_unregister: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
+        window_adapter: &WindowAdapterRc,
+    ) {
+        items_to_deinit.for_each(|item| item.as_ref().deinit(window_adapter));
+        window_adapter.renderer().free_graphics_resources(item_tree, items_to_free).expect(
+            "Fatal error encountered when freeing graphics resources while destroying Slint component",
+        );
 
-    if let Some(w) = window_adapter.internal(crate::InternalToken) {
-        w.unregister_item_tree(item_tree, &mut item_array.iter().map(|item| item.apply_pin(base)));
+        if let Some(w) = window_adapter.internal(crate::InternalToken) {
+            w.unregister_item_tree(item_tree, items_to_unregister);
+        }
+
+        // Close popups that were part of a component that just got deleted
+        let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
+        let to_close_popups = window_inner
+            .active_popups()
+            .iter()
+            .filter_map(|p| p.parent_item.upgrade().is_none().then_some(p.popup_id))
+            .collect::<Vec<_>>();
+        for popup_id in to_close_popups {
+            window_inner.close_popup(popup_id);
+        }
     }
 
-    // Close popups that were part of a component that just got deleted
-    let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
-    let to_close_popups = window_inner
-        .active_popups()
-        .iter()
-        .filter_map(|p| p.parent_item.upgrade().is_none().then_some(p.popup_id))
-        .collect::<Vec<_>>();
-    for popup_id in to_close_popups {
-        window_inner.close_popup(popup_id);
-    }
+    let items = || item_array.iter().map(|item| item.apply_pin(base));
+    unregister_item_tree_impl(item_tree, &mut items(), &mut items(), &mut items(), window_adapter)
 }
 
 fn find_sibling_outside_repeater(

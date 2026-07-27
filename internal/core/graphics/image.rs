@@ -596,7 +596,10 @@ impl ImageInner {
         #[cfg(not(target_arch = "wasm32"))]
         {
             #[cfg(feature = "svg")]
-            if format.as_slice() == b"svg" || format.as_slice() == b"svgz" {
+            if format.as_slice() == b"svg"
+                || format.as_slice() == b"svgz"
+                || (format.is_empty() && (data.starts_with(b"<?xml") || data.starts_with(b"<svg")))
+            {
                 return Some(ImageInner::Svg(vtable::VRc::new(
                     svg::load_from_data(data.as_slice(), cache_key).map_or_else(
                         |svg_err| {
@@ -1016,6 +1019,25 @@ impl Image {
         }
     }
 
+    /// Creates a new Image from a buffer in memory holding the content of an encoded image file,
+    /// such as a PNG, JPEG or SVG.
+    ///
+    /// `format` is the lowercase file extension of the encoded data (for example `"png"`, `"jpg"`
+    /// or `"svg"`). Pass `None` to guess the format from the data; SVG is only recognized by this
+    /// guess when the data begins with an `<?xml` or `<svg` tag, otherwise pass `Some("svg")`.
+    ///
+    /// The supported formats are the same as for [`Self::load_from_path`].
+    #[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+    pub fn load_from_data(data: &[u8], format: Option<&str>) -> Result<Self, LoadImageError> {
+        ImageInner::load_from_data_with_cache_key(
+            ImageCacheKey::Invalid,
+            Slice::from_slice(data),
+            Slice::from_slice(format.unwrap_or_default().as_bytes()),
+        )
+        .map(Image)
+        .ok_or(LoadImageError(()))
+    }
+
     /// Sets the nine-slice edges of the image.
     ///
     /// [Nine-slice scaling](https://en.wikipedia.org/wiki/9-slice_scaling) is a method for scaling
@@ -1253,6 +1275,40 @@ fn test_image_invalid_svg() {
     let invalid_svg = r#"AaBbCcDd"#;
     let result = Image::load_from_svg_data(invalid_svg.as_bytes());
     assert!(result.is_err());
+}
+
+#[cfg(feature = "svg")]
+#[test]
+// memchr's manually aligned SIMD loads are a false positive under -Zmiri-symbolic-alignment-check
+#[cfg_attr(miri, ignore)]
+fn test_image_load_from_data_svg() {
+    let simple_svg = r#"<svg width="320" height="200" xmlns="http://www.w3.org/2000/svg"></svg>"#;
+    // The leading `<svg` tag lets the format be guessed.
+    let guessed = Image::load_from_data(simple_svg.as_bytes(), None).unwrap();
+    assert_eq!(guessed.size(), [320, 200].into());
+    // An explicit format hint works too.
+    let hinted = Image::load_from_data(simple_svg.as_bytes(), Some("svg")).unwrap();
+    assert_eq!(hinted.size(), [320, 200].into());
+}
+
+#[cfg(feature = "image-decoders")]
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_image_load_from_data_png() {
+    let mut png = std::io::Cursor::new(std::vec::Vec::new());
+    image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(2, 3, image::Rgb([0, 255, 0])))
+        .write_to(&mut png, image::ImageFormat::Png)
+        .unwrap();
+    let png = png.into_inner();
+
+    // The PNG magic bytes let the format be guessed.
+    let guessed = Image::load_from_data(&png, None).unwrap();
+    assert_eq!(guessed.size(), [2, 3].into());
+    // An explicit format hint works too.
+    let hinted = Image::load_from_data(&png, Some("png")).unwrap();
+    assert_eq!(hinted.size(), [2, 3].into());
+
+    assert!(Image::load_from_data(b"not an image", None).is_err());
 }
 
 /// The result of the fit function
@@ -1556,6 +1612,20 @@ pub(crate) mod ffi {
         image: *mut Image,
     ) {
         unsafe { core::ptr::write(image, super::load_image_from_embedded_data(data, format)) };
+    }
+
+    /// Unlike `slint_image_load_from_embedded_data`, this does not go through the image cache,
+    /// so `data` does not have to be `'static`.
+    #[cfg(all(feature = "std", feature = "image-decoders"))]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_image_load_from_data(
+        data: Slice<'_, u8>,
+        format: Slice<'_, u8>,
+        image: *mut Image,
+    ) {
+        let format = core::str::from_utf8(format.as_slice()).ok();
+        let loaded = super::Image::load_from_data(data.as_slice(), format).unwrap_or_default();
+        unsafe { core::ptr::write(image, loaded) };
     }
 
     #[unsafe(no_mangle)]

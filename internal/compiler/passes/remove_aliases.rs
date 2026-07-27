@@ -28,13 +28,12 @@ impl PropertySets {
             &e2.borrow().enclosing_component,
         );
         if !same_component {
-            let can_merge_across_components =
-                (e1.borrow().enclosing_component.upgrade().unwrap().is_global()
-                    && !e2.borrow().change_callbacks.contains_key(p2.name()))
-                    || (e2.borrow().enclosing_component.upgrade().unwrap().is_global()
-                        && !e1.borrow().change_callbacks.contains_key(p1.name()));
-            if !can_merge_across_components {
-                // We can only merge aliases if they are in the same Component. (unless one of them is global if the other one don't have change event)
+            let one_is_global = e1.borrow().enclosing_component.upgrade().unwrap().is_global()
+                || e2.borrow().enclosing_component.upgrade().unwrap().is_global();
+            if !one_is_global {
+                // We can only merge aliases across components if one of them is a global.
+                // (A property carrying a `changed` handler or an animation is then kept out
+                // of the global by the master-selection loop below, not here.)
                 // TODO: actually we could still merge two alias in a component pointing to the same
                 // property in a parent component
                 return;
@@ -148,8 +147,26 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
             for candidate in set_iter {
                 best = best_property(best.clone(), candidate.clone());
             }
+            let best_is_global =
+                best.element().borrow().enclosing_component.upgrade().unwrap().is_global();
             for x in set.iter() {
                 if *x != best {
+                    // Keep a property with a `changed` handler or an animation in its own
+                    // component rather than aliasing it onto a global (a singleton it can't
+                    // reach); the replacement below leaves it two-way bound to `best`.
+                    let elem = x.element();
+                    let elem = elem.borrow();
+                    let carries_local_state = elem.change_callbacks.contains_key(x.name())
+                        || elem
+                            .bindings
+                            .get(x.name())
+                            .is_some_and(|b| b.borrow().animation.is_some());
+                    if best_is_global
+                        && !elem.enclosing_component.upgrade().unwrap().is_global()
+                        && carries_local_state
+                    {
+                        continue;
+                    }
                     aliases_to_remove.insert(x.clone(), best.clone());
                 }
             }
