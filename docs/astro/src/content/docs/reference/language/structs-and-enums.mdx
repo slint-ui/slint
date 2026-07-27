@@ -6,35 +6,57 @@ notInSC: true
 
 ## Structs
 
-A `struct` declaration defines a named structure with typed fields:
+A `struct` declaration defines a named structure type with typed fields.
+It appears at the top level of a `.slint` file, alongside components, globals, and enums;
+it cannot be declared inside a component:
 
 ```slint
-export struct Player  {
+export struct Player {
+    name: string,
+    score: int,
+}
+```
+
+Fields are separated by commas.
+A trailing comma after the last field is permitted.
+A `;` between fields is a compile error; the compiler tells you to use `,` instead.
+An empty struct `{ }` is allowed.
+
+A struct may be prefixed with one or more `@rust-attr(...)` attributes and may be `export`ed.
+Declaring a struct whose name matches an already-defined type replaces the earlier type and emits a warning.
+
+### Constructing and accessing
+
+A struct value is written as a struct literal that initializes fields by name:
+`{ field1: expression1, field2: expression2 }`.
+A trailing comma after the last member is permitted.
+A field is read with the `.` operator: `player.name`.
+
+```slint
+export struct Player {
     name: string,
     score: int,
 }
 
 export component Example {
     in-out property<Player> player: { name: "Foo", score: 100 };
+    out property<string> who: player.name;
 }
 ```
 
-A struct literal initializes fields by name: `{ field1: expression1, field2: expression2 }`.
-A trailing comma is permitted after the last field, both in declarations and in literals.
+A struct literal need not list every field.
+When a literal is assigned where a named struct is expected, each member is resolved against the type
+of the matching field, omitted fields take their default value, and members that don't name a field of the
+target struct are ignored.
 
-The default value of a struct has all fields set to their default value.
+The default value of a struct has every field set to its own default value, unless the field declares its own.
 
-### Field Default Values
+### Field default values
 
-`= expression` after a field's type declares a default value for that field.
-The expression must be a compile-time constant.
-The default applies whenever an instance of the struct is created without a value for the field:
-in struct literals that omit the field, for properties that are never set,
-and when constructing the struct from Rust (`Player::default()`), C++ (`Player{}`),
-JavaScript (`new ui.Player()`), or Python (`ui.Player()`).
+`= expression` after a field's type declares a default value for that field:
 
 ```slint
-export struct Player  {
+export struct Player {
     name: string = "unknown",
     score: int = 100,
 }
@@ -45,9 +67,21 @@ export component Example {
 }
 ```
 
-### Anonymous Structures
+The expression must be a compile-time constant.
+It may combine literals, casts, and operators, but referencing a property, an element, or any runtime value
+is a compile error.
 
-`{ identifier1: type1, identifier2: type2 }` declares an anonymous structure type.
+The default applies whenever an instance of the struct is created without a value for the field:
+in struct literals that omit the field, in properties of that struct type that are never set,
+and when the struct is constructed from native code
+(Rust `Player::default()`, C++ `Player{}`, JavaScript `new ui.Player()`, Python `ui.Player()`).
+
+Field default values are only supported in named struct declarations.
+Writing `= expression` in an anonymous struct type is a compile error.
+
+### Anonymous structures
+
+`{ identifier1: type1, identifier2: type2 }` is an anonymous struct type.
 It behaves like a named struct without a name:
 
 ```slint
@@ -57,9 +91,13 @@ export component Example {
 }
 ```
 
+Two anonymous struct types with the same fields are the same type.
+A named struct is only ever equal to itself: it is not interchangeable with an anonymous struct of identical fields.
+
 ## Enums
 
-An `enum` declaration defines an enumeration:
+An `enum` declaration defines an enumeration.
+Like a struct, it appears at the top level and may be `export`ed and prefixed with `@rust-attr(...)`:
 
 ```slint
 export enum CardSuit { clubs, diamonds, hearts, spade }
@@ -70,10 +108,17 @@ export component Example {
 }
 ```
 
-An enum value is referenced with the name of the enum and the name of the value separated by a dot: `CardSuit.spade`.
+Values are separated by commas, with an optional trailing comma.
+An enum must have at least one value; an empty enum is a compile error.
+A value may not have the same name as the enum, and the values must be distinct
+(names that differ only in `-`/`_` or case collide, since they map to the same identifier).
 
-The name of the enum can be omitted wherever a value of that enum type is expected:
-in a binding, a struct field, an array element, a function or callback argument, or a return value.
+An enum value is referenced with the enum name and the value name separated by a dot: `CardSuit.spade`.
+
+### Omitting the enum name
+
+The enum name may be omitted wherever a value of that enum type is the expected type:
+in a binding, a struct field, an array element, a function or callback argument, and a return value.
 
 ```slint
 export enum CardSuit { clubs, diamonds, hearts, spade }
@@ -92,7 +137,7 @@ export component Example {
 }
 ```
 
-In a comparison, the name can be omitted only on the right-hand side, which takes the type of the left:
-`card.suit == hearts` works, but `hearts == card.suit` doesn't.
+In a comparison the name may be omitted only on the right-hand side, which takes the type of the left:
+`card.suit == hearts` works, but `hearts == card.suit` does not, because the left operand has no expected type.
 
 The default value of an enum type is its first value.

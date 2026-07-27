@@ -4,57 +4,78 @@ description: Element names, pre-defined names, and lookup rules.
 notInSC: true
 ---
 
+Name resolution decides which declaration an identifier in an expression refers to.
+Properties, callbacks, and functions share the same rules.
+
 ## Element Names
 
-The `:=` syntax gives an element a name:
+The `:=` syntax gives an element a name, also called its *id*:
 
 ```slint
-component MyButton inherits Text {
-    // ...
-}
-
 export component MyApp inherits Window {
-    preferred-width: 200px;
-    preferred-height: 100px;
-
-    hello := MyButton {
-        x:0;y:0;
+    hello := Text {
         text: "hello";
-    }
-    world := MyButton {
-        y:0;
-        text: "world";
-        x: 50px;
     }
 }
 ```
 
-Element names must be valid [identifiers](../lexical-structure/#sls.lex.identifier.classes).
+An element name must be a valid [identifier](../lexical-structure/#sls.lex.identifier.classes).
+As with all identifiers, `-` and `_` are interchangeable.
+
+Element names must be unique within a component.
+Two elements in the same component with the same id are a compile error, including elements inside `for` and `if` subtrees.
+The names `self`, `parent`, and `root` are reserved and can't be used as an element name.
 
 ## Pre-Defined Names
 
-Some elements are accessible under pre-defined names:
+Some elements are reachable under pre-defined names:
 
-- `root` refers to the outermost element of a component.
-- `self` refers to the current element.
-- `parent` refers to the parent element of the current element.
+- `self` refers to the current element — the element in whose binding, callback, or function the name appears.
+- `parent` refers to the element that encloses the current element.
+  It is available only when the current element has an enclosing element within the same component.
+- `root` refers to the outermost element of the current component.
 
-These names are reserved and can't be re-defined.
+`root` is the automatic id of every component's outermost element; an element named `root` explicitly is a reserved-id error.
+`self`, `parent`, and `root` are element references and are used to qualify a member, as in `self.width` or `root.some-property`.
+
+`true` and `false` are pre-defined names for the boolean literals and can't be redefined.
 
 ## Lookup Rules
 
-Properties, callbacks, and functions share the same name resolution rules.
-When a name is used without an element name:
+When an identifier is used without a qualifier, it is resolved by trying the following, in order, and taking the first match:
 
-- If the element that the name is used in (`self`) defines it, it is chosen.
-- If not, name resolution continues to its parent element, and so on, until the root of the component.
+1. A local variable declared with `let` in an enclosing block, or a parameter of the enclosing callback or function handler.
+2. `self`, `parent`, `true`, or `false`.
+3. An element id.
+   Ids are searched in the current component's element tree; the id of the current element and of any element reachable from `root` is visible, as is the id of an enclosing `for` element and of any element nested within it.
+   `root` resolves here, as the id of the outermost element.
+4. A declared property, callback, or function in scope.
+   The current element (`self`) is tried first, then its enclosing element, and so on up to the root of the component.
+   Only members introduced by a declaration in the source are found this way; a built-in property of the element or of an ancestor is *not* reachable unqualified and must be written `self.name` or through an id.
+   Within a `for` element, the loop's index and model-data names resolve here.
+5. A [global](../globals/) singleton or an enumeration, by name.
+6. A built-in namespace: `Colors`, `Easing`, `Math`, `Key`, `FontWeight`, or `MouseCursor`.
+7. A named value of the expected type: a named color where a `color` or `brush` is expected, a named easing curve where an `easing` is expected, or an enumeration value where that enumeration is expected.
+   Writing an enumeration value without its type is therefore possible only in a position whose type is known to be that enumeration.
+8. A built-in free function, such as the math and color functions and `debug`.
 
-When a name is qualified with an element name (or `self`, `parent`, or `root`), it must be defined on that element.
-Name resolution doesn't look at ancestor elements in this case.
-This means calling a function without an element name is *not* equivalent to calling it with `self`.
+The first step that produces a match wins, so an earlier kind shadows a later one of the same name.
+A local variable shadows a member in scope, a member on the current element shadows a member on an ancestor, and an id is chosen over a same-named property in scope.
 
-Multiple functions with the same name are allowed in the same component, as long as they are defined on different elements.
-A function can therefore shadow another function from an ancestor element:
+### Qualified names
+
+When an identifier is qualified with an element — an id, `self`, `parent`, or `root` — the member must be defined on that element or inherited from its base type.
+Resolution does not fall back to ancestor elements in this case.
+Calling a member without a qualifier is therefore *not* equivalent to calling it with `self`: the unqualified form searches the whole scope, while `self.name` looks only at the current element.
+
+A member reached through a qualifier is subject to visibility: a `private` property, callback, or function of another component can't be accessed, and a special binding-only property can't be read.
+
+A [global](../globals/)'s members are reached through its name, as in `Name.property`, `Name.callback(...)`, or `Name.function(...)`.
+
+### Shadowing across elements
+
+Because a declared member is looked up starting from the current element and moving outward, a member declared on an inner element shadows a same-named member declared on an enclosing element.
+Multiple functions with the same name are allowed in one component as long as they are declared on different elements, and an inner one shadows an outer one for unqualified calls made within its subtree:
 
 ```slint
 export component Example {
@@ -82,5 +103,4 @@ export component Example {
 }
 ```
 
-In this example, the property `secret_number` is set to 1,
-and the text labels say "The secret number is 3" and "The other secret number is 2".
+Here `secret_number` is set to 1, the first label reads "The secret number is 3", and the second reads "The other secret number is 2".
