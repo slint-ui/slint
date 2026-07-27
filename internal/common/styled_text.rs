@@ -339,7 +339,7 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
     );
 
     let mut list_state_stack: alloc::vec::Vec<Option<u64>> = alloc::vec::Vec::new();
-    let mut style_stack: alloc::vec::Vec<(Style, usize)> = alloc::vec::Vec::new();
+    let mut style_stack: alloc::vec::Vec<(Style, usize, bool)> = alloc::vec::Vec::new();
     let mut current_url = None;
     let mut arg_index = 0;
     let mut paragraphs = alloc::vec::Vec::new();
@@ -472,7 +472,7 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                     get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range)
                 else { unreachable!() };
 
-                style_stack.push((style, rt.text.len()));
+                style_stack.push((style, rt.text.len(), false));
             }
             pulldown_cmark::Event::Text(text) => {
                 let paragraph =
@@ -481,7 +481,7 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                 substitute(paragraph, &text, args, &mut arg_index, &mut errors, &event_range);
             }
             pulldown_cmark::Event::End(_) => {
-                let (style, start) = if let Some(value) = style_stack.pop() {
+                let (style, start, _from_html) = if let Some(value) = style_stack.pop() {
                     value
                 } else if skip_end_count > 0 {
                     skip_end_count -= 1;
@@ -523,7 +523,7 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
             }
             pulldown_cmark::Event::InlineHtml(html) => {
                 if html.starts_with("</") {
-                    let (style, start) = if let Some(value) = style_stack.pop() {
+                    let (style, start, from_html) = if let Some(value) = style_stack.pop() {
                         value
                     } else if skip_end_count > 0 {
                         skip_end_count -= 1;
@@ -533,14 +533,28 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                         continue;
                     };
 
-                    let expected_tag = match &style {
-                        Style::Color(_) => "</font>",
-                        Style::Underline => "</u>",
+                    if !from_html {
+                        // The top of the stack is a markdown style, not
+                        // the expected HTML style. Push it back and report
+                        // an error instead of consuming it (issue #11563).
+                        style_stack.push((style, start, from_html));
+                        interleaved_count += 1;
+                        errors.push(StyledTextParseError::new(
+                            E::InterleavedStyles((&*html).into()),
+                            event_range.clone(),
+                        ));
+                        continue;
+                    }
+
+                    let is_valid_close = match &style {
+                        Style::Color(_) => (&*html) == "</font>",
+                        Style::Underline => (&*html) == "</u>",
+                        Style::Strikethrough => matches!(&*html, "</s>" | "</del>"),
+                        Style::Emphasis => matches!(&*html, "</i>" | "</em>"),
+                        Style::Strong => matches!(&*html, "</b>" | "</strong>"),
                         _ => {
-                            // The top of the stack is a markdown style, not
-                            // the expected HTML style. Push it back and report
-                            // an error instead of consuming it (issue #11563).
-                            style_stack.push((style, start));
+                            // HTML-pushed style we don't know how to close
+                            style_stack.push((style, start, from_html));
                             interleaved_count += 1;
                             errors.push(StyledTextParseError::new(
                                 E::InterleavedStyles((&*html).into()),
@@ -550,7 +564,15 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                         }
                     };
 
-                    if (&*html) != expected_tag {
+                    if !is_valid_close {
+                        let expected_tag = match &style {
+                            Style::Color(_) => "</font>",
+                            Style::Underline => "</u>",
+                            Style::Strikethrough => "</s> or </del>",
+                            Style::Emphasis => "</i> or </em>",
+                            Style::Strong => "</b> or </strong>",
+                            _ => unreachable!(),
+                        };
                         errors.push(StyledTextParseError::new(
                             E::ClosingTagMismatch(expected_tag.into(), (&*html).into()),
                             event_range.clone(),
@@ -586,10 +608,37 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                                         &event_range,
                                     );
                                     let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
-                                    style_stack.push((Style::Underline, len));
+                                    style_stack.push((Style::Underline, len, true));
                                 }
                                 "font" => {
                                     expecting_color_attribute = true;
+                                }
+                                "s" | "del" => {
+                                    let paragraph = get_or_create_paragraph(
+                                        &mut current_paragraph,
+                                        &mut errors,
+                                        &event_range,
+                                    );
+                                    let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                                    style_stack.push((Style::Strikethrough, len, true));
+                                }
+                                "i" | "em" => {
+                                    let paragraph = get_or_create_paragraph(
+                                        &mut current_paragraph,
+                                        &mut errors,
+                                        &event_range,
+                                    );
+                                    let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                                    style_stack.push((Style::Emphasis, len, true));
+                                }
+                                "b" | "strong" => {
+                                    let paragraph = get_or_create_paragraph(
+                                        &mut current_paragraph,
+                                        &mut errors,
+                                        &event_range,
+                                    );
+                                    let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                                    style_stack.push((Style::Strong, len, true));
                                 }
                                 _ => {
                                     let r = base + span.start()..base + span.end();
@@ -647,7 +696,7 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                                                 &event_range,
                                             );
                                             let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
-                                            style_stack.push((Style::Color(value), len));
+                                            style_stack.push((Style::Color(value), len, true));
                                         }
                                         None => {
                                             let r = base + span.start()..base + span.end();
@@ -663,7 +712,7 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                                                 &event_range,
                                             );
                                             let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
-                                            style_stack.push((Style::Color(0), len));
+                                            style_stack.push((Style::Color(0), len, true));
                                         }
                                     }
                                 }
@@ -833,6 +882,25 @@ new *line*
                 links: alloc::vec::Vec::new()
             })
         ]
+    );
+
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>(
+            "<s>strike</s> <i>italic</i> <b>bold</b> <del>del</del> <em>em</em> <strong>strong</strong>",
+            &[]
+        )),
+        [ParagraphBlock::Text(RichText {
+            text: "strike italic bold del em strong".into(),
+            formatting: alloc::vec![
+                FormattedSpan { range: 0..6, style: Style::Strikethrough },
+                FormattedSpan { range: 7..13, style: Style::Emphasis },
+                FormattedSpan { range: 14..18, style: Style::Strong },
+                FormattedSpan { range: 19..22, style: Style::Strikethrough },
+                FormattedSpan { range: 23..25, style: Style::Emphasis },
+                FormattedSpan { range: 26..32, style: Style::Strong },
+            ],
+            links: alloc::vec![],
+        })]
     );
 
     assert_eq!(
