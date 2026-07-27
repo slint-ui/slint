@@ -4,8 +4,6 @@ description: Global singletons for properties and callbacks shared across the pr
 notInSC: true
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
-
 `global Name { /* .. properties or callbacks .. */ }` declares a global singleton
 whose properties and callbacks are available throughout the project.
 They are accessed as `Name.property`:
@@ -36,78 +34,9 @@ export global Logic  {
 }
 // ...
 ```
-<Tabs syncKey="dev-language">
-<TabItem label="Rust" icon="seti:rust">
 
-```rust
-slint::slint!{
-export global Logic {
-    in-out property <int> the-value;
-    pure callback magic-operation(int) -> int;
-}
-
-export component App inherits Window {
-    // ...
-}
-}
-
-fn main() {
-    let app = App::new();
-    app.global::<Logic>().on_magic_operation(|value| {
-        eprintln!("magic operation input: {}", value);
-        value * 2
-    });
-    app.global::<Logic>().set_the_value(42);
-    // ...
-}
-```
-
-</TabItem>
-<TabItem label="C++" icon="seti:cpp">
-
-```cpp
-#include "app.h"
-
-int main() {
-    auto app = App::create();
-    app->global<Logic>().on_magic_operation([](int value) -> int {
-        return value * 2;
-    });
-    app->global<Logic>().set_the_value(42);
-    // ...
-}
-```
-</TabItem>
-<TabItem label="NodeJS" icon="node">
-
-```js
-let slint = require("slint-ui");
-let file = slint.loadFile("app.slint");
-let app = new file.App();
-app.Logic.magic_operation = (value) => {
-    return value * 2;
-};
-app.Logic.the_value = 42;
-// ...
-```
-</TabItem>
-<TabItem label="Python" icon="seti:python">
-
-```python
-import slint
-
-class App(slint.loader.app.App):
-    @slint.callback(global_name="Logic")
-    def magic_operation(self, value: int) -> int:
-        return value * 2
-
-app = App()
-app.Logic.the_value = 42
-
-# ...
-```
-</TabItem>
-</Tabs>
+The [Globals](../../../guide/language/coding/globals/) guide shows how to access an exported
+global from each language.
 
 :::note[Note]
 Global singletons aren't shared between separate windows, or between a window and a `SystemTrayIcon` exported alongside it.
