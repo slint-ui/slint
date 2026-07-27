@@ -711,6 +711,10 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
         self.actual_renderer.scale(x_factor, y_factor)
     }
 
+    fn skew(&mut self, skew_x: f32, skew_y: f32) {
+        self.actual_renderer.skew(skew_x, skew_y)
+    }
+
     fn apply_opacity(&mut self, opacity: f32) {
         self.actual_renderer.apply_opacity(opacity)
     }

@@ -984,9 +984,14 @@ impl ItemRc {
         self.downcast::<crate::items::Transform>().map(|transform_item| {
             let item = transform_item.as_pin_ref();
             let origin = item.transform_origin().to_euclid().to_vector().cast::<f32>();
+            let skew_x_rad = item.transform_skew_x().to_radians();
+            let skew_y_rad = item.transform_skew_y().to_radians();
+            let skew_transform =
+                euclid::Transform2D::new(1.0, skew_y_rad.tan(), skew_x_rad.tan(), 1.0, 0.0, 0.0);
             ItemTransform::translation(-origin.x, -origin.y)
                 .cast()
                 .then_scale(item.transform_scale_x(), item.transform_scale_y())
+                .then(&skew_transform)
                 .then_rotate(euclid::Angle { radians: item.transform_rotation().to_radians() })
                 .then_translate(origin)
         })

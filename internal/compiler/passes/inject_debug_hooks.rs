@@ -213,8 +213,13 @@ fn transform_properties<'a>(
     element: &'a ElementRc,
 ) -> impl Iterator<Item = (smol_str::SmolStr, crate::expression_tree::Expression, bool)> + 'a {
     // TODO: Wrap other transform properties.
-    const TRANSFORM_PROPS: [&str; 3] =
-        ["transform-rotation", "transform-scale-x", "transform-scale-y"];
+    const TRANSFORM_PROPS: [&str; 5] = [
+        "transform-rotation",
+        "transform-scale-x",
+        "transform-scale-y",
+        "transform-skew-x",
+        "transform-skew-y",
+    ];
     TRANSFORM_PROPS.into_iter().map(|property_name| {
         let property_name = smol_str::SmolStr::new_static(property_name);
         let default_expression =

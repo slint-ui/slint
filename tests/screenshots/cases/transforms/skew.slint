@@ -1,0 +1,45 @@
+// SIZE=200x200
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+    background: white;
+
+    Rectangle {
+        x: 30px;
+        y: 30px;
+        width: 60px;
+        height: 60px;
+        background: #3498db;
+        transform-skew-x: 20deg;
+    }
+
+    Rectangle {
+        x: 110px;
+        y: 30px;
+        width: 60px;
+        height: 60px;
+        background: #e74c3c;
+        transform-skew-y: 20deg;
+    }
+
+    Rectangle {
+        x: 30px;
+        y: 110px;
+        width: 60px;
+        height: 60px;
+        background: #2ecc71;
+        transform-skew-x: -15deg;
+        transform-skew-y: -15deg;
+    }
+
+    Rectangle {
+        x: 110px;
+        y: 110px;
+        width: 60px;
+        height: 60px;
+        background: #9b59b6;
+        transform-skew-x: 15deg;
+        transform-skew-y: 10deg;
+        transform-rotation: 15deg;
+    }
+}
