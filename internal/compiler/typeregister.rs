@@ -233,6 +233,8 @@ pub const RESERVED_TRANSFORM_PROPERTIES: &[(&str, Type)] = &[
     ("transform-scale-x", Type::Float32),
     ("transform-scale-y", Type::Float32),
     ("transform-scale", Type::Float32),
+    ("transform-skew-x", Type::Angle),
+    ("transform-skew-y", Type::Angle),
 ];
 
 pub fn transform_origin_property() -> (&'static str, Rc<Struct>) {

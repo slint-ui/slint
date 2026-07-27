@@ -159,6 +159,9 @@ pub fn transform_property_default_value(
         }
         "transform-scale" => None,
         "transform-rotation" => Some(Expression::NumberLiteral(0., Default::default())),
+        "transform-skew-x" | "transform-skew-y" => {
+            Some(Expression::NumberLiteral(0., Default::default()))
+        }
         _ => unreachable!(),
     }
 }

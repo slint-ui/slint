@@ -562,6 +562,8 @@ pub trait ItemRenderer {
     }
     fn rotate(&mut self, angle_in_degrees: f32);
     fn scale(&mut self, scale_x_factor: f32, scale_y_factor: f32);
+    /// Apply a skew transformation. skew_x and skew_y are in degrees.
+    fn skew(&mut self, skew_x: f32, skew_y: f32);
     /// Apply the opacity (between 0 and 1) for all following items until the next call to restore_state.
     fn apply_opacity(&mut self, opacity: f32);
 

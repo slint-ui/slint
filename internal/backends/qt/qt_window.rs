@@ -1282,6 +1282,17 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
+    fn skew(&mut self, skew_x: f32, skew_y: f32) {
+        let painter: &mut QPainterPtr = &mut self.painter;
+        let skew_x_rad = skew_x.to_radians();
+        let skew_y_rad = skew_y.to_radians();
+        cpp! { unsafe [painter as "QPainterPtr*", skew_x_rad as "double", skew_y_rad as "double"] {
+            QTransform transform;
+            transform.shear(std::tan(skew_x_rad), std::tan(skew_y_rad));
+            (*painter)->setTransform(transform * (*painter)->transform());
+        }}
+    }
+
     fn apply_opacity(&mut self, opacity: f32) {
         let painter: &mut QPainterPtr = &mut self.painter;
         cpp! { unsafe [painter as "QPainterPtr*", opacity as "float"] {

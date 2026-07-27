@@ -3217,6 +3217,10 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         // TODO
     }
 
+    fn skew(&mut self, _skew_x: f32, _skew_y: f32) {
+        // TODO (#6068)
+    }
+
     fn apply_opacity(&mut self, opacity: f32) {
         self.current_state.alpha *= opacity;
     }

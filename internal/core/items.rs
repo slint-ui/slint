@@ -1095,6 +1095,8 @@ pub struct Transform {
     pub transform_rotation: Property<f32>,
     pub transform_scale_x: Property<f32>,
     pub transform_scale_y: Property<f32>,
+    pub transform_skew_x: Property<f32>,
+    pub transform_skew_y: Property<f32>,
     pub transform_origin: Property<LogicalPosition>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -1170,6 +1172,7 @@ impl Item for Transform {
         let origin = self.transform_origin().to_euclid().to_vector();
         (*backend).translate(origin);
         (*backend).scale(self.transform_scale_x(), self.transform_scale_y());
+        (*backend).skew(self.transform_skew_x(), self.transform_skew_y());
         (*backend).rotate(self.transform_rotation());
         (*backend).translate(-origin);
         RenderingResult::ContinueRenderingChildren

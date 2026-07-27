@@ -935,6 +935,35 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         clip.size.height /= y_factor;
     }
 
+    fn skew(&mut self, skew_x: f32, skew_y: f32) {
+        let skew_x_rad = skew_x.to_radians();
+        let skew_y_rad = skew_y.to_radians();
+        self.canvas.borrow_mut().skew_x(skew_x_rad);
+        self.canvas.borrow_mut().skew_y(skew_y_rad);
+        // Recompute clip bounding box after skew (similar to rotate)
+        let clip = &mut self.state.last_mut().unwrap().scissor;
+        let tan_x = skew_x_rad.tan();
+        let tan_y = skew_y_rad.tan();
+        let skew_point = |p: LogicalPoint| (p.x + p.y * tan_x, p.y + p.x * tan_y);
+        let corners = [
+            skew_point(clip.origin),
+            skew_point(clip.origin + euclid::vec2(clip.width(), 0.)),
+            skew_point(clip.origin + euclid::vec2(0., clip.height())),
+            skew_point(clip.origin + clip.size),
+        ];
+        let origin: LogicalPoint = (
+            corners.iter().fold(f32::MAX, |a, b| b.0.min(a)),
+            corners.iter().fold(f32::MAX, |a, b| b.1.min(a)),
+        )
+            .into();
+        let end: LogicalPoint = (
+            corners.iter().fold(f32::MIN, |a, b| b.0.max(a)),
+            corners.iter().fold(f32::MIN, |a, b| b.1.max(a)),
+        )
+            .into();
+        *clip = LogicalRect::new(origin, (end - origin).into());
+    }
+
     fn apply_opacity(&mut self, opacity: f32) {
         let state = &mut self.state.last_mut().unwrap().global_alpha;
         *state *= opacity;
