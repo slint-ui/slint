@@ -134,6 +134,11 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
             p.error("':=' to declare an interface is not supported. Remove the ':='");
             p.consume();
         }
+        if p.peek().as_str() == "inherits" {
+            p.error("Interface inheritance is not supported");
+            drop(p.start_node(SyntaxKind::Element));
+            return false;
+        }
     } else if !is_new_component {
         if p.peek().kind() == SyntaxKind::ColonEqual {
             p.warning("':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info");
