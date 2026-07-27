@@ -14,7 +14,9 @@
 "ubi:sharkdp/fd" = "10.2.0"
 "rust" = { version = "stable", profile = "default" }
 node = "24"
-pnpm = "10.29.3"
+# Not the default aqua backend: it has no packaging for pnpm 11's release
+# tarballs, and ubi picks the bundled Node.js binary out of them.
+"npm:pnpm" = "11.17.0"
 taplo = "0.9.3"
 "ubi:wasm-bindgen/wasm-pack" = "0.13.1"
 uv = "0.10.4"
