@@ -54,9 +54,11 @@ jobs:
                     core.setOutput('pr_number', pr.number);
                     core.setOutput('head_sha', pr.head.sha);
 
+            # This job has no checkout, so there is no packageManager field to
+            # read the version from. Keep it in sync with package.json.
             - uses: pnpm/action-setup@v6.0.9
               with:
-                version: 10.29.3
+                version: 11.17.0
 
             - uses: actions/setup-node@v7
               with:

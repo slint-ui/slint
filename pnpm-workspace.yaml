@@ -26,6 +26,25 @@ packages:
   - docs/cpp
   - ui-libraries/material/docs
 
+nodeLinker: hoisted
+savePrefix: ''
+
+# Packages allowed to run install scripts. Everything else is blocked.
+allowBuilds:
+  '@biomejs/biome': true
+  esbuild: true
+  sharp: true
+  skia-canvas: true
+
+# Security overrides. Each key pins the vulnerable range to a fixed version.
+overrides:
+  'svgo@>=4.0.0 <4.0.2': '>=4.0.2'
+  'yaml@>=2.0.0 <2.8.3': '>=2.8.3'
+  'uuid@<14.0.0': '>=14.0.0'
+  'qs@>=6.11.1 <=6.15.1': '>=6.15.2'
+  'js-yaml@<=4.1.1': '>=4.2.0 <5.0.0'
+  'sharp@<0.35.0': '>=0.35.0'
+
 catalog:
   '@astrojs/check': 0.9.9
   '@astrojs/sitemap': 3.7.3
