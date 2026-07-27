@@ -737,6 +737,50 @@ fn create_text_paragraphs(
                         }
                         let total_height = current_y;
 
+                        // Shape header cell layouts with correct column widths
+                        let header_layouts: Vec<Vec<parley::Layout<Brush>>> = table_header_data.iter().map(|row| {
+                            row.iter().enumerate().map(|(col, cell)| {
+                                let cell_width = if col < column_widths_resolved.len() {
+                                    column_widths_resolved[col].get() - 8.0
+                                } else {
+                                    0.0
+                                };
+                                let mut layout = layout_builder.build(
+                                    font_context, &cell.text, None,
+                                    cell.formatting.iter().cloned(),
+                                    None, BlockType::Normal,
+                                );
+                                if cell_width > 0.0 {
+                                    layout.break_all_lines(Some(cell_width));
+                                } else {
+                                    layout.break_all_lines(None);
+                                }
+                                layout
+                            }).collect()
+                        }).collect();
+
+                        // Shape body cell layouts with correct column widths
+                        let body_layouts: Vec<Vec<parley::Layout<Brush>>> = table_body_data.iter().map(|row| {
+                            row.iter().enumerate().map(|(col, cell)| {
+                                let cell_width = if col < column_widths_resolved.len() {
+                                    column_widths_resolved[col].get() - 8.0
+                                } else {
+                                    0.0
+                                };
+                                let mut layout = layout_builder.build(
+                                    font_context, &cell.text, None,
+                                    cell.formatting.iter().cloned(),
+                                    None, BlockType::Normal,
+                                );
+                                if cell_width > 0.0 {
+                                    layout.break_all_lines(Some(cell_width));
+                                } else {
+                                    layout.break_all_lines(None);
+                                }
+                                layout
+                            }).collect()
+                        }).collect();
+
                         paragraphs.push(TextParagraph {
                             range: 0..0,
                             y: PhysicalLength::default(),
@@ -756,6 +800,8 @@ fn create_text_paragraphs(
                                 row_heights,
                                 row_positions,
                                 total_height,
+                                header_layouts,
+                                body_layouts,
                             }),
                         });
                     }
@@ -821,7 +867,7 @@ fn layout(
         } else if para.heading_level > 0 && prev_heading_level == 0 {
             body_font_size * 1.0
         } else if para.is_code_block && !prev_is_code_block {
-            body_font_size * 0.5
+            body_font_size * 1.0
         } else if para.block_quote_level > 0 && prev_block_quote_level == 0 {
             body_font_size * 0.5
         } else if prev_heading_level > 0 && para.heading_level == 0 {
@@ -829,7 +875,7 @@ fn layout(
         } else if para.heading_level > 0 && prev_heading_level > 0 {
             0.0
         } else if !para.is_code_block && prev_is_code_block {
-            body_font_size * 0.3
+            body_font_size * 0.5
         } else if para.table.is_some() && !prev_is_table {
             body_font_size * 0.5
         } else if !para.table.is_some() && prev_is_table {
@@ -1050,6 +1096,8 @@ struct TableLayout {
     row_heights: Vec<PhysicalLength>,
     row_positions: Vec<PhysicalLength>,
     total_height: PhysicalLength,
+    header_layouts: Vec<Vec<parley::Layout<Brush>>>,
+    body_layouts: Vec<Vec<parley::Layout<Brush>>>,
 }
 
 struct TextParagraph {
@@ -1819,6 +1867,7 @@ impl Layout {
                 let table_y = self.y_offset + paragraph.y;
                 let border_color = default_text_color.transparentize(0.8);
                 let header_bg = default_text_color.transparentize(0.85);
+                let padding = PhysicalLength::new(4.0);
 
                 // Draw header row background
                 if let Some(first_row_h) = table_info.row_heights.first() {
@@ -1827,6 +1876,51 @@ impl Layout {
                         PhysicalSize::new(table_info.total_width.get(), first_row_h.get()),
                     );
                     item_renderer.fill_rectangle_with_color(header_rect, header_bg);
+                }
+
+                // Draw cell text
+                for (section_idx, (layouts_section, data_section)) in
+                    [&table_info.header_layouts, &table_info.body_layouts]
+                        .iter()
+                        .zip([&table_info.header, &table_info.body].iter())
+                        .enumerate()
+                {
+                    for (row_idx, (row_layouts, row_data)) in
+                        layouts_section.iter().zip(data_section.iter()).enumerate()
+                    {
+                        let flat_row_idx = if section_idx == 0 {
+                            row_idx
+                        } else {
+                            table_info.header_layouts.len() + row_idx
+                        };
+                        let row_y = table_y + *table_info.row_positions.get(flat_row_idx).unwrap_or(&PhysicalLength::zero());
+
+                        for (col, cell_layout) in row_layouts.iter().enumerate() {
+                            let col_x = table_info.column_positions.get(col).copied().unwrap_or(PhysicalLength::zero());
+                            let cell_x = col_x + padding;
+
+                            for line in cell_layout.lines() {
+                                for item in line.items() {
+                                    if let parley::PositionedLayoutItem::GlyphRun(run) = item {
+                                        draw_glyphs(
+                                            item_renderer,
+                                            run.run().font(),
+                                            PhysicalLength::new(run.run().font_size()),
+                                            run.run().normalized_coords(),
+                                            &run.run().synthesis(),
+                                            default_fill_brush.clone(),
+                                            row_y,
+                                            &mut run.positioned_glyphs().map(|g| {
+                                                let mut adjusted = g;
+                                                adjusted.x += cell_x.get();
+                                                adjusted
+                                            }),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Draw horizontal grid lines
@@ -1866,7 +1960,7 @@ impl Layout {
                 let y = self.y_offset + paragraph.y;
                 let para_height = PhysicalLength::new(paragraph.layout.height());
                 let bg_color = default_text_color.transparentize(0.9);
-                let padding = PhysicalLength::new(8.0);
+                let padding = PhysicalLength::new(4.0);
                 let bg_rect = PhysicalRect::new(
                     PhysicalPoint::new(0.0, y.get() - padding.get()),
                     PhysicalSize::new(self.max_width.get(), para_height.get() + padding.get() * 2.0),
@@ -1887,7 +1981,7 @@ impl Layout {
             }
             if paragraph.heading_level == 1 || paragraph.heading_level == 2 {
                 let y = self.y_offset + paragraph.y + PhysicalLength::new(paragraph.layout.height());
-                let line_y = y.get() - 2.0;
+                let line_y = y.get() + 4.0;
                 let line_color = default_text_color.transparentize(0.7);
                 let rect = PhysicalRect::new(
                     PhysicalPoint::new(0.0, line_y),

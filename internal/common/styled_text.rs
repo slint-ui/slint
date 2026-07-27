@@ -788,6 +788,8 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                         Style::Color(_) => (&*html) == "</font>",
                         Style::Underline => (&*html) == "</u>",
                         Style::Strikethrough => matches!(&*html, "</s>" | "</del>"),
+                        Style::Subscript => (&*html) == "</sub>",
+                        Style::Superscript => (&*html) == "</sup>",
                         Style::Emphasis => matches!(&*html, "</i>" | "</em>"),
                         Style::Strong => matches!(&*html, "</b>" | "</strong>"),
                         _ => {
@@ -877,6 +879,24 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                                     );
                                     let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
                                     style_stack.push((Style::Strong, len, true));
+                                }
+                                "sub" => {
+                                    let paragraph = get_or_create_paragraph(
+                                        &mut current_paragraph,
+                                        &mut errors,
+                                        &event_range,
+                                    );
+                                    let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                                    style_stack.push((Style::Subscript, len, true));
+                                }
+                                "sup" => {
+                                    let paragraph = get_or_create_paragraph(
+                                        &mut current_paragraph,
+                                        &mut errors,
+                                        &event_range,
+                                    );
+                                    let len = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                                    style_stack.push((Style::Superscript, len, true));
                                 }
                                 _ => {
                                     let r = base + span.start()..base + span.end();
@@ -1694,6 +1714,22 @@ fn markdown_code_block_indented() {
     assert!(
         result.iter().any(|b| matches!(b, ParagraphBlock::CodeBlock { .. })),
         "Expected a CodeBlock, got: {result:?}"
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_html_sub_sup() {
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("H<sub>2</sub>O and E=mc<sup>2</sup>", &[])),
+        [ParagraphBlock::Text(RichText {
+            text: "H2O and E=mc2".into(),
+            formatting: alloc::vec![
+                FormattedSpan { range: 1..2, style: Style::Subscript },
+                FormattedSpan { range: 12..13, style: Style::Superscript },
+            ],
+            links: alloc::vec![],
+        })]
     );
 }
 
