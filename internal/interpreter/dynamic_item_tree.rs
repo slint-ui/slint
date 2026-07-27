@@ -811,13 +811,12 @@ extern "C" fn visit_children_item(
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let comp_rc = instance_ref.self_weak().get().unwrap().upgrade().unwrap();
     i_slint_core::item_tree::visit_item_tree(
-        instance_ref.instance,
         &vtable::VRc::into_dyn(comp_rc),
         get_item_tree(component).as_slice(),
         index,
         order,
         v,
-        |_, order, visitor, index| {
+        &mut |order, visitor, index| {
             if index as usize >= instance_ref.description.repeater.len() {
                 // Do nothing: We are ComponentContainer and Our parent already did all the work!
                 VisitChildrenResult::CONTINUE

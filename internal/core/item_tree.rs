@@ -1343,20 +1343,20 @@ fn visit_internal<State>(
 /// Visit the children within an array of ItemTreeNode
 ///
 /// The dynamic visitor is called for the dynamic nodes, its signature is
-/// `fn(base: &Base, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: usize)`
+/// `fn(order: TraversalOrder, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: u32)`.
+/// It is a `dyn` callback (capturing the component) rather than generic, so this function is
+/// not duplicated per component type.
 ///
 /// FIXME: the design of this use lots of indirection and stack frame in recursive functions
 /// Need to check if the compiler is able to optimize away some of it.
 /// Possibly we should generate code that directly call the visitor instead
-pub fn visit_item_tree<Base>(
-    base: Pin<&Base>,
+pub fn visit_item_tree(
     item_tree: &ItemTreeRc,
     item_tree_array: &[ItemTreeNode],
     index: isize,
     order: TraversalOrder,
     mut visitor: vtable::VRefMut<ItemVisitorVTable>,
-    visit_dynamic: impl Fn(
-        Pin<&Base>,
+    visit_dynamic: &mut dyn FnMut(
         TraversalOrder,
         vtable::VRefMut<ItemVisitorVTable>,
         u32,
@@ -1370,7 +1370,7 @@ pub fn visit_item_tree<Base>(
             }
             ItemTreeNode::DynamicTree { index, .. } => {
                 if let Some(sub_idx) =
-                    visit_dynamic(base, order, visitor.borrow_mut(), *index).aborted_index()
+                    visit_dynamic(order, visitor.borrow_mut(), *index).aborted_index()
                 {
                     VisitChildrenResult::abort(idx, sub_idx)
                 } else {
@@ -1455,14 +1455,14 @@ pub(crate) mod ffi {
             dyn_index: u32,
         ) -> VisitChildrenResult,
     ) -> VisitChildrenResult {
+        let base = VRc::as_pin_ref(item_tree).get_ref() as *const vtable::Dyn as *const c_void;
         crate::item_tree::visit_item_tree(
-            VRc::as_pin_ref(item_tree),
             item_tree,
             item_tree_array.as_slice(),
             index,
             order,
             visitor,
-            |a, b, c, d| visit_dynamic(a.get_ref() as *const vtable::Dyn as *const c_void, b, c, d),
+            &mut |order, visitor, dyn_index| visit_dynamic(base, order, visitor, dyn_index),
         )
     }
 }
