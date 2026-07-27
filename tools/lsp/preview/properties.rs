@@ -569,7 +569,7 @@ pub(super) fn get_properties(
             name: "accessible-role".into(),
             priority: DEFAULT_PRIORITY - 100,
             ty: Type::Enumeration(
-                i_slint_compiler::typeregister::BUILTIN.with(|e| e.enums.AccessibleRole.clone()),
+                i_slint_compiler::typeregister::BUILTIN.enums.AccessibleRole.clone(),
             ),
             visibility: PropertyVisibility::InOut,
             declared_at: None,

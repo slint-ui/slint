@@ -135,7 +135,7 @@ pub(crate) fn should_materialize(
         } else if prop == "close-policy" {
             // PopupWindow::close-policy
             return Some(Type::Enumeration(
-                crate::typeregister::BUILTIN.with(|e| e.enums.PopupClosePolicy.clone()),
+                crate::typeregister::BUILTIN.enums.PopupClosePolicy.clone(),
             ));
         } else {
             let ty = base_type.lookup_property(prop).property_type.clone();

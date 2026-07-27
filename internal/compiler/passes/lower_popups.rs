@@ -118,7 +118,7 @@ fn lower_popup_window(
             assert!(diag.has_errors());
             return None;
         };
-        let enum_ty = crate::typeregister::BUILTIN.with(|e| e.enums.PopupClosePolicy.clone());
+        let enum_ty = crate::typeregister::BUILTIN.enums.PopupClosePolicy.clone();
         let s = if *v { "close-on-click" } else { "no-auto-close" };
         Some(EnumerationValue {
             value: enum_ty.values.iter().position(|v| v == s).unwrap(),
@@ -177,7 +177,7 @@ fn lower_popup_window(
         })
         .unwrap_or_else(|| EnumerationValue {
             value: 0,
-            enumeration: crate::typeregister::BUILTIN.with(|e| e.enums.PopupClosePolicy.clone()),
+            enumeration: crate::typeregister::BUILTIN.enums.PopupClosePolicy.clone(),
         });
 
     let popup_comp = Rc::new(Component {

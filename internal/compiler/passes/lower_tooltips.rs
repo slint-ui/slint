@@ -268,7 +268,7 @@ fn lower_tooltips_in_component(
     let tooltip_area_type = type_register.lookup_builtin_element(TOOLTIP_AREA_ELEMENT).unwrap();
     let popup_window_type = type_register.lookup_builtin_element(POPUP_WINDOW_ELEMENT).unwrap();
 
-    let popup_close_policy_enum = BUILTIN.with(|e| e.enums.PopupClosePolicy.clone());
+    let popup_close_policy_enum = BUILTIN.enums.PopupClosePolicy.clone();
     let popup_close_policy_no_auto_close = EnumerationValue {
         value: popup_close_policy_enum.values.iter().position(|v| v == "no-auto-close").unwrap(),
         enumeration: popup_close_policy_enum,

@@ -284,7 +284,7 @@ declare_builtin_function_types!(
     Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
     Oklch: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
     ColorScheme: () -> Type::Enumeration(
-        typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone()),
+        typeregister::BUILTIN.enums.ColorScheme.clone(),
     ),
     AccentColor: () -> Type::Color,
     SupportsNativeMenuBar: () -> Type::Bool,
@@ -309,7 +309,7 @@ declare_builtin_function_types!(
     Use24HourFormat: () -> Type::Bool,
     UpdateTimers: () -> Type::Void,
     DetectOperatingSystem: () -> Type::Enumeration(
-        typeregister::BUILTIN.with(|e| e.enums.OperatingSystemType.clone()),
+        typeregister::BUILTIN.enums.OperatingSystemType.clone(),
     ),
     StartTimer: (Type::ElementReference) -> Type::Void,
     StopTimer: (Type::ElementReference) -> Type::Void,
@@ -329,10 +329,9 @@ impl Default for BuiltinFunctionTypes {
 
 impl BuiltinFunction {
     pub fn ty(&self) -> Arc<Function> {
-        thread_local! {
-            static TYPES: BuiltinFunctionTypes = BuiltinFunctionTypes::new();
-        }
-        TYPES.with(|types| types.ty(self))
+        static TYPES: std::sync::LazyLock<BuiltinFunctionTypes> =
+            std::sync::LazyLock::new(BuiltinFunctionTypes::new);
+        TYPES.ty(self)
     }
 
     /// It is const if the return value only depends on its argument and has no side effect
@@ -1764,7 +1763,7 @@ impl Expression {
             },
             Type::Easing => Expression::EasingCurve(EasingCurve::default()),
             Type::MouseCursor => {
-                let e = crate::typeregister::BUILTIN.with(|e| e.enums.BuiltInMouseCursor.clone());
+                let e = crate::typeregister::BUILTIN.enums.BuiltInMouseCursor.clone();
                 Expression::MouseCursor(MouseCursorInner::BuiltIn(Box::new(
                     Expression::EnumerationValue(e.default_value()),
                 )))

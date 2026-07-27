@@ -164,7 +164,9 @@ fn wire_radio_button(
     // row / col for the parent GridLayout — stack vertically (column 0,
     // increasing rows) for vertical orientation, otherwise stack horizontally.
     let orientation_vertical = crate::typeregister::BUILTIN
-        .with(|e| e.enums.Orientation.clone())
+        .enums
+        .Orientation
+        .clone()
         .try_value_from_string("vertical")
         .unwrap();
     let is_vertical = Expression::BinaryExpression {
