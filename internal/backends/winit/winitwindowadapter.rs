@@ -1498,36 +1498,29 @@ impl WindowAdapter for WinitWindowAdapter {
                     }
                 }
                 WinitWindowOrNone::None(ref window_attributes) => {
-                    if self
-                        .event_loop_properties
-                        .get()
-                        .display_server_protocol
-                        .is_some_and(|s| s == DisplayServerProtocol::Wayland)
+                    use winit::dpi::{LogicalPosition, Position};
+
+                    let anchor_position = window_attributes
+                        .borrow()
+                        .position
+                        .unwrap_or_else(|| Position::new(LogicalPosition::new(0., 0.)));
+
+                    if let winit::window::WindowType::Popup {
+                        anchor: popup_anchor,
+                        anchor_rect,
+                        positioner_offset,
+                        gravity,
+                        constraint_adjustment,
+                    } = &mut window_attributes.borrow_mut().window_type
                     {
-                        use winit::dpi::{LogicalPosition, Position};
-
-                        let anchor_position = window_attributes
-                            .borrow()
-                            .position
-                            .unwrap_or_else(|| Position::new(LogicalPosition::new(0., 0.)));
-
-                        if let winit::window::WindowType::Popup {
-                            anchor: popup_anchor,
-                            anchor_rect,
-                            positioner_offset,
-                            gravity,
-                            constraint_adjustment,
-                        } = &mut window_attributes.borrow_mut().window_type
-                        {
-                            *popup_anchor = Some(anchor_to_winit(anchor.location));
-                            *gravity = Some(gravity_to_winit(anchor.gravity));
-                            *anchor_rect = Some((anchor_position, anchor_size.into()));
-                            *positioner_offset = Some(offset.into());
-                            *constraint_adjustment = Some(constraint_adjustment_to_winit(
-                                &anchor.constraint_adjustment_x,
-                                &anchor.constraint_adjustment_y,
-                            ));
-                        }
+                        *popup_anchor = Some(anchor_to_winit(anchor.location));
+                        *gravity = Some(gravity_to_winit(anchor.gravity));
+                        *anchor_rect = Some((anchor_position, anchor_size.into()));
+                        *positioner_offset = Some(offset.into());
+                        *constraint_adjustment = Some(constraint_adjustment_to_winit(
+                            &anchor.constraint_adjustment_x,
+                            &anchor.constraint_adjustment_y,
+                        ));
                     }
                 }
             }
