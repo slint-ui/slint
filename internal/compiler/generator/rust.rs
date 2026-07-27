@@ -15,7 +15,7 @@ Some convention used in the generated code:
 use super::accessor_names::{self, AccessorKind};
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
-use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
+use crate::langtype::{DeclNode, Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
 use crate::llr::{
@@ -708,6 +708,27 @@ fn generate_shared_globals(
     }
 }
 
+/// Compile the `@rust-attr(...)` captured on a struct or enum declaration into outer
+/// attributes, emitting a `compile_error!` for any whose text does not tokenize.
+fn rust_attributes_tokens(
+    attributes: &[SmolStr],
+    kind: &str,
+    name: &SmolStr,
+    node: Option<&DeclNode>,
+) -> TokenStream {
+    let attrs = attributes.iter().map(|attr| match TokenStream::from_str(attr) {
+        Ok(t) => quote!(#[#t]),
+        Err(_) => {
+            let source_location = node.map(|n| n.to_source_location()).unwrap_or_default();
+            let error = format!(
+                "Error parsing @rust-attr for {kind} '{name}' declared at {source_location}"
+            );
+            quote!(compile_error!(#error);)
+        }
+    });
+    quote! { #(#attrs)* }
+}
+
 fn generate_struct(the_struct: &Struct, unit: &llr::CompilationUnit) -> TokenStream {
     let component_id = struct_name_to_tokens(&the_struct.name).unwrap();
     let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) = the_struct
@@ -716,26 +737,12 @@ fn generate_struct(the_struct: &Struct, unit: &llr::CompilationUnit) -> TokenStr
         .map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap()))
         .unzip();
 
-    let StructName::User { name, node } = &the_struct.name else {
+    let StructName::User { name, .. } = &the_struct.name else {
         unreachable!("generating non-user struct")
     };
 
     let attributes =
-        node.parent().and_then(crate::parser::syntax_nodes::StructDeclaration::new).map(|node| {
-            let attrs = node.AtRustAttr().map(|attr| {
-                match TokenStream::from_str(&attr.text().to_string()) {
-                    Ok(t) => quote!(#[#t]),
-                    Err(_) => {
-                        let source_location = crate::diagnostics::Spanned::to_source_location(&attr);
-                        let error = format!(
-                            "Error parsing @rust-attr for struct '{name}' declared at {source_location}"
-                        );
-                        quote!(compile_error!(#error);)
-                    }
-                }
-            });
-            quote! { #(#attrs)* }
-        });
+        rust_attributes_tokens(the_struct.rust_attributes(), "struct", name, the_struct.node());
 
     // With user-declared field default values, `Default` cannot be derived anymore
     let default_impl = (!the_struct.field_defaults.is_empty()).then(|| {
@@ -788,21 +795,8 @@ fn generate_enum(en: &std::sync::Arc<Enumeration>) -> TokenStream {
         let i = ident(&EnumerationValue { value, enumeration: en.clone() }.to_pascal_case());
         if value == en.default_value { quote!(#[default] #i) } else { quote!(#i) }
     });
-    let attributes = en.node.as_ref().map(|node| {
-        let attrs =
-            node.AtRustAttr().map(|attr| match TokenStream::from_str(&attr.text().to_string()) {
-                Ok(t) => quote!(#[#t]),
-                Err(_) => {
-                    let name = &en.name;
-                    let source_location = crate::diagnostics::Spanned::to_source_location(&attr);
-                    let error = format!(
-                        "Error parsing @rust-attr for enum '{name}' declared at {source_location}"
-                    );
-                    quote!(compile_error!(#error);)
-                }
-            });
-        quote! { #(#attrs)* }
-    });
+    let attributes =
+        rust_attributes_tokens(&en.rust_attributes, "enum", &en.name, en.node.as_ref());
     quote! {
         #attributes
         #[allow(dead_code)]

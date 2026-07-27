@@ -18,7 +18,8 @@ pub fn get_tooltip(
     token: SyntaxToken,
 ) -> Option<Hover> {
     let token_info = token_info(document_cache, token.clone())?;
-    let documentation = token_info.declaration().and_then(|x| extract_documentation(&x));
+    let documentation =
+        token_info.declaration(document_cache).and_then(|x| extract_documentation(&x));
     let documentation = documentation.as_deref();
     let contents = match token_info {
         TokenInfo::Type(ty) => match ty {
