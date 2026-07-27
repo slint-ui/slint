@@ -15,6 +15,7 @@ pub enum Style {
     Color(u32),
     Superscript,
     Subscript,
+    Math,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -40,12 +41,35 @@ pub struct RichText {
     pub links: alloc::vec::Vec<(core::ops::Range<usize>, alloc::string::String)>,
 }
 
+/// Column alignment for tables, matching pulldown_cmark::Alignment values.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum TableAlignment {
+    #[default]
+    None,
+    Left,
+    Center,
+    Right,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TableCell {
+    pub content: RichText,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ParagraphBlock {
     Text(RichText),
     /// level is 1-6
     Heading { level: u8, content: RichText },
+    /// level is the nesting depth (1 for `>`, 2 for `>>`, etc.)
+    BlockQuote { level: u8, content: RichText },
     HorizontalRule,
+    Table {
+        columns: usize,
+        header: alloc::vec::Vec<alloc::vec::Vec<TableCell>>,
+        body: alloc::vec::Vec<alloc::vec::Vec<TableCell>>,
+        alignments: alloc::vec::Vec<TableAlignment>,
+    },
 }
 
 /// Error returned by markdown styled text parsing
@@ -160,8 +184,11 @@ fn begin_paragraph(indentation: u32, list_item_type: Option<ListItemType>) -> Pa
 
 pub fn rich_text_content(block: &ParagraphBlock) -> Option<&RichText> {
     match block {
-        ParagraphBlock::Text(content) | ParagraphBlock::Heading { content, .. } => Some(content),
+        ParagraphBlock::Text(content)
+        | ParagraphBlock::Heading { content, .. }
+        | ParagraphBlock::BlockQuote { content, .. } => Some(content),
         ParagraphBlock::HorizontalRule => None,
+        ParagraphBlock::Table { .. } => None,
     }
 }
 
@@ -295,14 +322,14 @@ fn unsupported_tag_name(tag: &pulldown_cmark::Tag<'_>) -> alloc::string::String 
     use pulldown_cmark::Tag::*;
     match tag {
         Heading { .. } => "headings",
-        Image { .. } => "images",
-        BlockQuote(_) => "block quotes",
+        // Image { .. } => "images",            // handled inline
+        // BlockQuote(_) => "block quotes",     // handled inline
         CodeBlock(_) => "code blocks",
-        Table(_) => "tables",
+        // Table(_) => "tables",
         HtmlBlock => "HTML blocks",
-        FootnoteDefinition(_) => "footnotes",
+        // FootnoteDefinition(_) => "footnotes", // handled inline
         DefinitionList | DefinitionListTitle | DefinitionListDefinition => "definition lists",
-        TableHead | TableRow | TableCell => "tables",
+        // TableHead | TableRow | TableCell => "tables",
         MetadataBlock(_) => "metadata blocks",
         // Superscript => "superscript",
         // Subscript => "subscript",
@@ -317,8 +344,8 @@ fn unsupported_event_name(event: &pulldown_cmark::Event<'_>) -> alloc::string::S
     match event {
         Rule => "horizontal rules".into(),
         TaskListMarker(_) => "task lists".into(),
-        FootnoteReference(_) => "footnote references".into(),
-        InlineMath(_) | DisplayMath(_) => "math".into(),
+        // FootnoteReference(_) => "footnote references",   // handled inline
+        // InlineMath(_) | DisplayMath(_) => "math",        // handled inline
         Html(text) => alloc::format!("HTML blocks ({})", text.trim()),
         _ => alloc::format!("{event:?}"),
     }
@@ -333,7 +360,10 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
 
     let parser = pulldown_cmark::Parser::new_ext(
         format_string,
-        pulldown_cmark::Options::ENABLE_STRIKETHROUGH
+        pulldown_cmark::Options::ENABLE_TABLES
+            | pulldown_cmark::Options::ENABLE_FOOTNOTES
+            | pulldown_cmark::Options::ENABLE_MATH
+            | pulldown_cmark::Options::ENABLE_STRIKETHROUGH
             | pulldown_cmark::Options::ENABLE_SUBSCRIPT
             | pulldown_cmark::Options::ENABLE_SUPERSCRIPT,
     );
@@ -349,19 +379,52 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
     // we silently consume it instead of reporting a cascading Pop error.
     let mut skip_end_count: usize = 0;
     let mut interleaved_count: usize = 0;
+    // When > 0, we are inside a tag whose entire sub-tree should be skipped
+    // (e.g. FootnoteDefinition). Every Start/End event increments/decrements
+    // this depth; non-tag events (Text, Code, etc.) are silently consumed.
+    let mut skip_until_depth: usize = 0;
+
+    let mut in_table = false;
+    let mut _table_alignments: Vec<TableAlignment> = Vec::new();
+    let mut table_header_rows: Vec<Vec<RichText>> = Vec::new();
+    let mut table_body_rows: Vec<Vec<RichText>> = Vec::new();
+    let mut table_current_row: Vec<RichText> = Vec::new();
+    let mut table_current_cell: RichText = RichText::default();
+    let mut table_current_cell_style_stack: Vec<(Style, usize)> = Vec::new();
+    let mut in_table_head = false;
+    let mut table_columns = 0;
 
     let mut current_heading_level: Option<u8> = None;
+    let mut block_quote_level: u32 = 0;
 
     let mut current_paragraph: Option<ParagraphBlock> = None;
 
     for (event, event_range) in parser.into_offset_iter() {
         let indentation = list_state_stack.len().saturating_sub(1) as _;
 
+        if skip_until_depth > 0 {
+            match &event {
+                pulldown_cmark::Event::Start(_) => skip_until_depth += 1,
+                pulldown_cmark::Event::End(_) => skip_until_depth -= 1,
+                _ => {}
+            }
+            continue;
+        }
+
         match event {
             pulldown_cmark::Event::SoftBreak | pulldown_cmark::Event::HardBreak => {
                 if let Some(paragraph) =
                     current_paragraph.replace(begin_paragraph(indentation, None))
                 {
+                    if block_quote_level > 0 {
+                        if let ParagraphBlock::Text(content) = paragraph {
+                            paragraphs.push(ParagraphBlock::BlockQuote {
+                                level: block_quote_level as u8,
+                                content,
+                            });
+                            continue;
+                        }
+                    }
                     paragraphs.push(paragraph);
                 }
             }
@@ -372,6 +435,47 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                     paragraphs.push(paragraph);
                 }
                 paragraphs.push(ParagraphBlock::HorizontalRule);
+            }
+            pulldown_cmark::Event::End(pulldown_cmark::TagEnd::TableCell) => {
+                table_current_row.push(core::mem::take(&mut table_current_cell));
+                table_current_cell_style_stack.clear();
+                continue;
+            }
+            pulldown_cmark::Event::End(pulldown_cmark::TagEnd::TableRow) => {
+                let row = core::mem::take(&mut table_current_row);
+                table_columns = table_columns.max(row.len());
+                if in_table_head {
+                    table_header_rows.push(row);
+                } else {
+                    table_body_rows.push(row);
+                }
+                continue;
+            }
+            pulldown_cmark::Event::End(pulldown_cmark::TagEnd::TableHead) => {
+                in_table_head = false;
+                if !table_current_row.is_empty() {
+                    table_header_rows.push(core::mem::take(&mut table_current_row));
+                }
+                continue;
+            }
+            pulldown_cmark::Event::End(pulldown_cmark::TagEnd::Table) => {
+                in_table = false;
+
+                let header: Vec<Vec<TableCell>> = table_header_rows.drain(..).map(|row| {
+                    row.into_iter().map(|content| TableCell { content }).collect()
+                }).collect();
+                let body: Vec<Vec<TableCell>> = table_body_rows.drain(..).map(|row| {
+                    row.into_iter().map(|content| TableCell { content }).collect()
+                }).collect();
+
+                paragraphs.push(ParagraphBlock::Table {
+                    columns: table_columns,
+                    header,
+                    body,
+                    alignments: alloc::vec::Vec::new(),
+                });
+                current_paragraph = None;
+                continue;
             }
             pulldown_cmark::Event::End(pulldown_cmark::TagEnd::List(_)) => {
                 if list_state_stack.pop().is_none() {
@@ -389,12 +493,33 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                 }
                 current_paragraph = Some(begin_paragraph(indentation, None));
             }
+            pulldown_cmark::Event::End(pulldown_cmark::TagEnd::BlockQuote(_)) => {
+                if let Some(paragraph) = current_paragraph.take() {
+                    if let ParagraphBlock::Text(content) = paragraph {
+                        paragraphs.push(ParagraphBlock::BlockQuote {
+                            level: block_quote_level as u8,
+                            content,
+                        });
+                    }
+                }
+                block_quote_level = block_quote_level.saturating_sub(1);
+                current_paragraph = None;
+            }
             pulldown_cmark::Event::Start(tag) => {
                 let style = match tag {
                     pulldown_cmark::Tag::Paragraph => {
                         if let Some(paragraph) =
                             current_paragraph.replace(begin_paragraph(indentation, None))
                         {
+                            if block_quote_level > 0 {
+                                if let ParagraphBlock::Text(content) = paragraph {
+                                    paragraphs.push(ParagraphBlock::BlockQuote {
+                                        level: block_quote_level as u8,
+                                        content,
+                                    });
+                                    continue;
+                                }
+                            }
                             paragraphs.push(paragraph);
                         }
                         continue;
@@ -428,15 +553,7 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                     }
 
                     pulldown_cmark::Tag::BlockQuote(_) => {
-                        let mut r = event_range.clone();
-                        if let Some(pos) = format_string[r.clone()].find('>') {
-                            r.start += pos;
-                        }
-                        errors.push(StyledTextParseError::new(
-                            E::UnsupportedMarkdown(unsupported_tag_name(&tag)),
-                            r,
-                        ));
-                        skip_end_count += 1;
+                        block_quote_level += 1;
                         continue;
                     }
                     pulldown_cmark::Tag::HtmlBlock => {
@@ -458,6 +575,40 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                     pulldown_cmark::Tag::Superscript => Style::Superscript,
                     pulldown_cmark::Tag::Subscript => Style::Subscript,
 
+                    pulldown_cmark::Tag::Table(_) => {
+                        in_table = true;
+                        _table_alignments = Vec::new();
+                        table_header_rows = Vec::new();
+                        table_body_rows = Vec::new();
+                        table_current_row = Vec::new();
+                        table_current_cell = RichText::default();
+                        table_current_cell_style_stack = Vec::new();
+                        in_table_head = false;
+                        table_columns = 0;
+                        continue;
+                    }
+                    pulldown_cmark::Tag::TableHead => {
+                        in_table_head = true;
+                        continue;
+                    }
+                    pulldown_cmark::Tag::TableRow => {
+                        table_current_row = Vec::new();
+                        continue;
+                    }
+                    pulldown_cmark::Tag::TableCell => {
+                        table_current_cell = RichText::default();
+                        table_current_cell_style_stack.clear();
+                        continue;
+                    }
+
+                    pulldown_cmark::Tag::FootnoteDefinition(_) => {
+                        skip_until_depth = 1;
+                        continue;
+                    }
+                    pulldown_cmark::Tag::Image { .. } => {
+                        skip_end_count += 1;
+                        continue;
+                    }
                     ref unsupported => {
                         errors.push(StyledTextParseError::new(
                             E::UnsupportedMarkdown(unsupported_tag_name(unsupported)),
@@ -468,19 +619,37 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                     }
                 };
 
-                let ParagraphBlock::Text(rt) =
-                    get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range)
-                else { unreachable!() };
+                if in_table {
+                    let start = table_current_cell.text.len();
+                    table_current_cell_style_stack.push((style, start));
+                } else {
+                    let ParagraphBlock::Text(rt) =
+                        get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range)
+                    else { unreachable!() };
 
-                style_stack.push((style, rt.text.len(), false));
+                    style_stack.push((style, rt.text.len(), false));
+                }
             }
             pulldown_cmark::Event::Text(text) => {
+                if in_table {
+                    table_current_cell.text.push_str(&text);
+                    continue;
+                }
                 let paragraph =
                     get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range);
 
                 substitute(paragraph, &text, args, &mut arg_index, &mut errors, &event_range);
             }
             pulldown_cmark::Event::End(_) => {
+                if in_table {
+                    if let Some((style, start)) = table_current_cell_style_stack.pop() {
+                        table_current_cell.formatting.push(FormattedSpan {
+                            range: start..table_current_cell.text.len(),
+                            style,
+                        });
+                    }
+                    continue;
+                }
                 let (style, start, _from_html) = if let Some(value) = style_stack.pop() {
                     value
                 } else if skip_end_count > 0 {
@@ -511,6 +680,15 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                 }
             }
             pulldown_cmark::Event::Code(text) => {
+                if in_table {
+                    let start = table_current_cell.text.len();
+                    table_current_cell.text.push_str(&text);
+                    table_current_cell.formatting.push(FormattedSpan {
+                        range: start..table_current_cell.text.len(),
+                        style: Style::Code,
+                    });
+                    continue;
+                }
                 let paragraph =
                     get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range);
                 let start = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
@@ -751,11 +929,49 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                     }
                 }
             }
-            pulldown_cmark::Event::TaskListMarker(_)
-            | pulldown_cmark::Event::FootnoteReference(_)
-            | pulldown_cmark::Event::InlineMath(_)
-            | pulldown_cmark::Event::DisplayMath(_)
-            | pulldown_cmark::Event::Html(_) => {
+            pulldown_cmark::Event::FootnoteReference(name) => {
+                let paragraph =
+                    get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range);
+                let start = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                let ref_text = alloc::format!("[{}]", name);
+                substitute(paragraph, &ref_text, args, &mut arg_index, &mut errors, &event_range);
+                if let ParagraphBlock::Text(rt) = paragraph {
+                    rt.formatting.push(FormattedSpan {
+                        range: start..rt.text.len(),
+                        style: Style::Superscript,
+                    });
+                }
+            }
+            pulldown_cmark::Event::InlineMath(text) => {
+                let paragraph =
+                    get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range);
+                let start = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                substitute(paragraph, &text, args, &mut arg_index, &mut errors, &event_range);
+                if let ParagraphBlock::Text(rt) = paragraph {
+                    rt.formatting.push(FormattedSpan {
+                        range: start..rt.text.len(),
+                        style: Style::Math,
+                    });
+                }
+            }
+            pulldown_cmark::Event::DisplayMath(text) => {
+                if let Some(paragraph) =
+                    current_paragraph.replace(begin_paragraph(indentation, None))
+                {
+                    paragraphs.push(paragraph);
+                }
+                let paragraph =
+                    get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range);
+                let start = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                substitute(paragraph, &text, args, &mut arg_index, &mut errors, &event_range);
+                if let ParagraphBlock::Text(rt) = paragraph {
+                    rt.formatting.push(FormattedSpan {
+                        range: start..rt.text.len(),
+                        style: Style::Math,
+                    });
+                }
+            }
+            pulldown_cmark::Event::TaskListMarker(_) | pulldown_cmark::Event::Html(_) => {
                 errors.push(StyledTextParseError::new(
                     E::UnsupportedMarkdown(unsupported_event_name(&event)),
                     event_range,
@@ -1220,6 +1436,50 @@ fn markdown_horizontal_rules() {
 
 #[cfg(feature = "markdown")]
 #[test]
+fn markdown_block_quote() {
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("> Block quote text", &[])),
+        [ParagraphBlock::BlockQuote {
+            level: 1,
+            content: RichText {
+                text: "Block quote text".into(),
+                formatting: alloc::vec![],
+                links: alloc::vec![],
+            }
+        }]
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_block_quote_multi_paragraph() {
+    let result = assert_no_errors(parse_interpolated::<&[_]>(
+        "> First paragraph\n>\n> Second paragraph",
+        &[]
+    ));
+    assert_eq!(result.len(), 2);
+    assert!(matches!(result[0], ParagraphBlock::BlockQuote { level: 1, .. }));
+    assert!(matches!(result[1], ParagraphBlock::BlockQuote { level: 1, .. }));
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_block_quote_with_formatting() {
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("> *Italic* in quote", &[])),
+        [ParagraphBlock::BlockQuote {
+            level: 1,
+            content: RichText {
+                text: "Italic in quote".into(),
+                formatting: alloc::vec![FormattedSpan { range: 0..6, style: Style::Emphasis }],
+                links: alloc::vec![],
+            }
+        }]
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
 fn markdown_mixed_heading_and_rules() {
     assert_eq!(
         assert_no_errors(parse_interpolated::<&[_]>("# Title\n\nContent\n\n---\n\n## Subtitle", &[])),
@@ -1232,5 +1492,66 @@ fn markdown_mixed_heading_and_rules() {
             ParagraphBlock::Heading { level: 2, content: RichText { text: "Subtitle".into(), formatting: alloc::vec![], links: alloc::vec![] } },
             ParagraphBlock::Text(RichText { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }),
         ]
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_table_simple() {
+    let result = assert_no_errors(parse_interpolated::<&[_]>(
+        "| H1 | H2 |\n| --- | --- |\n| A1 | A2 |",
+        &[]
+    ));
+    assert_eq!(result.len(), 1);
+    assert!(matches!(result[0], ParagraphBlock::Table { .. }));
+    if let ParagraphBlock::Table { columns, ref header, ref body, .. } = result[0] {
+        assert_eq!(columns, 2);
+        assert_eq!(header.len(), 1);
+        assert_eq!(body.len(), 1);
+        assert_eq!(header[0][0].content.text, "H1");
+        assert_eq!(body[0][0].content.text, "A1");
+    }
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_footnote_reference() {
+    let result = assert_no_errors(parse_interpolated::<&[_]>(
+        "Text with a footnote[^1]\n\n[^1]: The footnote content",
+        &[]
+    ));
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0], ParagraphBlock::Text(RichText {
+        text: "Text with a footnote[1]".into(),
+        formatting: alloc::vec![FormattedSpan { range: 20..23, style: Style::Superscript }],
+        links: alloc::vec![],
+    }));
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_math_inline() {
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("Math: $E=mc^2$", &[])),
+        [ParagraphBlock::Text(RichText {
+            text: "Math: E=mc^2".into(),
+            formatting: alloc::vec![
+                FormattedSpan { range: 6..12, style: Style::Math },
+            ],
+            links: alloc::vec![],
+        })]
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_image() {
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("An image ![alt text](url.png)", &[])),
+        [ParagraphBlock::Text(RichText {
+            text: "An image alt text".into(),
+            formatting: alloc::vec![],
+            links: alloc::vec![],
+        })]
     );
 }

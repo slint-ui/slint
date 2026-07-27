@@ -456,6 +456,22 @@ impl LayoutWithoutLineBreaksBuilder {
                             span.range,
                         );
                     }
+                    Style::Math => {
+                        builder.push(
+                            parley::StyleProperty::FontFamily(parley::style::FontFamily::Single(
+                                parley::style::FontFamilyName::Generic(
+                                    parley::style::GenericFamily::Monospace,
+                                ),
+                            )),
+                            span.range.clone(),
+                        );
+                        builder.push(
+                            parley::StyleProperty::FontSize(
+                                self.pixel_size.get() * INLINE_CODE_FONT_SCALE,
+                            ),
+                            span.range,
+                        );
+                    }
                     Style::Superscript => {
                         builder.push(
                             parley::StyleProperty::FontSize(self.pixel_size.get() * 0.7),
@@ -503,7 +519,8 @@ fn create_text_paragraphs(
          formatting: Vec<i_slint_common::styled_text::FormattedSpan>,
          links: Vec<(std::ops::Range<usize>, std::string::String)>,
          is_horizontal_rule: bool,
-         block_type: BlockType| {
+         block_type: BlockType,
+         block_quote_level: u8| {
             let selection = selection.clone().and_then(|(selection, selection_color)| {
                 let sel_start = selection.start.max(range.start);
                 let sel_end = selection.end.min(range.end);
@@ -518,14 +535,14 @@ fn create_text_paragraphs(
 
             let code_ranges: alloc::vec::Vec<Range<usize>> = formatting
                 .iter()
-                .filter(|s| matches!(s.style, i_slint_common::styled_text::Style::Code))
+                .filter(|s| matches!(s.style, i_slint_common::styled_text::Style::Code | i_slint_common::styled_text::Style::Math))
                 .map(|s| s.range.clone())
                 .collect();
 
             let layout =
                 layout_builder.build(font_context, text, selection, formatting, Some(link_color), block_type);
 
-            TextParagraph { range, y: PhysicalLength::default(), layout, links, code_ranges, is_horizontal_rule }
+            TextParagraph { range, y: PhysicalLength::default(), layout, links, code_ranges, is_horizontal_rule, block_quote_level, table: None }
         };
 
     let mut paragraphs = Vec::with_capacity(1);
@@ -541,6 +558,7 @@ fn create_text_paragraphs(
                     Default::default(),
                     false,
                     BlockType::Normal,
+                    0,
                 ));
             }
         }
@@ -551,22 +569,87 @@ fn create_text_paragraphs(
                         paragraphs.push(paragraph_from_text(
                             font_context, &content.text, 0..0,
                             content.formatting.clone(), content.links.clone(),
-                            false, BlockType::Normal,
+                            false, BlockType::Normal, 0,
                         ));
                     }
                     i_slint_common::styled_text::ParagraphBlock::Heading { level, content } => {
                         paragraphs.push(paragraph_from_text(
                             font_context, &content.text, 0..0,
                             content.formatting.clone(), content.links.clone(),
-                            false, BlockType::Heading(level),
+                            false, BlockType::Heading(level), 0,
+                        ));
+                    }
+                    i_slint_common::styled_text::ParagraphBlock::BlockQuote { level, content } => {
+                        paragraphs.push(paragraph_from_text(
+                            font_context, &content.text, 0..0,
+                            content.formatting.clone(), content.links.clone(),
+                            false, BlockType::Normal, level,
                         ));
                     }
                     i_slint_common::styled_text::ParagraphBlock::HorizontalRule => {
                         paragraphs.push(paragraph_from_text(
                             font_context, "", 0..0,
                             Default::default(), Default::default(),
-                            true, BlockType::Normal,
+                            true, BlockType::Normal, 0,
                         ));
+                    }
+                    i_slint_common::styled_text::ParagraphBlock::Table { columns, header, body, .. } => {
+                        let cell_border_spacing = PhysicalLength::new(8.0);
+                        let mut max_col_widths: Vec<PhysicalLength> = alloc::vec::Vec::new();
+                        max_col_widths.resize(columns, PhysicalLength::zero());
+
+                        let mut measure_cell = |text: &str, formatting: &[i_slint_common::styled_text::FormattedSpan]| -> PhysicalLength {
+                            let mut cell_layout = layout_builder.build(
+                                font_context, text, None,
+                                formatting.iter().cloned(),
+                                None, BlockType::Normal,
+                            );
+                            cell_layout.break_all_lines(None);
+                            PhysicalLength::new(cell_layout.full_width()) + cell_border_spacing
+                        };
+
+                        for row in header {
+                            for (col, cell) in row.iter().enumerate() {
+                                if col < columns {
+                                    let w = measure_cell(&cell.content.text, &cell.content.formatting);
+                                    max_col_widths[col] = max_col_widths[col].max(w);
+                                }
+                            }
+                        }
+
+                        for row in body {
+                            for (col, cell) in row.iter().enumerate() {
+                                if col < columns {
+                                    let w = measure_cell(&cell.content.text, &cell.content.formatting);
+                                    max_col_widths[col] = max_col_widths[col].max(w);
+                                }
+                            }
+                        }
+
+                        let mut x = PhysicalLength::zero();
+                        let mut column_positions = Vec::with_capacity(columns);
+                        let mut column_widths_resolved = Vec::with_capacity(columns);
+                        for w in &max_col_widths {
+                            column_positions.push(x);
+                            column_widths_resolved.push(*w);
+                            x += *w;
+                        }
+                        let total_width = x;
+
+                        paragraphs.push(TextParagraph {
+                            range: 0..0,
+                            y: PhysicalLength::default(),
+                            layout: layout_builder.build(font_context, "", None, None, None, BlockType::Normal),
+                            links: Vec::new(),
+                            code_ranges: Vec::new(),
+                            is_horizontal_rule: false,
+                            block_quote_level: 0,
+                            table: Some(TableLayout {
+                                column_widths: column_widths_resolved,
+                                column_positions,
+                                total_width,
+                            }),
+                        });
                     }
                 }
             }
@@ -625,6 +708,12 @@ fn layout(
             para.layout.break_all_lines(None);
             para.y = PhysicalLength::new(para_y);
             para_y += rule_height.get();
+            continue;
+        }
+        if para.table.is_some() {
+            para.layout.break_all_lines(None);
+            para.y = PhysicalLength::new(para_y);
+            para_y += body_font_size * 1.5 * 3.0; // estimated height for table
             continue;
         }
         para.layout.break_all_lines(max_physical_width.map(|width| width.get()));
@@ -804,6 +893,12 @@ fn line_fits_height(block_max_coord: f32, max_physical_height: PhysicalLength) -
     max_physical_height.get().ceil() >= block_max_coord
 }
 
+struct TableLayout {
+    column_widths: Vec<PhysicalLength>,
+    column_positions: Vec<PhysicalLength>,
+    total_width: PhysicalLength,
+}
+
 struct TextParagraph {
     range: Range<usize>,
     y: PhysicalLength,
@@ -814,6 +909,8 @@ struct TextParagraph {
     /// renderers.
     code_ranges: std::vec::Vec<Range<usize>>,
     is_horizontal_rule: bool,
+    block_quote_level: u8,
+    table: Option<TableLayout>,
 }
 
 impl TextParagraph {
@@ -1557,6 +1654,33 @@ impl Layout {
                 );
                 item_renderer.fill_rectangle_with_color(rect, default_text_color);
                 continue;
+            }
+            if let Some(ref table_info) = paragraph.table {
+                if let Some(cut) = visible_extent {
+                    if paragraph_index > cut.last_paragraph {
+                        continue;
+                    }
+                }
+                let y = self.y_offset + paragraph.y;
+                let header_bg = default_text_color.transparentize(0.8);
+                let rect = PhysicalRect::new(
+                    PhysicalPoint::new(0.0, y.get()),
+                    PhysicalSize::new(table_info.total_width.get(), 20.0),
+                );
+                item_renderer.fill_rectangle_with_color(rect, header_bg);
+                continue;
+            }
+            if paragraph.block_quote_level > 0 {
+                let bar_width = PhysicalLength::new(3.0);
+                let bar_x = PhysicalLength::new(4.0 * paragraph.block_quote_level as f32);
+                let y = self.y_offset + paragraph.y;
+                let para_height = PhysicalLength::new(paragraph.layout.height());
+                let rect = PhysicalRect::new(
+                    PhysicalPoint::new(bar_x.get(), y.get()),
+                    PhysicalSize::new(bar_width.get(), para_height.get()),
+                );
+                let color = default_text_color.transparentize(2.0 / 3.0);
+                item_renderer.fill_rectangle_with_color(rect, color);
             }
             paragraph.draw(
                 self,
