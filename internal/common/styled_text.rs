@@ -323,17 +323,9 @@ fn get_or_create_paragraph<'a>(
 fn unsupported_tag_name(tag: &pulldown_cmark::Tag<'_>) -> alloc::string::String {
     use pulldown_cmark::Tag::*;
     match tag {
-        Heading { .. } => "headings",
-        // Image { .. } => "images",            // handled inline
-        // BlockQuote(_) => "block quotes",     // handled inline
-        // Table(_) => "tables",
         HtmlBlock => "HTML blocks",
-        // FootnoteDefinition(_) => "footnotes", // handled inline
         DefinitionList | DefinitionListTitle | DefinitionListDefinition => "definition lists",
-        // TableHead | TableRow | TableCell => "tables",
         MetadataBlock(_) => "metadata blocks",
-        // Superscript => "superscript",
-        // Subscript => "subscript",
         other => return alloc::format!("{:?}", other.to_end()),
     }
     .into()
@@ -343,10 +335,7 @@ fn unsupported_tag_name(tag: &pulldown_cmark::Tag<'_>) -> alloc::string::String 
 fn unsupported_event_name(event: &pulldown_cmark::Event<'_>) -> alloc::string::String {
     use pulldown_cmark::Event::*;
     match event {
-        Rule => "horizontal rules".into(),
         TaskListMarker(_) => "task lists".into(),
-        // FootnoteReference(_) => "footnote references",   // handled inline
-        // InlineMath(_) | DisplayMath(_) => "math",        // handled inline
         Html(text) => alloc::format!("HTML blocks ({})", text.trim()),
         _ => alloc::format!("{event:?}"),
     }
@@ -760,6 +749,10 @@ pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
                 }
             }
             pulldown_cmark::Event::InlineHtml(html) => {
+                if in_table {
+                    table_current_cell.text.push_str(&html);
+                    continue;
+                }
                 if html.starts_with("</") {
                     let (style, start, from_html) = if let Some(value) = style_stack.pop() {
                         value
