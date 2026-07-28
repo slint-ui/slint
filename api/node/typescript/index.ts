@@ -10,6 +10,7 @@ export {
     DataTransfer,
     StyledText,
     Keys,
+    PointerEventButton,
 } from "../binding.cjs";
 
 import { Model } from "./models";
@@ -52,6 +53,46 @@ export interface Size {
      */
     height: number;
 }
+
+/** A event that describes user input or windowing system events. */
+export type WindowEvent =
+    | {
+          type: "pointer-pressed";
+          position: Point /** The button that was pressed. */;
+          button: napi.PointerEventButton;
+      }
+    | {
+          type: "pointer-released";
+          position: Point /** The button that was released. */;
+          button: napi.PointerEventButton;
+      }
+    | { type: "pointer-moved"; position: Point }
+    | {
+          type: "pointer-scrolled";
+          position: Point /** The amount of logical pixels to scroll in the horizontal direction. */;
+          deltaX: number /** The amount of logical pixels to scroll in the vertical direction. */;
+          deltaY: number;
+      }
+    | { type: "pointer-exited" }
+    | {
+          type: "key-pressed" /** The unicode representation of the key pressed. */;
+          text: string;
+      }
+    | {
+          type: "key-press-repeated" /** The unicode representation of the key pressed. */;
+          text: string;
+      }
+    | {
+          type: "key-released" /** The unicode representation of the key released. */;
+          text: string;
+      }
+    | {
+          type: "scale-factor-changed" /** The window system provided scale factor to map logical pixels to physical pixels. */;
+          scaleFactor: number;
+      }
+    | { type: "resized" /** The new logical size of the window */; size: Size }
+    | { type: "close-requested" }
+    | { type: "window-active-changed"; active: boolean };
 
 /**
  * This type represents a window towards the windowing system, that's used to render the
@@ -97,6 +138,9 @@ export interface Window {
 
     /** Issues a request to the windowing system to re-render the contents of the window. */
     requestRedraw(): void;
+
+    /** Dispatch a window event to the scene. **/
+    dispatchEvent(event: WindowEvent): void;
 }
 
 /**
