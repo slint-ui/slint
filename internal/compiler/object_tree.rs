@@ -1958,7 +1958,7 @@ impl Element {
                             if !valid_assign {
                                 diag.push_error(
                                     format!(
-                                        "Cannot animate {} property '{}'",
+                                        "Cannot animate '{}' property '{}'",
                                         lookup_result.property_visibility, unresolved_prop_name
                                     ),
                                     &prop_name_token,
