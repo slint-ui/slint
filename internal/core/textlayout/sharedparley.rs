@@ -512,12 +512,15 @@ fn create_text_paragraphs(
         }
         PlainOrStyledText::Styled(rich_text) => {
             for paragraph in rich_text.paragraphs {
+                let Some(rt) = i_slint_common::styled_text::rich_text_content(&paragraph) else {
+                    continue;
+                };
                 paragraphs.push(paragraph_from_text(
                     font_context,
-                    &paragraph.text,
+                    &rt.text,
                     0..0,
-                    paragraph.formatting,
-                    paragraph.links,
+                    rt.formatting.clone(),
+                    rt.links.clone(),
                 ));
             }
         }
