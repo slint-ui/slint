@@ -47,7 +47,7 @@ jobs:
                   RELEASE_INPUT: ${{ github.event.inputs.release }}
               working-directory: api/node
               run: |
-                  version=`pnpm pkg get version | jq -r`
+                  version=`pnpm pkg get version`
                   if [ "$RELEASE_INPUT" != "true" ]; then
                       nightly_version_suffix=`git log -1 --format=%cd --date="format:%Y%m%d%H"`
                       version="$version-nightly.$nightly_version_suffix"
