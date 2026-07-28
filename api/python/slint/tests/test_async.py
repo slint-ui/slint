@@ -18,6 +18,7 @@ import pytest
 from aiohttp import web
 
 import slint
+import slint.loop
 from slint import slint as native
 
 
@@ -399,3 +400,37 @@ def test_selector_adapter_cycle_is_collectable() -> None:
     finally:
         reader.close()
         writer.close()
+
+
+def test_cancelling_handle_disarms_native_timer() -> None:
+    """Cancelling a `call_later()` handle must stop the timer it armed.
+
+    Otherwise the timer stays armed until its original deadline, waking the loop for a
+    callback that will not run and pinning itself until then.
+    """
+
+    async def run() -> None:
+        loop = typing.cast(slint.loop.SlintEventLoop, asyncio.get_event_loop())
+
+        called = False
+
+        def never() -> None:
+            nonlocal called
+            called = True
+
+        before = len(loop._timers)
+        handle = loop.call_later(3600, never)
+        assert len(loop._timers) == before + 1
+
+        handle.cancel()
+        assert len(loop._timers) == before, "native timer left armed after cancel()"
+
+        # Cancelling twice must not raise.
+        handle.cancel()
+
+        await asyncio.sleep(0.05)
+        assert not called
+
+        slint.quit_event_loop()
+
+    slint.run_event_loop(run())

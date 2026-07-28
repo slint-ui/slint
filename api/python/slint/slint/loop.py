@@ -112,6 +112,38 @@ class _SlintSelector(selectors.BaseSelector):
         writer._run()
 
 
+class _SlintTimerHandle(asyncio.TimerHandle):
+    """A `TimerHandle` that disarms the native timer backing it when cancelled.
+
+    `asyncio.TimerHandle.cancel()` only marks the handle. The native timer would stay
+    armed until its original deadline, wake the event loop just to find the handle dead,
+    and keep itself and its callback alive until then - for `call_later(3600, ...)`,
+    an hour.
+    """
+
+    __slots__ = ("_slint_key", "_slint_timers")
+
+    def __init__(
+        self,
+        when: float,
+        callback: typing.Callable[..., typing.Any],
+        args: typing.Sequence[typing.Any],
+        loop: asyncio.AbstractEventLoop,
+        context: typing.Any,
+        timers: dict[int, native.Timer],
+        key: int,
+    ) -> None:
+        super().__init__(when, callback, args, loop, context)
+        self._slint_timers = timers
+        self._slint_key = key
+
+    def cancel(self) -> None:
+        super().cancel()
+        timer = self._slint_timers.pop(self._slint_key, None)
+        if timer is not None:
+            timer.stop()
+
+
 class SlintEventLoop(asyncio.SelectorEventLoop):
     def __init__(self) -> None:
         self._is_running = False
@@ -182,17 +214,19 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
     def call_later(self, delay, callback, *args, context=None) -> asyncio.TimerHandle:
         timer = native.Timer()
 
-        handle = asyncio.TimerHandle(
+        timers = self._timers
+        self._timer_serial += 1
+        key = self._timer_serial
+
+        handle = _SlintTimerHandle(
             when=self.time() + delay,
             callback=callback,
             args=args,
             loop=self,
             context=context,
+            timers=timers,
+            key=key,
         )
-
-        timers = self._timers
-        self._timer_serial += 1
-        key = self._timer_serial
 
         # The callback below must key into `timers` rather than capture `timer`: capturing
         # it makes the timer and its callback keep each other alive. `Timer.__traverse__`
