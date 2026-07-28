@@ -45,6 +45,7 @@ export default defineConfig({
         "/reference/language/builtin-types/": `${BASE_PATH}reference/property-types/builtin-types/`,
         "/reference/language/colors-and-brushes/": `${BASE_PATH}reference/property-types/colors-and-brushes/`,
         "/reference/language/arrays-and-models/": `${BASE_PATH}reference/property-types/arrays-and-models/`,
+        "/reference/global-structs-enums/": `${BASE_PATH}reference/property-types/builtin-structs/`,
     },
     markdown: {
         gfm: true,
@@ -390,24 +391,40 @@ export default defineConfig({
                                         slug: "reference/property-types",
                                     },
                                     {
-                                        label: "Built-In Types",
+                                        label: "Built-in Types",
                                         slug: "reference/property-types/builtin-types",
+                                    },
+                                    {
+                                        label: "Strings",
+                                        slug: "reference/property-types/strings",
                                     },
                                     {
                                         label: "Numeric Types",
                                         slug: "reference/property-types/numeric-types",
                                     },
                                     {
-                                        label: "Images",
-                                        slug: "reference/property-types/images",
-                                    },
-                                    {
                                         label: "Colors & Brushes",
                                         slug: "reference/property-types/colors-and-brushes",
                                     },
                                     {
+                                        label: "Images",
+                                        slug: "reference/property-types/images",
+                                    },
+                                    {
+                                        label: "Built-in Structs",
+                                        slug: "reference/property-types/builtin-structs",
+                                    },
+                                    {
+                                        label: "Built-in Enums",
+                                        slug: "reference/property-types/builtin-enums",
+                                    },
+                                    {
                                         label: "Arrays and Models",
                                         slug: "reference/property-types/arrays-and-models",
+                                    },
+                                    {
+                                        label: "Type Conversions",
+                                        slug: "reference/property-types/type-conversions",
                                     },
                                 ],
                             },
@@ -526,10 +543,6 @@ export default defineConfig({
                                 label: "Globals",
                                 collapsed: true,
                                 items: [
-                                    {
-                                        label: "Global Structs and Enums",
-                                        slug: "reference/global-structs-enums",
-                                    },
                                     {
                                         label: "Global Functions",
                                         collapsed: true,

@@ -1,6 +1,6 @@
 ---
 title: Images
-description: The image, data-transfer, and mouse cursor types.
+description: The image type of the Slint language.
 ---
 {/* cSpell: ignore Farbfeld */}
 
@@ -8,7 +8,6 @@ import SlintProperty from '@slint/common-files/src/components/SlintProperty.astr
 import Link from '@slint/common-files/src/components/Link.astro';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
-import BuiltInMouseCursor from '/src/content/docs/generated/reference/enums/_BuiltInMouseCursor.md';
 
 ## Images
 ### image
@@ -111,62 +110,3 @@ export component Example inherits Window {
 }
 ```
 
-### data-transfer
-<SlintProperty propName="data" typeName="data-transfer" defaultValue='an empty data-transfer'>
-
-A `data-transfer` value is the payload carried by drag-and-drop and clipboard operations.
-It abstracts over the file-type transfer mechanisms supported by each platform.
-It can carry plain text, an image, and a list of local file paths simultaneously.
-
-The type is opaque in Slint code:
-construct a `data-transfer` value and read its content via callbacks implemented in the host language.
-See <Link type="DragAndDrop" /> for an end-to-end example.
-
-<Tabs syncKey="dev-language">
-<TabItem label="Rust" icon="seti:rust">
-In Rust, properties or struct fields of the data-transfer type are mapped to <LangRefLink lang="rust-slint" relpath="struct.DataTransfer.html">`slint::DataTransfer`</LangRefLink>.
-</TabItem>
-<TabItem label="C++" icon="seti:cpp">
-In C++, properties or struct fields of the data-transfer type are mapped to <LangRefLink lang="cpp" relpath="api/slint/datatransfer/">`slint::DataTransfer`</LangRefLink>.
-</TabItem>
-<TabItem label="NodeJS" icon="node">
-In JavaScript, properties or struct fields of the data-transfer type are mapped to the <LangRefLink lang="nodejs" relpath="api/classes/datatransfer/">`DataTransfer`</LangRefLink> class.
-</TabItem>
-<TabItem label="Python" icon="seti:python">
-In Python, properties or struct fields of the data-transfer type are mapped to <LangRefLink lang="python" relpath="api/classes/datatransfer/">`DataTransfer`</LangRefLink>.
-</TabItem>
-</Tabs>
-
-</SlintProperty>
-
-### MouseCursor
-<SlintProperty propName="mouse-cursor" typeName="MouseCursor" defaultValue='default'>
-The `MouseCursor` type is used in the <Link type="TouchArea" label="TouchArea element"/>.
-
-#### Built-in shape
-
-Set to one of the built-in shapes by specifying the name:
-
-```slint
-TouchArea {
-    mouse-cursor: ew-resize;
-}
-
-TouchArea {
-    mouse-cursor: MouseCursor.ew-resize;
-}
-```
-
-<BuiltInMouseCursor />
-
-#### Custom shape
-
-To set a custom mouse cursor, provide an `image` and a hotspot. The hotspot is the point in the image, given in image pixels from the top-left corner, that is aligned with the actual pointer position. It is clamped to the image bounds.
-
-```slint
-TouchArea {
-    mouse-cursor: MouseCursor.custom(@image-url("cursor.png"), 0, 0);
-}
-```
-
-</SlintProperty>
