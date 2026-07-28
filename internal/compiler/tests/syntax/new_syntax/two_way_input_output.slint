@@ -327,35 +327,35 @@ export component C13 {
     property <bool> priv;
 
     Button { internal <=> in; }
-//           >      <error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to 'private' property 'internal'}
     Button { internal <=> out; }
-//           >      <error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to 'private' property 'internal'}
     Button { internal <=> priv; }
-//           >      <error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to 'private' property 'internal'}
     Button { internal <=> inout; }
-//           >      <error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to 'private' property 'internal'}
     Button { internal <=> self.checked; }
-//           >      <error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to 'private' property 'internal'}
 
     Button { pressed <=> self.pressed; }
-//           >     <error{Cannot assign to out property 'pressed'}
+//           >     <error{Cannot assign to 'out' property 'pressed'}
     Button { pressed <=> self.checked; }
-//           >     <error{Cannot assign to out property 'pressed'}
+//           >     <error{Cannot assign to 'out' property 'pressed'}
     Button { pressed <=> self.enabled; }
-//           >     <error{Cannot assign to out property 'pressed'}
+//           >     <error{Cannot assign to 'out' property 'pressed'}
     Button { pressed <=> self.accessible-checked; }
-//           >     <error{Cannot assign to out property 'pressed'}
+//           >     <error{Cannot assign to 'out' property 'pressed'}
     Button { pressed <=> self.internal; }
-//           >     <error{Cannot assign to out property 'pressed'}
+//           >     <error{Cannot assign to 'out' property 'pressed'}
 //                            >      <^error{The property 'internal' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
     Button { pressed <=> out; }
-//           >     <error{Cannot assign to out property 'pressed'}
+//           >     <error{Cannot assign to 'out' property 'pressed'}
     Button { pressed <=> in; }
-//           >     <error{Cannot assign to out property 'pressed'}
+//           >     <error{Cannot assign to 'out' property 'pressed'}
     Button { pressed <=> inout; }
-//           >     <error{Cannot assign to out property 'pressed'}
+//           >     <error{Cannot assign to 'out' property 'pressed'}
     Button { pressed <=> priv; }
-//           >     <error{Cannot assign to out property 'pressed'}
+//           >     <error{Cannot assign to 'out' property 'pressed'}
 
 }
 
@@ -398,15 +398,15 @@ export Legacy2 := Rectangle {
     property <bool> priv;
 
     Button { internal <=> in; }
-//           >      <error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to 'private' property 'internal'}
     Button { internal <=> out; }
-//           >      <error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to 'private' property 'internal'}
     Button { internal <=> priv; }
-//           >      <error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to 'private' property 'internal'}
     Button { internal <=> inout; }
-//           >      <error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to 'private' property 'internal'}
     Button { internal <=> self.checked; }
-//           >      <error{Cannot assign to private property 'internal'}
+//           >      <error{Cannot assign to 'private' property 'internal'}
 
     Button { pressed <=> self.pressed; }
 //           >     <warning{Assigning to output property 'pressed' is deprecated}
