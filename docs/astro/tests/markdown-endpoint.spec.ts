@@ -10,7 +10,7 @@ test("doc page has a markdown sibling", async ({ request }) => {
 
     const body = await res.text();
     expect(body).toMatch(/^---\ntitle: "Animations"/);
-    expect(body).toContain("## Animation Parameters");
+    expect(body).toContain("## Fields");
 });
 
 test("root index has a markdown sibling at index.md", async ({ request }) => {
