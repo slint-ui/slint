@@ -90,27 +90,30 @@ export component MissingFunction {
 // Locally declared members with the wrong type / visibility / purity.
 export component IncorrectPropertyType {
     implement ValidInterface <=> self;
+//            >             <error{Cannot implement 'ValidInterface'.↵- 'value' must be a 'int' property (found a 'float' property)}
 
     in-out property <float> value;
-//  >                            <error{'ValidInterface' error.↵- 'value' must be a 'int' property (found a 'float' property)}
+//  >                            <note{'value' does not satisfy 'ValidInterface'}
     callback speak();
     public function reset() {}
 }
 
 export component IncorrectCallbackType {
     implement ValidInterface <=> self;
+//            >             <error{Cannot implement 'ValidInterface'.↵- 'speak' must be a 'callback() -> void' (found a 'callback(string) -> void')}
 
     in-out property <int> value;
     callback speak(string);
-//  >                     <error{'ValidInterface' error.↵- 'speak' must be a 'callback() -> void' (found a 'callback(string) -> void')}
+//  >                     <note{'speak' does not satisfy 'ValidInterface'}
     public function reset() {}
 }
 
 export component IncorrectPropertyVisibility {
     implement OutOnlyInterface <=> self;
+//            >               <error{Cannot implement 'OutOnlyInterface'.↵- 'count' must be 'out' (found 'in-out')}
 
     in-out property <int> count;
-//  >                          <error{'OutOnlyInterface' error.↵- 'count' must be 'out' (found 'in-out')}
+//  >                          <note{'count' does not satisfy 'OutOnlyInterface'}
 }
 
 
@@ -120,10 +123,11 @@ interface ImpureFunctionInterface {
 
 export component IncorrectCallbackPurity {
     implement Inverter <=> self;
+//            >       <error{Cannot implement 'Inverter'.↵- 'invert' must be 'pure'}
     implement ImpureFunctionInterface <=> self;
 
     callback invert(bool) -> bool;
-//  >                            <error{'Inverter' error.↵- 'invert' must be 'pure'}
+//  >                            <note{'invert' does not satisfy 'Inverter'}
 
     // Implementation is pure, interface is not - this should not raise an error
     public pure function bar(i: int, s: string) -> bool {
@@ -134,15 +138,16 @@ export component IncorrectCallbackPurity {
 // Function mismatches: purity, visibility, arguments and return type.
 export component ImpureFunction {
     implement Calculator <=> self;
+//            >         <error{Cannot implement 'Calculator'.↵- 'add' must be 'pure'}
 
     in-out property <int> value;
     callback notify();
 
     public function add(a: int, b: int) -> int {
-//  >error{'Calculator' error.↵- 'add' must be 'pure'}
+//  >note{'add' does not satisfy 'Calculator'}
         return a + b;
     }
-//  <error{'Calculator' error.↵- 'add' must be 'pure'}
+//  <note{'add' does not satisfy 'Calculator'}
     public function format(value: int) -> string {
         return "";
     }
@@ -151,6 +156,7 @@ export component ImpureFunction {
 
 export component IncorrectFunctionArguments {
     implement Calculator <=> self;
+//            >         <error{Cannot implement 'Calculator'.↵- 'format' must be a 'function(int) -> string' (found a 'function(string, int) -> string')}
 
     in-out property <int> value;
     callback notify();
@@ -159,15 +165,16 @@ export component IncorrectFunctionArguments {
         return a + b;
     }
     public function format(fmt: string, value: int) -> string {
-//  >error{'Calculator' error.↵- 'format' must be a 'function(int) -> string' (found a 'function(string, int) -> string')}
+//  >note{'format' does not satisfy 'Calculator'}
         return "";
     }
-//  <error{'Calculator' error.↵- 'format' must be a 'function(int) -> string' (found a 'function(string, int) -> string')}
+//  <note{'format' does not satisfy 'Calculator'}
     public function reset() {}
 }
 
 export component IncorrectFunctionReturnType {
     implement Calculator <=> self;
+//            >         <error{Cannot implement 'Calculator'.↵- 'format' must be a 'function(int) -> string' (found a 'function(int) -> void')}
 
     in-out property <int> value;
     callback notify();
@@ -176,14 +183,15 @@ export component IncorrectFunctionReturnType {
         return a + b;
     }
     public function format(value: int) {
-//  >error{'Calculator' error.↵- 'format' must be a 'function(int) -> string' (found a 'function(int) -> void')}
+//  >note{'format' does not satisfy 'Calculator'}
     }
-//  <error{'Calculator' error.↵- 'format' must be a 'function(int) -> string' (found a 'function(int) -> void')}
+//  <note{'format' does not satisfy 'Calculator'}
     public function reset() {}
 }
 
 export component IncorrectFunctionVisibility {
     implement Calculator <=> self;
+//            >         <error{Cannot implement 'Calculator'.↵- 'reset' must be 'public' (found 'protected')}
 
     in-out property <int> value;
     callback notify();
@@ -195,12 +203,13 @@ export component IncorrectFunctionVisibility {
         return "";
     }
     protected function reset() {}
-//  >                           <error{'Calculator' error.↵- 'reset' must be 'public' (found 'protected')}
+//  >                           <note{'reset' does not satisfy 'Calculator'}
 }
 
 // A member name resolving to the wrong kind (function name declared as a property / callback).
 export component CannotOverrideFunction {
     implement Calculator <=> self;
+//            >         <error{Cannot implement 'Calculator'.↵- 'format' must be a 'public function(int) -> string' (found a 'string' property)↵- 'reset' must be a 'public function() -> void' (found a 'callback() -> void')}
 
     in-out property <int> value;
     callback notify();
@@ -209,9 +218,9 @@ export component CannotOverrideFunction {
         return a + b;
     }
     in property <string> format;
-//  >                          <error{'Calculator' error.↵- 'format' must be a 'public function(int) -> string' (found a 'string' property)}
+//  >                          <note{'format' does not satisfy 'Calculator'}
     callback reset();
-//  >               <error{'Calculator' error.↵- 'reset' must be a 'public function() -> void' (found a 'callback() -> void')}
+//  >               <note{'reset' does not satisfy 'Calculator'}
 }
 
 // Conflicts with an inherited (non-local) member: property, callback and function variants.
@@ -244,19 +253,21 @@ export component ImplementFunctionConflict inherits BaseWithFunction {
 // Each member declared as the wrong kind of member.
 export component CrossKindMismatch {
     implement ValidInterface <=> self;
+//            >             <error{Cannot implement 'ValidInterface'.↵- 'reset' must be a 'public function() -> void' (found a 'int' property)↵- 'speak' must be a 'callback() -> void' (found a 'int' property)↵- 'value' must be an in-out 'int' property (found a 'callback() -> void')}
 
     callback value();
-//  >               <error{'ValidInterface' error.↵- 'value' must be an in-out 'int' property (found a 'callback() -> void')}
+//  >               <note{'value' does not satisfy 'ValidInterface'}
     in-out property <int> speak;
-//  >                          <error{'ValidInterface' error.↵- 'speak' must be a 'callback() -> void' (found a 'int' property)}
+//  >                          <note{'speak' does not satisfy 'ValidInterface'}
     in-out property <int> reset;
-//  >                          <error{'ValidInterface' error.↵- 'reset' must be a 'public function() -> void' (found a 'int' property)}
+//  >                          <note{'reset' does not satisfy 'ValidInterface'}
 }
 
 // A single member that violates several constraints at once, joined into one message.
 export component MultipleViolations {
     implement OutOnlyInterface <=> self;
+//            >               <error{Cannot implement 'OutOnlyInterface'.↵- 'count' must be a 'int' property (found a 'float' property)↵- 'count' must be 'out' (found 'in-out')}
 
     in-out property <float> count;
-//  >                            <error{'OutOnlyInterface' error.↵- 'count' must be a 'int' property (found a 'float' property)↵- 'count' must be 'out' (found 'in-out')}
+//  >                            <note{'count' does not satisfy 'OutOnlyInterface'}
 }
