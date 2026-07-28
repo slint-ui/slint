@@ -186,6 +186,10 @@ impl RenderString for ComplexText {
     fn max_lines(self: Pin<&Self>) -> i32 {
         Self::FIELD_OFFSETS.max_lines().apply_pin(self).get()
     }
+
+    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
+        (self.stroke(), self.stroke_width(), self.stroke_style())
+    }
 }
 
 impl RenderText for ComplexText {
@@ -195,10 +199,6 @@ impl RenderText for ComplexText {
 
     fn color(self: Pin<&Self>) -> Brush {
         self.color()
-    }
-
-    fn link_color(self: Pin<&Self>) -> Color {
-        Default::default()
     }
 
     fn alignment(
@@ -213,10 +213,6 @@ impl RenderText for ComplexText {
 
     fn overflow(self: Pin<&Self>) -> TextOverflow {
         self.overflow()
-    }
-
-    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
-        (self.stroke(), self.stroke_width(), self.stroke_style())
     }
 
     fn is_markdown(self: Pin<&Self>) -> bool {
@@ -414,6 +410,10 @@ impl RenderString for StyledTextItem {
     fn max_lines(self: Pin<&Self>) -> i32 {
         Self::FIELD_OFFSETS.max_lines().apply_pin(self).get()
     }
+
+    fn link_color(self: Pin<&Self>) -> Color {
+        self.link_color()
+    }
 }
 
 impl RenderText for StyledTextItem {
@@ -423,10 +423,6 @@ impl RenderText for StyledTextItem {
 
     fn color(self: Pin<&Self>) -> Brush {
         self.default_color()
-    }
-
-    fn link_color(self: Pin<&Self>) -> Color {
-        self.link_color()
     }
 
     fn alignment(
@@ -441,10 +437,6 @@ impl RenderText for StyledTextItem {
 
     fn overflow(self: Pin<&Self>) -> TextOverflow {
         TextOverflow::Clip
-    }
-
-    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
-        Default::default()
     }
 
     fn is_markdown(self: Pin<&Self>) -> bool {
@@ -613,10 +605,6 @@ impl RenderText for SimpleText {
         self.color()
     }
 
-    fn link_color(self: Pin<&Self>) -> Color {
-        Default::default()
-    }
-
     fn alignment(
         self: Pin<&Self>,
     ) -> (super::TextHorizontalAlignment, super::TextVerticalAlignment) {
@@ -629,10 +617,6 @@ impl RenderText for SimpleText {
 
     fn overflow(self: Pin<&Self>) -> TextOverflow {
         TextOverflow::default()
-    }
-
-    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
-        Default::default()
     }
 
     fn is_markdown(self: Pin<&Self>) -> bool {
