@@ -2049,10 +2049,14 @@ pub fn flexbox_layout_info_cross_axis(
     } else {
         // Use actual item areas (main * cross) for the heuristic, since both
         // axes' cells are available here (unlike flexbox_layout_info_main_axis).
-        let total_area: Coord = main_cells
+        // Accumulate in f64: with the integer Coord build, Coord-typed products
+        // (and their sum) would overflow for large items.
+        let total_area: f64 = main_cells
             .iter()
             .zip(cross_cells.iter())
-            .map(|(m, c)| m.constraint.preferred_bounded() * c.constraint.preferred_bounded())
+            .map(|(m, c)| {
+                m.constraint.preferred_bounded() as f64 * c.constraint.preferred_bounded() as f64
+            })
             .sum();
         let count = main_cells.len();
         Float::sqrt(total_area as f32) as Coord
