@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import asyncio
+import gc
 import platform
 import socket
 import sys
@@ -325,3 +326,44 @@ if sys.platform != "win32":
 
         with pytest.raises(KeyboardInterrupt):
             slint.run_event_loop(run())
+
+
+def test_sleep_does_not_leak_timers() -> None:
+    """Repeatedly awaiting asyncio.sleep() must not accumulate objects.
+
+    `SlintEventLoop.call_later()` arms a native timer per call, so a timer that
+    outlives its callback leaks once per await.
+    See https://github.com/slint-ui/slint/issues/12679.
+    """
+
+    def live_objects() -> int:
+        gc.collect()
+        return len(gc.get_objects())
+
+    async def run() -> None:
+        # A non-zero delay so that both timers per await are exercised: asyncio
+        # short-circuits sleep(0) without going through call_later().
+        delay = 0.001
+
+        # Warm up, so that one-time allocations don't count towards the baseline.
+        for _ in range(100):
+            await asyncio.sleep(delay)
+        baseline = live_objects()
+
+        for _ in range(500):
+            await asyncio.sleep(delay)
+        growth = live_objects() - baseline
+
+        # Before the fix this grew by ~15 objects per iteration.
+        assert growth < 100, f"leaked {growth} objects over 500 awaits"
+
+        # The timers must not be reclaimed by a collection pass either: call_later()
+        # is on the per-await hot path, so it has to avoid building cycles at all.
+        for _ in range(500):
+            await asyncio.sleep(delay)
+        cyclic = gc.collect()
+        assert cyclic < 100, f"{cyclic} cyclic objects over 500 awaits"
+
+        slint.quit_event_loop()
+
+    slint.run_event_loop(run())

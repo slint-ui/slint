@@ -115,7 +115,8 @@ class _SlintSelector(selectors.BaseSelector):
 class SlintEventLoop(asyncio.SelectorEventLoop):
     def __init__(self) -> None:
         self._is_running = False
-        self._timers: set[native.Timer] = set()
+        self._timers: dict[int, native.Timer] = {}
+        self._timer_serial = 0
         self.stop_run_forever_event = asyncio.Event()
         self._soon_tasks: list[asyncio.TimerHandle] = []
         super().__init__(_SlintSelector())
@@ -190,9 +191,15 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
         )
 
         timers = self._timers
+        self._timer_serial += 1
+        key = self._timer_serial
 
+        # The callback below must key into `timers` rather than capture `timer`: capturing
+        # it makes the timer and its callback keep each other alive. `Timer.__traverse__`
+        # makes that cycle collectable, but only by a full GC pass, and this runs on every
+        # await. Keyed by a serial, so a freed timer's key can never alias a live one.
         def timer_done_cb() -> None:
-            timers.remove(timer)
+            timers.pop(key, None)
             if not handle._cancelled:
                 handle._run()
 
@@ -202,7 +209,7 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
             callback=timer_done_cb,
         )
 
-        timers.add(timer)
+        timers[key] = timer
 
         return handle
 
