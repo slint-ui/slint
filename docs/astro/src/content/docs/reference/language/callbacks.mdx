@@ -57,7 +57,7 @@ A callback is invoked with call syntax, passing arguments that match the declare
 
 ```slint
 export component Example {
-    callback hello(int, int) -> int;
+    pure callback hello(int, int) -> int;
     property <int> result: hello(1, 2);
 }
 ```

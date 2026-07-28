@@ -8,7 +8,7 @@ A *global* is a singleton declared at the top level of a `.slint` file with the 
 It holds properties, callbacks, and functions that are shared across the whole project
 rather than belonging to an element:
 
-```slint
+```slint no-test
 global Name {
     // property, callback, and function declarations
 }
@@ -38,7 +38,7 @@ nor between `rem` and logical lengths.
 Reach a global's members through its name, from any binding, callback, or function in the project,
 and from other globals:
 
-```slint
+```slint no-test
 Name.property
 Name.callback(arguments)
 Name.function(arguments)

@@ -34,7 +34,7 @@ A [global](../globals/) may not contain a `states` block; doing so is a compile 
 
 Each entry has a name, an optional `when` condition, and a brace-delimited body:
 
-```slint
+```slint no-test
 name when condition: {
     element.property: value;
     // ...
@@ -55,7 +55,7 @@ A state written without a `when` clause has no condition and is therefore never 
 The body of a state is a list of *property changes*.
 Each change is a qualified name, a colon, and a value:
 
-```slint
+```slint no-test
 root.background: blue;
 label.text: "Active";
 ```
@@ -114,7 +114,7 @@ A direction block sits alongside the property changes in the state body and may 
 The body of a direction block contains only `animate` clauses; anything else is an error.
 Each `animate` clause names one or more properties, or the catch-all `*`, and carries the same fields as an animation elsewhere (see [Animations](../animations/)):
 
-```slint
+```slint no-test
 in {
     animate * { duration: 200ms; }
     animate background, text.color { duration: 100ms; }

@@ -8,7 +8,7 @@ A *code block* is a sequence of statements enclosed in `{ ... }`.
 Code blocks form the body of a [function](../functions/), the handler of a [callback](../callbacks/) connection,
 and the block form of a [binding](../bindings/):
 
-```slint
+```slint no-test
 clicked => {
     let n = counter + 1;
     counter = n;
@@ -27,7 +27,7 @@ Nothing else is a statement; anything that is not one of these forms is parsed a
 
 Any [expression](../expressions/) followed by a semicolon is a statement, evaluated for its effect and its value discarded (except as the last statement of a block):
 
-```slint
+```slint no-test
 clicked => {
     debug("hello");
     root.some-callback();
@@ -41,7 +41,7 @@ This is the form used to call a [callback](../callbacks/) or [function](../funct
 `=` assigns a new value to a property.
 The self-assignment operators `+=`, `-=`, `*=`, and `/=` combine the corresponding [operator](../operators/) with the assignment:
 
-```slint
+```slint no-test
 clicked => {
     counter = 42;
     counter += 1;
@@ -61,7 +61,7 @@ The right-hand side must have the property's type.
 
 `let` declares a local variable, visible from its declaration to the end of the enclosing code block:
 
-```slint
+```slint no-test
 clicked => {
     let greeting = "hello world"; // type inferred from the value
     let count: int = 2;           // explicit type annotation
@@ -80,7 +80,7 @@ Writing `name := <expression>;` is an error that suggests `let name = <expressio
 
 `if`, together with optional `else if` and `else` branches, runs a code block conditionally:
 
-```slint
+```slint no-test
 clicked => {
     if condition {
         foo = 42;
@@ -105,7 +105,7 @@ Repetition over a model is expressed with the [`for` element](../repetition-and-
 
 `return` ends the enclosing function, callback handler, or code-block binding and yields its value:
 
-```slint
+```slint no-test
 clicked => {
     if disabled {
         return;
@@ -122,6 +122,6 @@ Without any `return`, the block yields the value of its last statement.
 
 A lone semicolon is an empty statement:
 
-```slint
+```slint no-test
 clicked => { ; }
 ```
