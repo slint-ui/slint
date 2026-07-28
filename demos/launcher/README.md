@@ -9,5 +9,5 @@ At startup, the launcher checks a built-in catalog of known demo and example
 binary names against the directories in the `PATH` environment variable, and
 only shows the ones that are installed. The launcher's own directory is
 searched, too: in a development build the workspace's demos and examples land
-in the same cargo target directory, so `cargo run -p launcher` shows the ones
-that were built.
+in the same cargo target directory, so `cargo run --manifest-path demos/launcher/Cargo.toml`
+shows the ones that were built.

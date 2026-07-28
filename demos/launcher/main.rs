@@ -125,7 +125,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut search_dirs = Vec::new();
     // In a development build, the demos and examples built from the workspace
     // land in the same cargo target directory as the launcher itself, so
-    // `cargo run -p launcher` finds them without any configuration.
+    // running the launcher with cargo finds them without any configuration.
     if let Ok(exe) = std::env::current_exe()
         && let Some(dir) = exe.parent()
     {

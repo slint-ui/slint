@@ -92,7 +92,7 @@ Once you've started your UI task, invoke `slint_app_main()` to start the Slint e
 For convenience, this example provides a "simulator" binary target in [./simulator/src/main.rs](./simulator/src/main.rs), so that you can just run this on a desktop system passing the desired pixel format as cargo feature, e.g with
 
 ```
-cargo run -p slint-safeui-simulator --features pixel-bgra8888
+cargo run --manifest-path examples/safe-ui/simulator/Cargo.toml --features pixel-bgra8888
 ```
 
 The "simulator" implements the same C system interface and runs the Slint UI safety layer example in a secondary thread.
