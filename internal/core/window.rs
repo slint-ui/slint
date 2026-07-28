@@ -24,7 +24,7 @@ use crate::items::{
 };
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
-use crate::properties::{Property, PropertyTracker};
+use crate::properties::{ChangeTracker, Property, PropertyTracker};
 use crate::renderer::Renderer;
 use crate::{Callback, Coord, SharedString, SharedVector};
 use alloc::boxed::Box;
@@ -587,6 +587,7 @@ pub struct WindowInner {
 
     /// ItemRC that currently have the focus (possibly an instance of TextInput)
     pub focus_item: RefCell<crate::item_tree::ItemWeak>,
+    focus_item_visibility_tracker: ChangeTracker,
     /// The last text that was sent to the input method
     pub(crate) last_ime_text: RefCell<SharedString>,
     /// Don't let ComponentContainers's instantiation change the focus.
@@ -664,6 +665,7 @@ impl WindowInner {
                 ),
             }),
             focus_item: Default::default(),
+            focus_item_visibility_tracker: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
             active_popups: Default::default(),
@@ -682,6 +684,7 @@ impl WindowInner {
     /// done with that component.
     pub fn set_component(&self, component: &ItemTreeRc) {
         self.close_all_popups();
+        self.focus_item_visibility_tracker.clear();
         self.focus_item.replace(Default::default());
         self.mouse_input_state.replace(Default::default());
         self.touch_state.replace(Default::default());
@@ -1407,6 +1410,7 @@ impl WindowInner {
     ///
     /// This sends the event which must be either FocusOut or WindowLostFocus for popups
     fn take_focus_item(&self, event: &FocusEvent) -> Option<ItemRc> {
+        self.focus_item_visibility_tracker.clear();
         let focus_item = self.focus_item.take();
         assert!(matches!(event, FocusEvent::FocusOut(_)));
 
@@ -1433,6 +1437,7 @@ impl WindowInner {
         match item {
             Some(item) => {
                 *self.focus_item.borrow_mut() = item.downgrade();
+                self.track_focus_item_visibility(item);
                 let result = item.borrow().as_ref().focus_event(
                     &FocusEvent::FocusIn(reason),
                     &self.window_adapter(),
@@ -1446,10 +1451,35 @@ impl WindowInner {
                 result
             }
             None => {
+                self.focus_item_visibility_tracker.clear();
                 *self.focus_item.borrow_mut() = Default::default();
                 crate::input::FocusEventResult::FocusAccepted // We were removing the focus, treat that as OK
             }
         }
+    }
+
+    fn track_focus_item_visibility(&self, item: &ItemRc) {
+        let visibility_clips = item.visibility_clips();
+        self.focus_item_visibility_tracker.init(
+            (item.downgrade(), self.window_adapter_weak.clone(), visibility_clips),
+            |(_, _, visibility_clips)| {
+                visibility_clips
+                    .iter()
+                    .all(|clip| clip.upgrade().is_some_and(|clip| !clip.as_pin_ref().clip()))
+            },
+            |(item, window_adapter, _), visible| {
+                if *visible {
+                    return;
+                }
+                let Some(item) = item.upgrade() else { return };
+                let Some(window_adapter) = window_adapter.upgrade() else { return };
+                WindowInner::from_pub(window_adapter.window()).set_focus_item(
+                    &item,
+                    false,
+                    FocusReason::Programmatic,
+                );
+            },
+        );
     }
 
     fn move_focus(
