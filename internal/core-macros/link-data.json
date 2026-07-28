@@ -9,7 +9,7 @@
         "href": "reference/global-functions/builtinfunctions/#animation-tick---duration"
     },
     "angle": {
-        "href": "reference/property-types/builtin-types/#angle"
+        "href": "reference/property-types/numeric-types/#angle"
     },
     "bool": {
         "href": "reference/property-types/builtin-types/#bool"
@@ -36,7 +36,7 @@
         "href": "guide/development/drag-and-drop/"
     },
     "data_transfer": {
-        "href": "reference/property-types/builtin-types/#data-transfer"
+        "href": "reference/property-types/images/#data-transfer"
     },
     "DragAction": {
         "href": "reference/global-structs-enums/#dragaction"
@@ -57,7 +57,7 @@
         "href": "reference/common/"
     },
     "duration": {
-        "href": "reference/property-types/builtin-types/#duration"
+        "href": "reference/property-types/numeric-types/#duration"
     },
     "DebugFn": {
         "href": "reference/global-functions/builtinfunctions/#debug"
@@ -78,7 +78,7 @@
         "href": "reference/language/expressions/"
     },
     "float": {
-        "href": "reference/property-types/builtin-types/#float"
+        "href": "reference/property-types/numeric-types/#float"
     },
     "FocusReason": {
         "href": "reference/global-structs-enums/#focusreason"
@@ -108,10 +108,10 @@
         "href": "reference/elements/image/"
     },
     "ImageType": {
-        "href": "reference/property-types/builtin-types/#image"
+        "href": "reference/property-types/images/#image"
     },
     "int": {
-        "href": "reference/property-types/builtin-types/#int"
+        "href": "reference/property-types/numeric-types/#int"
     },
     "KeyEvent": {
         "href": "reference/keyboard-input/overview/"
@@ -129,7 +129,7 @@
         "href": "reference/property-types/builtin-types/#keys"
     },
     "length": {
-        "href": "reference/property-types/builtin-types/#length"
+        "href": "reference/property-types/numeric-types/#length"
     },
     "ListView": {
         "href": "reference/std-widgets/views/listview/"
@@ -156,10 +156,10 @@
         "href": "reference/global-functions/math/"
     },
     "MouseCursor": {
-        "href": "reference/property-types/builtin-types/#mousecursor"
+        "href": "reference/property-types/images/#mousecursor"
     },
     "NumericTypes": {
-        "href": "reference/property-types/builtin-types/#numeric-types"
+        "href": "reference/property-types/numeric-types/#numeric-types"
     },
     "Palette": {
         "href": "reference/std-widgets/globals/palette/"
@@ -168,10 +168,10 @@
         "href": "reference/elements/path/"
     },
     "percent": {
-        "href": "reference/property-types/builtin-types/#percent"
+        "href": "reference/property-types/numeric-types/#percent"
     },
     "physicalLength": {
-        "href": "reference/property-types/builtin-types/#physical-length"
+        "href": "reference/property-types/numeric-types/#physical-length"
     },
     "PopupWindow": {
         "href": "reference/window/popupwindow/"
@@ -189,7 +189,7 @@
         "href": "reference/elements/rectangle/"
     },
     "relativeFontSize": {
-        "href": "reference/property-types/builtin-types/#relative-font-size"
+        "href": "reference/property-types/numeric-types/#relative-font-size"
     },
     "Size": {
         "href": "reference/global-structs-enums/#size"

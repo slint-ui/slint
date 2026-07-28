@@ -394,6 +394,14 @@ export default defineConfig({
                                         slug: "reference/property-types/builtin-types",
                                     },
                                     {
+                                        label: "Numeric Types",
+                                        slug: "reference/property-types/numeric-types",
+                                    },
+                                    {
+                                        label: "Images",
+                                        slug: "reference/property-types/images",
+                                    },
+                                    {
                                         label: "Colors & Brushes",
                                         slug: "reference/property-types/colors-and-brushes",
                                     },

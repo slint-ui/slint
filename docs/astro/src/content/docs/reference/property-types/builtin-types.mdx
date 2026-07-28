@@ -2,13 +2,12 @@
 title: Built-In Types
 description: The built-in types of the Slint language.
 ---
-{/* cSpell: ignore Farbfeld rgbacolor */}
+{/* cSpell: ignore rgbacolor */}
 
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
-import BuiltInMouseCursor from '/src/content/docs/generated/reference/enums/_BuiltInMouseCursor.md';
 
 Slint is a statically typed language and offers a rich range of built-in types.
 
@@ -176,6 +175,7 @@ Create styled text with the `@markdown()` macro. For example: `@markdown("Hello 
 Any text passed as an argument to the macro will be escaped, for example `@markdown("Hello \{"*World*"}")` will become `"Hello \*World\*"`.
 
 If multiple string literal are used, they are concatenated.
+An invocation with no string content is a compile error.
 
 Use `<font color='...'>` to apply colors.
 Literal color names and hex values work directly: `@markdown("<font color='red'>warning</font>")`.
@@ -201,82 +201,6 @@ In Python, parse markdown into styled text with the <LangRefLink lang="python" r
 </Tabs>
 
 </SlintProperty>
-
-## Numeric Types
-
-### angle
-<SlintProperty propName="angle" typeName="angle" defaultValue='0deg'>
-Angle measurement, corresponds to a literal like `90deg`, `1.2rad`, `0 25turn`
-</SlintProperty>
-
-### duration
-<SlintProperty propName="duration" typeName="duration" defaultValue='0ms'>
-Type for the duration of animations. A suffix like `ms` (millisecond) or `s` (second) is used to indicate the precision.
-</SlintProperty>
-
-### float
-<SlintProperty propName="float" typeName="float" defaultValue='0'>
-Signed, 32-bit floating point number. Numbers with a `%` suffix are automatically divided by 100, so for example `30%` is the same as `0.30`.
-</SlintProperty>
-
-`float` and `int` values have the following member functions:
-
-#### to-fixed(digits: int) -> string
-
-Returns a string representation of the number with `digits` digits after the decimal point.
-It behaves like JavaScript's [`toFixed()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toFixed).
-
-#### to-precision(digits: int) -> string
-
-Returns a string representation of the number with `digits` significant digits.
-It behaves like JavaScript's [`toPrecision()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toPrecision).
-
-Both functions format the number using the decimal separator of the current locale.
-See [Converting Between Numbers and Strings](#converting-between-numbers-and-strings).
-
-```slint
-export component FloatToString {
-    property<float> pi: 3.14159;
-    property<string> fixed: pi.to-fixed(2); // "3.14"
-    property<string> precision: pi.to-precision(4); // "3.142"
-}
-```
-
-In addition, call the <Link type="MathRef" label="math functions"/> in postfix style on any numeric value,
-for example `(-10).abs()` or `x.round()`.
-
-#### to-string-unlocalized() -> string
-
-Returns a string representation of the number but not localized. This means the decimal separator will always be a dot.
-
-### int
-<SlintProperty propName="int" typeName="int" defaultValue='0'>
-Signed integral number.
-</SlintProperty>
-
-### length
-<SlintProperty propName="length" typeName="length" defaultValue='0px'>
-The type used for `x`, `y`, `width` and `height` coordinates. Corresponds to a literal like `1px`, `1pt`, `1in`, `1mm`, or `1cm`. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio.
-</SlintProperty>
-
-### percent
-<SlintProperty propName="percent" typeName="percent" defaultValue='0%'>
-Signed, 32-bit floating point number that is interpreted as percentage. Literal number assigned to properties of this type must have a `%` suffix.
-</SlintProperty>
-
-### physical-length
-<SlintProperty propName="physical-length" typeName="physical-length" defaultValue='0phx'>
-This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`. Or to convert from a length to a float, one can divide by `1phx`.
-</SlintProperty>
-
-### relative-font-size
-<SlintProperty propName="relative-font-size" typeName="relative-font-size" defaultValue='0rem'>
-Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`.
-</SlintProperty>
-
-
-
-Please see the language specific API references how these types are mapped to the APIs of the different programming languages.
 
 ## Color and Brush Types
 ### brush
@@ -366,166 +290,6 @@ export component KeysToString inherits FocusScope {
 }
 
 ```
-
-## Images
-### image
-<SlintProperty propName="image" typeName="image" defaultValue='empty image'>
-
-The `image` type is a reference to an image.
-
-In Slint, an image can be loaded from a file with the `@image-url("...")` construct.
-The address within the `@image-url` function must be a string literal and the image is resolved at compile time.
-
-Slint looks for images in the following places:
-
-1. The absolute path or the path relative to the current `.slint` file.
-2. The include path used by the compiler to look up `.slint` files.
-
-Loading image from `http` is only supported in [SlintPad](https://slintpad.com).
-
-Images can also be loaded from [`data:` URIs](https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Schemes/data), with either base64 or URL-encoded content.
-For example: `@image-url("data:image/png;base64,iVBORw0KGgo...")`.
-
-Supported format are SVG, and formats supported by the [`image` crate](https://crates.io/crates/image):
-AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP.
-
-On the web, the browser decodes images, so every format the browser supports works.
-Compressed SVG (`.svgz`) is the exception: browsers don't render it.
-
-<Tabs syncKey="dev-language">
-<TabItem label="Rust" icon="seti:rust">
-In Rust, properties or struct fields of the image type are mapped to <LangRefLink lang="rust-slint" relpath="struct.Image">`slint::Image`</LangRefLink>.
-:::note[Note]
-By default, only PNG, JPEG, and SVG are supported.
-Enable the `image-default-formats` Cargo feature to support the other formats listed above,
-which comes at a cost of increased binary size and compilation time.
-This feature has no effect on the web, where the browser decodes images.
-:::
-</TabItem>
-<TabItem label="C++" icon="seti:cpp">
-In C++, properties or struct fields of the image type are mapped to <LangRefLink lang="cpp" relpath="api/slint/image/">`slint::Image`</LangRefLink>.
-</TabItem>
-<TabItem label="NodeJS" icon="node">
-In JavaScript properties or struct fields of the image type are mapped an object that implement the <LangRefLink lang="nodejs" relpath="api/interfaces/imagedata/">ImageData interface</LangRefLink>.
-</TabItem>
-
-<TabItem label="Python" icon="seti:python">
-In Python, properties or struct fields of the image type are mapped to <LangRefLink lang="python" relpath="api/classes/image/">`Image`</LangRefLink>.
-</TabItem>
-
-</Tabs>
-
-It is also possible to load images supporting [9 slice scaling](https://en.wikipedia.org/wiki/9-slice_scaling) (also called nine patch or border images)
-by adding a  `nine-slice(...)` argument. The argument can have either one, two, or four numbers that specifies the size of the edges.
-The numbers are either `top right bottom left` or `vertical horizontal`, or one number for everything
-
-```slint
-// nine-slice scaling
-export component Example inherits Window {
-    width: 100px;
-    height: 150px;
-    VerticalLayout {
-        Image {
-            source: @image-url("https://interactive-examples.mdn.mozilla.net/media/examples/border-diamonds.png", nine-slice(30 30 30 30));
-        }
-    }
-}
-```
-
-See also the <Link type="Image" label="Image element"/>.
-
-</SlintProperty>
-
-Images have the following properties:
-
-#### width
-
-The width of the image in pixels, as an `int`. An empty image has a width of 0.
-
-#### height
-
-The height of the image in pixels, as an `int`. An empty image has a height of 0.
-
-```slint
-export component Example inherits Window {
-    preferred-width: 150px;
-    preferred-height: 50px;
-
-    // Note: http URL only work on the web version.
-    in property <image> some_image: @image-url("https://slint.dev/logo/slint-logo-full-light.svg");
-
-    HorizontalLayout {
-        Text {
-            text: "The image is " + some_image.width + "x" + some_image.height;
-        }
-
-        // Check the size to find out if the image is empty.
-        if some_image.width > 0 : Image {
-            source: some_image;
-        }
-    }
-}
-```
-
-### data-transfer
-<SlintProperty propName="data" typeName="data-transfer" defaultValue='an empty data-transfer'>
-
-A `data-transfer` value is the payload carried by drag-and-drop and clipboard operations.
-It abstracts over the file-type transfer mechanisms supported by each platform.
-It can carry plain text, an image, and a list of local file paths simultaneously.
-
-The type is opaque in Slint code:
-construct a `data-transfer` value and read its content via callbacks implemented in the host language.
-See <Link type="DragAndDrop" /> for an end-to-end example.
-
-<Tabs syncKey="dev-language">
-<TabItem label="Rust" icon="seti:rust">
-In Rust, properties or struct fields of the data-transfer type are mapped to <LangRefLink lang="rust-slint" relpath="struct.DataTransfer.html">`slint::DataTransfer`</LangRefLink>.
-</TabItem>
-<TabItem label="C++" icon="seti:cpp">
-In C++, properties or struct fields of the data-transfer type are mapped to <LangRefLink lang="cpp" relpath="api/slint/datatransfer/">`slint::DataTransfer`</LangRefLink>.
-</TabItem>
-<TabItem label="NodeJS" icon="node">
-In JavaScript, properties or struct fields of the data-transfer type are mapped to the <LangRefLink lang="nodejs" relpath="api/classes/datatransfer/">`DataTransfer`</LangRefLink> class.
-</TabItem>
-<TabItem label="Python" icon="seti:python">
-In Python, properties or struct fields of the data-transfer type are mapped to <LangRefLink lang="python" relpath="api/classes/datatransfer/">`DataTransfer`</LangRefLink>.
-</TabItem>
-</Tabs>
-
-</SlintProperty>
-
-### MouseCursor
-<SlintProperty propName="mouse-cursor" typeName="MouseCursor" defaultValue='default'>
-The `MouseCursor` type is used in the <Link type="TouchArea" label="TouchArea element"/>.
-
-#### Built-in shape
-
-Set to one of the built-in shapes by specifying the name:
-
-```slint
-TouchArea {
-    mouse-cursor: ew-resize;
-}
-
-TouchArea {
-    mouse-cursor: MouseCursor.ew-resize;
-}
-```
-
-<BuiltInMouseCursor />
-
-#### Custom shape
-
-To set a custom mouse cursor, provide an `image` and a hotspot. The hotspot is the point in the image, given in image pixels from the top-left corner, that is aligned with the actual pointer position. It is clamped to the image bounds.
-
-```slint
-TouchArea {
-    mouse-cursor: MouseCursor.custom(@image-url("cursor.png"), 0, 0);
-}
-```
-
-</SlintProperty>
 
 ## Animation
 ### easing
@@ -636,9 +400,9 @@ export component Example {
 ### Converting Between Numbers and Strings
 
 `int` and `float` convert implicitly to `string`.
-To control how many digits appear in the result, use the [`to-fixed()` and `to-precision()`](#to-fixeddigits-int---string)
+To control how many digits appear in the result, use the [`to-fixed()` and `to-precision()`](../numeric-types/#to-fixeddigits-int---string)
 member functions instead of the implicit conversion.
-To always use a dot as decimal separator regardless of the locale, use [`to-string-unlocalized()`](#to-string-unlocalized---string).
+To always use a dot as decimal separator regardless of the locale, use [`to-string-unlocalized()`](../numeric-types/#to-string-unlocalized---string).
 
 For the other direction, convert a `string` to a number with the [`to-float()`](#to-float---float) member function,
 and check whether a string holds a valid number with `is-float()`.
