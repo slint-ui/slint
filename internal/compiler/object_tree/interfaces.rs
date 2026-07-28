@@ -7,6 +7,7 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
+use itertools::Itertools;
 use smol_str::{SmolStr, ToSmolStr};
 
 use crate::diagnostics::BuildDiagnostics;
@@ -413,10 +414,11 @@ fn element_implements_interface(
     errors.is_empty()
 }
 
+fn purity_description(purity: &Option<bool>) -> &str {
+    if purity.unwrap_or(false) { "pure " } else { "" }
+}
+
 fn missing_type_description(interface_declaration: &PropertyDeclaration) -> String {
-    let purity_description = |purity: &Option<bool>| {
-        if purity.unwrap_or(false) { "pure " } else { "" }
-    };
     match interface_declaration.property_type {
         Type::Callback(..) => {
             format!(
@@ -441,8 +443,37 @@ fn missing_type_description(interface_declaration: &PropertyDeclaration) -> Stri
     }
 }
 
+fn syntax_for(interface_declaration: &PropertyDeclaration, name: &SmolStr) -> String {
+    let display_args = |arguments: &Vec<Type>| -> String {
+        arguments.iter().map(|t| t.to_string()).join(", ").into()
+    };
+    let return_type = |return_type: &Type| -> String {
+        if *return_type == Type::Void { String::new() } else { format!(" -> {return_type}") }
+    };
+    match &interface_declaration.property_type {
+        Type::Function(function) => format!(
+            "{}{} function {name}({}){} {{ }}",
+            purity_description(&interface_declaration.pure),
+            interface_declaration.visibility,
+            display_args(&function.args),
+            return_type(&function.return_type)
+        ),
+        Type::Callback(function) => format!(
+            "{}callback {name}({}){};",
+            purity_description(&interface_declaration.pure),
+            display_args(&function.args),
+            return_type(&function.return_type)
+        ),
+        _ if interface_declaration.property_type.is_property_type() => format!(
+            "{} property <{}> {name};",
+            interface_declaration.visibility, interface_declaration.property_type
+        ),
+        _ => name.to_string(),
+    }
+}
+
 fn missing_type_error(name: &SmolStr, interface_declaration: &PropertyDeclaration) -> String {
-    format!("- missing '{name}', {}", missing_type_description(interface_declaration))
+    format!("- missing '{}'", syntax_for(interface_declaration, name))
 }
 
 /// [PartialEq] for [Function] means that the argument names must match. That is not required for a valid interface implementation.

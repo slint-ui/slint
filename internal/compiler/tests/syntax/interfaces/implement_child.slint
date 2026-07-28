@@ -21,7 +21,7 @@ export component MissingChild {
 // The child must carry every member of the interface.
 export component ChildMissingMembers {
     implement ValidInterface <=> base;
-//                               >  <error{Cannot implement 'ValidInterface' based on 'base'.↵- missing 'reset', a 'public pure function() -> void'↵- missing 'speak', a 'callback() -> void'↵- missing 'value', an in-out 'int' property}
+//                               >  <error{Cannot implement 'ValidInterface' based on 'base'.↵- missing 'pure public function reset() { }'↵- missing 'callback speak();'↵- missing 'in-out property <int> value;'}
     base := ComponentA { }
 }
 
