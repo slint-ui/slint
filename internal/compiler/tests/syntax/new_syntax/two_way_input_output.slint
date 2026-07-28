@@ -18,9 +18,9 @@ export component C1 {
     // pressed is "output" in Button
     out <=> b.pressed;  // ok  (but then there should be no other assignment?)
     in <=> b.pressed; // Error
-//  >               <error{Cannot link to a out property}
+//  >               <error{Cannot link to an 'out' property}
     inout <=> b.pressed;
-//  >                  <error{Cannot link to a out property}
+//  >                  <error{Cannot link to an 'out' property}
     priv <=> b.pressed; // makes assignment forbidden
 
 
@@ -136,7 +136,7 @@ export component C6 {
     }
     Button {
         checked <=> in;
-//      >             <error{Cannot link to a in property}
+//      >             <error{Cannot link to an 'in' property}
         clicked => { self.checked = !self.checked; }
     }
     Button {
@@ -172,7 +172,7 @@ export component C7 {
         }
     }
     Button { checked <=> b2.pressed;  }
-//           >                     <error{Cannot link to a out property}
+//           >                     <error{Cannot link to an 'out' property}
 
     b3 := Button {
         clicked => {
@@ -222,9 +222,9 @@ export component C9 {
 
     out property <bool> out <=> in1;
     in property <bool> in <=> in2;
-//                        >      <error{Cannot link to a in property}
+//                        >      <error{Cannot link to an 'in' property}
     in-out property <bool> inout <=> in3;
-//                               >      <error{Cannot link to a in property}
+//                               >      <error{Cannot link to an 'in' property}
     property <bool> priv <=> in4;
 
     Button {
@@ -297,7 +297,7 @@ export component C11 {
 
 export component C12 {
     in property <bool> in1 <=> btn.pressed;
-//                         >              <error{Cannot link to a out property}
+//                         >              <error{Cannot link to an 'out' property}
     in property <bool> in2 <=> btn.checked;
 //                         >              <warning{Linking input properties to input output properties is deprecated}
     in property <bool> in3 <=> btn.enabled;
