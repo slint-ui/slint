@@ -1506,12 +1506,11 @@ impl WindowItem {
             return false;
         }
         let inner = WindowInner::from_pub(window_adapter.window());
-        if inner.request_close()
-            && let Err(err) = inner.hide()
-        {
+        let accepted = inner.request_close();
+        if accepted && let Err(err) = inner.hide() {
             crate::debug_log!("Slint: Failed to hide window after close request: {err}");
         }
-        true
+        accepted
     }
 
     pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
