@@ -35,7 +35,7 @@ component Compo inherits Rectangle {
     ]
 
     animate input1 {}
-//          >     <error{Cannot animate in property 'input1'}
+//          >     <error{Cannot animate 'in' property 'input1'}
 }
 
 OldCompo := Rectangle {
@@ -71,10 +71,10 @@ export component Foo inherits Rectangle {
         inout1: 78;
 
         animate output1 {}
-//              >      <error{Cannot animate out property 'output1'}
+//              >      <error{Cannot animate 'out' property 'output1'}
 
         animate priv2 {}
-//              >    <error{Cannot animate private property 'priv2'}
+//              >    <error{Cannot animate 'private' property 'priv2'}
 
     }
 
