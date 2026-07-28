@@ -88,7 +88,7 @@ First, you need to run the [`flatpak-cargo-generator.py`](https://github.com/fla
 
 ```yaml
 modules:
-  # The module name is arbitrary, but Flatpak will create a `/run/build/your-module-name` 
+  # The module name is arbitrary, but Flatpak will create a `/run/build/your-module-name`
   # directory and build the package inside of it, so it should match any `/run/build/..`
   # paths in the build config. It does not need to match the command name.
   - name: slint-test-package
@@ -108,12 +108,12 @@ modules:
         SKIA_BINARIES_URL: file:///run/build/slint-visual-editor/deps/vendor/skia/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
     build-commands:
       - cargo --offline fetch --manifest-path Cargo.toml --verbose
-      # For the sake of this example, we assume that this build command produces a binary 
+      # For the sake of this example, we assume that this build command produces a binary
       # named `slint-test-package`. If you do not need the Skia renderer, you can use
-      # `--features backend-winit,renderer-femtovg` and remove the lines related to Skia 
+      # `--features backend-winit,renderer-femtovg` and remove the lines related to Skia
       # binaries
       - cargo build --release --offline --features backend-winit,renderer-skia
-      # The right-hand side of this must be `${FLATPAK_DEST}/bin/your-command`, where 
+      # The right-hand side of this must be `${FLATPAK_DEST}/bin/your-command`, where
       # `your-command` matches the top-level `command` field mentioned in the previous
       # section
       - install -Dm0755 target/release/slint-test-package ${FLATPAK_DEST}/bin/slint-test-package
@@ -122,7 +122,7 @@ modules:
         # This assumes that this yaml file is in the root of your project. This may not
         # be what you want, see below for some other options.
         path: ./
-        # This should be the current git commit hash, or the git commit hash that you 
+        # This should be the current git commit hash, or the git commit hash that you
         # want to build
         commit: 1234deadbeef
       # If you named your generated sources file something different, or put it somewhere
@@ -130,7 +130,7 @@ modules:
       # here
       - cargo-sources.json
       # The below lines (and the `SKIA_BINARIES_URL` environment variable, specified above)
-      # are required to use the `renderer-skia` feature. If your application uses 
+      # are required to use the `renderer-skia` feature. If your application uses
       # `renderer-femtovg`, you can remove it
       - type: file
         url: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
@@ -234,9 +234,9 @@ Finally, Flatpak expects your package to include a `.metainfo.xml` file, which s
     <launchable
         type="desktop-id"
     >com.slint.TestPackage</launchable>
-    
+
     <screenshots>
-    <!-- 
+    <!--
     Flathub requires at least one screenshot, but an empty screenshot section
     is allowed when building locally.
     -->
