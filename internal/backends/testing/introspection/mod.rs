@@ -1118,17 +1118,18 @@ fn test_accessibility_role_mapping_complete() {
     i_slint_common::for_each_enums!(test_accessibility_enum_mapping);
 }
 
-// `WindowEventDispatchResult` honesty for pointer events: verify that
-// `Window::dispatch_event_with_result` reports `Accepted` only when an item consumed the
-// event, and `Ignored` otherwise. Tests install the window-event hook directly
-// since that's the consumer the public contract is for.
+// `WindowEventDispatchResult` honesty: verify that public and backend dispatch paths
+// notify the window-event hook exactly once with the event's actual result.
 
 #[cfg(test)]
 mod dispatch_result_tests {
     use i_slint_core::api::LogicalPosition;
     use i_slint_core::api::WindowEventDispatchResult;
+    use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, MouseEvent};
     use i_slint_core::items::PointerEventButton;
+    use i_slint_core::lengths::LogicalPoint;
     use i_slint_core::platform::WindowEvent;
+    use i_slint_core::window::WindowInner;
     use std::cell::RefCell;
     use std::rc::Rc;
 
@@ -1190,6 +1191,85 @@ mod dispatch_result_tests {
                 button: PointerEventButton::Left,
             },
             WindowEventDispatchResult::Accepted,
+        );
+    }
+
+    #[test]
+    fn backend_pointer_event_is_recorded_once() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                TouchArea { width: 100%; height: 100%; }
+            }
+        }
+        let app = App::new().unwrap();
+        let recorded_event = WindowEvent::PointerPressed {
+            position: LogicalPosition::new(50.0, 50.0),
+            button: PointerEventButton::Left,
+        };
+        let (_guard, captured) = capture_hook();
+        let result = WindowInner::from_pub(app.window()).process_mouse_input_and_notify(
+            MouseEvent::Pressed {
+                position: LogicalPoint::new(50.0, 50.0),
+                button: PointerEventButton::Left,
+                click_count: 0,
+                touch_finger_id: 0,
+            },
+            recorded_event.clone(),
+        );
+
+        assert!(result.is_some_and(|result| result.accepted));
+        assert_eq!(*captured.borrow(), vec![(recorded_event, WindowEventDispatchResult::Accepted)]);
+    }
+
+    #[test]
+    fn backend_key_event_is_recorded_once() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+            }
+        }
+        let app = App::new().unwrap();
+        let text = slint::SharedString::from("x");
+        let recorded_event = WindowEvent::KeyPressRepeated { text: text.clone() };
+        let (_guard, captured) = capture_hook();
+        let mut key_event = KeyEvent::default();
+        key_event.text = text;
+        key_event.repeat = true;
+        let result = WindowInner::from_pub(app.window()).process_key_input_and_notify(
+            InternalKeyEvent {
+                event_type: KeyEventType::KeyPressed,
+                key_event,
+                ..Default::default()
+            },
+            recorded_event.clone(),
+        );
+
+        assert_eq!(result, i_slint_core::input::KeyEventResult::EventIgnored);
+        assert_eq!(*captured.borrow(), vec![(recorded_event, WindowEventDispatchResult::Ignored)]);
+    }
+
+    #[test]
+    fn backend_pointer_exit_is_recorded_as_accepted() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+            }
+        }
+        let app = App::new().unwrap();
+        let (_guard, captured) = capture_hook();
+        WindowInner::from_pub(app.window())
+            .process_mouse_input_and_notify(MouseEvent::Exit, WindowEvent::PointerExited);
+
+        assert_eq!(
+            *captured.borrow(),
+            vec![(WindowEvent::PointerExited, WindowEventDispatchResult::Accepted)]
         );
     }
 

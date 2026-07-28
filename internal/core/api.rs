@@ -786,11 +786,8 @@ impl Window {
                 WindowEventDispatchResult::Accepted
             }
         };
-        if let Some(event_for_hook) = event_for_hook
-            && let Some(ctx) = self.0.try_context()
-            && let Some(hook) = ctx.0.window_event_hook.borrow().as_ref()
-        {
-            hook(&self.0.window_adapter(), &event_for_hook, dispatch_result.clone());
+        if let Some(event_for_hook) = event_for_hook {
+            self.0.notify_window_event(&event_for_hook, dispatch_result.clone());
         }
         Ok(dispatch_result)
     }

@@ -137,7 +137,12 @@ impl EventLoopState {
             && let Some(window) = self.shared_backend_data.window_by_id(window_id)
         {
             let runtime_window = WindowInner::from_pub(window.window());
-            runtime_window.process_mouse_input(MouseEvent::Moved { position, touch_finger_id: 0 });
+            runtime_window.process_mouse_input_and_notify(
+                MouseEvent::Moved { position, touch_finger_id: 0 },
+                corelib::platform::WindowEvent::PointerMoved {
+                    position: corelib::lengths::logical_position_to_api(position),
+                },
+            );
         }
     }
 }
@@ -344,6 +349,17 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                         corelib::input::KeyEventType::KeyReleased
                     }
                 };
+                let recorded_event = match event.state {
+                    winit::event::ElementState::Pressed if event.repeat => {
+                        corelib::platform::WindowEvent::KeyPressRepeated { text: text.clone() }
+                    }
+                    winit::event::ElementState::Pressed => {
+                        corelib::platform::WindowEvent::KeyPressed { text: text.clone() }
+                    }
+                    winit::event::ElementState::Released => {
+                        corelib::platform::WindowEvent::KeyReleased { text: text.clone() }
+                    }
+                };
                 let mut key_event = KeyEvent::default();
                 key_event.text = text;
                 key_event.repeat = event.repeat;
@@ -356,7 +372,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     ..Default::default()
                 };
 
-                runtime_window.process_key_input(event);
+                runtime_window.process_key_input_and_notify(event, recorded_event);
             }
             WindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
                 let event = InternalKeyEvent {
@@ -397,7 +413,10 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
                 if cfg!(target_arch = "wasm32") || !self.pressed {
                     self.pressed = false;
-                    runtime_window.process_mouse_input(MouseEvent::Exit);
+                    runtime_window.process_mouse_input_and_notify(
+                        MouseEvent::Exit,
+                        corelib::platform::WindowEvent::PointerExited,
+                    );
                 }
             }
             WindowEvent::MouseWheel { delta, phase, .. } => {
@@ -414,12 +433,14 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     winit::event::TouchPhase::Ended => TouchPhase::Ended,
                     winit::event::TouchPhase::Cancelled => TouchPhase::Cancelled,
                 };
-                runtime_window.process_mouse_input(MouseEvent::Wheel {
-                    position: self.cursor_pos,
-                    delta_x,
-                    delta_y,
-                    phase,
-                });
+                runtime_window.process_mouse_input_and_notify(
+                    MouseEvent::Wheel { position: self.cursor_pos, delta_x, delta_y, phase },
+                    corelib::platform::WindowEvent::PointerScrolled {
+                        position: corelib::lengths::logical_position_to_api(self.cursor_pos),
+                        delta_x: delta_x as f32,
+                        delta_y: delta_y as f32,
+                    },
+                );
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 let button = match button {
@@ -430,7 +451,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     winit::event::MouseButton::Forward => PointerEventButton::Forward,
                     winit::event::MouseButton::Other(_) => PointerEventButton::Other,
                 };
-                let ev = match state {
+                let (event, recorded_event) = match state {
                     winit::event::ElementState::Pressed => {
                         if button == PointerEventButton::Left
                             && self.current_resize_direction.is_some()
@@ -443,24 +464,40 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                         }
 
                         self.pressed = true;
-                        MouseEvent::Pressed {
-                            position: self.cursor_pos,
-                            button,
-                            click_count: 0,
-                            touch_finger_id: 0,
-                        }
+                        (
+                            MouseEvent::Pressed {
+                                position: self.cursor_pos,
+                                button,
+                                click_count: 0,
+                                touch_finger_id: 0,
+                            },
+                            corelib::platform::WindowEvent::PointerPressed {
+                                position: corelib::lengths::logical_position_to_api(
+                                    self.cursor_pos,
+                                ),
+                                button,
+                            },
+                        )
                     }
                     winit::event::ElementState::Released => {
                         self.pressed = false;
-                        MouseEvent::Released {
-                            position: self.cursor_pos,
-                            button,
-                            click_count: 0,
-                            touch_finger_id: 0,
-                        }
+                        (
+                            MouseEvent::Released {
+                                position: self.cursor_pos,
+                                button,
+                                click_count: 0,
+                                touch_finger_id: 0,
+                            },
+                            corelib::platform::WindowEvent::PointerReleased {
+                                position: corelib::lengths::logical_position_to_api(
+                                    self.cursor_pos,
+                                ),
+                                button,
+                            },
+                        )
                     }
                 };
-                runtime_window.process_mouse_input(ev);
+                runtime_window.process_mouse_input_and_notify(event, recorded_event);
             }
             WindowEvent::Touch(touch) => {
                 let location = touch.location.to_logical(runtime_window.scale_factor() as f64);

@@ -7,7 +7,7 @@
 //! Exposed Window API
 use crate::api::{
     CloseRequestResponse, LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize,
-    PlatformError, Window, WindowPosition, WindowSize,
+    PlatformError, Window, WindowEventDispatchResult, WindowPosition, WindowSize,
 };
 use crate::cursor::MouseCursorInner;
 use crate::input::{
@@ -24,6 +24,7 @@ use crate::items::{
 };
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
+use crate::platform::WindowEvent;
 use crate::properties::{ChangeTracker, Property, PropertyTracker};
 use crate::renderer::Renderer;
 use crate::{Callback, Coord, SharedString, SharedVector};
@@ -1073,6 +1074,27 @@ impl WindowInner {
         Some(MouseDispatchResult { drag_action, accepted })
     }
 
+    /// Processes a backend mouse event and reports its public representation to the
+    /// window-event hook.
+    ///
+    /// Backends use this when the internal event carries information that
+    /// [`crate::api::Window::dispatch_event_with_result`] cannot represent.
+    #[doc(hidden)]
+    pub fn process_mouse_input_and_notify(
+        &self,
+        event: MouseEvent,
+        recorded_event: WindowEvent,
+    ) -> Option<MouseDispatchResult> {
+        let result = self.process_mouse_input(event);
+        let dispatch_result = if matches!(recorded_event, WindowEvent::PointerExited) {
+            WindowEventDispatchResult::Accepted
+        } else {
+            result.into()
+        };
+        self.notify_window_event(&recorded_event, dispatch_result);
+        result
+    }
+
     /// Remember (or clear) the in-flight native drag, so a backend can report completion or fall
     /// back, and a drop back onto this window can restore the data. Set by `offer_native_drag`.
     pub(crate) fn set_native_drag(&self, drag: Option<NativePendingDrag>) {
@@ -1314,6 +1336,22 @@ impl WindowInner {
 
         self.ensure_tree_instantiated();
         crate::input::KeyEventResult::EventIgnored
+    }
+
+    /// Processes a backend key event and reports its public representation to the
+    /// window-event hook.
+    ///
+    /// Backends use this when the internal event carries information that
+    /// [`crate::api::Window::dispatch_event_with_result`] cannot represent.
+    #[doc(hidden)]
+    pub fn process_key_input_and_notify(
+        &self,
+        internal_event: InternalKeyEvent,
+        recorded_event: WindowEvent,
+    ) -> KeyEventResult {
+        let result = self.process_key_input(internal_event);
+        self.notify_window_event(&recorded_event, result.into());
+        result
     }
 
     fn process_menubar_shortcuts(
@@ -2370,6 +2408,18 @@ impl WindowInner {
             let _ = self.ctx.set(ctx);
         }
         self.ctx.get()
+    }
+
+    pub(crate) fn notify_window_event(
+        &self,
+        event: &WindowEvent,
+        result: WindowEventDispatchResult,
+    ) {
+        if let Some(ctx) = self.try_context()
+            && let Some(hook) = ctx.0.window_event_hook.borrow().as_ref()
+        {
+            hook(&self.window_adapter(), event, result);
+        }
     }
 
     /// Set the SlintContext.
