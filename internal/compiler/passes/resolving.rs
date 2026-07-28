@@ -2648,12 +2648,18 @@ fn resolve_two_way_bindings_for_element(
                         if lookup_ctx.is_legacy_component() {
                             debug_assert!(!diag.is_empty()); // warning should already be reported
                         } else {
-                            diag.push_error("Cannot link input property".into(), &node);
+                            diag.push_error(
+                                format!("Cannot link '{}' property", PropertyVisibility::Input),
+                                &node,
+                            );
                         }
                     } else if rhs_lookup.property_visibility == PropertyVisibility::InOut {
                         diag.push_warning(
-                            "Linking input properties to input output properties is deprecated"
-                                .into(),
+                            format!(
+                                "Linking '{}' properties to '{}' properties is deprecated",
+                                PropertyVisibility::Input,
+                                PropertyVisibility::InOut
+                            ),
                             &node,
                         );
                         marked_linked_read_only(&nr.element(), nr.name());

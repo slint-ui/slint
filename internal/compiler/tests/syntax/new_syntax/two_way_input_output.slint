@@ -86,7 +86,7 @@ export component C3 {
     // checked is "input/output" in Button
     out <=> b.checked;
     in <=> b.checked;
-//  >               <warning{Linking input properties to input output properties is deprecated}
+//  >               <warning{Linking 'in' properties to 'in-out' properties is deprecated}
     inout <=> b.checked;
     priv <=> b.checked;
 
@@ -249,7 +249,7 @@ export component C10 {
 
     out property <bool> out <=> inout1;
     in property <bool> in <=> inout2;
-//                        >         <error{Cannot link input property}
+//                        >         <error{Cannot link 'in' property}
     in-out property <bool> inout <=> inout3;
     property <bool> priv <=> inout4;
 
@@ -299,11 +299,11 @@ export component C12 {
     in property <bool> in1 <=> btn.pressed;
 //                         >              <error{Cannot link to an 'out' property}
     in property <bool> in2 <=> btn.checked;
-//                         >              <warning{Linking input properties to input output properties is deprecated}
+//                         >              <warning{Linking 'in' properties to 'in-out' properties is deprecated}
     in property <bool> in3 <=> btn.enabled;
     in property <bool> in4 <=> btn.accessible-checked;
     in property <bool> in5 <=> inout1;
-//                         >         <error{Cannot link input property}
+//                         >         <error{Cannot link 'in' property}
 
     in property <bool> bogus1 <=> btn.internal;
 //                                    >      <error{The property 'internal' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
