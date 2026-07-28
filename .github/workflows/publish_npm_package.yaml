@@ -120,7 +120,7 @@ jobs:
               shell: bash
               run: |
                   if [ "$RELEASE_INPUT" != "true" ]; then
-                      pnpm version $PKG_VERSION
+                      pnpm version --no-git-tag-version $PKG_VERSION
                   fi
             - name: Build binary
               shell: bash
@@ -170,7 +170,7 @@ jobs:
               working-directory: api/node
               run: |
                   if [ "$RELEASE_INPUT" != "true" ]; then
-                      pnpm version $PKG_VERSION
+                      pnpm version --no-git-tag-version $PKG_VERSION
                   fi
             - name: Select git revision
               if: github.event.inputs.release != 'true'
