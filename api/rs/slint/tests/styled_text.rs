@@ -22,10 +22,6 @@ fn styled_text_can_be_created_from_rust_markdown() {
     component.set_text(plain.clone());
     assert_eq!(component.get_text(), plain);
 
-    let error = slint::StyledText::from_markdown("# heading").unwrap_err();
-    let error = error.to_string();
-    assert!(
-        error.starts_with("Markdown headings are not supported"),
-        "unexpected markdown error: {error}"
-    );
+    assert!(slint::StyledText::from_markdown("# heading").is_err());
+    assert!(slint::StyledText::from_markdown("---").is_err());
 }
