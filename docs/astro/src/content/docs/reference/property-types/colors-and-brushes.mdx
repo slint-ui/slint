@@ -9,7 +9,9 @@ import CodeSnippetMD from "@slint/common-files/src/components/CodeSnippetMD.astr
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
+import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
 
+<NotInSC>
 Color literals follow the syntax of CSS:
 
 ```slint
@@ -26,8 +28,17 @@ draw the outline.
 
 CSS color names are in scope wherever a `color` or `brush` value is expected, including struct
 fields, array elements and function arguments. Elsewhere, access colors from the `Colors` namespace.
+</NotInSC>
 
 ## Types
+
+A `color` is a color with red, green, blue, and alpha channels.
+The default `color` is transparent. \{#sls.type.color}
+
+A `brush` defines the content that an element is filled with.
+The default `brush` is transparent. \{#sls.type.brush}
+
+A `color` converts to a `brush`: the brush that fills with that single color. \{#sls.type.convert.color-to-brush}
 
 ### brush
 <SlintProperty propName="brush" typeName="brush" defaultValue='transparent'>
@@ -68,6 +79,8 @@ In Python, properties or struct fields of the color type are mapped to <LangRefL
 </TabItem>
 </Tabs>
 </SlintProperty>
+
+<NotInSC>
 
 ## Color Properties
 
@@ -304,3 +317,5 @@ Instead, use one of these workarounds:
 - Use variables: `property <angle> start: -90deg;` then use `start` in the gradient
 - Use explicit subtraction: `#ff0000 0deg - 90deg`
 :::
+
+</NotInSC>

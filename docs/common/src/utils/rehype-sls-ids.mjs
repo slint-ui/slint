@@ -42,9 +42,12 @@
 
 const ID_MARKER = /\s*\{#(sls\.[a-z0-9.\-_]+)\}\s*$/;
 
-// Separator-agnostic so the checks also hold on Windows paths, and anchored on
-// `content/docs/` so an unrelated directory in the checkout path can't match.
-const SPEC_PATH = /[\\/]content[\\/]docs[\\/](reference[\\/])?language[\\/]/;
+// The specification chapters and the property-types reference are the SC
+// corpus: their paragraphs carry identifiers unless a page opts out with
+// `notInSC: true`. Separator-agnostic so the checks also hold on Windows
+// paths, and anchored on `content/docs/` so an unrelated directory in the
+// checkout path can't match.
+const SPEC_PATH = /[\\/]content[\\/]docs[\\/](reference[\\/])?(language|property-types)[\\/]/;
 const GENERATED_REFERENCE_PATH =
     /[\\/]content[\\/]docs[\\/]generated[\\/]reference[\\/]/;
 

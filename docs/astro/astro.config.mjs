@@ -349,10 +349,6 @@ export default defineConfig({
                                         slug: "reference/language/evaluation-and-purity",
                                     },
                                     {
-                                        label: "Types",
-                                        slug: "reference/language/types",
-                                    },
-                                    {
                                         label: "Structs and Enums",
                                         slug: "reference/language/structs-and-enums",
                                     },

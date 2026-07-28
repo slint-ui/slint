@@ -28,7 +28,6 @@ const SPEC_PAGE_ORDER: &[&str] = &[
     "properties",
     "bindings",
     "expressions",
-    "types",
     "geometry",
 ];
 
@@ -39,6 +38,11 @@ const TEST_ROOTS: &[(&str, &str)] =
 
 /// Handwritten safety-manual pages may also state requirements.
 const SAFETY_DOCS_DIR: &str = "docs/safety/src/content/docs";
+
+/// The property-types reference, part of the SC corpus except for pages marked
+/// `notInSC: true`. Anchors are scanned from this canonical location; the
+/// safety manual syncs and serves the SC ones under `reference/property-types/`.
+const PROPERTY_TYPES_DIR: &str = "docs/astro/src/content/docs/reference/property-types";
 
 /// Subdirectories of [`SAFETY_DOCS_DIR`] whose anchors are already scanned
 /// from their canonical source: the generated pages and the specification
@@ -89,7 +93,8 @@ impl TestRef {
 
 pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let root = crate::root_dir();
-    let spec_pages = scan_spec_pages(&root.join(SPEC_DIR))?;
+    let mut spec_pages = scan_spec_pages(&root.join(SPEC_DIR))?;
+    spec_pages.extend(scan_property_type_pages(&root)?);
     let reference_pages = scan_reference_pages(cfg, &root)?;
     let safety_pages = scan_safety_pages(&root)?;
 
@@ -290,6 +295,34 @@ fn scan_spec_pages(dir: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Erro
     Ok(pages)
 }
 
+/// Parse the property-types reference pages under [`PROPERTY_TYPES_DIR`] for
+/// their anchors. Pages marked `notInSC: true` cover the full language only, so
+/// they carry no requirements; the rest are served in the safety manual under
+/// `reference/property-types/`.
+fn scan_property_type_pages(root: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Error>> {
+    let dir = root.join(PROPERTY_TYPES_DIR);
+    let mut paths: Vec<std::path::PathBuf> = std::fs::read_dir(&dir)
+        .context(format!("error reading {dir:?}"))?
+        .filter_map(|e| Some(e.ok()?.path()))
+        .filter(|p| p.extension().is_some_and(|e| e == "md" || e == "mdx"))
+        .collect();
+    paths.sort();
+
+    let mut pages = Vec::new();
+    for path in paths {
+        let text = std::fs::read_to_string(&path).context(format!("error reading {path:?}"))?;
+        let stem = path.file_stem().unwrap_or_default().to_string_lossy().into_owned();
+        let file = repo_relative(&path, root);
+        let (mut page, _) = parse_spec_page(&file, &text);
+        if page.not_in_sc || page.anchors.is_empty() || page.draft {
+            continue;
+        }
+        page.base = format!("../../reference/property-types/{stem}/");
+        pages.push(page);
+    }
+    Ok(pages)
+}
+
 /// Parse the generated SC API reference pages for their anchors. The pages
 /// are written by `element_docs`/`mdx` earlier in the same run.
 fn scan_reference_pages(
@@ -349,6 +382,11 @@ fn scan_safety_pages(repo_root: &Path) -> Result<Vec<SpecPage>, Box<dyn std::err
         }
         let file = repo_relative(path, repo_root);
         let text = std::fs::read_to_string(path).context(format!("error reading {path:?}"))?;
+        // The property-types pages are scanned from their canonical location,
+        // so skip the synced copies here to avoid duplicate anchors.
+        if file.contains("reference/property-types/") {
+            continue;
+        }
         let (mut page, slug) = parse_spec_page(&file, &text);
         if page.anchors.is_empty() || page.draft {
             continue;

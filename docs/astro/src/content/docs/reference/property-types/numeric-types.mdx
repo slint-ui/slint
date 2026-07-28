@@ -5,8 +5,11 @@ description: The numeric and unit types of the Slint language.
 
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
+import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
 
 ## Numeric Types
+
+<NotInSC>
 
 ### angle
 <SlintProperty propName="angle" typeName="angle" defaultValue='0deg'>
@@ -57,11 +60,17 @@ Returns a string representation of the number but not localized. This means the 
 <SlintProperty propName="int" typeName="int" defaultValue='0'>
 Signed integral number.
 </SlintProperty>
+</NotInSC>
 
 ### length
 <SlintProperty propName="length" typeName="length" defaultValue='0px'>
 The type used for `x`, `y`, `width` and `height` coordinates. Corresponds to a literal like `1px`, `1pt`, `1in`, `1mm`, or `1cm`. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio.
 </SlintProperty>
+
+A `length` is a distance.
+The default `length` is zero. \{#sls.type.length}
+
+<NotInSC>
 
 ### percent
 <SlintProperty propName="percent" typeName="percent" defaultValue='0%'>
@@ -81,3 +90,4 @@ Relative font size factor that is multiplied with the `Window.default-font-size`
 
 
 Please see the language specific API references how these types are mapped to the APIs of the different programming languages.
+</NotInSC>
