@@ -2701,7 +2701,7 @@ fn resolve_two_way_bindings_for_element(
                             } else {
                                 diag.push_error(
                                     format!(
-                                        "Cannot link to a {} property",
+                                        "Cannot link to an '{}' property",
                                         rhs_lookup.property_visibility
                                     ),
                                     &node,
