@@ -1,6 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell:ignore socketpair
+
 import asyncio
 import gc
 import platform
@@ -8,6 +10,7 @@ import socket
 import sys
 import threading
 import typing
+import weakref
 from datetime import timedelta
 
 import aiohttp
@@ -367,3 +370,32 @@ def test_sleep_does_not_leak_timers() -> None:
         slint.quit_event_loop()
 
     slint.run_event_loop(run())
+
+
+def test_selector_adapter_cycle_is_collectable() -> None:
+    """`_SlintSelector.register()` hands the adapter its own bound methods.
+
+    The adapter keeps them behind an `Rc` the GC cannot see, so selector and adapter
+    would keep each other alive for the lifetime of the process.
+    """
+
+    class Owner:
+        def __init__(self, fd: int) -> None:
+            self.adapter = native.AsyncAdapter(fd)
+            self.adapter.wait_for_readable(self.on_readable)
+
+        def on_readable(self, fd: int) -> None:
+            pass
+
+    reader, writer = socket.socketpair()
+    try:
+        owner = Owner(reader.fileno())
+        weak_owner = weakref.ref(owner)
+
+        del owner
+        gc.collect()
+
+        assert weak_owner() is None
+    finally:
+        reader.close()
+        writer.close()
