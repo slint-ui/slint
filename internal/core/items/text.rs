@@ -1313,7 +1313,14 @@ impl HasFont for TextInput {
 
 impl RenderString for TextInput {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
-        PlainOrStyledText::Plain(self.as_ref().visual_representation(None).text.clone())
+        // Deliberately not `visual_representation`, which would size the item off the cursor and
+        // the selection too -- see `text_with_preedit`.
+        let text = self.text_with_preedit().0;
+        PlainOrStyledText::Plain(if self.is_password() {
+            mask_password(&text, DEFAULT_PASSWORD_CHARACTER)
+        } else {
+            text
+        })
     }
 }
 
@@ -1424,6 +1431,14 @@ pub struct TextInputVisualRepresentation {
     password_character: char,
 }
 
+/// Stand-in for the characters of a password field when the platform doesn't provide its own.
+const DEFAULT_PASSWORD_CHARACTER: char = '\u{25cf}';
+
+/// Replaces every character of `text` with `password_character`.
+fn mask_password(text: &str, password_character: char) -> SharedString {
+    core::iter::repeat_n(password_character, text.chars().count()).collect()
+}
+
 impl TextInputVisualRepresentation {
     /// If the given `TextInput` renders a password, then all characters in this `TextInputVisualRepresentation` are replaced
     /// with the password character and the selection/preedit-ranges/cursor position are adjusted.
@@ -1433,11 +1448,11 @@ impl TextInputVisualRepresentation {
         text_input: Pin<&TextInput>,
         password_character_fn: Option<fn() -> char>,
     ) {
-        if !matches!(text_input.input_type(), InputType::Password) {
+        if !text_input.is_password() {
             return;
         }
 
-        let password_character = password_character_fn.map_or('●', |f| f());
+        let password_character = password_character_fn.map_or(DEFAULT_PASSWORD_CHARACTER, |f| f());
 
         let text = &mut self.text;
         let fixup_range = |r: &mut core::ops::Range<usize>| {
@@ -1451,10 +1466,8 @@ impl TextInputVisualRepresentation {
         if let Some(cursor_pos) = self.cursor_position.as_mut() {
             *cursor_pos = text[..*cursor_pos].chars().count() * password_character.len_utf8();
         }
-        self.text_without_password = Some(core::mem::replace(
-            text,
-            core::iter::repeat_n(password_character, text.chars().count()).collect(),
-        ));
+        self.text_without_password =
+            Some(core::mem::replace(text, mask_password(text, password_character)));
         self.password_character = password_character;
     }
 
@@ -1806,6 +1819,11 @@ impl TextInput {
         safe_byte_offset(self.anchor_position_byte_offset(), text)
     }
 
+    /// Whether this input masks what is typed into it.
+    pub fn is_password(self: Pin<&Self>) -> bool {
+        matches!(self.input_type(), InputType::Password)
+    }
+
     pub fn cursor_position(self: Pin<&Self>, text: &str) -> usize {
         safe_byte_offset(self.cursor_position_byte_offset(), text)
     }
@@ -2050,6 +2068,29 @@ impl TextInput {
         }
     }
 
+    /// Returns the `text` property with the IME composition (preedit) inserted at the cursor, and
+    /// the byte range that composition occupies within the returned string. The range is empty
+    /// when no composition is in progress, in which case the text is returned unchanged.
+    ///
+    /// Password fields are *not* masked here; callers that render or measure the text apply the
+    /// substitution themselves, because the masking character is renderer-specific.
+    ///
+    /// Deliberately reads less than [`Self::visual_representation`]: neither the cursor visibility
+    /// nor the selection nor the colors, so that callers which only need the string -- sizing above
+    /// all -- don't end up making the layout depend on the blinking cursor.
+    fn text_with_preedit(self: Pin<&Self>) -> (SharedString, core::ops::Range<usize>) {
+        let text = self.text();
+        let preedit_text = self.preedit_text();
+        if preedit_text.is_empty() {
+            return (text, Default::default());
+        }
+        let cursor_position = self.cursor_position(&text);
+        (
+            [&text[..cursor_position], &preedit_text, &text[cursor_position..]].concat().into(),
+            cursor_position..cursor_position + preedit_text.len(),
+        )
+    }
+
     /// Returns a [`TextInputVisualRepresentation`] struct that contains all the fields necessary for rendering the text input,
     /// after making adjustments such as applying a substitution of characters for password input fields, or making sure
     /// that the selection start is always less or equal than the selection end.
@@ -2057,26 +2098,21 @@ impl TextInput {
         self: Pin<&Self>,
         password_character_fn: Option<fn() -> char>,
     ) -> TextInputVisualRepresentation {
-        let mut text = self.text();
+        let (text, composition) = self.text_with_preedit();
 
-        let preedit_text = self.preedit_text();
-        let (preedit_range, selection_range, cursor_position) = if !preedit_text.is_empty() {
-            let cursor_position = self.cursor_position(&text);
-
-            text =
-                [&text[..cursor_position], &preedit_text, &text[cursor_position..]].concat().into();
-            let preedit_range = cursor_position..cursor_position + preedit_text.len();
+        let (preedit_range, selection_range, cursor_position) = if !composition.is_empty() {
+            // Where the composition was inserted, i.e. the cursor within the pre-composition text.
+            let cursor_position = composition.start;
 
             if let Some(preedit_sel) = self.preedit_selection().as_option() {
                 let preedit_selection = cursor_position + preedit_sel.start as usize
                     ..cursor_position + preedit_sel.end as usize;
-                (preedit_range, preedit_selection, Some(cursor_position + preedit_sel.end as usize))
+                (composition, preedit_selection, Some(cursor_position + preedit_sel.end as usize))
             } else {
-                let cur = preedit_range.end;
-                (preedit_range, cur..cur, None)
+                let cur = composition.end;
+                (composition, cur..cur, None)
             }
         } else {
-            let preedit_range = Default::default();
             let (selection_anchor_pos, selection_cursor_pos) = self.selection_anchor_and_cursor();
             let selection_range = selection_anchor_pos..selection_cursor_pos;
             let cursor_position = self.cursor_position(&text);
@@ -2086,7 +2122,7 @@ impl TextInput {
             } else {
                 None
             };
-            (preedit_range, selection_range, cursor_position)
+            (composition, selection_range, cursor_position)
         };
 
         let text_color = self.color();
