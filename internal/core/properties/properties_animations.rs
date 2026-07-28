@@ -163,11 +163,6 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
             }
         }
     }
-
-    fn reset(&mut self) {
-        self.state = AnimationState::Delaying;
-        self.start_time = crate::animations::current_tick();
-    }
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -184,6 +179,11 @@ pub(super) struct AnimatedBindingCallable<T, A> {
     pub(super) state: Cell<AnimatedBindingState>,
     pub(super) animation_data: RefCell<PropertyValueAnimationData<T>>,
     pub(super) compute_animation_details: A,
+    /// Tick captured by `mark_dirty`
+    pub(super) dirty_time: Cell<crate::animations::Instant>,
+    /// True if the callable has ever completed a retarget. Since `animation_data` starts
+    /// with default values, they can equal the first target and can cause errors.
+    pub(super) has_started: Cell<bool>,
 }
 
 pub(super) type AnimationDetail = (PropertyAnimation, Option<crate::animations::Instant>);
@@ -213,18 +213,30 @@ unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> Bi
                 unsafe { self.original_binding.update(value as *mut T) };
             }
             AnimatedBindingState::ShouldStart => {
-                self.state.set(AnimatedBindingState::Animating);
                 let mut animation_data = self.animation_data.borrow_mut();
-                // animation_data.details.iteration_count = 1.;
-                animation_data.from_value = value.clone();
-                let (details, start_time) = (self.compute_animation_details)();
-                if let Some(start_time) = start_time {
-                    animation_data.start_time = start_time;
-                }
-                animation_data.details = details;
 
+                // Since `mark_dirty` fires when dependencies of `original_binding` changes
+                // if the change doesn't actually affect the computed value, it shouldn't restart
+                // the animation
+                let previous_to_value = animation_data.to_value.clone();
                 // Safety: `animation_data.to_value` is a valid mutable reference
                 unsafe { self.original_binding.update((&mut animation_data.to_value) as *mut T) };
+
+                if !self.has_started.get() || animation_data.to_value != previous_to_value {
+                    self.has_started.set(true);
+                    animation_data.state = AnimationState::Delaying;
+                    // Anchor timing to when the change was first signalled
+                    animation_data.start_time = self.dirty_time.get();
+                    // animation_data.details.iteration_count = 1.;
+                    animation_data.from_value = value.clone();
+                    let (details, start_time) = (self.compute_animation_details)();
+                    if let Some(start_time) = start_time {
+                        animation_data.start_time = start_time;
+                    }
+                    animation_data.details = details;
+                }
+
+                self.state.set(AnimatedBindingState::Animating);
                 let (val, finished) = animation_data.compute_interpolated_value();
                 *value = val;
                 if finished {
@@ -244,7 +256,7 @@ unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> Bi
         let original_dirty = self.original_binding.access(|b| b.unwrap().dirty.get());
         if original_dirty {
             self.state.set(AnimatedBindingState::ShouldStart);
-            self.animation_data.borrow_mut().reset();
+            self.dirty_time.set(crate::animations::current_tick());
         }
     }
 }
@@ -365,6 +377,8 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
                 PropertyAnimation::default(),
             )),
             compute_animation_details,
+            dirty_time: Cell::new(crate::animations::current_tick()),
+            has_started: Cell::new(false),
         };
 
         // Safety: the `AnimatedBindingCallable`'s type match the property type
@@ -990,6 +1004,61 @@ mod animation_tests {
             .with(|driver| driver.update_animations(start_time + DELAY + DURATION + DURATION / 2));
         assert_eq!(get_prop_value(&compo.width), 200);
         assert_eq!(get_prop_value(&compo.width_times_two), 400);
+    }
+
+    #[test]
+    fn properties_test_animation_triggered_by_binding_with_unrelated_dirty() {
+        // Reproduces the dependency not changing target bug: the binding driving the
+        // animated property (`row.1`) never changes, but an *unrelated* field of the
+        // same source value (`row.0`) is rewritten every frame, like a repeated item's
+        // model row being touched by `VecModel::set_row_data` every tick.
+        #[derive(Default)]
+        struct Component {
+            width: Property<i32>,
+            row: Property<(i32, bool)>,
+        }
+
+        let compo = Rc::pin(Component::default());
+
+        let animation_details = PropertyAnimation {
+            duration: DURATION.as_millis() as _,
+            iteration_count: 1.,
+            ..PropertyAnimation::default()
+        };
+
+        let w = PinWeak::downgrade(compo.clone());
+        compo.width.set_animated_binding(
+            move || {
+                let compo = w.upgrade().unwrap();
+                if get_prop_value(&compo.row).1 { 200 } else { 40 }
+            },
+            move || (animation_details.clone(), None),
+        );
+
+        compo.row.set((0, false));
+        assert_eq!(get_prop_value(&compo.width), 40);
+
+        let start_time = crate::animations::current_tick();
+
+        // Flip the field the animation depends on: this should kick off a 40 -> 200
+        // animation over DURATION.
+        compo.row.set((0, true));
+        assert_eq!(get_prop_value(&compo.width), 40);
+
+        // Simulate ~700 real frames (16ms each -- more than DURATION worth of real time
+        // in total)
+        let tick = core::time::Duration::from_millis(16);
+        for i in 1..=700u32 {
+            compo.row.set((i as i32, true));
+            crate::animations::CURRENT_ANIMATION_DRIVER
+                .with(|driver| driver.update_animations(start_time + tick * i));
+            // Poll every frame like a real renderer repainting
+            let _ = get_prop_value(&compo.width);
+        }
+
+        // After more than DURATION worth of real time has elapsed, the animation should
+        // have completed regardless of the unrelated per-frame writes to `row.0`.
+        assert_eq!(get_prop_value(&compo.width), 200);
     }
 
     #[test]

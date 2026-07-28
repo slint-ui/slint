@@ -330,6 +330,8 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
                 };
                 (anim, start_instant)
             },
+            dirty_time: Cell::new(crate::animations::current_tick()),
+            has_started: Cell::new(false),
         });
         handle.0.mark_dirty();
     }
