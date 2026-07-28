@@ -1830,8 +1830,13 @@ impl Expression {
                 } else if ctx.is_legacy_component()
                     && lookup.property_visibility == PropertyVisibility::Output
                 {
-                    ctx.diag
-                        .push_warning(format!("{what} on an output property is deprecated"), node);
+                    ctx.diag.push_warning(
+                        format!(
+                            "{what} on an '{}' property is deprecated",
+                            PropertyVisibility::Output
+                        ),
+                        node,
+                    );
                     true
                 } else {
                     ctx.diag.push_error(
