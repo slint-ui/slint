@@ -1941,12 +1941,13 @@ checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 [[package]]
 name = "dpi"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
 name = "dpi"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
+source = "git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893#988acf92aeb20c385e484e797c0463da2d7a2893"
 
 [[package]]
 name = "drm"
@@ -3532,7 +3533,7 @@ dependencies = [
  "sys-locale",
  "taffy",
  "tempfile",
- "tiny-skia 0.12.0",
+ "tiny-skia",
  "tokio",
  "tr",
  "ttf-parser",
@@ -5700,6 +5701,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "orbclient"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb08138df30517916447489a70848de31244c40c7b520bcf5ebdc9db6299da59"
+dependencies = [
+ "libredox",
+]
+
+[[package]]
 name = "ordered-float"
 version = "5.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6813,7 +6823,7 @@ dependencies = [
  "pico-args",
  "rgb",
  "svgtypes",
- "tiny-skia 0.12.0",
+ "tiny-skia",
  "usvg",
  "zune-jpeg",
 ]
@@ -7105,15 +7115,15 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "sctk-adwaita"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1dd3accc0f3f4bbaf2c9e1957a030dc582028130c67660d44c0a0345a22ca69b"
+checksum = "1f8ea028b7cb32e2f577b0a55a7b54cb206376bdb1221bd5c81dcf20b68db1fb"
 dependencies = [
  "ab_glyph",
  "log",
  "memmap2",
- "smithay-client-toolkit 0.20.0",
- "tiny-skia 0.11.4",
+ "smithay-client-toolkit 0.21.1",
+ "tiny-skia",
 ]
 
 [[package]]
@@ -7789,7 +7799,32 @@ dependencies = [
  "wayland-csd-frame",
  "wayland-cursor",
  "wayland-protocols",
- "wayland-protocols-experimental",
+ "wayland-protocols-experimental 20250721.0.1",
+ "wayland-protocols-misc",
+ "wayland-protocols-wlr",
+ "wayland-scanner",
+ "xkeysym",
+]
+
+[[package]]
+name = "smithay-client-toolkit"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74dc9ee14b0fdcb535f9556141bacac070c994a977d2240ee455d7438a617f00"
+dependencies = [
+ "bitflags 2.13.0",
+ "calloop 0.14.4",
+ "calloop-wayland-source 0.4.1",
+ "cursor-icon",
+ "log",
+ "memmap2",
+ "rustix 1.1.4",
+ "thiserror 2.0.18",
+ "wayland-client",
+ "wayland-csd-frame",
+ "wayland-cursor",
+ "wayland-protocols",
+ "wayland-protocols-experimental 20251230.0.3",
  "wayland-protocols-misc",
  "wayland-protocols-wlr",
  "wayland-scanner",
@@ -8307,20 +8342,6 @@ dependencies = [
 
 [[package]]
 name = "tiny-skia"
-version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83d13394d44dae3207b52a326c0c85a8bf87f1541f23b0d143811088497b09ab"
-dependencies = [
- "arrayref",
- "arrayvec",
- "bytemuck",
- "cfg-if",
- "log",
- "tiny-skia-path 0.11.4",
-]
-
-[[package]]
-name = "tiny-skia"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47ffee5eaaf5527f630fb0e356b90ebdec84d5d18d937c5e440350f88c5a91ea"
@@ -8331,18 +8352,7 @@ dependencies = [
  "cfg-if",
  "log",
  "png",
- "tiny-skia-path 0.12.0",
-]
-
-[[package]]
-name = "tiny-skia-path"
-version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c9e7fc0c2e86a30b117d0462aa261b72b7a99b7ebd7deb3a14ceda95c5bdc93"
-dependencies = [
- "arrayref",
- "bytemuck",
- "strict-num",
+ "tiny-skia-path",
 ]
 
 [[package]]
@@ -8921,7 +8931,7 @@ dependencies = [
  "siphasher",
  "strict-num",
  "svgtypes",
- "tiny-skia-path 0.12.0",
+ "tiny-skia-path",
  "ttf-parser",
  "unicode-bidi",
  "unicode-script",
@@ -9247,6 +9257,19 @@ name = "wayland-protocols-experimental"
 version = "20250721.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40a1f863128dcaaec790d7b4b396cc9b9a7a079e878e18c47e6c2d2c5a8dcbb1"
+dependencies = [
+ "bitflags 2.13.0",
+ "wayland-backend",
+ "wayland-client",
+ "wayland-protocols",
+ "wayland-scanner",
+]
+
+[[package]]
+name = "wayland-protocols-experimental"
+version = "20251230.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91c6c3e7178e553d093d46999032bc79aafea9dedd71dd702c8ace7bbc25cf13"
 dependencies = [
  "bitflags 2.13.0",
  "wayland-backend",
@@ -10174,7 +10197,7 @@ dependencies = [
  "objc2-app-kit 0.2.2",
  "objc2-foundation 0.2.2",
  "objc2-ui-kit 0.2.2",
- "orbclient",
+ "orbclient 0.3.55",
  "percent-encoding",
  "pin-project",
  "raw-window-handle",
@@ -10201,11 +10224,12 @@ dependencies = [
 [[package]]
 name = "winit"
 version = "0.31.0-beta.2"
+source = "git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893#988acf92aeb20c385e484e797c0463da2d7a2893"
 dependencies = [
  "bitflags 2.13.0",
  "cfg_aliases",
  "cursor-icon",
- "dpi 0.1.2",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893)",
  "libc",
  "raw-window-handle",
  "rustix 1.1.4",
@@ -10226,10 +10250,11 @@ dependencies = [
 [[package]]
 name = "winit-android"
 version = "0.31.0-beta.2"
+source = "git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893#988acf92aeb20c385e484e797c0463da2d7a2893"
 dependencies = [
  "android-activity 0.6.1",
  "bitflags 2.13.0",
- "dpi 0.1.2",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893)",
  "ndk 0.9.0",
  "raw-window-handle",
  "smol_str 0.3.2",
@@ -10240,11 +10265,12 @@ dependencies = [
 [[package]]
 name = "winit-appkit"
 version = "0.31.0-beta.2"
+source = "git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893#988acf92aeb20c385e484e797c0463da2d7a2893"
 dependencies = [
  "bitflags 2.13.0",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893)",
  "objc2 0.6.4",
  "objc2-app-kit 0.3.2",
  "objc2-core-foundation",
@@ -10261,6 +10287,7 @@ dependencies = [
 [[package]]
 name = "winit-common"
 version = "0.31.0-beta.2"
+source = "git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893#988acf92aeb20c385e484e797c0463da2d7a2893"
 dependencies = [
  "block2 0.6.2",
  "memmap2",
@@ -10277,10 +10304,11 @@ dependencies = [
 [[package]]
 name = "winit-core"
 version = "0.31.0-beta.2"
+source = "git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893#988acf92aeb20c385e484e797c0463da2d7a2893"
 dependencies = [
  "bitflags 2.13.0",
  "cursor-icon",
- "dpi 0.1.2",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893)",
  "keyboard-types 0.8.3",
  "raw-window-handle",
  "smol_str 0.3.2",
@@ -10291,11 +10319,12 @@ dependencies = [
 [[package]]
 name = "winit-orbital"
 version = "0.31.0-beta.2"
+source = "git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893#988acf92aeb20c385e484e797c0463da2d7a2893"
 dependencies = [
  "bitflags 2.13.0",
- "dpi 0.1.2",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893)",
  "libredox",
- "orbclient",
+ "orbclient 0.4.5",
  "raw-window-handle",
  "redox_event",
  "smol_str 0.3.2",
@@ -10306,11 +10335,12 @@ dependencies = [
 [[package]]
 name = "winit-uikit"
 version = "0.31.0-beta.2"
+source = "git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893#988acf92aeb20c385e484e797c0463da2d7a2893"
 dependencies = [
  "bitflags 2.13.0",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893)",
  "objc2 0.6.4",
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",
@@ -10325,11 +10355,12 @@ dependencies = [
 [[package]]
 name = "winit-wayland"
 version = "0.31.0-beta.2"
+source = "git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893#988acf92aeb20c385e484e797c0463da2d7a2893"
 dependencies = [
  "bitflags 2.13.0",
  "calloop 0.14.4",
  "cursor-icon",
- "dpi 0.1.2",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893)",
  "foldhash 0.2.0",
  "libc",
  "memmap2",
@@ -10337,7 +10368,7 @@ dependencies = [
  "raw-window-handle",
  "rustix 1.1.4",
  "sctk-adwaita",
- "smithay-client-toolkit 0.20.0",
+ "smithay-client-toolkit 0.21.1",
  "smol_str 0.3.2",
  "tracing",
  "wayland-backend",
@@ -10351,12 +10382,13 @@ dependencies = [
 [[package]]
 name = "winit-web"
 version = "0.31.0-beta.2"
+source = "git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893#988acf92aeb20c385e484e797c0463da2d7a2893"
 dependencies = [
  "atomic-waker",
  "bitflags 2.13.0",
  "concurrent-queue",
  "cursor-icon",
- "dpi 0.1.2",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893)",
  "js-sys",
  "pin-project",
  "raw-window-handle",
@@ -10372,10 +10404,11 @@ dependencies = [
 [[package]]
 name = "winit-win32"
 version = "0.31.0-beta.2"
+source = "git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893#988acf92aeb20c385e484e797c0463da2d7a2893"
 dependencies = [
  "bitflags 2.13.0",
  "cursor-icon",
- "dpi 0.1.2",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893)",
  "raw-window-handle",
  "smol_str 0.3.2",
  "tracing",
@@ -10388,12 +10421,13 @@ dependencies = [
 [[package]]
 name = "winit-x11"
 version = "0.31.0-beta.2"
+source = "git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893#988acf92aeb20c385e484e797c0463da2d7a2893"
 dependencies = [
  "bitflags 2.13.0",
  "bytemuck",
  "calloop 0.14.4",
  "cursor-icon",
- "dpi 0.1.2",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=988acf92aeb20c385e484e797c0463da2d7a2893)",
  "libc",
  "percent-encoding",
  "raw-window-handle",

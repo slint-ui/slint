@@ -1475,53 +1475,50 @@ impl WindowAdapter for WinitWindowAdapter {
     }
 
     fn set_position_anchor(&self, anchor: &i_slint_core::items::PopupAnchor) {
-        #[cfg(feature = "wayland")]
-        {
-            use winit::dpi::{LogicalPosition, LogicalSize};
+        use winit::dpi::{LogicalPosition, LogicalSize};
 
-            let offset = LogicalPosition::new(anchor.x as i32, anchor.y as i32);
-            let anchor_size = LogicalSize::new(anchor.width as i32, anchor.height as i32);
-            let winit_window_or_none = self.winit_window_or_none.borrow_mut();
-            match *winit_window_or_none {
-                WinitWindowOrNone::HasWindow { ref window, .. } => {
-                    if let Some(popup) = window.as_popup() {
-                        popup.set_gravity(gravity_to_winit(anchor.gravity));
-                        popup.set_anchor(anchor_to_winit(anchor.location));
-                        if let Some((position, _)) = popup.anchor_rect() {
-                            popup.set_anchor_rect(position, anchor_size.into());
-                        }
-                        popup.set_positioner_offset(offset.into());
-                        popup.set_constraint_adjustment(constraint_adjustment_to_winit(
-                            &anchor.constraint_adjustment_x,
-                            &anchor.constraint_adjustment_y,
-                        ));
+        let offset = LogicalPosition::new(anchor.x as i32, anchor.y as i32);
+        let anchor_size = LogicalSize::new(anchor.width as i32, anchor.height as i32);
+        let winit_window_or_none = self.winit_window_or_none.borrow_mut();
+        match *winit_window_or_none {
+            WinitWindowOrNone::HasWindow { ref window, .. } => {
+                if let Some(popup) = window.as_popup() {
+                    popup.set_gravity(gravity_to_winit(anchor.gravity));
+                    popup.set_anchor(anchor_to_winit(anchor.location));
+                    if let Some((position, _)) = popup.anchor_rect() {
+                        popup.set_anchor_rect(position, anchor_size.into());
                     }
+                    popup.set_positioner_offset(offset.into());
+                    popup.set_constraint_adjustment(constraint_adjustment_to_winit(
+                        &anchor.constraint_adjustment_x,
+                        &anchor.constraint_adjustment_y,
+                    ));
                 }
-                WinitWindowOrNone::None(ref window_attributes) => {
-                    use winit::dpi::{LogicalPosition, Position};
+            }
+            WinitWindowOrNone::None(ref window_attributes) => {
+                use winit::dpi::{LogicalPosition, Position};
 
-                    let anchor_position = window_attributes
-                        .borrow()
-                        .position
-                        .unwrap_or_else(|| Position::new(LogicalPosition::new(0., 0.)));
+                let anchor_position = window_attributes
+                    .borrow()
+                    .position
+                    .unwrap_or_else(|| Position::new(LogicalPosition::new(0., 0.)));
 
-                    if let winit::window::WindowType::Popup {
-                        anchor: popup_anchor,
-                        anchor_rect,
-                        positioner_offset,
-                        gravity,
-                        constraint_adjustment,
-                    } = &mut window_attributes.borrow_mut().window_type
-                    {
-                        *popup_anchor = Some(anchor_to_winit(anchor.location));
-                        *gravity = Some(gravity_to_winit(anchor.gravity));
-                        *anchor_rect = Some((anchor_position, anchor_size.into()));
-                        *positioner_offset = Some(offset.into());
-                        *constraint_adjustment = Some(constraint_adjustment_to_winit(
-                            &anchor.constraint_adjustment_x,
-                            &anchor.constraint_adjustment_y,
-                        ));
-                    }
+                if let winit::window::WindowType::Popup {
+                    anchor: popup_anchor,
+                    anchor_rect,
+                    positioner_offset,
+                    gravity,
+                    constraint_adjustment,
+                } = &mut window_attributes.borrow_mut().window_type
+                {
+                    *popup_anchor = Some(anchor_to_winit(anchor.location));
+                    *gravity = Some(gravity_to_winit(anchor.gravity));
+                    *anchor_rect = Some((anchor_position, anchor_size.into()));
+                    *positioner_offset = Some(offset.into());
+                    *constraint_adjustment = Some(constraint_adjustment_to_winit(
+                        &anchor.constraint_adjustment_x,
+                        &anchor.constraint_adjustment_y,
+                    ));
                 }
             }
         }
@@ -1920,7 +1917,6 @@ fn canvas_has_explicit_size_set(canvas: &web_sys::HtmlCanvasElement) -> bool {
         || computed_style.get_property_value("height").ok().as_deref() != Some("auto")
 }
 
-#[cfg(feature = "wayland")]
 fn anchor_to_winit(value: PopupAnchorLocation) -> winit::popup::PopupAnchor {
     match value {
         PopupAnchorLocation::Center => winit::popup::PopupAnchor::Center,
@@ -1939,7 +1935,6 @@ fn anchor_to_winit(value: PopupAnchorLocation) -> winit::popup::PopupAnchor {
     }
 }
 
-#[cfg(feature = "wayland")]
 fn gravity_to_winit(value: PopupGravity) -> winit::popup::PopupGravity {
     match value {
         PopupGravity::Center => winit::popup::PopupGravity::Center,

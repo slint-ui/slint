@@ -1867,6 +1867,20 @@ impl WindowInner {
         window_kind: WindowKind,
         is_open_setter: Box<dyn Fn(bool)>,
     ) -> NonZeroU32 {
+        {
+            let popup_window_adapter = {
+                let mut popup_window_adapter = None;
+                ItemTreeRc::borrow_pin(popup_componentrc)
+                    .as_ref()
+                    .window_adapter(false, &mut popup_window_adapter);
+                popup_window_adapter.expect("It must be there because we set the global")
+            };
+            std::println!(
+                "Window adapter check Window Inner show popup: {:?}",
+                Rc::as_ptr(&popup_window_adapter)
+            );
+        }
+
         // Popups live in their own ItemTree, which was invisible to any
         // earlier instantiation pass; materialize it before the layout queries below.
         crate::item_tree::ensure_item_tree_instantiated(popup_componentrc);
@@ -1962,6 +1976,18 @@ impl WindowInner {
                 .window_adapter(false, &mut popup_window_adapter);
             popup_window_adapter.expect("It must be there because we set the global")
         };
+
+        // {
+        //     std::println!(
+        //         "Window adapter check show_popup dynamic item tree 3: {}",
+        //         Rc::ptr_eq(&parent_window_adapter, (popup_component.get_vtable().window_adapter)())
+        //     );
+        // }
+
+        std::println!(
+            "Window adapter check Window Inner show popup: {}",
+            Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter)
+        );
 
         // If the window adapter of the popup window and the parent window are equal, create a ChildWindow
         // because we weren't able to create a dedicated popup adapter (for example if the backend does not support it).

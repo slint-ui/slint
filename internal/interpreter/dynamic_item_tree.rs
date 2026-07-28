@@ -2816,7 +2816,16 @@ pub fn show_popup(
     let popup_window_adapter = globals
         .window_adapter()
         .and_then(|window_adapter| window_adapter.get().cloned())
-        .unwrap_or_else(|| parent_window_adapter.clone());
+        .unwrap_or_else(|| {
+            println!("Using parent window adapter");
+            parent_window_adapter.clone()
+        });
+    println!(
+        "Window adapter check show_popup dynamic item tree: {}. Popup wa address: {:?}. Parend wa address: {:?}",
+        Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter,),
+        Rc::as_ptr(&popup_window_adapter),
+        Rc::as_ptr(&parent_window_adapter)
+    );
 
     // Keep a weak handle to the parent before `parent_comp` is moved into `instantiate`, so the
     // is-open setter (built below) can re-derive the parent instance when the popup closes.
@@ -2827,6 +2836,12 @@ pub fn show_popup(
         None,
         Some(&WindowOptions::UseExistingWindow(popup_window_adapter)),
         globals,
+    );
+    println!(
+        "Window adapter check show_popup dynamic item tree 2: {}. Popup wa address: {:?}. Parend wa address: {:?}",
+        Rc::ptr_eq(&parent_window_adapter, inst.window_adapter_ref().unwrap()),
+        Rc::as_ptr(&inst.window_adapter_ref().unwrap()),
+        Rc::as_ptr(&parent_window_adapter)
     );
     let inst_for_position = inst.clone();
     let access_position = Box::new(move || {
@@ -2867,6 +2882,23 @@ pub fn show_popup(
         } else {
             Box::new(|_| {})
         };
+
+    println!(
+        "Window adapter check show_popup dynamic item tree 3: {}. Popup wa address: {:?}",
+        Rc::ptr_eq(&parent_window_adapter, inst.window_adapter_ref().unwrap()),
+        Rc::as_ptr(&inst.window_adapter_ref().unwrap())
+    );
+
+    // {
+    //     let popup_window_adapter = {
+    //         let mut popup_window_adapter = None;
+    //         ItemTreeRc::borrow_pin(vtable::VRc::into_dyn(inst.clone()))
+    //             .as_ref()
+    //             .window_adapter(false, &mut popup_window_adapter);
+    //         popup_window_adapter.expect("It must be there because we set the global")
+    //     };
+    // }
+
     let popup_id = WindowInner::from_pub(parent_window_adapter.window()).show_popup(
         &vtable::VRc::into_dyn(inst.clone()),
         access_position,

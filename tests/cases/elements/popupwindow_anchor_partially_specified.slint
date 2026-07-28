@@ -1,6 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+export global MyGlobal {
+    in-out property <bool> popup-open: false;
+    in-out property <PopupAnchor> popup-anchor;
+
+    in-out property <bool> anchor-location-correct: popup-anchor.location == PopupAnchorLocation.bottom-left;
+    in-out property <bool> anchor-gravity-correct: popup-anchor.gravity == PopupGravity.bottom-right;
+
+    in-out property <length> anchor-x: popup-anchor.x;
+    in-out property <length> anchor-y: popup-anchor.y;
+    in-out property <length> anchor-width: popup-anchor.width;
+    in-out property <length> anchor-height: popup-anchor.height;
+}
+
 export component TestCase {
     width: 300px;
     height: 300px;
@@ -12,7 +25,17 @@ export component TestCase {
         }
     }
 
+    callback show-popup();
+    show-popup => {
+        default-popup.show();
+    }
+
     default-popup := PopupWindow {
+        init => {
+           MyGlobal.popup-open = true;
+           MyGlobal.popup-anchor = self.anchor;
+        }
+
         // Not all properties are specified
         anchor: {
             location: PopupAnchorLocation.bottom-left,
@@ -25,5 +48,26 @@ export component TestCase {
                 flip: true,
             }
         };
+
+        changed anchor => {
+            MyGlobal.popup-anchor = self.anchor;
+        }
     }
 }
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.global::<MyGlobal<'_>>().get_popup_open(), false);
+
+instance.invoke_show_popup();
+
+assert_eq!(instance.global::<MyGlobal<'_>>().get_popup_open(), true);
+
+assert_eq!(instance.global::<MyGlobal<'_>>().get_anchor_location_correct(), true);
+assert_eq!(instance.global::<MyGlobal<'_>>().get_anchor_gravity_correct(), true);
+
+assert_eq!(instance.global::<MyGlobal<'_>>().get_popup-anchor(), true);
+```
+*/
