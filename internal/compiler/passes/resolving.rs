@@ -2625,7 +2625,7 @@ fn resolve_two_way_bindings_for_element(
                             if lookup_ctx.is_legacy_component() {
                                 diag.push_warning(
                                     format!(
-                                        "Link to a {} property is deprecated",
+                                        "Link to an '{}' property is deprecated",
                                         rhs_lookup.property_visibility
                                     ),
                                     &node,
