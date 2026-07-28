@@ -1913,7 +1913,7 @@ fn cached_text_input_paragraphs<'a>(
 ) -> CachedParagraphsGuard<'a> {
     let cacheable = selection_and_color.is_none()
         && visual_representation.preedit_range.is_empty()
-        && !matches!(text_input.input_type(), crate::items::InputType::Password);
+        && !text_input.is_password();
     cached_paragraphs(
         cache.filter(|_| cacheable),
         Some(item_rc),
