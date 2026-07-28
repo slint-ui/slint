@@ -416,7 +416,7 @@ module.exports = grammar({
       ),
 
     wildcard_match_case: ($) =>
-      seq("*", ":", $.component),
+      seq("*", ":", choice($.component, seq("{", "}"))),
 
     type_list: ($) => seq("[", commaSep($.type), optional(","), "]"),
 
