@@ -2084,10 +2084,7 @@ impl Layout {
                 let bg_color = default_text_color.transparentize(0.9);
                 let bg_rect = PhysicalRect::new(
                     PhysicalPoint::new(0.0, y.get()),
-                    PhysicalSize::new(
-                        self.max_width.get(),
-                        para_height.get()
-                    ),
+                    PhysicalSize::new(self.max_width.get(), para_height.get()),
                 );
                 item_renderer.fill_rectangle_with_color(bg_rect, bg_color);
             }
