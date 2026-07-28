@@ -47,7 +47,8 @@ const ID_MARKER = /\s*\{#(sls\.[a-z0-9.\-_]+)\}\s*$/;
 // `notInSC: true`. Separator-agnostic so the checks also hold on Windows
 // paths, and anchored on `content/docs/` so an unrelated directory in the
 // checkout path can't match.
-const SPEC_PATH = /[\\/]content[\\/]docs[\\/](reference[\\/])?(language|property-types)[\\/]/;
+const SPEC_PATH =
+    /[\\/]content[\\/]docs[\\/](reference[\\/])?(language|property-types)[\\/]/;
 const GENERATED_REFERENCE_PATH =
     /[\\/]content[\\/]docs[\\/]generated[\\/]reference[\\/]/;
 
@@ -118,7 +119,8 @@ export default function rehypeSlsIds({
         // -- the latter wraps normative prose in components like
         // <SlintProperty>, so an untagged nested paragraph there is a mistake
         // and fails the build rather than slipping through.
-        const isPropertyTypes = isSpec && /[\\/]property-types[\\/]/.test(sourcePath);
+        const isPropertyTypes =
+            isSpec && /[\\/]property-types[\\/]/.test(sourcePath);
         const requiredAtAnyDepth = isNormativeReference || isPropertyTypes;
 
         // Tracks ids claimed during *this* invocation, so re-processing the

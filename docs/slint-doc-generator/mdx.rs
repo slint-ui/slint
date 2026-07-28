@@ -65,8 +65,7 @@ fn write_builtin_structs_and_enums(
 
     let structs_path = generated_dir.join("builtin-structs.mdx");
     let mut file = BufWriter::new(
-        std::fs::File::create(&structs_path)
-            .context(format!("error creating {structs_path:?}"))?,
+        std::fs::File::create(&structs_path).context(format!("error creating {structs_path:?}"))?,
     );
     writeln!(
         file,
