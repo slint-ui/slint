@@ -60,7 +60,7 @@ export component CorrectCalculator {
 // Missing members - property, callback and function each report distinctly.
 export component MissingProperty {
     implement ValidInterface <=> self;
-//            >             <error{Cannot implement 'ValidInterface'.↵- missing 'value', an in-out 'int' property}
+//            >             <error{Cannot implement 'ValidInterface'.↵- missing 'in-out property <int> value;'}
 
     callback speak();
     public function reset() {}
@@ -68,7 +68,7 @@ export component MissingProperty {
 
 export component MissingCallback {
     implement ValidInterface <=> self;
-//            >             <error{Cannot implement 'ValidInterface'.↵- missing 'speak', a 'callback() -> void'}
+//            >             <error{Cannot implement 'ValidInterface'.↵- missing 'callback speak();'}
 
     in-out property <int> value;
     public function reset() {}
@@ -76,7 +76,7 @@ export component MissingCallback {
 
 export component MissingFunction {
     implement Calculator <=> self;
-//            >         <error{Cannot implement 'Calculator'.↵- missing 'add', a 'public pure function(int, int) -> int'}
+//            >         <error{Cannot implement 'Calculator'.↵- missing 'pure public function add(int, int) -> int { }'}
 
     in-out property <int> value;
     callback notify();
