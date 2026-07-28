@@ -166,10 +166,8 @@ export default defineConfig({
                             label: "File Structure",
                             slug: "language/file-structure",
                         },
-                        // {
-                        //     label: "Imports",
-                        //     slug: "language/imports",
-                        // },
+                        // The Imports chapter is marked notInSC; list it here
+                        // once imports come into the SC subset.
                         {
                             label: "Exports",
                             slug: "language/exports",
@@ -181,6 +179,10 @@ export default defineConfig({
                         {
                             label: "Bindings",
                             slug: "language/bindings",
+                        },
+                        {
+                            label: "Expressions",
+                            slug: "language/expressions",
                         },
                         {
                             label: "Types",

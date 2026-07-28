@@ -1,34 +1,25 @@
 ---
 title: Imports
-description: Bringing components from other files into scope.
-# Unpublished placeholder; drop `draft` and uncomment the sidebar entries in
-# both docs/astro/astro.config.mjs and docs/safety/astro.config.mjs once
-# imports come into scope.
-draft: true
+description: Bringing declarations from other files into scope.
+notInSC: true
 ---
 
-Imports are not yet covered by this revision of the specification.
-
-{/*
-Draft content; will be uncommented once imports come into scope.
+An import statement brings exported declarations from another file into the importing file's namespace. \{#sls.import.semantics}
 
 ## Placement
 
-Import statements may appear at the top level of a `.slint` source file, interleaved with [component definitions](../file-structure/#sls.file.component.definition-forms). \{#sls.import.placement}
+Import statements appear at the top level of a `.slint` source file,
+interleaved with [component definitions](../file-structure/#sls.file.component.definition-forms) and [exports](../exports/). \{#sls.import.placement}
 
-## Form
+## Named Imports
 
-An import statement has the form: \{#sls.import.forms}
+A named import has the form: \{#sls.import.forms}
 
 ```slint no-test
 import { Item, ... } from "path";
 ```
 
-It brings named items from the file referenced by `"path"` into the importing file's namespace. \{#sls.import.semantics}
-
-## Import Lists
-
-The brace-delimited list contains zero or more *import items* separated by commas.
+The brace-delimited list contains one or more *import items* separated by commas.
 A trailing comma is permitted. \{#sls.import.list}
 
 An import item is either: \{#sls.import.item}
@@ -41,25 +32,46 @@ A bare identifier `Name` brings the corresponding exported name from the importe
 A renaming `Name as Other` brings the corresponding exported name into the current file's namespace under the name `Other` only.
 The original name `Name` is not introduced. \{#sls.import.rename}
 
-The identifier on the left of `as` shall refer to a name exported by the imported file. \{#sls.import.left-must-exist}
+The name on the left of `as` must be exported by the imported file. \{#sls.import.left-must-exist}
 
-TODO: extend this rule when structs, enums, and globals come into scope of the specification.
+An imported name refers to a component, struct, enum, or global. \{#sls.import.kinds}
 
-An imported name shall refer to a component. \{#sls.import.component-only}
+Two import items in the same source file can't introduce the same name. \{#sls.import.no-clash}
 
 ## Import Paths
 
 An import path is a double-quoted string literal.
 Backslash escape sequences are recognized as in any other string literal. \{#sls.import.path-literal}
 
-If the path begins with the character `@`, it is a *library import*: the remainder of the path is resolved against the compiler's configured library paths. \{#sls.import.path-library}
+If the path begins with the character `@`, it is a *library import*:
+the remainder of the path is resolved against the [component libraries](../../../guide/language/coding/file/#component-libraries) configured in the build system. \{#sls.import.path-library}
 
-Otherwise, the path is resolved first relative to the directory of the importing source file, then against the compiler's configured include paths.
+Otherwise, the path is resolved first relative to the directory of the importing source file,
+then against the compiler's configured include paths.
 The first match in this search order is used. \{#sls.import.path-relative}
 
-The referenced file shall exist and shall be a Slint source file. \{#sls.import.path-must-exist}
+The referenced file must exist. \{#sls.import.path-must-exist}
 
-## Name Clashes
+## File Imports
 
-Two import items in the same source file shall not introduce the same name. \{#sls.import.no-clash}
-*/}
+An import statement without an import list makes the referenced file available to the compiler: \{#sls.import.file}
+
+```slint no-test
+import "./NotoSans-Regular.ttf";
+```
+
+Importing a font file (`.ttf` or `.otf`) registers the font for use in the application;
+see [Fonts](../../../guide/development/fonts/). \{#sls.import.file-font}
+
+## Re-Exports
+
+An [export](../exports/) statement with a `from` clause imports declarations and exports them again in one step: \{#sls.export.reexport}
+
+```slint no-test
+export { Item, ... } from "path";
+export * from "path";
+```
+
+The `*` form exports every declaration the referenced file exports.
+It can appear at most once per file.
+The path resolves like any other [import path](#import-paths). \{#sls.export.reexport-all}

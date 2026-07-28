@@ -1,0 +1,145 @@
+---
+title: Operators
+description: The operators of the Slint language.
+notInSC: true
+---
+
+Slint has arithmetic, comparison, logical, and ternary operators, plus member access and indexing.
+Every operator requires operands of specific types; Slint applies no implicit coercions beyond the
+few listed here, and mismatched operand types are a compile error.
+
+## Precedence and associativity
+
+The following table lists all operators from loosest to tightest binding.
+Operators on the same row share a precedence level.
+
+| Operators              | Description                          | Associativity   |
+| ---------------------- | ------------------------------------ | --------------- |
+| `? :`                  | Ternary conditional                  | right           |
+| `\|\|` `&&`            | Logical *or*, logical *and*          | non-associative |
+| `==` `!=` `<` `>` `<=` `>=` | Comparison                     | non-associative |
+| `+` `-`                | Addition/concatenation, subtraction  | left            |
+| `*` `/`                | Multiplication, division             | left            |
+| `+` `-` `!` (unary)    | Plus, negation, logical *not*        | prefix          |
+| `.` `[]`               | Member access, indexing              | left            |
+
+Parentheses group a nested expression to override precedence.
+There is no modulo operator; use [`Math.mod`](../../global-functions/math/) instead.
+A `%` after a number is a unit (percent), not an operator.
+Slint has no bitwise, shift, increment, decrement, or assignment operators; a binding uses `:` and a
+[two-way binding](../two-way-bindings/) uses `<=>`.
+
+Comparison operators are non-associative: writing `a == b == c` or `a < b < c` is an error, and the
+operands must be parenthesized to disambiguate.
+`&&` and `||` are likewise non-associative with respect to each other: `a && b || c` is an error, and
+one side must be parenthesized.
+
+```slint
+export component Example {
+    in-out property <int> p: 1 * 2 + 3 * 4; // same as (1 * 2) + (3 * 4)
+}
+```
+
+## Arithmetic operators
+
+The binary operators `+`, `-`, `*`, and `/` operate on numbers (`int`, `float`, `percent`) and on
+types that carry a unit (`length`, `physical-length`, `duration`, `angle`, `rem`).
+
+- `+` and `-` require both operands to be the same type, or one operand to be a plain number.
+  Values of two different units cannot be added or subtracted.
+- `*` multiplies a value by a number, or two values with units, producing a unit product
+  (for example `1px * 1px` has type `px²`).
+- `/` divides a value by a number, or by another value.
+  Dividing two values of the same unit yields a plain number, so `self.width / 1px` is the width as a `float`.
+
+```slint
+export component Example {
+    in-out property <length> w: 10px + 2px;      // ok, same unit
+    in-out property <length> h: 10px * 2;        // ok, length times number
+    in-out property <float>  r: self.w / self.h; // ok, length over length
+}
+```
+
+## String concatenation
+
+The `+` operator also concatenates strings: if either operand is a `string`, the result is a `string`.
+A number operand (`int` or `float`) is converted to its string form.
+No other type is coerced to `string`, so combining a `string` with, for example, a `length` is an error;
+use a [string template](../../property-types/builtin-types/#string) to interpolate other types.
+
+```slint
+export component Example {
+    out property <string> s: "count: " + 42; // "count: 42"
+}
+```
+
+## Comparison operators
+
+The operators `==`, `!=`, `<`, `>`, `<=`, and `>=` compare two values and produce a `bool`.
+Both operands must resolve to a common type.
+
+- `==` and `!=` apply to any comparable common type.
+- `<`, `>`, `<=`, and `>=` apply only to numbers, unit-bearing types, and `string`;
+  ordering values of any other type is an error.
+
+Comparison operators do not chain; parenthesize to combine them.
+
+## Logical operators
+
+The binary operators `&&` (and) and `||` (or) take two `bool` operands and produce a `bool`.
+The unary `!` operator negates a `bool`.
+Operands of these operators must be `bool`; no other type is coerced to `bool`.
+
+## Unary operators
+
+The prefix operators are `+`, `-`, and `!`.
+
+- `+` and `-` apply to numbers and unit-bearing types.
+- `!` applies to `bool`.
+
+```slint
+export component Example {
+    in-out property <int> a: -5;
+    in-out property <bool> b: !true;
+}
+```
+
+## Ternary operator
+
+The ternary operator `condition ? value1 : value2` evaluates `condition`, which must be a `bool`, and
+yields `value1` when it is true and `value2` otherwise.
+Both branches must resolve to a common type, which becomes the type of the whole expression.
+It associates to the right, so chained conditions read as nested `else` branches:
+
+```slint
+export component Example inherits Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+
+    Rectangle {
+        touch := TouchArea {}
+        background: touch.pressed ? #111 : #eee;
+        border-width: 5px;
+        border-color: !touch.enabled ? #888
+            : touch.pressed ? #aaa
+            : #555;
+    }
+}
+```
+
+## Member access and indexing
+
+A `.` accesses a property, function, or callback of an element by [name](../name-resolution/),
+and a field of a [struct](../structs-and-enums/) value:
+
+```slint
+export component Example {
+    foo := Rectangle {
+        x: 42px;
+    }
+    x: foo.x;
+}
+```
+
+An `[index]` in square brackets accesses an element of an [array](../../property-types/arrays-and-models/) by
+a zero-based integer index.

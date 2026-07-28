@@ -1,0 +1,79 @@
+---
+title: Arrays and Models
+description: Array types, array literals, and their operations.
+---
+
+An *array* type holds an ordered, zero-indexed sequence of values of a single element type.
+It is written by wrapping the element type in `[` and `]` square brackets:
+
+```slint no-test
+[int]
+[string]
+[{ a: int, b: string }]
+[[int]]
+```
+
+The element type may be any type, including a struct type and another array type.
+
+A value of an array type is a *model*: it is what a [`for` element](../../language/repetition-and-conditional-elements/) iterates.
+A property of an array type, and an array literal, both act as models.
+Native code can also supply a model implementation for an array property, which the same operations act on.
+
+## Literals
+
+An array literal lists its elements between `[` and `]`, separated by commas:
+
+```slint
+export component Example {
+    in-out property<[int]> list-of-int: [1, 2, 3];
+    in-out property<[{a: int, b: string}]> list-of-structs: [{ a: 1, b: "hello" }, { a: 2, b: "world" }];
+}
+```
+
+Each element must have the array's element type.
+An empty literal `[]` is a model with no elements.
+
+## Operations
+
+The following operations apply to a value of an array type.
+
+- `array.length` reads the number of elements as an `int`.
+  It is read-only; it cannot be assigned.
+- `array[index]` reads the element at the zero-based `index`.
+  The index is an `int`.
+- `array[index] = value` writes the element at `index`.
+  The array must be writable in that context.
+- `array.push(value)` appends `value` as a new last element.
+  `value` must have the element type.
+- `array.remove(index)` removes the element at `index`.
+- `array.insert(index, value)` inserts `value` before the element at `index`, shifting later elements up.
+  `value` must have the element type.
+
+`length`, `push`, `remove`, and `insert` are members of the array; `index` is written with the `[ ]` operator.
+
+## Out-of-bounds behavior
+
+Access outside the current bounds does not raise an error; each operation defines its own result.
+
+- `array[index]` with `index < 0` or `index >= array.length` returns the default value of the element type.
+- `array[index] = value` with `index < 0` or `index >= array.length` does nothing.
+- `array.remove(index)` accepts `0 <= index < array.length`.
+  Any other `index` leaves the array unchanged.
+- `array.insert(index, value)` accepts `0 <= index <= array.length`, so inserting at `array.length` appends.
+  Any other `index` leaves the array unchanged.
+
+```slint
+export component Example {
+    in-out property<[int]> list-of-int: [1, 2, 3];
+
+    out property <int> len: list-of-int.length;   // 3
+    out property <int> first: list-of-int[0];      // 1
+    out property <int> past-end: list-of-int[5];   // 0, the default int
+
+    init => {
+        // Both do nothing; list-of-int still holds [1, 2, 3].
+        list-of-int.remove(4);
+        list-of-int.insert(4, 10);
+    }
+}
+```

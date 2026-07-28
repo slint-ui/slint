@@ -60,17 +60,9 @@ Similarly the 2 text items are updating by tracking the rectangle's `x` and `y` 
 
 ## Overwritten Bindings
 
-Bindings in Slint are only active as long as the property is assigned using a binding expression (`x: other.value`) or a two-way binding (`<=>`).
-If a property's value is later changed using an imperative assignment in code (e.g. `foo.bar = 42;`), the original binding is broken.
-From that point on, the property will no longer react to changes in the values it was previously bound to.
-If needed, the property can still be updated again later through another assignment, but the automatic reactivity is lost.
-
-This behavior also applies to most built-in `in-out` properties, such as the `text` property of a `TextInput`.
-When the user interacts with the widget, for example by typing into the input,
-this is considered an imperative assignment that will break any existing binding to that property.
-
-To maintain reactivity in such cases, you can use a two-way binding (`<=>`),
-or you can make use of the `changed` callback to track and respond to property updates.
+A binding stays active only as long as the property keeps it:
+assigning a value in code (`foo.bar = 42;`) breaks the binding, and the property stops reacting.
+The [Evaluation and Purity](../../../../reference/language/evaluation-and-purity/) chapter describes the exact rules.
 
 ## Performance
 
@@ -143,64 +135,11 @@ This also truncates the x and y values to be more readable i.e. '4' instead of '
 
 ## Purity
 
-For any reactive system to work well, evaluating a property shouldn't change any
-observable state but the property itself. If this is the case, then the expression
-is "pure", otherwise it's said to have side-effects. Side-effects are problematic
-because it's not always clear when they will happen: Lazy evaluation may change
-their order or affect whether they happen at all. In addition, changes to
-properties during their binding evaluation due to a side-effect may result in
-unexpected behavior.
-
-For this reason, bindings in Slint **must** be pure. The Slint compiler enforces
-code in pure contexts to be free of side effects. Pure contexts include binding
-expressions, bodies of pure functions, and bodies of pure callback handlers.
-In such a context, it's not allowed to change a property, or call a non-pure
-callback or function.
-
-Annotate callbacks and public functions with the `pure` keyword to make them
-accessible from property bindings and other pure callbacks and functions.
-
-The purity of private functions is automatically inferred. You may declare
-private functions explicitly "pure" to have the compiler enforce their purity.
-
-```slint
-export component Example {
-    pure callback foo() -> int;
-    public pure function bar(x: int) -> int
-    { return x + foo(); }
-}
-```
-
-
+Bindings must be free of side effects, and the compiler enforces this in pure contexts.
+Mark callbacks and public functions with the `pure` keyword to call them from bindings;
+see [Evaluation and Purity](../../../../reference/language/evaluation-and-purity/#purity).
 
 ## Two-Way Bindings
 
-Create two-way bindings between properties with the `<=>` syntax. These properties will be linked
-together and always contain the same value. Also known as bidirectional or bi-directional bindings.
-
-The right hand side of the `<=>` must be a reference to a property of the same type,
-or a field of the same type within a property of struct type.
-Inside a `for` loop, it can also be the value of a model, which is kept in sync.
-The property type is optional with two-way bindings, it will be inferred if not specified.
-The initial value of a linked property will be the value of the right hand side of the binding.
-The two linked properties must be compatible in terms of input/output.
-
-The initial value of a linked property will be the value of the right hand side of the binding.
-
-```slint
-struct Thing { name: string, price: int }
-
-export component Example  {
-    in property<brush> rect-color <=> r.background;
-    // It's allowed to omit the type to have it automatically inferred
-    in property rect-color2 <=> r.background;
-    in-out property<Thing> thing;
-    r:= Rectangle {
-        background: blue;
-    }
-    input := TextInput {
-        // The `thing.name` field will be sync'ed with the text when the user edits
-        text <=> root.thing.name;
-    }
-}
-```
+The `<=>` syntax links two properties so that they always contain the same value;
+see [Two-Way Bindings](../../../../reference/language/two-way-bindings/) in the language reference.

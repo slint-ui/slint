@@ -4,6 +4,8 @@
 // Sync the language-specification chapters from their canonical location in
 // the main Slint docs (docs/astro/src/content/docs/reference/language/) into
 // this site's src/content/docs/language/ directory, which is gitignored.
+// Chapters with `notInSC: true` in their frontmatter cover the full language
+// only and are left out.
 //
 // The chapters use relative links so that they resolve in both sites. Links
 // that point outside the specification differ per site and are rewritten via
@@ -16,6 +18,11 @@ import { fileURLToPath } from "node:url";
 // Links that leave the specification directory: canonical (docs/astro) form
 // on the left, safety-manual form on the right.
 const LINK_MAP = new Map([["](../overview/)", "](../reference/)"]]);
+
+function isNotInSC(content) {
+    const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    return frontmatter != null && /^notInSC:\s*true\s*$/m.test(frontmatter[1]);
+}
 
 const here = dirname(fileURLToPath(import.meta.url));
 const source = join(here, "../../astro/src/content/docs/reference/language");
@@ -31,8 +38,11 @@ for (const entry of readdirSync(source)) {
     if (!entry.endsWith(".md") && !entry.endsWith(".mdx")) {
         continue;
     }
-    wanted.add(entry);
     let content = readFileSync(join(source, entry), "utf-8");
+    if (isNotInSC(content)) {
+        continue;
+    }
+    wanted.add(entry);
     for (const [from, to] of LINK_MAP) {
         content = content.replaceAll(from, to);
     }

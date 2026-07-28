@@ -36,6 +36,16 @@ export default defineConfig({
     site: `${BASE_URL}${BASE_PATH}`,
     base: BASE_PATH,
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
+    // Pages that moved into the language reference. Astro serves the source
+    // routes under the base path but uses the destinations verbatim, so they
+    // need the prefix.
+    redirects: {
+        "/reference/primitive-types/": `${BASE_PATH}reference/property-types/builtin-types/`,
+        "/reference/colors-and-brushes/": `${BASE_PATH}reference/property-types/colors-and-brushes/`,
+        "/reference/language/builtin-types/": `${BASE_PATH}reference/property-types/builtin-types/`,
+        "/reference/language/colors-and-brushes/": `${BASE_PATH}reference/property-types/colors-and-brushes/`,
+        "/reference/language/arrays-and-models/": `${BASE_PATH}reference/property-types/arrays-and-models/`,
+    },
     markdown: {
         gfm: true,
         rehypePlugins: [
@@ -289,10 +299,14 @@ export default defineConfig({
                                         label: "File Structure",
                                         slug: "reference/language/file-structure",
                                     },
-                                    // {
-                                    //     label: "Imports",
-                                    //     slug: "reference/language/imports",
-                                    // },
+                                    {
+                                        label: "Name Resolution",
+                                        slug: "reference/language/name-resolution",
+                                    },
+                                    {
+                                        label: "Imports",
+                                        slug: "reference/language/imports",
+                                    },
                                     {
                                         label: "Exports",
                                         slug: "reference/language/exports",
@@ -306,43 +320,103 @@ export default defineConfig({
                                         slug: "reference/language/bindings",
                                     },
                                     {
+                                        label: "Two-Way Bindings",
+                                        slug: "reference/language/two-way-bindings",
+                                    },
+                                    {
+                                        label: "Expressions",
+                                        slug: "reference/language/expressions",
+                                    },
+                                    {
+                                        label: "Operators",
+                                        slug: "reference/language/operators",
+                                    },
+                                    {
+                                        label: "Statements",
+                                        slug: "reference/language/statements",
+                                    },
+                                    {
+                                        label: "Functions",
+                                        slug: "reference/language/functions",
+                                    },
+                                    {
+                                        label: "Callbacks",
+                                        slug: "reference/language/callbacks",
+                                    },
+                                    {
+                                        label: "Evaluation and Purity",
+                                        slug: "reference/language/evaluation-and-purity",
+                                    },
+                                    {
                                         label: "Types",
                                         slug: "reference/language/types",
+                                    },
+                                    {
+                                        label: "Structs and Enums",
+                                        slug: "reference/language/structs-and-enums",
+                                    },
+                                    {
+                                        label: "Globals",
+                                        slug: "reference/language/globals",
+                                    },
+                                    {
+                                        label: "Repetition and Conditional Elements",
+                                        slug: "reference/language/repetition-and-conditional-elements",
+                                    },
+                                    {
+                                        label: "Container Components",
+                                        slug: "reference/language/container-components",
+                                    },
+                                    {
+                                        label: "Animations",
+                                        slug: "reference/language/animations",
+                                    },
+                                    {
+                                        label: "States and Transitions",
+                                        slug: "reference/language/states-and-transitions",
                                     },
                                     {
                                         label: "Geometry",
                                         slug: "reference/language/geometry",
                                     },
+                                    {
+                                        label: "Macros",
+                                        slug: "reference/language/macros",
+                                    },
                                 ],
                             },
                             {
-                                label: "Types and Properties",
+                                label: "Property Types",
                                 collapsed: true,
                                 items: [
                                     {
-                                        label: "Primitive Types",
-                                        slug: "reference/primitive-types",
+                                        label: "Overview",
+                                        slug: "reference/property-types",
                                     },
+                                    {
+                                        label: "Built-In Types",
+                                        slug: "reference/property-types/builtin-types",
+                                    },
+                                    {
+                                        label: "Colors & Brushes",
+                                        slug: "reference/property-types/colors-and-brushes",
+                                    },
+                                    {
+                                        label: "Arrays and Models",
+                                        slug: "reference/property-types/arrays-and-models",
+                                    },
+                                ],
+                            },
+                            {
+                                label: "Elements",
+                                collapsed: true,
+                                items: [
                                     {
                                         label: "Common Properties & Callbacks",
                                         slug: "reference/common",
                                     },
                                     {
-                                        label: "Colors & Brushes",
-                                        slug: "reference/colors-and-brushes",
-                                    },
-                                    {
-                                        label: "Timer",
-                                        slug: "reference/timer",
-                                    },
-                                ],
-                            },
-                            {
-                                label: "Visual Elements",
-                                collapsed: true,
-                                items: [
-                                    {
-                                        label: "Basic Elements",
+                                        label: "Basic Visual Elements",
                                         items: [
                                             {
                                                 autogenerate: {
@@ -430,6 +504,15 @@ export default defineConfig({
                                                     directory:
                                                         "generated/reference/window",
                                                 },
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        label: "Non-Visual Elements",
+                                        items: [
+                                            {
+                                                label: "Timer",
+                                                slug: "reference/timer",
                                             },
                                         ],
                                     },

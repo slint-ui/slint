@@ -24,7 +24,12 @@
 // also checked for completeness -- a normative paragraph without an
 // identifier fails the build -- covering top-level paragraphs of the
 // specification (nested ones are asides and list items) and every paragraph
-// of the generated reference.
+// of the generated reference. A specification chapter with `notInSC: true`
+// in its frontmatter covers the full language only: the safety manual leaves
+// it out, so it states no requirements and its markers are dropped like on
+// any other page that carries no identifiers -- an anchor there would
+// dead-link from the traceability matrix. The markers stay in the source for
+// when the chapter joins the subset.
 //
 // The same marker format lives in `split_marker` in
 // docs/slint-doc-generator/traceability.rs and in the `.sls-id` styling in
@@ -97,10 +102,13 @@ export default function rehypeSlsIds({
             isOwnPage &&
             !isSpec &&
             GENERATED_REFERENCE_PATH.test(sourcePath);
-        const assignsIds = isSpec || isNormativeReference;
-
+        const frontmatter = file?.data?.astro?.frontmatter;
+        // A `notInSC: true` chapter is outside the safety corpus, so it
+        // carries no identifiers and its markers are dropped.
+        const notInSC = isSpec && Boolean(frontmatter?.notInSC);
+        const assignsIds = (isSpec && !notInSC) || isNormativeReference;
         // Draft pages aren't published, so they need no ids.
-        const requireIds = assignsIds && !file?.data?.astro?.frontmatter?.draft;
+        const requireIds = assignsIds && !frontmatter?.draft;
         // In the specification, only top-level paragraphs are normative:
         // nested ones are asides and list items. Every paragraph of the
         // generated SC reference is normative, at any depth.
