@@ -2814,7 +2814,7 @@ impl Element {
                 } else {
                     diag.push_error(
                         format!(
-                            "Cannot assign to {} property '{}'",
+                            "Cannot assign to '{}' property '{}'",
                             lookup_result.property_visibility, unresolved_name
                         ),
                         &name_token,
