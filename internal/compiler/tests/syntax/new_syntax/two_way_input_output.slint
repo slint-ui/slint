@@ -372,7 +372,7 @@ export Legacy1 := Rectangle {
     property <bool> p1;
     Button {
         pressed <=> p1;
-//      >     <warning{Assigning to output property 'pressed' is deprecated}
+//      >     <warning{Assigning to 'out' property 'pressed' is deprecated}
         clicked => {
             p1 = !p1;
             out1 = !out1;
@@ -409,23 +409,23 @@ export Legacy2 := Rectangle {
 //           >      <error{Cannot assign to 'private' property 'internal'}
 
     Button { pressed <=> self.pressed; }
-//           >     <warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to 'out' property 'pressed' is deprecated}
     Button { pressed <=> self.checked; }
-//           >     <warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to 'out' property 'pressed' is deprecated}
     Button { pressed <=> self.enabled; }
-//           >     <warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to 'out' property 'pressed' is deprecated}
     Button { pressed <=> self.accessible-checked; }
-//           >     <warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to 'out' property 'pressed' is deprecated}
     Button { pressed <=> self.internal; }
-//           >     <warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to 'out' property 'pressed' is deprecated}
 //                            >      <^error{The property 'internal' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
     Button { pressed <=> out; }
-//           >     <warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to 'out' property 'pressed' is deprecated}
     Button { pressed <=> in; }
-//           >     <warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to 'out' property 'pressed' is deprecated}
     Button { pressed <=> inout; }
-//           >     <warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to 'out' property 'pressed' is deprecated}
     Button { pressed <=> priv; }
-//           >     <warning{Assigning to output property 'pressed' is deprecated}
+//           >     <warning{Assigning to 'out' property 'pressed' is deprecated}
 
 }
