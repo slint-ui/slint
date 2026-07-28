@@ -47,8 +47,50 @@ export component Example {
 }
 ```
 
-For the full syntax — `{}` placeholders, plural forms, and translation contexts — see the
-[Macros](../../../reference/language/macros/#tr) chapter of the language reference.
+### Formatting
+
+Each `{}` placeholder in the format string is replaced with the corresponding argument, in order.
+A placeholder can name a zero-based position, as in `{0}` or `{1}`, to pick an argument explicitly.
+Positional and non-positional placeholders can't be mixed in one format string.
+A translation may use positional placeholders even when the source string doesn't.
+
+Write a literal `{` or `}` by doubling it, as `{{` or `}}`.
+An unterminated placeholder, an unescaped `{` or `}`, or more placeholders than arguments is an error.
+
+### Plurals
+
+A plural form picks between two format strings based on a count.
+Write it with `|` between the two string literals and `%` before the count expression:
+
+```slint no-test
+@tr("I have {n} item" | "I have {n} items" % count)
+```
+
+Both sides of the `|` must be plain string literals, and the count expression is converted to `int`.
+The `{n}` placeholder refers to the count and is only valid in a plural form.
+Other placeholders still refer to the arguments after the count:
+
+```slint
+export component Example inherits Text {
+    in property <int> score;
+    in property <int> name;
+    text: @tr("Hello {0}, you have one point" | "Hello {0}, you have {n} points" % score, name);
+}
+```
+
+### Contexts
+
+A context disambiguates strings that share the same source text but differ in meaning.
+Write it as a plain string literal followed by `=>` before the format string:
+
+```slint
+export component MenuItem {
+    property <string> name: @tr("Default Name"); // context: `MenuItem`
+    property <string> tooltip: @tr("ToolTip" => "ToolTip for {}", name); // context: `ToolTip`
+}
+```
+
+Without a context, it defaults to the name of the enclosing component.
 
 Pass the `--no-default-translation-context` flag to `slint-tr-extractor` if you don't want the component name to be the default context. The same option needs to be passed to the Slint compiler:
 

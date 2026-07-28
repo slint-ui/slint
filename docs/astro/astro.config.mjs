@@ -379,10 +379,6 @@ export default defineConfig({
                                         label: "Geometry",
                                         slug: "reference/language/geometry",
                                     },
-                                    {
-                                        label: "Macros",
-                                        slug: "reference/language/macros",
-                                    },
                                 ],
                             },
                             {
