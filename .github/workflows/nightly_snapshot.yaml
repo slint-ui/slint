@@ -861,3 +861,33 @@ jobs:
               with:
                   name: android-demos
                   path: android-demos/
+
+    # QA the freshly published nightly release: build an ESP-IDF demo against
+    # the prebuilt Slint C++ packages and slint-compiler downloaded from the
+    # `nightly` release tag (SLINT_ESP_LOCAL_EXAMPLE=OFF), the same way users
+    # consume them via FindSlint.cmake. This runs after prepare_release has
+    # updated the nightly tag, so the downloaded artifacts match this commit.
+    qa_esp_idf:
+        if: github.event.inputs.mode == 'full-nightly'
+        needs: [prepare_release]
+        strategy:
+          matrix:
+            esp-idf-version: [release-v5.3, release-v6.0]
+        runs-on: ubuntu-22.04
+        container: espressif/idf:${{ matrix.esp-idf-version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        steps:
+            - name: Fix up pydantic regression (https://github.com/espressif/idf-component-manager/issues/97#issuecomment-3380777944)
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  cd $IDF_PYTHON_ENV_PATH
+                  bin/pip install pydantic==2.11.10
+            - uses: actions/checkout@v7
+            - run: timeout 300 apt-get update && timeout 300 apt-get install -y libfontconfig1-dev
+            - name: Build Printer demo against the nightly package
+              shell: bash
+              working-directory: demos/printerdemo_mcu/esp-idf
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
