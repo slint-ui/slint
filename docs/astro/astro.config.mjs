@@ -540,29 +540,23 @@ export default defineConfig({
                                 ],
                             },
                             {
-                                label: "Globals",
+                                label: "Namespaces",
                                 collapsed: true,
                                 items: [
                                     {
-                                        label: "Global Functions",
-                                        collapsed: true,
-                                        items: [
-                                            {
-                                                label: "Math",
-                                                slug: "reference/global-functions/math",
-                                            },
-                                            {
-                                                label: "animation-tick() / debug()",
-                                                slug: "reference/global-functions/builtinfunctions",
-                                            },
-                                        ],
+                                        label: "Math",
+                                        slug: "reference/global-functions/math",
                                     },
                                     {
-                                        label: "Platform Namespace",
+                                        label: "animation-tick() / debug()",
+                                        slug: "reference/global-functions/builtinfunctions",
+                                    },
+                                    {
+                                        label: "Platform",
                                         slug: "reference/platform",
                                     },
                                     {
-                                        label: "FontWeight Namespace",
+                                        label: "FontWeight",
                                         slug: "reference/global-namespaces/font-weight",
                                     },
                                 ],
