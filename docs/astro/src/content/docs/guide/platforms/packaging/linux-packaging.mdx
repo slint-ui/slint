@@ -27,7 +27,7 @@ Your application may come with different trade-offs, and so you may want to make
 
 The tools needed are the `flatpak` and `flatpak-builder` tools. Additionally, depending on your application's programming language, you may need a tool which converts your build tool's lockfile into a set of dependencies that `flatpak-builder` understands. The Flatpak build process is sandboxed, just like Flatpaks themselves, and any tools running inside the build environment do not have network access. Any dependencies that need to be downloaded via the network need to be specified in the Flatpak dependency format.
 
-Lockfile conversion scripts are available for all languages supported by Slint:
+Lockfile conversion scripts are available for all programming languages supported by Slint:
 
 - Rust
   - [`cargo`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo)
