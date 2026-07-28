@@ -44,7 +44,7 @@ type BoardDisplay = mipidsi::Display<
         ExclusiveDevice<Spi<'static, esp_hal::Blocking>, Output<'static>, Delay>,
         Output<'static>,
     >,
-    mipidsi::models::ILI9486Rgb565,
+    mipidsi::models::ILI9342CRgb565,
     Output<'static>,
 >;
 
@@ -181,7 +181,7 @@ pub fn init() {
     let di = mipidsi::interface::SpiInterface::new(spi_device, dc, SPI_BUFFER.init([0u8; 512]));
 
     // Initialize the display.
-    let display = mipidsi::Builder::new(mipidsi::models::ILI9486Rgb565, di)
+    let display = mipidsi::Builder::new(mipidsi::models::ILI9342CRgb565, di)
         .reset_pin(rst)
         .orientation(Orientation::new().rotate(Rotation::Deg180))
         .color_order(ColorOrder::Bgr)
@@ -323,7 +323,7 @@ impl<
     DI: mipidsi::interface::Interface<Word = u8>,
     RST: OutputPin<Error = core::convert::Infallible>,
 > slint::platform::software_renderer::LineBufferProvider
-    for &mut DrawBuffer<'_, mipidsi::Display<DI, mipidsi::models::ILI9486Rgb565, RST>>
+    for &mut DrawBuffer<'_, mipidsi::Display<DI, mipidsi::models::ILI9342CRgb565, RST>>
 {
     type TargetPixel = slint::platform::software_renderer::Rgb565Pixel;
 
