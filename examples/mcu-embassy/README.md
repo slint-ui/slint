@@ -31,10 +31,13 @@ cargo install --force --locked probe-rs-tools
 
 # Running the application
 
+This crate is its own Cargo workspace with its own `.cargo/config.toml`, so run the
+commands below from the `examples/mcu-embassy` directory.
+
 Plug a usbc cable into the ST-LINK port on the dk2 and run the following:
 
 ```bash
-cargo run -p mcu-embassy --bin ui_mcu --release --features=mcu
+cargo run --bin ui_mcu --release --features=mcu
 ```
 
 Troubleshooting:
@@ -43,7 +46,7 @@ If you are getting some complication errors from cortex-m like  "error: invalid 
 
 You can specify the target in the cargo run command in the following file:
 
-In `.cargo/Cargo.toml`
+In `.cargo/config.toml`
 ```toml
 [build]
 target = "thumbv8m.main-none-eabihf"
@@ -68,14 +71,14 @@ Hardware like leds and buttons are emulated in the hardware module.
 
 To install SDL2 follow the instructions here: https://github.com/Rust-SDL2/rust-sdl2
 
-To run the simulator on a pc:
+To run the simulator on a pc (from the `examples/mcu-embassy` directory):
 ```bash
 # for linux
-cargo run -p mcu-embassy --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-unknown-linux-gnu
+cargo run --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-unknown-linux-gnu
 # for windows
-cargo run -p mcu-embassy --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-pc-windows-msvc
+cargo run --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-pc-windows-msvc
 # for mac
-cargo run -p mcu-embassy --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-apple-darwin
+cargo run --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-apple-darwin
 ```
 
 Note: Instead of specifying a target you can simply remove the arm target in .cargo/config.toml and cargo will use the host by default
@@ -86,7 +89,7 @@ If you are getting some compilation errors from arrayvec like "error: requires `
 
 Set the target correctly in the command line or comment out the following:
 
-In `.cargo/Cargo.toml`
+In `.cargo/config.toml`
 ```toml
 #[build]
 #target = "thumbv8m.main-none-eabihf"
