@@ -3,6 +3,8 @@
 
 mod common;
 
+use i_slint_core::input::{InternalKeyEvent, KeyEventType};
+use i_slint_core::window::WindowInner;
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, SoftwareRenderer, TargetPixel,
 };
@@ -34,6 +36,16 @@ fn render_and_get_miss_count(renderer: &SoftwareRenderer) -> u64 {
     let mut buf = vec![TestPixel(false); WIDTH * HEIGHT];
     renderer.render(buf.as_mut_slice(), WIDTH);
     renderer.text_layout_cache().cache_miss_count()
+}
+
+/// Renders into real pixels and counts the reddish ones. The tests below paint everything else
+/// white, so a red count is "did this run of glyphs get the color it was supposed to get".
+fn render_and_count_red(window: &Rc<MinimalSoftwareWindow>) -> usize {
+    let mut buf = vec![slint::Rgb8Pixel::default(); WIDTH * HEIGHT];
+    window.draw_if_needed(|renderer| {
+        renderer.render(buf.as_mut_slice(), WIDTH);
+    });
+    buf.iter().filter(|p| p.r > 120 && p.g < 120 && p.b < 120).count()
 }
 
 #[test]
@@ -288,4 +300,135 @@ fn color_change_does_not_reshape() {
         miss_count = render_and_get_miss_count(renderer);
     }));
     assert_eq!(miss_count, 0, "Color change should not cause reshaping");
+}
+
+#[test]
+fn link_color_survives_measuring() {
+    let window = setup();
+
+    // The link color is baked into the shaped glyph brushes, so measuring and drawing have to
+    // shape it identically -- otherwise whichever runs first wins and the other one's color is
+    // silently dropped. Layout runs first, so a mismatch shows up as unstyled link text.
+    slint::slint! {
+        export component TestComponent inherits Window {
+            background: white;
+            StyledText {
+                text: @markdown("[hello](http://example.com)");
+                default-color: white;
+                link-color: #ff0000;
+                default-font-size: 30px;
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+
+    assert!(render_and_count_red(&window) > 0, "link color was lost");
+}
+
+#[test]
+fn text_input_cache_hit_avoids_reshaping() {
+    let window = setup();
+
+    slint::slint! {
+        export component TestComponent inherits Window {
+            TextInput {
+                text: "Hello World";
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+
+    let mut miss_count = 0u64;
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert!(miss_count > 0, "Expected at least one cache miss on first render");
+
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert_eq!(miss_count, 0, "Expected zero cache misses on re-render without changes");
+}
+
+#[test]
+fn text_input_selection_still_colors_text() {
+    let window = setup();
+
+    // A selection bakes its foreground color into the shaped glyphs, so the selected run must be
+    // shaped fresh rather than served from the (selection-free) cache entry.
+    slint::slint! {
+        export component TestComponent inherits Window {
+            background: white;
+            public function select() { input.select-all(); }
+            input := TextInput {
+                text: "Hello";
+                color: white;
+                selection-background-color: white;
+                selection-foreground-color: #ff0000;
+                font-size: 30px;
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+
+    // Render once unselected, which populates the cache entry, and only then select.
+    assert_eq!(render_and_count_red(&window), 0, "nothing should be red before selecting");
+
+    ui.invoke_select();
+    window.request_redraw();
+    assert!(render_and_count_red(&window) > 0, "selection foreground color was lost");
+}
+
+#[test]
+fn ime_composition_is_not_served_a_stale_size() {
+    let window = setup();
+
+    // Measuring and drawing share one cache entry, and the entry is invalidated by whatever the
+    // path that filled it happened to read. Both must therefore shape through the same accessor:
+    // if drawing filled the entry without looking at the composition, a later measurement would
+    // trust that entry and size the box for the pre-composition text.
+    slint::slint! {
+        export component ImeComponent inherits Window {
+            forward-focus: input;
+            out property <length> preferred: input.preferred-width;
+            HorizontalLayout {
+                alignment: start;
+                input := TextInput {
+                    text: "ab";
+                    wrap: no-wrap;
+                }
+            }
+        }
+    }
+
+    let ui = ImeComponent::new().unwrap();
+    ui.show().unwrap();
+    ui.window().dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(true));
+
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+    let before = ui.get_preferred();
+
+    let mut event = InternalKeyEvent::default();
+    event.event_type = KeyEventType::UpdateComposition;
+    event.preedit_text = "WWWWWWWWWW".into();
+    WindowInner::from_pub(ui.window()).process_key_input(event);
+
+    window.request_redraw();
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+    assert!(
+        ui.get_preferred() > before,
+        "the box should grow to fit the composition ({before} before, {} during)",
+        ui.get_preferred()
+    );
 }

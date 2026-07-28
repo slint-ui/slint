@@ -371,6 +371,15 @@ pub trait RenderString: HasFont {
     fn line_limit(self: Pin<&Self>) -> Option<usize> {
         usize::try_from(self.max_lines()).ok().filter(|max_lines| *max_lines > 0)
     }
+    /// Stroke brush, width and style. The style is baked into the shaped glyphs, so it lives
+    /// here (rather than in `RenderText`) to keep measuring and drawing shaping-identical.
+    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
+        Default::default()
+    }
+    /// Color of `Style::Link` spans. Like `stroke`, it's baked into the shaped glyphs.
+    fn link_color(self: Pin<&Self>) -> Color {
+        Default::default()
+    }
 }
 
 /// Trait for an item that represents an Text towards the renderer
@@ -381,9 +390,7 @@ pub trait RenderText: RenderString {
     fn alignment(self: Pin<&Self>) -> (TextHorizontalAlignment, TextVerticalAlignment);
     fn wrap(self: Pin<&Self>) -> TextWrap;
     fn overflow(self: Pin<&Self>) -> TextOverflow;
-    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle);
     fn is_markdown(self: Pin<&Self>) -> bool;
-    fn link_color(self: Pin<&Self>) -> Color;
 }
 
 impl HasFont for (SharedString, Brush) {
@@ -414,10 +421,6 @@ impl RenderText for (SharedString, Brush) {
         self.1.clone()
     }
 
-    fn link_color(self: Pin<&Self>) -> Color {
-        Default::default()
-    }
-
     fn alignment(
         self: Pin<&Self>,
     ) -> (crate::items::TextHorizontalAlignment, crate::items::TextVerticalAlignment) {
@@ -429,10 +432,6 @@ impl RenderText for (SharedString, Brush) {
     }
 
     fn overflow(self: Pin<&Self>) -> crate::items::TextOverflow {
-        Default::default()
-    }
-
-    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
         Default::default()
     }
 

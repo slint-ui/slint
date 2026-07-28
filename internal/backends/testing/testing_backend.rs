@@ -624,7 +624,7 @@ impl RendererSealed for TestingWindow {
             let column = ((pos.x / pixel_size).max(0.) as usize).min(line.len());
             offset + column
         } else {
-            sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos)
+            sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos, None)
         }
     }
 
@@ -650,6 +650,7 @@ impl RendererSealed for TestingWindow {
                 text_input,
                 item_rc,
                 byte_offset,
+                None,
             )
         }
     }
