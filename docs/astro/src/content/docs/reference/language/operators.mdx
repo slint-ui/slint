@@ -23,7 +23,7 @@ Operators on the same row share a precedence level.
 | `+` `-` `!` (unary)    | Plus, negation, logical *not*        | prefix          |
 | `.` `[]`               | Member access, indexing              | left            |
 
-Parentheses group any subexpression.
+Parentheses group a nested expression to override precedence.
 There is no modulo operator; use [`Math.mod`](../../global-functions/math/) instead.
 A `%` after a number is a unit (percent), not an operator.
 Slint has no bitwise, shift, increment, decrement, or assignment operators; a binding uses `:` and a
