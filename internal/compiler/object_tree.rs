@@ -3560,7 +3560,7 @@ fn lookup_property_from_qualified_name_for_state(
             } else if !lookup_result.is_valid_for_assignment() {
                 diag.push_error(
                     format!(
-                        "'{}' cannot be set in a state because it is {}",
+                        "'{}' cannot be set in a state because it is '{}'",
                         qualname, lookup_result.property_visibility
                     ),
                     &node,
@@ -3582,7 +3582,7 @@ fn lookup_property_from_qualified_name_for_state(
                 } else if !lookup_result.is_valid_for_assignment() {
                     diag.push_error(
                         format!(
-                            "'{}' cannot be set in a state because it is {}",
+                            "'{}' cannot be set in a state because it is '{}'",
                             qualname, lookup_result.property_visibility
                         ),
                         &node,
