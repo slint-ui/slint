@@ -167,7 +167,7 @@ jobs:
               working-directory: preview-deploy
               run: |
                 set +e
-                OUTPUT=$(pnpm dlx wrangler@4 versions upload 2>&1)
+                OUTPUT=$(pnpm dlx --allow-build=workerd wrangler@4 versions upload 2>&1)
                 STATUS=$?
                 set -e
                 echo "=== wrangler output ==="

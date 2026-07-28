@@ -35,6 +35,7 @@ allowBuilds:
   esbuild: true
   sharp: true
   skia-canvas: true
+  workerd: true
 
 # Security overrides. Each key pins the vulnerable range to a fixed version.
 overrides:
