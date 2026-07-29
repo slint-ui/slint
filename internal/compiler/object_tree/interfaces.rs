@@ -17,7 +17,7 @@ use crate::namedreference::NamedReference;
 use crate::object_tree::{
     Element, ElementRc, PropertyDeclaration, QualifiedTypeName, find_element_by_id,
 };
-use crate::parser;
+use crate::parser::{self, SyntaxNode};
 use crate::parser::{SyntaxKind, syntax_nodes};
 use crate::reject_experimental_feature;
 use crate::typeregister::TypeRegister;
@@ -218,15 +218,16 @@ pub(super) fn validate_self_implement_statements(
 ) {
     for ImplementedInterface { interface, node, interface_name, .. } in implemented_interfaces {
         let mut errors = Vec::new();
+        let mut notes = Vec::new();
         for (member_name, member_declaration) in interface.borrow().property_declarations.iter() {
-            if let Some(message) = validate_interface_member_implementation(
+            if let Some(mut conflict) = validate_interface_member_implementation(
                 element,
                 member_name,
                 member_declaration,
                 interface_name,
-                diagnostics,
             ) {
-                errors.push(message);
+                errors.push(conflict.error);
+                notes.append(&mut conflict.notes);
             };
         }
 
@@ -235,7 +236,27 @@ pub(super) fn validate_self_implement_statements(
                 format!("Cannot implement '{interface_name}'.\n{}", errors.join("\n")),
                 &node.QualifiedName(),
             );
+
+            for note in notes {
+                diagnostics.push_note(note.note, &note.source);
+            }
         }
+    }
+}
+
+struct NoteWithSource {
+    note: String,
+    source: SyntaxNode,
+}
+
+struct InterfaceMemberDiagnostics {
+    error: String,
+    notes: Vec<NoteWithSource>,
+}
+
+impl From<String> for InterfaceMemberDiagnostics {
+    fn from(error: String) -> Self {
+        Self { error, notes: Default::default() }
     }
 }
 
@@ -244,8 +265,7 @@ fn validate_interface_member_implementation(
     member_name: &SmolStr,
     interface_member: &PropertyDeclaration,
     interface_name: &SmolStr,
-    diagnostics: &mut BuildDiagnostics,
-) -> Option<String> {
+) -> Option<InterfaceMemberDiagnostics> {
     if matches!(interface_member.property_type, Type::Invalid) {
         // The interface's own declaration is invalid (e.g. an unknown property type). A diagnostic
         // was already emitted when the interface was parsed, so there is nothing meaningful to
@@ -255,7 +275,10 @@ fn validate_interface_member_implementation(
 
     let lookup_result = element.lookup_property(member_name);
     if lookup_result.property_type == Type::Invalid {
-        return Some(missing_type_error(member_name, interface_member));
+        return Some(InterfaceMemberDiagnostics::from(missing_type_error(
+            member_name,
+            interface_member,
+        )));
     }
 
     let Err(conflicts) =
@@ -268,19 +291,22 @@ fn validate_interface_member_implementation(
         if let Err(message) =
             check_property_declaration_conflicts(&lookup_result, &element.base_type)
         {
-            return Some(message);
+            return Some(InterfaceMemberDiagnostics::from(message));
         }
         return None;
     }
 
+    let mut conflicts = InterfaceMemberDiagnostics::from(conflicts);
     let source = element
         .property_declarations
         .get(member_name)
         .and_then(|declaration| declaration.node.clone());
 
     if let Some(source) = source {
-        diagnostics
-            .push_note(format!("'{member_name}' does not satisfy '{interface_name}'"), &source);
+        conflicts.notes.push(NoteWithSource {
+            note: format!("'{member_name}' does not satisfy '{interface_name}'"),
+            source,
+        });
     }
     return Some(conflicts);
 }
