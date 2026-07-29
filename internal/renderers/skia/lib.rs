@@ -693,7 +693,6 @@ impl SkiaRenderer {
         self.image_cache.clear_cache_if_scale_factor_changed(window);
         self.path_cache.clear_cache_if_scale_factor_changed(window);
         self.box_shadow_cache.clear_cache_if_scale_factor_changed(window);
-        self.text_layout_cache.clear_cache_if_scale_factor_changed(window);
 
         let mut skia_item_renderer = itemrenderer::SkiaItemRenderer::new(
             skia_canvas,

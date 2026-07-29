@@ -2118,7 +2118,6 @@ impl QtWindow {
         let window_adapter = runtime_window.window_adapter();
         runtime_window.draw_contents(|components, post_render| {
             i_slint_core::animations::update_animations();
-            self.text_layout_cache.clear_cache_if_scale_factor_changed(&self.window);
 
             let mut renderer = QtItemRenderer {
                 painter,
