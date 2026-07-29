@@ -113,9 +113,24 @@ export default defineConfig({
                         },
                         { label: "Rendering", slug: "reference/rendering" },
                         {
-                            autogenerate: {
-                                directory: "generated/reference",
-                            },
+                            label: "Elements",
+                            items: [
+                                { label: "Rectangle", slug: "reference/rectangle" },
+                                { label: "Window", slug: "reference/window" },
+                            ],
+                        },
+                        {
+                            label: "Property Types",
+                            items: [
+                                {
+                                    label: "Colors & Brushes",
+                                    slug: "reference/property-types/colors-and-brushes",
+                                },
+                                {
+                                    label: "Numeric Types",
+                                    slug: "reference/property-types/numeric-types",
+                                },
+                            ],
                         },
                     ],
                 },
@@ -183,10 +198,6 @@ export default defineConfig({
                         {
                             label: "Expressions",
                             slug: "language/expressions",
-                        },
-                        {
-                            label: "Types",
-                            slug: "language/types",
                         },
                         {
                             label: "Geometry",

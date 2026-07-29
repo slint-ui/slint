@@ -42,9 +42,13 @@
 
 const ID_MARKER = /\s*\{#(sls\.[a-z0-9.\-_]+)\}\s*$/;
 
-// Separator-agnostic so the checks also hold on Windows paths, and anchored on
-// `content/docs/` so an unrelated directory in the checkout path can't match.
-const SPEC_PATH = /[\\/]content[\\/]docs[\\/](reference[\\/])?language[\\/]/;
+// The specification chapters and the property-types reference are the SC
+// corpus: their paragraphs carry identifiers unless a page opts out with
+// `notInSC: true`. Separator-agnostic so the checks also hold on Windows
+// paths, and anchored on `content/docs/` so an unrelated directory in the
+// checkout path can't match.
+const SPEC_PATH =
+    /[\\/]content[\\/]docs[\\/](reference[\\/])?(language|property-types)[\\/]/;
 const GENERATED_REFERENCE_PATH =
     /[\\/]content[\\/]docs[\\/]generated[\\/]reference[\\/]/;
 
@@ -109,10 +113,15 @@ export default function rehypeSlsIds({
         const assignsIds = (isSpec && !notInSC) || isNormativeReference;
         // Draft pages aren't published, so they need no ids.
         const requireIds = assignsIds && !frontmatter?.draft;
-        // In the specification, only top-level paragraphs are normative:
-        // nested ones are asides and list items. Every paragraph of the
-        // generated SC reference is normative, at any depth.
-        const requiredAtAnyDepth = isNormativeReference;
+        // In the language specification, only top-level paragraphs are
+        // normative: nested ones are asides and list items. The generated SC
+        // reference and the property-types reference are normative at any depth
+        // -- the latter wraps normative prose in components like
+        // <SlintProperty>, so an untagged nested paragraph there is a mistake
+        // and fails the build rather than slipping through.
+        const isPropertyTypes =
+            isSpec && /[\\/]property-types[\\/]/.test(sourcePath);
+        const requiredAtAnyDepth = isNormativeReference || isPropertyTypes;
 
         // Tracks ids claimed during *this* invocation, so re-processing the
         // same file (dev-mode hot reload) re-claims its own ids cleanly while

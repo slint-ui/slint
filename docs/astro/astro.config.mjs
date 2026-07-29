@@ -40,11 +40,14 @@ export default defineConfig({
     // routes under the base path but uses the destinations verbatim, so they
     // need the prefix.
     redirects: {
-        "/reference/primitive-types/": `${BASE_PATH}reference/property-types/builtin-types/`,
+        "/reference/primitive-types/": `${BASE_PATH}reference/property-types/numeric-types/`,
         "/reference/colors-and-brushes/": `${BASE_PATH}reference/property-types/colors-and-brushes/`,
-        "/reference/language/builtin-types/": `${BASE_PATH}reference/property-types/builtin-types/`,
+        "/reference/language/builtin-types/": `${BASE_PATH}reference/property-types/numeric-types/`,
+        "/reference/property-types/builtin-types/": `${BASE_PATH}reference/property-types/`,
+        "/reference/property-types/type-conversions/": `${BASE_PATH}reference/language/type-conversions/`,
         "/reference/language/colors-and-brushes/": `${BASE_PATH}reference/property-types/colors-and-brushes/`,
         "/reference/language/arrays-and-models/": `${BASE_PATH}reference/property-types/arrays-and-models/`,
+        "/reference/global-structs-enums/": `${BASE_PATH}reference/property-types/builtin-structs/`,
     },
     markdown: {
         gfm: true,
@@ -332,6 +335,10 @@ export default defineConfig({
                                         slug: "reference/language/operators",
                                     },
                                     {
+                                        label: "Type Conversions",
+                                        slug: "reference/language/type-conversions",
+                                    },
+                                    {
                                         label: "Statements",
                                         slug: "reference/language/statements",
                                     },
@@ -346,10 +353,6 @@ export default defineConfig({
                                     {
                                         label: "Evaluation and Purity",
                                         slug: "reference/language/evaluation-and-purity",
-                                    },
-                                    {
-                                        label: "Types",
-                                        slug: "reference/language/types",
                                     },
                                     {
                                         label: "Structs and Enums",
@@ -379,14 +382,10 @@ export default defineConfig({
                                         label: "Geometry",
                                         slug: "reference/language/geometry",
                                     },
-                                    {
-                                        label: "Macros",
-                                        slug: "reference/language/macros",
-                                    },
                                 ],
                             },
                             {
-                                label: "Property Types",
+                                label: "Types",
                                 collapsed: true,
                                 items: [
                                     {
@@ -394,16 +393,36 @@ export default defineConfig({
                                         slug: "reference/property-types",
                                     },
                                     {
-                                        label: "Built-In Types",
-                                        slug: "reference/property-types/builtin-types",
+                                        label: "Primitive & Numeric Types",
+                                        slug: "reference/property-types/numeric-types",
+                                    },
+                                    {
+                                        label: "Strings",
+                                        slug: "reference/property-types/strings",
                                     },
                                     {
                                         label: "Colors & Brushes",
                                         slug: "reference/property-types/colors-and-brushes",
                                     },
                                     {
+                                        label: "Images",
+                                        slug: "reference/property-types/images",
+                                    },
+                                    {
+                                        label: "Built-in Structs",
+                                        slug: "reference/property-types/builtin-structs",
+                                    },
+                                    {
+                                        label: "Built-in Enums",
+                                        slug: "reference/property-types/builtin-enums",
+                                    },
+                                    {
                                         label: "Arrays and Models",
                                         slug: "reference/property-types/arrays-and-models",
+                                    },
+                                    {
+                                        label: "Other",
+                                        slug: "reference/property-types/other-types",
                                     },
                                 ],
                             },
@@ -519,36 +538,26 @@ export default defineConfig({
                                 ],
                             },
                             {
-                                label: "Globals",
+                                label: "Namespaces",
                                 collapsed: true,
                                 items: [
                                     {
-                                        label: "Global Structs and Enums",
-                                        slug: "reference/global-structs-enums",
+                                        label: "Math",
+                                        slug: "reference/global-functions/math",
                                     },
                                     {
-                                        label: "Global Functions",
-                                        collapsed: true,
-                                        items: [
-                                            {
-                                                label: "Math",
-                                                slug: "reference/global-functions/math",
-                                            },
-                                            {
-                                                label: "animation-tick() / debug()",
-                                                slug: "reference/global-functions/builtinfunctions",
-                                            },
-                                        ],
-                                    },
-                                    {
-                                        label: "Platform Namespace",
+                                        label: "Platform",
                                         slug: "reference/platform",
                                     },
                                     {
-                                        label: "FontWeight Namespace",
+                                        label: "FontWeight",
                                         slug: "reference/global-namespaces/font-weight",
                                     },
                                 ],
+                            },
+                            {
+                                label: "Global Functions",
+                                slug: "reference/global-functions/builtinfunctions",
                             },
                             {
                                 label: "Std-Widgets",

@@ -38,7 +38,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let enums = extract_enum_docs(cfg.include_experimental, cfg.sc_only);
     let structs = extract_builtin_structs(cfg.include_experimental, cfg.sc_only);
     if !cfg.sc_only || !enums.is_empty() || !structs.is_empty() {
-        write_global_structs_enums_index(cfg, &structs, &enums)?;
+        write_builtin_structs_and_enums(cfg, &structs, &enums)?;
     }
 
     if cfg.sc_only {
@@ -48,27 +48,34 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn write_global_structs_enums_index(
+/// An enum documented on its own type page rather than in the Builtin Enums list.
+fn enum_documented_elsewhere(name: &str) -> bool {
+    // `keys.md` is generated separately and documented elsewhere; the mouse
+    // cursor shapes are documented on the MouseCursor type.
+    name == "keys" || name == "BuiltInMouseCursor"
+}
+
+fn write_builtin_structs_and_enums(
     cfg: &Config,
     structs: &std::collections::BTreeMap<String, StructDoc>,
     enums: &std::collections::BTreeMap<String, EnumDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let generated_dir = cfg.reference_dir();
     create_dir_all(&generated_dir)?;
-    let path = generated_dir.join("global-structs-enums.mdx");
-    let mut file =
-        BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
+    let structs_path = generated_dir.join("builtin-structs.mdx");
+    let mut file = BufWriter::new(
+        std::fs::File::create(&structs_path).context(format!("error creating {structs_path:?}"))?,
+    );
     writeln!(
         file,
         r#"---
-title: Global Structs and Enums
-description: Global Structs and Enums
-slug: reference/global-structs-enums
+title: Built-in Structs
+description: The built-in struct types provided by Slint.
+slug: reference/property-types/builtin-structs
 ---
 "#
     )?;
-
     for name in structs.keys() {
         writeln!(
             file,
@@ -77,18 +84,29 @@ slug: reference/global-structs-enums
             crate::GENERATED_DIR
         )?;
     }
-
-    if !structs.is_empty() {
+    writeln!(file)?;
+    for name in structs.keys() {
+        writeln!(file, "## {name}")?;
+        writeln!(file, "<{name} />")?;
         writeln!(file)?;
     }
+    file.flush()?;
 
+    let enums_path = generated_dir.join("builtin-enums.mdx");
+    let mut file = BufWriter::new(
+        std::fs::File::create(&enums_path).context(format!("error creating {enums_path:?}"))?,
+    );
+    writeln!(
+        file,
+        r#"---
+title: Built-in Enums
+description: The built-in enumeration types provided by Slint.
+slug: reference/property-types/builtin-enums
+---
+"#
+    )?;
     for name in enums.keys() {
-        // `keys.md` is generated separately and documented elsewhere.
-        if name == "keys" {
-            continue;
-        }
-        // Documented in the MouseCursor type.
-        if name == "BuiltInMouseCursor" {
+        if enum_documented_elsewhere(name) {
             continue;
         }
         writeln!(
@@ -98,32 +116,15 @@ slug: reference/global-structs-enums
             crate::GENERATED_DIR
         )?;
     }
-
     writeln!(file)?;
-    writeln!(file, "## Structs")?;
-    writeln!(file)?;
-
-    for name in structs.keys() {
-        writeln!(file, "### {name}")?;
-        writeln!(file, "<{name} />")?;
-        writeln!(file)?;
-    }
-
-    writeln!(file, "## Enums")?;
-    writeln!(file)?;
-
     for name in enums.keys() {
-        if name == "keys" {
+        if enum_documented_elsewhere(name) {
             continue;
         }
-        if name == "BuiltInMouseCursor" {
-            continue;
-        }
-        writeln!(file, "### {name}")?;
+        writeln!(file, "## {name}")?;
         writeln!(file, "<{name} />")?;
         writeln!(file)?;
     }
-
     file.flush()?;
 
     Ok(())
