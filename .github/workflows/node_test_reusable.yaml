@@ -52,11 +52,12 @@ jobs:
               # binary and are covered by the registry e2e test (publish gate).
               run: pnpm build:testing
               working-directory: api/node
-            - name: Type-check registry e2e fixtures
-              # Type-checked here (not in the standalone typecheck job) because it
-              # resolves slint-ui's types, which depend on the generated bindings
-              # produced by the build above.
-              run: pnpm exec tsc -p tsconfig.e2e.json
+            - name: Type-check tests and registry e2e fixtures
+              # Type-checked here (not in the standalone typecheck job) because the
+              # specs and fixtures resolve slint-ui's types, which depend on the
+              # generated bindings produced by the build above. For the same reason
+              # api/node is filtered out of the root type-check:ci script.
+              run: pnpm type-check
               working-directory: api/node
             - name: Run node tests
               working-directory: api/node

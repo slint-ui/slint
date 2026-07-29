@@ -161,7 +161,7 @@ test("DataTransfer round-trips through Slint callbacks", () => {
         export component App {}
         `,
         "data_transfer_callback.slint",
-    );
+    ) as any;
     const app = new ui.App() as unknown as {
         Api: {
             identity: (dt: DataTransfer) => DataTransfer;

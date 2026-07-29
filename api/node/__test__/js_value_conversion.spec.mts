@@ -233,7 +233,7 @@ test("get/set image properties", async () => {
         expect((slintImage as private_api.SlintImageData).height).toStrictEqual(
             64,
         );
-        expect((slintImage as ImageData).path.endsWith("rgb.png")).toBe(true);
+        expect((slintImage as ImageData).path!.endsWith("rgb.png")).toBe(true);
 
         const image = await read(path.join(dirname, "resources/rgb.png"));
         const rgbaImage =
@@ -902,7 +902,7 @@ test("invoke callback", () => {
         "",
     );
     const instance = createNonNullInstance(definition);
-    let speakTest: string;
+    let speakTest: string | undefined;
 
     instance.setCallback(
         "great",

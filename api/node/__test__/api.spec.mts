@@ -35,27 +35,27 @@ test("loadFile", () => {
 
     const errorPath = path.join(dirname, "resources/error.slint");
 
-    let error: any;
+    let error: CompileError | undefined;
     try {
         loadFile(errorPath);
     } catch (e) {
-        error = e;
+        error = e as CompileError;
     }
     expect(error).toBeDefined();
     expect(error).toBeInstanceOf(CompileError);
 
-    const formattedDiagnostics = error.diagnostics
+    const formattedDiagnostics = error!.diagnostics
         .map(
             (d) =>
                 `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`,
         )
         .join("\n");
-    expect(error.message).toBe(
+    expect(error!.message).toBe(
         "Could not compile " +
             errorPath +
             `\nDiagnostics:\n${formattedDiagnostics}`,
     );
-    expect(error.diagnostics).toStrictEqual([
+    expect(error!.diagnostics).toStrictEqual([
         {
             columnNumber: 18,
             level: 0,
@@ -142,26 +142,26 @@ test("loadSource", () => {
         out property bool> check: "Test";
     }`;
 
-    let error: any;
+    let error: CompileError | undefined;
     try {
         loadSource(errorSource, path);
     } catch (e) {
-        error = e;
+        error = e as CompileError;
     }
     expect(error).toBeDefined();
     expect(error).toBeInstanceOf(CompileError);
 
-    const formattedDiagnostics = error.diagnostics
+    const formattedDiagnostics = error!.diagnostics
         .map(
             (d) =>
                 `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`,
         )
         .join("\n");
-    expect(error.message).toBe(
+    expect(error!.message).toBe(
         "Could not compile " + path + `\nDiagnostics:\n${formattedDiagnostics}`,
     );
     // console.log(error?.diagnostics)
-    expect(error.diagnostics).toStrictEqual([
+    expect(error!.diagnostics).toStrictEqual([
         {
             columnNumber: 22,
             level: 0,

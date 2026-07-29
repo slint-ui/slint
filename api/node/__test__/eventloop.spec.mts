@@ -39,7 +39,10 @@ test.sequential("merged event loops with timer", async () => {
 });
 
 test.sequential("merged event loops with networking", async () => {
-    const listener = (request, result) => {
+    const listener = (
+        request: http.IncomingMessage,
+        result: http.ServerResponse,
+    ) => {
         result.writeHead(200);
         result.end("Hello World");
     };
