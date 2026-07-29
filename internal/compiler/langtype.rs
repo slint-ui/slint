@@ -741,6 +741,7 @@ macro_rules! define_builtin_struct_enum {
             FlexboxLayoutData,
             LayoutItemInfo,
             FlexboxLayoutItemInfo,
+            FlexItemProps,
             Padding,
             LayoutInfo,
         }

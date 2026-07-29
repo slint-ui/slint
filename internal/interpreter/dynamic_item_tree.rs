@@ -240,11 +240,13 @@ impl RepeatedItemTree for ErasedItemTreeBox {
 
         i_slint_core::layout::FlexboxLayoutItemInfo {
             constraint: self.layout_item_info(o, child_index).constraint,
-            flex_grow,
-            flex_shrink,
-            flex_basis,
-            flex_align_self,
-            flex_order,
+            props: i_slint_core::layout::FlexItemProps {
+                flex_grow,
+                flex_shrink,
+                flex_basis,
+                flex_align_self,
+                flex_order,
+            },
         }
     }
 }

@@ -239,10 +239,13 @@ pub enum Expression {
         cells_h_variable: String,
         /// The local variable for vertical cells
         cells_v_variable: String,
+        /// The local variable for the per-item flex properties
+        flex_props_variable: String,
         /// The name for the local variable that contains the repeater indices
         repeater_indices_var_name: Option<SmolStr>,
-        /// Either an expression pair of type (LayoutItemInfo, LayoutItemInfo), or information about the repeater
-        elements: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
+        /// Either an expression triple of type (LayoutItemInfo, LayoutItemInfo,
+        /// FlexItemProps), or information about the repeater
+        elements: Vec<Either<(Expression, Expression, Expression), LayoutRepeatedElement>>,
         /// Container (cross-axis) width for a column flex: passed to each
         /// repeated cell's `flexbox_layout_item_info_at_cross_width` so a
         /// height-for-width instance wraps to the real width instead of its
@@ -588,9 +591,10 @@ macro_rules! visit_impl {
                 if let Some(w) = repeated_cross_width {
                     $visitor(w);
                 }
-                elements.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
+                elements.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v, f)| {
                     $visitor(h);
                     $visitor(v);
+                    $visitor(f);
                 });
             }
             Expression::SolveFlexboxLayoutWithMeasure {

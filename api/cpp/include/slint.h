@@ -257,32 +257,38 @@ solve_flexbox_layout_with_measure(const cbindgen_private::FlexboxLayoutData &dat
     return result;
 }
 
-inline cbindgen_private::LayoutInfo flexbox_layout_info_main_axis(
-        cbindgen_private::Slice<cbindgen_private::FlexboxLayoutItemInfo> cells, float spacing,
-        const cbindgen_private::Padding &padding, cbindgen_private::FlexboxLayoutWrap flex_wrap)
+inline cbindgen_private::LayoutInfo
+flexbox_layout_info_main_axis(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells,
+                              cbindgen_private::Slice<cbindgen_private::FlexItemProps> flex_props,
+                              float spacing, const cbindgen_private::Padding &padding,
+                              cbindgen_private::FlexboxLayoutWrap flex_wrap)
 {
-    return cbindgen_private::slint_flexbox_layout_info_main_axis(cells, spacing, &padding,
-                                                                 flex_wrap);
+    return cbindgen_private::slint_flexbox_layout_info_main_axis(cells, flex_props, spacing,
+                                                                 &padding, flex_wrap);
 }
 
-inline float flexbox_layout_unwrapped_main(
-        cbindgen_private::Slice<cbindgen_private::FlexboxLayoutItemInfo> cells, float spacing,
-        const cbindgen_private::Padding &padding)
+inline float
+flexbox_layout_unwrapped_main(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells,
+                              cbindgen_private::Slice<cbindgen_private::FlexItemProps> flex_props,
+                              float spacing, const cbindgen_private::Padding &padding)
 {
-    return cbindgen_private::slint_flexbox_layout_unwrapped_main(cells, spacing, &padding);
+    return cbindgen_private::slint_flexbox_layout_unwrapped_main(cells, flex_props, spacing,
+                                                                 &padding);
 }
 
-inline cbindgen_private::LayoutInfo flexbox_layout_info_cross_axis(
-        cbindgen_private::Slice<cbindgen_private::FlexboxLayoutItemInfo> cells_h,
-        cbindgen_private::Slice<cbindgen_private::FlexboxLayoutItemInfo> cells_v, float spacing_h,
-        float spacing_v, const cbindgen_private::Padding &padding_h,
-        const cbindgen_private::Padding &padding_v,
-        cbindgen_private::FlexboxLayoutDirection direction,
-        cbindgen_private::FlexboxLayoutWrap flex_wrap, float constraint_size)
+inline cbindgen_private::LayoutInfo
+flexbox_layout_info_cross_axis(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_h,
+                               cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_v,
+                               cbindgen_private::Slice<cbindgen_private::FlexItemProps> flex_props,
+                               float spacing_h, float spacing_v,
+                               const cbindgen_private::Padding &padding_h,
+                               const cbindgen_private::Padding &padding_v,
+                               cbindgen_private::FlexboxLayoutDirection direction,
+                               cbindgen_private::FlexboxLayoutWrap flex_wrap, float constraint_size)
 {
     return cbindgen_private::slint_flexbox_layout_info_cross_axis(
-            cells_h, cells_v, spacing_h, spacing_v, &padding_h, &padding_v, direction, flex_wrap,
-            constraint_size);
+            cells_h, cells_v, flex_props, spacing_h, spacing_v, &padding_h, &padding_v, direction,
+            flex_wrap, constraint_size);
 }
 
 /// Access the layout cache of an item within a repeater (standard cache)

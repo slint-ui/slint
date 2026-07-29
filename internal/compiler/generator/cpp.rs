@@ -4624,6 +4624,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::WithFlexboxLayoutItemInfo {
             cells_h_variable,
             cells_v_variable,
+            flex_props_variable,
             repeater_indices_var_name,
             elements,
             repeated_cross_width,
@@ -4631,6 +4632,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         } => generate_with_flexbox_layout_item_info(
             cells_h_variable,
             cells_v_variable,
+            flex_props_variable,
             repeater_indices_var_name.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
             repeated_cross_width.as_deref(),
@@ -5704,8 +5706,12 @@ fn generate_with_layout_item_info(
 fn generate_with_flexbox_layout_item_info(
     cells_h_variable: &str,
     cells_v_variable: &str,
+    flex_props_variable: &str,
     repeated_indices_var_name: Option<&str>,
-    elements: &[Either<(llr::Expression, llr::Expression), llr::LayoutRepeatedElement>],
+    elements: &[Either<
+        (llr::Expression, llr::Expression, llr::Expression),
+        llr::LayoutRepeatedElement,
+    >],
     repeated_cross_width: Option<&llr::Expression>,
     sub_expression: &llr::Expression,
     ctx: &llr_EvaluationContext<CppGeneratorContext>,
@@ -5715,17 +5721,18 @@ fn generate_with_flexbox_layout_item_info(
     // so a height-for-width instance wraps to the real width like a static cell.
     let cross_width = repeated_cross_width.map(|w| compile_expression(w, ctx));
     let mut push_code =
-        "std::vector<slint::cbindgen_private::FlexboxLayoutItemInfo> cells_vector_h; std::vector<slint::cbindgen_private::FlexboxLayoutItemInfo> cells_vector_v;".to_owned();
+        "std::vector<slint::cbindgen_private::LayoutItemInfo> cells_vector_h; std::vector<slint::cbindgen_private::LayoutItemInfo> cells_vector_v; std::vector<slint::cbindgen_private::FlexItemProps> flex_props_vector;".to_owned();
     let mut repeater_idx = 0usize;
 
     for item in elements {
         match item {
-            Either::Left((value_h, value_v)) => {
+            Either::Left((value_h, value_v, value_flex)) => {
                 write!(
                     push_code,
-                    "cells_vector_h.push_back({{ {} }}); cells_vector_v.push_back({{ {} }});",
+                    "cells_vector_h.push_back({{ {} }}); cells_vector_v.push_back({{ {} }}); flex_props_vector.push_back({{ {} }});",
                     compile_expression(value_h, ctx),
-                    compile_expression(value_v, ctx)
+                    compile_expression(value_v, ctx),
+                    compile_expression(value_flex, ctx)
                 )
                 .unwrap();
             }
@@ -5754,22 +5761,28 @@ fn generate_with_flexbox_layout_item_info(
                 // (not-yet-instantiated rows get placeholders).
                 // For a column flex, measure each instance's vertical info at the
                 // container width; otherwise use its preferred-width default.
-                let v_push = match &cross_width {
+                let v_query = match &cross_width {
                     Some(w) => format!(
                         "sub_comp->flexbox_layout_item_info_at_cross_width(static_cast<float>({w}))"
                     ),
                     None => "sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt)".to_owned(),
                 };
+                // The instance vtable returns the bundled FlexboxLayoutItemInfo; split
+                // it into the constraint cell and the (axis-independent) flex props.
                 write!(
                     push_code,
                     "{{ \
                      auto start_offset = cells_vector_h.size(); \
                      self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{ \
-                     cells_vector_h.push_back(sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Horizontal, std::nullopt)); \
-                     cells_vector_v.push_back({v_push}); }}); \
+                     auto info_h = sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Horizontal, std::nullopt); \
+                     auto info_v = {v_query}; \
+                     flex_props_vector.push_back(info_h.props); \
+                     cells_vector_h.push_back({{ info_h.constraint }}); \
+                     cells_vector_v.push_back({{ info_v.constraint }}); }}); \
                      auto repeater_len = self->repeater_{repeater_index}.len(); \
                      cells_vector_h.resize(start_offset + repeater_len); \
-                     cells_vector_v.resize(start_offset + repeater_len); }}"
+                     cells_vector_v.resize(start_offset + repeater_len); \
+                     flex_props_vector.resize(start_offset + repeater_len); }}"
                 )
                 .unwrap();
             }
@@ -5785,10 +5798,11 @@ fn generate_with_flexbox_layout_item_info(
         format!("std::array<int, {}> {ri}_array;", 2 * repeater_idx)
     });
     format!(
-        "[&]{{ {ri} {push_code} [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::FlexboxLayoutItemInfo>{cells_h} = slint::private_api::make_slice(std::span(cells_vector_h)); [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::FlexboxLayoutItemInfo>{cells_v} = slint::private_api::make_slice(std::span(cells_vector_v)); return {}; }}()",
+        "[&]{{ {ri} {push_code} [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{cells_h} = slint::private_api::make_slice(std::span(cells_vector_h)); [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{cells_v} = slint::private_api::make_slice(std::span(cells_vector_v)); [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::FlexItemProps>{flex_props} = slint::private_api::make_slice(std::span(flex_props_vector)); return {}; }}()",
         compile_expression(sub_expression, ctx),
         cells_h = ident(cells_h_variable),
         cells_v = ident(cells_v_variable),
+        flex_props = ident(flex_props_variable),
     )
 }
 
