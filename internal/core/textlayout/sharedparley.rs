@@ -61,7 +61,9 @@ impl FontContext {
 /// later by `break_all_lines`, and the fill/stroke/selection brushes only change colors, not
 /// positions. So one entry serves measuring, hit-testing and drawing alike -- but only for the
 /// wrap mode it was shaped with, because parley bakes the break opportunities into the shaped
-/// layout via `WordBreak`/`OverflowWrap`/`TextWrapMode` (see `ranged_builder`).
+/// layout via `WordBreak`/`OverflowWrap`/`TextWrapMode` (see `ranged_builder`). The scale factor
+/// is the other input baked into the shaping, but it applies to every entry at once and so is
+/// handled by the cache as a whole.
 struct CachedParagraphs {
     wrap: TextWrap,
     /// `None` while a [`CachedParagraphsGuard`] has the paragraphs checked out; the guard puts
@@ -91,7 +93,11 @@ impl Default for TextLayoutCache {
 }
 
 impl TextLayoutCache {
-    pub fn clear_cache_if_scale_factor_changed(&self, window: &crate::api::Window) {
+    /// Drops everything shaped for the previous scale factor. Glyph advances are in physical
+    /// pixels, so a new scale factor invalidates every entry at once. Called on the way into the
+    /// cache rather than when rendering starts, because the layout pass that follows a scale
+    /// factor change measures before anything renders.
+    fn clear_if_scale_factor_changed(&self, window: &crate::api::Window) {
         self.inner.clear_cache_if_scale_factor_changed(window);
     }
     pub fn component_destroyed(&self, component: crate::item_tree::ItemTreeRef) {
@@ -719,12 +725,15 @@ fn cached_paragraphs<'a>(
     cache: Option<&'a TextLayoutCache>,
     item_rc: Option<&crate::item_tree::ItemRc>,
     wrap: TextWrap,
+    window: &crate::api::Window,
     font_context: &mut parley::FontContext,
     shape: &dyn Fn(&mut parley::FontContext) -> Vec<TextParagraph>,
 ) -> CachedParagraphsGuard<'a> {
     let Some((cache, item_rc)) = cache.zip(item_rc) else {
         return CachedParagraphsGuard { paragraphs: Some(shape(font_context)), container: None };
     };
+
+    cache.clear_if_scale_factor_changed(window);
 
     // Shaped geometry must never be mixed across wrap modes, and the entry only holds one mode
     // at a time. Drop a mismatching one up front so the shaping below happens in the regular
@@ -750,9 +759,6 @@ fn cached_paragraphs<'a>(
     CachedParagraphsGuard { paragraphs: Some(paragraphs), container: Some(entry) }
 }
 
-/// Shapes `text` the way both the drawing and the measuring paths need it, so that they can
-/// share one cache entry. `text_wrap` is passed separately because `text_size` measures the
-/// unwrapped width of items that are otherwise wrapped.
 /// The builder the shaped paragraphs of `text` must be produced with. Measuring and drawing share
 /// cache entries, so they have to agree on every input baked into the shaping -- which is why this
 /// lives in one place rather than at each call site.
@@ -791,9 +797,10 @@ fn get_or_create_text_paragraphs<'a>(
     text: Pin<&dyn crate::item_rendering::RenderString>,
     text_wrap: TextWrap,
     scale_factor: ScaleFactor,
+    window: &crate::api::Window,
     font_context: &mut parley::FontContext,
 ) -> CachedParagraphsGuard<'a> {
-    cached_paragraphs(cache, item_rc, text_wrap, font_context, &|font_context| {
+    cached_paragraphs(cache, item_rc, text_wrap, window, font_context, &|font_context| {
         shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context)
     })
 }
@@ -1607,6 +1614,7 @@ pub fn draw_text(
         scale_factor,
     );
 
+    let window_adapter = item_renderer.window().window_adapter();
     let mut font_ctx = item_renderer.window().context().font_context().borrow_mut();
 
     let mut guard = get_or_create_text_paragraphs(
@@ -1615,6 +1623,7 @@ pub fn draw_text(
         text,
         text.wrap(),
         scale_factor,
+        window_adapter.window(),
         &mut font_ctx,
     );
 
@@ -1699,6 +1708,7 @@ pub fn link_under_cursor(
     item_rc: &crate::item_tree::ItemRc,
     size: LogicalSize,
     cursor: PhysicalPoint,
+    window: &crate::api::Window,
     cache: Option<&TextLayoutCache>,
 ) -> Option<std::string::String> {
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
@@ -1714,6 +1724,7 @@ pub fn link_under_cursor(
         text,
         text.wrap(),
         scale_factor,
+        window,
         font_context,
     );
 
@@ -1820,6 +1831,7 @@ pub fn draw_text_input(
         None
     };
 
+    let window_adapter = item_renderer.window().window_adapter();
     let mut font_ctx = item_renderer.window().context().font_context().borrow_mut();
 
     let mut guard = cached_text_input_paragraphs(
@@ -1830,6 +1842,7 @@ pub fn draw_text_input(
         selection_and_color,
         &layout_builder,
         scale_factor,
+        window_adapter.window(),
         &mut font_ctx,
     );
 
@@ -1909,6 +1922,7 @@ fn cached_text_input_paragraphs<'a>(
     selection_and_color: Option<(Range<usize>, Color)>,
     layout_builder: &LayoutWithoutLineBreaksBuilder,
     scale_factor: ScaleFactor,
+    window: &crate::api::Window,
     font_context: &mut parley::FontContext,
 ) -> CachedParagraphsGuard<'a> {
     let cacheable = selection_and_color.is_none()
@@ -1918,6 +1932,7 @@ fn cached_text_input_paragraphs<'a>(
         cache.filter(|_| cacheable),
         Some(item_rc),
         text_input.wrap(),
+        window,
         font_context,
         &|font_context| {
             if cacheable {
@@ -1964,6 +1979,7 @@ pub fn text_size(
     let _ = text_item.link_color();
     let _ = text_item.text();
 
+    let window_adapter = renderer.window_adapter()?;
     let ctx = renderer.slint_context()?;
     let mut font_ctx = ctx.font_context().borrow_mut();
 
@@ -1976,6 +1992,7 @@ pub fn text_size(
         text_item,
         text_wrap,
         scale_factor,
+        window_adapter.window(),
         &mut font_ctx,
     );
 
@@ -2136,7 +2153,8 @@ pub fn text_input_byte_offset_for_position(
     );
     let visual_representation = text_input.visual_representation(None);
 
-    let Some(ctx) = renderer.slint_context() else {
+    let (Some(window_adapter), Some(ctx)) = (renderer.window_adapter(), renderer.slint_context())
+    else {
         return 0;
     };
     let mut font_ctx = ctx.font_context().borrow_mut();
@@ -2149,6 +2167,7 @@ pub fn text_input_byte_offset_for_position(
         None,
         &layout_builder,
         scale_factor,
+        window_adapter.window(),
         &mut font_ctx,
     );
 
@@ -2194,7 +2213,8 @@ pub fn text_input_cursor_rect_for_byte_offset(
     let visual_representation = text_input.visual_representation(None);
     let cursor_width = text_input.text_cursor_width() * scale_factor;
 
-    let Some(ctx) = renderer.slint_context() else {
+    let (Some(window_adapter), Some(ctx)) = (renderer.window_adapter(), renderer.slint_context())
+    else {
         return LogicalRect::default();
     };
 
@@ -2210,6 +2230,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
         None,
         &layout_builder,
         scale_factor,
+        window_adapter.window(),
         &mut font_ctx,
     );
 

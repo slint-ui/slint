@@ -564,8 +564,6 @@ impl SoftwareRenderer {
             return Default::default();
         };
         let window_inner = WindowInner::from_pub(window.window());
-        #[cfg(feature = "systemfonts")]
-        self.text_layout_cache.clear_cache_if_scale_factor_changed(window.window());
         let factor = ScaleFactor::new(window_inner.scale_factor());
         let rotation = self.rotation.get();
         let (size, background) = if let Some(window_item) =
@@ -761,8 +759,6 @@ impl SoftwareRenderer {
             return Default::default();
         };
         let window_inner = WindowInner::from_pub(window.window());
-        #[cfg(feature = "systemfonts")]
-        self.text_layout_cache.clear_cache_if_scale_factor_changed(window.window());
         let component_rc = window_inner.component();
         let component = i_slint_core::item_tree::ItemTreeRc::borrow_pin(&component_rc);
         if let Some(window_item) = i_slint_core::items::ItemRef::downcast_pin::<

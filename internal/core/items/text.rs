@@ -301,6 +301,7 @@ impl Item for StyledTextItem {
                 self_rc,
                 LogicalSize::from_lengths(self.width(), self.height()),
                 *position * scale_factor,
+                window_adapter.window(),
                 None,
             )
         };
