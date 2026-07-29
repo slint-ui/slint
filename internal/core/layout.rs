@@ -1426,7 +1426,7 @@ mod flexbox_taffy {
     use super::{
         Coord, CrossAxisAlignment, FlexboxLayoutAlignContent, FlexboxLayoutAlignSelf,
         FlexboxLayoutItemInfo, FlexboxLayoutWrap as SlintFlexboxLayoutWrap, LayoutAlignment,
-        Padding, Slice,
+        LayoutInfo, Padding, Slice,
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
@@ -1467,14 +1467,48 @@ mod flexbox_taffy {
         pub fn new(params: FlexboxLayoutParams) -> Self {
             let mut taffy = TaffyTree::<usize>::new();
 
+            // The container's content box on each axis (the outer size minus that
+            // axis' padding), against which percentage constraints resolve.
+            // `None` when that axis has no finite size: either unknown (an
+            // auto-sized container in the info path) or the `Coord::MAX`
+            // "unbounded" sentinel the info path passes for a no-wrap main axis.
+            // A percentage then has no basis and only the absolute constraint
+            // applies — resolving against `MAX` would overflow the `_percent * s`
+            // product (i32 build) or yield infinity (f32).
+            let content_box = |size: Option<Coord>, pad: &Padding| -> Option<Coord> {
+                size.filter(|s| *s < Coord::MAX).map(|s| (s - pad.begin - pad.end).max(0 as Coord))
+            };
+            let content_w = content_box(params.container_width, params.padding_h);
+            let content_h = content_box(params.container_height, params.padding_v);
+
             // Cross-axis (width) upper bound for a column item: never wider than
             // the container's content box, so height-for-width items (e.g. wrapped
             // Text) measure against a real width.
             let column_cross_cap = match params.flex_direction {
-                TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => params
-                    .container_width
-                    .map(|cw| (cw - params.padding_h.begin - params.padding_h.end).max(0 as Coord)),
+                TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => content_w,
                 _ => None,
+            };
+
+            // Resolve a percentage min/max against the container's content box and
+            // fold it into the absolute constraint, matching how the box layouts
+            // handle percentages (see `solve_box_layout`). Applied only when the
+            // percentage is non-default and the content size is known, so an item
+            // without a percentage size keeps its plain min/max unchanged.
+            let eff_min = |c: &LayoutInfo, content: Option<Coord>| -> Coord {
+                match content {
+                    Some(s) if c.min_percent > 0 as Coord => {
+                        c.min.max(c.min_percent * s / 100 as Coord)
+                    }
+                    _ => c.min,
+                }
+            };
+            let eff_max = |c: &LayoutInfo, content: Option<Coord>| -> Coord {
+                match content {
+                    Some(s) if c.max_percent < 100 as Coord => {
+                        c.max.min(c.max_percent * s / 100 as Coord)
+                    }
+                    _ => c.max,
+                }
             };
 
             // Create child nodes from Slint constraints
@@ -1517,7 +1551,8 @@ mod flexbox_taffy {
                         }
                     };
 
-                    let max_width = h_constraint.max.min(column_cross_cap.unwrap_or(Coord::MAX));
+                    let max_width = eff_max(h_constraint, content_w)
+                        .min(column_cross_cap.unwrap_or(Coord::MAX));
                     let max_width_dim = if max_width < Coord::MAX {
                         Dimension::length(max_width as _)
                     } else {
@@ -1572,21 +1607,20 @@ mod flexbox_taffy {
                                     },
                                 },
                                 min_size: Size {
-                                    width: Dimension::length(h_constraint.min as _),
+                                    width: Dimension::length(eff_min(h_constraint, content_w) as _),
                                     height: Dimension::length(
-                                        v_constraint.map(|vc| vc.min as f32).unwrap_or(0.0),
+                                        v_constraint
+                                            .map(|vc| eff_min(vc, content_h) as f32)
+                                            .unwrap_or(0.0),
                                     ),
                                 },
                                 max_size: Size {
                                     width: max_width_dim,
-                                    height: if let Some(vc) = v_constraint {
-                                        if vc.max < Coord::MAX {
-                                            Dimension::length(vc.max as _)
-                                        } else {
-                                            Dimension::auto()
+                                    height: match v_constraint.map(|vc| eff_max(vc, content_h)) {
+                                        Some(max_h) if max_h < Coord::MAX => {
+                                            Dimension::length(max_h as _)
                                         }
-                                    } else {
-                                        Dimension::auto()
+                                        _ => Dimension::auto(),
                                     },
                                 },
                                 flex_grow: cell_h.flex_grow,
@@ -3189,5 +3223,61 @@ mod tests {
                 50.,
             );
         }
+    }
+
+    /// A percentage constraint must not be resolved against the `Coord::MAX`
+    /// "unbounded" sentinel that the info path passes for a no-wrap main axis.
+    /// `min_percent * MAX / 100` overflows the i32 build (debug panic) and gives
+    /// infinity in the f32 build, which taffy then bakes into the item's size.
+    /// When the container axis is unbounded a percentage has no basis, so the
+    /// item keeps its natural (here zero) size instead.
+    ///
+    /// Checked at the builder because the containing info function reports only
+    /// the *cross* size, while the overflow lands on the item's *main*-axis size;
+    /// the f32 build hides it at the container level but not at the item.
+    #[test]
+    fn percentage_against_unbounded_container_leaves_item_finite() {
+        // A single row cell with `width: 50%` (min_percent == max_percent == 50).
+        let cells_h = [FlexboxLayoutItemInfo {
+            constraint: LayoutInfo {
+                min_percent: 50 as Coord,
+                max_percent: 50 as Coord,
+                max: Coord::MAX,
+                ..Default::default()
+            },
+            ..Default::default()
+        }];
+        let cells_v = [FlexboxLayoutItemInfo {
+            constraint: LayoutInfo {
+                preferred: 30 as Coord,
+                max: Coord::MAX,
+                ..Default::default()
+            },
+            ..Default::default()
+        }];
+        let pad = Padding::default();
+        let mut builder =
+            flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
+                cells_h: &Slice::from_slice(&cells_h),
+                cells_v: &Slice::from_slice(&cells_v),
+                spacing_h: 0 as Coord,
+                spacing_v: 0 as Coord,
+                padding_h: &pad,
+                padding_v: &pad,
+                alignment: LayoutAlignment::Start,
+                align_content: FlexboxLayoutAlignContent::Stretch,
+                cross_axis_alignment: CrossAxisAlignment::Stretch,
+                flex_wrap: FlexboxLayoutWrap::NoWrap,
+                flex_direction: flexbox_taffy::TaffyFlexDirection::Row,
+                // The unbounded main axis: the value the info path feeds here.
+                container_width: Some(Coord::MAX),
+                container_height: None,
+                use_measure_for_cross_axis: false,
+            });
+        builder.compute_layout(Coord::MAX, Coord::MAX, None);
+        let (_x, _y, w, _h) = builder.child_geometry(0);
+        // Without the fix the dropped `50% * MAX` makes this the f32 sentinel
+        // (or panics under i32); with it the item just takes its natural size.
+        assert!(w.is_finite() && w < Coord::MAX, "item main-axis size was {w}");
     }
 }
