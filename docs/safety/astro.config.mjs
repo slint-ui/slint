@@ -35,7 +35,7 @@ export default defineConfig({
         // every paragraph of it carries a traceability id.
         rehypePlugins: [
             rehypeExternalLinksSlint,
-            [rehypeSlsIds, { generatedReferenceRequiresIds: true }],
+            [rehypeSlsIds, { referenceRequiresIds: true }],
         ],
     },
     integrations: [
